@@ -7,8 +7,7 @@ Status: development
 `1.3.0` to `1.5.4`
 
 This instrumentation has the ability to generate events when the user
-performs click actions. A click is not differentiated from touch or other
-input pointer events.
+performs click actions.
 
 When an Activity becomes active, the instrumentation begins tracking
 its window by registering a callback that receives events.
@@ -17,7 +16,13 @@ its window by registering a callback that receives events.
 
 ## Configuration
 
-Add the compose-click dependency to enable click events. Use `captureContext` to control whether labels are extracted (default: true).
+Add the compose-click dependency to enable click events.
+
+```kotlin
+implementation("io.opentelemetry.android.instrumentation:compose-click:0.15.0-alpha")
+```
+
+Use `captureContext` to control whether labels are extracted (default: true).
 
 ```kotlin
 PulseSDK.INSTANCE.initialize(
@@ -33,22 +38,6 @@ PulseSDK.INSTANCE.initialize(
 ```
 
 When `captureContext` is false, events still emit with tap coordinates and widget identity attributes, but **`app.click.context` is not set** (no label string).
-
-## Flow
-
-```
-ACTION_UP (finger lift)
-    │
-    ▼
-findTapTarget(decorView, x, y)     ← find ComposeView → findTapTargetNode (LayoutNode tree)
-    │
-    ▼
-captureContext?                   ← if false: skip app.click.context; if true:
-getContextFromSemanticsTree(...)  ← or getNodeContext (descendants/ancestors)
-    │
-    ▼
-emit app.widget.click
-```
 
 ## Telemetry
 
@@ -108,12 +97,4 @@ Button(
 ) {
     Text(buttonText)
 }
-```
-
-## Installation
-
-### Adding dependencies
-
-```kotlin
-implementation("io.opentelemetry.android.instrumentation:compose-click:0.15.0-alpha")
 ```

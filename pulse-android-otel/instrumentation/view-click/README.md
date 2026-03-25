@@ -9,11 +9,18 @@ input pointer events.
 When an Activity becomes active, the instrumentation begins tracking
 its window by registering a callback that receives events.
 
-**Add the dependency** to enable click events. Use configuration to control context enrichment (label extraction), which can impact performance.
+**Add the dependency** to enable click events. Use configuration to control context enrichment.
 
 ## Configuration
 
-Add the view-click dependency to enable click events. Use `captureContext` to control whether labels are extracted (default: true).
+Add the view-click dependency to enable click events.
+
+```kotlin
+implementation("io.opentelemetry.android.instrumentation:view-click:0.15.0-alpha")
+```
+
+Use `captureContext` to control whether labels are extracted (default: true).
+
 
 ```kotlin
 PulseSDK.INSTANCE.initialize(
@@ -28,23 +35,7 @@ PulseSDK.INSTANCE.initialize(
 }
 ```
 
-When `captureContext` is false, events still emit with tap coordinates and widget identity attributes (`app.screen.coordinate.*`, `app.widget.*`), but **`app.click.context` is not set** (no label string).
-
-## Flow
-
-```
-ACTION_UP (finger lift)
-    │
-    ▼
-findTargetForTap(decorView, x, y)  ← hit-test culled BFS (only path to tap)
-    │
-    ▼
-captureContext?                   ← if false: skip app.click.context; if true:
-getViewContextLabel(view)          ← TextView/EditText/ViewGroup label extraction
-    │
-    ▼
-emit app.widget.click
-```
+When `captureContext` is false, events still emit with tap coordinates and widget identity attributes (`app.screen.coordinate.*`, `app.widget.*`), but **`app.click.context` is not set**.
 
 ## Telemetry
 
@@ -64,7 +55,7 @@ This instrumentation produces the following telemetry:
 
 - `app.screen.coordinate.x`, `app.screen.coordinate.y` — tap position (window coordinates)
 - `app.widget.id`, `app.widget.name`
-- `app.click.context` — Optional. When `captureContext` is true: `label=X` when a human-readable label was extracted. Omitted when nothing extractable.
+- `app.click.context` — Optional. When `captureContext` is true: structured **`key=value`** segments separated by `; `.
 
 ### Sample payload
 
@@ -108,11 +99,3 @@ view.contentDescription = "Submit"
 ```
 
 Without `contentDescription`, `app.widget.name` will use the resource ID (e.g. `add_btn`) when available.
-
-## Installation
-
-### Adding dependencies
-
-```kotlin
-implementation("io.opentelemetry.android.instrumentation:view-click:0.15.0-alpha")
-```
