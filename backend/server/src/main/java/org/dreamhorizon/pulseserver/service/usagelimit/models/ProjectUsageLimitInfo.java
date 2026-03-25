@@ -19,6 +19,8 @@ import java.util.Map;
 public class ProjectUsageLimitInfo {
   private Long projectUsageLimitId;
   private String projectId;
+  private String projectName;
+  private String tenantId;
   private Map<String, UsageLimitValue> usageLimits;
   private Boolean isActive;
   private Instant createdAt;
@@ -26,5 +28,6 @@ public class ProjectUsageLimitInfo {
   private Instant disabledAt;
   private String disabledBy;
   private String disabledReason;
+  private NotificationStatus notificationStatus;
 }
 

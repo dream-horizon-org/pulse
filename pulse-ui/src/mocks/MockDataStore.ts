@@ -2514,6 +2514,24 @@ export class MockDataStore {
           sessionSampleRate: 0,
           sdks: ["android_rn", "ios_rn"],
         },
+        {
+          id: generateId(),
+          featureName: "session_replay",
+          sessionSampleRate: 1,
+          sdks: ["android_java", "android_rn", "ios_native"],
+          config: {
+            featureName: "session_replay",
+            textAndInputPrivacy: "MASK_SENSITIVE_INPUTS",
+            imagePrivacy: "MASK_ALL",
+            throttleDelayMs: 1000,
+            screenshotScale: 1,
+            screenshotQuality: 70,
+            flushIntervalSeconds: 10,
+            flushAt: 50,
+            maxBatchSize: 100,
+            replayApiBaseUrl: "http://10.0.2.2:4317",
+          },
+        },
       ],
     };
   }
@@ -2658,7 +2676,8 @@ type FeatureNameV1 =
   | "screen_session"
   | "custom_events"
   | "rn_screen_load"
-  | "rn_screen_interactive";
+  | "rn_screen_interactive"
+  | "session_replay";
 
 interface EventPropMatchV1 {
   name: string;
@@ -2735,11 +2754,25 @@ interface InteractionConfigV1 {
   beforeInitQueueSize: number;
 }
 
+interface SessionReplayFeatureConfigV1 {
+  featureName?: "session_replay";
+  textAndInputPrivacy?: string;
+  imagePrivacy?: string;
+  throttleDelayMs?: number;
+  screenshotScale?: number;
+  screenshotQuality?: number;
+  flushIntervalSeconds?: number;
+  flushAt?: number;
+  maxBatchSize?: number;
+  replayApiBaseUrl?: string;
+}
+
 interface FeatureConfigV1 {
   id?: string;
   featureName: FeatureNameV1;
   sessionSampleRate: number;
   sdks: SdkEnumV1[];
+  config?: SessionReplayFeatureConfigV1 | null;
 }
 
 interface PulseConfigV1 {
