@@ -177,13 +177,7 @@ final class RcaReportProxyHandler {
     if (regenerateNode == null || regenerateNode.isNull()) {
       return false;
     }
-    if (regenerateNode.isBoolean()) {
-      return regenerateNode.booleanValue();
-    }
-    if (regenerateNode.isTextual()) {
-      return "true".equalsIgnoreCase(regenerateNode.asText().trim());
-    }
-    return false;
+    return regenerateNode.isBoolean() && regenerateNode.booleanValue();
   }
 
   /**
