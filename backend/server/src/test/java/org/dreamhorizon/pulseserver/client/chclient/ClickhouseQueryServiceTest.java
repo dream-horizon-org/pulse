@@ -18,8 +18,9 @@ import io.r2dbc.spi.RowMetadata;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
-import java.util.function.BiFunction;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
@@ -27,6 +28,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
 import org.dreamhorizon.pulseserver.model.ClickhouseProjectCredentials;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageStats;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -418,6 +420,99 @@ class ClickhouseQueryServiceTest {
           .test()
           .assertError(Exception.class)
           .assertError(e -> e.getMessage().contains("Failed to execute tenant generic query"));
+    }
+  }
+
+  @Nested
+  class GetCurrentMonthUsage {
+
+    @Test
+    void shouldMapRowsToUsageStatsByProjectId() {
+      Row row = org.mockito.Mockito.mock(Row.class);
+      when(row.get("project_id", String.class)).thenReturn("proj-a");
+      when(row.get("events_used", Long.class)).thenReturn(10L);
+      when(row.get("sessions_used", Long.class)).thenReturn(5L);
+
+      RowMetadata metadata = org.mockito.Mockito.mock(RowMetadata.class);
+
+      Result mockResult = org.mockito.Mockito.mock(Result.class);
+      doAnswer(invocation -> {
+        BiFunction<Row, RowMetadata, ?> mapper = invocation.getArgument(0);
+        Object mapped = mapper.apply(row, metadata);
+        return Flux.just(mapped);
+      }).when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
+
+      Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
+      io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
+      when(mockConnection.createStatement(org.mockito.ArgumentMatchers.contains("project_monthly_usage")))
+          .thenReturn(mockStatement);
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+
+      when(clickhouseReadClient.getPool()).thenReturn(mockPool);
+
+      Map<String, UsageStats> map = clickhouseQueryService.getCurrentMonthUsage().blockingGet();
+
+      assertThat(map).hasSize(1);
+      assertThat(map.get("proj-a").getEventsUsed()).isEqualTo(10L);
+      assertThat(map.get("proj-a").getSessionsUsed()).isEqualTo(5L);
+    }
+
+    @Test
+    void shouldCoerceNullUsageColumnsToZero() {
+      Row row = org.mockito.Mockito.mock(Row.class);
+      when(row.get("project_id", String.class)).thenReturn("proj-b");
+      when(row.get("events_used", Long.class)).thenReturn(null);
+      when(row.get("sessions_used", Long.class)).thenReturn(null);
+
+      RowMetadata metadata = org.mockito.Mockito.mock(RowMetadata.class);
+
+      Result mockResult = org.mockito.Mockito.mock(Result.class);
+      doAnswer(invocation -> {
+        BiFunction<Row, RowMetadata, ?> mapper = invocation.getArgument(0);
+        return Flux.just(mapper.apply(row, metadata));
+      }).when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
+
+      Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
+      io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
+      when(mockConnection.createStatement(org.mockito.ArgumentMatchers.contains("project_monthly_usage")))
+          .thenReturn(mockStatement);
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(clickhouseReadClient.getPool()).thenReturn(mockPool);
+
+      Map<String, UsageStats> map = clickhouseQueryService.getCurrentMonthUsage().blockingGet();
+
+      assertThat(map.get("proj-b").getEventsUsed()).isZero();
+      assertThat(map.get("proj-b").getSessionsUsed()).isZero();
+    }
+
+    @Test
+    void shouldReturnEmptyMapWhenQueryReturnsNoRows() {
+      Result mockResult = org.mockito.Mockito.mock(Result.class);
+      doAnswer(invocation -> Flux.empty())
+          .when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
+
+      Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
+      io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
+      when(mockConnection.createStatement(org.mockito.ArgumentMatchers.contains("project_monthly_usage")))
+          .thenReturn(mockStatement);
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(clickhouseReadClient.getPool()).thenReturn(mockPool);
+
+      Map<String, UsageStats> map = clickhouseQueryService.getCurrentMonthUsage().blockingGet();
+
+      assertThat(map).isEmpty();
     }
   }
 

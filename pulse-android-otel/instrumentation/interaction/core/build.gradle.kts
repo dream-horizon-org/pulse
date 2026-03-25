@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
@@ -7,6 +9,10 @@ description = "Interaction core library for Android"
 
 android {
     namespace = "com.pulse.android.core"
+
+    testFixtures {
+        enable = true
+    }
 
     // adding default values so that unmocked values do not throw anything
     // https://developer.android.com/training/testing/local-tests?utm_source=android-studio-app&utm_medium=app&utm_content=ui#error
@@ -24,6 +30,7 @@ kotlin {
 dependencies {
     implementation(projects.instrumentation.interaction.interactionRemote)
     implementation(projects.pulseUtils)
+    testFixturesImplementation(projects.instrumentation.interaction.interactionRemote)
     testImplementation(testFixtures(projects.instrumentation.interaction.interactionRemote))
     implementation(libs.okhttp)
     implementation(libs.kotlin.serialisation)

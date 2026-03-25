@@ -59,6 +59,7 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
+  const [popoverOpened, setPopoverOpened] = useState(false);
   const {
     projectId: contextProjectId,
     clearProject,
@@ -66,8 +67,6 @@ export function Navbar({
   } = useProjectContext();
   const { tenantId, tenantName, tier, clearTenant, projects } =
     useTenantContext();
-  const [popoverOpened, setPopoverOpened] = useState(false);
-
   const permissions = usePermissions();
   const [logoutModalOpened, setLogoutModalOpened] = useState(false);
 
