@@ -29,10 +29,14 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
+import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
+import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -450,6 +454,104 @@ class ConfigControllerTest {
             // Verify applicationConfig methods were not called
             verify(applicationConfig, times(0)).getOtelCollectorUrl();
             verify(applicationConfig, times(0)).getInteractionConfigUrl();
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplySessionReplayDefaultsWhenConfigIsNull(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of(Sdk.pulse_android_java))
+                .config(null)
+                .build()
+        ));
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("https://replay.example.com");
+
+        ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
+        when(configService.createSdkConfig(anyString(), configDataCaptor.capture()))
+            .thenReturn(Single.just(createPulseConfigWithVersion(pulseConfig, 17L)));
+
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            ConfigData captured = configDataCaptor.getValue();
+            FeatureConfig sessionReplayFeature = captured.getFeatures().stream()
+                .filter(f -> f.getFeatureName() == Features.session_replay)
+                .findFirst()
+                .orElse(null);
+            assertNotNull(sessionReplayFeature);
+            assertInstanceOf(SessionReplayFeatureConfig.class, sessionReplayFeature.getConfig());
+            SessionReplayFeatureConfig replayConfig = (SessionReplayFeatureConfig) sessionReplayFeature.getConfig();
+            assertEquals(TextAndInputPrivacy.MASK_ALL, replayConfig.getTextAndInputPrivacy());
+            assertEquals(ImagePrivacy.MASK_ALL, replayConfig.getImagePrivacy());
+            assertEquals(1000L, replayConfig.getThrottleDelayMs());
+            assertEquals(1.0f, replayConfig.getScreenshotScale());
+            assertEquals(30, replayConfig.getScreenshotQuality());
+            assertEquals(60, replayConfig.getFlushIntervalSeconds());
+            assertEquals(10, replayConfig.getFlushAt());
+            assertEquals(50, replayConfig.getMaxBatchSize());
+            assertEquals("https://replay.example.com", replayConfig.getReplayApiBaseUrl());
+            verify(applicationConfig, times(1)).getReplayApiBaseUrl();
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplySessionReplayDefaultsWhenConfigIsPartial(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(0.5)
+                .sdks(List.of(Sdk.pulse_android_java, Sdk.pulse_ios_swift))
+                .config(SessionReplayFeatureConfig.builder()
+                    .textAndInputPrivacy(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS)
+                    .build())
+                .build()
+        ));
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("https://replay-api.example.com");
+
+        ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
+        when(configService.createSdkConfig(anyString(), configDataCaptor.capture()))
+            .thenReturn(Single.just(createPulseConfigWithVersion(pulseConfig, 18L)));
+
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            ConfigData captured = configDataCaptor.getValue();
+            FeatureConfig sessionReplayFeature = captured.getFeatures().stream()
+                .filter(f -> f.getFeatureName() == Features.session_replay)
+                .findFirst()
+                .orElse(null);
+            assertNotNull(sessionReplayFeature);
+            SessionReplayFeatureConfig replayConfig = (SessionReplayFeatureConfig) sessionReplayFeature.getConfig();
+            assertEquals(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS, replayConfig.getTextAndInputPrivacy());
+            assertEquals(ImagePrivacy.MASK_ALL, replayConfig.getImagePrivacy());
+            assertEquals(1000L, replayConfig.getThrottleDelayMs());
+            assertEquals(60, replayConfig.getFlushIntervalSeconds());
+            assertEquals(10, replayConfig.getFlushAt());
+            assertEquals(50, replayConfig.getMaxBatchSize());
+            assertEquals("https://replay-api.example.com", replayConfig.getReplayApiBaseUrl());
           });
           testContext.completeNow();
         });
