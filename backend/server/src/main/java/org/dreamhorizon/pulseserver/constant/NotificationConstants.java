@@ -15,6 +15,9 @@ public final class NotificationConstants {
     public static final String EVENT_COLLABORATOR_ADDED = "collaborator_added";
     public static final String EVENT_COLLABORATOR_REMOVED = "collaborator_removed";
     public static final String EVENT_COLLABORATOR_ROLE_UPDATED = "collaborator_role_updated";
+    public static final String EVENT_USAGE_LIMIT_REACHED = "usage_limit_reached";
+    public static final String EVENT_USAGE_LIMIT_THRESHOLD = "usage_limit_threshold";
+    public static final String EVENT_USAGE_LIMIT_BLOCKED = "usage_limit_blocked";
 
     public record DefaultMapping(String eventName, String recipient) {}
 
@@ -22,7 +25,10 @@ public final class NotificationConstants {
         new DefaultMapping(EVENT_PROJECT_CREATED, null),
         new DefaultMapping(EVENT_COLLABORATOR_ADDED, null),
         new DefaultMapping(EVENT_COLLABORATOR_REMOVED, null),
-        new DefaultMapping(EVENT_COLLABORATOR_ROLE_UPDATED, null)
+        new DefaultMapping(EVENT_COLLABORATOR_ROLE_UPDATED, null),
+        new DefaultMapping(EVENT_USAGE_LIMIT_REACHED, null),
+        new DefaultMapping(EVENT_USAGE_LIMIT_THRESHOLD, null),
+        new DefaultMapping(EVENT_USAGE_LIMIT_BLOCKED, null)
     );
   }
 

@@ -7,7 +7,7 @@
 # Uses Docker Compose if available, otherwise falls back to Docker CLI.
 #
 # Usage:
-#   ./build.sh [--no-cache] [ui|server|cron|ai|all]
+#   ./build.sh [--no-cache] [ui|server|cron|capture|ingestion|ai|all]
 #
 # Examples:
 #   ./build.sh              # ui + server + cron + pulse-ai-agent
@@ -98,17 +98,25 @@ while [[ $# -gt 0 ]]; do
             SERVICES+=("ai")
             shift
             ;;
+        capture|session-capture|pulse-session-capture)
+            SERVICES+=("capture")
+            shift
+            ;;
+        ingestion|session-ingestion|pulse-session-replay-ingestion)
+            SERVICES+=("ingestion")
+            shift
+            ;;    
         all)
             SERVICES=()
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--no-cache] [ui|server|cron|ai|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|ai|all]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [--no-cache] [ui|server|cron|ai|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|ai|all]"
             exit 1
             ;;
     esac
@@ -116,7 +124,7 @@ done
 
 # Default: full application stack including pulse-ai-agent
 if [ ${#SERVICES[@]} -eq 0 ]; then
-    SERVICES=("ui" "server" "cron" "ai")
+    SERVICES=("ui" "server" "cron" "capture" "ingestion" "ai")
 fi
 
 # Validate encryption key when building server or cron (required at runtime)
@@ -141,6 +149,8 @@ if has_compose; then
             server) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-server" ;;
             cron)   COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-alerts-cron" ;;
             ai)     COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-ai-agent" ;;
+            capture)   COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-session-capture" ;;
+            ingestion) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-session-replay-ingestion" ;;
         esac
     done
 
@@ -208,6 +218,25 @@ build_ai() {
         "$ROOT_DIR/pulse_ai"
     print_success "pulse-ai-agent image built -> $IMAGE_AI"
 }
+build_capture() {
+    print_info "Building pulse-session-capture image..."
+    docker build \
+        $NO_CACHE \
+        -t "$IMAGE_SESSION_CAPTURE" \
+        -f "$ROOT_DIR/backend/session-capture-service/Dockerfile" \
+        "$ROOT_DIR/backend/session-capture-service"
+    print_success "pulse-session-capture image built -> $IMAGE_SESSION_CAPTURE"
+}
+
+build_ingestion() {
+    print_info "Building pulse-session-replay-ingestion image..."
+    docker build \
+        $NO_CACHE \
+        -t "$IMAGE_SESSION_INGESTION" \
+        -f "$ROOT_DIR/backend/session-replay-ingestion/Dockerfile" \
+        "$ROOT_DIR/backend/session-replay-ingestion"
+    print_success "pulse-session-replay-ingestion image built -> $IMAGE_SESSION_INGESTION"
+}
 
 # When building multiple images, run them in parallel with per-service log files
 BUILD_LOG_DIR=$(mktemp -d)
@@ -223,6 +252,8 @@ for svc in "${SERVICES[@]}"; do
             server) build_server > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("server") ;;
             cron)   build_cron   > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("cron")   ;;
             ai)     build_ai     > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ai")     ;;
+            capture)   build_capture   > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("capture")   ;;
+            ingestion) build_ingestion > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ingestion") ;;
         esac
     else
         case $svc in
@@ -230,6 +261,8 @@ for svc in "${SERVICES[@]}"; do
             server) build_server || FAILED=1 ;;
             cron)   build_cron   || FAILED=1 ;;
             ai)     build_ai     || FAILED=1 ;;
+            capture)   build_capture   || FAILED=1 ;;
+            ingestion) build_ingestion || FAILED=1 ;;
         esac
     fi
 done
