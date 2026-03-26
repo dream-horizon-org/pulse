@@ -110,11 +110,10 @@ public class ClickhouseProjectService {
           log.info("Granted SELECT permissions to: {}", username);
 
           // Step 4: Row policy for root_cause_cache (uses project_id, not ProjectId)
-          String projectIdEscaped = projectId.replace("'", "''");
           String rootCausePolicyName = generatePolicyName(projectId, ROOT_CAUSE_CACHE_TABLE);
           String rootCausePolicySQL = String.format(
               "CREATE ROW POLICY IF NOT EXISTS %s ON %s FOR SELECT USING project_id = '%s' TO %s",
-              rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE, projectIdEscaped, username
+              rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE, projectId, username
           );
           executeSQL(adminPool, rootCausePolicySQL);
           log.debug("Created row policy: {} for table: {}", rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE);

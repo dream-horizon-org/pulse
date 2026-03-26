@@ -26,6 +26,7 @@ import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
+import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 @Slf4j
@@ -91,7 +92,7 @@ public class RootCauseService {
           }
           Map<String, Object> baselineRow = baselineRowOpt.get();
           Object vol = baselineRow.get(RootCauseMetricsRegistry.VOLUME);
-          long volume = toLong(vol);
+          long volume = NumberCoercionUtils.toLong(vol);
           if (volume == 0) {
             return Single.just(RootCauseResult.builder()
                 .noDataAvailable(true)
@@ -100,7 +101,7 @@ public class RootCauseService {
                 .segments(List.of())
                 .build());
           }
-          long totalProblematic = toLong(baselineRow.get("problematic_count"));
+          long totalProblematic = NumberCoercionUtils.toLong(baselineRow.get("problematic_count"));
           if (totalProblematic == 0) {
             return Single.just(RootCauseResult.builder()
                 .everythingGood(true)
@@ -234,7 +235,7 @@ public class RootCauseService {
         projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
     return executeQuery(projectId, q).flatMap(rows -> {
       Optional<Map.Entry<String, Long>> top = rows.stream()
-          .map(r -> Map.entry(String.valueOf(r.get(dim)), toLong(r.get("problematic_count"))))
+          .map(r -> Map.entry(String.valueOf(r.get(dim)), NumberCoercionUtils.toLong(r.get("problematic_count"))))
           .filter(e -> e.getValue() > 0)
           .max(Map.Entry.comparingByValue());
       if (top.isEmpty()) {
@@ -326,7 +327,7 @@ public class RootCauseService {
         projectId, interactionName, window.startInclusive, window.endExclusive, d, null);
     return executeQuery(projectId, q2).flatMap(r2 -> {
       Optional<Map.Entry<String, Long>> top = r2.stream()
-          .map(row -> Map.entry(String.valueOf(row.get(d)), toLong(row.get("problematic_count"))))
+          .map(row -> Map.entry(String.valueOf(row.get(d)), NumberCoercionUtils.toLong(row.get("problematic_count"))))
           .filter(e -> e.getValue() > 0)
           .max(Map.Entry.comparingByValue());
       List<SegmentPath> next = new ArrayList<>(flatExtras);
@@ -407,7 +408,7 @@ public class RootCauseService {
     SegmentPath best = null;
     long bestDiff = Long.MAX_VALUE;
     for (Map<String, Object> row : rows) {
-      long count = toLong(row.get("problematic_count"));
+      long count = NumberCoercionUtils.toLong(row.get("problematic_count"));
       if (count < threshold) continue;
       long diff = Math.abs(count - totalProblematic);
       if (diff < bestDiff) {
@@ -425,8 +426,8 @@ public class RootCauseService {
       Object b = baseline.get(metric);
       Object s = segment.get(metric);
       if (b == null || s == null) continue;
-      double bv = toDouble(b);
-      double sv = toDouble(s);
+      double bv = NumberCoercionUtils.toDouble(b);
+      double sv = NumberCoercionUtils.toDouble(s);
       if (metric.equals(RootCauseMetricsRegistry.VOLUME)) {
         if (bv != 0) deltas.put(metric, (sv / bv) * 100 - 100);
       } else {
@@ -529,26 +530,6 @@ public class RootCauseService {
         cause.getMessage(),
         cause);
     return ServiceError.INTERNAL_SERVER_ERROR.getException();
-  }
-
-  private static long toLong(Object o) {
-    if (o == null) return 0;
-    if (o instanceof Number n) return n.longValue();
-    try {
-      return Long.parseLong(o.toString());
-    } catch (NumberFormatException e) {
-      return 0;
-    }
-  }
-
-  private static double toDouble(Object o) {
-    if (o == null) return 0;
-    if (o instanceof Number n) return n.doubleValue();
-    try {
-      return Double.parseDouble(o.toString());
-    } catch (NumberFormatException e) {
-      return 0;
-    }
   }
 
   private record SegmentPath(String dimension, String value) {}
