@@ -105,7 +105,7 @@ public class MainVerticle extends AbstractVerticle {
   private void initBatchScheduler() {
     log.info("[initBatchScheduler] Initializing Batch Scheduler Service...");
     try {
-      this.batchSchedulerService = GuiceInjector.getInstance(BatchSchedulerService.class);
+      this.batchSchedulerService = GuiceInjector.getGuiceInjector().getInstance(BatchSchedulerService.class);
       this.batchSchedulerService.start();
     } catch (Exception e) {
       log.error("[initBatchScheduler] Failed to initialize Batch Scheduler Service", e);

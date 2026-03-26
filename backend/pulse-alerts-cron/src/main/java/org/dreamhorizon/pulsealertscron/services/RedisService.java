@@ -20,12 +20,6 @@ import java.util.List;
 public class RedisService {
   private static final String API_KEY_MAP = "{pulse}:apikey_map";
   
-  // Batch job state management keys
-  private static final String BATCH_LAST_EXECUTION_KEY = "{pulse}:batch:last_execution_date";
-  private static final String BATCH_JOB_IN_PROGRESS_KEY = "{pulse}:batch:job_in_progress";
-  private static final String BATCH_HISTORY_KEY_PREFIX = "{pulse}:batch:history:";
-  private static final int JOB_IN_PROGRESS_TTL_SECONDS = 3600; // 1 hour safety TTL
-  
   private final Redis redisClient;
   private final RedisAPI redisAPI;
 
@@ -133,117 +127,6 @@ public class RedisService {
     });
   }
 
-  /**
-   * Get the last batch job execution date from Redis
-   * @return Single that emits the date string or null if not found
-   */
-  public Single<String> getLastBatchExecutionDate() {
-    return Single.create(emitter -> {
-      redisAPI.get(BATCH_LAST_EXECUTION_KEY)
-          .onSuccess(response -> {
-            String dateString = response != null ? response.toString() : null;
-            log.debug("[getLastBatchExecutionDate] Retrieved: {}", dateString);
-            emitter.onSuccess(dateString);
-          })
-          .onFailure(err -> {
-            log.error("[getLastBatchExecutionDate] Error retrieving last execution date", err);
-            emitter.onError(err);
-          });
-    });
-  }
-
-  /**
-   * Set the last batch job execution date in Redis
-   */
-  public Completable setLastBatchExecutionDate(String date) {
-    return Completable.create(emitter -> {
-      redisAPI.set(List.of(BATCH_LAST_EXECUTION_KEY, date))
-          .onSuccess(v -> {
-            log.info("[setLastBatchExecutionDate] Set last execution date: {}", date);
-            emitter.onComplete();
-          })
-          .onFailure(err -> {
-            log.error("[setLastBatchExecutionDate] Error setting last execution date: {}", date, err);
-            emitter.onError(err);
-          });
-    });
-  }
-
-  /**
-   * Check if batch job is currently in progress
-   */
-  public Single<Boolean> isBatchJobInProgress() {
-    return Single.create(emitter -> {
-      redisAPI.get(BATCH_JOB_IN_PROGRESS_KEY)
-          .onSuccess(response -> {
-            boolean inProgress = response != null && "true".equals(response.toString());
-            log.debug("[isBatchJobInProgress] Job in progress: {}", inProgress);
-            emitter.onSuccess(inProgress);
-          })
-          .onFailure(err -> {
-            log.error("[isBatchJobInProgress] Error checking job progress", err);
-            emitter.onError(err);
-          });
-    });
-  }
-
-  /**
-   * Set batch job in progress flag with TTL
-   */
-  public Completable setBatchJobInProgress(boolean inProgress) {
-    return Completable.create(emitter -> {
-      if (inProgress) {
-        // Set with TTL
-        redisAPI.setex(BATCH_JOB_IN_PROGRESS_KEY, String.valueOf(JOB_IN_PROGRESS_TTL_SECONDS), "true")
-            .onSuccess(v -> {
-              log.info("[setBatchJobInProgress] Set job in progress with TTL: {} seconds", JOB_IN_PROGRESS_TTL_SECONDS);
-              emitter.onComplete();
-            })
-            .onFailure(err -> {
-              log.error("[setBatchJobInProgress] Error setting job in progress", err);
-              emitter.onError(err);
-            });
-      } else {
-        // Delete the key
-        redisAPI.del(List.of(BATCH_JOB_IN_PROGRESS_KEY))
-            .onSuccess(v -> {
-              log.info("[setBatchJobInProgress] Cleared job in progress flag");
-              emitter.onComplete();
-            })
-            .onFailure(err -> {
-              log.error("[setBatchJobInProgress] Error clearing job in progress", err);
-              emitter.onError(err);
-            });
-      }
-    });
-  }
-
-  /**
-   * Save batch job execution history
-   */
-  public Completable saveBatchJobHistory(String date, String startedAt, String status, long durationMs) {
-    String historyKey = BATCH_HISTORY_KEY_PREFIX + date;
-    
-    List<String> args = List.of(
-        historyKey,
-        "started_at", startedAt,
-        "status", status,
-        "duration_ms", String.valueOf(durationMs)
-    );
-    
-    return Completable.create(emitter -> {
-      redisAPI.hset(args)
-          .onSuccess(v -> {
-            log.info("[saveBatchJobHistory] Saved execution history for date: {} (status: {}, duration: {}ms)", 
-                     date, status, durationMs);
-            emitter.onComplete();
-          })
-          .onFailure(err -> {
-            log.error("[saveBatchJobHistory] Error saving execution history for date: {}", date, err);
-            emitter.onError(err);
-          });
-    });
-  }
 
   /**
    * Closes Redis connection and cleans up resources

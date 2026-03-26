@@ -140,11 +140,13 @@ public object PulseSdkConfigFakeUtils {
         featureName: PulseFeatureName,
         sessionSampleRate: SamplingRate = 1.0f,
         sdks: Collection<PulseSdkName> = listOf(PulseSdkName.ANDROID_JAVA),
+        config: PulseFeatureConfigData? = null,
     ): PulseFeatureConfig =
         PulseFeatureConfig(
             featureName = featureName,
             sessionSampleRate = sessionSampleRate,
             sdks = sdks,
+            config = config,
         )
 
     public fun createFakeCriticalEventPolicies(

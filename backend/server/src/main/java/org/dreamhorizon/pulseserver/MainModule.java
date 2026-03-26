@@ -12,6 +12,7 @@ import com.google.inject.name.Names;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.constant.Constants;
@@ -19,7 +20,9 @@ import org.dreamhorizon.pulseserver.client.emr.EmrServerlessJobClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.SessionReplayS3Config;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.notification.*;
@@ -37,6 +40,8 @@ import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.incident.IncidentService;
 import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
+import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
+import org.dreamhorizon.pulseserver.service.spark.impl.SparkJobServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
@@ -47,14 +52,19 @@ import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetry
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
 import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandler;
+import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
+import org.dreamhorizon.pulseserver.service.session.SessionReplayService;
 import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontAsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import java.net.URI;
 
 @Slf4j
 public class MainModule extends VertxAbstractModule {
@@ -106,6 +116,8 @@ public class MainModule extends VertxAbstractModule {
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
     bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
+    bind(SessionBlockFetcher.class).in(Singleton.class);
+    bind(SessionReplayService.class).in(Singleton.class);
 
     bind(EmrServerlessJobClient.class).in(Singleton.class);
 
@@ -134,6 +146,9 @@ public class MainModule extends VertxAbstractModule {
     }).in(Singleton.class);
 
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
+
+    // Spark Job Service
+    bind(SparkJobService.class).to(SparkJobServiceImpl.class).in(Singleton.class);
 
     bindNotificationFeature();
   }
@@ -180,6 +195,22 @@ public class MainModule extends VertxAbstractModule {
   }
 
   private S3AsyncClient loadS3Client() {
+    ApplicationConfig config = SharedDataUtils.get(vertx, ApplicationConfig.class);
+    // When session replay S3 endpoint is set (e.g. MinIO in dev), use it for the default S3 client
+    // so both config uploads and session replay block reads use the same client and env config.
+    SessionReplayS3Config sr = config != null ? config.getSessionReplayS3() : null;
+    if (sr != null && StringUtils.isNotBlank(sr.getEndpoint())) {
+      String region = StringUtils.defaultIfBlank(sr.getRegion(), "ap-south-1");
+      String accessKey = StringUtils.defaultString(sr.getAccessKeyId());
+      String secretKey = StringUtils.defaultString(sr.getSecretAccessKey());
+      return S3AsyncClient.builder()
+          .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+          .region(Region.of(region))
+          .endpointOverride(URI.create(sr.getEndpoint()))
+          .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
+          .forcePathStyle(true)
+          .build();
+    }
     return S3AsyncClient.builder()
         .httpClientBuilder(NettyNioAsyncHttpClient.builder())
         .region(Region.AP_SOUTH_1)

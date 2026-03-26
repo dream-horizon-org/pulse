@@ -22,4 +22,7 @@ public class FeatureConfig {
 
   @JsonProperty("sdks")
   private List<Sdk> sdks;
+
+  @JsonProperty("config")
+  private FeatureConfigProperties config;
 }
