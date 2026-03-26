@@ -3,12 +3,11 @@ package org.dreamhorizon.pulseserver.service.analytics;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.client.emr.EmrServerlessJobClient;
-import software.amazon.awssdk.services.emrserverless.model.JobDriver;
-import software.amazon.awssdk.services.emrserverless.model.SparkSubmit;
-import software.amazon.awssdk.services.emrserverless.model.StartJobRunRequest;
+import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
+import org.dreamhorizon.pulseserver.service.spark.models.SparkJobRequest;
 
 /**
  * Implementation of {@link AnalyticsBatchService}.
@@ -18,9 +17,14 @@ import software.amazon.awssdk.services.emrserverless.model.StartJobRunRequest;
 public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
 
   /**
-   * Client for submitting EMR Serverless jobs.
+   * Default timeout for batch jobs.
    */
-  private final EmrServerlessJobClient emrClient;
+  private static final long DEFAULT_TIMEOUT_MINUTES = 60L;
+
+  /**
+   * Service for submitting Spark jobs.
+   */
+  private final SparkJobService sparkJobService;
 
   @Override
   public Single<Boolean> triggerFunnelsBatch() {
@@ -53,32 +57,27 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
       final String jobName,
       final String entryPoint,
       final String mainClass) {
-    return Single.fromCallable(() -> {
-      if (!emrClient.isEnabled()) {
-        log.warn("EMR Serverless is disabled. Skipping job: {}", jobName);
-        return false;
-      }
 
-      log.info("Submitting EMR Serverless job: {}", jobName);
+    log.info("Submitting Spark job: {}", jobName);
 
-      SparkSubmit sparkSubmit = SparkSubmit.builder()
-          .entryPoint(entryPoint)
-          .sparkSubmitParameters("--class " + mainClass)
-          .build();
+    SparkJobRequest request = SparkJobRequest.builder()
+        .jobName(jobName)
+        .mainClass(mainClass)
+        .sparkConfig("--class " + mainClass)
+        .arguments(List.of())
+        .timeoutMinutes(DEFAULT_TIMEOUT_MINUTES)
+        .build();
 
-      JobDriver jobDriver = JobDriver.builder()
-          .sparkSubmit(sparkSubmit)
-          .build();
-
-      StartJobRunRequest request = emrClient.startJobRunRequestBuilder()
-          .name(jobName)
-          .jobDriver(jobDriver)
-          .build();
-
-      var response = emrClient.startJobRun(request);
-      log.info("Successfully submitted job: {}. JobRunId: {}",
-          jobName, response.jobRunId());
-      return true;
-    }).subscribeOn(Schedulers.io());
+    return sparkJobService.submitJob(request)
+        .map(response -> {
+          log.info("Successfully submitted job: {}. JobRunId: {}",
+              jobName, response.getJobRunId());
+          return true;
+        })
+        .onErrorReturn(error -> {
+          log.error("Failed to submit job: {}", jobName, error);
+          return false;
+        })
+        .subscribeOn(Schedulers.io());
   }
 }
