@@ -3,9 +3,9 @@ export type MetricPolarity = "higher_is_better" | "higher_is_worse" | "neutral";
 export type MetricValueTone = "good" | "bad" | "neutral";
 
 export type MetricDisplayHints = {
-  valueDisplay?: string | null;
-  baselineDisplay?: string | null;
-  deltaDisplay?: string | null;
+  valueDisplay?: string;
+  baselineDisplay?: string;
+  deltaDisplay?: string;
 };
 
 const EPS = 1e-9;
