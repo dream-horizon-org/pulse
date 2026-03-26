@@ -73,12 +73,10 @@ public class RootCauseQueryBuilder {
       throw new IllegalArgumentException("dimensionColumns must be non-empty for segment query");
     }
     String select = buildSelectClauseWithProblematicAndGroupBy(dimensionColumns);
-    String where = baseWhere(projectId, interactionName, startInclusive, endExclusive);
-    if (dimensionFilters != null && !dimensionFilters.isEmpty()) {
-      for (Map.Entry<String, String> e : dimensionFilters.entrySet()) {
-        where += " AND " + e.getKey() + " = '" + escape(e.getValue()) + "'";
-      }
-    }
+    String where =
+        appendDimensionFilters(
+            baseWhere(projectId, interactionName, startInclusive, endExclusive),
+            dimensionFilters);
     String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
     return "SELECT "
         + select
@@ -103,12 +101,10 @@ public class RootCauseQueryBuilder {
       Map<String, String> dimensionFilters
   ) {
     String select = dimensionColumn + ", " + RootCauseMetricsRegistry.getProblematicCountExpression() + " AS problematic_count";
-    String where = baseWhere(projectId, interactionName, startInclusive, endExclusive);
-    if (dimensionFilters != null && !dimensionFilters.isEmpty()) {
-      for (Map.Entry<String, String> e : dimensionFilters.entrySet()) {
-        where += " AND " + e.getKey() + " = '" + escape(e.getValue()) + "'";
-      }
-    }
+    String where =
+        appendDimensionFilters(
+            baseWhere(projectId, interactionName, startInclusive, endExclusive),
+            dimensionFilters);
     return "SELECT "
         + select
         + " FROM "
@@ -117,6 +113,17 @@ public class RootCauseQueryBuilder {
         + where
         + " GROUP BY "
         + dimensionColumn;
+  }
+
+  private static String appendDimensionFilters(String baseWhere, Map<String, String> dimensionFilters) {
+    if (dimensionFilters == null || dimensionFilters.isEmpty()) {
+      return baseWhere;
+    }
+    StringBuilder sb = new StringBuilder(baseWhere);
+    for (Map.Entry<String, String> e : dimensionFilters.entrySet()) {
+      sb.append(" AND ").append(e.getKey()).append(" = '").append(escape(e.getValue())).append("'");
+    }
+    return sb.toString();
   }
 
   private static String buildSelectClauseWithProblematic() {
