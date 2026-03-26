@@ -1,0 +1,30 @@
+package org.dreamhorizon.pulseserver.service.analytics;
+
+import io.reactivex.rxjava3.core.Single;
+
+/**
+ * Service for triggering analytics batch jobs.
+ */
+public interface AnalyticsBatchService {
+
+  /**
+   * Triggers the daily batch job for computing funnel results.
+   *
+   * @return a single emitting true if triggered successfully
+   */
+  Single<Boolean> triggerFunnelsBatch();
+
+  /**
+   * Triggers the daily batch job for computing journey results.
+   *
+   * @return a single emitting true if triggered successfully
+   */
+  Single<Boolean> triggerJourneysBatch();
+
+  /**
+   * Triggers the incremental batch job for processing events.
+   *
+   * @return a single emitting true if triggered successfully
+   */
+  Single<Boolean> triggerEventsBatch();
+}

@@ -23,5 +23,7 @@ public class InteractionModule extends AbstractModule {
         .in(Singleton.class);
     bind(FunnelService.class).to(FunnelServiceImpl.class)
         .in(Singleton.class);
+    bind(org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService.class).to(org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl.class)
+        .in(Singleton.class);
   }
 }
