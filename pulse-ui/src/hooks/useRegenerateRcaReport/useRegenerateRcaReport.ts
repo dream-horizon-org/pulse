@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { API_BASE_URL, POST_RCA_REPORT_ROUTE } from "../../constants/API";
+import { POST_RCA_REPORT_ROUTE } from "../../constants/API";
 import { makeRequest } from "../../helpers/makeRequest";
+import { getApiBaseUrl } from "../../utils";
 import type { RcaReportResponse } from "../useGetRcaReport/useGetRcaReport.interface";
 import type { UseRegenerateRcaReportParams } from "./useRegenerateRcaReport.interface";
 
@@ -20,7 +21,8 @@ export const useRegenerateRcaReport = () => {
       date,
       projectId,
     }: UseRegenerateRcaReportParams) => {
-      const url = `${API_BASE_URL}${POST_RCA_REPORT_ROUTE.apiPath}`;
+      const apiBaseUrl = getApiBaseUrl();
+      const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
       const body: {
         interactionName: string;
         date?: string;

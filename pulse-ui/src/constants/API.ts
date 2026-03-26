@@ -4,9 +4,6 @@
  * Do not import from ./Constants or any screens here.
  */
 
-export const API_BASE_URL: string =
-  process.env.REACT_APP_PULSE_SERVER_URL ?? "";
-
 export const HTTP_STATUS = {
   UNAUTHORIZED: 401,
 } as const;

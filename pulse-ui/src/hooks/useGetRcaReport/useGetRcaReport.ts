@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { API_BASE_URL, POST_RCA_REPORT_ROUTE } from "../../constants/API";
+import { POST_RCA_REPORT_ROUTE } from "../../constants/API";
 import { makeRequest } from "../../helpers/makeRequest";
+import { getApiBaseUrl } from "../../utils";
 import { ApiResponse } from "../../helpers/makeRequest";
 import type {
   RcaReportResponse,
@@ -33,7 +34,8 @@ export function useGetRcaReport({
           status: 400,
         };
       }
-      const url = `${API_BASE_URL}${POST_RCA_REPORT_ROUTE.apiPath}`;
+      const apiBaseUrl = getApiBaseUrl();
+      const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
       const validDate =
         date && date !== "Invalid Date" && /^\d{4}-\d{2}-\d{2}$/.test(date);
       const body: { interactionName: string; date?: string } = {
