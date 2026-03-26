@@ -30,7 +30,6 @@ class StartupConfigValidatorTest {
     when(emrServerlessConfig.isEnabled()).thenReturn(true);
     when(emrServerlessConfig.getRegion()).thenReturn("ap-south-1");
     when(emrServerlessConfig.getApplicationId()).thenReturn("00abc123");
-    when(emrServerlessConfig.getJobRoleArn()).thenReturn("arn:aws:iam::111111111111:role/job");
     when(emrServerlessConfig.getExecutionRoleArn()).thenReturn("arn:aws:iam::111111111111:role/exec");
   }
 
@@ -218,7 +217,6 @@ class StartupConfigValidatorTest {
       when(emrServerlessConfig.isEnabled()).thenReturn(true);
       when(emrServerlessConfig.getRegion()).thenReturn("");
       when(emrServerlessConfig.getApplicationId()).thenReturn("id");
-      when(emrServerlessConfig.getJobRoleArn()).thenReturn("arn:aws:iam::1:role/job");
       when(emrServerlessConfig.getExecutionRoleArn()).thenReturn("arn:aws:iam::1:role/exec");
 
       StartupConfigValidator validator =

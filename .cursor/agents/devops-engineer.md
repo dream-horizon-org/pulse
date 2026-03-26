@@ -35,7 +35,7 @@ Always use `docker ps` to verify actual running services and ports.
 - `OPENFGA_*` — OpenFGA authorization service (store ID, model ID)
 - `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI)
 - `AWS_*` — AWS credentials for Athena/S3/EMR API
-- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_*` — five required env vars for pulse-server (`ENABLED`, `REGION`, `APPLICATION_ID`, `JOB_ROLE_ARN`, `EXECUTION_ROLE_ARN`); compose + `deploy/scripts/common.sh` default them for local dev; **prod** requires `enabled=true` and non-blank values at startup. `deploy/scripts/start.sh` passes them into the server container. IaC: `deploy/terraform/emr-serverless/`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_*` — four required env vars for pulse-server when EMR is on (`ENABLED`, `REGION`, `APPLICATION_ID`, `EXECUTION_ROLE_ARN`); compose + `deploy/scripts/common.sh` default them for local dev; **prod** requires `enabled=true` and non-blank values at startup. `deploy/scripts/start.sh` passes them into the server container. EMR Serverless (application, IAM roles, IAM policies for `iam:PassRole`) is provisioned manually in AWS, not via repo Terraform.
 
 Template: `deploy/.env.example` → copy to `deploy/.env`
 

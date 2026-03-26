@@ -25,17 +25,6 @@ class EmrServerlessConfigTest {
     JsonObject json = new JsonObject()
         .put("enabled", "true")
         .put("region", "ap-south-1")
-        .put("executionRoleArn", "arn:aws:iam::123456789012:role/exec")
-        .put("jobRoleArn", "arn:aws:iam::123456789012:role/job");
-    assertThrows(IllegalStateException.class, () -> EmrServerlessConfig.fromJsonObject(json));
-  }
-
-  @Test
-  void fromJsonObject_enabled_requiresJobRole() {
-    JsonObject json = new JsonObject()
-        .put("enabled", true)
-        .put("applicationId", "00abc123def456789")
-        .put("region", "ap-south-1")
         .put("executionRoleArn", "arn:aws:iam::123456789012:role/exec");
     assertThrows(IllegalStateException.class, () -> EmrServerlessConfig.fromJsonObject(json));
   }
@@ -45,7 +34,6 @@ class EmrServerlessConfigTest {
     JsonObject json = new JsonObject()
         .put("enabled", true)
         .put("applicationId", "00abc123def456789")
-        .put("jobRoleArn", "arn:aws:iam::123456789012:role/job")
         .put("executionRoleArn", "arn:aws:iam::123456789012:role/exec");
     IllegalStateException ex =
         assertThrows(IllegalStateException.class, () -> EmrServerlessConfig.fromJsonObject(json));
@@ -57,7 +45,6 @@ class EmrServerlessConfigTest {
     JsonObject json = new JsonObject()
         .put("enabled", true)
         .put("applicationId", "00abc123def456789")
-        .put("jobRoleArn", "arn:aws:iam::123456789012:role/job")
         .put("region", "ap-south-1");
     IllegalStateException ex =
         assertThrows(IllegalStateException.class, () -> EmrServerlessConfig.fromJsonObject(json));
@@ -69,13 +56,11 @@ class EmrServerlessConfigTest {
     JsonObject json = new JsonObject()
         .put("enabled", true)
         .put("applicationId", "00abc123def456789")
-        .put("jobRoleArn", "arn:aws:iam::123456789012:role/job")
         .put("region", "ap-south-1")
         .put("executionRoleArn", "arn:aws:iam::123456789012:role/exec");
     EmrServerlessConfig cfg = EmrServerlessConfig.fromJsonObject(json);
     assertTrue(cfg.isEnabled());
     assertEquals("00abc123def456789", cfg.getApplicationId());
-    assertEquals("arn:aws:iam::123456789012:role/job", cfg.getJobRoleArn());
     assertEquals("arn:aws:iam::123456789012:role/exec", cfg.getExecutionRoleArn());
   }
 }

@@ -2759,12 +2759,11 @@ When `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED` is `false`, leave ARNs 
 - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED`
 - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION`
 - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID`
-- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_JOB_ROLE_ARN`
 - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN`
 
 When `APP_ENVIRONMENT` is `prod`, startup validation additionally requires EMR to be **enabled** and every value above to be set (`StartupConfigValidator`).
 
-The server uses `software.amazon.awssdk:emrserverless` with `DefaultCredentialsProvider` (same chain as other AWS SDK usage). IaC for the application and IAM roles lives under `deploy/terraform/emr-serverless/`.
+The server uses `software.amazon.awssdk:emrserverless` with `DefaultCredentialsProvider` (same chain as other AWS SDK usage). Provision the EMR Serverless application and IAM roles in AWS manually (or your own tooling); no Terraform for this module lives in this repo.
 
 **Adding Support for Other Query Engines:**
 

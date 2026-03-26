@@ -21,8 +21,7 @@ public class EmrServerlessConfig {
   /** Set from config; may be null/blank when {@link #enabled} is false. */
   private String region;
   private String applicationId;
-  private String jobRoleArn;
-  /** Required when {@link #enabled}; passed to {@code StartJobRun}. */
+  /** Required when {@link #enabled}; passed to {@code StartJobRun} as {@code executionRoleArn}. */
   private String executionRoleArn;
 
   public String getEffectiveRegion() {
@@ -47,13 +46,11 @@ public class EmrServerlessConfig {
     }
     String region = emr.getString("region");
     String applicationId = emr.getString("applicationId");
-    String jobRoleArn = emr.getString("jobRoleArn");
     String executionRoleArn = emr.getString("executionRoleArn");
     EmrServerlessConfig cfg = EmrServerlessConfig.builder()
         .enabled(enabled)
         .region(region)
         .applicationId(applicationId)
-        .jobRoleArn(jobRoleArn)
         .executionRoleArn(executionRoleArn)
         .build();
     if (enabled) {
@@ -61,11 +58,6 @@ public class EmrServerlessConfig {
         throw new IllegalStateException(
             "emrServerless.enabled is true but applicationId is not set "
                 + "(set CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID)");
-      }
-      if (jobRoleArn == null || jobRoleArn.isBlank()) {
-        throw new IllegalStateException(
-            "emrServerless.enabled is true but jobRoleArn is not set "
-                + "(set CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_JOB_ROLE_ARN)");
       }
       if (region == null || region.isBlank()) {
         throw new IllegalStateException(
