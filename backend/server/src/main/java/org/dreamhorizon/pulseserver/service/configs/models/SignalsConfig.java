@@ -15,9 +15,6 @@ import lombok.NoArgsConstructor;
 @NotNull
 public class SignalsConfig {
 
-  @JsonProperty("filters")
-  private FilterConfig filters;
-
   @JsonProperty("scheduleDurationMs")
   private int scheduleDurationMs;
 

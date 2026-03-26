@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.ClickFeatureConfig;
@@ -39,7 +38,6 @@ class DefaultSdkConfigTemplateTest {
       assertThat(config.getSampling().getDefaultSampling()).isNotNull();
       assertThat(config.getSampling().getDefaultSampling().getSessionSampleRate()).isEqualTo(1.0);
       assertThat(config.getSampling().getRules()).isEmpty();
-      assertThat(config.getSampling().getCriticalEventPolicies()).isNotNull();
       assertThat(config.getSampling().getCriticalSessionPolicies()).isNotNull();
     }
 
@@ -47,9 +45,6 @@ class DefaultSdkConfigTemplateTest {
     void shouldIncludeSignalsConfig() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
       assertThat(config.getSignals()).isNotNull();
-      assertThat(config.getSignals().getFilters()).isNotNull();
-      assertThat(config.getSignals().getFilters().getMode()).isEqualTo(FilterMode.blacklist);
-      assertThat(config.getSignals().getFilters().getValues()).isEmpty();
       assertThat(config.getSignals().getScheduleDurationMs()).isEqualTo(5000);
       assertThat(config.getSignals().getLogsCollectorUrl()).isNotBlank();
       assertThat(config.getSignals().getMetricCollectorUrl()).isNotBlank();

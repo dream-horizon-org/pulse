@@ -39,9 +39,6 @@ class SignalsConfigTest {
      */
     @Test
     void shouldCreateWithBuilder() {
-      FilterConfig filters = FilterConfig.builder()
-          .mode(FilterMode.blacklist)
-          .build();
       List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
@@ -51,7 +48,6 @@ class SignalsConfigTest {
           .metricCollectorUrl("http://metrics.example.com")
           .spanCollectorUrl("http://spans.example.com")
           .customEventCollectorUrl("http://custom-events.example.com")
-          .filters(filters)
           .attributesToDrop(attributesToDrop)
           .attributesToAdd(attributesToAdd)
           .build();
@@ -61,7 +57,6 @@ class SignalsConfigTest {
       assertEquals("http://metrics.example.com", signalsConfig.getMetricCollectorUrl());
       assertEquals("http://spans.example.com", signalsConfig.getSpanCollectorUrl());
       assertEquals("http://custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
-      assertEquals(filters, signalsConfig.getFilters());
       assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
       assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
     }
@@ -72,12 +67,10 @@ class SignalsConfigTest {
      */
     @Test
     void shouldCreateWithAllArgsConstructor() {
-      FilterConfig filters = FilterConfig.builder().mode(FilterMode.whitelist).build();
       List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       SignalsConfig signalsConfig = new SignalsConfig(
-          filters,
           3000,
           "http://logs.example.com",
           "http://metrics.example.com",
@@ -87,7 +80,6 @@ class SignalsConfigTest {
           attributesToAdd
       );
 
-      assertEquals(filters, signalsConfig.getFilters());
       assertEquals(3000, signalsConfig.getScheduleDurationMs());
       assertEquals("http://logs.example.com", signalsConfig.getLogsCollectorUrl());
       assertEquals("http://metrics.example.com", signalsConfig.getMetricCollectorUrl());
@@ -169,7 +161,6 @@ class SignalsConfigTest {
     @Test
     void shouldSetAndGetAllFields() {
       SignalsConfig signalsConfig = new SignalsConfig();
-      FilterConfig filters = new FilterConfig();
       List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
@@ -178,7 +169,6 @@ class SignalsConfigTest {
       signalsConfig.setMetricCollectorUrl("http://new-metrics.example.com");
       signalsConfig.setSpanCollectorUrl("http://new-spans.example.com");
       signalsConfig.setCustomEventCollectorUrl("http://new-custom-events.example.com");
-      signalsConfig.setFilters(filters);
       signalsConfig.setAttributesToDrop(attributesToDrop);
       signalsConfig.setAttributesToAdd(attributesToAdd);
 
@@ -187,7 +177,6 @@ class SignalsConfigTest {
       assertEquals("http://new-metrics.example.com", signalsConfig.getMetricCollectorUrl());
       assertEquals("http://new-spans.example.com", signalsConfig.getSpanCollectorUrl());
       assertEquals("http://new-custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
-      assertEquals(filters, signalsConfig.getFilters());
       assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
       assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
     }
@@ -513,18 +502,15 @@ class SignalsConfigTest {
     }
 
     /**
-     * Verifies inequality when filters differ.
+     * Verifies inequality when customEventCollectorUrl differ.
      */
     @Test
-    void shouldNotBeEqualWhenFiltersDiffer() {
-      FilterConfig filters1 = FilterConfig.builder().mode(FilterMode.blacklist).build();
-      FilterConfig filters2 = FilterConfig.builder().mode(FilterMode.whitelist).build();
-
+    void shouldNotBeEqualWhenCustomEventCollectorUrlDiffer() {
       SignalsConfig config1 = SignalsConfig.builder()
-          .filters(filters1)
+          .customEventCollectorUrl("http://a.example.com")
           .build();
       SignalsConfig config2 = SignalsConfig.builder()
-          .filters(filters2)
+          .customEventCollectorUrl("http://b.example.com")
           .build();
 
       assertNotEquals(config1, config2);

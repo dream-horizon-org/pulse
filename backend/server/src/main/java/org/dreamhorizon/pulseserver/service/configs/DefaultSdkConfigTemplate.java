@@ -32,9 +32,6 @@ public class DefaultSdkConfigTemplate {
                 .sessionSampleRate(1.0)
                 .build())
             .rules(new ArrayList<>())
-            .criticalEventPolicies(CriticalEventPolicies.builder()
-                .alwaysSend(new ArrayList<>())
-                .build())
             .criticalSessionPolicies(CriticalSessionPolicies.builder()
                 .alwaysSend(new ArrayList<>())
                 .build())
@@ -42,10 +39,6 @@ public class DefaultSdkConfigTemplate {
 
         // Signals configuration
         SignalsConfig signals = SignalsConfig.builder()
-            .filters(FilterConfig.builder()
-                .mode(FilterMode.blacklist)
-                .values(new ArrayList<>())
-                .build())
             .scheduleDurationMs(5000)
             .logsCollectorUrl(System.getenv().getOrDefault("LOGS_COLLECTOR_URL", "http://localhost:4318/v1/logs"))
             .metricCollectorUrl(System.getenv().getOrDefault("METRIC_COLLECTOR_URL", "http://localhost:4318/v1/metrics"))
