@@ -1,5 +1,8 @@
 name: Android SDK - CodeQL
 
+# Static analysis (SAST) for Java/Kotlin + Actions YAML. Results: Security → Code scanning.
+# Build is assembleDebug only, with androidTest APK assembly skipped (saves CI time; instrumented
+# tests belong in android-sdk-pr-check / local runs — emulator connectedCheck was flaky here).
 on:
   pull_request:
     branches:
@@ -22,7 +25,8 @@ permissions:
   contents: read
 
 jobs:
-  analyze:
+  codeql:
+    name: codeql-analyze
     permissions:
       contents: read
       actions: read  # for github/codeql-action/init to get workflow details
@@ -57,24 +61,11 @@ jobs:
           #  and note that "latest" was renamed to "linked" in https://github.com/github/codeql-action/pull/2281)
           tools: linked
 
-      - name: Assemble
-        # --no-build-cache is required for codeql to analyze all modules
-        # --no-daemon is required for codeql to observe the compilation
-        # (see https://docs.github.com/en/code-security/codeql-cli/getting-started-with-the-codeql-cli/preparing-your-code-for-codeql-analysis#specifying-build-commands)
-        run: ./gradlew assemble --no-build-cache --no-daemon
+      - name: Assemble (debug, no androidTest APKs)
+        # --no-build-cache / --no-daemon: required for CodeQL to observe compilation
+        # assembleDebug: skip release variants vs full assemble
+        # -x assembleDebugAndroidTest: skip every subproject's instrumented-test APK (heavy; caused long runs)
+        run: ./gradlew assembleDebug -x assembleDebugAndroidTest --no-build-cache --no-daemon
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
-
-      - name: Enable KVM for Android tests
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run Android tests
-        uses: reactivecircus/android-emulator-runner@1dcd0090116d15e7c562f8db72807de5e036a4ed # v2.34.0
-        with:
-          api-level: 29
-          working-directory: ${{ env.ANDROID_PROJECT_DIR }}
-          script: ./gradlew connectedCheck

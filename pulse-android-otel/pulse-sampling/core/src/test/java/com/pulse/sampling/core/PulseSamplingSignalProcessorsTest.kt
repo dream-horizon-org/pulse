@@ -1123,7 +1123,7 @@ class PulseSamplingSignalProcessorsTest {
             val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
             val sampledLogExporter = processors.SampledLogExporter(logExporter)
 
-            val regularLog = createLogRecordData("app.screen.click", emptyMap())
+            val regularLog = createLogRecordData("app.widget.click", emptyMap())
             sampledLogExporter.export(listOf(regularLog))
 
             assertThat(logExporter.finishedLogRecordItems)
@@ -1257,7 +1257,7 @@ class PulseSamplingSignalProcessorsTest {
             val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOn)
             val sampledLogExporter = processors.SampledLogExporter(logExporter)
 
-            val regularLog = createLogRecordData("app.screen.click", emptyMap())
+            val regularLog = createLogRecordData("app.widget.click", emptyMap())
             sampledLogExporter.export(listOf(regularLog))
 
             assertThat(logExporter.finishedLogRecordItems)
@@ -1267,7 +1267,7 @@ class PulseSamplingSignalProcessorsTest {
                     .first()
                     .bodyValue
                     ?.asString(),
-            ).isEqualTo("app.screen.click")
+            ).isEqualTo("app.widget.click")
         }
 
         private fun createConfigWithCriticalEventPolicy(criticalEventPolicy: PulseCriticalEventPolicies?): PulseSdkConfig {
