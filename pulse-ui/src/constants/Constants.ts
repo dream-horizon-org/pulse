@@ -34,7 +34,6 @@ import {
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
 import { RealTimeQuery } from "../screens/RealTimeQuery";
-import { SupportQueries } from "../screens/SupportQueries";
 
 export const APP_NAME: string = "Pulse";
 
