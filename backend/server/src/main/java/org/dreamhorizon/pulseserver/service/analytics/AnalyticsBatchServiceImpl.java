@@ -63,7 +63,7 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
     SparkJobRequest request = SparkJobRequest.builder()
         .jobName(jobName)
         .mainClass(mainClass)
-        .sparkConfig("--class " + mainClass)
+        .entryPoint(entryPoint)
         .arguments(List.of())
         .timeoutMinutes(DEFAULT_TIMEOUT_MINUTES)
         .build();
