@@ -31,7 +31,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
@@ -851,10 +850,6 @@ class ConfigControllerTest {
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
               .attributesToAdd(List.of())
-              .filters(PulseConfig.FilterConfig.builder()
-                  .mode(FilterMode.blacklist)
-                  .values(List.of())
-                  .build())
               .build())
           .interaction(PulseConfig.InteractionConfig.builder()
               .collectorUrl("http://interaction-collector.example.com")
@@ -895,21 +890,6 @@ class ConfigControllerTest {
                       .sessionSampleRate(0.8)
                       .build()
               ))
-              .criticalEventPolicies(PulseConfig.CriticalEventPolicies.builder()
-                  .alwaysSend(Arrays.asList(
-                      PulseConfig.CriticalPolicyRule.builder()
-                          .name("crashEvent")
-                          .props(Arrays.asList(
-                              PulseConfig.EventPropMatch.builder()
-                                  .name("severity")
-                                  .value("critical")
-                                  .build()
-                          ))
-                          .scopes(Arrays.asList(Scope.logs))
-                          .sdks(Arrays.asList(Sdk.pulse_android_java, Sdk.pulse_ios_swift))
-                          .build()
-                  ))
-                  .build())
               .criticalSessionPolicies(PulseConfig.CriticalSessionPolicies.builder()
                   .alwaysSend(Arrays.asList(
                       PulseConfig.CriticalPolicyRule.builder()
@@ -967,22 +947,6 @@ class ConfigControllerTest {
                           .build())
                       .build()
               ))
-              .filters(PulseConfig.FilterConfig.builder()
-                  .mode(FilterMode.whitelist)
-                  .values(Arrays.asList(
-                      PulseConfig.EventFilter.builder()
-                          .name("event1")
-                          .props(Arrays.asList(
-                              PulseConfig.EventPropMatch.builder()
-                                  .name("propName")
-                                  .value("propValue.*")
-                                  .build()
-                          ))
-                          .scopes(Arrays.asList(Scope.logs, Scope.traces))
-                          .sdks(Arrays.asList(Sdk.pulse_android_java, Sdk.pulse_ios_swift))
-                          .build()
-                  ))
-                  .build())
               .build())
           .interaction(PulseConfig.InteractionConfig.builder()
               .collectorUrl("http://interaction-collector.example.com")
@@ -1063,7 +1027,6 @@ class ConfigControllerTest {
             .sampling(PulseConfig.SamplingConfig.builder()
                 .defaultSampling(null)
                 .rules(null)
-                .criticalEventPolicies(null)
                 .criticalSessionPolicies(null)
                 .build())
             .signals(PulseConfig.SignalsConfig.builder()
@@ -1072,10 +1035,6 @@ class ConfigControllerTest {
                 .metricCollectorUrl("http://metrics.example.com")
                 .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(null)
-                .filters(PulseConfig.FilterConfig.builder()
-                    .mode(FilterMode.blacklist)
-                    .values(null)
-                    .build())
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()
                 .collectorUrl("http://interaction.example.com")
@@ -1105,28 +1064,18 @@ class ConfigControllerTest {
     }
 
     @Test
-    void shouldCreateConfigWithPartiallyPopulatedFilterEvents(Vertx vertx, VertxTestContext testContext) {
+    void shouldCreateConfigWithPartiallyPopulatedCriticalSessionPolicies(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test");
 
-        // Given - Test with filter events that have null props/scope/sdks
+        // Given - critical session rules with null props/scope/sdks
         PulseConfig pulseConfig = PulseConfig.builder()
-            .description("Partial Filter Config")
+            .description("Partial critical session config")
             .sampling(PulseConfig.SamplingConfig.builder()
                 .defaultSampling(PulseConfig.DefaultSampling.builder()
                     .sessionSampleRate(1.0)
                     .build())
                 .rules(List.of())
-                .criticalEventPolicies(PulseConfig.CriticalEventPolicies.builder()
-                    .alwaysSend(Arrays.asList(
-                        PulseConfig.CriticalPolicyRule.builder()
-                            .name("critical1")
-                            .props(null)
-                            .scopes(null)
-                            .sdks(null)
-                            .build()
-                    ))
-                    .build())
                 .criticalSessionPolicies(PulseConfig.CriticalSessionPolicies.builder()
                     .alwaysSend(Arrays.asList(
                         PulseConfig.CriticalPolicyRule.builder()
@@ -1144,17 +1093,6 @@ class ConfigControllerTest {
                 .metricCollectorUrl("http://metrics.example.com")
                 .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(List.of())
-                .filters(PulseConfig.FilterConfig.builder()
-                    .mode(FilterMode.whitelist)
-                    .values(Arrays.asList(
-                        PulseConfig.EventFilter.builder()
-                            .name("event1")
-                            .props(null)
-                            .scopes(null)
-                            .sdks(null)
-                            .build()
-                    ))
-                    .build())
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()
                 .collectorUrl("http://interaction.example.com")
@@ -1215,10 +1153,6 @@ class ConfigControllerTest {
                 .metricCollectorUrl("http://metrics.example.com")
                 .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(List.of())
-                .filters(PulseConfig.FilterConfig.builder()
-                    .mode(FilterMode.blacklist)
-                    .values(List.of())
-                    .build())
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()
                 .collectorUrl("http://interaction.example.com")
@@ -1278,7 +1212,7 @@ class ConfigControllerTest {
             assertEquals("Full Config", capturedData.getDescription());
             assertNotNull(capturedData.getSampling());
             assertNotNull(capturedData.getSignals());
-            assertNotNull(capturedData.getSignals().getFilters());
+            assertEquals(10000, capturedData.getSignals().getScheduleDurationMs());
             assertNotNull(capturedData.getInteraction());
             assertNotNull(capturedData.getFeatures());
             assertEquals(3, capturedData.getFeatures().size());
