@@ -37,17 +37,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       globalAttributes: globalAttributes,
       instrumentations: { config in
         // Configure URLSession instrumentation
-        config.urlSession { urlSessionConfig in
-          // urlSessionConfig can be configured here
-          urlSessionConfig.enabled(true)
-        }
-        // Configure Sessions instrumentation
-        config.sessions { sessionsConfig in
-          // sessionsConfig can be configured here
-        }
-        // Configure Interaction instrumentation
-        config.interaction { interactionConfig in
-          interactionConfig.enabled(true)
+        config.screenLifecycle { screenLifecycleConfig in
+          screenLifecycleConfig.enabled(false)
         }
       }
     )

@@ -1,0 +1,11 @@
+.iconDanger {
+  color: var(--mantine-color-red-6);
+}
+
+.iconWarning {
+  color: var(--mantine-color-orange-6);
+}
+
+.iconInfo {
+  color: var(--mantine-color-blue-6);
+}

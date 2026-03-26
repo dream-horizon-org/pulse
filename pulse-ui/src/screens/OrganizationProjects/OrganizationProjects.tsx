@@ -1,0 +1,322 @@
+import { useEffect, useState, useCallback } from "react";
+import {
+  Container,
+  Title,
+  Grid,
+  Card,
+  Button,
+  Group,
+  Text,
+  Badge,
+  Stack,
+  Box,
+} from "@mantine/core";
+import {
+  IconPlus,
+  IconFolder,
+  IconLock,
+  IconUsers,
+  IconRocket,
+  IconUserPlus,
+} from "@tabler/icons-react";
+import { useTenantContext, useProjectContext } from "../../contexts";
+import { usePermissions, useTierLimits } from "../../hooks";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { showNotification } from "../../helpers/showNotification";
+import classes from "./OrganizationProjects.module.css";
+import { TIERS } from "../../constants/Tiers";
+import { TENANT_ROLES } from "../../constants/Roles";
+
+export function OrganizationProjects() {
+  const { organizationId } = useParams<{ organizationId: string }>();
+  const location = useLocation();
+  const { projects, hasLoadedProjects, tier, refreshProjects, userRole } =
+    useTenantContext();
+  const { projectId, navigateToProject } = useProjectContext();
+  const { canCreateProjects: hasPermission } = usePermissions();
+  const { canCreateProjects, maxProjects, currentProjectCount } =
+    useTierLimits();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleProjectClick = useCallback(
+    async (selectedProjectId: string) => {
+      try {
+        const selectedProject = projects.find(
+          (p) => p.projectId === selectedProjectId,
+        );
+        if (!selectedProject) {
+          setError("Project not found");
+          return;
+        }
+        await navigateToProject(selectedProjectId);
+      } catch (err) {
+        setError("Failed to switch to project");
+      }
+    },
+    [projects, navigateToProject],
+  );
+
+  // Trigger refresh on mount to ensure fresh data
+  useEffect(() => {
+    refreshProjects();
+  }, [refreshProjects]);
+
+  // Handle auto-selection after projects are loaded
+  useEffect(() => {
+    if (!hasLoadedProjects) {
+      return;
+    }
+
+    // CRITICAL: Only run auto-selection logic if we're actually ON the projects listing page
+    // This prevents interfering with deep links like /projects/:id/alerts
+    const isOnProjectsListingPage =
+      location.pathname === `/${organizationId}/projects`;
+
+    if (!isOnProjectsListingPage) {
+      return;
+    }
+    // If user already has a project context set, redirect to that project
+    if (projectId) {
+      navigateToProject(projectId);
+      return;
+    }
+
+    // Auto-select first project ONLY for free tier users (who can only have 1 project)
+    if (!projectId && projects.length > 0 && tier === TIERS.FREE) {
+      const lastUsedProjectId = sessionStorage.getItem("pulse_last_project_id");
+      const projectToSelect =
+        projects.find((p) => p.projectId === lastUsedProjectId) || projects[0];
+      handleProjectClick(projectToSelect.projectId);
+    }
+  }, [
+    projectId,
+    projects,
+    hasLoadedProjects,
+    tier,
+    handleProjectClick,
+    location.pathname,
+    organizationId,
+    navigateToProject,
+  ]);
+
+  const handleCreateProject = () => {
+    if (!canCreateProjects) {
+      showNotification(
+        "Upgrade Required",
+        "Free tier is limited to 1 project. Upgrade to Enterprise for unlimited projects.",
+        <IconLock />,
+        "orange",
+      );
+      navigate(`/${organizationId}/pricing`);
+      return;
+    }
+    navigate(`/${organizationId}/projects/new`);
+  };
+
+  // Show loader while projects are loading
+  if (!hasLoadedProjects) {
+    return (
+      <Box className={classes.container}>
+        <Container size="xl" className={classes.innerContainer}>
+          <Text size="lg" c="dimmed">
+            Loading projects...
+          </Text>
+        </Container>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box className={classes.container}>
+        <Container size="xl" className={classes.innerContainer}>
+          <Text c="red" size="lg">
+            {error}
+          </Text>
+        </Container>
+      </Box>
+    );
+  }
+
+  return (
+    <Box className={classes.container}>
+      <Container size="xl" className={classes.innerContainer}>
+        {/* Header Section */}
+        <Box className={classes.header}>
+          <Stack gap="xs">
+            <Group gap="md" align="center">
+              <Title order={1} className={classes.title}>
+                Projects
+              </Title>
+              <Badge
+                size="lg"
+                variant="dot"
+                color={tier === TIERS.ENTERPRISE ? "blue" : "gray"}
+                className={classes.tierBadge}
+              >
+                {tier === TIERS.FREE ? "Free Tier" : "Enterprise"}
+              </Badge>
+            </Group>
+            <Text c="dimmed" size="md">
+              Manage and access all your organization's projects
+            </Text>
+          </Stack>
+
+          <Group gap="md">
+            {tier === TIERS.FREE && (
+              <Text size="sm" c="dimmed" className={classes.projectCount}>
+                {currentProjectCount} / {maxProjects} projects
+              </Text>
+            )}
+            {hasPermission && (
+              <Button
+                leftSection={<IconPlus size={18} />}
+                onClick={handleCreateProject}
+                size="md"
+                className={classes.createButton}
+                disabled={!canCreateProjects}
+              >
+                Create Project
+              </Button>
+            )}
+          </Group>
+        </Box>
+
+        {/* Projects Grid or Empty State */}
+        {projects.length === 0 ? (
+          userRole === TENANT_ROLES.ADMIN ? (
+            <Card
+              className={classes.emptyState}
+              shadow="sm"
+              radius="lg"
+              withBorder
+            >
+              <Stack align="center" gap="lg">
+                <Box className={classes.emptyIconWrapper}>
+                  <IconRocket size={48} className={classes.emptyIcon} />
+                </Box>
+                <Stack align="center" gap="xs">
+                  <Text size="xl" fw={600}>
+                    No projects yet
+                  </Text>
+                  <Text c="dimmed" size="md" ta="center" maw={400}>
+                    {canCreateProjects
+                      ? "Get started by creating your first project to track analytics and monitor your applications."
+                      : "Contact your administrator to create projects for your organization."}
+                  </Text>
+                </Stack>
+                {hasPermission && canCreateProjects && (
+                  <Button
+                    leftSection={<IconPlus size={18} />}
+                    onClick={handleCreateProject}
+                    size="lg"
+                    className={classes.createButton}
+                    mt="md"
+                  >
+                    Create First Project
+                  </Button>
+                )}
+              </Stack>
+            </Card>
+          ) : (
+            <Card
+              className={classes.emptyState}
+              shadow="sm"
+              radius="lg"
+              withBorder
+            >
+              <Stack align="center" gap="lg">
+                <Box className={classes.emptyIconWrapper}>
+                  <IconUserPlus size={48} className={classes.emptyIcon} />
+                </Box>
+                <Stack align="center" gap="xs">
+                  <Text size="xl" fw={600}>
+                    You&apos;re not on any project yet
+                  </Text>
+                  <Text c="dimmed" size="md" ta="center" maw={440}>
+                    Ask a <strong>project admin</strong> or{" "}
+                    <strong>organization admin</strong> to invite you to a
+                    project. Once you&apos;re added, it will appear here.
+                  </Text>
+                </Stack>
+              </Stack>
+            </Card>
+          )
+        ) : (
+          <Grid gutter="xl">
+            {projects.map((project) => (
+              <Grid.Col
+                key={project.projectId}
+                span={{ base: 12, sm: 6, md: 4 }}
+              >
+                <Card
+                  className={classes.projectCard}
+                  shadow="sm"
+                  padding="xl"
+                  radius="lg"
+                  onClick={() => handleProjectClick(project.projectId)}
+                  withBorder
+                >
+                  <Stack gap="md">
+                    {/* Card Header */}
+                    <Group justify="space-between" wrap="nowrap">
+                      <Box className={classes.iconWrapper}>
+                        <IconFolder size={28} />
+                      </Box>
+                      {project.isActive ? (
+                        <Badge color="teal" variant="dot" size="sm">
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge color="gray" variant="dot" size="sm">
+                          Inactive
+                        </Badge>
+                      )}
+                    </Group>
+
+                    {/* Project Name */}
+                    <Stack gap={4}>
+                      <Text fw={600} size="lg" className={classes.projectName}>
+                        {project.name}
+                      </Text>
+                      <Text
+                        size="sm"
+                        c="dimmed"
+                        lineClamp={2}
+                        className={classes.projectDescription}
+                      >
+                        {project.description || "No description provided"}
+                      </Text>
+                    </Stack>
+
+                    {/* Card Footer */}
+                    <Group justify="space-between" mt="auto" pt="md">
+                      <Group gap={4}>
+                        <IconUsers
+                          size={14}
+                          style={{ color: "var(--mantine-color-dimmed)" }}
+                        />
+                        <Text size="xs" c="dimmed" tt="capitalize">
+                          {project.role}
+                        </Text>
+                      </Group>
+                      <Text
+                        size="xs"
+                        c="teal"
+                        fw={500}
+                        className={classes.openLink}
+                      >
+                        Open →
+                      </Text>
+                    </Group>
+                  </Stack>
+                </Card>
+              </Grid.Col>
+            ))}
+          </Grid>
+        )}
+      </Container>
+    </Box>
+  );
+}

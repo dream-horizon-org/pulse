@@ -5,7 +5,7 @@ import { useQueryError } from "../../../../hooks/useQueryError";
 import { StatsSkeleton } from "../../../../components/StatsSkeleton";
 import type { DataQueryResponse } from "../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import classes from "./CrashMetricsStats.module.css";
-import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";  
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 
 interface CrashMetricsStatsProps {
   startTime: string;
@@ -84,14 +84,16 @@ export function CrashMetricsStats({
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(UserId, PulseType = 'device.crash')",
+            expression:
+              "uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.crash')",
           },
           alias: "crash_users",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(SessionId, PulseType = 'device.crash')",
+            expression:
+              "uniqCombined64If(nullIf(SessionId, ''), PulseType = 'device.crash')",
           },
           alias: "crash_sessions",
         },
@@ -137,11 +139,17 @@ export function CrashMetricsStats({
     const crashFreeUsers =
       totalUsers > 0 ? ((totalUsers - crashUsers) / totalUsers) * 100 : null;
     const crashFreeSessions =
-      totalSessions > 0 ? ((totalSessions - crashSessions) / totalSessions) * 100 : null;
+      totalSessions > 0
+        ? ((totalSessions - crashSessions) / totalSessions) * 100
+        : null;
 
     return {
-      crashFreeUsers: crashFreeUsers !== null ? parseFloat(crashFreeUsers.toFixed(2)) : null,
-      crashFreeSessions: crashFreeSessions !== null ? parseFloat(crashFreeSessions.toFixed(2)) : null,
+      crashFreeUsers:
+        crashFreeUsers !== null ? parseFloat(crashFreeUsers.toFixed(2)) : null,
+      crashFreeSessions:
+        crashFreeSessions !== null
+          ? parseFloat(crashFreeSessions.toFixed(2))
+          : null,
       hasData: true,
     };
   }, [data, externalTotalUsers, externalTotalSessions]);
@@ -172,13 +180,19 @@ export function CrashMetricsStats({
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>Crash-Free Users</Text>
-          <Text className={classes.statValue} c={metrics.crashFreeUsers !== null ? "red" : "dimmed"}>
+          <Text
+            className={classes.statValue}
+            c={metrics.crashFreeUsers !== null ? "red" : "dimmed"}
+          >
             {formatMetricValue(metrics.crashFreeUsers)}
           </Text>
         </Box>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>Crash-Free Sessions</Text>
-          <Text className={classes.statValue} c={metrics.crashFreeSessions !== null ? "red" : "dimmed"}>
+          <Text
+            className={classes.statValue}
+            c={metrics.crashFreeSessions !== null ? "red" : "dimmed"}
+          >
             {formatMetricValue(metrics.crashFreeSessions)}
           </Text>
         </Box>

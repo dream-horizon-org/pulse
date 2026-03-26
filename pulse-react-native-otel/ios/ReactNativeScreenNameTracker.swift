@@ -5,19 +5,29 @@ import Foundation
  */
 @objc(ReactNativeScreenNameTracker)
 public class ReactNativeScreenNameTracker: NSObject {
-    private static let currentScreenName = NSLock()
+    private static let lock = NSLock()
     private static var _currentScreenName: String?
+    private static var _previousScreenName: String?
     
     @objc public static func setCurrentScreenName(_ screenName: String?) {
-        currentScreenName.lock()
-        defer { currentScreenName.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
+        if let current = _currentScreenName, current != screenName {
+            _previousScreenName = current
+        }
         _currentScreenName = screenName
     }
     
     static func getCurrentScreenName() -> String? {
-        currentScreenName.lock()
-        defer { currentScreenName.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
         return _currentScreenName
+    }
+
+    static func getPreviousScreenName() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _previousScreenName
     }
 }
 

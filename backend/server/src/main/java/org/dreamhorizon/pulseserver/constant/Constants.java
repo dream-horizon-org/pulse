@@ -50,4 +50,20 @@ public final class Constants {
   public static final String DEFAULT_QUERY_ENGINE = "athena";
   public static final String ATHENA_ENGINE = "athena";
   public static final String GCP_ENGINE = "gcp";
+
+  // OpenFGA Permissions
+  public static final String PERMISSION_CAN_UPLOAD_TNC = "can_upload_tnc";
+  public static final String PERMISSION_CAN_ACCEPT_TNC = "can_accept_tnc";
+
+  // OpenFGA Resource Types
+  public static final String RESOURCE_TYPE_TENANT = "tenant";
+  public static final String RESOURCE_TYPE_SYSTEM = "system";
+  public static final String RESOURCE_SYSTEM_PULSE = "pulse";
+
+  /**
+   * {@link io.vertx.rxjava3.ext.web.client.WebClient} stored in {@link
+   * org.dreamhorizon.pulseserver.vertx.SharedDataUtils} and bound in Guice with {@link
+   * com.google.inject.name.Named} for long-timeout outbound calls to Pulse AI (SSE / run_sse).
+   */
+  public static final String WEB_CLIENT_AI_PROXY = "aiProxy";
 }

@@ -40,5 +40,5 @@ public class InteractionDetails {
   private @NotNull String createdBy;
   private @NotNull Timestamp updatedAt;
   private @NotNull String updatedBy;
-  private @NotNull String tenantId;
+  private @NotNull String projectId;
 }

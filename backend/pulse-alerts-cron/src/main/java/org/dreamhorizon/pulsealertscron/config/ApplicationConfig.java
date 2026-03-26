@@ -12,4 +12,14 @@ import lombok.extern.slf4j.Slf4j;
 public class ApplicationConfig {
   private String pulseServerUrl;
   private long shutdownGracePeriod;
+  private String serviceJwtSecret;
+  
+  private String clickhouseHost;
+  private Integer clickhousePort;
+  private String clickhouseDatabase;
+  private String clickhouseUsername;
+  private String clickhousePassword;
+  
+  private String redisHost;
+  private Integer redisPort;
 }

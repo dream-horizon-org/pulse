@@ -1,0 +1,23 @@
+package org.dreamhorizon.pulseserver.service.notification.models;
+
+import java.time.Instant;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ChannelEventMapping {
+  private Long id;
+  private String projectId;
+  private Long channelId;
+  private String eventName;
+  private String recipient;
+  private String recipientName;
+  private Boolean isActive;
+  private Instant createdAt;
+  private Instant updatedAt;
+}

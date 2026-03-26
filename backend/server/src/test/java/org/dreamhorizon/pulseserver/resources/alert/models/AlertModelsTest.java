@@ -1408,7 +1408,7 @@ class AlertModelsTest {
       assertEquals(1, dto.getId());
       assertEquals(300, dto.getInterval());
       assertEquals("http://localhost/api", dto.getUrl());
-      assertEquals("tenant1", dto.getTenantId());
+      assertEquals("tenant1", dto.getProjectId());
     }
 
     @Test
@@ -1418,12 +1418,12 @@ class AlertModelsTest {
       dto.setId(2);
       dto.setInterval(600);
       dto.setUrl("http://new.url/api");
-      dto.setTenantId("tenant2");
+      dto.setProjectId("tenant2");
 
       assertEquals(2, dto.getId());
       assertEquals(600, dto.getInterval());
       assertEquals("http://new.url/api", dto.getUrl());
-      assertEquals("tenant2", dto.getTenantId());
+      assertEquals("tenant2", dto.getProjectId());
     }
 
     @Test
@@ -1504,7 +1504,7 @@ class AlertModelsTest {
       UpdateCronDto dto = new UpdateCronDto(1, "tenant1", 600, 300, "http://localhost/api");
 
       assertEquals(1, dto.getId());
-      assertEquals("tenant1", dto.getTenantId());
+      assertEquals("tenant1", dto.getProjectId());
       assertEquals(600, dto.getNewInterval());
       assertEquals(300, dto.getOldInterval());
       assertEquals("http://localhost/api", dto.getUrl());
@@ -1515,13 +1515,13 @@ class AlertModelsTest {
       UpdateCronDto dto = new UpdateCronDto();
 
       dto.setId(2);
-      dto.setTenantId("tenant2");
+      dto.setProjectId("tenant2");
       dto.setNewInterval(900);
       dto.setOldInterval(600);
       dto.setUrl("http://new.url/api");
 
       assertEquals(2, dto.getId());
-      assertEquals("tenant2", dto.getTenantId());
+      assertEquals("tenant2", dto.getProjectId());
       assertEquals(900, dto.getNewInterval());
       assertEquals(600, dto.getOldInterval());
       assertEquals("http://new.url/api", dto.getUrl());

@@ -1,0 +1,121 @@
+.container {
+  padding: var(--mantine-spacing-lg);
+  width: 100%;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  min-height: 100vh;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-xl);
+}
+
+.titleSection {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+}
+
+.pageTitle {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--mantine-color-dark-8);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.totalBadge {
+  font-weight: 600;
+}
+
+.raiseButton {
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.25);
+  transition: all 0.2s ease;
+}
+
+.raiseButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.35);
+}
+
+.tableContainer {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.06);
+  overflow: hidden;
+}
+
+.clickableRow {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.clickableRow:hover {
+  background-color: rgba(14, 201, 194, 0.06) !important;
+}
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 280px);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  text-align: center;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 16px;
+  border: 2px dashed rgba(14, 201, 194, 0.2);
+  min-height: 300px;
+}
+
+.emptyStateIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.emptyStateTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-7);
+  margin-bottom: 8px;
+}
+
+.emptyStateDescription {
+  font-size: 14px;
+  color: var(--mantine-color-gray-6);
+  max-width: 360px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: var(--mantine-spacing-md);
+  }
+
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--mantine-spacing-md);
+  }
+
+  .pageTitle {
+    font-size: 22px;
+  }
+}

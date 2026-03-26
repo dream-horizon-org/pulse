@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.dao.athena;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,11 +15,11 @@ import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
-import org.dreamhorizon.pulseserver.tenant.Tenant;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -61,9 +62,7 @@ class AthenaJobDaoTest {
     when(mysqlClient.getWriterPool()).thenReturn(writerPool);
     when(mysqlClient.getReaderPool()).thenReturn(readerPool);
     athenaJobDao = new AthenaJobDao(mysqlClient);
-    TenantContext.setTenant(Tenant.builder()
-        .tenantId("test")
-        .build());
+    ProjectContext.setProjectId("test-project");
   }
 
   @Nested
@@ -71,12 +70,13 @@ class AthenaJobDaoTest {
 
     @Test
     void shouldCreateJobSuccessfully() {
+      String projectId = "test-project";
       String queryString = "SELECT * FROM table";
       String userEmail = "test@example.com";
       when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      String jobId = athenaJobDao.createJob(TenantContext.requireTenantId(), queryString, userEmail).blockingGet();
+      String jobId = athenaJobDao.createJob(projectId, queryString, userEmail).blockingGet();
 
       assertThat(jobId).isNotNull();
       assertThat(jobId).isNotEmpty();
@@ -89,7 +89,7 @@ class AthenaJobDaoTest {
       verify(preparedQuery).rxExecute(tupleCaptor.capture());
       Tuple capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getString(0)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(1)).isEqualTo(TenantContext.requireTenantId());
+      assertThat(capturedTuple.getString(1)).isEqualTo(projectId);
       assertThat(capturedTuple.getString(2)).isEqualTo(queryString);
       assertThat(capturedTuple.getString(3)).isEqualTo(userEmail);
     }
@@ -102,7 +102,7 @@ class AthenaJobDaoTest {
       RuntimeException error = new RuntimeException("Database error");
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(error));
 
-      var testObserver = athenaJobDao.createJob(TenantContext.requireTenantId(), queryString, userEmail).test();
+      var testObserver = athenaJobDao.createJob("test-project", queryString, userEmail).test();
       testObserver.assertError(Throwable.class);
     }
   }
@@ -232,15 +232,14 @@ class AthenaJobDaoTest {
     }
 
     @Test
-    void shouldReturnErrorWhenJobNotFound() {
+    void shouldThrowWhenJobNotFound() {
       String jobId = "job-123";
 
       when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(0);
 
-      var testObserver = athenaJobDao.getJobById(jobId).test();
-      testObserver.assertError(Throwable.class);
+      assertThrows(RuntimeException.class, () -> athenaJobDao.getJobById(jobId).blockingGet());
     }
 
     @Test
@@ -284,6 +283,224 @@ class AthenaJobDaoTest {
       var testObserver = athenaJobDao.getJobById(jobId).test();
       testObserver.assertError(Throwable.class);
     }
+
+    @Test
+    void shouldMapRowWithNullTimestampsAndLongValues() {
+      String jobId = "job-123";
+      LocalDateTime now = LocalDateTime.now();
+
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(rowIterator);
+      when(rowIterator.hasNext()).thenReturn(true, false);
+      when(rowIterator.next()).thenReturn(row);
+
+      when(row.getString("job_id")).thenReturn(jobId);
+      when(row.getString("project_id")).thenReturn("test-project");
+      when(row.getString("query_string")).thenReturn("SELECT 1");
+      when(row.getString("user_email")).thenReturn("user@test.com");
+      when(row.getString("query_execution_id")).thenReturn("exec-1");
+      when(row.getString("status")).thenReturn("COMPLETED");
+      when(row.getString("result_location")).thenReturn("s3://bucket/");
+      when(row.getString("error_message")).thenReturn(null);
+      when(row.getLocalDateTime("created_at")).thenReturn(now);
+      when(row.getLocalDateTime("updated_at")).thenReturn(now);
+      when(row.getLocalDateTime("completed_at")).thenReturn(null);
+      when(row.getLong("data_scanned_in_bytes")).thenThrow(new RuntimeException("not a long"));
+      when(row.getLong("execution_time_millis")).thenThrow(new RuntimeException("not a long"));
+
+      AthenaJob job = athenaJobDao.getJobById(jobId).blockingGet();
+
+      assertThat(job).isNotNull();
+      assertThat(job.getDataScannedInBytes()).isNull();
+      assertThat(job.getExecutionTimeMillis()).isNull();
+      assertThat(job.getCompletedAt()).isNull();
+    }
+  }
+
+  @Nested
+  class TestUpdateJobStatistics {
+
+    @Test
+    void shouldUpdateJobStatisticsSuccessfully() {
+      String jobId = "job-123";
+      Long dataScanned = 1024L;
+      Long executionTime = 500L;
+      Long engineTime = 400L;
+      Long queueTime = 100L;
+      Timestamp updatedAt = new Timestamp(System.currentTimeMillis());
+
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = athenaJobDao.updateJobStatistics(
+          jobId, dataScanned, executionTime, engineTime, queueTime, updatedAt).blockingGet();
+
+      assertThat(result).isTrue();
+
+      ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
+      verify(preparedQuery).rxExecute(tupleCaptor.capture());
+      Tuple captured = tupleCaptor.getValue();
+      assertThat(captured.getLong(0)).isEqualTo(dataScanned);
+      assertThat(captured.getLong(1)).isEqualTo(executionTime);
+      assertThat(captured.getString(5)).isEqualTo(jobId);
+    }
+
+    @Test
+    void shouldUseCurrentTimeWhenUpdatedAtIsNull() {
+      String jobId = "job-123";
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = athenaJobDao.updateJobStatistics(
+          jobId, 100L, 200L, 150L, 50L, null).blockingGet();
+
+      assertThat(result).isTrue();
+      ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
+      verify(preparedQuery).rxExecute(tupleCaptor.capture());
+      assertThat(tupleCaptor.getValue().getValue(4)).isNotNull();
+    }
+  }
+
+  @Nested
+  class TestUpdateJobWithNullSubmissionDateTime {
+
+    @Test
+    void shouldUseCurrentTimeWhenSubmissionDateTimeIsNull() {
+      String jobId = "job-123";
+      String queryExecutionId = "exec-123";
+      AthenaJobStatus status = AthenaJobStatus.RUNNING;
+
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = athenaJobDao.updateJobWithExecutionId(
+          jobId, queryExecutionId, status, null).blockingGet();
+
+      assertThat(result).isTrue();
+      ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
+      verify(preparedQuery).rxExecute(tupleCaptor.capture());
+      Tuple captured = tupleCaptor.getValue();
+      assertThat(captured.getValue(2)).isNull();
+      assertThat(captured.getValue(3)).isNotNull();
+    }
+  }
+
+  @Nested
+  class TestUpdateJobStatusWithNull {
+
+    @Test
+    void shouldUseCurrentTimeWhenUpdatedAtIsNull() {
+      String jobId = "job-123";
+      AthenaJobStatus status = AthenaJobStatus.FAILED;
+
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = athenaJobDao.updateJobStatus(jobId, status, null).blockingGet();
+
+      assertThat(result).isTrue();
+    }
+  }
+
+  @Nested
+  class TestUpdateJobCompletedWithNull {
+
+    @Test
+    void shouldUseCurrentTimeWhenCompletionDateTimeIsNull() {
+      String jobId = "job-123";
+      String resultLocation = "s3://bucket/result";
+
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = athenaJobDao.updateJobCompleted(jobId, resultLocation, null).blockingGet();
+
+      assertThat(result).isTrue();
+    }
+  }
+
+  @Nested
+  class TestUpdateJobFailedWithNull {
+
+    @Test
+    void shouldUseCurrentTimeWhenCompletionDateTimeIsNull() {
+      String jobId = "job-123";
+      String errorMessage = "Query failed";
+
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Boolean result = athenaJobDao.updateJobFailed(jobId, errorMessage, null).blockingGet();
+
+      assertThat(result).isTrue();
+    }
+  }
+
+  @Nested
+  class TestGetQueryHistory {
+
+    @Test
+    void shouldGetQueryHistorySuccessfully() {
+      String userEmail = "user@test.com";
+      Integer limit = 10;
+      Integer offset = 0;
+      LocalDateTime now = LocalDateTime.now();
+
+      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(rowIterator);
+      when(rowIterator.hasNext()).thenReturn(true, false);
+      when(rowIterator.next()).thenReturn(row);
+
+      when(row.getString("job_id")).thenReturn("job-1");
+      when(row.getString("project_id")).thenReturn("test-project");
+      when(row.getString("query_string")).thenReturn("SELECT * FROM t");
+      when(row.getString("user_email")).thenReturn(userEmail);
+      when(row.getString("query_execution_id")).thenReturn("exec-1");
+      when(row.getString("status")).thenReturn("COMPLETED");
+      when(row.getString("result_location")).thenReturn(null);
+      when(row.getString("error_message")).thenReturn(null);
+      when(row.getLocalDateTime("created_at")).thenReturn(now);
+      when(row.getLocalDateTime("updated_at")).thenReturn(now);
+      when(row.getLocalDateTime("completed_at")).thenReturn(now);
+
+      List<AthenaJob> jobs = athenaJobDao.getQueryHistory(userEmail, limit, offset).blockingGet();
+
+      assertThat(jobs).hasSize(1);
+      assertThat(jobs.get(0).getJobId()).isEqualTo("job-1");
+      assertThat(jobs.get(0).getQueryString()).isEqualTo("SELECT * FROM t");
+
+      ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
+      verify(preparedQuery).rxExecute(tupleCaptor.capture());
+      assertThat(tupleCaptor.getValue().getString(0)).isEqualTo("test-project");
+      assertThat(tupleCaptor.getValue().getString(1)).isEqualTo(userEmail);
+    }
+  }
+
+  @Nested
+  class TestGetQueriesForStatistics {
+
+    @Test
+    void shouldGetQueriesForStatisticsSuccessfully() {
+      String userEmail = "user@test.com";
+      LocalDateTime start = LocalDateTime.now().minusDays(7);
+      LocalDateTime end = LocalDateTime.now();
+
+      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+      when(rowSet.iterator()).thenReturn(rowIterator);
+      when(rowIterator.hasNext()).thenReturn(false);
+
+      List<AthenaJob> jobs = athenaJobDao.getQueriesForStatistics(userEmail, start, end).blockingGet();
+
+      assertThat(jobs).isEmpty();
+
+      ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
+      verify(preparedQuery).rxExecute(tupleCaptor.capture());
+      assertThat(tupleCaptor.getValue().getString(0)).isEqualTo("test-project");
+    }
   }
 }
-

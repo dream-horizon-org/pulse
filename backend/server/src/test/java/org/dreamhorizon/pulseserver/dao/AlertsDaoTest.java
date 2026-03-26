@@ -55,6 +55,7 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.Metric;
 import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 import org.junit.jupiter.api.AfterEach;
@@ -103,12 +104,14 @@ class AlertsDaoTest {
   @BeforeEach
   public void setup() {
     TenantContext.setTenantId("test-tenant");
+    ProjectContext.setProjectId("test-project");
     alertsDao = new AlertsDao(d11MysqlClient, dateTimeUtil);
   }
 
   @AfterEach
   public void tearDown() {
     TenantContext.clear();
+    ProjectContext.clear();
   }
 
   private void setupWriterPool() {
@@ -409,6 +412,101 @@ class AlertsDaoTest {
       Exception ex = assertThrows(WebApplicationException.class,
           () -> alertsDao.getAlertDetails(999).blockingGet());
       assertEquals("Alert not found", ex.getMessage());
+    }
+
+    @Test
+    void shouldComputeErroredStatusFromScopes() {
+      setupWriterPool();
+      Row alertRow = createMockAlertRow();
+      Row scopeRow = mock(Row.class);
+      JsonArray conditions = new JsonArray()
+          .add(new JsonObject()
+              .put("alias", "A")
+              .put("metric", "APDEX")
+              .put("metric_operator", "GREATER_THAN")
+              .put("threshold", 0.5));
+      when(scopeRow.getInteger("id")).thenReturn(1);
+      when(scopeRow.getString("name")).thenReturn("scope1");
+      when(scopeRow.getValue("conditions")).thenReturn(conditions);
+      when(scopeRow.getString("state")).thenReturn("ERRORED");
+      when(scopeRow.getLocalDateTime("created_at")).thenReturn(LocalDateTime.now());
+      when(scopeRow.getLocalDateTime("updated_at")).thenReturn(LocalDateTime.now());
+
+      RowSet<Row> alertRowSet = mock(RowSet.class);
+      RowSet<Row> scopeRowSet = mock(RowSet.class);
+      RowIterator<Row> alertIterator = createMockRowIterator(Arrays.asList(alertRow));
+      RowIterator<Row> scopeIterator = createMockRowIterator(Arrays.asList(scopeRow));
+      when(alertRowSet.size()).thenReturn(1);
+      when(alertRowSet.iterator()).thenReturn(alertIterator);
+      when(scopeRowSet.iterator()).thenReturn(scopeIterator);
+
+      PreparedQuery<RowSet<Row>> alertPq = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> scopePq = mock(PreparedQuery.class);
+      when(writerPool.preparedQuery(anyString())).thenReturn(alertPq).thenReturn(scopePq);
+      when(alertPq.rxExecute(any(Tuple.class))).thenReturn(Single.just(alertRowSet));
+      when(scopePq.rxExecute(any(Tuple.class))).thenReturn(Single.just(scopeRowSet));
+
+      Alert result = alertsDao.getAlertDetails(1).blockingGet();
+      assertNotNull(result);
+      assertEquals(AlertState.NORMAL, result.getStatus()); // ERRORED is not FIRING or NO_DATA, so NORMAL
+    }
+
+    @Test
+    void shouldHandleUnknownScopeState() {
+      setupWriterPool();
+      Row alertRow = createMockAlertRow();
+      Row scopeRow = mock(Row.class);
+      JsonArray conditions = new JsonArray()
+          .add(new JsonObject()
+              .put("alias", "A")
+              .put("metric", "APDEX")
+              .put("metric_operator", "GREATER_THAN")
+              .put("threshold", 0.5));
+      when(scopeRow.getInteger("id")).thenReturn(1);
+      when(scopeRow.getString("name")).thenReturn("scope1");
+      when(scopeRow.getValue("conditions")).thenReturn(conditions);
+      when(scopeRow.getString("state")).thenReturn("INVALID_STATE");
+      when(scopeRow.getLocalDateTime("created_at")).thenReturn(LocalDateTime.now());
+      when(scopeRow.getLocalDateTime("updated_at")).thenReturn(LocalDateTime.now());
+
+      RowSet<Row> alertRowSet = mock(RowSet.class);
+      RowSet<Row> scopeRowSet = mock(RowSet.class);
+      RowIterator<Row> alertIterator = createMockRowIterator(Arrays.asList(alertRow));
+      RowIterator<Row> scopeIterator = createMockRowIterator(Arrays.asList(scopeRow));
+      when(alertRowSet.size()).thenReturn(1);
+      when(alertRowSet.iterator()).thenReturn(alertIterator);
+      when(scopeRowSet.iterator()).thenReturn(scopeIterator);
+
+      PreparedQuery<RowSet<Row>> alertPq = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> scopePq = mock(PreparedQuery.class);
+      when(writerPool.preparedQuery(anyString())).thenReturn(alertPq).thenReturn(scopePq);
+      when(alertPq.rxExecute(any(Tuple.class))).thenReturn(Single.just(alertRowSet));
+      when(scopePq.rxExecute(any(Tuple.class))).thenReturn(Single.just(scopeRowSet));
+
+      Alert result = alertsDao.getAlertDetails(1).blockingGet();
+      assertNotNull(result);
+      assertEquals(AlertState.NORMAL, result.getStatus());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenFetchScopesFails() {
+      setupWriterPool();
+      Row alertRow = createMockAlertRow();
+      RowSet<Row> alertRowSet = mock(RowSet.class);
+      RowIterator<Row> alertIterator = createMockRowIterator(Arrays.asList(alertRow));
+      when(alertRowSet.size()).thenReturn(1);
+      when(alertRowSet.iterator()).thenReturn(alertIterator);
+
+      PreparedQuery<RowSet<Row>> alertPq = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> scopePq = mock(PreparedQuery.class);
+      when(writerPool.preparedQuery(anyString())).thenReturn(alertPq).thenReturn(scopePq);
+      when(alertPq.rxExecute(any(Tuple.class))).thenReturn(Single.just(alertRowSet));
+      when(scopePq.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new MySQLException("Scope fetch failed", 500, "SQLSTATE")));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> alertsDao.getAlertDetails(1).blockingGet());
+      assertTrue(ex.getMessage().contains("Scope fetch failed"));
     }
 
     @Test
@@ -768,6 +866,55 @@ class AlertsDaoTest {
       Exception ex = assertThrows(RuntimeException.class,
           () -> alertsDao.deleteNotificationChannel(1).blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
+    }
+  }
+
+  @Nested
+  class TestGetNotificationChannelDetailsById {
+
+    @Test
+    void shouldGetChannelDetailsSuccessfully() {
+      setupPreparedQuery();
+
+      Row channelRow = mock(Row.class);
+      when(channelRow.getInteger("notification_channel_id")).thenReturn(1);
+      when(channelRow.getString("name")).thenReturn("Slack Channel");
+      when(channelRow.getString("type")).thenReturn("slack");
+      when(channelRow.getString("config")).thenReturn("https://webhook.url");
+      when(channelRow.getBoolean("is_active")).thenReturn(true);
+
+      setupRowSetMock(rowSet, Arrays.asList(channelRow));
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto result =
+          alertsDao.getNotificationChannelDetailsById(1).blockingGet();
+
+      assertNotNull(result);
+      assertEquals(1, result.getNotificationChannelId());
+      assertEquals("Slack Channel", result.getName());
+      assertEquals("slack", result.getType());
+    }
+
+    @Test
+    void shouldReturnEmptyWhenChannelDetailsNotFound() {
+      setupPreparedQuery();
+      when(rowSet.size()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto result =
+          alertsDao.getNotificationChannelDetailsById(999).blockingGet();
+
+      assertNull(result);
+    }
+
+    @Test
+    void shouldThrowExceptionOnDatabaseErrorForChannelDetails() {
+      setupPreparedQuery();
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
+
+      assertThrows(RuntimeException.class,
+          () -> alertsDao.getNotificationChannelDetailsById(1).blockingGet());
     }
   }
 
@@ -1182,6 +1329,75 @@ class AlertsDaoTest {
           () -> alertsDao.getAlertDetailsForEvaluation(1).blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
     }
+
+    @Test
+    void shouldHandleJsonObjectDimensionFilter() {
+      setupPreparedQuery();
+
+      Row detailRow = mock(Row.class);
+      JsonObject dimensionFilter = new JsonObject().put("os", "Android");
+      when(detailRow.getInteger("id")).thenReturn(1);
+      when(detailRow.getString("name")).thenReturn("Test Alert");
+      when(detailRow.getString("description")).thenReturn("Description");
+      when(detailRow.getString("scope")).thenReturn("Interaction");
+      when(detailRow.getValue("dimension_filter")).thenReturn(dimensionFilter);
+      when(detailRow.getString("condition_expression")).thenReturn("A > 100");
+      when(detailRow.getInteger("severity_id")).thenReturn(1);
+      when(detailRow.getInteger("notification_channel_id")).thenReturn(1);
+      when(detailRow.getInteger("evaluation_period")).thenReturn(300);
+      when(detailRow.getInteger("evaluation_interval")).thenReturn(60);
+      when(detailRow.getString("created_by")).thenReturn("user1");
+      when(detailRow.getString("updated_by")).thenReturn("user2");
+      when(detailRow.getBoolean("is_active")).thenReturn(true);
+      when(detailRow.getLocalDateTime("snoozed_from")).thenReturn(null);
+      when(detailRow.getLocalDateTime("snoozed_until")).thenReturn(null);
+      when(detailRow.getString("project_id")).thenReturn("proj-1");
+
+      RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(detailRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      AlertsDao.AlertDetails result = alertsDao.getAlertDetailsForEvaluation(1).blockingGet();
+
+      assertNotNull(result);
+      assertNotNull(result.getDimensionFilter());
+      assertTrue(result.getDimensionFilter().contains("os"));
+    }
+
+    @Test
+    void shouldHandleJsonArrayDimensionFilter() {
+      setupPreparedQuery();
+
+      Row detailRow = mock(Row.class);
+      JsonArray dimensionFilter = new JsonArray().add(new JsonObject().put("key", "val"));
+      when(detailRow.getInteger("id")).thenReturn(1);
+      when(detailRow.getString("name")).thenReturn("Test Alert");
+      when(detailRow.getString("description")).thenReturn("Description");
+      when(detailRow.getString("scope")).thenReturn("Interaction");
+      when(detailRow.getValue("dimension_filter")).thenReturn(dimensionFilter);
+      when(detailRow.getString("condition_expression")).thenReturn("A > 100");
+      when(detailRow.getInteger("severity_id")).thenReturn(1);
+      when(detailRow.getInteger("notification_channel_id")).thenReturn(1);
+      when(detailRow.getInteger("evaluation_period")).thenReturn(300);
+      when(detailRow.getInteger("evaluation_interval")).thenReturn(60);
+      when(detailRow.getString("created_by")).thenReturn("user1");
+      when(detailRow.getString("updated_by")).thenReturn("user2");
+      when(detailRow.getBoolean("is_active")).thenReturn(true);
+      when(detailRow.getLocalDateTime("snoozed_from")).thenReturn(null);
+      when(detailRow.getLocalDateTime("snoozed_until")).thenReturn(null);
+      when(detailRow.getString("project_id")).thenReturn("proj-1");
+
+      RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(detailRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      AlertsDao.AlertDetails result = alertsDao.getAlertDetailsForEvaluation(1).blockingGet();
+
+      assertNotNull(result);
+      assertNotNull(result.getDimensionFilter());
+    }
   }
 
   @Nested
@@ -1208,6 +1424,35 @@ class AlertsDaoTest {
       assertNotNull(result);
       assertEquals(1, result.size());
       assertEquals("scope1", result.get(0).getName());
+    }
+
+    @Test
+    void shouldHandleJsonArrayConditionsInScopes() {
+      setupPreparedQuery();
+
+      Row scopeRow = mock(Row.class);
+      JsonArray conditions = new JsonArray()
+          .add(new JsonObject()
+              .put("alias", "A")
+              .put("metric", "APDEX")
+              .put("metric_operator", "GREATER_THAN")
+              .put("threshold", 0.5));
+      when(scopeRow.getInteger("id")).thenReturn(1);
+      when(scopeRow.getInteger("alert_id")).thenReturn(1);
+      when(scopeRow.getString("name")).thenReturn("scope1");
+      when(scopeRow.getValue("conditions")).thenReturn(conditions);
+      when(scopeRow.getString("state")).thenReturn("NORMAL");
+
+      RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(scopeRow));
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      List<AlertsDao.AlertScopeDetails> result = alertsDao.getAlertScopesForEvaluation(1).blockingGet();
+
+      assertNotNull(result);
+      assertEquals(1, result.size());
+      assertNotNull(result.get(0).getConditions());
+      assertTrue(result.get(0).getConditions().contains("APDEX"));
     }
 
     @Test
@@ -1425,6 +1670,31 @@ class AlertsDaoTest {
     }
 
     @Test
+    void shouldHandleJsonObjectEvaluationResult() {
+      setupPreparedQuery();
+
+      Row historyRow = mock(Row.class);
+      JsonObject evaluationResult = new JsonObject().put("error_rate", 0.5).put("latency", 100);
+      when(historyRow.getInteger("scope_id")).thenReturn(1);
+      when(historyRow.getString("scope_name")).thenReturn("scope1");
+      when(historyRow.getInteger("evaluation_id")).thenReturn(1);
+      when(historyRow.getValue("evaluation_result")).thenReturn(evaluationResult);
+      when(historyRow.getString("state")).thenReturn("NORMAL");
+      when(historyRow.getLocalDateTime("evaluated_at")).thenReturn(LocalDateTime.now());
+
+      RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(historyRow));
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      List<ScopeEvaluationHistoryDto> result = alertsDao.getEvaluationHistoryByAlert(1).blockingGet();
+
+      assertNotNull(result);
+      assertEquals(1, result.size());
+      assertNotNull(result.get(0).getEvaluationHistory().get(0).getEvaluationResult());
+      assertTrue(result.get(0).getEvaluationHistory().get(0).getEvaluationResult().contains("error_rate"));
+    }
+
+    @Test
     void shouldGroupHistoryByScopeId() {
       setupPreparedQuery();
 
@@ -1580,6 +1850,55 @@ class AlertsDaoTest {
       Exception ex = assertThrows(RuntimeException.class,
           () -> alertsDao.createAlert(request).blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenScopeInsertReturnsNoRows() {
+      Map<String, Float> threshold = new HashMap<>();
+      threshold.put("scope1", 0.5f);
+
+      AlertCondition condition = AlertCondition.builder()
+          .alias("A")
+          .metric(Metric.APDEX)
+          .metricOperator(MetricOperator.GREATER_THAN)
+          .threshold(threshold)
+          .build();
+
+      CreateAlertRequest request = CreateAlertRequest.builder()
+          .name("Test Alert")
+          .description("Test Description")
+          .scope(AlertScope.interaction)
+          .dimensionFilters("{}")
+          .conditionExpression("A > 100")
+          .severity(1)
+          .notificationChannelId(1)
+          .evaluationPeriod(300)
+          .evaluationInterval(60)
+          .createdBy("user1")
+          .alerts(Arrays.asList(condition))
+          .build();
+
+      setupWriterPool();
+      when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.rxBegin()).thenReturn(Single.just(transaction));
+
+      RowSet<Row> alertRowSet = mock(RowSet.class);
+      when(alertRowSet.rowCount()).thenReturn(1);
+      when(alertRowSet.property(MySQLClient.LAST_INSERTED_ID)).thenReturn(1L);
+
+      RowSet<Row> scopeRowSet = mock(RowSet.class);
+      when(scopeRowSet.rowCount()).thenReturn(0);
+
+      PreparedQuery<RowSet<Row>> alertPq = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> scopePq = mock(PreparedQuery.class);
+      when(sqlConnection.preparedQuery(anyString())).thenReturn(alertPq).thenReturn(scopePq);
+      when(alertPq.rxExecute(any(Tuple.class))).thenReturn(Single.just(alertRowSet));
+      when(scopePq.rxExecute(any(Tuple.class))).thenReturn(Single.just(scopeRowSet));
+      when(transaction.rxRollback()).thenReturn(Completable.complete());
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> alertsDao.createAlert(request).blockingGet());
+      assertTrue(ex.getMessage().contains("Failed to insert alert scope"));
     }
   }
 

@@ -18,6 +18,9 @@ internal class ReactNativeScreenAttributesLogRecordProcessor: LogRecordProcessor
         if let screenName = ReactNativeScreenNameTracker.getCurrentScreenName() {
             enhancedRecord.setAttribute(key: PulseAttributes.screenName, value: AttributeValue.string(screenName))
         }
+        if let previousScreenName = ReactNativeScreenNameTracker.getPreviousScreenName() {
+            enhancedRecord.setAttribute(key: PulseAttributes.lastScreenName, value: AttributeValue.string(previousScreenName))
+        }
         nextProcessor.onEmit(logRecord: enhancedRecord)
     }
     

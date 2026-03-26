@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
@@ -20,33 +19,41 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 @Slf4j
 public class MysqlSymbolFileService extends SymbolFileService {
   private final MysqlClient d11MysqlClient;
-
-  @SneakyThrows
-  public static Buffer toBuffer(InputStream in) {
-    return Buffer.buffer(in.readAllBytes());
-  }
+  private final S3SymbolFileService s3SymbolFileService;
 
   @Override
   public Single<Boolean> uploadFile(String fileName, InputStream fileInputStream, UploadMetadata metadata) {
-    final String sql =
-        "INSERT INTO symbol_files "
-            + "  (app_version, app_version_code, platform, framework, file_content, bundleid, project_id) "
-            + "VALUES (?,?,?,?,?,?,?) "
-            + "ON DUPLICATE KEY UPDATE file_content = VALUES(file_content), bundleid = VALUES(bundleid)";
+    return s3SymbolFileService.uploadFile(metadata, fileInputStream)
+        .flatMap(s3Key -> {
+          final String sql =
+              "INSERT INTO symbol_files "
+                  + "  (app_version, app_version_code, platform, framework, s3_key, bundleid, project_id) "
+                  + "VALUES (?,?,?,?,?,?,?) "
+                  + "ON DUPLICATE KEY UPDATE s3_key = VALUES(s3_key), bundleid = VALUES(bundleid)";
 
-    return d11MysqlClient.getWriterPool()
-        .preparedQuery(sql)
-        .execute(Tuple.wrap(Arrays.asList(metadata.getAppVersion(),
-            metadata.getVersionCode(),
-            metadata.getPlatform(),
-            metadata.getType(),
-            toBuffer(fileInputStream),
-            metadata.getBundleId(),
-            metadata.getProjectId())))
-        .map(rows -> true)
-        .onErrorResumeNext(err -> {
-          log.error("Exception while uploading mapping file for {}: {}", metadata.toString(), err.getMessage());
-          return Single.just(false);
+          return d11MysqlClient.getWriterPool()
+              .preparedQuery(sql)
+              .execute(Tuple.wrap(Arrays.asList(
+                  metadata.getAppVersion(),
+                  metadata.getVersionCode(),
+                  metadata.getPlatform(),
+                  metadata.getType(),
+                  s3Key,
+                  metadata.getBundleId(),
+                  metadata.getProjectId())))
+              .map(rows -> {
+                log.info("Symbol file uploaded successfully: metadata={}, s3Key={}", metadata, s3Key);
+                return true;
+              })
+              .onErrorResumeNext(dbError -> {
+                log.error("Database insert failed: projectId={}, framework={}, platform={}, error={}",
+                    metadata.getProjectId(), metadata.getType(), metadata.getPlatform(), dbError.getMessage(), dbError);
+                return Single.error(new RuntimeException("Database insert failed: " + dbError.getMessage(), dbError));
+              });
+        })
+        .onErrorResumeNext(s3Error -> {
+          log.error("S3 upload failed: fileName={}, error={}", fileName, s3Error.getMessage(), s3Error);
+          return Single.error(new RuntimeException("S3 upload failed: " + s3Error.getMessage(), s3Error));
         });
   }
 
@@ -54,32 +61,48 @@ public class MysqlSymbolFileService extends SymbolFileService {
     log.info("Fetching symbol file from DATABASE for: {}", metadata);
 
     final String sql = """
-        SELECT file_content
+        SELECT s3_key
         FROM symbol_files
-        WHERE app_version=? AND app_version_code=? AND platform=? AND framework=? AND project_id=?
+        WHERE project_id=? AND app_version=? AND app_version_code=? AND platform=? AND framework=?
         LIMIT 1
         """;
 
     Tuple params = Tuple.of(
+        metadata.getProjectId(),
         metadata.getAppVersion(),
         metadata.getVersionCode(),
         metadata.getPlatform(),
-        metadata.getType(),
-        metadata.getProjectId()
+        metadata.getType()
     );
 
     return d11MysqlClient.getReaderPool()
         .preparedQuery(sql)
         .execute(params)
-        .map((RowSet<Row> rows) -> {
+        .flatMap((RowSet<Row> rows) -> {
           var it = rows.iterator();
           if (!it.hasNext()) {
-            log.warn("No symbol file found in database for: {}", metadata);
-            throw new NoSuchElementException("No symbol file found for: " + metadata);
+            log.warn("Symbol file not found: projectId={}, appVersion={}, versionCode={}, platform={}, framework={}",
+                metadata.getProjectId(), metadata.getAppVersion(), metadata.getVersionCode(),
+                metadata.getPlatform(), metadata.getType());
+            return Single.error(new NoSuchElementException("No symbol file found for: " + metadata));
           }
+          
           Row row = it.next();
-          log.info("Successfully fetched symbol file from DATABASE for: {}", metadata);
-          return row.getBuffer(0);
+          String s3Key = row.getString(0); // s3_key column
+          
+          if (s3Key == null || s3Key.trim().isEmpty()) {
+            log.error("S3 key is null or empty: metadata={}", metadata);
+            return Single.error(new NoSuchElementException("S3 key not found for: " + metadata));
+          }
+          
+          // Download file from S3
+          return s3SymbolFileService.downloadFileAsBytes(s3Key)
+              .map(Buffer::buffer)
+              .onErrorResumeNext(error -> {
+                log.error("S3 download failed: s3Key={}, projectId={}, error={}",
+                    s3Key, metadata.getProjectId(), error.getMessage(), error);
+                return Single.error(error);
+              });
         });
   }
 

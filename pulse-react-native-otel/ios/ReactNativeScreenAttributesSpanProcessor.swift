@@ -14,6 +14,9 @@ internal class ReactNativeScreenAttributesSpanProcessor: SpanProcessor {
         if let screenName = ReactNativeScreenNameTracker.getCurrentScreenName() {
             span.setAttribute(key: PulseAttributes.screenName, value: AttributeValue.string(screenName))
         }
+        if let previousScreenName = ReactNativeScreenNameTracker.getPreviousScreenName() {
+            span.setAttribute(key: PulseAttributes.lastScreenName, value: AttributeValue.string(previousScreenName))
+        }
     }
     
     func onEnd(span: any OpenTelemetrySdk.ReadableSpan) {

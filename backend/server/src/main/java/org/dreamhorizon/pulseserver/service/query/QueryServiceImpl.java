@@ -19,12 +19,12 @@ import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
 import org.dreamhorizon.pulseserver.service.query.models.ColumnMetadata;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.dreamhorizon.pulseserver.service.query.models.TableMetadata;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
 
 @Slf4j
@@ -41,16 +41,15 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
     }
 
-    String tenantId = TenantContext.requireTenantId();
-    String queryWithProjectId = appendProjectId(queryString, tenantId);
+    String projectId = ProjectContext.requireProjectId();
 
-    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId, tenantId);
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryString, projectId);
     if (!validationResult.isValid()) {
       return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
 
-    return queryJobDao.createJob(tenantId, queryWithProjectId, userEmail.trim())
-        .flatMap(jobId -> queryClient.submitQuery(queryWithProjectId)
+    return queryJobDao.createJob(projectId, queryString, userEmail.trim())
+        .flatMap(jobId -> queryClient.submitQuery(queryString)
             .flatMap(queryExecutionId -> queryClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
                   Long initialDataScannedBytes = execution.getDataScannedInBytes();
@@ -70,21 +69,6 @@ public class QueryServiceImpl implements QueryService {
               return queryJobDao.updateJobFailed(jobId, "Failed to submit query: " + error.getMessage(), null)
                   .flatMap(v -> Single.error(error));
             }));
-  }
-
-  private String appendProjectId(String originalQuery, String projectId) {
-    String project = String.format("AND project_id = '%s'", projectId);
-
-    // 1. Trim whitespace
-    // 2. Remove one or more trailing semicolons using regex
-    // 3. Trim again to be safe
-    String cleanedBase = originalQuery.trim()
-        .replaceAll(";+$", "")
-        .trim();
-
-    // Return the joined query.
-    // We add a space to ensure the fragment doesn't touch the last word of the base.
-    return cleanedBase + " " + project.trim() + ";";
   }
 
   private Single<QueryJob> handleQueryState(String jobId, String queryExecutionId, QueryStatus status, Long initialDataScannedBytes) {
@@ -637,7 +621,7 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("Database name is not configured"));
     }
 
-    String projectId = TenantContext.requireTenantId();
+    String projectId = ProjectContext.getProjectId();
     String projectTable = "otel_data_" + projectId;
 
     String tablesQuery = String.format(

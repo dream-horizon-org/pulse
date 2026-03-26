@@ -5,12 +5,14 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Keep
-@Serializable
+@Serializable(with = PulseFeatureConfigSerializer::class)
 public class PulseFeatureConfig internal constructor(
     @SerialName("featureName")
-    public val featureName: PulseFeatureName,
+    public val featureName: PulseFeatureName = PulseFeatureName.UNKNOWN,
     @SerialName("sessionSampleRate")
-    public val sessionSampleRate: SamplingRate,
+    public val sessionSampleRate: SamplingRate = 1.0f,
     @SerialName("sdks")
-    public val sdks: Collection<PulseSdkName>,
+    public val sdks: Collection<PulseSdkName> = emptyList(),
+    @SerialName("config")
+    public val config: PulseFeatureConfigData? = null,
 )

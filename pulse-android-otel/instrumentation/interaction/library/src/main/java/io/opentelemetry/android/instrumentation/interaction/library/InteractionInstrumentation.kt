@@ -8,9 +8,9 @@ import com.pulse.android.core.InteractionRunningStatus
 import com.pulse.android.core.config.InteractionConfigFetcher
 import com.pulse.android.core.config.InteractionConfigRestFetcher
 import com.pulse.android.core.events
+import com.pulse.android.core.getTimeSpanInNanos
 import com.pulse.android.core.isErrored
 import com.pulse.android.core.markerEvents
-import com.pulse.android.core.timeSpanInNanos
 import com.pulse.utils.toAttributes
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.InstallationContext
@@ -126,9 +126,8 @@ class InteractionInstrumentation :
             interactionStatus: InteractionRunningStatus.OngoingMatch,
         ) {
             interactionStatus.interaction?.let { interaction ->
-                // TODO: Investigate why timeSpanInNanos can be null (empty events list)
-                // This safety check prevents crash but we need to understand root cause
-                val timeSpanInNano = interaction.timeSpanInNanos ?: return@let
+                // safety check for null there should not be any case like this
+                val timeSpanInNano = interaction.getTimeSpanInNanos(interactionStatus = interactionStatus) ?: return@let
                 val span =
                     tracer
                         .spanBuilder(interaction.name)
