@@ -80,10 +80,6 @@ public class StartupConfigValidator {
       errors.add(
           "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID is required in production environment");
     }
-    if (isBlank(emrServerlessConfig.getJobRoleArn())) {
-      errors.add(
-          "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_JOB_ROLE_ARN is required in production environment");
-    }
     if (isBlank(emrServerlessConfig.getExecutionRoleArn())) {
       errors.add(
           "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN is required in production environment");

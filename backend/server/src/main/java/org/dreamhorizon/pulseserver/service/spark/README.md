@@ -23,9 +23,10 @@
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `jobName` | `String` | Yes | Job name |
-| `mainClass` | `String` | Yes | Spark entry point class |
-| `arguments` | `List<String>` | No | Job arguments |
-| `sparkConfig` | `String` | No | Spark configuration |
+| `entryPoint` | `String` | Yes | Main artifact URI (e.g. `s3://bucket/app.jar` or PySpark script) — maps to EMR `SparkSubmit.entryPoint` |
+| `mainClass` | `String` | No | FQCN for Java/Scala; sent as `--class` in `sparkSubmitParameters`. Omit for PySpark if unused |
+| `arguments` | `List<String>` | No | Passed to EMR `entryPointArguments` |
+| `sparkSubmitParameters` | `String` | No | Additional `spark-submit` flags (`--conf`, `--jars`, etc.). Must **not** include `--class` (use `mainClass`) |
 | `timeoutMinutes` | `Long` | No | Execution timeout |
 | `tags` | `Map<String, String>` | No | Job tags |
 
@@ -37,7 +38,8 @@
 | `jobRunId` | `String` | EMR job run ID |
 | `arn` | `String` | Job run ARN |
 | `jobName` | `String` | Job name |
-| `mainClass` | `String` | Main class |
+| `entryPoint` | `String` | Echo of submitted main artifact URI |
+| `mainClass` | `String` | Echo of submitted main class, if any |
 | `submittedAt` | `LocalDateTime` | Submission time |
 
 **Sample Response**:
@@ -47,6 +49,7 @@
   "jobRunId": "00f4lf2226mop70a",
   "arn": "arn:aws:emr-serverless:us-east-1:123456789012:applications/00f4lf2226mop709/jobruns/00f4lf2226mop70a",
   "jobName": "Daily Funnel Processing",
+  "entryPoint": "s3://artifacts/jobs/funnel.jar",
   "mainClass": "com.pulse.batch.FunnelProcessor",
   "submittedAt": "2026-03-25T10:30:15.123"
 }
@@ -77,9 +80,9 @@
     "executionTimeoutMinutes": 60,
     "jobDriver": {
       "sparkSubmit": {
-        "entryPoint": "com.pulse.batch.FunnelProcessor",
+        "entryPoint": "s3://artifacts/jobs/funnel.jar",
         "entryPointArguments": ["--date", "2026-03-25"],
-        "sparkSubmitParameters": "--conf spark.sql.adaptive.enabled=true"
+        "sparkSubmitParameters": "--class com.pulse.batch.FunnelProcessor --conf spark.sql.adaptive.enabled=true"
       }
     }
   }

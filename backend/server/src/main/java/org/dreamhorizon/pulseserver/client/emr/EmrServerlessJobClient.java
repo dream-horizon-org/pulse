@@ -59,7 +59,7 @@ public class EmrServerlessJobClient implements AutoCloseable {
 
   /**
    * Pre-fills {@code applicationId} and optional {@code executionRoleArn} from config.
-   * Phase 2 callers add job name, job role, Spark submit parameters, etc.
+   * Callers add job name, Spark submit parameters, etc.
    */
   public StartJobRunRequest.Builder startJobRunRequestBuilder() {
     ensureEnabled();
@@ -73,10 +73,6 @@ public class EmrServerlessJobClient implements AutoCloseable {
 
   public String getApplicationId() {
     return config.getApplicationId();
-  }
-
-  public String getJobRoleArn() {
-    return config.getJobRoleArn();
   }
 
   private void ensureEnabled() {
