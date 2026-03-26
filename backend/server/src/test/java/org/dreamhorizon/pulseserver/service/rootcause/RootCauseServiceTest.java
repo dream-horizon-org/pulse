@@ -3,6 +3,8 @@ package org.dreamhorizon.pulseserver.service.rootcause;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -28,7 +30,6 @@ import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
-import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
@@ -134,7 +135,7 @@ class RootCauseServiceTest {
       assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
       assertThat(result.getBaseline()).containsEntry("volume", 10);
       assertThat(result.getSegments()).isEmpty();
-      verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList());
     }
 
     @Test
@@ -180,7 +181,7 @@ class RootCauseServiceTest {
                     .isEqualTo(ServiceError.INTERNAL_SERVER_ERROR.getHttpStatusCode());
               });
 
-      verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList());
     }
 
     @Test
@@ -198,7 +199,7 @@ class RootCauseServiceTest {
       assertThatThrownBy(() -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet())
           .isInstanceOf(WebApplicationException.class);
 
-      verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList());
     }
 
     @Test
@@ -217,7 +218,7 @@ class RootCauseServiceTest {
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
 
       assertThat(result.getBaseline()).containsEntry("volume", 3);
-      verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList());
       verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any());
     }
 
@@ -226,10 +227,10 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 50L);
       baseline.put("problematic_count", 0L);
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenAnswer(
               inv -> {
-                String q = inv.getArgument(0, QueryConfiguration.class).getQuery();
+                String q = inv.getArgument(1, String.class);
                 boolean isBaselineQuery = !q.contains("GROUP BY");
                 if (isBaselineQuery) {
                   return Single.just(singleRowTableResponse(baseline));
@@ -253,7 +254,7 @@ class RootCauseServiceTest {
     void shouldReturnNoDataWhenBaselineQueryReturnsNoRows() {
       when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenReturn(Single.just(emptyTableResponse()));
 
       RootCauseResult result =
@@ -271,7 +272,7 @@ class RootCauseServiceTest {
           GetQueryDataResponseDto.<GetRawUserEventsResponseDto>builder()
               .jobComplete(false)
               .build();
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenReturn(Single.just(incomplete));
 
       RootCauseResult result =
@@ -287,10 +288,10 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 0L);
       baseline.put("problematic_count", 5L);
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenAnswer(
               inv -> {
-                String q = inv.getArgument(0, QueryConfiguration.class).getQuery();
+                String q = inv.getArgument(1, String.class);
                 boolean isBaselineQuery = !q.contains("GROUP BY");
                 if (isBaselineQuery) {
                   return Single.just(singleRowTableResponse(baseline));
@@ -312,10 +313,10 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 200L);
       baseline.put("problematic_count", 0L);
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenAnswer(
               inv -> {
-                String q = inv.getArgument(0, QueryConfiguration.class).getQuery();
+                String q = inv.getArgument(1, String.class);
                 boolean isBaselineQuery = !q.contains("GROUP BY");
                 if (isBaselineQuery) {
                   return Single.just(singleRowTableResponse(baseline));
@@ -338,10 +339,10 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 100L);
       baseline.put("problematic_count", 10L);
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenAnswer(
               inv -> {
-                String q = inv.getArgument(0, QueryConfiguration.class).getQuery();
+                String q = inv.getArgument(1, String.class);
                 boolean isBaselineQuery = !q.contains("GROUP BY");
                 if (isBaselineQuery) {
                   return Single.just(singleRowTableResponse(baseline));
@@ -365,10 +366,10 @@ class RootCauseServiceTest {
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
 
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenAnswer(
               inv -> {
-                String q = inv.getArgument(0, QueryConfiguration.class).getQuery();
+                String q = inv.getArgument(1, String.class);
                 boolean isBaselineQuery = !q.contains("GROUP BY");
                 if (isBaselineQuery) {
                   return Single.just(singleRowTableResponse(baseline));
@@ -420,10 +421,10 @@ class RootCauseServiceTest {
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(100L, 20L);
       AtomicInteger platformBreakdownPass = new AtomicInteger(0);
 
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenAnswer(
               inv -> {
-                String q = inv.getArgument(0, QueryConfiguration.class).getQuery();
+                String q = inv.getArgument(1, String.class);
                 boolean isBaselineQuery = !q.contains("GROUP BY");
                 if (isBaselineQuery) {
                   return Single.just(singleRowTableResponse(baseline));
@@ -474,7 +475,7 @@ class RootCauseServiceTest {
               .jobComplete(true)
               .data(null)
               .build();
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenReturn(Single.just(noDataPayload));
 
       RootCauseResult result =
@@ -509,10 +510,10 @@ class RootCauseServiceTest {
               .data(data)
               .build();
 
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList()))
           .thenAnswer(
               inv -> {
-                String q = inv.getArgument(0, QueryConfiguration.class).getQuery();
+                String q = inv.getArgument(1, String.class);
                 boolean isBaselineQuery = !q.contains("GROUP BY");
                 if (isBaselineQuery) {
                   return Single.just(response);

@@ -3,55 +3,57 @@ package org.dreamhorizon.pulseserver.service.rootcause;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.constant.ClickhouseConstants;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionTelemetryConstants;
 
 /**
  * Builds ClickHouse SELECTs for Root Cause Analysis:
  * (1) Baseline: no GROUP BY, same WHERE ({@link InteractionTelemetryConstants#INTERACTION_PULSE_TYPE},
- *     SpanName=?, Timestamp in window, ProjectId=?).
- * (2) Segment: GROUP BY dimension(s), same WHERE plus dimension filters.
+ *     bound SpanName/Timestamp/ProjectId).
+ * (2) Segment: GROUP BY dimension(s), same WHERE plus dimension filters (bound values).
  * Includes problematic count (error OR poor) for segment selection.
  */
-@Slf4j
 public class RootCauseQueryBuilder {
 
   /**
    * Builds the common WHERE clause for interaction traces in the time window.
+   * Values are passed via {@link RootCauseQuerySpec#bindParameters()} (positional {@code ?}).
    */
-  public static String baseWhere(
-      String projectId,
-      String interactionName,
-      Instant startInclusive,
-      Instant endExclusive
-  ) {
+  public static String baseWhereSql(List<Object> outBinds, String projectId, String interactionName,
+      Instant startInclusive, Instant endExclusive) {
     String startStr =
         startInclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
     String endStr =
         endExclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
-    return "ProjectId = '" + escape(projectId) + "'"
+    outBinds.add(emptyIfNull(projectId));
+    outBinds.add(emptyIfNull(interactionName));
+    outBinds.add(startStr);
+    outBinds.add(endStr);
+    return "ProjectId = ?"
         + " AND PulseType = '" + InteractionTelemetryConstants.INTERACTION_PULSE_TYPE + "'"
-        + " AND SpanName = '" + escape(interactionName) + "'"
-        + " AND Timestamp >= toDateTime64('" + startStr + "', 9, 'UTC')"
-        + " AND Timestamp < toDateTime64('" + endStr + "', 9, 'UTC')";
+        + " AND SpanName = ?"
+        + " AND Timestamp >= toDateTime64(?, 9, 'UTC')"
+        + " AND Timestamp < toDateTime64(?, 9, 'UTC')";
   }
 
   /**
    * Builds baseline query: no GROUP BY, returns one row with all metrics + problematic_count.
    */
-  public static String buildBaselineQuery(
+  public static RootCauseQuerySpec buildBaselineQuery(
       String projectId,
       String interactionName,
       Instant startInclusive,
       Instant endExclusive
   ) {
+    List<Object> binds = new ArrayList<>();
     String select = buildSelectClauseWithProblematic();
-    String where = baseWhere(projectId, interactionName, startInclusive, endExclusive);
-    return "SELECT " + select + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+    String where = baseWhereSql(binds, projectId, interactionName, startInclusive, endExclusive);
+    String sql = "SELECT " + select + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
+    return new RootCauseQuerySpec(sql, binds);
   }
 
   /**
@@ -61,7 +63,7 @@ public class RootCauseQueryBuilder {
    * @param dimensionColumns dimension names to GROUP BY (e.g. Platform, OsVersion)
    * @param dimensionFilters optional map dimension -> value to filter (AND each)
    */
-  public static String buildSegmentQuery(
+  public static RootCauseQuerySpec buildSegmentQuery(
       String projectId,
       String interactionName,
       Instant startInclusive,
@@ -72,27 +74,31 @@ public class RootCauseQueryBuilder {
     if (dimensionColumns == null || dimensionColumns.isEmpty()) {
       throw new IllegalArgumentException("dimensionColumns must be non-empty for segment query");
     }
+    List<Object> binds = new ArrayList<>();
     String select = buildSelectClauseWithProblematicAndGroupBy(dimensionColumns);
     String where =
         appendDimensionFilters(
-            baseWhere(projectId, interactionName, startInclusive, endExclusive),
+            baseWhereSql(binds, projectId, interactionName, startInclusive, endExclusive),
+            binds,
             dimensionFilters);
     String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
-    return "SELECT "
-        + select
-        + " FROM "
-        + ClickhouseConstants.OTEL_TRACES_TABLE
-        + " WHERE "
-        + where
-        + " GROUP BY "
-        + groupBy;
+    String sql =
+        "SELECT "
+            + select
+            + " FROM "
+            + ClickhouseConstants.OTEL_TRACES_TABLE
+            + " WHERE "
+            + where
+            + " GROUP BY "
+            + groupBy;
+    return new RootCauseQuerySpec(sql, binds);
   }
 
   /**
    * Builds a query that only returns problematic_count (and optionally one dimension for values).
    * Used for first-dimension and add-dimension steps (segment selection).
    */
-  public static String buildProblematicCountByDimensionQuery(
+  public static RootCauseQuerySpec buildProblematicCountByDimensionQuery(
       String projectId,
       String interactionName,
       Instant startInclusive,
@@ -100,37 +106,50 @@ public class RootCauseQueryBuilder {
       String dimensionColumn,
       Map<String, String> dimensionFilters
   ) {
-    String select = dimensionColumn + ", " + RootCauseMetricsRegistry.getProblematicCountExpression() + " AS problematic_count";
+    List<Object> binds = new ArrayList<>();
+    String select =
+        dimensionColumn + ", " + RootCauseMetricsRegistry.getProblematicCountExpression() + " AS problematic_count";
     String where =
         appendDimensionFilters(
-            baseWhere(projectId, interactionName, startInclusive, endExclusive),
+            baseWhereSql(binds, projectId, interactionName, startInclusive, endExclusive),
+            binds,
             dimensionFilters);
-    return "SELECT "
-        + select
-        + " FROM "
-        + ClickhouseConstants.OTEL_TRACES_TABLE
-        + " WHERE "
-        + where
-        + " GROUP BY "
-        + dimensionColumn;
+    String sql =
+        "SELECT "
+            + select
+            + " FROM "
+            + ClickhouseConstants.OTEL_TRACES_TABLE
+            + " WHERE "
+            + where
+            + " GROUP BY "
+            + dimensionColumn;
+    return new RootCauseQuerySpec(sql, binds);
   }
 
-  private static String appendDimensionFilters(String baseWhere, Map<String, String> dimensionFilters) {
+  private static String appendDimensionFilters(
+      String baseWhereSql, List<Object> outBinds, Map<String, String> dimensionFilters) {
     if (dimensionFilters == null || dimensionFilters.isEmpty()) {
-      return baseWhere;
+      return baseWhereSql;
     }
-    StringBuilder sb = new StringBuilder(baseWhere);
+    StringBuilder sb = new StringBuilder(baseWhereSql);
     for (Map.Entry<String, String> e : dimensionFilters.entrySet()) {
-      sb.append(" AND ").append(e.getKey()).append(" = '").append(escape(e.getValue())).append("'");
+      sb.append(" AND ").append(e.getKey()).append(" = ?");
+      outBinds.add(emptyIfNull(e.getValue()));
     }
     return sb.toString();
+  }
+
+  private static String emptyIfNull(String s) {
+    return s == null ? "" : s;
   }
 
   private static String buildSelectClauseWithProblematic() {
     StringBuilder sb = new StringBuilder();
     Map<String, String> metrics = RootCauseMetricsRegistry.getMetricExpressions();
     for (Map.Entry<String, String> e : metrics.entrySet()) {
-      if (sb.length() > 0) sb.append(", ");
+      if (sb.length() > 0) {
+        sb.append(", ");
+      }
       sb.append(e.getValue()).append(" AS ").append(e.getKey());
     }
     sb.append(", ").append(RootCauseMetricsRegistry.getProblematicCountExpression()).append(" AS problematic_count");
@@ -140,7 +159,9 @@ public class RootCauseQueryBuilder {
   private static String buildSelectClauseWithProblematicAndGroupBy(List<String> dimensionColumns) {
     StringBuilder sb = new StringBuilder();
     for (String d : dimensionColumns) {
-      if (sb.length() > 0) sb.append(", ");
+      if (sb.length() > 0) {
+        sb.append(", ");
+      }
       sb.append(d);
     }
     Map<String, String> metrics = RootCauseMetricsRegistry.getMetricExpressions();
@@ -160,10 +181,5 @@ public class RootCauseQueryBuilder {
       this.endExclusive = endDateUtc.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
       this.startInclusive = endDateUtc.minusDays(lookbackDays).atStartOfDay(ZoneOffset.UTC).toInstant();
     }
-  }
-
-  private static String escape(String s) {
-    if (s == null) return "";
-    return s.replace("\\", "\\\\").replace("'", "\\'");
   }
 }

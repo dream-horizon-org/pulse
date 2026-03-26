@@ -23,7 +23,6 @@ import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -155,7 +154,7 @@ public class RootCauseService {
       String interactionName,
       RootCauseQueryBuilder.Window window
   ) {
-    String query = RootCauseQueryBuilder.buildBaselineQuery(
+    RootCauseQuerySpec query = RootCauseQueryBuilder.buildBaselineQuery(
         projectId, interactionName, window.startInclusive, window.endExclusive);
     return executeQuery(projectId, query)
         .map(rows -> rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0)));
@@ -194,7 +193,7 @@ public class RootCauseService {
   ) {
     return Observable.fromIterable(dimOrder)
         .concatMapSingle(dim -> {
-          String q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+          RootCauseQuerySpec q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
               projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
           return executeQuery(projectId, q)
               .map(rows -> pickClosestToTotal(rows, dim, totalProblematic, threshold));
@@ -231,7 +230,7 @@ public class RootCauseService {
       return Single.just(accumulated);
     }
     String dim = dimOrder.get(index);
-    String q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+    RootCauseQuerySpec q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
         projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
     return executeQuery(projectId, q).flatMap(rows -> {
       Optional<Map.Entry<String, Long>> top = rows.stream()
@@ -279,7 +278,7 @@ public class RootCauseService {
       return materializeSegments(projectId, interactionName, window, baseline, path);
     }
     String nextDim = dimOrder.get(nextDimIndex);
-    String q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+    RootCauseQuerySpec q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
         projectId, interactionName, window.startInclusive, window.endExclusive, nextDim, currentFilters);
     return executeQuery(projectId, q)
         .flatMap(rows -> {
@@ -323,7 +322,7 @@ public class RootCauseService {
       return Single.just(flatExtras);
     }
     String d = dimOrder.get(index);
-    String q2 = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+    RootCauseQuerySpec q2 = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
         projectId, interactionName, window.startInclusive, window.endExclusive, d, null);
     return executeQuery(projectId, q2).flatMap(r2 -> {
       Optional<Map.Entry<String, Long>> top = r2.stream()
@@ -380,7 +379,7 @@ public class RootCauseService {
       Map<String, String> dimensionFilters
   ) {
     List<String> dims = new ArrayList<>(dimensionFilters.keySet());
-    String q = RootCauseQueryBuilder.buildSegmentQuery(
+    RootCauseQuerySpec q = RootCauseQueryBuilder.buildSegmentQuery(
         projectId, interactionName, window.startInclusive, window.endExclusive, dims, dimensionFilters);
     return executeQuery(projectId, q)
         .map(rows -> {
@@ -437,9 +436,9 @@ public class RootCauseService {
     return deltas;
   }
 
-  private Single<List<Map<String, Object>>> executeQuery(String projectId, String query) {
-    QueryConfiguration config = QueryConfiguration.newQuery(query).projectId(projectId).build();
-    return clickhouseQueryService.executeQueryOrCreateJob(config)
+  private Single<List<Map<String, Object>>> executeQuery(String projectId, RootCauseQuerySpec spec) {
+    return clickhouseQueryService
+        .executeRootCauseQuery(projectId, spec.sql(), spec.bindParameters())
         .map(this::rowsToMaps);
   }
 

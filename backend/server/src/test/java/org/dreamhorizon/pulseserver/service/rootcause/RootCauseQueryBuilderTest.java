@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Nested;
@@ -70,30 +71,46 @@ class RootCauseQueryBuilderTest {
 
     @Test
     void shouldIncludeProjectInteractionAndTableInBaselineQuery() {
-      String sql =
+      RootCauseQuerySpec spec =
           RootCauseQueryBuilder.buildBaselineQuery(PROJECT, INTERACTION, START, END);
 
-      assertThat(sql).contains("FROM otel.otel_traces");
-      assertThat(sql).contains("ProjectId = 'proj-1'");
-      assertThat(sql).contains("SpanName = 'checkout'");
-      assertThat(sql).contains("PulseType = 'interaction'");
-      assertThat(sql).contains("problematic_count");
-      assertThat(sql).doesNotContain("GROUP BY");
+      assertThat(spec.sql()).contains("FROM otel.otel_traces");
+      assertThat(spec.sql()).contains("ProjectId = ?");
+      assertThat(spec.sql()).contains("SpanName = ?");
+      assertThat(spec.sql()).contains("PulseType = 'interaction'");
+      assertThat(spec.sql()).contains("problematic_count");
+      assertThat(spec.sql()).doesNotContain("GROUP BY");
+      assertThat(spec.bindParameters()).hasSize(4);
+      assertThat(spec.bindParameters().get(0)).isEqualTo(PROJECT);
+      assertThat(spec.bindParameters().get(1)).isEqualTo(INTERACTION);
     }
 
     @Test
-    void shouldEscapeSingleQuotesInIdentifiers() {
-      String sql =
-          RootCauseQueryBuilder.baseWhere(
-              "p'1", "i'n", START, END);
+    void shouldPassSpecialCharactersViaBindParametersNotInlineSql() {
+      RootCauseQuerySpec spec =
+          RootCauseQueryBuilder.buildBaselineQuery("p'1", "i'n", START, END);
 
-      assertThat(sql).contains("p\\'1");
-      assertThat(sql).contains("i\\'n");
+      assertThat(spec.sql()).doesNotContain("p'1");
+      assertThat(spec.sql()).doesNotContain("i'n");
+      assertThat(spec.bindParameters().get(0)).isEqualTo("p'1");
+      assertThat(spec.bindParameters().get(1)).isEqualTo("i'n");
+    }
+
+    @Test
+    void shouldBuildBaseWhereWithFourPlaceholders() {
+      List<Object> binds = new ArrayList<>();
+      String where =
+          RootCauseQueryBuilder.baseWhereSql(binds, PROJECT, INTERACTION, START, END);
+
+      assertThat(where).contains("ProjectId = ?");
+      assertThat(where).contains("SpanName = ?");
+      assertThat(where).contains("toDateTime64(?, 9, 'UTC')");
+      assertThat(binds).hasSize(4);
     }
 
     @Test
     void shouldBuildSegmentQueryWithGroupByAndFilters() {
-      String sql =
+      RootCauseQuerySpec spec =
           RootCauseQueryBuilder.buildSegmentQuery(
               PROJECT,
               INTERACTION,
@@ -102,9 +119,11 @@ class RootCauseQueryBuilderTest {
               List.of("Platform", "OsVersion"),
               Map.of("Platform", "Android"));
 
-      assertThat(sql).contains("GROUP BY Platform, OsVersion");
-      assertThat(sql).contains("Platform = 'Android'");
-      assertThat(sql).contains("FROM otel.otel_traces");
+      assertThat(spec.sql()).contains("GROUP BY Platform, OsVersion");
+      assertThat(spec.sql()).contains("Platform = ?");
+      assertThat(spec.sql()).contains("FROM otel.otel_traces");
+      assertThat(spec.bindParameters()).hasSize(5);
+      assertThat(spec.bindParameters().get(4)).isEqualTo("Android");
     }
 
     @Test
@@ -119,7 +138,7 @@ class RootCauseQueryBuilderTest {
 
     @Test
     void shouldBuildProblematicCountByDimensionQuery() {
-      String sql =
+      RootCauseQuerySpec spec =
           RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
               PROJECT,
               INTERACTION,
@@ -128,9 +147,11 @@ class RootCauseQueryBuilderTest {
               "Platform",
               Map.of("OsVersion", "14"));
 
-      assertThat(sql).contains("GROUP BY Platform");
-      assertThat(sql).contains("OsVersion = '14'");
-      assertThat(sql).contains("AS problematic_count");
+      assertThat(spec.sql()).contains("GROUP BY Platform");
+      assertThat(spec.sql()).contains("OsVersion = ?");
+      assertThat(spec.sql()).contains("AS problematic_count");
+      assertThat(spec.bindParameters()).hasSize(5);
+      assertThat(spec.bindParameters().get(4)).isEqualTo("14");
     }
   }
 }

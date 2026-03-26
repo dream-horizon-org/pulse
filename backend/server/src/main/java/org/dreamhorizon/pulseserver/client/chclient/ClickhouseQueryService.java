@@ -4,6 +4,8 @@ import com.clickhouse.client.api.insert.InsertResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.inject.Inject;
+import io.r2dbc.spi.Connection;
+import io.r2dbc.spi.Statement;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
@@ -65,6 +67,35 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
     }
   }
 
+  /**
+   * Root-cause analysis ClickHouse queries only: runs SQL with positional {@code ?} binds (R2DBC 1-based).
+   */
+  public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeRootCauseQuery(
+      String projectId, String sql, List<Object> bindParameters) {
+    final List<GetRawUserEventsResponseDto.Field> schemaFields = new ArrayList<>();
+
+    if (projectId == null) {
+      return Single.error(new IllegalArgumentException("Project ID must be provided - tenant-level access is not allowed"));
+    }
+
+    log.debug("Executing root-cause query with binds for project: {}", projectId);
+    List<Object> binds = bindParameters == null ? List.of() : bindParameters;
+
+    return clickhouseProjectCredentialsDao
+        .getCredentialsByProjectId(projectId)
+        .switchIfEmpty(Single.error(new IllegalStateException("No ClickHouse credentials found for project: " + projectId)))
+        .flatMap(
+            credentials -> {
+              var pool =
+                  clickhouseProjectConnectionPoolManager.getPoolForProject(
+                      projectId,
+                      credentials.getClickhouseUsername(),
+                      credentials.getClickhousePasswordEncrypted());
+              return executeTenantQueryWithBoundParameters(pool, sql, binds, schemaFields);
+            })
+        .doOnError(error -> log.error("Error executing root-cause query for project: {}", projectId, error));
+  }
+
   private Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeTenantQuery(
       io.r2dbc.pool.ConnectionPool pool,
       QueryConfiguration queryConfig,
@@ -74,6 +105,57 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
         .flatMap(
             conn -> Flowable.fromPublisher(
                     conn.createStatement(queryConfig.getQuery()).execute())
+                .flatMap(
+                    result -> {
+                      return result.map(
+                          (row, md) -> {
+                            if (schemaFields.isEmpty()) {
+                              for (int i = 0; i < md.getColumnMetadatas().size(); i++) {
+                                schemaFields.add(
+                                    new GetRawUserEventsResponseDto.Field(
+                                        md.getColumnMetadatas().get(i).getName()));
+                              }
+                            }
+                            List<GetRawUserEventsResponseDto.RowField> rowFields =
+                                new ArrayList<>();
+                            for (int i = 0; i < md.getColumnMetadatas().size(); i++) {
+                              rowFields.add(
+                                  new GetRawUserEventsResponseDto.RowField(row.get(i)));
+                            }
+                            return new GetRawUserEventsResponseDto.Row(rowFields);
+                          });
+                    })
+                .toList()
+                .map(
+                    rows -> {
+                      GetRawUserEventsResponseDto.Schema schema =
+                          new GetRawUserEventsResponseDto.Schema(schemaFields);
+                      GetRawUserEventsResponseDto responseData =
+                          GetRawUserEventsResponseDto.builder()
+                              .schema(schema)
+                              .rows(rows)
+                              .totalRows((long) rows.size())
+                              .build();
+                      return GetQueryDataResponseDto.<GetRawUserEventsResponseDto>builder()
+                          .data(responseData)
+                          .jobComplete(true)
+                          .build();
+                    })
+                .doFinally(() -> Completable.fromPublisher(conn.close()).subscribe()))
+        .onErrorResumeNext(
+            err -> Single.error(new Exception("Failed to execute tenant query", err)));
+  }
+
+  private Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeTenantQueryWithBoundParameters(
+      io.r2dbc.pool.ConnectionPool pool,
+      String sql,
+      List<Object> bindParameters,
+      List<GetRawUserEventsResponseDto.Field> schemaFields) {
+
+    return Single.fromPublisher(pool.create())
+        .flatMap(
+            conn -> Flowable.fromPublisher(
+                    bindParameters(conn, sql, bindParameters).execute())
                 .flatMap(
                     result -> {
                       return result.map(
@@ -237,5 +319,17 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
         .doOnError(error -> 
             log.error("❌ Error fetching usage stats from ClickHouse", error)
         );
+  }
+
+  /**
+   * ClickHouse R2DBC uses 1-based indices for {@link Statement#bind(int, Object)}.
+   */
+  private static Statement bindParameters(Connection conn, String sql, List<Object> bindParameters) {
+    Statement statement = conn.createStatement(sql);
+    List<Object> binds = bindParameters == null ? List.of() : bindParameters;
+    for (int i = 0; i < binds.size(); i++) {
+      statement = statement.bind(i + 1, binds.get(i));
+    }
+    return statement;
   }
 }
