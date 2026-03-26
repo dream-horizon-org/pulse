@@ -29,6 +29,28 @@ public object PulseAttributes {
     @JvmField
     public val PROJECT_ID: AttributeKey<String> = stringKey("project.id")
 
+    /**
+     * Structured context for a click/tap. Model-readable format: `label=X` when a human-readable
+     * label was extracted. Set on app.widget.click only. Omitted when nothing extractable.
+     */
+    @JvmField
+    public val APP_CLICK_CONTEXT: AttributeKey<String> = stringKey("app.click.context")
+
+    public object AppClickContext {
+        /**
+         * Builds `app.click.context` from an optional UI label.
+         * Example: `label=Add to Cart`. Returns null when blank.
+         */
+        @JvmStatic
+        public fun buildContext(label: String?): String? {
+            val trimmed =
+                label?.run {
+                    trim().takeIf { it.isNotEmpty() }
+                } ?: return null
+            return "label=$trimmed"
+        }
+    }
+
     public object PulseSdkNames {
         public const val ANDROID_JAVA: String = "pulse_android_java"
         public const val ANDROID_RN: String = "pulse_android_rn"

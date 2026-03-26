@@ -7,6 +7,7 @@
 
 package io.opentelemetry.instrumentation.compose.click
 
+import android.content.Context
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.Window
@@ -24,12 +25,13 @@ import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsModifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.pulse.semconv.PulseAttributes
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.mockkClass
-import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.equalTo
 import io.opentelemetry.sdk.testing.junit4.OpenTelemetryRule
@@ -37,6 +39,7 @@ import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_CO
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_NAME
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,12 +80,14 @@ internal class ComposeClickEventGeneratorTest {
                 openTelemetryRule.openTelemetry.logsBridge
                     .loggerBuilder("io.opentelemetry.android.instrumentation.compose")
                     .build(),
-                composeLayoutNodeUtil,
+                isContextEnrichmentEnabled = true,
+                composeLayoutNodeUtil = composeLayoutNodeUtil,
             )
 
         every { window.callback } returns callback
         every { window.decorView } returns composeView
         every { window.callback = any() } returns Unit
+        every { window.context } returns ApplicationProvider.getApplicationContext<Context>()
 
         composeClickEventGenerator.startTracking(window)
     }
@@ -101,27 +106,21 @@ internal class ComposeClickEventGeneratorTest {
             clickableIndexes = listOf(2, 3, 4),
         )
 
-        composeClickEventGenerator.generateClick(motionEvent)
+        val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
+        motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        OpenTelemetryAssertions
-            .assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
-                equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
-                equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
-            )
-
-        event = events[1]
-        assertThat(event)
+        assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
+                equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
+                equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
                 equalTo(APP_WIDGET_ID, "2"),
                 equalTo(APP_WIDGET_NAME, "click"),
             )
+        upEvent.recycle()
     }
 
     @Test
@@ -138,27 +137,21 @@ internal class ComposeClickEventGeneratorTest {
             clickableIndexes = listOf(2, 3, 4),
         )
 
-        composeClickEventGenerator.generateClick(motionEvent)
+        val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
+        motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        OpenTelemetryAssertions
-            .assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
-                equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
-                equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
-            )
-
-        event = events[1]
-        assertThat(event)
+        assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
+                equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
+                equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
                 equalTo(APP_WIDGET_ID, "3"),
                 equalTo(APP_WIDGET_NAME, "click"),
             )
+        upEvent.recycle()
     }
 
     @Test
@@ -176,27 +169,74 @@ internal class ComposeClickEventGeneratorTest {
             describableIndexes = listOf(3, 4),
         )
 
-        composeClickEventGenerator.generateClick(motionEvent)
+        val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
+        motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        OpenTelemetryAssertions
-            .assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
-                equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
-                equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
-            )
-
-        event = events[1]
-        assertThat(event)
+        assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
+                equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
+                equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
                 equalTo(APP_WIDGET_ID, "3"),
                 equalTo(APP_WIDGET_NAME, "clickMe"),
             )
+        upEvent.recycle()
+    }
+
+    @Test
+    fun `capture click without app click context when enrichment disabled`() {
+        val localRule = OpenTelemetryRule.create()
+        val generator =
+            ComposeClickEventGenerator(
+                localRule.openTelemetry.logsBridge
+                    .loggerBuilder("io.opentelemetry.android.instrumentation.compose")
+                    .build(),
+                isContextEnrichmentEnabled = false,
+                composeLayoutNodeUtil = composeLayoutNodeUtil,
+            )
+        every { window.callback } returns callback
+        every { window.decorView } returns composeView
+        every { window.callback = any() } returns Unit
+        every { window.context } returns ApplicationProvider.getApplicationContext<Context>()
+        generator.startTracking(window)
+
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+
+        every { composeView.childCount } returns 0
+
+        buildMockLayoutNodeTree(
+            targetX = motionEvent.x,
+            targetY = motionEvent.y,
+            hitIndexes = listOf(2),
+            clickableIndexes = listOf(2, 3, 4),
+        )
+
+        val upEvent = dispatchDownThenUpOnGenerator(generator, motionEvent.x, motionEvent.y)
+        motionEvent.recycle()
+
+        val events = localRule.logRecords
+        assertThat(events).hasSize(1)
+        assertNull(events[0].attributes.get(PulseAttributes.APP_CLICK_CONTEXT))
+        upEvent.recycle()
+    }
+
+    /** Real taps send ACTION_DOWN then ACTION_UP; the generator requires both for click detection. */
+    private fun dispatchDownThenUpOnGenerator(
+        generator: ComposeClickEventGenerator,
+        x: Float,
+        y: Float,
+    ): MotionEvent {
+        val down = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, x, y, 0)
+        val up =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis() + 10, MotionEvent.ACTION_UP, x, y, 0)
+        generator.generateClick(down)
+        generator.generateClick(up)
+        down.recycle()
+        return up
     }
 
     private fun createMockLayoutNode(

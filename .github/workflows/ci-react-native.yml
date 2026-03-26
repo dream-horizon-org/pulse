@@ -8,6 +8,9 @@ on:
       - 'pulse-react-native-otel/**'
       - 'pulse-android-otel/**'
       - '.github/workflows/ci-react-native.yml'
+      - '.github/workflows/rn-android-lint.yml'
+      - '.github/workflows/rn-android-build.yml'
+      - '.github/workflows/rn-expo-android.yml'
   pull_request:
     branches:
       - main
@@ -15,6 +18,9 @@ on:
       - 'pulse-react-native-otel/**'
       - 'pulse-android-otel/**'
       - '.github/workflows/ci-react-native.yml'
+      - '.github/workflows/rn-android-lint.yml'
+      - '.github/workflows/rn-android-build.yml'
+      - '.github/workflows/rn-expo-android.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,6 +29,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
+
 jobs:
   check-changes:
     runs-on: ubuntu-latest
@@ -185,107 +192,97 @@ jobs:
         working-directory: pulse-react-native-otel
         run: yarn prepare
 
-  build-android:
+  # Publish pulse-android-otel to ~/.m2. RN-only PRs: rn-lint / rn-build / rn-expo restore ~/.m2
+  # in parallel. Android SDK PRs: *-sdk jobs wait for m2-publish first.
+  m2-publish:
     needs: check-changes
     if: needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
-    env:
-      TURBO_CACHE_DIR: .turbo/android
-      ANDROID_SDK_CHANGED: ${{ needs.check-changes.outputs.android-sdk-changed }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
-        with:
-          node-version-file: pulse-react-native-otel/.nvmrc
-
-      - name: Restore dependencies
-        id: yarn-cache
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-        with:
-          path: |
-            pulse-react-native-otel/**/node_modules
-            pulse-react-native-otel/.yarn/install-state.gz
-          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
-            ${{ runner.os }}-yarn-rn-
-
-      - name: Install dependencies
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
-        working-directory: pulse-react-native-otel
-        run: yarn install --immutable
-
-      - name: Cache dependencies
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-        with:
-          path: |
-            pulse-react-native-otel/**/node_modules
-            pulse-react-native-otel/.yarn/install-state.gz
-          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
-
-      - name: Cache turborepo for Android
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-        with:
-          path: pulse-react-native-otel/${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-turborepo-android-
-
-      - name: Check turborepo cache for Android
-        working-directory: pulse-react-native-otel
+      - name: Set Maven Local cache key
         run: |
-          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:android --cache-dir=".turbo/android" --dry=json)).tasks.find(t => t.task === 'build:android').cache.status")
-
-          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
-            echo "turbo_cache_hit=1" >> $GITHUB_ENV
-          fi
+          echo "MAVEN_LOCAL_CACHE_KEY=maven-local-pulse-android-${{ hashFiles('pulse-android-otel/**/*.gradle.kts', 'pulse-android-otel/settings.gradle.kts', 'pulse-android-otel/gradle.properties', 'pulse-android-otel/gradle/libs.versions.toml') }}" >> $GITHUB_ENV
 
       - name: Install JDK
-        if: env.turbo_cache_hit != 1
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00  # v4.7.1
         with:
           distribution: 'zulu'
           java-version: '17'
 
       - name: Finalize Android SDK
-        if: env.turbo_cache_hit != 1
         run: |
           /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
 
-      - name: Cache Gradle
-        if: env.turbo_cache_hit != 1
+      - name: Cache Gradle (Android SDK)
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
         with:
           path: |
             ~/.gradle/wrapper
             ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('pulse-react-native-otel/example/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: ${{ runner.os }}-gradle-android-sdk-${{ hashFiles('pulse-android-otel/gradle/wrapper/gradle-wrapper.properties', 'pulse-android-otel/settings.gradle.kts') }}
           restore-keys: |
+            ${{ runner.os }}-gradle-android-sdk-
             ${{ runner.os }}-gradle-
 
+      - name: Restore Maven Local
+        id: m2-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.m2/repository
+          key: ${{ env.MAVEN_LOCAL_CACHE_KEY }}
+          restore-keys: |
+            maven-local-pulse-android-
+
       - name: Publish Android SDK to Maven Local
-        if: env.ANDROID_SDK_CHANGED == 'true' || env.turbo_cache_hit != 1
+        id: publish-sdk
+        if: needs.check-changes.outputs.android-sdk-changed == 'true' || steps.m2-cache.outputs.cache-hit != 'true'
         working-directory: pulse-android-otel
         env:
           JAVA_OPTS: "-XX:MaxHeapSize=6g"
           CI: "false"
         run: |
-          ./gradlew publishToMavenLocal -Pfinal=true
+          ./gradlew publishToMavenLocal -Pfinal=true --no-daemon
 
-      - name: Build example for Android
-        working-directory: pulse-react-native-otel
-        env:
-          JAVA_OPTS: "-XX:MaxHeapSize=6g"
-        run: |
-          yarn turbo run build:android --cache-dir=".turbo/android"
+      - name: Save Maven Local cache
+        if: success() && steps.publish-sdk.outcome == 'success'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.m2/repository
+          key: ${{ env.MAVEN_LOCAL_CACHE_KEY }}
+
+  rn-lint:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-android-lint.yml
+
+  rn-lint-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-android-lint.yml
+
+  rn-build:
+    needs: check-changes
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-android-build.yml
+
+  rn-build-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-android-build.yml
 
   build-ios:
     needs: check-changes
@@ -371,113 +368,16 @@ jobs:
         run: |
           yarn turbo run build:ios --cache-dir=".turbo/ios"
 
-  build-expo-android:
+  rn-expo:
     needs: check-changes
-    if: needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    if: |
+      (needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true') &&
+      needs.check-changes.outputs.android-sdk-changed != 'true'
+    uses: ./.github/workflows/rn-expo-android.yml
 
-    env:
-      ANDROID_SDK_CHANGED: ${{ needs.check-changes.outputs.android-sdk-changed }}
-      JAVA_OPTS: "-XX:MaxHeapSize=6g"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
-        with:
-          node-version-file: pulse-react-native-otel/.nvmrc
-
-      - name: Restore dependencies
-        id: yarn-cache
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-        with:
-          path: |
-            pulse-react-native-otel/**/node_modules
-            pulse-react-native-otel/.yarn/install-state.gz
-          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
-            ${{ runner.os }}-yarn-rn-
-
-      - name: Install dependencies
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
-        working-directory: pulse-react-native-otel
-        run: yarn install --immutable
-
-      - name: Cache dependencies
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-        with:
-          path: |
-            pulse-react-native-otel/**/node_modules
-            pulse-react-native-otel/.yarn/install-state.gz
-          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
-
-      - name: Build plugin
-        working-directory: pulse-react-native-otel
-        run: yarn build:plugin
-
-      - name: Restore Expo Example dependencies
-        id: expo-cache
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-        with:
-          path: pulse-react-native-otel/expo-example/node_modules
-          key: ${{ runner.os }}-npm-expo-${{ hashFiles('pulse-react-native-otel/expo-example/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-expo-
-
-      - name: Install Expo Example dependencies
-        if: steps.expo-cache.outputs.cache-hit != 'true'
-        working-directory: pulse-react-native-otel/expo-example
-        run: npm install
-
-      - name: Cache Expo Example dependencies
-        if: steps.expo-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-        with:
-          path: pulse-react-native-otel/expo-example/node_modules
-          key: ${{ runner.os }}-npm-expo-${{ hashFiles('pulse-react-native-otel/expo-example/package.json') }}
-
-      - name: Install JDK
-        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00  # v4.7.1
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Finalize Android SDK
-        run: |
-          /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
-
-      - name: Cache Gradle
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-        with:
-          path: |
-            ~/.gradle/wrapper
-            ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-expo-${{ hashFiles('pulse-react-native-otel/expo-example/android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-expo-
-            ${{ runner.os }}-gradle-
-
-      - name: Publish Android SDK to Maven Local
-        working-directory: pulse-android-otel
-        env:
-          JAVA_OPTS: "-XX:MaxHeapSize=6g"
-          CI: "false"
-        run: |
-          ./gradlew publishToMavenLocal -Pfinal=true
-
-      - name: Prebuild Expo Android
-        working-directory: pulse-react-native-otel/expo-example
-        run: npx expo prebuild --platform android --clean
-
-      - name: Build Expo Android APK
-        working-directory: pulse-react-native-otel/expo-example/android
-        env:
-          JAVA_OPTS: "-XX:MaxHeapSize=6g"
-        run: |
-          ./gradlew assembleDebug -x lint -x test --no-daemon --console=plain
+  rn-expo-sdk:
+    needs:
+      - check-changes
+      - m2-publish
+    if: needs.check-changes.outputs.android-sdk-changed == 'true'
+    uses: ./.github/workflows/rn-expo-android.yml

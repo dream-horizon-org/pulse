@@ -182,16 +182,6 @@ class PulseSignalProcessorTest {
         }
 
         @Test
-        fun `in log, sets TOUCH type for app screen click event`() {
-            logger.logRecordBuilder().setEventName("app.screen.click").emit()
-
-            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
-            OpenTelemetryAssertions
-                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
-                .containsEntry(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.TOUCH)
-        }
-
-        @Test
         fun `in log, sets TOUCH type for app widget click event`() {
             logger.logRecordBuilder().setEventName("app.widget.click").emit()
 
