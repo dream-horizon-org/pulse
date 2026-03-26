@@ -320,6 +320,7 @@ if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
 else
     print_error "Pulse AI health check failed (port 8000 in use? see: ./logs.sh ai)"
     exit 1
+fi
 print_info "Testing session replay pipeline..."
 if ! verify_session_replay; then
     print_warning "Session replay pipeline may still be starting"
