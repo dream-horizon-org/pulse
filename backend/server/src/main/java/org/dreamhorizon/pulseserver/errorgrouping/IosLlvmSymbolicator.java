@@ -24,11 +24,18 @@ import lombok.Builder;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.errorgrouping.apple.AppleCrashReportParser;
+import org.dreamhorizon.pulseserver.errorgrouping.apple.IosSymbolicatedFrameFormatter;
 import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
 
 /**
  * Runs {@code llvm-objdump} (Mach-O vmaddr + UUID) and {@code llvm-symbolizer} for iOS dSYM symbolication.
  * {@code FILE_HEX = vmaddr + PC - LOAD} (with vmaddr from {@code llvm-objdump --macho --private-headers}).
+ *
+ * <p>Symbolicated in-app frames are passed through {@link IosSymbolicatedFrameFormatter} so stored stack
+ * lines stay column-aligned like the original Apple report. Per-frame explanations when symbolication is
+ * skipped (no dSYM, UUID mismatch, system frames, LLVM placeholders) are not attached to output today; a
+ * future change could use a structured type (e.g. {@code SymbolicatedFrame { line, optional reason }})
+ * through {@link org.dreamhorizon.pulseserver.errorgrouping.Symbolicator} and persistence.
  */
 @Slf4j
 public class IosLlvmSymbolicator {
@@ -199,6 +206,8 @@ public class IosLlvmSymbolicator {
           String pretty = symIdx < llvmLines.size() ? llvmLines.get(symIdx) : f.getRawLine();
           if (isUnhelpfulLlvmSymbolication(pretty)) {
             pretty = f.getRawLine();
+          } else if (!pretty.equals(f.getRawLine())) {
+            pretty = IosSymbolicatedFrameFormatter.formatSymbolicatedFrameLine(f.getRawLine(), pretty);
           }
           out.add(pretty);
           symIdx++;
