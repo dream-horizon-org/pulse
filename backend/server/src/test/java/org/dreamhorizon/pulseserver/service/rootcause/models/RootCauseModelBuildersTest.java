@@ -15,16 +15,17 @@ class RootCauseModelBuildersTest {
         RootCauseResult.builder()
             .baseline(Map.of("volume", 1))
             .segments(List.of())
-            .mode("flat")
+            .mode(RootCauseAnalysisMode.FLAT)
             .cachedAt(Instant.parse("2025-01-01T00:00:00Z"))
             .everythingGood(true)
             .noDataAvailable(false)
             .message("ok")
             .build();
 
-    RootCauseResult copy = built.toBuilder().mode("hierarchical").build();
+    RootCauseResult copy =
+        built.toBuilder().mode(RootCauseAnalysisMode.HIERARCHICAL).build();
 
-    assertThat(copy.getMode()).isEqualTo("hierarchical");
+    assertThat(copy.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
     assertThat(copy.getBaseline()).containsEntry("volume", 1);
   }
 
@@ -40,5 +41,14 @@ class RootCauseModelBuildersTest {
 
     assertThat(seg.getLabel()).contains("Android");
     assertThat(seg.getDeltas()).containsEntry("volume", 5.0);
+  }
+
+  @Test
+  void shouldDefaultUnknownStoredModeToFlat() {
+    assertThat(RootCauseAnalysisMode.fromWireValue("hierarchical"))
+        .isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+    assertThat(RootCauseAnalysisMode.fromWireValue("unknown"))
+        .isEqualTo(RootCauseAnalysisMode.FLAT);
+    assertThat(RootCauseAnalysisMode.fromWireValue(null)).isEqualTo(RootCauseAnalysisMode.FLAT);
   }
 }

@@ -29,6 +29,7 @@ import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -130,7 +131,7 @@ class RootCauseServiceTest {
       RootCauseResult result =
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
 
-      assertThat(result.getMode()).isEqualTo("flat");
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
       assertThat(result.getBaseline()).containsEntry("volume", 10);
       assertThat(result.getSegments()).isEmpty();
       verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));
@@ -352,7 +353,7 @@ class RootCauseServiceTest {
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
 
       assertThat(result.getSegments()).isEmpty();
-      assertThat(result.getMode()).isEqualTo("flat");
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
       verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any());
     }
 
@@ -405,7 +406,7 @@ class RootCauseServiceTest {
       RootCauseResult result =
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
 
-      assertThat(result.getMode()).isEqualTo("hierarchical");
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
       assertThat(result.getSegments()).hasSize(2);
       assertThat(result.getSegments().get(0).getLabel()).doesNotContain(":");
       verify(cacheDao, times(1)).upsert(any(), any(), any(), any(), any(), any(), any());
@@ -461,7 +462,7 @@ class RootCauseServiceTest {
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
 
       assertThat(result.getSegments()).isEmpty();
-      assertThat(result.getMode()).isEqualTo("flat");
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
     }
 
     @Test

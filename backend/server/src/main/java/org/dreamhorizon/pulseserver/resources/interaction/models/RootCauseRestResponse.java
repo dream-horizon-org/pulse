@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,7 +21,7 @@ public class RootCauseRestResponse {
 
   private Map<String, Object> baseline;
   private List<RootCauseSegmentRest> segments;
-  private String mode;
+  private RootCauseAnalysisMode mode;
   private Instant cachedAt;
   private Boolean everythingGood;
   private Boolean noDataAvailable;

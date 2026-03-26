@@ -25,6 +25,7 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestRe
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,7 +97,8 @@ class InteractionControllerTest {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test-project");
         LocalDate expectedDate = LocalDate.of(2024, 6, 15);
-        RootCauseResult serviceResult = RootCauseResult.builder().mode("flat").build();
+        RootCauseResult serviceResult =
+            RootCauseResult.builder().mode(RootCauseAnalysisMode.FLAT).build();
         when(rootCauseService.getRootCause("test-project", "my-interaction", expectedDate))
             .thenReturn(Single.just(serviceResult));
 
@@ -108,7 +110,7 @@ class InteractionControllerTest {
             assertNull(err);
             assertNotNull(resp);
             assertNotNull(resp.getData());
-            assertEquals("flat", resp.getData().getMode());
+            assertEquals(RootCauseAnalysisMode.FLAT, resp.getData().getMode());
             verify(rootCauseService).getRootCause("test-project", "my-interaction", expectedDate);
           });
           testContext.completeNow();

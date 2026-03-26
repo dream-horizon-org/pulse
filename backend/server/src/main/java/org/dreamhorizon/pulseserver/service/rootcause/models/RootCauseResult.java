@@ -19,8 +19,7 @@ public class RootCauseResult {
 
   private Map<String, Object> baseline;
   private List<RootCauseSegment> segments;
-  /** "hierarchical" | "flat" */
-  private String mode;
+  private RootCauseAnalysisMode mode;
   private Instant cachedAt;
   /** True when volume > 0 and total problematic count = 0. */
   private Boolean everythingGood;

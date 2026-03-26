@@ -24,6 +24,7 @@ import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
@@ -107,14 +108,14 @@ public class RootCauseService {
                 .message("Everything is good")
                 .baseline(toBaselineMap(baselineRow))
                 .segments(List.of())
-                .mode("flat")
+                .mode(RootCauseAnalysisMode.FLAT)
                 .build());
           }
           return runAlgorithm(projectId, interactionName, window, baselineRow, totalProblematic)
               .map(segments -> RootCauseResult.builder()
                   .baseline(toBaselineMap(baselineRow))
                   .segments(segments)
-                  .mode(segments.isEmpty() ? "flat" : segments.get(0).getLabel().contains(":") ? "flat" : "hierarchical")
+                  .mode(segmentLayoutMode(segments))
                   .build());
         })
         .flatMap(result -> {
@@ -123,17 +124,30 @@ public class RootCauseService {
           }
           String baselineJson = objectMapper.writeValueAsString(result.getBaseline());
           String segmentsJson = objectMapper.writeValueAsString(result.getSegments());
-          String mode = result.getMode() != null ? result.getMode() : "flat";
+          RootCauseAnalysisMode modeForCache =
+              result.getMode() != null ? result.getMode() : RootCauseAnalysisMode.FLAT;
           return cacheDao.upsert(
               projectId,
               interactionName,
               date,
-              mode,
+              modeForCache.getWireValue(),
               baselineJson,
               segmentsJson,
               java.time.LocalDateTime.now()
           ).andThen(Single.just(result.toBuilder().cachedAt(Instant.now()).build()));
         });
+  }
+
+  private static RootCauseAnalysisMode segmentLayoutMode(List<RootCauseSegment> segments) {
+    if (segments.isEmpty()) {
+      return RootCauseAnalysisMode.FLAT;
+    }
+    String firstLabel = segments.get(0).getLabel();
+    boolean labelHasColon = firstLabel != null && firstLabel.contains(":");
+    if (labelHasColon) {
+      return RootCauseAnalysisMode.FLAT;
+    }
+    return RootCauseAnalysisMode.HIERARCHICAL;
   }
 
   private Single<Optional<Map<String, Object>>> runBaseline(
@@ -465,7 +479,7 @@ public class RootCauseService {
     return RootCauseResult.builder()
         .baseline(baseline)
         .segments(segments)
-        .mode(row.getMode())
+        .mode(RootCauseAnalysisMode.fromWireValue(row.getMode()))
         .cachedAt(row.getCachedAt().atZone(ZoneOffset.UTC).toInstant())
         .build();
   }
