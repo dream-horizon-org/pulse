@@ -1,9 +1,14 @@
 package org.dreamhorizon.pulseserver.constant;
 
+import java.time.format.DateTimeFormatter;
 import lombok.experimental.UtilityClass;
 
 @UtilityClass
 public class ClickhouseConstants {
+
+  public final String OTEL_TRACES_TABLE = "otel.otel_traces";
+  public final DateTimeFormatter CLICKHOUSE_TIMESTAMP_LITERAL =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
   public final String CH_APDEX_SELECT_CLAUSE =
       "avgIf(toFloat64OrNull(SpanAttributes['pulse.interaction.apdex_score']), StatusCode != 'Error')";

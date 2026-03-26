@@ -3,24 +3,22 @@ package org.dreamhorizon.pulseserver.service.rootcause;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.ClickhouseConstants;
+import org.dreamhorizon.pulseserver.service.interaction.InteractionTelemetryConstants;
 
 /**
  * Builds ClickHouse SELECTs for Root Cause Analysis:
- * (1) Baseline: no GROUP BY, same WHERE (PulseType='interaction', SpanName=?, Timestamp in window, ProjectId=?).
+ * (1) Baseline: no GROUP BY, same WHERE ({@link InteractionTelemetryConstants#INTERACTION_PULSE_TYPE},
+ *     SpanName=?, Timestamp in window, ProjectId=?).
  * (2) Segment: GROUP BY dimension(s), same WHERE plus dimension filters.
  * Includes problematic count (error OR poor) for segment selection.
  */
 @Slf4j
 public class RootCauseQueryBuilder {
-
-  private static final String TABLE = "otel.otel_traces";
-  private static final DateTimeFormatter CLICKHOUSE_DT =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
   /**
    * Builds the common WHERE clause for interaction traces in the time window.
@@ -31,10 +29,12 @@ public class RootCauseQueryBuilder {
       Instant startInclusive,
       Instant endExclusive
   ) {
-    String startStr = startInclusive.atOffset(ZoneOffset.UTC).format(CLICKHOUSE_DT);
-    String endStr = endExclusive.atOffset(ZoneOffset.UTC).format(CLICKHOUSE_DT);
+    String startStr =
+        startInclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    String endStr =
+        endExclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
     return "ProjectId = '" + escape(projectId) + "'"
-        + " AND PulseType = 'interaction'"
+        + " AND PulseType = '" + InteractionTelemetryConstants.INTERACTION_PULSE_TYPE + "'"
         + " AND SpanName = '" + escape(interactionName) + "'"
         + " AND Timestamp >= toDateTime64('" + startStr + "', 9, 'UTC')"
         + " AND Timestamp < toDateTime64('" + endStr + "', 9, 'UTC')";
@@ -51,7 +51,7 @@ public class RootCauseQueryBuilder {
   ) {
     String select = buildSelectClauseWithProblematic();
     String where = baseWhere(projectId, interactionName, startInclusive, endExclusive);
-    return "SELECT " + select + " FROM " + TABLE + " WHERE " + where;
+    return "SELECT " + select + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
   }
 
   /**
@@ -80,7 +80,14 @@ public class RootCauseQueryBuilder {
       }
     }
     String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
-    return "SELECT " + select + " FROM " + TABLE + " WHERE " + where + " GROUP BY " + groupBy;
+    return "SELECT "
+        + select
+        + " FROM "
+        + ClickhouseConstants.OTEL_TRACES_TABLE
+        + " WHERE "
+        + where
+        + " GROUP BY "
+        + groupBy;
   }
 
   /**
@@ -102,7 +109,14 @@ public class RootCauseQueryBuilder {
         where += " AND " + e.getKey() + " = '" + escape(e.getValue()) + "'";
       }
     }
-    return "SELECT " + select + " FROM " + TABLE + " WHERE " + where + " GROUP BY " + dimensionColumn;
+    return "SELECT "
+        + select
+        + " FROM "
+        + ClickhouseConstants.OTEL_TRACES_TABLE
+        + " WHERE "
+        + where
+        + " GROUP BY "
+        + dimensionColumn;
   }
 
   private static String buildSelectClauseWithProblematic() {
