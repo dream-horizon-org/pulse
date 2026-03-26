@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +44,10 @@ final class RcaReportProxyHandler {
               ServiceError.DATABASE_ERROR.getErrorMessage())
           .toJsonString();
   private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
+  private static final String MESSAGE_BODY_REQUIRED = "Request body is required";
+  private static final String MESSAGE_PROJECT_HEADER_REQUIRED = "X-Project-ID header is required";
+  private static final String MESSAGE_BODY_JSON_OBJECT = "RCA report body must be a JSON object";
+  private static final String MESSAGE_INTERACTION_REQUIRED = "interactionName is required";
 
   private final AiUpstreamProxyExecutor upstream;
   private final ObjectMapper objectMapper;
@@ -64,22 +67,20 @@ final class RcaReportProxyHandler {
 
   CompletionStage<AiProxyUpstreamResult> handlePost(
       String rawQuery, String body, String authorization, String projectId) {
-    String targetUrl = upstream.buildTargetUrl(RCA_REPORT_PATH, rawQuery);
-    Optional<RcaCacheKeyParts> keyPartsOpt = resolveRcaReportCacheKeyParts(body, projectId);
-
-    if (keyPartsOpt.isPresent()) {
-      RcaCacheKeyParts keyParts = keyPartsOpt.get();
-      if (keyParts.regenerate()) {
-        return withRcaErrorLogging(
-            doEnrichAndProxyRca(targetUrl, body, authorization, projectId, true)
-                .thenCompose(result -> finalizeSuccessfulRcaProxyResult(result, keyParts)));
-      }
-      return withRcaErrorLogging(
-          proxyRcaAfterMysqlCacheLookup(keyParts, targetUrl, body, authorization, projectId));
+    RcaPostValidation validation = validateRcaReportPost(body, projectId);
+    if (validation instanceof RcaPostValidation.Invalid invalid) {
+      return CompletableFuture.completedFuture(invalid.response());
     }
-
+    ParsedRcaPost parsed = ((RcaPostValidation.Valid) validation).parsed();
+    RcaCacheKeyParts keyParts = parsed.keyParts();
+    String targetUrl = upstream.buildTargetUrl(RCA_REPORT_PATH, rawQuery);
+    if (keyParts.regenerate()) {
+      return withRcaErrorLogging(
+          doEnrichAndProxyRca(targetUrl, parsed, authorization, true)
+              .thenCompose(result -> finalizeSuccessfulRcaProxyResult(result, keyParts)));
+    }
     return withRcaErrorLogging(
-        doEnrichAndProxyRca(targetUrl, body, authorization, projectId, false));
+        proxyRcaAfterMysqlCacheLookup(keyParts, targetUrl, parsed, authorization));
   }
 
   private CompletionStage<AiProxyUpstreamResult> withRcaErrorLogging(
@@ -94,11 +95,11 @@ final class RcaReportProxyHandler {
 
   private CompletionStage<AiProxyUpstreamResult> doEnrichAndProxyRca(
       String targetUrl,
-      String body,
+      ParsedRcaPost parsed,
       String authorization,
-      String projectId,
       boolean forceRootCauseRefresh) {
-    return enrichRcaBodyAsync(body, projectId, forceRootCauseRefresh)
+    String projectId = parsed.keyParts().projectId();
+    return enrichRcaBodyAsync(parsed, forceRootCauseRefresh)
         .thenCompose(
             enrichedBody ->
                 upstream.executeProxy("POST", targetUrl, enrichedBody, authorization, projectId));
@@ -111,9 +112,8 @@ final class RcaReportProxyHandler {
   private CompletionStage<AiProxyUpstreamResult> proxyRcaAfterMysqlCacheLookup(
       RcaCacheKeyParts keyParts,
       String targetUrl,
-      String body,
-      String authorization,
-      String projectId) {
+      ParsedRcaPost parsed,
+      String authorization) {
     CompletableFuture<AiProxyUpstreamResult> resultFuture = new CompletableFuture<>();
     rcaReportCacheDao
         .get(keyParts.projectId(), keyParts.interactionName(), keyParts.date())
@@ -129,7 +129,7 @@ final class RcaReportProxyHandler {
               resultFuture.complete(rcaCacheReadFailedResult());
             },
             () ->
-                doEnrichAndProxyRca(targetUrl, body, authorization, projectId, false)
+                doEnrichAndProxyRca(targetUrl, parsed, authorization, false)
                     .thenCompose(result -> finalizeSuccessfulRcaProxyResult(result, keyParts))
                     .whenComplete(
                         (result, ex) -> {
@@ -150,27 +150,63 @@ final class RcaReportProxyHandler {
   private record RcaCacheKeyParts(
       String projectId, String interactionName, LocalDate date, boolean regenerate) {}
 
-  private Optional<RcaCacheKeyParts> resolveRcaReportCacheKeyParts(String body, String projectId) {
-    boolean isProjectIdMissing = projectId == null || projectId.isBlank();
-    boolean isBodyMissing = body == null || body.isBlank();
-    if (isProjectIdMissing || isBodyMissing) {
-      return Optional.empty();
+  /** Parsed JSON body and cache key after {@link #validateRcaReportPost} succeeds. */
+  private record ParsedRcaPost(String rawBody, ObjectNode bodyRoot, RcaCacheKeyParts keyParts) {}
+
+  private sealed interface RcaPostValidation permits RcaPostValidation.Valid, RcaPostValidation.Invalid {
+    record Valid(ParsedRcaPost parsed) implements RcaPostValidation {}
+
+    record Invalid(AiProxyUpstreamResult response) implements RcaPostValidation {}
+  }
+
+  private RcaPostValidation validateRcaReportPost(String body, String projectId) {
+    boolean bodyMissing = body == null || body.isBlank();
+    if (bodyMissing) {
+      AiProxyUpstreamResult errorResponse =
+          badRequest(ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS, MESSAGE_BODY_REQUIRED);
+      return new RcaPostValidation.Invalid(errorResponse);
+    }
+    boolean projectMissing = projectId == null || projectId.isBlank();
+    if (projectMissing) {
+      AiProxyUpstreamResult errorResponse =
+          badRequest(
+              ServiceError.INCORRECT_OR_MISSING_HEADER_PARAMETERS, MESSAGE_PROJECT_HEADER_REQUIRED);
+      return new RcaPostValidation.Invalid(errorResponse);
     }
     try {
-      JsonNode root = objectMapper.readTree(body);
-      JsonNode interactionNode = root.get(INTERACTION_NAME_FIELD);
-      boolean isInteractionMissing = interactionNode == null || interactionNode.asText().isBlank();
-      if (isInteractionMissing) {
-        return Optional.empty();
+      JsonNode tree = objectMapper.readTree(body);
+      if (!(tree instanceof ObjectNode objectRoot)) {
+        AiProxyUpstreamResult errorResponse =
+            badRequest(ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS, MESSAGE_BODY_JSON_OBJECT);
+        return new RcaPostValidation.Invalid(errorResponse);
       }
+      JsonNode interactionNode = objectRoot.get(INTERACTION_NAME_FIELD);
+      boolean interactionMissing = interactionNode == null || interactionNode.asText().isBlank();
+      if (interactionMissing) {
+        AiProxyUpstreamResult errorResponse =
+            badRequest(
+                ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS, MESSAGE_INTERACTION_REQUIRED);
+        return new RcaPostValidation.Invalid(errorResponse);
+      }
+      LocalDate date = resolveDateFromNode(objectRoot.get(DATE_FIELD));
+      boolean regenerate = isRegenerateRequested(objectRoot.get(REGENERATE_FIELD));
       String interactionName = interactionNode.asText();
-      LocalDate date = resolveDateFromNode(root.get(DATE_FIELD));
-      boolean regenerate = isRegenerateRequested(root.get(REGENERATE_FIELD));
-      return Optional.of(new RcaCacheKeyParts(projectId, interactionName, date, regenerate));
+      RcaCacheKeyParts keyParts = new RcaCacheKeyParts(projectId, interactionName, date, regenerate);
+      ParsedRcaPost parsed = new ParsedRcaPost(body, objectRoot, keyParts);
+      return new RcaPostValidation.Valid(parsed);
     } catch (Exception e) {
-      log.debug("Unable to parse RCA cache key parts from body: {}", e.getMessage());
-      return Optional.empty();
+      log.debug("Invalid RCA report JSON: {}", e.getMessage());
+      AiProxyUpstreamResult errorResponse =
+          badRequest(
+              ServiceError.INVALID_REQUEST_BODY, ServiceError.INVALID_REQUEST_BODY.getErrorMessage());
+      return new RcaPostValidation.Invalid(errorResponse);
     }
+  }
+
+  private static AiProxyUpstreamResult badRequest(ServiceError error, String message) {
+    int statusCode = error.getHttpStatusCode();
+    String json = Error.of(error.getErrorCode(), message).toJsonString();
+    return AiProxyUpstreamResult.buffered(statusCode, CONTENT_TYPE_JSON, json);
   }
 
   private static boolean isRegenerateRequested(JsonNode regenerateNode) {
@@ -186,7 +222,7 @@ final class RcaReportProxyHandler {
    */
   private CompletionStage<AiProxyUpstreamResult> finalizeSuccessfulRcaProxyResult(
       AiProxyUpstreamResult result, RcaCacheKeyParts keyParts) {
-    if (!isSuccessfulBufferedRcaResult(result)) {
+    if (!AiProxyUpstreamResult.isSuccessfulBuffered(result)) {
       return CompletableFuture.completedFuture(result);
     }
     String withMeta = applyCacheMetadata(result.getBufferedBody(), true, Instant.now());
@@ -204,59 +240,36 @@ final class RcaReportProxyHandler {
     return done;
   }
 
-  private static boolean isSuccessfulBufferedRcaResult(AiProxyUpstreamResult result) {
-    boolean statusOk =
-        result != null
-            && result.getStatusCode() >= 200
-            && result.getStatusCode() < 300;
-    boolean hasBody =
-        result != null && result.isBuffered() && !result.getBufferedBody().isBlank();
-    return statusOk && hasBody;
-  }
-
   private CompletionStage<String> enrichRcaBodyAsync(
-      String body, String projectId, boolean forceRootCauseRefresh) {
-    boolean isBodyMissing = body == null || body.isBlank();
-    boolean isProjectMissing = projectId == null || projectId.isBlank();
-    if (isBodyMissing || isProjectMissing) {
-      return CompletableFuture.completedFuture(body);
-    }
+      ParsedRcaPost parsed, boolean forceRootCauseRefresh) {
+    ObjectNode working = parsed.bodyRoot().deepCopy();
+    working.remove(REGENERATE_FIELD);
+    String fallbackBody = parsed.rawBody();
+    RcaCacheKeyParts keyParts = parsed.keyParts();
+    String projectId = keyParts.projectId();
+    String interactionName = keyParts.interactionName();
+    LocalDate date = keyParts.date();
 
-    try {
-      ObjectNode root = (ObjectNode) objectMapper.readTree(body);
-      root.remove(REGENERATE_FIELD);
-      JsonNode interactionNode = root.get(INTERACTION_NAME_FIELD);
-      boolean isInteractionMissing = interactionNode == null || interactionNode.asText().isBlank();
-      if (isInteractionMissing) {
-        return CompletableFuture.completedFuture(body);
-      }
-
-      String interactionName = interactionNode.asText();
-      LocalDate date = resolveDateFromNode(root.get(DATE_FIELD));
-
-      CompletableFuture<String> future = new CompletableFuture<>();
-      rootCauseService
-          .getRootCause(projectId, interactionName, date, forceRootCauseRefresh)
-          .subscribe(
-              result -> {
-                try {
-                  JsonNode resultNode = objectMapper.valueToTree(result);
-                  root.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
-                  future.complete(objectMapper.writeValueAsString(root));
-                } catch (Exception e) {
-                  log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
-                  future.complete(body);
-                }
-              },
-              error -> {
-                log.warn("Failed to fetch root-cause data for enrichment: {}", error.getMessage());
-                future.complete(body);
-              });
-      return future;
-    } catch (Exception e) {
-      log.warn("Failed to parse RCA body for enrichment: {}", e.getMessage());
-      return CompletableFuture.completedFuture(body);
-    }
+    CompletableFuture<String> future = new CompletableFuture<>();
+    rootCauseService
+        .getRootCause(projectId, interactionName, date, forceRootCauseRefresh)
+        .subscribe(
+            rootCauseResult -> {
+              try {
+                JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
+                working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
+                String enriched = objectMapper.writeValueAsString(working);
+                future.complete(enriched);
+              } catch (Exception e) {
+                log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
+                future.complete(fallbackBody);
+              }
+            },
+            error -> {
+              log.warn("Failed to fetch root-cause data for enrichment: {}", error.getMessage());
+              future.complete(fallbackBody);
+            });
+    return future;
   }
 
   private LocalDate resolveDateFromNode(JsonNode dateNode) {

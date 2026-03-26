@@ -190,18 +190,55 @@ class AiProxyServiceImplTest {
     }
 
     @Test
-    void shouldSkipMysqlAndEnrichmentWhenInteractionNameMissing() {
+    void shouldRejectRcaReportWhenInteractionNameMissing() throws Exception {
       String body = "{\"date\":\"2025-03-10\"}";
-      HttpResponse<Buffer> upstreamResponse =
-          mockBufferedResponse(200, "application/json", "{}");
-      stubSendReturns(upstreamResponse);
 
-      awaitResult(
-          fullPipelineService()
-              .proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(400);
+      JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
+      assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1002");
+      assertThat(envelope.path("error").path("message").asText())
+          .isEqualTo("interactionName is required");
 
       verify(rcaReportCacheDao, never()).get(any(), any(), any());
       verify(rootCauseService, never()).getRootCause(any(), any(), any(), anyBoolean());
+      verify(httpRequest, never()).rxSend();
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
+    }
+
+    @Test
+    void shouldRejectRcaReportWhenBodyMissing() throws Exception {
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/report", null, "", AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(400);
+      JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
+      assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1002");
+      assertThat(envelope.path("error").path("message").asText()).isEqualTo("Request body is required");
+
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
+    }
+
+    @Test
+    void shouldRejectRcaReportWhenProjectIdMissing() throws Exception {
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, null));
+
+      assertThat(result.getStatusCode()).isEqualTo(400);
+      JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
+      assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1005");
+      assertThat(envelope.path("error").path("message").asText())
+          .isEqualTo("X-Project-ID header is required");
+
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
     }
 
     @Test
