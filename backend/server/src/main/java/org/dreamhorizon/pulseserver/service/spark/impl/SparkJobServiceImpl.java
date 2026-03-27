@@ -15,7 +15,7 @@ import software.amazon.awssdk.services.emrserverless.model.SparkSubmit;
 import software.amazon.awssdk.services.emrserverless.model.StartJobRunRequest;
 import software.amazon.awssdk.services.emrserverless.model.StartJobRunResponse;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -89,7 +89,7 @@ public class SparkJobServiceImpl implements SparkJobService {
                 .jobName(request.getJobName())
                 .entryPoint(request.getEntryPoint().trim())
                 .mainClass(request.getMainClass())
-                .submittedAt(LocalDateTime.now())
+                .submittedAt(Instant.now().toString())
                 .build();
         });
     }

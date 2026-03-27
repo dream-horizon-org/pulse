@@ -3,8 +3,6 @@ package org.dreamhorizon.pulseserver.service.spark.models;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Builder
 public class SparkJobResponse {
@@ -18,5 +16,6 @@ public class SparkJobResponse {
     private String entryPoint;
     /** Echo of submitted main class (FQCN), if any. */
     private String mainClass;
-    private LocalDateTime submittedAt;
+    /** ISO-8601 instant when the job was submitted (e.g. {@code Instant.now().toString()}). */
+    private String submittedAt;
 }
