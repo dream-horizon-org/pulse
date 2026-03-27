@@ -43,7 +43,6 @@ def mock_tool_context():
     ctx = MagicMock()
     ctx.state = {
         "jwt": "ctx-access-token",
-        "refresh_token": "ctx-refresh-token",
         "user_email": "ctx-user@example.com",
     }
     return ctx

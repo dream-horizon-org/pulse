@@ -6,6 +6,9 @@ export const AI_CHAT_TEXTS = {
   WELCOME_SUBTITLE:
     "Ask questions about your app's performance, crash rates, network health, and more.",
   ERROR_GENERIC: "Something went wrong. Please try again.",
+  /** Generic copy for failed session history fetch; distinct from ERROR_GENERIC so hydration can clear without wiping stream errors. */
+  SESSION_HISTORY_LOAD_FAILED:
+    "Something went wrong. Please try loading this conversation again.",
   SESSIONS_TITLE: "Conversations",
   NO_SESSIONS: "No conversations yet",
   NEW_CONVERSATION: "New conversation",

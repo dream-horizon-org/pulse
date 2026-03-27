@@ -1,6 +1,5 @@
-"""HTTP client for pulse-server with forwarded user JWT and project context."""
-
 from __future__ import annotations
+"""HTTP client for the Pulse backend with auth headers."""
 
 import logging
 from typing import Any
