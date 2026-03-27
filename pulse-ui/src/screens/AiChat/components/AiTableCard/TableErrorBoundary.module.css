@@ -1,0 +1,11 @@
+/* ── Table Error Fallback ── */
+.errorFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-gray-0);
+}

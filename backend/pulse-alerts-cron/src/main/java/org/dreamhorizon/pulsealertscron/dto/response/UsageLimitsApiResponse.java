@@ -16,7 +16,7 @@ public class UsageLimitsApiResponse {
   @AllArgsConstructor
   public static class Response {
     private List<ProjectLimit> limits;
-    private Integer count;
+    private Integer totalCount;
   }
 
   @Data
@@ -33,6 +33,17 @@ public class UsageLimitsApiResponse {
     private String disabledAt;
     private String disabledBy;
     private String disabledReason;
+    private NotificationStatus notificationStatus;
+  }
+  
+  @Data
+  @Builder
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class NotificationStatus {
+    private Map<String, String> thresholdsNotified;
+    private String lastNotifiedAt;
+    private String createdAt;
   }
 
   @Data

@@ -6,6 +6,7 @@ import dev.openfga.sdk.api.client.OpenFgaClient;
 import dev.openfga.sdk.api.client.model.ClientCheckRequest;
 import dev.openfga.sdk.api.client.model.ClientListObjectsRequest;
 import dev.openfga.sdk.api.client.model.ClientReadRequest;
+import dev.openfga.sdk.api.client.model.ClientReadResponse;
 import dev.openfga.sdk.api.client.model.ClientTupleKey;
 import dev.openfga.sdk.api.client.model.ClientTupleKeyWithoutCondition;
 import dev.openfga.sdk.api.client.model.ClientWriteRequest;
@@ -60,6 +61,11 @@ public class OpenFgaService {
       this.enabled = false;
       log.warn("OpenFGA service is disabled - all permission checks will be permissive");
     }
+  }
+
+  /** Whether OpenFGA is configured and active (listing and checks use FGA when true). */
+  public boolean isEnabled() {
+    return enabled;
   }
 
   /**
@@ -267,6 +273,25 @@ public class OpenFgaService {
   }
 
   /**
+   * Get a user's role on a project (if any).
+   *
+   * @param userId    User ID
+   * @param projectId Project ID
+   * @return Single emitting the role if assigned, empty otherwise
+   */
+  public Single<Optional<String>> getUserProjectRole(String userId, String projectId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getUserProjectRole: user={}, project={}", userId, projectId);
+      return Single.just(Optional.empty());
+    }
+    return Single.fromCallable(() -> {
+      String role = findUserRoleOnObject(USER_PREFIX + userId, PROJECT_PREFIX + projectId, PROJECT_ROLES);
+      log.debug("User role in project: user={}, project={} -> {}", userId, projectId, role);
+      return Optional.ofNullable(role);
+    });
+  }
+
+  /**
    * Get all tenants a user belongs to.
    *
    * @param userId User ID
@@ -465,6 +490,41 @@ public class OpenFgaService {
 
       log.debug("countTenantOwners: tenant={} -> {} admin(s)", tenantId, count);
       return count;
+    });
+  }
+
+  /**
+   * Get user IDs of project admins (direct admin role on project).
+   * Used for usage limit notifications.
+   *
+   * @param projectId Project ID
+   * @return Single emitting set of admin user IDs
+   */
+  public Single<Set<String>> getProjectAdmins(String projectId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getProjectAdmins: project={}", projectId);
+      return Single.just(new HashSet<>());
+    }
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .relation("admin")
+          ._object(PROJECT_PREFIX + projectId);
+      ClientReadResponse response = client.read(request).get();
+      List<Tuple> tuples = response.getTuples();
+
+      if (tuples == null || tuples.isEmpty()) {
+        log.debug("getProjectAdmins: project={} -> empty set", projectId);
+        return new HashSet<String>();
+      }
+
+      Set<String> admins = tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getUser() != null && key.getUser().startsWith(USER_PREFIX))
+          .map(key -> key.getUser().substring(USER_PREFIX.length()))
+          .collect(Collectors.toSet());
+
+      log.debug("getProjectAdmins: project={} -> {} admin(s)", projectId, admins.size());
+      return admins;
     });
   }
 

@@ -33,6 +33,30 @@ import {
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
 
+type MockV1AiSessionListRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  last_update_time: number;
+};
+
+type MockV1AiSessionDetail = {
+  id: string;
+  user_id: string;
+  messages: Array<Record<string, unknown>>;
+  last_update_time: number;
+};
+
+const mockV1AiSessionsByUserId = new Map<string, MockV1AiSessionListRow[]>();
+const mockV1AiSessionDetailsById = new Map<string, MockV1AiSessionDetail>();
+
+function mockV1AiNewSessionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
   private config: MockConfigManager;
@@ -174,6 +198,11 @@ export class MockResponseGenerator {
       return this.handleTenantEndpoints(pathname, method, request);
     }
 
+    // Session Replay sessions/filters endpoint
+    if (pathname.includes("/v1/sessions/filters") && method === "GET") {
+      return this.handleSessionsFiltersEndpoint();
+    }
+
     // User endpoints - removed to avoid conflict with activity tracking endpoints
     // if (pathname.includes('/user')) {
     //   return this.handleUserEndpoints(pathname, method, request);
@@ -199,6 +228,10 @@ export class MockResponseGenerator {
     // Breadcrumbs endpoint
     if (pathname.includes("/v1/breadcrumbs") && method === "POST") {
       return this.handleBreadcrumbsEndpoint(request);
+    }
+
+    if (pathname.includes("/v1/ai/sessions")) {
+      return this.handleV1AiSessionsEndpoints(pathname, method, request);
     }
 
     // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
@@ -347,10 +380,112 @@ export class MockResponseGenerator {
       return this.handleTncEndpoints(pathname, method, request);
     }
 
+    // Notification endpoints
+    if (pathname.includes("/v1/notifications/")) {
+      return this.handleNotificationEndpoints(pathname, method, request);
+    }
+
     // Default response
     return {
       data: { message: "Mock response not implemented" },
       status: 200,
+    };
+  }
+
+  /**
+   * Mock /v1/ai/sessions — create (POST), list (GET user), detail (GET user/session).
+   */
+  private handleV1AiSessionsEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    const url = this.parseURL(request.url);
+    const parts = pathname.split("/").filter(Boolean);
+    let sessionsIdx = -1;
+    for (let i = 2; i < parts.length; i++) {
+      if (
+        parts[i] === "sessions" &&
+        parts[i - 1] === "ai" &&
+        parts[i - 2] === "v1"
+      ) {
+        sessionsIdx = i;
+        break;
+      }
+    }
+    if (sessionsIdx === -1) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "AI sessions path not found",
+          cause: "Invalid path",
+        },
+      };
+    }
+
+    if (method === "POST" && parts.length === sessionsIdx + 1) {
+      const userId = url.searchParams.get("user_id") || "anonymous";
+      const qSessionId = url.searchParams.get("session_id");
+      const sessionId = qSessionId?.length
+        ? qSessionId
+        : mockV1AiNewSessionId();
+      const nowSec = Math.floor(Date.now() / 1000);
+      const row: MockV1AiSessionListRow = {
+        id: sessionId,
+        user_id: userId,
+        title: "New conversation",
+        last_update_time: nowSec,
+      };
+      const detail: MockV1AiSessionDetail = {
+        id: sessionId,
+        user_id: userId,
+        messages: [],
+        last_update_time: nowSec,
+      };
+      const existing = mockV1AiSessionsByUserId.get(userId) ?? [];
+      const without = existing.filter((r) => r.id !== sessionId);
+      mockV1AiSessionsByUserId.set(userId, [row, ...without]);
+      mockV1AiSessionDetailsById.set(sessionId, detail);
+      return {
+        data: { session_id: sessionId, user_id: userId },
+        status: 200,
+      };
+    }
+
+    if (method === "GET" && parts.length === sessionsIdx + 2) {
+      const userId = decodeURIComponent(parts[sessionsIdx + 1] ?? "");
+      const rows = mockV1AiSessionsByUserId.get(userId) ?? [];
+      return { data: rows, status: 200 };
+    }
+
+    if (method === "GET" && parts.length === sessionsIdx + 3) {
+      const userId = decodeURIComponent(parts[sessionsIdx + 1] ?? "");
+      const sessionId = decodeURIComponent(parts[sessionsIdx + 2] ?? "");
+      const detail = mockV1AiSessionDetailsById.get(sessionId);
+      if (!detail || detail.user_id !== userId) {
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "NOT_FOUND",
+            message: "Session not found",
+            cause: "Unknown session or user mismatch",
+          },
+        };
+      }
+      return { data: detail, status: 200 };
+    }
+
+    return {
+      data: null,
+      status: 405,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: `Method ${method} not allowed for AI sessions`,
+        cause: "Unsupported operation",
+      },
     };
   }
 
@@ -527,6 +662,58 @@ export class MockResponseGenerator {
   }
 
   /**
+   * Handle notification endpoints
+   */
+  private handleNotificationEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // POST /v1/notifications/contact-us
+    if (pathname.includes("/notifications/contact-us") && method === "POST") {
+      const url = this.parseURL(request.url);
+      const eventType = url.searchParams.get("type");
+
+      // Validate event type
+      if (
+        !eventType ||
+        !["sales", "support"].includes(eventType.toLowerCase())
+      ) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_TYPE",
+            message: "Invalid contact type. Use 'sales' or 'support'",
+            cause: "Invalid or missing type query parameter",
+          },
+        };
+      }
+
+      // Success response
+      const successMessage =
+        eventType.toLowerCase() === "sales"
+          ? "Contact request submitted successfully"
+          : "Support request submitted successfully";
+
+      return {
+        data: successMessage,
+        status: 200,
+      };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "Notification endpoint not found",
+        cause: `Unknown notification endpoint: ${pathname}`,
+      },
+    };
+  }
+
+  /**
    * Handle SDK Configuration V1 endpoints (/v1/configs/*)
    * New API format matching backend PulseConfig schema
    */
@@ -559,6 +746,7 @@ export class MockResponseGenerator {
             "custom_events",
             "rn_screen_load",
             "rn_screen_interactive",
+            "session_replay",
           ],
         },
         status: 200,
@@ -857,6 +1045,71 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
+  private handleSessionsFiltersEndpoint(): MockResponse {
+    return {
+      data: {
+        quick: [
+          { key: "hasCrash", label: "Crashes", type: "boolean" },
+          { key: "hasAnr", label: "ANRs", type: "boolean" },
+          { key: "hasError", label: "Errors", type: "boolean" },
+          { key: "hasSlowRender", label: "Slow Renders", type: "boolean" },
+        ],
+        advanced: [
+          {
+            categoryKey: "session",
+            displayName: "Session",
+            fields: [
+              {
+                key: "duration",
+                displayName: "Duration (ms)",
+                dataType: "integer",
+                allowedOperators: [
+                  { key: "gt", label: "greater than" },
+                  { key: "lt", label: "less than" },
+                  { key: "eq", label: "equals" },
+                ],
+              },
+              {
+                key: "platform",
+                displayName: "Platform",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "neq", label: "not equals" },
+                ],
+              },
+            ],
+          },
+          {
+            categoryKey: "device",
+            displayName: "Device",
+            fields: [
+              {
+                key: "osVersion",
+                displayName: "OS Version",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "contains", label: "contains" },
+                ],
+              },
+              {
+                key: "appVersion",
+                displayName: "App Version",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "neq", label: "not equals" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      status: 200,
+    };
+  }
+
   private handleV1UserEndpoints(
     pathname: string,
     method: string,
@@ -867,16 +1120,19 @@ export class MockResponseGenerator {
       const tenant =
         this.dataStore.getCurrentTenant() ??
         this.dataStore.getDefaultMockTenant();
-      const firstActiveProject = tenant.projects.find((p) => p.isActive);
-      const redirectTo = firstActiveProject
-        ? `/projects/${firstActiveProject.projectId}`
-        : `/${tenant.tenantId}/projects`;
+      const { projects } = tenant;
+      let redirectTo: string | null = null;
+      if (projects.length === 1) {
+        redirectTo = `/projects/${projects[0].projectId}`;
+      } else if (projects.length > 1) {
+        redirectTo = "/project-selection";
+      }
 
       return {
         data: {
           tenantId: tenant.tenantId,
           tenantName: tenant.tenantName,
-          projects: tenant.projects,
+          projects: Array.isArray(tenant.projects) ? tenant.projects : [],
           redirectTo,
         },
         status: 200,
@@ -953,6 +1209,24 @@ export class MockResponseGenerator {
       this.dataStore.setCurrentTenant(newTenant);
       this.dataStore.ensureTenantExists(tenantId, organizationName);
 
+      // Seed the onboarded user as tenant admin and project admin so invite flow works
+      this.dataStore.addTenantMember(
+        tenantId,
+        "dev@example.com",
+        "admin",
+        "Dev User",
+        "user-mock-onboarded",
+        "active",
+      );
+      this.dataStore.addProjectMember(
+        projectId,
+        "dev@example.com",
+        "admin",
+        "Dev User",
+        "user-mock-onboarded",
+        "active",
+      );
+
       return {
         data: {
           userId: "user-mock-onboarded",
@@ -968,7 +1242,7 @@ export class MockResponseGenerator {
           refreshToken,
           tokenType: "Bearer",
           expiresIn: 86400,
-          redirectTo: `/projects/${projectId}/onboarding-success`,
+          redirectTo: `/projects/${projectId}/onboarding`,
         },
         status: 200,
       };
@@ -1156,6 +1430,8 @@ export class MockResponseGenerator {
         description: project.description,
         tenantId: project.tenantId,
         isActive: project.isActive,
+        isEventFlowStarted: project.isEventFlowStarted ?? true,
+        userRole: project.userRole ?? "admin",
         createdAt: project.createdAt,
         createdBy: project.createdBy,
       },
@@ -1268,14 +1544,44 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
+
       if (this.dataStore.hasProjectMember(projectId, email)) {
         skippedEmails.push(email);
         continue;
       }
+      const existingMember = this.dataStore.getProjectMemberByEmail(
+        projectId,
+        email,
+      );
+      if (existingMember) {
+        // If single email invite, return error
+        if (uniqueEmails.length === 1) {
+          return {
+            data: null,
+            status: 409,
+            error: {
+              code: "409",
+              message: `User ${email} is already a member of this project with role '${existingMember.role}'`,
+              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
+            },
+          };
+        }
+        // For batch invites, just skip
+        skippedEmails.push(email);
+        continue;
+      }
+      // If email matches existing tenant member, use their userId/name for consistency
+      // (TenantMembersNotOnProjectPicker adds org members by email; UI filters by userId)
+      const project = this.dataStore.getProject(projectId);
+      const tenantMember = project
+        ? this.dataStore.getTenantMemberByEmail(project.tenantId, email)
+        : undefined;
       const member = this.dataStore.addProjectMember(
         projectId,
         email,
         role as "admin" | "editor" | "viewer",
+        tenantMember?.name,
+        tenantMember?.userId,
       );
       successEmails.push(email);
       addedMembers.push(member);
@@ -1884,6 +2190,28 @@ export class MockResponseGenerator {
         continue;
       }
       if (this.dataStore.hasTenantMember(tenantId, email)) {
+        skippedEmails.push(email);
+        continue;
+      }
+
+      const existingMember = this.dataStore.getTenantMemberByEmail(
+        tenantId,
+        email,
+      );
+      if (existingMember) {
+        // If single email invite, return error
+        if (uniqueEmails.length === 1) {
+          return {
+            data: null,
+            status: 409,
+            error: {
+              code: "409",
+              message: `User ${email} is already a member of this organization with role '${existingMember.role}'`,
+              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
+            },
+          };
+        }
+        // For batch invites, just skip
         skippedEmails.push(email);
         continue;
       }

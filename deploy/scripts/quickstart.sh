@@ -6,7 +6,7 @@
 # Auto-detects Docker Compose; falls back to Docker CLI if unavailable.
 #
 # Usage:
-#   ./quickstart.sh
+#   ./quickstart.sh [--no-cache] [--skip-env-check]
 # ============================================================================
 
 # Source common library (provides colors, print_*, check_docker, has_compose,
@@ -14,6 +14,52 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/common.sh"
+
+# True if deploy/.env defines a non-empty GOOGLE_API_KEY (ignores commented lines).
+_quickstart_has_google_api_key() {
+    local env_file="$DEPLOY_DIR/.env"
+    [ -f "$env_file" ] || return 1
+    local line key val
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%%#*}"
+        line="${line%"${line##*[![:space:]]}"}"
+        [[ "$line" == *"="* ]] || continue
+        key="${line%%=*}"
+        key="${key%"${key##*[![:space:]]}"}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        [ "$key" = "GOOGLE_API_KEY" ] || continue
+        val="${line#*=}"
+        val="${val#"${val%%[![:space:]]*}"}"
+        val="${val%"${val##*[![:space:]]}"}"
+        val="${val#\"}"
+        val="${val%\"}"
+        val="${val#\'}"
+        val="${val%\'}"
+        [ -n "$val" ] && return 0
+    done < "$env_file"
+    return 1
+}
+
+# Parse flags (before banner so they can be used later)
+BUILD_NO_CACHE=""
+SKIP_ENV_CHECK=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-cache)      BUILD_NO_CACHE="true"; shift ;;
+        --skip-env-check) SKIP_ENV_CHECK="true"; shift ;;
+        -h|--help)
+            echo "Usage: $0 [--no-cache] [--skip-env-check]"
+            echo "  --no-cache       Build Docker images without cache"
+            echo "  --skip-env-check Skip .env vs .env.example/docker-compose validation"
+            exit 0
+            ;;
+        *)
+            print_error "Unknown option: $1"
+            echo "Usage: $0 [--no-cache] [--skip-env-check]"
+            exit 1
+            ;;
+    esac
+done
 
 clear 2>/dev/null || true
 
@@ -46,6 +92,9 @@ echo "  2. Setup environment"
 echo "  3. Build Docker images"
 echo "  4. Start all services"
 echo "  5. Verify deployment"
+if ! _quickstart_has_google_api_key; then
+    echo "  (set GOOGLE_API_KEY in .env for Gemini; AI HTTP/API may fail without it)"
+fi
 echo ""
 read -r -p "Press Enter to continue or Ctrl+C to cancel..."
 
@@ -56,8 +105,9 @@ print_section "Step 1: Checking Prerequisites"
 
 check_docker
 
-# Re-detect compose after possible Docker installation
+# Re-detect compose after possible Docker installation; install if missing
 detect_compose
+ensure_compose
 
 # Check available disk space (convert to GB regardless of unit)
 _disk_avail_gb() {
@@ -148,7 +198,37 @@ if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-otel-schema.sql" ]; then
 fi
 print_success "ClickHouse schema found"
 
+if [ ! -f "$ROOT_DIR/backend/ingestion/session-summary-mv.sql" ]; then
+    print_error "ClickHouse session summary MV schema not found"
+    exit 1
+fi
+print_success "ClickHouse session summary MV schema found"
+
+if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-session-replay-schema.sql" ]; then
+    print_error "ClickHouse session replay schema not found"
+    exit 1
+fi
+print_success "ClickHouse session replay schema found"
+
 load_env
+
+# Validate .env against .env.example and docker-compose.yml
+if [ "$SKIP_ENV_CHECK" != "true" ]; then
+    print_info "Validating .env against docker-compose.yml (warnings for .env.example-only keys missing in .env)..."
+    if ! validate_env_against_example_and_compose; then
+        print_error "Env validation failed. Fix .env or run with --skip-env-check to skip."
+        exit 1
+    fi
+    if ! validate_url_vars; then
+        print_error "URL validation failed. Set valid URLs in .env (see .env.example)."
+        exit 1
+    fi
+    if ! validate_encryption_key; then
+        print_error "Encryption key validation failed. Fix VAULT_ENCRYPTION_MASTER_KEY in .env."
+        exit 1
+    fi
+    print_success "Env, URL, and encryption key validation passed"
+fi
 
 # ============================================================================
 # Step 3: Build Docker Images
@@ -158,7 +238,12 @@ print_section "Step 3: Building Docker Images"
 print_info "This may take 15-20 minutes on first run..."
 echo ""
 
-if "$SCRIPT_DIR/build.sh"; then
+if [ -n "$BUILD_NO_CACHE" ]; then
+    "$SCRIPT_DIR/build.sh" --no-cache
+else
+    "$SCRIPT_DIR/build.sh"
+fi
+if [ $? -eq 0 ]; then
     print_success "All Docker images built successfully"
 else
     print_error "Failed to build Docker images"
@@ -229,6 +314,18 @@ else
     exit 1
 fi
 
+print_info "Testing Pulse AI health endpoint..."
+if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+    print_success "Pulse AI is responding"
+else
+    print_error "Pulse AI health check failed (port 8000 in use? see: ./logs.sh ai)"
+    exit 1
+fi
+print_info "Testing session replay pipeline..."
+if ! verify_session_replay; then
+    print_warning "Session replay pipeline may still be starting"
+fi
+
 echo ""
 print_info "Verifying database initialization..."
 INIT_OK=true
@@ -262,9 +359,13 @@ echo -e "${CYAN}Access Points:${NC}"
 echo -e "  ${BLUE}Frontend (UI):${NC}      http://localhost:3000"
 echo -e "  ${BLUE}Backend API:${NC}        http://localhost:8080"
 echo -e "  ${BLUE}Health Check:${NC}       http://localhost:8080/healthcheck"
+echo -e "  ${BLUE}Session Capture:${NC}    http://localhost:3400/s/ (POST)"
 echo -e "  ${BLUE}MySQL:${NC}              localhost:3307"
 echo -e "  ${BLUE}ClickHouse:${NC}         localhost:8123 (HTTP), localhost:9000 (Native)"
+echo -e "  ${BLUE}Kafka:${NC}              localhost:9092"
+echo -e "  ${BLUE}MinIO Console:${NC}      http://localhost:9101"
 echo -e "  ${BLUE}OTEL Collector:${NC}     localhost:4317 (gRPC), localhost:4318 (HTTP)"
+echo -e "  ${BLUE}Pulse AI:${NC}            http://localhost:8000"
 echo ""
 echo -e "${CYAN}Useful Commands:${NC}"
 echo -e "  ${BLUE}View all logs:${NC}      ./deploy/scripts/logs.sh"
@@ -272,6 +373,9 @@ echo -e "  ${BLUE}View server logs:${NC}   docker logs -f pulse-server"
 echo -e "  ${BLUE}Check status:${NC}       docker ps --filter network=pulse-network"
 echo -e "  ${BLUE}Stop services:${NC}      ./deploy/scripts/stop.sh"
 echo -e "  ${BLUE}Reset databases:${NC}    ./deploy/scripts/reset-databases.sh"
+echo ""
+echo -e "${CYAN}Test Session Replay Pipeline:${NC}"
+echo -e "  ${BLUE}curl -X POST http://localhost:3400/s/ -H 'Content-Type: application/json' -d '{\"event\":\"\$snapshot\",\"project_id\":\"test-proj\",\"user_id\":\"test-user\",\"properties\":{\"session_id\":\"test-session-001\",\"snapshot_source\":\"mobile\",\"snapshot_data\":[{\"type\":2,\"data\":{\"tag\":\"div\"},\"timestamp\":'$(date +%s)000'}]}}'${NC}"
 echo ""
 echo -e "${CYAN}Next Steps:${NC}"
 echo -e "  1. Open http://localhost:3000 in your browser"

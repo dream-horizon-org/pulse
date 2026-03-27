@@ -20,31 +20,38 @@ cd deploy
 ./scripts/build.sh ui         # pulse-ui only
 ./scripts/build.sh server     # pulse-server only
 ./scripts/build.sh cron       # pulse-alerts-cron only
-./scripts/build.sh all        # everything
+./scripts/build.sh ai         # pulse-ai-agent only
+./scripts/build.sh all        # ui + server + cron + pulse-ai-agent (same as default no-args build)
 ```
 
 ## Start/Stop
 
 ```bash
-./scripts/start.sh -d           # start all detached
-./scripts/start.sh -d --build   # build + start detached
-./scripts/stop.sh                # stop all
-./scripts/stop.sh -v             # stop + remove volumes
+./scripts/start.sh -d              # start all detached (includes pulse-ai-agent)
+./scripts/start.sh -d --build      # build + start detached
+./scripts/stop.sh                  # stop all
+./scripts/stop.sh ai               # stop pulse-ai-agent only (CLI path)
+./scripts/stop.sh -v               # stop + remove volumes
 ```
 
 ## View Logs
 
 ```bash
 ./scripts/logs.sh                # all services
-./scripts/logs.sh pulse-server   # specific service
+./scripts/logs.sh server         # pulse-server
+./scripts/logs.sh ai             # pulse-ai-agent
 ```
 
-## AI Agent (own Docker Compose)
+## Pulse AI
+
+**Integrated (deploy stack):** `pulse-ai-agent` starts with `./scripts/start.sh -d`. Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini. Health: `curl -sf http://localhost:8000/health`.
+
+**Standalone (AI-only dev):**
 
 ```bash
 cd pulse_ai && cp .env.example .env   # first time — set GOOGLE_API_KEY
 cd pulse_ai && ./setup.sh             # build + start (Docker, port 8000)
-curl http://localhost:8000             # health check
+curl -sf http://localhost:8000/health
 ```
 
 ## Reset Databases
@@ -64,7 +71,7 @@ Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover
 | pulse-alerts-cron | `curl http://localhost:<port>/healthcheck` | 4000 |
 | OpenFGA | `curl http://localhost:8180/healthz` | 8180 |
 | OTEL Collector | `curl http://localhost:<port>/` | 13133 |
-| pulse-ai (own compose) | `curl http://localhost:8000` | 8000 |
+| pulse-ai-agent | `curl -sf http://localhost:8000/health` | 8000 |
 
 ## Troubleshooting
 

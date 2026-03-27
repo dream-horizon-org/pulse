@@ -25,15 +25,27 @@ CONTAINER_CLICKHOUSE_INIT="pulse-clickhouse-init"
 CONTAINER_OTEL_COLLECTOR="pulse-otel-collector"
 CONTAINER_UI="pulse-ui"
 CONTAINER_SERVER="pulse-server"
+CONTAINER_AI="pulse-ai-agent"
 CONTAINER_ALERTS_CRON="pulse-alerts-cron"
+CONTAINER_KAFKA="pulse-kafka"
+CONTAINER_MINIO="pulse-minio"
+CONTAINER_MINIO_INIT="pulse-minio-init"
+CONTAINER_SESSION_CAPTURE="pulse-session-capture"
+CONTAINER_SESSION_INGESTION="pulse-session-replay-ingestion"
 
 # Ordered list (start order)
 ALL_CONTAINERS=(
     "$CONTAINER_MYSQL"
     "$CONTAINER_CLICKHOUSE"
+    "$CONTAINER_KAFKA"
+    "$CONTAINER_MINIO"
     "$CONTAINER_CLICKHOUSE_INIT"
+    "$CONTAINER_MINIO_INIT"
     "$CONTAINER_OTEL_COLLECTOR"
+    "$CONTAINER_SESSION_CAPTURE"
+    "$CONTAINER_SESSION_INGESTION"
     "$CONTAINER_SERVER"
+    "$CONTAINER_AI"
     "$CONTAINER_UI"
     "$CONTAINER_ALERTS_CRON"
 )
@@ -44,11 +56,17 @@ ALL_CONTAINERS=(
 IMAGE_MYSQL="mysql:8.0"
 IMAGE_CLICKHOUSE="clickhouse/clickhouse-server:24.8"
 IMAGE_OTEL_COLLECTOR="otel/opentelemetry-collector-contrib:0.137.0"
+IMAGE_KAFKA="confluentinc/cp-kafka:7.6.0"
+IMAGE_MINIO="minio/minio:latest"
+IMAGE_MINIO_MC="minio/mc:latest"
 
 # Custom-built images (tagged :local to avoid confusion with registry)
 IMAGE_UI="pulse-ui:local"
 IMAGE_SERVER="pulse-server:local"
+IMAGE_AI="pulse-ai-agent:local"
 IMAGE_ALERTS_CRON="pulse-alerts-cron:local"
+IMAGE_SESSION_CAPTURE="pulse-session-capture:local"
+IMAGE_SESSION_INGESTION="pulse-session-replay-ingestion:local"
 
 # ---------------------------------------------------------------------------
 # Constants -- Network & Volumes
@@ -56,6 +74,8 @@ IMAGE_ALERTS_CRON="pulse-alerts-cron:local"
 NETWORK_NAME="pulse-network"
 VOLUME_MYSQL="pulse-mysql-data"
 VOLUME_CLICKHOUSE="pulse-clickhouse-data"
+VOLUME_KAFKA="pulse-kafka-data"
+VOLUME_MINIO="pulse-minio-data"
 
 # ---------------------------------------------------------------------------
 # Colors
@@ -116,6 +136,83 @@ has_compose() {
     [ -n "$COMPOSE_CMD" ]
 }
 
+# ---------------------------------------------------------------------------
+# ensure_compose -- Install Docker Compose if not present. Prompts user to
+#                   install; re-detects compose after install.
+# ---------------------------------------------------------------------------
+ensure_compose() {
+    if has_compose; then
+        return 0
+    fi
+    print_warning "Docker Compose is not available (required for build/start)"
+    echo ""
+    read -p "Would you like to install Docker Compose now? (yes/no): " -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]([Ee][Ss])?$ ]]; then
+        print_error "Docker Compose is required. Install it manually:"
+        echo "  Linux:   https://docs.docker.com/compose/install/linux/"
+        echo "  macOS:   brew install docker-compose"
+        exit 1
+    fi
+
+    local os
+    os="$(uname -s)"
+    case "$os" in
+        Linux)
+            if command -v apt-get &> /dev/null; then
+                print_info "Installing Docker Compose plugin (apt)..."
+                sudo apt-get update -y
+                sudo apt-get install -y docker-compose-plugin
+            elif command -v yum &> /dev/null; then
+                print_info "Installing Docker Compose plugin (yum)..."
+                sudo yum install -y docker-compose-plugin
+            elif command -v dnf &> /dev/null; then
+                print_info "Installing Docker Compose plugin (dnf)..."
+                sudo dnf install -y docker-compose-plugin
+            elif command -v pacman &> /dev/null; then
+                print_info "Installing Docker Compose (pacman)..."
+                sudo pacman -Sy --noconfirm docker-compose
+            else
+                print_error "Unsupported Linux distribution. Install Docker Compose manually:"
+                echo "  https://docs.docker.com/compose/install/"
+                exit 1
+            fi
+            ;;
+        Darwin)
+            if command -v brew &> /dev/null; then
+                print_info "Installing Docker Compose (Homebrew)..."
+                brew install docker-compose
+                # Optional: link so "docker compose" works (plugin style)
+                local plugins_dir="$HOME/.docker/cli-plugins"
+                local compose_bin
+                compose_bin="$(command -v docker-compose 2>/dev/null)"
+                if [ -n "$compose_bin" ] && [ ! -x "$plugins_dir/docker-compose" ]; then
+                    mkdir -p "$plugins_dir"
+                    ln -sfn "$compose_bin" "$plugins_dir/docker-compose" 2>/dev/null || true
+                fi
+            else
+                print_error "Homebrew required. Install Docker Compose manually:"
+                echo "  brew install docker-compose"
+                exit 1
+            fi
+            ;;
+        *)
+            print_error "Unsupported OS ($os). Install Docker Compose manually:"
+            echo "  https://docs.docker.com/compose/install/"
+            exit 1
+            ;;
+    esac
+
+    detect_compose
+    if ! has_compose; then
+        print_error "Docker Compose could not be installed or detected."
+        echo "  Linux:   https://docs.docker.com/compose/install/linux/"
+        echo "  macOS:   brew install docker-compose"
+        exit 1
+    fi
+    print_success "Docker Compose is available ($COMPOSE_CMD)"
+}
+
 # Run compose detection once at source time
 detect_compose
 
@@ -140,6 +237,11 @@ load_env() {
     export MYSQL_PASSWORD="${MYSQL_PASSWORD:-pulse_password}"
     export MYSQL_WRITER_MAX_POOL_SIZE="${MYSQL_WRITER_MAX_POOL_SIZE:-10}"
     export MYSQL_READER_MAX_POOL_SIZE="${MYSQL_READER_MAX_POOL_SIZE:-10}"
+
+    # MinIO / Session Replay
+    export MINIO_ROOT_USER="${MINIO_ROOT_USER:-pulse_minio}"
+    export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-pulse_minio_secret}"
+    export SESSION_REPLAY_S3_BUCKET="${SESSION_REPLAY_S3_BUCKET:-session-recordings}"
 
     # ClickHouse / OTEL
     export OTEL_CLICKHOUSE_DATABASE="${OTEL_CLICKHOUSE_DATABASE:-otel}"
@@ -176,6 +278,187 @@ load_env() {
     export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
     export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
     export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}"
+    export CONFIG_REPLAY_API_BASE_URL="${CONFIG_REPLAY_API_BASE_URL:-}"
+
+    # Vector: enable when VECTOR_ENABLED=true (sets COMPOSE_PROFILES for Docker Compose)
+    if [ "${VECTOR_ENABLED:-false}" = "true" ]; then
+        export COMPOSE_PROFILES="${COMPOSE_PROFILES:+$COMPOSE_PROFILES,}vector"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# validate_env_against_example_and_compose -- Validate .env against docker-compose.yml.
+#   Required = vars in compose with NO default (${VAR}); must be in .env → error if missing.
+#   Optional = vars in compose WITH default (${VAR:-...}); missing in .env → warning (compose uses default).
+#   Do NOT copy from .env.example; only error for required keys missing.
+#   Warn for keys in .env.example that are missing in .env (do not fail).
+#   Call after load_env so we validate the merged state.
+# ---------------------------------------------------------------------------
+validate_env_against_example_and_compose() {
+    local env_file="$DEPLOY_DIR/.env"
+    local example_file="$DEPLOY_DIR/.env.example"
+    local compose_file="$DEPLOY_DIR/docker-compose.yml"
+    local failed=0
+
+    if [ ! -f "$compose_file" ]; then
+        print_warning "validate_env: docker-compose.yml not found, skipping compose var check"
+        return 0
+    fi
+    if [ ! -f "$env_file" ]; then
+        print_error ".env file not found at $env_file"
+        return 1
+    fi
+
+    _validate_env_collect_env_keys() {
+        local file="$1"
+        local keys=""
+        while IFS= read -r line; do
+            line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            [ -z "$line" ] && continue
+            [[ "$line" =~ ^# ]] && continue
+            if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+                keys="$keys ${BASH_REMATCH[1]}"
+            fi
+        done < "$file"
+        echo "$keys"
+    }
+
+    # Optional = vars that appear with a default in compose (${VAR:-...}). Skip commented lines.
+    local optional_vars
+    optional_vars=$(grep -v '^[[:space:]]*#' "$compose_file" 2>/dev/null | grep -oE '\$\{[A-Za-z0-9_]+:-' | sed 's/^\${//;s/:-$//' | sort -u || true)
+    # All vars referenced in compose (skip commented lines)
+    local all_vars
+    all_vars=$(grep -v '^[[:space:]]*#' "$compose_file" 2>/dev/null | grep -oE '\$\{[A-Za-z0-9_]+' | sed 's/^\${//' | sort -u || true)
+    # Required = vars that have no default in compose (must be present in .env)
+    local required_vars
+    required_vars=$(comm -23 <(echo "$all_vars") <(echo "$optional_vars") || true)
+
+    local env_keys
+    env_keys=$(_validate_env_collect_env_keys "$env_file")
+
+    # Check only required vars: missing → error (do not copy from .env.example)
+    local missing_required=""
+    local newline=$'\n'
+    while IFS= read -r key; do
+        [ -z "$key" ] && continue
+        local present=false
+        for k in $env_keys; do
+            [ "$k" = "$key" ] && present=true && break
+        done
+        if [ "$present" = false ]; then
+            missing_required="$missing_required$key$newline"
+        fi
+    done << EOF
+$required_vars
+EOF
+
+    if [ -n "$missing_required" ]; then
+        while IFS= read -r key; do
+            [ -z "$key" ] && continue
+            print_error "Missing in .env (required by docker-compose.yml, no default): $key"
+            failed=1
+        done << EOF
+$missing_required
+EOF
+    fi
+
+    # Warn for optional vars (have default in compose) that are missing in .env
+    while IFS= read -r key; do
+        [ -z "$key" ] && continue
+        local present=false
+        for k in $env_keys; do
+            [ "$k" = "$key" ] && present=true && break
+        done
+        if [ "$present" = false ]; then
+            print_warning "Missing in .env (optional, docker-compose has default): $key"
+        fi
+    done << EOF
+$optional_vars
+EOF
+
+    # Warn for keys in .env.example that are missing in .env (do not fail)
+    if [ -f "$example_file" ]; then
+        local example_keys
+        example_keys=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$example_file" 2>/dev/null | cut -d= -f1 | sort -u || true)
+        local all_set
+        all_set=$(echo "$all_vars" | tr '\n' ' ')
+        while IFS= read -r key; do
+            [ -z "$key" ] && continue
+            case " $all_set " in *" $key "*) continue ;; esac
+            local present=false
+            for k in $env_keys; do
+                [ "$k" = "$key" ] && present=true && break
+            done
+            if [ "$present" = false ]; then
+                print_warning "Missing in .env (defined in .env.example): $key"
+            fi
+        done << EOF
+$example_keys
+EOF
+    fi
+
+    if [ "$failed" -eq 1 ]; then
+        echo ""
+        print_info "Add the missing required variables to .env (see .env.example)."
+        print_info "Variables without a default in docker-compose.yml must be set."
+        return 1
+    fi
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# validate_url_vars -- Ensure collector/config URL env vars are set and valid URLs.
+#   Fails the script (returns 1) if any are missing or invalid format.
+# ---------------------------------------------------------------------------
+validate_url_vars() {
+    local url_vars=(
+        INTERACTION_CONFIG_URL
+        LOGS_COLLECTOR_URL
+        METRIC_COLLECTOR_URL
+        SPAN_COLLECTOR_URL
+        CUSTOM_EVENT_COLLECTOR_URL
+    )
+    local failed=0
+    for var in "${url_vars[@]}"; do
+        local val="${!var:-}"
+        if [ -z "$val" ]; then
+            print_error "Missing required URL in .env: $var"
+            failed=1
+            continue
+        fi
+        if [[ ! "$val" =~ ^https?://[^[:space:]]+ ]]; then
+            print_error "Invalid URL for $var (must start with http:// or https://): $val"
+            failed=1
+        fi
+    done
+    if [ "$failed" -eq 1 ]; then
+        echo ""
+        print_info "Set valid URLs in .env (see .env.example). Example: http://localhost:4318/v1/logs"
+        return 1
+    fi
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# validate_encryption_key -- Ensure VAULT_ENCRYPTION_MASTER_KEY is valid base64.
+#   Fails the script (returns 1) if missing or not valid base64 encoded.
+# ---------------------------------------------------------------------------
+validate_encryption_key() {
+    local val="${VAULT_ENCRYPTION_MASTER_KEY:-}"
+    if [ -z "$val" ]; then
+        print_error "Missing required variable in .env: VAULT_ENCRYPTION_MASTER_KEY"
+        echo ""
+        print_info "VAULT_ENCRYPTION_MASTER_KEY must be set and base64 encoded (e.g. generate with: openssl rand -base64 32)"
+        return 1
+    fi
+    # Base64: chars A-Za-z0-9+/ and optional = padding; length must be multiple of 4
+    if [[ ! "$val" =~ ^[A-Za-z0-9+/]+=*$ ]] || [ $(( ${#val} % 4 )) -ne 0 ]; then
+        print_error "VAULT_ENCRYPTION_MASTER_KEY must be base64 encoded (only A-Za-z0-9+/= allowed, length multiple of 4)"
+        echo ""
+        print_info "Generate a valid key with: openssl rand -base64 32"
+        return 1
+    fi
+    return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -260,6 +543,46 @@ verify_mysql_init() {
 }
 
 # ---------------------------------------------------------------------------
+# create_kafka_topics -- Create required Kafka topics if they don't exist.
+# ---------------------------------------------------------------------------
+create_kafka_topics() {
+    local topics=("session_recording_events" "clickhouse_session_replay_events")
+    for topic in "${topics[@]}"; do
+        docker exec "$CONTAINER_KAFKA" kafka-topics \
+            --bootstrap-server localhost:9092 \
+            --create --topic "$topic" \
+            --partitions 12 --replication-factor 1 \
+            --if-not-exists > /dev/null 2>&1
+    done
+    print_success "Kafka topics created"
+}
+
+# ---------------------------------------------------------------------------
+# verify_session_replay -- Verify session replay pipeline is healthy.
+# ---------------------------------------------------------------------------
+verify_session_replay() {
+    local ok=true
+
+    if curl -sf http://localhost:3400/healthcheck > /dev/null 2>&1; then
+        print_success "Session capture service is responding"
+    else
+        print_warning "Session capture service health check failed"
+        ok=false
+    fi
+
+    local status
+    status=$(docker inspect --format='{{.State.Running}}' "$CONTAINER_SESSION_INGESTION" 2>/dev/null || echo "false")
+    if [ "$status" = "true" ]; then
+        print_success "Session replay ingestion consumer is running"
+    else
+        print_warning "Session replay ingestion consumer is not running"
+        ok=false
+    fi
+
+    [ "$ok" = "true" ]
+}
+
+# ---------------------------------------------------------------------------
 # verify_clickhouse_init -- Verify ClickHouse tables were created.
 #                            Returns non-zero on failure.
 # ---------------------------------------------------------------------------
@@ -295,7 +618,7 @@ ensure_network() {
 # ensure_volumes -- Create named volumes if they don't exist
 # ---------------------------------------------------------------------------
 ensure_volumes() {
-    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE"; do
+    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE" "$VOLUME_KAFKA" "$VOLUME_MINIO"; do
         if ! docker volume inspect "$vol" > /dev/null 2>&1; then
             print_info "Creating Docker volume: $vol"
             docker volume create "$vol" > /dev/null

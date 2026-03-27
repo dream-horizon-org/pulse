@@ -20,4 +20,5 @@ public class ClickhouseConfig {
   private Integer maxsize;
   private String host;
   private Integer port;
+  private String clusterName;
 }

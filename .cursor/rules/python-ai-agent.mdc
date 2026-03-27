@@ -28,7 +28,7 @@ pulse_ai/
 
 ## Running
 
-Docker-based via its own `docker-compose.yml` (separate from `deploy/docker-compose.yml`):
+**Standalone:** its own `docker-compose.yml` (separate project from `deploy/`):
 
 ```bash
 cd pulse_ai
@@ -40,8 +40,10 @@ cp .env.example .env         # first time — set GOOGLE_API_KEY
 ./setup.sh clean             # remove containers, images, volumes
 ```
 
-- Port: **8000** (ADK web UI)
-- Health check: `curl -f http://localhost:8000`
+**Full stack:** `deploy/docker-compose.yml` runs `pulse-ai-agent` by default; configure via `deploy/.env` (`GOOGLE_API_KEY`, etc.) and `cd deploy && ./scripts/start.sh -d` (see `docker-deploy.mdc`).
+
+- Port: **8000**
+- Health check: `curl -sf http://localhost:8000/health`
 - Source files (`agent.py`, `__init__.py`) are volume-mounted for live development — code changes reflect without rebuilding. Dependency changes require `./setup.sh restart`.
 
 ## Configuration

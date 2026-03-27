@@ -1,0 +1,82 @@
+.dashboard {
+  /* Main dashboard container */
+}
+
+.executiveSummary {
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-gray-2);
+}
+
+.criticalAlert {
+  background: var(--mantine-color-red-0);
+  border: 1px solid var(--mantine-color-red-3);
+}
+
+.metricCard {
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-gray-2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metricCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.flowCard {
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-gray-2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flowCard:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--mantine-shadow-md);
+}
+
+.impactBadge {
+  background: var(--mantine-color-red-0);
+  border: 1px solid var(--mantine-color-red-2);
+}
+
+.insightCard {
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-gray-2);
+}
+
+.errorItem {
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--mantine-color-gray-0);
+  border-left: 3px solid var(--mantine-color-red-5);
+}
+
+/* Dark mode support */
+[data-mantine-color-scheme="dark"] .executiveSummary {
+  background: var(--mantine-color-dark-6);
+  border: 1px solid var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .criticalAlert {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid var(--mantine-color-red-8);
+}
+
+[data-mantine-color-scheme="dark"] .metricCard {
+  background: var(--mantine-color-dark-6);
+  border: 1px solid var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .flowCard {
+  background: var(--mantine-color-dark-6);
+  border: 1px solid var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .insightCard {
+  background: var(--mantine-color-dark-6);
+  border: 1px solid var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .errorItem {
+  background: var(--mantine-color-dark-7);
+}
