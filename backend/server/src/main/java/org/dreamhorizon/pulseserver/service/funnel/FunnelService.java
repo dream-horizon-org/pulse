@@ -8,7 +8,7 @@ import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelDefinitionResp
 import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelListQueryParams;
 import org.dreamhorizon.pulseserver.resources.funnel.models.UpdateFunnelDefinitionRequest;
 
-public interface FunnelDefinitionService {
+public interface FunnelService {
 
   Single<Long> create(
       String projectId, CreateFunnelDefinitionRequest request, String createdBy);

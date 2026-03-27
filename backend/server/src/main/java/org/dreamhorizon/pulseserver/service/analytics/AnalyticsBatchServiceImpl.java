@@ -31,9 +31,15 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
    */
   private final SparkJobService sparkJobService;
 
+  /**
+   * DAO for Spark job records.
+   */
+  private final org.dreamhorizon.pulseserver.dao.spark.SparkJobDao sparkJobDao;
+
   @Override
   public Single<Boolean> triggerFunnelsBatch() {
     return submitSparkJob(
+        "FUNNELS_DAILY",
         "funnels-daily-batch",
         sparkConfig.getJobJarPath(),
         sparkConfig.getFunnelsMainClass()
@@ -43,6 +49,7 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   @Override
   public Single<Boolean> triggerJourneysBatch() {
     return submitSparkJob(
+        "JOURNEYS_DAILY",
         "journeys-daily-batch",
         sparkConfig.getJobJarPath(),
         sparkConfig.getJourneysMainClass()
@@ -52,16 +59,42 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   @Override
   public Single<Boolean> triggerEventsBatch() {
     return submitSparkJob(
+        "EVENTS_INCREMENTAL",
         "events-incremental-batch",
         sparkConfig.getJobJarPath(),
-        sparkConfig.getEventsMainClass()
+        sparkConfig.getEventsMainClass(),
+        null,
+        List.of()
+    );
+  }
+
+  @Override
+  public Single<Boolean> triggerFunnelOnSaveJob(final Long funnelId) {
+    return submitSparkJob(
+        "FUNNEL",
+        "funnel-onsave-" + funnelId,
+        sparkConfig.getJobJarPath(),
+        sparkConfig.getFunnelsMainClass(),
+        funnelId,
+        List.of("--funnelId", String.valueOf(funnelId))
     );
   }
 
   private Single<Boolean> submitSparkJob(
+      final String jobType,
       final String jobName,
       final String entryPoint,
       final String mainClass) {
+    return submitSparkJob(jobType, jobName, entryPoint, mainClass, null, List.of());
+  }
+
+  private Single<Boolean> submitSparkJob(
+      final String jobType,
+      final String jobName,
+      final String entryPoint,
+      final String mainClass,
+      final Long referenceId,
+      final List<String> arguments) {
 
     log.info("Submitting Spark job: {}", jobName);
 
@@ -69,20 +102,25 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
         .jobName(jobName)
         .mainClass(mainClass)
         .entryPoint(entryPoint)
-        .arguments(List.of())
+        .arguments(arguments)
         .timeoutMinutes(DEFAULT_TIMEOUT_MINUTES)
         .build();
 
-    return sparkJobService.submitJob(request)
-        .map(response -> {
-          log.info("Successfully submitted job: {}. JobRunId: {}",
-              jobName, response.getJobRunId());
-          return true;
-        })
-        .onErrorReturn(error -> {
-          log.error("Failed to submit job: {}", jobName, error);
-          return false;
-        })
+    return sparkJobDao.insertJob(jobType, referenceId, null, "PENDING")
+        .flatMap(dbId -> sparkJobService.submitJob(request)
+            .flatMap(response -> {
+              log.info("Successfully submitted job: {}. JobRunId: {}",
+                  jobName, response.getJobRunId());
+              return sparkJobDao.updateJobIdAndStatus(
+                      dbId, response.getJobRunId(), "SUBMITTED")
+                  .map(updated -> true);
+            })
+            .onErrorResumeNext(error -> {
+              log.error("Failed to submit job: {}", jobName, error);
+              return sparkJobDao.updateJobStatus(
+                      dbId, "FAILED", error.getMessage(), null, null)
+                  .map(updated -> false);
+            }))
         .subscribeOn(Schedulers.io());
   }
 }

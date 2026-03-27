@@ -23,16 +23,27 @@ import org.dreamhorizon.pulseserver.dao.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.funneldefinition.FunnelDefinitionListParams;
 import org.dreamhorizon.pulseserver.dao.funneldefinition.models.FunnelDefinitionRow;
 import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.funnel.models.*;
-import org.dreamhorizon.pulseserver.service.funnel.FunnelDefinitionService;
+import org.dreamhorizon.pulseserver.resources.funnel.models.CreateFunnelDefinitionRequest;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelAttributeFilter;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelDefinitionListResponse;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelDefinitionResponse;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelDefinitionStep;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelListQueryParams;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelMode;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelType;
+import org.dreamhorizon.pulseserver.resources.funnel.models.StepOrderType;
+import org.dreamhorizon.pulseserver.resources.funnel.models.UpdateFunnelDefinitionRequest;
+import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
+import org.dreamhorizon.pulseserver.service.funnel.FunnelService;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-public class FunnelDefinitionServiceImpl implements FunnelDefinitionService {
+public class FunnelServiceImpl implements FunnelService {
 
   private static final int MAX_PAGE_SIZE = 50;
 
   private final FunnelDefinitionDao funnelDefinitionDao;
+  private final AnalyticsBatchServiceImpl analyticsBatchService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
@@ -77,6 +88,11 @@ public class FunnelDefinitionServiceImpl implements FunnelDefinitionService {
 
     return funnelDefinitionDao
         .insert(row)
+        .flatMap(funnelId ->
+            analyticsBatchService.triggerFunnelOnSaveJob(funnelId)
+                .onErrorReturnItem(false) // Don't fail funnel creation if job submission fails
+                .map(triggered -> funnelId)
+        )
         .onErrorResumeNext(
             err ->
                 Single.error(
@@ -310,10 +326,12 @@ public class FunnelDefinitionServiceImpl implements FunnelDefinitionService {
   private FunnelDefinitionResponse toResponse(FunnelDefinitionRow row) {
     try {
       List<FunnelDefinitionStep> steps =
-          objectMapper.readValue(row.getStepsJson(), new TypeReference<>() {});
+          objectMapper.readValue(row.getStepsJson(), new TypeReference<>() {
+          });
       List<FunnelAttributeFilter> filters = null;
       if (row.getFiltersJson() != null && !row.getFiltersJson().isBlank()) {
-        filters = objectMapper.readValue(row.getFiltersJson(), new TypeReference<>() {});
+        filters = objectMapper.readValue(row.getFiltersJson(), new TypeReference<>() {
+        });
       }
       AnalysisComputedStatus computed =
           AnalysisComputedStatusResolver.compute(

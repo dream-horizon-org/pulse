@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.funnel;
 
 import com.google.inject.Inject;
-import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,7 +25,7 @@ import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelListQueryParam
 import org.dreamhorizon.pulseserver.resources.funnel.models.UpdateFunnelDefinitionRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
-import org.dreamhorizon.pulseserver.service.funnel.FunnelDefinitionService;
+import org.dreamhorizon.pulseserver.service.funnel.FunnelService;
 
 @Slf4j
 @Path("/v1/funnels")
@@ -35,13 +34,13 @@ import org.dreamhorizon.pulseserver.service.funnel.FunnelDefinitionService;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class FunnelsController {
 
-  private final FunnelDefinitionService funnelDefinitionService;
+  private final FunnelService funnelService;
 
   @GET
   public CompletionStage<Response<FunnelDefinitionListResponse>> listFunnels(
       @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
       @BeanParam FunnelListQueryParams query) {
-    return funnelDefinitionService
+    return funnelService
         .list(projectId, query)
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -51,7 +50,7 @@ public class FunnelsController {
   public CompletionStage<Response<FunnelDefinitionResponse>> getFunnel(
       @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
       @PathParam("id") long id) {
-    return funnelDefinitionService.get(projectId, id).to(RestResponse.jaxrsRestHandler());
+    return funnelService.get(projectId, id).to(RestResponse.jaxrsRestHandler());
   }
 
   @POST
@@ -59,7 +58,7 @@ public class FunnelsController {
       @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
       @HeaderParam("user-email") String userEmail,
       @NotNull @Valid CreateFunnelDefinitionRequest request) {
-    return funnelDefinitionService
+    return funnelService
         .create(projectId, request, userEmail)
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -70,9 +69,9 @@ public class FunnelsController {
       @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
       @PathParam("id") long id,
       @NotNull @Valid UpdateFunnelDefinitionRequest request) {
-    return funnelDefinitionService.update(projectId, id, request)
-            .toSingleDefault(Response.successfulResponse("Success"))
-            .toCompletionStage();
+    return funnelService.update(projectId, id, request)
+        .toSingleDefault(Response.successfulResponse("Success"))
+        .toCompletionStage();
   }
 
   @DELETE
@@ -80,9 +79,9 @@ public class FunnelsController {
   public CompletionStage<Response<String>> deleteFunnel(
       @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
       @PathParam("id") long id) {
-    return funnelDefinitionService
+    return funnelService
         .delete(projectId, id)
-            .toSingleDefault(Response.successfulResponse("Success"))
-            .toCompletionStage();
+        .toSingleDefault(Response.successfulResponse("Success"))
+        .toCompletionStage();
   }
 }

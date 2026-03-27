@@ -1,22 +1,31 @@
 package org.dreamhorizon.pulseserver.service.spark.models;
 
+import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
-
+/**
+ * Response from submitting a Spark job.
+ */
 @Getter
 @Builder
 public class SparkJobResponse {
 
-    private String applicationId;
-    private String jobRunId;
-    private String arn;
+  /** EMR application ID. */
+  private String applicationId;
 
-    private String jobName;
-    /** Echo of submitted main artifact URI. */
-    private String entryPoint;
-    /** Echo of submitted main class (FQCN), if any. */
-    private String mainClass;
-    private LocalDateTime submittedAt;
+  /** EMR job run ID. */
+  private String jobRunId;
+
+  /** EMR job run ARN. */
+  private String arn;
+
+  /** Name of the job. */
+  private String jobName;
+
+  /** Spark jar main class. */
+  private String mainClass;
+
+  /** Time the job was submitted. */
+  private LocalDateTime submittedAt;
 }

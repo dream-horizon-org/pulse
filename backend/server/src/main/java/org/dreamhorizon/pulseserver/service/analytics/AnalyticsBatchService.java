@@ -27,4 +27,12 @@ public interface AnalyticsBatchService {
    * @return a single emitting true if triggered successfully
    */
   Single<Boolean> triggerEventsBatch();
+
+  /**
+   * Triggers the on-save job for a specific funnel.
+   *
+   * @param funnelId the ID of the funnel to compute
+   * @return a single emitting true if triggered successfully
+   */
+  Single<Boolean> triggerFunnelOnSaveJob(Long funnelId);
 }

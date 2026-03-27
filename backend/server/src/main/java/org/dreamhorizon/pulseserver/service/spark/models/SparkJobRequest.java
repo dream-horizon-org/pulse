@@ -1,31 +1,35 @@
 package org.dreamhorizon.pulseserver.service.spark.models;
 
+import java.util.List;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.util.List;
-import java.util.Map;
-
+/**
+ * Request to submit a Spark job.
+ */
 @Getter
 @Builder
 public class SparkJobRequest {
 
-    private String jobName;
+  /** Name of the job. */
+  private String jobName;
 
-    /** Main artifact: typically {@code s3://bucket/key/app.jar} or a PySpark script URI. */
-    private String entryPoint;
+  /** Spark jar main class. */
+  private String mainClass;
 
-    /** Fully qualified main class for Java/Scala; omit for PySpark if not used. */
-    private String mainClass;
+  /** Location of the spark jar. */
+  private String entryPoint;
 
-    private List<String> arguments;
+  /** Job arguments. */
+  private List<String> arguments;
 
-    /**
-     * Extra {@code spark-submit} flags, e.g. {@code --conf k=v --jars s3://.../lib.jar}. Do not pass
-     * {@code --class} here; set {@code mainClass} instead (enforced in {@code SparkJobServiceImpl}).
-     */
-    private String sparkSubmitParameters;
+  /** Spark parameters. */
+  private String sparkConfig;
 
-    private Long timeoutMinutes;
-    private Map<String, String> tags;
+  /** Timeout in minutes. */
+  private Long timeoutMinutes;
+
+  /** Tags to apply to the job. */
+  private Map<String, String> tags;
 }
