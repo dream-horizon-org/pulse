@@ -12,8 +12,9 @@ source "$SCRIPT_DIR/common.sh"
 
 APP_ID="io.opentelemetry.android.demo"
 ACTIVITY=".MainActivity"
-NUM_RUNS=100
+NUM_RUNS="${NUM_RUNS:-100}"
 BENCHMARK_DIR="$SCRIPT_DIR"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Wait after `am start` before polling logcat (default 3s). Override: export POST_LAUNCH_DELAY_SEC=0.5
 POST_LAUNCH_DELAY_SEC="${POST_LAUNCH_DELAY_SEC:-6}"
 
