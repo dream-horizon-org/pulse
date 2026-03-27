@@ -1,0 +1,480 @@
+/* Aligned with wireframes/heatmap/frames.pen — Heatmap & Engagement – Default */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  background: #fafbfc;
+  flex: 1;
+  min-height: 0;
+}
+
+.sessionScope {
+  border-radius: var(--mantine-radius-md);
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sessionScopeCaption {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #868e96;
+}
+
+.sessionScopeLine1 {
+  font-size: 11px;
+  font-weight: 500;
+  color: #495057;
+  line-height: 1.4;
+}
+
+.sessionScopeLine2 {
+  font-size: 10px;
+  color: #adb5bd;
+  line-height: 1.35;
+}
+
+.filterBar {
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.signalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.signalLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.compareCta {
+  border-radius: 6px;
+  border: 1px solid rgba(14, 201, 194, 0.35);
+  background: rgba(14, 201, 194, 0.08);
+  color: #0ba09a;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 12px;
+  height: 30px;
+  cursor: pointer;
+}
+
+.compareCta:hover {
+  background: rgba(14, 201, 194, 0.14);
+}
+
+.compareHint {
+  font-size: 10px;
+  color: #adb5bd;
+}
+
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border-radius: 14px;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #dee2e6;
+  background: transparent;
+  color: #495057;
+  cursor: pointer;
+}
+
+.chipActive {
+  border-color: #0ba09a;
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+}
+
+.filterDivider {
+  height: 1px;
+  background: rgba(14, 201, 194, 0.12);
+  width: 100%;
+}
+
+.focusBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.focusTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.focusLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.focusPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  border-radius: 14px;
+  height: 28px;
+  padding: 0 14px;
+  font-size: 12px;
+  border: 1px solid #dee2e6;
+  background: transparent;
+  cursor: pointer;
+  color: #495057;
+}
+
+.pillActive {
+  border-color: #0ba09a;
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+}
+
+.focusHint {
+  font-size: 11px;
+  color: #adb5bd;
+  line-height: 1.35;
+}
+
+.variationBox {
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  background: #ffffff;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.variationHint {
+  font-size: 10px;
+  color: #adb5bd;
+}
+
+.scoreRow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .scoreRow {
+    flex-direction: row;
+  }
+}
+
+.scoreCard {
+  flex: 1;
+  border-radius: 10px;
+  padding: 14px;
+  min-height: 88px;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scoreCardLabel {
+  font-size: 11px;
+  color: #868e96;
+  font-weight: 500;
+}
+
+.scoreCardValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.scoreCardSub {
+  font-size: 11px;
+  color: #adb5bd;
+}
+
+.scoreLegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.scoreLegendLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #868e96;
+}
+
+.legendChip {
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.legendGood {
+  background: rgba(14, 201, 194, 0.1);
+  border: 1px solid #0ba09a;
+  color: #0ba09a;
+}
+
+.legendAvg {
+  background: rgba(253, 126, 20, 0.12);
+  border: 1px solid #fd7e14;
+  color: #c05621;
+}
+
+.legendPoor {
+  background: rgba(250, 82, 82, 0.12);
+  border: 1px solid #fa5252;
+  color: #c92a2a;
+}
+
+.legendChipActive {
+  box-shadow: 0 0 0 2px rgba(14, 201, 194, 0.35);
+}
+
+.heatViz {
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid rgba(14, 201, 194, 0.18);
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafb 100%);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: min(520px, 90vh);
+}
+
+.heatTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.heatSubtitle {
+  font-size: 11px;
+  color: #868e96;
+  line-height: 1.35;
+}
+
+/* Device silhouette ~390×844 (common mobile screenshot aspect); scales with viewport */
+.phoneFrame {
+  position: relative;
+  border-radius: 12px;
+  background: #eceff2;
+  border: 1px solid #ced4da;
+  min-height: min(480px, 50vh);
+  padding: 20px 16px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phoneInner {
+  position: relative;
+  /* Portrait phone: narrow width, tall body */
+  width: min(420px, 100%);
+  aspect-ratio: 390 / 844;
+  max-height: min(82vh, 920px);
+}
+
+.screenImg {
+  position: absolute;
+  inset: 12px;
+  z-index: 0;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+.heatOverlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 3;
+  border-radius: 16px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* heatmap.js mounts its canvas here (same geometry as .heatOverlay) */
+.heatCanvasHost {
+  position: absolute;
+  inset: 12px;
+  border-radius: 16px;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.heatCanvasHost canvas {
+  border-radius: 14px;
+}
+
+.heatPlume {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+.binBudgetRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.binBudgetSlider {
+  flex: 1;
+  min-width: 120px;
+  max-width: 280px;
+}
+
+.gradientLegend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.gradientStrip {
+  height: 10px;
+  width: 140px;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    #0ec9c2 0%,
+    #fcc419 45%,
+    #fa5252 100%
+  );
+}
+
+.gradientCaption {
+  font-size: 10px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.crossLink {
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  background: #f8f9fa;
+  padding: 12px 14px;
+}
+
+.engagementSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.engagementTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.engagementTitleBar {
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: #0ec9c2;
+}
+
+.engagementTitleText {
+  font-size: 16px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.engagementGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.engagementCard {
+  border-radius: 10px;
+  border: 1px solid #e9ecef;
+  background: #ffffff;
+  padding: 12px;
+  min-height: 100px;
+}
+
+.engagementCardLabel {
+  font-size: 11px;
+  color: #868e96;
+}
+
+.engagementCardValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #212529;
+  margin-top: 4px;
+}
+
+.compareGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 992px) {
+  .compareGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.loadingSkeleton {
+  border-radius: 10px;
+  min-height: 200px;
+  background: linear-gradient(
+    90deg,
+    #f1f3f5 25%,
+    #e9ecef 50%,
+    #f1f3f5 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

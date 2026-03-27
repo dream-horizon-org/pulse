@@ -34,9 +34,10 @@ import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import { useExceptionListData } from "../AppVitals/components/ExceptionTable/hooks";
 import { InteractionDetailsFilters } from "../CriticalInteractionDetails/components/InteractionDetailsFilters";
+import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
 
 export function ScreenDetail(_props: ScreenDetailProps) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { screenName, projectId } = useParams<{
     screenName: string;
@@ -55,8 +56,10 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     selectedTimeFilter,
   } = useFilterStore();
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<string | null>("engagement");
+  // Tab state (?tab=heatmap deep link)
+  const [activeTab, setActiveTab] = useState<string | null>(() =>
+    searchParams.get("tab") === "heatmap" ? "heatmap" : "engagement",
+  );
 
   // Local filter state (app version, OS version, device)
   const [appVersion] = useState("all");
@@ -182,10 +185,28 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "heatmap") {
+      setActiveTab("heatmap");
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (value: string | null) => {
+    setActiveTab(value);
+    const next = new URLSearchParams(searchParams);
+    if (value === "heatmap") {
+      next.set("tab", "heatmap");
+    } else {
+      next.delete("tab");
+    }
+    setSearchParams(next, { replace: true });
+  };
+
   return (
     <Tabs
       value={activeTab}
-      onChange={setActiveTab}
+      onChange={handleTabChange}
       variant="unstyled"
       classNames={classes}
       className={classes.tabs}
@@ -228,6 +249,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
           <Tabs.Tab value="performance">Performance & Stability</Tabs.Tab>
           <Tabs.Tab value="network">Network</Tabs.Tab>
+          <Tabs.Tab value="heatmap">Heatmap</Tabs.Tab>
         </Tabs.List>
 
         {/* User Engagement Tab */}
@@ -440,6 +462,24 @@ export function ScreenDetail(_props: ScreenDetailProps) {
 
               return filters;
             }, [appVersion, osVersion, device])}
+          />
+        </Tabs.Panel>
+
+        {/* Heatmap Tab */}
+        <Tabs.Panel value="heatmap">
+          <HeatmapPanel
+            screenName={decodedScreenName}
+            startTime={startTime || ""}
+            endTime={endTime || ""}
+            engagement={
+              engagementData
+                ? {
+                    avgTimeSpent: engagementData.avgTimeSpent,
+                    totalSessions: engagementData.totalSessions,
+                    totalUsers: engagementData.totalUsers,
+                  }
+                : null
+            }
           />
         </Tabs.Panel>
       </div>
