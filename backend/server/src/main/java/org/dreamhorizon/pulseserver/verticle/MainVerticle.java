@@ -69,6 +69,10 @@ public class MainVerticle extends AbstractVerticle {
           JsonObject emrServerlessJson = config.getJsonObject("emrServerless", new JsonObject());
           EmrServerlessConfig emrServerlessConfig = EmrServerlessConfig.fromJsonObject(emrServerlessJson);
           SharedDataUtils.put(vertx.getDelegate(), emrServerlessConfig);
+          
+          JsonObject sparkJson = config.getJsonObject("spark", new JsonObject());
+          SharedDataUtils.put(vertx.getDelegate(), sparkJson.mapTo(org.dreamhorizon.pulseserver.config.SparkConfig.class));
+          
           log.info(
               "EMR Serverless config: enabled={} region={}",
               emrServerlessConfig.isEnabled(),

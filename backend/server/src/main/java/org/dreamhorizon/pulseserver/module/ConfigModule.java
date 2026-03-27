@@ -29,6 +29,8 @@ public class ConfigModule extends AbstractModule {
     bind(AthenaConfig.class).toProvider(() -> SharedDataUtils.get(vertx, AthenaConfig.class));
     bind(EmrServerlessConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, EmrServerlessConfig.class));
+    bind(org.dreamhorizon.pulseserver.config.SparkConfig.class)
+        .toProvider(() -> SharedDataUtils.get(vertx, org.dreamhorizon.pulseserver.config.SparkConfig.class));
     bind(NotificationConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, NotificationConfig.class));
     bind(AiProxyService.class).to(AiProxyServiceImpl.class).in(Singleton.class);

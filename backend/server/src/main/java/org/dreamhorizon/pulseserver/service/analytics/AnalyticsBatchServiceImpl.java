@@ -22,6 +22,11 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   private static final long DEFAULT_TIMEOUT_MINUTES = 60L;
 
   /**
+   * Spark configuration.
+   */
+  private final org.dreamhorizon.pulseserver.config.SparkConfig sparkConfig;
+
+  /**
    * Service for submitting Spark jobs.
    */
   private final SparkJobService sparkJobService;
@@ -30,8 +35,8 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   public Single<Boolean> triggerFunnelsBatch() {
     return submitSparkJob(
         "funnels-daily-batch",
-        "local:///usr/lib/spark/examples/jars/spark-examples.jar",
-        "org.dreamhorizon.spark.FunnelsDailyBatch"
+        sparkConfig.getJobJarPath(),
+        sparkConfig.getFunnelsMainClass()
     );
   }
 
@@ -39,8 +44,8 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   public Single<Boolean> triggerJourneysBatch() {
     return submitSparkJob(
         "journeys-daily-batch",
-        "local:///usr/lib/spark/examples/jars/spark-examples.jar",
-        "org.dreamhorizon.spark.JourneysDailyBatch"
+        sparkConfig.getJobJarPath(),
+        sparkConfig.getJourneysMainClass()
     );
   }
 
@@ -48,8 +53,8 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   public Single<Boolean> triggerEventsBatch() {
     return submitSparkJob(
         "events-incremental-batch",
-        "local:///usr/lib/spark/examples/jars/spark-examples.jar",
-        "org.dreamhorizon.spark.EventsIncrementalBatch"
+        sparkConfig.getJobJarPath(),
+        sparkConfig.getEventsMainClass()
     );
   }
 
