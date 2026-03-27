@@ -100,7 +100,8 @@ class ApplicationConfigTest {
             "http://minio:9000",
             "us-east-1",
             "access-key",
-            "secret-key")
+            "secret-key"),
+        "replayBaseUrl"
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());

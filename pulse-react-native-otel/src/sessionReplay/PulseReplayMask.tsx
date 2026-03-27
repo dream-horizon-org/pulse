@@ -7,10 +7,7 @@ interface PulseMaskProps extends ViewProps {
 }
 
 const SESSION_REPLAY_MASKING_TAGS = {
-  /** Mask this view during session replay capture */
   MASK: 'pulse-mask',
-
-  /** Unmask this view, overriding any parent mask */
   UNMASK: 'pulse-unmask',
 } as const;
 

@@ -1,4 +1,11 @@
-import { Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { PulseMask, PulseUnmask } from '@dreamhorizonorg/pulse-react-native';
 
 const MASKED_IMAGE_URI = 'https://picsum.photos/seed/pulse-mask/960/540';
@@ -37,20 +44,23 @@ export default function SessionReplayExample() {
             placeholderTextColor="#8b8b8b"
             secureTextEntry
           />
-          </PulseUnmask>
-        
+        </PulseUnmask>
       </View>
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Masked Image + View</Text>
         <Text style={styles.sectionDesc}>
-          This entire block is wrapped in PulseMask, including the image and
-          the summary card below it.
+          This entire block is wrapped in PulseMask, including the image.
         </Text>
         <PulseMask>
-          <Image source={{ uri: MASKED_IMAGE_URI }} style={styles.previewImage} />
+          <Image
+            source={{ uri: MASKED_IMAGE_URI }}
+            style={styles.previewImage}
+          />
           <View style={styles.maskedSummary}>
-            <Text style={styles.maskedSummaryTitle}>Masked Purchase Summary</Text>
+            <Text style={styles.maskedSummaryTitle}>
+              Masked Purchase Summary
+            </Text>
             <Text style={styles.maskedSummaryText}>Order: #PULSE-4928</Text>
             <Text style={styles.maskedSummaryText}>Amount: $249.00</Text>
             <Text style={styles.maskedSummaryText}>Holder: Dev Test</Text>
@@ -64,9 +74,14 @@ export default function SessionReplayExample() {
           Use PulseUnmask for content that should remain visible in replay.
         </Text>
         <PulseUnmask>
-          <Image source={{ uri: UNMASKED_IMAGE_URI }} style={styles.previewImage} />
+          <Image
+            source={{ uri: UNMASKED_IMAGE_URI }}
+            style={styles.previewImage}
+          />
           <View style={styles.clearSummary}>
-            <Text style={styles.clearSummaryTitle}>Visible Promotional Banner</Text>
+            <Text style={styles.clearSummaryTitle}>
+              Visible Promotional Banner
+            </Text>
             <Text style={styles.clearSummaryText}>
               This image and container should stay unmasked.
             </Text>
@@ -76,7 +91,9 @@ export default function SessionReplayExample() {
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Native Config</Text>
-        <Text style={styles.sectionDesc}>Configured in MainApplication.kt:</Text>
+        <Text style={styles.sectionDesc}>
+          Configured in MainApplication.kt:
+        </Text>
         <Text style={styles.codeText}>
           sessionReplay {'{'}
           {'\n  '}textAndInputPrivacy('MASK_SENSITIVE_INPUTS')
@@ -89,7 +106,7 @@ export default function SessionReplayExample() {
       <View style={styles.noteCard}>
         <Text style={styles.noteTitle}>Expected Result</Text>
         <Text style={styles.noteText}>
-          The masked sections should be obscured in replay. The explicit
+          The masked sections should be obscured in replay. The explicitly
           unmasked section should remain visible, including its image and view
           content.
         </Text>

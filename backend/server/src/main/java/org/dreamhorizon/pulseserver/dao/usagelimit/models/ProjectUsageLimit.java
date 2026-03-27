@@ -1,5 +1,5 @@
 package org.dreamhorizon.pulseserver.dao.usagelimit.models;
-
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,6 +14,7 @@ import java.time.Instant;
 public class ProjectUsageLimit {
   private Long projectUsageLimitId;
   private String projectId;
+  private String projectName;
   private String usageLimits; // JSON string
   private Boolean isActive;
   private Instant createdAt;
@@ -21,5 +22,8 @@ public class ProjectUsageLimit {
   private String disabledBy;
   private String disabledReason;
   private String createdBy;
+  private JsonNode thresholdsNotified;
+  private Instant notificationCreatedAt;
+  private String tenantId;
 }
 
