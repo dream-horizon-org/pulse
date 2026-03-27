@@ -291,6 +291,39 @@ services:
       - "8888:8888"   # Prometheus metrics (collector internal)
       - "13133:13133" # Health check
 
+  # Pulse AI Agent (starts with the stack; set GOOGLE_API_KEY for Gemini — proxy/API may error without it)
+  pulse-ai-agent:
+    build:
+      context: ../pulse_ai
+      dockerfile: Dockerfile
+    container_name: pulse-ai-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-0}
+      - AGENT_MODEL=${AGENT_MODEL:-gemini-2.5-flash}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+      - PULSE_BASE_URL=${PULSE_BASE_URL:-http://pulse-server:8080}
+      - SESSION_DB_URL=${SESSION_DB_URL:-sqlite:////var/lib/pulse_ai/sessions.db}
+    volumes:
+      - pulse-ai-sessions:/var/lib/pulse_ai
+      - ../pulse_ai/__init__.py:/app/pulse_ai/__init__.py:ro
+      - ../pulse_ai/agent.py:/app/pulse_ai/agent.py:ro
+      - ../pulse_ai/server:/app/pulse_ai/server:ro
+      - ../pulse_ai/constants.py:/app/pulse_ai/constants.py:ro
+      - ../pulse_ai/agents:/app/pulse_ai/agents:ro
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
   # Pulse UI Service (React Frontend)
   pulse-ui:
     build:
@@ -443,8 +476,8 @@ services:
       - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID:-}
       - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
 
-      # pulse-server → pulse_ai upstream (see deploy/.env.example)
-      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://host.docker.internal:8000}
+      # pulse-server → pulse-ai-agent on pulse-network; override for host/standalone AI (e.g. host.docker.internal:8000)
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://pulse-ai-agent:8000}
       # Incident Configuration
       - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
 
@@ -475,6 +508,8 @@ services:
         condition: service_healthy
       openfga-init:
         condition: service_completed_successfully
+      pulse-ai-agent:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
@@ -545,6 +580,8 @@ volumes:
   clickhouse-data:
     driver: local
   vector-data:
+    driver: local
+  pulse-ai-sessions:
     driver: local
   kafka-data:
     driver: local    

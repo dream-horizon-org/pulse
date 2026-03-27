@@ -9,13 +9,25 @@ package io.opentelemetry.instrumentation.compose.click
 
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.node.LayoutNode
 import androidx.compose.ui.node.Owner
+import androidx.compose.ui.node.RootForTest
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsModifier
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
 import java.util.LinkedList
+import kotlin.sequences.generateSequence
+
+/** Result of finding a tap target, includes the LayoutNode and the Owner view for semantics lookup. */
+internal data class TapTarget(
+    val node: LayoutNode,
+    val ownerView: View,
+)
 
 internal class ComposeTapTargetDetector(
     private val composeLayoutNodeUtil: ComposeLayoutNodeUtil,
@@ -27,15 +39,29 @@ internal class ComposeTapTargetDetector(
             node.semanticsId.toString()
         }
 
+    /**
+     * Extracts human-readable label/context for the clicked element (button text, content description, etc.).
+     * Checks the node, its descendants, then ancestors (Material3 uses ChildSemanticsNodeElement internally;
+     * the parent often has merged semantics like ContentDescription from the Text child).
+     */
+    fun getNodeContext(node: LayoutNode): String? =
+        try {
+            getNodeContextFromNode(node)
+                ?: getTextFromDescendants(node)
+                ?: getTextFromAncestors(node)
+        } catch (_: Throwable) {
+            null
+        }
+
     fun findTapTarget(
         decorView: View,
         x: Float,
         y: Float,
-    ): LayoutNode? {
+    ): TapTarget? {
         val queue = LinkedList<View>()
         queue.addFirst(decorView)
 
-        var target: LayoutNode? = null
+        var target: TapTarget? = null
         while (queue.isNotEmpty()) {
             val view = queue.removeFirst()
             if (view is ViewGroup) {
@@ -44,12 +70,9 @@ internal class ComposeTapTargetDetector(
                 }
                 if (view is Owner) {
                     try {
-                        target =
-                            findTapTarget(
-                                view as Owner,
-                                x,
-                                y,
-                            )
+                        findTapTargetNode(view as Owner, x, y)?.let { node ->
+                            target = TapTarget(node, view)
+                        }
                     } catch (_: Throwable) {
                         // We rely on visibility suppression to access internal fields and
                         // classes any runtime exception must be caught here.
@@ -60,7 +83,7 @@ internal class ComposeTapTargetDetector(
         return target
     }
 
-    private fun findTapTarget(
+    private fun findTapTargetNode(
         owner: Owner,
         x: Float,
         y: Float,
@@ -78,6 +101,46 @@ internal class ComposeTapTargetDetector(
             queue.addAll(node.zSortedChildren.asMutableList())
         }
         return target
+    }
+
+    /**
+     * Uses the Compose SemanticsNode tree with coordinate-based hit test.
+     * The semantics tree has merged accessibility labels (e.g. Button's ContentDescription from Text child).
+     * This is more reliable than LayoutNode traversal for Material3 Button/Card.
+     */
+    fun getContextFromSemanticsTree(
+        ownerView: View,
+        x: Float,
+        y: Float,
+    ): String? {
+        return try {
+            val semanticsOwner = (ownerView as? RootForTest)?.semanticsOwner ?: return null
+            val semanticsNodes = semanticsOwner.getAllSemanticsNodes(mergingEnabled = true)
+            val point = Offset(x, y)
+            semanticsNodes
+                .filter { it.config.contains(SemanticsActions.OnClick) && it.boundsInWindow.contains(point) }
+                .minByOrNull { it.boundsInWindow.area() }
+                ?.let { extractLabelFromSemanticsNode(it) }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun Rect.area(): Float = width * height
+
+    private fun extractLabelFromSemanticsNode(node: androidx.compose.ui.semantics.SemanticsNode): String? =
+        node.config.prioritizedClickLabel()
+
+    private fun SemanticsConfiguration.prioritizedClickLabel(): String? =
+        listOf(
+            getOrNull(SemanticsActions.OnClick)?.label?.takeIf { it.isNotBlank() },
+            firstNonBlankListString(getOrNull(SemanticsProperties.ContentDescription)),
+            firstNonBlankListString(getOrNull(SemanticsProperties.Text)),
+        ).firstOrNull { it != null }
+
+    private fun firstNonBlankListString(list: List<*>?): String? {
+        val first = list?.firstOrNull() ?: return null
+        return first.toString().trim().takeIf { it.isNotBlank() }
     }
 
     private fun isValidClickTarget(node: LayoutNode): Boolean {
@@ -134,6 +197,39 @@ internal class ComposeTapTargetDetector(
         }
 
         return className
+    }
+
+    private fun getNodeContextFromNode(node: LayoutNode): String? {
+        for (info in node.getModifierInfo()) {
+            val modifier = info.modifier
+            if (modifier is SemanticsModifier) {
+                modifier.semanticsConfiguration.prioritizedClickLabel()?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun getTextFromDescendants(node: LayoutNode): String? {
+        for (child in node.zSortedChildren.asMutableList()) {
+            getNodeContextFromNode(child)?.let { return it }
+            getTextFromDescendants(child)?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * Material3 Button uses ChildSemanticsNodeElement as an internal wrapper; the actual
+     * Text (e.g. "Add to Cart", "Go shopping") lives in its subtree. The direct parent
+     * is usually the Button; searching its descendants finds the button text.
+     * For grandparents+, only use direct semantics to avoid sibling content (e.g. product name).
+     */
+    @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+    private fun getTextFromAncestors(node: LayoutNode): String? {
+        val firstParent = node.parent ?: return null
+        getNodeContextFromNode(firstParent)?.let { return it }
+        getTextFromDescendants(firstParent)?.let { return it }
+        return generateSequence(firstParent.parent) { it.parent }
+            .firstNotNullOfOrNull { getNodeContextFromNode(it) }
     }
 
     private fun hitTest(

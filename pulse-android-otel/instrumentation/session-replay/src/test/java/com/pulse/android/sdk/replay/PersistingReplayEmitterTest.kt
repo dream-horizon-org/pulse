@@ -185,15 +185,26 @@ class PersistingReplayEmitterTest {
                 maxBatchSize = 100,
                 replayStorageEncryption = IdentityReplayStorageEncryption(),
             )
-        repeat(5) {
-            emitter.emit("sid", listOf(ReplayMetaEvent(800, 600, 0L, "")))
+        try {
+            repeat(5) {
+                emitter.emit("sid", listOf(ReplayMetaEvent(800, 600, 0L, "")))
+            }
+            // emit() only schedules work on Dispatchers.IO; give workers time before await (CI flake).
+            Thread.sleep(500L)
+            assertThat(latch.await(30, TimeUnit.SECONDS))
+                .describedAs("auto-flush when in-memory queue reaches flushAt=2")
+                .isTrue()
+            val payload = firstSent.get()
+            assertThat(payload)
+                .describedAs("first upload payload")
+                .isNotNull()
+            val envelopeCount = payload!!.split("},{").size
+            assertThat(envelopeCount)
+                .describedAs("first request should batch flushAt=2 envelopes")
+                .isEqualTo(2)
+        } finally {
+            emitter.shutdown()
         }
-        // Auto-flush fires once queue reaches flushAt=2; no manual flush needed.
-        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue()
-        val payload = firstSent.get()
-        assertThat(payload).isNotNull
-        val envelopeCount = payload!!.split("},{").size
-        assertThat(envelopeCount).isEqualTo(2)
     }
 
     @Test
