@@ -92,6 +92,13 @@
   background: rgba(11, 160, 154, 0.35);
 }
 
+.filterOption {
+  transition: background-color 0.15s ease;
+}
+.filterOption:hover {
+  background-color: #f1f3f5;
+}
+
 .addFilterBtn {
   display: inline-flex;
   align-items: center;

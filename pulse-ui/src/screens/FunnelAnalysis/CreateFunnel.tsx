@@ -1,23 +1,20 @@
 import { useMemo, useState } from "react";
-import { ActionIcon, Box, Loader, Select, Text, Group } from "@mantine/core";
+import { ActionIcon, Box, Group, Loader, Text } from "@mantine/core";
 import { IconArrowLeft, IconChartFunnel } from "@tabler/icons-react";
-import { useNavigate, useParams, generatePath } from "react-router-dom";
+import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "../../constants";
 import classes from "./FunnelAnalysis.module.css";
-import {
-  GlobalFilterBar,
-  ActiveFilter,
-} from "./components/GlobalFilterBar";
-import { FunnelBuilder, BuilderStep } from "./components/FunnelBuilder";
+import { ActiveFilter, GlobalFilterBar } from "./components/GlobalFilterBar";
+import { BuilderStep, FunnelBuilder } from "./components/FunnelBuilder";
 import { FunnelVisualization } from "./components/FunnelVisualization";
 import { FunnelDataTable } from "./components/FunnelDataTable";
-import { DATE_RANGE_OPTIONS, getDateRangeFromPreset } from "./mockData";
+import { getDateRangeFromPreset } from "./mockData";
 import {
+  FunnelStep,
   useGetFunnelData,
-  useGetFunnelTrend,
   useGetFunnelEvents,
   useGetFunnelFilters,
-  FunnelStep,
+  useGetFunnelTrend
 } from "../../hooks/useGetFunnelData";
 import { useMutation } from "@tanstack/react-query";
 import { createFunnelJourney } from "../../services/funnels.service";
@@ -30,7 +27,14 @@ const EMPTY_STEPS: BuilderStep[] = [
 function toApiSteps(steps: BuilderStep[]): FunnelStep[] {
   return steps
     .filter((s) => s.eventName)
-    .map((s) => ({ eventName: s.eventName, dataType: "LOGS" as const }));
+    .map((s) => {
+      const apiStep: FunnelStep = {
+        eventName: s.eventName,
+        dataType: "LOGS" as const,
+      };
+
+      return apiStep;
+    });
 }
 
 export function CreateFunnel() {
@@ -39,11 +43,20 @@ export function CreateFunnel() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
+    "RECURRING",
+  );
   const [dateRange, setDateRange] = useState("7d");
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
+  const [expiryDate, setExpiryDate] = useState<Date | null>(null);
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
   const [steps, setSteps] = useState<BuilderStep[]>(EMPTY_STEPS);
-  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">("ordered");
+  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
+    "ordered",
+  );
   const [conversionWindow, setConversionWindow] = useState("86400");
   const [shouldFetch, setShouldFetch] = useState(false);
 
@@ -51,11 +64,41 @@ export function CreateFunnel() {
   const { data: filtersData } = useGetFunnelFilters();
 
   const availableEvents = eventsData?.data?.events ?? [];
-  const filterOptions = filtersData?.data?.filters ?? {};
 
-  const timeRange = useMemo(() => getDateRangeFromPreset(dateRange), [dateRange]);
+  const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
+  const filterOptions = EXPECTED_FILTER_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = filtersData?.data?.filters?.[key] ?? [];
+      return acc;
+    },
+    {} as Record<string, string[]>,
+  );
+
+  const timeRange = useMemo(() => {
+    if (rollingType === "ONCE") {
+      return {
+        start: customStartDate
+          ? customStartDate.toISOString()
+          : new Date().toISOString(),
+        end: customEndDate
+          ? customEndDate.toISOString()
+          : new Date().toISOString(),
+      };
+    }
+    return getDateRangeFromPreset(dateRange);
+  }, [rollingType, dateRange, customStartDate, customEndDate]);
 
   const apiSteps = useMemo(() => toApiSteps(steps), [steps]);
+
+  const apiFilters = useMemo(
+    () =>
+      filters.map((f) => ({
+        field: f.property,
+        operator: "EQ" as const,
+        value: f.value,
+      })),
+    [filters],
+  );
 
   const requestBody = useMemo(
     () => ({
@@ -63,19 +106,20 @@ export function CreateFunnel() {
       timeRange,
       mode: "UNIQUE_USERS" as const,
       windowSeconds: parseInt(conversionWindow, 10),
+      filters: apiFilters,
     }),
-    [apiSteps, timeRange, conversionWindow],
+    [apiSteps, timeRange, conversionWindow, apiFilters],
   );
 
-  const {
-    data: funnelData,
-    isLoading: funnelLoading,
-  } = useGetFunnelData({ requestBody, enabled: shouldFetch });
+  const { data: funnelData, isLoading: funnelLoading } = useGetFunnelData({
+    requestBody,
+    enabled: shouldFetch,
+  });
 
-  const {
-    data: trendData,
-    isLoading: trendLoading,
-  } = useGetFunnelTrend({ requestBody, enabled: shouldFetch });
+  const { data: trendData, isLoading: trendLoading } = useGetFunnelTrend({
+    requestBody,
+    enabled: shouldFetch,
+  });
 
   const funnelResult = funnelData?.data;
   const trendResult = trendData?.data;
@@ -89,7 +133,7 @@ export function CreateFunnel() {
           generatePath(ROUTES.FUNNEL_JOURNEY_DETAIL.path, {
             projectId,
             id: res.data.id,
-          })
+          }),
         );
       }
     },
@@ -99,11 +143,18 @@ export function CreateFunnel() {
     createFunnel({
       name,
       description,
+      tags,
+      rollingType,
       kind: "FUNNEL",
       funnelType: funnelMode.toUpperCase(),
       steps: apiSteps,
       timeRange,
       windowSeconds: parseInt(conversionWindow, 10),
+      filters: apiFilters,
+      expiryDate:
+        rollingType === "RECURRING" && expiryDate
+          ? expiryDate.toISOString()
+          : undefined,
     });
   };
 
@@ -120,31 +171,30 @@ export function CreateFunnel() {
       <Box className={classes.topBar}>
         <Box className={classes.topBarLeft}>
           <Group gap="sm">
-            <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={goBack}
+              size="lg"
+            >
               <IconArrowLeft size={20} />
             </ActionIcon>
             <Text className={classes.moduleTitle}>Create Funnel</Text>
           </Group>
         </Box>
 
-        <Box className={classes.topBarRight}>
-          <Select
-            data={DATE_RANGE_OPTIONS}
-            value={dateRange}
-            onChange={(val) => {
-              setDateRange(val || "7d");
-              setShouldFetch(false);
-            }}
-            size="xs"
-            style={{ width: 160 }}
-            allowDeselect={false}
-          />
-        </Box>
+        <Box
+          className={classes.topBarRight}
+          style={{ display: "flex", gap: 12, alignItems: "center" }}
+        ></Box>
       </Box>
 
       <GlobalFilterBar
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setShouldFetch(false);
+        }}
         filterOptions={filterOptions}
       />
 
@@ -155,12 +205,30 @@ export function CreateFunnel() {
             onNameChange={setName}
             description={description}
             onDescriptionChange={setDescription}
+            tags={tags}
+            onTagsChange={setTags}
+            rollingType={rollingType}
+            onRollingTypeChange={setRollingType}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            customStartDate={customStartDate}
+            onCustomStartDateChange={setCustomStartDate}
+            customEndDate={customEndDate}
+            onCustomEndDateChange={setCustomEndDate}
+            expiryDate={expiryDate}
+            onExpiryDateChange={setExpiryDate}
             steps={steps}
-            onStepsChange={(s) => { setSteps(s); setShouldFetch(false); }}
+            onStepsChange={(s) => {
+              setSteps(s);
+              setShouldFetch(false);
+            }}
             funnelMode={funnelMode}
             onFunnelModeChange={setFunnelMode}
             conversionWindow={conversionWindow}
-            onConversionWindowChange={(v) => { setConversionWindow(v); setShouldFetch(false); }}
+            onConversionWindowChange={(v) => {
+              setConversionWindow(v);
+              setShouldFetch(false);
+            }}
             onAnalyze={handleAnalyze}
             isCreating={isCreating}
             availableEvents={availableEvents}
@@ -171,7 +239,9 @@ export function CreateFunnel() {
           {isLoading && shouldFetch && (
             <Box className={classes.emptyState}>
               <Loader color="teal" size="lg" />
-              <Text size="sm" c="dimmed" mt="md">Analyzing funnel...</Text>
+              <Text size="sm" c="dimmed" mt="md">
+                Analyzing funnel...
+              </Text>
             </Box>
           )}
 
@@ -179,7 +249,10 @@ export function CreateFunnel() {
             <>
               <FunnelVisualization
                 steps={funnelResult.steps}
-                totalConversionRate={trendResult?.totalConversionRate ?? funnelResult.overallConversionRate}
+                totalConversionRate={
+                  trendResult?.totalConversionRate ??
+                  funnelResult.overallConversionRate
+                }
                 conversionTrend={trendResult?.conversionTrend ?? 0}
                 medianTimes={trendResult?.medianTimes ?? []}
               />

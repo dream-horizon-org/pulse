@@ -12,10 +12,10 @@ export const CONVERSION_WINDOW_OPTIONS = [
 export const DATE_RANGE_OPTIONS = [
   { value: "today", label: "Today" },
   { value: "yesterday", label: "Yesterday" },
+  { value: "3d", label: "Last 3 Days" },
   { value: "7d", label: "Last 7 Days" },
   { value: "14d", label: "Last 14 Days" },
   { value: "30d", label: "Last 30 Days" },
-  { value: "custom", label: "Custom Range" },
 ];
 
 export const GROUP_BY_OPTIONS = [
@@ -48,6 +48,9 @@ export function getDateRangeFromPreset(preset: string): { start: string; end: st
       break;
     case "30d":
       start = new Date(now.getTime() - 30 * 86400000).toISOString();
+      break;
+    case "3d":
+      start = new Date(now.getTime() - 3 * 86400000).toISOString();
       break;
     case "7d":
     default:

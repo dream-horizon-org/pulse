@@ -359,7 +359,8 @@ export class MockResponseGenerator {
     if (
       pathname.includes("/v1/funnels-journeys") ||
       pathname.includes("/v1/funnel/") ||
-      pathname.includes("/v1/journey/")
+      pathname.includes("/v1/journey/") ||
+      pathname.includes("/v1/tags")
     ) {
       return handleFunnelEndpoints(pathname, method, request);
     }

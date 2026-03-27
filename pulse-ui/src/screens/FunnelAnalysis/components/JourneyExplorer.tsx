@@ -10,10 +10,14 @@ import {
   TextInput,
   Textarea,
   Button,
+  TagsInput,
+  Tooltip,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
+import { IconInfoCircle } from "@tabler/icons-react";
 import ReactECharts from "echarts-for-react";
-import { useGetJourneyData } from "../../../hooks/useGetFunnelData";
-import { getDateRangeFromPreset } from "../mockData";
+import { useGetJourneyData, useGetTags } from "../../../hooks/useGetFunnelData";
+import { DATE_RANGE_OPTIONS, getDateRangeFromPreset } from "../mockData";
 import { buildJourneySankeyOption } from "../utils/buildJourneySankeyOption";
 import classes from "../FunnelAnalysis.module.css";
 
@@ -22,10 +26,20 @@ interface JourneyExplorerProps {
   onNameChange: (name: string) => void;
   description: string;
   onDescriptionChange: (desc: string) => void;
+  tags: string[];
+  onTagsChange: (tags: string[]) => void;
+  rollingType: "RECURRING" | "ONCE";
+  onRollingTypeChange: (type: "RECURRING" | "ONCE") => void;
   dateRange: string;
+  onDateRangeChange: (range: string) => void;
+  customStartDate: Date | null;
+  onCustomStartDateChange: (date: Date | null) => void;
+  customEndDate: Date | null;
+  onCustomEndDateChange: (date: Date | null) => void;
   availableEvents: string[];
   onCreate: (config: any) => void;
   isCreating: boolean;
+  filters: { property: string; value: string }[];
 }
 
 export function JourneyExplorer({
@@ -33,21 +47,48 @@ export function JourneyExplorer({
   onNameChange,
   description,
   onDescriptionChange,
+  tags,
+  onTagsChange,
+  rollingType,
+  onRollingTypeChange,
   dateRange,
+  onDateRangeChange,
+  customStartDate,
+  onCustomStartDateChange,
+  customEndDate,
+  onCustomEndDateChange,
   availableEvents,
   onCreate,
   isCreating,
+  filters,
 }: JourneyExplorerProps) {
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
   const [anchorEvent, setAnchorEvent] = useState<string | null>(null);
   const [depth, setDepth] = useState(5);
+
+  const { data: tagsData } = useGetTags();
+  const availableTags = tagsData?.data?.tags ?? [];
 
   const eventOptions = useMemo(
     () => availableEvents.map((e) => ({ value: e, label: e })),
     [availableEvents],
   );
 
-  const timeRange = useMemo(() => getDateRangeFromPreset(dateRange), [dateRange]);
+  const timeRange = useMemo(() => {
+    if (rollingType === "ONCE") {
+      return {
+        start: customStartDate ? customStartDate.toISOString() : new Date().toISOString(),
+        end: customEndDate ? customEndDate.toISOString() : new Date().toISOString(),
+      };
+    }
+    return getDateRangeFromPreset(dateRange);
+  }, [rollingType, dateRange, customStartDate, customEndDate]);
+
+  const apiFilters = useMemo(() => filters.map(f => ({
+    field: f.property,
+    operator: "EQ" as const,
+    value: f.value
+  })), [filters]);
 
   const requestBody = useMemo(
     () => ({
@@ -55,8 +96,9 @@ export function JourneyExplorer({
       anchorEvent: anchorEvent || "",
       depth,
       timeRange,
+      filters: apiFilters,
     }),
-    [direction, anchorEvent, depth, timeRange],
+    [direction, anchorEvent, depth, timeRange, apiFilters],
   );
 
   const { data, isLoading } = useGetJourneyData({
@@ -72,17 +114,21 @@ export function JourneyExplorer({
       direction,
       anchorEvent,
       depth,
+      timeRange,
+      filters: apiFilters,
     });
   };
 
   return (
     <Box className={classes.journeyLayout}>
       <Box className={classes.sidebarScroll} style={{ width: 300, borderRight: "1px solid #e2e8f0", padding: 16 }}>
-        <Text size="sm" fw={700} c="dark.7" mb="sm">
+        <Text size="md" fw={600} mb="sm">
           Journey Details
         </Text>
+        <Text size="sm" fw={500} mb={4}>
+          Name
+        </Text>
         <TextInput
-          label="Name"
           placeholder="Enter journey name"
           value={name}
           onChange={(e) => onNameChange(e.currentTarget.value)}
@@ -90,8 +136,10 @@ export function JourneyExplorer({
           mb="sm"
           required
         />
+        <Text size="sm" fw={500} mb={4}>
+          Description
+        </Text>
         <Textarea
-          label="Description"
           placeholder="Enter journey description"
           value={description}
           onChange={(e) => onDescriptionChange(e.currentTarget.value)}
@@ -100,11 +148,91 @@ export function JourneyExplorer({
           minRows={2}
         />
 
-        <Text size="sm" fw={700} c="dark.7" mb="sm">
+        <Group gap="xs" mb="sm">
+          <Text size="sm" fw={500}>
+            Rolling Type
+          </Text>
+          <Tooltip
+            label={
+              <Box w={200}>
+                <Text size="xs" fw={600} mb={4}>Recurring</Text>
+                <Text size="xs" mb={8}>Journey will be auto-updated every 24 hours for the specified rolling window.</Text>
+                <Text size="xs" fw={600} mb={4}>Once</Text>
+                <Text size="xs">Journey will be computed once after creation and will not auto-update.</Text>
+              </Box>
+            }
+            position="right"
+            withArrow
+            multiline
+          >
+            <IconInfoCircle size={14} color="#94a3b8" style={{ cursor: 'help' }} />
+          </Tooltip>
+        </Group>
+        <SegmentedControl
+          value={rollingType}
+          onChange={(val) => onRollingTypeChange(val as "RECURRING" | "ONCE")}
+          data={[
+            { label: "Recurring", value: "RECURRING" },
+            { label: "Once", value: "ONCE" },
+          ]}
+          size="xs"
+          fullWidth
+          color="teal"
+          mb="sm"
+        />
+
+        {rollingType === "ONCE" && (
+          <Group gap="xs" mb="md">
+            <DateTimePicker
+              placeholder="Start Date"
+              value={customStartDate}
+              onChange={onCustomStartDateChange}
+              size="xs"
+              style={{ flex: 1 }}
+              clearable
+            />
+            <Text size="xs" c="dimmed">-</Text>
+            <DateTimePicker
+              placeholder="End Date"
+              value={customEndDate}
+              onChange={onCustomEndDateChange}
+              size="xs"
+              style={{ flex: 1 }}
+              clearable
+            />
+          </Group>
+        )}
+        {rollingType === "RECURRING" && (
+          <Select
+            data={DATE_RANGE_OPTIONS.filter(opt => opt.value !== "custom")}
+            value={dateRange}
+            onChange={(val) => onDateRangeChange(val || "7d")}
+            size="xs"
+            mb="md"
+            allowDeselect={false}
+          />
+        )}
+
+        <Text size="sm" fw={500} mb={4}>
+          Tags
+        </Text>
+        <TagsInput
+          placeholder="Select or create tags"
+          data={availableTags}
+          value={tags}
+          onChange={onTagsChange}
+          size="xs"
+          mb="xl"
+          clearable
+        />
+
+        <Text size="md" fw={600} mt="lg" mb="sm">
           Journey Configuration
         </Text>
+        <Text size="sm" fw={500} mb={4}>
+          Anchor Event
+        </Text>
         <Select
-          label="Anchor Event"
           data={eventOptions}
           value={anchorEvent}
           onChange={setAnchorEvent}
@@ -116,7 +244,7 @@ export function JourneyExplorer({
           required
         />
 
-        <Text size="xs" fw={600} c="dark.7" mb={4}>Direction</Text>
+        <Text size="sm" fw={500} mt="md" mb={4}>Direction</Text>
         <SegmentedControl
           value={direction}
           onChange={(val) => setDirection(val as "forward" | "reverse")}
@@ -130,17 +258,18 @@ export function JourneyExplorer({
           mb="sm"
         />
 
-        <Text size="xs" fw={600} c="dark.7" mb={4}>Depth: {depth} steps</Text>
+        <Text size="sm" fw={500} mt="md" mb={4}>Depth: {depth} steps</Text>
         <Slider
           value={depth}
           onChange={setDepth}
           min={1}
-          max={10}
+          max={15}
           step={1}
           marks={[
             { value: 1, label: "1" },
             { value: 5, label: "5" },
             { value: 10, label: "10" },
+            { value: 15, label: "15" },
           ]}
           size="sm"
           color="teal"
@@ -162,7 +291,7 @@ export function JourneyExplorer({
       <Box className={classes.journeyCanvas}>
         <Box className={classes.sankeyContainer}>
           {anchorEvent ? (
-            <Text size="sm" fw={600} c="dark.7" mb="md">
+            <Text size="md" fw={600} mb="md">
               {direction === "forward" ? "Forward" : "Reverse"} Journey from{" "}
               <Text span c="teal" fw={700}>{anchorEvent}</Text>
             </Text>

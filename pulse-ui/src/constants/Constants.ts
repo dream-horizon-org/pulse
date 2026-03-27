@@ -963,6 +963,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnel/filters`,
     method: API_METHODS.GET,
   },
+  GET_TAGS: {
+    key: "GET_TAGS",
+    apiPath: `/v1/tags`,
+    method: API_METHODS.GET,
+  },
   GET_TNC_STATUS: {
     key: "GET_TNC_STATUS",
     apiPath: `/v1/tnc/status`,

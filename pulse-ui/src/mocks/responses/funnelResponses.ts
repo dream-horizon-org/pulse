@@ -164,15 +164,9 @@ const MOCK_FUNNEL_EVENTS = [
 ];
 
 const MOCK_FUNNEL_FILTER_OPTIONS: Record<string, string[]> = {
+  "OS Name": ["iOS", "Android"],
+  "OS Version": ["17.4.1", "17.3", "16.6", "14.0", "13.0"],
   "App Version": ["4.2.1", "4.2.0", "4.1.9", "4.1.8", "4.1.7"],
-  "Device Model": [
-    "iPhone 15 Pro", "iPhone 14", "iPhone 13",
-    "Samsung Galaxy S24", "Samsung Galaxy S23",
-    "Pixel 8", "Pixel 7", "OnePlus 12",
-  ],
-  OS: ["iOS", "Android"],
-  Country: ["United States", "India", "United Kingdom", "Germany", "Japan", "Brazil", "Canada", "Australia"],
-  City: ["San Francisco", "New York", "London", "Mumbai", "Berlin", "Tokyo", "São Paulo", "Toronto", "Sydney"],
 };
 
 /** Saved funnels & journeys listing (mock only; TODO: replace with real API). */
@@ -185,6 +179,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   lastUpdatedAt: string;
   tags: string[];
   funnelType?: "ORDERED" | "UNORDERED";
+  filters?: any[];
 }> = [
   {
     id: "fj-1",
@@ -358,6 +353,18 @@ function mockFunnelJourneyDetail(id: string): MockResponse {
   };
 }
 
+const MOCK_TAGS = [
+  "checkout",
+  "revenue",
+  "onboarding",
+  "search",
+  "product",
+  "auth",
+  "cart",
+  "marketing",
+  "feature",
+];
+
 export function handleFunnelEndpoints(
   pathname: string,
   method: string,
@@ -374,8 +381,10 @@ export function handleFunnelEndpoints(
       status: "CREATING" as const,
       createdBy: "dev@example.com",
       lastUpdatedAt: new Date().toISOString(),
-      tags: [],
+      tags: body.tags || [],
       funnelType: body.funnelType,
+      filters: body.filters || [],
+      expiryDate: body.expiryDate,
     };
     MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
     return { data: newItem, status: 201 };
@@ -430,6 +439,10 @@ export function handleFunnelEndpoints(
 
   if (pathname.includes("/v1/funnel/filters") && method === "GET") {
     return { data: { filters: MOCK_FUNNEL_FILTER_OPTIONS }, status: 200 };
+  }
+
+  if (pathname.includes("/v1/tags") && method === "GET") {
+    return { data: { tags: MOCK_TAGS }, status: 200 };
   }
 
   if (pathname.includes("/v1/journey/explore") && method === "POST") {
