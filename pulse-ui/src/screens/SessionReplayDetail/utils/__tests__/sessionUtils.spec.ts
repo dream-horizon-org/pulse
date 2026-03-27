@@ -56,22 +56,22 @@ describe("sessionUtils", () => {
   });
 
   describe("getQualityColor", () => {
-    it("returns teal for score >= 8", () => {
-      expect(getQualityColor(8)).toBe("teal");
-      expect(getQualityColor(8.5)).toBe("teal");
-      expect(getQualityColor(10)).toBe("teal");
+    it("returns teal for score >= 0.8", () => {
+      expect(getQualityColor(0.8)).toBe("teal");
+      expect(getQualityColor(0.95)).toBe("teal");
+      expect(getQualityColor(1)).toBe("teal");
     });
 
-    it("returns yellow for score >= 6 and < 8", () => {
-      expect(getQualityColor(6)).toBe("yellow");
-      expect(getQualityColor(7)).toBe("yellow");
-      expect(getQualityColor(7.9)).toBe("yellow");
+    it("returns yellow for score >= 0.6 and < 0.8", () => {
+      expect(getQualityColor(0.6)).toBe("yellow");
+      expect(getQualityColor(0.72)).toBe("yellow");
+      expect(getQualityColor(0.79)).toBe("yellow");
     });
 
-    it("returns red for score < 6", () => {
+    it("returns red for score < 0.6", () => {
       expect(getQualityColor(0)).toBe("red");
-      expect(getQualityColor(5)).toBe("red");
-      expect(getQualityColor(5.9)).toBe("red");
+      expect(getQualityColor(0.5)).toBe("red");
+      expect(getQualityColor(0.59)).toBe("red");
     });
   });
 });

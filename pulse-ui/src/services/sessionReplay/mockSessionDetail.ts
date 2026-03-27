@@ -350,7 +350,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetailData {
       country: "United States",
       city: "San Francisco",
     },
-    interactionQuality: 6.5,
+    interactionQuality: 0.65,
     sessionType: "error_encountered",
     detectedIssues: [
       {

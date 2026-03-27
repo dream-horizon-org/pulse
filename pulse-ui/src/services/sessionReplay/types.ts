@@ -56,7 +56,7 @@ export interface SessionResponse {
   metadata?: Record<string, any>;
 
   // Investigation-focused fields (NEW)
-  interactionQuality: number | null; // 0-10 scale, null if unavailable
+  interactionQuality: number | null; // 0–1 scale, null if unavailable
   issueSummary: IssueSummary;
   outcome: SessionOutcome;
 }
@@ -489,6 +489,7 @@ export interface SessionDetailApiResponse {
   osVersion: string;
   appVersion: string;
   geography: string;
+  /** Session quality score on a 0–1 scale */
   quality: number;
   journey: string[];
   interactions: SessionDetailInteraction[];
