@@ -54,6 +54,9 @@ import { useGetJobStatus } from "../../hooks/useGetJobStatus";
 import { useGetInteractionDetails } from "../../hooks/useGetInteractionDetails";
 import { logEvent } from "../../helpers/googleAnalytics";
 
+const isRevenueCorrelationEnabled =
+  process.env.REACT_APP_REVENUE_CORRELATION_ENABLED === "true";
+
 export function CriticalInteractionForm() {
   const theme = useMantineTheme();
   const navigate = useNavigate();
@@ -402,7 +405,7 @@ export function CriticalInteractionForm() {
               onStepClick={onStepClick}
               orientation="vertical"
             >
-              {CRITICAL_INTERACTION_FORM_STEPS.map((step, index) => (
+              {(isRevenueCorrelationEnabled ? CRITICAL_INTERACTION_FORM_STEPS : CRITICAL_INTERACTION_FORM_STEPS.slice(0, 4)).map((step, index) => (
                 <Stepper.Step
                   classNames={{
                     stepWrapper: classes.stepperWrapper,
@@ -455,10 +458,10 @@ export function CriticalInteractionForm() {
                 isUpdateFlow={isUpdateFlow}
                 onBackClick={onBackClick}
                 onCreateClick={onCreateClick}
-                onNextClick={onNextClick}
+                onNextClick={isRevenueCorrelationEnabled ? onNextClick : undefined}
               />
             )}
-            {stepperActiveState === 4 && (
+            {isRevenueCorrelationEnabled && stepperActiveState === 4 && (
               <RevenueConfiguration
                 isUpdateFlow={isUpdateFlow}
                 onBackClick={onBackClick}
