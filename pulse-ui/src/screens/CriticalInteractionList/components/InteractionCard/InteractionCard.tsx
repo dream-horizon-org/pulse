@@ -1,4 +1,5 @@
 import { Text } from "@mantine/core";
+import { IconAlertTriangle } from "@tabler/icons-react";
 import classes from "./InteractionCard.module.css";
 
 interface InteractionCardProps {
@@ -10,6 +11,9 @@ interface InteractionCardProps {
   errorRateValue?: number;
   p50Latency?: number;
   poorUserPercentage?: number;
+  // Revenue (demo)
+  revenueAtRisk?: number;
+  currency?: string;
 }
 
 export function InteractionCard({
@@ -20,7 +24,15 @@ export function InteractionCard({
   errorRateValue = 0,
   p50Latency = 0,
   poorUserPercentage = 0,
+  revenueAtRisk,
+  currency = "USD",
 }: InteractionCardProps) {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
   // Use provided metric values or defaults
 
   const getHealthColor = (apdexScore: number) => {
@@ -124,6 +136,15 @@ export function InteractionCard({
           </Text>
         </div>
       </div>
+
+      {revenueAtRisk != null && (
+        <div className={classes.revenueRow}>
+          <IconAlertTriangle size={11} style={{ color: "#ef4444", flexShrink: 0 }} />
+          <Text className={classes.revenueLabel}>
+            ~{formatCurrency(revenueAtRisk)} revenue at risk
+          </Text>
+        </div>
+      )}
 
       <div
         className={classes.healthBar}

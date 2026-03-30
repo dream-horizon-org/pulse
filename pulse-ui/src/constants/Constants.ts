@@ -1344,6 +1344,10 @@ export const CRITICAL_INTERACTION_FORM_STEPS: CriticalInteractionFormSteps = [
     label: "Interaction breakdown",
     description: "for categorisation",
   },
+  {
+    label: "Revenue",
+    description: "optional, to track impact",
+  },
 ];
 
 export const EVENTS_THRESHOLDS_PAGE_CONSTANTS: Record<string, string> = {
@@ -1387,7 +1391,11 @@ export const DEFAULT_CRITICAL_INTERACTION_FORM_STEPS_RECORD: CriticalInteraction
     },
     3: {
       errorMessage: CRITICAL_INTERACTION_FORM_CONSTANTS.THRESHOLD_ERROR_MESSAGE,
-      isCompleted: false,
+      isCompleted: true,
+    },
+    4: {
+      errorMessage: "",
+      isCompleted: true,
     },
   };
 
