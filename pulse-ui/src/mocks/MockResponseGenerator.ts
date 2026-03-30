@@ -30,6 +30,8 @@ import {
 } from "./responses/realtimeQueryResponses";
 import { MockRequest, MockResponse } from "./types";
 import { generateDataQueryMockResponseV2 } from "./v2";
+import { INTERACTION_DISCOVERY_MOCK_SUGGESTIONS } from "./interactionDiscoveryMockData";
+import type { RcaReportTenantContext } from "../hooks/useGetRcaReport/useGetRcaReport.interface";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -251,6 +253,11 @@ export class MockResponseGenerator {
 
     if (pathname.includes("/v1/ai/sessions")) {
       return this.handleV1AiSessionsEndpoints(pathname, method, request);
+    }
+
+    // AI RCA report (interaction details → Root Cause tab; POST body may include tenant metrics)
+    if (pathname.includes("/v1/ai/rca/report") && method === "POST") {
+      return this.handleRcaReportPostMock(request);
     }
 
     // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
@@ -2573,17 +2580,41 @@ export class MockResponseGenerator {
 
   private handleRcaReportPostMock(request: MockRequest): MockResponse {
     let interactionName = "interaction";
+    let tenantContext: RcaReportTenantContext | null = null;
     try {
       const body = request.body ? JSON.parse(request.body) : {};
       if (body.interactionName) {
         interactionName = String(body.interactionName);
+      }
+      const er =
+        body.errorRatePercent != null && body.errorRatePercent !== ""
+          ? Number(body.errorRatePercent)
+          : NaN;
+      const pr =
+        body.poorUsersPercent != null && body.poorUsersPercent !== ""
+          ? Number(body.poorUsersPercent)
+          : NaN;
+      if (!Number.isNaN(er) && !Number.isNaN(pr)) {
+        tenantContext = {
+          errorRatePercent: er,
+          poorUsersPercent: pr,
+        };
+        if (body.apdex != null && body.apdex !== "") {
+          tenantContext.apdex = Number(body.apdex);
+        }
+        if (body.p50Ms != null && body.p50Ms !== "") {
+          tenantContext.p50Ms = Number(body.p50Ms);
+        }
+        if (body.p95Ms != null && body.p95Ms !== "") {
+          tenantContext.p95Ms = Number(body.p95Ms);
+        }
       }
     } catch {
       /* keep default */
     }
     return {
       status: 200,
-      data: buildMockRcaReportResponseBody(interactionName),
+      data: buildMockRcaReportResponseBody(interactionName, tenantContext),
     };
   }
 
@@ -2600,6 +2631,21 @@ export class MockResponseGenerator {
       const pathParts = pathname.split("/").filter((part) => part !== ""); // Remove empty parts
       console.log(`[Mock Server] Path parts:`, pathParts);
       console.log(`[Mock Server] Full pathname:`, pathname);
+
+      if (
+        method === "GET" &&
+        pathParts.length === 3 &&
+        pathParts[0] === "v1" &&
+        pathParts[1] === "interactions" &&
+        pathParts[2] === "discoveries"
+      ) {
+        return {
+          status: 200,
+          data: {
+            suggestions: INTERACTION_DISCOVERY_MOCK_SUGGESTIONS,
+          },
+        };
+      }
 
       if (
         pathParts.length >= 3 &&

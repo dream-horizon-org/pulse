@@ -3,20 +3,29 @@ import classes from "./CriticalInteractionList.module.css";
 import {
   Box,
   Button,
+  Divider,
   Group,
   Popover,
   ScrollArea,
   Switch,
   TextInput,
+  useMantineTheme,
 } from "@mantine/core";
 import { useIntersection } from "@mantine/hooks";
 
 import {
+  API_ROUTES,
+  COMMON_CONSTANTS,
   COOKIES_KEY,
+  CRITICAL_INTERACTION_FORM_CONSTANTS,
   CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS,
   ROUTES,
 } from "../../constants";
-import { IconFilterEdit } from "@tabler/icons-react";
+import {
+  IconCircleCheckFilled,
+  IconFilterEdit,
+  IconSquareRoundedX,
+} from "@tabler/icons-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChangeEvent,
@@ -35,6 +44,11 @@ import {
   GetInteractionsResponse,
   useGetInteractions,
 } from "../../hooks/useGetInteractions";
+import {
+  useGetInteractionDiscoveries,
+  type InteractionDiscoverySuggestion,
+} from "../../hooks/useGetInteractionDiscoveries";
+import { AutoDiscoveredSection } from "./components/AutoDiscoveredSection";
 import { useDebouncedCallback, useDisclosure } from "@mantine/hooks";
 import { useGetInteractionListFilters } from "../../hooks/useGetInteractionListFilters";
 import { Filters } from "./components/Filters";
@@ -51,6 +65,10 @@ import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createJob } from "../../helpers/createJob";
+import { buildCreateInteractionBodyFromDiscovery } from "../../helpers/buildCreateInteractionBodyFromDiscovery";
+import { showNotification } from "../../helpers/showNotification";
 
 interface InteractionMetrics {
   interactionName: string;
@@ -60,8 +78,13 @@ interface InteractionMetrics {
   poorUserPercentage: number;
 }
 
+const isInteractionDiscoveryEnabled =
+  process.env.REACT_APP_INTERACTION_DISCOVERY_ENABLED === "true";
+
 export function CriticalInteractionList() {
   const navigate = useNavigate();
+  const theme = useMantineTheme();
+  const queryClient = useQueryClient();
   const { projectId } = useProjectContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const { trackClick } = useAnalytics("InteractionList");
@@ -90,6 +113,25 @@ export function CriticalInteractionList() {
   });
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [dismissedDiscoveryIds, setDismissedDiscoveryIds] = useState<string[]>(
+    [],
+  );
+
+  const {
+    data: discoveryApiResponse,
+    isSuccess: isDiscoverySuccess,
+    refetch: refetchDiscoveries,
+    isFetching: isDiscoveryFetching,
+  } = useGetInteractionDiscoveries(isInteractionDiscoveryEnabled);
+
+  const visibleDiscoverySuggestions = useMemo(() => {
+    const suggestions = discoveryApiResponse?.data?.suggestions ?? [];
+    return suggestions.filter((s) => !dismissedDiscoveryIds.includes(s.id));
+  }, [discoveryApiResponse, dismissedDiscoveryIds]);
+
+  useEffect(() => {
+    setDismissedDiscoveryIds([]);
+  }, [projectId]);
 
   const { ref, entry } = useIntersection({
     root: loaderRef.current,
@@ -126,6 +168,57 @@ export function CriticalInteractionList() {
     },
     pageIdentifier: "list",
   });
+
+  const activateFromDiscoveryMutation = useMutation({
+    mutationFn: (suggestion: InteractionDiscoverySuggestion) => {
+      const body = buildCreateInteractionBodyFromDiscovery(suggestion);
+      return createJob(body);
+    },
+    onSuccess: async (apiResponse, suggestion) => {
+      if (apiResponse?.error) {
+        showNotification(
+          COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
+          apiResponse.error.message,
+          <IconSquareRoundedX />,
+          theme.colors.red[6],
+        );
+        return;
+      }
+      showNotification(
+        COMMON_CONSTANTS.SUCCESS_NOTIFICATION_TITLE,
+        CRITICAL_INTERACTION_FORM_CONSTANTS.CREATE_JOB_SUCCESS_NOTIFICATION_MESSAGE,
+        <IconCircleCheckFilled />,
+        theme.colors.teal[6],
+      );
+      setDismissedDiscoveryIds((prev) =>
+        prev.includes(suggestion.id) ? prev : [...prev, suggestion.id],
+      );
+      setRows({ interactions: [], totalInteractions: 0 });
+      setPagination({ page: 0, size: defaultPageSize });
+      await queryClient.invalidateQueries({
+        queryKey: [API_ROUTES.GET_INTERACTIONS.key],
+      });
+      await refetch();
+    },
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error
+          ? err.message
+          : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE;
+      showNotification(
+        COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
+        message,
+        <IconSquareRoundedX />,
+        theme.colors.red[6],
+      );
+    },
+  });
+
+  const activatingDiscoveryId =
+    activateFromDiscoveryMutation.isPending &&
+    activateFromDiscoveryMutation.variables
+      ? activateFromDiscoveryMutation.variables.id
+      : null;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchInteractionsList = useCallback(debounce(refetch, 300), []);
@@ -359,10 +452,28 @@ export function CriticalInteractionList() {
     id: number;
     name: string | undefined;
   }) => {
-    trackClick(`Interaction: ${interaction.name || 'unknown'}`);
+    trackClick(`Interaction: ${interaction.name || "unknown"}`);
     navigate(
       `/projects/${projectId}/interaction-details/${interaction.name || ""}`,
     );
+  };
+
+  const handleDiscoverInteractions = () => {
+    trackClick("InteractionList:Discover");
+    setDismissedDiscoveryIds([]);
+    void refetchDiscoveries();
+  };
+
+  const handleDismissDiscovery = (id: string) => {
+    trackClick(`InteractionList:DismissDiscovery:${id}`);
+    setDismissedDiscoveryIds((prev) =>
+      prev.includes(id) ? prev : [...prev, id],
+    );
+  };
+
+  const handleActivateDiscovery = (s: InteractionDiscoverySuggestion) => {
+    trackClick(`InteractionList:ActivateDiscovery:${s.id}`);
+    activateFromDiscoveryMutation.mutate(s);
   };
 
   const renderContent = () => {
@@ -372,11 +483,11 @@ export function CriticalInteractionList() {
         <ScrollArea className={classes.scrollArea}>
           <Box className={classes.criticalInteractionsTableContainer}>
             {Array.from({ length: 8 }).map((_, index) => (
-              <CardSkeleton 
-                key={index} 
-                height={180} 
-                showHeader 
-                contentRows={3} 
+              <CardSkeleton
+                key={index}
+                height={180}
+                showHeader
+                contentRows={3}
               />
             ))}
           </Box>
@@ -413,7 +524,7 @@ export function CriticalInteractionList() {
                 onClick={() =>
                   onInteractionClick({
                     id: item?.id,
-                    name: item?.name
+                    name: item?.name,
                   })
                 }
                 apdexScore={metrics?.apdex}
@@ -486,12 +597,19 @@ export function CriticalInteractionList() {
               <Filters
                 defaultFilters={filters}
                 handleFiltersChange={handleFilterChange}
-                defaultFilterValuesFromServer={filterValuesFromServer || { createdBy: [], statuses: [] }}
+                defaultFilterValuesFromServer={
+                  filterValuesFromServer || { createdBy: [], statuses: [] }
+                }
               />
             </Popover.Dropdown>
           </Popover>
 
-          <Link to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(':projectId', projectId || '')}>
+          <Link
+            to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(
+              ":projectId",
+              projectId || "",
+            )}
+          >
             <Button size="sm" variant="light" className={classes.createButton}>
               {
                 CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS.CREATE_USER_EXPERIENCE_BUTTON_TEXT
@@ -500,6 +618,30 @@ export function CriticalInteractionList() {
           </Link>
         </Group>
       </Box>
+
+      {isInteractionDiscoveryEnabled &&
+      isDiscoverySuccess &&
+      visibleDiscoverySuggestions.length > 0 ? (
+        <>
+          <AutoDiscoveredSection
+            suggestions={visibleDiscoverySuggestions}
+            isRefreshing={isDiscoveryFetching}
+            activatingSuggestionId={activatingDiscoveryId}
+            onDiscover={handleDiscoverInteractions}
+            onDismiss={handleDismissDiscovery}
+            onActivate={handleActivateDiscovery}
+          />
+          <Divider
+            className={classes.discoveryTrackedDivider}
+            my="lg"
+            label={
+              CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS.TRACKED_INTERACTIONS_LABEL
+            }
+            labelPosition="center"
+            color="teal"
+          />
+        </>
+      ) : null}
 
       {/* Content Section */}
       {renderContent()}

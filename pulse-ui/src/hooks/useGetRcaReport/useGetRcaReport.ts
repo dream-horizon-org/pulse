@@ -17,10 +17,26 @@ export const useGetRcaReport = ({
   date,
   enabled = true,
   projectId,
+  tenantContext,
 }: UseGetRcaReportParams) => {
   const postRcaReportRoute = API_ROUTES.POST_RCA_REPORT;
+  const tenantContextKey = tenantContext
+    ? [
+        tenantContext.errorRatePercent,
+        tenantContext.poorUsersPercent,
+        tenantContext.apdex ?? "",
+        tenantContext.p50Ms ?? "",
+        tenantContext.p95Ms ?? "",
+      ].join("|")
+    : "";
   return useQuery({
-    queryKey: [postRcaReportRoute.key, interactionName, date, projectId],
+    queryKey: [
+      postRcaReportRoute.key,
+      interactionName,
+      date,
+      projectId,
+      tenantContextKey,
+    ],
     queryFn: async (): Promise<ApiResponse<RcaReportResponse>> => {
       if (!interactionName) {
         return {
@@ -36,11 +52,32 @@ export const useGetRcaReport = ({
       const url = `${API_BASE_URL}${postRcaReportRoute.apiPath}`;
       const validDate =
         date && date !== "Invalid Date" && /^\d{4}-\d{2}-\d{2}$/.test(date);
-      const body: { interactionName: string; date?: string } = {
+      const body: {
+        interactionName: string;
+        date?: string;
+        errorRatePercent?: number;
+        poorUsersPercent?: number;
+        apdex?: number;
+        p50Ms?: number;
+        p95Ms?: number;
+      } = {
         interactionName,
       };
       if (validDate) {
         body.date = date;
+      }
+      if (tenantContext) {
+        body.errorRatePercent = tenantContext.errorRatePercent;
+        body.poorUsersPercent = tenantContext.poorUsersPercent;
+        if (tenantContext.apdex != null) {
+          body.apdex = tenantContext.apdex;
+        }
+        if (tenantContext.p50Ms != null) {
+          body.p50Ms = tenantContext.p50Ms;
+        }
+        if (tenantContext.p95Ms != null) {
+          body.p95Ms = tenantContext.p95Ms;
+        }
       }
       const headers: Record<string, string> = {};
       const hasProjectId = projectId && String(projectId).trim() !== "";

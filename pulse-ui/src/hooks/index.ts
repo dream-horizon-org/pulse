@@ -39,6 +39,7 @@ export * from "./useGetEventProps";
 export * from "./useGetGraphDataFromJobId";
 export * from "./useGetInteractionDetails";
 export * from "./useGetInteractionDetailsGraphs";
+export * from "./useGetInteractionDiscoveries";
 export * from "./useGetInteractionListFilters";
 export * from "./useGetInteractionTime";
 export * from "./useGetInteractions";
