@@ -1,34 +1,37 @@
-import { Box, Group, SegmentedControl, Text } from '@mantine/core';
-import { PieChart, LineChart } from '../../../components/Charts';
-import { useMemo, useState } from 'react';
-import type { ConsoleLog } from '../../../services/sessionReplay/mockSessionDetail';
+import { Box, Group, SegmentedControl, Text } from "@mantine/core";
+import { useMemo, useState } from "react";
+import { LineChart, PieChart } from "../../../components/Charts";
+import type { ConsoleLog } from "../../../services/sessionReplay/mockSessionDetail";
 
 interface ConsoleVisualizationProps {
   consoleLogs: ConsoleLog[];
   sessionStartTime: Date;
 }
 
-type ViewMode = 'distribution' | 'timeline';
+type ViewMode = "distribution" | "timeline";
 
-export function ConsoleVisualization({ consoleLogs, sessionStartTime }: ConsoleVisualizationProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('distribution');
+export function ConsoleVisualization({
+  consoleLogs,
+  sessionStartTime,
+}: ConsoleVisualizationProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>("distribution");
 
   // Log level distribution pie chart
   const distributionOption = useMemo(() => {
     const counts: Record<string, number> = {};
-    consoleLogs.forEach(log => {
+    consoleLogs.forEach((log) => {
       counts[log.level] = (counts[log.level] || 0) + 1;
     });
 
     return {
       tooltip: {
-        trigger: 'item',
-        formatter: '{b}: {c} ({d}%)',
+        trigger: "item",
+        formatter: "{b}: {c} ({d}%)",
       },
       series: [
         {
-          type: 'pie',
-          radius: ['40%', '70%'],
+          type: "pie",
+          radius: ["40%", "70%"],
           data: Object.entries(counts).map(([level, count]) => ({
             value: count,
             name: level.toUpperCase(),
@@ -36,16 +39,16 @@ export function ConsoleVisualization({ consoleLogs, sessionStartTime }: ConsoleV
           itemStyle: {
             color: (params: any) => {
               const level = params.name.toLowerCase();
-              if (level === 'error') return '#ef4444';
-              if (level === 'warn') return '#f59e0b';
-              return '#6b7280';
+              if (level === "error") return "#ef4444";
+              if (level === "warn") return "#f59e0b";
+              return "#6b7280";
             },
           },
           emphasis: {
             itemStyle: {
               shadowBlur: 10,
               shadowOffsetX: 0,
-              shadowColor: 'rgba(0, 0, 0, 0.5)',
+              shadowColor: "rgba(0, 0, 0, 0.5)",
             },
           },
         },
@@ -55,41 +58,41 @@ export function ConsoleVisualization({ consoleLogs, sessionStartTime }: ConsoleV
 
   // Timeline of log levels over time
   const timelineOption = useMemo(() => {
-    const levels = ['log', 'warn', 'error'];
-    const series = levels.map(level => ({
+    const levels = ["log", "warn", "error"];
+    const series = levels.map((level) => ({
       name: level.toUpperCase(),
-      type: 'line',
+      type: "line",
       data: consoleLogs
-        .filter(l => l.level === level)
-        .map(l => [l.timestamp, 1]),
-      symbol: 'circle',
+        .filter((l) => l.level === level)
+        .map((l) => [l.timestamp, 1]),
+      symbol: "circle",
       symbolSize: 8,
       lineStyle: {
         width: 2,
       },
     }));
 
-    const timestamps = consoleLogs.map(l => l.timestamp);
+    const timestamps = consoleLogs.map((l) => l.timestamp);
     const minTime = timestamps.length > 0 ? Math.min(...timestamps) : 0;
     const maxTime = timestamps.length > 0 ? Math.max(...timestamps) : 1000;
 
     return {
       tooltip: {
-        trigger: 'axis',
+        trigger: "axis",
         formatter: (params: any) => {
           const param = params[0];
-          const log = consoleLogs.find(l => l.timestamp === param.value[0]);
-          if (!log) return '';
+          const log = consoleLogs.find((l) => l.timestamp === param.value[0]);
+          if (!log) return "";
           return `${log.level.toUpperCase()}<br/>${log.message.substring(0, 50)}...<br/>Time: ${param.value[0]}ms`;
         },
       },
       legend: {
-        data: levels.map(l => l.toUpperCase()),
+        data: levels.map((l) => l.toUpperCase()),
         bottom: 0,
       },
       xAxis: {
-        type: 'value',
-        name: 'Time (ms)',
+        type: "value",
+        name: "Time (ms)",
         min: minTime,
         max: maxTime,
         nameTextStyle: {
@@ -97,14 +100,14 @@ export function ConsoleVisualization({ consoleLogs, sessionStartTime }: ConsoleV
         },
       },
       yAxis: {
-        type: 'value',
-        name: 'Log Count',
+        type: "value",
+        name: "Log Count",
         max: 1.5,
         nameTextStyle: {
           padding: [0, 0, 0, 20],
         },
       },
-      series: series.filter(s => s.data.length > 0),
+      series: series.filter((s) => s.data.length > 0),
     };
   }, [consoleLogs]);
 
@@ -119,26 +122,18 @@ export function ConsoleVisualization({ consoleLogs, sessionStartTime }: ConsoleV
           value={viewMode}
           onChange={(value) => setViewMode(value as ViewMode)}
           data={[
-            { label: 'Distribution', value: 'distribution' },
-            { label: 'Timeline', value: 'timeline' },
+            { label: "Distribution", value: "distribution" },
+            { label: "Timeline", value: "timeline" },
           ]}
         />
       </Group>
 
-      {viewMode === 'distribution' && (
-        <PieChart
-          option={distributionOption}
-          height={300}
-          withLegend={true}
-        />
+      {viewMode === "distribution" && (
+        <PieChart option={distributionOption} height={300} withLegend={true} />
       )}
 
-      {viewMode === 'timeline' && (
-        <LineChart
-          option={timelineOption}
-          height={300}
-          withLegend={true}
-        />
+      {viewMode === "timeline" && (
+        <LineChart option={timelineOption} height={300} withLegend={true} />
       )}
     </Box>
   );

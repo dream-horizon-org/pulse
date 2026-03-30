@@ -10,6 +10,12 @@
   align-items: center;
   justify-content: center;
   padding: var(--mantine-spacing-md);
+  overflow: hidden;
+}
+
+/* Tighter padding + pass height cap into mockup so flex layout can keep controls visible */
+.deviceContainerCompact {
+  padding: var(--mantine-spacing-xs);
 }
 
 /* Tighter padding + pass height cap into mockup so flex layout can keep controls visible */

@@ -1,12 +1,143 @@
-/* Aligned with wireframes/heatmap/frames.pen — Heatmap & Engagement – Default */
+/**
+ * Heatmap tab — layout tokens align with ScreenDetail + EngagementGraph cards
+ * (teal accent, white cards, shared graph/metric patterns).
+ */
 
-.root {
+.filterBarInner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.contextStrip {
+  padding: 12px 14px;
+  border-radius: var(--mantine-radius-md);
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.05) 0%,
+    rgba(14, 201, 194, 0.09) 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  margin-bottom: 0;
+}
+
+.controlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.controlsLeft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.controlsLabel {
+  flex-shrink: 0;
+  letter-spacing: 0.08em;
+}
+
+.mapHint {
+  max-width: 65ch;
+}
+
+.mapBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.mapBlockLabel {
+  margin-bottom: 10px;
+}
+
+.heatmapChartTight {
+  padding-bottom: 0;
+}
+
+.intensityLegendCompact {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.intensityLegendGradientRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.intensityLegendEnd {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mantine-color-dimmed);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gradientStripHeatmap {
+  flex: 1;
+  min-width: 48px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    #0ec9c2 0%,
+    #fcc419 45%,
+    #fa5252 100%
+  );
+}
+
+.summaryQualityRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.summaryQualityInfo {
+  display: inline-flex;
+  color: var(--mantine-color-dimmed);
+  cursor: help;
+  transition: color 0.12s ease;
+  vertical-align: middle;
+}
+
+.summaryQualityInfo:hover {
+  color: #0ba09a;
+}
+
+.summaryQualityValue {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.summaryQualityValueMuted {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--mantine-color-dimmed);
+}
+
+.heatVizEmbedded {
   display: flex;
   flex-direction: column;
   gap: var(--mantine-spacing-md);
-  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
-  background: #fafbfc;
-  flex: 1;
   min-height: 0;
 }
 
@@ -40,21 +171,10 @@
   line-height: 1.35;
 }
 
-.filterBar {
-  border-radius: 10px;
-  padding: 16px;
-  border: 1px solid rgba(14, 201, 194, 0.2);
-  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
-  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
 .signalHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -62,7 +182,7 @@
 .signalLabel {
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--mantine-color-dark-6);
 }
 
 .compareCta {
@@ -75,15 +195,11 @@
   padding: 0 12px;
   height: 30px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .compareCta:hover {
   background: rgba(14, 201, 194, 0.14);
-}
-
-.compareHint {
-  font-size: 10px;
-  color: #adb5bd;
 }
 
 .chipsRow {
@@ -93,10 +209,10 @@
 }
 
 .chip {
-  border-radius: 14px;
-  height: 28px;
-  padding: 0 12px;
-  font-size: 12px;
+  border-radius: 16px;
+  min-height: 34px;
+  padding: 6px 14px;
+  font-size: 13px;
   font-weight: 500;
   border: 1px solid #dee2e6;
   background: transparent;
@@ -110,132 +226,29 @@
   color: #0ba09a;
 }
 
-.filterDivider {
-  height: 1px;
-  background: rgba(14, 201, 194, 0.12);
-  width: 100%;
+.filterBarSub {
+  max-width: 62ch;
+  line-height: 1.5;
 }
 
-.focusBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.focusTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.focusLabel {
-  font-size: 13px;
-  font-weight: 600;
-  color: #495057;
-}
-
-.focusPills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.pill {
-  border-radius: 14px;
-  height: 28px;
-  padding: 0 14px;
-  font-size: 12px;
-  border: 1px solid #dee2e6;
-  background: transparent;
-  cursor: pointer;
-  color: #495057;
-}
-
-.pillActive {
-  border-color: #0ba09a;
-  background: rgba(14, 201, 194, 0.1);
-  color: #0ba09a;
-}
-
-.focusHint {
-  font-size: 11px;
-  color: #adb5bd;
-  line-height: 1.35;
-}
-
-.variationBox {
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-  background: #ffffff;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.variationHint {
-  font-size: 10px;
-  color: #adb5bd;
-}
-
-.scoreRow {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-@media (min-width: 768px) {
-  .scoreRow {
-    flex-direction: row;
-  }
-}
-
-.scoreCard {
-  flex: 1;
-  border-radius: 10px;
-  padding: 14px;
-  min-height: 88px;
-  border: 1px solid rgba(14, 201, 194, 0.15);
-  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.scoreCardLabel {
-  font-size: 11px;
-  color: #868e96;
-  font-weight: 500;
-}
-
-.scoreCardValue {
-  font-size: 22px;
-  font-weight: 700;
-  color: #212529;
-}
-
-.scoreCardSub {
-  font-size: 11px;
-  color: #adb5bd;
-}
-
-.scoreLegend {
+.scoreLegendInline {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .scoreLegendLabel {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  color: #868e96;
+  color: var(--mantine-color-dark-5);
+  margin-right: 4px;
 }
 
 .legendChip {
-  border-radius: 4px;
-  padding: 2px 8px;
-  font-size: 10px;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -261,50 +274,51 @@
   box-shadow: 0 0 0 2px rgba(14, 201, 194, 0.35);
 }
 
+/* Main viz: graphCard adds outer chrome; this handles inner layout only */
 .heatViz {
-  border-radius: 10px;
-  padding: 14px;
-  border: 1px solid rgba(14, 201, 194, 0.18);
-  background: linear-gradient(145deg, #ffffff 0%, #f8fafb 100%);
-  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-height: min(520px, 90vh);
+  gap: var(--mantine-spacing-md);
+  min-height: min(480px, 85vh);
 }
 
-.heatTitle {
-  font-size: 14px;
-  font-weight: 700;
-  color: #212529;
+.heatVizHeader {
+  padding-bottom: 2px;
 }
 
 .heatSubtitle {
-  font-size: 11px;
-  color: #868e96;
-  line-height: 1.35;
+  max-width: 72ch;
+  line-height: 1.5;
 }
 
-/* Device silhouette ~390×844 (common mobile screenshot aspect); scales with viewport */
+/* Device frame — subtle, matches chart area on other tabs */
 .phoneFrame {
   position: relative;
-  border-radius: 12px;
-  background: #eceff2;
-  border: 1px solid #ced4da;
-  min-height: min(480px, 50vh);
-  padding: 20px 16px;
+  border-radius: var(--mantine-radius-md);
+  background: linear-gradient(
+    145deg,
+    rgba(14, 201, 194, 0.08) 0%,
+    rgba(241, 245, 249, 0.95) 50%,
+    #e2e8f0 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  min-height: min(280px, 36vh);
+  padding: 18px 14px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 
 .phoneInner {
   position: relative;
-  /* Portrait phone: narrow width, tall body */
   width: min(420px, 100%);
   aspect-ratio: 390 / 844;
   max-height: min(82vh, 920px);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
 }
 
 .screenImg {
@@ -326,20 +340,6 @@
   overflow: hidden;
 }
 
-/* heatmap.js mounts its canvas here (same geometry as .heatOverlay) */
-.heatCanvasHost {
-  position: absolute;
-  inset: 12px;
-  border-radius: 16px;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 2;
-}
-
-.heatCanvasHost canvas {
-  border-radius: 14px;
-}
-
 .heatPlume {
   position: absolute;
   border-radius: 50%;
@@ -348,7 +348,28 @@
   opacity: 0.85;
 }
 
+.vizFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 4px;
+}
+
 .binBudgetRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.binBudgetSlider {
+  flex: 1;
+  min-width: 160px;
+  max-width: min(420px, 100%);
+}
+
+.gradientLegend {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -356,23 +377,12 @@
   flex-wrap: wrap;
 }
 
-.binBudgetSlider {
-  flex: 1;
-  min-width: 120px;
-  max-width: 280px;
-}
-
-.gradientLegend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-}
-
 .gradientStrip {
-  height: 10px;
-  width: 140px;
-  border-radius: 5px;
+  height: 12px;
+  flex: 1;
+  min-width: 160px;
+  max-width: 320px;
+  border-radius: 6px;
   background: linear-gradient(
     90deg,
     #0ec9c2 0%,
@@ -381,68 +391,39 @@
   );
 }
 
-.gradientCaption {
-  font-size: 10px;
+.gradientCaptionStrong {
+  font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--mantine-color-dark-6);
+  white-space: nowrap;
 }
 
-.crossLink {
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-  background: #f8f9fa;
-  padding: 12px 14px;
+.vizFootnote {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--mantine-color-dark-5);
+  margin: 0;
 }
 
-.engagementSection {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.vizFootnoteMuted {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--mantine-color-dark-4);
+  margin: 0;
+  margin-top: 6px;
 }
 
-.engagementTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.legendBlock {
+  padding-top: 12px;
+  border-top: 1px solid rgba(14, 201, 194, 0.12);
 }
 
-.engagementTitleBar {
-  width: 4px;
-  height: 18px;
-  border-radius: 2px;
-  background: #0ec9c2;
-}
-
-.engagementTitleText {
-  font-size: 16px;
+.legendBlockTitle {
+  font-size: 12px;
   font-weight: 700;
-  color: #212529;
-}
-
-.engagementGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
-}
-
-.engagementCard {
-  border-radius: 10px;
-  border: 1px solid #e9ecef;
-  background: #ffffff;
-  padding: 12px;
-  min-height: 100px;
-}
-
-.engagementCardLabel {
-  font-size: 11px;
-  color: #868e96;
-}
-
-.engagementCardValue {
-  font-size: 18px;
-  font-weight: 700;
-  color: #212529;
-  margin-top: 4px;
+  color: #0ba09a;
+  letter-spacing: -0.2px;
+  margin-bottom: 6px;
 }
 
 .compareGrid {
@@ -458,7 +439,7 @@
 }
 
 .loadingSkeleton {
-  border-radius: 10px;
+  border-radius: var(--mantine-radius-lg);
   min-height: 200px;
   background: linear-gradient(
     90deg,
@@ -468,6 +449,7 @@
   );
   background-size: 200% 100%;
   animation: shimmer 1.2s ease-in-out infinite;
+  border: 1px solid rgba(14, 201, 194, 0.12);
 }
 
 @keyframes shimmer {
