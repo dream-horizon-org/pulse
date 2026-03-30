@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActionIcon, Badge, Box, Group, Loader, Text } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
-import { generatePath, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import ReactECharts from "echarts-for-react";
-import { ROUTES } from "../../constants";
 import { useGetFunnelJourneyDetail } from "../../hooks/useGetFunnelJourneyDetail";
 import { useUpdateFunnelJourney } from "../../hooks/useUpdateFunnelJourney";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
@@ -23,7 +22,7 @@ import { FunnelBuilder } from "../FunnelAnalysis/components/FunnelBuilder";
 import { JourneyExplorer } from "../FunnelAnalysis/components/JourneyExplorer";
 import { GlobalFilterBar } from "../FunnelAnalysis/components/GlobalFilterBar";
 import funnelClasses from "../FunnelAnalysis/FunnelAnalysis.module.css";
-import { BACK_TO_LIST, NOT_FOUND_DESCRIPTION, NOT_FOUND_TITLE } from "./FunnelJourneyDetail.constants";
+import { BACK_NAV_LABEL, NOT_FOUND_DESCRIPTION, NOT_FOUND_TITLE } from "./FunnelJourneyDetail.constants";
 import classes from "./FunnelJourneyDetail.module.css";
 
 function mapDetailFilters(detail: any) {
@@ -700,11 +699,8 @@ export function FunnelJourneyDetail() {
     apiResponse?.error?.message ||
     (error instanceof Error ? error.message : NOT_FOUND_TITLE);
 
+  /** Prefer history so users return to Interaction Detail, session replay, etc., not only the funnel list. */
   const goBack = () => {
-    if (projectId) {
-      navigate(generatePath(ROUTES.FUNNEL_ANALYSIS.path, { projectId }));
-      return;
-    }
     navigate(-1);
   };
 
@@ -740,7 +736,7 @@ export function FunnelJourneyDetail() {
             <IconArrowLeft size={20} />
           </ActionIcon>
           <Text size="sm" c="dimmed">
-            {BACK_TO_LIST}
+            {BACK_NAV_LABEL}
           </Text>
         </Group>
         <ErrorAndEmptyState

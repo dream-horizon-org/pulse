@@ -553,6 +553,7 @@ const MOCK_GROUPED_DATA: Record<string, any> = {
 const MOCK_FUNNEL_EVENTS = [
   "Screen_View: Home",
   "Screen_View: Cart",
+  "Screen_View: Payment",
   "Screen_View: Product Detail",
   "Screen_View: Profile",
   "Screen_View: Search",
@@ -561,6 +562,7 @@ const MOCK_FUNNEL_EVENTS = [
   "Screen_View: Settings",
   "Tap: Add to Cart",
   "Tap: Checkout",
+  "Tap: Enter Payment Details",
   "Tap: Search",
   "Tap: Apply Coupon",
   "Tap: Place Order",
