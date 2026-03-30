@@ -101,6 +101,7 @@ export function HeatmapPanel({
   if (compareEnabled) {
     return (
       <HeatmapComparePanel
+        currentScreenName={screenName}
         signal={signal}
         onSignalChange={setSignal}
         compareScreenName={compareScreenName}
@@ -123,7 +124,10 @@ export function HeatmapPanel({
       engagement={engagement}
       signal={signal}
       onSignalChange={setSignal}
-      onCompareClick={() => setCompareEnabled(true)}
+      onCompareClick={() => {
+        setSignal("tap");
+        setCompareEnabled(true);
+      }}
       isLoading={heatmapQuery.isLoading}
       errorMessage={
         singleErr || heatmapQuery.isError

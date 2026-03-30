@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Text } from "@mantine/core";
 import type { HeatmapGlowPoint } from "./heatmap.types";
-import { domGlowMapFull } from "./heatmapDomUtils";
+import { type HeatmapPlumePalette, domGlowMapFull } from "./heatmapDomUtils";
 import { HeatmapDomPlumeLayer } from "./HeatmapDomPlumeLayer";
 import { HeatmapPhoneFrame } from "./HeatmapPhoneFrame";
 import { HeatmapScreenUnderlay } from "./HeatmapScreenUnderlay";
@@ -20,6 +20,8 @@ export interface HeatmapMapBlockProps {
   sharedWeightMax?: number;
   /** Passed to the intensity legend for screen readers. */
   intensityLegendAriaLabel?: string;
+  /** Tap: thermal blue→red; rage/dead: brand teal gradient. */
+  heatmapPalette?: HeatmapPlumePalette;
 }
 
 export function HeatmapMapBlock({
@@ -31,6 +33,7 @@ export function HeatmapMapBlock({
   ragePoints = [],
   sharedWeightMax,
   intensityLegendAriaLabel,
+  heatmapPalette = "thermal",
 }: HeatmapMapBlockProps) {
   const domGlowMap = useMemo(() => domGlowMapFull(glowMap), [glowMap]);
 
@@ -64,10 +67,14 @@ export function HeatmapMapBlock({
             maxWeight={domMaxWeight}
             showFrustrationMarkers={showFrustrationMarkers}
             ragePoints={ragePoints}
+            palette={heatmapPalette}
           />
         </HeatmapPhoneFrame>
       </div>
-      <HeatmapIntensityLegend aria-label={intensityLegendAriaLabel} />
+      <HeatmapIntensityLegend
+        aria-label={intensityLegendAriaLabel}
+        variant={heatmapPalette}
+      />
     </div>
   );
 }

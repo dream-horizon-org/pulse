@@ -6,6 +6,12 @@ import type { HeatmapDataResponse } from "./heatmap.types";
  * an underlay for aligning normalized x/y (0–1) to pixels.
  */
 
+/** Inclusive lower bound for the “Good” band (70–100). */
+export const HEATMAP_QUALITY_GOOD_MIN = 70;
+
+/** Inclusive lower bound for the “Average” band (40–69). “Poor” is 0–39. */
+export const HEATMAP_QUALITY_AVERAGE_MIN = 40;
+
 export interface HeatmapQualityMetrics {
   score: number | null;
   /** Good / Average / Poor / No data */
@@ -54,10 +60,10 @@ export function getHeatmapQualityMetrics(
 
   let label: string;
   let band: HeatmapQualityMetrics["band"];
-  if (score >= 70) {
+  if (score >= HEATMAP_QUALITY_GOOD_MIN) {
     label = "Good";
     band = "good";
-  } else if (score >= 40) {
+  } else if (score >= HEATMAP_QUALITY_AVERAGE_MIN) {
     label = "Average";
     band = "average";
   } else {
