@@ -5,18 +5,17 @@
  */
 
 import { resolveIncidentsMock } from "./incidentsMockHandler";
-import { MockConfigManager } from "./MockConfig";
-import { MockDataStore } from "./MockDataStore";
+import { mockJobResponses } from "./responses/jobResponses";
+import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import { handleFunnelEndpoints } from "./responses/funnelResponses";
 import {
   mockAlertFilters,
   mockAlertMetrics,
   mockAlertScopes,
   mockAlertSeverities,
   mockAlertTags,
-  mockNotificationChannels,
+  mockNotificationChannels
 } from "./responses/alertResponses";
-import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
-import { mockJobResponses } from "./responses/jobResponses";
 import { buildMockRcaReportResponseBody } from "./responses/rcaReportResponses";
 import {
   cancelQueryJob,
@@ -26,10 +25,12 @@ import {
   generateMockQueryResults,
   getQueryJobStatus,
   mockTableMetadata,
-  shouldReturnImmediate,
+  shouldReturnImmediate
 } from "./responses/realtimeQueryResponses";
 import { MockRequest, MockResponse } from "./types";
 import { generateDataQueryMockResponseV2 } from "./v2";
+import { MockConfigManager } from "./MockConfig";
+import { MockDataStore } from "./MockDataStore";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -114,9 +115,9 @@ export class MockResponseGenerator {
     await this.delay(this.config.getDelay());
 
     // Simulate random errors
-    if (this.config.shouldSimulateError()) {
-      return this.generateErrorResponse();
-    }
+    // if (this.config.shouldSimulateError()) {
+    //   return this.generateErrorResponse();
+    // }
 
     // Route to appropriate handler based on path and method
     return this.routeRequest(pathname, method, request);
@@ -372,6 +373,16 @@ export class MockResponseGenerator {
       pathname.includes("/validateQuery")
     ) {
       return this.handleQueryEndpoints(pathname, method, request);
+    }
+
+    // Funnel Analysis, listing, & Journey Explorer (before /events catch-all)
+    if (
+      pathname.includes("/v1/funnels-journeys") ||
+      pathname.includes("/v1/funnel/") ||
+      pathname.includes("/v1/journey/") ||
+      pathname.includes("/v1/tags")
+    ) {
+      return handleFunnelEndpoints(pathname, method, request);
     }
 
     // Event endpoints

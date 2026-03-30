@@ -4,6 +4,8 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.impl.ConfigServiceImpl;
+import org.dreamhorizon.pulseserver.service.funnel.FunnelService;
+import org.dreamhorizon.pulseserver.service.funnel.FunnelServiceImpl;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.PerformanceMetricService;
@@ -18,6 +20,8 @@ public class InteractionModule extends AbstractModule {
     bind(PerformanceMetricService.class).to(ClickhouseMetricService.class)
         .in(Singleton.class);
     bind(ConfigService.class).to(ConfigServiceImpl.class)
+        .in(Singleton.class);
+    bind(FunnelService.class).to(FunnelServiceImpl.class)
         .in(Singleton.class);
   }
 }

@@ -337,10 +337,12 @@ services:
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
         REACT_APP_FIREBASE_PROJECT_ID: ${REACT_APP_FIREBASE_PROJECT_ID}
         REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
-        REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER:-false}
-        REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY:-500}
-        REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE:-0}
-        REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING:-false}
+        REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER}
+        REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY}
+        REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE}
+        REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING}
+        REACT_APP_FIREBASE_AUTH_EMULATOR: ${REACT_APP_FIREBASE_AUTH_EMULATOR}
+        REACT_APP_FIREBASE_AUTH_EMULATOR_URL: ${REACT_APP_FIREBASE_AUTH_EMULATOR_URL}
         REACT_APP_GCP_MULTI_TENANT_ENABLED: ${REACT_APP_GCP_MULTI_TENANT_ENABLED:-true}
         REACT_APP_USE_MOCK_SESSION_REPLAY: ${REACT_APP_USE_MOCK_SESSION_REPLAY:-false}
     container_name: pulse-ui
@@ -363,15 +365,9 @@ services:
 
   # Vector Service (Data Collector) - optional: set VECTOR_ENABLED=true in .env to enable
   vector:
+    image: 650012445044.dkr.ecr.ap-south-1.amazonaws.com/pulse-vector:latest
     profiles:
       - vector
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/parth-modh/vector
-        VECTOR_REF: forked/multi-bucket
-        DEBIAN_VERSION: "12"
     container_name: vector
     command: [ ]
     environment:
