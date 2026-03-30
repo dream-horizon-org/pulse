@@ -18,7 +18,7 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
-import { useMemo, useState, useEffect, ChangeEvent } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { generatePath, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { ROUTES } from "../../constants";
@@ -76,10 +76,14 @@ export function FunnelsJourneysList() {
 
   const queryParams = useMemo(
     () => ({
-      kind: (listTab === "funnels" ? "FUNNEL" : "JOURNEY") as "FUNNEL" | "JOURNEY",
+      kind: (listTab === "funnels" ? "FUNNEL" : "JOURNEY") as
+        | "FUNNEL"
+        | "JOURNEY",
       search: debouncedSearch.trim() || null,
       status:
-        statusFilter === "ACTIVE" || statusFilter === "STOPPED" || statusFilter === "CREATING"
+        statusFilter === "ACTIVE" ||
+        statusFilter === "STOPPED" ||
+        statusFilter === "CREATING"
           ? statusFilter
           : null,
       createdBy: createdByFilter.length ? createdByFilter : null,
@@ -100,8 +104,12 @@ export function FunnelsJourneysList() {
     ],
   );
 
-  const { data: apiResponse, isLoading, isFetching, error } =
-    useGetFunnelsJourneysList({ queryParams });
+  const {
+    data: apiResponse,
+    isLoading,
+    isFetching,
+    error,
+  } = useGetFunnelsJourneysList({ queryParams });
 
   const payload = apiResponse?.data;
   const items = payload?.items ?? [];
@@ -163,10 +171,24 @@ export function FunnelsJourneysList() {
         title: "Status",
         render: (row: FunnelJourneyListItem) => (
           <Badge
-            color={row.status === "ACTIVE" ? "teal" : row.status === "CREATING" ? "blue" : "gray"}
+            color={
+              row.status === "ACTIVE"
+                ? "teal"
+                : row.status === "CREATING"
+                  ? "blue"
+                  : row.status === "UPDATING"
+                    ? "orange"
+                    : "gray"
+            }
             variant="light"
           >
-            {row.status === "ACTIVE" ? "Active" : row.status === "CREATING" ? "Creating" : "Stopped"}
+            {row.status === "ACTIVE"
+              ? "Active"
+              : row.status === "CREATING"
+                ? "Creating"
+                : row.status === "UPDATING"
+                  ? "Updating"
+                  : "Stopped"}
           </Badge>
         ),
       },
@@ -218,8 +240,7 @@ export function FunnelsJourneysList() {
       ? EMPTY_TAB_FUNNEL_DESCRIPTION
       : EMPTY_TAB_JOURNEY_DESCRIPTION;
 
-  const EmptyIcon =
-    listTab === "funnels" ? IconChartFunnel : IconRoute;
+  const EmptyIcon = listTab === "funnels" ? IconChartFunnel : IconRoute;
 
   return (
     <Box className={classes.shell}>
@@ -235,10 +256,7 @@ export function FunnelsJourneysList() {
         <Box className={classes.toolbar}>
           <Menu shadow="md" width={220}>
             <Menu.Target>
-              <Button
-                color="teal"
-                rightSection={<IconChevronDown size={16} />}
-              >
+              <Button color="teal" rightSection={<IconChevronDown size={16} />}>
                 {CREATE_MENU_LABEL}
               </Button>
             </Menu.Target>
@@ -267,10 +285,7 @@ export function FunnelsJourneysList() {
         variant="outline"
       >
         <Tabs.List>
-          <Tabs.Tab
-            value="funnels"
-            leftSection={<IconChartFunnel size={16} />}
-          >
+          <Tabs.Tab value="funnels" leftSection={<IconChartFunnel size={16} />}>
             {TAB_FUNNELS}
           </Tabs.Tab>
           <Tabs.Tab value="journeys" leftSection={<IconRoute size={16} />}>

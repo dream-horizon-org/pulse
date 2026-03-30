@@ -124,7 +124,8 @@ export function CreateFunnel() {
   const trendResult = trendData?.data;
   const isLoading = funnelLoading || trendLoading;
 
-  const { mutate: createFunnel, isPending: isCreating } = useCreateFunnelJourney();
+  const { mutate: createFunnel, isPending: isCreating } =
+    useCreateFunnelJourney();
 
   const handleAnalyze = () => {
     createFunnel(
@@ -155,7 +156,7 @@ export function CreateFunnel() {
             );
           }
         },
-      }
+      },
     );
   };
 
@@ -171,7 +172,7 @@ export function CreateFunnel() {
     <Box className={classes.shell}>
       <Box className={classes.topBar}>
         <Box className={classes.topBarLeft}>
-          <Group gap="sm">
+          <Group gap="sm" align="center">
             <ActionIcon
               variant="subtle"
               color="gray"
@@ -180,7 +181,9 @@ export function CreateFunnel() {
             >
               <IconArrowLeft size={20} />
             </ActionIcon>
-            <Text className={classes.moduleTitle}>Create Funnel</Text>
+            <Box>
+              <Text className={classes.moduleTitle}>Create Funnel</Text>
+            </Box>
           </Group>
         </Box>
 

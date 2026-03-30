@@ -2,15 +2,40 @@
  * Funnel Analysis & Journey Explorer Mock Responses
  */
 
-import { MockResponse, MockRequest } from "../types";
+import { MockRequest, MockResponse } from "../types";
 
 const MOCK_FUNNEL_ANALYZE_RESPONSE = {
   steps: [
-    { stepName: "Screen_View: Home", count: 14200, conversionRate: 100, dropoffRate: 0 },
-    { stepName: "Screen_View: Product Detail", count: 9680, conversionRate: 68.2, dropoffRate: 31.8 },
-    { stepName: "Tap: Add to Cart", count: 6840, conversionRate: 48.2, dropoffRate: 29.3 },
-    { stepName: "Tap: Checkout", count: 5100, conversionRate: 35.9, dropoffRate: 25.4 },
-    { stepName: "Tap: Place Order", count: 4600, conversionRate: 32.4, dropoffRate: 9.8 },
+    {
+      stepName: "Screen_View: Home",
+      count: 14200,
+      conversionRate: 100,
+      dropoffRate: 0,
+    },
+    {
+      stepName: "Screen_View: Product Detail",
+      count: 9680,
+      conversionRate: 68.2,
+      dropoffRate: 31.8,
+    },
+    {
+      stepName: "Tap: Add to Cart",
+      count: 6840,
+      conversionRate: 48.2,
+      dropoffRate: 29.3,
+    },
+    {
+      stepName: "Tap: Checkout",
+      count: 5100,
+      conversionRate: 35.9,
+      dropoffRate: 25.4,
+    },
+    {
+      stepName: "Tap: Place Order",
+      count: 4600,
+      conversionRate: 32.4,
+      dropoffRate: 9.8,
+    },
   ],
   totalEnteredUsers: 14200,
   overallConversionRate: 32.4,
@@ -18,11 +43,61 @@ const MOCK_FUNNEL_ANALYZE_RESPONSE = {
 
 const MOCK_FUNNEL_HEALTH_RESPONSE = {
   steps: [
-    { stepLevel: 1, stepName: "Screen_View: Home", totalUsers: 14200, crashUsers: 42, anrUsers: 18, nonFatalUsers: 120, crashRate: 0.3, anrRate: 0.13, nonFatalRate: 0.85 },
-    { stepLevel: 2, stepName: "Screen_View: Product Detail", totalUsers: 9680, crashUsers: 38, anrUsers: 22, nonFatalUsers: 95, crashRate: 0.39, anrRate: 0.23, nonFatalRate: 0.98 },
-    { stepLevel: 3, stepName: "Tap: Add to Cart", totalUsers: 6840, crashUsers: 15, anrUsers: 8, nonFatalUsers: 52, crashRate: 0.22, anrRate: 0.12, nonFatalRate: 0.76 },
-    { stepLevel: 4, stepName: "Tap: Checkout", totalUsers: 5100, crashUsers: 28, anrUsers: 14, nonFatalUsers: 41, crashRate: 0.55, anrRate: 0.27, nonFatalRate: 0.8 },
-    { stepLevel: 5, stepName: "Tap: Place Order", totalUsers: 4600, crashUsers: 52, anrUsers: 31, nonFatalUsers: 22, crashRate: 1.13, anrRate: 0.67, nonFatalRate: 0.48 },
+    {
+      stepLevel: 1,
+      stepName: "Screen_View: Home",
+      totalUsers: 14200,
+      crashUsers: 42,
+      anrUsers: 18,
+      nonFatalUsers: 120,
+      crashRate: 0.3,
+      anrRate: 0.13,
+      nonFatalRate: 0.85,
+    },
+    {
+      stepLevel: 2,
+      stepName: "Screen_View: Product Detail",
+      totalUsers: 9680,
+      crashUsers: 38,
+      anrUsers: 22,
+      nonFatalUsers: 95,
+      crashRate: 0.39,
+      anrRate: 0.23,
+      nonFatalRate: 0.98,
+    },
+    {
+      stepLevel: 3,
+      stepName: "Tap: Add to Cart",
+      totalUsers: 6840,
+      crashUsers: 15,
+      anrUsers: 8,
+      nonFatalUsers: 52,
+      crashRate: 0.22,
+      anrRate: 0.12,
+      nonFatalRate: 0.76,
+    },
+    {
+      stepLevel: 4,
+      stepName: "Tap: Checkout",
+      totalUsers: 5100,
+      crashUsers: 28,
+      anrUsers: 14,
+      nonFatalUsers: 41,
+      crashRate: 0.55,
+      anrRate: 0.27,
+      nonFatalRate: 0.8,
+    },
+    {
+      stepLevel: 5,
+      stepName: "Tap: Place Order",
+      totalUsers: 4600,
+      crashUsers: 52,
+      anrUsers: 31,
+      nonFatalUsers: 22,
+      crashRate: 1.13,
+      anrRate: 0.67,
+      nonFatalRate: 0.48,
+    },
   ],
   totalCrashUsers: 175,
   totalAnrUsers: 93,
@@ -34,9 +109,48 @@ const MOCK_FUNNEL_SESSIONS_RESPONSE = {
   stepName: "Screen_View: Home",
   totalAffectedSessions: 3,
   sessions: [
-    { sessionId: "sess-001", userId: "user-42", eventName: "device.crash", exceptionType: "NullPointerException", exceptionMessage: "Attempt to invoke virtual method on a null object", title: "NullPointerException in HomeFragment", screenName: "HomeScreen", timestamp: "2026-03-01T10:23:45Z", groupId: "grp-101", platform: "Android", appVersion: "4.2.1", deviceModel: "Samsung Galaxy S24" },
-    { sessionId: "sess-002", userId: "user-88", eventName: "device.anr", exceptionType: "ANR", exceptionMessage: "Input dispatching timed out", title: "ANR in HomeActivity", screenName: "HomeScreen", timestamp: "2026-03-01T11:15:22Z", groupId: "grp-102", platform: "Android", appVersion: "4.2.0", deviceModel: "Pixel 8" },
-    { sessionId: "sess-003", userId: "user-156", eventName: "device.crash", exceptionType: "ArrayIndexOutOfBoundsException", exceptionMessage: "Index 5 out of bounds for length 3", title: "AIOOBE in ProductAdapter", screenName: "HomeScreen", timestamp: "2026-03-01T14:42:11Z", groupId: "grp-103", platform: "Android", appVersion: "4.2.1", deviceModel: "OnePlus 12" },
+    {
+      sessionId: "sess-001",
+      userId: "user-42",
+      eventName: "device.crash",
+      exceptionType: "NullPointerException",
+      exceptionMessage: "Attempt to invoke virtual method on a null object",
+      title: "NullPointerException in HomeFragment",
+      screenName: "HomeScreen",
+      timestamp: "2026-03-01T10:23:45Z",
+      groupId: "grp-101",
+      platform: "Android",
+      appVersion: "4.2.1",
+      deviceModel: "Samsung Galaxy S24",
+    },
+    {
+      sessionId: "sess-002",
+      userId: "user-88",
+      eventName: "device.anr",
+      exceptionType: "ANR",
+      exceptionMessage: "Input dispatching timed out",
+      title: "ANR in HomeActivity",
+      screenName: "HomeScreen",
+      timestamp: "2026-03-01T11:15:22Z",
+      groupId: "grp-102",
+      platform: "Android",
+      appVersion: "4.2.0",
+      deviceModel: "Pixel 8",
+    },
+    {
+      sessionId: "sess-003",
+      userId: "user-156",
+      eventName: "device.crash",
+      exceptionType: "ArrayIndexOutOfBoundsException",
+      exceptionMessage: "Index 5 out of bounds for length 3",
+      title: "AIOOBE in ProductAdapter",
+      screenName: "HomeScreen",
+      timestamp: "2026-03-01T14:42:11Z",
+      groupId: "grp-103",
+      platform: "Android",
+      appVersion: "4.2.1",
+      deviceModel: "OnePlus 12",
+    },
   ],
 };
 
@@ -64,12 +178,28 @@ const MOCK_JOURNEY_FORWARD = {
   links: [
     { source: "App_Launch", target: "Screen_View: Home", value: 14200 },
     { source: "Screen_View: Home", target: "Screen_View: Search", value: 4800 },
-    { source: "Screen_View: Home", target: "Screen_View: Product Detail", value: 5200 },
-    { source: "Screen_View: Home", target: "Screen_View: Profile", value: 1800 },
+    {
+      source: "Screen_View: Home",
+      target: "Screen_View: Product Detail",
+      value: 5200,
+    },
+    {
+      source: "Screen_View: Home",
+      target: "Screen_View: Profile",
+      value: 1800,
+    },
     { source: "Screen_View: Home", target: "Exit", value: 2400 },
-    { source: "Screen_View: Search", target: "Screen_View: Product Detail", value: 3600 },
+    {
+      source: "Screen_View: Search",
+      target: "Screen_View: Product Detail",
+      value: 3600,
+    },
     { source: "Screen_View: Search", target: "Exit", value: 1200 },
-    { source: "Screen_View: Product Detail", target: "Tap: Add to Cart", value: 5400 },
+    {
+      source: "Screen_View: Product Detail",
+      target: "Tap: Add to Cart",
+      value: 5400,
+    },
     { source: "Screen_View: Product Detail", target: "Exit", value: 3400 },
     { source: "Screen_View: Profile", target: "Exit", value: 1800 },
     { source: "Tap: Add to Cart", target: "Screen_View: Cart", value: 4800 },
@@ -78,9 +208,17 @@ const MOCK_JOURNEY_FORWARD = {
     { source: "Screen_View: Cart", target: "Exit", value: 900 },
     { source: "Tap: Checkout", target: "Tap: Place Order", value: 3200 },
     { source: "Tap: Checkout", target: "Exit", value: 700 },
-    { source: "Tap: Place Order", target: "Screen_View: Order Confirmation", value: 3000 },
+    {
+      source: "Tap: Place Order",
+      target: "Screen_View: Order Confirmation",
+      value: 3000,
+    },
     { source: "Tap: Place Order", target: "Exit", value: 200 },
-    { source: "Screen_View: Order Confirmation", target: "App_Background", value: 2200 },
+    {
+      source: "Screen_View: Order Confirmation",
+      target: "App_Background",
+      value: 2200,
+    },
     { source: "Screen_View: Order Confirmation", target: "Exit", value: 800 },
   ],
 };
@@ -105,13 +243,29 @@ const MOCK_JOURNEY_REVERSE = {
     { source: "Screen_View: Cart", target: "Tap: Place Order", value: 280 },
     { source: "Screen_View: Cart", target: "Tap: Checkout", value: 160 },
     { source: "Screen_View: Cart", target: "Tap: Apply Coupon", value: 85 },
-    { source: "Screen_View: Product Detail", target: "Screen_View: Cart", value: 340 },
+    {
+      source: "Screen_View: Product Detail",
+      target: "Screen_View: Cart",
+      value: 340,
+    },
     { source: "Screen_View: Product Detail", target: "App_Crash", value: 45 },
     { source: "Tap: Add to Cart", target: "Screen_View: Cart", value: 180 },
-    { source: "Screen_View: Search", target: "Screen_View: Product Detail", value: 200 },
-    { source: "Screen_View: Home", target: "Screen_View: Product Detail", value: 140 },
+    {
+      source: "Screen_View: Search",
+      target: "Screen_View: Product Detail",
+      value: 200,
+    },
+    {
+      source: "Screen_View: Home",
+      target: "Screen_View: Product Detail",
+      value: 140,
+    },
     { source: "Screen_View: Home", target: "Screen_View: Search", value: 160 },
-    { source: "Deep_Link_Opened", target: "Screen_View: Product Detail", value: 45 },
+    {
+      source: "Deep_Link_Opened",
+      target: "Screen_View: Product Detail",
+      value: 45,
+    },
   ],
 };
 
@@ -120,21 +274,81 @@ const MOCK_GROUPED_DATA: Record<string, any> = {
     {
       groupValue: "iOS",
       steps: [
-        { stepName: "Screen_View: Home", count: 8200, conversionRate: 100, dropoffRate: 0, medianTimeToStep: null },
-        { stepName: "Screen_View: Product Detail", count: 5900, conversionRate: 72.0, dropoffRate: 28.0, medianTimeToStep: 3.8 },
-        { stepName: "Tap: Add to Cart", count: 4300, conversionRate: 52.4, dropoffRate: 27.1, medianTimeToStep: 11.2 },
-        { stepName: "Tap: Checkout", count: 3300, conversionRate: 40.2, dropoffRate: 23.3, medianTimeToStep: 7.9 },
-        { stepName: "Tap: Place Order", count: 3000, conversionRate: 36.6, dropoffRate: 9.1, medianTimeToStep: 42.1 },
+        {
+          stepName: "Screen_View: Home",
+          count: 8200,
+          conversionRate: 100,
+          dropoffRate: 0,
+          medianTimeToStep: null,
+        },
+        {
+          stepName: "Screen_View: Product Detail",
+          count: 5900,
+          conversionRate: 72.0,
+          dropoffRate: 28.0,
+          medianTimeToStep: 3.8,
+        },
+        {
+          stepName: "Tap: Add to Cart",
+          count: 4300,
+          conversionRate: 52.4,
+          dropoffRate: 27.1,
+          medianTimeToStep: 11.2,
+        },
+        {
+          stepName: "Tap: Checkout",
+          count: 3300,
+          conversionRate: 40.2,
+          dropoffRate: 23.3,
+          medianTimeToStep: 7.9,
+        },
+        {
+          stepName: "Tap: Place Order",
+          count: 3000,
+          conversionRate: 36.6,
+          dropoffRate: 9.1,
+          medianTimeToStep: 42.1,
+        },
       ],
     },
     {
       groupValue: "Android",
       steps: [
-        { stepName: "Screen_View: Home", count: 6000, conversionRate: 100, dropoffRate: 0, medianTimeToStep: null },
-        { stepName: "Screen_View: Product Detail", count: 3780, conversionRate: 63.0, dropoffRate: 37.0, medianTimeToStep: 4.8 },
-        { stepName: "Tap: Add to Cart", count: 2540, conversionRate: 42.3, dropoffRate: 32.8, medianTimeToStep: 14.9 },
-        { stepName: "Tap: Checkout", count: 1800, conversionRate: 30.0, dropoffRate: 29.1, medianTimeToStep: 9.6 },
-        { stepName: "Tap: Place Order", count: 1600, conversionRate: 26.7, dropoffRate: 11.1, medianTimeToStep: 50.8 },
+        {
+          stepName: "Screen_View: Home",
+          count: 6000,
+          conversionRate: 100,
+          dropoffRate: 0,
+          medianTimeToStep: null,
+        },
+        {
+          stepName: "Screen_View: Product Detail",
+          count: 3780,
+          conversionRate: 63.0,
+          dropoffRate: 37.0,
+          medianTimeToStep: 4.8,
+        },
+        {
+          stepName: "Tap: Add to Cart",
+          count: 2540,
+          conversionRate: 42.3,
+          dropoffRate: 32.8,
+          medianTimeToStep: 14.9,
+        },
+        {
+          stepName: "Tap: Checkout",
+          count: 1800,
+          conversionRate: 30.0,
+          dropoffRate: 29.1,
+          medianTimeToStep: 9.6,
+        },
+        {
+          stepName: "Tap: Place Order",
+          count: 1600,
+          conversionRate: 26.7,
+          dropoffRate: 11.1,
+          medianTimeToStep: 50.8,
+        },
       ],
     },
   ],
@@ -174,12 +388,16 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED" | "CREATING";
+  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
   funnelType?: "ORDERED" | "UNORDERED";
   filters?: any[];
+  steps?: any[];
+  anchorEvent?: string;
+  direction?: "forward" | "reverse";
+  depth?: number;
 }> = [
   {
     id: "fj-1",
@@ -190,6 +408,17 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-20T14:22:00Z",
     tags: ["checkout", "revenue"],
     funnelType: "ORDERED",
+    filters: [
+      { field: "OS Name", value: "iOS" },
+      { field: "App Version", value: "4.2.1" },
+    ],
+    steps: [
+      { eventName: "Screen_View: Home" },
+      { eventName: "Screen_View: Product Detail" },
+      { eventName: "Tap: Add to Cart" },
+      { eventName: "Tap: Checkout" },
+      { eventName: "Tap: Place Order" },
+    ],
   },
   {
     id: "fj-2",
@@ -200,6 +429,11 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-19T09:10:00Z",
     tags: ["onboarding"],
     funnelType: "UNORDERED",
+    steps: [
+      { eventName: "App_Opened" },
+      { eventName: "Screen_View: Onboarding" },
+      { eventName: "Tap: Sign Up" },
+    ],
   },
   {
     id: "fj-3",
@@ -210,6 +444,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-10T18:45:00Z",
     tags: ["search", "product"],
     funnelType: "ORDERED",
+    steps: [
+      { eventName: "Screen_View: Search" },
+      { eventName: "Screen_View: Product Detail" },
+    ],
   },
   {
     id: "fj-4",
@@ -219,6 +457,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     createdBy: "carol@example.com",
     lastUpdatedAt: "2026-03-21T11:30:00Z",
     tags: ["auth", "onboarding"],
+    filters: [{ field: "OS Name", value: "Android" }],
+    anchorEvent: "Tap: Sign Up",
+    direction: "forward",
+    depth: 5,
   },
   {
     id: "fj-5",
@@ -228,6 +470,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     createdBy: "bob@example.com",
     lastUpdatedAt: "2026-02-28T08:00:00Z",
     tags: ["checkout", "cart"],
+    anchorEvent: "Tap: Add to Cart",
+    direction: "forward",
+    depth: 4,
   },
   {
     id: "fj-6",
@@ -238,6 +483,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-22T16:05:00Z",
     tags: ["marketing"],
     funnelType: "ORDERED",
+    steps: [
+      { eventName: "Deep_Link_Opened" },
+      { eventName: "Screen_View: Home" },
+    ],
   },
   {
     id: "fj-7",
@@ -248,6 +497,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-24T10:00:00Z",
     tags: ["feature"],
     funnelType: "ORDERED",
+    steps: [{ eventName: "App_Opened" }, { eventName: "Tap: New Feature" }],
   },
   {
     id: "fj-8",
@@ -257,6 +507,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     createdBy: "alice@example.com",
     lastUpdatedAt: "2026-03-24T11:00:00Z",
     tags: ["onboarding"],
+    anchorEvent: "App_Opened",
+    direction: "forward",
+    depth: 5,
   },
 ];
 
@@ -270,14 +523,24 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
   const params = url.searchParams;
   const kindParam = params.get("kind") as "FUNNEL" | "JOURNEY" | null;
   const search = (params.get("search") || "").trim().toLowerCase();
-  const status = params.get("status") as "ACTIVE" | "STOPPED" | "CREATING" | null;
+  const status = params.get("status") as
+    | "ACTIVE"
+    | "STOPPED"
+    | "CREATING"
+    | null;
   const createdByRaw = params.get("createdBy");
   const createdByFilters = createdByRaw
-    ? createdByRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    ? createdByRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
   const tagsRaw = params.get("tags");
   const tagFilters = tagsRaw
-    ? tagsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    ? tagsRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
   const funnelType = params.get("funnelType") as "ORDERED" | "UNORDERED" | null;
 
@@ -303,14 +566,11 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
     items = items.filter((row) => createdByFilters.includes(row.createdBy));
   }
   if (tagFilters.length) {
-    items = items.filter((row) =>
-      tagFilters.some((t) => row.tags.includes(t)),
-    );
+    items = items.filter((row) => tagFilters.some((t) => row.tags.includes(t)));
   }
   if (funnelType === "ORDERED" || funnelType === "UNORDERED") {
     items = items.filter(
-      (row) =>
-        row.kind === "FUNNEL" && row.funnelType === funnelType,
+      (row) => row.kind === "FUNNEL" && row.funnelType === funnelType,
     );
   }
 
@@ -335,9 +595,7 @@ function mockFunnelJourneyDetail(id: string): MockResponse {
   }
 
   const createdAt =
-    row.kind === "FUNNEL"
-      ? "2026-01-15T10:00:00Z"
-      : "2026-02-01T12:00:00Z";
+    row.kind === "FUNNEL" ? "2026-01-15T10:00:00Z" : "2026-02-01T12:00:00Z";
   const description =
     row.kind === "FUNNEL"
       ? "Conversion funnel across key product events. Edit steps and run analysis from the builder when the full editor is connected."
@@ -372,22 +630,79 @@ export function handleFunnelEndpoints(
 ): MockResponse {
   if (pathname.includes("/v1/funnels-journeys") && method === "POST") {
     let body: any = {};
-    try { body = JSON.parse(request.body || "{}"); } catch { /* ignore */ }
+    try {
+      body = JSON.parse(request.body || "{}");
+    } catch {
+      /* ignore */
+    }
     const newId = `fj-${Date.now()}`;
     const newItem = {
       id: newId,
       name: body.name || "Untitled",
+      description: body.description || "",
       kind: body.kind || "FUNNEL",
       status: "CREATING" as const,
       createdBy: "dev@example.com",
+      createdAt: new Date().toISOString(),
       lastUpdatedAt: new Date().toISOString(),
       tags: body.tags || [],
       funnelType: body.funnelType,
       filters: body.filters || [],
       expiryDate: body.expiryDate,
+      rollingType: body.rollingType,
+      steps: body.steps,
+      timeRange: body.timeRange,
+      windowSeconds: body.windowSeconds,
+      anchorEvent: body.anchorEvent,
+      direction: body.direction,
+      depth: body.depth,
     };
     MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
     return { data: newItem, status: 201 };
+  }
+
+  if (pathname.includes("/v1/funnels-journeys/") && method === "PUT") {
+    const id = pathname.split("/").pop();
+    let body: any = {};
+    try {
+      body = JSON.parse(request.body || "{}");
+    } catch {
+      /* ignore */
+    }
+
+    const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      MOCK_FUNNELS_JOURNEYS_ALL[index] = {
+        ...MOCK_FUNNELS_JOURNEYS_ALL[index],
+        ...body,
+        status: "UPDATING" as const,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };
+    }
+    return { data: null, status: 404 };
+  }
+
+  if (pathname.includes("/v1/funnels-journeys/") && method === "PUT") {
+    const id = pathname.split("/").pop();
+    let body: any = {};
+    try {
+      body = JSON.parse(request.body || "{}");
+    } catch {
+      /* ignore */
+    }
+
+    const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      MOCK_FUNNELS_JOURNEYS_ALL[index] = {
+        ...MOCK_FUNNELS_JOURNEYS_ALL[index],
+        ...body,
+        status: "UPDATING" as const,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };
+    }
+    return { data: null, status: 404 };
   }
 
   if (pathname.includes("/v1/funnels-journeys") && method === "GET") {
@@ -416,7 +731,11 @@ export function handleFunnelEndpoints(
 
   if (pathname.includes("/v1/funnel/sessions") && method === "POST") {
     let body: any = {};
-    try { body = JSON.parse(request.body || "{}"); } catch { /* ignore */ }
+    try {
+      body = JSON.parse(request.body || "{}");
+    } catch {
+      /* ignore */
+    }
     const resp = { ...MOCK_FUNNEL_SESSIONS_RESPONSE };
     if (body.stepLevel) resp.stepLevel = body.stepLevel;
     return { data: resp, status: 200 };
@@ -428,7 +747,11 @@ export function handleFunnelEndpoints(
 
   if (pathname.includes("/v1/funnel/grouped") && method === "POST") {
     let body: any = {};
-    try { body = JSON.parse(request.body || "{}"); } catch { /* ignore */ }
+    try {
+      body = JSON.parse(request.body || "{}");
+    } catch {
+      /* ignore */
+    }
     const groupBy = body.groupBy || "OS";
     return { data: { groups: MOCK_GROUPED_DATA[groupBy] || [] }, status: 200 };
   }
@@ -447,9 +770,14 @@ export function handleFunnelEndpoints(
 
   if (pathname.includes("/v1/journey/explore") && method === "POST") {
     let body: any = {};
-    try { body = JSON.parse(request.body || "{}"); } catch { /* ignore */ }
+    try {
+      body = JSON.parse(request.body || "{}");
+    } catch {
+      /* ignore */
+    }
     const direction = body.direction || "forward";
-    const data = direction === "reverse" ? MOCK_JOURNEY_REVERSE : MOCK_JOURNEY_FORWARD;
+    const data =
+      direction === "reverse" ? MOCK_JOURNEY_REVERSE : MOCK_JOURNEY_FORWARD;
     return { data, status: 200 };
   }
 
