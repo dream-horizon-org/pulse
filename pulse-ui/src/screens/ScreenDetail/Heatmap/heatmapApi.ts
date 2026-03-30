@@ -34,6 +34,9 @@ export function buildHeatmapDataQueryString(
   if (params.aspect_ratio) search.set("aspect_ratio", params.aspect_ratio);
   if (params.cohort_id) search.set("cohort_id", params.cohort_id);
   if (params.layers) search.set("layers", params.layers);
+  if (params.rcaHeatmapSignal?.trim()) {
+    search.set("rcaHeatmapSignal", params.rcaHeatmapSignal.trim());
+  }
   return search.toString();
 }
 

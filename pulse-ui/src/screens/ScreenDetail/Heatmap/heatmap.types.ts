@@ -10,6 +10,34 @@ export interface HeatmapTimeRange {
 
 export type HeatmapIncludeLayer = "glow" | "frustration" | "observability";
 
+/** Query param on Screen → Heatmap URL and GET /v1/heatmap/data (mock only). */
+export const RCA_HEATMAP_SIGNAL_QUERY_PARAM = "rcaHeatmapSignal";
+
+/**
+ * When opening heatmap from Interaction → Root Cause, holds encoded `pathname` + `search`
+ * so Screen detail “Back” can return to that view (e.g. `?tab=root-cause`).
+ */
+export const HEATMAP_RETURN_TO_QUERY_PARAM = "heatmapReturnTo";
+
+/** Decode {@link HEATMAP_RETURN_TO_QUERY_PARAM} — same-origin `/projects/...` paths only. */
+export function parseSafeHeatmapReturnTo(encoded: string | null): string | null {
+  if (encoded == null || encoded.trim() === "") return null;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(encoded.trim());
+  } catch {
+    return null;
+  }
+  decoded = decoded.trim();
+  if (!decoded.startsWith("/")) return null;
+  if (decoded.startsWith("//")) return null;
+  if (decoded.includes("://")) return null;
+  if (!decoded.startsWith("/projects/")) return null;
+  const noHash = decoded.split("#")[0] ?? "";
+  if (noHash.length > 4096) return null;
+  return noHash;
+}
+
 /** Query params for GET /v1/heatmap/data */
 export interface HeatmapDataQueryParams {
   screenName: string;
@@ -21,6 +49,8 @@ export interface HeatmapDataQueryParams {
   cohort_id?: string;
   /** Comma-separated layers */
   layers?: string;
+  /** Mock: `poor` | `average` | `good` — from RCA `heatmap_signal_quality`. */
+  rcaHeatmapSignal?: string;
 }
 
 /** Body for POST .../heatmap/data when filters are heavy */
@@ -32,6 +62,8 @@ export interface HeatmapDataRequestBody {
   aspect_ratio?: string;
   cohort_id?: string;
   includeLayers?: HeatmapIncludeLayer[];
+  /** Mock: aligns with RCA narrative when using POST. */
+  rcaHeatmapSignal?: string;
 }
 
 export interface HeatmapMetadata {

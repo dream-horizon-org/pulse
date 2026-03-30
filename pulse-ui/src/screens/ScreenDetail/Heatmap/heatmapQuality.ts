@@ -6,7 +6,50 @@ import type { HeatmapDataResponse } from "./heatmap.types";
  * an underlay for aligning normalized x/y (0–1) to pixels.
  */
 
+/** Inclusive lower bound for the “Good” band (70–100). */
+export const HEATMAP_QUALITY_GOOD_MIN = 70;
+
+/** Inclusive lower bound for the “Average” band (40–69). “Poor” is 0–39. */
+export const HEATMAP_QUALITY_AVERAGE_MIN = 40;
+
+/** Map a 0–100 score to Good / Average / Poor (bands match 0–1 heatmap score × 100). */
+export function bandFromNumericScore(
+  score: number,
+): Exclude<HeatmapQualityMetrics["band"], "nodata"> {
+  if (score >= HEATMAP_QUALITY_GOOD_MIN) return "good";
+  if (score >= HEATMAP_QUALITY_AVERAGE_MIN) return "average";
+  return "poor";
+}
+
+/** Text color aligned with grade chips (Good = teal, Average = orange, Poor = red). */
+export function heatmapScoreColor(band: HeatmapQualityMetrics["band"]): string {
+  switch (band) {
+    case "good":
+      return "#0ba09a";
+    case "average":
+      return "#c05621";
+    case "poor":
+      return "#c92a2a";
+    default:
+      return "var(--mantine-color-dimmed)";
+  }
+}
+
+export function qualityLabelForBand(
+  band: Exclude<HeatmapQualityMetrics["band"], "nodata">,
+): string {
+  if (band === "good") return "Good";
+  if (band === "average") return "Average";
+  return "Poor";
+}
+
 export interface HeatmapQualityMetrics {
+  /**
+   * **0–1** heatmap score (coverage + hotspot concentration on tap / glow layer).
+   * Primary value for UI; aligns with interaction scores scale.
+   */
+  score01: number | null;
+  /** 0–100, `Math.round(score01 * 100)` when present — for band cutoffs and logging. */
   score: number | null;
   /** Good / Average / Poor / No data */
   label: string;
@@ -30,6 +73,7 @@ export function getHeatmapQualityMetrics(
   const glow = payload?.layers?.glow_map;
   if (!payload || !glow?.length) {
     return {
+      score01: null,
       score: null,
       label: "No data",
       band: "nodata",
@@ -47,28 +91,17 @@ export function getHeatmapQualityMetrics(
   /** How dominant the hottest bin is (0–1) */
   const dominance = sumW > 0 ? maxW / sumW : 0;
 
-  const score = Math.min(
-    100,
-    Math.max(0, Math.round(100 * (0.35 * coverage + 0.65 * dominance))),
-  );
+  const raw01 = Math.min(1, Math.max(0, 0.35 * coverage + 0.65 * dominance));
+  const score01 = Math.round(raw01 * 10_000) / 10_000;
+  const score = Math.round(score01 * 100);
 
-  let label: string;
-  let band: HeatmapQualityMetrics["band"];
-  if (score >= 70) {
-    label = "Good";
-    band = "good";
-  } else if (score >= 40) {
-    label = "Average";
-    band = "average";
-  } else {
-    label = "Poor";
-    band = "poor";
-  }
+  const bandResolved = bandFromNumericScore(score);
 
   return {
+    score01,
     score,
-    label,
-    band,
+    label: qualityLabelForBand(bandResolved),
+    band: bandResolved,
     eventWeightMatchPct: Math.round(100 * coverage),
     hotspotPeakPct: Math.round(100 * dominance),
   };

@@ -4,16 +4,20 @@
  * When `tenantContext` is provided (from interaction overview metrics), baseline columns match that interaction.
  */
 
-import type { RcaReportTenantContext } from "../../hooks/useGetRcaReport/useGetRcaReport.interface";
+import type {
+  RcaHeatmapSignalQuality,
+  RcaReportTenantContext,
+} from "../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { isEcommerceMockThemeEnabled } from "../mockEcommerceTheme";
 
+/** Tenant baselines when overview metrics are unavailable — aligned with JoinContestButtonClick RCA demo. */
 const DEFAULT_NUM = {
   volLabel: "3,287",
-  apdex: 0.6,
-  errorRate: 9.31,
-  poorUsers: 5.8,
-  p50Ms: 2111.25,
-  p95Ms: 4179.76,
+  apdex: 0.85,
+  errorRate: 14.2,
+  poorUsers: 14.41,
+  p50Ms: 230,
+  p95Ms: 1161,
   crash: 1.22,
   anr: 0.49,
   frozen: 2.38,
@@ -28,6 +32,55 @@ function formatPct(n: number): string {
 
 function formatMs(ms: number): string {
   return `${ms.toLocaleString("en-US", { maximumFractionDigits: 2 })} ms`;
+}
+
+/**
+ * How strong / trustworthy the tap heatmap should look for this RCA (mock heatmap fixture).
+ * Keeps evidence heatmap aligned with the report narrative.
+ */
+export function resolveRcaHeatmapSignalQuality(
+  interactionName: string,
+  tenantContext?: RcaReportTenantContext | null,
+): RcaHeatmapSignalQuality {
+  const n = interactionName.trim();
+  if (isEcommerceMockThemeEnabled()) {
+    const poorEco = new Set([
+      "AddToCartLineItem",
+      "PaymentAuthorize",
+      "CategoryListingLoad",
+      "ApplyPromoCode",
+    ]);
+    const goodEco = new Set([
+      "CheckoutToShippingStep",
+      "SaveShippingAddress",
+      "OrderConfirmationDisplay",
+      "WishlistAddItem",
+      "SearchToResultsLoad",
+    ]);
+    if (poorEco.has(n)) return "poor";
+    if (goodEco.has(n)) return "good";
+  } else {
+    const poor = new Set([
+      "JoinContestButtonClick",
+      "PaymentSubmitClick",
+      "ContestListAPIFetch",
+    ]);
+    const good = new Set([
+      "ProfileSaveClick",
+      "NotificationTap",
+      "LeaderboardRefreshTap",
+      "SaveTeamButtonClick",
+      "FilterApplyTap",
+    ]);
+    if (poor.has(n)) return "poor";
+    if (good.has(n)) return "good";
+  }
+  const ctx = tenantContext;
+  if (ctx) {
+    if (ctx.errorRatePercent >= 10 || ctx.poorUsersPercent >= 15) return "poor";
+    if (ctx.errorRatePercent <= 4 && ctx.poorUsersPercent <= 8) return "good";
+  }
+  return "average";
 }
 
 function resolveBaseline(ctx: RcaReportTenantContext | null | undefined) {
@@ -76,11 +129,17 @@ export const buildMockRcaReportResponseBody = (
   };
   rca_insights: string;
   cached: boolean;
+  heatmap_signal_quality: RcaHeatmapSignalQuality;
 } => {
   const name =
     interactionName.trim() !== ""
       ? interactionName.trim()
       : "payment_processing";
+
+  const heatmap_signal_quality = resolveRcaHeatmapSignalQuality(
+    name,
+    tenantContext ?? null,
+  );
 
   const BL = resolveBaseline(tenantContext ?? null);
 
@@ -205,5 +264,6 @@ ${ecommerceRecommendationsSuffix}
     },
     rca_insights: executiveSummaryMarkdown,
     cached: true,
+    heatmap_signal_quality,
   };
 };

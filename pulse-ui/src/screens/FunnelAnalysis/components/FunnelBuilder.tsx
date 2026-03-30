@@ -10,21 +10,11 @@ import {
   Text,
   Textarea,
   TextInput,
-  Tooltip,
+  Tooltip
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import {
-  IconGripVertical,
-  IconInfoCircle,
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  DropResult,
-} from "@hello-pangea/dnd";
+import { IconGripVertical, IconInfoCircle, IconPlus, IconTrash } from "@tabler/icons-react";
+import { DragDropContext, Draggable, Droppable, DropResult } from "@hello-pangea/dnd";
 import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../constants";
 import { CONVERSION_WINDOW_OPTIONS, DATE_RANGE_OPTIONS } from "../mockData";
 import { useGetTags } from "../../../hooks/useGetFunnelData";
@@ -102,9 +92,9 @@ export function FunnelBuilder({
   const availableTags = tagsData?.data?.tags ?? [];
 
   const wiz = wizardStep !== undefined;
-  const fieldSize = (wiz
-    ? CRITICAL_INTERACTION_FORM_CONSTANTS.TEXT_INPUT_SIZE
-    : "xs") as "xs" | "sm" | "md";
+  const fieldSize = (
+    wiz ? CRITICAL_INTERACTION_FORM_CONSTANTS.TEXT_INPUT_SIZE : "xs"
+  ) as "xs" | "sm" | "md";
   const fieldRadius = fieldSize;
   const accent: "blue" | "teal" = wiz ? "blue" : "teal";
 

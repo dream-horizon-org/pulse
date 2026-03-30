@@ -14,12 +14,13 @@ import type { HeatmapPanelProps } from "./heatmapPanel.types";
 export type { HeatmapPanelProps } from "./heatmapPanel.types";
 
 /**
- * Heatmap tab — Summary (metrics + map quality), Map (signal, compare, heatmap(s)).
+ * Heatmap tab — Summary (metrics + heatmap score), Map (signal, compare, heatmap(s)).
  */
 export function HeatmapPanel({
   screenName,
   startTime,
   endTime,
+  rcaHeatmapSignal,
   engagement,
 }: HeatmapPanelProps) {
   const { filterValues } = useFilterStore();
@@ -42,6 +43,7 @@ export function HeatmapPanel({
     startTime,
     endTime,
     ...heatmapRequestFilters,
+    rcaHeatmapSignal,
     enabled: !compareEnabled,
   });
 
@@ -50,6 +52,7 @@ export function HeatmapPanel({
     startTime,
     endTime,
     ...heatmapRequestFilters,
+    rcaHeatmapSignal,
     enabled: compareSliceReady,
   });
 
@@ -58,6 +61,7 @@ export function HeatmapPanel({
     startTime,
     endTime,
     ...heatmapRequestFilters,
+    rcaHeatmapSignal,
     enabled: compareSliceReady,
   });
 
@@ -101,6 +105,7 @@ export function HeatmapPanel({
   if (compareEnabled) {
     return (
       <HeatmapComparePanel
+        currentScreenName={screenName}
         signal={signal}
         onSignalChange={setSignal}
         compareScreenName={compareScreenName}
@@ -123,7 +128,10 @@ export function HeatmapPanel({
       engagement={engagement}
       signal={signal}
       onSignalChange={setSignal}
-      onCompareClick={() => setCompareEnabled(true)}
+      onCompareClick={() => {
+        setSignal("tap");
+        setCompareEnabled(true);
+      }}
       isLoading={heatmapQuery.isLoading}
       errorMessage={
         singleErr || heatmapQuery.isError

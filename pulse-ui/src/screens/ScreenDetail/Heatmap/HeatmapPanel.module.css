@@ -97,15 +97,194 @@
   );
 }
 
-.summaryQualityRow {
+/* Tap / thermal plumes — blue → cyan → green → yellow → orange → red */
+.gradientStripHeatmapThermal {
+  flex: 1;
+  min-width: 48px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    #2d56d2 0%,
+    #37a0e6 18%,
+    #37b273 38%,
+    #eecc41 56%,
+    #f77d37 76%,
+    #cd3234 100%
+  );
+}
+
+.summaryMetricsGrid {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+.heatmapSplit {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--mantine-spacing-lg);
+  margin-top: var(--mantine-spacing-md);
+  flex-wrap: wrap;
+}
+
+.heatmapSplitLeft {
+  flex: 0 1 440px;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.heatmapSplitLeft .phoneFrame {
+  min-height: min(260px, 36vh);
+}
+
+.heatmapSplitLeft .phoneInner {
+  width: min(400px, 100%);
+}
+
+.heatmapSplitRight {
+  flex: 1 1 280px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.aggregatesStack {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* Full-width rows inside aggregates grid */
+.aggregatesQualitySpan {
+  grid-column: 1 / -1;
+}
+
+/* Map quality + avg interaction: 50 / 50 on one row */
+.aggregatesScoreRow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.aggregatesScoreRowCell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.aggregatesTopScoreCard {
+  flex: 1;
+  min-height: 0;
+}
+
+.aggregatesInteractionAvgHero {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+}
+
+@media (max-width: 380px) {
+  .aggregatesScoreRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.aggregatesQualityScore {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+}
+
+.aggregatesQualityChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.aggregatesQualityChip {
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+}
+
+/* 2-up card grid; wraps to new rows; stays compact on narrow sidebars. */
+.aggregatesGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 340px) {
+  .aggregatesGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.aggregatesSubCard {
+  background: #f8fafb !important;
+  min-width: 0;
+}
+
+.aggregatesCardTitle {
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+}
+
+@media (max-width: 900px) {
+  .heatmapSplit {
+    flex-direction: column;
+  }
+
+  .heatmapSplitLeft,
+  .heatmapSplitRight {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+.aggregatesPanel {
+  background: #f8fafb !important;
+}
+
+/* Label | value: value column right-aligned, consistent within each card. */
+.aggregatesKvGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  row-gap: 4px;
+  align-items: baseline;
+  width: 100%;
+  min-width: 0;
+}
+
+.aggregatesKvLabel {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.aggregatesKvValue {
+  white-space: nowrap;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
 }
 
 .summaryQualityInfo {
@@ -331,6 +510,12 @@
   border-radius: 16px;
 }
 
+/* E‑commerce demo underlay: show full artboard, not a tight crop */
+.screenImgCheckout {
+  object-fit: contain;
+  background: #ffffff;
+}
+
 .heatOverlay {
   position: absolute;
   inset: 12px;
@@ -346,6 +531,11 @@
   transform: translate(-50%, -50%);
   mix-blend-mode: screen;
   opacity: 0.85;
+}
+
+/* Per-bin teal→red colors; avoid screen blend washing everything orange */
+.heatPlumeIntensity {
+  mix-blend-mode: normal;
 }
 
 .vizFooter {
@@ -436,6 +626,49 @@
   .compareGrid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+.compareColumnWrap {
+  min-width: 0;
+  max-width: min(520px, 100%);
+  justify-self: center;
+  width: 100%;
+}
+
+.comparePairRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .comparePairRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.compareContextCard {
+  min-width: 0;
+}
+
+.compareMapSlot {
+  min-width: 0;
+}
+
+.compareMapSlot .phoneFrame {
+  min-height: min(240px, 32vh);
+}
+
+.compareMapSlot .phoneInner {
+  width: min(360px, 100%);
+}
+
+.compareAggregatesSlot {
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
 }
 
 .loadingSkeleton {

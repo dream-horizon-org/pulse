@@ -2,6 +2,7 @@ import { Box, Button, Skeleton, Stack, Text } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { useGetInteractionDetailsGraphs } from "../../../../hooks/useGetInteractionDetailsGraphs";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
@@ -24,6 +25,7 @@ export const RootCause = ({
   endTime,
   dashboardFilters,
 }: RootCauseProps) => {
+  const location = useLocation();
   const effectiveProjectId = projectId?.trim() ?? "";
   const hasProjectId = effectiveProjectId !== "";
   const hasInteractionName = !!interactionName?.trim();
@@ -183,12 +185,16 @@ export const RootCause = ({
         name: target.screenName,
         subtitle: target.label,
         detail:
-          "Tap and gesture density on this screen for the dashboard time range.",
+          interactionName === "JoinContestButtonClick"
+            ? "Tap, rage, and dead-zone density for this window—cross-check with RCA tail latency (e.g. P95 ~6.87s on Android 4.0.0 + OS 13, ~5.1s on iOS 4.2.0) and error hotspots on Join rows."
+            : "Tap and gesture density on this screen for the dashboard time range.",
         href: buildScreenHeatmapUrl(
           effectiveProjectId,
           target.screenName,
           startTime,
           endTime,
+          reportPayload.heatmap_signal_quality,
+          `${location.pathname}${location.search}`,
         ),
       })),
     ];

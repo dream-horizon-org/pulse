@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e8f4fc"/>
+      <stop offset="45%" stop-color="#f5f0ff"/>
+      <stop offset="100%" stop-color="#fff5f0"/>
+    </linearGradient>
+    <linearGradient id="productShot" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff9f7a"/>
+      <stop offset="35%" stop-color="#ff6b9d"/>
+      <stop offset="70%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#4dabf7"/>
+    </linearGradient>
+    <linearGradient id="cta" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#12b886"/>
+      <stop offset="100%" stop-color="#0ca678"/>
+    </linearGradient>
+    <filter id="s" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="390" height="844" fill="url(#bg)"/>
+
+  <!-- Status -->
+  <text x="24" y="28" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#495057">9:41</text>
+  <text x="340" y="28" font-family="system-ui,Segoe UI,sans-serif" font-size="11" fill="#495057" text-anchor="end">LTE</text>
+
+  <!-- Nav -->
+  <rect x="0" y="44" width="390" height="52" fill="#ffffff" fill-opacity="0.92"/>
+  <path d="M 26 64 L 18 70 L 26 76" stroke="#495057" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="195" y="76" font-family="system-ui,Segoe UI,sans-serif" font-size="17" font-weight="700" fill="#1a1a2e" text-anchor="middle">Checkout</text>
+  <rect x="330" y="58" width="36" height="22" rx="6" fill="#e7f5ff" stroke="#74c0fc"/>
+  <text x="348" y="73" font-family="system-ui,Segoe UI,sans-serif" font-size="9" font-weight="700" fill="#1971c2" text-anchor="middle">2</text>
+
+  <!-- Cart hero card -->
+  <g filter="url(#s)">
+    <rect x="16" y="108" width="358" height="200" rx="16" fill="#ffffff" stroke="#e9ecef"/>
+  </g>
+  <text x="32" y="136" font-family="system-ui,Segoe UI,sans-serif" font-size="11" font-weight="700" fill="#868e96" letter-spacing="0.06em">YOUR CART</text>
+
+  <!-- Product thumb -->
+  <rect x="28" y="146" width="100" height="100" rx="14" fill="url(#productShot)"/>
+  <ellipse cx="78" cy="176" rx="28" ry="10" fill="#ffffff" fill-opacity="0.35"/>
+  <rect x="40" y="220" width="76" height="8" rx="4" fill="#ffffff" fill-opacity="0.25"/>
+
+  <text x="144" y="168" font-family="system-ui,Segoe UI,sans-serif" font-size="15" font-weight="700" fill="#212529">AeroRun Pro Shoes</text>
+  <text x="144" y="188" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#868e96">Size 9 &#183; Color Ocean</text>
+  <rect x="144" y="198" width="48" height="18" rx="4" fill="#fff3bf"/>
+  <text x="168" y="211" font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="700" fill="#e67700" text-anchor="middle">SALE</text>
+  <text x="144" y="238" font-family="system-ui,Segoe UI,sans-serif" font-size="13" fill="#868e96"><tspan text-decoration="line-through">$189</tspan></text>
+  <text x="190" y="238" font-family="system-ui,Segoe UI,sans-serif" font-size="18" font-weight="800" fill="#2f9e44">$129</text>
+  <text x="320" y="238" font-family="system-ui,Segoe UI,sans-serif" font-size="14" font-weight="600" fill="#495057" text-anchor="end">Qty 1</text>
+
+  <line x1="28" y1="258" x2="362" y2="258" stroke="#e9ecef"/>
+  <text x="32" y="284" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#495057">Subtotal</text>
+  <text x="350" y="284" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#212529" text-anchor="end">$129.00</text>
+  <text x="32" y="304" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#495057">Shipping</text>
+  <text x="350" y="304" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#2f9e44" text-anchor="end">FREE</text>
+
+  <!-- Shipping -->
+  <rect x="16" y="324" width="358" height="118" rx="16" fill="#e7f5ff" stroke="#a5d8ff"/>
+  <text x="32" y="352" font-family="system-ui,Segoe UI,sans-serif" font-size="11" font-weight="700" fill="#1864ab" letter-spacing="0.05em">DELIVER TO</text>
+  <circle cx="40" cy="378" r="6" fill="#4dabf7"/>
+  <text x="54" y="382" font-family="system-ui,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#212529">123 Market Street</text>
+  <text x="54" y="400" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#495057">San Francisco, CA 94103</text>
+  <text x="350" y="382" font-family="system-ui,Segoe UI,sans-serif" font-size="12" font-weight="600" fill="#1971c2" text-anchor="end">Edit</text>
+
+  <!-- Payment -->
+  <rect x="16" y="454" width="358" height="96" rx="16" fill="#f3f0ff" stroke="#d0bfff"/>
+  <text x="32" y="482" font-family="system-ui,Segoe UI,sans-serif" font-size="11" font-weight="700" fill="#5f3dc4" letter-spacing="0.05em">PAYMENT</text>
+  <rect x="28" y="492" width="44" height="28" rx="4" fill="#364fc7"/>
+  <text x="50" y="510" font-family="system-ui,Segoe UI,sans-serif" font-size="9" font-weight="700" fill="#ffffff" text-anchor="middle">VISA</text>
+  <text x="84" y="510" font-family="system-ui,Segoe UI,sans-serif" font-size="14" font-weight="600" fill="#212529">.... 4242</text>
+  <text x="350" y="510" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#7950f2" text-anchor="end">Change</text>
+
+  <!-- Total -->
+  <rect x="16" y="566" width="358" height="72" rx="16" fill="#ffffff" stroke="#e9ecef"/>
+  <text x="32" y="598" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#868e96">Tax</text>
+  <text x="350" y="598" font-family="system-ui,Segoe UI,sans-serif" font-size="12" fill="#212529" text-anchor="end">$13.38</text>
+  <text x="32" y="624" font-family="system-ui,Segoe UI,sans-serif" font-size="14" font-weight="700" fill="#212529">Total</text>
+  <text x="350" y="624" font-family="system-ui,Segoe UI,sans-serif" font-size="22" font-weight="800" fill="#1a1a2e" text-anchor="end">$142.38</text>
+
+  <!-- CTA -->
+  <rect x="20" y="658" width="350" height="56" rx="14" fill="url(#cta)"/>
+  <text x="195" y="692" font-family="system-ui,Segoe UI,sans-serif" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">Place order</text>
+
+  <!-- Secondary -->
+  <rect x="20" y="726" width="350" height="44" rx="12" fill="#ffffff" stroke="#dee2e6"/>
+  <text x="195" y="753" font-family="system-ui,Segoe UI,sans-serif" font-size="14" fill="#495057" text-anchor="middle">Add promo code</text>
+
+  <!-- Trust -->
+  <text x="195" y="800" font-family="system-ui,Segoe UI,sans-serif" font-size="10" fill="#868e96" text-anchor="middle">Encrypted checkout &#183; Free returns 30 days</text>
+</svg>

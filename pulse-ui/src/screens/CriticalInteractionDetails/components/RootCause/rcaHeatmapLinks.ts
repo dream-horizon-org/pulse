@@ -1,5 +1,10 @@
 import type { PulseMockScreenName } from "../../../../mocks/mockPulseProjectRegistry";
 import { isEcommerceMockThemeEnabled } from "../../../../mocks/mockEcommerceTheme";
+import type { RcaHeatmapSignalQuality } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
+import {
+  HEATMAP_RETURN_TO_QUERY_PARAM,
+  RCA_HEATMAP_SIGNAL_QUERY_PARAM,
+} from "../../../ScreenDetail/Heatmap/heatmap.types";
 import { ECOMMERCE_RCA_HEATMAP_BY_INTERACTION } from "./ecommerceRcaHeatmapLinks";
 
 export type RcaHeatmapTarget = {
@@ -14,6 +19,10 @@ export type RcaHeatmapTarget = {
  */
 const RCA_HEATMAP_BY_INTERACTION: Record<string, RcaHeatmapTarget[]> = {
   JoinContestButtonClick: [
+    {
+      screenName: "HomeScreen",
+      label: "Home feed — entry promos & path into contests",
+    },
     {
       screenName: "ProductListScreen",
       label: "Contest list — Join CTA & contest rows",
@@ -75,6 +84,13 @@ export function buildScreenHeatmapUrl(
   screenName: string,
   startTime?: string | null,
   endTime?: string | null,
+  /** From RCA `heatmap_signal_quality` so the mock heatmap matches the report narrative. */
+  heatmapSignalQuality?: RcaHeatmapSignalQuality | null,
+  /**
+   * Current interaction URL (`pathname` + `search`) so Screen detail Back returns to RCA tab.
+   * Pass only in-app paths (e.g. from `useLocation()`).
+   */
+  interactionReturnPath?: string | null,
 ): string {
   const path = `/projects/${encodeURIComponent(projectId)}/screens/${encodeURIComponent(screenName)}`;
   const q = new URLSearchParams();
@@ -85,6 +101,13 @@ export function buildScreenHeatmapUrl(
     q.set("quickDateFilter", "-1");
     q.set("startDate", s);
     q.set("endDate", e);
+  }
+  if (heatmapSignalQuality) {
+    q.set(RCA_HEATMAP_SIGNAL_QUERY_PARAM, heatmapSignalQuality);
+  }
+  const ret = interactionReturnPath?.trim();
+  if (ret) {
+    q.set(HEATMAP_RETURN_TO_QUERY_PARAM, encodeURIComponent(ret));
   }
   return `${path}?${q.toString()}`;
 }

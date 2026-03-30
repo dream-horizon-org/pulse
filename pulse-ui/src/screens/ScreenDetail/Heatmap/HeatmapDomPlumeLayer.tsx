@@ -1,5 +1,10 @@
 import type { HeatmapGlowPoint } from "./heatmap.types";
-import { plumeSizePx } from "./heatmapDomUtils";
+import {
+  type HeatmapPlumePalette,
+  plumeOpacityForWeight,
+  plumeRadialGradientForWeight,
+  plumeSizePx,
+} from "./heatmapDomUtils";
 import { HeatmapFrustrationMarkers } from "./HeatmapFrustrationMarkers";
 import classes from "./HeatmapPanel.module.css";
 
@@ -8,6 +13,8 @@ export interface HeatmapDomPlumeLayerProps {
   maxWeight: number;
   showFrustrationMarkers: boolean;
   ragePoints: Array<{ x: number; y: number; weight: number }>;
+  /** Tap uses thermal (blue→red); rage/dead use brand teal gradient. */
+  palette?: HeatmapPlumePalette;
 }
 
 export function HeatmapDomPlumeLayer({
@@ -15,6 +22,7 @@ export function HeatmapDomPlumeLayer({
   maxWeight,
   showFrustrationMarkers,
   ragePoints,
+  palette = "thermal",
 }: HeatmapDomPlumeLayerProps) {
   const scale = maxWeight || 1;
 
@@ -22,19 +30,18 @@ export function HeatmapDomPlumeLayer({
     <div className={classes.heatOverlay}>
       {points.map((p, i) => {
         const size = plumeSizePx(p.weight, scale);
-        const opacity = 0.25 + (p.weight / scale) * 0.55;
+        const opacity = plumeOpacityForWeight(p.weight, scale, palette);
         return (
           <div
             key={`glow-${i}-${p.x}-${p.y}`}
-            className={classes.heatPlume}
+            className={`${classes.heatPlume} ${classes.heatPlumeIntensity}`}
             style={{
               left: `${p.x * 100}%`,
               top: `${p.y * 100}%`,
               width: size,
               height: size,
               opacity,
-              background:
-                "radial-gradient(circle, rgba(255,80,70,0.85) 0%, rgba(255,160,80,0.35) 42%, transparent 72%)",
+              background: plumeRadialGradientForWeight(p.weight, scale, palette),
             }}
           />
         );

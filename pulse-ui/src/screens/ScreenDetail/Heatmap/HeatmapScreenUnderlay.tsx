@@ -1,4 +1,8 @@
-import { HEATMAP_SCREEN_FALLBACK_URL } from "./heatmapViz.constants";
+import { useState } from "react";
+import {
+  HEATMAP_CHECKOUT_UNDERLAY_URL,
+  HEATMAP_UNDERLAY_LAST_RESORT,
+} from "./heatmapViz.constants";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapScreenUnderlayProps {
@@ -8,29 +12,38 @@ export interface HeatmapScreenUnderlayProps {
 export function HeatmapScreenUnderlay({
   screenshotUrl,
 }: HeatmapScreenUnderlayProps) {
-  if (screenshotUrl) {
+  const [apiFailed, setApiFailed] = useState(false);
+  const [checkoutFailed, setCheckoutFailed] = useState(false);
+
+  const showCheckout =
+    !screenshotUrl || apiFailed || screenshotUrl.trim() === "";
+
+  const checkoutSrc = checkoutFailed
+    ? HEATMAP_UNDERLAY_LAST_RESORT
+    : HEATMAP_CHECKOUT_UNDERLAY_URL;
+
+  if (showCheckout) {
     return (
       <img
-        key={screenshotUrl}
-        className={classes.screenImg}
-        src={screenshotUrl}
+        className={`${classes.screenImg} ${classes.screenImgCheckout}`}
+        src={checkoutSrc}
         alt=""
         draggable={false}
-        onError={(e) => {
-          e.currentTarget.src = HEATMAP_SCREEN_FALLBACK_URL;
+        onError={() => {
+          if (!checkoutFailed) setCheckoutFailed(true);
         }}
       />
     );
   }
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 12,
-        borderRadius: 16,
-        background: "#1a1b1e",
-      }}
+    <img
+      key={screenshotUrl}
+      className={classes.screenImg}
+      src={screenshotUrl}
+      alt=""
+      draggable={false}
+      onError={() => setApiFailed(true)}
     />
   );
 }

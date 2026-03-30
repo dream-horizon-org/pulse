@@ -1,8 +1,9 @@
-import { Alert, Box, Group, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Alert, Box, Stack, Text } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useMemo } from "react";
 import graphClasses from "../components/EngagementGraph.module.css";
 import type { HeatmapDataResponse, HeatmapGlowPoint } from "./heatmap.types";
+import { HeatmapAggregatesPanel } from "./HeatmapAggregatesPanel";
 import { HeatmapMapBlock } from "./HeatmapMapBlock";
 import classes from "./HeatmapPanel.module.css";
 import type { HeatmapPanelProps } from "./heatmapPanel.types";
@@ -15,7 +16,6 @@ import {
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
 import type { HeatmapQualityMetrics } from "./heatmapQuality";
-import { HeatmapQualityInline } from "./HeatmapQualityInline";
 
 export interface HeatmapMainCardProps {
   screenName: string;
@@ -38,7 +38,7 @@ function capitalizeSignal(s: HeatmapSignal): string {
 }
 
 export function HeatmapMainCard({
-  screenName,
+  screenName: _screenName,
   engagement,
   signal,
   onSignalChange,
@@ -52,7 +52,6 @@ export function HeatmapMainCard({
   ragePoints,
   showFrustrationMarkers,
 }: HeatmapMainCardProps) {
-  const displayName = screenName.trim() || "This screen";
   const eventCount =
     singlePayload?.metadata.total_events != null
       ? singlePayload.metadata.total_events.toLocaleString()
@@ -64,78 +63,45 @@ export function HeatmapMainCard({
   );
 
   const showInteractionMap = useMemo(() => {
+    if (signal !== "tap") return false;
     if (interactionGlow.length === 0) return false;
     return !glowMapsNearlyEqual(glowMap, interactionGlow);
-  }, [glowMap, interactionGlow]);
+  }, [signal, glowMap, interactionGlow]);
 
   return (
     <Stack gap="md">
       <Box className={graphClasses.graphCard}>
         <div className={graphClasses.graphTitle}>Summary</div>
-        <Text size="xs" mb="sm" lh={1.5}>
-          <Text span fw={700} c="dark.6">
-            {displayName}
-          </Text>
-          <Text span c="dimmed">
-            {" "}
-            · Same filters and time range as other tabs
-          </Text>
+        <Text size="xs" c="dimmed" mb="sm" lh={1.5}>
+          Filters and time range match the rest of this screen.
         </Text>
 
-        <div className={classes.contextStrip}>
-          <Group gap="xs" wrap="wrap" align="center">
-            <Text size="sm" span>
-              <Text span fw={600} c="dimmed">
-                Avg. time ·{" "}
-              </Text>
-              <Text span fw={600}>
-                {formatAvgTime(engagement?.avgTimeSpent ?? null)}
-              </Text>
+        <div className={classes.summaryMetricsGrid}>
+          <div className={graphClasses.metricCard}>
+            <Text className={graphClasses.metricLabel}>Events (heatmap scope)</Text>
+            <Text className={graphClasses.metricValue}>
+              {eventCount ?? "—"}
             </Text>
-            <Text span c="dimmed" size="sm">
-              ·
+          </div>
+          <div className={graphClasses.metricCard}>
+            <Text className={graphClasses.metricLabel}>Sessions</Text>
+            <Text className={graphClasses.metricValue}>
+              {formatInt(engagement?.totalSessions ?? 0)}
             </Text>
-            <Text size="sm" span>
-              <Text span fw={600} c="dimmed">
-                Sessions ·{" "}
-              </Text>
-              <Text span fw={600}>
-                {formatInt(engagement?.totalSessions ?? 0)}
-              </Text>
+          </div>
+          <div className={graphClasses.metricCard}>
+            <Text className={graphClasses.metricLabel}>Users</Text>
+            <Text className={graphClasses.metricValue}>
+              {formatInt(engagement?.totalUsers ?? 0)}
             </Text>
-            <Text span c="dimmed" size="sm">
-              ·
+          </div>
+          <div className={graphClasses.metricCard}>
+            <Text className={graphClasses.metricLabel}>Avg. time</Text>
+            <Text className={graphClasses.metricValue}>
+              {formatAvgTime(engagement?.avgTimeSpent ?? null)}
             </Text>
-            <Text size="sm" span>
-              <Text span fw={600} c="dimmed">
-                Users ·{" "}
-              </Text>
-              <Text span fw={600}>
-                {formatInt(engagement?.totalUsers ?? 0)}
-              </Text>
-            </Text>
-            {eventCount != null && (
-              <>
-                <Text span c="dimmed" size="sm">
-                  ·
-                </Text>
-                <Text size="sm" span>
-                  <Text span fw={600} c="dimmed">
-                    Events ·{" "}
-                  </Text>
-                  <Text span fw={600}>
-                    {eventCount}
-                  </Text>
-                </Text>
-              </>
-            )}
-          </Group>
+          </div>
         </div>
-
-        <HeatmapQualityInline
-          singlePayload={singlePayload}
-          qualityMetrics={qualityMetrics}
-        />
       </Box>
 
       <Box className={graphClasses.graphCard}>
@@ -190,29 +156,53 @@ export function HeatmapMainCard({
         )}
 
         {!isLoading && !errorMessage && singlePayload && (
-          <SimpleGrid
-            cols={{ base: 1, md: showInteractionMap ? 2 : 1 }}
-            spacing="md"
-            mt="md"
-          >
-            <HeatmapMapBlock
-              hideTitles={!showInteractionMap}
-              mapLabel={showInteractionMap ? capitalizeSignal(signal) : undefined}
-              screenshotUrl={screenshotUrl}
-              glowMap={glowMap}
-              showFrustrationMarkers={showFrustrationMarkers}
-              ragePoints={ragePoints}
-              intensityLegendAriaLabel={`${capitalizeSignal(signal)} layer activity`}
-            />
-            {showInteractionMap && (
-              <HeatmapMapBlock
-                mapLabel="All interactions"
-                screenshotUrl={screenshotUrl}
-                glowMap={interactionGlow}
-                intensityLegendAriaLabel="Combined interactions activity"
+          <div className={classes.heatmapSplit}>
+            <div className={classes.heatmapSplitLeft}>
+              {showInteractionMap ? (
+                <Stack gap="md">
+                  <HeatmapMapBlock
+                    mapLabel={
+                      signal === "tap" ? capitalizeSignal(signal) : undefined
+                    }
+                    screenshotUrl={screenshotUrl}
+                    glowMap={glowMap}
+                    showFrustrationMarkers={showFrustrationMarkers}
+                    ragePoints={ragePoints}
+                    intensityLegendAriaLabel={`${capitalizeSignal(signal)} layer activity`}
+                    heatmapPalette={
+                      signal === "tap" ? "thermal" : "brand"
+                    }
+                  />
+                  <HeatmapMapBlock
+                    mapLabel="All interactions"
+                    screenshotUrl={screenshotUrl}
+                    glowMap={interactionGlow}
+                    intensityLegendAriaLabel="Combined interactions activity"
+                    heatmapPalette="thermal"
+                  />
+                </Stack>
+              ) : (
+                <HeatmapMapBlock
+                  hideTitles
+                  screenshotUrl={screenshotUrl}
+                  glowMap={glowMap}
+                  showFrustrationMarkers={showFrustrationMarkers}
+                  ragePoints={ragePoints}
+                  intensityLegendAriaLabel={`${capitalizeSignal(signal)} layer activity`}
+                  heatmapPalette={
+                    signal === "tap" ? "thermal" : "brand"
+                  }
+                />
+              )}
+            </div>
+            <div className={classes.heatmapSplitRight}>
+              <HeatmapAggregatesPanel
+                payload={singlePayload}
+                signal={signal}
+                qualityMetrics={qualityMetrics}
               />
-            )}
-          </SimpleGrid>
+            </div>
+          </div>
         )}
       </Box>
     </Stack>

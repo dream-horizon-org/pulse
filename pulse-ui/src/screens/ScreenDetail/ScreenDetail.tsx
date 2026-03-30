@@ -1,5 +1,13 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SimpleGrid, Box, Text, Tabs, Title, Tooltip } from "@mantine/core";
+import {
+  SimpleGrid,
+  Box,
+  Text,
+  Tabs,
+  Title,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import { IconArrowNarrowLeft } from "@tabler/icons-react";
 import { ScreenDetailProps } from "./ScreenDetail.interface";
 import classes from "./ScreenDetail.module.css";
@@ -28,13 +36,17 @@ import {
 } from "../AppVitals/AppVitals.constants";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
-import { DEFAULT_QUICK_TIME_FILTER } from "../../constants";
+import { DEFAULT_QUICK_TIME_FILTER, ROUTES } from "../../constants";
 import { useFilterStore } from "../../stores/useFilterStore";
 import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import { useExceptionListData } from "../AppVitals/components/ExceptionTable/hooks";
 import { InteractionDetailsFilters } from "../CriticalInteractionDetails/components/InteractionDetailsFilters";
 import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
+import {
+  HEATMAP_RETURN_TO_QUERY_PARAM,
+  parseSafeHeatmapReturnTo,
+} from "./Heatmap/heatmap.types";
 
 export function ScreenDetail(_props: ScreenDetailProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -44,6 +56,12 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     projectId: string;
   }>();
   const decodedScreenName = screenName ? decodeURIComponent(screenName) : "";
+  const rcaHeatmapSignal = searchParams.get("rcaHeatmapSignal");
+  const heatmapReturnToParam = searchParams.get(HEATMAP_RETURN_TO_QUERY_PARAM);
+  const safeHeatmapReturnPath = useMemo(
+    () => parseSafeHeatmapReturnTo(heatmapReturnToParam),
+    [heatmapReturnToParam],
+  );
 
   // Global filter store
   const {
@@ -94,7 +112,18 @@ export function ScreenDetail(_props: ScreenDetailProps) {
   };
 
   const handleBack = () => {
-    navigate(`/projects/${projectId}/screens`);
+    if (safeHeatmapReturnPath) {
+      navigate(safeHeatmapReturnPath);
+      return;
+    }
+    const pid = projectId?.trim();
+    if (pid) {
+      navigate(
+        ROUTES.PROJECT_SCREENS.basePath.replace(":projectId", pid),
+      );
+      return;
+    }
+    navigate(-1);
   };
 
   // Format time for API calls (convert to ISO string)
@@ -216,13 +245,25 @@ export function ScreenDetail(_props: ScreenDetailProps) {
         <div className={classes.screenDetailHeader}>
           {/* Left Section - Back Button, Title */}
           <div className={classes.screenDetailHeaderContent}>
-            <Tooltip label="Back to screens">
-              <span
+            <Tooltip
+              label={
+                safeHeatmapReturnPath
+                  ? "Back to interaction"
+                  : "Back to screens"
+              }
+            >
+              <UnstyledButton
+                type="button"
                 onClick={handleBack}
                 className={classes.backButtonContainer}
+                aria-label={
+                  safeHeatmapReturnPath
+                    ? "Back to interaction"
+                    : "Back to screens"
+                }
               >
                 <IconArrowNarrowLeft className={classes.backButton} size={18} />
-              </span>
+              </UnstyledButton>
             </Tooltip>
             <div className={classes.titleSection}>
               <Title order={5} className={classes.pageTitle}>
@@ -471,6 +512,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
             screenName={decodedScreenName}
             startTime={startTime || ""}
             endTime={endTime || ""}
+            rcaHeatmapSignal={rcaHeatmapSignal}
             engagement={
               engagementData
                 ? {

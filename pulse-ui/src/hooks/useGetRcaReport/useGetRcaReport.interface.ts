@@ -19,10 +19,15 @@ export type RcaReportPayload = {
   tables: RcaReportTableBlock[];
 };
 
+/** Drives mock heatmap readability when opening Screen → Heatmap from RCA evidence (GET `rcaHeatmapSignal`). */
+export type RcaHeatmapSignalQuality = "poor" | "average" | "good";
+
 export type RcaReportResponse = {
   report: RcaReportPayload;
   rca_insights?: string | null;
   cached?: boolean;
+  /** Present on mock (and optional on real API): aligns heatmap fixture with RCA narrative. */
+  heatmap_signal_quality?: RcaHeatmapSignalQuality;
 };
 
 /** Optional tenant-level metrics from the interaction overview (mock RCA aligns baselines). */
