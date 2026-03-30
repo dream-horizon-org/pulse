@@ -36,10 +36,14 @@ interface JourneyExplorerProps {
   onCustomStartDateChange: (date: Date | null) => void;
   customEndDate: Date | null;
   onCustomEndDateChange: (date: Date | null) => void;
+  expiryDate: Date | null;
+  onExpiryDateChange: (date: Date | null) => void;
   availableEvents: string[];
   onCreate: (config: any) => void;
   isCreating: boolean;
   filters: { property: string; value: string }[];
+  isUpdateMode?: boolean;
+  isValid?: boolean;
 }
 
 export function JourneyExplorer({
@@ -57,10 +61,14 @@ export function JourneyExplorer({
   onCustomStartDateChange,
   customEndDate,
   onCustomEndDateChange,
+  expiryDate,
+  onExpiryDateChange,
   availableEvents,
   onCreate,
   isCreating,
   filters,
+  isUpdateMode = false,
+  isValid: externalIsValid,
 }: JourneyExplorerProps) {
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
   const [anchorEvent, setAnchorEvent] = useState<string | null>(null);
@@ -107,7 +115,7 @@ export function JourneyExplorer({
   });
 
   const journeyData = data?.data;
-  const isValid = name.trim().length > 0 && !!anchorEvent;
+  const isValid = externalIsValid !== undefined ? externalIsValid : (name.trim().length > 0 && !!anchorEvent);
 
   const handleCreate = () => {
     onCreate({
@@ -203,14 +211,40 @@ export function JourneyExplorer({
           </Group>
         )}
         {rollingType === "RECURRING" && (
-          <Select
-            data={DATE_RANGE_OPTIONS.filter(opt => opt.value !== "custom")}
-            value={dateRange}
-            onChange={(val) => onDateRangeChange(val || "7d")}
-            size="xs"
-            mb="md"
-            allowDeselect={false}
-          />
+          <>
+            <Select
+              data={DATE_RANGE_OPTIONS.filter(opt => opt.value !== "custom")}
+              value={dateRange}
+              onChange={(val) => onDateRangeChange(val || "7d")}
+              size="xs"
+              mb="sm"
+              allowDeselect={false}
+            />
+            <Group gap="xs" mb={4}>
+              <Text size="sm" fw={500}>
+                Expiry Date
+              </Text>
+              <Tooltip
+                label="The date when this journey will stop auto-updating and be marked as completed."
+                position="right"
+                withArrow
+              >
+                <IconInfoCircle
+                  size={14}
+                  color="#94a3b8"
+                  style={{ cursor: "help" }}
+                />
+              </Tooltip>
+            </Group>
+            <DateTimePicker
+              placeholder="Select expiry date (optional)"
+              value={expiryDate}
+              onChange={onExpiryDateChange}
+              size="xs"
+              mb="md"
+              clearable
+            />
+          </>
         )}
 
         <Text size="sm" fw={500} mb={4}>
@@ -284,7 +318,7 @@ export function JourneyExplorer({
           disabled={!isValid || isCreating}
           loading={isCreating}
         >
-          Create Journey
+          {isCreating ? (isUpdateMode ? "Updating..." : "Creating...") : (isUpdateMode ? "Update Journey" : "Create Journey")}
         </Button>
       </Box>
 

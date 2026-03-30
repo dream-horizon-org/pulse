@@ -7,7 +7,7 @@ export type FunnelJourneyListItem = {
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED" | "CREATING";
+  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
@@ -41,6 +41,15 @@ export type FunnelsJourneysListQueryParams = {
 export type FunnelJourneyDetail = FunnelJourneyListItem & {
   description: string;
   createdAt: string;
+  rollingType?: "RECURRING" | "ONCE";
+  filters?: any[];
+  steps?: any[];
+  timeRange?: any;
+  windowSeconds?: number;
+  anchorEvent?: string;
+  direction?: string;
+  depth?: number;
+  expiryDate?: string;
 };
 
 // TODO: update when backend is ready (path, query param names, and response shape may change).
@@ -101,6 +110,16 @@ export async function createFunnelJourney(payload: any) {
     url: `${API_BASE_URL}${FUNNELS_JOURNEYS_LIST_PATH}`,
     init: {
       method: "POST",
+      body: JSON.stringify(payload),
+    },
+  });
+}
+
+export async function updateFunnelJourney(id: string, payload: any) {
+  return makeRequest<FunnelJourneyDetail>({
+    url: `${API_BASE_URL}${FUNNELS_JOURNEYS_LIST_PATH}/${id}`,
+    init: {
+      method: "PUT",
       body: JSON.stringify(payload),
     },
   });

@@ -25,6 +25,7 @@ export function CreateJourney() {
   const [dateRange, setDateRange] = useState("7d");
   const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
+  const [expiryDate, setExpiryDate] = useState<Date | null>(null);
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
   const { data: eventsData } = useGetFunnelEvents();
@@ -38,6 +39,16 @@ export function CreateJourney() {
     return acc;
   }, {} as Record<string, string[]>);
 
+  const apiFilters = useMemo(
+    () =>
+      filters.map((f) => ({
+        field: f.property,
+        operator: "EQ" as const,
+        value: f.value,
+      })),
+    [filters],
+  );
+
   const { mutate: createJourney, isPending: isCreating } = useCreateFunnelJourney();
 
   const handleCreate = (config: any) => {
@@ -48,6 +59,9 @@ export function CreateJourney() {
         tags,
         rollingType,
         kind: "JOURNEY",
+        timeRange: config.timeRange,
+        filters: apiFilters,
+        expiryDate: rollingType === "RECURRING" && expiryDate ? expiryDate.toISOString() : undefined,
         ...config,
       },
       {
@@ -77,11 +91,13 @@ export function CreateJourney() {
     <Box className={classes.shell}>
       <Box className={classes.topBar}>
         <Box className={classes.topBarLeft}>
-          <Group gap="sm">
+          <Group gap="sm" align="center">
             <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
               <IconArrowLeft size={20} />
             </ActionIcon>
-            <Text className={classes.moduleTitle}>Create Journey</Text>
+            <Box>
+              <Text className={classes.moduleTitle}>Create Journey</Text>
+            </Box>
           </Group>
         </Box>
 
@@ -108,9 +124,11 @@ export function CreateJourney() {
         onDateRangeChange={setDateRange}
         customStartDate={customStartDate}
         onCustomStartDateChange={setCustomStartDate}
-        customEndDate={customEndDate}
-        onCustomEndDateChange={setCustomEndDate}
-        availableEvents={availableEvents}
+          customEndDate={customEndDate}
+          onCustomEndDateChange={setCustomEndDate}
+          expiryDate={expiryDate}
+          onExpiryDateChange={setExpiryDate}
+          availableEvents={availableEvents}
         onCreate={handleCreate}
         isCreating={isCreating}
         filters={filters}
