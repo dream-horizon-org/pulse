@@ -221,23 +221,28 @@
 /* ============ Big Number / KPI ============ */
 .kpiSection {
     display: flex;
-    align-items: baseline;
-    gap: 12px;
+    align-items: center;
+    gap: 16px;
     margin-bottom: 24px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    padding: 24px;
 }
 
 .kpiBigNumber {
-    font-size: 48px;
-    font-weight: 800;
+    font-size: 40px;
+    font-weight: 700;
     color: #1e293b;
     line-height: 1;
-    letter-spacing: -2px;
+    letter-spacing: -0.5px;
 }
 
 .kpiLabel {
-    font-size: 14px;
-    color: #64748b;
-    font-weight: 500;
+    font-size: 15px;
+    color: #475569;
+    font-weight: 600;
+    margin-bottom: 4px;
 }
 
 .kpiTrend {
