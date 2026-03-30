@@ -372,33 +372,23 @@ export async function loadSnapshotsForTime(
 
   if (loadedRanges.has(rangeKey)) {
     // Already have this range; build images from all loaded ranges
-    return buildImagesFromLoadedRanges(
-      sessionId,
-      sessionStartMs,
-      sources,
-      loadedRanges,
-    );
+    return buildImagesFromLoadedRanges(sessionId, sessionStartMs, loadedRanges);
   }
 
   const newLoaded = new Set(loadedRanges);
   newLoaded.add(rangeKey);
 
-  return buildImagesFromLoadedRanges(
-    sessionId,
-    sessionStartMs,
-    sources,
-    newLoaded,
-  );
+  return buildImagesFromLoadedRanges(sessionId, sessionStartMs, newLoaded);
 }
 
 /**
  * Build full images array from all blob ranges we've loaded for this session.
- * Re-fetches from cache (no API) for each range in loadedRanges.
+ * Uses {@link fetchBlobRange} so IndexedDB misses (after clear) or new seek
+ * ranges still hit the API instead of returning empty.
  */
 async function buildImagesFromLoadedRanges(
   sessionId: string,
   sessionStartMs: number,
-  sources: SnapshotsSourceBlob[],
   loadedRanges: Set<string>,
 ): Promise<LoadSnapshotsResult> {
   const allImages: SessionReplayImage[] = [];
@@ -406,12 +396,8 @@ async function buildImagesFromLoadedRanges(
   for (const rangeKey of Array.from(loadedRanges)) {
     const [startBlobKey, endBlobKey] = rangeKey.split("-");
     if (!startBlobKey || !endBlobKey) continue;
-    const events = await getCachedBlobRange(
-      sessionId,
-      startBlobKey,
-      endBlobKey,
-    );
-    if (events && events.length > 0) {
+    const events = await fetchBlobRange(sessionId, startBlobKey, endBlobKey);
+    if (events.length > 0) {
       const imgs = snapshotEventsToImages(events, sessionStartMs, startBlobKey);
       allImages.push(...imgs);
     }

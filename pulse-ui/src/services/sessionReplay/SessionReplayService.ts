@@ -236,14 +236,32 @@ export class SessionReplayService {
           {
             source: "blob",
             blobKey: "0",
-            startTimestamp: "2026-03-13 12:17:28.354000",
-            endTimestamp: "2026-03-13 12:17:36.197000",
+            startTimestamp: "2026-03-30 07:41:32.514000",
+            endTimestamp: "2026-03-30 07:41:42.820000",
           },
           {
             source: "blob",
             blobKey: "1",
-            startTimestamp: "2026-03-13 12:17:37.197000",
-            endTimestamp: "2026-03-13 12:17:46.219000",
+            startTimestamp: "2026-03-30 07:41:42.821000",
+            endTimestamp: "2026-03-30 07:41:53.127000",
+          },
+          {
+            source: "blob",
+            blobKey: "2",
+            startTimestamp: "2026-03-30 07:41:53.128000",
+            endTimestamp: "2026-03-30 07:42:03.434000",
+          },
+          {
+            source: "blob",
+            blobKey: "3",
+            startTimestamp: "2026-03-30 07:42:03.435000",
+            endTimestamp: "2026-03-30 07:42:13.741000",
+          },
+          {
+            source: "blob",
+            blobKey: "4",
+            startTimestamp: "2026-03-30 07:42:13.742000",
+            endTimestamp: "2026-03-30 07:42:24.049000",
           },
         ],
       };
@@ -278,7 +296,7 @@ export class SessionReplayService {
     endBlobKey: string,
   ): Promise<SnapshotsDataResponse["data"]> {
     if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return getMockSnapshotsData(startBlobKey);
+      return getMockSnapshotsData(startBlobKey, endBlobKey);
     }
 
     const url = new URL(

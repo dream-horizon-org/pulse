@@ -12,6 +12,17 @@ export interface SessionReplayImage {
   blobKey: string; // Identifier for the image chunk
 }
 
+/** Revoke blob: URLs for decoded snapshot frames (avoids stale frames after reload or replace). */
+export function revokeSessionReplayImageUrls(
+  images: SessionReplayImage[],
+): void {
+  for (const img of images) {
+    if (img.imageUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(img.imageUrl);
+    }
+  }
+}
+
 /**
  * API A: Snapshots manifest response
  * GET /api/environments/{environment_id}/session_recordings/{session_id}/snapshots?blob_v2=true

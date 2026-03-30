@@ -8,7 +8,10 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { SessionReplayImage } from "../../../services/sessionReplay/sessionReplayImages";
+import {
+  type SessionReplayImage,
+  revokeSessionReplayImageUrls,
+} from "../../../services/sessionReplay/sessionReplayImages";
 import {
   loadInitialSnapshots,
   loadSnapshotsForTime,
@@ -60,7 +63,10 @@ export function useSessionReplaySnapshots({
           loadedRanges: loadedRangesRef.current,
         });
         loadedRangesRef.current = result.loadedRanges;
-        setImages(result.images);
+        setImages((prev) => {
+          revokeSessionReplayImageUrls(prev);
+          return result.images;
+        });
       } catch (err) {
         setError(err instanceof Error ? err : new Error(String(err)));
       }
@@ -73,12 +79,21 @@ export function useSessionReplaySnapshots({
   // so we are independent of the session-detail API load timing.
   useEffect(() => {
     if (!sessionId || !effectiveEnabled) {
-      setImages([]);
+      setImages((prev) => {
+        revokeSessionReplayImageUrls(prev);
+        return [];
+      });
+      loadedRangesRef.current = new Set();
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
+    loadedRangesRef.current = new Set();
+    setImages((prev) => {
+      revokeSessionReplayImageUrls(prev);
+      return [];
+    });
 
     (async () => {
       const manifest = await fetchSnapshotManifest(sessionId);
@@ -94,13 +109,19 @@ export function useSessionReplaySnapshots({
       if (cancelled) return;
 
       loadedRangesRef.current = result.loadedRanges;
-      setImages(result.images);
+      setImages((prev) => {
+        revokeSessionReplayImageUrls(prev);
+        return result.images;
+      });
       lastLoadTimeRef.current = 0;
     })()
       .catch((err) => {
         if (!cancelled) {
           setError(err instanceof Error ? err : new Error(String(err)));
-          setImages([]);
+          setImages((prev) => {
+            revokeSessionReplayImageUrls(prev);
+            return [];
+          });
         }
       })
       .finally(() => {
