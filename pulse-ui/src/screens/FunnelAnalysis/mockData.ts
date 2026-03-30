@@ -59,3 +59,23 @@ export function getDateRangeFromPreset(preset: string): { start: string; end: st
   }
   return { start, end };
 }
+
+/** Rolling / once window for funnel & journey create flows (shared with JourneyExplorer). */
+export function buildRollingTimeRange(
+  rollingType: "RECURRING" | "ONCE",
+  dateRange: string,
+  customStartDate: Date | null,
+  customEndDate: Date | null,
+): { start: string; end: string } {
+  if (rollingType === "ONCE") {
+    return {
+      start: customStartDate
+        ? customStartDate.toISOString()
+        : new Date().toISOString(),
+      end: customEndDate
+        ? customEndDate.toISOString()
+        : new Date().toISOString(),
+    };
+  }
+  return getDateRangeFromPreset(dateRange);
+}

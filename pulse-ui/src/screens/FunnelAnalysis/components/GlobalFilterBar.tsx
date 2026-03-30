@@ -12,6 +12,9 @@ interface GlobalFilterBarProps {
   filters: ActiveFilter[];
   onFiltersChange: (filters: ActiveFilter[]) => void;
   filterOptions: Record<string, string[]>;
+  /** Extra spacing and larger filter controls (e.g. create funnel/journey wizard). */
+  comfortable?: boolean;
+  className?: string;
 }
 
 const PROPERTY_ICONS: Record<string, string> = {
@@ -25,11 +28,13 @@ function FilterDropdown({
   options,
   selectedValues,
   onToggle,
+  buttonSize = "xs",
 }: {
   property: string;
   options: string[];
   selectedValues: string[];
   onToggle: (value: string) => void;
+  buttonSize?: "xs" | "sm";
 }) {
   const [search, setSearch] = useState("");
   const filteredOptions = options.filter((o) =>
@@ -41,9 +46,9 @@ function FilterDropdown({
       <Popover.Target>
         <Button
           variant="default"
-          size="xs"
+          size={buttonSize}
           radius="xl"
-          rightSection={<IconChevronDown size={12} />}
+          rightSection={<IconChevronDown size={buttonSize === "sm" ? 14 : 12} />}
           style={{ fontWeight: 500 }}
         >
           {property} {selectedValues.length > 0 && `(${selectedValues.length})`}
@@ -98,6 +103,8 @@ export function GlobalFilterBar({
   filters,
   onFiltersChange,
   filterOptions,
+  comfortable = false,
+  className,
 }: GlobalFilterBarProps) {
   const removeFilter = (property: string, value: string) => {
     onFiltersChange(filters.filter((f) => !(f.property === property && f.value === value)));
@@ -118,9 +125,14 @@ export function GlobalFilterBar({
     return acc;
   }, {} as Record<string, string[]>);
 
+  const gap = comfortable ? "md" : "xs";
+  const btnSize = comfortable ? "sm" : "xs";
+
   return (
-    <Box className={classes.filterBar}>
-      <Group gap="xs">
+    <Box
+      className={[classes.filterBar, className].filter(Boolean).join(" ")}
+    >
+      <Group gap={gap} wrap="wrap" align="flex-start">
         {Object.entries(filterOptions).map(([property, options]) => {
           const selectedValues = filters
             .filter((f) => f.property === property)
@@ -133,18 +145,26 @@ export function GlobalFilterBar({
               options={options}
               selectedValues={selectedValues}
               onToggle={(val) => toggleFilter(property, val)}
+              buttonSize={btnSize}
             />
           );
         })}
 
         {filters.length > 0 && (
-          <Box style={{ width: 1, height: 24, backgroundColor: "#dee2e6", margin: "0 8px" }} />
+          <Box
+            style={{
+              width: 1,
+              height: comfortable ? 28 : 24,
+              backgroundColor: "#dee2e6",
+              margin: comfortable ? "0 10px" : "0 8px",
+            }}
+          />
         )}
 
         {Object.entries(groupedFilters).map(([property, values]) => (
           <Group
             key={property}
-            gap="xs"
+            gap={gap}
             style={{
               border: "1px solid #e9ecef",
               borderRadius: "24px",
