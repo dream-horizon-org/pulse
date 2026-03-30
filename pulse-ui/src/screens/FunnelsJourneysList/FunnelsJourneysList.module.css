@@ -131,21 +131,47 @@
   border-color: var(--mantine-color-dark-4);
 }
 
+/* Pagination — match SessionReplaySessions `.bottomBar` */
+.paginationBar {
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 16px;
+}
+
+[data-mantine-color-scheme="dark"] .paginationBar {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
+}
+
 /*
  * Match SessionReplaySessions table: header sm / 600 / gray-0, body sm.
+ * Row insets — same as SessionsTable `.gridRow`:
+ * padding: sm lg (vertical sm, horizontal lg).
+ * Row dividers — same as `.dataRow` border-bottom gray-2.
  * mantine-datatable root receives `.dataTable` via className.
  */
+/* Row dividers — match SessionsTable `.dataRow` (gray-2 / dark-5) */
+.dataTable {
+  --mantine-datatable-row-border-color-light: var(--mantine-color-gray-2);
+  --mantine-datatable-row-border-color-dark: var(--mantine-color-dark-5);
+}
+
 .dataTable :global(.mantine-datatable-header th) {
   font-size: var(--mantine-font-size-sm);
   font-weight: 600;
   color: var(--mantine-color-dark-6);
   background: var(--mantine-color-gray-0) !important;
   border-bottom: 1px solid var(--mantine-color-gray-3);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
 }
 
 .dataTable :global(.mantine-datatable-table td) {
   font-size: var(--mantine-font-size-sm);
   color: var(--mantine-color-dark-7);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
 }
 
 .dataTable :global(.mantine-datatable-table td .mantine-Text-root) {

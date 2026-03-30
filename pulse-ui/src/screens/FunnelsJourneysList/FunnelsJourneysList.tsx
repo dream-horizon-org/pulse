@@ -18,7 +18,7 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { generatePath, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { ROUTES } from "../../constants";
@@ -30,6 +30,7 @@ import {
   CREATE_FUNNEL_ITEM,
   CREATE_JOURNEY_ITEM,
   CREATE_MENU_LABEL,
+  DEFAULT_PAGE_SIZE,
   EMPTY_FILTERED_DESCRIPTION,
   EMPTY_TAB_FUNNEL_DESCRIPTION,
   EMPTY_TAB_FUNNEL_FILTERED_TITLE,
@@ -52,6 +53,7 @@ import {
   TYPE_OPTION_ORDERED,
   TYPE_OPTION_UNORDERED,
 } from "./FunnelsJourneysList.constants";
+import { FunnelsJourneysListPagination } from "./FunnelsJourneysListPagination";
 import classes from "./FunnelsJourneysList.module.css";
 
 const badgeRootStyle = { fontFamily: "inherit" as const };
@@ -77,11 +79,24 @@ export function FunnelsJourneysList() {
   const [typeFilter, setTypeFilter] = useState<TypeFilterValue>("");
   const [createdByFilter, setCreatedByFilter] = useState<string[]>([]);
   const [tagsFilter, setTagsFilter] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchStr), 300);
     return () => window.clearTimeout(t);
   }, [searchStr]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    listTab,
+    debouncedSearch,
+    statusFilter,
+    typeFilter,
+    createdByFilter,
+    tagsFilter,
+  ]);
 
   const queryParams = useMemo(
     () => ({
@@ -104,6 +119,8 @@ export function FunnelsJourneysList() {
         (typeFilter === "ORDERED" || typeFilter === "UNORDERED")
           ? typeFilter
           : null,
+      page,
+      pageSize,
     }),
     [
       listTab,
@@ -112,6 +129,8 @@ export function FunnelsJourneysList() {
       createdByFilter,
       tagsFilter,
       typeFilter,
+      page,
+      pageSize,
     ],
   );
 
@@ -124,6 +143,13 @@ export function FunnelsJourneysList() {
 
   const payload = apiResponse?.data;
   const items = payload?.items ?? [];
+
+  useEffect(() => {
+    const serverPage = payload?.page;
+    if (serverPage == null) return;
+    setPage((p) => (serverPage !== p ? serverPage : p));
+  }, [payload?.page]);
+
   const creatorOptions =
     payload?.filterOptions?.creators?.map((c) => ({ value: c, label: c })) ??
     [];
@@ -259,6 +285,16 @@ export function FunnelsJourneysList() {
 
   const EmptyIcon = listTab === "funnels" ? IconChartFunnel : IconRoute;
 
+  const totalCount = payload?.totalCount ?? items.length;
+  const totalPages =
+    payload?.totalPages ??
+    Math.max(1, Math.ceil(totalCount / pageSize) || 1);
+
+  const handlePageSizeChange = useCallback((next: number) => {
+    setPageSize(next);
+    setPage(1);
+  }, []);
+
   return (
     <Box className={classes.shell}>
       <Box className={classes.header}>
@@ -387,7 +423,7 @@ export function FunnelsJourneysList() {
             {FUNNELS_JOURNEYS_LOADING}
           </Text>
         </Box>
-      ) : items.length === 0 ? (
+      ) : totalCount === 0 ? (
         <Box className={classes.emptyState}>
           <EmptyIcon size={64} className={classes.emptyStateIcon} stroke={1.25} />
           <Text className={classes.emptyStateTitle}>{emptyTitle}</Text>
@@ -402,21 +438,33 @@ export function FunnelsJourneysList() {
           </Group>
         </Box>
       ) : (
-        <Box className={classes.tableContainer}>
-          <DataTable
-            className={classes.dataTable}
-            minHeight={280}
-            highlightOnHover
-            fetching={isFetching}
-            idAccessor="id"
-            columns={columns}
-            records={items}
-            onRowClick={({ record }) => openRow(record)}
-            styles={{
-              table: { cursor: "pointer" },
-            }}
+        <>
+          <Box className={classes.tableContainer}>
+            <DataTable
+              className={classes.dataTable}
+              minHeight={280}
+              highlightOnHover
+              fetching={isFetching}
+              idAccessor="id"
+              columns={columns}
+              records={items}
+              onRowClick={({ record }) => openRow(record)}
+              styles={{
+                table: { cursor: "pointer" },
+              }}
+            />
+          </Box>
+          <FunnelsJourneysListPagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            pageSize={pageSize}
+            onPrevious={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onGoToPage={setPage}
+            onPageSizeChange={handlePageSizeChange}
           />
-        </Box>
+        </>
       )}
     </Box>
   );

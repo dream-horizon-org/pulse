@@ -902,8 +902,31 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
     );
   }
 
+  const totalCount = items.length;
+  const pageSizeRaw = params.get("pageSize");
+  const pageRaw = params.get("page");
+  let pageSize = parseInt(pageSizeRaw || "10", 10);
+  if (!Number.isFinite(pageSize) || pageSize < 1) pageSize = 10;
+  pageSize = Math.min(100, pageSize);
+  let page = parseInt(pageRaw || "1", 10);
+  if (!Number.isFinite(page) || page < 1) page = 1;
+
+  const totalPages =
+    totalCount === 0 ? 1 : Math.max(1, Math.ceil(totalCount / pageSize));
+  if (page > totalPages) page = totalPages;
+
+  const start = (page - 1) * pageSize;
+  const paginatedItems = items.slice(start, start + pageSize);
+
   return {
-    data: { items, filterOptions },
+    data: {
+      items: paginatedItems,
+      filterOptions,
+      totalCount,
+      page,
+      pageSize,
+      totalPages,
+    },
     status: 200,
   };
 }
