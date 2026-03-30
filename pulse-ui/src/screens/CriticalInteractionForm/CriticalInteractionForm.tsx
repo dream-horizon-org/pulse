@@ -24,6 +24,7 @@ import {
 } from "./CriticalInteractionForm.interface";
 import { GlobalBlackListEventSequence } from "./components/GlobalBlacklistEventSequence/GlobalBlacklistEventSequence";
 import { EventThresholds } from "./components/EventThresholds";
+import { RevenueConfiguration } from "./components/RevenueConfiguration/RevenueConfiguration";
 import {
   COOKIES_KEY,
   CRITICAL_INTERACTION_FORM_CONSTANTS,
@@ -451,6 +452,14 @@ export function CriticalInteractionForm() {
             )}
             {stepperActiveState === 3 && (
               <EventThresholds
+                isUpdateFlow={isUpdateFlow}
+                onBackClick={onBackClick}
+                onCreateClick={onCreateClick}
+                onNextClick={onNextClick}
+              />
+            )}
+            {stepperActiveState === 4 && (
+              <RevenueConfiguration
                 isUpdateFlow={isUpdateFlow}
                 onBackClick={onBackClick}
                 onCreateClick={onCreateClick}

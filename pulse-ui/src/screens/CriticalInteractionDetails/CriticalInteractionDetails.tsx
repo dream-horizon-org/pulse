@@ -30,6 +30,7 @@ import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
 import dayjs from "dayjs";
 import { useProjectContext } from "../../contexts";
 import { RootCause } from "./components/RootCause";
+import { RevenueImpactSection } from "./components/RevenueImpact/RevenueImpactSection";
 
 const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
@@ -312,6 +313,7 @@ export function CiritcalInteractionDetails() {
                 startTime={startTime}
                 endTime={endTime}
               />
+              <RevenueImpactSection startTime={startTime} endTime={endTime} />
             </div>
           ) : null}
         </Tabs.Panel>

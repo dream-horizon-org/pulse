@@ -39,6 +39,8 @@ export type CriticalInteractionFormData = {
   thresholdInMs: number;
   events: Array<EventSequenceData>;
   globalBlacklistedEvents: Array<EventFilters>;
+  revenueValue?: number;
+  currency?: string;
 };
 
 export type CriticalInteractionsFetchingState = {

@@ -1,0 +1,106 @@
+.container {
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(14, 201, 194, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.headerIcon {
+  color: #0ba09a;
+}
+
+.title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #0ba09a !important;
+  letter-spacing: -0.2px;
+  margin: 0 !important;
+}
+
+.metricsRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.metricCard {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid;
+}
+
+.metricCardGenerated {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.metricCardAtRisk {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.06) 0%, rgba(239, 68, 68, 0.1) 100%);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.metricLabel {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: var(--mantine-color-dark-4) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.metricValue {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: -1px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.metricValueGenerated {
+  color: #10b981 !important;
+}
+
+.metricValueAtRisk {
+  color: #ef4444 !important;
+}
+
+.metricBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+
+.metricBadgeAtRisk {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.metricDescription {
+  font-size: 10px !important;
+  color: var(--mantine-color-dark-3) !important;
+  margin-top: 4px;
+}
+
+.chartLabel {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--mantine-color-dark-4) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
