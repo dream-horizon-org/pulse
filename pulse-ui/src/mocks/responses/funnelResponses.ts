@@ -1110,8 +1110,8 @@ export function handleFunnelEndpoints(
       name: body.name || "Untitled",
       description: body.description || "",
       kind: body.kind || "FUNNEL",
-      /* ACTIVE so the new row appears in typical list views and matches post-create redirect to listing */
-      status: "ACTIVE" as const,
+      /** Listing shows “Creating”; detail page shows computing loader until status becomes ACTIVE (real backend) or mock is updated. */
+      status: "CREATING" as const,
       createdBy: "dev@example.com",
       createdAt: new Date().toISOString(),
       lastUpdatedAt: new Date().toISOString(),
