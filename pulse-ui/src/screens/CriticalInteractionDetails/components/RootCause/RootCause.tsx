@@ -241,7 +241,7 @@ export const RootCause = ({
                 aria-hidden
               />
               <Text className={classes.linkedFunnelsJourneysTitle}>
-                Linked Funnels & Journeys
+                Related Funnels & Journeys
               </Text>
               <Box component="span" className={classes.linkedFunnelsJourneysBadge}>
                 {linkedFunnelsJourneys.length}

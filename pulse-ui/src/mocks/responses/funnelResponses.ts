@@ -4,43 +4,6 @@
 
 import { MockRequest, MockResponse } from "../types";
 
-const MOCK_FUNNEL_ANALYZE_RESPONSE = {
-  steps: [
-    {
-      stepName: "Screen_View: Home",
-      count: 14200,
-      conversionRate: 100,
-      dropoffRate: 0,
-    },
-    {
-      stepName: "Screen_View: Product Detail",
-      count: 9680,
-      conversionRate: 68.2,
-      dropoffRate: 31.8,
-    },
-    {
-      stepName: "Tap: Add to Cart",
-      count: 6840,
-      conversionRate: 48.2,
-      dropoffRate: 29.3,
-    },
-    {
-      stepName: "Tap: Checkout",
-      count: 5100,
-      conversionRate: 35.9,
-      dropoffRate: 25.4,
-    },
-    {
-      stepName: "Tap: Place Order",
-      count: 4600,
-      conversionRate: 32.4,
-      dropoffRate: 9.8,
-    },
-  ],
-  totalEnteredUsers: 14200,
-  overallConversionRate: 32.4,
-};
-
 const MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE = {
   steps: [
     {
@@ -197,17 +160,113 @@ const MOCK_FUNNEL_SESSIONS_RESPONSE = {
   ],
 };
 
-const MOCK_FUNNEL_CONVERSION_TREND = {
-  totalConversionRate: 32.4,
-  conversionTrend: 2.1,
-  medianTimes: [null, 4.2, 12.8, 8.6, 45.3],
-};
-
 const MOCK_PAYMENT_FUNNEL_CONVERSION_TREND = {
   totalConversionRate: 46.3,
   conversionTrend: -1.8,
   medianTimes: [null, 5.1, 18.4, 12.7, 8.9, 3.2],
 };
+
+/** Build analyze + trend payloads so step names match the request (list/detail pages stay aligned). */
+function buildMockFunnelAnalyzeAndTrendFromSteps(body: {
+  steps?: Array<{ eventName?: string }>;
+}): {
+  analyze: {
+    steps: Array<{
+      stepName: string;
+      count: number;
+      conversionRate: number;
+      dropoffRate: number;
+    }>;
+    totalEnteredUsers: number;
+    overallConversionRate: number;
+  };
+  trend: {
+    totalConversionRate: number;
+    conversionTrend: number;
+    medianTimes: (number | null)[];
+  };
+} {
+  const steps = (body.steps || []).filter((s) => (s?.eventName || "").trim());
+  if (steps.length < 2) {
+    return {
+      analyze: {
+        steps: [],
+        totalEnteredUsers: 0,
+        overallConversionRate: 0,
+      },
+      trend: {
+        totalConversionRate: 0,
+        conversionTrend: 0,
+        medianTimes: [],
+      },
+    };
+  }
+
+  let hash = 0;
+  for (const s of steps) {
+    const name = s.eventName || "";
+    for (let i = 0; i < name.length; i++) {
+      hash = (hash * 31 + name.charCodeAt(i)) | 0;
+    }
+  }
+  const base = 6000 + (Math.abs(hash) % 4000);
+  const stepMultipliers = [1, 0.82, 0.71, 0.62, 0.54, 0.48, 0.43, 0.39, 0.36];
+
+  const stepResults: Array<{
+    stepName: string;
+    count: number;
+    conversionRate: number;
+    dropoffRate: number;
+  }> = [];
+
+  for (let i = 0; i < steps.length; i++) {
+    const eventName = steps[i].eventName!.trim();
+    const count =
+      i === 0
+        ? base
+        : Math.max(
+            1,
+            Math.round(
+              stepResults[i - 1].count *
+                (stepMultipliers[i] ?? 0.35 + (i % 3) * 0.02),
+            ),
+          );
+    const conversionRate = (count / base) * 100;
+    const dropoffRate =
+      i === 0
+        ? 0
+        : (1 - count / stepResults[i - 1].count) * 100;
+    stepResults.push({
+      stepName: eventName,
+      count,
+      conversionRate: Math.round(conversionRate * 10) / 10,
+      dropoffRate: Math.round(dropoffRate * 10) / 10,
+    });
+  }
+
+  const last = stepResults[stepResults.length - 1];
+  const overallConversionRate = last.conversionRate;
+
+  const medianTimes: (number | null)[] = [null];
+  let t = 2.5 + (Math.abs(hash) % 7);
+  for (let i = 1; i < steps.length; i++) {
+    t += 3 + (i % 4) * 2.4;
+    medianTimes.push(Math.round(t * 10) / 10);
+  }
+
+  return {
+    analyze: {
+      steps: stepResults,
+      totalEnteredUsers: base,
+      overallConversionRate,
+    },
+    trend: {
+      totalConversionRate: overallConversionRate,
+      conversionTrend: Math.round(((Math.abs(hash) % 17) - 8) * 10) / 10,
+      medianTimes,
+    },
+  };
+}
 
 const MOCK_JOURNEY_FORWARD = {
   nodes: [
@@ -457,8 +516,11 @@ const MOCK_FUNNEL_EVENTS = [
   "Tap: Apply Coupon",
   "Tap: Place Order",
   "Tap: Sign In",
+  "Tap: Sign Up",
   "Tap: Share",
   "App_Launch",
+  "App_Opened",
+  "Screen_View: Onboarding",
   "App_Background",
   "App_Crash",
   "Push_Opened",
@@ -471,15 +533,23 @@ const MOCK_FUNNEL_FILTER_OPTIONS: Record<string, string[]> = {
   "App Version": ["4.2.1", "4.2.0", "4.1.9", "4.1.8", "4.1.7"],
 };
 
+/** Default expiry for mock funnels/journeys (one year from when the module loads). */
+const MOCK_EXPIRY_ONE_YEAR_FROM_NOW = (() => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString();
+})();
+
 /** Saved funnels & journeys listing (mock only; TODO: replace with real API). */
 const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING";
+  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING" | "COMPLETED";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
+  expiryDate?: string;
   description?: string;
   funnelType?: "ORDERED" | "UNORDERED";
   rollingType?: "RECURRING" | "ONCE";
@@ -498,6 +568,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "alice@example.com",
     lastUpdatedAt: "2026-03-20T14:22:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["checkout", "revenue"],
     funnelType: "ORDERED",
     filters: [
@@ -519,10 +590,17 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "bob@example.com",
     lastUpdatedAt: "2026-03-19T09:10:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding"],
     funnelType: "UNORDERED",
+    rollingType: "RECURRING",
+    windowSeconds: 86400,
+    timeRange: {
+      start: "2026-03-17T00:00:00Z",
+      end: "2026-03-24T23:59:59Z",
+    },
     steps: [
-      { eventName: "App_Opened" },
+      { eventName: "App_Launch" },
       { eventName: "Screen_View: Onboarding" },
       { eventName: "Tap: Sign Up" },
     ],
@@ -534,8 +612,15 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "STOPPED",
     createdBy: "alice@example.com",
     lastUpdatedAt: "2026-03-10T18:45:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["search", "product"],
     funnelType: "ORDERED",
+    rollingType: "RECURRING",
+    windowSeconds: 172800,
+    timeRange: {
+      start: "2026-03-01T00:00:00Z",
+      end: "2026-03-14T23:59:59Z",
+    },
     steps: [
       { eventName: "Screen_View: Search" },
       { eventName: "Screen_View: Product Detail" },
@@ -548,6 +633,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "carol@example.com",
     lastUpdatedAt: "2026-03-21T11:30:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["auth", "onboarding"],
     filters: [{ field: "OS Name", value: "Android" }],
     anchorEvent: "Tap: Sign Up",
@@ -561,6 +647,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "STOPPED",
     createdBy: "bob@example.com",
     lastUpdatedAt: "2026-02-28T08:00:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["checkout", "cart"],
     anchorEvent: "Tap: Add to Cart",
     direction: "forward",
@@ -573,8 +660,15 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "dev@example.com",
     lastUpdatedAt: "2026-03-22T16:05:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["marketing"],
     funnelType: "ORDERED",
+    rollingType: "RECURRING",
+    windowSeconds: 3600,
+    timeRange: {
+      start: "2026-03-17T00:00:00Z",
+      end: "2026-03-24T23:59:59Z",
+    },
     steps: [
       { eventName: "Deep_Link_Opened" },
       { eventName: "Screen_View: Home" },
@@ -587,6 +681,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "sarah@example.com",
     lastUpdatedAt: "2026-03-21T14:30:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["payment", "conversion", "critical"],
     description: "Tracks user conversion through the payment process including checkout and order completion.",
     funnelType: "ORDERED",
@@ -616,11 +711,12 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "ACTIVE",
     createdBy: "alex@example.com",
     lastUpdatedAt: "2026-03-17T09:15:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding", "ux", "retention"],
     description: "Maps the complete user journey from app launch to account creation and first purchase.",
     anchorEvent: "App_Launch",
     direction: "forward",
-    depth: 10,
+    depth: 5,
     rollingType: "RECURRING",
     filters: [
       { field: "OS Name", value: "Android" },
@@ -632,12 +728,59 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     },
   },
   {
+    id: "funnel-completed-001",
+    name: "Seasonal promo checkout",
+    kind: "FUNNEL",
+    status: "COMPLETED",
+    createdBy: "ops@example.com",
+    lastUpdatedAt: "2026-03-15T12:00:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    tags: ["promo", "checkout", "archived"],
+    description: "Holiday campaign funnel — run completed; data is read-only.",
+    funnelType: "ORDERED",
+    rollingType: "ONCE",
+    windowSeconds: 86400,
+    filters: [{ field: "OS Name", value: "iOS" }],
+    steps: [
+      { eventName: "Screen_View: Home" },
+      { eventName: "Screen_View: Product Detail" },
+      { eventName: "Tap: Add to Cart" },
+      { eventName: "Tap: Checkout" },
+      { eventName: "Tap: Place Order" },
+    ],
+    timeRange: {
+      start: "2026-02-01T00:00:00Z",
+      end: "2026-02-28T23:59:59Z",
+    },
+  },
+  {
+    id: "journey-completed-001",
+    name: "App launch exploration (completed)",
+    kind: "JOURNEY",
+    status: "COMPLETED",
+    createdBy: "ops@example.com",
+    lastUpdatedAt: "2026-03-10T09:00:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    tags: ["launch", "archived"],
+    description: "Exploratory journey for a past release — completed; no longer updating.",
+    anchorEvent: "App_Launch",
+    direction: "forward",
+    depth: 5,
+    rollingType: "RECURRING",
+    filters: [{ field: "App Version", value: "4.2.1" }],
+    timeRange: {
+      start: "2026-03-01T00:00:00Z",
+      end: "2026-03-14T23:59:59Z",
+    },
+  },
+  {
     id: "fj-7",
     name: "New feature adoption",
     kind: "FUNNEL",
     status: "CREATING",
     createdBy: "dev@example.com",
     lastUpdatedAt: "2026-03-24T10:00:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["feature"],
     funnelType: "ORDERED",
     steps: [{ eventName: "App_Opened" }, { eventName: "Tap: New Feature" }],
@@ -649,6 +792,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     status: "CREATING",
     createdBy: "alice@example.com",
     lastUpdatedAt: "2026-03-24T11:00:00Z",
+    expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding"],
     anchorEvent: "App_Opened",
     direction: "forward",
@@ -670,6 +814,8 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
     | "ACTIVE"
     | "STOPPED"
     | "CREATING"
+    | "UPDATING"
+    | "COMPLETED"
     | null;
   const createdByRaw = params.get("createdBy");
   const createdByFilters = createdByRaw
@@ -702,7 +848,13 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
   if (search) {
     items = items.filter((row) => row.name.toLowerCase().includes(search));
   }
-  if (status === "ACTIVE" || status === "STOPPED" || status === "CREATING") {
+  if (
+    status === "ACTIVE" ||
+    status === "STOPPED" ||
+    status === "CREATING" ||
+    status === "UPDATING" ||
+    status === "COMPLETED"
+  ) {
     items = items.filter((row) => row.status === status);
   }
   if (createdByFilters.length) {
@@ -791,7 +943,7 @@ export function handleFunnelEndpoints(
       tags: body.tags || [],
       funnelType: body.funnelType,
       filters: body.filters || [],
-      expiryDate: body.expiryDate,
+      expiryDate: body.expiryDate ?? MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
       rollingType: body.rollingType,
       steps: body.steps,
       timeRange: body.timeRange,
@@ -871,17 +1023,21 @@ export function handleFunnelEndpoints(
     } catch {
       /* ignore */
     }
-    
-    // Check if this is for the payment funnel based on steps
+
     const steps = body.steps || [];
-    const hasCartStep = steps.some((step: any) => step.eventName === "Screen_View: Cart");
-    const hasPaymentStep = steps.some((step: any) => step.eventName === "Screen_View: Payment");
-    
+    const hasCartStep = steps.some(
+      (step: any) => step.eventName === "Screen_View: Cart",
+    );
+    const hasPaymentStep = steps.some(
+      (step: any) => step.eventName === "Screen_View: Payment",
+    );
+
     if (hasCartStep && hasPaymentStep) {
       return { data: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE, status: 200 };
     }
-    
-    return { data: MOCK_FUNNEL_ANALYZE_RESPONSE, status: 200 };
+
+    const { analyze } = buildMockFunnelAnalyzeAndTrendFromSteps(body);
+    return { data: analyze, status: 200 };
   }
 
   if (pathname.includes("/v1/funnel/health") && method === "POST") {
@@ -907,17 +1063,21 @@ export function handleFunnelEndpoints(
     } catch {
       /* ignore */
     }
-    
-    // Check if this is for the payment funnel based on steps
+
     const steps = body.steps || [];
-    const hasCartStep = steps.some((step: any) => step.eventName === "Screen_View: Cart");
-    const hasPaymentStep = steps.some((step: any) => step.eventName === "Screen_View: Payment");
-    
+    const hasCartStep = steps.some(
+      (step: any) => step.eventName === "Screen_View: Cart",
+    );
+    const hasPaymentStep = steps.some(
+      (step: any) => step.eventName === "Screen_View: Payment",
+    );
+
     if (hasCartStep && hasPaymentStep) {
       return { data: MOCK_PAYMENT_FUNNEL_CONVERSION_TREND, status: 200 };
     }
-    
-    return { data: MOCK_FUNNEL_CONVERSION_TREND, status: 200 };
+
+    const { trend } = buildMockFunnelAnalyzeAndTrendFromSteps(body);
+    return { data: trend, status: 200 };
   }
 
   if (pathname.includes("/v1/funnel/grouped") && method === "POST") {
