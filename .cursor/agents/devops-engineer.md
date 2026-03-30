@@ -40,15 +40,15 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 
 ## Scripts (`deploy/scripts/`)
 
-| Script | Purpose |
-|--------|---------|
-| `quickstart.sh` | Prereqs → build → start → health checks |
-| `build.sh` | Build images (`ui`, `server`, `cron`, `ai`, `all`, `--no-cache`; default includes AI) |
-| `start.sh` | Start services (`-d`, `--build`, `--no-cache`) |
-| `stop.sh` | Stop services (`-v` removes volumes) |
-| `logs.sh` | View logs (optionally filter by service) |
-| `reset-databases.sh` | Drop volumes and reinitialize DBs |
-| `init-clickhouse.sh` | Create ClickHouse tables from schema SQL |
+| Script               | Purpose                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `quickstart.sh`      | Prereqs → build → start → health checks                                               |
+| `build.sh`           | Build images (`ui`, `server`, `cron`, `ai`, `all`, `--no-cache`; default includes AI) |
+| `start.sh`           | Start services (`-d`, `--build`, `--no-cache`)                                        |
+| `stop.sh`            | Stop services (`-v` removes volumes)                                                  |
+| `logs.sh`            | View logs (optionally filter by service)                                              |
+| `reset-databases.sh` | Drop volumes and reinitialize DBs                                                     |
+| `init-clickhouse.sh` | Create ClickHouse tables from schema SQL                                              |
 
 ## Database Initialization
 
@@ -62,6 +62,7 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 ## Related Skills
 
 For multi-step workflows, invoke these skills which provide step-by-step checklists:
+
 - `/deploy-service` — building and deploying Pulse services locally via Docker
 - `/clickhouse-migration` — ClickHouse schema changes in the `otel` database
 - `/mysql-migration` — MySQL schema changes in `pulse_db`
