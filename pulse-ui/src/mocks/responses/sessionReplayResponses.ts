@@ -11,6 +11,8 @@ import type {
   GetQuickFiltersResponse,
   SessionDetailApiResponse,
 } from "../../services/sessionReplay/types";
+import { applyMockSessionDetailOverrides } from "../../screens/SessionReplayDetail/mock/mockSessionReplayScenarios";
+import { SESSION_REPLAY_DETAIL_INTERACTION_ORDER } from "../mockPulseProjectRegistry";
 
 const MOCK_API_ORIGIN = "https://api.example.com";
 
@@ -82,7 +84,7 @@ export function generateSessionDetailResponse(
   return MockSessionReplayData.generateSessionDetail(sessionId);
 }
 
-export function generateSessionDetailApiResponse(
+function buildGenericSessionDetailApiResponse(
   sessionId: string,
 ): SessionDetailApiResponse {
   const now = new Date();
@@ -144,7 +146,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_3`,
       timestamp: t(8200),
       eventType: "navigation" as const,
-      description: "Navigate to /product-list",
+      description: "Navigate to /contest-list",
       durationNs: 0,
     },
     {
@@ -152,7 +154,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_sort`,
       timestamp: t(10200),
       eventType: "click" as const,
-      description: "Tap sort by relevance",
+      description: "Tap sort — contest entry fee",
       durationNs: 0,
     },
     {
@@ -160,7 +162,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_4`,
       timestamp: t(15300),
       eventType: "api_call" as const,
-      description: `API GET ${MOCK_API_ORIGIN}/api/products/recs`,
+      description: `API GET ${MOCK_API_ORIGIN}/api/v1/contests/recommended`,
       durationNs: 245000000,
     },
     {
@@ -176,7 +178,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_5`,
       timestamp: t(20500),
       eventType: "click" as const,
-      description: "Tap on Product card",
+      description: "Tap IPL mega contest card",
       durationNs: 0,
     },
     {
@@ -184,7 +186,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_7`,
       timestamp: t(22100),
       eventType: "api_call" as const,
-      description: `API GET ${MOCK_API_ORIGIN}/api/products/123`,
+      description: `API GET ${MOCK_API_ORIGIN}/api/v1/contests/ipl-mega-2026/detail`,
       durationNs: 89000000,
     },
     {
@@ -192,7 +194,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_6`,
       timestamp: t(24500),
       eventType: "navigation" as const,
-      description: "Navigate to /product-detail",
+      description: "Navigate to /contest-detail",
       durationNs: 0,
     },
     {
@@ -200,7 +202,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_6b`,
       timestamp: t(26800),
       eventType: "click" as const,
-      description: "Scroll product detail",
+      description: "Scroll contest detail — prize pool",
       durationNs: 0,
     },
     {
@@ -208,7 +210,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_int`,
       timestamp: t(29500),
       eventType: "interaction" as const,
-      description: "Critical interaction AddToCart acknowledged",
+      description: "Critical interaction JoinContestButtonClick acknowledged",
       durationNs: 0,
     },
     {
@@ -216,7 +218,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_atc`,
       timestamp: t(31200),
       eventType: "click" as const,
-      description: "Tap Add to cart",
+      description: "Tap Join contest (JoinContestButtonClick)",
       durationNs: 0,
     },
     {
@@ -224,7 +226,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_8`,
       timestamp: t(32800),
       eventType: "api_call" as const,
-      description: `API POST ${MOCK_API_ORIGIN}/api/cart/add`,
+      description: `API POST ${MOCK_API_ORIGIN}/api/v1/contests/join`,
       durationNs: 312000000,
     },
     {
@@ -232,7 +234,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_9`,
       timestamp: t(36500),
       eventType: "navigation" as const,
-      description: "Navigate to /cart",
+      description: "Navigate to /team-selection",
       durationNs: 0,
     },
     {
@@ -240,7 +242,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_8b`,
       timestamp: t(38100),
       eventType: "api_call" as const,
-      description: `API GET ${MOCK_API_ORIGIN}/api/products/recs`,
+      description: `API GET ${MOCK_API_ORIGIN}/api/v1/contests/recommended`,
       durationNs: 125000000,
     },
     {
@@ -248,7 +250,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_cart`,
       timestamp: t(41800),
       eventType: "api_call" as const,
-      description: `API GET ${MOCK_API_ORIGIN}/api/cart`,
+      description: `API GET ${MOCK_API_ORIGIN}/api/v1/wallet/balance`,
       durationNs: 156000000,
     },
     {
@@ -256,7 +258,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_chk`,
       timestamp: t(43200),
       eventType: "click" as const,
-      description: "Tap Proceed to checkout",
+      description: "Tap Pay entry fee",
       durationNs: 0,
     },
     {
@@ -264,7 +266,7 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_10`,
       timestamp: t(45200),
       eventType: "api_call" as const,
-      description: `API POST ${MOCK_API_ORIGIN}/api/payment`,
+      description: `API POST ${MOCK_API_ORIGIN}/api/v1/payments/contest-entry`,
       durationNs: 30100000000,
     },
     {
@@ -327,7 +329,7 @@ export function generateSessionDetailApiResponse(
     "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
     "\tat com.dream11.network.AuthHeaderInterceptor.intercept(AuthHeaderInterceptor.kt:28)",
     "--- Request ---",
-    "POST https://api.example.com/api/payment HTTP/2",
+    "POST https://api.example.com/api/v1/payments/contest-entry HTTP/2",
     "Content-Type: application/json",
     "X-Request-Id: req_pay_8f2a9c1d",
     "User-Agent: Dream11/2.3.1 (Android 14; Pixel 6)",
@@ -340,10 +342,10 @@ export function generateSessionDetailApiResponse(
     "",
     "Message: Upstream payment service did not respond within 30s (Razorpay adapter).",
   ].join("\n");
-  const cartValidationStack = [
-    "java.lang.IllegalStateException: Cart line item missing price snapshot",
-    "\tat com.dream11.cart.CartRepository.validateLineItems(CartRepository.kt:214)",
-    "\tat com.dream11.cart.CartRepository.syncCart$lambda$3(CartRepository.kt:98)",
+  const contestEntryValidationStack = [
+    "java.lang.IllegalStateException: Contest entry fee not locked for selected XI",
+    "\tat com.dream11.contest.ContestEntryRepository.validateEntry(ContestEntryRepository.kt:198)",
+    "\tat com.dream11.contest.ContestEntryRepository.reserveEntry$lambda$3(ContestEntryRepository.kt:91)",
     "\tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)",
     "\tat android.os.Handler.handleCallback(Handler.java:959)",
     "\tat android.os.Handler.dispatchMessage(Handler.java:100)",
@@ -369,8 +371,8 @@ export function generateSessionDetailApiResponse(
       spanId: `span_${sessionId}_7`,
       pulseType: "non_fatal",
       timestamp: 22100,
-      title: "CartValidationError",
-      exceptionStackTrace: cartValidationStack,
+      title: "ContestEntryValidationError",
+      exceptionStackTrace: contestEntryValidationStack,
     },
     {
       traceId: `trace_${sessionId}_4`,
@@ -379,7 +381,7 @@ export function generateSessionDetailApiResponse(
       timestamp: 15300,
       title: "NetworkSlowWarning",
       exceptionStackTrace: [
-        "com.dream11.network.SlowResponseWarning: GET /api/products/recs exceeded p95 (245ms > 200ms)",
+        "com.dream11.network.SlowResponseWarning: GET /api/v1/contests/recommended exceeded p95 (245ms > 200ms)",
         "\tat com.dream11.network.TelemetryInterceptor.intercept(TelemetryInterceptor.kt:71)",
         "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
         "\tat okhttp3.internal.connection.ConnectInterceptor.intercept(ConnectInterceptor.kt:34)",
@@ -400,33 +402,37 @@ export function generateSessionDetailApiResponse(
     device: "Pixel 6",
     osVersion: "14",
     appVersion: "2.3.1",
-    geography: "United States, San Francisco",
+    geography: "India, Mumbai",
     quality: 0.65,
-    journey: ["com.fc.home", "com.fc.home.Product", "com.fc.home.Cart"],
+    journey: [
+      "HomeScreen",
+      "ProductDetailScreen",
+      "CartScreen",
+    ],
     interactions: [
       {
-        interactionName: "FCInteractionTesting",
-        status: "success",
-        successCount: 1,
-        failureCount: 0,
-        durationMs: 76,
-        apdexScore: 0.29,
-      },
-      {
-        interactionName: "SubmitPayment",
-        status: "failed",
-        successCount: 0,
-        failureCount: 1,
-        durationMs: 30100,
-        apdexScore: 0,
-      },
-      {
-        interactionName: "AddToCart",
+        interactionName: SESSION_REPLAY_DETAIL_INTERACTION_ORDER[0],
         status: "success",
         successCount: 1,
         failureCount: 0,
         durationMs: 420,
         apdexScore: 0.85,
+      },
+      {
+        interactionName: SESSION_REPLAY_DETAIL_INTERACTION_ORDER[1],
+        status: "success",
+        successCount: 1,
+        failureCount: 0,
+        durationMs: 320,
+        apdexScore: 0.82,
+      },
+      {
+        interactionName: SESSION_REPLAY_DETAIL_INTERACTION_ORDER[2],
+        status: "failed",
+        successCount: 0,
+        failureCount: 1,
+        durationMs: 30100,
+        apdexScore: 0,
       },
     ],
     networkRequests: [
@@ -454,9 +460,9 @@ export function generateSessionDetailApiResponse(
         timestamp: 15300,
         durationNs: 245000000,
         method: "GET",
-        url: `${MOCK_API_ORIGIN}/api/products/recs`,
+        url: `${MOCK_API_ORIGIN}/api/v1/contests/recommended`,
         status: "200",
-        target: "/api/products/recs",
+        target: "/api/v1/contests/recommended",
         traceId: `trace_${sessionId}_4`,
         spanId: `span_${sessionId}_4`,
       },
@@ -464,9 +470,9 @@ export function generateSessionDetailApiResponse(
         timestamp: 22100,
         durationNs: 89000000,
         method: "GET",
-        url: `${MOCK_API_ORIGIN}/api/products/123`,
+        url: `${MOCK_API_ORIGIN}/api/v1/contests/ipl-mega-2026/detail`,
         status: "200",
-        target: "/api/products/123",
+        target: "/api/v1/contests/ipl-mega-2026/detail",
         traceId: `trace_${sessionId}_7`,
         spanId: `span_${sessionId}_7`,
       },
@@ -474,9 +480,9 @@ export function generateSessionDetailApiResponse(
         timestamp: 32800,
         durationNs: 312000000,
         method: "POST",
-        url: `${MOCK_API_ORIGIN}/api/cart/add`,
+        url: `${MOCK_API_ORIGIN}/api/v1/contests/join`,
         status: "200",
-        target: "/api/cart/add",
+        target: "/api/v1/contests/join",
         traceId: `trace_${sessionId}_8`,
         spanId: `span_${sessionId}_8`,
       },
@@ -484,9 +490,9 @@ export function generateSessionDetailApiResponse(
         timestamp: 38100,
         durationNs: 125000000,
         method: "GET",
-        url: `${MOCK_API_ORIGIN}/api/products/recs`,
+        url: `${MOCK_API_ORIGIN}/api/v1/contests/recommended`,
         status: "200",
-        target: "/api/products/recs",
+        target: "/api/v1/contests/recommended",
         traceId: `trace_${sessionId}_8b`,
         spanId: `span_${sessionId}_8b`,
       },
@@ -494,9 +500,9 @@ export function generateSessionDetailApiResponse(
         timestamp: 41800,
         durationNs: 156000000,
         method: "GET",
-        url: `${MOCK_API_ORIGIN}/api/cart`,
+        url: `${MOCK_API_ORIGIN}/api/v1/wallet/balance`,
         status: "200",
-        target: "/api/cart",
+        target: "/api/v1/wallet/balance",
         traceId: `trace_${sessionId}_cart`,
         spanId: `span_${sessionId}_cart`,
       },
@@ -504,9 +510,9 @@ export function generateSessionDetailApiResponse(
         timestamp: 45200,
         durationNs: 30100000000,
         method: "POST",
-        url: `${MOCK_API_ORIGIN}/api/payment`,
+        url: `${MOCK_API_ORIGIN}/api/v1/payments/contest-entry`,
         status: "504",
-        target: "/api/payment",
+        target: "/api/v1/payments/contest-entry",
         traceId: `trace_${sessionId}_10`,
         spanId: `span_${sessionId}_10`,
       },
@@ -525,6 +531,17 @@ export function generateSessionDetailApiResponse(
     exceptions,
   };
 }
+
+/** Session detail for mocks: generic journey + optional `sess_mock_*` overrides from evidence scenarios. */
+export function generateSessionDetailApiResponse(
+  sessionId: string,
+): SessionDetailApiResponse {
+  return applyMockSessionDetailOverrides(
+    sessionId,
+    buildGenericSessionDetailApiResponse(sessionId),
+  );
+}
+
 /**
  * Generate mock response for GET /api/v1/session-replay/filters/schema
  */

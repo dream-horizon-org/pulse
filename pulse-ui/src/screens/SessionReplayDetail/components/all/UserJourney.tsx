@@ -1,4 +1,4 @@
-import { Box, Text, Timeline, Stack, Badge } from "@mantine/core";
+import { Box, Text, Timeline, Stack } from "@mantine/core";
 import { LABELS } from "../../constants/strings";
 
 interface UserJourneyProps {
@@ -10,8 +10,6 @@ export function UserJourney({
   journey,
   showSectionTitle = true,
 }: UserJourneyProps) {
-  const displayPath = (path: string) => path.toUpperCase();
-
   if (!journey.length) {
     return (
       <Box>
@@ -57,17 +55,9 @@ export function UserJourney({
                 <Text size="xs" c="dimmed">
                   Step {idx + 1} of {journey.length}
                 </Text>
-                <Text size="sm" fw={500}>
-                  {displayPath(path)}
+                <Text size="sm" fw={600}>
+                  {path}
                 </Text>
-                <Badge
-                  size="xs"
-                  variant="light"
-                  mt={4}
-                  color={isError ? "red" : "blue"}
-                >
-                  SCREEN
-                </Badge>
               </Timeline.Item>
             );
           })}

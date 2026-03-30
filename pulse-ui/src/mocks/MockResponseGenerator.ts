@@ -4,18 +4,26 @@
  * Generates realistic mock responses for different API endpoints
  */
 
+import type { RcaReportTenantContext } from "../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { resolveIncidentsMock } from "./incidentsMockHandler";
-import { mockJobResponses } from "./responses/jobResponses";
-import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
-import { handleFunnelEndpoints } from "./responses/funnelResponses";
+import { INTERACTION_DISCOVERY_MOCK_SUGGESTIONS } from "./interactionDiscoveryMockData";
+import { MockConfigManager } from "./MockConfig";
+import { MockDataStore } from "./MockDataStore";
 import {
   mockAlertFilters,
   mockAlertMetrics,
   mockAlertScopes,
   mockAlertSeverities,
   mockAlertTags,
-  mockNotificationChannels
+  mockNotificationChannels,
 } from "./responses/alertResponses";
+import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import { handleFunnelEndpoints } from "./responses/funnelResponses";
+import {
+  heatmapMockCompare,
+  resolveHeatmapData,
+} from "./responses/heatmapMockFixtures";
+import { mockJobResponses } from "./responses/jobResponses";
 import { buildMockRcaReportResponseBody } from "./responses/rcaReportResponses";
 import {
   cancelQueryJob,
@@ -25,14 +33,10 @@ import {
   generateMockQueryResults,
   getQueryJobStatus,
   mockTableMetadata,
-  shouldReturnImmediate
+  shouldReturnImmediate,
 } from "./responses/realtimeQueryResponses";
 import { MockRequest, MockResponse } from "./types";
 import { generateDataQueryMockResponseV2 } from "./v2";
-import { INTERACTION_DISCOVERY_MOCK_SUGGESTIONS } from "./interactionDiscoveryMockData";
-import type { RcaReportTenantContext } from "../hooks/useGetRcaReport/useGetRcaReport.interface";
-import { MockConfigManager } from "./MockConfig";
-import { MockDataStore } from "./MockDataStore";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -190,6 +194,11 @@ export class MockResponseGenerator {
     // Onboarding endpoints
     if (pathname.includes("/v1/onboarding/")) {
       return this.handleOnboardingEndpoints(pathname, method, request);
+    }
+
+    // Heatmap (before /v1/projects — paths like /api/v1/projects/:id/heatmap/* match projects)
+    if (pathname.includes("/heatmap/")) {
+      return this.handleHeatmapEndpoints(pathname, method, request);
     }
 
     // Project endpoints (POST /v1/projects, GET /v1/projects/:projectId)
@@ -7446,6 +7455,159 @@ ${
       error: {
         code: "NOT_FOUND",
         message: `Data query endpoint not found: ${method} ${pathname}`,
+        cause: "Invalid endpoint or method",
+      },
+    };
+  }
+
+  /**
+   * GET /v1/heatmap/data
+   * POST /api/v1/projects/:projectId/heatmap/data
+   * POST /api/v1/projects/:projectId/heatmap/compare
+   */
+  private handleHeatmapEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    const isCompare = pathname.includes("/heatmap/compare");
+    const isData = pathname.includes("/heatmap/data");
+
+    if (isCompare && method === "POST") {
+      try {
+        const body = request.body
+          ? typeof request.body === "string"
+            ? JSON.parse(request.body)
+            : request.body
+          : null;
+        if (!body?.screenName || !body?.compare?.screenName) {
+          return {
+            data: null,
+            status: 400,
+            error: {
+              code: "BAD_REQUEST",
+              message: "screenName and compare.screenName required",
+              cause: "Invalid body",
+            },
+          };
+        }
+        if (
+          body.screenName === "__error__" ||
+          body.compare?.screenName === "__error__"
+        ) {
+          return {
+            data: null,
+            status: 500,
+            error: {
+              code: "HEATMAP_ERROR",
+              message: "Mock heatmap compare failure",
+              cause: "__error__ scenario",
+            },
+          };
+        }
+        const data = heatmapMockCompare(
+          body.screenName,
+          body.compare.screenName,
+        );
+        return { data, status: 200, error: undefined };
+      } catch (e: unknown) {
+        return {
+          data: null,
+          status: 500,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Heatmap compare mock failed",
+            cause: e instanceof Error ? e.message : String(e),
+          },
+        };
+      }
+    }
+
+    if (isData && method === "GET") {
+      let url: URL;
+      try {
+        url = new URL(request.url);
+      } catch {
+        url = new URL(request.url, "http://localhost");
+      }
+      const screenName = url.searchParams.get("screenName") || "";
+      if (!screenName) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "BAD_REQUEST",
+            message: "screenName is required",
+            cause: "Missing query param",
+          },
+        };
+      }
+      if (screenName === "__error__") {
+        return {
+          data: null,
+          status: 500,
+          error: {
+            code: "HEATMAP_ERROR",
+            message: "Mock heatmap failure",
+            cause: "__error__ scenario",
+          },
+        };
+      }
+      const data = resolveHeatmapData(screenName);
+      return { data, status: 200, error: undefined };
+    }
+
+    if (isData && method === "POST") {
+      try {
+        const body = request.body
+          ? typeof request.body === "string"
+            ? JSON.parse(request.body)
+            : request.body
+          : null;
+        const screenName = body?.screenName || "";
+        if (!screenName) {
+          return {
+            data: null,
+            status: 400,
+            error: {
+              code: "BAD_REQUEST",
+              message: "screenName is required",
+              cause: "Invalid body",
+            },
+          };
+        }
+        if (screenName === "__error__") {
+          return {
+            data: null,
+            status: 500,
+            error: {
+              code: "HEATMAP_ERROR",
+              message: "Mock heatmap failure",
+              cause: "__error__ scenario",
+            },
+          };
+        }
+        const data = resolveHeatmapData(screenName);
+        return { data, status: 200, error: undefined };
+      } catch (e: unknown) {
+        return {
+          data: null,
+          status: 500,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Heatmap data mock failed",
+            cause: e instanceof Error ? e.message : String(e),
+          },
+        };
+      }
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: `Heatmap endpoint not found: ${method} ${pathname}`,
         cause: "Invalid endpoint or method",
       },
     };

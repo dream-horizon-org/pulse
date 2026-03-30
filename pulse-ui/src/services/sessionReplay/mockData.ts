@@ -1284,7 +1284,8 @@ export class MockSessionReplayData {
   }
 }
 
-// Export mock sessions for consistent data across the app
+// Export mock sessions for legacy mock-server paths. When REACT_APP_USE_MOCK_SESSION_REPLAY is true,
+// the Session Replay UI uses curated scenarios in screens/SessionReplayDetail/mock/mockSessionReplayScenarios.ts.
 export const MOCK_SESSIONS_DATA = MockSessionReplayData.generateSessions(50);
 
 // Mock Configuration Responses

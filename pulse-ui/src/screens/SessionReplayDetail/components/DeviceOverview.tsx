@@ -21,7 +21,9 @@ export function DeviceOverview({
   const deviceClass = compact ? classes.deviceCompact : "";
 
   return (
-    <Box className={classes.deviceContainer}>
+    <Box
+      className={`${classes.deviceContainer}${compact ? ` ${classes.deviceContainerCompact}` : ""}`}
+    >
       {isIOS && (
         <Box className={`${classes.iosDevice} ${deviceClass}`}>
           {/* iPhone notch */}

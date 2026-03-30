@@ -1,0 +1,53 @@
+import type { HeatmapDataResponse } from "./heatmap.types";
+
+/**
+ * Heatmap scores are **derived from API telemetry** (`glow_map` weights and
+ * `total_events`), not from analyzing the screenshot image. The image is only
+ * an underlay for aligning normalized x/y (0–1) to pixels.
+ */
+
+export interface HeatmapQualityMetrics {
+  score: number | null;
+  /** Good / Average / Poor / No data */
+  label: string;
+  /** Maps to UI legend chip styling */
+  band: "good" | "average" | "poor" | "nodata";
+}
+
+export function getHeatmapQualityMetrics(
+  payload: HeatmapDataResponse | null | undefined,
+): HeatmapQualityMetrics {
+  const glow = payload?.layers?.glow_map;
+  if (!payload || !glow?.length) {
+    return { score: null, label: "No data", band: "nodata" };
+  }
+
+  const totalEvents = Math.max(1, payload.metadata.total_events);
+  const sumW = glow.reduce((s, p) => s + p.weight, 0);
+  const maxW = Math.max(...glow.map((p) => p.weight));
+
+  /** How much of reported traffic is represented in these bins */
+  const coverage = Math.min(1, sumW / totalEvents);
+  /** How dominant the hottest bin is (0–1) */
+  const dominance = sumW > 0 ? maxW / sumW : 0;
+
+  const score = Math.min(
+    100,
+    Math.max(0, Math.round(100 * (0.35 * coverage + 0.65 * dominance))),
+  );
+
+  let label: string;
+  let band: HeatmapQualityMetrics["band"];
+  if (score >= 70) {
+    label = "Good";
+    band = "good";
+  } else if (score >= 40) {
+    label = "Average";
+    band = "average";
+  } else {
+    label = "Poor";
+    band = "poor";
+  }
+
+  return { score, label, band };
+}

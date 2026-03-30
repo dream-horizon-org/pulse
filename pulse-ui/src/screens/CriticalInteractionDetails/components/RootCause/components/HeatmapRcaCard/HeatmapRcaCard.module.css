@@ -1,0 +1,97 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 220px;
+  min-height: 220px;
+  max-height: 220px;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-white);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(14, 201, 194, 0.35);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+}
+
+.cardClickable {
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.cardClickable:focus-visible {
+  outline: 2px solid var(--mantine-color-teal-5);
+  outline-offset: 2px;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: var(--mantine-spacing-sm);
+  height: 100%;
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mantine-spacing-xs);
+  flex-shrink: 0;
+}
+
+.screenName {
+  font-weight: 600;
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-gray-9);
+  min-width: 0;
+}
+
+.labelBox {
+  flex: 1;
+  min-height: 0;
+  padding: var(--mantine-spacing-md);
+  background: rgba(14, 201, 194, 0.06);
+  border: 1px solid rgba(14, 201, 194, 0.18);
+  border-radius: var(--mantine-radius-sm);
+  overflow: hidden;
+}
+
+.labelText {
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.5;
+  color: var(--mantine-color-gray-8);
+}
+
+.footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: var(--mantine-spacing-xs);
+}
+
+.viewLink {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  color: var(--mantine-color-teal-7);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  text-decoration: none;
+}
+
+.viewLink:hover {
+  color: var(--mantine-color-teal-8);
+  text-decoration: underline;
+}
+
+.viewLink:focus-visible {
+  outline: 2px solid var(--mantine-color-teal-5);
+  outline-offset: 2px;
+  border-radius: var(--mantine-radius-xs);
+}

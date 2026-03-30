@@ -92,7 +92,7 @@ export function SessionsTable({
           {TABLE_COLUMN_LABELS.user}
         </div>
         <div
-          className={`${classes.cell} ${classes.headerCellSortable}`}
+          className={`${classes.cell} ${classes.headerCellSortable} ${classes.cellQualityHeader}`}
           role="columnheader"
           onClick={() => onSort("QUALITY_SCORE")}
         >

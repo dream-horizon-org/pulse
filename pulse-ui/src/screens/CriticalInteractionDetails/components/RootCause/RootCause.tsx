@@ -1,34 +1,40 @@
 import { Box, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
-import { IconPlayerPlay, IconRefresh, IconChartFunnel } from "@tabler/icons-react";
+import {
+  IconChartFunnel,
+  IconLayoutGrid,
+  IconPlayerPlay,
+  IconRefresh,
+} from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { useGetInteractionDetailsGraphs } from "../../../../hooks/useGetInteractionDetailsGraphs";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import type { RcaReportTenantContext } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
-import { SessionCard, FunnelJourneyCard } from "./components";
+import { FunnelJourneyCard, HeatmapRcaCard, SessionCard } from "./components";
+import { buildScreenHeatmapUrl, getRcaHeatmapTargets } from "./rcaHeatmapLinks";
+import { RcaReportView } from "./RcaReportView";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
-import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
 
-/** Mock related session replays for the RCA view; IDs match Session Replay mock (sess_mock_001, sess_mock_002) for Watch Replay navigation */
+/** Mock related session replays for the RCA view; IDs match `mockSessionReplayScenarios` (same mock replay frames as other sess_* mocks). */
 const MOCK_RELATED_SESSIONS = [
   {
-    sessionId: "sess_mock_001",
-    duration: "2:34",
-    relativeTime: "30 min ago",
-    device: "SM-S911B • Android 13",
+    sessionId: "sess_rca_join_mock_001",
+    duration: "3:18",
+    relativeTime: "45 min ago",
+    device: "Android 13 · App 4.0.0 · Pixel 8",
     failureSummary:
-      "Payment gateway timeout at 8.2s → app crashed (OOM during retry)",
+      "Join API error, then ANR on retry — matches Android 4.0.0 + OS 13 RCA segment.",
   },
   {
-    sessionId: "sess_mock_002",
-    duration: "1:48",
-    relativeTime: "2 hours ago",
-    device: "iPhone 15 Pro • iOS 17.4",
+    sessionId: "sess_rca_join_mock_002",
+    duration: "4:05",
+    relativeTime: "1 hr ago",
+    device: "iOS 17.4 · App 4.2.0 · iPhone 15 Pro",
     failureSummary:
-      "Payment screen ANR for 6s on Airtel 4G — user force-closed app",
+      "Slow join + interaction error — matches iOS 4.2.0 RCA segment.",
   },
 ];
 
@@ -42,17 +48,19 @@ const MOCK_LINKED_FUNNELS_JOURNEYS = [
     createdBy: "sarah@example.com",
     createdAt: "3 days ago",
     tags: ["payment", "conversion", "critical"],
-    description: "Tracks user conversion through the payment process including checkout and order completion.",
+    description:
+      "Tracks user conversion through the payment process including checkout and order completion.",
   },
   {
-    id: "journey-onboarding-001", 
+    id: "journey-onboarding-001",
     name: "User Onboarding Journey",
     type: "JOURNEY" as const,
     status: "ACTIVE" as const,
     createdBy: "alex@example.com",
     createdAt: "1 week ago",
     tags: ["onboarding", "ux", "retention"],
-    description: "Maps the complete user journey from app launch to account creation and first purchase.",
+    description:
+      "Maps the complete user journey from app launch to account creation and first purchase.",
   },
 ];
 
@@ -101,6 +109,11 @@ export const RootCause = ({
     if (metrics.p95 != null) ctx.p95Ms = metrics.p95;
     return ctx;
   }, [metrics]);
+
+  const rcaHeatmapTargets = useMemo(
+    () => getRcaHeatmapTargets(interactionName),
+    [interactionName],
+  );
 
   const rcaQueryEnabled =
     hasInteractionName &&
@@ -243,7 +256,10 @@ export const RootCause = ({
               <Text className={classes.linkedFunnelsJourneysTitle}>
                 Linked Funnels & Journeys
               </Text>
-              <Box component="span" className={classes.linkedFunnelsJourneysBadge}>
+              <Box
+                component="span"
+                className={classes.linkedFunnelsJourneysBadge}
+              >
                 {linkedFunnelsJourneys.length}
               </Box>
             </Group>
@@ -260,6 +276,41 @@ export const RootCause = ({
                   tags={item.tags}
                   description={item.description}
                   detailUrl={`/projects/${effectiveProjectId}/funnels-journeys/${item.id}`}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+        {rcaHeatmapTargets.length > 0 && (
+          <section
+            className={classes.relatedHeatmapsSection}
+            aria-label="Related heatmaps"
+          >
+            <Group className={classes.relatedReplaysHeader} gap="xs">
+              <IconLayoutGrid
+                size={18}
+                color="var(--mantine-color-teal-7)"
+                aria-hidden
+              />
+              <Text className={classes.relatedReplaysTitle}>
+                Related heatmaps
+              </Text>
+              <Box component="span" className={classes.relatedReplaysBadge}>
+                {rcaHeatmapTargets.length}
+              </Box>
+            </Group>
+            <div className={classes.relatedReplaysGrid}>
+              {rcaHeatmapTargets.map((target, idx) => (
+                <HeatmapRcaCard
+                  key={`${target.screenName}-${idx}`}
+                  screenName={target.screenName}
+                  label={target.label}
+                  heatmapUrl={buildScreenHeatmapUrl(
+                    effectiveProjectId,
+                    target.screenName,
+                    startTime,
+                    endTime,
+                  )}
                 />
               ))}
             </div>

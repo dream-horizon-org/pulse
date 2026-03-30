@@ -10,217 +10,17 @@ import type {
   SessionItem,
   SessionDetailApiResponse,
   FilterConfigResponse,
+  TimeRange,
+  AdvancedFilterGroup,
+  SessionListingFilterCondition,
+  FilterValue,
 } from "../../../services/sessionReplay/types";
 import type { SnapshotsDataResponse } from "../../../services/sessionReplay/sessionReplaySnapshotTypes";
 import { generateSessionDetailApiResponse } from "../../../mocks/responses/sessionReplayResponses";
+import { MOCK_SESSION_ITEMS } from "./mockSessionReplayScenarios";
 
 function getMockSessionItems(): SessionItem[] {
-  const now = Date.now();
-  /** Staggered start times across ~24h for a realistic “Last 24 hours” table */
-  const t = (hoursAgo: number, minutesOffset = 0) =>
-    new Date(
-      now - hoursAgo * 60 * 60 * 1000 - minutesOffset * 60 * 1000,
-    ).toISOString();
-
-  return [
-    {
-      sessionId: "sess_mock_001",
-      startTime: t(0, 17),
-      durationMs: 159000,
-      user: "user_3456",
-      qualityScore: 0.86,
-      issues: [
-        { type: "NETWORK_ERROR", label: "Network Errors", count: 2 },
-        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 1 },
-        { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 1 },
-      ],
-      platform: "Android",
-      spanCount: 187,
-      journey: ["/home", "/search", "/contest", "/checkout"],
-      impactedScreens: { nonFatals: ["/search"] },
-    },
-    {
-      sessionId: "sess_mock_002",
-      startTime: t(2, 0),
-      durationMs: 92000,
-      user: null,
-      qualityScore: 0.72,
-      issues: [
-        { type: "NON_FATAL", label: "Non-Fatals", count: 1 },
-        { type: "FROZEN_FRAME", label: "Frozen Frames", count: 2 },
-      ],
-      platform: "iOS",
-      spanCount: 94,
-      journey: ["/login", "/home", "/offers", "/cart"],
-      impactedScreens: { nonFatals: ["/offers"] },
-    },
-    {
-      sessionId: "sess_mock_003",
-      startTime: t(3, 0),
-      durationMs: 310000,
-      user: "user_1234",
-      qualityScore: 0.95,
-      issues: [],
-      platform: "Web",
-      spanCount: 256,
-      journey: ["/home", "/search", "/contest", "/pay", "/wallet", "/receipt"],
-      impactedScreens: null,
-    },
-    {
-      sessionId: "sess_mock_004",
-      startTime: t(4, 0),
-      durationMs: 45000,
-      user: "user_5678",
-      qualityScore: null,
-      issues: [
-        { type: "CRASH", label: "Crashes", count: 1 },
-        { type: "NETWORK_ERROR", label: "Network Errors", count: 3 },
-        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 2 },
-        { type: "NON_FATAL", label: "Non-Fatals", count: 2 },
-        { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 2 },
-        { type: "FROZEN_FRAME", label: "Frozen Frames", count: 1 },
-      ],
-      platform: "Android",
-      spanCount: 61,
-      journey: ["/splash", "/home", "/feed"],
-      impactedScreens: {
-        crashes: ["/home"],
-        nonFatals: ["/home", "/feed", "/settings"],
-      },
-    },
-    {
-      sessionId: "sess_mock_005",
-      startTime: t(6, 0),
-      durationMs: 210000,
-      user: "user_9012",
-      qualityScore: 0.68,
-      issues: [
-        { type: "ANR", label: "ANRs", count: 1 },
-        { type: "NETWORK_ERROR", label: "Network Errors", count: 1 },
-        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 1 },
-        { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 3 },
-      ],
-      platform: "iOS",
-      spanCount: 203,
-      journey: ["/home", "/profile", "/settings", "/notifications"],
-      impactedScreens: { anrs: ["/profile"] },
-    },
-    {
-      sessionId: "sess_mock_006",
-      startTime: t(7, 22),
-      durationMs: 428000,
-      user: "user_2840",
-      qualityScore: 0.58,
-      issues: [
-        { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 6 },
-        { type: "FROZEN_FRAME", label: "Frozen Frames", count: 4 },
-        { type: "NON_FATAL", label: "Non-Fatals", count: 2 },
-      ],
-      platform: "Android",
-      spanCount: 312,
-      journey: ["/home", "/shop", "/product", "/reviews", "/cart"],
-      impactedScreens: { nonFatals: ["/product", "/reviews"] },
-    },
-    {
-      sessionId: "sess_mock_007",
-      startTime: t(9, 5),
-      durationMs: 78000,
-      user: "vip_user_01",
-      qualityScore: 0.91,
-      issues: [
-        { type: "NETWORK_ERROR", label: "Network Errors", count: 5 },
-        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 1 },
-      ],
-      platform: "Web",
-      spanCount: 142,
-      journey: ["/dashboard", "/reports", "/export"],
-      impactedScreens: null,
-    },
-    {
-      sessionId: "sess_mock_008",
-      startTime: t(11, 40),
-      durationMs: 12000,
-      user: null,
-      qualityScore: null,
-      issues: [{ type: "CRASH", label: "Crashes", count: 1 }],
-      platform: "iOS",
-      spanCount: 18,
-      journey: ["/onboarding", "/permissions"],
-      impactedScreens: { crashes: ["/permissions"] },
-    },
-    {
-      sessionId: "sess_mock_009",
-      startTime: t(14, 12),
-      durationMs: 602000,
-      user: "user_7777",
-      qualityScore: 0.82,
-      issues: [
-        { type: "NON_FATAL", label: "Non-Fatals", count: 4 },
-        { type: "NETWORK_ERROR", label: "Network Errors", count: 1 },
-      ],
-      platform: "Android",
-      spanCount: 445,
-      journey: [
-        "/home",
-        "/live",
-        "/match",
-        "/stats",
-        "/chat",
-        "/wallet",
-        "/withdraw",
-      ],
-      impactedScreens: {
-        nonFatals: ["/withdraw", "/wallet"],
-      },
-    },
-    {
-      sessionId: "sess_mock_010",
-      startTime: t(16, 33),
-      durationMs: 195000,
-      user: "user_1122",
-      qualityScore: 0.44,
-      issues: [
-        { type: "ANR", label: "ANRs", count: 2 },
-        { type: "CRASH", label: "Crashes", count: 1 },
-        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 3 },
-      ],
-      platform: "Android",
-      spanCount: 88,
-      journey: ["/home", "/video", "/fullscreen"],
-      impactedScreens: {
-        anrs: ["/fullscreen"],
-        crashes: ["/video"],
-      },
-    },
-    {
-      sessionId: "sess_mock_011",
-      startTime: t(18, 50),
-      durationMs: 67000,
-      user: "qa_bot_session",
-      qualityScore: 0.99,
-      issues: [],
-      platform: "Web",
-      spanCount: 72,
-      journey: ["/", "/smoke", "/health"],
-      impactedScreens: null,
-    },
-    {
-      sessionId: "sess_mock_012",
-      startTime: t(22, 8),
-      durationMs: 340000,
-      user: "user_9999",
-      qualityScore: 0.63,
-      issues: [
-        { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 2 },
-        { type: "NETWORK_ERROR", label: "Network Errors", count: 2 },
-        { type: "FROZEN_FRAME", label: "Frozen Frames", count: 1 },
-      ],
-      platform: "iOS",
-      spanCount: 198,
-      journey: ["/tab/home", "/tab/explore", "/tab/profile"],
-      impactedScreens: { nonFatals: ["/tab/explore"] },
-    },
-  ];
+  return MOCK_SESSION_ITEMS;
 }
 
 function sessionMatchesQuickFilters(
@@ -245,6 +45,293 @@ function sessionMatchesSearch(session: SessionItem, query: string | undefined) {
     (session.user?.toLowerCase().includes(q) ?? false) ||
     session.journey.some((p) => p.toLowerCase().includes(q))
   );
+}
+
+/** Inclusive start, exclusive end — matches `TimeRange` contract in types. */
+function sessionMatchesTimeRange(
+  session: SessionItem,
+  timeRange: TimeRange | undefined,
+): boolean {
+  if (!timeRange?.from || !timeRange?.to) return true;
+  const t = new Date(session.startTime).getTime();
+  const fromT = new Date(timeRange.from).getTime();
+  const toT = new Date(timeRange.to).getTime();
+  if (Number.isNaN(t) || Number.isNaN(fromT) || Number.isNaN(toT)) return true;
+  return t >= fromT && t < toT;
+}
+
+function issueSum(session: SessionItem, type: string): number {
+  return session.issues
+    .filter((i) => i.type === type)
+    .reduce((s, i) => s + i.count, 0);
+}
+
+function totalIssueCount(session: SessionItem): number {
+  return session.issues.reduce((s, i) => s + i.count, 0);
+}
+
+/** Stable pseudo-metrics so RUM / geo / app filters behave predictably in mock mode. */
+function mockListingDerivatives(session: SessionItem) {
+  const seed = hashString(session.sessionId);
+  const slow = issueSum(session, "SLOW_INTERACTION");
+  return {
+    rumLcpMs: 900 + (seed % 2800),
+    rumFidMs: 12 + (seed % 180),
+    rumCls: ((seed % 1000) / 1000) * 0.25,
+    rumLongTasks: seed % 8,
+    memoryPeakMb: 120 + (session.spanCount % 380),
+    slowFramePct: Math.min(100, slow * 8 + (seed % 15)),
+    country: seed % 2 === 0 ? "IN" : "US",
+    region: seed % 3 === 0 ? "Mumbai" : seed % 3 === 1 ? "Delhi NCR" : "Bengaluru",
+    appVersion: `2.${(seed % 24)}.${seed % 12}`,
+    appBuild: String(4000 + (seed % 12000)),
+    eventCategory: session.issues.length > 0 ? "error" : "navigation",
+    eventName: `session_${session.sessionId}`,
+  };
+}
+
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function syntheticOsVersion(platform: string): string {
+  const p = platform.toLowerCase();
+  if (p === "android") return "14";
+  if (p === "ios") return "17.2";
+  if (p === "web") return "124";
+  return "0";
+}
+
+function normalizePlatformKey(p: string): string {
+  return p.trim().toLowerCase();
+}
+
+function coerceNumber(v: FilterValue | undefined): number | null {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (Array.isArray(v) && v.length > 0) return coerceNumber(v[0]);
+  return null;
+}
+
+function coerceString(v: FilterValue | undefined): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(String).join(",");
+  return "";
+}
+
+function compareNumbers(
+  op: string,
+  left: number,
+  right: number | null,
+): boolean {
+  if (right == null) return false;
+  switch (op) {
+    case "equals":
+      return left === right;
+    case "not_equals":
+      return left !== right;
+    case "greater_than":
+      return left > right;
+    case "less_than":
+      return left < right;
+    case "greater_than_or_equal":
+      return left >= right;
+    case "less_than_or_equal":
+      return left <= right;
+    default:
+      return false;
+  }
+}
+
+function compareStrings(
+  op: string,
+  left: string,
+  value: FilterValue | undefined,
+): boolean {
+  const lv = left.toLowerCase();
+  if (op === "in" && Array.isArray(value)) {
+    const arr = value.map((x) => String(x).toLowerCase());
+    return arr.includes(lv);
+  }
+  if (op === "not_in" && Array.isArray(value)) {
+    const arr = value.map((x) => String(x).toLowerCase());
+    return !arr.includes(lv);
+  }
+  const r = coerceString(value).toLowerCase();
+  switch (op) {
+    case "equals":
+      return lv === r;
+    case "not_equals":
+      return lv !== r;
+    case "contains":
+      return lv.includes(r);
+    case "not_contains":
+      return !lv.includes(r);
+    default:
+      return false;
+  }
+}
+
+function criticalInteractionMatches(
+  session: SessionItem,
+  op: string,
+  value: FilterValue | undefined,
+): boolean {
+  const names = session.criticalInteractionNames ?? [];
+  if (names.length === 0) {
+    return op === "not_equals" || op === "not_contains" || op === "not_in";
+  }
+
+  const lowerNames = names.map((n) => n.toLowerCase());
+
+  if (op === "in" && Array.isArray(value)) {
+    const want = value.map((x) => String(x).toLowerCase());
+    return names.some((n) => want.includes(n.toLowerCase()));
+  }
+  if (op === "not_in" && Array.isArray(value)) {
+    const want = new Set(value.map((x) => String(x).toLowerCase()));
+    return names.every((n) => !want.has(n.toLowerCase()));
+  }
+
+  const r = coerceString(value).toLowerCase();
+  switch (op) {
+    case "equals":
+      return names.some((n) => n.toLowerCase() === r);
+    case "not_equals":
+      return names.every((n) => n.toLowerCase() !== r);
+    case "contains":
+      return lowerNames.some((n) => n.includes(r));
+    case "not_contains":
+      return lowerNames.every((n) => !n.includes(r));
+    default:
+      return false;
+  }
+}
+
+function evaluateListingCondition(
+  session: SessionItem,
+  c: SessionListingFilterCondition,
+): boolean {
+  const { field, operator: op, value } = c;
+  const d = mockListingDerivatives(session);
+
+  switch (field) {
+    case "session.duration_ms":
+      return compareNumbers(op, session.durationMs, coerceNumber(value));
+    case "session.error_count":
+      return compareNumbers(op, totalIssueCount(session), coerceNumber(value));
+    case "session.page_count":
+      return compareNumbers(op, session.journey.length, coerceNumber(value));
+    case "session.journey": {
+      const path = session.journey.join(" ");
+      return compareStrings(op, path, value);
+    }
+    case "session.quality_score": {
+      const q = session.qualityScore;
+      const rhs = coerceNumber(value);
+      if (q == null) {
+        if (rhs == null) return op === "equals";
+        return op === "not_equals" || op === "not_contains";
+      }
+      return compareNumbers(op, q, rhs);
+    }
+    case "session.span_count":
+      return compareNumbers(op, session.spanCount, coerceNumber(value));
+    case "device.type": {
+      const plat = normalizePlatformKey(session.platform);
+      if (op === "in" && Array.isArray(value)) {
+        return value.some(
+          (x) => normalizePlatformKey(String(x)) === plat,
+        );
+      }
+      if (op === "not_in" && Array.isArray(value)) {
+        return !value.some(
+          (x) => normalizePlatformKey(String(x)) === plat,
+        );
+      }
+      return compareStrings(op, session.platform, value);
+    }
+    case "device.os_version":
+      return compareStrings(op, syntheticOsVersion(session.platform), value);
+    case "critical_interaction.name":
+      return criticalInteractionMatches(session, op, value);
+    case "user.id":
+      return compareStrings(op, session.user ?? "", value);
+    case "user.is_anonymous": {
+      const anon = session.user == null;
+      const wantTrue =
+        value === true ||
+        (typeof value === "string" && value.toLowerCase() === "true");
+      const matches = anon === wantTrue;
+      if (op === "equals") return matches;
+      if (op === "not_equals") return !matches;
+      return false;
+    }
+    case "user.segment":
+      return compareStrings(op, "standard", value);
+    case "rum.lcp_ms":
+      return compareNumbers(op, d.rumLcpMs, coerceNumber(value));
+    case "rum.fid_ms":
+      return compareNumbers(op, d.rumFidMs, coerceNumber(value));
+    case "rum.cls":
+      return compareNumbers(op, d.rumCls, coerceNumber(value));
+    case "rum.long_task_count":
+      return compareNumbers(op, d.rumLongTasks, coerceNumber(value));
+    case "performance.freeze_frame_count":
+      return compareNumbers(
+        op,
+        issueSum(session, "FROZEN_FRAME"),
+        coerceNumber(value),
+      );
+    case "performance.slow_frame_pct":
+      return compareNumbers(op, d.slowFramePct, coerceNumber(value));
+    case "performance.memory_peak_mb":
+      return compareNumbers(op, d.memoryPeakMb, coerceNumber(value));
+    case "event.category":
+      return compareStrings(op, d.eventCategory, value);
+    case "event.name":
+      return compareStrings(op, d.eventName, value);
+    case "event.has_error":
+      return compareStrings(
+        op,
+        session.issues.length > 0 ? "true" : "false",
+        value,
+      );
+    case "geography.country":
+      return compareStrings(op, d.country, value);
+    case "geography.region":
+      return compareStrings(op, d.region, value);
+    case "app.version":
+      return compareStrings(op, d.appVersion, value);
+    case "app.build":
+      return compareStrings(op, d.appBuild, value);
+    default:
+      return false;
+  }
+}
+
+function sessionMatchesAdvanced(
+  session: SessionItem,
+  group: AdvancedFilterGroup | undefined,
+): boolean {
+  if (!group?.children?.length) return true;
+  const results = group.children.map((child) =>
+    evaluateListingCondition(session, child),
+  );
+  if (group.op === "OR") return results.some(Boolean);
+  return results.every(Boolean);
 }
 
 function sortMockSessions(
@@ -304,7 +391,9 @@ export function getMockSessionListingResponse(
 
   let allSessions = getMockSessionItems().filter(
     (s) =>
+      sessionMatchesTimeRange(s, request.timeRange) &&
       sessionMatchesQuickFilters(s, request.filters?.quick) &&
+      sessionMatchesAdvanced(s, request.filters?.advanced) &&
       sessionMatchesSearch(s, request.query),
   );
   allSessions = sortMockSessions(
@@ -472,11 +561,12 @@ export function getMockSessionsFiltersResponse(): FilterConfigResponse {
       },
       {
         categoryKey: "ui_interaction",
-        displayName: "UI Interaction",
+        displayName: "UI interaction",
         fields: [
           {
             key: "critical_interaction.name",
-            displayName: "Critical Interaction",
+            displayName:
+              "Critical interaction (e.g. JoinContestButtonClick, PaymentSubmitClick)",
             dataType: "string",
             allowedOperators: [
               { key: "equals", label: "equals", valueType: "single" as const },

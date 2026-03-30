@@ -78,6 +78,9 @@
 
 /* Table Container */
 .tableContainer {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   background: white;
   border: 1px solid #e9ecef;
   margin-bottom: 16px;

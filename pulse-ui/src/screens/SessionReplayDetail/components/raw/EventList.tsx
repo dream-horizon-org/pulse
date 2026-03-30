@@ -17,7 +17,6 @@ import { convertEventToFlameChartNode } from "./utils/eventConverter";
 import type { SessionDetailData } from "../../../../services/sessionReplay/mockSessionDetail";
 import { ROUTES } from "../../../../constants";
 import { HEADERS } from "../../constants/strings";
-import { TAB_PANEL_SCROLL_MAX } from "../TabPanelScrollArea";
 
 function formatAbsoluteTime(sessionStartIso: string, offsetMs: number): string {
   const date = new Date(new Date(sessionStartIso).getTime() + offsetMs);
@@ -129,17 +128,19 @@ export function EventList({
           scrollbars="y"
           style={{
             flex: 1,
-            minHeight: 200,
-            maxHeight: TAB_PANEL_SCROLL_MAX,
+            minHeight: 0,
             width: "100%",
           }}
           styles={{
             root: {
+              flex: 1,
+              minHeight: 0,
               display: "flex",
               flexDirection: "column",
             },
             viewport: {
-              maxHeight: TAB_PANEL_SCROLL_MAX,
+              flex: 1,
+              minHeight: 0,
               "& > div": {
                 display: "block !important",
               },

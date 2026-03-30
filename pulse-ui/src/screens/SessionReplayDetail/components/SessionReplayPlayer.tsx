@@ -119,19 +119,23 @@ export function SessionReplayPlayer({
     ? `${classes.playerContainer} ${classes.playerContainerCompact}`
     : classes.playerContainer;
 
+  const replay = (
+    <DeviceOverview sessionData={sessionData} compact={compact}>
+      {imageToShow && (
+        <ReplayImageView
+          imageToShow={imageToShow}
+          previousImage={previousImage}
+          transitionOpacity={transitionOpacity}
+          loadedImages={loadedImages}
+          onImageLoad={handleImageLoad}
+        />
+      )}
+    </DeviceOverview>
+  );
+
   return (
     <Box className={containerClass} ref={containerRef}>
-      <DeviceOverview sessionData={sessionData} compact={compact}>
-        {imageToShow && (
-          <ReplayImageView
-            imageToShow={imageToShow}
-            previousImage={previousImage}
-            transitionOpacity={transitionOpacity}
-            loadedImages={loadedImages}
-            onImageLoad={handleImageLoad}
-          />
-        )}
-      </DeviceOverview>
+      {compact ? <Box className={classes.viewportSlot}>{replay}</Box> : replay}
     </Box>
   );
 }

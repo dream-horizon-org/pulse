@@ -1,0 +1,109 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 12px 8px;
+  border: none;
+  border-radius: var(--mantine-radius-sm);
+  background: transparent;
+}
+
+.row:not(:last-child) {
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+/*
+ * Reading order: name | status | Apdex (same as App Vitals).
+ * Fixed columns so badges and Apdex line up when names differ in length.
+ */
+.mainLine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7.5rem, auto) minmax(7.25rem, auto);
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.nameCol {
+  grid-column: 1;
+  min-width: 0;
+  color: var(--mantine-color-dark-7);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* Catalog link: same cell as former title; row click still seeks when clicking elsewhere */
+.nameLink {
+  grid-column: 1;
+  min-width: 0;
+  line-height: 1.35;
+  word-break: break-word;
+  color: var(--mantine-color-teal-8);
+  text-decoration: none;
+}
+
+.nameLink:hover {
+  color: var(--mantine-color-teal-9);
+  text-decoration: underline;
+}
+
+.statusCol {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.metricCol {
+  grid-column: 3;
+  justify-self: end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rowSeekable {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.rowSeekable:hover {
+  background: var(--mantine-color-gray-0);
+}
+
+@media (max-width: 36em) {
+  .mainLine {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .metricCol {
+    text-align: left;
+    white-space: normal;
+  }
+}
+
+[data-mantine-color-scheme="dark"] .row:not(:last-child) {
+  border-bottom-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .rowSeekable:hover {
+  background: var(--mantine-color-dark-6);
+}
+
+[data-mantine-color-scheme="dark"] .nameCol {
+  color: var(--mantine-color-gray-2);
+}
+
+[data-mantine-color-scheme="dark"] .nameLink {
+  color: var(--mantine-color-teal-4);
+}
+
+[data-mantine-color-scheme="dark"] .nameLink:hover {
+  color: var(--mantine-color-teal-3);
+}

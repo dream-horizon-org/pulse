@@ -1,0 +1,125 @@
+/*
+ * Dense console: one type scale (xs), grid alignment, no stacked padding from Group + row.
+ */
+.terminal {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-gray-0);
+}
+
+.rowList {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(5rem, max-content) auto minmax(0, 1fr);
+  column-gap: var(--mantine-spacing-sm);
+  align-items: center;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  font-size: var(--mantine-font-size-xs);
+  line-height: 1.35;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.time,
+.message {
+  font-family: var(--mantine-font-family-monospace, ui-monospace, monospace);
+  font-size: var(--mantine-font-size-xs);
+  line-height: 1.35;
+}
+
+.time {
+  flex-shrink: 0;
+  color: var(--mantine-color-gray-6);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pill replaces Badge — same line-height as text, centered in row */
+.levelPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 1.25rem;
+  padding: 0 5px;
+  border-radius: var(--mantine-radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  font-family: var(--mantine-font-family);
+}
+
+.levelLog {
+  background: var(--mantine-color-gray-2);
+  color: var(--mantine-color-gray-7);
+}
+
+.levelWarn {
+  background: var(--mantine-color-yellow-1);
+  color: var(--mantine-color-yellow-8);
+}
+
+.levelErr {
+  background: var(--mantine-color-red-1);
+  color: var(--mantine-color-red-8);
+}
+
+.message {
+  min-width: 0;
+  word-break: break-word;
+  color: var(--mantine-color-gray-9);
+}
+
+.stackSection {
+  flex-shrink: 0;
+  border-top: 1px solid var(--mantine-color-gray-3);
+}
+
+.stack {
+  margin: 0;
+  padding: var(--mantine-spacing-xs);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-gray-2);
+  color: var(--mantine-color-gray-8);
+  font-family: var(--mantine-font-family-monospace, ui-monospace, monospace);
+}
+
+[data-mantine-color-scheme="dark"] .terminal {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .row {
+  border-bottom-color: var(--mantine-color-dark-5);
+}
+
+[data-mantine-color-scheme="dark"] .message {
+  color: var(--mantine-color-gray-2);
+}
+
+[data-mantine-color-scheme="dark"] .levelLog {
+  background: var(--mantine-color-dark-5);
+  color: var(--mantine-color-gray-3);
+}
+
+[data-mantine-color-scheme="dark"] .stack {
+  background: var(--mantine-color-dark-8);
+  border-color: var(--mantine-color-dark-4);
+}

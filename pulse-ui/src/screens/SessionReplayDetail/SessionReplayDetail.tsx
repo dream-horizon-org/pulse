@@ -1,5 +1,5 @@
 import { Box, Center, Loader, Stack, Text } from "@mantine/core";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import { FlameChartNode } from "../SessionTimeline/utils/flameChartTransform";
@@ -18,7 +18,6 @@ import classes from "./SessionReplayDetail.module.css";
 export const SessionReplayDetail: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedSpan, setSelectedSpan] = useState<FlameChartNode | null>(null);
   const [scrollToTimestamp, setScrollToTimestamp] = useState<{
@@ -66,11 +65,8 @@ export const SessionReplayDetail: React.FC = () => {
     snapshotDurationMs > 0 ? snapshotDurationMs : sessionData.duration;
 
   const handleBack = () => {
-    const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
-    const base = projectMatch
-      ? `/projects/${projectMatch[1]}/session-replay/sessions`
-      : "/session-replay/sessions";
-    navigate(base);
+    // Browser history step back (e.g. Interaction Details → replay → Back returns to Interaction Details).
+    navigate(-1);
   };
 
   const handleSpanClick = (item: FlameChartNode) => {
@@ -142,8 +138,10 @@ export const SessionReplayDetail: React.FC = () => {
 
   return (
     <Box className={classes.container}>
-      <SessionHeader onBack={handleBack} />
-      <>
+      <Box className={classes.detailHeader}>
+        <SessionHeader onBack={handleBack} />
+      </Box>
+      <Box className={classes.detailMain}>
         <Box className={classes.summarySection}>
           <SessionSummary sessionData={sessionData} />
         </Box>
@@ -179,7 +177,7 @@ export const SessionReplayDetail: React.FC = () => {
             />
           </Box>
         </Box>
-      </>
+      </Box>
       {/* Session Timeline section commented out
       <SessionTimelineSection
         flameChartData={flameChartData}

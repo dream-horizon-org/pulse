@@ -2,26 +2,34 @@
  * Session list uses CSS Grid so column widths stay consistent
  * with variable-height cells (e.g. stacked issue badges).
  *
- * Width ratios (fr) — not equal: narrow columns stay tight; Issues + Impacted
- * get the bulk of horizontal space for long / multi-badge rows.
- * Order: stable fields first (time → platform), then variable (issues, impacted).
- * Start | Duration | User | Quality | Platform | Issues | Impacted
+ * Width ratios (fr) — balanced ~50% metadata (start→platform) vs ~50% Issues+Impacted
+ * so the left columns are not starved; badge columns still grow for long rows.
+ * Order: stable fields first (time → platform), then variable (issues, impacted interactions).
+ * Start | Duration | User | Quality | Platform | Issues | Impacted Interactions
  */
 .root {
-  /* Sum of fr units = 92. Approximate share: ~14% | ~5% | ~12% | ~5% | ~7% | ~24% | ~33% */
-  /* Duration + Quality: min width so label + sort icon stay on one line */
-  --sessions-grid-columns: minmax(0, 13fr) minmax(5.5rem, 5fr) minmax(0, 11fr)
-    minmax(4.25rem, 5fr) minmax(0, 6fr) minmax(0, 22fr) minmax(0, 30fr);
+  /*
+   * ~50/50 split between “metadata” (start → platform) vs badge-heavy columns (issues + impacted)
+   * so the left block is not starved while Issues/Impacted still get room for long badge rows.
+   * Sum fr = 90.
+   */
+  --sessions-grid-columns: minmax(9.5rem, 10fr) minmax(7rem, 9fr) minmax(7rem, 12fr)
+    minmax(5.25rem, 6fr) minmax(5.5rem, 8fr) minmax(8rem, 20fr) minmax(10rem, 25fr);
+  /* Session detail summary can narrow gap via a modifier on .root */
+  --sessions-column-gap: var(--mantine-spacing-lg);
   width: 100%;
-  min-width: min(100%, 720px);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .gridRow {
   display: grid;
   grid-template-columns: var(--sessions-grid-columns);
-  column-gap: var(--mantine-spacing-md);
+  column-gap: var(--sessions-column-gap);
+  width: 100%;
+  min-width: 0;
   align-items: start;
-  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
 }
 
 .headerRow {
@@ -41,9 +49,59 @@
 
 .cell {
   min-width: 0;
+  text-align: left;
+  justify-self: stretch;
 }
 
-/* Fill the Impacted column; avoid global .journey max-width: 250px capping this cell */
+/* Left-align cell content (avoids numeric/duration looking end-aligned in wide tracks) */
+.dataRow .cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+/* Hug left; full width only in impacted-interactions column (ellipsis) */
+.cellTextNatural {
+  width: fit-content;
+  max-width: 100%;
+  text-align: left;
+}
+
+/*
+ * Quality: do not stretch the inner Text to full column width — Mantine/theme can end-align
+ * tabular numbers when width is 100%. Shrink-wrap the grid item to the start of the track.
+ */
+.dataRow .cell.cellQuality {
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+  align-items: flex-start;
+}
+
+.cellQuality :global(.mantine-Text-root) {
+  display: block;
+  text-align: left !important;
+  width: auto !important;
+  max-width: 100%;
+}
+
+.headerRow .cell {
+  text-align: left;
+}
+
+.headerRow .cell.cellQualityHeader {
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+}
+
+.impactedCellWrap {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Match body text; ellipsis uses full column width */
 .impactedInteractionsText {
   display: block;
   width: 100%;
@@ -51,8 +109,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 12px;
+  font-family: var(--mantine-font-family);
+  font-size: var(--mantine-font-size-sm);
 }
 
 .headerCellSortable {

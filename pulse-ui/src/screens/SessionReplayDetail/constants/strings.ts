@@ -21,6 +21,35 @@ export const TAB_LABELS = {
   USER_JOURNEY: "User Journey",
 } as const;
 
+/** Shared tab panel headings — keeps All / Interaction / Network / … visually consistent */
+export const TAB_PANEL_TITLE = {
+  ALL: "Session timeline",
+  INTERACTION: "Critical interactions",
+  NETWORK: "Network requests",
+  PERFORMANCE: "Exceptions & stability",
+  USER_JOURNEY: "Screen journey",
+  CONSOLE: "Console output",
+} as const;
+
+export const TAB_PANEL_DESCRIPTION = {
+  ALL: "Unified stream of interactions, network, console, and errors aligned to replay time.",
+  INTERACTION:
+    "Tracked interactions with outcome, latency, and Apdex. Select a row to seek the replay to that moment.",
+  NETWORK:
+    "HTTP calls made during this session. Switch between List and Graph for timing views.",
+  PERFORMANCE:
+    "Exceptions and crashes with stack traces and trace identifiers when available.",
+  USER_JOURNEY:
+    "Screens visited in order, derived from this session’s journey signal.",
+  CONSOLE:
+    "Console-style messages inferred from session events (errors, slow calls, and interaction milestones). Full SDK console capture will extend this view.",
+} as const;
+
+export const TAB_PANEL_CONSOLE_EMPTY = {
+  title: "No console output for this session",
+  body: "We did not derive any error, warning, or interaction milestones suitable for this list. When your SDK attaches console logs to session payloads, they will appear here in timeline order.",
+} as const;
+
 // View Modes
 export const VIEW_MODES = {
   TEXT: "text",
