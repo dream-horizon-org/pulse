@@ -1,13 +1,4 @@
-import {
-  Box,
-  Text,
-  Stack,
-  ScrollArea,
-  Group,
-  Badge,
-  ActionIcon,
-  Tooltip,
-} from "@mantine/core";
+import { Box, Text, Stack, Badge, ActionIcon, Tooltip } from "@mantine/core";
 import { useRef, useMemo, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { IconExternalLink } from "@tabler/icons-react";
@@ -17,6 +8,7 @@ import { convertEventToFlameChartNode } from "./utils/eventConverter";
 import type { SessionDetailData } from "../../../../services/sessionReplay/mockSessionDetail";
 import { ROUTES } from "../../../../constants";
 import { HEADERS } from "../../constants/strings";
+import classes from "./EventList.module.css";
 
 function formatAbsoluteTime(sessionStartIso: string, offsetMs: number): string {
   const date = new Date(new Date(sessionStartIso).getTime() + offsetMs);
@@ -33,6 +25,8 @@ interface EventListProps {
   unifiedEvents: UnifiedEvent[];
   sessionData: SessionDetailData;
   currentTime?: number;
+  /** When false, timeline does not auto-scroll on seek/skip (avoids page jump). */
+  isPlaying?: boolean;
   scrollToTimestamp?: { t0: number; t1: number } | null;
   highlightedTimestamp: number | null;
   eventRefs: React.MutableRefObject<Map<number, HTMLDivElement>>;
@@ -44,6 +38,7 @@ export function EventList({
   unifiedEvents,
   sessionData,
   currentTime = 0,
+  isPlaying = false,
   scrollToTimestamp,
   highlightedTimestamp,
   eventRefs,
@@ -63,8 +58,9 @@ export function EventList({
     return pastOrCurrent[pastOrCurrent.length - 1].timestamp;
   }, [unifiedEvents, currentTime]);
 
-  // Scroll the playback-highlighted event into view when it changes
+  // Follow playback in the timeline only while playing (skip/seek while paused must not scrollIntoView).
   useEffect(() => {
+    if (!isPlaying) return;
     if (
       playbackHighlightTimestamp == null ||
       playbackHighlightTimestamp === lastPlaybackScrollRef.current
@@ -73,27 +69,17 @@ export function EventList({
     lastPlaybackScrollRef.current = playbackHighlightTimestamp;
 
     const eventElement = eventRefs.current.get(playbackHighlightTimestamp);
-    const scrollContainer = scrollViewportRef.current;
-    if (!eventElement || !scrollContainer) return;
+    if (!eventElement) return;
 
     const rafId = requestAnimationFrame(() => {
-      const targetEl = scrollContainer.querySelector(
+      const targetEl = scrollViewportRef.current?.querySelector(
         `[data-event-timestamp="${playbackHighlightTimestamp}"]`,
       ) as HTMLElement | null;
       const el = targetEl || eventElement;
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      const currentScrollTop = scrollContainer.scrollTop;
-      const relativeTop = elRect.top - containerRect.top + currentScrollTop;
-      const scrollPosition =
-        relativeTop - containerRect.height / 2 + elRect.height / 2;
-      scrollContainer.scrollTo({
-        top: Math.max(0, scrollPosition),
-        behavior: "smooth",
-      });
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
     return () => cancelAnimationFrame(rafId);
-  }, [playbackHighlightTimestamp, eventRefs, scrollViewportRef]);
+  }, [isPlaying, playbackHighlightTimestamp, eventRefs, scrollViewportRef]);
 
   const handleEventClick = (event: UnifiedEvent) => {
     if (onEventClick) {
@@ -103,51 +89,12 @@ export function EventList({
   };
 
   return (
-    <Box
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        flex: 1,
-        minHeight: 0,
-      }}
-    >
+    <Box style={{ display: "flex", flexDirection: "column" }}>
       <Text size="xs" tt="uppercase" fw={600} c="dimmed" mb="md">
         {HEADERS.RAW_SESSION_EVENTS}
       </Text>
-      <Box
-        style={{
-          flex: 1,
-          minHeight: 0,
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <ScrollArea
-          viewportRef={scrollViewportRef}
-          type="scroll"
-          scrollbars="y"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            width: "100%",
-          }}
-          styles={{
-            root: {
-              flex: 1,
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-            },
-            viewport: {
-              flex: 1,
-              minHeight: 0,
-              "& > div": {
-                display: "block !important",
-              },
-            },
-          }}
-        >
-          <Stack gap={0}>
+      <Box ref={scrollViewportRef} style={{ width: "100%" }}>
+        <Stack gap={0}>
             {unifiedEvents.map((event, idx) => {
               const isHighlighted = highlightedTimestamp === event.timestamp;
               const isPlaybackHighlight =
@@ -158,6 +105,31 @@ export function EventList({
                 : false;
               const isActive =
                 isHighlighted || isPlaybackHighlight || isInRange;
+
+              const full = event.description.startsWith(
+                event.categoryLabel + ": ",
+              )
+                ? event.description.slice(event.categoryLabel.length + 2)
+                : event.description;
+              const lastColon = full.lastIndexOf(": ");
+              const rawContent =
+                lastColon >= 0 ? full.slice(0, lastColon) : full;
+              const status = lastColon >= 0 ? full.slice(lastColon + 2) : "";
+              let content = rawContent;
+              try {
+                content = decodeURIComponent(rawContent);
+              } catch (error) {
+                console.error("Error decoding content", error);
+              }
+              const path =
+                projectId && event.interactionName
+                  ? ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(
+                      ":projectId",
+                      projectId,
+                    ) +
+                    "/" +
+                    event.interactionName.replace(/\s+/g, "")
+                  : null;
 
               return (
                 <Box
@@ -196,24 +168,18 @@ export function EventList({
                     }
                   }}
                 >
-                  <Group
-                    gap="sm"
-                    wrap="nowrap"
-                    align="center"
-                    style={{ width: "100%" }}
-                  >
+                  <Box className={classes.eventRow}>
                     <Text
                       size="xs"
                       c="dimmed"
-                      ff="monospace"
-                      style={{ minWidth: "120px", flexShrink: 0 }}
+                      className={classes.eventTime}
                     >
                       {formatAbsoluteTime(
                         sessionData.startTime,
                         event.timestamp,
                       )}
                     </Text>
-                    <Box style={{ minWidth: 100, flexShrink: 0 }}>
+                    <Box className={classes.eventBadgeWrap}>
                       <Badge
                         size="sm"
                         variant="light"
@@ -227,75 +193,41 @@ export function EventList({
                         {event.categoryLabel}
                       </Badge>
                     </Box>
-                    {(() => {
-                      const full = event.description.startsWith(
-                        event.categoryLabel + ": ",
-                      )
-                        ? event.description.slice(
-                            event.categoryLabel.length + 2,
-                          )
-                        : event.description;
-                      const lastColon = full.lastIndexOf(": ");
-                      const rawContent =
-                        lastColon >= 0 ? full.slice(0, lastColon) : full;
-                      const status =
-                        lastColon >= 0 ? full.slice(lastColon + 2) : "";
-                      let content = rawContent;
-                      try {
-                        content = decodeURIComponent(rawContent);
-                      } catch (error) {
-                        console.error("Error decoding content", error);
-                      }
-                      const path =
-                        projectId && event.interactionName
-                          ? ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(
-                              ":projectId",
-                              projectId,
-                            ) +
-                            "/" +
-                            event.interactionName.replace(/\s+/g, "")
-                          : null;
-                      return (
-                        <>
-                          <Text size="sm" style={{ flex: 1, minWidth: 0 }}>
-                            {content}
-                          </Text>
-                          {event.interactionName && projectId && path && (
-                            <Tooltip label="Open interaction details" withArrow>
-                              <ActionIcon
-                                variant="subtle"
-                                color="teal"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(path, "_blank");
-                                }}
-                              >
-                                <IconExternalLink size={14} />
-                              </ActionIcon>
-                            </Tooltip>
-                          )}
-                          {status ? (
-                            <Text
-                              size="sm"
-                              c="dimmed"
-                              style={{
-                                flexShrink: 0,
-                                marginLeft: "var(--mantine-spacing-sm)",
-                              }}
-                            >
-                              {status}
-                            </Text>
-                          ) : null}
-                        </>
-                      );
-                    })()}
-                  </Group>
+                    <Box className={classes.eventDetailCell}>
+                      <Text size="sm" className={classes.eventDetailText}>
+                        {content}
+                      </Text>
+                      {event.interactionName && projectId && path ? (
+                        <Tooltip label="Open interaction details" withArrow>
+                          <ActionIcon
+                            variant="subtle"
+                            color="teal"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(path, "_blank");
+                            }}
+                          >
+                            <IconExternalLink size={14} />
+                          </ActionIcon>
+                        </Tooltip>
+                      ) : null}
+                    </Box>
+                    {status ? (
+                      <Text size="sm" c="dimmed" className={classes.eventStatus}>
+                        {status}
+                      </Text>
+                    ) : (
+                      <span
+                        className={classes.eventStatusPlaceholder}
+                        aria-hidden
+                      />
+                    )}
+                  </Box>
                 </Box>
               );
             })}
-          </Stack>
-        </ScrollArea>
+        </Stack>
       </Box>
     </Box>
   );

@@ -89,8 +89,8 @@ export function ConsoleTab({ sessionData }: ConsoleTabProps) {
           </Center>
         </Paper>
       ) : (
-        <Stack gap="sm" style={{ flex: 1, minHeight: 0 }}>
-          <Group gap="xs" wrap="wrap" style={{ flexShrink: 0 }}>
+        <Stack gap="sm" w="100%">
+          <Group gap="xs" wrap="wrap">
             <Badge size="sm" variant="light" color="gray">
               {consoleLogs.length} line{consoleLogs.length === 1 ? "" : "s"}
             </Badge>
@@ -111,7 +111,7 @@ export function ConsoleTab({ sessionData }: ConsoleTabProps) {
             ) : null}
           </Group>
 
-          <Box style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <Box w="100%" style={{ display: "flex", flexDirection: "column" }}>
             {view === "list" || !showCharts ? (
               <ConsoleLogList logs={consoleLogs} />
             ) : (
