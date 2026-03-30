@@ -56,6 +56,8 @@ class InstrumentationConfiguration(
     }
     private val sessionReplay: SessionReplayConfiguration by lazy { SessionReplayConfiguration() }
 
+    private val ramUsage: RamUsageConfiguration by lazy { RamUsageConfiguration(config) }
+
     fun activity(configure: ActivityLifecycleConfiguration.() -> Unit) {
         activity.configure()
     }
@@ -103,6 +105,14 @@ class InstrumentationConfiguration(
     fun sessionReplay(configure: SessionReplayConfiguration.() -> Unit) {
         sessionReplay.markConfigured()
         sessionReplay.configure()
+    }
+
+    /**
+     * RAM usage instrumentation. Samples device RAM every 5 seconds (configurable) and flushes
+     * accumulated samples as a single log record at a configurable interval (default: 15 minutes).
+     */
+    fun ramUsage(configure: RamUsageConfiguration.() -> Unit) {
+        ramUsage.configure()
     }
 
     /**

@@ -66,6 +66,7 @@ dependencies {
     implementation(projects.services)
     implementation(projects.session)
     implementation(projects.instrumentation.slowrendering)
+    implementation(projects.pulseSemconv)
 
     implementation(libs.androidx.core)
 

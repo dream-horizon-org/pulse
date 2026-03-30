@@ -16,4 +16,20 @@ public object PulseDeviceAttributes {
      */
     @JvmField
     public val DEVICE_SCREEN_ASPECT_RATIO: AttributeKey<String> = AttributeKey.stringKey("device.screen.aspect_ratio")
+
+    /**
+     * Sampled device RAM utilization values, each expressed as used bytes (`totalMem - availMem`).
+     * Emitted as a log attribute alongside [PULSE_SYSTEM_MEMORY_UTILIZATION_TIMESTAMP_ARRAY].
+     */
+    @JvmField
+    public val PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY: AttributeKey<List<Long>> =
+        AttributeKey.longArrayKey("pulse.system.memory.utilization_array")
+
+    /**
+     * Epoch-millisecond timestamps at which each entry in
+     * [PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY] was recorded.
+     */
+    @JvmField
+    public val PULSE_SYSTEM_MEMORY_UTILIZATION_TIMESTAMP_ARRAY: AttributeKey<List<Long>> =
+        AttributeKey.longArrayKey("pulse.system.memory.utilization_timestamp_array")
 }
