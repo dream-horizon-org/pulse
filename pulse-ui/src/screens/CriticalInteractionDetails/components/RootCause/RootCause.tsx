@@ -1,8 +1,11 @@
 import { Box, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
 import { IconPlayerPlay, IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
+import { useMemo } from "react";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
+import { useGetInteractionDetailsGraphs } from "../../../../hooks/useGetInteractionDetailsGraphs";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
+import type { RcaReportTenantContext } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { SessionCard } from "./components";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
@@ -33,10 +36,52 @@ export const RootCause = ({
   interactionName,
   date,
   projectId,
+  startTime,
+  endTime,
+  dashboardFilters,
 }: RootCauseProps) => {
   const effectiveProjectId = projectId?.trim() ?? "";
   const hasProjectId = effectiveProjectId !== "";
   const hasInteractionName = !!interactionName?.trim();
+  const hasTimeRange = !!(
+    startTime &&
+    endTime &&
+    String(startTime).trim() !== "" &&
+    String(endTime).trim() !== ""
+  );
+
+  const { metrics, isLoading: overviewGraphsLoading } =
+    useGetInteractionDetailsGraphs({
+      interactionName: interactionName ?? undefined,
+      startTime: startTime ?? "",
+      endTime: endTime ?? "",
+      enabled: hasInteractionName && hasTimeRange,
+      dashboardFilters: dashboardFilters ?? undefined,
+    });
+
+  const tenantContextForRca = useMemo((): RcaReportTenantContext | null => {
+    if (!metrics.hasData) return null;
+    if (metrics.errorRate == null || metrics.poorUsersPercentage == null) {
+      return null;
+    }
+    const poor = parseFloat(
+      String(metrics.poorUsersPercentage).replace(/%/g, ""),
+    );
+    if (Number.isNaN(poor)) return null;
+    const ctx: RcaReportTenantContext = {
+      errorRatePercent: metrics.errorRate,
+      poorUsersPercent: poor,
+    };
+    if (metrics.apdex != null) ctx.apdex = metrics.apdex;
+    if (metrics.p50 != null) ctx.p50Ms = metrics.p50;
+    if (metrics.p95 != null) ctx.p95Ms = metrics.p95;
+    return ctx;
+  }, [metrics]);
+
+  const rcaQueryEnabled =
+    hasInteractionName &&
+    hasProjectId &&
+    (!hasTimeRange || !overviewGraphsLoading);
 
   const {
     data: reportResponse,
@@ -47,8 +92,9 @@ export const RootCause = ({
   } = useGetRcaReport({
     interactionName,
     date: date ?? null,
-    enabled: hasInteractionName && hasProjectId,
+    enabled: rcaQueryEnabled,
     projectId: hasProjectId ? effectiveProjectId : null,
+    tenantContext: tenantContextForRca,
   });
 
   const reportPayload = reportResponse?.data ?? null;
@@ -77,6 +123,19 @@ export const RootCause = ({
         <Text className={classes.stateMessage}>
           {ROOT_CAUSE_MESSAGES.PROJECT_REQUIRED}
         </Text>
+      </Box>
+    );
+  }
+
+  if (hasTimeRange && overviewGraphsLoading) {
+    return (
+      <Box className={classes.container}>
+        <div className={classes.skeletonWrapper}>
+          <Skeleton height={24} width={200} mb="md" />
+          <Skeleton height={120} mb="md" />
+          <Skeleton height={120} mb="md" />
+          <Skeleton height={120} />
+        </div>
       </Box>
     );
   }

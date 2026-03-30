@@ -1,0 +1,28 @@
+.card {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow:
+    0 8px 20px rgba(14, 201, 194, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.eventPair {
+  color: var(--mantine-color-dark-4);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.insight {
+  font-style: italic;
+  color: var(--mantine-color-dark-5);
+  line-height: 1.45;
+}
+
+.actionButton {
+  border-radius: var(--mantine-radius-md);
+  font-weight: 600;
+}

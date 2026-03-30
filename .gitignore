@@ -21,3 +21,4 @@ terraform.rc
 env.json
 
 docs/
+pulse-ui/.yarn/install-state.gz
