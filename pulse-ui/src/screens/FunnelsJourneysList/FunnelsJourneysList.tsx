@@ -16,6 +16,8 @@ import {
   IconChevronDown,
   IconRoute,
   IconSearch,
+  IconTrendingDown,
+  IconTrendingUp,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -45,6 +47,7 @@ import {
   FUNNELS_JOURNEYS_LOADING,
   FUNNELS_JOURNEYS_PAGE_TITLE,
   FUNNELS_JOURNEYS_SUBTITLE,
+  COLUMN_CONVERSION_TITLE,
   SEARCH_PLACEHOLDER,
   STATUS_OPTION_ALL,
   TAB_FUNNELS,
@@ -57,6 +60,69 @@ import { FunnelsJourneysListPagination } from "./FunnelsJourneysListPagination";
 import classes from "./FunnelsJourneysList.module.css";
 
 const badgeRootStyle = { fontFamily: "inherit" as const };
+
+function FunnelConversionCell({ row }: { row: FunnelJourneyListItem }) {
+  if (row.kind !== "FUNNEL") {
+    return (
+      <Text size="sm" c="dimmed">
+        —
+      </Text>
+    );
+  }
+  if (
+    row.status === "CREATING" ||
+    row.status === "UPDATING" ||
+    row.overallConversionRate == null ||
+    row.conversionTrend == null
+  ) {
+    return (
+      <Text size="sm" c="dimmed">
+        —
+      </Text>
+    );
+  }
+  const rate = row.overallConversionRate;
+  const trend = row.conversionTrend;
+  const up = trend > 0;
+
+  return (
+    <Group gap={8} align="center" wrap="nowrap">
+      <Text size="sm" fw={600} ta="left">
+        {rate.toFixed(1)}%
+      </Text>
+      {trend === 0 ? (
+        <Text size="sm" c="dimmed" fw={500}>
+          0.0%
+        </Text>
+      ) : (
+        <Group gap={4} align="center" wrap="nowrap">
+          {up ? (
+            <IconTrendingUp
+              size={14}
+              style={{ color: "var(--mantine-color-teal-6)" }}
+              aria-hidden
+            />
+          ) : (
+            <IconTrendingDown
+              size={14}
+              style={{ color: "var(--mantine-color-red-6)" }}
+              aria-hidden
+            />
+          )}
+          <Text
+            size="sm"
+            fw={500}
+            c={up ? "teal.7" : "red.7"}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            {up ? "+" : ""}
+            {trend.toFixed(1)}%
+          </Text>
+        </Group>
+      )}
+    </Group>
+  );
+}
 
 type StatusFilterValue =
   | ""
@@ -192,70 +258,77 @@ export function FunnelsJourneysList() {
     }
   };
 
-  const columns = useMemo(
-    () => [
-      {
-        accessor: "name",
-        title: "Name",
-        render: (row: FunnelJourneyListItem) => (
-          <Text size="sm" fw={700} lineClamp={1} ta="left">
-            {row.name}
-          </Text>
-        ),
-      },
-      {
-        accessor: "status",
-        title: "Status",
-        render: (row: FunnelJourneyListItem) => (
-          <Badge
-            size="sm"
-            color={
-              row.status === "ACTIVE"
-                ? "teal"
-                : row.status === "CREATING"
-                  ? "blue"
-                  : row.status === "UPDATING"
-                    ? "orange"
-                    : row.status === "COMPLETED"
-                      ? "violet"
-                      : "gray"
-            }
-            variant="light"
-            styles={{ root: badgeRootStyle }}
-          >
-            {row.status === "ACTIVE"
-              ? "Active"
+  const columns = useMemo(() => {
+    const nameCol = {
+      accessor: "name",
+      title: "Name",
+      render: (row: FunnelJourneyListItem) => (
+        <Text size="sm" fw={700} lineClamp={1} ta="left">
+          {row.name}
+        </Text>
+      ),
+    };
+    const statusCol = {
+      accessor: "status",
+      title: "Status",
+      render: (row: FunnelJourneyListItem) => (
+        <Badge
+          size="sm"
+          color={
+            row.status === "ACTIVE"
+              ? "teal"
               : row.status === "CREATING"
-                ? "Creating"
+                ? "blue"
                 : row.status === "UPDATING"
-                  ? "Updating"
+                  ? "orange"
                   : row.status === "COMPLETED"
-                    ? "Completed"
-                    : "Stopped"}
-          </Badge>
-        ),
-      },
-      {
-        accessor: "createdBy",
-        title: "Created by",
-        render: (row: FunnelJourneyListItem) => (
-          <Text size="sm" c="dark.4" lineClamp={1} ta="left">
-            {row.createdBy}
-          </Text>
-        ),
-      },
-      {
-        accessor: "lastUpdatedAt",
-        title: "Last updated",
-        render: (row: FunnelJourneyListItem) => (
-          <Text size="sm" c="dark.4" ta="left">
-            {dayjs(row.lastUpdatedAt).format("MMM D, YYYY HH:mm")}
-          </Text>
-        ),
-      },
-    ],
-    [],
-  );
+                    ? "violet"
+                    : "gray"
+          }
+          variant="light"
+          styles={{ root: badgeRootStyle }}
+        >
+          {row.status === "ACTIVE"
+            ? "Active"
+            : row.status === "CREATING"
+              ? "Creating"
+              : row.status === "UPDATING"
+                ? "Updating"
+                : row.status === "COMPLETED"
+                  ? "Completed"
+                  : "Stopped"}
+        </Badge>
+      ),
+    };
+    const conversionCol = {
+      accessor: "conversion",
+      title: COLUMN_CONVERSION_TITLE,
+      render: (row: FunnelJourneyListItem) => (
+        <FunnelConversionCell row={row} />
+      ),
+    };
+    const createdByCol = {
+      accessor: "createdBy",
+      title: "Created by",
+      render: (row: FunnelJourneyListItem) => (
+        <Text size="sm" c="dark.4" lineClamp={1} ta="left">
+          {row.createdBy}
+        </Text>
+      ),
+    };
+    const lastUpdatedCol = {
+      accessor: "lastUpdatedAt",
+      title: "Last updated",
+      render: (row: FunnelJourneyListItem) => (
+        <Text size="sm" c="dark.4" ta="left">
+          {dayjs(row.lastUpdatedAt).format("MMM D, YYYY HH:mm")}
+        </Text>
+      ),
+    };
+    return listTab === "funnels"
+      ? [nameCol, statusCol, conversionCol, createdByCol, lastUpdatedCol]
+      : [nameCol, statusCol, createdByCol, lastUpdatedCol];
+  }, [listTab]);
 
   const requestError =
     apiResponse?.error?.message ||

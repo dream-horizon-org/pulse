@@ -43,6 +43,8 @@ export const FILTER_TAGS_LABEL = "Tags";
 
 export const FILTER_TYPE_LABEL = "Type";
 
+export const COLUMN_CONVERSION_TITLE = "Conversion";
+
 export const STATUS_OPTION_ALL = "All statuses";
 
 export const TYPE_OPTION_ALL = "All types";

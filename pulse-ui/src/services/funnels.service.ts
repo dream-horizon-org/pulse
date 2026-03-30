@@ -13,6 +13,10 @@ export type FunnelJourneyListItem = {
   tags: string[];
   /** Present when kind === "FUNNEL". */
   funnelType?: "ORDERED" | "UNORDERED";
+  /** Overall conversion rate (%) for funnels with computed metrics. */
+  overallConversionRate?: number;
+  /** Change vs prior period (percentage points); positive = up. */
+  conversionTrend?: number;
 };
 
 export type FunnelsJourneysListFilterOptions = {
