@@ -24,6 +24,7 @@ import {
 } from "./CriticalInteractionForm.interface";
 import { GlobalBlackListEventSequence } from "./components/GlobalBlacklistEventSequence/GlobalBlacklistEventSequence";
 import { EventThresholds } from "./components/EventThresholds";
+import { RevenueConfiguration } from "./components/RevenueConfiguration/RevenueConfiguration";
 import {
   COOKIES_KEY,
   CRITICAL_INTERACTION_FORM_CONSTANTS,
@@ -52,6 +53,9 @@ import {
 import { useGetJobStatus } from "../../hooks/useGetJobStatus";
 import { useGetInteractionDetails } from "../../hooks/useGetInteractionDetails";
 import { logEvent } from "../../helpers/googleAnalytics";
+
+const isRevenueCorrelationEnabled =
+  process.env.REACT_APP_REVENUE_CORRELATION_ENABLED === "true";
 
 export function CriticalInteractionForm() {
   const theme = useMantineTheme();
@@ -401,7 +405,7 @@ export function CriticalInteractionForm() {
               onStepClick={onStepClick}
               orientation="vertical"
             >
-              {CRITICAL_INTERACTION_FORM_STEPS.map((step, index) => (
+              {(isRevenueCorrelationEnabled ? CRITICAL_INTERACTION_FORM_STEPS : CRITICAL_INTERACTION_FORM_STEPS.slice(0, 4)).map((step, index) => (
                 <Stepper.Step
                   classNames={{
                     stepWrapper: classes.stepperWrapper,
@@ -451,6 +455,14 @@ export function CriticalInteractionForm() {
             )}
             {stepperActiveState === 3 && (
               <EventThresholds
+                isUpdateFlow={isUpdateFlow}
+                onBackClick={onBackClick}
+                onCreateClick={onCreateClick}
+                onNextClick={isRevenueCorrelationEnabled ? onNextClick : undefined}
+              />
+            )}
+            {isRevenueCorrelationEnabled && stepperActiveState === 4 && (
+              <RevenueConfiguration
                 isUpdateFlow={isUpdateFlow}
                 onBackClick={onBackClick}
                 onCreateClick={onCreateClick}

@@ -1,0 +1,84 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--mantine-color-dark-8);
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+
+.sectionDescription {
+  font-size: 13px;
+  color: var(--mantine-color-dark-4);
+  line-height: 1.5;
+}
+
+.formCard {
+  padding: 20px 24px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.06);
+  margin-bottom: 16px;
+}
+
+.fieldRow {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.currencySelect {
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.revenueInput {
+  flex: 1;
+}
+
+.previewBox {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(14, 201, 194, 0.04) 0%, rgba(14, 201, 194, 0.08) 100%);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.previewText {
+  font-size: 12px !important;
+  color: var(--mantine-color-dark-5) !important;
+  line-height: 1.5;
+}
+
+.previewValue {
+  font-weight: 700 !important;
+  color: #0ba09a !important;
+}
+
+.skipNote {
+  font-size: 11px !important;
+  color: var(--mantine-color-dark-3) !important;
+  margin-top: 8px;
+}
+
+.sectionButtons {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 50px;
+  gap: var(--mantine-spacing-sm);
+}

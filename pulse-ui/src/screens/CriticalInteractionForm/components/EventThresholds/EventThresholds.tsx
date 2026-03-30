@@ -9,12 +9,14 @@ type EventThresholdProps = {
   isUpdateFlow: boolean;
   onCreateClick: () => void;
   onBackClick: () => void;
+  onNextClick?: () => void;
 };
 
 export function EventThresholds({
   isUpdateFlow,
   onBackClick,
   onCreateClick,
+  onNextClick,
 }: EventThresholdProps) {
   const [lowerThreshold, setLowerThreshold] = useState<number>(0);
   const [midThreshold, setMidThreshold] = useState<number>(0);
@@ -28,10 +30,6 @@ export function EventThresholds({
     setLowerThreshold(low);
     setMidThreshold(mid);
     setUpperThreshold(high);
-  };
-
-  const onCreateButtonClick = () => {
-    onCreateClick();
   };
 
   return (
@@ -52,9 +50,9 @@ export function EventThresholds({
               className={classes.sectionButton}
               variant="filled"
               size="md"
-              onClick={onCreateButtonClick}
+              onClick={onNextClick ?? onCreateClick}
             >
-              {isUpdateFlow ? "Update Interaction" : "Create Interaction"}
+              {onNextClick ? "Next" : isUpdateFlow ? "Update Interaction" : "Create Interaction"}
             </Button>
           </Box>
         </Grid.Col>
