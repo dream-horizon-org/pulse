@@ -1,9 +1,11 @@
 import { Box, Center, Loader, Stack, Text } from "@mantine/core";
-import { useNavigate, useParams } from "react-router-dom";
-import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import { FlameChartNode } from "../SessionTimeline/utils/flameChartTransform";
-import { getEmptySessionDetail } from "./adapters/sessionDetailApiToData";
+import {
+  getEmptySessionDetail,
+  sessionDetailApiToData,
+} from "./adapters/sessionDetailApiToData";
 
 import { useCallback, useMemo, useState } from "react";
 import { SessionHeader } from "./components/SessionHeader";
@@ -14,11 +16,21 @@ import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
 import { usePlayerRightPanelHeight } from "./hooks/usePlayerRightPanelHeight";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
+import {
+  SESSION_REPLAY_FROM_CRITICAL_INTERACTION_VALUE,
+  SESSION_REPLAY_FROM_QUERY_KEY,
+  applyCriticalInteractionMockReplayPresentation,
+} from "./constants/sessionReplayNavigation";
+import { getMockSessionDetailApiResponse } from "./mock/sessionReplayMock";
 import classes from "./SessionReplayDetail.module.css";
 
 export const SessionReplayDetail: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromCriticalInteraction =
+    searchParams.get(SESSION_REPLAY_FROM_QUERY_KEY) ===
+    SESSION_REPLAY_FROM_CRITICAL_INTERACTION_VALUE;
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedSpan, setSelectedSpan] = useState<FlameChartNode | null>(null);
   const [scrollToTimestamp, setScrollToTimestamp] = useState<{
@@ -41,13 +53,24 @@ export const SessionReplayDetail: React.FC = () => {
   });
 
   const sessionData = useMemo(() => {
-    if (apiSessionData) return apiSessionData;
-    const id = sessionId || DEFAULTS.SESSION_ID_UNKNOWN;
-    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return getMockSessionDetail(id);
+    let data = apiSessionData;
+    if (!data) {
+      const id = sessionId || DEFAULTS.SESSION_ID_UNKNOWN;
+      if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+        data = sessionDetailApiToData(getMockSessionDetailApiResponse(id));
+      } else {
+        data = getEmptySessionDetail(id);
+      }
     }
-    return getEmptySessionDetail(id);
-  }, [apiSessionData, sessionId]);
+    if (
+      process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true" &&
+      fromCriticalInteraction &&
+      data
+    ) {
+      return applyCriticalInteractionMockReplayPresentation(data);
+    }
+    return data;
+  }, [apiSessionData, sessionId, fromCriticalInteraction]);
 
   const {
     images: snapshotImages,
