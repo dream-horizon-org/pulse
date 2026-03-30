@@ -40,6 +40,8 @@ export const useAiChatHydration = () => {
 
   const hydratedRef = useRef<Set<string>>(new Set());
   const sessionsHydratedRef = useRef(false);
+  /** Avoid calling setError again on every render while the history query stays in error (e.g. after user dismisses the alert). */
+  const historyErrorShownForSessionRef = useRef<string | null>(null);
 
   const {
     data: sessionsData,
@@ -50,9 +52,30 @@ export const useAiChatHydration = () => {
 
   const shouldFetchHistory =
     !!activeSessionId && !hydratedRef.current.has(activeSessionId);
-  const { data: historyData } = useGetAiSessionHistory(
-    shouldFetchHistory ? activeSessionId : null,
-  );
+  const {
+    data: historyData,
+    isError: isHistoryError,
+    error: historyQueryError,
+  } = useGetAiSessionHistory(shouldFetchHistory ? activeSessionId : null);
+
+  useEffect(() => {
+    historyErrorShownForSessionRef.current = null;
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    if (!activeSessionId || !shouldFetchHistory) return;
+    if (!isHistoryError) return;
+    if (historyErrorShownForSessionRef.current === activeSessionId) return;
+    historyErrorShownForSessionRef.current = activeSessionId;
+    console.error("[Pulse AI] session history", historyQueryError);
+    setError(AI_CHAT_TEXTS.SESSION_HISTORY_LOAD_FAILED);
+  }, [
+    activeSessionId,
+    shouldFetchHistory,
+    isHistoryError,
+    historyQueryError,
+    setError,
+  ]);
 
   /**
    * Optimistic list sync: server is source of truth for `session_id`, but we prepend the
@@ -97,7 +120,7 @@ export const useAiChatHydration = () => {
     try {
       await createLocalSessionFromServer();
     } catch {
-      // onSettled already surfaces ERROR_GENERIC
+      // useCreateUserAiSession onError already surfaces SESSION_CREATE_FAILED
     }
   }, [createLocalSessionFromServer]);
 
@@ -172,6 +195,9 @@ export const useAiChatHydration = () => {
   useEffect(() => {
     if (!historyData || !activeSessionId) return;
     if (hydratedRef.current.has(activeSessionId)) return;
+    if (error === AI_CHAT_TEXTS.SESSION_HISTORY_LOAD_FAILED) {
+      setError(null);
+    }
     hydratedRef.current.add(activeSessionId);
 
     const rawMessages = historyData.messages ?? [];
@@ -192,7 +218,14 @@ export const useAiChatHydration = () => {
         (firstUserMsg.text ?? "").slice(0, AI_CHAT_LIMITS.TITLE_MAX_LENGTH),
       );
     }
-  }, [historyData, activeSessionId, setMessages, updateSessionTitle]);
+  }, [
+    historyData,
+    activeSessionId,
+    error,
+    setError,
+    setMessages,
+    updateSessionTitle,
+  ]);
 
   return {
     handleNewChat,
