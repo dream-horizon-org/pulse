@@ -83,6 +83,7 @@ export function SessionReplaySessions() {
         ],
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     interactionField,
     filterState.drillDown.type,

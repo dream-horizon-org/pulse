@@ -353,6 +353,9 @@ export function CiritcalInteractionDetails() {
               interactionName={interactionName ?? null}
               date={rootCauseDate}
               projectId={contextProjectId ?? projectIdFromUrl ?? null}
+              startTime={startTime ?? null}
+              endTime={endTime ?? null}
+              dashboardFilters={filterValues ?? null}
             />
           </Tabs.Panel>
         )}

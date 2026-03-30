@@ -4,7 +4,9 @@
  * Generates realistic mock responses for different API endpoints
  */
 
+import type { RcaReportTenantContext } from "../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { resolveIncidentsMock } from "./incidentsMockHandler";
+import { INTERACTION_DISCOVERY_MOCK_SUGGESTIONS } from "./interactionDiscoveryMockData";
 import { MockConfigManager } from "./MockConfig";
 import { MockDataStore } from "./MockDataStore";
 import {
@@ -16,6 +18,7 @@ import {
   mockNotificationChannels,
 } from "./responses/alertResponses";
 import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import { handleFunnelEndpoints } from "./responses/funnelResponses";
 import {
   heatmapMockCompare,
   resolveHeatmapData,
@@ -118,9 +121,9 @@ export class MockResponseGenerator {
     await this.delay(this.config.getDelay());
 
     // Simulate random errors
-    if (this.config.shouldSimulateError()) {
-      return this.generateErrorResponse();
-    }
+    // if (this.config.shouldSimulateError()) {
+    //   return this.generateErrorResponse();
+    // }
 
     // Route to appropriate handler based on path and method
     return this.routeRequest(pathname, method, request);
@@ -262,6 +265,11 @@ export class MockResponseGenerator {
       return this.handleV1AiSessionsEndpoints(pathname, method, request);
     }
 
+    // AI RCA report (interaction details → Root Cause tab; POST body may include tenant metrics)
+    if (pathname.includes("/v1/ai/rca/report") && method === "POST") {
+      return this.handleRcaReportPostMock(request);
+    }
+
     // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
     if (
       pathname.includes("/query/metadata/table") ||
@@ -381,6 +389,16 @@ export class MockResponseGenerator {
       pathname.includes("/validateQuery")
     ) {
       return this.handleQueryEndpoints(pathname, method, request);
+    }
+
+    // Funnel Analysis, listing, & Journey Explorer (before /events catch-all)
+    if (
+      pathname.includes("/v1/funnels-journeys") ||
+      pathname.includes("/v1/funnel/") ||
+      pathname.includes("/v1/journey/") ||
+      pathname.includes("/v1/tags")
+    ) {
+      return handleFunnelEndpoints(pathname, method, request);
     }
 
     // Event endpoints
@@ -2582,17 +2600,41 @@ export class MockResponseGenerator {
 
   private handleRcaReportPostMock(request: MockRequest): MockResponse {
     let interactionName = "interaction";
+    let tenantContext: RcaReportTenantContext | null = null;
     try {
       const body = request.body ? JSON.parse(request.body) : {};
       if (body.interactionName) {
         interactionName = String(body.interactionName);
+      }
+      const er =
+        body.errorRatePercent != null && body.errorRatePercent !== ""
+          ? Number(body.errorRatePercent)
+          : NaN;
+      const pr =
+        body.poorUsersPercent != null && body.poorUsersPercent !== ""
+          ? Number(body.poorUsersPercent)
+          : NaN;
+      if (!Number.isNaN(er) && !Number.isNaN(pr)) {
+        tenantContext = {
+          errorRatePercent: er,
+          poorUsersPercent: pr,
+        };
+        if (body.apdex != null && body.apdex !== "") {
+          tenantContext.apdex = Number(body.apdex);
+        }
+        if (body.p50Ms != null && body.p50Ms !== "") {
+          tenantContext.p50Ms = Number(body.p50Ms);
+        }
+        if (body.p95Ms != null && body.p95Ms !== "") {
+          tenantContext.p95Ms = Number(body.p95Ms);
+        }
       }
     } catch {
       /* keep default */
     }
     return {
       status: 200,
-      data: buildMockRcaReportResponseBody(interactionName),
+      data: buildMockRcaReportResponseBody(interactionName, tenantContext),
     };
   }
 
@@ -2609,6 +2651,21 @@ export class MockResponseGenerator {
       const pathParts = pathname.split("/").filter((part) => part !== ""); // Remove empty parts
       console.log(`[Mock Server] Path parts:`, pathParts);
       console.log(`[Mock Server] Full pathname:`, pathname);
+
+      if (
+        method === "GET" &&
+        pathParts.length === 3 &&
+        pathParts[0] === "v1" &&
+        pathParts[1] === "interactions" &&
+        pathParts[2] === "discoveries"
+      ) {
+        return {
+          status: 200,
+          data: {
+            suggestions: INTERACTION_DISCOVERY_MOCK_SUGGESTIONS,
+          },
+        };
+      }
 
       if (
         pathParts.length >= 3 &&

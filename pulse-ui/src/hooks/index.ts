@@ -40,6 +40,7 @@ export * from "./useGetGraphDataFromJobId";
 export * from "./useHeatmapData";
 export * from "./useGetInteractionDetails";
 export * from "./useGetInteractionDetailsGraphs";
+export * from "./useGetInteractionDiscoveries";
 export * from "./useGetInteractionListFilters";
 export * from "./useGetInteractionTime";
 export * from "./useGetInteractions";
@@ -106,3 +107,6 @@ export * from "./useUserProjects";
 
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from "./hooks.interface";
+
+// Funnel hooks
+export * from "./useGetFunnelData";

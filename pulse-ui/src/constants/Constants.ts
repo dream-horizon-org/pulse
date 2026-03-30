@@ -6,15 +6,16 @@ import {
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
-  IconDeviceDesktop,
-  IconNetwork,
-  IconUsers,
-  IconDatabaseSearch,
-  IconRobot,
   IconBell,
   IconCalendarEvent,
+  IconChartFunnel,
+  IconDatabaseSearch,
+  IconDeviceDesktop,
   IconHome,
   IconListDetails,
+  IconNetwork,
+  IconRobot,
+  IconUsers,
   IconVideo,
 } from "@tabler/icons-react";
 import {
@@ -33,6 +34,9 @@ import {
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
+import { CreateFunnel, CreateJourney } from "../screens/FunnelAnalysis";
+import { FunnelsJourneysList } from "../screens/FunnelsJourneysList";
+import { FunnelJourneyDetail } from "../screens/FunnelJourneyDetail";
 
 export const APP_NAME: string = "Pulse";
 
@@ -266,6 +270,30 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
   },
+  FUNNEL_ANALYSIS: {
+    key: "FUNNEL_ANALYSIS",
+    basePath: "/projects/:projectId/funnels-journeys",
+    path: "/projects/:projectId/funnels-journeys",
+    element: FunnelsJourneysList,
+  },
+  FUNNEL_ANALYSIS_CREATE_FUNNEL: {
+    key: "FUNNEL_ANALYSIS_CREATE_FUNNEL",
+    basePath: "/projects/:projectId/funnels-journeys/create/funnel",
+    path: "/projects/:projectId/funnels-journeys/create/funnel",
+    element: CreateFunnel,
+  },
+  FUNNEL_ANALYSIS_CREATE_JOURNEY: {
+    key: "FUNNEL_ANALYSIS_CREATE_JOURNEY",
+    basePath: "/projects/:projectId/funnels-journeys/create/journey",
+    path: "/projects/:projectId/funnels-journeys/create/journey",
+    element: CreateJourney,
+  },
+  FUNNEL_JOURNEY_DETAIL: {
+    key: "FUNNEL_JOURNEY_DETAIL",
+    basePath: "/projects/:projectId/funnels-journeys/:id",
+    path: "/projects/:projectId/funnels-journeys/:id",
+    element: FunnelJourneyDetail,
+  },
   ...(ENABLE_AI_CHAT
     ? {
         AI_CHAT: {
@@ -314,6 +342,7 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   SESSION_REPLAY: "/session-replay/sessions",
   QUERY_BUILDER: "/query-builder",
+  FUNNEL_ANALYSIS: "/funnels-journeys",
   ALERTS: "/alerts",
   AI_CHAT: "/ai-chat",
   EVENT_CATALOG: "/event-catalog",
@@ -390,6 +419,13 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconDatabaseSearch,
     routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
     path: NAVBAR_ROUTES.QUERY_BUILDER,
+    iconSize: 25,
+  },
+  {
+    tabName: "Funnel Analysis",
+    icon: IconChartFunnel,
+    routeTo: NAVBAR_ROUTES.FUNNEL_ANALYSIS,
+    path: NAVBAR_ROUTES.FUNNEL_ANALYSIS,
     iconSize: 25,
   },
   {
@@ -471,6 +507,11 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_INTERACTIONS: {
     key: "GET_INTERACTIONS",
     apiPath: `/v1/interactions`,
+    method: API_METHODS.GET,
+  },
+  GET_INTERACTION_DISCOVERIES: {
+    key: "GET_INTERACTION_DISCOVERIES",
+    apiPath: `/v1/interactions/discoveries`,
     method: API_METHODS.GET,
   },
   POST_RCA_REPORT: {
@@ -902,6 +943,51 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
+  FUNNEL_ANALYZE: {
+    key: "FUNNEL_ANALYZE",
+    apiPath: `/v1/funnel/analyze`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_HEALTH: {
+    key: "FUNNEL_HEALTH",
+    apiPath: `/v1/funnel/health`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_SESSIONS: {
+    key: "FUNNEL_SESSIONS",
+    apiPath: `/v1/funnel/sessions`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_TREND: {
+    key: "FUNNEL_TREND",
+    apiPath: `/v1/funnel/trend`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_GROUPED: {
+    key: "FUNNEL_GROUPED",
+    apiPath: `/v1/funnel/grouped`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_EXPLORE: {
+    key: "JOURNEY_EXPLORE",
+    apiPath: `/v1/journey/explore`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_EVENTS: {
+    key: "FUNNEL_EVENTS",
+    apiPath: `/v1/funnel/events`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_FILTERS: {
+    key: "FUNNEL_FILTERS",
+    apiPath: `/v1/funnel/filters`,
+    method: API_METHODS.GET,
+  },
+  GET_TAGS: {
+    key: "GET_TAGS",
+    apiPath: `/v1/tags`,
+    method: API_METHODS.GET,
+  },
   GET_TNC_STATUS: {
     key: "GET_TNC_STATUS",
     apiPath: `/v1/tnc/status`,
@@ -1198,6 +1284,17 @@ export const CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS: Record<
   LOADING_TEXT: "Loading",
   RESET_BUTTON_TEXT: "Reset",
   SWITCH_TEXT: "My interactions",
+  AUTO_DISCOVERED_TITLE: "Auto-Discovered",
+  DISCOVER_BUTTON_LABEL: "Discover",
+  DISMISS_DISCOVERY_LABEL: "Dismiss",
+  ACTIVATE_DISCOVERY_LABEL: "Activate",
+  DISCOVERY_VOLUME_LABEL: "Volume",
+  DISCOVERY_P50_LABEL: "P50",
+  DISCOVERY_P95_LABEL: "P95",
+  DISCOVERY_COMPLETION_LABEL: "Completion",
+  DISCOVERY_USERS_LABEL: "Users",
+  DISCOVERY_RELEVANCE_LABEL: "Relevance",
+  TRACKED_INTERACTIONS_LABEL: "Tracked interactions",
 };
 
 export const USERS_SUPPORT_PAGE_CONSTANTS: Record<string, string> = {
