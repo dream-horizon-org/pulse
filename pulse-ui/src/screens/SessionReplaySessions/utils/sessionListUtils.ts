@@ -4,6 +4,7 @@ import {
   IMPACTED_SCREENS_DISPLAY_LIMIT,
   PLATFORM_COLORS,
   DEFAULT_PLATFORM_COLOR,
+  SESSION_LIST_LABELS,
 } from "../constants/sessionList.constants";
 import type { ImpactedScreens } from "../../../services/sessionReplay/types";
 
@@ -88,7 +89,9 @@ export function formatImpactedScreensPreview(
 ): string {
   const list = flattenImpactedScreens(impactedScreens ?? null);
   const segment = list.slice(0, IMPACTED_SCREENS_DISPLAY_LIMIT).join(", ");
-  if (list.length <= IMPACTED_SCREENS_DISPLAY_LIMIT) return segment || "—";
+  if (list.length <= IMPACTED_SCREENS_DISPLAY_LIMIT) {
+    return segment || SESSION_LIST_LABELS.noImpactedScreens;
+  }
   return `${segment} ...`;
 }
 
@@ -96,5 +99,5 @@ export function formatImpactedScreensTooltip(
   impactedScreens: ImpactedScreens | null | undefined,
 ): string {
   const list = flattenImpactedScreens(impactedScreens ?? null);
-  return list.join("\n") || "—";
+  return list.join("\n") || SESSION_LIST_LABELS.noImpactedScreens;
 }

@@ -57,11 +57,11 @@ export function CustomerImpact({ sessionData }: CustomerImpactProps) {
             <Badge color={getQualityColor(sessionData.interactionQuality)}>
               {FORMAT_STRINGS.QUALITY_SCORE.replace(
                 "{score}",
-                sessionData.interactionQuality.toString(),
+                sessionData.interactionQuality.toFixed(2),
               )}
             </Badge>
           ) : (
-            <Text size="sm" fw={600} c="dimmed">
+            <Text size="sm" fw={600} c="dark.9">
               NA
             </Text>
           )}
