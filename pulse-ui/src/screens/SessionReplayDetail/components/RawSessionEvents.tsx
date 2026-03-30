@@ -8,6 +8,7 @@ import { EventList } from "./raw/EventList";
 interface RawSessionEventsProps {
   sessionData: SessionDetailData;
   currentTime?: number;
+  isPlaying?: boolean;
   scrollToTimestamp?: { t0: number; t1: number } | null;
   onEventClick?: (node: FlameChartNode) => void;
 }
@@ -15,6 +16,7 @@ interface RawSessionEventsProps {
 export function RawSessionEvents({
   sessionData,
   currentTime = 0,
+  isPlaying = false,
   scrollToTimestamp,
   onEventClick,
 }: RawSessionEventsProps) {
@@ -39,6 +41,7 @@ export function RawSessionEvents({
       unifiedEvents={unifiedEvents}
       sessionData={sessionData}
       currentTime={currentTime}
+      isPlaying={isPlaying}
       scrollToTimestamp={scrollToTimestamp}
       highlightedTimestamp={highlightedTimestamp}
       eventRefs={eventRefs}

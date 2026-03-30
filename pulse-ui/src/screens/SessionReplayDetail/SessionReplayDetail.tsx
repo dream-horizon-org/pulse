@@ -12,6 +12,7 @@ import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
 import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
+import { usePlayerRightPanelHeight } from "./hooks/usePlayerRightPanelHeight";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
 import classes from "./SessionReplayDetail.module.css";
 
@@ -123,6 +124,8 @@ export const SessionReplayDetail: React.FC = () => {
     setPlaybackSpeed(speed);
   }, []);
 
+  const { playerLeftRef, syncHeightPx } = usePlayerRightPanelHeight();
+
   if (sessionLoading && !apiSessionData) {
     return (
       <Center className={classes.container} style={{ minHeight: 400 }}>
@@ -146,7 +149,7 @@ export const SessionReplayDetail: React.FC = () => {
           <SessionSummary sessionData={sessionData} />
         </Box>
         <Box className={classes.playerSectionSplit}>
-          <Box className={classes.playerSectionLeft}>
+          <Box ref={playerLeftRef} className={classes.playerSectionLeft}>
             <SessionPlayerSection
               sessionData={sessionData}
               images={replayImages}
@@ -163,17 +166,34 @@ export const SessionReplayDetail: React.FC = () => {
               onSpeedChange={handleSpeedChange}
             />
           </Box>
-          <Box className={classes.playerSectionRight}>
+          <Box
+            className={`${classes.playerSectionRight}${
+              syncHeightPx !== undefined
+                ? ` ${classes.playerSectionRightMatched}`
+                : ""
+            }`}
+            style={
+              syncHeightPx !== undefined
+                ? {
+                    height: syncHeightPx,
+                    minHeight: syncHeightPx,
+                    maxHeight: syncHeightPx,
+                  }
+                : undefined
+            }
+          >
             <SessionTabs
               activeTab={activeTab}
               sessionData={sessionData}
               currentTime={currentTime}
+              isPlaying={isPlaying}
               scrollToTimestamp={scrollToTimestamp}
               onEventClick={handleSpanClick}
               networkViewMode={networkViewMode}
               onTabChange={setActiveTab}
               onCriticalInteractionClick={handleCriticalInteractionClick}
               onNetworkViewModeChange={setNetworkViewMode}
+              matchPlayerHeight={syncHeightPx !== undefined}
             />
           </Box>
         </Box>

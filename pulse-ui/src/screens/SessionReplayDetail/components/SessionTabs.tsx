@@ -34,34 +34,45 @@ interface SessionTabsProps {
   activeTab: string;
   sessionData: SessionDetailData;
   currentTime: number;
+  isPlaying: boolean;
   scrollToTimestamp: { t0: number; t1: number } | null;
   onEventClick: (item: FlameChartNode) => void;
   networkViewMode: "text" | "graph";
   onTabChange: (value: string) => void;
   onCriticalInteractionClick: (t0: number, t1: number) => void;
   onNetworkViewModeChange: (mode: "text" | "graph") => void;
+  /** When true, tabs card fills player-matched height and panel body scrolls */
+  matchPlayerHeight?: boolean;
 }
 
 export function SessionTabs({
   activeTab,
   sessionData,
   currentTime,
+  isPlaying,
   scrollToTimestamp,
   onEventClick,
   networkViewMode,
   onTabChange,
   onCriticalInteractionClick,
   onNetworkViewModeChange,
+  matchPlayerHeight = false,
 }: SessionTabsProps) {
   return (
-    <Paper className={classes.allTabContainer}>
+    <Paper
+      className={`${classes.allTabContainer}${
+        matchPlayerHeight ? ` ${classes.allTabContainerStretch}` : ""
+      }`}
+    >
       <Tabs
         value={activeTab}
         onChange={(value) => onTabChange(value || TABS.ALL)}
         color="teal"
         variant="default"
         classNames={{
-          root: classes.sessionTabsRoot,
+          root: matchPlayerHeight
+            ? classes.sessionTabsRootStretch
+            : classes.sessionTabsRoot,
           list: classes.sessionTabsList,
           tab: classes.sessionTab,
         }}
@@ -141,11 +152,16 @@ export function SessionTabs({
           </Tabs.Tab>
         </Tabs.List>
 
-        <Box className={classes.tabContent}>
+        <Box
+          className={`${classes.tabContent}${
+            matchPlayerHeight ? ` ${classes.tabContentStretch}` : ""
+          }`}
+        >
           <Tabs.Panel value={TABS.ALL}>
             <AllTab
               sessionData={sessionData}
               currentTime={currentTime}
+              isPlaying={isPlaying}
               scrollToTimestamp={scrollToTimestamp}
               onEventClick={onEventClick}
             />

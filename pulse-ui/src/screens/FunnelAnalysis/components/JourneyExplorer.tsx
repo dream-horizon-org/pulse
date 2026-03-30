@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Group,
-  Loader,
   SegmentedControl,
   Select,
   Slider,
@@ -14,11 +13,9 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { IconInfoCircle } from "@tabler/icons-react";
-import ReactECharts from "echarts-for-react";
-import { useGetJourneyData, useGetTags } from "../../../hooks/useGetFunnelData";
+import { IconInfoCircle, IconRoute } from "@tabler/icons-react";
+import { useGetTags } from "../../../hooks/useGetFunnelData";
 import { DATE_RANGE_OPTIONS, getDateRangeFromPreset } from "../mockData";
-import { buildJourneySankeyOption } from "../utils/buildJourneySankeyOption";
 import classes from "../FunnelAnalysis.module.css";
 
 interface JourneyExplorerProps {
@@ -44,6 +41,12 @@ interface JourneyExplorerProps {
   filters: { property: string; value: string }[];
   isUpdateMode?: boolean;
   isValid?: boolean;
+  anchorEvent?: string;
+  onAnchorEventChange?: (event: string) => void;
+  direction?: "forward" | "reverse";
+  onDirectionChange?: (direction: "forward" | "reverse") => void;
+  depth?: number;
+  onDepthChange?: (depth: number) => void;
 }
 
 export function JourneyExplorer({
@@ -69,10 +72,46 @@ export function JourneyExplorer({
   filters,
   isUpdateMode = false,
   isValid: externalIsValid,
+  anchorEvent: propAnchorEvent,
+  onAnchorEventChange,
+  direction: propDirection,
+  onDirectionChange,
+  depth: propDepth,
+  onDepthChange,
 }: JourneyExplorerProps) {
-  const [direction, setDirection] = useState<"forward" | "reverse">("forward");
-  const [anchorEvent, setAnchorEvent] = useState<string | null>(null);
-  const [depth, setDepth] = useState(5);
+  const [localDirection, setLocalDirection] = useState<"forward" | "reverse">(
+    "forward",
+  );
+  const [localAnchorEvent, setLocalAnchorEvent] = useState<string | null>(null);
+  const [localDepth, setLocalDepth] = useState(5);
+
+  const direction = isUpdateMode ? propDirection || "forward" : localDirection;
+  const anchorEvent = isUpdateMode ? propAnchorEvent || null : localAnchorEvent;
+  const depth = isUpdateMode ? propDepth ?? 5 : localDepth;
+
+  const setDirection = (dir: "forward" | "reverse") => {
+    if (isUpdateMode && onDirectionChange) {
+      onDirectionChange(dir);
+    } else {
+      setLocalDirection(dir);
+    }
+  };
+
+  const setAnchorEvent = (event: string | null) => {
+    if (isUpdateMode && onAnchorEventChange) {
+      onAnchorEventChange(event || "");
+    } else {
+      setLocalAnchorEvent(event);
+    }
+  };
+
+  const setDepth = (newDepth: number) => {
+    if (isUpdateMode && onDepthChange) {
+      onDepthChange(newDepth);
+    } else {
+      setLocalDepth(newDepth);
+    }
+  };
 
   const { data: tagsData } = useGetTags();
   const availableTags = tagsData?.data?.tags ?? [];
@@ -106,23 +145,6 @@ export function JourneyExplorer({
     [filters],
   );
 
-  const requestBody = useMemo(
-    () => ({
-      direction,
-      anchorEvent: anchorEvent || "",
-      depth,
-      timeRange,
-      filters: apiFilters,
-    }),
-    [direction, anchorEvent, depth, timeRange, apiFilters],
-  );
-
-  const { data, isLoading } = useGetJourneyData({
-    requestBody,
-    enabled: !!anchorEvent,
-  });
-
-  const journeyData = data?.data;
   const isValid =
     externalIsValid !== undefined
       ? externalIsValid
@@ -142,7 +164,11 @@ export function JourneyExplorer({
     <Box className={classes.journeyLayout}>
       <Box
         className={classes.sidebarScroll}
-        style={{ width: 300, borderRight: "1px solid #e2e8f0", padding: 16 }}
+        style={{
+          width: isUpdateMode ? "100%" : 300,
+          borderRight: isUpdateMode ? "none" : "1px solid #e2e8f0",
+          padding: 16,
+        }}
       >
         <Text size="md" fw={600} mb="sm">
           Journey Details
@@ -366,40 +392,27 @@ export function JourneyExplorer({
         </Button>
       </Box>
 
-      <Box className={classes.journeyCanvas}>
-        <Box className={classes.sankeyContainer}>
-          {anchorEvent ? (
-            <Text size="md" fw={600} mb="md">
-              {direction === "forward" ? "Forward" : "Reverse"} Journey from{" "}
-              <Text span c="teal" fw={700}>
-                {anchorEvent}
-              </Text>
+      {!isUpdateMode && (
+        <Box
+          className={classes.mainCanvas}
+          style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}
+        >
+          <Box className={classes.emptyState} style={{ flex: 1, justifyContent: "center" }}>
+            <Box className={classes.emptyStateIcon}>
+              <IconRoute size={28} color="#0ba09a" />
+            </Box>
+            <Text size="lg" fw={700} c="dark.6" mt="xs">
+              Build Your Journey
             </Text>
-          ) : null}
-
-          {isLoading ? (
-            <Box
-              style={{ display: "flex", justifyContent: "center", padding: 80 }}
-            >
-              <Loader color="teal" size="lg" />
-            </Box>
-          ) : journeyData ? (
-            <ReactECharts
-              option={buildJourneySankeyOption(journeyData)}
-              style={{ height: "520px", width: "100%" }}
-              notMerge
-            />
-          ) : (
-            <Box className={classes.emptyState}>
-              <Text size="sm" c="dimmed">
-                {availableEvents.length === 0
-                  ? "No events available. Connect a data source to explore journeys."
-                  : "Select an anchor event to explore journeys"}
-              </Text>
-            </Box>
-          )}
+            <Text size="sm" c="dimmed" mt={4} maw={380}>
+              Choose an anchor event, set direction and depth, configure your
+              rolling window and filters, then click &quot;Create Journey&quot;
+              to save. Visualization appears on the journey detail page after
+              creation.
+            </Text>
+          </Box>
         </Box>
-      </Box>
+      )}
     </Box>
   );
 }
