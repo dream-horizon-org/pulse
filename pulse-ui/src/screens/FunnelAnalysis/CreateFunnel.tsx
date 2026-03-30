@@ -171,7 +171,7 @@ export function CreateFunnel() {
     <Box className={classes.shell}>
       <Box className={classes.topBar}>
         <Box className={classes.topBarLeft}>
-          <Group gap="sm">
+          <Group gap="sm" align="center">
             <ActionIcon
               variant="subtle"
               color="gray"
@@ -180,7 +180,9 @@ export function CreateFunnel() {
             >
               <IconArrowLeft size={20} />
             </ActionIcon>
-            <Text className={classes.moduleTitle}>Create Funnel</Text>
+            <Box>
+              <Text className={classes.moduleTitle}>Create Funnel</Text>
+            </Box>
           </Group>
         </Box>
 

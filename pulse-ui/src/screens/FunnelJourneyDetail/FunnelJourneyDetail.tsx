@@ -91,6 +91,13 @@ function FunnelDetailView({ detail }: { detail: any }) {
   const { data: eventsData } = useGetFunnelEvents();
   const availableEvents = eventsData?.data?.events ?? [];
 
+  const { data: filtersData } = useGetFunnelFilters();
+  const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
+  const filterOptions = EXPECTED_FILTER_KEYS.reduce((acc, key) => {
+    acc[key] = filtersData?.data?.filters?.[key] ?? [];
+    return acc;
+  }, {} as Record<string, string[]>);
+
   const timeRange = useMemo(() => {
     if (rollingType === "ONCE") {
       return {
@@ -186,76 +193,92 @@ function FunnelDetailView({ detail }: { detail: any }) {
   const isLoading = funnelLoading || trendLoading;
 
   return (
-    <Box className={funnelClasses.funnelLayout}>
-      <Box className={funnelClasses.sidebar}>
-        <FunnelBuilder
-          name={name}
-          onNameChange={setName}
-          description={description}
-          onDescriptionChange={setDescription}
-          tags={tags}
-          onTagsChange={setTags}
-          rollingType={rollingType}
-          onRollingTypeChange={setRollingType}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          customStartDate={customStartDate}
-          onCustomStartDateChange={setCustomStartDate}
-          customEndDate={customEndDate}
-          onCustomEndDateChange={setCustomEndDate}
-          expiryDate={expiryDate}
-          onExpiryDateChange={setExpiryDate}
-          steps={steps}
-          onStepsChange={(s) => { setSteps(s); setShouldFetch(false); }}
-          funnelMode={funnelMode}
-          onFunnelModeChange={setFunnelMode}
-          conversionWindow={conversionWindow}
-          onConversionWindowChange={(v) => { setConversionWindow(v); setShouldFetch(false); }}
-          onAnalyze={handleUpdate}
-          isCreating={isUpdating}
-          availableEvents={availableEvents}
-          isUpdateMode={true}
-          isValid={isChanged}
-        />
+    <>
+      <GlobalFilterBar
+        filters={filters}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setShouldFetch(false);
+        }}
+        filterOptions={filterOptions}
+      />
+      <Box className={funnelClasses.funnelLayout} style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+        <Box className={funnelClasses.sidebar} style={{ overflowY: "auto", height: "100%", flexShrink: 0 }}>
+          <FunnelBuilder
+            name={name}
+            onNameChange={setName}
+            description={description}
+            onDescriptionChange={setDescription}
+            tags={tags}
+            onTagsChange={setTags}
+            rollingType={rollingType}
+            onRollingTypeChange={setRollingType}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            customStartDate={customStartDate}
+            onCustomStartDateChange={setCustomStartDate}
+            customEndDate={customEndDate}
+            onCustomEndDateChange={setCustomEndDate}
+            expiryDate={expiryDate}
+            onExpiryDateChange={setExpiryDate}
+            steps={steps}
+            onStepsChange={(s) => { setSteps(s); setShouldFetch(false); }}
+            funnelMode={funnelMode}
+            onFunnelModeChange={setFunnelMode}
+            conversionWindow={conversionWindow}
+            onConversionWindowChange={(v) => { setConversionWindow(v); setShouldFetch(false); }}
+            onAnalyze={handleUpdate}
+            isCreating={isUpdating}
+            availableEvents={availableEvents}
+            isUpdateMode={true}
+            isValid={isChanged}
+          />
+        </Box>
+        <Box className={funnelClasses.mainCanvas} style={{ minHeight: 560, padding: 0, overflowY: "auto", height: "100%", flex: 1 }}>
+          {detail.status === "CREATING" || detail.status === "UPDATING" ? (
+            <Box className={funnelClasses.emptyState} py={60}>
+              <Loader color="blue" size="lg" />
+              <Text size="lg" fw={700} c="dark.6" mt="md">
+                {detail.status === "CREATING" ? "Computing" : "Updating"} Funnel Data
+              </Text>
+              <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
+                Your funnel is currently being {detail.status === "CREATING" ? "computed" : "updated"} on the server. This might take a few moments. Please check back later.
+              </Text>
+            </Box>
+          ) : isLoading ? (
+            <Box className={funnelClasses.emptyState}>
+              <Loader color="teal" size="lg" />
+              <Text size="sm" c="dimmed" mt="md">
+                Loading funnel visualization…
+              </Text>
+            </Box>
+          ) : funnelResult?.steps?.length ? (
+            <>
+              <FunnelVisualization
+                steps={funnelResult.steps}
+                totalConversionRate={
+                  trendResult?.totalConversionRate ??
+                  funnelResult.overallConversionRate
+                }
+                conversionTrend={trendResult?.conversionTrend ?? 0}
+                medianTimes={trendResult?.medianTimes ?? []}
+              />
+              <FunnelDataTable
+                steps={funnelResult.steps}
+                timeRange={timeRange}
+                apiSteps={apiSteps}
+              />
+            </>
+          ) : (
+            <Box className={funnelClasses.emptyState}>
+              <Text size="sm" c="dimmed">
+                Funnel data could not be loaded.
+              </Text>
+            </Box>
+          )}
+        </Box>
       </Box>
-      <Box className={funnelClasses.mainCanvas} style={{ padding: 0 }}>
-        {isLoading && (
-          <Box className={funnelClasses.emptyState}>
-            <Loader color="teal" size="lg" />
-            <Text size="sm" c="dimmed" mt="md">
-              Loading funnel visualization…
-            </Text>
-          </Box>
-        )}
-
-        {!isLoading && funnelResult?.steps?.length ? (
-          <>
-            <FunnelVisualization
-              steps={funnelResult.steps}
-              totalConversionRate={
-                trendResult?.totalConversionRate ??
-                funnelResult.overallConversionRate
-              }
-              conversionTrend={trendResult?.conversionTrend ?? 0}
-              medianTimes={trendResult?.medianTimes ?? []}
-            />
-            <FunnelDataTable
-              steps={funnelResult.steps}
-              timeRange={timeRange}
-              apiSteps={apiSteps}
-            />
-          </>
-        ) : null}
-
-        {!isLoading && !funnelResult?.steps?.length ? (
-          <Box className={funnelClasses.emptyState}>
-            <Text size="sm" c="dimmed">
-              Funnel data could not be loaded.
-            </Text>
-          </Box>
-        ) : null}
-      </Box>
-    </Box>
+    </>
   );
 }
 
@@ -377,8 +400,8 @@ function JourneyDetailView({ detail }: { detail: any }) {
         }}
         filterOptions={filterOptions}
       />
-      <Box className={funnelClasses.funnelLayout}>
-        <Box className={funnelClasses.sidebar}>
+      <Box className={funnelClasses.funnelLayout} style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+        <Box className={funnelClasses.sidebar} style={{ overflowY: "auto", height: "100%", flexShrink: 0 }}>
           <JourneyExplorer
             name={name}
             onNameChange={setName}
@@ -404,7 +427,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
             isValid={isChanged}
           />
         </Box>
-        <Box className={funnelClasses.mainCanvas} style={{ minHeight: 560 }}>
+        <Box className={funnelClasses.mainCanvas} style={{ minHeight: 560, padding: 0, overflowY: "auto", height: "100%", flex: 1 }}>
           <Box className={funnelClasses.journeyCanvas} style={{ padding: 0 }}>
             <Box className={funnelClasses.sankeyContainer}>
               <Text size="sm" fw={600} c="dark.7" mb="md">
@@ -472,7 +495,7 @@ export function FunnelJourneyDetail() {
 
   if (isLoading) {
     return (
-      <Box className={classes.shell}>
+      <Box className={classes.shell} style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)" }}>
         <Group justify="center" py={80}>
           <Loader color="teal" />
         </Group>
@@ -482,7 +505,7 @@ export function FunnelJourneyDetail() {
 
   if (!detail) {
     return (
-      <Box className={classes.shell}>
+      <Box className={classes.shell} style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)" }}>
         <Group mb="md">
           <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
             <IconArrowLeft size={20} />
@@ -502,34 +525,42 @@ export function FunnelJourneyDetail() {
   const KindIcon = detail.kind === "FUNNEL" ? IconChartFunnel : IconRoute;
 
   return (
-    <Box className={classes.shell}>
+    <Box className={classes.shell} style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)" }}>
       <Box className={funnelClasses.topBar}>
         <Box className={funnelClasses.topBarLeft}>
-          <Group gap="sm">
+          <Group gap="sm" align="center">
             <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
               <IconArrowLeft size={20} />
             </ActionIcon>
-            <Text className={funnelClasses.moduleTitle}>{detail.name}</Text>
-            <Badge
-              color={
-                detail.status === "ACTIVE"
-                  ? "teal"
-                  : detail.status === "CREATING"
-                    ? "blue"
-                    : detail.status === "UPDATING"
-                      ? "orange"
-                      : "gray"
-              }
-              variant="light"
-            >
-              {detail.status === "ACTIVE"
-                ? "Active"
-                : detail.status === "CREATING"
-                  ? "Creating"
-                  : detail.status === "UPDATING"
-                    ? "Updating"
-                    : "Stopped"}
-            </Badge>
+            <Box>
+              <Text className={funnelClasses.moduleTitle}>{detail.name}</Text>
+              <Group gap="xs" mt={4}>
+                <Badge
+                  color={
+                    detail.status === "ACTIVE"
+                      ? "teal"
+                      : detail.status === "CREATING"
+                        ? "blue"
+                        : detail.status === "UPDATING"
+                          ? "orange"
+                          : "gray"
+                  }
+                  variant="light"
+                  size="sm"
+                >
+                  {detail.status === "ACTIVE"
+                    ? "Active"
+                    : detail.status === "CREATING"
+                      ? "Creating"
+                      : detail.status === "UPDATING"
+                        ? "Updating"
+                        : "Stopped"}
+                </Badge>
+                <Text size="xs" c="dimmed">
+                  {detail.kind === "FUNNEL" ? "Funnel" : "Journey"}
+                </Text>
+              </Group>
+            </Box>
           </Group>
         </Box>
       </Box>
@@ -542,3 +573,4 @@ export function FunnelJourneyDetail() {
     </Box>
   );
 }
+

@@ -194,6 +194,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-20T14:22:00Z",
     tags: ["checkout", "revenue"],
     funnelType: "ORDERED",
+    filters: [
+      { field: "OS Name", value: "iOS" },
+      { field: "App Version", value: "4.2.1" }
+    ],
     steps: [
       { eventName: "Screen_View: Home" },
       { eventName: "Screen_View: Product Detail" },
@@ -239,6 +243,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     createdBy: "carol@example.com",
     lastUpdatedAt: "2026-03-21T11:30:00Z",
     tags: ["auth", "onboarding"],
+    filters: [
+      { field: "OS Name", value: "Android" }
+    ],
     anchorEvent: "Tap: Sign Up",
     direction: "forward",
     depth: 5,

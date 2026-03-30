@@ -91,11 +91,13 @@ export function CreateJourney() {
     <Box className={classes.shell}>
       <Box className={classes.topBar}>
         <Box className={classes.topBarLeft}>
-          <Group gap="sm">
+          <Group gap="sm" align="center">
             <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
               <IconArrowLeft size={20} />
             </ActionIcon>
-            <Text className={classes.moduleTitle}>Create Journey</Text>
+            <Box>
+              <Text className={classes.moduleTitle}>Create Journey</Text>
+            </Box>
           </Group>
         </Box>
 
