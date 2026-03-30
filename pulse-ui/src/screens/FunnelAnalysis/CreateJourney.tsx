@@ -3,9 +3,8 @@ import { ActionIcon, Box, Select, Text, Group } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useNavigate, useParams, generatePath } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useCreateFunnelJourney } from "../../hooks/useCreateFunnelJourney";
 import { ROUTES } from "../../constants";
-import { createFunnelJourney } from "../../services/funnels.service";
 import classes from "./FunnelAnalysis.module.css";
 import {
   GlobalFilterBar,
@@ -39,29 +38,31 @@ export function CreateJourney() {
     return acc;
   }, {} as Record<string, string[]>);
 
-  const { mutate: createJourney, isPending: isCreating } = useMutation({
-    mutationFn: createFunnelJourney,
-    onSuccess: (res) => {
-      if (projectId && res.data) {
-        navigate(
-          generatePath(ROUTES.FUNNEL_JOURNEY_DETAIL.path, {
-            projectId,
-            id: res.data.id,
-          })
-        );
-      }
-    },
-  });
+  const { mutate: createJourney, isPending: isCreating } = useCreateFunnelJourney();
 
   const handleCreate = (config: any) => {
-    createJourney({
-      name,
-      description,
-      tags,
-      rollingType,
-      kind: "JOURNEY",
-      ...config,
-    });
+    createJourney(
+      {
+        name,
+        description,
+        tags,
+        rollingType,
+        kind: "JOURNEY",
+        ...config,
+      },
+      {
+        onSuccess: (res) => {
+          if (projectId && res.data) {
+            navigate(
+              generatePath(ROUTES.FUNNEL_JOURNEY_DETAIL.path, {
+                projectId,
+                id: res.data.id,
+              })
+            );
+          }
+        },
+      }
+    );
   };
 
   const goBack = () => {

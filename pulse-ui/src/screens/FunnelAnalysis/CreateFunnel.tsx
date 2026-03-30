@@ -16,8 +16,7 @@ import {
   useGetFunnelFilters,
   useGetFunnelTrend
 } from "../../hooks/useGetFunnelData";
-import { useMutation } from "@tanstack/react-query";
-import { createFunnelJourney } from "../../services/funnels.service";
+import { useCreateFunnelJourney } from "../../hooks/useCreateFunnelJourney";
 
 const EMPTY_STEPS: BuilderStep[] = [
   { id: "s-1", eventName: "" },
@@ -125,37 +124,39 @@ export function CreateFunnel() {
   const trendResult = trendData?.data;
   const isLoading = funnelLoading || trendLoading;
 
-  const { mutate: createFunnel, isPending: isCreating } = useMutation({
-    mutationFn: createFunnelJourney,
-    onSuccess: (res) => {
-      if (projectId && res.data) {
-        navigate(
-          generatePath(ROUTES.FUNNEL_JOURNEY_DETAIL.path, {
-            projectId,
-            id: res.data.id,
-          }),
-        );
-      }
-    },
-  });
+  const { mutate: createFunnel, isPending: isCreating } = useCreateFunnelJourney();
 
   const handleAnalyze = () => {
-    createFunnel({
-      name,
-      description,
-      tags,
-      rollingType,
-      kind: "FUNNEL",
-      funnelType: funnelMode.toUpperCase(),
-      steps: apiSteps,
-      timeRange,
-      windowSeconds: parseInt(conversionWindow, 10),
-      filters: apiFilters,
-      expiryDate:
-        rollingType === "RECURRING" && expiryDate
-          ? expiryDate.toISOString()
-          : undefined,
-    });
+    createFunnel(
+      {
+        name,
+        description,
+        tags,
+        rollingType,
+        kind: "FUNNEL",
+        funnelType: funnelMode.toUpperCase(),
+        steps: apiSteps,
+        timeRange,
+        windowSeconds: parseInt(conversionWindow, 10),
+        filters: apiFilters,
+        expiryDate:
+          rollingType === "RECURRING" && expiryDate
+            ? expiryDate.toISOString()
+            : undefined,
+      },
+      {
+        onSuccess: (res) => {
+          if (projectId && res.data) {
+            navigate(
+              generatePath(ROUTES.FUNNEL_JOURNEY_DETAIL.path, {
+                projectId,
+                id: res.data.id,
+              }),
+            );
+          }
+        },
+      }
+    );
   };
 
   const goBack = () => {
