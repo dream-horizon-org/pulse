@@ -1,7 +1,7 @@
 import { Alert, Paper } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
 import { useSessionReplayFilters } from "../../contexts/SessionReplayFilterContext";
@@ -25,10 +25,15 @@ import { AdvancedFilterBuilder } from "./components/AdvancedFilterBuilder";
 import { SessionsTableToolbar } from "./components/SessionsTableToolbar";
 import { SessionsTable } from "./components/SessionsTable";
 import { SessionListPagination } from "./components/SessionListPagination";
+import {
+  SESSION_REPLAY_FROM_CRITICAL_INTERACTION_VALUE,
+  SESSION_REPLAY_FROM_QUERY_KEY,
+} from "../SessionReplayDetail/constants/sessionReplayNavigation";
 
 export function SessionReplaySessions() {
   const { trackClick } = useAnalytics("SessionReplaySessions");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { projectId } = useProjectContext();
   const { state: filterState, actions: filterActions } =
     useSessionReplayFilters();
@@ -83,7 +88,7 @@ export function SessionReplaySessions() {
         ],
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     interactionField,
     filterState.drillDown.type,
@@ -204,7 +209,12 @@ export function SessionReplaySessions() {
 
   const handleWatchSession = (sessionId: string) => {
     trackClick(`WatchSession_${sessionId}`);
-    navigate(`${sessionReplayBase}/${sessionId}`);
+    const from = searchParams.get(SESSION_REPLAY_FROM_QUERY_KEY);
+    const fromSuffix =
+      from === SESSION_REPLAY_FROM_CRITICAL_INTERACTION_VALUE
+        ? `?${SESSION_REPLAY_FROM_QUERY_KEY}=${SESSION_REPLAY_FROM_CRITICAL_INTERACTION_VALUE}`
+        : "";
+    navigate(`${sessionReplayBase}/${sessionId}${fromSuffix}`);
   };
 
   if (loading && !sessionsData) {
