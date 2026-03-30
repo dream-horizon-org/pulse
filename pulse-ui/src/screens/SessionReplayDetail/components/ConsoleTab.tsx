@@ -1,21 +1,16 @@
-import { Center, Text, Badge, Stack } from "@mantine/core";
-import { IconTerminal } from "@tabler/icons-react";
+import { Box, Text, Stack } from "@mantine/core";
 import { TabPanelScrollArea } from "./TabPanelScrollArea";
 
 export function ConsoleTab() {
   return (
     <TabPanelScrollArea>
-      <Center py="xl" mih={200}>
-        <Stack align="center" gap="xs">
-          <IconTerminal size={32} color="var(--mantine-color-gray-4)" />
-          <Badge size="sm" variant="light" color="gray">
-            Coming Soon
-          </Badge>
-          <Text size="sm" c="dimmed" ta="center">
+      <Box py="xl" px="md" mih={200}>
+        <Stack align="flex-start" gap="xs">
+          <Text size="sm" c="dimmed" ta="left" lh={1.5}>
             Console logs will be available here in a future update.
           </Text>
         </Stack>
-      </Center>
+      </Box>
     </TabPanelScrollArea>
   );
 }

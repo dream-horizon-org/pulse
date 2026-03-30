@@ -126,6 +126,11 @@ export function createDurationOption(networkRequests: NetworkRequest[]) {
     status: req.status,
   }));
 
+  const n = requests.length;
+  const useDataZoom = n > 6;
+  const zoomEndPercent =
+    n <= 6 ? 100 : Math.min(100, Math.round((6 / n) * 100));
+
   return {
     tooltip: {
       trigger: "axis",
@@ -137,6 +142,26 @@ export function createDurationOption(networkRequests: NetworkRequest[]) {
         ).replace("{value}", param.value.toString());
       },
     },
+    grid: {
+      left: "56",
+      right: "20",
+      top: "36",
+      bottom: useDataZoom ? 72 : 56,
+      containLabel: true,
+    },
+    ...(useDataZoom && {
+      dataZoom: [
+        {
+          type: "slider",
+          xAxisIndex: 0,
+          start: 0,
+          end: zoomEndPercent,
+          height: 20,
+          bottom: 4,
+        },
+        { type: "inside", xAxisIndex: 0 },
+      ],
+    }),
     xAxis: {
       type: "category",
       data: requests.map((r) => r.name),

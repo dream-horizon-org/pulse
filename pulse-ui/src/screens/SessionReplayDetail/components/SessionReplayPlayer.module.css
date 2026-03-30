@@ -11,10 +11,12 @@
   border-radius: var(--mantine-radius-md);
 }
 
-/* Compact: no extra min-height, fit to device */
+/* Compact: fill viewport slot next to tabs (same height with/without images) */
 .playerContainerCompact {
   min-height: 0;
-  align-self: center;
+  flex: 1;
+  align-self: stretch;
+  width: 100%;
 }
 
 .imageViewport {

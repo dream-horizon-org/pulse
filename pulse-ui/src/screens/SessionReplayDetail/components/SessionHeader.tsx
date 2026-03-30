@@ -8,7 +8,7 @@ interface SessionHeaderProps {
 
 export function SessionHeader({ onBack }: SessionHeaderProps) {
   return (
-    <Group mb="sm">
+    <Group mb="md">
       <Button
         variant="subtle"
         color="teal"

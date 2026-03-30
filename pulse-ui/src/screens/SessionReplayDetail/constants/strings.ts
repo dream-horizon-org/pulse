@@ -6,19 +6,19 @@
 export const TABS = {
   ALL: "all",
   INTERACTION: "interaction",
-  EVENTS: "events",
   CONSOLE: "console",
   NETWORK: "network",
   PERFORMANCE: "performance",
+  USER_JOURNEY: "user-journey",
 } as const;
 
 export const TAB_LABELS = {
   ALL: "All",
   INTERACTION: "Interaction",
-  EVENTS: "Events",
   CONSOLE: "Console",
   NETWORK: "Network",
   PERFORMANCE: "App Vitals",
+  USER_JOURNEY: "User Journey",
 } as const;
 
 // View Modes
@@ -79,6 +79,7 @@ export const LABELS = {
   SESSION_TYPE: "Session Type",
   LIFETIME_VALUE: "Lifetime Value",
   USER_STATUS: "User Status",
+  SESSION_ID: "Session ID",
   USER_ID: "User ID",
   SESSION_DURATION: "Session Duration",
   SESSION_QUALITY: "Session Quality",
@@ -152,6 +153,8 @@ export const MESSAGES = {
     "For web: rrweb DOM replay | For mobile: Wireframe reconstruction",
   INTEGRATION_READY: "Integration Ready",
   SYNCED_TO: "Synced to:",
+  NO_CRITICAL_INTERACTIONS:
+    "No critical interactions were recorded for this session.",
 } as const;
 
 // Button Labels
@@ -239,7 +242,7 @@ export const DEFAULTS = {
 
 // Format Strings
 export const FORMAT_STRINGS = {
-  QUALITY_SCORE: "{score}/10",
+  QUALITY_SCORE: "{score}",
   CRITICAL_INTERACTION_FORMAT: "{displayName} CII - {status}",
   API_CALL_FORMAT: "{method} {url}",
   NETWORK_PERFORMANCE_FORMAT: "{duration}ms",
