@@ -11,6 +11,8 @@ import type {
   GetQuickFiltersResponse,
   SessionDetailApiResponse,
 } from "../../services/sessionReplay/types";
+import { buildEcommerceGenericSessionDetailApiResponse } from "../ecommerceSessionReplayDetailMock";
+import { isEcommerceMockThemeEnabled } from "../mockEcommerceTheme";
 import { applyMockSessionDetailOverrides } from "../../screens/SessionReplayDetail/mock/mockSessionReplayScenarios";
 import { getActiveSessionReplayDetailInteractionOrder } from "../mockPulseProjectRegistry";
 
@@ -87,6 +89,10 @@ export function generateSessionDetailResponse(
 function buildGenericSessionDetailApiResponse(
   sessionId: string,
 ): SessionDetailApiResponse {
+  if (isEcommerceMockThemeEnabled()) {
+    return buildEcommerceGenericSessionDetailApiResponse(sessionId);
+  }
+
   const now = new Date();
   const durationMs = 92000;
   const startTime = new Date(now.getTime() - durationMs);

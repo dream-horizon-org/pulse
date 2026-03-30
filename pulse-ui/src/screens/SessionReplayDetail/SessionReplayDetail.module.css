@@ -2,6 +2,7 @@
 .container {
   width: 100%;
   max-width: 1600px;
+  height: 100%;
   margin: 0 auto;
   padding: var(--mantine-spacing-lg);
   background: var(--mantine-color-white);
@@ -11,17 +12,10 @@
   flex-direction: column;
 }
 
-.detailHeader {
-  flex-shrink: 0;
-}
-
 .detailMain {
   flex: none;
   width: 100%;
   max-width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--mantine-spacing-xl);
   box-sizing: border-box;
 }
 
@@ -92,11 +86,6 @@
   letter-spacing: 0.5px;
 }
 
-.summarySection {
-  flex-shrink: 0;
-  margin-bottom: 0;
-}
-
 /*
  * Full-width row: player 4∶8. Columns are content-sized (align flex-start); no stretch.
  */
@@ -153,35 +142,50 @@
   min-height: 0;
 }
 
-/* Desktop split: height set inline to match player column; clip and scroll inside tabs */
-.playerSectionRightMatched {
-  overflow: hidden;
-}
-
-.allTabContainerStretch {
+/* Matched player height: set data-matched-height on Paper + Tabs from SessionTabs. */
+.allTabContainer[data-matched-height] {
   flex: 1;
   min-height: 0;
   height: 100%;
   max-height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
-.sessionTabsRootStretch {
-  width: 100%;
+.allTabContainer[data-matched-height] > * {
+  flex: 1 1 0%;
+  min-height: 0;
   min-width: 0;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
-.tabContentStretch {
+.allTabContainer[data-matched-height] .tabContent {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+}
+
+/* Mantine Tabs root is display:block by default; variables + flex when height-matched. */
+.sessionTabsRoot[data-matched-height] {
+  --tabs-display: flex;
+  --tabs-flex-direction: column;
+  --tabs-panel-grow: 1;
+  flex: 1;
+  min-height: 0;
+}
+
+.sessionTabsRoot[data-matched-height] [role="tabpanel"] {
+  min-height: 0;
+  min-width: 0;
+}
+
+.allTabContainer[data-matched-height] .tabBodyScroll > [role="tabpanel"] {
+  align-self: stretch;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.tabBodyScroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: scroll;
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -426,8 +430,8 @@
   box-sizing: border-box;
 }
 
-/* Tab panels: only role=tabpanel (avoid styling Mantine wrappers that break layout) */
-.allTabContainer .tabContent > [role="tabpanel"] {
+/* Tab panels (direct or inside .tabBodyScroll when height-matched) */
+.allTabContainer .tabContent [role="tabpanel"] {
   display: flex;
   flex-direction: column;
 }

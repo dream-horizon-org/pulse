@@ -108,6 +108,7 @@ function buildDefaultMockSessionItems(): SessionItem[] {
         "OrderListScreen",
       ],
       impactedScreens: null,
+      criticalInteractionNames: ["WalletBalanceFetch", "PlayerSelectTap"],
     },
     {
       sessionId: "sess_mock_004",
@@ -267,6 +268,7 @@ function buildDefaultMockSessionItems(): SessionItem[] {
       spanCount: 72,
       journey: ["HomeScreen", "SettingsScreen", "ProfileScreen"],
       impactedScreens: null,
+      criticalInteractionNames: ["MatchScheduleAPICall", "NotificationTap"],
     },
     {
       sessionId: "sess_mock_012",
@@ -493,6 +495,8 @@ export function applyMockSessionDetailOverrides(
   const { device, osVersion, appVersion } = deviceForPlatform(item.platform);
   const plat = item.platform as SessionDetailApiResponse["platform"];
 
+  const itemExceptions = buildExceptionsForItem(sessionId, item);
+
   return {
     ...base,
     sessionId: item.sessionId,
@@ -509,6 +513,7 @@ export function applyMockSessionDetailOverrides(
     quality: fallbackQualityForDetail(item),
     journey: item.journey,
     interactions: buildInteractionsForItem(item),
-    exceptions: buildExceptionsForItem(sessionId, item),
+    // Sessions with no issues would otherwise drop the rich generic exceptions (payment 504, etc.).
+    exceptions: itemExceptions ?? base.exceptions,
   };
 }

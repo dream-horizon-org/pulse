@@ -29,11 +29,14 @@ import ProblematicInteractions from "./components/InteractionDetailsMainContent/
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
 import dayjs from "dayjs";
 import { useProjectContext } from "../../contexts";
+import type { FilterCategory } from "../../services/sessionReplay/filterConfig";
+import { sessionReplayFromCriticalInteractionQueryString } from "../SessionReplayDetail/constants/sessionReplayNavigation";
 import { RootCause } from "./components/RootCause";
 import { RevenueImpactSection } from "./components/RevenueImpact/RevenueImpactSection";
 
 const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
-const isRevenueCorrelationEnabled = process.env.REACT_APP_REVENUE_CORRELATION_ENABLED === "true";
+const isRevenueCorrelationEnabled =
+  process.env.REACT_APP_REVENUE_CORRELATION_ENABLED === "true";
 
 export function CiritcalInteractionDetails() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -184,6 +187,8 @@ export function CiritcalInteractionDetails() {
 
     if (effectiveStart && effectiveEnd) {
       sessionReplayActions.setDateRange("custom", effectiveStart, effectiveEnd);
+    } else {
+      sessionReplayActions.setDateRange("24h", null, null);
     }
     if (interactionName) {
       sessionReplayActions.setDrillDown(
@@ -191,12 +196,27 @@ export function CiritcalInteractionDetails() {
         interactionName,
         interactionName,
       );
+      sessionReplayActions.setAdvancedFilters({
+        id: `critical-interaction-${interactionName}`,
+        operator: "AND",
+        conditions: [
+          {
+            id: `ci-name-${interactionName}`,
+            category: "ui_interaction" as FilterCategory,
+            field: "critical_interaction.name",
+            operator: "equals",
+            value: interactionName,
+          },
+        ],
+      });
     }
     const basePath = ROUTES.PROJECT_SESSION_REPLAY_SESSIONS.basePath.replace(
       ":projectId",
       projectIdFromUrl || "",
     );
-    navigate(basePath);
+    navigate(
+      `${basePath}?${sessionReplayFromCriticalInteractionQueryString()}`,
+    );
   };
 
   const handleTabChange = (value: string | null) => {
