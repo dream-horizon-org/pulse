@@ -58,24 +58,71 @@ export function SessionTabs({
   onNetworkViewModeChange,
   matchPlayerHeight = false,
 }: SessionTabsProps) {
+  const tabPanels = (
+    <>
+      <Tabs.Panel value={TABS.ALL}>
+        <AllTab
+          sessionData={sessionData}
+          currentTime={currentTime}
+          isPlaying={isPlaying}
+          scrollToTimestamp={scrollToTimestamp}
+          onEventClick={onEventClick}
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.INTERACTION}>
+        <InteractionTab
+          sessionData={sessionData}
+          onCriticalInteractionClick={onCriticalInteractionClick}
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.NETWORK}>
+        <NetworkTab
+          sessionData={sessionData}
+          viewMode={networkViewMode}
+          onViewModeChange={onNetworkViewModeChange}
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.PERFORMANCE}>
+        <PerformanceTab sessionData={sessionData} />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.USER_JOURNEY}>
+        <UserJourneyTab sessionData={sessionData} />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.CONSOLE}>
+        <ConsoleTab sessionData={sessionData} />
+      </Tabs.Panel>
+    </>
+  );
+
   return (
     <Paper
-      className={`${classes.allTabContainer}${
-        matchPlayerHeight ? ` ${classes.allTabContainerStretch}` : ""
-      }`}
+      className={classes.allTabContainer}
+      data-matched-height={matchPlayerHeight ? "" : undefined}
     >
       <Tabs
         value={activeTab}
         onChange={(value) => onTabChange(value || TABS.ALL)}
         color="teal"
         variant="default"
+        data-matched-height={matchPlayerHeight ? "" : undefined}
         classNames={{
-          root: matchPlayerHeight
-            ? classes.sessionTabsRootStretch
-            : classes.sessionTabsRoot,
+          root: classes.sessionTabsRoot,
           list: classes.sessionTabsList,
           tab: classes.sessionTab,
         }}
+        styles={
+          matchPlayerHeight
+            ? {
+                /* Fills Paper slot; overflow scroll establishes scrollport for list + panel (DevTools fix). */
+                root: { height: "100%", overflow: "scroll" },
+              }
+            : undefined
+        }
       >
         <Tabs.List>
           <Tabs.Tab
@@ -140,47 +187,12 @@ export function SessionTabs({
           </Tabs.Tab>
         </Tabs.List>
 
-        <Box
-          className={`${classes.tabContent}${
-            matchPlayerHeight ? ` ${classes.tabContentStretch}` : ""
-          }`}
-        >
-          <Tabs.Panel value={TABS.ALL}>
-            <AllTab
-              sessionData={sessionData}
-              currentTime={currentTime}
-              isPlaying={isPlaying}
-              scrollToTimestamp={scrollToTimestamp}
-              onEventClick={onEventClick}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.INTERACTION}>
-            <InteractionTab
-              sessionData={sessionData}
-              onCriticalInteractionClick={onCriticalInteractionClick}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.NETWORK}>
-            <NetworkTab
-              sessionData={sessionData}
-              viewMode={networkViewMode}
-              onViewModeChange={onNetworkViewModeChange}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.PERFORMANCE}>
-            <PerformanceTab sessionData={sessionData} />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.USER_JOURNEY}>
-            <UserJourneyTab sessionData={sessionData} />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.CONSOLE}>
-            <ConsoleTab sessionData={sessionData} />
-          </Tabs.Panel>
+        <Box className={classes.tabContent}>
+          {matchPlayerHeight ? (
+            <Box className={classes.tabBodyScroll}>{tabPanels}</Box>
+          ) : (
+            tabPanels
+          )}
         </Box>
       </Tabs>
     </Paper>

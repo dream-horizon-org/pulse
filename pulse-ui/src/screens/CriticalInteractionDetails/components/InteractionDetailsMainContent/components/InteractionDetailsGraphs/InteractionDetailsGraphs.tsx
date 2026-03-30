@@ -10,32 +10,42 @@ import { GraphCardSkeleton } from "../../../../../../components/Skeletons";
 export function InteractionDetailsGraphs({
   ...detailsAndFilters
 }: InteractionDetailsMainContentProps) {
-  const {
-    graphData,
-    metrics,
-    isLoading,
-    isError,
-  } = useGetInteractionDetailsGraphs({
-    interactionName: detailsAndFilters?.jobDetails?.name,
-    startTime: detailsAndFilters.startTime || "",
-    endTime: detailsAndFilters.endTime || "",
-    enabled: true,
-    dashboardFilters: detailsAndFilters?.dashboardFilters,
-  });
+  const { graphData, metrics, isLoading, isError } =
+    useGetInteractionDetailsGraphs({
+      interactionName: detailsAndFilters?.jobDetails?.name,
+      startTime: detailsAndFilters.startTime || "",
+      endTime: detailsAndFilters.endTime || "",
+      enabled: Boolean(
+        detailsAndFilters.startTime?.trim() &&
+          detailsAndFilters.endTime?.trim(),
+      ),
+      dashboardFilters: detailsAndFilters?.dashboardFilters,
+    });
 
   const isHorizontal = detailsAndFilters?.orientation === "horizontal";
 
   if (isLoading) {
     return (
-      <div className={`${classes.graphsMainContainer} ${isHorizontal ? classes.horizontal : classes.vertical}`}>
+      <div
+        className={`${classes.graphsMainContainer} ${isHorizontal ? classes.horizontal : classes.vertical}`}
+      >
         <div className={classes.graphcolumn}>
-          <GraphCardSkeleton chartHeight={isHorizontal ? 180 : 200} metricsCount={3} />
+          <GraphCardSkeleton
+            chartHeight={isHorizontal ? 180 : 200}
+            metricsCount={3}
+          />
         </div>
         <div className={classes.graphcolumn}>
-          <GraphCardSkeleton chartHeight={isHorizontal ? 180 : 200} metricsCount={3} />
+          <GraphCardSkeleton
+            chartHeight={isHorizontal ? 180 : 200}
+            metricsCount={3}
+          />
         </div>
         <div className={classes.graphcolumn}>
-          <GraphCardSkeleton chartHeight={isHorizontal ? 180 : 200} metricsCount={3} />
+          <GraphCardSkeleton
+            chartHeight={isHorizontal ? 180 : 200}
+            metricsCount={3}
+          />
         </div>
       </div>
     );
@@ -52,7 +62,9 @@ export function InteractionDetailsGraphs({
   }
 
   return (
-    <div className={`${classes.graphsMainContainer} ${isHorizontal ? classes.horizontal : classes.vertical}`}>
+    <div
+      className={`${classes.graphsMainContainer} ${isHorizontal ? classes.horizontal : classes.vertical}`}
+    >
       <div className={`${classes.graphcolumn}`}>
         <ApdexWithLatencyGraph
           {...detailsAndFilters}

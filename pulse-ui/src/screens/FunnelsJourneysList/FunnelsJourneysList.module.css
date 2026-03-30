@@ -1,10 +1,12 @@
+/* Page shell — match SessionReplaySessions `.container` */
 .shell {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 60px);
-  background: #f8fafb;
-  padding: 24px;
+  background: #fafbfc;
+  padding: var(--mantine-spacing-md);
   box-sizing: border-box;
+  width: 100%;
 }
 
 .header {
@@ -13,7 +15,22 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--mantine-color-dark-4);
+  line-height: 1.6;
+  margin: 0;
 }
 
 .titleBlock {
@@ -28,54 +45,219 @@
   flex-wrap: wrap;
 }
 
-.filtersRow {
+/* Tabs in a panel — same visual language as session filter / KPI bars */
+.tabsCard {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: var(--mantine-radius-md);
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md) 0;
+}
+
+[data-mantine-color-scheme="dark"] .tabsCard {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
+}
+
+.tabsCard :global(.mantine-Tabs-list) {
+  border-color: var(--mantine-color-gray-3);
+}
+
+[data-mantine-color-scheme="dark"] .tabsCard :global(.mantine-Tabs-list) {
+  border-color: var(--mantine-color-dark-4);
+}
+
+.tabsCard :global(.mantine-Tabs-tab) {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+}
+
+/* Filter bar — match SessionReplaySessions `.filterBar` */
+.filterBar {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: var(--mantine-radius-md);
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-mantine-color-scheme="dark"] .filterBar {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
+}
+
+.filterBarInner {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
+  padding: var(--mantine-spacing-md);
+}
+
+/* Match session toolbar control labels */
+.filterBarInner :global(.mantine-InputWrapper-label) {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  color: var(--mantine-color-dark-6);
+  margin-bottom: 6px;
+}
+
+[data-mantine-color-scheme="dark"] .filterBarInner :global(.mantine-InputWrapper-label) {
+  color: var(--mantine-color-dark-1);
+}
+
+@media (max-width: 1200px) {
+  .filterBar {
+    overflow-x: auto;
+  }
+}
+
+/* Table container — match SessionReplaySessions `.tableContainer` */
+.tableContainer {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: var(--mantine-radius-md);
+  margin-bottom: 16px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-mantine-color-scheme="dark"] .tableContainer {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
+}
+
+/* Pagination — match SessionReplaySessions `.bottomBar` */
+.paginationBar {
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   margin-bottom: 16px;
 }
 
-.tableCard {
-  background: #fff;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  padding: 16px;
-  overflow: hidden;
+[data-mantine-color-scheme="dark"] .paginationBar {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
 }
 
-.tableScroll {
-  overflow-x: auto;
+/*
+ * Match SessionReplaySessions table: header sm / 600 / gray-0, body sm.
+ * Row insets — same as SessionsTable `.gridRow`:
+ * padding: sm lg (vertical sm, horizontal lg).
+ * Row dividers — same as `.dataRow` border-bottom gray-2.
+ * mantine-datatable root receives `.dataTable` via className.
+ */
+/* Row dividers — match SessionsTable `.dataRow` (gray-2 / dark-5) */
+.dataTable {
+  --mantine-datatable-row-border-color-light: var(--mantine-color-gray-2);
+  --mantine-datatable-row-border-color-dark: var(--mantine-color-dark-5);
 }
 
+.dataTable :global(.mantine-datatable-header th) {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+  background: var(--mantine-color-gray-0) !important;
+  border-bottom: 1px solid var(--mantine-color-gray-3);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
+}
+
+.dataTable :global(.mantine-datatable-table td) {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dark-7);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
+}
+
+.dataTable :global(.mantine-datatable-table td .mantine-Text-root) {
+  font-size: inherit;
+}
+
+[data-mantine-color-scheme="dark"] .dataTable :global(.mantine-datatable-header th) {
+  background: var(--mantine-color-dark-7) !important;
+  border-bottom-color: var(--mantine-color-dark-4);
+  color: var(--mantine-color-dark-0);
+}
+
+[data-mantine-color-scheme="dark"] .dataTable :global(.mantine-datatable-table td) {
+  color: var(--mantine-color-dark-0);
+}
+
+/* Row hover — match SessionReplaySessions `.tableRow:hover` */
+.dataTable
+  :global(.mantine-datatable-table[data-highlight-on-hover] tbody tr:hover) {
+  background: #f8f9fa !important;
+}
+
+[data-mantine-color-scheme="dark"]
+  .dataTable
+  :global(.mantine-datatable-table[data-highlight-on-hover] tbody tr:hover) {
+  background: var(--mantine-color-dark-5) !important;
+}
+
+/* Loading — match SessionReplaySessions `.loadingContainer` */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 32px;
+  gap: 16px;
+}
+
+/* Empty state — match SessionReplaySessions `.emptyState` */
 .emptyState {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 64px 24px;
+  padding: 64px 32px;
   text-align: center;
   background: #fff;
-  border: 1px solid #e9ecef;
   border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+[data-mantine-color-scheme="dark"] .emptyState {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
+}
+
+.emptyStateTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-8);
+  margin-bottom: 8px;
+}
+
+.emptyStateDescription {
+  font-size: 14px;
+  color: var(--mantine-color-dark-4);
+  max-width: 400px;
+  line-height: 1.6;
+  margin-bottom: 24px;
 }
 
 .emptyStateIcon {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #f0fdfa, #e0f7fa);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: #0ba09a;
+  opacity: 0.3;
   margin-bottom: 16px;
 }
 
-.loaderWrap {
-  display: flex;
-  justify-content: center;
-  padding: 48px;
-  background: #fff;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
+@media (max-width: 1200px) {
+  .shell {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 16px;
+  }
 }

@@ -16,6 +16,7 @@ import type {
   FilterValue,
 } from "../../../services/sessionReplay/types";
 import type { SnapshotsDataResponse } from "../../../services/sessionReplay/sessionReplaySnapshotTypes";
+import { isEcommerceMockThemeEnabled } from "../../../mocks/mockEcommerceTheme";
 import { generateSessionDetailApiResponse } from "../../../mocks/responses/sessionReplayResponses";
 import { MOCK_SESSION_ITEMS } from "./mockSessionReplayScenarios";
 
@@ -60,6 +61,27 @@ function sessionMatchesTimeRange(
   return t >= fromT && t < toT;
 }
 
+/**
+ * Mock session rows use `startTime` from a single `Date.now()` at module load. Listing uses the
+ * user's current window (e.g. last 24h from View Sessions), so times drift out of range after idle.
+ * Shift all rows so the newest session is a few minutes before "now" at request time.
+ */
+function reanchorSessionItemsForListing(
+  sessions: SessionItem[],
+): SessionItem[] {
+  if (sessions.length === 0) return sessions;
+  const anchor = Date.now();
+  const times = sessions.map((s) => new Date(s.startTime).getTime());
+  const maxT = Math.max(...times);
+  if (!Number.isFinite(maxT)) return sessions;
+  const targetNewestMs = anchor - 5 * 60 * 1000;
+  const delta = targetNewestMs - maxT;
+  return sessions.map((s) => ({
+    ...s,
+    startTime: new Date(new Date(s.startTime).getTime() + delta).toISOString(),
+  }));
+}
+
 function issueSum(session: SessionItem, type: string): number {
   return session.issues
     .filter((i) => i.type === type)
@@ -82,8 +104,9 @@ function mockListingDerivatives(session: SessionItem) {
     memoryPeakMb: 120 + (session.spanCount % 380),
     slowFramePct: Math.min(100, slow * 8 + (seed % 15)),
     country: seed % 2 === 0 ? "IN" : "US",
-    region: seed % 3 === 0 ? "Mumbai" : seed % 3 === 1 ? "Delhi NCR" : "Bengaluru",
-    appVersion: `2.${(seed % 24)}.${seed % 12}`,
+    region:
+      seed % 3 === 0 ? "Mumbai" : seed % 3 === 1 ? "Delhi NCR" : "Bengaluru",
+    appVersion: `2.${seed % 24}.${seed % 12}`,
     appBuild: String(4000 + (seed % 12000)),
     eventCategory: session.issues.length > 0 ? "error" : "navigation",
     eventName: `session_${session.sessionId}`,
@@ -252,14 +275,10 @@ function evaluateListingCondition(
     case "device.type": {
       const plat = normalizePlatformKey(session.platform);
       if (op === "in" && Array.isArray(value)) {
-        return value.some(
-          (x) => normalizePlatformKey(String(x)) === plat,
-        );
+        return value.some((x) => normalizePlatformKey(String(x)) === plat);
       }
       if (op === "not_in" && Array.isArray(value)) {
-        return !value.some(
-          (x) => normalizePlatformKey(String(x)) === plat,
-        );
+        return !value.some((x) => normalizePlatformKey(String(x)) === plat);
       }
       return compareStrings(op, session.platform, value);
     }
@@ -389,7 +408,9 @@ export function getMockSessionListingResponse(
   const limit = Math.min(100, Math.max(1, request.page?.limit ?? 10));
   const cursor = request.page?.cursor;
 
-  let allSessions = getMockSessionItems().filter(
+  let allSessions = reanchorSessionItemsForListing(
+    getMockSessionItems(),
+  ).filter(
     (s) =>
       sessionMatchesTimeRange(s, request.timeRange) &&
       sessionMatchesQuickFilters(s, request.filters?.quick) &&
@@ -565,8 +586,9 @@ export function getMockSessionsFiltersResponse(): FilterConfigResponse {
         fields: [
           {
             key: "critical_interaction.name",
-            displayName:
-              "Critical interaction (e.g. JoinContestButtonClick, PaymentSubmitClick)",
+            displayName: isEcommerceMockThemeEnabled()
+              ? "Critical interaction (e.g. AddToCartLineItem, PaymentAuthorize)"
+              : "Critical interaction (e.g. JoinContestButtonClick, PaymentSubmitClick)",
             dataType: "string",
             allowedOperators: [
               { key: "equals", label: "equals", valueType: "single" as const },

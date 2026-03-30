@@ -9,7 +9,8 @@
  *   succeed; lower with severity; **null** when the session ended before a score could be computed (e.g.
  *   early fatal crash) or telemetry is insufficient.
  *
- * **Interaction names** must match `MockDataStore.initializeJobs()` (Interactions list).
+ * **Interaction names** must match `MockDataStore.initializeJobs()` (Interactions list), including
+ * ecommerce theme (`REACT_APP_ECOMMERCE_MOCK_THEME`) via mapped `criticalInteractionNames`.
  * **Journey / impacted screens** use `PULSE_MOCK_SCREEN_NAMES` (Screens dashboard + `screen_name` group values).
  */
 
@@ -19,15 +20,23 @@ import type {
   SessionDetailInteraction,
   SessionItem,
 } from "../../../services/sessionReplay/types";
+import { isEcommerceMockThemeEnabled } from "../../../mocks/mockEcommerceTheme";
 import {
-  PULSE_MOCK_INTERACTION_NAMES,
-  SESSION_REPLAY_DETAIL_INTERACTION_ORDER,
+  getActivePulseMockInteractionNames,
+  getActiveSessionReplayDetailInteractionOrder,
 } from "../../../mocks/mockPulseProjectRegistry";
+import {
+  getMockPaymentInteractionNameForDetail,
+  isMockPaymentInteractionName,
+  isMockPrimaryRetailTapInteractionName,
+} from "../../../mocks/mockSessionReplayInteractionTheme";
+import { buildEcommerceMockSessionItemsFromDefault } from "./ecommerceMockSessionReplayScenarios";
 
-/** Same three rows as Session Detail → Interactions for every curated session (join → team → pay). */
-export const PULSE_INTERACTION_ORDER = SESSION_REPLAY_DETAIL_INTERACTION_ORDER;
+/** Same three rows as Session Detail → Interactions for every curated session (theme-aware). */
+export const PULSE_INTERACTION_ORDER =
+  getActiveSessionReplayDetailInteractionOrder();
 
-export const MOCK_SESSION_ITEMS: SessionItem[] = (() => {
+function buildDefaultMockSessionItems(): SessionItem[] {
   const now = Date.now();
   const t = (hoursAgo: number, minutesOffset = 0) =>
     new Date(
@@ -99,6 +108,7 @@ export const MOCK_SESSION_ITEMS: SessionItem[] = (() => {
         "OrderListScreen",
       ],
       impactedScreens: null,
+      criticalInteractionNames: ["WalletBalanceFetch", "PlayerSelectTap"],
     },
     {
       sessionId: "sess_mock_004",
@@ -166,7 +176,10 @@ export const MOCK_SESSION_ITEMS: SessionItem[] = (() => {
       impactedScreens: {
         nonFatals: ["ProductDetailScreen", "CartScreen"],
       },
-      criticalInteractionNames: ["JoinContestButtonClick", "PaymentSubmitClick"],
+      criticalInteractionNames: [
+        "JoinContestButtonClick",
+        "PaymentSubmitClick",
+      ],
     },
     {
       sessionId: "sess_mock_007",
@@ -255,6 +268,7 @@ export const MOCK_SESSION_ITEMS: SessionItem[] = (() => {
       spanCount: 72,
       journey: ["HomeScreen", "SettingsScreen", "ProfileScreen"],
       impactedScreens: null,
+      criticalInteractionNames: ["MatchScheduleAPICall", "NotificationTap"],
     },
     {
       sessionId: "sess_mock_012",
@@ -324,7 +338,13 @@ export const MOCK_SESSION_ITEMS: SessionItem[] = (() => {
       criticalInteractionNames: ["JoinContestButtonClick"],
     },
   ];
-})();
+}
+
+const _defaultMockSessionItems = buildDefaultMockSessionItems();
+
+export const MOCK_SESSION_ITEMS: SessionItem[] = isEcommerceMockThemeEnabled()
+  ? buildEcommerceMockSessionItemsFromDefault(_defaultMockSessionItems)
+  : _defaultMockSessionItems;
 
 const MOCK_SESSION_BY_ID = new Map(
   MOCK_SESSION_ITEMS.map((s) => [s.sessionId, s]),
@@ -351,24 +371,23 @@ function geographyForPlatform(platform: string): string {
 }
 
 function interactionSortIndex(name: string): number {
-  const i = PULSE_MOCK_INTERACTION_NAMES.indexOf(
-    name as (typeof PULSE_MOCK_INTERACTION_NAMES)[number],
-  );
+  const order = getActivePulseMockInteractionNames();
+  const i = order.indexOf(name);
   return i === -1 ? 999 : i;
 }
 
-function buildInteractionsForItem(item: SessionItem): SessionDetailInteraction[] {
+function buildInteractionsForItem(
+  item: SessionItem,
+): SessionDetailInteraction[] {
   const impacted = new Set(item.criticalInteractionNames ?? []);
+  const detailOrder = getActiveSessionReplayDetailInteractionOrder();
   const names = Array.from(
-    new Set([
-      ...SESSION_REPLAY_DETAIL_INTERACTION_ORDER,
-      ...(item.criticalInteractionNames ?? []),
-    ]),
+    new Set([...detailOrder, ...(item.criticalInteractionNames ?? [])]),
   ).sort((a, b) => interactionSortIndex(a) - interactionSortIndex(b));
 
   return names.map((name) => {
     const failed = impacted.has(name);
-    const payFail = name === "PaymentSubmitClick" && failed;
+    const payFail = isMockPaymentInteractionName(name) && failed;
     return {
       interactionName: name,
       status: failed ? "failed" : "success",
@@ -376,10 +395,10 @@ function buildInteractionsForItem(item: SessionItem): SessionDetailInteraction[]
       failureCount: failed ? 1 : 0,
       durationMs: payFail ? 30100 : failed ? 2100 : 95,
       apdexScore: failed
-        ? name === "PaymentSubmitClick"
+        ? isMockPaymentInteractionName(name)
           ? 0
           : 0.22
-        : name === "JoinContestButtonClick"
+        : isMockPrimaryRetailTapInteractionName(name)
           ? 0.88
           : 0.91,
     };
@@ -403,10 +422,13 @@ function buildExceptionsForItem(
       pulseType: "error",
       timestamp: ts(Math.floor(item.durationMs * 0.45)),
       title: "FatalException: Crash in foreground",
-      exceptionStackTrace:
-        "java.lang.RuntimeException: Activity destroyed during contest entry payment\n" +
-        "\tat com.dream11.ui.MainActivity.onDestroy(MainActivity.kt:204)\n" +
-        "\tat android.app.Activity.performDestroy(Activity.java:9781)",
+      exceptionStackTrace: isEcommerceMockThemeEnabled()
+        ? "java.lang.RuntimeException: CheckoutActivity destroyed during payment handoff\n" +
+          "\tat com.pulsemart.checkout.CheckoutActivity.onDestroy(CheckoutActivity.kt:188)\n" +
+          "\tat android.app.Activity.performDestroy(Activity.java:9781)"
+        : "java.lang.RuntimeException: Activity destroyed during contest entry payment\n" +
+          "\tat com.dream11.ui.MainActivity.onDestroy(MainActivity.kt:204)\n" +
+          "\tat android.app.Activity.performDestroy(Activity.java:9781)",
     });
   }
   if (issues.some((i) => i.type === "ANR")) {
@@ -416,8 +438,9 @@ function buildExceptionsForItem(
       pulseType: "non_fatal",
       timestamp: ts(Math.floor(item.durationMs * 0.35)),
       title: "ANR: Input dispatching timed out",
-      exceptionStackTrace:
-        "ANR in com.dream11.profile.ProfileFragment — main thread blocked 5s+",
+      exceptionStackTrace: isEcommerceMockThemeEnabled()
+        ? "ANR in com.pulsemart.profile.AccountFragment — main thread blocked 5s+"
+        : "ANR in com.dream11.profile.ProfileFragment — main thread blocked 5s+",
     });
   }
   if (issues.some((i) => i.type === "NON_FATAL")) {
@@ -426,21 +449,25 @@ function buildExceptionsForItem(
       spanId: `span_${sessionId}_nf`,
       pulseType: "non_fatal",
       timestamp: ts(8000),
-      title: "ContestEntryValidationError",
-      exceptionStackTrace:
-        "java.lang.IllegalStateException: Contest entry fee not locked for selected XI\n" +
-        "\tat com.dream11.contest.ContestEntryRepository.validateEntry(ContestEntryRepository.kt:198)",
+      title: isEcommerceMockThemeEnabled()
+        ? "CartPricingValidationError"
+        : "ContestEntryValidationError",
+      exceptionStackTrace: isEcommerceMockThemeEnabled()
+        ? "java.lang.IllegalStateException: Cart total mismatch after promo apply\n" +
+          "\tat com.pulsemart.cart.CartRepository.validateTotals(CartRepository.kt:142)"
+        : "java.lang.IllegalStateException: Contest entry fee not locked for selected XI\n" +
+          "\tat com.dream11.contest.ContestEntryRepository.validateEntry(ContestEntryRepository.kt:198)",
     });
   }
   if (issues.some((i) => i.type === "INTERACTION_ERROR")) {
+    const payName = getMockPaymentInteractionNameForDetail();
     out.push({
       traceId: `trace_${sessionId}_ie`,
       spanId: `span_${sessionId}_ie`,
       pulseType: "non_fatal",
       timestamp: ts(12000),
       title: "InteractionTapTimeout",
-      exceptionStackTrace:
-        "Critical interaction exceeded max latency budget (PaymentSubmitClick)",
+      exceptionStackTrace: `Critical interaction exceeded max latency budget (${payName})`,
     });
   }
 
@@ -468,6 +495,8 @@ export function applyMockSessionDetailOverrides(
   const { device, osVersion, appVersion } = deviceForPlatform(item.platform);
   const plat = item.platform as SessionDetailApiResponse["platform"];
 
+  const itemExceptions = buildExceptionsForItem(sessionId, item);
+
   return {
     ...base,
     sessionId: item.sessionId,
@@ -484,6 +513,7 @@ export function applyMockSessionDetailOverrides(
     quality: fallbackQualityForDetail(item),
     journey: item.journey,
     interactions: buildInteractionsForItem(item),
-    exceptions: buildExceptionsForItem(sessionId, item),
+    // Sessions with no issues would otherwise drop the rich generic exceptions (payment 504, etc.).
+    exceptions: itemExceptions ?? base.exceptions,
   };
 }

@@ -6,7 +6,7 @@
 
 import type { RcaReportTenantContext } from "../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { resolveIncidentsMock } from "./incidentsMockHandler";
-import { INTERACTION_DISCOVERY_MOCK_SUGGESTIONS } from "./interactionDiscoveryMockData";
+import { getInteractionDiscoveryMockSuggestions } from "./interactionDiscoveryMockSelector";
 import { MockConfigManager } from "./MockConfig";
 import { MockDataStore } from "./MockDataStore";
 import {
@@ -2662,7 +2662,7 @@ export class MockResponseGenerator {
         return {
           status: 200,
           data: {
-            suggestions: INTERACTION_DISCOVERY_MOCK_SUGGESTIONS,
+            suggestions: getInteractionDiscoveryMockSuggestions(),
           },
         };
       }
