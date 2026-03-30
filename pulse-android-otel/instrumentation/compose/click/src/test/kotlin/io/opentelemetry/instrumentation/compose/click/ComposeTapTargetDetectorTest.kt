@@ -119,7 +119,8 @@ internal class ComposeTapTargetDetectorTest {
 
         val actual =
             composeTapTargetDetector.findTapTarget(composeView, motionEvent.x, motionEvent.y)
-        assertThat(actual).isEqualTo(mockLayoutNode)
+        assertThat(actual?.node).isEqualTo(mockLayoutNode)
+        assertThat(actual?.ownerView).isEqualTo(composeView)
     }
 
     @Test

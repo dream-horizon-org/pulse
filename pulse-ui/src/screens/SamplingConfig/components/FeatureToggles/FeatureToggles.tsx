@@ -54,6 +54,7 @@ import {
   SDK_DISPLAY_INFO,
   FEATURE_DISPLAY_INFO,
   generateId,
+  SESSION_REPLAY_FEATURE_NAME,
   UI_CONSTANTS,
 } from "../../SamplingConfig.constants";
 import {
@@ -194,7 +195,7 @@ export function FeatureToggles({
     setFeatureName(feature.featureName);
     setFeatureEnabled(isFeatureEnabled(feature)); // Convert sessionSampleRate to boolean
     setFeatureSdks(feature.sdks);
-    if (feature.featureName === "session_replay") {
+    if (feature.featureName === SESSION_REPLAY_FEATURE_NAME) {
       setTextAndInputPrivacy(feature.config?.textAndInputPrivacy ?? "MASK_ALL");
       setImagePrivacy(feature.config?.imagePrivacy ?? "MASK_ALL");
     } else {
@@ -221,7 +222,7 @@ export function FeatureToggles({
       sdks: featureSdks,
     };
 
-    if (featureName === "session_replay") {
+    if (featureName === SESSION_REPLAY_FEATURE_NAME) {
       const existingSessionReplayConfig =
         existingConfig?.config ?? editingFeature?.config;
       newFeature.config = {
@@ -229,7 +230,7 @@ export function FeatureToggles({
         typeof existingSessionReplayConfig === "object"
           ? existingSessionReplayConfig
           : {}),
-        featureName: "session_replay",
+        featureName: SESSION_REPLAY_FEATURE_NAME,
         textAndInputPrivacy,
         imagePrivacy,
       };
@@ -522,7 +523,7 @@ export function FeatureToggles({
               />
             </Box>
 
-            {featureName === "session_replay" && (
+            {featureName === SESSION_REPLAY_FEATURE_NAME && (
               <Box>
                 <Text size="sm" fw={600} mb={4}>
                   PII masking

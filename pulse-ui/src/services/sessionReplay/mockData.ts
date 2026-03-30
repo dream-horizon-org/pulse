@@ -1,12 +1,12 @@
 import {
-  SessionResponse,
-  SessionTagResponse,
+  GetDateRangeConfigResponse,
+  GetFilterSchemaResponse,
+  GetQuickFiltersResponse,
   GetSessionDetailResponse,
   SessionEventResponse,
+  SessionResponse,
+  SessionTagResponse,
   TimelineEntry,
-  GetFilterSchemaResponse,
-  GetDateRangeConfigResponse,
-  GetQuickFiltersResponse,
 } from "./types";
 
 // Mock data generator
@@ -342,6 +342,9 @@ export class MockSessionReplayData {
     const cleanSessions = totalSessions - sessionsWithIssues;
     const cleanRate =
       totalSessions > 0 ? (cleanSessions / totalSessions) * 100 : 0;
+
+    // Calculate interaction quality score (0-10 scale)
+    // Lower scores for more issues
 
     // Issue breakdown
     const failedInteractions = sessions.filter((s) =>
@@ -1269,8 +1272,6 @@ export class MockSessionReplayData {
       issueRate,
       cleanSessions,
       cleanRate,
-      avgInteractionQuality: undefined, // Removed - not defensible
-      qualityTrend: undefined, // Removed - use comparison.sessionsWithIssues.change
       issueBreakdown: {
         failedInteractions,
         errorsAndCrashes,

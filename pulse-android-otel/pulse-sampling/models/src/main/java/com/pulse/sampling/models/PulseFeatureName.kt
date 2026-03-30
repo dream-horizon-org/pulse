@@ -44,6 +44,9 @@ public enum class PulseFeatureName {
     @SerialName("rn_screen_interactive")
     RN_SCREEN_INTERACTIVE,
 
+    @SerialName("session_replay")
+    SESSION_REPLAY,
+
     @SerialName(PulseFallbackToUnknownEnumSerializer.UNKNOWN_KEY_NAME)
     UNKNOWN,
 }

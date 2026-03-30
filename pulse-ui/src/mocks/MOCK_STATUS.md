@@ -1,137 +1,155 @@
 # Mock Server Status
 
-Last Updated: 2025-03-18
+Last Updated: 2025-03-19
 
 **Coverage**: 67/75 endpoints (89%)
+
+### Invite Collaborators (PR #311)
+
+- **TenantMembersNotOnProjectPicker**: `GET /v1/tenants/:tenantId/members` returns 5 mock members (userId, email, name)
+- **Project members**: `GET /v1/projects/:projectId/members` returns subset; proj-mock-1 has 2 members → 3 available in "Add from organization" picker
+- **Bulk invite**: `POST /v1/projects/:projectId/members` supports emails array; uses tenant member userId when email matches for UI filtering consistency
+
+### Mock Onboarding
+
+- **POST /v1/onboarding/complete**: Seeds the onboarded user (user-mock-onboarded, dev@example.com) as tenant admin and project admin; redirectTo is `/projects/:projectId/onboarding`
+- **Invite flow after onboarding**: `GET /v1/tenants/:tenantId/members` and `GET /v1/projects/:projectId/members` return the creator; invite-by-email on OnboardingSuccess works; TenantMembersNotOnProjectPicker shows "Everyone in your organization is already on this project" when only the creator exists
 
 ---
 
 ## ✅ Fully Implemented (Phase 1 Complete)
 
-| Endpoint | Method | Handler | Notes |
-|----------|--------|---------|-------|
-| `/v1/auth/login` | POST | `handleAuthEndpoints` | Returns mock JWT, tenant context |
-| `/v1/auth/token/refresh` | POST | `handleAuthEndpoints` | Refreshes tokens |
-| `/v1/auth/token/verify` | GET | `handleAuthEndpoints` | Validates tokens |
-| `/v1/users/me/projects` | GET | `handleV1UserEndpoints` | Returns tenant + projects |
-| `/v1/onboarding/complete` | POST | `handleOnboardingEndpoints` | Creates tenant + project |
-| `/v1/tnc/status` | GET | `handleTncEndpoints` | Returns accepted: true |
-| `/v1/tnc/accept` | POST | `handleTncEndpoints` | Accepts TNC |
-| `/v1/tnc/documents` | GET | `handleTncEndpoints` | Returns documents |
-| `/v1/tnc/history` | GET | `handleTncEndpoints` | Returns history |
-| `/v1/interactions/performance-metric/distribution` | POST | `handleDataQueryEndpoint` | V2 data query generator |
-| `/telemetry-filters` | GET | `handleDashboardFiltersEndpoint` | Dashboard filters |
-| `/v1/interactions/filter-options` | GET | `handleDashboardFiltersEndpoint` | Filter options |
-| `/v1/breadcrumbs` | POST | `handleBreadcrumbsEndpoint` | Breadcrumb events |
-| `/v1/ai/rca/report` | POST | `handleRcaReportPostMock` | RCA showcase (markdown, chart, table, insights) |
-| `/query/metadata/table` | GET | `handleRealtimeQueryEndpoints` | Table metadata |
-| `/query/tables` | GET | `handleRealtimeQueryEndpoints` | Available tables |
-| `/query/history` | GET | `handleRealtimeQueryEndpoints` | Query history |
-| `/query/job/*` | GET | `handleRealtimeQueryEndpoints` | Query job status |
-| `/query/ai` | POST | `handleRealtimeQueryEndpoints` | AI query assistance |
-| `/query` | POST | `handleRealtimeQueryEndpoints` | Execute query |
-| `/v1/interactions` | GET/POST | `handleJobEndpoints` | Interactions CRUD |
-| `/job/*` | GET/POST/PUT/DELETE | `handleJobEndpoints` | Job management |
-| `/permission/check` | GET | `handlePermissionEndpoints` | Permission checks |
-| `/alert` | GET/POST/PUT/DELETE | `handleAlertEndpoints` | Alerts CRUD |
-| `/session-replays` | GET | `handleSessionReplaysEndpoints` | Session replays |
-| `/getApdexScore` | POST | `handleAnalyticsEndpoints` | APDEX metrics |
-| `/getErrorRate` | POST | `handleAnalyticsEndpoints` | Error rate |
-| `/getInteractionTime` | POST | `handleAnalyticsEndpoints` | Interaction timing |
-| `/getInteractionCategory` | POST | `handleAnalyticsEndpoints` | Interaction categories |
-| `/api/v1/interaction/insights` | POST | `handleInteractionInsightsEndpoint` | Insights |
-| `/getUserEvent` | GET | `handleUserEventsEndpoints` | User events |
-| `/validateQuery` | POST | `handleUniversalQueryEndpoints` | Query validation |
-| `/fetchQueryData` | POST | `handleUniversalQueryEndpoints` | Fetch results |
-| `/getQuery/*` | GET | `handleUniversalQueryEndpoints` | Query details |
-| `/analytics-report` | GET | `handleAnalyticsReportEndpoints` | Reports |
-| `/incident/generateReport` | POST | `handleAnalyticsReportEndpoints` | Generate report |
-| `/anomaly/*` | GET | `handleAnomalyEndpoints` | Anomaly detection |
-| `/v1/configs/*` | GET/POST/PUT | `handleSdkConfigV1Endpoints` | SDK config V1 |
-| `/sdk-config` | GET/POST/PUT | `handleSdkConfigEndpoints` | SDK config legacy |
-| `/events` | GET/POST | `handleEventEndpoints` | Events |
-| `/whitelist` | POST | `handleEventEndpoints` | Whitelist events |
-| `/v1/notifications/contact-us` | POST | `handleContactUsPost` | `?type=sales` or `?type=support`; Pricing contact modals |
+| Endpoint                                           | Method              | Handler                             | Notes                                                    |
+| -------------------------------------------------- | ------------------- | ----------------------------------- | -------------------------------------------------------- |
+| `/v1/auth/login`                                   | POST                | `handleAuthEndpoints`               | Returns mock JWT, tenant context                         |
+| `/v1/auth/token/refresh`                           | POST                | `handleAuthEndpoints`               | Refreshes tokens                                         |
+| `/v1/auth/token/verify`                            | GET                 | `handleAuthEndpoints`               | Validates tokens                                         |
+| `/v1/users/me/projects`                            | GET                 | `handleV1UserEndpoints`             | Returns tenant + projects                                |
+| `/v1/onboarding/complete`                          | POST                | `handleOnboardingEndpoints`         | Creates tenant + project                                 |
+| `/v1/tnc/status`                                   | GET                 | `handleTncEndpoints`                | Returns accepted: true                                   |
+| `/v1/tnc/accept`                                   | POST                | `handleTncEndpoints`                | Accepts TNC                                              |
+| `/v1/tnc/documents`                                | GET                 | `handleTncEndpoints`                | Returns documents                                        |
+| `/v1/tnc/history`                                  | GET                 | `handleTncEndpoints`                | Returns history                                          |
+| `/v1/interactions/performance-metric/distribution` | POST                | `handleDataQueryEndpoint`           | V2 data query generator                                  |
+| `/telemetry-filters`                               | GET                 | `handleDashboardFiltersEndpoint`    | Dashboard filters                                        |
+| `/v1/interactions/filter-options`                  | GET                 | `handleDashboardFiltersEndpoint`    | Filter options                                           |
+| `/v1/breadcrumbs`                                  | POST                | `handleBreadcrumbsEndpoint`         | Breadcrumb events                                        |
+| `/v1/ai/rca/report`                                | POST                | `handleRcaReportPostMock`           | RCA showcase (markdown, chart, table, insights)          |
+| `/query/metadata/table`                            | GET                 | `handleRealtimeQueryEndpoints`      | Table metadata                                           |
+| `/query/tables`                                    | GET                 | `handleRealtimeQueryEndpoints`      | Available tables                                         |
+| `/query/history`                                   | GET                 | `handleRealtimeQueryEndpoints`      | Query history                                            |
+| `/query/job/*`                                     | GET                 | `handleRealtimeQueryEndpoints`      | Query job status                                         |
+| `/query/ai`                                        | POST                | `handleRealtimeQueryEndpoints`      | AI query assistance                                      |
+| `/query`                                           | POST                | `handleRealtimeQueryEndpoints`      | Execute query                                            |
+| `/v1/interactions`                                 | GET/POST            | `handleJobEndpoints`                | Interactions CRUD                                        |
+| `/job/*`                                           | GET/POST/PUT/DELETE | `handleJobEndpoints`                | Job management                                           |
+| `/permission/check`                                | GET                 | `handlePermissionEndpoints`         | Permission checks                                        |
+| `/alert`                                           | GET/POST/PUT/DELETE | `handleAlertEndpoints`              | Alerts CRUD                                              |
+| `/session-replays`                                 | GET                 | `handleSessionReplaysEndpoints`     | Session replays                                          |
+| `/getApdexScore`                                   | POST                | `handleAnalyticsEndpoints`          | APDEX metrics                                            |
+| `/getErrorRate`                                    | POST                | `handleAnalyticsEndpoints`          | Error rate                                               |
+| `/getInteractionTime`                              | POST                | `handleAnalyticsEndpoints`          | Interaction timing                                       |
+| `/getInteractionCategory`                          | POST                | `handleAnalyticsEndpoints`          | Interaction categories                                   |
+| `/api/v1/interaction/insights`                     | POST                | `handleInteractionInsightsEndpoint` | Insights                                                 |
+| `/getUserEvent`                                    | GET                 | `handleUserEventsEndpoints`         | User events                                              |
+| `/validateQuery`                                   | POST                | `handleUniversalQueryEndpoints`     | Query validation                                         |
+| `/fetchQueryData`                                  | POST                | `handleUniversalQueryEndpoints`     | Fetch results                                            |
+| `/getQuery/*`                                      | GET                 | `handleUniversalQueryEndpoints`     | Query details                                            |
+| `/analytics-report`                                | GET                 | `handleAnalyticsReportEndpoints`    | Reports                                                  |
+| `/incident/generateReport`                         | POST                | `handleAnalyticsReportEndpoints`    | Generate report                                          |
+| `/anomaly/*`                                       | GET                 | `handleAnomalyEndpoints`            | Anomaly detection                                        |
+| `/v1/configs/*`                                    | GET/POST/PUT        | `handleSdkConfigV1Endpoints`        | SDK config V1                                            |
+| `/sdk-config`                                      | GET/POST/PUT        | `handleSdkConfigEndpoints`          | SDK config legacy                                        |
+| `/events`                                          | GET/POST            | `handleEventEndpoints`              | Events                                                   |
+| `/whitelist`                                       | POST                | `handleEventEndpoints`              | Whitelist events                                         |
+| `/v1/notifications/contact-us`                     | POST                | `handleContactUsPost`               | `?type=sales` or `?type=support`; Pricing contact modals |
 
 ---
 
 ## ⚠️ Partially Implemented
 
-| Endpoint | Method | What's Missing | Priority |
-|----------|--------|----------------|----------|
-| `/v1/auth/social/authenticate` | POST | Old flow, needs deprecation | P3 |
+| Endpoint                       | Method | What's Missing              | Priority |
+| ------------------------------ | ------ | --------------------------- | -------- |
+| `/v1/auth/social/authenticate` | POST   | Old flow, needs deprecation | P3       |
 
 ---
 
 ## ✅ Phase 2 Complete - Tenant & Project Management
 
 ### Tenant Operations
-| Endpoint | Method | Handler | Status | Notes |
-|----------|--------|---------|--------|-------|
-| `/v1/tenants/:tenantId` | GET | `handleTenantEndpoints` | ✅ | Returns tenant details |
-| `/v1/tenants` | GET | — | ❌ P3 | Tenant list (admin only) |
-| `/v1/tenants/:tenantId` | PUT | `handleTenantEndpoints` | ✅ | Update org details |
-| `/v1/tenants/:tenantId/deactivate` | PUT | — | ❌ P3 | Deactivate org |
-| `/v1/tenants/:tenantId/activate` | PUT | — | ❌ P3 | Activate org |
+
+| Endpoint                           | Method | Handler                 | Status | Notes                    |
+| ---------------------------------- | ------ | ----------------------- | ------ | ------------------------ |
+| `/v1/tenants/:tenantId`            | GET    | `handleTenantEndpoints` | ✅     | Returns tenant details   |
+| `/v1/tenants`                      | GET    | —                       | ❌ P3  | Tenant list (admin only) |
+| `/v1/tenants/:tenantId`            | PUT    | `handleTenantEndpoints` | ✅     | Update org details       |
+| `/v1/tenants/:tenantId/deactivate` | PUT    | —                       | ❌ P3  | Deactivate org           |
+| `/v1/tenants/:tenantId/activate`   | PUT    | —                       | ❌ P3  | Activate org             |
 
 ### Tenant Member Management
-| Endpoint | Method | Handler | Status | Notes |
-|----------|--------|---------|--------|-------|
-| `/v1/tenants/:tenantId/members` | GET | `handleTenantEndpoints` | ✅ | Lists members with roles |
-| `/v1/tenants/:tenantId/members` | POST | `handleTenantEndpoints` | ✅ | Single & bulk invite support |
-| `/v1/tenants/:tenantId/members/:userId` | DELETE | `handleTenantEndpoints` | ✅ | Remove members |
-| `/v1/tenants/:tenantId/members/:userId` | PATCH | `handleTenantEndpoints` | ✅ | Update roles |
-| `/v1/tenants/:tenantId/members/leave` | DELETE | — | ❌ P3 | Leave org |
+
+| Endpoint                                | Method | Handler                 | Status | Notes                        |
+| --------------------------------------- | ------ | ----------------------- | ------ | ---------------------------- |
+| `/v1/tenants/:tenantId/members`         | GET    | `handleTenantEndpoints` | ✅     | Lists members with roles     |
+| `/v1/tenants/:tenantId/members`         | POST   | `handleTenantEndpoints` | ✅     | Single & bulk invite support |
+| `/v1/tenants/:tenantId/members/:userId` | DELETE | `handleTenantEndpoints` | ✅     | Remove members               |
+| `/v1/tenants/:tenantId/members/:userId` | PATCH  | `handleTenantEndpoints` | ✅     | Update roles                 |
+| `/v1/tenants/:tenantId/members/leave`   | DELETE | —                       | ❌ P3  | Leave org                    |
 
 ### Project Operations
-| Endpoint | Method | Handler | Status | Notes |
-|----------|--------|---------|--------|-------|
-| `/v1/projects` | POST | `handleProjectEndpoints` | ✅ | Creates project with API key |
-| `/v1/projects/:projectId` | GET | `handleProjectEndpoints` | ✅ | Returns project details |
-| `/v1/projects/:projectId` | PUT | `handleProjectEndpoints` | ✅ | Update project |
-| `/v1/projects/:projectId` | DELETE | — | ❌ P3 | Delete project |
+
+| Endpoint                  | Method | Handler                  | Status | Notes                        |
+| ------------------------- | ------ | ------------------------ | ------ | ---------------------------- |
+| `/v1/projects`            | POST   | `handleProjectEndpoints` | ✅     | Creates project with API key |
+| `/v1/projects/:projectId` | GET    | `handleProjectEndpoints` | ✅     | Returns project details      |
+| `/v1/projects/:projectId` | PUT    | `handleProjectEndpoints` | ✅     | Update project               |
+| `/v1/projects/:projectId` | DELETE | —                        | ❌ P3  | Delete project               |
 
 ### Project Member Management
-| Endpoint | Method | Handler | Status | Notes |
-|----------|--------|---------|--------|-------|
-| `/v1/projects/:projectId/members` | GET | `handleProjectEndpoints` | ✅ | Lists members with roles |
-| `/v1/projects/:projectId/members` | POST | `handleProjectEndpoints` | ✅ | Single & bulk invite support |
-| `/v1/projects/:projectId/members/:userId` | DELETE | `handleProjectEndpoints` | ✅ | Remove collaborators |
-| `/v1/projects/:projectId/members/:userId` | PATCH | `handleProjectEndpoints` | ✅ | Update roles |
-| `/v1/projects/:projectId/members/leave` | DELETE | — | ❌ P3 | Leave project |
+
+| Endpoint                                  | Method | Handler                  | Status | Notes                        |
+| ----------------------------------------- | ------ | ------------------------ | ------ | ---------------------------- |
+| `/v1/projects/:projectId/members`         | GET    | `handleProjectEndpoints` | ✅     | Lists members with roles     |
+| `/v1/projects/:projectId/members`         | POST   | `handleProjectEndpoints` | ✅     | Single & bulk invite support |
+| `/v1/projects/:projectId/members/:userId` | DELETE | `handleProjectEndpoints` | ✅     | Remove collaborators         |
+| `/v1/projects/:projectId/members/:userId` | PATCH  | `handleProjectEndpoints` | ✅     | Update roles                 |
+| `/v1/projects/:projectId/members/leave`   | DELETE | —                        | ❌ P3  | Leave project                |
 
 ---
 
 ## ✅ Phase 3 Complete - Remaining CRUD Operations
 
 ### API Keys
-| Endpoint | Method | Handler | Status | Notes |
-|----------|--------|---------|--------|-------|
-| `/v1/projects/:projectId/api-keys` | GET | `handleProjectEndpoints` | ✅ | List active API keys (masked) |
-| `/v1/projects/:projectId/api-keys` | POST | `handleProjectEndpoints` | ✅ | Generate new API key |
-| `/v1/projects/:projectId/api-keys/:apiKeyId` | DELETE | `handleProjectEndpoints` | ✅ | Revoke API key |
+
+| Endpoint                                     | Method | Handler                  | Status | Notes                         |
+| -------------------------------------------- | ------ | ------------------------ | ------ | ----------------------------- |
+| `/v1/projects/:projectId/api-keys`           | GET    | `handleProjectEndpoints` | ✅     | List active API keys (masked) |
+| `/v1/projects/:projectId/api-keys`           | POST   | `handleProjectEndpoints` | ✅     | Generate new API key          |
+| `/v1/projects/:projectId/api-keys/:apiKeyId` | DELETE | `handleProjectEndpoints` | ✅     | Revoke API key                |
 
 ### Project Settings
-| Endpoint | Method | Handler | Status | Notes |
-|----------|--------|---------|--------|-------|
-| `/v1/projects/:projectId/settings` | GET | `handleProjectEndpoints` | ✅ | Get project settings |
-| `/v1/projects/:projectId/settings` | PUT | `handleProjectEndpoints` | ✅ | Update project settings |
+
+| Endpoint                           | Method | Handler                  | Status | Notes                   |
+| ---------------------------------- | ------ | ------------------------ | ------ | ----------------------- |
+| `/v1/projects/:projectId/settings` | GET    | `handleProjectEndpoints` | ✅     | Get project settings    |
+| `/v1/projects/:projectId/settings` | PUT    | `handleProjectEndpoints` | ✅     | Update project settings |
 
 ### Auth / Tenant Lookup
-| Endpoint | Method | Handler | Status | Notes |
-|----------|--------|---------|--------|-------|
-| `/v1/auth/tenant/lookup` | GET | `handleAuthEndpoints` | ✅ | Lookup tenant by domain |
+
+| Endpoint                 | Method | Handler               | Status | Notes                   |
+| ------------------------ | ------ | --------------------- | ------ | ----------------------- |
+| `/v1/auth/tenant/lookup` | GET    | `handleAuthEndpoints` | ✅     | Lookup tenant by domain |
 
 ## ❌ Phase 4 - Remaining Endpoints (Low Priority)
 
-| Endpoint | Method | Notes |
-|----------|--------|-------|
-| `/v1/tenants` | GET | Tenant list (admin only) |
-| `/v1/tenants/:tenantId/deactivate` | PUT | Deactivate org |
-| `/v1/tenants/:tenantId/activate` | PUT | Activate org |
-| `/v1/tenants/:tenantId/members/leave` | DELETE | Leave org |
-| `/v1/projects/:projectId` | DELETE | Delete project |
-| `/v1/projects/:projectId/members/leave` | DELETE | Leave project |
+| Endpoint                                | Method | Notes                    |
+| --------------------------------------- | ------ | ------------------------ |
+| `/v1/tenants`                           | GET    | Tenant list (admin only) |
+| `/v1/tenants/:tenantId/deactivate`      | PUT    | Deactivate org           |
+| `/v1/tenants/:tenantId/activate`        | PUT    | Activate org             |
+| `/v1/tenants/:tenantId/members/leave`   | DELETE | Leave org                |
+| `/v1/projects/:projectId`               | DELETE | Delete project           |
+| `/v1/projects/:projectId/members/leave` | DELETE | Leave project            |
 
 ---
 
@@ -149,6 +167,7 @@ Last Updated: 2025-03-18
 ## 🎯 Next Priority - Phase 4
 
 **Remaining Endpoints** (8 endpoints - Low Priority):
+
 - Tenant list, deactivate/activate, leave org
 - Delete project, leave project
 
@@ -163,9 +182,11 @@ Last Updated: 2025-03-18
 ## 📝 Recent Updates
 
 ### Contact us (2025-03-18)
+
 - ✅ `POST /v1/notifications/contact-us?type=sales|support` — `handleContactUsPost` (also routed early so Pricing flows always hit the mock)
 
 ### Phase 3 (Completed 2024-03-12)
+
 - ✅ Implemented member removal (DELETE) for tenant and project members
 - ✅ Implemented role updates (PATCH) for tenant and project members
 - ✅ Implemented project update (PUT) - name, description, isActive
@@ -177,6 +198,7 @@ Last Updated: 2025-03-18
 - ✅ Coverage increased from 73% to 89%
 
 ### Phase 2 (Completed 2024-03-12)
+
 - ✅ Implemented project creation and details endpoints
 - ✅ Implemented tenant details endpoint
 - ✅ Implemented member listing for both tenant and project

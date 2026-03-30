@@ -9,16 +9,15 @@
  * duplicate the call.
  */
 
+import type { SessionReplayImage } from "./sessionReplayImages";
 import { sessionReplayService } from "./SessionReplayService";
-import type { SnapshotsSourceBlob } from "./sessionReplaySnapshotTypes";
-import type { SnapshotEvent } from "./sessionReplaySnapshotTypes";
 import {
+  cleanupStaleSessions,
   getCachedBlobRange,
   setCachedBlobRange,
   touchSession,
-  cleanupStaleSessions,
 } from "./sessionReplaySnapshotCache";
-import type { SessionReplayImage } from "./sessionReplayImages";
+import type { SnapshotEvent, SnapshotsSourceBlob } from "./sessionReplaySnapshotTypes";
 
 const MAX_BLOBS_PER_REQUEST = 20;
 
@@ -74,9 +73,73 @@ async function getOrFetchManifest(sessionId: string): Promise<CachedManifest> {
 }
 
 /** Type 4 = image frame with href in data */
-const IMAGE_FRAME_TYPE = 4;
-/** Type 3 = incremental snapshot with updates[].wireframe (may have base64) */
+/**
+ * Aligns with mobile SDK `ReplayEventType` (rrweb-style):
+ * - 2 = FULL_SNAPSHOT — screenshot bytes in `data.wireframes[].base64` (recursive)
+ * - 3 = INCREMENTAL_SNAPSHOT — `adds` / `updates` with `wireframe.base64`
+ * - 4 = META — `href` is screen title / route string, NOT an image URL (do not use as img src)
+ */
+const FULL_SNAPSHOT_TYPE = 2;
 const INCREMENTAL_SNAPSHOT_TYPE = 3;
+const META_TYPE = 4;
+
+type WireframeNode = {
+  base64?: string;
+  childWireframes?: WireframeNode[];
+};
+
+function toFiniteNumber(v: unknown, fallback = 0): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
+function isUsableImageHref(href: string): boolean {
+  const t = href.trim();
+  if (!t) return false;
+  return (
+    t.startsWith("http://") ||
+    t.startsWith("https://") ||
+    t.startsWith("data:") ||
+    t.startsWith("blob:")
+  );
+}
+
+function extractBase64FromWireframes(wfs: unknown): string | null {
+  if (!Array.isArray(wfs)) return null;
+  for (const item of wfs) {
+    if (!item || typeof item !== "object") continue;
+    const wf = item as WireframeNode & Record<string, unknown>;
+    if (typeof wf.base64 === "string" && wf.base64.length > 0) {
+      return wf.base64;
+    }
+    const children = wf.childWireframes ?? wf.child_wireframes;
+    const nested = extractBase64FromWireframes(children);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function extractBase64FromMutatedNodes(nodes: unknown): string | null {
+  if (!Array.isArray(nodes)) return null;
+  for (const n of nodes) {
+    if (!n || typeof n !== "object") continue;
+    const wireframe = (n as { wireframe?: unknown }).wireframe;
+    if (wireframe && typeof wireframe === "object") {
+      const wf = wireframe as WireframeNode;
+      if (typeof wf.base64 === "string" && wf.base64.length > 0) {
+        return wf.base64;
+      }
+      const nested = extractBase64FromWireframes(wf.childWireframes);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+/** Type 3 = incremental snapshot with updates[].wireframe (may have base64) */
 
 /**
  * Decode raw base64 string to a blob: URL.
@@ -120,34 +183,58 @@ export function snapshotEventsToImages(
 ): SessionReplayImage[] {
   const images: SessionReplayImage[] = [];
   for (const event of events) {
-    const timestampMs = Math.max(0, event.timestamp - sessionStartMs);
-    if (event.type === IMAGE_FRAME_TYPE && event.data?.href) {
-      images.push({
-        timestamp: timestampMs,
-        imageUrl: event.data.href,
-        blobKey,
-      });
+    const type = toFiniteNumber(event.type, -1);
+    const ts = toFiniteNumber(event.timestamp, 0);
+    const timestampMs = Math.max(0, ts - sessionStartMs);
+
+    if (type === FULL_SNAPSHOT_TYPE) {
+      const data = event.data as {
+        wireframes?: unknown;
+        wire_frames?: unknown;
+      };
+      const b64 = extractBase64FromWireframes(
+        data?.wireframes ?? data?.wire_frames,
+      );
+      if (b64) {
+        const blobUrl = base64ToBlobUrl(b64);
+        if (blobUrl) {
+          images.push({
+            timestamp: timestampMs,
+            imageUrl: blobUrl,
+            blobKey,
+          });
+        }
+      }
       continue;
     }
-    const updates = event.data?.updates;
-    if (
-      event.type === INCREMENTAL_SNAPSHOT_TYPE &&
-      Array.isArray(updates) &&
-      updates.length > 0
-    ) {
-      for (const u of updates as Array<{ wireframe?: { base64?: string } }>) {
-        const w = u.wireframe;
-        if (w?.base64) {
-          const blobUrl = base64ToBlobUrl(w.base64);
-          if (blobUrl) {
-            images.push({
-              timestamp: timestampMs,
-              imageUrl: blobUrl,
-              blobKey,
-            });
-          }
-          break;
+
+    if (type === INCREMENTAL_SNAPSHOT_TYPE) {
+      const data = event.data as { adds?: unknown; updates?: unknown };
+      let b64 = extractBase64FromMutatedNodes(data?.updates);
+      if (!b64) {
+        b64 = extractBase64FromMutatedNodes(data?.adds);
+      }
+      if (b64) {
+        const blobUrl = base64ToBlobUrl(b64);
+        if (blobUrl) {
+          images.push({
+            timestamp: timestampMs,
+            imageUrl: blobUrl,
+            blobKey,
+          });
         }
+      }
+      continue;
+    }
+
+    if (type === META_TYPE && event.data?.href) {
+      const href = String(event.data.href);
+      if (isUsableImageHref(href)) {
+        images.push({
+          timestamp: timestampMs,
+          imageUrl: href,
+          blobKey,
+        });
       }
     }
   }
@@ -292,7 +379,6 @@ export async function loadSnapshotsForTime(
     );
   }
 
-  await fetchBlobRange(sessionId, startBlobKey, endBlobKey);
   const newLoaded = new Set(loadedRanges);
   newLoaded.add(rangeKey);
 

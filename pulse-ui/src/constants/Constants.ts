@@ -6,14 +6,15 @@ import {
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
-  IconBell,
-  IconCalendarEvent,
-  IconDatabaseSearch,
   IconDeviceDesktop,
-  IconHome,
-  IconListDetails,
   IconNetwork,
   IconUsers,
+  IconDatabaseSearch,
+  IconRobot,
+  IconBell,
+  IconCalendarEvent,
+  IconHome,
+  IconListDetails,
   IconVideo,
 } from "@tabler/icons-react";
 import {
@@ -31,11 +32,7 @@ import {
   FormSteps,
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
-import { SupportQueries } from "../screens/SupportQueries";
-import { SessionReplay } from "../screens/SessionReplay";
-import { SessionReplayDetail } from "../screens/SessionReplayDetail";
-import { SessionReplaySessions } from "../screens/SessionReplaySessions";
-import { SessionReplayInsights } from "../screens/SessionReplayInsights/SessionReplayInsights";
+import { AiChat } from "../screens/AiChat";
 
 export const APP_NAME: string = "Pulse";
 
@@ -59,6 +56,9 @@ export const NAVBAR_CONFIG: AppShellNavbarConfiguration = {
 
 export const API_BASE_URL: string =
   process.env.REACT_APP_PULSE_SERVER_URL ?? "";
+
+export const ENABLE_AI_CHAT: boolean =
+  process.env.REACT_APP_ENABLE_AI_CHAT === "true";
 
 export const PASCAL_CASE_FORM_REGEX: RegExp = /(^[A-Z])\w+[a-z]$/;
 
@@ -225,19 +225,16 @@ export const ROUTES: Routes = {
     key: "PROJECT_SESSION_REPLAY_SESSIONS",
     basePath: "/projects/:projectId/session-replay/sessions",
     path: "/projects/:projectId/session-replay/sessions",
-    element: SessionReplaySessions,
   },
   PROJECT_SESSION_REPLAY_DETAIL: {
     key: "PROJECT_SESSION_REPLAY_DETAIL",
     basePath: "/projects/:projectId/session-replay",
     path: "/projects/:projectId/session-replay/:sessionId",
-    element: SessionReplayDetail,
   },
   PROJECT_SESSION_REPLAY: {
     key: "PROJECT_SESSION_REPLAY",
     basePath: "/projects/:projectId/session-replay",
     path: "/projects/:projectId/session-replay",
-    element: SessionReplay,
   },
   PROJECT_EVENT_CATALOG: {
     key: "PROJECT_EVENT_CATALOG",
@@ -269,35 +266,40 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
   },
+  ...(ENABLE_AI_CHAT
+    ? {
+        AI_CHAT: {
+          key: "AI_CHAT",
+          basePath: "/projects/:projectId/ai-chat",
+          path: "/projects/:projectId/ai-chat",
+          element: AiChat,
+        },
+      }
+    : {}),
   SUPPORT_QUERIES: {
     key: "SUPPORT_QUERIES",
     basePath: "/support-queries",
     path: "/support-queries",
-    element: SupportQueries,
   },
   SESSION_REPLAY: {
     key: "SESSION_REPLAY",
     basePath: "/session-replay",
     path: "/session-replay",
-    element: SessionReplay,
   },
   SESSION_REPLAY_INSIGHTS: {
     key: "SESSION_REPLAY_INSIGHTS",
     basePath: "/session-replay/insights",
     path: "/session-replay/insights",
-    element: SessionReplayInsights,
   },
   SESSION_REPLAY_SESSIONS: {
     key: "SESSION_REPLAY_SESSIONS",
     basePath: "/session-replay/sessions",
     path: "/session-replay/sessions",
-    element: SessionReplaySessions,
   },
   SESSION_REPLAY_DETAIL: {
     key: "SESSION_REPLAY_DETAIL",
     basePath: "/session-replay",
     path: "/session-replay/:sessionId",
-    element: SessionReplayDetail,
   },
 };
 
@@ -313,6 +315,7 @@ export const NAVBAR_ROUTES = {
   SESSION_REPLAY: "/session-replay/sessions",
   QUERY_BUILDER: "/query-builder",
   ALERTS: "/alerts",
+  AI_CHAT: "/ai-chat",
   EVENT_CATALOG: "/event-catalog",
 } as const;
 
@@ -396,6 +399,17 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: NAVBAR_ROUTES.ALERTS,
     iconSize: 25,
   },
+  ...(ENABLE_AI_CHAT && ROUTES.AI_CHAT
+    ? [
+        {
+          tabName: "AI Chat",
+          icon: IconRobot,
+          routeTo: NAVBAR_ROUTES.AI_CHAT,
+          path: NAVBAR_ROUTES.AI_CHAT,
+          iconSize: 25,
+        },
+      ]
+    : []),
   {
     tabName: "Event Catalog",
     icon: IconCalendarEvent,

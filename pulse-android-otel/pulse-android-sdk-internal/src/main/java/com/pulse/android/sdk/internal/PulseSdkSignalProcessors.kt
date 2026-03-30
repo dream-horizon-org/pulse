@@ -51,7 +51,7 @@ internal class PulseSdkSignalProcessors {
                             }
                         }
 
-                        "app.screen.click", "app.widget.click" -> {
+                        "app.widget.click" -> {
                             PulseAttributes.PulseTypeValues.TOUCH
                         }
 

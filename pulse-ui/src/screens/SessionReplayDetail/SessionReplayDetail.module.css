@@ -239,6 +239,16 @@
   flex-direction: column;
 }
 
+/* Native scroll for Network, App Vitals, Events, Interaction tabs */
+.tabPanelScroll {
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px; /* room for scrollbar */
+}
+
 /* Tabs fill Paper so All / Events panels can shrink and scroll inside */
 .sessionTabsRoot {
   flex: 1;

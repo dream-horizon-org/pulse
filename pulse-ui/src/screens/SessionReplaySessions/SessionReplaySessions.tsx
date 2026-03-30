@@ -89,6 +89,7 @@ export function SessionReplaySessions() {
     filterState.drillDown.value,
     filterState.advancedFilters?.conditions,
     filterActions,
+    interactionField
   ]);
 
   const handleSort = (field: SortField) => {

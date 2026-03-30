@@ -103,7 +103,8 @@ public class AuthService {
    * Activates pending users on first login.
    *
    * @param firebaseIdToken Firebase ID token from Google sign-in
-   * @return LoginResponse with tokens (if has projects) or needs onboarding flag
+   * @return LoginResponse with tokens when user has a tenant (with or without projects),
+   *     or needs onboarding when user has no tenant
    */
   public Single<LoginResponse> login(String firebaseIdToken) {
     // Development mode bypass - allow mock tokens
@@ -149,12 +150,10 @@ public class AuthService {
                 });
         })
         .flatMap(user ->
-            // Query OpenFGA for user's projects
-            openFgaService.getUserProjects(user.getUserId())
-                .flatMap(projectIds -> {
-                  if (projectIds == null || projectIds.isEmpty()) {
-                    // No projects - user needs onboarding
-                    log.info("User has no projects, requires onboarding: userId={}", user.getUserId());
+            openFgaService.getUserTenants(user.getUserId())
+                .flatMap(tenantIds -> {
+                  if (tenantIds == null || tenantIds.isEmpty()) {
+                    log.info("User has no tenants, requires onboarding: userId={}", user.getUserId());
                     return Single.just(LoginResponse.builder()
                         .status(LoginStatus.NEEDS_ONBOARDING)
                         .userId(user.getUserId())
@@ -163,55 +162,59 @@ public class AuthService {
                         .needsOnboarding(true)
                         .build());
                   }
+                  return openFgaService.getUserProjects(user.getUserId())
+                      .flatMap(projectIds -> {
+                        if (projectIds == null || projectIds.isEmpty()) {
+                          log.info("User has tenant(s) but no projects, tenant-only login: userId={}, tenantId={}",
+                              user.getUserId(), tenantIds.get(0));
+                          return buildLoginSuccessWithTenantOnly(
+                              user.getUserId(), user.getEmail(), user.getName(), tenantIds.get(0));
+                        }
 
-                  // User has projects - get first project's tenant
-                  String firstProjectId = projectIds.get(0);
-                  log.info("User has {} project(s), using first: userId={}, projectId={}",
-                      projectIds.size(), user.getUserId(), firstProjectId);
+                        String firstProjectId = projectIds.get(0);
+                        log.info("User has {} project(s), using first: userId={}, projectId={}",
+                            projectIds.size(), user.getUserId(), firstProjectId);
 
-                  return projectService.getProjectById(firstProjectId)
-                      .flatMap(project -> {
-                        String tenantId = project.getTenantId();
+                        return projectService.getProjectById(firstProjectId)
+                            .flatMap(project -> {
+                              String tenantId = project.getTenantId();
 
-                        // Fetch tenant to get tier ID
-                        return tenantDao.getTenantById(tenantId)
-                            .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
-                            .flatMap(tenant -> {
-                              // Get tier name from tier ID
-                              return tierService.getTierNameById(tenant.getTierId())
-                                  .defaultIfEmpty("free")  // Fallback if tier not found
-                                  .flatMap(tierName ->
-                                      // Get user's tenant role
-                                      openFgaService.getUserTenantRole(user.getUserId(), tenantId)
-                                          .map(roleOpt -> {
-                                            String tenantRole = roleOpt.orElse("member");
+                              return tenantDao.getTenantById(tenantId)
+                                  .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+                                  .flatMap(tenant -> {
+                                    return tierService.getTierNameById(tenant.getTierId())
+                                        .defaultIfEmpty("free")
+                                        .flatMap(tierName ->
+                                            openFgaService.getUserTenantRole(user.getUserId(), tenantId)
+                                                .map(roleOpt -> {
+                                                  String tenantRole = roleOpt.orElse("member");
 
-                                            // Generate JWT tokens with tenantId
-                                            String accessToken = jwtService.generateAccessToken(
-                                                user.getUserId(), user.getEmail(), user.getName(), tenantId);
-                                            String refreshToken = jwtService.generateRefreshToken(
-                                                user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                                                  String accessToken = jwtService.generateAccessToken(
+                                                      user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                                                  String refreshToken = jwtService.generateRefreshToken(
+                                                      user.getUserId(), user.getEmail(), user.getName(), tenantId);
 
-                                            log.info("Login successful: userId={}, tenantId={}, tenantRole={}, tier={}",
-                                                user.getUserId(), tenantId, tenantRole, tierName);
+                                                  log.info("Login successful: userId={}, tenantId={}, tenantRole={}, tier={}",
+                                                      user.getUserId(), tenantId, tenantRole, tierName);
 
-                                            return LoginResponse.builder()
-                                                .status(LoginStatus.SUCCESS)
-                                                .accessToken(accessToken)
-                                                .refreshToken(refreshToken)
-                                                .userId(user.getUserId())
-                                                .email(user.getEmail())
-                                                .name(user.getName())
-                                                .tenantId(tenantId)
-                                                .tenantName(tenant.getName())
-                                                .tenantRole(tenantRole)
-                                                .tier(tierName)
-                                                .needsOnboarding(false)
-                                                .tokenType(TOKEN_TYPE_BEARER)
-                                                .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-                                                .build();
-                                          })
-                                  );
+                                                  return LoginResponse.builder()
+                                                      .status(LoginStatus.SUCCESS)
+                                                      .accessToken(accessToken)
+                                                      .refreshToken(refreshToken)
+                                                      .userId(user.getUserId())
+                                                      .email(user.getEmail())
+                                                      .name(user.getName())
+                                                      .tenantId(tenantId)
+                                                      .tenantName(tenant.getName())
+                                                      .tenantRole(tenantRole)
+                                                      .tier(tierName)
+                                                      .needsOnboarding(false)
+                                                      .tokenType(TOKEN_TYPE_BEARER)
+                                                      .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                                                      .build();
+                                                })
+                                        );
+                                  });
                             });
                       });
                 })
@@ -340,6 +343,73 @@ public class AuthService {
   }
 
   /**
+   * Builds a successful login response using tenant context only (no project).
+   * Used when the user belongs to a tenant but has no project assignments.
+   */
+  private Single<LoginResponse> buildLoginSuccessWithTenantOnly(String userId, String email, String name,
+      String tenantId) {
+    return tenantDao.getTenantById(tenantId)
+        .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+        .flatMap(tenant ->
+            tierService.getTierNameById(tenant.getTierId())
+                .defaultIfEmpty("free")
+                .flatMap(tierName ->
+                    openFgaService.getUserTenantRole(userId, tenantId)
+                        .map(roleOpt -> {
+                          String tenantRole = roleOpt.orElse("member");
+                          String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+                          String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+
+                          log.info("Login successful (tenant-only): userId={}, tenantId={}, tenantRole={}, tier={}",
+                              userId, tenantId, tenantRole, tierName);
+
+                          return LoginResponse.builder()
+                              .status(LoginStatus.SUCCESS)
+                              .accessToken(accessToken)
+                              .refreshToken(refreshToken)
+                              .userId(userId)
+                              .email(email)
+                              .name(name)
+                              .tenantId(tenantId)
+                              .tenantName(tenant.getName())
+                              .tenantRole(tenantRole)
+                              .tier(tierName)
+                              .needsOnboarding(false)
+                              .tokenType(TOKEN_TYPE_BEARER)
+                              .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                              .build();
+                        })
+                )
+        );
+  }
+
+  /**
+   * Dev login after DB user is resolved (or mock userId): tenants first, then projects.
+   */
+  private Single<LoginResponse> devLoginAfterTenantsResolved(String userId, String email, String name) {
+    return openFgaService.getUserTenants(userId)
+        .flatMap(tenantIds -> {
+          if (tenantIds == null || tenantIds.isEmpty()) {
+            log.info("Dev user has no tenants, requires onboarding: userId={}", userId);
+            return Single.just(LoginResponse.builder()
+                .status(LoginStatus.NEEDS_ONBOARDING)
+                .userId(userId)
+                .email(email)
+                .name(name)
+                .needsOnboarding(true)
+                .build());
+          }
+          return openFgaService.getUserProjects(userId)
+              .flatMap(projectIds -> {
+                if (projectIds == null || projectIds.isEmpty()) {
+                  return buildLoginSuccessWithTenantOnly(userId, email, name, tenantIds.get(0));
+                }
+                return proceedWithDevLogin(userId, email, name, projectIds);
+              });
+        });
+  }
+
+  /**
    * Create development login response with proper user flow.
    * Extracts user info from mock token and follows normal login flow.
    * Handles pending user activation.
@@ -366,41 +436,17 @@ public class AuthService {
     // Check if user exists in database
     return userService.getUserByEmail(email)
         .flatMapSingle(user -> {
-            // User exists in DB
-            // Check if pending
             if ("pending".equals(user.getStatus())) {
                 log.info("Activating pending dev user on first login: userId={}", user.getUserId());
                 return userService.activateUser(user.getUserId(), user.getUserId() + "-firebase-uid", name)
-                    .andThen(openFgaService.getUserProjects(user.getUserId()))
-                    .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
-            } else {
-                // Active user - normal flow
-                userService.updateLastLogin(user.getUserId()).subscribe();
-                return openFgaService.getUserProjects(user.getUserId())
-                    .flatMap(projectIds -> proceedWithDevLogin(user.getUserId(), email, name, projectIds));
+                    .andThen(devLoginAfterTenantsResolved(user.getUserId(), email, name));
             }
+            userService.updateLastLogin(user.getUserId()).subscribe();
+            return devLoginAfterTenantsResolved(user.getUserId(), email, name);
         })
         .switchIfEmpty(Single.defer(() -> {
-            // User doesn't exist in DB - check OpenFGA for pre-assigned projects
             log.info("Dev user not found in DB, checking OpenFGA: userId={}", userId);
-            return openFgaService.getUserProjects(userId)
-                .flatMap(projectIds -> {
-                    if (projectIds == null || projectIds.isEmpty()) {
-                        // No projects - needs onboarding
-                        return Single.just(LoginResponse.builder()
-                            .status(LoginStatus.NEEDS_ONBOARDING)
-                            .userId(userId)
-                            .email(email)
-                            .name(name)
-                            .needsOnboarding(true)
-                            .build());
-                    } else {
-                        // Has projects but no DB record (created by admin)
-                        // This shouldn't happen in normal flow but handle it
-                        log.warn("User has OpenFGA projects but no DB record: {}", userId);
-                        return proceedWithDevLogin(userId, email, name, projectIds);
-                    }
-                });
+            return devLoginAfterTenantsResolved(userId, email, name);
         }))
         .doOnError(error ->
             log.error("Dev login failed: {}", error.getMessage(), error)

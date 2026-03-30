@@ -60,8 +60,13 @@ export function Navbar({
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
   const [popoverOpened, setPopoverOpened] = useState(false);
-  const { projectId: contextProjectId, clearProject } = useProjectContext();
-  const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
+  const {
+    projectId: contextProjectId,
+    clearProject,
+    navigateToProject,
+  } = useProjectContext();
+  const { tenantId, tenantName, tier, clearTenant, projects } =
+    useTenantContext();
   const permissions = usePermissions();
   const [logoutModalOpened, setLogoutModalOpened] = useState(false);
 
@@ -109,14 +114,15 @@ export function Navbar({
   };
 
   const onLogoClick = () => {
-    if (contextProjectId) {
-      navigate(
-        ROUTES.PROJECT_DASHBOARD.basePath.replace(
-          ":projectId",
-          contextProjectId,
-        ),
-      );
-    } else if (tenantId) {
+    if (!tenantId) return;
+
+    // FREE tier: Navigate directly to the single project
+    if (tier === TIERS.FREE && projects.length === 1) {
+      const singleProject = projects[0];
+      navigateToProject(singleProject.projectId);
+    } else {
+      // ENTERPRISE tier: Clear context and show projects listing
+      clearProject();
       navigate(
         ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
           ":organizationId",
@@ -373,7 +379,12 @@ export function Navbar({
               <Box
                 className={classes.menuItem}
                 onClick={() => {
-                  navigate(ROUTES.PRICING.basePath);
+                  navigate(
+                    ROUTES.PRICING.basePath.replace(
+                      ":organizationId",
+                      tenantId || "",
+                    ),
+                  );
                   setPopoverOpened(false);
                 }}
                 style={{ cursor: "pointer" }}

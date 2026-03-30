@@ -1,39 +1,40 @@
-import { CiritcalInteractionDetails } from "../screens/CriticalInteractionDetails";
-import { CriticalInteractionList } from "../screens/CriticalInteractionList";
-import { CriticalInteractionForm } from "../screens/CriticalInteractionForm";
-import { Login } from "../screens/Login";
-import { UniversalEventQuery } from "../screens/UniversalEventQuery/UniversalEventQuery";
-import { Home } from "../screens/Home";
+import { ROUTES as ROUTE_PATHS } from "../constants";
+import { AiChat } from "../screens/AiChat";
+import { AlertDetail } from "../screens/AlertDetail";
+import { AlertForm } from "../screens/AlertFormWizard";
+import { AlertListingPage } from "../screens/AlertListingPage";
 import { AppVitals, IssueDetail, OccurrenceDetail } from "../screens/AppVitals";
-import { SessionTimeline } from "../screens/SessionTimeline";
-import { ScreenList } from "../screens/ScreenList";
-import { ScreenDetail } from "../screens/ScreenDetail";
+import { ComingSoon } from "../screens/ComingSoon";
+import { CreateProject } from "../screens/CreateProject";
+import { CiritcalInteractionDetails } from "../screens/CriticalInteractionDetails";
+import { CriticalInteractionForm } from "../screens/CriticalInteractionForm";
+import { CriticalInteractionList } from "../screens/CriticalInteractionList";
+import { EventCatalog } from "../screens/EventCatalog";
+import { Home } from "../screens/Home";
+import { Login } from "../screens/Login";
 import { NetworkDetail } from "../screens/NetworkDetail";
 import { NetworkList } from "../screens/NetworkList";
-import { UserEngagement } from "../screens/UserEngagement";
-import { ComingSoon } from "../screens/ComingSoon";
 import { Onboarding } from "../screens/Onboarding";
 import { OnboardingSuccess } from "../screens/OnboardingSuccess";
-import { Pricing } from "../screens/Pricing";
-import { ProjectSettings } from "../screens/ProjectSettings";
-import { SamplingConfig } from "../screens/SamplingConfig";
-import { Settings } from "../screens/Settings";
-import { AlertListingPage } from "../screens/AlertListingPage";
-import { AlertForm } from "../screens/AlertFormWizard";
-import { AlertDetail } from "../screens/AlertDetail";
-import { RealTimeQuery } from "../screens/RealTimeQuery";
 import { OrganizationDashboard } from "../screens/OrganizationDashboard";
-import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
-import { CreateProject } from "../screens/CreateProject";
-import { EventCatalog } from "../screens/EventCatalog";
+import { OrganizationSettings } from "../screens/OrganizationSettings";
+import { Pricing } from "../screens/Pricing";
+import { ProjectSettings } from "../screens/ProjectSettings";
+import { RealTimeQuery } from "../screens/RealTimeQuery";
+import { SamplingConfig } from "../screens/SamplingConfig";
+import { ScreenDetail } from "../screens/ScreenDetail";
+import { ScreenList } from "../screens/ScreenList";
 import { SessionReplay } from "../screens/SessionReplay";
+import { SessionReplayDetail } from "../screens/SessionReplayDetail";
 import { SessionReplayInsights } from "../screens/SessionReplayInsights";
 import { SessionReplaySessions } from "../screens/SessionReplaySessions";
-import { SessionReplayDetail } from "../screens/SessionReplayDetail";
+import { SessionTimeline } from "../screens/SessionTimeline";
+import { Settings } from "../screens/Settings";
 import { SupportQueries } from "../screens/SupportQueries";
-import { ROUTES as ROUTE_PATHS } from "../constants";
+import { UniversalEventQuery } from "../screens/UniversalEventQuery/UniversalEventQuery";
+import { UserEngagement } from "../screens/UserEngagement";
 
 export const ROUTES = {
   // Organization-level routes
@@ -206,5 +207,14 @@ export const ROUTES = {
   SESSION_REPLAY_DETAIL: {
     ...ROUTE_PATHS.SESSION_REPLAY_DETAIL,
     element: SessionReplayDetail,
+  },
+
+  // AI Chat (only when REACT_APP_ENABLE_AI_CHAT=true)
+  ...(ROUTE_PATHS.AI_CHAT
+    ? { AI_CHAT: { ...ROUTE_PATHS.AI_CHAT, element: AiChat } }
+    : {}),
+  SUPPORT_QUERIES: {
+    ...ROUTE_PATHS.SUPPORT_QUERIES,
+    element: SupportQueries,
   },
 };

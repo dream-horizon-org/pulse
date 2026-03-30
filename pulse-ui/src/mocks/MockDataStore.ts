@@ -375,7 +375,8 @@ export class MockDataStore {
       createdAt: new Date(now - 90 * oneDay).toISOString(),
     });
 
-    // Tenant members (3-4 with admin/member roles)
+    // Tenant members (5 members for realistic "Add from organization" picker testing)
+    // proj-mock-1 has 2 members → 3 members (Amit, Neha, Vikram) appear in picker
     this.mockTenantMembers.set(defaultTenantId, [
       {
         userId: "user-rahul-1",
@@ -409,9 +410,17 @@ export class MockDataStore {
         status: "pending",
         lastLoginAt: null,
       },
+      {
+        userId: "user-vikram-5",
+        email: "vikram.verma@example.com",
+        name: "Vikram Verma",
+        role: "member",
+        status: "active",
+        lastLoginAt: new Date(now - 3 * oneHour).toISOString(),
+      },
     ]);
 
-    // Project members for default projects (2-3 per project with admin/editor/viewer)
+    // Project members: proj-mock-1 has 2 members (Rahul, Priya) → 3 tenant members available in picker
     const proj1Members: MockMember[] = [
       {
         userId: "user-rahul-1",
@@ -428,14 +437,6 @@ export class MockDataStore {
         role: "editor",
         status: "active",
         lastLoginAt: new Date(now - 5 * oneHour).toISOString(),
-      },
-      {
-        userId: "user-amit-3",
-        email: "amit.kumar@example.com",
-        name: "Amit Kumar",
-        role: "viewer",
-        status: "active",
-        lastLoginAt: new Date(now - 1 * oneDay).toISOString(),
       },
     ];
     this.mockProjectMembers.set("proj-mock-1", proj1Members);
@@ -1775,7 +1776,7 @@ export class MockDataStore {
           description: proj.description,
           tenantId: tenant.tenantId,
           isActive: proj.isActive,
-          isEventFlowStarted: true,
+          isEventFlowStarted: false, // New projects land on onboarding page first
           userRole: proj.role,
           createdAt: new Date().toISOString(),
           createdBy: "unknown",
@@ -1918,16 +1919,19 @@ export class MockDataStore {
     email: string,
     role: "admin" | "member",
     name?: string,
+    existingUserId?: string,
+    status: "active" | "pending" = "pending",
   ): MockMember {
     const members = this.mockTenantMembers.get(tenantId) ?? [];
-    const userId = "user-" + Math.random().toString(36).slice(2, 11);
+    const userId =
+      existingUserId ?? "user-" + Math.random().toString(36).slice(2, 11);
     const member: MockMember = {
       userId,
       email,
       name: name ?? email.split("@")[0].replace(/\./g, " "),
       role,
-      status: "pending",
-      lastLoginAt: null,
+      status,
+      lastLoginAt: status === "active" ? new Date().toISOString() : null,
     };
     members.push(member);
     this.mockTenantMembers.set(tenantId, members);
@@ -1939,16 +1943,19 @@ export class MockDataStore {
     email: string,
     role: "admin" | "editor" | "viewer",
     name?: string,
+    existingUserId?: string,
+    status: "active" | "pending" = "pending",
   ): MockMember {
     const members = this.mockProjectMembers.get(projectId) ?? [];
-    const userId = "user-" + Math.random().toString(36).slice(2, 11);
+    const userId =
+      existingUserId ?? "user-" + Math.random().toString(36).slice(2, 11);
     const member: MockMember = {
       userId,
       email,
       name: name ?? email.split("@")[0].replace(/\./g, " "),
       role,
-      status: "pending",
-      lastLoginAt: null,
+      status,
+      lastLoginAt: status === "active" ? new Date().toISOString() : null,
     };
     members.push(member);
     this.mockProjectMembers.set(projectId, members);
@@ -2632,6 +2639,24 @@ export class MockDataStore {
           sessionSampleRate: 0,
           sdks: ["android_rn", "ios_rn"],
         },
+        {
+          id: generateId(),
+          featureName: "session_replay",
+          sessionSampleRate: 1,
+          sdks: ["android_java", "android_rn", "ios_native"],
+          config: {
+            featureName: "session_replay",
+            textAndInputPrivacy: "MASK_SENSITIVE_INPUTS",
+            imagePrivacy: "MASK_ALL",
+            throttleDelayMs: 1000,
+            screenshotScale: 1,
+            screenshotQuality: 70,
+            flushIntervalSeconds: 10,
+            flushAt: 50,
+            maxBatchSize: 100,
+            replayApiBaseUrl: "http://10.0.2.2:4317",
+          },
+        },
       ],
     };
   }
@@ -2776,7 +2801,8 @@ type FeatureNameV1 =
   | "screen_session"
   | "custom_events"
   | "rn_screen_load"
-  | "rn_screen_interactive";
+  | "rn_screen_interactive"
+  | "session_replay";
 
 interface EventPropMatchV1 {
   name: string;
@@ -2853,11 +2879,25 @@ interface InteractionConfigV1 {
   beforeInitQueueSize: number;
 }
 
+interface SessionReplayFeatureConfigV1 {
+  featureName?: "session_replay";
+  textAndInputPrivacy?: string;
+  imagePrivacy?: string;
+  throttleDelayMs?: number;
+  screenshotScale?: number;
+  screenshotQuality?: number;
+  flushIntervalSeconds?: number;
+  flushAt?: number;
+  maxBatchSize?: number;
+  replayApiBaseUrl?: string;
+}
+
 interface FeatureConfigV1 {
   id?: string;
   featureName: FeatureNameV1;
   sessionSampleRate: number;
   sdks: SdkEnumV1[];
+  config?: SessionReplayFeatureConfigV1 | null;
 }
 
 interface PulseConfigV1 {

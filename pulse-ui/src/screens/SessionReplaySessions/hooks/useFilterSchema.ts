@@ -1,7 +1,7 @@
 // Session Replay - Dynamic Filter Schema Hook
 // Fetches filter configuration from API based on platform
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { sessionReplayService } from "../../../services/sessionReplay/SessionReplayService";
 import { GetFilterSchemaResponse } from "../../../services/sessionReplay/types";
 
@@ -30,7 +30,7 @@ export function useFilterSchema(
   const [loading, setLoading] = useState(!skip);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchSchema = async () => {
+  const fetchSchema = useCallback(async () => {
     if (skip) return;
     try {
       setLoading(true);
@@ -45,17 +45,15 @@ export function useFilterSchema(
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, skip]);
 
   useEffect(() => {
     if (skip) {
       setLoading(false);
       return;
     }
-    fetchSchema();
-    // fetchSchema is stable (no deps); intentionally not in deps to avoid refetch loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, skip]);
+    void fetchSchema();
+  }, [skip, fetchSchema]);
 
   return {
     schema,

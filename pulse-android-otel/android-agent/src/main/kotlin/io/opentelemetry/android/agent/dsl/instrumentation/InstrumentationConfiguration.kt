@@ -5,6 +5,8 @@
 
 package io.opentelemetry.android.agent.dsl.instrumentation
 
+import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.SessionReplayConfiguration
 import io.opentelemetry.android.agent.dsl.OpenTelemetryDslMarker
 import io.opentelemetry.android.config.OtelRumConfig
 
@@ -43,6 +45,15 @@ class InstrumentationConfiguration(
         )
     }
 
+    private val viewClick: ViewClickConfiguration by lazy {
+        ViewClickConfiguration()
+    }
+
+    private val composeClick: ComposeClickConfiguration by lazy {
+        ComposeClickConfiguration()
+    }
+    private val sessionReplay: SessionReplayConfiguration by lazy { SessionReplayConfiguration() }
+
     fun activity(configure: ActivityLifecycleConfiguration.() -> Unit) {
         activity.configure()
     }
@@ -70,4 +81,31 @@ class InstrumentationConfiguration(
     fun interaction(configure: InteractionConfiguration.() -> Unit) {
         interaction.configure()
     }
+
+    /**
+     * View-based click instrumentation. Add the view-click dependency to enable. Use
+     * [ViewClickConfiguration.captureContext] to control label extraction (performance).
+     */
+    fun viewClick(configure: ViewClickConfiguration.() -> Unit) {
+        viewClick.configure()
+    }
+
+    /**
+     * Compose click instrumentation. Add the compose-click dependency to enable. Use
+     * [ComposeClickConfiguration.captureContext] to control label extraction (performance).
+     */
+    fun composeClick(configure: ComposeClickConfiguration.() -> Unit) {
+        composeClick.configure()
+    }
+
+    fun sessionReplay(configure: SessionReplayConfiguration.() -> Unit) {
+        sessionReplay.markConfigured()
+        sessionReplay.configure()
+    }
+
+    /**
+     * Returns the configured [SessionReplayConfig] if [sessionReplay] was invoked in the
+     * instrumentations block; null otherwise.
+     */
+    fun getSessionReplayConfig(): SessionReplayConfig? = sessionReplay.getConfigIfConfigured()
 }

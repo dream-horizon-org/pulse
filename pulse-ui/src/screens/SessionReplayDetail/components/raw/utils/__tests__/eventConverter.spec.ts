@@ -1,6 +1,6 @@
+import { mockSessionDataWithTechnical } from "../../../../__mock__/SessionReplayDetail.mock";
 import { convertEventToFlameChartNode } from "../eventConverter";
 import type { UnifiedEvent } from "../unifiedEvents";
-import { mockSessionDataWithTechnical } from "../../../../__mock__/SessionReplayDetail.mock";
 
 describe("eventConverter", () => {
   const baseSessionData = {
@@ -46,8 +46,8 @@ describe("eventConverter", () => {
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.id).toBe("raw_event_1000_session_start");
-    expect(result.traceId).toBe("trace_1000");
-    expect(result.spanId).toBe("span_1000");
+    expect(result.traceId).toBe("1000");
+    expect(result.spanId).toBe("1000");
     expect(result.name).toBe("Session Started");
     expect(result.start).toBe(1000);
     expect(result.duration).toBe(0);
@@ -59,6 +59,17 @@ describe("eventConverter", () => {
   });
 
   it("maps event types to FlameChartNode types correctly", () => {
+    const categoryByType: Record<UnifiedEvent["type"], string> = {
+      session_start: "Session",
+      app_lifecycle: "Event",
+      screen_load: "Event",
+      critical_interaction: "Interaction",
+      api_call: "Network",
+      interaction_tap: "Interaction",
+      db_query: "Event",
+      network_performance: "Performance",
+      console_log: "Console",
+    };
     const types: Array<{
       type: UnifiedEvent["type"];
       expected: "span" | "log";
@@ -75,7 +86,7 @@ describe("eventConverter", () => {
         type,
         description: "Test",
         color: "#000",
-        categoryLabel: "Event",
+        categoryLabel: categoryByType[type],
       };
       const result = convertEventToFlameChartNode(event, baseSessionData);
       expect(result.type).toBe(expected);
@@ -123,7 +134,7 @@ describe("eventConverter", () => {
       type: "console_log",
       description: "Log message",
       color: "#ef4444",
-      categoryLabel: "Error",
+      categoryLabel: "Console",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.metadata).toBeDefined();
