@@ -18,7 +18,7 @@ export const mockSessionDataWithTechnical: SessionDetailData = {
   browser: "Chrome 120",
   os: "macOS",
   appVersion: "1.0.0",
-  interactionQuality: 7.5,
+  interactionQuality: 0.75,
   sessionType: "error_encountered",
   detectedIssues: [
     {

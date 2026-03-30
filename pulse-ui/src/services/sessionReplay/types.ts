@@ -56,7 +56,7 @@ export interface SessionResponse {
   metadata?: Record<string, any>;
 
   // Investigation-focused fields (NEW)
-  interactionQuality: number | null; // 0-10 scale, null if unavailable
+  interactionQuality: number | null;
   issueSummary: IssueSummary;
   outcome: SessionOutcome;
 }

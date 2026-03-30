@@ -4,30 +4,32 @@
  * Generates realistic mock responses for different API endpoints
  */
 
-import { MockResponse, MockRequest } from "./types";
-import { MockDataStore } from "./MockDataStore";
+import { resolveIncidentsMock } from "./incidentsMockHandler";
 import { MockConfigManager } from "./MockConfig";
-import { generateDataQueryMockResponseV2 } from "./v2";
-import { mockJobResponses } from "./responses/jobResponses";
+import { MockDataStore } from "./MockDataStore";
 import {
-  mockNotificationChannels,
-  mockAlertSeverities,
-  mockAlertScopes,
-  mockAlertMetrics,
   mockAlertFilters,
+  mockAlertMetrics,
+  mockAlertScopes,
+  mockAlertSeverities,
   mockAlertTags,
+  mockNotificationChannels,
 } from "./responses/alertResponses";
-import {
-  mockTableMetadata,
-  generateMockQueryResults,
-  createQueryJob,
-  getQueryJobStatus,
-  shouldReturnImmediate,
-  generateMockQueryHistory,
-  cancelQueryJob,
-  generateAiQueryResponse,
-} from "./responses/realtimeQueryResponses";
 import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import { mockJobResponses } from "./responses/jobResponses";
+import { buildMockRcaReportResponseBody } from "./responses/rcaReportResponses";
+import {
+  cancelQueryJob,
+  createQueryJob,
+  generateAiQueryResponse,
+  generateMockQueryHistory,
+  generateMockQueryResults,
+  getQueryJobStatus,
+  mockTableMetadata,
+  shouldReturnImmediate,
+} from "./responses/realtimeQueryResponses";
+import { MockRequest, MockResponse } from "./types";
+import { generateDataQueryMockResponseV2 } from "./v2";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -195,6 +197,24 @@ export class MockResponseGenerator {
     // Tenant endpoints (GET /v1/tenants/:tenantId, members)
     if (pathname.includes("/v1/tenants")) {
       return this.handleTenantEndpoints(pathname, method, request);
+    }
+
+    // Support queries / incidents (exclude Slack webhook path)
+    if (
+      pathname.includes("/v1/incidents") &&
+      !pathname.includes("/v1/incidents/slack")
+    ) {
+      return this.handleIncidentsEndpoints(method, request);
+    }
+
+    // Contact us / contact support (Pricing — sales & support). High priority so
+    // no later /events or generic handlers swallow the request.
+    if (
+      method === "POST" &&
+      pathname.includes("notifications") &&
+      pathname.includes("contact-us")
+    ) {
+      return this.handleContactUsPost(request);
     }
 
     // Session Replay sessions/filters endpoint
@@ -663,37 +683,8 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
-    // POST /v1/notifications/contact-us
     if (pathname.includes("/notifications/contact-us") && method === "POST") {
-      const url = this.parseURL(request.url);
-      const eventType = url.searchParams.get("type");
-
-      // Validate event type
-      if (
-        !eventType ||
-        !["sales", "support"].includes(eventType.toLowerCase())
-      ) {
-        return {
-          data: null,
-          status: 400,
-          error: {
-            code: "INVALID_TYPE",
-            message: "Invalid contact type. Use 'sales' or 'support'",
-            cause: "Invalid or missing type query parameter",
-          },
-        };
-      }
-
-      // Success response
-      const successMessage =
-        eventType.toLowerCase() === "sales"
-          ? "Contact request submitted successfully"
-          : "Support request submitted successfully";
-
-      return {
-        data: successMessage,
-        status: 200,
-      };
+      return this.handleContactUsPost(request);
     }
 
     return {
@@ -704,6 +695,34 @@ export class MockResponseGenerator {
         message: "Notification endpoint not found",
         cause: `Unknown notification endpoint: ${pathname}`,
       },
+    };
+  }
+
+  /** POST /v1/notifications/contact-us?type=sales|support — matches backend NotificationController */
+  private handleContactUsPost(request: MockRequest): MockResponse {
+    const url = this.parseURL(request.url);
+    const eventType = url.searchParams.get("type");
+
+    if (!eventType || !["sales", "support"].includes(eventType.toLowerCase())) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_TYPE",
+          message: "Invalid contact type. Use 'sales' or 'support'",
+          cause: "Invalid or missing type query parameter",
+        },
+      };
+    }
+
+    const successMessage =
+      eventType.toLowerCase() === "sales"
+        ? "Contact request submitted successfully"
+        : "Support request submitted successfully";
+
+    return {
+      data: successMessage,
+      status: 200,
     };
   }
 
@@ -1039,6 +1058,15 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
+  private handleIncidentsEndpoints(
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    const resolved = resolveIncidentsMock(method, request.url, request.body);
+    if (resolved) return resolved;
+    return this.generateErrorResponse();
+  }
+
   private handleSessionsFiltersEndpoint(): MockResponse {
     return {
       data: {
@@ -1201,7 +1229,19 @@ export class MockResponseGenerator {
         ],
       };
       this.dataStore.setCurrentTenant(newTenant);
-      this.dataStore.ensureTenantExists(tenantId, organizationName);
+      this.dataStore.ensureTenantExists(
+        tenantId,
+        organizationName,
+        "dev@example.com",
+      );
+      this.dataStore.registerOnboardingProject(
+        tenantId,
+        projectId,
+        projectName,
+        projectDescription,
+        projectApiKey,
+        "dev@example.com",
+      );
 
       // Seed the onboarded user as tenant admin and project admin so invite flow works
       this.dataStore.addTenantMember(
@@ -1448,10 +1488,15 @@ export class MockResponseGenerator {
     }
 
     const members = this.dataStore.getProjectMembers(projectId);
+    // Ensure each member has a display name (like tenant members)
+    const membersWithName = members.map((m) => ({
+      ...m,
+      name: m.name?.trim() || m.email.split("@")[0].replace(/\./g, " "),
+    }));
     return {
       data: {
-        members,
-        totalCount: members.length,
+        members: membersWithName,
+        totalCount: membersWithName.length,
       },
       status: 200,
     };
@@ -1475,7 +1520,12 @@ export class MockResponseGenerator {
     }
 
     const validRoles = ["admin", "editor", "viewer"];
-    let body: { email?: string; emails?: string[]; role?: string } = {};
+    let body: {
+      email?: string;
+      emails?: string[];
+      role?: string;
+      name?: string;
+    } = {};
     try {
       body = request.body ? JSON.parse(request.body) : {};
     } catch {
@@ -2518,6 +2568,22 @@ export class MockResponseGenerator {
     return {
       data: { message: "Dashboard filters endpoint not found" },
       status: 404,
+    };
+  }
+
+  private handleRcaReportPostMock(request: MockRequest): MockResponse {
+    let interactionName = "interaction";
+    try {
+      const body = request.body ? JSON.parse(request.body) : {};
+      if (body.interactionName) {
+        interactionName = String(body.interactionName);
+      }
+    } catch {
+      /* keep default */
+    }
+    return {
+      status: 200,
+      data: buildMockRcaReportResponseBody(interactionName),
     };
   }
 

@@ -1,9 +1,9 @@
+import { EChartsInstance } from "echarts-for-react";
 import { useCallback } from "react";
-import { useFilterStore } from "../../../stores/useFilterStore";
-import type { EChartsType } from "echarts";
-import { getUTCDateTimeFromLocalStringDateValue } from "../../../utils/DateUtil";
 import { useSearchParams } from "react-router-dom";
 import { StartEndDateTimeType } from "../../../screens/CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
+import { useFilterStore } from "../../../stores/useFilterStore";
+import { getUTCDateTimeFromLocalStringDateValue } from "../../../utils/DateUtil";
 
 interface UseChartReadyProps {
   syncTooltips?: boolean;
@@ -49,7 +49,7 @@ export const useChartReady = ({
     ],
   );
   const onChartReady = useCallback(
-    (chartInstance: EChartsType) => {
+    (chartInstance: EChartsInstance) => {
       if (syncTooltips) {
         chartInstance.group = group;
       }

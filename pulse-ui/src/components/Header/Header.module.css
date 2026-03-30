@@ -15,6 +15,17 @@
   align-items: center;
 }
 
+.tenantNameClickable {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px 8px;
+  transition: background-color 0.2s ease;
+}
+
+.tenantNameClickable:hover {
+  background-color: rgba(11, 160, 154, 0.08);
+}
+
 .cheveronIcon {
   color: #495057;
   cursor: pointer;
@@ -34,7 +45,6 @@
 .cheveronIcon:active {
   transform: scale(0.95);
 }
-
 
 .projectSection {
   display: flex;
@@ -76,4 +86,3 @@
   min-width: 200px;
   margin-right: var(--mantine-spacing-md);
 }
-

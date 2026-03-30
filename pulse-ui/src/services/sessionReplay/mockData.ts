@@ -1,12 +1,12 @@
 import {
-  SessionResponse,
-  SessionTagResponse,
+  GetDateRangeConfigResponse,
+  GetFilterSchemaResponse,
+  GetQuickFiltersResponse,
   GetSessionDetailResponse,
   SessionEventResponse,
+  SessionResponse,
+  SessionTagResponse,
   TimelineEntry,
-  GetFilterSchemaResponse,
-  GetDateRangeConfigResponse,
-  GetQuickFiltersResponse,
 } from "./types";
 
 // Mock data generator
@@ -97,13 +97,15 @@ export class MockSessionReplayData {
     const events = Math.floor(Math.random() * 100) + 20;
     const pages = journey.length;
 
-    // Calculate interaction quality score (0-10)
-    // Lower scores for sessions with more issues
+    // Interaction quality score (0–1). Derived from issue load; lower when more issues.
     const issueCount = tags.length + (errorCount > 0 ? 1 : 0);
     const baseQuality = 10 - issueCount * 1.5;
-    const interactionQuality = Math.max(
+    const rawTen = Math.max(
       1,
       Math.min(10, baseQuality + (Math.random() - 0.5)),
+    );
+    const interactionQuality = Number(
+      Math.max(0.05, Math.min(1, rawTen / 10)).toFixed(2),
     );
 
     // Build issue summary
@@ -158,7 +160,7 @@ export class MockSessionReplayData {
       tags,
       environment: Math.random() > 0.1 ? "production" : "staging",
       project: deviceInfo.device === "iOS" ? "ios" : "android",
-      interactionQuality: Number(interactionQuality.toFixed(1)),
+      interactionQuality,
       issueSummary,
       outcome,
       metadata: {

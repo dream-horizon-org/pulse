@@ -6,6 +6,7 @@
 
 import { MockServer } from "../MockServer";
 import { MockConfigManager } from "../MockConfig";
+import { MockResponseGenerator } from "../MockResponseGenerator";
 
 // Mock environment variables
 const originalEnv = process.env;
@@ -69,6 +70,33 @@ describe("MockServer", () => {
     expect(response.status).toBe(200);
     expect(data.data).toHaveProperty("jobs");
     expect(data.data).toHaveProperty("totalJobs");
+  });
+});
+
+describe("MockResponseGenerator contact-us", () => {
+  beforeEach(() => {
+    process.env.REACT_APP_MOCK_ERROR_RATE = "0";
+  });
+
+  test("POST /v1/notifications/contact-us sales, support, invalid type", async () => {
+    const gen = new MockResponseGenerator();
+    for (const type of ["sales", "support"] as const) {
+      const res = await gen.generateResponse({
+        url: `http://localhost:8080/v1/notifications/contact-us?type=${type}`,
+        method: "POST",
+        body: JSON.stringify({ message: "Hello" }),
+      });
+      expect(res.status).toBe(200);
+      expect(typeof res.data).toBe("string");
+      expect(res.data).toContain("successfully");
+    }
+    const bad = await gen.generateResponse({
+      url: "http://localhost:8080/v1/notifications/contact-us?type=invalid",
+      method: "POST",
+      body: "{}",
+    });
+    expect(bad.status).toBe(400);
+    expect(bad.error?.code).toBe("INVALID_TYPE");
   });
 });
 

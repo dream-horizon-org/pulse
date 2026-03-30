@@ -1,6 +1,6 @@
+import { mockSessionDataWithTechnical } from "../../../../__mock__/SessionReplayDetail.mock";
 import { convertEventToFlameChartNode } from "../eventConverter";
 import type { UnifiedEvent } from "../unifiedEvents";
-import { mockSessionDataWithTechnical } from "../../../../__mock__/SessionReplayDetail.mock";
 
 describe("eventConverter", () => {
   const baseSessionData = {

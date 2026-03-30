@@ -1,7 +1,7 @@
 // Session Replay - Dynamic Filter Schema Hook
 // Fetches filter configuration from API based on platform
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { sessionReplayService } from "../../../services/sessionReplay/SessionReplayService";
 import { GetFilterSchemaResponse } from "../../../services/sessionReplay/types";
 

@@ -6,15 +6,83 @@ import {
 } from "../../constants";
 import { getCookies } from "../cookies";
 import { MakeRequestConfig } from "../makeRequest";
+import { MockConfigManager } from "../../mocks/MockConfig";
+import type { MockResponse } from "../../mocks/types";
+import { resolveIncidentsMock } from "../../mocks/incidentsMockHandler";
 
-// Mock server import - only loaded when needed
+// Mock server import - only loaded when needed (direct module avoids barrel/circular issues)
 let MockServer: any = null;
+
+// Must match MockConfigManager: dev enables mock unless REACT_APP_USE_MOCK_SERVER=false
+const isMockApiEnabled = () => MockConfigManager.getInstance().isEnabled();
+
+/**
+ * Inline mock for contact-us so Pricing flow works even if the async mock chunk fails to load.
+ * Matches backend + MockResponseGenerator.handleContactUsPost.
+ */
+function tryInlineMockContactUs(config: MakeRequestConfig): Response | null {
+  const method = (config.init?.method || "GET").toUpperCase();
+  if (method !== "POST") return null;
+  const raw =
+    typeof config.url === "string"
+      ? config.url
+      : config.url instanceof URL
+        ? config.url.href
+        : String(config.url);
+  if (!raw.includes("notifications") || !raw.includes("contact-us")) {
+    return null;
+  }
+  let type: string | null = null;
+  try {
+    type = new URL(raw, "http://localhost").searchParams.get("type");
+  } catch {
+    return null;
+  }
+  if (!type || !["sales", "support"].includes(type.toLowerCase())) {
+    return new Response(
+      JSON.stringify({
+        data: null,
+        error: {
+          code: "INVALID_TYPE",
+          message: "Invalid contact type. Use 'sales' or 'support'",
+          cause: "Invalid or missing type query parameter",
+        },
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+  const msg =
+    type.toLowerCase() === "sales"
+      ? "Contact request submitted successfully"
+      : "Support request submitted successfully";
+  return new Response(JSON.stringify({ data: msg, error: null }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 // Lazy load mock server to avoid bundling when not needed
 const getMockServer = async () => {
-  if (!MockServer && process.env.REACT_APP_USE_MOCK_SERVER === "true") {
-    const mockModule = await import("../../mocks");
-    MockServer = mockModule.MockServer;
+  if (!MockServer && isMockApiEnabled()) {
+    try {
+      const mockModule = await import(
+        /* webpackChunkName: "pulse-api-dev-stub" */ "../../mocks/MockServer"
+      );
+      MockServer = mockModule.MockServer;
+      if (!MockServer) {
+        console.error(
+          "[Mock Server] MockServer export missing; contact-us still works via inline mock",
+        );
+      }
+    } catch (e) {
+      console.error(
+        "[Mock Server] Failed to load mock chunk; contact-us + Support Queries (incidents) use inline mocks. Other APIs may hit the real server.",
+        e,
+      );
+    }
   }
   return MockServer;
 };
@@ -86,8 +154,10 @@ export async function streamAiRunSse(init?: RequestInit): Promise<Response> {
 export const makeRequestToServer = async (
   requestConfig: MakeRequestConfig,
 ): Promise<Response> => {
-  // Check if mock server is enabled
-  if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+  if (isMockApiEnabled()) {
+    const contactUs = tryInlineMockContactUs(requestConfig);
+    if (contactUs) return contactUs;
+
     try {
       const MockServerClass = await getMockServer();
       if (MockServerClass) {
@@ -100,6 +170,34 @@ export const makeRequestToServer = async (
       console.warn(
         "[Mock Server] Failed to load mock server, falling back to real API:",
         error,
+      );
+    }
+
+    // Support Queries: POST/GET /v1/incidents when full mock chunk did not load
+    const urlStr =
+      typeof requestConfig.url === "string"
+        ? requestConfig.url
+        : requestConfig.url instanceof URL
+          ? requestConfig.url.href
+          : String(requestConfig.url);
+    const incidentsMock = resolveIncidentsMock(
+      requestConfig.init?.method || "GET",
+      urlStr,
+      requestConfig.init?.body != null
+        ? String(requestConfig.init.body)
+        : undefined,
+    );
+    if (incidentsMock) {
+      const mr: MockResponse = incidentsMock;
+      return new Response(
+        JSON.stringify({
+          data: mr.data,
+          error: mr.error ?? null,
+        }),
+        {
+          status: mr.status,
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
   }

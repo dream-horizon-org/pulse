@@ -24,7 +24,7 @@ export function formatPlayerTime(ms: number): string {
 }
 
 export function getQualityColor(score: number): "teal" | "yellow" | "red" {
-  if (score >= 8) return "teal";
-  if (score >= 6) return "yellow";
+  if (score >= 0.8) return "teal";
+  if (score >= 0.6) return "yellow";
   return "red";
 }

@@ -2,13 +2,14 @@ import { AppShell, Group, Text, Box, Select, Badge } from "@mantine/core";
 
 import classes from "./Header.module.css";
 import { HeaderProps } from "./Header.interface";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { IconFolder, IconBuilding } from "@tabler/icons-react";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { TIERS } from "../../constants/Tiers";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { projects, tier, tenantName, tenantId } = useTenantContext();
   const { projectId, projectName, navigateToProject } = useProjectContext();
 
@@ -17,12 +18,31 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
     await navigateToProject(newProjectId);
   };
 
+  // Hide project selector on tenant-level pages (/:tenantId/*) - only show on project-scoped routes
+  const isProjectScopedPage = pathname.startsWith("/projects/");
+  const showProjectSelector = isProjectScopedPage;
+
   return (
     <>
       <AppShell.Header>
         <Box className={classes.headerContainer}>
-          {/* Organization Name Section */}
-          <Box className={classes.leftSection}>
+          {/* Organization Name Section - clickable, navigates to tenant projects */}
+          <Box
+            className={`${classes.leftSection} ${tenantId ? classes.tenantNameClickable : ""}`}
+            component={tenantId ? "button" : "div"}
+            onClick={
+              tenantId ? () => navigate(`/${tenantId}/projects`) : undefined
+            }
+            style={
+              tenantId
+                ? {
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                  }
+                : undefined
+            }
+          >
             <Group gap="xs">
               <IconBuilding size={20} style={{ color: "#0ba09a" }} />
               <Text fw={600} size="md" className={classes.orgName}>
@@ -31,12 +51,12 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
             </Group>
           </Box>
 
-          {/* Project Display Section - 64px gap from organization */}
+          {/* Project Display Section - 64px gap from organization (hidden on tenant-level pages) */}
           <Box
             className={classes.projectSection}
             style={{ marginLeft: "64px" }}
           >
-            {projectId && tier === TIERS.FREE ? (
+            {showProjectSelector && projectId && tier === TIERS.FREE ? (
               // FREE tier: Always show project name with upgrade badge (single project enforced by backend)
               <Group gap="xs" className={classes.projectInfo}>
                 <IconFolder size={18} style={{ color: "#0ba09a" }} />
@@ -51,7 +71,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
                   Free · Upgrade
                 </Badge>
               </Group>
-            ) : projectId && projects.length > 1 ? (
+            ) : showProjectSelector && projectId && projects.length > 1 ? (
               // ENTERPRISE tier with multiple projects - show selector
               <Select
                 leftSection={<IconFolder size={18} />}
@@ -65,7 +85,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
                 className={classes.projectDropdown}
                 comboboxProps={{ withinPortal: true }}
               />
-            ) : projectId ? (
+            ) : showProjectSelector && projectId ? (
               // ENTERPRISE tier with single project - show project name only
               <Group gap="xs" className={classes.projectInfo}>
                 <IconFolder size={18} style={{ color: "#0ba09a" }} />

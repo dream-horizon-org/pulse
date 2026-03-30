@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'yarn'
           cache-dependency-path: pulse-ui/yarn.lock
 
@@ -66,6 +66,10 @@ jobs:
           NODE_ENV: 'production'
           # Disable source maps for smaller bundle
           GENERATE_SOURCEMAP: 'false'
+          
+          REACT_APP_USE_MOCK_SESSION_REPLAY: 'true'
+          REACT_APP_ROOT_CAUSE_ENABLED: 'true'
+          
 
       - name: Add CNAME for custom domain
         run: echo 'demo.pulse-ux.com' > build/CNAME

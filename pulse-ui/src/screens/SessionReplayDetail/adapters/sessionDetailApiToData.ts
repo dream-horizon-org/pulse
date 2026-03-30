@@ -167,12 +167,12 @@ export function sessionDetailApiToData(
     os: api.osVersion,
     appVersion: api.appVersion,
     geography: parseGeography(api.geography),
-    interactionQuality:
-      typeof api.quality === "number" &&
-      Number.isFinite(api.quality) &&
-      api.quality > 0
-        ? api.quality
-        : null,
+    interactionQuality: (() => {
+      const q = api.quality;
+      if (typeof q !== "number" || !Number.isFinite(q) || q <= 0) return null;
+      // 0–1 from API; values > 1 treated as legacy 0–10 scale
+      return q > 1 ? Math.min(1, q / 10) : q;
+    })(),
     sessionType: "exploration",
     detectedIssues: [],
     criticalInteractions,

@@ -473,6 +473,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/interactions`,
     method: API_METHODS.GET,
   },
+  POST_RCA_REPORT: {
+    key: "POST_RCA_REPORT",
+    apiPath: `/v1/ai/rca/report`,
+    method: API_METHODS.POST,
+  },
   GET_SESSION_REPLAYS: {
     key: "GET_SESSION_REPLAYS",
     apiPath: `/v1/session-replays`,

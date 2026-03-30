@@ -1,19 +1,19 @@
-import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Box, Stack, Loader, Text, Center } from "@mantine/core";
+import { Box, Center, Loader, Stack, Text } from "@mantine/core";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import { FlameChartNode } from "../SessionTimeline/utils/flameChartTransform";
-import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
 import { getEmptySessionDetail } from "./adapters/sessionDetailApiToData";
 
+import { useCallback, useMemo, useState } from "react";
 import { SessionHeader } from "./components/SessionHeader";
+import { SessionPlayerSection } from "./components/SessionPlayerSection";
 import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
-import { SessionPlayerSection } from "./components/SessionPlayerSection";
 import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
 import classes from "./SessionReplayDetail.module.css";
-import { useState, useMemo, useCallback } from "react";
 
 export const SessionReplayDetail: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();

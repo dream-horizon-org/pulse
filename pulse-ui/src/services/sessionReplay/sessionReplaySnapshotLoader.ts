@@ -9,16 +9,15 @@
  * duplicate the call.
  */
 
+import type { SessionReplayImage } from "./sessionReplayImages";
 import { sessionReplayService } from "./SessionReplayService";
-import type { SnapshotsSourceBlob } from "./sessionReplaySnapshotTypes";
-import type { SnapshotEvent } from "./sessionReplaySnapshotTypes";
 import {
+  cleanupStaleSessions,
   getCachedBlobRange,
   setCachedBlobRange,
   touchSession,
-  cleanupStaleSessions,
 } from "./sessionReplaySnapshotCache";
-import type { SessionReplayImage } from "./sessionReplayImages";
+import type { SnapshotEvent, SnapshotsSourceBlob } from "./sessionReplaySnapshotTypes";
 
 const MAX_BLOBS_PER_REQUEST = 20;
 
