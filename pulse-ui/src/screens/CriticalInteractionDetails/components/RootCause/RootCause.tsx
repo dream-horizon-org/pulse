@@ -1,19 +1,21 @@
 import { Box, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
-import { IconLayoutGrid, IconPlayerPlay, IconRefresh } from "@tabler/icons-react";
+import {
+  IconChartFunnel,
+  IconLayoutGrid,
+  IconPlayerPlay,
+  IconRefresh,
+} from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { useGetInteractionDetailsGraphs } from "../../../../hooks/useGetInteractionDetailsGraphs";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import type { RcaReportTenantContext } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
-import { HeatmapRcaCard, SessionCard } from "./components";
-import {
-  buildScreenHeatmapUrl,
-  getRcaHeatmapTargets,
-} from "./rcaHeatmapLinks";
+import { FunnelJourneyCard, HeatmapRcaCard, SessionCard } from "./components";
+import { buildScreenHeatmapUrl, getRcaHeatmapTargets } from "./rcaHeatmapLinks";
+import { RcaReportView } from "./RcaReportView";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
-import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
 
 /** Mock related session replays for the RCA view; IDs match `mockSessionReplayScenarios` (same mock replay frames as other sess_* mocks). */
@@ -33,6 +35,32 @@ const MOCK_RELATED_SESSIONS = [
     device: "iOS 17.4 · App 4.2.0 · iPhone 15 Pro",
     failureSummary:
       "Slow join + interaction error — matches iOS 4.2.0 RCA segment.",
+  },
+];
+
+/** Mock linked funnels and journeys for the RCA view */
+const MOCK_LINKED_FUNNELS_JOURNEYS = [
+  {
+    id: "funnel-payment-001",
+    name: "Payment Flow Conversion",
+    type: "FUNNEL" as const,
+    status: "ACTIVE" as const,
+    createdBy: "sarah@example.com",
+    createdAt: "3 days ago",
+    tags: ["payment", "conversion", "critical"],
+    description:
+      "Tracks user conversion through the payment process including checkout and order completion.",
+  },
+  {
+    id: "journey-onboarding-001",
+    name: "User Onboarding Journey",
+    type: "JOURNEY" as const,
+    status: "ACTIVE" as const,
+    createdBy: "alex@example.com",
+    createdAt: "1 week ago",
+    tags: ["onboarding", "ux", "retention"],
+    description:
+      "Maps the complete user journey from app launch to account creation and first purchase.",
   },
 ];
 
@@ -172,6 +200,7 @@ export const RootCause = ({
       tables: [],
     };
     const relatedSessions = MOCK_RELATED_SESSIONS;
+    const linkedFunnelsJourneys = MOCK_LINKED_FUNNELS_JOURNEYS;
     return (
       <>
         <RcaReportView
@@ -208,6 +237,45 @@ export const RootCause = ({
                   device={session.device}
                   failureSummary={session.failureSummary}
                   replayUrl={`/projects/${effectiveProjectId}/session-replay/${session.sessionId}`}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+        {linkedFunnelsJourneys.length > 0 && (
+          <section
+            className={classes.linkedFunnelsJourneysSection}
+            aria-label="Linked funnels and journeys"
+          >
+            <Group className={classes.linkedFunnelsJourneysHeader} gap="xs">
+              <IconChartFunnel
+                size={18}
+                color="var(--mantine-color-teal-7)"
+                aria-hidden
+              />
+              <Text className={classes.linkedFunnelsJourneysTitle}>
+                Linked Funnels & Journeys
+              </Text>
+              <Box
+                component="span"
+                className={classes.linkedFunnelsJourneysBadge}
+              >
+                {linkedFunnelsJourneys.length}
+              </Box>
+            </Group>
+            <div className={classes.linkedFunnelsJourneysGrid}>
+              {linkedFunnelsJourneys.map((item) => (
+                <FunnelJourneyCard
+                  key={item.id}
+                  id={item.id}
+                  name={item.name}
+                  type={item.type}
+                  status={item.status}
+                  createdBy={item.createdBy}
+                  createdAt={item.createdAt}
+                  tags={item.tags}
+                  description={item.description}
+                  detailUrl={`/projects/${effectiveProjectId}/funnels-journeys/${item.id}`}
                 />
               ))}
             </div>

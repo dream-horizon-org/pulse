@@ -41,6 +41,49 @@ const MOCK_FUNNEL_ANALYZE_RESPONSE = {
   overallConversionRate: 32.4,
 };
 
+const MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE = {
+  steps: [
+    {
+      stepName: "Screen_View: Cart",
+      count: 8750,
+      conversionRate: 100,
+      dropoffRate: 0,
+    },
+    {
+      stepName: "Tap: Checkout",
+      count: 6820,
+      conversionRate: 77.9,
+      dropoffRate: 22.1,
+    },
+    {
+      stepName: "Screen_View: Payment",
+      count: 5940,
+      conversionRate: 67.9,
+      dropoffRate: 12.9,
+    },
+    {
+      stepName: "Tap: Enter Payment Details",
+      count: 4980,
+      conversionRate: 56.9,
+      dropoffRate: 16.2,
+    },
+    {
+      stepName: "Tap: Place Order",
+      count: 4230,
+      conversionRate: 48.3,
+      dropoffRate: 15.1,
+    },
+    {
+      stepName: "Screen_View: Order Confirmation",
+      count: 4050,
+      conversionRate: 46.3,
+      dropoffRate: 4.3,
+    },
+  ],
+  totalEnteredUsers: 8750,
+  overallConversionRate: 46.3,
+};
+
 const MOCK_FUNNEL_HEALTH_RESPONSE = {
   steps: [
     {
@@ -160,6 +203,12 @@ const MOCK_FUNNEL_CONVERSION_TREND = {
   medianTimes: [null, 4.2, 12.8, 8.6, 45.3],
 };
 
+const MOCK_PAYMENT_FUNNEL_CONVERSION_TREND = {
+  totalConversionRate: 46.3,
+  conversionTrend: -1.8,
+  medianTimes: [null, 5.1, 18.4, 12.7, 8.9, 3.2],
+};
+
 const MOCK_JOURNEY_FORWARD = {
   nodes: [
     { name: "App_Launch" },
@@ -266,6 +315,45 @@ const MOCK_JOURNEY_REVERSE = {
       target: "Screen_View: Product Detail",
       value: 45,
     },
+  ],
+};
+
+const MOCK_ONBOARDING_JOURNEY_RESPONSE = {
+  nodes: [
+    { name: "App_Launch" },
+    { name: "Screen_View: Welcome" },
+    { name: "Tap: Get Started" },
+    { name: "Screen_View: Sign Up" },
+    { name: "Tap: Create Account" },
+    { name: "Screen_View: Email Verification" },
+    { name: "Tap: Verify Email" },
+    { name: "Screen_View: Profile Setup" },
+    { name: "Tap: Complete Profile" },
+    { name: "Screen_View: Home" },
+    { name: "Tap: First Purchase" },
+    { name: "Exit" },
+  ],
+  links: [
+    { source: "App_Launch", target: "Screen_View: Welcome", value: 12400 },
+    { source: "Screen_View: Welcome", target: "Tap: Get Started", value: 10800 },
+    { source: "Screen_View: Welcome", target: "Exit", value: 1600 },
+    { source: "Tap: Get Started", target: "Screen_View: Sign Up", value: 9900 },
+    { source: "Tap: Get Started", target: "Exit", value: 900 },
+    { source: "Screen_View: Sign Up", target: "Tap: Create Account", value: 8500 },
+    { source: "Screen_View: Sign Up", target: "Exit", value: 1400 },
+    { source: "Tap: Create Account", target: "Screen_View: Email Verification", value: 7800 },
+    { source: "Tap: Create Account", target: "Exit", value: 700 },
+    { source: "Screen_View: Email Verification", target: "Tap: Verify Email", value: 6900 },
+    { source: "Screen_View: Email Verification", target: "Exit", value: 900 },
+    { source: "Tap: Verify Email", target: "Screen_View: Profile Setup", value: 6200 },
+    { source: "Tap: Verify Email", target: "Exit", value: 700 },
+    { source: "Screen_View: Profile Setup", target: "Tap: Complete Profile", value: 5600 },
+    { source: "Screen_View: Profile Setup", target: "Exit", value: 600 },
+    { source: "Tap: Complete Profile", target: "Screen_View: Home", value: 5100 },
+    { source: "Tap: Complete Profile", target: "Exit", value: 500 },
+    { source: "Screen_View: Home", target: "Tap: First Purchase", value: 2800 },
+    { source: "Screen_View: Home", target: "Exit", value: 2300 },
+    { source: "Tap: First Purchase", target: "Exit", value: 2800 },
   ],
 };
 
@@ -392,9 +480,13 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
+  description?: string;
   funnelType?: "ORDERED" | "UNORDERED";
+  rollingType?: "RECURRING" | "ONCE";
+  windowSeconds?: number;
   filters?: any[];
   steps?: any[];
+  timeRange?: { start: string; end: string };
   anchorEvent?: string;
   direction?: "forward" | "reverse";
   depth?: number;
@@ -487,6 +579,57 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       { eventName: "Deep_Link_Opened" },
       { eventName: "Screen_View: Home" },
     ],
+  },
+  {
+    id: "funnel-payment-001",
+    name: "Payment Flow Conversion",
+    kind: "FUNNEL",
+    status: "ACTIVE",
+    createdBy: "sarah@example.com",
+    lastUpdatedAt: "2026-03-21T14:30:00Z",
+    tags: ["payment", "conversion", "critical"],
+    description: "Tracks user conversion through the payment process including checkout and order completion.",
+    funnelType: "ORDERED",
+    rollingType: "RECURRING",
+    windowSeconds: 3600,
+    filters: [
+      { field: "OS Name", value: "iOS" },
+      { field: "App Version", value: "4.2.1" },
+    ],
+    steps: [
+      { eventName: "Screen_View: Cart" },
+      { eventName: "Tap: Checkout" },
+      { eventName: "Screen_View: Payment" },
+      { eventName: "Tap: Enter Payment Details" },
+      { eventName: "Tap: Place Order" },
+      { eventName: "Screen_View: Order Confirmation" },
+    ],
+    timeRange: {
+      start: "2026-03-17T00:00:00Z",
+      end: "2026-03-24T23:59:59Z",
+    },
+  },
+  {
+    id: "journey-onboarding-001", 
+    name: "User Onboarding Journey",
+    kind: "JOURNEY",
+    status: "ACTIVE",
+    createdBy: "alex@example.com",
+    lastUpdatedAt: "2026-03-17T09:15:00Z",
+    tags: ["onboarding", "ux", "retention"],
+    description: "Maps the complete user journey from app launch to account creation and first purchase.",
+    anchorEvent: "App_Launch",
+    direction: "forward",
+    depth: 10,
+    rollingType: "RECURRING",
+    filters: [
+      { field: "OS Name", value: "Android" },
+      { field: "App Version", value: "4.2.0" },
+    ],
+    timeRange: {
+      start: "2026-03-17T00:00:00Z",
+      end: "2026-03-24T23:59:59Z",
+    },
   },
   {
     id: "fj-7",
@@ -722,6 +865,22 @@ export function handleFunnelEndpoints(
   }
 
   if (pathname.includes("/v1/funnel/analyze") && method === "POST") {
+    let body: any = {};
+    try {
+      body = JSON.parse(request.body || "{}");
+    } catch {
+      /* ignore */
+    }
+    
+    // Check if this is for the payment funnel based on steps
+    const steps = body.steps || [];
+    const hasCartStep = steps.some((step: any) => step.eventName === "Screen_View: Cart");
+    const hasPaymentStep = steps.some((step: any) => step.eventName === "Screen_View: Payment");
+    
+    if (hasCartStep && hasPaymentStep) {
+      return { data: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE, status: 200 };
+    }
+    
     return { data: MOCK_FUNNEL_ANALYZE_RESPONSE, status: 200 };
   }
 
@@ -742,6 +901,22 @@ export function handleFunnelEndpoints(
   }
 
   if (pathname.includes("/v1/funnel/trend") && method === "POST") {
+    let body: any = {};
+    try {
+      body = JSON.parse(request.body || "{}");
+    } catch {
+      /* ignore */
+    }
+    
+    // Check if this is for the payment funnel based on steps
+    const steps = body.steps || [];
+    const hasCartStep = steps.some((step: any) => step.eventName === "Screen_View: Cart");
+    const hasPaymentStep = steps.some((step: any) => step.eventName === "Screen_View: Payment");
+    
+    if (hasCartStep && hasPaymentStep) {
+      return { data: MOCK_PAYMENT_FUNNEL_CONVERSION_TREND, status: 200 };
+    }
+    
     return { data: MOCK_FUNNEL_CONVERSION_TREND, status: 200 };
   }
 
@@ -776,6 +951,13 @@ export function handleFunnelEndpoints(
       /* ignore */
     }
     const direction = body.direction || "forward";
+    const anchorEvent = body.anchorEvent || "";
+    
+    // Check if this is for the onboarding journey
+    if (anchorEvent === "App_Launch" && direction === "forward") {
+      return { data: MOCK_ONBOARDING_JOURNEY_RESPONSE, status: 200 };
+    }
+    
     const data =
       direction === "reverse" ? MOCK_JOURNEY_REVERSE : MOCK_JOURNEY_FORWARD;
     return { data, status: 200 };

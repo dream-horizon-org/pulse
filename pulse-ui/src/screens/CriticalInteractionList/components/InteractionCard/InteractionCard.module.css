@@ -148,6 +148,24 @@
   letter-spacing: -0.5px;
 }
 
+.revenueRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.16);
+  border-radius: 8px;
+}
+
+.revenueLabel {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #ef4444 !important;
+  letter-spacing: -0.1px;
+}
+
 .healthBar {
   height: 4px;
   border-radius: 12px;

@@ -257,3 +257,46 @@
   gap: var(--mantine-spacing-lg);
   align-items: start;
 }
+
+/* Linked Funnels & Journeys section */
+.linkedFunnelsJourneysSection {
+  margin-top: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-xl);
+  margin-left: var(--mantine-spacing-md);
+  margin-right: var(--mantine-spacing-md);
+}
+
+.linkedFunnelsJourneysHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.linkedFunnelsJourneysTitle {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mantine-color-teal-7);
+}
+
+.linkedFunnelsJourneysBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  background-color: var(--mantine-color-teal-1);
+  color: var(--mantine-color-teal-7);
+}
+
+.linkedFunnelsJourneysGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--mantine-spacing-md);
+}
