@@ -5,6 +5,22 @@
 import { applyEcommerceThemeToFunnelJourneyRow } from "../ecommerceFunnelJourneyMockOverlay";
 import { MockRequest, MockResponse } from "../types";
 
+/**
+ * Single source of truth for funnel conversion KPIs in mocks.
+ * Funnels & Journeys listing and funnel detail (analyze/trend) use these values when steps match.
+ */
+const MOCK_FUNNEL_CONVERSION_BY_ID: Record<
+  string,
+  { overallConversionRate: number; conversionTrend: number }
+> = {
+  "fj-1": { overallConversionRate: 32.4, conversionTrend: 2.1 },
+  "fj-2": { overallConversionRate: 18.2, conversionTrend: -1.4 },
+  "fj-3": { overallConversionRate: 62.3, conversionTrend: 0.7 },
+  "fj-6": { overallConversionRate: 12.8, conversionTrend: -3.2 },
+  "funnel-payment-001": { overallConversionRate: 46.3, conversionTrend: -1.8 },
+  "funnel-completed-001": { overallConversionRate: 36.6, conversionTrend: 0.2 },
+};
+
 const MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE = {
   steps: [
     {
@@ -40,12 +56,14 @@ const MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE = {
     {
       stepName: "Screen_View: Order Confirmation",
       count: 4050,
-      conversionRate: 46.3,
+      conversionRate:
+        MOCK_FUNNEL_CONVERSION_BY_ID["funnel-payment-001"].overallConversionRate,
       dropoffRate: 4.3,
     },
   ],
   totalEnteredUsers: 8750,
-  overallConversionRate: 46.3,
+  overallConversionRate:
+    MOCK_FUNNEL_CONVERSION_BY_ID["funnel-payment-001"].overallConversionRate,
 };
 
 const MOCK_FUNNEL_HEALTH_RESPONSE = {
@@ -162,8 +180,10 @@ const MOCK_FUNNEL_SESSIONS_RESPONSE = {
 };
 
 const MOCK_PAYMENT_FUNNEL_CONVERSION_TREND = {
-  totalConversionRate: 46.3,
-  conversionTrend: -1.8,
+  totalConversionRate:
+    MOCK_FUNNEL_CONVERSION_BY_ID["funnel-payment-001"].overallConversionRate,
+  conversionTrend:
+    MOCK_FUNNEL_CONVERSION_BY_ID["funnel-payment-001"].conversionTrend,
   medianTimes: [null, 5.1, 18.4, 12.7, 8.9, 3.2],
 };
 
@@ -589,6 +609,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   anchorEvent?: string;
   direction?: "forward" | "reverse";
   depth?: number;
+  /** FUNNEL listing: latest overall conversion % (mock). */
+  overallConversionRate?: number;
+  /** FUNNEL listing: change vs prior period (percentage points). */
+  conversionTrend?: number;
 }> = [
   {
     id: "fj-1",
@@ -611,6 +635,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       { eventName: "Tap: Checkout" },
       { eventName: "Tap: Place Order" },
     ],
+    ...MOCK_FUNNEL_CONVERSION_BY_ID["fj-1"],
   },
   {
     id: "fj-2",
@@ -633,6 +658,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       { eventName: "Screen_View: Onboarding" },
       { eventName: "Tap: Sign Up" },
     ],
+    ...MOCK_FUNNEL_CONVERSION_BY_ID["fj-2"],
   },
   {
     id: "fj-3",
@@ -654,6 +680,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       { eventName: "Screen_View: Search" },
       { eventName: "Screen_View: Product Detail" },
     ],
+    ...MOCK_FUNNEL_CONVERSION_BY_ID["fj-3"],
   },
   {
     id: "fj-4",
@@ -702,6 +729,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       { eventName: "Deep_Link_Opened" },
       { eventName: "Screen_View: Home" },
     ],
+    ...MOCK_FUNNEL_CONVERSION_BY_ID["fj-6"],
   },
   {
     id: "funnel-payment-001",
@@ -733,6 +761,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       start: "2026-03-17T00:00:00Z",
       end: "2026-03-24T23:59:59Z",
     },
+    ...MOCK_FUNNEL_CONVERSION_BY_ID["funnel-payment-001"],
   },
   {
     id: "journey-onboarding-001",
@@ -783,6 +812,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
       start: "2026-02-01T00:00:00Z",
       end: "2026-02-28T23:59:59Z",
     },
+    ...MOCK_FUNNEL_CONVERSION_BY_ID["funnel-completed-001"],
   },
   {
     id: "journey-completed-001",
@@ -830,6 +860,86 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     depth: 5,
   },
 ];
+
+function normalizeFunnelStepSignature(
+  steps: Array<{ eventName?: string } | undefined> | undefined,
+): string {
+  return (steps || [])
+    .map((s) => (s?.eventName || "").trim())
+    .filter(Boolean)
+    .join("\0");
+}
+
+/** Match saved mock funnel by ordered step event names (detail analyze/trend uses same steps as listing). */
+function findMockFunnelRowBySteps(
+  steps: Array<{ eventName?: string }>,
+): (typeof MOCK_FUNNELS_JOURNEYS_ALL)[number] | null {
+  const sig = normalizeFunnelStepSignature(steps);
+  if (!sig) return null;
+  for (const row of MOCK_FUNNELS_JOURNEYS_ALL) {
+    if (row.kind !== "FUNNEL" || !row.steps?.length) continue;
+    if (
+      normalizeFunnelStepSignature(
+        row.steps as Array<{ eventName?: string }>,
+      ) === sig
+    ) {
+      return row;
+    }
+  }
+  return null;
+}
+
+function applyListingMetricsToFunnelAnalyzeAndTrend(
+  analyze: {
+    steps: Array<{ conversionRate: number }>;
+    overallConversionRate: number;
+  },
+  trend: { totalConversionRate: number; conversionTrend: number },
+  metrics: { overallConversionRate: number; conversionTrend: number },
+) {
+  const rate = metrics.overallConversionRate;
+  analyze.overallConversionRate = rate;
+  if (analyze.steps.length > 0) {
+    analyze.steps[analyze.steps.length - 1].conversionRate = rate;
+  }
+  trend.totalConversionRate = rate;
+  trend.conversionTrend = metrics.conversionTrend;
+}
+
+/** Listing metrics + detail analyze/trend share values via `MOCK_FUNNEL_CONVERSION_BY_ID` / row match. */
+function getMockFunnelAnalyzeAndTrendFromBody(body: {
+  steps?: Array<{ eventName?: string }>;
+}): ReturnType<typeof buildMockFunnelAnalyzeAndTrendFromSteps> {
+  const steps = body.steps || [];
+  const hasCartStep = steps.some(
+    (s: { eventName?: string }) => s.eventName === "Screen_View: Cart",
+  );
+  const hasPaymentStep = steps.some(
+    (s: { eventName?: string }) => s.eventName === "Screen_View: Payment",
+  );
+
+  if (hasCartStep && hasPaymentStep) {
+    return {
+      analyze: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE,
+      trend: MOCK_PAYMENT_FUNNEL_CONVERSION_TREND,
+    };
+  }
+
+  const built = buildMockFunnelAnalyzeAndTrendFromSteps(body);
+  const matched = findMockFunnelRowBySteps(steps);
+  if (
+    matched &&
+    matched.kind === "FUNNEL" &&
+    matched.overallConversionRate != null &&
+    matched.conversionTrend != null
+  ) {
+    applyListingMetricsToFunnelAnalyzeAndTrend(built.analyze, built.trend, {
+      overallConversionRate: matched.overallConversionRate,
+      conversionTrend: matched.conversionTrend,
+    });
+  }
+  return built;
+}
 
 function mockFunnelsJourneysList(request: MockRequest): MockResponse {
   let url: URL;
@@ -1084,21 +1194,7 @@ export function handleFunnelEndpoints(
     } catch {
       /* ignore */
     }
-
-    // Check if this is for the payment funnel based on steps
-    const steps = body.steps || [];
-    const hasCartStep = steps.some(
-      (step: any) => step.eventName === "Screen_View: Cart",
-    );
-    const hasPaymentStep = steps.some(
-      (step: any) => step.eventName === "Screen_View: Payment",
-    );
-
-    if (hasCartStep && hasPaymentStep) {
-      return { data: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE, status: 200 };
-    }
-
-    const { analyze } = buildMockFunnelAnalyzeAndTrendFromSteps(body);
+    const { analyze } = getMockFunnelAnalyzeAndTrendFromBody(body);
     return { data: analyze, status: 200 };
   }
 
@@ -1125,20 +1221,7 @@ export function handleFunnelEndpoints(
     } catch {
       /* ignore */
     }
-
-    const steps = body.steps || [];
-    const hasCartStep = steps.some(
-      (step: any) => step.eventName === "Screen_View: Cart",
-    );
-    const hasPaymentStep = steps.some(
-      (step: any) => step.eventName === "Screen_View: Payment",
-    );
-
-    if (hasCartStep && hasPaymentStep) {
-      return { data: MOCK_PAYMENT_FUNNEL_CONVERSION_TREND, status: 200 };
-    }
-
-    const { trend } = buildMockFunnelAnalyzeAndTrendFromSteps(body);
+    const { trend } = getMockFunnelAnalyzeAndTrendFromBody(body);
     return { data: trend, status: 200 };
   }
 
