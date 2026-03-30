@@ -32,6 +32,7 @@ import org.dreamhorizon.pulseserver.resources.journey.models.JourneyListQueryPar
 import org.dreamhorizon.pulseserver.resources.journey.models.JourneyListResponse;
 import org.dreamhorizon.pulseserver.resources.journey.models.JourneyResponse;
 import org.dreamhorizon.pulseserver.resources.journey.models.UpdateJourneyRequest;
+import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
 import org.dreamhorizon.pulseserver.service.journey.JourneyService;
 
 @Slf4j
@@ -41,6 +42,7 @@ public class JourneyServiceImpl implements JourneyService {
   private static final int MAX_PAGE_SIZE = 50;
 
   private final JourneyDao journeyDao;
+  private final AnalyticsBatchServiceImpl analyticsBatchService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
@@ -82,6 +84,11 @@ public class JourneyServiceImpl implements JourneyService {
 
     return journeyDao
         .insert(row)
+        .flatMap(journeyId -> 
+            analyticsBatchService.triggerJourneyOnSaveJob(journeyId)
+                .onErrorReturnItem(false) // Don't fail journey creation if job submission fails
+                .map(triggered -> journeyId)
+        )
         .onErrorResumeNext(
             err ->
                 Single.error(

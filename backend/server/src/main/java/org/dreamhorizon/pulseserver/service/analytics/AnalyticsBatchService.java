@@ -35,4 +35,12 @@ public interface AnalyticsBatchService {
    * @return a single emitting true if triggered successfully
    */
   Single<Boolean> triggerFunnelOnSaveJob(Long funnelId);
+
+  /**
+   * Triggers the on-save job for a specific journey.
+   *
+   * @param journeyId the ID of the journey to compute
+   * @return a single emitting true if triggered successfully
+   */
+  Single<Boolean> triggerJourneyOnSaveJob(Long journeyId);
 }

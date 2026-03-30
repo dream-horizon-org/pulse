@@ -80,6 +80,18 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
     );
   }
 
+  @Override
+  public Single<Boolean> triggerJourneyOnSaveJob(final Long journeyId) {
+    return submitSparkJob(
+        "JOURNEY",
+        "journey-onsave-" + journeyId,
+        sparkConfig.getJobJarPath(),
+        sparkConfig.getJourneysMainClass(),
+        journeyId,
+        List.of("--journeyId", String.valueOf(journeyId))
+    );
+  }
+
   private Single<Boolean> submitSparkJob(
       final String jobType,
       final String jobName,
