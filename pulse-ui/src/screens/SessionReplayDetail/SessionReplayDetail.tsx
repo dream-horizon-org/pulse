@@ -141,13 +141,9 @@ export const SessionReplayDetail: React.FC = () => {
 
   return (
     <Box className={classes.container}>
-      <Box className={classes.detailHeader}>
+      <Stack className={classes.detailMain} gap="xl">
         <SessionHeader onBack={handleBack} />
-      </Box>
-      <Box className={classes.detailMain}>
-        <Box className={classes.summarySection}>
-          <SessionSummary sessionData={sessionData} />
-        </Box>
+        <SessionSummary sessionData={sessionData} />
         <Box className={classes.playerSectionSplit}>
           <Box ref={playerLeftRef} className={classes.playerSectionLeft}>
             <SessionPlayerSection
@@ -167,11 +163,7 @@ export const SessionReplayDetail: React.FC = () => {
             />
           </Box>
           <Box
-            className={`${classes.playerSectionRight}${
-              syncHeightPx !== undefined
-                ? ` ${classes.playerSectionRightMatched}`
-                : ""
-            }`}
+            className={classes.playerSectionRight}
             style={
               syncHeightPx !== undefined
                 ? {
@@ -197,7 +189,7 @@ export const SessionReplayDetail: React.FC = () => {
             />
           </Box>
         </Box>
-      </Box>
+      </Stack>
       {/* Session Timeline section commented out
       <SessionTimelineSection
         flameChartData={flameChartData}
