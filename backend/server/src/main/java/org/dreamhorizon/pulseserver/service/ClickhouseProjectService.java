@@ -79,7 +79,7 @@ public class ClickhouseProjectService {
 
           // Step 1: Create ClickHouse user
           String createUserSQL = String.format(
-              "CREATE USER IF NOT EXISTS %s%s IDENTIFIED WITH plaintext_password BY '%s'",
+              "CREATE USER IF NOT EXISTS %s%s IDENTIFIED WITH sha256_password BY '%s'",
               username, onCluster, password
           );
           executeSQL(adminPool, createUserSQL);
@@ -196,7 +196,7 @@ public class ClickhouseProjectService {
 
             // Update ClickHouse user password
             String alterUserSQL = String.format(
-                "ALTER USER %s%s IDENTIFIED WITH plaintext_password BY '%s'",
+                "ALTER USER %s%s IDENTIFIED WITH sha256_password BY '%s'",
                 username, onCluster, newPassword
             );
             executeSQL(adminPool, alterUserSQL);
