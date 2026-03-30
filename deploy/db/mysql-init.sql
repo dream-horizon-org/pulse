@@ -928,8 +928,7 @@ CREATE TABLE IF NOT EXISTS usage_limit_notifications (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    UNIQUE KEY uk_project_month (project_id, (DATE_FORMAT(created_at, '%Y-%m'))),
+
     INDEX idx_created_at (created_at),
     INDEX idx_project_usage_limit (project_usage_limit_id),
     
