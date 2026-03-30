@@ -53,7 +53,13 @@ import {
 } from "./FunnelsJourneysList.constants";
 import classes from "./FunnelsJourneysList.module.css";
 
-type StatusFilterValue = "" | "ACTIVE" | "STOPPED" | "CREATING";
+type StatusFilterValue =
+  | ""
+  | "ACTIVE"
+  | "STOPPED"
+  | "CREATING"
+  | "UPDATING"
+  | "COMPLETED";
 type TypeFilterValue = "" | "ORDERED" | "UNORDERED";
 type ListTab = "funnels" | "journeys";
 
@@ -83,7 +89,9 @@ export function FunnelsJourneysList() {
       status:
         statusFilter === "ACTIVE" ||
         statusFilter === "STOPPED" ||
-        statusFilter === "CREATING"
+        statusFilter === "CREATING" ||
+        statusFilter === "UPDATING" ||
+        statusFilter === "COMPLETED"
           ? statusFilter
           : null,
       createdBy: createdByFilter.length ? createdByFilter : null,
@@ -178,7 +186,9 @@ export function FunnelsJourneysList() {
                   ? "blue"
                   : row.status === "UPDATING"
                     ? "orange"
-                    : "gray"
+                    : row.status === "COMPLETED"
+                      ? "violet"
+                      : "gray"
             }
             variant="light"
           >
@@ -188,7 +198,9 @@ export function FunnelsJourneysList() {
                 ? "Creating"
                 : row.status === "UPDATING"
                   ? "Updating"
-                  : "Stopped"}
+                  : row.status === "COMPLETED"
+                    ? "Completed"
+                    : "Stopped"}
           </Badge>
         ),
       },
@@ -311,6 +323,8 @@ export function FunnelsJourneysList() {
             { value: "ACTIVE", label: "Active" },
             { value: "STOPPED", label: "Stopped" },
             { value: "CREATING", label: "Creating" },
+            { value: "UPDATING", label: "Updating" },
+            { value: "COMPLETED", label: "Completed" },
           ]}
           value={statusFilter || null}
           onChange={(v) => setStatusFilter((v as StatusFilterValue) || "")}
