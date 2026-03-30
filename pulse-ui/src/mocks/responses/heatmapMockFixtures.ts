@@ -186,64 +186,70 @@ export function heatmapMockCompare(
 }
 
 /**
- * Home feed layout: search / hero / category chips / contest cards / promo / bottom nav + FAB.
- * Coordinates normalized [0,1]; tuned so heat reads as a typical fantasy-sports home screen.
+ * Home feed: hero / chips / contest rows / bottom nav + FAB.
+ *
+ * Calibrated for the shipped quality formula (coverage = sum bin weight / total_events,
+ * dominance = max bin / sum). Thousands of equal-sized micro-bins cap scores near ~35;
+ * this mock uses a dominant nav aggregate plus secondary peaks and light scatter so
+ * **Tap ≈ Good**, **Rage ≈ Average**, **Dead ≈ Poor** — a demo story: healthy overall
+ * taps, watch rage near nav/rows, a cold search corner.
  */
 export function heatmapMockHomeScreen(): HeatmapDataResponse {
   const screenName = "HomeScreen";
-  const rand = mulberry32(hashScreenName("HomeScreenV2"));
-  const clusters: Cluster[] = [
-    { cx: 0.5, cy: 0.058, count: 380, spread: 0.024, wMin: 14, wMax: 98 },
-    { cx: 0.9, cy: 0.054, count: 220, spread: 0.02, wMin: 10, wMax: 62 },
-    { cx: 0.5, cy: 0.168, count: 1020, spread: 0.056, wMin: 22, wMax: 195 },
-    { cx: 0.18, cy: 0.292, count: 340, spread: 0.032, wMin: 12, wMax: 88 },
-    { cx: 0.38, cy: 0.292, count: 330, spread: 0.032, wMin: 12, wMax: 86 },
-    { cx: 0.58, cy: 0.292, count: 325, spread: 0.032, wMin: 12, wMax: 84 },
-    { cx: 0.78, cy: 0.292, count: 318, spread: 0.032, wMin: 12, wMax: 82 },
-    { cx: 0.28, cy: 0.475, count: 920, spread: 0.05, wMin: 18, wMax: 205 },
-    { cx: 0.72, cy: 0.475, count: 900, spread: 0.05, wMin: 18, wMax: 200 },
-    { cx: 0.28, cy: 0.625, count: 560, spread: 0.046, wMin: 12, wMax: 128 },
-    { cx: 0.72, cy: 0.625, count: 548, spread: 0.046, wMin: 12, wMax: 125 },
-    { cx: 0.5, cy: 0.755, count: 510, spread: 0.042, wMin: 14, wMax: 138 },
-    { cx: 0.1, cy: 0.91, count: 920, spread: 0.034, wMin: 5, wMax: 55 },
-    { cx: 0.3, cy: 0.91, count: 1120, spread: 0.034, wMin: 6, wMax: 68 },
-    { cx: 0.5, cy: 0.91, count: 1380, spread: 0.036, wMin: 10, wMax: 102 },
-    { cx: 0.7, cy: 0.91, count: 1080, spread: 0.034, wMin: 6, wMax: 62 },
-    { cx: 0.9, cy: 0.91, count: 960, spread: 0.034, wMin: 5, wMax: 54 },
-    { cx: 0.87, cy: 0.805, count: 310, spread: 0.03, wMin: 16, wMax: 118 },
+  const rand = mulberry32(hashScreenName("HomeScreenV3"));
+
+  /** Session-level volume; bin weights sum slightly lower → realistic coverage < 1 */
+  const total_events = 109_839;
+
+  const coreBins: HeatmapGlowPoint[] = [
+    { x: 0.5, y: 0.91, weight: 58_000 },
+    { x: 0.5, y: 0.168, weight: 4_200 },
+    { x: 0.28, y: 0.475, weight: 3_800 },
+    { x: 0.72, y: 0.475, weight: 3_600 },
+    { x: 0.5, y: 0.058, weight: 3_100 },
+    { x: 0.9, y: 0.054, weight: 2_400 },
+    { x: 0.18, y: 0.292, weight: 2_050 },
+    { x: 0.38, y: 0.292, weight: 2_000 },
+    { x: 0.58, y: 0.292, weight: 1_950 },
+    { x: 0.78, y: 0.292, weight: 1_900 },
+    { x: 0.28, y: 0.625, weight: 1_750 },
+    { x: 0.72, y: 0.625, weight: 1_700 },
+    { x: 0.5, y: 0.755, weight: 1_650 },
+    { x: 0.87, y: 0.805, weight: 1_480 },
+    { x: 0.1, y: 0.91, weight: 1_320 },
+    { x: 0.3, y: 0.91, weight: 1_280 },
+    { x: 0.7, y: 0.91, weight: 1_240 },
+    { x: 0.9, y: 0.91, weight: 1_180 },
   ];
 
-  const planned = clusters.reduce((s, c) => s + c.count, 0);
-  const scale =
-    planned > POC_GLOW_MAX_POINTS ? POC_GLOW_MAX_POINTS / planned : 1;
+  const hazeCenters: Array<{ cx: number; cy: number; spread: number }> = [
+    { cx: 0.5, cy: 0.168, spread: 0.05 },
+    { cx: 0.28, cy: 0.475, spread: 0.045 },
+    { cx: 0.72, cy: 0.475, spread: 0.045 },
+    { cx: 0.5, cy: 0.91, spread: 0.038 },
+    { cx: 0.5, cy: 0.292, spread: 0.036 },
+  ];
 
-  const glow_map: HeatmapGlowPoint[] = [];
-  for (const c of clusters) {
-    const n = Math.max(0, Math.floor(c.count * scale));
-    for (let i = 0; i < n; i++) {
-      const x = clamp01(c.cx + (rand() - 0.5) * 2 * c.spread);
-      const y = clamp01(c.cy + (rand() - 0.5) * 2 * c.spread);
-      const weight = c.wMin + rand() * (c.wMax - c.wMin);
-      glow_map.push({
-        x,
-        y,
-        weight: Math.round(weight * 10) / 10,
-      });
-    }
+  const glow_map: HeatmapGlowPoint[] = [...coreBins];
+  let hazeCount = 0;
+  const hazeTarget = 220;
+  while (hazeCount < hazeTarget && glow_map.length < POC_GLOW_MAX_POINTS) {
+    const c = hazeCenters[hazeCount % hazeCenters.length];
+    const w = 8 + rand() * 18;
+    glow_map.push({
+      x: clamp01(c.cx + (rand() - 0.5) * 2 * c.spread),
+      y: clamp01(c.cy + (rand() - 0.5) * 2 * c.spread),
+      weight: Math.round(w * 10) / 10,
+    });
+    hazeCount += 1;
   }
-
-  while (glow_map.length > POC_GLOW_MAX_POINTS) {
-    glow_map.pop();
-  }
-
-  const weightSum = glow_map.reduce((s, p) => s + p.weight, 0);
 
   return {
     metadata: {
       screenName,
       ui_hash: MOCK_UI_HASH,
       screenshot_url: HEATMAP_DEMO_UNDERLAY_URL,
-      total_events: Math.round(weightSum) || glow_map.length,
+      total_events,
       app_version: "4.2.1",
       platform: "iOS",
       aspect_ratio: "19.5:9",
@@ -253,13 +259,15 @@ export function heatmapMockHomeScreen(): HeatmapDataResponse {
       glow_map,
       frustration_map: {
         rage: [
-          { x: 0.5, y: 0.91, weight: 520, avg_sequence_count: 6 },
-          { x: 0.28, y: 0.475, weight: 340, avg_sequence_count: 4 },
-          { x: 0.5, y: 0.168, weight: 210, avg_sequence_count: 3 },
+          { x: 0.5, y: 0.91, weight: 18_500, avg_sequence_count: 6 },
+          { x: 0.28, y: 0.475, weight: 5_200, avg_sequence_count: 4 },
+          { x: 0.5, y: 0.168, weight: 2_800, avg_sequence_count: 3 },
+          { x: 0.72, y: 0.475, weight: 1_900, avg_sequence_count: 3 },
         ],
         dead: [
-          { x: 0.9, y: 0.054, weight: 95 },
-          { x: 0.18, y: 0.292, weight: 72 },
+          { x: 0.9, y: 0.054, weight: 4_800 },
+          { x: 0.18, y: 0.292, weight: 2_100 },
+          { x: 0.38, y: 0.292, weight: 1_800 },
         ],
       },
       observability_map: {

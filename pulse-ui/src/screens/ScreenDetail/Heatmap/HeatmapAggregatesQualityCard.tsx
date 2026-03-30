@@ -3,12 +3,11 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import {
   HEATMAP_QUALITY_AVERAGE_MIN,
   HEATMAP_QUALITY_GOOD_MIN,
+  heatmapScoreColor,
   type HeatmapQualityMetrics,
 } from "./heatmapQuality";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import classes from "./HeatmapPanel.module.css";
-
-const tealValue = "#0ec9c2";
 
 export interface HeatmapAggregatesQualityCardProps {
   payload: HeatmapDataResponse | null | undefined;
@@ -23,7 +22,12 @@ export function HeatmapAggregatesQualityCard({
   const hasScore = payload && qualityMetrics.score != null;
 
   return (
-    <Paper className={classes.aggregatesSubCard} radius="sm" p={8} withBorder>
+    <Paper
+      className={`${classes.aggregatesSubCard} ${classes.aggregatesTopScoreCard}`}
+      radius="sm"
+      p={8}
+      withBorder
+    >
       <Group gap={6} align="center" mb={6} wrap="nowrap">
         <Text
           className={classes.aggregatesCardTitle}
@@ -33,10 +37,10 @@ export function HeatmapAggregatesQualityCard({
           tt="uppercase"
           style={{ letterSpacing: "0.05em", marginBottom: 0 }}
         >
-          Map quality
+          Map quality score
         </Text>
         <Tooltip
-          label="How readable this heatmap is from event data (volume in bins vs hotspot concentration). Not a product score."
+          label="How readable the tap / all-interactions heatmap is from event data (bins vs hotspot concentration). Not a product score. Compare with avg interaction score for the whole screen."
           multiline
           w={260}
           withArrow
@@ -57,7 +61,11 @@ export function HeatmapAggregatesQualityCard({
           <Text
             component="div"
             className={classes.aggregatesQualityScore}
-            style={{ color: tealValue, cursor: "help", marginBottom: 6 }}
+            style={{
+              color: heatmapScoreColor(qualityMetrics.band),
+              cursor: "help",
+              marginBottom: 6,
+            }}
           >
             {`${qualityMetrics.score} · ${qualityMetrics.label}`}
           </Text>

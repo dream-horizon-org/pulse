@@ -12,6 +12,37 @@ export const HEATMAP_QUALITY_GOOD_MIN = 70;
 /** Inclusive lower bound for the “Average” band (40–69). “Poor” is 0–39. */
 export const HEATMAP_QUALITY_AVERAGE_MIN = 40;
 
+/** Map a 0–100 score to Good / Average / Poor (same cutoffs as map quality). */
+export function bandFromNumericScore(
+  score: number,
+): Exclude<HeatmapQualityMetrics["band"], "nodata"> {
+  if (score >= HEATMAP_QUALITY_GOOD_MIN) return "good";
+  if (score >= HEATMAP_QUALITY_AVERAGE_MIN) return "average";
+  return "poor";
+}
+
+/** Text color aligned with grade chips (Good = teal, Average = orange, Poor = red). */
+export function heatmapScoreColor(band: HeatmapQualityMetrics["band"]): string {
+  switch (band) {
+    case "good":
+      return "#0ba09a";
+    case "average":
+      return "#c05621";
+    case "poor":
+      return "#c92a2a";
+    default:
+      return "var(--mantine-color-dimmed)";
+  }
+}
+
+export function qualityLabelForBand(
+  band: Exclude<HeatmapQualityMetrics["band"], "nodata">,
+): string {
+  if (band === "good") return "Good";
+  if (band === "average") return "Average";
+  return "Poor";
+}
+
 export interface HeatmapQualityMetrics {
   score: number | null;
   /** Good / Average / Poor / No data */
@@ -58,23 +89,12 @@ export function getHeatmapQualityMetrics(
     Math.max(0, Math.round(100 * (0.35 * coverage + 0.65 * dominance))),
   );
 
-  let label: string;
-  let band: HeatmapQualityMetrics["band"];
-  if (score >= HEATMAP_QUALITY_GOOD_MIN) {
-    label = "Good";
-    band = "good";
-  } else if (score >= HEATMAP_QUALITY_AVERAGE_MIN) {
-    label = "Average";
-    band = "average";
-  } else {
-    label = "Poor";
-    band = "poor";
-  }
+  const bandResolved = bandFromNumericScore(score);
 
   return {
     score,
-    label,
-    band,
+    label: qualityLabelForBand(bandResolved),
+    band: bandResolved,
     eventWeightMatchPct: Math.round(100 * coverage),
     hotspotPeakPct: Math.round(100 * dominance),
   };

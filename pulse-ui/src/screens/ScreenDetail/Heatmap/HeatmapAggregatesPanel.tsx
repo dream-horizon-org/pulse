@@ -8,6 +8,8 @@ import {
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
 import type { HeatmapQualityMetrics } from "./heatmapQuality";
+import { HeatmapAggregatesInteractionAvgCard } from "./HeatmapAggregatesInteractionAvgCard";
+import { HeatmapAggregatesInteractionsCard } from "./HeatmapAggregatesInteractionsCard";
 import { HeatmapAggregatesQualityCard } from "./HeatmapAggregatesQualityCard";
 import classes from "./HeatmapPanel.module.css";
 
@@ -138,11 +140,20 @@ export function HeatmapAggregatesPanel({
   return (
     <Stack gap="sm" className={classes.aggregatesStack}>
       <div className={classes.aggregatesGrid}>
+        <div className={classes.aggregatesScoreRow}>
+          <div className={classes.aggregatesScoreRowCell}>
+            <HeatmapAggregatesQualityCard
+              payload={payload}
+              qualityMetrics={qualityMetrics}
+            />
+          </div>
+          <div className={classes.aggregatesScoreRowCell}>
+            <HeatmapAggregatesInteractionAvgCard payload={payload} />
+          </div>
+        </div>
+
         <div className={classes.aggregatesQualitySpan}>
-          <HeatmapAggregatesQualityCard
-            payload={payload}
-            qualityMetrics={qualityMetrics}
-          />
+          <HeatmapAggregatesInteractionsCard payload={payload} />
         </div>
 
         <AggregatesCard title="Signal &amp; scope">

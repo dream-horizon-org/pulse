@@ -63,9 +63,10 @@ export function HeatmapMainCard({
   );
 
   const showInteractionMap = useMemo(() => {
+    if (signal !== "tap") return false;
     if (interactionGlow.length === 0) return false;
     return !glowMapsNearlyEqual(glowMap, interactionGlow);
-  }, [glowMap, interactionGlow]);
+  }, [signal, glowMap, interactionGlow]);
 
   return (
     <Stack gap="md">
@@ -160,7 +161,9 @@ export function HeatmapMainCard({
               {showInteractionMap ? (
                 <Stack gap="md">
                   <HeatmapMapBlock
-                    mapLabel={capitalizeSignal(signal)}
+                    mapLabel={
+                      signal === "tap" ? capitalizeSignal(signal) : undefined
+                    }
                     screenshotUrl={screenshotUrl}
                     glowMap={glowMap}
                     showFrustrationMarkers={showFrustrationMarkers}

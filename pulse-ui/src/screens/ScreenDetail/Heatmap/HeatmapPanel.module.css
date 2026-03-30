@@ -131,7 +131,7 @@
 }
 
 .heatmapSplitLeft {
-  flex: 0 1 360px;
+  flex: 0 1 440px;
   max-width: 100%;
   min-width: 0;
   display: flex;
@@ -139,11 +139,11 @@
 }
 
 .heatmapSplitLeft .phoneFrame {
-  min-height: min(220px, 32vh);
+  min-height: min(260px, 36vh);
 }
 
 .heatmapSplitLeft .phoneInner {
-  width: min(300px, 100%);
+  width: min(400px, 100%);
 }
 
 .heatmapSplitRight {
@@ -162,9 +162,43 @@
   padding-right: 2px;
 }
 
-/* Full-width first row: map quality card */
+/* Full-width rows inside aggregates grid */
 .aggregatesQualitySpan {
   grid-column: 1 / -1;
+}
+
+/* Map quality + avg interaction: 50 / 50 on one row */
+.aggregatesScoreRow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.aggregatesScoreRowCell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.aggregatesTopScoreCard {
+  flex: 1;
+  min-height: 0;
+}
+
+.aggregatesInteractionAvgHero {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+}
+
+@media (max-width: 380px) {
+  .aggregatesScoreRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 .aggregatesQualityScore {
@@ -624,11 +658,11 @@
 }
 
 .compareMapSlot .phoneFrame {
-  min-height: min(200px, 28vh);
+  min-height: min(240px, 32vh);
 }
 
 .compareMapSlot .phoneInner {
-  width: min(280px, 100%);
+  width: min(360px, 100%);
 }
 
 .compareAggregatesSlot {
