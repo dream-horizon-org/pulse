@@ -44,7 +44,13 @@ internal object ReplayEventPayloadEncoder {
     private fun ReplayEventData.toPulseReplayWire(): PulseReplayEventData =
         when (this) {
             is ReplayMetaData -> {
-                PulseReplayMetaData(href = href, width = width, height = height)
+                val g = gcd(width, height)
+                PulseReplayMetaData(
+                    href = href,
+                    width = width,
+                    height = height,
+                    aspectRatio = "${width / g}:${height / g}",
+                )
             }
             is ReplayFullSnapshotData -> {
                 PulseReplayFullSnapshotData(
@@ -151,6 +157,8 @@ internal object ReplayEventPayloadEncoder {
             iconLeft = iconLeft,
             iconRight = iconRight,
         )
+
+    private fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
 
     private fun Map<String, Any>.toJsonObject(): JsonObject =
         buildJsonObject {

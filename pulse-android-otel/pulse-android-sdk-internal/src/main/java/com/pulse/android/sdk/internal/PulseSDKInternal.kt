@@ -12,6 +12,7 @@ import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
 import com.pulse.android.sdk.replay.ImagePrivacy
 import com.pulse.android.sdk.replay.SessionReplayBootstrap
+import io.opentelemetry.android.internal.services.Services
 import com.pulse.android.sdk.replay.SessionReplayConfig
 import com.pulse.android.sdk.replay.SessionReplayRegistry
 import com.pulse.android.sdk.replay.TextAndInputPrivacy
@@ -357,6 +358,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     projectId = extractProjectID(apiKey),
                     userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
                     isStartActive = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
+                    screenNameProvider = { Services.get(application).visibleScreenTracker.currentlyVisibleScreen },
                 ),
             )
         }

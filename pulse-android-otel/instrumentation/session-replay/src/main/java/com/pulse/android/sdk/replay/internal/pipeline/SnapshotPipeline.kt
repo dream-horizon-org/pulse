@@ -1,9 +1,5 @@
 package com.pulse.android.sdk.replay.internal.pipeline
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.view.View
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayFullSnapshotEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
@@ -22,15 +18,14 @@ internal object SnapshotPipeline {
         wireframe: ReplayWireframe,
         status: ViewTreeSnapshotStatus,
         timestamp: Long,
-        view: View,
+        screenName: String,
         screenWidth: Int,
         screenHeight: Int,
     ): List<ReplayEvent> {
         val events = mutableListOf<ReplayEvent>()
 
         if (!status.hasSentMetaEvent) {
-            val title = view.getScreenTitle()
-            events.add(ReplayMetaEvent(screenWidth, screenHeight, timestamp, title))
+            events.add(ReplayMetaEvent(screenWidth, screenHeight, timestamp, screenName))
             status.hasSentMetaEvent = true
         }
 
@@ -102,17 +97,4 @@ internal object SnapshotPipeline {
         return Triple(added, removed, updated)
     }
 
-    private fun View.getScreenTitle(): String =
-        context
-            .getActivity()
-            ?.run {
-                title?.run { toString().substringAfter("/") }
-            }.orEmpty()
 }
-
-private tailrec fun Context.getActivity(): Activity? =
-    when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.getActivity()
-        else -> null
-    }
