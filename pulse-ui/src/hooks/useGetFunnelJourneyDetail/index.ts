@@ -1,0 +1,1 @@
+export { useGetFunnelJourneyDetail } from "./useGetFunnelJourneyDetail";

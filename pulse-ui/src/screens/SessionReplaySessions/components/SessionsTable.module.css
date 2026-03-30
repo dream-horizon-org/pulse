@@ -9,8 +9,9 @@
  */
 .root {
   /* Sum of fr units = 92. Approximate share: ~14% | ~5% | ~12% | ~5% | ~7% | ~24% | ~33% */
-  --sessions-grid-columns: minmax(0, 13fr) minmax(0, 5fr) minmax(0, 11fr)
-    minmax(0, 5fr) minmax(0, 6fr) minmax(0, 22fr) minmax(0, 30fr);
+  /* Duration + Quality: min width so label + sort icon stay on one line */
+  --sessions-grid-columns: minmax(0, 13fr) minmax(5.5rem, 5fr) minmax(0, 11fr)
+    minmax(4.25rem, 5fr) minmax(0, 6fr) minmax(0, 22fr) minmax(0, 30fr);
   width: 100%;
   min-width: min(100%, 720px);
 }
@@ -25,6 +26,7 @@
 
 .headerRow {
   composes: gridRow;
+  align-items: center;
   font-weight: 600;
   font-size: var(--mantine-font-size-sm);
   color: var(--mantine-color-dark-6);
@@ -56,6 +58,27 @@
 .headerCellSortable {
   cursor: pointer;
   user-select: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.headerLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.sortIcon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
 }
 
 .headerCellSortable:hover {
