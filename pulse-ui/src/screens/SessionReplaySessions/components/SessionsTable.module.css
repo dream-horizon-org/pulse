@@ -1,0 +1,72 @@
+/**
+ * Session list uses CSS Grid so column widths stay consistent
+ * with variable-height cells (e.g. stacked issue badges).
+ *
+ * Width ratios (fr) — not equal: narrow columns stay tight; Issues + Impacted
+ * get the bulk of horizontal space for long / multi-badge rows.
+ * Order: stable fields first (time → platform), then variable (issues, impacted).
+ * Start | Duration | User | Quality | Platform | Issues | Impacted
+ */
+.root {
+  /* Sum of fr units = 92. Approximate share: ~14% | ~5% | ~12% | ~5% | ~7% | ~24% | ~33% */
+  --sessions-grid-columns: minmax(0, 13fr) minmax(0, 5fr) minmax(0, 11fr)
+    minmax(0, 5fr) minmax(0, 6fr) minmax(0, 22fr) minmax(0, 30fr);
+  width: 100%;
+  min-width: min(100%, 720px);
+}
+
+.gridRow {
+  display: grid;
+  grid-template-columns: var(--sessions-grid-columns);
+  column-gap: var(--mantine-spacing-md);
+  align-items: start;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+}
+
+.headerRow {
+  composes: gridRow;
+  font-weight: 600;
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dark-6);
+  background: var(--mantine-color-gray-0);
+  border-bottom: 1px solid var(--mantine-color-gray-3);
+}
+
+.dataRow {
+  composes: gridRow;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.cell {
+  min-width: 0;
+}
+
+/* Fill the Impacted column; avoid global .journey max-width: 250px capping this cell */
+.impactedInteractionsText {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+}
+
+.headerCellSortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.headerCellSortable:hover {
+  color: var(--mantine-color-dark-8);
+}
+
+[data-mantine-color-scheme="dark"] .headerRow {
+  background: var(--mantine-color-dark-7);
+  border-bottom-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .dataRow {
+  border-bottom-color: var(--mantine-color-dark-5);
+}

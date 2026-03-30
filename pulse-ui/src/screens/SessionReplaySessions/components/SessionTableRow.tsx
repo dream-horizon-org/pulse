@@ -1,4 +1,4 @@
-import { Table, Text, Badge, Group, Tooltip } from "@mantine/core";
+import { Text, Badge, Group, Tooltip } from "@mantine/core";
 import type { SessionItem } from "../../../services/sessionReplay";
 import { SESSION_LIST_LABELS } from "../constants/sessionList.constants";
 import {
@@ -10,7 +10,8 @@ import {
   formatImpactedScreensPreview,
   formatImpactedScreensTooltip,
 } from "../utils/sessionListUtils";
-import classes from "../SessionReplaySessions.module.css";
+import sessionClasses from "../SessionReplaySessions.module.css";
+import gridClasses from "./SessionsTable.module.css";
 
 export interface SessionTableRowProps {
   session: SessionItem;
@@ -26,10 +27,10 @@ export function SessionTableRow({
     session.qualityScore != null && Number.isFinite(session.qualityScore);
 
   return (
-    <Table.Tr
-      className={classes.tableRow}
+    <div
+      className={`${gridClasses.dataRow} ${sessionClasses.tableRow}`}
+      role="row"
       tabIndex={0}
-      role="link"
       onClick={() => onSessionClick(session.sessionId)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -38,22 +39,22 @@ export function SessionTableRow({
         }
       }}
     >
-      <Table.Td>
+      <div className={gridClasses.cell} role="gridcell">
         <Text size="sm">{formatTimestamp(session.startTime)}</Text>
-      </Table.Td>
-      <Table.Td>
+      </div>
+      <div className={gridClasses.cell} role="gridcell">
         <Text size="sm">{formatDuration(session.durationMs)}</Text>
-      </Table.Td>
-      <Table.Td>
+      </div>
+      <div className={gridClasses.cell} role="gridcell">
         <Text size="sm">
           {session.user ?? SESSION_LIST_LABELS.anonymousUser}
         </Text>
-      </Table.Td>
-      <Table.Td>
+      </div>
+      <div className={gridClasses.cell} role="gridcell">
         <Text
           size="sm"
           fw={hasQuality ? 600 : undefined}
-          className={!hasQuality ? classes.qualityNa : undefined}
+          className={!hasQuality ? sessionClasses.qualityNa : undefined}
           c={
             hasQuality
               ? getQualityColor(session.qualityScore as number)
@@ -64,8 +65,17 @@ export function SessionTableRow({
             ? (session.qualityScore as number).toFixed(2)
             : SESSION_LIST_LABELS.noQuality}
         </Text>
-      </Table.Td>
-      <Table.Td>
+      </div>
+      <div className={gridClasses.cell} role="gridcell">
+        <Badge
+          size="sm"
+          variant="light"
+          color={getPlatformColor(session.platform)}
+        >
+          {session.platform}
+        </Badge>
+      </div>
+      <div className={gridClasses.cell} role="gridcell">
         {!hasIssues ? (
           <Badge color="teal" variant="light" size="sm">
             {SESSION_LIST_LABELS.clean}
@@ -86,17 +96,8 @@ export function SessionTableRow({
             ))}
           </Group>
         )}
-      </Table.Td>
-      <Table.Td>
-        <Badge
-          size="sm"
-          variant="light"
-          color={getPlatformColor(session.platform)}
-        >
-          {session.platform}
-        </Badge>
-      </Table.Td>
-      <Table.Td>
+      </div>
+      <div className={gridClasses.cell} role="gridcell">
         <Tooltip
           label={formatImpactedScreensTooltip(session.impactedScreens)}
           multiline
@@ -110,17 +111,12 @@ export function SessionTableRow({
                 ? "dimmed"
                 : undefined
             }
-            className={classes.journey}
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
+            className={gridClasses.impactedInteractionsText}
           >
             {formatImpactedScreensPreview(session.impactedScreens)}
           </Text>
         </Tooltip>
-      </Table.Td>
-    </Table.Tr>
+      </div>
+    </div>
   );
 }
