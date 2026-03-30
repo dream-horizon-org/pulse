@@ -20,6 +20,8 @@ export interface UseHeatmapDataParams {
   platform?: string;
   aspect_ratio?: string;
   cohort_id?: string;
+  /** Mock: from Screen URL `rcaHeatmapSignal` — aligns heatmap with RCA narrative. */
+  rcaHeatmapSignal?: string | null;
   /** Use POST with project id when true (heavy filter body). Default false = GET. */
   usePost?: boolean;
   enabled?: boolean;
@@ -48,6 +50,7 @@ export const useHeatmapData = (
     platform,
     aspect_ratio,
     cohort_id,
+    rcaHeatmapSignal,
     usePost = false,
     enabled = true,
   } = params;
@@ -76,8 +79,13 @@ export const useHeatmapData = (
       platform ?? "",
       aspect_ratio ?? "",
       cohort_id ?? "",
+      rcaHeatmapSignal?.trim() ?? "",
     ],
     queryFn: async () => {
+      const rca =
+        rcaHeatmapSignal?.trim() !== ""
+          ? rcaHeatmapSignal?.trim()
+          : undefined;
       if (usePost) {
         if (!projectId) {
           throw new Error("projectId required for POST heatmap data");
@@ -89,6 +97,7 @@ export const useHeatmapData = (
           platform,
           aspect_ratio,
           cohort_id,
+          ...(rca ? { rcaHeatmapSignal: rca } : {}),
         });
       }
       return fetchHeatmapDataGet({
@@ -99,6 +108,7 @@ export const useHeatmapData = (
         platform,
         aspect_ratio,
         cohort_id,
+        ...(rca ? { rcaHeatmapSignal: rca } : {}),
       });
     },
     enabled: isProjectReady,

@@ -7553,7 +7553,8 @@ ${
           },
         };
       }
-      const data = resolveHeatmapData(screenName);
+      const rcaHeatmapSignal = url.searchParams.get("rcaHeatmapSignal");
+      const data = resolveHeatmapData(screenName, rcaHeatmapSignal);
       return { data, status: 200, error: undefined };
     }
 
@@ -7587,7 +7588,11 @@ ${
             },
           };
         }
-        const data = resolveHeatmapData(screenName);
+        const rcaHeatmapSignal =
+          body?.rcaHeatmapSignal != null
+            ? String(body.rcaHeatmapSignal)
+            : null;
+        const data = resolveHeatmapData(screenName, rcaHeatmapSignal);
         return { data, status: 200, error: undefined };
       } catch (e: unknown) {
         return {

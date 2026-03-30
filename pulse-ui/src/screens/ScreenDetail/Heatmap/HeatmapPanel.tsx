@@ -20,6 +20,7 @@ export function HeatmapPanel({
   screenName,
   startTime,
   endTime,
+  rcaHeatmapSignal,
   engagement,
 }: HeatmapPanelProps) {
   const { filterValues } = useFilterStore();
@@ -42,6 +43,7 @@ export function HeatmapPanel({
     startTime,
     endTime,
     ...heatmapRequestFilters,
+    rcaHeatmapSignal,
     enabled: !compareEnabled,
   });
 
@@ -50,6 +52,7 @@ export function HeatmapPanel({
     startTime,
     endTime,
     ...heatmapRequestFilters,
+    rcaHeatmapSignal,
     enabled: compareSliceReady,
   });
 
@@ -58,6 +61,7 @@ export function HeatmapPanel({
     startTime,
     endTime,
     ...heatmapRequestFilters,
+    rcaHeatmapSignal,
     enabled: compareSliceReady,
   });
 

@@ -2,6 +2,7 @@ import { Box, Button, Skeleton, Stack, Text } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { useGetInteractionDetailsGraphs } from "../../../../hooks/useGetInteractionDetailsGraphs";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
@@ -24,6 +25,7 @@ export const RootCause = ({
   endTime,
   dashboardFilters,
 }: RootCauseProps) => {
+  const location = useLocation();
   const effectiveProjectId = projectId?.trim() ?? "";
   const hasProjectId = effectiveProjectId !== "";
   const hasInteractionName = !!interactionName?.trim();
@@ -191,6 +193,8 @@ export const RootCause = ({
           target.screenName,
           startTime,
           endTime,
+          reportPayload.heatmap_signal_quality,
+          `${location.pathname}${location.search}`,
         ),
       })),
     ];
