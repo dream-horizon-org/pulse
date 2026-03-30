@@ -22,7 +22,7 @@ class RamUsageConfiguration internal constructor(
 
     /**
      * Configures how often accumulated RAM samples are flushed as a log record.
-     * Defaults to [RamUsageInstrumentation.DEFAULT_FLUSH_INTERVAL_MS] ms. Must be positive.
+     * Defaults to [RamUsageInstrumentation.defaultFlushIntervalMs] ms. Must be positive.
      *
      * @param intervalMs flush interval in milliseconds
      */
@@ -33,7 +33,7 @@ class RamUsageConfiguration internal constructor(
 
     /**
      * Configures how frequently a RAM sample is taken.
-     * Defaults to [RamUsageInstrumentation.DEFAULT_SAMPLE_INTERVAL_MS] ms. Must be positive.
+     * Defaults to [RamUsageInstrumentation.defaultSampleIntervalMs] ms. Must be positive.
      *
      * @param intervalMs sample interval in milliseconds
      */

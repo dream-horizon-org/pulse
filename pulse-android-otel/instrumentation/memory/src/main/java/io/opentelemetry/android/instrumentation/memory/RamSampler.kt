@@ -8,6 +8,7 @@ package io.opentelemetry.android.instrumentation.memory
 import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
+import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseDeviceAttributes
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
@@ -30,11 +31,17 @@ internal class RamSampler(
 ) {
     private val activityManager =
         application.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager?
+    private val runtime = Runtime.getRuntime()
     private val active = AtomicBoolean(true)
     private val lock = Any()
 
-    private val utilizationInBytesList = mutableListOf<Long>()
+    // System RAM (totalMem - availMem) and app heap (totalMemory - freeMemory) are sampled
+    // at the same instant so they share a single timestamp list.
+    private val systemUtilizationList = mutableListOf<Long>()
+    private val appUtilizationList = mutableListOf<Long>()
     private val timestampInMsList = mutableListOf<Long>()
+
+    private val memInfo = ActivityManager.MemoryInfo()
 
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private var samplingJob: Job? = null
@@ -69,37 +76,52 @@ internal class RamSampler(
     internal fun collectSample() {
         if (!active.get()) return
         val activityManager = activityManager ?: return
-        val memInfo = ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(memInfo)
+        val appUsedBytes = runtime.totalMemory() - runtime.freeMemory()
         synchronized(lock) {
-            utilizationInBytesList.add(memInfo.totalMem - memInfo.availMem)
+            systemUtilizationList.add(memInfo.totalMem - memInfo.availMem)
+            appUtilizationList.add(appUsedBytes)
             timestampInMsList.add(System.currentTimeMillis())
         }
     }
 
     internal fun flushSamples() {
-        val (utilization, timestamps) = drainSamples()
-        if (utilization.isEmpty()) return
+        val batch = drainSamples()
+        if (batch.timestamps.isEmpty()) return
         val attributes =
             Attributes
                 .builder()
-                .put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY, utilization)
-                .put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_TIMESTAMP_ARRAY, timestamps)
+                .put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY, batch.systemUtilization)
+                .put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_TIMESTAMP_ARRAY, batch.timestamps)
+                .put(PulseDeviceAttributes.PULSE_APP_MEMORY_UTILIZATION_ARRAY, batch.appUtilization)
+                .put(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.MEMORY)
                 .build()
         logger
             .logRecordBuilder()
+            .setEventName(PulseAttributes.PulseTypeValues.MEMORY)
             .setAllAttributes(attributes)
             .emit()
     }
 
-    private fun drainSamples(): Pair<List<Long>, List<Long>> =
+    private fun drainSamples(): SampleBatch =
         synchronized(lock) {
-            val utilization = utilizationInBytesList.toList()
-            val timestamps = timestampInMsList.toList()
-            utilizationInBytesList.clear()
+            val batch =
+                SampleBatch(
+                    systemUtilization = systemUtilizationList.toList(),
+                    appUtilization = appUtilizationList.toList(),
+                    timestamps = timestampInMsList.toList(),
+                )
+            systemUtilizationList.clear()
+            appUtilizationList.clear()
             timestampInMsList.clear()
-            utilization to timestamps
+            batch
         }
+
+    private data class SampleBatch(
+        val systemUtilization: List<Long>,
+        val appUtilization: List<Long>,
+        val timestamps: List<Long>,
+    )
 
     companion object {
         const val DEFAULT_SAMPLE_INTERVAL_MS = 5_000L

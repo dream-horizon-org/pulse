@@ -10,8 +10,8 @@ import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.InstallationContext
-import io.opentelemetry.android.instrumentation.memory.RamUsageInstrumentation.Companion.DEFAULT_FLUSH_INTERVAL_MS
-import io.opentelemetry.android.instrumentation.memory.RamUsageInstrumentation.Companion.DEFAULT_SAMPLE_INTERVAL_MS
+import io.opentelemetry.android.instrumentation.memory.RamUsageInstrumentation.Companion.defaultFlushIntervalMs
+import io.opentelemetry.android.instrumentation.memory.RamUsageInstrumentation.Companion.defaultSampleIntervalMs
 import io.opentelemetry.android.internal.services.Services.Companion.get
 import io.opentelemetry.android.internal.services.applifecycle.ApplicationStateListener
 import kotlinx.coroutines.CoroutineDispatcher
@@ -21,8 +21,8 @@ import kotlinx.coroutines.Dispatchers
  * Instrumentation that periodically samples device RAM usage and emits the accumulated
  * samples as a single OpenTelemetry log record with a JSON array body.
  *
- * Samples are collected at a configurable interval (default: [DEFAULT_SAMPLE_INTERVAL_MS])
- * and flushed at a configurable interval (default: [DEFAULT_FLUSH_INTERVAL_MS]).
+ * Samples are collected at a configurable interval (default: [defaultSampleIntervalMs])
+ * and flushed at a configurable interval (default: [defaultFlushIntervalMs]).
  * Sampling is paused while the app is in the background.
  */
 @AutoService(AndroidInstrumentation::class)
@@ -31,8 +31,8 @@ class RamUsageInstrumentation
     constructor(
         private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     ) : AndroidInstrumentation {
-        private var flushIntervalMs: Long = DEFAULT_FLUSH_INTERVAL_MS
-        private var sampleIntervalMs: Long = DEFAULT_SAMPLE_INTERVAL_MS
+        private var flushIntervalMs: Long = defaultFlushIntervalMs
+        private var sampleIntervalMs: Long = defaultSampleIntervalMs
 
         @Volatile
         private var sampler: RamSampler? = null
@@ -109,7 +109,8 @@ class RamUsageInstrumentation
         override val name: String = "memory"
 
         companion object {
-            const val DEFAULT_FLUSH_INTERVAL_MS = 15L * 60L * 1000L
-            const val DEFAULT_SAMPLE_INTERVAL_MS = RamSampler.DEFAULT_SAMPLE_INTERVAL_MS
+            // 2 mins in debug else 15 mins
+            val defaultFlushIntervalMs: Long = if (PulseOtelUtils.isDebug()) 1_20_000L else 9_00_000L
+            val defaultSampleIntervalMs: Long = if (PulseOtelUtils.isDebug()) 30_000L else RamSampler.DEFAULT_SAMPLE_INTERVAL_MS
         }
     }

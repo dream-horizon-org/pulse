@@ -1,7 +1,5 @@
 public final class io/opentelemetry/android/instrumentation/memory/RamUsageInstrumentation : io/opentelemetry/android/instrumentation/AndroidInstrumentation {
 	public static final field Companion Lio/opentelemetry/android/instrumentation/memory/RamUsageInstrumentation$Companion;
-	public static final field DEFAULT_FLUSH_INTERVAL_MS J
-	public static final field DEFAULT_SAMPLE_INTERVAL_MS J
 	public fun <init> ()V
 	public fun <init> (Lkotlinx/coroutines/CoroutineDispatcher;)V
 	public synthetic fun <init> (Lkotlinx/coroutines/CoroutineDispatcher;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -13,5 +11,7 @@ public final class io/opentelemetry/android/instrumentation/memory/RamUsageInstr
 }
 
 public final class io/opentelemetry/android/instrumentation/memory/RamUsageInstrumentation$Companion {
+	public final fun getDefaultFlushIntervalMs ()J
+	public final fun getDefaultSampleIntervalMs ()J
 }
 

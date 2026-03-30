@@ -19,7 +19,7 @@ public object PulseDeviceAttributes {
 
     /**
      * Sampled device RAM utilization values, each expressed as used bytes (`totalMem - availMem`).
-     * Emitted as a log attribute alongside [PULSE_SYSTEM_MEMORY_UTILIZATION_TIMESTAMP_ARRAY].
+     * Emitted as a log attribute alongside [PULSE_SYSTEM_MEMORY_TIMESTAMP_ARRAY].
      */
     @JvmField
     public val PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY: AttributeKey<List<Long>> =
@@ -30,6 +30,14 @@ public object PulseDeviceAttributes {
      * [PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY] was recorded.
      */
     @JvmField
-    public val PULSE_SYSTEM_MEMORY_UTILIZATION_TIMESTAMP_ARRAY: AttributeKey<List<Long>> =
-        AttributeKey.longArrayKey("pulse.system.memory.utilization_timestamp_array")
+    public val PULSE_SYSTEM_MEMORY_TIMESTAMP_ARRAY: AttributeKey<List<Long>> =
+        AttributeKey.longArrayKey("pulse.system.memory.timestamp_array")
+
+    /**
+     * Sampled app heap utilization values, each expressed as used bytes
+     * Emitted as a log attribute alongside [PULSE_SYSTEM_MEMORY_TIMESTAMP_ARRAY].
+     */
+    @JvmField
+    public val PULSE_APP_MEMORY_UTILIZATION_ARRAY: AttributeKey<List<Long>> =
+        AttributeKey.longArrayKey("pulse.app.memory.utilization_array")
 }

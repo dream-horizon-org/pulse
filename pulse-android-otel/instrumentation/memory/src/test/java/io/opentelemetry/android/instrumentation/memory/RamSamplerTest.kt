@@ -8,6 +8,7 @@ package io.opentelemetry.android.instrumentation.memory
 import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
+import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseDeviceAttributes
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -38,6 +39,7 @@ class RamSamplerTest {
     fun setUp() {
         MockKAnnotations.init(this)
         every { logger.logRecordBuilder() } returns logRecordBuilder
+        every { logRecordBuilder.setEventName(any<String>()) } returns logRecordBuilder
         every { logRecordBuilder.setAllAttributes(any()) } returns logRecordBuilder
     }
 
@@ -61,13 +63,14 @@ class RamSamplerTest {
             sampler.flushSamples()
 
             verify(exactly = 1) { logger.logRecordBuilder() }
+            verify(exactly = 1) { logRecordBuilder.setEventName(PulseAttributes.PulseTypeValues.MEMORY) }
             val attributesSlot = mutableListOf<Attributes>()
             verify(exactly = 1) { logRecordBuilder.setAllAttributes(capture(attributesSlot)) }
             val attrs = attributesSlot.first()
-            assertThat(attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY))
-                .hasSize(2)
-            assertThat(attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_TIMESTAMP_ARRAY))
-                .hasSize(2)
+            assertThat(attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY)).hasSize(2)
+            assertThat(attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_TIMESTAMP_ARRAY)).hasSize(2)
+            assertThat(attrs.get(PulseDeviceAttributes.PULSE_APP_MEMORY_UTILIZATION_ARRAY)).hasSize(2)
+            assertThat(attrs.get(PulseAttributes.PULSE_TYPE)).isEqualTo(PulseAttributes.PulseTypeValues.MEMORY)
             verify(exactly = 1) { logRecordBuilder.emit() }
         }
 
@@ -95,12 +98,17 @@ class RamSamplerTest {
             verify { logRecordBuilder.setAllAttributes(capture(attributesSlot)) }
             val attrs = attributesSlot.first()
 
-            val utilization = attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY)!!
-            val timestamps = attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_TIMESTAMP_ARRAY)!!
-            assertThat(utilization).hasSize(1)
-            assertThat(utilization.first()).isGreaterThanOrEqualTo(0L)
+            val systemUtilization = attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY)!!
+            val appUtilization = attrs.get(PulseDeviceAttributes.PULSE_APP_MEMORY_UTILIZATION_ARRAY)!!
+            val timestamps = attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_TIMESTAMP_ARRAY)!!
+
+            assertThat(systemUtilization).hasSize(1)
+            assertThat(systemUtilization.first()).isGreaterThanOrEqualTo(0L)
+            assertThat(appUtilization).hasSize(1)
+            assertThat(appUtilization.first()).isGreaterThanOrEqualTo(0L)
             assertThat(timestamps).hasSize(1)
             assertThat(timestamps.first()).isBetween(beforeMs, afterMs + 1)
+            assertThat(attrs.get(PulseAttributes.PULSE_TYPE)).isEqualTo(PulseAttributes.PulseTypeValues.MEMORY)
         }
     }
 
@@ -129,11 +137,9 @@ class RamSamplerTest {
 
             val attributesSlot = mutableListOf<Attributes>()
             verify(exactly = 1) { logRecordBuilder.setAllAttributes(capture(attributesSlot)) }
-            assertThat(
-                attributesSlot
-                    .first()
-                    .get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY),
-            ).hasSize(1)
+            val attrs = attributesSlot.first()
+            assertThat(attrs.get(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY)).hasSize(1)
+            assertThat(attrs.get(PulseDeviceAttributes.PULSE_APP_MEMORY_UTILIZATION_ARRAY)).hasSize(1)
         }
     }
 
@@ -183,7 +189,7 @@ class RamSamplerTest {
     }
 
     private fun buildSampler(
-        flushIntervalMs: Long = RamUsageInstrumentation.DEFAULT_FLUSH_INTERVAL_MS,
+        flushIntervalMs: Long = RamUsageInstrumentation.defaultFlushIntervalMs,
         dispatcher: kotlinx.coroutines.CoroutineDispatcher = StandardTestDispatcher(),
     ): RamSampler {
         val activityManager = mockk<ActivityManager>(relaxed = true)
@@ -195,7 +201,7 @@ class RamSamplerTest {
             application = app,
             logger = logger,
             flushIntervalMs = flushIntervalMs,
-            sampleIntervalMs = RamUsageInstrumentation.DEFAULT_SAMPLE_INTERVAL_MS,
+            sampleIntervalMs = RamUsageInstrumentation.defaultSampleIntervalMs,
             dispatcher = dispatcher,
         )
     }
