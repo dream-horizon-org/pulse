@@ -1,22 +1,58 @@
 /**
  * Mock POST /v1/ai/rca/report — format: exec summary → 3 segment metric tables → recommendations.
  * UI order: Insights (exec summary) → Markdown (tables + recs) → charts.
+ * When `tenantContext` is provided (from interaction overview metrics), baseline columns match that interaction.
  */
 
-const BL = {
-  vol: "3,287",
-  apdex: "0.60",
-  err: "9.31%",
-  poor: "5.80%",
-  p50: "2,111.25 ms",
-  p95: "4,179.76 ms",
-  crash: "1.22%",
-  anr: "0.49%",
-  frozen: "2.38%",
+import type { RcaReportTenantContext } from "../../hooks/useGetRcaReport/useGetRcaReport.interface";
+
+const DEFAULT_NUM = {
+  volLabel: "3,287",
+  apdex: 0.6,
+  errorRate: 9.31,
+  poorUsers: 5.8,
+  p50Ms: 2111.25,
+  p95Ms: 4179.76,
+  crash: 1.22,
+  anr: 0.49,
+  frozen: 2.38,
 } as const;
+
+/** Same relative lifts as the original static mock (segment vs tenant error rate). */
+const ERROR_BAR_RATIOS = [1, 15.13 / 9.31, 40 / 9.31, 11.89 / 9.31] as const;
+
+function formatPct(n: number): string {
+  return `${n.toFixed(2)}%`;
+}
+
+function formatMs(ms: number): string {
+  return `${ms.toLocaleString("en-US", { maximumFractionDigits: 2 })} ms`;
+}
+
+function resolveBaseline(ctx: RcaReportTenantContext | null | undefined) {
+  const err = ctx?.errorRatePercent ?? DEFAULT_NUM.errorRate;
+  const poor = ctx?.poorUsersPercent ?? DEFAULT_NUM.poorUsers;
+  const apdex = ctx?.apdex ?? DEFAULT_NUM.apdex;
+  const p50 = ctx?.p50Ms ?? DEFAULT_NUM.p50Ms;
+  const p95 = ctx?.p95Ms ?? DEFAULT_NUM.p95Ms;
+  return {
+    vol: DEFAULT_NUM.volLabel,
+    apdex: apdex.toFixed(2),
+    err: formatPct(err),
+    poor: formatPct(poor),
+    p50: formatMs(p50),
+    p95: formatMs(p95),
+    crash: formatPct(DEFAULT_NUM.crash),
+    anr: formatPct(DEFAULT_NUM.anr),
+    frozen: formatPct(DEFAULT_NUM.frozen),
+    /** Raw tenant error % for charts (avoid 0 for bar scaling). */
+    tenantErrorRate: Math.max(err, 0.01),
+  };
+}
 
 export const buildMockRcaReportResponseBody = (
   interactionName: string,
+  tenantContext?: RcaReportTenantContext | null,
 ): {
   report: {
     markdown: string;
@@ -45,7 +81,19 @@ export const buildMockRcaReportResponseBody = (
       ? interactionName.trim()
       : "payment_processing";
 
-  const executiveSummaryMarkdown = `The **'${name}'** interaction is experiencing **degraded performance**: **P95 duration** exceeds the poor threshold and **error** and **crash** rates are elevated versus tenant baseline. The primary contributors are **Android App Version 4.0.0** especially **OS 13** and **iOS App Version 4.2.0**.`;
+  const BL = resolveBaseline(tenantContext ?? null);
+
+  const seg1Err = Math.min(99.99, BL.tenantErrorRate * (15.13 / 9.31));
+  const seg2Err = Math.min(99.99, BL.tenantErrorRate * (40 / 9.31));
+  const seg3Err = Math.min(99.99, BL.tenantErrorRate * (11.89 / 9.31));
+
+  const seg1Poor = Math.min(99.99, parseFloat(BL.poor) * 0.51);
+  const seg2Poor = Math.min(99.99, parseFloat(BL.poor) * 1.15);
+  const seg3Poor = Math.min(99.99, parseFloat(BL.poor) * 1.38);
+
+  const executiveSummaryMarkdown = tenantContext
+    ? `The **'${name}'** interaction in the selected window shows **${BL.err}** interaction error rate and **${BL.poor}** of users in the **poor** experience bucket (tenant-level aggregates). Segment drilldowns below compare localized slices against these baselines.`
+    : `The **'${name}'** interaction is experiencing **degraded performance**: **P95 duration** exceeds the poor threshold and **error** and **crash** rates are elevated versus tenant baseline. The primary contributors are **Android App Version 4.0.0** especially **OS 13** and **iOS App Version 4.2.0**.`;
 
   const markdown = `## Top contributing segments
 
@@ -55,8 +103,8 @@ export const buildMockRcaReportResponseBody = (
 | :----- | :---- | :------- | :---- |
 | Volume | 119 | ${BL.vol} | 3.6% of total |
 | APDEX | 0.66 | ${BL.apdex} | +10% |
-| Error rate | **15.13%** | ${BL.err} | +62% |
-| Poor user % | 2.97% | ${BL.poor} | -49% |
+| Error rate | **${seg1Err.toFixed(2)}%** | ${BL.err} | +62% |
+| Poor user % | ${seg1Poor.toFixed(2)}% | ${BL.poor} | -49% |
 | Duration P50 | 2,001.24 ms | ${BL.p50} | -5% |
 | Duration P95 | 3,507.83 ms | ${BL.p95} | -16% |
 | Crash rate | **2.52%** | ${BL.crash} | +107% |
@@ -73,8 +121,8 @@ export const buildMockRcaReportResponseBody = (
 | :----- | :---- | :------- | :---- |
 | Volume | 25 | ${BL.vol} | 0.76% of total |
 | APDEX | 0.73 | ${BL.apdex} | +22% |
-| Error rate | **40.0%** | ${BL.err} | +330% |
-| Poor user % | 6.67% | ${BL.poor} | +15% |
+| Error rate | **${seg2Err.toFixed(2)}%** | ${BL.err} | +330% |
+| Poor user % | ${seg2Poor.toFixed(2)}% | ${BL.poor} | +15% |
 | Duration P50 | 1,786.29 ms | ${BL.p50} | -15% |
 | Duration P95 | **6,872.52 ms** | ${BL.p95} | +64% |
 | Crash rate | **8.0%** | ${BL.crash} | +556% |
@@ -91,8 +139,8 @@ export const buildMockRcaReportResponseBody = (
 | :----- | :---- | :------- | :---- |
 | Volume | 412 | ${BL.vol} | 12.5% of total |
 | APDEX | 0.54 | ${BL.apdex} | -10% |
-| Error rate | **11.89%** | ${BL.err} | +28% |
-| Poor user % | 8.01% | ${BL.poor} | +38% |
+| Error rate | **${seg3Err.toFixed(2)}%** | ${BL.err} | +28% |
+| Poor user % | ${seg3Poor.toFixed(2)}% | ${BL.poor} | +38% |
 | Duration P50 | 2,340.00 ms | ${BL.p50} | +11% |
 | Duration P95 | **5,100.00 ms** | ${BL.p95} | +22% |
 | Crash rate | 0.97% | ${BL.crash} | -21% |
@@ -114,6 +162,10 @@ export const buildMockRcaReportResponseBody = (
 → <span style="color:#0ca678">**Crash / ANR event analysis:**</span> For high crash/ANR segments (notably <span style="color:#e03131">**Android 4.0.0 / OS 13**</span>), query \`rum_events\` for crash/ANR payloads, stack traces, and user context.
 `;
 
+  const chartErrorData = ERROR_BAR_RATIOS.map(
+    (r) => Math.round(BL.tenantErrorRate * r * 100) / 100,
+  );
+
   return {
     report: {
       markdown,
@@ -124,7 +176,7 @@ export const buildMockRcaReportResponseBody = (
           data: {
             type: "bar",
             labels: ["Tenant", "Andr 4.0.0", "4.0.0+OS13", "iOS 4.2.0"],
-            datasets: [{ label: "Error %", data: [9.31, 15.13, 40.0, 11.89] }],
+            datasets: [{ label: "Error %", data: chartErrorData }],
           },
         },
       ],

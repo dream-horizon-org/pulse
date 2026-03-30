@@ -50,6 +50,10 @@
   border: 1px solid rgba(14, 201, 194, 0.15);
 }
 
+.discoveryTrackedDivider {
+  border-top-color: rgba(14, 201, 194, 0.22) !important;
+}
+
 .controlsSection {
   background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
   padding: 12px;
@@ -146,11 +150,11 @@
     grid-template-columns: 1fr;
     gap: var(--mantine-spacing-sm);
   }
-  
+
   .interactionCard {
     min-width: 0;
   }
-  
+
   .searchInput {
     min-width: 0;
     flex: 1 1 100%;
@@ -163,34 +167,34 @@
     width: 100%;
     flex: 1 1 100%;
   }
-  
+
   .controlsSection {
     padding: 8px;
   }
-  
+
   .pageContainer {
     padding: var(--mantine-spacing-sm);
   }
-  
+
   .titleSection {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--mantine-spacing-xs);
   }
-  
+
   .pageTitle {
     font-size: 18px;
   }
-  
+
   .interactionCount {
     font-size: 12px;
     padding: 2px 8px;
   }
-  
+
   .searchBarContainer {
     gap: var(--mantine-spacing-xs);
   }
-  
+
   .filterButton,
   .createButton {
     flex-shrink: 0;
@@ -201,7 +205,7 @@
   .searchInput {
     font-size: 14px;
   }
-  
+
   .filterButton,
   .createButton {
     font-size: 12px;

@@ -1,18 +1,16 @@
 import { useMemo, useState } from "react";
-import { ActionIcon, Box, Select, Text, Group } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
+import { ActionIcon, Box, Group, Text } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
-import { useNavigate, useParams, generatePath } from "react-router-dom";
+import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { useCreateFunnelJourney } from "../../hooks/useCreateFunnelJourney";
 import { ROUTES } from "../../constants";
 import classes from "./FunnelAnalysis.module.css";
-import {
-  GlobalFilterBar,
-  ActiveFilter,
-} from "./components/GlobalFilterBar";
+import { ActiveFilter, GlobalFilterBar } from "./components/GlobalFilterBar";
 import { JourneyExplorer } from "./components/JourneyExplorer";
-import { DATE_RANGE_OPTIONS } from "./mockData";
-import { useGetFunnelEvents, useGetFunnelFilters } from "../../hooks/useGetFunnelData";
+import {
+  useGetFunnelEvents,
+  useGetFunnelFilters,
+} from "../../hooks/useGetFunnelData";
 
 export function CreateJourney() {
   const navigate = useNavigate();
@@ -21,7 +19,9 @@ export function CreateJourney() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">("RECURRING");
+  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
+    "RECURRING",
+  );
   const [dateRange, setDateRange] = useState("7d");
   const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
@@ -34,10 +34,13 @@ export function CreateJourney() {
   const availableEvents = eventsData?.data?.events ?? [];
 
   const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
-  const filterOptions = EXPECTED_FILTER_KEYS.reduce((acc, key) => {
-    acc[key] = filtersData?.data?.filters?.[key] ?? [];
-    return acc;
-  }, {} as Record<string, string[]>);
+  const filterOptions = EXPECTED_FILTER_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = filtersData?.data?.filters?.[key] ?? [];
+      return acc;
+    },
+    {} as Record<string, string[]>,
+  );
 
   const apiFilters = useMemo(
     () =>
@@ -49,7 +52,8 @@ export function CreateJourney() {
     [filters],
   );
 
-  const { mutate: createJourney, isPending: isCreating } = useCreateFunnelJourney();
+  const { mutate: createJourney, isPending: isCreating } =
+    useCreateFunnelJourney();
 
   const handleCreate = (config: any) => {
     createJourney(
@@ -61,7 +65,10 @@ export function CreateJourney() {
         kind: "JOURNEY",
         timeRange: config.timeRange,
         filters: apiFilters,
-        expiryDate: rollingType === "RECURRING" && expiryDate ? expiryDate.toISOString() : undefined,
+        expiryDate:
+          rollingType === "RECURRING" && expiryDate
+            ? expiryDate.toISOString()
+            : undefined,
         ...config,
       },
       {
@@ -71,11 +78,11 @@ export function CreateJourney() {
               generatePath(ROUTES.FUNNEL_JOURNEY_DETAIL.path, {
                 projectId,
                 id: res.data.id,
-              })
+              }),
             );
           }
         },
-      }
+      },
     );
   };
 
@@ -92,7 +99,12 @@ export function CreateJourney() {
       <Box className={classes.topBar}>
         <Box className={classes.topBarLeft}>
           <Group gap="sm" align="center">
-            <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={goBack}
+              size="lg"
+            >
               <IconArrowLeft size={20} />
             </ActionIcon>
             <Box>
@@ -101,8 +113,10 @@ export function CreateJourney() {
           </Group>
         </Box>
 
-        <Box className={classes.topBarRight} style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        </Box>
+        <Box
+          className={classes.topBarRight}
+          style={{ display: "flex", gap: 12, alignItems: "center" }}
+        ></Box>
       </Box>
 
       <GlobalFilterBar
@@ -124,11 +138,11 @@ export function CreateJourney() {
         onDateRangeChange={setDateRange}
         customStartDate={customStartDate}
         onCustomStartDateChange={setCustomStartDate}
-          customEndDate={customEndDate}
-          onCustomEndDateChange={setCustomEndDate}
-          expiryDate={expiryDate}
-          onExpiryDateChange={setExpiryDate}
-          availableEvents={availableEvents}
+        customEndDate={customEndDate}
+        onCustomEndDateChange={setCustomEndDate}
+        expiryDate={expiryDate}
+        onExpiryDateChange={setExpiryDate}
+        availableEvents={availableEvents}
         onCreate={handleCreate}
         isCreating={isCreating}
         filters={filters}

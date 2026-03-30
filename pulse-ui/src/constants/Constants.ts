@@ -509,6 +509,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/interactions`,
     method: API_METHODS.GET,
   },
+  GET_INTERACTION_DISCOVERIES: {
+    key: "GET_INTERACTION_DISCOVERIES",
+    apiPath: `/v1/interactions/discoveries`,
+    method: API_METHODS.GET,
+  },
   POST_RCA_REPORT: {
     key: "POST_RCA_REPORT",
     apiPath: `/v1/ai/rca/report`,
@@ -1269,6 +1274,17 @@ export const CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS: Record<
   LOADING_TEXT: "Loading",
   RESET_BUTTON_TEXT: "Reset",
   SWITCH_TEXT: "My interactions",
+  AUTO_DISCOVERED_TITLE: "Auto-Discovered",
+  DISCOVER_BUTTON_LABEL: "Discover",
+  DISMISS_DISCOVERY_LABEL: "Dismiss",
+  ACTIVATE_DISCOVERY_LABEL: "Activate",
+  DISCOVERY_VOLUME_LABEL: "Volume",
+  DISCOVERY_P50_LABEL: "P50",
+  DISCOVERY_P95_LABEL: "P95",
+  DISCOVERY_COMPLETION_LABEL: "Completion",
+  DISCOVERY_USERS_LABEL: "Users",
+  DISCOVERY_RELEVANCE_LABEL: "Relevance",
+  TRACKED_INTERACTIONS_LABEL: "Tracked interactions",
 };
 
 export const USERS_SUPPORT_PAGE_CONSTANTS: Record<string, string> = {

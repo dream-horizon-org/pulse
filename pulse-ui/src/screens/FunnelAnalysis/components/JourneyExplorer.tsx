@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
 import {
   Box,
+  Button,
+  Group,
   Loader,
   SegmentedControl,
   Select,
   Slider,
-  Text,
-  Group,
-  TextInput,
-  Textarea,
-  Button,
   TagsInput,
+  Text,
+  Textarea,
+  TextInput,
   Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
@@ -85,18 +85,26 @@ export function JourneyExplorer({
   const timeRange = useMemo(() => {
     if (rollingType === "ONCE") {
       return {
-        start: customStartDate ? customStartDate.toISOString() : new Date().toISOString(),
-        end: customEndDate ? customEndDate.toISOString() : new Date().toISOString(),
+        start: customStartDate
+          ? customStartDate.toISOString()
+          : new Date().toISOString(),
+        end: customEndDate
+          ? customEndDate.toISOString()
+          : new Date().toISOString(),
       };
     }
     return getDateRangeFromPreset(dateRange);
   }, [rollingType, dateRange, customStartDate, customEndDate]);
 
-  const apiFilters = useMemo(() => filters.map(f => ({
-    field: f.property,
-    operator: "EQ" as const,
-    value: f.value
-  })), [filters]);
+  const apiFilters = useMemo(
+    () =>
+      filters.map((f) => ({
+        field: f.property,
+        operator: "EQ" as const,
+        value: f.value,
+      })),
+    [filters],
+  );
 
   const requestBody = useMemo(
     () => ({
@@ -115,7 +123,10 @@ export function JourneyExplorer({
   });
 
   const journeyData = data?.data;
-  const isValid = externalIsValid !== undefined ? externalIsValid : (name.trim().length > 0 && !!anchorEvent);
+  const isValid =
+    externalIsValid !== undefined
+      ? externalIsValid
+      : name.trim().length > 0 && !!anchorEvent;
 
   const handleCreate = () => {
     onCreate({
@@ -129,7 +140,10 @@ export function JourneyExplorer({
 
   return (
     <Box className={classes.journeyLayout}>
-      <Box className={classes.sidebarScroll} style={{ width: 300, borderRight: "1px solid #e2e8f0", padding: 16 }}>
+      <Box
+        className={classes.sidebarScroll}
+        style={{ width: 300, borderRight: "1px solid #e2e8f0", padding: 16 }}
+      >
         <Text size="md" fw={600} mb="sm">
           Journey Details
         </Text>
@@ -163,17 +177,31 @@ export function JourneyExplorer({
           <Tooltip
             label={
               <Box w={200}>
-                <Text size="xs" fw={600} mb={4}>Recurring</Text>
-                <Text size="xs" mb={8}>Journey will be auto-updated every 24 hours for the specified rolling window.</Text>
-                <Text size="xs" fw={600} mb={4}>Once</Text>
-                <Text size="xs">Journey will be computed once after creation and will not auto-update.</Text>
+                <Text size="xs" fw={600} mb={4}>
+                  Recurring
+                </Text>
+                <Text size="xs" mb={8}>
+                  Journey will be auto-updated every 24 hours for the specified
+                  rolling window.
+                </Text>
+                <Text size="xs" fw={600} mb={4}>
+                  Once
+                </Text>
+                <Text size="xs">
+                  Journey will be computed once after creation and will not
+                  auto-update.
+                </Text>
               </Box>
             }
             position="right"
             withArrow
             multiline
           >
-            <IconInfoCircle size={14} color="#94a3b8" style={{ cursor: 'help' }} />
+            <IconInfoCircle
+              size={14}
+              color="#94a3b8"
+              style={{ cursor: "help" }}
+            />
           </Tooltip>
         </Group>
         <SegmentedControl
@@ -199,7 +227,9 @@ export function JourneyExplorer({
               style={{ flex: 1 }}
               clearable
             />
-            <Text size="xs" c="dimmed">-</Text>
+            <Text size="xs" c="dimmed">
+              -
+            </Text>
             <DateTimePicker
               placeholder="End Date"
               value={customEndDate}
@@ -213,7 +243,7 @@ export function JourneyExplorer({
         {rollingType === "RECURRING" && (
           <>
             <Select
-              data={DATE_RANGE_OPTIONS.filter(opt => opt.value !== "custom")}
+              data={DATE_RANGE_OPTIONS.filter((opt) => opt.value !== "custom")}
               value={dateRange}
               onChange={(val) => onDateRangeChange(val || "7d")}
               size="xs"
@@ -270,7 +300,11 @@ export function JourneyExplorer({
           data={eventOptions}
           value={anchorEvent}
           onChange={setAnchorEvent}
-          placeholder={availableEvents.length === 0 ? "No events available" : "Select root event..."}
+          placeholder={
+            availableEvents.length === 0
+              ? "No events available"
+              : "Select root event..."
+          }
           size="xs"
           searchable
           mb="sm"
@@ -278,7 +312,9 @@ export function JourneyExplorer({
           required
         />
 
-        <Text size="sm" fw={500} mt="md" mb={4}>Direction</Text>
+        <Text size="sm" fw={500} mt="md" mb={4}>
+          Direction
+        </Text>
         <SegmentedControl
           value={direction}
           onChange={(val) => setDirection(val as "forward" | "reverse")}
@@ -292,7 +328,9 @@ export function JourneyExplorer({
           mb="sm"
         />
 
-        <Text size="sm" fw={500} mt="md" mb={4}>Depth: {depth} steps</Text>
+        <Text size="sm" fw={500} mt="md" mb={4}>
+          Depth: {depth} steps
+        </Text>
         <Slider
           value={depth}
           onChange={setDepth}
@@ -318,7 +356,13 @@ export function JourneyExplorer({
           disabled={!isValid || isCreating}
           loading={isCreating}
         >
-          {isCreating ? (isUpdateMode ? "Updating..." : "Creating...") : (isUpdateMode ? "Update Journey" : "Create Journey")}
+          {isCreating
+            ? isUpdateMode
+              ? "Updating..."
+              : "Creating..."
+            : isUpdateMode
+              ? "Update Journey"
+              : "Create Journey"}
         </Button>
       </Box>
 
@@ -327,12 +371,16 @@ export function JourneyExplorer({
           {anchorEvent ? (
             <Text size="md" fw={600} mb="md">
               {direction === "forward" ? "Forward" : "Reverse"} Journey from{" "}
-              <Text span c="teal" fw={700}>{anchorEvent}</Text>
+              <Text span c="teal" fw={700}>
+                {anchorEvent}
+              </Text>
             </Text>
           ) : null}
 
           {isLoading ? (
-            <Box style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+            <Box
+              style={{ display: "flex", justifyContent: "center", padding: 80 }}
+            >
               <Loader color="teal" size="lg" />
             </Box>
           ) : journeyData ? (

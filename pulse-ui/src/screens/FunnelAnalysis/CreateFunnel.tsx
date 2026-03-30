@@ -124,7 +124,8 @@ export function CreateFunnel() {
   const trendResult = trendData?.data;
   const isLoading = funnelLoading || trendLoading;
 
-  const { mutate: createFunnel, isPending: isCreating } = useCreateFunnelJourney();
+  const { mutate: createFunnel, isPending: isCreating } =
+    useCreateFunnelJourney();
 
   const handleAnalyze = () => {
     createFunnel(
@@ -155,7 +156,7 @@ export function CreateFunnel() {
             );
           }
         },
-      }
+      },
     );
   };
 

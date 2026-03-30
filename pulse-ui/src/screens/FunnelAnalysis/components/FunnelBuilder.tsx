@@ -129,7 +129,10 @@ export function FunnelBuilder({
   };
 
   const hasValidSteps = steps.length >= 2 && steps.every((s) => s.eventName);
-  const isValid = externalIsValid !== undefined ? externalIsValid : (hasValidSteps && name.trim().length > 0);
+  const isValid =
+    externalIsValid !== undefined
+      ? externalIsValid
+      : hasValidSteps && name.trim().length > 0;
 
   return (
     <Box className={classes.sidebarScroll}>
@@ -415,7 +418,13 @@ export function FunnelBuilder({
           disabled={!isValid || isCreating}
           loading={isCreating}
         >
-          {isCreating ? (isUpdateMode ? "Updating..." : "Creating...") : (isUpdateMode ? "Update Funnel" : "Create Funnel")}
+          {isCreating
+            ? isUpdateMode
+              ? "Updating..."
+              : "Creating..."
+            : isUpdateMode
+              ? "Update Funnel"
+              : "Create Funnel"}
         </Button>
       </Box>
     </Box>
