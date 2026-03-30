@@ -1,10 +1,20 @@
 .deviceContainer {
   width: 100%;
+  max-width: 100%;
   height: 100%;
+  min-height: 0;
+  min-width: 0;
+  max-height: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--mantine-spacing-md);
+}
+
+/* Tighter padding + pass height cap into mockup so flex layout can keep controls visible */
+.deviceContainerCompact {
+  padding: var(--mantine-spacing-xs);
 }
 
 /* iOS Device Frame */
@@ -18,9 +28,17 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
+/*
+ * Fit within the player viewport (fixed px height was taller than the column and
+ * pushed controls below overflow:hidden on the session player card).
+ */
 .iosDevice.deviceCompact {
-  width: 260px;
-  height: 563px;
+  width: min(260px, 100%);
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 375 / 812;
+  max-height: 100%;
+  flex-shrink: 1;
   border-radius: 28px;
   padding: 6px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
@@ -128,8 +146,12 @@
 }
 
 .androidDevice.deviceCompact {
-  width: 252px;
-  height: 560px;
+  width: min(252px, 100%);
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 360 / 800;
+  max-height: 100%;
+  flex-shrink: 1;
   border-radius: 18px;
   padding: 3px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
@@ -217,8 +239,12 @@
 }
 
 .webBrowser.deviceCompact {
-  max-width: 252px;
-  max-height: 560px;
+  width: min(252px, 100%);
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  max-height: 100%;
+  flex-shrink: 1;
 }
 
 .browserChrome {

@@ -1,5 +1,11 @@
 .card {
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  /* Fixed footprint so paired cards stay aligned; inner layout uses flex + line-clamp */
+  height: 280px;
+  min-height: 280px;
+  max-height: 280px;
   border: 1px solid rgba(14, 201, 194, 0.2);
   border-radius: var(--mantine-radius-md);
   background: var(--mantine-color-white);
@@ -25,50 +31,90 @@
   outline-offset: 2px;
 }
 
-.sessionRow {
+.cardInner {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--mantine-spacing-sm);
-  flex-wrap: wrap;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: var(--mantine-spacing-md);
+  height: 100%;
 }
 
-.sessionIdWrap {
+.sessionRow {
   display: flex;
-  align-items: center;
-  gap: var(--mantine-spacing-xs);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-sm);
+  flex-shrink: 0;
+}
+
+.sessionIdGroup {
+  min-width: 0;
+  flex: 1;
 }
 
 .sessionId {
   font-weight: 600;
   font-size: var(--mantine-font-size-sm);
   color: var(--mantine-color-gray-9);
+  min-width: 0;
 }
 
 .durationBadge {
   font-size: var(--mantine-font-size-xs);
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .relativeTime {
   font-size: var(--mantine-font-size-xs);
   color: var(--mantine-color-gray-6);
   white-space: nowrap;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.deviceRow {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.deviceIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .deviceText {
-  font-size: var(--mantine-font-size-xs);
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.45;
   color: var(--mantine-color-gray-7);
+  flex: 1;
+  min-width: 0;
 }
 
 .failureSummaryBox {
-  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  padding: var(--mantine-spacing-md);
   background: rgba(14, 201, 194, 0.08);
   border: 1px solid rgba(14, 201, 194, 0.2);
   border-radius: var(--mantine-radius-sm);
-  font-size: var(--mantine-font-size-xs);
-  line-height: 1.5;
+  overflow: hidden;
+}
+
+.failureSummaryText {
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.55;
   color: var(--mantine-color-gray-8);
+  width: 100%;
+}
+
+.watchReplayFooter {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: var(--mantine-spacing-xs);
 }
 
 .watchReplayLink {

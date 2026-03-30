@@ -23,9 +23,6 @@ export interface SessionsTableToolbarProps {
   onDatePresetChange: (preset: string) => void;
   onDateCustomChange: (from: string | null, to: string | null) => void;
   onPageReset: () => void;
-  // Table summary
-  sessionCount: number;
-  hasMore: boolean;
   // Quick filters
   filtersConfig: FilterConfigResponse | null;
   quickFiltersLoading: boolean;
@@ -56,8 +53,6 @@ export function SessionsTableToolbar({
   onDatePresetChange,
   onDateCustomChange,
   onPageReset,
-  sessionCount,
-  hasMore,
   filtersConfig,
   quickFiltersLoading,
   quickFiltersState,
@@ -88,21 +83,6 @@ export function SessionsTableToolbar({
           onCustomRangeChange={onDateCustomChange}
           onPageReset={onPageReset}
         />
-
-        <Group justify="space-between">
-          <div>
-            <Text size="md" fw={600}>
-              {SESSION_LIST_LABELS.sectionTitle}
-            </Text>
-            <Text size="xs" c="dimmed">
-              {SESSION_LIST_LABELS.sectionDescription}
-            </Text>
-          </div>
-          <Badge size="lg" variant="light" color="gray">
-            {sessionCount} sessions
-            {hasMore ? ` ${SESSION_LIST_LABELS.moreAvailable}` : ""}
-          </Badge>
-        </Group>
 
         <Group justify="space-between" align="center">
           <Group gap="xs" style={{ flexWrap: "wrap", flex: 1 }}>

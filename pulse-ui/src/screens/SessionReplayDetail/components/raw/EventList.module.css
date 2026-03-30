@@ -1,0 +1,91 @@
+/* Timeline row: detail column can shrink and wrap; status stays in its own track */
+.eventRow {
+  display: grid;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  column-gap: var(--mantine-spacing-sm);
+  row-gap: 6px;
+  align-items: start;
+  grid-template-columns:
+    minmax(0, max-content)
+    minmax(0, max-content)
+    minmax(0, 1fr)
+    auto;
+}
+
+.eventTime {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  font-family: var(--mantine-font-family-monospace, ui-monospace, monospace);
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.eventBadgeWrap {
+  flex-shrink: 0;
+}
+
+.eventDetailCell {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.eventDetailCell :global(.mantine-ActionIcon-root) {
+  flex-shrink: 0;
+}
+
+.eventDetailText {
+  min-width: 0;
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.eventStatus {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+  text-align: right;
+  justify-self: end;
+}
+
+.eventStatusPlaceholder {
+  min-height: 1em;
+}
+
+@media (max-width: 768px) {
+  .eventRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .eventTime {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .eventBadgeWrap {
+    justify-self: start;
+  }
+
+  .eventDetailCell {
+    grid-column: 1;
+  }
+
+  .eventStatus,
+  .eventStatusPlaceholder {
+    grid-column: 1;
+    justify-self: start;
+    text-align: left;
+  }
+
+  .eventStatus {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}

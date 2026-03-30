@@ -7,12 +7,10 @@ interface PlayerHeaderProps {
 
 export function PlayerHeader({ sessionData }: PlayerHeaderProps) {
   return (
-    <Group justify="space-between">
-      <Group gap="xs">
-        <Text size="sm" fw={500}>
-          {sessionData.platform} {sessionData.device} · {sessionData.os}
-        </Text>
-      </Group>
+    <Group justify="space-between" wrap="wrap" gap="xs">
+      <Text size="sm" fw={500} lineClamp={2} style={{ minWidth: 0 }}>
+        {sessionData.platform} {sessionData.device} · {sessionData.os}
+      </Text>
     </Group>
   );
 }

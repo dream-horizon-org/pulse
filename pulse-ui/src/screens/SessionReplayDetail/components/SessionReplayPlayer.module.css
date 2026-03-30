@@ -7,16 +7,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   border-radius: var(--mantine-radius-md);
 }
 
-/* Compact: fill viewport slot next to tabs (same height with/without images) */
+/* Compact: height follows device frame + replay (no flex-fill empty gap) */
 .playerContainerCompact {
   min-height: 0;
-  flex: 1;
+  min-width: 0;
+  flex: 0 1 auto;
   align-self: stretch;
   width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  box-sizing: border-box;
+}
+
+.viewportSlot {
+  flex: 0 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .imageViewport {
@@ -58,7 +74,11 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  overflow: hidden;
+}
+
+/* Compact player: do not force 400px min — it overflowed the flex slot and hid controls */
+.playerContainerCompact .imageViewport {
+  min-height: 0;
 }
 
 .transitionImage {

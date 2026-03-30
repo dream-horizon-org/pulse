@@ -4,7 +4,7 @@ services:
     image: mysql:8.0
     container_name: pulse-mysql
     ports:
-      - "3307:3306"  # Using 3307 on host to avoid conflicts
+      - "3307:3306" # Using 3307 on host to avoid conflicts
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-pulse_root_password}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
@@ -17,7 +17,16 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER:-pulse_user}", "-p${MYSQL_PASSWORD:-pulse_password}" ]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u${MYSQL_USER:-pulse_user}",
+          "-p${MYSQL_PASSWORD:-pulse_password}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +38,7 @@ services:
   openfga-migrate:
     image: alpine:3.19
     container_name: pulse-openfga-migrate
-    command: [ "/bin/sh", "/scripts/migrate-openfga.sh" ]
+    command: ["/bin/sh", "/scripts/migrate-openfga.sh"]
     environment:
       - OPENFGA_VERSION=1.5.3
       - MYSQL_HOST=mysql
@@ -58,9 +67,9 @@ services:
       - OPENFGA_DATASTORE_URI=pulse_user:pulse_password@tcp(mysql:3306)/openfga?parseTime=true
       - OPENFGA_PLAYGROUND_ENABLED=true
     ports:
-      - "8180:8080"   # HTTP API (using 8180 to avoid conflicts)
-      - "8181:8081"   # gRPC API
-      - "3001:3000"   # Playground UI
+      - "8180:8080" # HTTP API (using 8180 to avoid conflicts)
+      - "8181:8081" # gRPC API
+      - "3001:3000" # Playground UI
     depends_on:
       mysql:
         condition: service_healthy
@@ -76,14 +85,14 @@ services:
   openfga-init:
     image: alpine:3.19
     container_name: pulse-openfga-init
-    command: [ "/bin/sh", "/scripts/init-openfga.sh" ]
+    command: ["/bin/sh", "/scripts/init-openfga.sh"]
     environment:
       - OPENFGA_URL=http://openfga:8080
     volumes:
       - ./openfga:/scripts:ro
     depends_on:
       openfga:
-        condition: service_started  # Init script waits for OpenFGA via curl
+        condition: service_started # Init script waits for OpenFGA via curl
     networks:
       - pulse-network
     restart: "no"
@@ -93,8 +102,8 @@ services:
     image: clickhouse/clickhouse-server:24.8
     container_name: pulse-clickhouse
     ports:
-      - "8123:8123"  # HTTP interface
-      - "9000:9000"  # Native client
+      - "8123:8123" # HTTP interface
+      - "9000:9000" # Native client
     environment:
       - CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE:-otel}
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
@@ -109,7 +118,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "clickhouse-client", "--query", "SELECT 1" ]
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -165,12 +174,19 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test:
+        [
+          "CMD",
+          "kafka-topics",
+          "--bootstrap-server",
+          "localhost:9092",
+          "--list",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 30s
-    
+
       # MinIO (S3-compatible storage for session recordings)
   minio:
     image: minio/minio:latest
@@ -209,7 +225,7 @@ services:
     depends_on:
       minio:
         condition: service_healthy
-    restart: "no"  # Only run once
+    restart: "no" # Only run once
 
   # Session Capture Service (Rust — HTTP ingestion for mobile SDK)
   pulse-session-capture:
@@ -262,12 +278,12 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-    restart: unless-stopped    
+    restart: unless-stopped
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.137.0
     container_name: pulse-otel-collector
-    command: [ "--config=/etc/otel-collector.yaml" ]
+    command: ["--config=/etc/otel-collector.yaml"]
     volumes:
       - ../backend/ingestion/otel-collector.yaml:/etc/otel-collector.yaml:ro
     networks:
@@ -286,9 +302,9 @@ services:
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
       - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8888:8888"   # Prometheus metrics (collector internal)
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+      - "8888:8888" # Prometheus metrics (collector internal)
       - "13133:13133" # Health check
 
   # Pulse AI Agent (starts with the stack; set GOOGLE_API_KEY for Gemini — proxy/API may error without it)
@@ -318,7 +334,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -357,7 +373,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthcheck.txt" ]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthcheck.txt",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -369,7 +392,7 @@ services:
     profiles:
       - vector
     container_name: vector
-    command: [ ]
+    command: []
     environment:
       - VECTOR_LOG=debug
     volumes:
@@ -379,15 +402,16 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+      test:
+        ["CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 15s
     ports:
       - "8686:8686"
-      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
-      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
+      - "14317:4317" # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+      - "14318:4318" # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:
@@ -441,7 +465,7 @@ services:
       - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
-     
+
       # Session Replay S3 (MinIO in dev)
       - SESSION_REPLAY_S3_BUCKET=${SESSION_REPLAY_S3_BUCKET:-session-recordings}
       - SESSION_REPLAY_S3_ENDPOINT=${SESSION_REPLAY_S3_ENDPOINT:-http://minio:9000}
@@ -513,7 +537,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -559,10 +583,10 @@ services:
       clickhouse:
         condition: service_healthy
       minio-init:
-        condition: service_completed_successfully  
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:4000/healthcheck" ]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -585,7 +609,6 @@ volumes:
   pulse-ai-sessions:
     driver: local
   kafka-data:
-    driver: local    
+    driver: local
   minio-data:
-    driver: local  
-
+    driver: local

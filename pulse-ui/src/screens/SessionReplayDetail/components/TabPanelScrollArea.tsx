@@ -3,20 +3,9 @@ import type { ReactNode } from "react";
 import classes from "../SessionReplayDetail.module.css";
 
 /**
- * Scrollable tab body (Network, App Vitals, Events, etc.).
- * Native overflow — Mantine ScrollArea often ignores max-height with flex parents.
+ * Scrollable tab body (Network, App Vitals, Interaction, etc.).
+ * Height comes from the flex chain (tabContent → panel); no fixed max-height.
  */
-export const TAB_PANEL_SCROLL_MAX = "min(520px, calc(100vh - 300px))";
-
 export function TabPanelScrollArea({ children }: { children: ReactNode }) {
-  return (
-    <Box
-      className={classes.tabPanelScroll}
-      style={{
-        maxHeight: TAB_PANEL_SCROLL_MAX,
-      }}
-    >
-      {children}
-    </Box>
-  );
+  return <Box className={classes.tabPanelScroll}>{children}</Box>;
 }

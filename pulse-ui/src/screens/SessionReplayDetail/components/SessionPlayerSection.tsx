@@ -61,6 +61,7 @@ export function SessionPlayerSection({
       </Box>
       <Box className={classes.playerControlsSlot}>
         <PlayerControls
+          compact={compact}
           currentTime={currentTime}
           duration={duration ?? sessionData.duration}
           isPlaying={isPlaying}

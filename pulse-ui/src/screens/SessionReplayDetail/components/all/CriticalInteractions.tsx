@@ -1,5 +1,17 @@
-import { Box, Text, Group, Badge, Card, Stack } from "@mantine/core";
-import { IconCheck, IconX, IconExternalLink } from "@tabler/icons-react";
+import type { MouseEvent } from "react";
+import {
+  Box,
+  Text,
+  Group,
+  Badge,
+  Card,
+  Stack,
+  Paper,
+  Center,
+  ThemeIcon,
+  Title,
+} from "@mantine/core";
+import { IconHandClick } from "@tabler/icons-react";
 import { useLocation } from "react-router-dom";
 import type { CriticalInteraction } from "../../../../services/sessionReplay/mockSessionDetail";
 import { ROUTES } from "../../../../constants";
@@ -8,19 +20,14 @@ import {
   FORMAT_STRINGS,
   MESSAGES,
 } from "../../constants/strings";
+import classes from "./CriticalInteractions.module.css";
 
 interface CriticalInteractionsProps {
   criticalInteractions: CriticalInteraction[];
   onCriticalInteractionClick?: (t0: number, t1: number) => void;
   projectId?: string;
-}
-
-function getStatusIcon(status: "success" | "failed" | "not_attempted") {
-  if (status === "success")
-    return <IconCheck size={14} color="var(--mantine-color-teal-6)" />;
-  if (status === "failed")
-    return <IconX size={14} color="var(--mantine-color-red-6)" />;
-  return null;
+  /** When false, omit the top-right success summary (e.g. shown in panel toolbar instead). */
+  hideSummaryBadge?: boolean;
 }
 
 function getStatusColor(status: "success" | "failed" | "not_attempted") {
@@ -33,6 +40,7 @@ export function CriticalInteractions({
   criticalInteractions,
   onCriticalInteractionClick,
   projectId: projectIdProp,
+  hideSummaryBadge = false,
 }: CriticalInteractionsProps) {
   const { pathname } = useLocation();
   const projectIdFromUrl = pathname.match(/\/projects\/([^/]+)/)?.[1];
@@ -44,30 +52,42 @@ export function CriticalInteractions({
 
   if (criticalInteractions.length === 0) {
     return (
-      <Box py="xl" px="md" mih={200}>
-        <Group align="flex-start" gap="sm" wrap="nowrap">
-          <Text size="sm" c="dimmed" ta="left" lh={1.5} maw="100%">
-            {MESSAGES.NO_CRITICAL_INTERACTIONS}
-          </Text>
-        </Group>
-      </Box>
+      <Paper withBorder p="xl" radius="md" bg="gray.0">
+        <Center>
+          <Stack align="center" gap="md" maw={420}>
+            <ThemeIcon size={56} radius="md" variant="light" color="teal">
+              <IconHandClick size={28} stroke={1.5} />
+            </ThemeIcon>
+            <Stack gap={6} align="center">
+              <Title order={5} ta="center" fw={600}>
+                No critical interactions
+              </Title>
+              <Text size="sm" c="dimmed" ta="center" lh={1.6}>
+                {MESSAGES.NO_CRITICAL_INTERACTIONS}
+              </Text>
+            </Stack>
+          </Stack>
+        </Center>
+      </Paper>
     );
   }
 
   return (
     <Box>
-      <Group justify="flex-end" mb="xs">
-        <Badge size="xs" variant="light" color="blue">
-          {FORMAT_STRINGS.SUCCESSFUL_COUNT.replace(
-            "{success}",
-            successCount.toString(),
-          ).replace("{total}", criticalInteractions.length.toString())}
-        </Badge>
-      </Group>
+      {!hideSummaryBadge ? (
+        <Group justify="flex-end" mb="xs">
+          <Badge size="xs" variant="light" color="blue">
+            {FORMAT_STRINGS.SUCCESSFUL_COUNT.replace(
+              "{success}",
+              successCount.toString(),
+            ).replace("{total}", criticalInteractions.length.toString())}
+          </Badge>
+        </Group>
+      ) : null}
       <Card padding="sm" withBorder>
-        <Stack gap="sm">
+        <Stack gap={0} className={classes.list}>
           {criticalInteractions.map((interaction) => {
-            const handleClick = () => {
+            const handleRowClick = () => {
               if (
                 interaction.timestamp !== undefined &&
                 interaction.latency !== undefined &&
@@ -91,83 +111,71 @@ export function CriticalInteractions({
                 ? `${ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(":projectId", projectId)}/${nameForUrl.replace(/\s+/g, "")}`
                 : null;
 
-            const openInteractionDetail = (e: React.MouseEvent) => {
-              e.stopPropagation();
-              e.preventDefault();
-              if (!path) return;
-              window.open(path, "_blank");
-            };
+            const canSeek =
+              interaction.timestamp !== undefined &&
+              interaction.latency !== undefined &&
+              !!onCriticalInteractionClick;
 
             return (
-              <Group
+              <div
                 key={interaction.interactionId}
-                justify="space-between"
-                wrap="nowrap"
-                style={{
-                  cursor:
-                    interaction.timestamp !== undefined &&
-                    interaction.latency !== undefined
-                      ? "pointer"
-                      : "default",
-                }}
-                onClick={handleClick}
+                className={`${classes.row} ${canSeek ? classes.rowSeekable : ""}`}
+                onClick={canSeek ? handleRowClick : undefined}
+                role={canSeek ? "button" : undefined}
+                tabIndex={canSeek ? 0 : undefined}
+                aria-label={
+                  canSeek
+                    ? `Seek replay to ${interaction.displayName}`
+                    : undefined
+                }
+                onKeyDown={
+                  canSeek
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleRowClick();
+                        }
+                      }
+                    : undefined
+                }
               >
-                <Group gap="xs" wrap="nowrap">
-                  {getStatusIcon(interaction.status)}
-                  {path ? (
-                    <Box
-                      component="button"
-                      type="button"
-                      onClick={openInteractionDetail}
-                      style={{
-                        flex: 1,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: 0,
-                        border: "none",
-                        background: "none",
-                        cursor: "pointer",
-                        color: "var(--mantine-color-blue-6)",
-                        textDecoration: "none",
-                        fontWeight: 500,
-                        fontSize: "var(--mantine-font-size-sm)",
-                        textAlign: "left",
-                        font: "inherit",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.textDecoration = "underline";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.textDecoration = "none";
-                      }}
+                {/* Grid: name (flex) | status | Apdex — columns align across rows */}
+                <div className={classes.mainLine}>
+                  <Text
+                    component={path ? "a" : "span"}
+                    href={path ?? undefined}
+                    target={path ? "_blank" : undefined}
+                    rel={path ? "noopener noreferrer" : undefined}
+                    size="sm"
+                    fw={600}
+                    className={path ? classes.nameLink : classes.nameCol}
+                    onClick={
+                    path
+                      ? (e: MouseEvent<HTMLAnchorElement>) =>
+                          e.stopPropagation()
+                      : undefined
+                  }
+                  >
+                    {interaction.displayName}
+                  </Text>
+                  <div className={classes.statusCol}>
+                    <Badge
+                      size="sm"
+                      color={getStatusColor(interaction.status)}
+                      variant="light"
                     >
-                      {interaction.displayName}
-                      <IconExternalLink size={14} style={{ flexShrink: 0 }} />
-                    </Box>
-                  ) : (
-                    <Text size="sm" fw={500} style={{ flex: 1 }}>
-                      {interaction.displayName}
-                    </Text>
-                  )}
-                </Group>
-                <Group gap="xs" wrap="nowrap">
-                  <Text size="xs" c="dimmed">
+                      {interaction.status === "success"
+                        ? STATUS_LABELS.SUCCESS
+                        : interaction.status === "failed"
+                          ? STATUS_LABELS.FAILED
+                          : STATUS_LABELS.NOT_ATTEMPTED}
+                    </Badge>
+                  </div>
+                  <Text size="xs" c="dimmed" className={classes.metricCol}>
                     Apdex {apdexValue}
                   </Text>
-                  <Badge
-                    size="sm"
-                    color={getStatusColor(interaction.status)}
-                    variant="light"
-                  >
-                    {interaction.status === "success"
-                      ? STATUS_LABELS.SUCCESS
-                      : interaction.status === "failed"
-                        ? STATUS_LABELS.FAILED
-                        : STATUS_LABELS.NOT_ATTEMPTED}
-                  </Badge>
-                </Group>
-              </Group>
+                </div>
+              </div>
             );
           })}
         </Stack>

@@ -529,6 +529,16 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/interactions/performance-metric/distribution`,
     method: API_METHODS.POST,
   },
+  GET_HEATMAP_DATA: {
+    key: "GET_HEATMAP_DATA",
+    apiPath: `/v1/heatmap/data`,
+    method: API_METHODS.GET,
+  },
+  POST_HEATMAP_DATA: {
+    key: "POST_HEATMAP_DATA",
+    apiPath: `/api/v1/projects/:projectId/heatmap/data`,
+    method: API_METHODS.POST,
+  },
   GET_JOB_FILTERS: {
     key: "GET_JOB_FILTERS",
     apiPath: `/v2/getJobFilters`,

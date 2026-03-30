@@ -109,7 +109,7 @@ export function ConsoleVisualization({ consoleLogs, sessionStartTime }: ConsoleV
   }, [consoleLogs]);
 
   return (
-    <Box>
+    <Box w="100%" style={{ display: "flex", flexDirection: "column" }}>
       <Group justify="space-between" mb="md">
         <Text size="xs" tt="uppercase" fw={600} c="dimmed">
           Console Logs Visualization

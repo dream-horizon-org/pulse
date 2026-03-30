@@ -1,42 +1,93 @@
 .summary {
   border-radius: var(--mantine-radius-md);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  width: 100%;
 }
 
-.infoRow {
+.summaryBody {
+  padding: 14px var(--mantine-spacing-lg);
+}
+
+.sessionIdBlock {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--mantine-spacing-lg);
-  flex-wrap: wrap;
-  padding: 12px var(--mantine-spacing-lg);
-  border-bottom: 1px solid var(--mantine-color-gray-1);
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
 }
 
-.idsBlock {
-  flex: 1 1 220px;
-  min-width: 0;
-  max-width: 100%;
+/* Five equal columns on wide viewports — fills card width with even spacing */
+.metricsRow {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px 16px;
+  align-items: start;
 }
 
-.idLine {
+.metric {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/*
+ * Labels: smaller than body (sm) and muted — matches tab descriptions / secondary UI.
+ * Use Box in TSX so Mantine Text defaults don’t inflate label size.
+ */
+.metricLabel {
+  font-family: var(--mantine-font-family);
+  font-size: 0.6875rem; /* 11px — below xs (12px) and sm (14px) */
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  color: var(--mantine-color-gray-5);
+}
+
+/*
+ * Layout + color for value cells. Use Text size="sm" fw={500} in TSX so font size
+ * matches User / Quality (Mantine typography), not a custom font-size rule.
+ */
+.metricValue {
+  color: var(--mantine-color-dark-7);
   line-height: 1.45;
+  min-width: 0;
+  word-break: break-word;
 }
 
-.metricsGroup {
-  flex: 0 1 auto;
-  align-items: center;
-  justify-content: flex-end;
+@media (max-width: 75em) {
+  .metricsRow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
-.infoItem {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+@media (max-width: 48em) {
+  .metricsRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-/* Dark mode */
-[data-mantine-color-scheme="dark"] .infoRow {
+@media (max-width: 30em) {
+  .metricsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+[data-mantine-color-scheme="dark"] .summary {
+  box-shadow: none;
+}
+
+[data-mantine-color-scheme="dark"] .sessionIdBlock {
   border-bottom-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .metricLabel {
+  color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .metricValue {
+  color: var(--mantine-color-gray-2);
 }

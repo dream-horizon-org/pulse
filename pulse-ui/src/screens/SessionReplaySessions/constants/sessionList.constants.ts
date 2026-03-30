@@ -23,14 +23,17 @@ export const QUALITY_THRESHOLDS = {
 /** Max journey segments shown in table before truncation (legacy) */
 export const JOURNEY_DISPLAY_LIMIT = 3;
 
-/** Max impacted screen names shown in table before truncation */
-export const IMPACTED_SCREENS_DISPLAY_LIMIT = 3;
+/** Max impacted interaction paths shown in table (lowest paths first; see sessionListUtils) */
+export const IMPACTED_SCREENS_DISPLAY_LIMIT = 2;
+
+/** Max issue badges shown per row (highest severity first) */
+export const ISSUES_DISPLAY_LIMIT = 2;
 
 export const SESSION_LIST_LABELS = {
   backToInsights: "Back to Insights",
   pageTitle: "Session List",
   pageSubtitle:
-    "Watch reconstructed user sessions to understand why interactions failed, conversions dropped, or users got frustrated",
+    "Watch reconstructed user sessions to understand why interactions failed, conversions dropped, or users got frustrated. Click a session to open the replay and see the full journey.",
   emptyStateSubtitleFiltered: "Filtered sessions based on your selection",
   emptyStateTitle: "No Sessions Found",
   emptyStateDescriptionWithFilters:
@@ -43,9 +46,6 @@ export const SESSION_LIST_LABELS = {
   timeRangePlaceholder: "Select range",
   fromDatePlaceholder: "From date",
   toDatePlaceholder: "To date",
-  sectionTitle: "Sessions for Investigation",
-  sectionDescription:
-    "Click on any session to watch the replay and understand the full user journey",
   quickFiltersLabel: "Quick filters:",
   advancedFilters: "Advanced Filters",
   searchPlaceholder: "Search by userId, sessionId...",
@@ -57,6 +57,8 @@ export const SESSION_LIST_LABELS = {
   anonymousUser: "Anonymous",
   noQuality: "NA",
   noImpactedScreens: "Na",
+  /** Critical interactions column when listing has no Pulse names and no legacy paths */
+  noCriticalInteractions: "—",
   watchSession: "Watch session",
   openInNewTab: "Open in new tab",
   clean: "Clean",

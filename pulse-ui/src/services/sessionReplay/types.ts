@@ -664,7 +664,13 @@ export type SessionItem = {
   platform: string;
   spanCount: number;
   journey: string[];
+  /** Legacy: screen paths by issue type. Prefer {@link criticalInteractionNames} for listing. */
   impactedScreens: ImpactedScreens | null;
+  /**
+   * Pulse critical interaction names (same contract as session detail Interaction tab).
+   * Listing shows a preview; full set may exist on detail.
+   */
+  criticalInteractionNames?: string[];
 };
 
 export type SessionListingResponse = {

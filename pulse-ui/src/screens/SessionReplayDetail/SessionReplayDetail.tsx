@@ -1,5 +1,5 @@
 import { Box, Center, Loader, Stack, Text } from "@mantine/core";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import { FlameChartNode } from "../SessionTimeline/utils/flameChartTransform";
@@ -12,13 +12,13 @@ import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
 import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
+import { usePlayerRightPanelHeight } from "./hooks/usePlayerRightPanelHeight";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
 import classes from "./SessionReplayDetail.module.css";
 
 export const SessionReplayDetail: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedSpan, setSelectedSpan] = useState<FlameChartNode | null>(null);
   const [scrollToTimestamp, setScrollToTimestamp] = useState<{
@@ -66,11 +66,8 @@ export const SessionReplayDetail: React.FC = () => {
     snapshotDurationMs > 0 ? snapshotDurationMs : sessionData.duration;
 
   const handleBack = () => {
-    const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
-    const base = projectMatch
-      ? `/projects/${projectMatch[1]}/session-replay/sessions`
-      : "/session-replay/sessions";
-    navigate(base);
+    // Browser history step back (e.g. Interaction Details → replay → Back returns to Interaction Details).
+    navigate(-1);
   };
 
   const handleSpanClick = (item: FlameChartNode) => {
@@ -127,6 +124,8 @@ export const SessionReplayDetail: React.FC = () => {
     setPlaybackSpeed(speed);
   }, []);
 
+  const { playerLeftRef, syncHeightPx } = usePlayerRightPanelHeight();
+
   if (sessionLoading && !apiSessionData) {
     return (
       <Center className={classes.container} style={{ minHeight: 400 }}>
@@ -142,13 +141,15 @@ export const SessionReplayDetail: React.FC = () => {
 
   return (
     <Box className={classes.container}>
-      <SessionHeader onBack={handleBack} />
-      <>
+      <Box className={classes.detailHeader}>
+        <SessionHeader onBack={handleBack} />
+      </Box>
+      <Box className={classes.detailMain}>
         <Box className={classes.summarySection}>
           <SessionSummary sessionData={sessionData} />
         </Box>
         <Box className={classes.playerSectionSplit}>
-          <Box className={classes.playerSectionLeft}>
+          <Box ref={playerLeftRef} className={classes.playerSectionLeft}>
             <SessionPlayerSection
               sessionData={sessionData}
               images={replayImages}
@@ -165,21 +166,38 @@ export const SessionReplayDetail: React.FC = () => {
               onSpeedChange={handleSpeedChange}
             />
           </Box>
-          <Box className={classes.playerSectionRight}>
+          <Box
+            className={`${classes.playerSectionRight}${
+              syncHeightPx !== undefined
+                ? ` ${classes.playerSectionRightMatched}`
+                : ""
+            }`}
+            style={
+              syncHeightPx !== undefined
+                ? {
+                    height: syncHeightPx,
+                    minHeight: syncHeightPx,
+                    maxHeight: syncHeightPx,
+                  }
+                : undefined
+            }
+          >
             <SessionTabs
               activeTab={activeTab}
               sessionData={sessionData}
               currentTime={currentTime}
+              isPlaying={isPlaying}
               scrollToTimestamp={scrollToTimestamp}
               onEventClick={handleSpanClick}
               networkViewMode={networkViewMode}
               onTabChange={setActiveTab}
               onCriticalInteractionClick={handleCriticalInteractionClick}
               onNetworkViewModeChange={setNetworkViewMode}
+              matchPlayerHeight={syncHeightPx !== undefined}
             />
           </Box>
         </Box>
-      </>
+      </Box>
       {/* Session Timeline section commented out
       <SessionTimelineSection
         flameChartData={flameChartData}

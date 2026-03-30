@@ -13,6 +13,7 @@ import type {
   CriticalInteraction,
   SessionEvent,
   NetworkRequest,
+  ConsoleLog,
 } from "../../../services/sessionReplay/mockSessionDetail";
 
 const TRACE_FIELDS = [
@@ -123,6 +124,7 @@ export function sessionDetailApiToData(
   const traces = buildTracesFromEvents(api.events ?? [], baseMs);
   const logs = buildEmptyLogs();
   const exceptions = buildExceptionsFromApi(api.exceptions ?? [], baseMs);
+  const consoleLogs = deriveConsoleLogsFromEvents(api.events ?? [], baseMs);
 
   const criticalInteractions: CriticalInteraction[] = (
     api.interactions ?? []
@@ -181,7 +183,7 @@ export function sessionDetailApiToData(
     logs,
     exceptions,
     events,
-    consoleLogs: [],
+    consoleLogs,
     networkRequests,
     performance: {
       interactionMetrics: (api.interactions ?? []).map((i, index) => ({
@@ -227,6 +229,62 @@ function buildEmptyLogs(): SessionDetailData["logs"] {
     fields: LOG_FIELDS,
     rows: [],
   };
+}
+
+/**
+ * Derive in-app console lines from session events so the Console tab is populated without a separate API field.
+ */
+function deriveConsoleLogsFromEvents(
+  events: SessionDetailEvent[],
+  baseMs: number,
+): ConsoleLog[] {
+  const out: ConsoleLog[] = [];
+  let uiSteps = 0;
+  const maxUiSteps = 18;
+
+  for (const e of events) {
+    const ts = parseEventTimestampMs(e.timestamp, baseMs);
+    const desc = (e.description ?? "").trim();
+    if (e.eventType === "error") {
+      out.push({ timestamp: ts, level: "error", message: desc || "Error" });
+      continue;
+    }
+    if (e.eventType === "interaction") {
+      out.push({
+        timestamp: ts,
+        level: "log",
+        message: desc || "Interaction",
+      });
+      continue;
+    }
+    if (e.eventType === "api_call") {
+      const ms = (e.durationNs ?? 0) / 1e6;
+      const slow = ms > 1500;
+      const badStatus = /(?:^|\s)(?:50[0-9]|504|timeout|Timeout)(?:\s|$)/i.test(
+        desc,
+      );
+      if (slow || badStatus) {
+        out.push({
+          timestamp: ts,
+          level: badStatus ? "error" : "warn",
+          message: slow ? `[${Math.round(ms)}ms] ${desc}` : desc,
+        });
+      }
+      continue;
+    }
+    if (
+      (e.eventType === "navigation" || e.eventType === "click") &&
+      uiSteps < maxUiSteps
+    ) {
+      uiSteps += 1;
+      out.push({
+        timestamp: ts,
+        level: "log",
+        message: desc || e.eventType,
+      });
+    }
+  }
+  return out.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 function buildExceptionsFromApi(
