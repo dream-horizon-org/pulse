@@ -11,7 +11,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 24px;
+  padding: 16px 24px;
   background: #fff;
   border-bottom: 1px solid #e9ecef;
   flex-shrink: 0;
@@ -31,10 +31,11 @@
 }
 
 .moduleTitle {
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 700;
-  color: #1e293b;
-  letter-spacing: -0.3px;
+  color: var(--mantine-color-dark-8);
+  margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
 }
 
 /* ============ Filter Bar ============ */

@@ -162,12 +162,12 @@ export function FunnelsJourneysList() {
         accessor: "status",
         title: "Status",
         render: (row: FunnelJourneyListItem) => (
-          <Badge
-            color={row.status === "ACTIVE" ? "teal" : row.status === "CREATING" ? "blue" : "gray"}
-            variant="light"
-          >
-            {row.status === "ACTIVE" ? "Active" : row.status === "CREATING" ? "Creating" : "Stopped"}
-          </Badge>
+        <Badge
+          color={row.status === "ACTIVE" ? "teal" : row.status === "CREATING" ? "blue" : row.status === "UPDATING" ? "orange" : "gray"}
+          variant="light"
+        >
+          {row.status === "ACTIVE" ? "Active" : row.status === "CREATING" ? "Creating" : row.status === "UPDATING" ? "Updating" : "Stopped"}
+        </Badge>
         ),
       },
       {
