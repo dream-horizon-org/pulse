@@ -2,7 +2,10 @@ import { Group, Paper, Text, Tooltip } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useMemo } from "react";
 import type { HeatmapDataResponse } from "./heatmap.types";
-import { getInteractionLayerScores } from "./heatmapInteractionScores";
+import {
+  formatInteractionScore01,
+  getInteractionLayerScores,
+} from "./heatmapInteractionScores";
 import classes from "./HeatmapPanel.module.css";
 import { bandFromNumericScore, heatmapScoreColor } from "./heatmapQuality";
 
@@ -19,7 +22,9 @@ export function HeatmapAggregatesInteractionAvgCard({
   const scores = useMemo(() => getInteractionLayerScores(payload), [payload]);
   const average = scores.average;
   const hasAvg = average != null;
-  const band = hasAvg ? bandFromNumericScore(average) : "nodata";
+  const band = hasAvg
+    ? bandFromNumericScore(Math.round(average * 100))
+    : "nodata";
 
   return (
     <Paper
@@ -40,7 +45,7 @@ export function HeatmapAggregatesInteractionAvgCard({
           Avg interaction score
         </Text>
         <Tooltip
-          label="Screen-wide average across Tap, Rage, and Dead layers that have bins (same 0–100 model as map quality). Use it alongside the heatmap for any signal—not only rage or dead."
+          label="Screen-wide average on a 0–1 scale (same blend as map quality, normalized). Use it alongside the heatmap for any signal—not only rage or dead."
           multiline
           w={300}
           withArrow
@@ -56,7 +61,7 @@ export function HeatmapAggregatesInteractionAvgCard({
 
       {hasAvg ? (
         <Tooltip
-          label="Mean of per-layer scores for layers with telemetry. Each layer uses bin coverage vs total events on this screen and hotspot concentration."
+          label="Mean of per-layer 0–1 scores for layers with telemetry (coverage vs total events and hotspot concentration per layer)."
           multiline
           w={280}
           withArrow
@@ -69,7 +74,7 @@ export function HeatmapAggregatesInteractionAvgCard({
               cursor: "help",
             }}
           >
-            {String(average)}
+            {formatInteractionScore01(average)}
           </Text>
         </Tooltip>
       ) : (

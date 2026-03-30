@@ -1,7 +1,10 @@
 import { Fragment, useMemo } from "react";
 import { Group, Paper, Text, Tooltip } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
-import { getInteractionLayerScores } from "./heatmapInteractionScores";
+import {
+  formatInteractionScore01,
+  getInteractionLayerScores,
+} from "./heatmapInteractionScores";
 import {
   HEATMAP_QUALITY_AVERAGE_MIN,
   HEATMAP_QUALITY_GOOD_MIN,
@@ -20,9 +23,10 @@ function accountedLayersLine(scores: ReturnType<typeof getInteractionLayerScores
   return parts.length > 0 ? parts.join(" · ") : "None in this scope";
 }
 
-function bandForScore(score: number | null): HeatmapQualityMetrics["band"] {
+/** Scores are 0–1; bands match map quality when scaled ×100. */
+function bandForScore01(score: number | null): HeatmapQualityMetrics["band"] {
   if (score == null) return "nodata";
-  return bandFromNumericScore(score);
+  return bandFromNumericScore(Math.round(score * 100));
 }
 
 export interface HeatmapAggregatesInteractionsCardProps {
@@ -58,7 +62,7 @@ export function HeatmapAggregatesInteractionsCard({
           Interaction breakdown
         </Text>
         <Tooltip
-          label="Screen-level scores for this heatmap scope. Read next to the map for Tap, Rage, or Dead—same model as map quality per layer."
+          label="Screen-level scores on a 0–1 scale for this heatmap scope. Read next to the map for Tap, Rage, or Dead—same blend as map quality per layer."
           multiline
           w={300}
           withArrow
@@ -98,7 +102,7 @@ export function HeatmapAggregatesInteractionsCard({
 
       <div className={classes.aggregatesKvGrid}>
         {perType.map((row) => {
-          const b = bandForScore(row.score);
+          const b = bandForScore01(row.score);
           return (
             <Fragment key={row.label}>
               <Text size="sm" c="dimmed" className={classes.aggregatesKvLabel}>
@@ -110,7 +114,7 @@ export function HeatmapAggregatesInteractionsCard({
                 className={classes.aggregatesKvValue}
                 style={{ color: heatmapScoreColor(b) }}
               >
-                {row.score != null ? String(row.score) : "—"}
+                {formatInteractionScore01(row.score)}
               </Text>
             </Fragment>
           );
@@ -118,9 +122,11 @@ export function HeatmapAggregatesInteractionsCard({
       </div>
 
       <Text size="10px" c="dimmed" lh={1.4} mt={8}>
-        Same 0–100 bands as map quality: Good {HEATMAP_QUALITY_GOOD_MIN}+ · Average{" "}
-        {HEATMAP_QUALITY_AVERAGE_MIN}–{HEATMAP_QUALITY_GOOD_MIN - 1} · Poor below{" "}
-        {HEATMAP_QUALITY_AVERAGE_MIN}.
+        Bands (0–1 scale, same cutoffs as map quality): Good ≥
+        {(HEATMAP_QUALITY_GOOD_MIN / 100).toFixed(2)} · Average{" "}
+        {(HEATMAP_QUALITY_AVERAGE_MIN / 100).toFixed(2)}–
+        {((HEATMAP_QUALITY_GOOD_MIN - 1) / 100).toFixed(2)} · Poor below{" "}
+        {(HEATMAP_QUALITY_AVERAGE_MIN / 100).toFixed(2)}.
       </Text>
     </Paper>
   );

@@ -3,9 +3,16 @@ import type {
   HeatmapGlowPoint,
 } from "./heatmap.types";
 
+/** Clamp to [0, 1] with stable rounding for display. */
+function clampScore01(raw: number): number {
+  const x = Math.min(1, Math.max(0, raw));
+  return Math.round(x * 10_000) / 10_000;
+}
+
 /**
- * Per-layer readability (0–100): same blend as map quality — coverage in bins
- * vs total_events and single-bin dominance. Computed per interaction type.
+ * Per-layer readability on **0–1** scale: same blend as map quality — coverage in bins
+ * vs total_events and single-bin dominance. Map quality UI still uses 0–100; interaction
+ * scores are normalized to 0–1.
  */
 export function scoreForInteractionLayer(
   points: HeatmapGlowPoint[],
@@ -18,12 +25,16 @@ export function scoreForInteractionLayer(
   const maxW = Math.max(...points.map((p) => p.weight));
   const coverage = Math.min(1, sumW / totalEvents);
   const dominance = sumW > 0 ? maxW / sumW : 0;
-  return Math.min(
-    100,
-    Math.max(0, Math.round(100 * (0.35 * coverage + 0.65 * dominance))),
-  );
+  return clampScore01(0.35 * coverage + 0.65 * dominance);
 }
 
+/** Format a 0–1 interaction score for UI (two decimal places). */
+export function formatInteractionScore01(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return n.toFixed(2);
+}
+
+/** Per-layer and aggregate scores on **[0, 1]** (same formula as map quality, ÷100). */
 export interface InteractionLayerScores {
   tap: number | null;
   rage: number | null;
@@ -61,7 +72,9 @@ export function getInteractionLayerScores(
   );
   const average =
     present.length > 0
-      ? Math.round(present.reduce((a, b) => a + b, 0) / present.length)
+      ? clampScore01(
+          present.reduce((a, b) => a + b, 0) / present.length,
+        )
       : null;
 
   return { tap, rage: rageS, dead: deadS, average };
