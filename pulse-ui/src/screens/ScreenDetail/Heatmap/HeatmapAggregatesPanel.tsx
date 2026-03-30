@@ -7,6 +7,8 @@ import {
   formatInt,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
+import type { HeatmapQualityMetrics } from "./heatmapQuality";
+import { HeatmapAggregatesQualityCard } from "./HeatmapAggregatesQualityCard";
 import classes from "./HeatmapPanel.module.css";
 
 function formatWeight(n: number): string {
@@ -26,17 +28,18 @@ function AggregatesCard({
   return (
     <Paper
       className={classes.aggregatesSubCard}
-      radius="md"
-      p="xs"
+      radius="sm"
+      p={8}
       withBorder
     >
       <Text
+        className={classes.aggregatesCardTitle}
         size="xs"
         fw={700}
         c="#0ba09a"
         tt="uppercase"
-        mb="xs"
-        style={{ letterSpacing: "0.06em" }}
+        mb={6}
+        style={{ letterSpacing: "0.05em" }}
       >
         {title}
       </Text>
@@ -65,12 +68,14 @@ function AggregateRows({ rows }: { rows: { label: string; value: string }[] }) {
 export interface HeatmapAggregatesPanelProps {
   payload: HeatmapDataResponse;
   signal: HeatmapSignal;
+  qualityMetrics: HeatmapQualityMetrics;
 }
 
 /** Grouped aggregate cards for the current filters and signal. */
 export function HeatmapAggregatesPanel({
   payload,
   signal,
+  qualityMetrics,
 }: HeatmapAggregatesPanelProps) {
   const snap = useMemo(
     () => buildHeatmapAggregateSnapshot(payload, signal),
@@ -132,31 +137,40 @@ export function HeatmapAggregatesPanel({
 
   return (
     <Stack gap="sm" className={classes.aggregatesStack}>
-      <AggregatesCard title="Signal &amp; scope">
-        <AggregateRows rows={scopeRows} />
-      </AggregatesCard>
+      <div className={classes.aggregatesGrid}>
+        <div className={classes.aggregatesQualitySpan}>
+          <HeatmapAggregatesQualityCard
+            payload={payload}
+            qualityMetrics={qualityMetrics}
+          />
+        </div>
 
-      <AggregatesCard title="Selected layer">
-        <AggregateRows rows={currentLayerRows} />
-      </AggregatesCard>
-
-      {showGlowCard && (
-        <AggregatesCard title="All interactions (glow_map)">
-          <AggregateRows rows={glowRows} />
+        <AggregatesCard title="Signal &amp; scope">
+          <AggregateRows rows={scopeRows} />
         </AggregatesCard>
-      )}
 
-      <AggregatesCard title="Frustration">
-        <AggregateRows rows={frustrationRows} />
-      </AggregatesCard>
-
-      {obsRows.length > 0 && (
-        <AggregatesCard title="Observability">
-          <AggregateRows rows={obsRows} />
+        <AggregatesCard title="Selected layer">
+          <AggregateRows rows={currentLayerRows} />
         </AggregatesCard>
-      )}
 
-      <Text size="xs" c="dimmed" lh={1.45} px={4}>
+        {showGlowCard && (
+          <AggregatesCard title="All interactions">
+            <AggregateRows rows={glowRows} />
+          </AggregatesCard>
+        )}
+
+        <AggregatesCard title="Frustration">
+          <AggregateRows rows={frustrationRows} />
+        </AggregatesCard>
+
+        {obsRows.length > 0 && (
+          <AggregatesCard title="Observability">
+            <AggregateRows rows={obsRows} />
+          </AggregatesCard>
+        )}
+      </div>
+
+      <Text size="xs" c="dimmed" lh={1.45} px={2}>
         Weights are aggregated bin totals from telemetry for this screen and
         filter scope—not raw session counts.
       </Text>

@@ -10,6 +10,7 @@ import {
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import type { HeatmapDataResponse } from "./heatmap.types";
+import { getHeatmapQualityMetrics } from "./heatmapQuality";
 import {
   HEATMAP_SIGNALS,
   glowLayerForSignal,
@@ -148,12 +149,14 @@ export function HeatmapComparePanel({
               <HeatmapAggregatesPanel
                 payload={compareLeftPayload}
                 signal={signal}
+                qualityMetrics={getHeatmapQualityMetrics(compareLeftPayload)}
               />
             </div>
             <div className={classes.compareAggregatesSlot}>
               <HeatmapAggregatesPanel
                 payload={compareRightPayload}
                 signal={signal}
+                qualityMetrics={getHeatmapQualityMetrics(compareRightPayload)}
               />
             </div>
           </div>

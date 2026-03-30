@@ -121,21 +121,6 @@
   margin-bottom: var(--mantine-spacing-xs);
 }
 
-.heatmapQualityRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: var(--mantine-spacing-sm);
-  padding-top: var(--mantine-spacing-sm);
-  border-top: 1px solid rgba(14, 201, 194, 0.12);
-}
-
-.qualityChipsColumn {
-  flex: 1 1 220px;
-  min-width: 0;
-}
-
 .heatmapSplit {
   display: flex;
   flex-direction: row;
@@ -177,8 +162,54 @@
   padding-right: 2px;
 }
 
+/* Full-width first row: map quality card */
+.aggregatesQualitySpan {
+  grid-column: 1 / -1;
+}
+
+.aggregatesQualityScore {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+}
+
+.aggregatesQualityChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.aggregatesQualityChip {
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+}
+
+/* 2-up card grid; wraps to new rows; stays compact on narrow sidebars. */
+.aggregatesGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 340px) {
+  .aggregatesGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .aggregatesSubCard {
   background: #f8fafb !important;
+  min-width: 0;
+}
+
+.aggregatesCardTitle {
+  font-size: 10px !important;
+  line-height: 1.25 !important;
 }
 
 @media (max-width: 900px) {
@@ -197,25 +228,29 @@
   background: #f8fafb !important;
 }
 
-/* Two content-sized columns: aligned across rows, no full-width label/value gap. */
+/* Label | value: value column right-aligned, consistent within each card. */
 .aggregatesKvGrid {
   display: grid;
-  grid-template-columns: max-content max-content;
-  column-gap: 0.75rem;
-  row-gap: 0.35rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  row-gap: 4px;
   align-items: baseline;
-  justify-content: start;
   width: 100%;
-  max-width: 100%;
+  min-width: 0;
 }
 
 .aggregatesKvLabel {
   min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .aggregatesKvValue {
   white-space: nowrap;
   text-align: right;
+  font-size: 12px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
 }
 
 .summaryQualityInfo {

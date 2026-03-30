@@ -16,7 +16,6 @@ import {
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
 import type { HeatmapQualityMetrics } from "./heatmapQuality";
-import { HeatmapQualityInline } from "./HeatmapQualityInline";
 
 export interface HeatmapMainCardProps {
   screenName: string;
@@ -102,11 +101,6 @@ export function HeatmapMainCard({
             </Text>
           </div>
         </div>
-
-        <HeatmapQualityInline
-          singlePayload={singlePayload}
-          qualityMetrics={qualityMetrics}
-        />
       </Box>
 
       <Box className={graphClasses.graphCard}>
@@ -202,6 +196,7 @@ export function HeatmapMainCard({
               <HeatmapAggregatesPanel
                 payload={singlePayload}
                 signal={signal}
+                qualityMetrics={qualityMetrics}
               />
             </div>
           </div>
