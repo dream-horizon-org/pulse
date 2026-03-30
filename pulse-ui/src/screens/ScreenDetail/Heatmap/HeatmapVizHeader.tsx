@@ -1,31 +1,30 @@
-import type { HeatmapRendererMode } from "./heatmapViz.types";
+import { Text } from "@mantine/core";
+import graphClasses from "../components/EngagementGraph.module.css";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapVizHeaderProps {
+  screenName?: string;
   signalLabel: string;
-  renderer: HeatmapRendererMode;
   totalTapsLabel?: string;
 }
 
 export function HeatmapVizHeader({
+  screenName,
   signalLabel,
-  renderer,
   totalTapsLabel,
 }: HeatmapVizHeaderProps) {
-  const rendererHint =
-    renderer === "heatmapjs"
-      ? "heatmap.js canvas on normalized points."
-      : "DOM radial plumes (large point sets are bucketed for performance).";
+  const title =
+    screenName?.trim() !== ""
+      ? `${screenName} · ${signalLabel} heatmap`
+      : `${signalLabel.charAt(0).toUpperCase()}${signalLabel.slice(1)} heatmap`;
 
   return (
-    <div>
-      <div className={classes.heatTitle}>
-        Sample {signalLabel} heatmap (aggregated)
-      </div>
-      <div className={classes.heatSubtitle}>
-        {rendererHint}
+    <div className={classes.heatVizHeader}>
+      <div className={graphClasses.graphTitle}>{title}</div>
+      <Text size="sm" c="dimmed" mt="xs" className={classes.heatSubtitle}>
+        Warmer colors mean more activity at that spot on the layout.
         {totalTapsLabel ? ` ${totalTapsLabel}.` : ""}
-      </div>
+      </Text>
     </div>
   );
 }

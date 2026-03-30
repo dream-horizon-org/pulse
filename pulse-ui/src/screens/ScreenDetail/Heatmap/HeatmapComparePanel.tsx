@@ -14,10 +14,8 @@ import {
   glowLayerForSignal,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
-import {
-  HeatmapVisualization,
-  type HeatmapRendererMode,
-} from "./HeatmapVisualization";
+import { HeatmapVisualization } from "./HeatmapVisualization";
+import graphClasses from "../components/EngagementGraph.module.css";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapComparePanelProps {
@@ -31,7 +29,6 @@ export interface HeatmapComparePanelProps {
   compareLeftPayload: HeatmapDataResponse | null | undefined;
   compareRightPayload: HeatmapDataResponse | null | undefined;
   compareSharedMax: number;
-  heatmapRenderer: HeatmapRendererMode;
 }
 
 export function HeatmapComparePanel({
@@ -45,10 +42,9 @@ export function HeatmapComparePanel({
   compareLeftPayload,
   compareRightPayload,
   compareSharedMax,
-  heatmapRenderer,
 }: HeatmapComparePanelProps) {
   return (
-    <Stack gap="md" className={classes.root}>
+    <Stack gap="md">
       <CompareToolbar
         signal={signal}
         onSignalChange={onSignalChange}
@@ -74,14 +70,12 @@ export function HeatmapComparePanel({
             data={compareLeftPayload}
             signal={signal}
             sharedWeightMax={compareSharedMax}
-            heatmapRenderer={heatmapRenderer}
           />
           <CompareColumn
             title="B"
             data={compareRightPayload}
             signal={signal}
             sharedWeightMax={compareSharedMax}
-            heatmapRenderer={heatmapRenderer}
           />
         </div>
       )}
@@ -108,9 +102,14 @@ function CompareToolbar({
   onExitCompare: () => void;
 }) {
   return (
-    <Box className={classes.filterBar}>
+    <Box className={graphClasses.graphCard}>
+      <div className={graphClasses.graphTitle}>Compare screens</div>
+      <div className={classes.filterBarInner}>
       <div className={classes.signalHeader}>
-        <span className={classes.signalLabel}>Compare screens</span>
+        <Text size="sm" c="dimmed" className={classes.filterBarSub}>
+          Same time range and header filters as this page. Enter another screen
+          name to view side by side.
+        </Text>
         <button
           type="button"
           className={classes.compareCta}
@@ -137,6 +136,7 @@ function CompareToolbar({
         onChange={(e) => onCompareScreenNameChange(e.currentTarget.value)}
         size="sm"
       />
+      </div>
     </Box>
   );
 }
@@ -146,13 +146,11 @@ function CompareColumn({
   data,
   signal,
   sharedWeightMax,
-  heatmapRenderer,
 }: {
   title: string;
   data: HeatmapDataResponse;
   signal: HeatmapSignal;
   sharedWeightMax: number;
-  heatmapRenderer: HeatmapRendererMode;
 }) {
   const glow = glowLayerForSignal(data, signal);
   const map = glow.length ? glow : data.layers.glow_map;
@@ -163,12 +161,12 @@ function CompareColumn({
         {title}: {data.metadata.screenName}
       </Text>
       <HeatmapVisualization
+        screenName={data.metadata.screenName}
         screenshotUrl={data.metadata.screenshot_url || undefined}
         glowMap={map}
         signalLabel={signal}
         totalTapsLabel={`${data.metadata.total_events.toLocaleString()} events`}
         sharedWeightMax={sharedWeightMax}
-        renderer={heatmapRenderer}
       />
     </Box>
   );

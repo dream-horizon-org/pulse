@@ -4,7 +4,6 @@ import type {
 } from "./heatmap.types";
 
 export type HeatmapSignal = "tap" | "scroll" | "rage" | "dead" | "gesture";
-export type HeatmapFocusLens = "all" | "key";
 
 export const HEATMAP_SIGNALS: { id: HeatmapSignal; label: string }[] = [
   { id: "tap", label: "Tap" },
@@ -50,6 +49,33 @@ export function glowLayerForSignal(
     );
   }
   return base;
+}
+
+/** Combined interaction layer from the API (glow_map). */
+export function combinedInteractionGlowMap(
+  data: HeatmapDataResponse | null | undefined,
+): HeatmapGlowPoint[] {
+  return data?.layers?.glow_map ?? [];
+}
+
+export function glowMapsNearlyEqual(
+  a: HeatmapGlowPoint[],
+  b: HeatmapGlowPoint[],
+): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort((p, q) => p.x - q.x || p.y - q.y || p.weight - q.weight);
+  const sb = [...b].sort((p, q) => p.x - q.x || p.y - q.y || p.weight - q.weight);
+  const eps = 1e-5;
+  for (let i = 0; i < sa.length; i++) {
+    if (
+      Math.abs(sa[i].x - sb[i].x) > eps ||
+      Math.abs(sa[i].y - sb[i].y) > eps ||
+      Math.abs(sa[i].weight - sb[i].weight) > eps * 1e3
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function compareSharedWeightMax(

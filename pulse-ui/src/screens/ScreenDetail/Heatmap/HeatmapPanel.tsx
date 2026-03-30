@@ -1,32 +1,20 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Stack, Alert } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { getHeatmapQualityMetrics } from "./heatmapQuality";
+import { HeatmapComparePanel } from "./HeatmapComparePanel";
+import { HeatmapMainCard } from "./HeatmapMainCard";
 import { useHeatmapData } from "../../../hooks/useHeatmapData";
 import { useFilterStore } from "../../../stores/useFilterStore";
-import { ROUTES } from "../../../constants";
-import { getHeatmapQualityMetrics } from "./heatmapQuality";
-import {
-  HeatmapVisualization,
-  type HeatmapRendererMode,
-} from "./HeatmapVisualization";
-import { HeatmapFilterBar } from "./HeatmapFilterBar";
-import { HeatmapScoreSection } from "./HeatmapScoreSection";
-import { HeatmapComparePanel } from "./HeatmapComparePanel";
-import { HeatmapDrillDown, HeatmapEngagementCards } from "./HeatmapPanelFooter";
 import {
   compareSharedWeightMax,
   glowLayerForSignal,
-  type HeatmapFocusLens,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
 import type { HeatmapPanelProps } from "./heatmapPanel.types";
-import classes from "./HeatmapPanel.module.css";
 
 export type { HeatmapPanelProps } from "./heatmapPanel.types";
 
 /**
- * Heatmap tab — layout from wireframes/heatmap/frames.pen (sdHeatBody).
+ * Heatmap tab — Summary card (metrics + coverage), Filters & maps card (signal + compare + one or two maps).
  */
 export function HeatmapPanel({
   screenName,
@@ -34,15 +22,10 @@ export function HeatmapPanel({
   endTime,
   engagement,
 }: HeatmapPanelProps) {
-  const { projectId } = useParams<{ projectId: string }>();
   const { filterValues } = useFilterStore();
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [compareScreenName, setCompareScreenName] = useState("HomeScreen");
   const [signal, setSignal] = useState<HeatmapSignal>("tap");
-  const [focusLens, setFocusLens] = useState<HeatmapFocusLens>("all");
-  const [heatmapRenderer, setHeatmapRenderer] =
-    useState<HeatmapRendererMode>("heatmapjs");
-
   const heatmapRequestFilters = useMemo(
     () => ({
       app_version: filterValues?.APP_VERSION?.trim() || undefined,
@@ -79,7 +62,6 @@ export function HeatmapPanel({
   });
 
   const singlePayload = heatmapQuery.data?.data;
-  console.log( "singlePayload", singlePayload);
   const singleErr = heatmapQuery.data?.error;
   const compareLeftPayload = compareLeftQuery.data?.data;
   const compareRightPayload = compareRightQuery.data?.data;
@@ -109,13 +91,6 @@ export function HeatmapPanel({
       weight: r.weight,
     })) ?? [];
 
-  const userEngagementPath = projectId
-    ? ROUTES.PROJECT_USER_ENGAGEMENT.path.replace(":projectId", projectId)
-    : "#";
-  const appVitalsPath = projectId
-    ? ROUTES.PROJECT_APP_VITALS.path.replace(":projectId", projectId)
-    : "#";
-
   const compareErrorMessage =
     compareLeftErr || compareRightErr || compareLeftQuery.isError || compareRightQuery.isError
       ? (compareLeftErr?.message ??
@@ -138,65 +113,29 @@ export function HeatmapPanel({
         compareLeftPayload={compareLeftPayload}
         compareRightPayload={compareRightPayload}
         compareSharedMax={compareSharedMax}
-        heatmapRenderer={heatmapRenderer}
       />
     );
   }
 
   return (
-    <Stack gap="md" className={classes.root}>
-      <HeatmapFilterBar
-        signal={signal}
-        onSignalChange={setSignal}
-        onCompareClick={() => setCompareEnabled(true)}
-        heatmapRenderer={heatmapRenderer}
-        onHeatmapRendererChange={setHeatmapRenderer}
-        focusLens={focusLens}
-        onFocusLensChange={setFocusLens}
-      />
-
-      <HeatmapScoreSection
-        singlePayload={singlePayload}
-        qualityMetrics={qualityMetrics}
-        focusLens={focusLens}
-      />
-
-      {heatmapQuery.isLoading && (
-        <div className={classes.loadingSkeleton} />
-      )}
-
-      {(singleErr || heatmapQuery.isError) && (
-        <Alert
-          color="red"
-          title="Heatmap request failed"
-          icon={<IconInfoCircle />}
-        >
-          {singleErr?.message ?? "Request failed"}
-        </Alert>
-      )}
-
-      {singlePayload && (
-        <HeatmapVisualization
-          screenshotUrl={singlePayload.metadata.screenshot_url || undefined}
-          glowMap={glowForSignal}
-          signalLabel={signal}
-          totalTapsLabel={
-            singlePayload.metadata.total_events
-              ? `${singlePayload.metadata.total_events.toLocaleString()} events in range`
-              : undefined
-          }
-          showFrustrationMarkers={signal === "rage"}
-          ragePoints={rageForMarkers}
-          renderer={heatmapRenderer}
-        />
-      )}
-
-      <HeatmapDrillDown
-        userEngagementPath={userEngagementPath}
-        appVitalsPath={appVitalsPath}
-      />
-
-      <HeatmapEngagementCards engagement={engagement} />
-    </Stack>
+    <HeatmapMainCard
+      screenName={screenName}
+      engagement={engagement}
+      signal={signal}
+      onSignalChange={setSignal}
+      onCompareClick={() => setCompareEnabled(true)}
+      isLoading={heatmapQuery.isLoading}
+      errorMessage={
+        singleErr || heatmapQuery.isError
+          ? (singleErr?.message ?? "Request failed")
+          : null
+      }
+      singlePayload={singlePayload}
+      qualityMetrics={qualityMetrics}
+      screenshotUrl={singlePayload?.metadata.screenshot_url ?? undefined}
+      glowMap={glowForSignal}
+      ragePoints={rageForMarkers}
+      showFrustrationMarkers={signal === "rage"}
+    />
   );
 }

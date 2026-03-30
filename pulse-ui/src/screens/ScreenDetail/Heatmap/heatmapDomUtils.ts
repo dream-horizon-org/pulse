@@ -39,3 +39,9 @@ export function domGlowMapForBudget(
   const sorted = [...bucketed].sort((a, b) => b.weight - a.weight);
   return sorted.slice(0, Math.min(binBudget, sorted.length));
 }
+
+/** All bucketed points after normalization (no hotspot slider). */
+export function domGlowMapFull(glowMap: HeatmapGlowPoint[]): HeatmapGlowPoint[] {
+  const norm = normalizedGlowXY(glowMap);
+  return bucketGlowForDom(norm);
+}

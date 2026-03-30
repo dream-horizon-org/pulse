@@ -6,9 +6,9 @@ import {
   ActionIcon,
   Button,
   Tooltip,
-  Stack,
 } from "@mantine/core";
 import {
+  IconArrowsMaximize,
   IconPlayerPlay,
   IconPlayerPause,
   IconPlayerSkipBack,
@@ -149,7 +149,7 @@ export function PlayerControls({
             </Button>
           ))}
         </Group>
-      </Stack>
+      </Group>
     </Box>
   );
 }

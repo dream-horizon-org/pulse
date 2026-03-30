@@ -12,6 +12,16 @@ export interface HeatmapQualityMetrics {
   label: string;
   /** Maps to UI legend chip styling */
   band: "good" | "average" | "poor" | "nodata";
+  /**
+   * Glow weight sum ÷ total events (capped at 100%). How much reported volume
+   * is represented in heatmap bins.
+   */
+  eventWeightMatchPct: number | null;
+  /**
+   * Max bin weight ÷ sum of weights. How much of the map’s weight sits in the
+   * single hottest bin (0–100%).
+   */
+  hotspotPeakPct: number | null;
 }
 
 export function getHeatmapQualityMetrics(
@@ -19,7 +29,13 @@ export function getHeatmapQualityMetrics(
 ): HeatmapQualityMetrics {
   const glow = payload?.layers?.glow_map;
   if (!payload || !glow?.length) {
-    return { score: null, label: "No data", band: "nodata" };
+    return {
+      score: null,
+      label: "No data",
+      band: "nodata",
+      eventWeightMatchPct: null,
+      hotspotPeakPct: null,
+    };
   }
 
   const totalEvents = Math.max(1, payload.metadata.total_events);
@@ -49,5 +65,11 @@ export function getHeatmapQualityMetrics(
     band = "poor";
   }
 
-  return { score, label, band };
+  return {
+    score,
+    label,
+    band,
+    eventWeightMatchPct: Math.round(100 * coverage),
+    hotspotPeakPct: Math.round(100 * dominance),
+  };
 }
