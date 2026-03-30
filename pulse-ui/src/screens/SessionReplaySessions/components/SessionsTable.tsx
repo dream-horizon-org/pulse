@@ -21,10 +21,12 @@ function SortIcon({
   column,
   currentSortBy,
   sortDirection,
+  iconClassName,
 }: {
   column: SortField;
   currentSortBy: SortField;
   sortDirection: SortDirection;
+  iconClassName: string;
 }) {
   const isActive = currentSortBy === column;
   const Icon = isActive
@@ -34,16 +36,7 @@ function SortIcon({
     : IconArrowsSort;
 
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 18,
-        marginLeft: 2,
-        verticalAlign: "middle",
-      }}
-    >
+    <span className={iconClassName}>
       <Icon
         size={14}
         style={{
@@ -70,11 +63,14 @@ export function SessionsTable({
           role="columnheader"
           onClick={() => onSort("START_TIME")}
         >
-          {TABLE_COLUMN_LABELS.startTime}
+          <span className={classes.headerLabel}>
+            {TABLE_COLUMN_LABELS.startTime}
+          </span>
           <SortIcon
             column="START_TIME"
             currentSortBy={sortBy}
             sortDirection={sortDirection}
+            iconClassName={classes.sortIcon}
           />
         </div>
         <div
@@ -82,11 +78,14 @@ export function SessionsTable({
           role="columnheader"
           onClick={() => onSort("DURATION")}
         >
-          {TABLE_COLUMN_LABELS.duration}
+          <span className={classes.headerLabel}>
+            {TABLE_COLUMN_LABELS.duration}
+          </span>
           <SortIcon
             column="DURATION"
             currentSortBy={sortBy}
             sortDirection={sortDirection}
+            iconClassName={classes.sortIcon}
           />
         </div>
         <div className={classes.cell} role="columnheader">
@@ -97,11 +96,14 @@ export function SessionsTable({
           role="columnheader"
           onClick={() => onSort("QUALITY_SCORE")}
         >
-          {TABLE_COLUMN_LABELS.quality}
+          <span className={classes.headerLabel}>
+            {TABLE_COLUMN_LABELS.quality}
+          </span>
           <SortIcon
             column="QUALITY_SCORE"
             currentSortBy={sortBy}
             sortDirection={sortDirection}
+            iconClassName={classes.sortIcon}
           />
         </div>
         <div className={classes.cell} role="columnheader">
