@@ -203,9 +203,22 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY),
             )
 
+        val screenWidthDp: Long
+        val screenHeightDp: Long
+        val screenAspectRatio: String
+        application.resources.displayMetrics.let { dm ->
+            screenWidthDp = (dm.widthPixels / dm.density).toLong()
+            screenHeightDp = (dm.heightPixels / dm.density).toLong()
+            val gcd = gcd(screenWidthDp, screenHeightDp)
+            screenAspectRatio = "${screenWidthDp / gcd}:${screenHeightDp / gcd}"
+        }
+
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
             put(PulseAttributes.PROJECT_ID, extractProjectID(apiKey))
+            put(PulseAttributes.DEVICE_SCREEN_WIDTH, screenWidthDp)
+            put(PulseAttributes.DEVICE_SCREEN_HEIGHT, screenHeightDp)
+            put(PulseAttributes.DEVICE_SCREEN_ASPECT_RATIO, screenAspectRatio)
             resource?.invoke(this)
         }
 
@@ -811,6 +824,11 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
+
+        private fun gcd(
+            a: Long,
+            b: Long,
+        ): Long = if (b == 0L) a else gcd(b, a % b)
 
         internal fun extractProjectID(apiKey: String): String {
             val lastUnderscoreIndex = apiKey.lastIndexOf('_')
