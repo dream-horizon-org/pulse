@@ -1,0 +1,110 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 280px;
+  min-width: 280px;
+  min-height: 120px;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  border: 1px solid var(--mantine-color-gray-2);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-white);
+  color: inherit;
+  gap: var(--mantine-spacing-sm);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.card:hover {
+  border-color: var(--mantine-color-teal-4);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-xs);
+  flex: 1;
+  min-height: 0;
+}
+
+.viewDetail {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-xs);
+}
+
+.typeLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.typeLabelSessionReplay {
+  color: var(--mantine-color-blue-7);
+}
+
+.typeLabelFunnel {
+  color: var(--mantine-color-teal-7);
+}
+
+.typeLabelJourney {
+  color: var(--mantine-color-violet-7);
+}
+
+.typeLabelHeatmap {
+  color: var(--mantine-color-orange-7);
+}
+
+.timestamp {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-5);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.name {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  color: var(--mantine-color-gray-8);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.subtitle {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  color: var(--mantine-color-gray-6);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.detail {
+  margin: 0;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--mantine-color-gray-6);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  word-break: break-word;
+}
