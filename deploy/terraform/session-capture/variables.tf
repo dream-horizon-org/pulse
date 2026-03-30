@@ -9,14 +9,33 @@ variable "ami_id" {
   type        = string
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
-  type        = string
-  default     = "c6i.xlarge"
+variable "instance_types" {
+  description = "EC2 instance types for ASG mixed instances policy (same pattern as pulse-server)"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.instance_types) > 0
+    error_message = "instance_types must contain at least one instance type."
+  }
 }
 
-variable "capture_count" {
-  description = "Number of session-capture instances (ASG desired/min/max)"
+variable "desired_capacity" {
+  description = "ASG desired capacity"
+  type        = number
+}
+
+variable "asg_min_size" {
+  description = "ASG minimum size"
+  type        = number
+}
+
+variable "asg_max_size" {
+  description = "ASG maximum size"
+  type        = number
+}
+
+variable "asg_on_demand_base_capacity" {
+  description = "Base on-demand instance count before spot (pulse-server pattern)"
   type        = number
 }
 
@@ -36,18 +55,23 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "private_subnet_ids" {
-  description = "Private subnets for ASG instances and NLB"
+variable "ec2_subnet_ids" {
+  description = "Private subnets for session-capture ASG instances"
   type        = list(string)
 }
 
-variable "vpc_security_group_ids" {
-  description = "Security group IDs to attach to session-capture instances"
+variable "nlb_subnet_ids" {
+  description = "Subnets for the internal NLB (often same as ec2_subnet_ids; must span AZs as required by NLB)"
+  type        = list(string)
+}
+
+variable "ec2_security_group_ids" {
+  description = "Security group IDs attached to session-capture instances (pulse-server naming)"
   type        = list(string)
 }
 
 variable "nlb_security_group_ids" {
-  description = "Security group IDs to attach to the internal NLB"
+  description = "Security group IDs attached to the internal NLB"
   type        = list(string)
 }
 
@@ -76,7 +100,7 @@ variable "health_check_path" {
 variable "health_check_grace_period_seconds" {
   description = "ASG grace period before ELB health checks affect instance replacement"
   type        = number
-  default     = 60
+  default     = 300
 }
 
 variable "root_volume_size_gb" {

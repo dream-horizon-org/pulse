@@ -9,14 +9,33 @@ variable "ami_id" {
   type        = string
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
-  type        = string
-  default     = "c6i.xlarge"
+variable "instance_types" {
+  description = "EC2 instance types for ASG mixed instances policy (pulse-server pattern)"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.instance_types) > 0
+    error_message = "instance_types must contain at least one instance type."
+  }
 }
 
-variable "ingestion_count" {
-  description = "Number of consumer instances (same Kafka group; scale with partition count)"
+variable "desired_capacity" {
+  description = "ASG desired capacity"
+  type        = number
+}
+
+variable "asg_min_size" {
+  description = "ASG minimum size"
+  type        = number
+}
+
+variable "asg_max_size" {
+  description = "ASG maximum size"
+  type        = number
+}
+
+variable "asg_on_demand_base_capacity" {
+  description = "Base on-demand instance count before spot"
   type        = number
 }
 
@@ -31,12 +50,12 @@ variable "instance_profile_name" {
   type        = string
 }
 
-variable "private_subnet_ids" {
+variable "ec2_subnet_ids" {
   description = "Private subnets for the ASG (use 2+ AZs for resilience)"
   type        = list(string)
 }
 
-variable "vpc_security_group_ids" {
+variable "ec2_security_group_ids" {
   description = "Security group IDs attached to ingestion instances"
   type        = list(string)
 }
