@@ -1,0 +1,112 @@
+.card {
+  height: 100%;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-white);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(14, 201, 194, 0.35);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+}
+
+.cardClickable {
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.cardClickable:focus-visible {
+  outline: 2px solid var(--mantine-color-teal-5);
+  outline-offset: 2px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-sm);
+  flex-wrap: wrap;
+}
+
+.name {
+  font-weight: 600;
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-gray-9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.statusBadge {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+}
+
+.createdAt {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-6);
+  white-space: nowrap;
+}
+
+.typeText {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-7);
+  font-weight: 600;
+}
+
+.separator {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-5);
+}
+
+.createdByText {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-6);
+}
+
+.tagBadge {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  text-transform: none;
+}
+
+.descriptionBox {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  background: rgba(14, 201, 194, 0.08);
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-sm);
+  font-size: var(--mantine-font-size-xs);
+  line-height: 1.5;
+  color: var(--mantine-color-gray-8);
+}
+
+.viewDetailsLink {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  color: var(--mantine-color-teal-7);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.viewDetailsLink:hover {
+  color: var(--mantine-color-teal-8);
+  text-decoration: underline;
+}
+
+.viewDetailsLink:focus-visible {
+  outline: 2px solid var(--mantine-color-teal-5);
+  outline-offset: 2px;
+  border-radius: var(--mantine-radius-xs);
+}
