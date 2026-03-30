@@ -1,0 +1,1 @@
+export { FunnelsJourneysList } from "./FunnelsJourneysList";
