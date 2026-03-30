@@ -40,7 +40,7 @@
 | `jobName` | `String` | Job name |
 | `entryPoint` | `String` | Echo of submitted main artifact URI |
 | `mainClass` | `String` | Echo of submitted main class, if any |
-| `submittedAt` | `LocalDateTime` | Submission time |
+| `submittedAt` | `String` | Submission time (ISO-8601, UTC) |
 
 **Sample Response**:
 ```json
@@ -51,7 +51,7 @@
   "jobName": "Daily Funnel Processing",
   "entryPoint": "s3://artifacts/jobs/funnel.jar",
   "mainClass": "com.pulse.batch.FunnelProcessor",
-  "submittedAt": "2026-03-25T10:30:15.123"
+  "submittedAt": "2026-03-25T10:30:15.123Z"
 }
 ```
 

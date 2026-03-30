@@ -4,7 +4,6 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.emrserverless.EmrServerlessClient;
@@ -13,10 +12,6 @@ import software.amazon.awssdk.services.emrserverless.model.GetJobRunResponse;
 import software.amazon.awssdk.services.emrserverless.model.StartJobRunRequest;
 import software.amazon.awssdk.services.emrserverless.model.StartJobRunResponse;
 
-/**
- * Thin wrapper around {@link EmrServerlessClient} for batch orchestration (Phase 2).
- * Uses the same default AWS credential chain as other pulse-server SDK clients.
- */
 @Slf4j
 @Singleton
 public class EmrServerlessJobClient implements AutoCloseable {
@@ -30,7 +25,6 @@ public class EmrServerlessJobClient implements AutoCloseable {
     if (config.isEnabled()) {
       this.client = EmrServerlessClient.builder()
           .region(Region.of(config.getEffectiveRegion()))
-          .credentialsProvider(DefaultCredentialsProvider.create())
           .httpClient(UrlConnectionHttpClient.builder().build())
           .build();
       log.info(

@@ -20,12 +20,11 @@ public class SparkJobResponse {
   /** EMR job run ARN. */
   private String arn;
 
-  /** Name of the job. */
-  private String jobName;
-
-  /** Spark jar main class. */
-  private String mainClass;
-
-  /** Time the job was submitted. */
-  private LocalDateTime submittedAt;
+    private String jobName;
+    /** Echo of submitted main artifact URI. */
+    private String entryPoint;
+    /** Echo of submitted main class (FQCN), if any. */
+    private String mainClass;
+    /** ISO-8601 instant when the job was submitted (e.g. {@code Instant.now().toString()}). */
+    private String submittedAt;
 }
