@@ -60,6 +60,8 @@ interface FunnelBuilderProps {
   onAnalyze: () => void;
   isCreating: boolean;
   availableEvents: string[];
+  isUpdateMode?: boolean;
+  isValid?: boolean;
 }
 
 export function FunnelBuilder({
@@ -88,6 +90,8 @@ export function FunnelBuilder({
   onAnalyze,
   isCreating,
   availableEvents,
+  isUpdateMode = false,
+  isValid: externalIsValid,
 }: FunnelBuilderProps) {
   const { data: tagsData } = useGetTags();
   const availableTags = tagsData?.data?.tags ?? [];
@@ -125,7 +129,7 @@ export function FunnelBuilder({
   };
 
   const hasValidSteps = steps.length >= 2 && steps.every((s) => s.eventName);
-  const isValid = hasValidSteps && name.trim().length > 0;
+  const isValid = externalIsValid !== undefined ? externalIsValid : (hasValidSteps && name.trim().length > 0);
 
   return (
     <Box className={classes.sidebarScroll}>
@@ -411,7 +415,7 @@ export function FunnelBuilder({
           disabled={!isValid || isCreating}
           loading={isCreating}
         >
-          Create Funnel
+          {isCreating ? (isUpdateMode ? "Updating..." : "Creating...") : (isUpdateMode ? "Update Funnel" : "Create Funnel")}
         </Button>
       </Box>
     </Box>

@@ -174,12 +174,16 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED" | "CREATING";
+  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
   funnelType?: "ORDERED" | "UNORDERED";
   filters?: any[];
+  steps?: any[];
+  anchorEvent?: string;
+  direction?: "forward" | "reverse";
+  depth?: number;
 }> = [
   {
     id: "fj-1",
@@ -190,6 +194,13 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-20T14:22:00Z",
     tags: ["checkout", "revenue"],
     funnelType: "ORDERED",
+    steps: [
+      { eventName: "Screen_View: Home" },
+      { eventName: "Screen_View: Product Detail" },
+      { eventName: "Tap: Add to Cart" },
+      { eventName: "Tap: Checkout" },
+      { eventName: "Tap: Place Order" }
+    ]
   },
   {
     id: "fj-2",
@@ -200,6 +211,11 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-19T09:10:00Z",
     tags: ["onboarding"],
     funnelType: "UNORDERED",
+    steps: [
+      { eventName: "App_Opened" },
+      { eventName: "Screen_View: Onboarding" },
+      { eventName: "Tap: Sign Up" }
+    ]
   },
   {
     id: "fj-3",
@@ -210,6 +226,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-10T18:45:00Z",
     tags: ["search", "product"],
     funnelType: "ORDERED",
+    steps: [
+      { eventName: "Screen_View: Search" },
+      { eventName: "Screen_View: Product Detail" }
+    ]
   },
   {
     id: "fj-4",
@@ -219,6 +239,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     createdBy: "carol@example.com",
     lastUpdatedAt: "2026-03-21T11:30:00Z",
     tags: ["auth", "onboarding"],
+    anchorEvent: "Tap: Sign Up",
+    direction: "forward",
+    depth: 5,
   },
   {
     id: "fj-5",
@@ -228,6 +251,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     createdBy: "bob@example.com",
     lastUpdatedAt: "2026-02-28T08:00:00Z",
     tags: ["checkout", "cart"],
+    anchorEvent: "Tap: Add to Cart",
+    direction: "forward",
+    depth: 4,
   },
   {
     id: "fj-6",
@@ -238,6 +264,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-22T16:05:00Z",
     tags: ["marketing"],
     funnelType: "ORDERED",
+    steps: [
+      { eventName: "Deep_Link_Opened" },
+      { eventName: "Screen_View: Home" }
+    ]
   },
   {
     id: "fj-7",
@@ -248,6 +278,10 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-24T10:00:00Z",
     tags: ["feature"],
     funnelType: "ORDERED",
+    steps: [
+      { eventName: "App_Opened" },
+      { eventName: "Tap: New Feature" }
+    ]
   },
   {
     id: "fj-8",
@@ -257,6 +291,9 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     createdBy: "alice@example.com",
     lastUpdatedAt: "2026-03-24T11:00:00Z",
     tags: ["onboarding"],
+    anchorEvent: "App_Opened",
+    direction: "forward",
+    depth: 5,
   },
 ];
 
@@ -377,17 +414,62 @@ export function handleFunnelEndpoints(
     const newItem = {
       id: newId,
       name: body.name || "Untitled",
+      description: body.description || "",
       kind: body.kind || "FUNNEL",
       status: "CREATING" as const,
       createdBy: "dev@example.com",
+      createdAt: new Date().toISOString(),
       lastUpdatedAt: new Date().toISOString(),
       tags: body.tags || [],
       funnelType: body.funnelType,
       filters: body.filters || [],
       expiryDate: body.expiryDate,
+      rollingType: body.rollingType,
+      steps: body.steps,
+      timeRange: body.timeRange,
+      windowSeconds: body.windowSeconds,
+      anchorEvent: body.anchorEvent,
+      direction: body.direction,
+      depth: body.depth,
     };
     MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
     return { data: newItem, status: 201 };
+  }
+
+  if (pathname.includes("/v1/funnels-journeys/") && method === "PUT") {
+    const id = pathname.split("/").pop();
+    let body: any = {};
+    try { body = JSON.parse(request.body || "{}"); } catch { /* ignore */ }
+    
+    const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex(item => item.id === id);
+    if (index !== -1) {
+      MOCK_FUNNELS_JOURNEYS_ALL[index] = {
+        ...MOCK_FUNNELS_JOURNEYS_ALL[index],
+        ...body,
+        status: "UPDATING" as const,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };
+    }
+    return { data: null, status: 404 };
+  }
+
+  if (pathname.includes("/v1/funnels-journeys/") && method === "PUT") {
+    const id = pathname.split("/").pop();
+    let body: any = {};
+    try { body = JSON.parse(request.body || "{}"); } catch { /* ignore */ }
+    
+    const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex(item => item.id === id);
+    if (index !== -1) {
+      MOCK_FUNNELS_JOURNEYS_ALL[index] = {
+        ...MOCK_FUNNELS_JOURNEYS_ALL[index],
+        ...body,
+        status: "UPDATING" as const,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };
+    }
+    return { data: null, status: 404 };
   }
 
   if (pathname.includes("/v1/funnels-journeys") && method === "GET") {
