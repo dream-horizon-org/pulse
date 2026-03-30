@@ -2,10 +2,11 @@ package org.dreamhorizon.pulseserver.service.analytics;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dao.spark.SparkJobStatus;
+import org.dreamhorizon.pulseserver.dao.spark.SparkJobType;
 import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
 import org.dreamhorizon.pulseserver.service.spark.models.SparkJobRequest;
 
@@ -38,41 +39,57 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
 
   @Override
   public Single<Boolean> triggerFunnelsBatch() {
-    return submitSparkJob(
-        "FUNNELS_DAILY",
-        "funnels-daily-batch",
-        sparkConfig.getJobJarPath(),
+    return triggerDailyBatchJob(
+        SparkJobType.FUNNELS_DAILY,
         sparkConfig.getFunnelsMainClass()
     );
   }
 
   @Override
   public Single<Boolean> triggerJourneysBatch() {
-    return submitSparkJob(
-        "JOURNEYS_DAILY",
-        "journeys-daily-batch",
-        sparkConfig.getJobJarPath(),
+    return triggerDailyBatchJob(
+        SparkJobType.JOURNEYS_DAILY,
         sparkConfig.getJourneysMainClass()
     );
   }
 
   @Override
   public Single<Boolean> triggerEventsBatch() {
-    return submitSparkJob(
-        "EVENTS_INCREMENTAL",
-        "events-incremental-batch",
-        sparkConfig.getJobJarPath(),
-        sparkConfig.getEventsMainClass(),
-        null,
-        List.of()
+    return triggerDailyBatchJob(
+        SparkJobType.EVENTS_INCREMENTAL,
+        sparkConfig.getEventsMainClass()
     );
+  }
+
+  private Single<Boolean> triggerDailyBatchJob(
+      final SparkJobType jobType,
+      final String mainClass) {
+    return sparkJobDao.getLatestJobByType(jobType)
+        .flatMapSingle(latestJob -> {
+          java.time.LocalDate today = java.time.LocalDate.now(
+              java.time.ZoneOffset.UTC);
+          java.time.LocalDate latestJobDate = latestJob.getCreatedAt()
+              .toLocalDate();
+          if (latestJobDate.isEqual(today)) {
+            log.info(
+                "Batch job {} has already been triggered today. Skipping.",
+                jobType);
+            return Single.just(false);
+          }
+          return submitSparkJob(
+              jobType, jobType.getJobNamePrefix(), sparkConfig.getJobJarPath(),
+              mainClass, null, List.of());
+        })
+        .switchIfEmpty(submitSparkJob(
+            jobType, jobType.getJobNamePrefix(), sparkConfig.getJobJarPath(),
+            mainClass, null, List.of()));
   }
 
   @Override
   public Single<Boolean> triggerFunnelOnSaveJob(final Long funnelId) {
     return submitSparkJob(
-        "FUNNEL",
-        "funnel-onsave-" + funnelId,
+        SparkJobType.FUNNEL,
+        SparkJobType.FUNNEL.getJobNamePrefix() + funnelId,
         sparkConfig.getJobJarPath(),
         sparkConfig.getFunnelsMainClass(),
         funnelId,
@@ -83,8 +100,8 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   @Override
   public Single<Boolean> triggerJourneyOnSaveJob(final Long journeyId) {
     return submitSparkJob(
-        "JOURNEY",
-        "journey-onsave-" + journeyId,
+        SparkJobType.JOURNEY,
+        SparkJobType.JOURNEY.getJobNamePrefix() + journeyId,
         sparkConfig.getJobJarPath(),
         sparkConfig.getJourneysMainClass(),
         journeyId,
@@ -93,15 +110,7 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   }
 
   private Single<Boolean> submitSparkJob(
-      final String jobType,
-      final String jobName,
-      final String entryPoint,
-      final String mainClass) {
-    return submitSparkJob(jobType, jobName, entryPoint, mainClass, null, List.of());
-  }
-
-  private Single<Boolean> submitSparkJob(
-      final String jobType,
+      final SparkJobType jobType,
       final String jobName,
       final String entryPoint,
       final String mainClass,
@@ -110,29 +119,40 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
 
     log.info("Submitting Spark job: {}", jobName);
 
-    SparkJobRequest request = SparkJobRequest.builder()
-        .jobName(jobName)
-        .mainClass(mainClass)
-        .entryPoint(entryPoint)
-        .arguments(arguments)
-        .timeoutMinutes(DEFAULT_TIMEOUT_MINUTES)
-        .build();
+    return sparkJobDao.insertJob(
+            jobType, referenceId, null, SparkJobStatus.PENDING)
+        .flatMap(dbId -> {
+          // Append jobType and jobId to arguments
+          java.util.ArrayList<String> fullArgs = new java.util.ArrayList<>(
+              arguments);
+          fullArgs.add("--jobType");
+          fullArgs.add(jobType.name());
+          fullArgs.add("--jobId");
+          fullArgs.add(String.valueOf(dbId));
 
-    return sparkJobDao.insertJob(jobType, referenceId, null, "PENDING")
-        .flatMap(dbId -> sparkJobService.submitJob(request)
-            .flatMap(response -> {
-              log.info("Successfully submitted job: {}. JobRunId: {}",
-                  jobName, response.getJobRunId());
-              return sparkJobDao.updateJobIdAndStatus(
-                      dbId, response.getJobRunId(), "SUBMITTED")
-                  .map(updated -> true);
-            })
-            .onErrorResumeNext(error -> {
-              log.error("Failed to submit job: {}", jobName, error);
-              return sparkJobDao.updateJobStatus(
-                      dbId, "FAILED", error.getMessage(), null, null)
-                  .map(updated -> false);
-            }))
-        .subscribeOn(Schedulers.io());
+          SparkJobRequest request = SparkJobRequest.builder()
+              .jobName(jobName)
+              .mainClass(mainClass)
+              .entryPoint(entryPoint)
+              .arguments(fullArgs)
+              .timeoutMinutes(DEFAULT_TIMEOUT_MINUTES)
+              .build();
+
+          return sparkJobService.submitJob(request)
+              .flatMap(response -> {
+                log.info("Successfully submitted job: {}. JobRunId: {}",
+                    jobName, response.getJobRunId());
+                return sparkJobDao.updateJobIdAndStatus(
+                        dbId, response.getJobRunId(), SparkJobStatus.SUBMITTED)
+                    .map(updated -> true);
+              })
+              .onErrorResumeNext(error -> {
+                log.error("Failed to submit job: {}", jobName, error);
+                return sparkJobDao.updateJobStatus(
+                        dbId, SparkJobStatus.FAILED, error.getMessage(), null,
+                        null)
+                    .map(updated -> false);
+              });
+        });
   }
 }

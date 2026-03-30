@@ -3,8 +3,9 @@ package org.dreamhorizon.pulseserver.service.spark.impl;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Single;
-import java.util.UUID;
 import java.time.Instant;
+import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.emr.EmrServerlessJobClient;
 import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
@@ -17,16 +18,20 @@ import software.amazon.awssdk.services.emrserverless.model.SparkSubmit;
 import software.amazon.awssdk.services.emrserverless.model.StartJobRunRequest;
 import software.amazon.awssdk.services.emrserverless.model.StartJobRunResponse;
 
-import java.time.Instant;
-import java.util.UUID;
-import java.util.regex.Pattern;
-
 
 @Slf4j
 @Singleton
 public final class SparkJobServiceImpl implements SparkJobService {
 
-  /** EMR client. */
+  /**
+   * Detects the {@code --class} spark-submit flag without matching {@code --classpath}.
+   */
+  static final Pattern SPARK_SUBMIT_CLASS_FLAG =
+      Pattern.compile("(^|\\s)--class(\\s|$|=)", Pattern.CASE_INSENSITIVE);
+
+  /**
+   * EMR client.
+   */
   private final EmrServerlessJobClient emrClient;
 
   /**
@@ -95,7 +100,7 @@ public final class SparkJobServiceImpl implements SparkJobService {
           .submittedAt(Instant.now().toString())
           .build();
     });
-    }
+  }
 
   static String mergeSparkSubmitParameters(String mainClass, String sparkSubmitParameters) {
     StringBuilder sb = new StringBuilder();

@@ -36,14 +36,14 @@ public class SparkJobDao {
    * @return the ID of the inserted record
    */
   public Single<Long> insertJob(
-      final String jobType,
+      final SparkJobType jobType,
       final Long referenceId,
       final String jobId,
-      final String status) {
+      final SparkJobStatus status) {
     String query = "INSERT INTO spark_jobs "
         + "(job_type, reference_id, job_id, status) "
         + "VALUES (?, ?, ?, ?)";
-    Tuple params = Tuple.of(jobType, referenceId, jobId, status);
+    Tuple params = Tuple.of(jobType.name(), referenceId, jobId, status.name());
 
     return mysqlClient.getWriterPool().preparedQuery(query)
         .rxExecute(params)
@@ -61,9 +61,9 @@ public class SparkJobDao {
   public Single<Integer> updateJobIdAndStatus(
       final Long id,
       final String jobId,
-      final String status) {
+      final SparkJobStatus status) {
     String query = "UPDATE spark_jobs SET job_id = ?, status = ? WHERE id = ?";
-    Tuple params = Tuple.of(jobId, status, id);
+    Tuple params = Tuple.of(jobId, status.name(), id);
 
     return mysqlClient.getWriterPool().preparedQuery(query)
         .rxExecute(params)
@@ -82,14 +82,15 @@ public class SparkJobDao {
    */
   public Single<Integer> updateJobStatus(
       final Long id,
-      final String status,
+      final SparkJobStatus status,
       final String errorMessage,
       final LocalDateTime startedAt,
       final LocalDateTime completedAt) {
     String query = "UPDATE spark_jobs SET status = ?, "
         + "error_message = ?, started_at = ?, completed_at = ? "
         + "WHERE id = ?";
-    Tuple params = Tuple.of(status, errorMessage, startedAt, completedAt, id);
+    Tuple params = Tuple.of(
+        status.name(), errorMessage, startedAt, completedAt, id);
 
     return mysqlClient.getWriterPool().preparedQuery(query)
         .rxExecute(params)
@@ -108,7 +109,7 @@ public class SparkJobDao {
    */
   public Single<Integer> updateJobStatusByJobId(
       final String jobId,
-      final String status,
+      final SparkJobStatus status,
       final String errorMessage,
       final LocalDateTime startedAt,
       final LocalDateTime completedAt) {
@@ -116,7 +117,7 @@ public class SparkJobDao {
         + "error_message = ?, started_at = ?, completed_at = ? "
         + "WHERE job_id = ?";
     Tuple params = Tuple.of(
-        status, errorMessage, startedAt, completedAt, jobId);
+        status.name(), errorMessage, startedAt, completedAt, jobId);
 
     return mysqlClient.getWriterPool().preparedQuery(query)
         .rxExecute(params)
@@ -167,14 +168,34 @@ public class SparkJobDao {
    * @return the latest Spark job entity if found
    */
   public Maybe<SparkJobEntity> getLatestJobByReference(
-      final String jobType,
+      final SparkJobType jobType,
       final Long referenceId) {
     String query = "SELECT * FROM spark_jobs WHERE job_type = ? "
         + "AND reference_id = ? "
         + "ORDER BY created_at DESC LIMIT 1";
     return mysqlClient.getWriterPool().preparedQuery(
             query)
-        .rxExecute(Tuple.of(jobType, referenceId))
+        .rxExecute(Tuple.of(jobType.name(), referenceId))
+        .flatMapMaybe(rows -> {
+          if (rows.iterator().hasNext()) {
+            return Maybe.just(mapRowToEntity(rows.iterator().next()));
+          }
+          return Maybe.empty();
+        });
+  }
+
+  /**
+   * Retrieves the latest Spark job for a given job type.
+   *
+   * @param jobType     type of job
+   * @return the latest Spark job entity if found
+   */
+  public Maybe<SparkJobEntity> getLatestJobByType(
+      final SparkJobType jobType) {
+    String query = "SELECT * FROM spark_jobs WHERE job_type = ? "
+        + "ORDER BY created_at DESC LIMIT 1";
+    return mysqlClient.getWriterPool().preparedQuery(query)
+        .rxExecute(Tuple.of(jobType.name()))
         .flatMapMaybe(rows -> {
           if (rows.iterator().hasNext()) {
             return Maybe.just(mapRowToEntity(rows.iterator().next()));
@@ -186,10 +207,10 @@ public class SparkJobDao {
   private SparkJobEntity mapRowToEntity(final Row row) {
     return SparkJobEntity.builder()
         .id(row.getLong("id"))
-        .jobType(row.getString("job_type"))
+        .jobType(SparkJobType.valueOf(row.getString("job_type")))
         .referenceId(row.getLong("reference_id"))
         .jobId(row.getString("job_id"))
-        .status(row.getString("status"))
+        .status(SparkJobStatus.valueOf(row.getString("status")))
         .errorMessage(row.getString("error_message"))
         .startedAt(row.getLocalDateTime("started_at"))
         .completedAt(row.getLocalDateTime("completed_at"))

@@ -29,7 +29,7 @@ Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQue
 
 ## Databases
 
-- **MySQL 8** (`pulse_db`): metadata — interactions, alerts, configs, symbol files, athena jobs
+- **MySQL 8** (`pulse_db`): metadata — interactions, alerts, configs, symbol files, athena jobs, spark_jobs
 - **ClickHouse 24.8** (`otel`): analytics — `otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`
 
 ## Auth
