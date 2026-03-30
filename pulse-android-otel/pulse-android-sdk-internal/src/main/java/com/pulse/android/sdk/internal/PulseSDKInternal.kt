@@ -12,7 +12,6 @@ import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
 import com.pulse.android.sdk.replay.ImagePrivacy
 import com.pulse.android.sdk.replay.SessionReplayBootstrap
-import io.opentelemetry.android.internal.services.Services
 import com.pulse.android.sdk.replay.SessionReplayConfig
 import com.pulse.android.sdk.replay.SessionReplayRegistry
 import com.pulse.android.sdk.replay.TextAndInputPrivacy
@@ -49,6 +48,7 @@ import io.opentelemetry.android.instrumentation.interaction.library.InteractionI
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationInstrumentationConstants
+import io.opentelemetry.android.internal.services.Services
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
@@ -204,12 +204,10 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY),
             )
 
-        val screenWidthDp: Long
-        val screenHeightDp: Long
         val screenAspectRatio: String
         application.resources.displayMetrics.let { dm ->
-            screenWidthDp = (dm.widthPixels / dm.density).toLong()
-            screenHeightDp = (dm.heightPixels / dm.density).toLong()
+            val screenWidthDp = (dm.widthPixels / dm.density).toLong()
+            val screenHeightDp = (dm.heightPixels / dm.density).toLong()
             val gcd = gcd(screenWidthDp, screenHeightDp)
             screenAspectRatio = "${screenWidthDp / gcd}:${screenHeightDp / gcd}"
         }
@@ -217,8 +215,6 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
             put(PulseAttributes.PROJECT_ID, extractProjectID(apiKey))
-            put(PulseAttributes.DEVICE_SCREEN_WIDTH, screenWidthDp)
-            put(PulseAttributes.DEVICE_SCREEN_HEIGHT, screenHeightDp)
             put(PulseAttributes.DEVICE_SCREEN_ASPECT_RATIO, screenAspectRatio)
             resource?.invoke(this)
         }

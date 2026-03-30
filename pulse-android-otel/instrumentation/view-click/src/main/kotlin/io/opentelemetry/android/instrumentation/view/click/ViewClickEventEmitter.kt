@@ -30,9 +30,11 @@ import java.util.concurrent.TimeUnit
  */
 internal class ViewClickEventEmitter(
     private val eventLogger: Logger,
-    densityScale: Float = 1f,
+    private val densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
     clock: () -> Long = SystemClock::elapsedRealtime,
+    private val viewportWidthPx: Int = 0,
+    private val viewportHeightPx: Int = 0,
 ) {
     // Buffer owns onRage and onEmit so the delayed-emission Handler Runnable can fire without a call-site callback.
     internal val clickEventBuffer =
@@ -73,6 +75,7 @@ internal class ViewClickEventEmitter(
                 .setAttribute(APP_SCREEN_COORDINATE_X, click.x.toLong())
                 .setAttribute(APP_SCREEN_COORDINATE_Y, click.y.toLong())
                 .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.GOOD)
+                .applyViewportAttrs(click.x, click.y)
         click.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
         record.emit()
         Log.d(
@@ -90,6 +93,7 @@ internal class ViewClickEventEmitter(
             .setAttribute(APP_SCREEN_COORDINATE_X, click.x.toLong())
             .setAttribute(APP_SCREEN_COORDINATE_Y, click.y.toLong())
             .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.DEAD)
+            .applyViewportAttrs(click.x, click.y)
             .emit()
         Log.d(CLICK_LOG_TAG, "app.widget.click (dead): x=${click.x.toLong()} y=${click.y.toLong()}")
     }
@@ -106,6 +110,7 @@ internal class ViewClickEventEmitter(
                 .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
                 .setAttribute(PulseAttributes.CLICK_IS_RAGE, true)
                 .setAttribute(PulseAttributes.CLICK_RAGE_COUNT, rage.count.toLong())
+                .applyViewportAttrs(rage.x, rage.y)
         rage.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
         rage.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
         rage.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
@@ -115,6 +120,20 @@ internal class ViewClickEventEmitter(
             "app.widget.click (rage/$clickType): x=${rage.x.toLong()} y=${rage.y.toLong()} " +
                 "count=${rage.count} name=${rage.widgetName ?: "null"} context=${rage.clickContext ?: "null"}",
         )
+    }
+
+    private fun io.opentelemetry.api.logs.LogRecordBuilder.applyViewportAttrs(
+        x: Float,
+        y: Float,
+    ): io.opentelemetry.api.logs.LogRecordBuilder {
+        if (viewportWidthPx > 0 && viewportHeightPx > 0) {
+            val effectiveDensity = if (densityScale > 0f) densityScale else 1f
+            setAttribute(PulseAttributes.DEVICE_SCREEN_WIDTH, (viewportWidthPx / effectiveDensity).toLong())
+            setAttribute(PulseAttributes.DEVICE_SCREEN_HEIGHT, (viewportHeightPx / effectiveDensity).toLong())
+            setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, x.toDouble() / viewportWidthPx)
+            setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, y.toDouble() / viewportHeightPx)
+        }
+        return this
     }
 
     // endregion

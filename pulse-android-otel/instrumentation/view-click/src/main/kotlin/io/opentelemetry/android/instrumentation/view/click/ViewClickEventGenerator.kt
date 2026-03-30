@@ -28,9 +28,11 @@ internal class ViewClickEventGenerator(
     densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
     clock: () -> Long = SystemClock::elapsedRealtime,
+    viewportWidthPx: Int = 0,
+    viewportHeightPx: Int = 0,
 ) {
     // All buffering, rage detection, and event emission is handled here.
-    internal val clickEmitter = ViewClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
+    internal val clickEmitter = ViewClickEventEmitter(eventLogger, densityScale, rageConfig, clock, viewportWidthPx, viewportHeightPx)
 
     private var windowRef: WeakReference<Window>? = null
     private val gestureTracker = PulseClickGestureTracker()

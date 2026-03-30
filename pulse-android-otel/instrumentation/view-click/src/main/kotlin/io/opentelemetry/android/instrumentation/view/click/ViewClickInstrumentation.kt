@@ -15,7 +15,7 @@ class ViewClickInstrumentation : AndroidInstrumentation {
     override val name: String = "view.click"
 
     override fun install(ctx: InstallationContext) {
-        val densityScale = ctx.application.resources.displayMetrics.density
+        val displayMetrics = ctx.application.resources.displayMetrics
         ctx.application.registerActivityLifecycleCallbacks(
             ViewClickActivityCallback(
                 ViewClickEventGenerator(
@@ -24,8 +24,10 @@ class ViewClickInstrumentation : AndroidInstrumentation {
                         .loggerBuilder("io.opentelemetry.android.instrumentation.view.click")
                         .build(),
                     isContextEnrichmentEnabled = ClickContextEnrichmentConfig.isViewClickContextEnrichmentEnabled,
-                    densityScale = densityScale,
+                    densityScale = displayMetrics.density,
                     rageConfig = ClickContextEnrichmentConfig.rageConfig,
+                    viewportWidthPx = displayMetrics.widthPixels,
+                    viewportHeightPx = displayMetrics.heightPixels,
                 ),
             ),
         )
