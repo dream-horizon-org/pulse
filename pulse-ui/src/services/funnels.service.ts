@@ -7,7 +7,7 @@ export type FunnelJourneyListItem = {
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING";
+  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING" | "COMPLETED";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
@@ -23,18 +23,35 @@ export type FunnelsJourneysListFilterOptions = {
 export type FunnelsJourneysListResponse = {
   items: FunnelJourneyListItem[];
   filterOptions: FunnelsJourneysListFilterOptions;
+  /** Total items matching filters (before pagination). Omitted by some backends. */
+  totalCount?: number;
+  /** Current page (1-based). */
+  page?: number;
+  pageSize?: number;
+  /** Total pages for current filters and page size. */
+  totalPages?: number;
 };
 
 export type FunnelsJourneysListQueryParams = {
   /** When set, only return funnels or only journeys. */
   kind?: "FUNNEL" | "JOURNEY" | null;
   search?: string | null;
-  status?: "ACTIVE" | "STOPPED" | "CREATING" | null;
+  status?:
+    | "ACTIVE"
+    | "STOPPED"
+    | "CREATING"
+    | "UPDATING"
+    | "COMPLETED"
+    | null;
   /** Match if created by any of these users. */
   createdBy?: string[] | null;
   /** Match if item has any of these tags. */
   tags?: string[] | null;
   funnelType?: "ORDERED" | "UNORDERED" | null;
+  /** 1-based page index (default 1). */
+  page?: number | null;
+  /** Page size (default 10). */
+  pageSize?: number | null;
 };
 
 /** Single funnel or journey returned by the detail API. */
@@ -65,6 +82,10 @@ function filterNonNullParams(
   if (params.createdBy?.length) out.createdBy = params.createdBy.join(",");
   if (params.tags?.length) out.tags = params.tags.join(",");
   if (params.funnelType) out.funnelType = params.funnelType;
+  if (params.page != null && params.page > 0) out.page = String(params.page);
+  if (params.pageSize != null && params.pageSize > 0) {
+    out.pageSize = String(params.pageSize);
+  }
   return out;
 }
 

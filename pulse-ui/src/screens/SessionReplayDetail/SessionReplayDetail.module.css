@@ -1,6 +1,8 @@
-/* Container — scroll when session summary + tall player split exceed viewport */
+/* Container — natural document height; no viewport cap */
 .container {
+  width: 100%;
   max-width: 1600px;
+  height: 100%;
   margin: 0 auto;
   padding: var(--mantine-spacing-lg);
   background: var(--mantine-color-white);
@@ -8,27 +10,13 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
-  overflow-y: auto;
 }
 
-.detailHeader {
-  flex-shrink: 0;
-}
-
-/* Cap height so player + tabs don’t extend past the viewport; scroll inside this block */
 .detailMain {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
+  flex: none;
   width: 100%;
-  max-height: calc(100vh - 8.5rem);
-  max-height: calc(100dvh - 8.5rem);
-  overflow-x: hidden;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--mantine-spacing-xl);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Header - top bar: back + session id (left), user + session time (right) */
@@ -98,57 +86,43 @@
   letter-spacing: 0.5px;
 }
 
-.summarySection {
-  flex-shrink: 0;
-  margin-bottom: 0;
-}
-
 /*
- * Full-width row: player 4∶8. Split fills space below summary (detailMain flex);
- * both columns share one height; scroll only inside tab panels / timeline, not the player card.
+ * Full-width row: player 4∶8. Columns are content-sized (align flex-start); no stretch.
  */
 .playerSectionSplit {
   --session-detail-column-gap: var(--mantine-spacing-xl);
-  flex: 1 1 0;
-  min-height: 0;
-  min-width: 0;
+  flex: none;
   width: 100%;
+  max-width: 100%;
   margin-inline: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: flex-start;
   gap: var(--session-detail-column-gap);
   margin-bottom: 0;
-  overflow: hidden;
 }
 
 .playerSectionLeft {
   flex: 4 1 0;
   min-width: 0;
-  max-width: none;
-  min-height: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: flex-start;
-  overflow: hidden;
 }
 
-/* Player card fills the left column so it matches the right panel height */
 .playerSectionStretch {
   width: 100%;
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 0 1 auto;
   max-width: 100%;
 }
 
-/* Viewport fills space between header and controls */
+/* Replay viewport between header and bottom controller */
 .playerViewportGrow {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   width: 100%;
   min-width: 0;
-  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -156,19 +130,65 @@
 .playerControlsSlot {
   flex-shrink: 0;
   min-width: 0;
+  max-width: 100%;
 }
 
 .playerSectionRight {
   flex: 8 1 0;
   min-width: 0;
-  max-width: none;
-  min-height: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--mantine-spacing-md);
-  overflow: hidden;
-  align-self: stretch;
+  min-height: 0;
+}
+
+/* Matched player height: set data-matched-height on Paper + Tabs from SessionTabs. */
+.allTabContainer[data-matched-height] {
+  flex: 1;
+  min-height: 0;
   height: 100%;
+  max-height: 100%;
+}
+
+.allTabContainer[data-matched-height] > * {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.allTabContainer[data-matched-height] .tabContent {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Mantine Tabs root is display:block by default; variables + flex when height-matched. */
+.sessionTabsRoot[data-matched-height] {
+  --tabs-display: flex;
+  --tabs-flex-direction: column;
+  --tabs-panel-grow: 1;
+  flex: 1;
+  min-height: 0;
+}
+
+.sessionTabsRoot[data-matched-height] [role="tabpanel"] {
+  min-height: 0;
+  min-width: 0;
+}
+
+.allTabContainer[data-matched-height] .tabBodyScroll > [role="tabpanel"] {
+  align-self: stretch;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.tabBodyScroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .rightPanelSummary {
@@ -196,10 +216,7 @@
     max-width: 100%;
     margin-inline: 0;
     flex: none;
-    min-height: unset;
-    max-height: none;
-    overflow: visible;
-    align-items: stretch;
+    align-items: flex-start;
   }
 
   .playerSectionLeft,
@@ -207,12 +224,6 @@
     flex: 1 1 auto;
     max-width: 100%;
     width: 100%;
-    max-height: none;
-  }
-
-  .playerSectionRight {
-    min-height: clamp(360px, 55vh, 720px);
-    overflow: hidden;
   }
 }
 
@@ -225,8 +236,6 @@
   border-radius: var(--mantine-radius-md);
   border: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-white);
-  overflow: hidden;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -235,6 +244,8 @@
 
 .playerHeader {
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
   padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
   border-bottom: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-white);
@@ -242,14 +253,12 @@
 
 .playerViewport {
   position: relative;
-  min-height: 500px;
   max-width: 100%;
   background: var(--mantine-color-gray-0);
   display: flex;
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid var(--mantine-color-gray-2);
-  overflow: hidden;
 }
 
 .loadingSpinner {
@@ -295,7 +304,6 @@
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  overflow-x: hidden;
 }
 
 .playerControls .timelineContainer {
@@ -327,52 +335,30 @@
   border-radius: var(--mantine-radius-md);
   border: 1px solid var(--mantine-color-gray-3);
   background: var(--mantine-color-white);
-  min-height: 400px;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-/* Raw Events Container - same height as device player (fills tab content) */
+/* Raw events wrapper — content height */
 .rawEventsContainer {
   padding: var(--mantine-spacing-md);
   border-radius: var(--mantine-radius-sm);
   border: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-gray-0);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.rawEventsContainer > * {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
 .tabPanelScroll {
   width: 100%;
-  flex: 1;
-  min-height: 0;
-  align-self: stretch;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding-right: 2px; /* room for scrollbar */
 }
 
-/* Tabs fill Paper so All / Events panels can shrink and scroll inside */
+/* Tabs stack naturally with tab content */
 .sessionTabsRoot {
   width: 100%;
   min-width: 0;
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 /* Consistent tab bar: every tab has an icon slot + label; horizontal scroll on narrow viewports */
@@ -426,47 +412,34 @@
 .allTabContainer {
   width: 100%;
   min-width: 0;
-  min-height: 0;
-  height: 100%;
   padding: 0;
   border-radius: var(--mantine-radius-md);
   border: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-white);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  flex: 1;
 }
 
 .allTabContainer .tabContent {
   width: 100%;
   min-width: 0;
   padding: var(--mantine-spacing-md);
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   box-sizing: border-box;
 }
 
-/* Tab panels: only role=tabpanel (avoid styling Mantine wrappers that break layout) */
-.allTabContainer .tabContent > [role="tabpanel"] {
-  flex: 1;
-  min-height: 0;
+/* Tab panels (direct or inside .tabBodyScroll when height-matched) */
+.allTabContainer .tabContent [role="tabpanel"] {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .tabContent {
   padding: var(--mantine-spacing-md);
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 /* Timeline Section */
@@ -475,7 +448,6 @@
   border-radius: var(--mantine-radius-md);
   border: 1px solid var(--mantine-color-gray-3);
   background: var(--mantine-color-white);
-  overflow: hidden;
 }
 
 /* Dark mode */

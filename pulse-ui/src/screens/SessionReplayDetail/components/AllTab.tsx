@@ -8,6 +8,7 @@ import { TAB_PANEL_DESCRIPTION, TAB_PANEL_TITLE } from "../constants/strings";
 interface AllTabProps {
   sessionData: SessionDetailData;
   currentTime?: number;
+  isPlaying?: boolean;
   scrollToTimestamp?: { t0: number; t1: number } | null;
   onEventClick?: (item: FlameChartNode) => void;
 }
@@ -15,11 +16,12 @@ interface AllTabProps {
 export function AllTab({
   sessionData,
   currentTime = 0,
+  isPlaying = false,
   scrollToTimestamp = null,
   onEventClick,
 }: AllTabProps) {
   return (
-    <Stack gap="sm" style={{ flex: 1, minHeight: 0, width: "100%" }}>
+    <Stack gap="sm" w="100%">
       <Stack gap={4} style={{ flexShrink: 0 }}>
         <Title order={5} fz="md" fw={600}>
           {TAB_PANEL_TITLE.ALL}
@@ -32,6 +34,7 @@ export function AllTab({
         <RawSessionEvents
           sessionData={sessionData}
           currentTime={currentTime}
+          isPlaying={isPlaying}
           scrollToTimestamp={scrollToTimestamp ?? undefined}
           onEventClick={onEventClick}
         />

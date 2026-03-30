@@ -1,23 +1,23 @@
-import type { ReactNode } from "react";
 import { Box, Paper, Tabs } from "@mantine/core";
 import {
-  IconHandClick,
-  IconTerminal,
-  IconNetwork,
   IconGauge,
+  IconHandClick,
   IconMapRoute,
+  IconNetwork,
+  IconTerminal,
   IconTimeline,
 } from "@tabler/icons-react";
-import { AllTab } from "./AllTab";
-import { InteractionTab } from "./InteractionTab";
-import { ConsoleTab } from "./ConsoleTab";
-import { NetworkTab } from "./NetworkTab";
-import { PerformanceTab } from "./PerformanceTab";
-import { UserJourneyTab } from "./UserJourneyTab";
+import type { ReactNode } from "react";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
 import type { FlameChartNode } from "../../SessionTimeline/utils/flameChartTransform";
 import { TABS, TAB_LABELS } from "../constants/strings";
 import classes from "../SessionReplayDetail.module.css";
+import { AllTab } from "./AllTab";
+import { ConsoleTab } from "./ConsoleTab";
+import { InteractionTab } from "./InteractionTab";
+import { NetworkTab } from "./NetworkTab";
+import { PerformanceTab } from "./PerformanceTab";
+import { UserJourneyTab } from "./UserJourneyTab";
 
 const TAB_ICON_SIZE = 16;
 const TAB_ICON_STROKE = 1.5;
@@ -34,37 +34,95 @@ interface SessionTabsProps {
   activeTab: string;
   sessionData: SessionDetailData;
   currentTime: number;
+  isPlaying: boolean;
   scrollToTimestamp: { t0: number; t1: number } | null;
   onEventClick: (item: FlameChartNode) => void;
   networkViewMode: "text" | "graph";
   onTabChange: (value: string) => void;
   onCriticalInteractionClick: (t0: number, t1: number) => void;
   onNetworkViewModeChange: (mode: "text" | "graph") => void;
+  /** When true, tabs card fills player-matched height and panel body scrolls */
+  matchPlayerHeight?: boolean;
 }
 
 export function SessionTabs({
   activeTab,
   sessionData,
   currentTime,
+  isPlaying,
   scrollToTimestamp,
   onEventClick,
   networkViewMode,
   onTabChange,
   onCriticalInteractionClick,
   onNetworkViewModeChange,
+  matchPlayerHeight = false,
 }: SessionTabsProps) {
+  const tabPanels = (
+    <>
+      <Tabs.Panel value={TABS.ALL}>
+        <AllTab
+          sessionData={sessionData}
+          currentTime={currentTime}
+          isPlaying={isPlaying}
+          scrollToTimestamp={scrollToTimestamp}
+          onEventClick={onEventClick}
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.INTERACTION}>
+        <InteractionTab
+          sessionData={sessionData}
+          onCriticalInteractionClick={onCriticalInteractionClick}
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.NETWORK}>
+        <NetworkTab
+          sessionData={sessionData}
+          viewMode={networkViewMode}
+          onViewModeChange={onNetworkViewModeChange}
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.PERFORMANCE}>
+        <PerformanceTab sessionData={sessionData} />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.USER_JOURNEY}>
+        <UserJourneyTab sessionData={sessionData} />
+      </Tabs.Panel>
+
+      <Tabs.Panel value={TABS.CONSOLE}>
+        <ConsoleTab sessionData={sessionData} />
+      </Tabs.Panel>
+    </>
+  );
+
   return (
-    <Paper className={classes.allTabContainer}>
+    <Paper
+      className={classes.allTabContainer}
+      data-matched-height={matchPlayerHeight ? "" : undefined}
+    >
       <Tabs
         value={activeTab}
         onChange={(value) => onTabChange(value || TABS.ALL)}
         color="teal"
         variant="default"
+        data-matched-height={matchPlayerHeight ? "" : undefined}
         classNames={{
           root: classes.sessionTabsRoot,
           list: classes.sessionTabsList,
           tab: classes.sessionTab,
         }}
+        styles={
+          matchPlayerHeight
+            ? {
+                /* Fills Paper slot; overflow scroll establishes scrollport for list + panel (DevTools fix). */
+                root: { height: "100%", overflow: "scroll" },
+              }
+            : undefined
+        }
       >
         <Tabs.List>
           <Tabs.Tab
@@ -81,10 +139,7 @@ export function SessionTabs({
             value={TABS.INTERACTION}
             leftSection={
               <TabIcon>
-                <IconHandClick
-                  size={TAB_ICON_SIZE}
-                  stroke={TAB_ICON_STROKE}
-                />
+                <IconHandClick size={TAB_ICON_SIZE} stroke={TAB_ICON_STROKE} />
               </TabIcon>
             }
           >
@@ -94,10 +149,7 @@ export function SessionTabs({
             value={TABS.NETWORK}
             leftSection={
               <TabIcon>
-                <IconNetwork
-                  size={TAB_ICON_SIZE}
-                  stroke={TAB_ICON_STROKE}
-                />
+                <IconNetwork size={TAB_ICON_SIZE} stroke={TAB_ICON_STROKE} />
               </TabIcon>
             }
           >
@@ -117,10 +169,7 @@ export function SessionTabs({
             value={TABS.USER_JOURNEY}
             leftSection={
               <TabIcon>
-                <IconMapRoute
-                  size={TAB_ICON_SIZE}
-                  stroke={TAB_ICON_STROKE}
-                />
+                <IconMapRoute size={TAB_ICON_SIZE} stroke={TAB_ICON_STROKE} />
               </TabIcon>
             }
           >
@@ -130,10 +179,7 @@ export function SessionTabs({
             value={TABS.CONSOLE}
             leftSection={
               <TabIcon>
-                <IconTerminal
-                  size={TAB_ICON_SIZE}
-                  stroke={TAB_ICON_STROKE}
-                />
+                <IconTerminal size={TAB_ICON_SIZE} stroke={TAB_ICON_STROKE} />
               </TabIcon>
             }
           >
@@ -142,41 +188,11 @@ export function SessionTabs({
         </Tabs.List>
 
         <Box className={classes.tabContent}>
-          <Tabs.Panel value={TABS.ALL}>
-            <AllTab
-              sessionData={sessionData}
-              currentTime={currentTime}
-              scrollToTimestamp={scrollToTimestamp}
-              onEventClick={onEventClick}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.INTERACTION}>
-            <InteractionTab
-              sessionData={sessionData}
-              onCriticalInteractionClick={onCriticalInteractionClick}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.NETWORK}>
-            <NetworkTab
-              sessionData={sessionData}
-              viewMode={networkViewMode}
-              onViewModeChange={onNetworkViewModeChange}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.PERFORMANCE}>
-            <PerformanceTab sessionData={sessionData} />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.USER_JOURNEY}>
-            <UserJourneyTab sessionData={sessionData} />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={TABS.CONSOLE}>
-            <ConsoleTab sessionData={sessionData} />
-          </Tabs.Panel>
+          {matchPlayerHeight ? (
+            <Box className={classes.tabBodyScroll}>{tabPanels}</Box>
+          ) : (
+            tabPanels
+          )}
         </Box>
       </Tabs>
     </Paper>

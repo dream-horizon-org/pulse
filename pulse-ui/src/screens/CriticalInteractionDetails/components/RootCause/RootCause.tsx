@@ -12,57 +12,13 @@ import { useGetInteractionDetailsGraphs } from "../../../../hooks/useGetInteract
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import type { RcaReportTenantContext } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { FunnelJourneyCard, HeatmapRcaCard, SessionCard } from "./components";
+import { getRootCauseMockLinkedFunnelsJourneys } from "./rootCauseMockLinkedFunnelsJourneys";
+import { getRootCauseMockRelatedSessions } from "./rootCauseMockRelatedSessions";
 import { buildScreenHeatmapUrl, getRcaHeatmapTargets } from "./rcaHeatmapLinks";
 import { RcaReportView } from "./RcaReportView";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
 import classes from "./RootCause.module.css";
-
-/** Mock related session replays for the RCA view; IDs match `mockSessionReplayScenarios` (same mock replay frames as other sess_* mocks). */
-const MOCK_RELATED_SESSIONS = [
-  {
-    sessionId: "sess_rca_join_mock_001",
-    duration: "3:18",
-    relativeTime: "45 min ago",
-    device: "Android 13 · App 4.0.0 · Pixel 8",
-    failureSummary:
-      "Join API error, then ANR on retry — matches Android 4.0.0 + OS 13 RCA segment.",
-  },
-  {
-    sessionId: "sess_rca_join_mock_002",
-    duration: "4:05",
-    relativeTime: "1 hr ago",
-    device: "iOS 17.4 · App 4.2.0 · iPhone 15 Pro",
-    failureSummary:
-      "Slow join + interaction error — matches iOS 4.2.0 RCA segment.",
-  },
-];
-
-/** Mock linked funnels and journeys for the RCA view */
-const MOCK_LINKED_FUNNELS_JOURNEYS = [
-  {
-    id: "funnel-payment-001",
-    name: "Payment Flow Conversion",
-    type: "FUNNEL" as const,
-    status: "ACTIVE" as const,
-    createdBy: "sarah@example.com",
-    createdAt: "3 days ago",
-    tags: ["payment", "conversion", "critical"],
-    description:
-      "Tracks user conversion through the payment process including checkout and order completion.",
-  },
-  {
-    id: "journey-onboarding-001",
-    name: "User Onboarding Journey",
-    type: "JOURNEY" as const,
-    status: "ACTIVE" as const,
-    createdBy: "alex@example.com",
-    createdAt: "1 week ago",
-    tags: ["onboarding", "ux", "retention"],
-    description:
-      "Maps the complete user journey from app launch to account creation and first purchase.",
-  },
-];
 
 export const RootCause = ({
   interactionName,
@@ -199,8 +155,8 @@ export const RootCause = ({
       charts: [],
       tables: [],
     };
-    const relatedSessions = MOCK_RELATED_SESSIONS;
-    const linkedFunnelsJourneys = MOCK_LINKED_FUNNELS_JOURNEYS;
+    const relatedSessions = getRootCauseMockRelatedSessions();
+    const linkedFunnelsJourneys = getRootCauseMockLinkedFunnelsJourneys();
     return (
       <>
         <RcaReportView
@@ -254,7 +210,7 @@ export const RootCause = ({
                 aria-hidden
               />
               <Text className={classes.linkedFunnelsJourneysTitle}>
-                Linked Funnels & Journeys
+                Related Funnels & Journeys
               </Text>
               <Box
                 component="span"

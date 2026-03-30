@@ -1,3 +1,4 @@
+import { patchSessionDetailDataForEcommerceTheme } from "../../mocks/ecommerceSessionDetailPatch";
 import type { AttributeValue } from "../../types/attributes";
 
 export type SessionType =
@@ -336,7 +337,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetailData {
   const now = new Date();
   const sessionStart = new Date(now.getTime() - 154000);
 
-  return {
+  const data: SessionDetailData = {
     sessionId,
     userId: "user_3456",
     isAnonymous: false,
@@ -949,4 +950,6 @@ export function getMockSessionDetail(sessionId: string): SessionDetailData {
       ],
     },
   };
+
+  return patchSessionDetailDataForEcommerceTheme(data);
 }

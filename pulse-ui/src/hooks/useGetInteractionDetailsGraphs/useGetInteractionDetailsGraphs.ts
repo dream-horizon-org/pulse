@@ -12,17 +12,40 @@ import {
 } from "./useGetInteractionDetailsGraphs.interface";
 import { FILTER_MAPPING } from "../hooks.interface";
 
+// useGetDataQuery also extends utc; ensure utc is available if this module loads first
+import utc from "dayjs/plugin/utc";
+dayjs.extend(utc);
+
+/** Safe UTC ISO for data query; null if missing or not parseable (avoids RangeError from toISOString). */
+function toValidUtcIso(value: string | undefined): string | null {
+  if (value === undefined) return null;
+  const trimmed = String(value).trim();
+  if (trimmed === "") return null;
+  const parsed = /^\d+$/.test(trimmed)
+    ? dayjs.utc(Number(trimmed))
+    : dayjs.utc(trimmed);
+  return parsed.isValid() ? parsed.toISOString() : null;
+}
+
 export const useGetInteractionDetailsGraphs = ({
   interactionName,
   startTime,
   endTime,
   enabled = true,
-  dashboardFilters
+  dashboardFilters,
 }: UseGetInteractionDetailsGraphsParams): UseGetInteractionDetailsGraphsReturn => {
+  const rangeStartIso = toValidUtcIso(startTime);
+  const rangeEndIso = toValidUtcIso(endTime);
+  const hasValidTimeRange = rangeStartIso != null && rangeEndIso != null;
+
   // Build filters
   const requestFilters: FilterField[] = useMemo(() => {
     const baseFilters: FilterField[] = [
-      { field: COLUMN_NAME.PULSE_TYPE, operator: "EQ", value: [PulseType.INTERACTION] },
+      {
+        field: COLUMN_NAME.PULSE_TYPE,
+        operator: "EQ",
+        value: [PulseType.INTERACTION],
+      },
     ];
 
     if (interactionName) {
@@ -33,9 +56,9 @@ export const useGetInteractionDetailsGraphs = ({
       });
     }
 
-  
     Object.entries(FILTER_MAPPING).forEach(([filterKey, fieldName]) => {
-      const value = dashboardFilters?.[filterKey as keyof typeof dashboardFilters];
+      const value =
+        dashboardFilters?.[filterKey as keyof typeof dashboardFilters];
       if (value) {
         baseFilters.push({ field: fieldName, operator: "EQ", value: [value] });
       }
@@ -49,34 +72,37 @@ export const useGetInteractionDetailsGraphs = ({
     () => ({
       dataType: "TRACES" as const,
       timeRange: {
-        start: dayjs.utc(startTime || "").toISOString(),
-        end: dayjs.utc(endTime || "").toISOString(),
+        start: rangeStartIso ?? "1970-01-01T00:00:00.000Z",
+        end: rangeEndIso ?? "1970-01-01T00:00:00.000Z",
       },
       select: [
         {
           function: "TIME_BUCKET" as const,
           param: {
-            bucket: getTimeBucketSize(
-              startTime?.toString() || "",
-              endTime?.toString() || "",
-            ),
+            bucket: getTimeBucketSize(rangeStartIso ?? "", rangeEndIso ?? ""),
             field: COLUMN_NAME.TIMESTAMP,
           },
           alias: "t1",
         },
         { function: "APDEX" as const, alias: "apdex" },
-        { function: "INTERACTION_SUCCESS_COUNT" as const, alias: "success_count" },
+        {
+          function: "INTERACTION_SUCCESS_COUNT" as const,
+          alias: "success_count",
+        },
         { function: "INTERACTION_ERROR_COUNT" as const, alias: "error_count" },
         { function: "USER_CATEGORY_AVERAGE" as const, alias: "user_avg" },
         { function: "USER_CATEGORY_GOOD" as const, alias: "user_good" },
-        { function: "USER_CATEGORY_EXCELLENT" as const, alias: "user_excellent" },
+        {
+          function: "USER_CATEGORY_EXCELLENT" as const,
+          alias: "user_excellent",
+        },
         { function: "USER_CATEGORY_POOR" as const, alias: "user_poor" },
       ],
       filters: requestFilters,
       groupBy: ["t1"],
       orderBy: [{ field: "t1", direction: "ASC" as const }],
     }),
-    [startTime, endTime, requestFilters],
+    [rangeStartIso, rangeEndIso, requestFilters],
   );
 
   // Memoize the metrics request body
@@ -84,12 +110,15 @@ export const useGetInteractionDetailsGraphs = ({
     () => ({
       dataType: "TRACES" as const,
       timeRange: {
-        start: dayjs.utc(startTime || "").toISOString(),
-        end: dayjs.utc(endTime || "").toISOString(),
+        start: rangeStartIso ?? "1970-01-01T00:00:00.000Z",
+        end: rangeEndIso ?? "1970-01-01T00:00:00.000Z",
       },
       select: [
         { function: "APDEX" as const, alias: "apdex" },
-        { function: "INTERACTION_SUCCESS_COUNT" as const, alias: "success_count" },
+        {
+          function: "INTERACTION_SUCCESS_COUNT" as const,
+          alias: "success_count",
+        },
         { function: "INTERACTION_ERROR_COUNT" as const, alias: "error_count" },
         { function: "DURATION_P50" as const, alias: "p50" },
         { function: "DURATION_P95" as const, alias: "p95" },
@@ -102,14 +131,17 @@ export const useGetInteractionDetailsGraphs = ({
         { function: "NET_2XX" as const, alias: "net_2xx" },
         { function: "NET_4XX" as const, alias: "net_4xx" },
         { function: "NET_5XX" as const, alias: "net_5xx" },
-        { function: "USER_CATEGORY_EXCELLENT" as const, alias: "user_excellent" },
+        {
+          function: "USER_CATEGORY_EXCELLENT" as const,
+          alias: "user_excellent",
+        },
         { function: "USER_CATEGORY_GOOD" as const, alias: "user_good" },
         { function: "USER_CATEGORY_AVERAGE" as const, alias: "user_avg" },
         { function: "USER_CATEGORY_POOR" as const, alias: "user_poor" },
       ],
       filters: requestFilters,
     }),
-    [startTime, endTime, requestFilters],
+    [rangeStartIso, rangeEndIso, requestFilters],
   );
 
   // Fetch graph data
@@ -119,7 +151,7 @@ export const useGetInteractionDetailsGraphs = ({
     error: graphDataError,
   } = useGetDataQuery({
     requestBody: graphDataRequestBody,
-    enabled: enabled && !!startTime && !!endTime,
+    enabled: enabled && hasValidTimeRange,
   });
 
   // Fetch metrics data
@@ -129,7 +161,7 @@ export const useGetInteractionDetailsGraphs = ({
     error: metricsError,
   } = useGetDataQuery({
     requestBody: metricsRequestBody,
-    enabled: enabled && !!startTime && !!endTime,
+    enabled: enabled && hasValidTimeRange,
   });
 
   // Transform graph data
@@ -265,14 +297,14 @@ export const useGetInteractionDetailsGraphs = ({
     }
 
     const row = responseData.rows[0];
-    
+
     // Calculate totals to determine if we have meaningful data
     const totalUsers =
       (parseFloat(row[userExcellentIndex]) || 0) +
       (parseFloat(row[userGoodIndex]) || 0) +
       (parseFloat(row[userAvgIndex]) || 0) +
       (parseFloat(row[userPoorIndex]) || 0);
-    
+
     const successCount = parseFloat(row[successCountIndex]) || 0;
     const errorCount = parseFloat(row[errorCountIndex]) || 0;
     const totalRequests = successCount + errorCount;
@@ -306,16 +338,16 @@ export const useGetInteractionDetailsGraphs = ({
         ? ((parseFloat(row[userExcellentIndex]) || 0) / totalUsers) * 100
         : null;
     const goodUsersPercentage =
-      totalUsers > 0 
-        ? ((parseFloat(row[userGoodIndex]) || 0) / totalUsers) * 100 
+      totalUsers > 0
+        ? ((parseFloat(row[userGoodIndex]) || 0) / totalUsers) * 100
         : null;
     const averageUsersPercentage =
-      totalUsers > 0 
-        ? ((parseFloat(row[userAvgIndex]) || 0) / totalUsers) * 100 
+      totalUsers > 0
+        ? ((parseFloat(row[userAvgIndex]) || 0) / totalUsers) * 100
         : null;
     const poorUsersPercentage =
-      totalUsers > 0 
-        ? ((parseFloat(row[userPoorIndex]) || 0) / totalUsers) * 100 
+      totalUsers > 0
+        ? ((parseFloat(row[userPoorIndex]) || 0) / totalUsers) * 100
         : null;
 
     // Calculate rate metrics (null if no requests)
@@ -324,38 +356,46 @@ export const useGetInteractionDetailsGraphs = ({
     const p95Value = parseFloat(row[p95Index]);
 
     return {
-      apdex: totalRequests > 0 ? (apdexValue || 0) : null,
-      errorRate: totalRequests > 0 
-        ? (errorCount / totalRequests) * 100 
-        : null,
-      p50: totalRequests > 0 ? (p50Value || 0) : null,
-      p95: totalRequests > 0 ? (p95Value || 0) : null,
-      frozenFrameRate: totalFrames > 0
-        ? ((parseFloat(row[frozenFrameIndex]) || 0) / totalFrames) * 100
-        : null,
-      crashRate: totalRequests > 0
-        ? ((parseFloat(row[crashIndex]) || 0) / totalRequests) * 100
-        : null,
-      anrRate: totalRequests > 0
-        ? ((parseFloat(row[anrIndex]) || 0) / totalRequests) * 100
-        : null,
-      excellentUsersPercentage: excellentUsersPercentage !== null 
-        ? excellentUsersPercentage.toFixed(2) + "%" 
-        : null,
-      goodUsersPercentage: goodUsersPercentage !== null 
-        ? goodUsersPercentage.toFixed(2) + "%" 
-        : null,
-      averageUsersPercentage: averageUsersPercentage !== null 
-        ? averageUsersPercentage.toFixed(2) + "%" 
-        : null,
-      poorUsersPercentage: poorUsersPercentage !== null 
-        ? poorUsersPercentage.toFixed(2) + "%" 
-        : null,
-      networkErrorRate: totalRequests > 0
-        ? (((parseFloat(row[net0Index]) || 0) +
-            (parseFloat(row[net4xxIndex]) || 0) +
-            (parseFloat(row[net5xxIndex]) || 0)) / totalRequests) * 100
-        : null,
+      apdex: totalRequests > 0 ? apdexValue || 0 : null,
+      errorRate: totalRequests > 0 ? (errorCount / totalRequests) * 100 : null,
+      p50: totalRequests > 0 ? p50Value || 0 : null,
+      p95: totalRequests > 0 ? p95Value || 0 : null,
+      frozenFrameRate:
+        totalFrames > 0
+          ? ((parseFloat(row[frozenFrameIndex]) || 0) / totalFrames) * 100
+          : null,
+      crashRate:
+        totalRequests > 0
+          ? ((parseFloat(row[crashIndex]) || 0) / totalRequests) * 100
+          : null,
+      anrRate:
+        totalRequests > 0
+          ? ((parseFloat(row[anrIndex]) || 0) / totalRequests) * 100
+          : null,
+      excellentUsersPercentage:
+        excellentUsersPercentage !== null
+          ? excellentUsersPercentage.toFixed(2) + "%"
+          : null,
+      goodUsersPercentage:
+        goodUsersPercentage !== null
+          ? goodUsersPercentage.toFixed(2) + "%"
+          : null,
+      averageUsersPercentage:
+        averageUsersPercentage !== null
+          ? averageUsersPercentage.toFixed(2) + "%"
+          : null,
+      poorUsersPercentage:
+        poorUsersPercentage !== null
+          ? poorUsersPercentage.toFixed(2) + "%"
+          : null,
+      networkErrorRate:
+        totalRequests > 0
+          ? (((parseFloat(row[net0Index]) || 0) +
+              (parseFloat(row[net4xxIndex]) || 0) +
+              (parseFloat(row[net5xxIndex]) || 0)) /
+              totalRequests) *
+            100
+          : null,
       hasData: totalRequests > 0 || totalUsers > 0,
     } as InteractionDetailsMetricsData;
   }, [metricsDataResponse, metricsError]);
@@ -370,4 +410,3 @@ export const useGetInteractionDetailsGraphs = ({
     isError,
   };
 };
-

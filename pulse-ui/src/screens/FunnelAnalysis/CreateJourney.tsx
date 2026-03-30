@@ -125,6 +125,7 @@ export function CreateJourney() {
         filterOptions={filterOptions}
       />
 
+      <Box style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <JourneyExplorer
         name={name}
         onNameChange={setName}
@@ -147,6 +148,7 @@ export function CreateJourney() {
         isCreating={isCreating}
         filters={filters}
       />
+      </Box>
     </Box>
   );
 }
