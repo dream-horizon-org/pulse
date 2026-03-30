@@ -5,6 +5,7 @@
  */
 
 import type { RcaReportTenantContext } from "../../hooks/useGetRcaReport/useGetRcaReport.interface";
+import { isEcommerceMockThemeEnabled } from "../mockEcommerceTheme";
 
 const DEFAULT_NUM = {
   volLabel: "3,287",
@@ -91,9 +92,26 @@ export const buildMockRcaReportResponseBody = (
   const seg2Poor = Math.min(99.99, parseFloat(BL.poor) * 1.15);
   const seg3Poor = Math.min(99.99, parseFloat(BL.poor) * 1.38);
 
+  const eco = isEcommerceMockThemeEnabled();
+
   const executiveSummaryMarkdown = tenantContext
-    ? `The **'${name}'** interaction in the selected window shows **${BL.err}** interaction error rate and **${BL.poor}** of users in the **poor** experience bucket (tenant-level aggregates). Segment drilldowns below compare localized slices against these baselines.`
-    : `The **'${name}'** interaction is experiencing **degraded performance**: **P95 duration** exceeds the poor threshold and **error** and **crash** rates are elevated versus tenant baseline. The primary contributors are **Android App Version 4.0.0** especially **OS 13** and **iOS App Version 4.2.0**.`;
+    ? eco
+      ? `The **'${name}'** interaction in the selected window shows **${BL.err}** interaction error rate and **${BL.poor}** of users in the **poor** experience bucket. Segment drilldowns compare slices to these baselines—use **screen heatmaps** (PLP, PDP, cart, checkout), **session replays** on this tab, and **linked funnels** to confirm where shoppers stall.`
+      : `The **'${name}'** interaction in the selected window shows **${BL.err}** interaction error rate and **${BL.poor}** of users in the **poor** experience bucket. Segment drilldowns below compare localized slices against these baselines.`
+    : eco
+      ? `The **'${name}'** interaction shows **degraded performance** versus healthy **browse-to-buy** and **checkout** funnels. Contributors align with **Android 4.0.0** (**OS 13**) and **iOS 4.2.0**—validate with **heatmaps** on list/detail/checkout screens and **session replays** for cart and payment.`
+      : `The **'${name}'** interaction is experiencing **degraded performance**: **P95 duration** exceeds the poor threshold and **error** and **crash** rates are elevated versus tenant baseline. The primary contributors are **Android App Version 4.0.0** especially **OS 13** and **iOS App Version 4.2.0**.`;
+
+  const ecommerceRecommendationsSuffix = eco
+    ? `
+
+→ <span style="color:#0ca678">**Heatmaps:**</span> For **Android 4.0.0 / OS 13** and **iOS 4.2.0**, open **Checkout**, **Cart**, and **Product detail** heatmaps to find rage taps, retries, and dead zones near **${name}**.
+
+→ <span style="color:#0ca678">**Session replays:**</span> From related replays, filter paths that fail **${name}** and verify inventory, promo, tax, and gateway responses in sequence.
+
+→ <span style="color:#0ca678">**Funnels:**</span> Slice **Cart → checkout → payment** and **PLP → PDP** funnels by app version and OS—conversion cliffs should line up with the worst segments above.
+`
+    : "";
 
   const markdown = `## Top contributing segments
 
@@ -160,6 +178,7 @@ export const buildMockRcaReportResponseBody = (
 → <span style="color:#0ca678">**Error log analysis:**</span> For the high–error-rate segments above, query \`error_logs\` for specific messages and stack traces to pinpoint failure points.
 
 → <span style="color:#0ca678">**Crash / ANR event analysis:**</span> For high crash/ANR segments (notably <span style="color:#e03131">**Android 4.0.0 / OS 13**</span>), query \`rum_events\` for crash/ANR payloads, stack traces, and user context.
+${ecommerceRecommendationsSuffix}
 `;
 
   const chartErrorData = ERROR_BAR_RATIOS.map(
@@ -172,7 +191,9 @@ export const buildMockRcaReportResponseBody = (
       charts: [
         {
           type: "chart",
-          title: "Error rate (%) — top 3 segments vs tenant baseline",
+          title: eco
+            ? "Error rate (%) — top segments vs baseline (cross-check funnel + heatmap cohorts)"
+            : "Error rate (%) — top 3 segments vs tenant baseline",
           data: {
             type: "bar",
             labels: ["Tenant", "Andr 4.0.0", "4.0.0+OS13", "iOS 4.2.0"],

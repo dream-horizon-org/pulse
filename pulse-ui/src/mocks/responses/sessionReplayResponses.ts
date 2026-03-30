@@ -12,7 +12,7 @@ import type {
   SessionDetailApiResponse,
 } from "../../services/sessionReplay/types";
 import { applyMockSessionDetailOverrides } from "../../screens/SessionReplayDetail/mock/mockSessionReplayScenarios";
-import { SESSION_REPLAY_DETAIL_INTERACTION_ORDER } from "../mockPulseProjectRegistry";
+import { getActiveSessionReplayDetailInteractionOrder } from "../mockPulseProjectRegistry";
 
 const MOCK_API_ORIGIN = "https://api.example.com";
 
@@ -91,6 +91,7 @@ function buildGenericSessionDetailApiResponse(
   const durationMs = 92000;
   const startTime = new Date(now.getTime() - durationMs);
   const endTime = new Date(now.getTime());
+  const detailInteractionOrder = getActiveSessionReplayDetailInteractionOrder();
   const t = (ms: number) => new Date(startTime.getTime() + ms).toISOString();
   const events = [
     {
@@ -404,14 +405,10 @@ function buildGenericSessionDetailApiResponse(
     appVersion: "2.3.1",
     geography: "India, Mumbai",
     quality: 0.65,
-    journey: [
-      "HomeScreen",
-      "ProductDetailScreen",
-      "CartScreen",
-    ],
+    journey: ["HomeScreen", "ProductDetailScreen", "CartScreen"],
     interactions: [
       {
-        interactionName: SESSION_REPLAY_DETAIL_INTERACTION_ORDER[0],
+        interactionName: detailInteractionOrder[0],
         status: "success",
         successCount: 1,
         failureCount: 0,
@@ -419,7 +416,7 @@ function buildGenericSessionDetailApiResponse(
         apdexScore: 0.85,
       },
       {
-        interactionName: SESSION_REPLAY_DETAIL_INTERACTION_ORDER[1],
+        interactionName: detailInteractionOrder[1],
         status: "success",
         successCount: 1,
         failureCount: 0,
@@ -427,7 +424,7 @@ function buildGenericSessionDetailApiResponse(
         apdexScore: 0.82,
       },
       {
-        interactionName: SESSION_REPLAY_DETAIL_INTERACTION_ORDER[2],
+        interactionName: detailInteractionOrder[2],
         status: "failed",
         successCount: 0,
         failureCount: 1,

@@ -32,7 +32,6 @@ import {SessionReplayInsights} from "../screens/SessionReplayInsights";
 import {SessionReplaySessions} from "../screens/SessionReplaySessions";
 import {SessionTimeline} from "../screens/SessionTimeline";
 import {Settings} from "../screens/Settings";
-import {SupportQueries} from "../screens/SupportQueries";
 import {UniversalEventQuery} from "../screens/UniversalEventQuery/UniversalEventQuery";
 import {UserEngagement} from "../screens/UserEngagement";
 import {SessionReplayDetail} from "../screens/SessionReplayDetail";

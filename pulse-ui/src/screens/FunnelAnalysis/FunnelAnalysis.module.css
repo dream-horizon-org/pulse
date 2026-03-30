@@ -404,7 +404,8 @@
 .journeyLayout {
     flex: 1;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: stretch;
     overflow: hidden;
     min-height: 0;
 }
