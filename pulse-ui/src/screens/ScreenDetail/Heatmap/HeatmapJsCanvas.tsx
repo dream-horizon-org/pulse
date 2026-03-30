@@ -21,20 +21,22 @@ export function HeatmapJsCanvas({
   showFrustrationMarkers,
   ragePoints,
 }: HeatmapJsCanvasProps) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const el = hostRef.current;
-    if (!el) return undefined;
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return undefined;
 
     let cancelled = false;
     let rafId = 0;
     let frame = 0;
 
     const doPaint = (w: number, h: number) => {
-      if (cancelled || !el) return;
+      if (cancelled || !inner) return;
 
-      el.innerHTML = "";
+      inner.innerHTML = "";
       const n = displayGlow.length;
       const radiusFactor = n > 0 && n < 140 ? 0.1 : 0.072;
       const radius = Math.max(
@@ -43,7 +45,7 @@ export function HeatmapJsCanvas({
       );
 
       const inst = h337.create({
-        container: el,
+        container: inner,
         width: w,
         height: h,
         radius,
@@ -64,9 +66,9 @@ export function HeatmapJsCanvas({
     };
 
     const paintWhenReady = () => {
-      if (cancelled || !el) return;
-      const w = el.clientWidth;
-      const h = el.clientHeight;
+      if (cancelled || !outer) return;
+      const w = outer.clientWidth;
+      const h = outer.clientHeight;
       if (w < 8 || h < 8) {
         if (frame++ < LAYOUT_RETRY_FRAMES) {
           rafId = requestAnimationFrame(paintWhenReady);
@@ -87,23 +89,21 @@ export function HeatmapJsCanvas({
       frame = 0;
       paintWhenReady();
     });
-    ro.observe(el);
+    ro.observe(outer);
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
       ro.disconnect();
-      el.innerHTML = "";
+      inner.innerHTML = "";
     };
   }, [displayGlow, sharedWeightMax]);
 
   return (
     <>
-      <div
-        ref={hostRef}
-        className={classes.heatCanvasHost}
-        aria-hidden
-      />
+      <div ref={outerRef} className={classes.heatCanvasHost} aria-hidden>
+        <div ref={innerRef} className={classes.heatCanvasInner} />
+      </div>
       {showFrustrationMarkers && (
         <div className={classes.heatOverlay}>
           <HeatmapFrustrationMarkers points={ragePoints} />

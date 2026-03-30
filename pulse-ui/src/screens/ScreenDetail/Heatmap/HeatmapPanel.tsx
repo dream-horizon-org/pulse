@@ -6,10 +6,7 @@ import { useHeatmapData } from "../../../hooks/useHeatmapData";
 import { useFilterStore } from "../../../stores/useFilterStore";
 import { ROUTES } from "../../../constants";
 import { getHeatmapQualityMetrics } from "./heatmapQuality";
-import {
-  HeatmapVisualization,
-  type HeatmapRendererMode,
-} from "./HeatmapVisualization";
+import { HeatmapVisualization } from "./HeatmapVisualization";
 import { HeatmapFilterBar } from "./HeatmapFilterBar";
 import { HeatmapScoreSection } from "./HeatmapScoreSection";
 import { HeatmapComparePanel } from "./HeatmapComparePanel";
@@ -40,8 +37,6 @@ export function HeatmapPanel({
   const [compareScreenName, setCompareScreenName] = useState("HomeScreen");
   const [signal, setSignal] = useState<HeatmapSignal>("tap");
   const [focusLens, setFocusLens] = useState<HeatmapFocusLens>("all");
-  const [heatmapRenderer, setHeatmapRenderer] =
-    useState<HeatmapRendererMode>("heatmapjs");
 
   const heatmapRequestFilters = useMemo(
     () => ({
@@ -79,7 +74,6 @@ export function HeatmapPanel({
   });
 
   const singlePayload = heatmapQuery.data?.data;
-  console.log( "singlePayload", singlePayload);
   const singleErr = heatmapQuery.data?.error;
   const compareLeftPayload = compareLeftQuery.data?.data;
   const compareRightPayload = compareRightQuery.data?.data;
@@ -138,7 +132,6 @@ export function HeatmapPanel({
         compareLeftPayload={compareLeftPayload}
         compareRightPayload={compareRightPayload}
         compareSharedMax={compareSharedMax}
-        heatmapRenderer={heatmapRenderer}
       />
     );
   }
@@ -149,8 +142,6 @@ export function HeatmapPanel({
         signal={signal}
         onSignalChange={setSignal}
         onCompareClick={() => setCompareEnabled(true)}
-        heatmapRenderer={heatmapRenderer}
-        onHeatmapRendererChange={setHeatmapRenderer}
         focusLens={focusLens}
         onFocusLensChange={setFocusLens}
       />
@@ -187,7 +178,6 @@ export function HeatmapPanel({
           }
           showFrustrationMarkers={signal === "rage"}
           ragePoints={rageForMarkers}
-          renderer={heatmapRenderer}
         />
       )}
 

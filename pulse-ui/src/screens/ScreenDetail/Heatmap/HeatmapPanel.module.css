@@ -326,7 +326,7 @@
   overflow: hidden;
 }
 
-/* heatmap.js mounts its canvas here (same geometry as .heatOverlay) */
+/* Outer stays position:absolute — heatmap.js forces container { position:relative } inline */
 .heatCanvasHost {
   position: absolute;
   inset: 12px;
@@ -336,16 +336,15 @@
   z-index: 2;
 }
 
-.heatCanvasHost canvas {
-  border-radius: 14px;
+/* Inner fills outer; library mounts canvas here so outer inset layout is not collapsed */
+.heatCanvasInner {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
-.heatPlume {
-  position: absolute;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  mix-blend-mode: screen;
-  opacity: 0.85;
+.heatCanvasHost canvas {
+  border-radius: 14px;
 }
 
 .binBudgetRow {

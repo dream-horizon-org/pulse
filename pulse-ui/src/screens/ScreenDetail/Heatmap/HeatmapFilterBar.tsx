@@ -1,5 +1,4 @@
-import { Box, SegmentedControl, Text } from "@mantine/core";
-import type { HeatmapRendererMode } from "./heatmapViz.types";
+import { Box, Text } from "@mantine/core";
 import {
   HEATMAP_SIGNALS,
   type HeatmapFocusLens,
@@ -11,8 +10,6 @@ export interface HeatmapFilterBarProps {
   signal: HeatmapSignal;
   onSignalChange: (s: HeatmapSignal) => void;
   onCompareClick: () => void;
-  heatmapRenderer: HeatmapRendererMode;
-  onHeatmapRendererChange: (mode: HeatmapRendererMode) => void;
   focusLens: HeatmapFocusLens;
   onFocusLensChange: (lens: HeatmapFocusLens) => void;
 }
@@ -21,8 +18,6 @@ export function HeatmapFilterBar({
   signal,
   onSignalChange,
   onCompareClick,
-  heatmapRenderer,
-  onHeatmapRendererChange,
   focusLens,
   onFocusLensChange,
 }: HeatmapFilterBarProps) {
@@ -49,20 +44,6 @@ export function HeatmapFilterBar({
             {s.label}
           </button>
         ))}
-      </div>
-      <div>
-        <Text size="xs" c="dimmed" mb={6}>
-          POC renderer (same GET payload)
-        </Text>
-        <SegmentedControl
-          size="xs"
-          value={heatmapRenderer}
-          onChange={(v) => onHeatmapRendererChange(v as HeatmapRendererMode)}
-          data={[
-            { label: "DOM plumes", value: "dom" },
-            { label: "heatmap.js", value: "heatmapjs" },
-          ]}
-        />
       </div>
       <div className={classes.filterDivider} />
       <div className={classes.focusBlock}>

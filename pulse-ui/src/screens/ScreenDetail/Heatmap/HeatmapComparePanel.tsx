@@ -14,10 +14,7 @@ import {
   glowLayerForSignal,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
-import {
-  HeatmapVisualization,
-  type HeatmapRendererMode,
-} from "./HeatmapVisualization";
+import { HeatmapVisualization } from "./HeatmapVisualization";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapComparePanelProps {
@@ -31,7 +28,6 @@ export interface HeatmapComparePanelProps {
   compareLeftPayload: HeatmapDataResponse | null | undefined;
   compareRightPayload: HeatmapDataResponse | null | undefined;
   compareSharedMax: number;
-  heatmapRenderer: HeatmapRendererMode;
 }
 
 export function HeatmapComparePanel({
@@ -45,7 +41,6 @@ export function HeatmapComparePanel({
   compareLeftPayload,
   compareRightPayload,
   compareSharedMax,
-  heatmapRenderer,
 }: HeatmapComparePanelProps) {
   return (
     <Stack gap="md" className={classes.root}>
@@ -74,14 +69,12 @@ export function HeatmapComparePanel({
             data={compareLeftPayload}
             signal={signal}
             sharedWeightMax={compareSharedMax}
-            heatmapRenderer={heatmapRenderer}
           />
           <CompareColumn
             title="B"
             data={compareRightPayload}
             signal={signal}
             sharedWeightMax={compareSharedMax}
-            heatmapRenderer={heatmapRenderer}
           />
         </div>
       )}
@@ -146,13 +139,11 @@ function CompareColumn({
   data,
   signal,
   sharedWeightMax,
-  heatmapRenderer,
 }: {
   title: string;
   data: HeatmapDataResponse;
   signal: HeatmapSignal;
   sharedWeightMax: number;
-  heatmapRenderer: HeatmapRendererMode;
 }) {
   const glow = glowLayerForSignal(data, signal);
   const map = glow.length ? glow : data.layers.glow_map;
@@ -168,7 +159,6 @@ function CompareColumn({
         signalLabel={signal}
         totalTapsLabel={`${data.metadata.total_events.toLocaleString()} events`}
         sharedWeightMax={sharedWeightMax}
-        renderer={heatmapRenderer}
       />
     </Box>
   );
