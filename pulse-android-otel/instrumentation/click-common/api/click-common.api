@@ -1,3 +1,85 @@
+public final class io/opentelemetry/android/instrumentation/click/ClickEventBuffer {
+	public static final field Companion Lio/opentelemetry/android/instrumentation/click/ClickEventBuffer$Companion;
+	public static final field RADIUS_DP F
+	public static final field RAGE_THRESHOLD I
+	public static final field TIME_WINDOW_MS J
+	public fun <init> (FLio/opentelemetry/android/instrumentation/click/RageConfig;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (FLio/opentelemetry/android/instrumentation/click/RageConfig;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun currentTimeMs ()J
+	public final fun flush ()V
+	public final fun record (Lio/opentelemetry/android/instrumentation/click/PendingClick;)V
+}
+
+public final class io/opentelemetry/android/instrumentation/click/ClickEventBuffer$Companion {
+}
+
+public final class io/opentelemetry/android/instrumentation/click/PendingClick {
+	public fun <init> (FFJJZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (FFJJZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun component3 ()J
+	public final fun component4 ()J
+	public final fun component5 ()Z
+	public final fun component6 ()Ljava/lang/String;
+	public final fun component7 ()Ljava/lang/String;
+	public final fun component8 ()Ljava/lang/String;
+	public final fun copy (FFJJZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/opentelemetry/android/instrumentation/click/PendingClick;
+	public static synthetic fun copy$default (Lio/opentelemetry/android/instrumentation/click/PendingClick;FFJJZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/opentelemetry/android/instrumentation/click/PendingClick;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getClickContext ()Ljava/lang/String;
+	public final fun getHasTarget ()Z
+	public final fun getTapEpochMs ()J
+	public final fun getTimestampMs ()J
+	public final fun getWidgetId ()Ljava/lang/String;
+	public final fun getWidgetName ()Ljava/lang/String;
+	public final fun getX ()F
+	public final fun getY ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/opentelemetry/android/instrumentation/click/RageConfig {
+	public fun <init> ()V
+	public fun <init> (JIF)V
+	public synthetic fun <init> (JIFILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2 ()I
+	public final fun component3 ()F
+	public final fun copy (JIF)Lio/opentelemetry/android/instrumentation/click/RageConfig;
+	public static synthetic fun copy$default (Lio/opentelemetry/android/instrumentation/click/RageConfig;JIFILjava/lang/Object;)Lio/opentelemetry/android/instrumentation/click/RageConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getRadiusDp ()F
+	public final fun getRageThreshold ()I
+	public final fun getTimeWindowMs ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/opentelemetry/android/instrumentation/click/RageEvent {
+	public fun <init> (IFFJLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (IFFJLjava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component2 ()F
+	public final fun component3 ()F
+	public final fun component4 ()J
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun component7 ()Ljava/lang/String;
+	public final fun copy (IFFJLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/opentelemetry/android/instrumentation/click/RageEvent;
+	public static synthetic fun copy$default (Lio/opentelemetry/android/instrumentation/click/RageEvent;IFFJLjava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/opentelemetry/android/instrumentation/click/RageEvent;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getClickContext ()Ljava/lang/String;
+	public final fun getCount ()I
+	public final fun getTapEpochMs ()J
+	public final fun getWidgetId ()Ljava/lang/String;
+	public final fun getWidgetName ()Ljava/lang/String;
+	public final fun getX ()F
+	public final fun getY ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class io/opentelemetry/android/instrumentation/click/common/PulseClickGestureTracker {
 	public fun <init> ()V
 	public final fun onActionCancel ()V

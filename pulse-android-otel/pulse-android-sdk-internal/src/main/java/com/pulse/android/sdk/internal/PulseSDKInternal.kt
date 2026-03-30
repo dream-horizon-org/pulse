@@ -42,6 +42,8 @@ import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
+import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConfig
+import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
@@ -311,6 +313,21 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             currentSdkConfig?.interaction?.configUrl?.let { interactionConfigUrl ->
                 instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
+            currentSdkConfig
+                ?.features
+                ?.firstOrNull { it.featureName == PulseFeatureName.CLICK }
+                ?.config
+                ?.let { it as? PulseFeatureConfigData.ClickInstrumentation }
+                ?.rage
+                ?.let { backendRage ->
+                    val local = ClickContextEnrichmentConfig.rageConfig
+                    ClickContextEnrichmentConfig.rageConfig =
+                        RageConfig(
+                            timeWindowMs = backendRage.timeWindowMs ?: local.timeWindowMs,
+                            rageThreshold = backendRage.rageThreshold ?: local.rageThreshold,
+                            radiusDp = backendRage.radius ?: local.radiusDp,
+                        )
+                }
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
             sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)
             pulseSamplingProcessors?.run {

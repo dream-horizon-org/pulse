@@ -36,6 +36,23 @@ public object PulseAttributes {
     @JvmField
     public val APP_CLICK_CONTEXT: AttributeKey<String> = stringKey("app.click.context")
 
+    /**
+     * Quality of the click: "good" when the tap landed on an interactive target,
+     * "dead" when it missed all clickable elements.
+     */
+    @JvmField
+    public val CLICK_TYPE: AttributeKey<String> = stringKey("click.type")
+
+    /** Number of taps in the rage-click cluster. Set on rage events alongside [CLICK_TYPE]. */
+    @JvmField
+    public val CLICK_RAGE_COUNT: AttributeKey<Long> = AttributeKey.longKey("click.rage.count")
+
+    public object ClickTypeValues {
+        public const val GOOD: String = "good"
+        public const val DEAD: String = "dead"
+        public const val RAGE: String = "rage"
+    }
+
     public object AppClickContext {
         /**
          * Builds `app.click.context` from an optional UI label.
