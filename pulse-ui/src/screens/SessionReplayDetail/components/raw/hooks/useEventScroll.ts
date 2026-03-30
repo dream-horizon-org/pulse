@@ -52,85 +52,33 @@ export function useEventScroll({
       const eventElement = eventRefs.current.get(targetEvent.timestamp);
       const scrollContainer = scrollViewportRef.current;
 
-      if (!eventElement || !scrollContainer) {
-        console.warn("Scroll elements not found", {
-          eventElement: !!eventElement,
-          scrollContainer: !!scrollContainer,
-          targetTimestamp: targetEvent.timestamp,
-          availableRefs: Array.from(eventRefs.current.keys()),
-        });
+      if (!eventElement) {
         return;
       }
 
       try {
-        // Find element by data attribute as fallback
-        const targetElementByAttr = scrollContainer.querySelector(
+        const targetElementByAttr = scrollContainer?.querySelector(
           `[data-event-timestamp="${targetEvent.timestamp}"]`,
         ) as HTMLElement | null;
 
         const elementToScroll = targetElementByAttr || eventElement;
 
         if (!elementToScroll) {
-          console.warn("Could not find element to scroll to");
           return;
         }
 
-        // Use getBoundingClientRect for accurate positioning
-        const containerRect = scrollContainer.getBoundingClientRect();
-        const elementRect = elementToScroll.getBoundingClientRect();
-        const currentScrollTop = scrollContainer.scrollTop;
-
-        // Calculate scroll position: element position relative to container + current scroll
-        const relativeTop =
-          elementRect.top - containerRect.top + currentScrollTop;
-        const containerHeight = scrollContainer.clientHeight;
-        const elementHeight = elementRect.height;
-        const scrollPosition =
-          relativeTop - containerHeight / 2 + elementHeight / 2;
-
-        console.log("Scrolling to event", {
-          targetTimestamp: targetEvent.timestamp,
-          relativeTop,
-          scrollPosition,
-          currentScrollTop,
-          containerHeight,
-          elementHeight,
+        elementToScroll.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest",
         });
 
-        // Scroll to position - try multiple methods for compatibility
-        if (scrollContainer.scrollTo) {
-          scrollContainer.scrollTo({
-            top: Math.max(0, scrollPosition),
-            behavior: "smooth",
-          });
-        } else {
-          scrollContainer.scrollTop = Math.max(0, scrollPosition);
-        }
-
-        // Also set directly as backup
-        scrollContainer.scrollTop = Math.max(0, scrollPosition);
-
-        // Highlight the event temporarily
         setHighlightedTimestamp(targetEvent.timestamp);
         setTimeout(() => {
           setHighlightedTimestamp(null);
         }, 2000);
       } catch (error) {
         console.error("Error scrolling to event:", error);
-        // Fallback: try scrollIntoView with options
-        try {
-          eventElement.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-            inline: "nearest",
-          });
-          setHighlightedTimestamp(targetEvent.timestamp);
-          setTimeout(() => {
-            setHighlightedTimestamp(null);
-          }, 2000);
-        } catch (fallbackError) {
-          console.error("Fallback scroll also failed:", fallbackError);
-        }
       }
     }, 300);
 

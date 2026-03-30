@@ -1,22 +1,73 @@
 .playerControls {
+  flex-shrink: 0;
   padding: var(--mantine-spacing-md);
   background: var(--mantine-color-gray-0);
-  border-top: 1px solid var(--mantine-color-gray-3);
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  overflow-x: hidden;
+  container-type: inline-size;
+  container-name: player-controls;
+}
+
+.sliderWrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .playerControlsCompact {
   padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
 }
 
-.controlsStack {
+.controlsRow {
   min-width: 0;
+  width: 100%;
+  justify-content: flex-start;
 }
 
-.transportRow,
-.speedRow {
-  width: 100%;
+.transportGroup {
+  flex-shrink: 0;
+}
+
+/* Wide: speed stays on the right of the same row */
+.speedGroup {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  justify-content: flex-end;
+}
+
+/* Narrow player column: center both rows */
+@container player-controls (max-width: 22rem) {
+  .controlsRow {
+    justify-content: center;
+  }
+
+  .transportGroup {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .speedGroup {
+    margin-inline-start: 0;
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+/* Stacked session layout (matches SessionReplayDetail ~900px) */
+@media (max-width: 900px) {
+  .controlsRow {
+    justify-content: center;
+  }
+
+  .transportGroup {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .speedGroup {
+    margin-inline-start: 0;
+    justify-content: center;
+    width: 100%;
+  }
 }

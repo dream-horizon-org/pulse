@@ -18,6 +18,11 @@
   padding: var(--mantine-spacing-xs);
 }
 
+/* Tighter padding + pass height cap into mockup so flex layout can keep controls visible */
+.deviceContainerCompact {
+  padding: var(--mantine-spacing-xs);
+}
+
 /* iOS Device Frame */
 .iosDevice {
   position: relative;

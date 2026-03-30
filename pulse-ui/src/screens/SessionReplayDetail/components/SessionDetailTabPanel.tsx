@@ -19,7 +19,7 @@ export function SessionDetailTabPanel({
   children,
 }: SessionDetailTabPanelProps) {
   return (
-    <Stack gap="sm" style={{ flex: 1, minHeight: 0, width: "100%" }}>
+    <Stack gap="sm" w="100%">
       <Group
         justify="space-between"
         align="flex-start"

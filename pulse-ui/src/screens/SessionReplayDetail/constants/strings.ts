@@ -116,7 +116,6 @@ export const LABELS = {
   QUALITY_SCORE: "Quality Score",
   SESSION_TIME: "Session Time",
   DURATION: "Duration",
-  SPEED: "Speed",
   BACK: "Back",
   AFFECTED_USERS: "Affected Users",
   STATUS: "Status",
