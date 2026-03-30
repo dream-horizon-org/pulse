@@ -96,10 +96,19 @@ export function FunnelBuilder({
   const { data: tagsData } = useGetTags();
   const availableTags = tagsData?.data?.tags ?? [];
 
-  const eventOptions = useMemo(
-    () => availableEvents.map((e) => ({ value: e, label: e })),
-    [availableEvents],
-  );
+  /** Include saved step values so detail/edit pre-fill works when API list omits an event. */
+  const eventOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const e of availableEvents) {
+      if (e?.trim()) names.add(e.trim());
+    }
+    for (const s of steps) {
+      if (s.eventName?.trim()) names.add(s.eventName.trim());
+    }
+    return Array.from(names)
+      .sort((a, b) => a.localeCompare(b))
+      .map((e) => ({ value: e, label: e }));
+  }, [availableEvents, steps]);
 
   const addStep = () => {
     onStepsChange([...steps, { id: `step-${Date.now()}`, eventName: "" }]);
