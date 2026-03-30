@@ -1,12 +1,12 @@
 import { Box, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
-import { IconPlayerPlay, IconRefresh } from "@tabler/icons-react";
+import { IconPlayerPlay, IconRefresh, IconChartFunnel } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { useGetInteractionDetailsGraphs } from "../../../../hooks/useGetInteractionDetailsGraphs";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import type { RcaReportTenantContext } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
-import { SessionCard } from "./components";
+import { SessionCard, FunnelJourneyCard } from "./components";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
 import { RcaReportView } from "./RcaReportView";
@@ -29,6 +29,30 @@ const MOCK_RELATED_SESSIONS = [
     device: "iPhone 15 Pro • iOS 17.4",
     failureSummary:
       "Payment screen ANR for 6s on Airtel 4G — user force-closed app",
+  },
+];
+
+/** Mock linked funnels and journeys for the RCA view */
+const MOCK_LINKED_FUNNELS_JOURNEYS = [
+  {
+    id: "funnel-payment-001",
+    name: "Payment Flow Conversion",
+    type: "FUNNEL" as const,
+    status: "ACTIVE" as const,
+    createdBy: "sarah@example.com",
+    createdAt: "3 days ago",
+    tags: ["payment", "conversion", "critical"],
+    description: "Tracks user conversion through the payment process including checkout and order completion.",
+  },
+  {
+    id: "journey-onboarding-001", 
+    name: "User Onboarding Journey",
+    type: "JOURNEY" as const,
+    status: "ACTIVE" as const,
+    createdBy: "alex@example.com",
+    createdAt: "1 week ago",
+    tags: ["onboarding", "ux", "retention"],
+    description: "Maps the complete user journey from app launch to account creation and first purchase.",
   },
 ];
 
@@ -163,6 +187,7 @@ export const RootCause = ({
       tables: [],
     };
     const relatedSessions = MOCK_RELATED_SESSIONS;
+    const linkedFunnelsJourneys = MOCK_LINKED_FUNNELS_JOURNEYS;
     return (
       <>
         <RcaReportView
@@ -199,6 +224,42 @@ export const RootCause = ({
                   device={session.device}
                   failureSummary={session.failureSummary}
                   replayUrl={`/projects/${effectiveProjectId}/session-replay/${session.sessionId}`}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+        {linkedFunnelsJourneys.length > 0 && (
+          <section
+            className={classes.linkedFunnelsJourneysSection}
+            aria-label="Linked funnels and journeys"
+          >
+            <Group className={classes.linkedFunnelsJourneysHeader} gap="xs">
+              <IconChartFunnel
+                size={18}
+                color="var(--mantine-color-teal-7)"
+                aria-hidden
+              />
+              <Text className={classes.linkedFunnelsJourneysTitle}>
+                Linked Funnels & Journeys
+              </Text>
+              <Box component="span" className={classes.linkedFunnelsJourneysBadge}>
+                {linkedFunnelsJourneys.length}
+              </Box>
+            </Group>
+            <div className={classes.linkedFunnelsJourneysGrid}>
+              {linkedFunnelsJourneys.map((item) => (
+                <FunnelJourneyCard
+                  key={item.id}
+                  id={item.id}
+                  name={item.name}
+                  type={item.type}
+                  status={item.status}
+                  createdBy={item.createdBy}
+                  createdAt={item.createdAt}
+                  tags={item.tags}
+                  description={item.description}
+                  detailUrl={`/projects/${effectiveProjectId}/funnels-journeys/${item.id}`}
                 />
               ))}
             </div>
