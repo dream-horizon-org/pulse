@@ -1,6 +1,5 @@
-import { useMemo, useState } from "react";
-import { ActionIcon, Box, Select, Text, Group } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
+import { useState } from "react";
+import { ActionIcon, Box, Text, Group } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useNavigate, useParams, generatePath } from "react-router-dom";
 import { useCreateFunnelJourney } from "../../hooks/useCreateFunnelJourney";
@@ -11,7 +10,6 @@ import {
   ActiveFilter,
 } from "./components/GlobalFilterBar";
 import { JourneyExplorer } from "./components/JourneyExplorer";
-import { DATE_RANGE_OPTIONS } from "./mockData";
 import { useGetFunnelEvents, useGetFunnelFilters } from "../../hooks/useGetFunnelData";
 
 export function CreateJourney() {
