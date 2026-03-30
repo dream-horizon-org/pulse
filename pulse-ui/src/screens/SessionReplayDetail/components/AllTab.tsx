@@ -1,9 +1,9 @@
 import { Stack, Text, Title } from "@mantine/core";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
 import type { FlameChartNode } from "../../SessionTimeline/utils/flameChartTransform";
-import { RawSessionEvents } from "./RawSessionEvents";
 import classes from "../SessionReplayDetail.module.css";
 import { TAB_PANEL_DESCRIPTION, TAB_PANEL_TITLE } from "../constants/strings";
+import { RawSessionEvents } from "./RawSessionEvents";
 
 interface AllTabProps {
   sessionData: SessionDetailData;

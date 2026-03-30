@@ -8,6 +8,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconArrowsMaximize,
   IconPlayerPlay,
   IconPlayerPause,
   IconPlayerSkipBack,
@@ -127,6 +128,11 @@ export function PlayerControls({
               disabled={currentTime >= duration}
             >
               <IconPlayerSkipForward size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Expand player">
+            <ActionIcon size="md" variant="subtle" color="gray">
+              <IconArrowsMaximize size={16} />
             </ActionIcon>
           </Tooltip>
         </Group>

@@ -3,10 +3,11 @@ import type {
   HeatmapDataResponse,
   HeatmapGlowPoint,
 } from "../../screens/ScreenDetail/Heatmap/heatmap.types";
-import { HEATMAP_DEFAULT_UNDERLAY_URL } from "../../screens/ScreenDetail/Heatmap/heatmapViz.constants";
+import { HEATMAP_DEMO_UNDERLAY_URL } from "../../screens/ScreenDetail/Heatmap/heatmapViz.constants";
 
 const MOCK_UI_HASH = "a".repeat(64);
-const MOCK_SCREENSHOT = HEATMAP_DEFAULT_UNDERLAY_URL;
+/** Mock heatmaps use bundled demo wireframe so demos never depend on external images */
+const MOCK_SCREENSHOT = HEATMAP_DEMO_UNDERLAY_URL;
 
 /** POC cap — dense but watchable in dev (DOM mode is one div per point; heatmap.js is fine with more). */
 const POC_GLOW_MAX_POINTS = 1800;
@@ -185,6 +186,98 @@ export function heatmapMockCompare(
 }
 
 /**
+ * Home feed layout: search / hero / category chips / contest cards / promo / bottom nav + FAB.
+ * Coordinates normalized [0,1]; tuned so heat reads as a typical fantasy-sports home screen.
+ */
+export function heatmapMockHomeScreen(): HeatmapDataResponse {
+  const screenName = "HomeScreen";
+  const rand = mulberry32(hashScreenName("HomeScreenV2"));
+  const clusters: Cluster[] = [
+    { cx: 0.5, cy: 0.058, count: 380, spread: 0.024, wMin: 14, wMax: 98 },
+    { cx: 0.9, cy: 0.054, count: 220, spread: 0.02, wMin: 10, wMax: 62 },
+    { cx: 0.5, cy: 0.168, count: 1020, spread: 0.056, wMin: 22, wMax: 195 },
+    { cx: 0.18, cy: 0.292, count: 340, spread: 0.032, wMin: 12, wMax: 88 },
+    { cx: 0.38, cy: 0.292, count: 330, spread: 0.032, wMin: 12, wMax: 86 },
+    { cx: 0.58, cy: 0.292, count: 325, spread: 0.032, wMin: 12, wMax: 84 },
+    { cx: 0.78, cy: 0.292, count: 318, spread: 0.032, wMin: 12, wMax: 82 },
+    { cx: 0.28, cy: 0.475, count: 920, spread: 0.05, wMin: 18, wMax: 205 },
+    { cx: 0.72, cy: 0.475, count: 900, spread: 0.05, wMin: 18, wMax: 200 },
+    { cx: 0.28, cy: 0.625, count: 560, spread: 0.046, wMin: 12, wMax: 128 },
+    { cx: 0.72, cy: 0.625, count: 548, spread: 0.046, wMin: 12, wMax: 125 },
+    { cx: 0.5, cy: 0.755, count: 510, spread: 0.042, wMin: 14, wMax: 138 },
+    { cx: 0.1, cy: 0.91, count: 920, spread: 0.034, wMin: 5, wMax: 55 },
+    { cx: 0.3, cy: 0.91, count: 1120, spread: 0.034, wMin: 6, wMax: 68 },
+    { cx: 0.5, cy: 0.91, count: 1380, spread: 0.036, wMin: 10, wMax: 102 },
+    { cx: 0.7, cy: 0.91, count: 1080, spread: 0.034, wMin: 6, wMax: 62 },
+    { cx: 0.9, cy: 0.91, count: 960, spread: 0.034, wMin: 5, wMax: 54 },
+    { cx: 0.87, cy: 0.805, count: 310, spread: 0.03, wMin: 16, wMax: 118 },
+  ];
+
+  const planned = clusters.reduce((s, c) => s + c.count, 0);
+  const scale =
+    planned > POC_GLOW_MAX_POINTS ? POC_GLOW_MAX_POINTS / planned : 1;
+
+  const glow_map: HeatmapGlowPoint[] = [];
+  for (const c of clusters) {
+    const n = Math.max(0, Math.floor(c.count * scale));
+    for (let i = 0; i < n; i++) {
+      const x = clamp01(c.cx + (rand() - 0.5) * 2 * c.spread);
+      const y = clamp01(c.cy + (rand() - 0.5) * 2 * c.spread);
+      const weight = c.wMin + rand() * (c.wMax - c.wMin);
+      glow_map.push({
+        x,
+        y,
+        weight: Math.round(weight * 10) / 10,
+      });
+    }
+  }
+
+  while (glow_map.length > POC_GLOW_MAX_POINTS) {
+    glow_map.pop();
+  }
+
+  const weightSum = glow_map.reduce((s, p) => s + p.weight, 0);
+
+  return {
+    metadata: {
+      screenName,
+      ui_hash: MOCK_UI_HASH,
+      screenshot_url: HEATMAP_DEMO_UNDERLAY_URL,
+      total_events: Math.round(weightSum) || glow_map.length,
+      app_version: "4.2.1",
+      platform: "iOS",
+      aspect_ratio: "19.5:9",
+      created_at: "2026-03-28T10:00:00.000Z",
+    },
+    layers: {
+      glow_map,
+      frustration_map: {
+        rage: [
+          { x: 0.5, y: 0.91, weight: 520, avg_sequence_count: 6 },
+          { x: 0.28, y: 0.475, weight: 340, avg_sequence_count: 4 },
+          { x: 0.5, y: 0.168, weight: 210, avg_sequence_count: 3 },
+        ],
+        dead: [
+          { x: 0.9, y: 0.054, weight: 95 },
+          { x: 0.18, y: 0.292, weight: 72 },
+        ],
+      },
+      observability_map: {
+        error_clicks: [
+          { x: 0.5, y: 0.168, weight: 38, error_code: "BANNER_403" },
+          { x: 0.72, y: 0.475, weight: 24, error_code: "CARD_TELEMETRY" },
+        ],
+        latency_hotspots: [
+          { x: 0.5, y: 0.168, avg_latency_ms: 3200, weight: 420 },
+          { x: 0.28, y: 0.475, avg_latency_ms: 2650, weight: 360 },
+          { x: 0.5, y: 0.91, avg_latency_ms: 890, weight: 280 },
+        ],
+      },
+    },
+  };
+}
+
+/**
  * Rich ProductListScreen mock: strong tap/rage/latency around contest rows & Join CTA
  * (aligns with JoinContestButtonClick RCA — same screen as `/screens/ProductListScreen?tab=heatmap`).
  */
@@ -275,6 +368,9 @@ export function resolveHeatmapData(screenName: string): HeatmapDataResponse {
   }
   if (screenName === "__sparse__") {
     return heatmapMockFull(screenName);
+  }
+  if (screenName === "HomeScreen") {
+    return heatmapMockHomeScreen();
   }
   if (screenName === "ProductListScreen") {
     return heatmapMockProductListJoinContest();

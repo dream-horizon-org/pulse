@@ -1,0 +1,56 @@
+.section {
+  margin: var(--mantine-spacing-md) var(--mantine-spacing-md) var(--mantine-spacing-xl);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.title {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mantine-color-teal-7);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  background-color: var(--mantine-color-teal-1);
+  color: var(--mantine-color-teal-7);
+}
+
+.scrollRow {
+  display: flex;
+  flex-direction: row;
+  gap: var(--mantine-spacing-sm);
+  overflow-x: auto;
+  padding-bottom: var(--mantine-spacing-xs);
+  /* Hide scrollbar on webkit while keeping scroll functionality */
+  scrollbar-width: thin;
+  scrollbar-color: var(--mantine-color-gray-3) transparent;
+}
+
+.scrollRow::-webkit-scrollbar {
+  height: 4px;
+}
+
+.scrollRow::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollRow::-webkit-scrollbar-thumb {
+  background-color: var(--mantine-color-gray-3);
+  border-radius: 4px;
+}

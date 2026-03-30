@@ -81,6 +81,11 @@
   min-height: 0;
 }
 
+/* Compact player: do not force 400px min — it overflowed the flex slot and hid controls */
+.playerContainerCompact .imageViewport {
+  min-height: 0;
+}
+
 .transitionImage {
   position: absolute;
   top: 0;

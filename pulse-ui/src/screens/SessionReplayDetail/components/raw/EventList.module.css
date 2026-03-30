@@ -7,9 +7,10 @@
   column-gap: var(--mantine-spacing-sm);
   row-gap: 6px;
   align-items: start;
+  /* Fixed-width badge track so message column starts on the same axis (gap stays even visually). */
   grid-template-columns:
     minmax(0, max-content)
-    minmax(0, max-content)
+    8rem
     minmax(0, 1fr)
     auto;
 }
@@ -24,6 +25,21 @@
 
 .eventBadgeWrap {
   flex-shrink: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  justify-self: start;
+}
+
+.eventBadgeWrap :global(.mantine-Badge-root) {
+  max-width: 100%;
+}
+
+.eventBadgeWrap :global(.mantine-Badge-label) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .eventDetailCell {
