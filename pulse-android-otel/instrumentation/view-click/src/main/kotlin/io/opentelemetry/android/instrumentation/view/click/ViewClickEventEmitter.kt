@@ -95,6 +95,7 @@ internal class ViewClickEventEmitter(
     }
 
     private fun emitRageClick(rage: RageEvent) {
+        val clickType = if (rage.hasTarget) ClickTypeValues.GOOD else ClickTypeValues.DEAD
         val record =
             eventLogger
                 .logRecordBuilder()
@@ -102,7 +103,8 @@ internal class ViewClickEventEmitter(
                 .setEventName(VIEW_CLICK_EVENT_NAME)
                 .setAttribute(APP_SCREEN_COORDINATE_X, rage.x.toLong())
                 .setAttribute(APP_SCREEN_COORDINATE_Y, rage.y.toLong())
-                .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.RAGE)
+                .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
+                .setAttribute(PulseAttributes.CLICK_IS_RAGE, true)
                 .setAttribute(PulseAttributes.CLICK_RAGE_COUNT, rage.count.toLong())
         rage.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
         rage.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
@@ -110,7 +112,7 @@ internal class ViewClickEventEmitter(
         record.emit()
         Log.d(
             CLICK_LOG_TAG,
-            "app.widget.click (rage): x=${rage.x.toLong()} y=${rage.y.toLong()} " +
+            "app.widget.click (rage/$clickType): x=${rage.x.toLong()} y=${rage.y.toLong()} " +
                 "count=${rage.count} name=${rage.widgetName ?: "null"} context=${rage.clickContext ?: "null"}",
         )
     }

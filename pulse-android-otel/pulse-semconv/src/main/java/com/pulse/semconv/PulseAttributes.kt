@@ -65,14 +65,21 @@ public object PulseAttributes {
     @JvmField
     public val CLICK_TYPE: AttributeKey<String> = stringKey("click.type")
 
-    /** Number of taps in the rage-click cluster. Set on rage events alongside [CLICK_TYPE]. */
+    /** Number of taps in the rage-click cluster. Set when [CLICK_IS_RAGE] is true. */
     @JvmField
     public val CLICK_RAGE_COUNT: AttributeKey<Long> = AttributeKey.longKey("click.rage.count")
+
+    /**
+     * True when the click is part of a rage cluster. Orthogonal to [CLICK_TYPE] —
+     * a rage event is still classified as "good" (hit a target) or "dead" (missed),
+     * with this flag and [CLICK_RAGE_COUNT] added alongside.
+     */
+    @JvmField
+    public val CLICK_IS_RAGE: AttributeKey<Boolean> = AttributeKey.booleanKey("click.is_rage")
 
     public object ClickTypeValues {
         public const val GOOD: String = "good"
         public const val DEAD: String = "dead"
-        public const val RAGE: String = "rage"
     }
 
     public object AppClickContext {

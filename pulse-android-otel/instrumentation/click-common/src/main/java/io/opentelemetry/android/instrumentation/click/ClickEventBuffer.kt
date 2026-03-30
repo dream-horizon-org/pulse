@@ -32,9 +32,12 @@ public data class PendingClick(
  * Delivered via the `onRage` callback passed to the [ClickEventBuffer] constructor.
  *
  * [count] reflects ALL taps in the cluster including those suppressed after the initial threshold.
+ * [hasTarget] mirrors the triggering [PendingClick.hasTarget] — reliable because the rage radius
+ * constraint means all buffered taps are near the same point, so they share the same target state.
  */
 public data class RageEvent(
     val count: Int,
+    val hasTarget: Boolean,
     val x: Float,
     val y: Float,
     val tapEpochMs: Long,
@@ -164,6 +167,7 @@ class ClickEventBuffer(
             pendingRage =
                 RageEvent(
                     count = buffer.size,
+                    hasTarget = click.hasTarget,
                     x = click.x,
                     y = click.y,
                     tapEpochMs = click.tapEpochMs,
