@@ -3,6 +3,9 @@ export const FUNNELS_JOURNEYS_PAGE_TITLE = "Funnels & Journeys";
 export const FUNNELS_JOURNEYS_SUBTITLE =
   "Browse saved funnels and journeys, or create a new analysis.";
 
+/** Loading line — aligned with Session List copy tone */
+export const FUNNELS_JOURNEYS_LOADING = "Loading funnels and journeys…";
+
 export const TAB_FUNNELS = "Funnels";
 
 export const TAB_JOURNEYS = "Journeys";

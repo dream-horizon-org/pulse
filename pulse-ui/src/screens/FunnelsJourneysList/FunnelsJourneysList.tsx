@@ -41,6 +41,7 @@ import {
   FILTER_STATUS_LABEL,
   FILTER_TAGS_LABEL,
   FILTER_TYPE_LABEL,
+  FUNNELS_JOURNEYS_LOADING,
   FUNNELS_JOURNEYS_PAGE_TITLE,
   FUNNELS_JOURNEYS_SUBTITLE,
   SEARCH_PLACEHOLDER,
@@ -52,6 +53,8 @@ import {
   TYPE_OPTION_UNORDERED,
 } from "./FunnelsJourneysList.constants";
 import classes from "./FunnelsJourneysList.module.css";
+
+const badgeRootStyle = { fontFamily: "inherit" as const };
 
 type StatusFilterValue =
   | ""
@@ -169,7 +172,7 @@ export function FunnelsJourneysList() {
         accessor: "name",
         title: "Name",
         render: (row: FunnelJourneyListItem) => (
-          <Text size="sm" fw={500} lineClamp={1}>
+          <Text size="sm" fw={700} lineClamp={1} ta="left">
             {row.name}
           </Text>
         ),
@@ -179,6 +182,7 @@ export function FunnelsJourneysList() {
         title: "Status",
         render: (row: FunnelJourneyListItem) => (
           <Badge
+            size="sm"
             color={
               row.status === "ACTIVE"
                 ? "teal"
@@ -191,6 +195,7 @@ export function FunnelsJourneysList() {
                       : "gray"
             }
             variant="light"
+            styles={{ root: badgeRootStyle }}
           >
             {row.status === "ACTIVE"
               ? "Active"
@@ -208,7 +213,7 @@ export function FunnelsJourneysList() {
         accessor: "createdBy",
         title: "Created by",
         render: (row: FunnelJourneyListItem) => (
-          <Text size="sm" c="dimmed" lineClamp={1}>
+          <Text size="sm" c="dark.4" lineClamp={1} ta="left">
             {row.createdBy}
           </Text>
         ),
@@ -217,7 +222,7 @@ export function FunnelsJourneysList() {
         accessor: "lastUpdatedAt",
         title: "Last updated",
         render: (row: FunnelJourneyListItem) => (
-          <Text size="sm" c="dimmed">
+          <Text size="sm" c="dark.4" ta="left">
             {dayjs(row.lastUpdatedAt).format("MMM D, YYYY HH:mm")}
           </Text>
         ),
@@ -258,12 +263,8 @@ export function FunnelsJourneysList() {
     <Box className={classes.shell}>
       <Box className={classes.header}>
         <Box className={classes.titleBlock}>
-          <Text size="xl" fw={700} c="dark.7">
-            {FUNNELS_JOURNEYS_PAGE_TITLE}
-          </Text>
-          <Text size="sm" c="dimmed" mt={4}>
-            {FUNNELS_JOURNEYS_SUBTITLE}
-          </Text>
+          <h1 className={classes.title}>{FUNNELS_JOURNEYS_PAGE_TITLE}</h1>
+          <p className={classes.subtitle}>{FUNNELS_JOURNEYS_SUBTITLE}</p>
         </Box>
         <Box className={classes.toolbar}>
           <Menu shadow="md" width={220}>
@@ -290,103 +291,107 @@ export function FunnelsJourneysList() {
         </Box>
       </Box>
 
-      <Tabs
-        value={listTab}
-        onChange={onTabChange}
-        color="teal"
-        variant="outline"
-      >
-        <Tabs.List>
-          <Tabs.Tab value="funnels" leftSection={<IconChartFunnel size={16} />}>
-            {TAB_FUNNELS}
-          </Tabs.Tab>
-          <Tabs.Tab value="journeys" leftSection={<IconRoute size={16} />}>
-            {TAB_JOURNEYS}
-          </Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+      <Box className={classes.tabsCard}>
+        <Tabs
+          value={listTab}
+          onChange={onTabChange}
+          color="teal"
+          variant="outline"
+        >
+          <Tabs.List>
+            <Tabs.Tab
+              value="funnels"
+              leftSection={<IconChartFunnel size={16} />}
+            >
+              {TAB_FUNNELS}
+            </Tabs.Tab>
+            <Tabs.Tab value="journeys" leftSection={<IconRoute size={16} />}>
+              {TAB_JOURNEYS}
+            </Tabs.Tab>
+          </Tabs.List>
+        </Tabs>
+      </Box>
 
-      <Box className={classes.filtersRow} mt="md">
-        <TextInput
-          placeholder={SEARCH_PLACEHOLDER}
-          leftSection={<IconSearch size={16} />}
-          value={searchStr}
-          onChange={onSearchChange}
-          style={{ minWidth: 220, flex: "1 1 200px" }}
-          size="sm"
-        />
-        <Select
-          label={FILTER_STATUS_LABEL}
-          placeholder={STATUS_OPTION_ALL}
-          clearable
-          data={[
-            { value: "ACTIVE", label: "Active" },
-            { value: "STOPPED", label: "Stopped" },
-            { value: "CREATING", label: "Creating" },
-            { value: "UPDATING", label: "Updating" },
-            { value: "COMPLETED", label: "Completed" },
-          ]}
-          value={statusFilter || null}
-          onChange={(v) => setStatusFilter((v as StatusFilterValue) || "")}
-          size="sm"
-          style={{ width: 160 }}
-        />
-        <MultiSelect
-          label={FILTER_CREATED_BY_LABEL}
-          placeholder="Any"
-          data={creatorOptions}
-          value={createdByFilter}
-          onChange={setCreatedByFilter}
-          clearable
-          searchable
-          size="sm"
-          style={{ minWidth: 200, flex: "1 1 180px" }}
-        />
-        <MultiSelect
-          label={FILTER_TAGS_LABEL}
-          placeholder="Any"
-          data={tagOptions}
-          value={tagsFilter}
-          onChange={setTagsFilter}
-          clearable
-          searchable
-          size="sm"
-          style={{ minWidth: 200, flex: "1 1 180px" }}
-        />
-        {listTab === "funnels" ? (
+      <Box className={classes.filterBar}>
+        <Box className={classes.filterBarInner}>
+          <TextInput
+            placeholder={SEARCH_PLACEHOLDER}
+            leftSection={<IconSearch size={16} />}
+            value={searchStr}
+            onChange={onSearchChange}
+            style={{ minWidth: 220, flex: "1 1 200px" }}
+            size="sm"
+          />
           <Select
-            label={FILTER_TYPE_LABEL}
-            placeholder={TYPE_OPTION_ALL}
+            label={FILTER_STATUS_LABEL}
+            placeholder={STATUS_OPTION_ALL}
             clearable
             data={[
-              { value: "ORDERED", label: TYPE_OPTION_ORDERED },
-              { value: "UNORDERED", label: TYPE_OPTION_UNORDERED },
+              { value: "ACTIVE", label: "Active" },
+              { value: "STOPPED", label: "Stopped" },
+              { value: "CREATING", label: "Creating" },
+              { value: "UPDATING", label: "Updating" },
+              { value: "COMPLETED", label: "Completed" },
             ]}
-            value={typeFilter || null}
-            onChange={(v) => setTypeFilter((v as TypeFilterValue) || "")}
+            value={statusFilter || null}
+            onChange={(v) => setStatusFilter((v as StatusFilterValue) || "")}
             size="sm"
             style={{ width: 160 }}
           />
-        ) : null}
+          <MultiSelect
+            label={FILTER_CREATED_BY_LABEL}
+            placeholder="Any"
+            data={creatorOptions}
+            value={createdByFilter}
+            onChange={setCreatedByFilter}
+            clearable
+            searchable
+            size="sm"
+            style={{ minWidth: 200, flex: "1 1 180px" }}
+          />
+          <MultiSelect
+            label={FILTER_TAGS_LABEL}
+            placeholder="Any"
+            data={tagOptions}
+            value={tagsFilter}
+            onChange={setTagsFilter}
+            clearable
+            searchable
+            size="sm"
+            style={{ minWidth: 200, flex: "1 1 180px" }}
+          />
+          {listTab === "funnels" ? (
+            <Select
+              label={FILTER_TYPE_LABEL}
+              placeholder={TYPE_OPTION_ALL}
+              clearable
+              data={[
+                { value: "ORDERED", label: TYPE_OPTION_ORDERED },
+                { value: "UNORDERED", label: TYPE_OPTION_UNORDERED },
+              ]}
+              value={typeFilter || null}
+              onChange={(v) => setTypeFilter((v as TypeFilterValue) || "")}
+              size="sm"
+              style={{ width: 160 }}
+            />
+          ) : null}
+        </Box>
       </Box>
 
       {requestError ? (
         <ErrorAndEmptyState message={requestError} />
       ) : isLoading && !payload ? (
-        <Box className={classes.loaderWrap}>
-          <Loader color="teal" />
+        <Box className={classes.loadingContainer}>
+          <Loader color="teal" size="lg" />
+          <Text size="sm" c="dimmed">
+            {FUNNELS_JOURNEYS_LOADING}
+          </Text>
         </Box>
       ) : items.length === 0 ? (
         <Box className={classes.emptyState}>
-          <Box className={classes.emptyStateIcon}>
-            <EmptyIcon size={28} color="#0ba09a" />
-          </Box>
-          <Text size="lg" fw={700} c="dark.6">
-            {emptyTitle}
-          </Text>
-          <Text size="sm" c="dimmed" maw={420} mt={6}>
-            {emptyDescription}
-          </Text>
+          <EmptyIcon size={64} className={classes.emptyStateIcon} stroke={1.25} />
+          <Text className={classes.emptyStateTitle}>{emptyTitle}</Text>
+          <Text className={classes.emptyStateDescription}>{emptyDescription}</Text>
           <Group mt="lg">
             <Button color="teal" onClick={goCreateFunnel}>
               {CREATE_FUNNEL_ITEM}
@@ -397,22 +402,20 @@ export function FunnelsJourneysList() {
           </Group>
         </Box>
       ) : (
-        <Box className={classes.tableCard}>
-          <Box className={classes.tableScroll}>
-            <DataTable
-              minHeight={280}
-              withTableBorder
-              highlightOnHover
-              fetching={isFetching}
-              idAccessor="id"
-              columns={columns}
-              records={items}
-              onRowClick={({ record }) => openRow(record)}
-              styles={{
-                table: { cursor: "pointer" },
-              }}
-            />
-          </Box>
+        <Box className={classes.tableContainer}>
+          <DataTable
+            className={classes.dataTable}
+            minHeight={280}
+            highlightOnHover
+            fetching={isFetching}
+            idAccessor="id"
+            columns={columns}
+            records={items}
+            onRowClick={({ record }) => openRow(record)}
+            styles={{
+              table: { cursor: "pointer" },
+            }}
+          />
         </Box>
       )}
     </Box>
