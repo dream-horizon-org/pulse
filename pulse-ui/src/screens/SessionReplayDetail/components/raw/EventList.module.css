@@ -10,7 +10,7 @@
   /* Fixed-width badge track so message column starts on the same axis (gap stays even visually). */
   grid-template-columns:
     minmax(0, max-content)
-    4rem
+    8rem
     minmax(0, 1fr)
     auto;
 }
