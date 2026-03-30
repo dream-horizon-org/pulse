@@ -248,7 +248,7 @@ export function SessionReplaySessions() {
         sessionsFilterConfig={filtersConfig ?? undefined}
       />
 
-      <Paper className={classes.tableContainer} p={0} radius="md">
+      <Paper className={classes.tableContainer} p={0} radius="md" w="100%">
         <SessionsTableToolbar
           datePreset={filterState.dateRange.preset}
           dateFrom={filterState.dateRange.from}
@@ -260,8 +260,6 @@ export function SessionReplaySessions() {
             filterActions.setDateRange("custom", from, to);
           }}
           onPageReset={() => filterActions.setPage(1)}
-          sessionCount={sessions.length}
-          hasMore={sessionsData?.page?.hasMore ?? false}
           filtersConfig={filtersConfig}
           quickFiltersLoading={quickFiltersLoading}
           quickFiltersState={

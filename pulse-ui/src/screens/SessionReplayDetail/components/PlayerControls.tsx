@@ -6,6 +6,7 @@ import {
   ActionIcon,
   Button,
   Tooltip,
+  Stack,
 } from "@mantine/core";
 import {
   IconPlayerPlay,
@@ -22,6 +23,8 @@ import classes from "./PlayerControls.module.css";
 const SKIP_MS = 10_000;
 
 interface PlayerControlsProps {
+  /** Tighter spacing when the player sits in the narrow split column */
+  compact?: boolean;
   currentTime: number;
   duration: number;
   isPlaying: boolean;
@@ -33,6 +36,7 @@ interface PlayerControlsProps {
 }
 
 export function PlayerControls({
+  compact,
   currentTime,
   duration,
   isPlaying,
@@ -50,9 +54,10 @@ export function PlayerControls({
     onTimelineChange(Math.min(duration, currentTime + SKIP_MS));
   };
   return (
-    <Box className={classes.playerControls}>
-      {/* Timeline Scrubber */}
-      <Box mb="xs">
+    <Box
+      className={`${classes.playerControls}${compact ? ` ${classes.playerControlsCompact}` : ""}`}
+    >
+      <Box mb={compact ? 4 : "xs"}>
         <Slider
           value={currentTime}
           onChange={onTimelineChange}
@@ -86,9 +91,9 @@ export function PlayerControls({
         </Group>
       </Box>
 
-      {/* Control Buttons */}
-      <Group justify="space-between" align="center">
-        <Group gap="xs">
+      {/* Row 1: transport · Row 2: speed (no horizontal scroll on narrow player) */}
+      <Stack gap={compact ? 6 : "sm"} className={classes.controlsStack}>
+        <Group gap="xs" wrap="wrap" className={classes.transportRow}>
           <ActionIcon
             size="lg"
             variant="filled"
@@ -123,33 +128,32 @@ export function PlayerControls({
               <IconPlayerSkipForward size={16} />
             </ActionIcon>
           </Tooltip>
+          <Tooltip label="Expand player">
+            <ActionIcon size="md" variant="subtle" color="gray">
+              <IconArrowsMaximize size={16} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
 
-        <Group gap="md">
-          <Group gap={4}>
-            <Text size="xs" c="dimmed">
-              {LABELS.SPEED}:
-            </Text>
-            <Group gap={4}>
-              {[0.5, 1, 1.5, 2].map((speed) => (
-                <Button
-                  key={speed}
-                  size="xs"
-                  variant={playbackSpeed === speed ? "filled" : "subtle"}
-                  color="gray"
-                  onClick={() => onSpeedChange(speed)}
-                >
-                  {speed}x
-                </Button>
-              ))}
-            </Group>
+        <Group gap="xs" align="center" wrap="wrap" className={classes.speedRow}>
+          <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+            {LABELS.SPEED}:
+          </Text>
+          <Group gap={4} wrap="wrap">
+            {[0.5, 1, 1.5, 2].map((speed) => (
+              <Button
+                key={speed}
+                size="xs"
+                variant={playbackSpeed === speed ? "filled" : "subtle"}
+                color="gray"
+                onClick={() => onSpeedChange(speed)}
+              >
+                {speed}x
+              </Button>
+            ))}
           </Group>
-
-          <ActionIcon size="md" variant="subtle" color="gray">
-            <IconArrowsMaximize size={16} />
-          </ActionIcon>
         </Group>
-      </Group>
+      </Stack>
     </Box>
   );
 }

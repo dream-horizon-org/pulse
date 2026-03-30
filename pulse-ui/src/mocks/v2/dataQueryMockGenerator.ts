@@ -12,6 +12,10 @@ import {
   DataQueryResponse,
 } from "../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import { PulseType } from "../../constants/PulseOtelSemcov";
+import {
+  PULSE_MOCK_INTERACTION_NAMES,
+  PULSE_MOCK_SCREEN_NAMES,
+} from "../mockPulseProjectRegistry";
 
 // Extend dayjs with UTC support
 dayjs.extend(utc);
@@ -2460,22 +2464,9 @@ export class DataQueryMockGeneratorV2 {
       normalizedField = "url";
     }
 
-    // Early return for screen_name to use predefined values
+    // Early return for screen_name — same list as Screens UI / `PULSE_MOCK_SCREEN_NAMES`
     if (normalizedField === "screen_name") {
-      const screenNames = [
-        "HomeScreen",
-        "ProductListScreen",
-        "ProductDetailScreen",
-        "CheckoutFormScreen",
-        "PaymentScreen",
-        "ProfileScreen",
-        "SearchResultsScreen",
-        "OrderListScreen",
-        "CartScreen",
-        "WishlistScreen",
-        "SettingsScreen",
-        "NotificationsScreen",
-      ];
+      const screenNames = [...PULSE_MOCK_SCREEN_NAMES];
 
       // Check if there's a filter with specific screen names
       if (filters) {
@@ -2735,71 +2726,10 @@ export class DataQueryMockGeneratorV2 {
         "Other",
       ],
       connectiontype: ["WiFi", "4G", "5G", "3G"],
-      spanname: [
-        "JoinContestButtonClick",
-        "SaveTeamButtonClick",
-        "PlayerSelectTap",
-        "ContestListAPIFetch",
-        "PaymentSubmitClick",
-        "WalletBalanceFetch",
-        "MatchScheduleAPICall",
-        "LeaderboardRefreshTap",
-        "ProfileSaveClick",
-        "NotificationTap",
-        "FilterApplyTap",
-        "LiveScoreRefresh",
-      ],
-      interactionname: [
-        "JoinContestButtonClick",
-        "SaveTeamButtonClick",
-        "PlayerSelectTap",
-        "ContestListAPIFetch",
-        "PaymentSubmitClick",
-        "WalletBalanceFetch",
-        "MatchScheduleAPICall",
-        "LeaderboardRefreshTap",
-        "ProfileSaveClick",
-        "NotificationTap",
-        "FilterApplyTap",
-        "LiveScoreRefresh",
-      ],
-      interaction_name: [
-        "JoinContestButtonClick",
-        "SaveTeamButtonClick",
-        "PlayerSelectTap",
-        "ContestListAPIFetch",
-        "PaymentSubmitClick",
-        "WalletBalanceFetch",
-        "MatchScheduleAPICall",
-        "LeaderboardRefreshTap",
-        "ProfileSaveClick",
-        "NotificationTap",
-        "FilterApplyTap",
-        "LiveScoreRefresh",
-      ],
-      screen_name: [
-        "ContestHomeScreen",
-        "TeamCreationScreen",
-        "MatchListScreen",
-        "ContestDetailsScreen",
-        "LeaderboardScreen",
-        "AddCashScreen",
-        "WalletScreen",
-        "ProfileScreen",
-        "MyContestsScreen",
-        "LiveScoreScreen",
-        "PlayerStatsScreen",
-        "WithdrawScreen",
-        "TransactionHistoryScreen",
-        "SettingsScreen",
-        "NotificationsScreen",
-        "ProductDetailScreen",
-        "CheckoutFormScreen",
-        "PaymentScreen",
-        "ProfileScreen",
-        "SearchResultsScreen",
-        "OrderListScreen",
-      ],
+      spanname: [...PULSE_MOCK_INTERACTION_NAMES],
+      interactionname: [...PULSE_MOCK_INTERACTION_NAMES],
+      interaction_name: [...PULSE_MOCK_INTERACTION_NAMES],
+      screen_name: [...PULSE_MOCK_SCREEN_NAMES],
       url: [
         "https://api.fancode.com/v1/contests/live",
         "https://api.fancode.com/v1/contests/upcoming",

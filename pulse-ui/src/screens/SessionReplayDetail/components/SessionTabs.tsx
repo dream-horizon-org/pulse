@@ -1,10 +1,12 @@
-import { Paper, Box, Tabs } from "@mantine/core";
+import type { ReactNode } from "react";
+import { Box, Paper, Tabs } from "@mantine/core";
 import {
   IconHandClick,
   IconTerminal,
   IconNetwork,
   IconGauge,
-  IconRoute2,
+  IconMapRoute,
+  IconTimeline,
 } from "@tabler/icons-react";
 import { AllTab } from "./AllTab";
 import { InteractionTab } from "./InteractionTab";
@@ -16,6 +18,17 @@ import type { SessionDetailData } from "../../../services/sessionReplay/mockSess
 import type { FlameChartNode } from "../../SessionTimeline/utils/flameChartTransform";
 import { TABS, TAB_LABELS } from "../constants/strings";
 import classes from "../SessionReplayDetail.module.css";
+
+const TAB_ICON_SIZE = 16;
+const TAB_ICON_STROKE = 1.5;
+
+function TabIcon({ children }: { children: ReactNode }) {
+  return (
+    <span className={classes.tabIconSlot} aria-hidden>
+      {children}
+    </span>
+  );
+}
 
 interface SessionTabsProps {
   activeTab: string;
@@ -45,37 +58,84 @@ export function SessionTabs({
       <Tabs
         value={activeTab}
         onChange={(value) => onTabChange(value || TABS.ALL)}
-        classNames={{ root: classes.sessionTabsRoot }}
+        color="teal"
+        variant="default"
+        classNames={{
+          root: classes.sessionTabsRoot,
+          list: classes.sessionTabsList,
+          tab: classes.sessionTab,
+        }}
       >
         <Tabs.List>
-          <Tabs.Tab value={TABS.ALL}>{TAB_LABELS.ALL}</Tabs.Tab>
+          <Tabs.Tab
+            value={TABS.ALL}
+            leftSection={
+              <TabIcon>
+                <IconTimeline size={TAB_ICON_SIZE} stroke={TAB_ICON_STROKE} />
+              </TabIcon>
+            }
+          >
+            {TAB_LABELS.ALL}
+          </Tabs.Tab>
           <Tabs.Tab
             value={TABS.INTERACTION}
-            leftSection={<IconHandClick size={14} />}
+            leftSection={
+              <TabIcon>
+                <IconHandClick
+                  size={TAB_ICON_SIZE}
+                  stroke={TAB_ICON_STROKE}
+                />
+              </TabIcon>
+            }
           >
             {TAB_LABELS.INTERACTION}
           </Tabs.Tab>
           <Tabs.Tab
             value={TABS.NETWORK}
-            leftSection={<IconNetwork size={14} />}
+            leftSection={
+              <TabIcon>
+                <IconNetwork
+                  size={TAB_ICON_SIZE}
+                  stroke={TAB_ICON_STROKE}
+                />
+              </TabIcon>
+            }
           >
             {TAB_LABELS.NETWORK}
           </Tabs.Tab>
           <Tabs.Tab
             value={TABS.PERFORMANCE}
-            leftSection={<IconGauge size={14} />}
+            leftSection={
+              <TabIcon>
+                <IconGauge size={TAB_ICON_SIZE} stroke={TAB_ICON_STROKE} />
+              </TabIcon>
+            }
           >
             {TAB_LABELS.PERFORMANCE}
           </Tabs.Tab>
           <Tabs.Tab
             value={TABS.USER_JOURNEY}
-            leftSection={<IconRoute2 size={14} />}
+            leftSection={
+              <TabIcon>
+                <IconMapRoute
+                  size={TAB_ICON_SIZE}
+                  stroke={TAB_ICON_STROKE}
+                />
+              </TabIcon>
+            }
           >
             {TAB_LABELS.USER_JOURNEY}
           </Tabs.Tab>
           <Tabs.Tab
             value={TABS.CONSOLE}
-            leftSection={<IconTerminal size={14} />}
+            leftSection={
+              <TabIcon>
+                <IconTerminal
+                  size={TAB_ICON_SIZE}
+                  stroke={TAB_ICON_STROKE}
+                />
+              </TabIcon>
+            }
           >
             {TAB_LABELS.CONSOLE}
           </Tabs.Tab>
@@ -115,7 +175,7 @@ export function SessionTabs({
           </Tabs.Panel>
 
           <Tabs.Panel value={TABS.CONSOLE}>
-            <ConsoleTab />
+            <ConsoleTab sessionData={sessionData} />
           </Tabs.Panel>
         </Box>
       </Tabs>

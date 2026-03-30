@@ -1,18 +1,19 @@
-import {
-  Paper,
-  Box,
-  Text,
-  Badge,
-  Group,
-  RingProgress,
-  Stack,
-} from "@mantine/core";
+import { Paper, Box, Text, Badge, Group, Tooltip } from "@mantine/core";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
 import {
   LABELS,
   STATUS_LABELS_EXTENDED as STATUS_LABELS,
 } from "../constants/strings";
-import { getQualityColor } from "../utils/sessionUtils";
+import {
+  TABLE_COLUMN_LABELS,
+  SESSION_LIST_LABELS,
+} from "../../SessionReplaySessions/constants/sessionList.constants";
+import {
+  formatTimestamp,
+  formatDuration,
+  getQualityColor,
+  getPlatformColor,
+} from "../../SessionReplaySessions/utils/sessionListUtils";
 import classes from "./SessionSummary.module.css";
 
 interface SessionSummaryProps {
@@ -23,93 +24,110 @@ export function SessionSummary({ sessionData }: SessionSummaryProps) {
   const quality = sessionData.interactionQuality;
   const hasQuality = quality != null && Number.isFinite(quality);
 
-  const formattedTime = new Date(sessionData.startTime).toLocaleString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-  );
-
-  const qualityColor = hasQuality
-    ? getQualityColor(quality as number)
-    : undefined;
-
   return (
     <Paper className={classes.summary} withBorder p={0}>
-      <Box className={classes.infoRow}>
-        <Stack gap={6} className={classes.idsBlock}>
-          <Text size="sm" className={classes.idLine}>
-            <Text component="span" c="dimmed" fw={500}>
-              {LABELS.SESSION_ID}:
-            </Text>{" "}
-            <Text
-              component="span"
-              ff="monospace"
-              style={{ wordBreak: "break-all" }}
-            >
-              {sessionData.sessionId}
-            </Text>
+      <Box className={classes.summaryBody}>
+        <div className={classes.sessionIdBlock}>
+          <Box component="div" className={classes.metricLabel}>
+            {LABELS.SESSION_ID}
+          </Box>
+          <Text
+            size="sm"
+            fw={500}
+            className={classes.metricValue}
+            style={{ wordBreak: "break-all" }}
+          >
+            {sessionData.sessionId}
           </Text>
-          <Group gap="xs" align="center" wrap="wrap" className={classes.idLine}>
-            <Text size="sm">
-              <Text component="span" c="dimmed" fw={500}>
-                {LABELS.USER_ID}:
-              </Text>{" "}
-              <Text component="span" fw={600}>
-                {sessionData.userId || "Anonymous"}
-              </Text>
-            </Text>
-            <Badge
-              size="sm"
-              variant="light"
-              color={sessionData.isAnonymous ? "gray" : "blue"}
-            >
-              {sessionData.isAnonymous
-                ? STATUS_LABELS.ANONYMOUS
-                : STATUS_LABELS.IDENTIFIED_UPPERCASE}
-            </Badge>
-          </Group>
-        </Stack>
+        </div>
 
-        <Group gap="lg" wrap="wrap" className={classes.metricsGroup}>
-          <Box className={classes.infoItem}>
-            {hasQuality ? (
-              <Group gap={6} align="center">
-                <RingProgress
-                  size={28}
-                  thickness={3}
-                  roundCaps
-                  sections={[
-                    {
-                      value: Math.min(
-                        100,
-                        Math.max(0, (quality as number) * 100),
-                      ),
-                      color: qualityColor ?? "gray",
-                    },
-                  ]}
-                />
-                <Text size="sm" fw={600} c={qualityColor}>
-                  {(quality as number).toFixed(2)}
-                </Text>
-              </Group>
-            ) : (
-              <Text size="sm" fw={500} c="dark.9">
-                {LABELS.SESSION_QUALITY}: NA
-              </Text>
-            )}
-          </Box>
+        <div className={classes.metricsRow}>
+          <div className={classes.metric}>
+            <Box component="div" className={classes.metricLabel}>
+              {LABELS.USER_ID}
+            </Box>
+            <div className={classes.metricValue}>
+              {sessionData.isAnonymous ? (
+                <Badge size="sm" variant="light" color="gray">
+                  {SESSION_LIST_LABELS.anonymousUser}
+                </Badge>
+              ) : (
+                <Group gap={6} wrap="wrap">
+                  <Text component="span" size="sm" fw={500}>
+                    {sessionData.userId}
+                  </Text>
+                  <Badge size="sm" variant="light" color="blue">
+                    {STATUS_LABELS.IDENTIFIED_UPPERCASE}
+                  </Badge>
+                </Group>
+              )}
+            </div>
+          </div>
 
-          <Box className={classes.infoItem}>
-            <Text size="sm" c="dimmed">
-              {formattedTime}
+          <div className={classes.metric}>
+            <Box component="div" className={classes.metricLabel}>
+              {TABLE_COLUMN_LABELS.startTime}
+            </Box>
+            <Text size="sm" fw={500} className={classes.metricValue}>
+              {formatTimestamp(sessionData.startTime)}
             </Text>
-          </Box>
-        </Group>
+          </div>
+
+          <div className={classes.metric}>
+            <Box component="div" className={classes.metricLabel}>
+              {TABLE_COLUMN_LABELS.duration}
+            </Box>
+            <Text size="sm" fw={500} className={classes.metricValue}>
+              {formatDuration(sessionData.duration)}
+            </Text>
+          </div>
+
+          <div className={classes.metric}>
+            <Box component="div" className={classes.metricLabel}>
+              {TABLE_COLUMN_LABELS.quality}
+            </Box>
+            <div className={classes.metricValue}>
+              {hasQuality ? (
+                <Tooltip
+                  label="Interaction quality on a 0–1 scale (same as the session list Quality column)"
+                  position="top"
+                  withArrow
+                  openDelay={400}
+                >
+                  <Text
+                    component="span"
+                    size="sm"
+                    fw={500}
+                    c={getQualityColor(quality as number)}
+                    style={{ cursor: "help" }}
+                  >
+                    {(quality as number).toFixed(2)}
+                    <Text component="span" size="xs" c="dimmed" ml={6}>
+                      (0–1)
+                    </Text>
+                  </Text>
+                </Tooltip>
+              ) : (
+                <Text size="sm">{SESSION_LIST_LABELS.noQuality}</Text>
+              )}
+            </div>
+          </div>
+
+          <div className={classes.metric}>
+            <Box component="div" className={classes.metricLabel}>
+              {TABLE_COLUMN_LABELS.platform}
+            </Box>
+            <div className={classes.metricValue}>
+              <Badge
+                size="sm"
+                variant="light"
+                color={getPlatformColor(sessionData.platform)}
+              >
+                {sessionData.platform}
+              </Badge>
+            </div>
+          </div>
+        </div>
       </Box>
     </Paper>
   );

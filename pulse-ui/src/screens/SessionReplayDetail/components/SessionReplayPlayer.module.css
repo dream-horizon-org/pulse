@@ -11,12 +11,27 @@
   border-radius: var(--mantine-radius-md);
 }
 
-/* Compact: fill viewport slot next to tabs (same height with/without images) */
+/* Compact: height follows device + controls (same width as tabs column) */
 .playerContainerCompact {
   min-height: 0;
-  flex: 1;
+  flex: 0 1 auto;
   align-self: stretch;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.viewportSlot {
+  flex: 0 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .imageViewport {
@@ -59,6 +74,11 @@
   justify-content: center;
   background: transparent;
   overflow: hidden;
+}
+
+/* Compact player: do not force 400px min — it overflowed the flex slot and hid controls */
+.playerContainerCompact .imageViewport {
+  min-height: 0;
 }
 
 .transitionImage {

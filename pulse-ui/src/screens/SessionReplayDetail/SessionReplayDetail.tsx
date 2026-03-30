@@ -142,8 +142,10 @@ export const SessionReplayDetail: React.FC = () => {
 
   return (
     <Box className={classes.container}>
-      <SessionHeader onBack={handleBack} />
-      <>
+      <Box className={classes.detailHeader}>
+        <SessionHeader onBack={handleBack} />
+      </Box>
+      <Box className={classes.detailMain}>
         <Box className={classes.summarySection}>
           <SessionSummary sessionData={sessionData} />
         </Box>
@@ -179,7 +181,7 @@ export const SessionReplayDetail: React.FC = () => {
             />
           </Box>
         </Box>
-      </>
+      </Box>
       {/* Session Timeline section commented out
       <SessionTimelineSection
         flameChartData={flameChartData}
