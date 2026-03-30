@@ -15,3 +15,4 @@ export * from "./eventDefinitionResponses";
 export * from "./breadcrumbResponses";
 export * from "./sessionReplayResponses";
 export * from "./rcaReportResponses";
+export * from "./funnelResponses";
