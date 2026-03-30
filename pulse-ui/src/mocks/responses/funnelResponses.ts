@@ -578,6 +578,7 @@ const MOCK_FUNNEL_EVENTS = [
   "Deep_Link_Opened",
 ];
 
+/** Options for GlobalFilterBar on funnel/journey create (GET /v1/funnel/filters mock). */
 const MOCK_FUNNEL_FILTER_OPTIONS: Record<string, string[]> = {
   "OS Name": ["iOS", "Android"],
   "OS Version": ["17.4.1", "17.3", "16.6", "14.0", "13.0"],
@@ -1109,7 +1110,8 @@ export function handleFunnelEndpoints(
       name: body.name || "Untitled",
       description: body.description || "",
       kind: body.kind || "FUNNEL",
-      status: "CREATING" as const,
+      /* ACTIVE so the new row appears in typical list views and matches post-create redirect to listing */
+      status: "ACTIVE" as const,
       createdBy: "dev@example.com",
       createdAt: new Date().toISOString(),
       lastUpdatedAt: new Date().toISOString(),

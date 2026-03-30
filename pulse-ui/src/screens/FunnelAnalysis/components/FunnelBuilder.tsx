@@ -25,9 +25,11 @@ import {
   Droppable,
   DropResult,
 } from "@hello-pangea/dnd";
+import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../constants";
 import { CONVERSION_WINDOW_OPTIONS, DATE_RANGE_OPTIONS } from "../mockData";
 import { useGetTags } from "../../../hooks/useGetFunnelData";
 import classes from "../FunnelAnalysis.module.css";
+import createFormClasses from "../FunnelJourneyCreateForm.module.css";
 
 export interface BuilderStep {
   id: string;
@@ -62,6 +64,8 @@ interface FunnelBuilderProps {
   availableEvents: string[];
   isUpdateMode?: boolean;
   isValid?: boolean;
+  /** Create flow: show only one wizard segment (0–2). Omit on funnel detail / full sidebar. */
+  wizardStep?: 0 | 1 | 2;
 }
 
 export function FunnelBuilder({
@@ -92,9 +96,17 @@ export function FunnelBuilder({
   availableEvents,
   isUpdateMode = false,
   isValid: externalIsValid,
+  wizardStep,
 }: FunnelBuilderProps) {
   const { data: tagsData } = useGetTags();
   const availableTags = tagsData?.data?.tags ?? [];
+
+  const wiz = wizardStep !== undefined;
+  const fieldSize = (wiz
+    ? CRITICAL_INTERACTION_FORM_CONSTANTS.TEXT_INPUT_SIZE
+    : "xs") as "xs" | "sm" | "md";
+  const fieldRadius = fieldSize;
+  const accent: "blue" | "teal" = wiz ? "blue" : "teal";
 
   /** Include saved step values so detail/edit pre-fill works when API list omits an event. */
   const eventOptions = useMemo(() => {
@@ -143,37 +155,141 @@ export function FunnelBuilder({
       ? externalIsValid
       : hasValidSteps && name.trim().length > 0;
 
-  return (
-    <Box className={classes.sidebarScroll}>
-      <Text size="md" fw={600} mb="sm">
-        Funnel Details
-      </Text>
-      <Text size="sm" fw={500} mb={4}>
-        Name
-      </Text>
-      <TextInput
-        placeholder="Enter funnel name"
-        value={name}
-        onChange={(e) => onNameChange(e.currentTarget.value)}
-        size="xs"
+  const rollingScheduleSection = (
+    <Box mt={wizardStep !== undefined ? 0 : "xl"}>
+      <Group gap="xs" mb="sm">
+        <Text size="sm" fw={500}>
+          Rolling Type
+        </Text>
+        <Tooltip
+          label={
+            <Box w={200}>
+              <Text size="xs" fw={600} mb={4}>
+                Recurring
+              </Text>
+              <Text size="xs" mb={8}>
+                Funnel will be auto-updated every 24 hours for the specified
+                rolling window.
+              </Text>
+              <Text size="xs" fw={600} mb={4}>
+                Once
+              </Text>
+              <Text size="xs">
+                Funnel will be computed once after creation and will not
+                auto-update.
+              </Text>
+            </Box>
+          }
+          position="right"
+          withArrow
+          multiline
+        >
+          <IconInfoCircle
+            size={14}
+            color="#94a3b8"
+            style={{ cursor: "help" }}
+          />
+        </Tooltip>
+      </Group>
+      <SegmentedControl
+        value={rollingType}
+        onChange={(val) => onRollingTypeChange(val as "RECURRING" | "ONCE")}
+        data={[
+          { label: "Recurring", value: "RECURRING" },
+          { label: "Once", value: "ONCE" },
+        ]}
+        size={fieldSize}
+        fullWidth
+        color={accent}
         mb="sm"
-        required
-      />
-      <Text size="sm" fw={500} mb={4}>
-        Description
-      </Text>
-      <Textarea
-        placeholder="Enter funnel description"
-        value={description}
-        onChange={(e) => onDescriptionChange(e.currentTarget.value)}
-        size="xs"
-        mb="md"
-        minRows={2}
       />
 
-      <Text size="md" fw={600} mt="lg" mb="sm">
-        Funnel Builder
+      {rollingType === "ONCE" && (
+        <Group gap="xs" mb="md">
+          <DateTimePicker
+            placeholder="Start Date"
+            value={customStartDate}
+            onChange={onCustomStartDateChange}
+            size={fieldSize}
+            style={{ flex: 1 }}
+            clearable
+          />
+          <Text size="xs" c="dimmed">
+            -
+          </Text>
+          <DateTimePicker
+            placeholder="End Date"
+            value={customEndDate}
+            onChange={onCustomEndDateChange}
+            size={fieldSize}
+            style={{ flex: 1 }}
+            clearable
+          />
+        </Group>
+      )}
+      {rollingType === "RECURRING" && (
+        <>
+          <Select
+            data={DATE_RANGE_OPTIONS.filter((opt) => opt.value !== "custom")}
+            value={dateRange}
+            onChange={(val) => onDateRangeChange(val || "7d")}
+            size={fieldSize}
+            mb="sm"
+            allowDeselect={false}
+          />
+          <Group gap="xs" mb={4}>
+            <Text size="sm" fw={500}>
+              Expiry Date
+            </Text>
+            <Tooltip
+              label="The date when this funnel will stop auto-updating and be marked as completed."
+              position="right"
+              withArrow
+            >
+              <IconInfoCircle
+                size={14}
+                color="#94a3b8"
+                style={{ cursor: "help" }}
+              />
+            </Tooltip>
+          </Group>
+          <DateTimePicker
+            placeholder="Select expiry date"
+            value={expiryDate}
+            onChange={onExpiryDateChange}
+            size={fieldSize}
+            mb="md"
+            clearable
+          />
+        </>
+      )}
+    </Box>
+  );
+
+  const tagsSection = (
+    <>
+      <Text size="sm" fw={500} mb={4}>
+        Tags
       </Text>
+      <TagsInput
+        placeholder="Select or create tags"
+        data={availableTags}
+        value={tags}
+        onChange={onTagsChange}
+        size={fieldSize}
+        mb="md"
+        clearable
+      />
+    </>
+  );
+
+  const stepsAndDragSection = (
+    <>
+      <Box mt={wizardStep !== undefined ? 0 : "lg"}>
+        <Text className={createFormClasses.formStepTitle} component="div">
+          Funnel Builder
+        </Text>
+      </Box>
       <SegmentedControl
         value={funnelMode}
         onChange={(val) => onFunnelModeChange(val as "ordered" | "unordered")}
@@ -181,9 +297,9 @@ export function FunnelBuilder({
           { label: "Sequential", value: "ordered" },
           { label: "Any Order", value: "unordered" },
         ]}
-        size="xs"
+        size={fieldSize}
         fullWidth
-        color="teal"
+        color={accent}
         mb="md"
       />
 
@@ -241,7 +357,7 @@ export function FunnelBuilder({
                             <ActionIcon
                               variant="subtle"
                               color="red"
-                              size="xs"
+                              size={wiz ? "sm" : "xs"}
                               onClick={() => removeStep(index)}
                               disabled={steps.length <= 2}
                             >
@@ -258,7 +374,7 @@ export function FunnelBuilder({
                               ? "No events available"
                               : "Select event..."
                           }
-                          size="xs"
+                          size={fieldSize}
                           searchable
                           clearable
                           disabled={availableEvents.length === 0}
@@ -276,149 +392,36 @@ export function FunnelBuilder({
 
       <Button
         variant="light"
-        color="teal"
-        size="xs"
+        color={accent}
+        size={fieldSize}
         leftSection={<IconPlus size={14} />}
         onClick={addStep}
         className={classes.addStepBtn}
       >
         Add Step
       </Button>
+    </>
+  );
 
-      <Box mt="xl">
-        <Group gap="xs" mb="sm">
-          <Text size="sm" fw={500}>
-            Rolling Type
-          </Text>
-          <Tooltip
-            label={
-              <Box w={200}>
-                <Text size="xs" fw={600} mb={4}>
-                  Recurring
-                </Text>
-                <Text size="xs" mb={8}>
-                  Funnel will be auto-updated every 24 hours for the specified
-                  rolling window.
-                </Text>
-                <Text size="xs" fw={600} mb={4}>
-                  Once
-                </Text>
-                <Text size="xs">
-                  Funnel will be computed once after creation and will not
-                  auto-update.
-                </Text>
-              </Box>
-            }
-            position="right"
-            withArrow
-            multiline
-          >
-            <IconInfoCircle
-              size={14}
-              color="#94a3b8"
-              style={{ cursor: "help" }}
-            />
-          </Tooltip>
-        </Group>
-        <SegmentedControl
-          value={rollingType}
-          onChange={(val) => onRollingTypeChange(val as "RECURRING" | "ONCE")}
-          data={[
-            { label: "Recurring", value: "RECURRING" },
-            { label: "Once", value: "ONCE" },
-          ]}
-          size="xs"
-          fullWidth
-          color="teal"
-          mb="sm"
-        />
-
-        {rollingType === "ONCE" && (
-          <Group gap="xs" mb="md">
-            <DateTimePicker
-              placeholder="Start Date"
-              value={customStartDate}
-              onChange={onCustomStartDateChange}
-              size="xs"
-              style={{ flex: 1 }}
-              clearable
-            />
-            <Text size="xs" c="dimmed">
-              -
-            </Text>
-            <DateTimePicker
-              placeholder="End Date"
-              value={customEndDate}
-              onChange={onCustomEndDateChange}
-              size="xs"
-              style={{ flex: 1 }}
-              clearable
-            />
-          </Group>
-        )}
-        {rollingType === "RECURRING" && (
-          <>
-            <Select
-              data={DATE_RANGE_OPTIONS.filter((opt) => opt.value !== "custom")}
-              value={dateRange}
-              onChange={(val) => onDateRangeChange(val || "7d")}
-              size="xs"
-              mb="sm"
-              allowDeselect={false}
-            />
-            <Group gap="xs" mb={4}>
-              <Text size="sm" fw={500}>
-                Expiry Date
-              </Text>
-              <Tooltip
-                label="The date when this funnel will stop auto-updating and be marked as completed."
-                position="right"
-                withArrow
-              >
-                <IconInfoCircle
-                  size={14}
-                  color="#94a3b8"
-                  style={{ cursor: "help" }}
-                />
-              </Tooltip>
-            </Group>
-            <DateTimePicker
-              placeholder="Select expiry date"
-              value={expiryDate}
-              onChange={onExpiryDateChange}
-              size="xs"
-              mb="md"
-              clearable
-            />
-          </>
-        )}
-
-        <Text size="sm" fw={500} mb={4}>
-          Tags
-        </Text>
-        <TagsInput
-          placeholder="Select or create tags"
-          data={availableTags}
-          value={tags}
-          onChange={onTagsChange}
-          size="xs"
-          mb="md"
-          clearable
-        />
-      </Box>
-
-      <Box className={classes.builderActions}>
-        <Text size="sm" fw={500} mb={4}>
-          Conversion Window
-        </Text>
-        <Select
-          data={CONVERSION_WINDOW_OPTIONS}
-          value={conversionWindow}
-          onChange={(val) => onConversionWindowChange(val || "86400")}
-          size="xs"
-          mb="sm"
-          allowDeselect={false}
-        />
+  const conversionWindowFields = (
+    <Box
+      className={wiz ? undefined : classes.builderActions}
+      mt={wiz ? "lg" : 0}
+      pt={wiz ? 0 : undefined}
+      style={wiz ? { borderTop: "none" } : undefined}
+    >
+      <Text size="sm" fw={500} mb={4}>
+        Conversion Window
+      </Text>
+      <Select
+        data={CONVERSION_WINDOW_OPTIONS}
+        value={conversionWindow}
+        onChange={(val) => onConversionWindowChange(val || "86400")}
+        size={fieldSize}
+        mb="sm"
+        allowDeselect={false}
+      />
+      {wizardStep === undefined && (
         <Button
           fullWidth
           color="teal"
@@ -435,7 +438,100 @@ export function FunnelBuilder({
               ? "Update Funnel"
               : "Create Funnel"}
         </Button>
+      )}
+    </Box>
+  );
+
+  if (wizardStep === 0) {
+    return (
+      <Box w="100%">
+        <Text className={createFormClasses.formStepTitle} component="div">
+          Funnel basics
+        </Text>
+        <Text size="sm" fw={500} mb={4}>
+          Name
+        </Text>
+        <TextInput
+          placeholder="Enter funnel name"
+          value={name}
+          onChange={(e) => onNameChange(e.currentTarget.value)}
+          size={fieldSize}
+          radius={fieldRadius}
+          mb="sm"
+          required
+        />
+        <Text size="sm" fw={500} mb={4}>
+          Description
+        </Text>
+        <Textarea
+          placeholder="Enter funnel description"
+          value={description}
+          onChange={(e) => onDescriptionChange(e.currentTarget.value)}
+          size={fieldSize}
+          radius={fieldRadius}
+          mb="md"
+          minRows={2}
+        />
+        {tagsSection}
       </Box>
+    );
+  }
+
+  if (wizardStep === 1) {
+    return (
+      <Box w="100%">
+        <Text className={createFormClasses.formStepTitle} component="div">
+          Time window
+        </Text>
+        {rollingScheduleSection}
+      </Box>
+    );
+  }
+
+  if (wizardStep === 2) {
+    return (
+      <Box w="100%">
+        {stepsAndDragSection}
+        {conversionWindowFields}
+      </Box>
+    );
+  }
+
+  return (
+    <Box className={classes.sidebarScroll}>
+      <Text className={createFormClasses.formStepTitle} component="div">
+        Funnel Details
+      </Text>
+      <Text size="sm" fw={500} mb={4}>
+        Name
+      </Text>
+      <TextInput
+        placeholder="Enter funnel name"
+        value={name}
+        onChange={(e) => onNameChange(e.currentTarget.value)}
+        size="xs"
+        mb="sm"
+        required
+      />
+      <Text size="sm" fw={500} mb={4}>
+        Description
+      </Text>
+      <Textarea
+        placeholder="Enter funnel description"
+        value={description}
+        onChange={(e) => onDescriptionChange(e.currentTarget.value)}
+        size="xs"
+        mb="md"
+        minRows={2}
+      />
+
+      {stepsAndDragSection}
+
+      {rollingScheduleSection}
+
+      {tagsSection}
+
+      {conversionWindowFields}
     </Box>
   );
 }

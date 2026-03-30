@@ -1,20 +1,34 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ActionIcon, Box, Group, Loader, Text } from "@mantine/core";
-import { IconArrowLeft, IconChartFunnel } from "@tabler/icons-react";
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Divider,
+  Group,
+  Stack,
+  Stepper,
+  Text,
+  Title,
+} from "@mantine/core";
+import { useMantineTheme } from "@mantine/core";
+import { IconArrowLeft, IconChartFunnel, IconSquareRoundedX } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
-import { ROUTES } from "../../constants";
+import { ROUTES, COMMON_CONSTANTS } from "../../constants";
+import { showNotification } from "../../helpers/showNotification";
 import classes from "./FunnelAnalysis.module.css";
+import createFormClasses from "./FunnelJourneyCreateForm.module.css";
+import {
+  FUNNEL_CREATE_STEPS,
+  FUNNEL_CREATE_STEP_ERRORS,
+} from "./funnelJourneyCreateForm.constants";
 import { ActiveFilter, GlobalFilterBar } from "./components/GlobalFilterBar";
 import { BuilderStep, FunnelBuilder } from "./components/FunnelBuilder";
-import { FunnelVisualization } from "./components/FunnelVisualization";
-import { FunnelDataTable } from "./components/FunnelDataTable";
 import { getDateRangeFromPreset } from "./mockData";
 import {
   FunnelStep,
-  useGetFunnelData,
   useGetFunnelEvents,
   useGetFunnelFilters,
-  useGetFunnelTrend
 } from "../../hooks/useGetFunnelData";
 import { useCreateFunnelJourney } from "../../hooks/useCreateFunnelJourney";
 
@@ -26,19 +40,19 @@ const EMPTY_STEPS: BuilderStep[] = [
 function toApiSteps(steps: BuilderStep[]): FunnelStep[] {
   return steps
     .filter((s) => s.eventName)
-    .map((s) => {
-      const apiStep: FunnelStep = {
-        eventName: s.eventName,
-        dataType: "LOGS" as const,
-      };
-
-      return apiStep;
-    });
+    .map((s) => ({
+      eventName: s.eventName,
+      dataType: "LOGS" as const,
+    }));
 }
 
 export function CreateFunnel() {
+  const theme = useMantineTheme();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
+
+  const [activeStep, setActiveStep] = useState(0);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -57,7 +71,6 @@ export function CreateFunnel() {
     "ordered",
   );
   const [conversionWindow, setConversionWindow] = useState("86400");
-  const [shouldFetch, setShouldFetch] = useState(false);
 
   const { data: eventsData } = useGetFunnelEvents();
   const { data: filtersData } = useGetFunnelFilters();
@@ -99,33 +112,40 @@ export function CreateFunnel() {
     [filters],
   );
 
-  const requestBody = useMemo(
-    () => ({
-      steps: apiSteps,
-      timeRange,
-      mode: "UNIQUE_USERS" as const,
-      windowSeconds: parseInt(conversionWindow, 10),
-      filters: apiFilters,
-    }),
-    [apiSteps, timeRange, conversionWindow, apiFilters],
-  );
-
-  const { data: funnelData, isLoading: funnelLoading } = useGetFunnelData({
-    requestBody,
-    enabled: shouldFetch,
-  });
-
-  const { data: trendData, isLoading: trendLoading } = useGetFunnelTrend({
-    requestBody,
-    enabled: shouldFetch,
-  });
-
-  const funnelResult = funnelData?.data;
-  const trendResult = trendData?.data;
-  const isLoading = funnelLoading || trendLoading;
-
   const { mutate: createFunnel, isPending: isCreating } =
     useCreateFunnelJourney();
+
+  const hasValidSteps =
+    steps.length >= 2 && steps.every((s) => Boolean(s.eventName));
+
+  const stepValid = (index: number): boolean => {
+    switch (index) {
+      case 0:
+        return name.trim().length > 0;
+      case 1:
+        if (rollingType === "ONCE") {
+          return !!(customStartDate && customEndDate);
+        }
+        return true;
+      case 2:
+        return hasValidSteps;
+      default:
+        return true;
+    }
+  };
+
+  const stepErrorMessage = (index: number): string => {
+    switch (index) {
+      case 0:
+        return FUNNEL_CREATE_STEP_ERRORS.NAME;
+      case 1:
+        return FUNNEL_CREATE_STEP_ERRORS.SCHEDULE_ONCE;
+      case 2:
+        return FUNNEL_CREATE_STEP_ERRORS.STEPS;
+      default:
+        return "";
+    }
+  };
 
   const handleAnalyze = () => {
     createFunnel(
@@ -146,14 +166,12 @@ export function CreateFunnel() {
             : undefined,
       },
       {
-        onSuccess: (res) => {
-          if (projectId && res.data) {
-            navigate(
-              generatePath(ROUTES.FUNNEL_JOURNEY_DETAIL.path, {
-                projectId,
-                id: res.data.id,
-              }),
-            );
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: ["funnelsJourneysList"],
+          });
+          if (projectId) {
+            navigate(generatePath(ROUTES.FUNNEL_ANALYSIS.path, { projectId }));
           }
         },
       },
@@ -168,8 +186,46 @@ export function CreateFunnel() {
     navigate(-1);
   };
 
+  const goNext = () => {
+    if (!stepValid(activeStep)) {
+      showNotification(
+        COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
+        stepErrorMessage(activeStep),
+        <IconSquareRoundedX />,
+        theme.colors.red[6],
+      );
+      return;
+    }
+    setActiveStep((s) => Math.min(s + 1, FUNNEL_CREATE_STEPS.length - 1));
+  };
+
+  const goPrev = () => {
+    setActiveStep((s) => Math.max(s - 1, 0));
+  };
+
+  const onStepClick = (clicked: number) => {
+    if (clicked < activeStep) {
+      setActiveStep(clicked);
+      return;
+    }
+    for (let i = 0; i < clicked; i++) {
+      if (!stepValid(i)) {
+        showNotification(
+          COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
+          stepErrorMessage(i),
+          <IconSquareRoundedX />,
+          theme.colors.red[6],
+        );
+        setActiveStep(i);
+        return;
+      }
+    }
+    setActiveStep(clicked);
+  };
+
   return (
     <Box className={classes.shell}>
+      <Box className={createFormClasses.createFormRoot}>
       <Box className={classes.topBar}>
         <Box className={classes.topBarLeft}>
           <Group gap="sm" align="center">
@@ -186,103 +242,155 @@ export function CreateFunnel() {
             </Box>
           </Group>
         </Box>
-
-        <Box
-          className={classes.topBarRight}
-          style={{ display: "flex", gap: 12, alignItems: "center" }}
-        ></Box>
       </Box>
 
-      <GlobalFilterBar
-        filters={filters}
-        onFiltersChange={(newFilters) => {
-          setFilters(newFilters);
-          setShouldFetch(false);
-        }}
-        filterOptions={filterOptions}
-      />
+      <Box className={createFormClasses.createFormMain}>
+      <Divider className={createFormClasses.createFormDivider} />
 
-      <Box className={classes.funnelLayout}>
-        <Box className={classes.sidebar}>
-          <FunnelBuilder
-            name={name}
-            onNameChange={setName}
-            description={description}
-            onDescriptionChange={setDescription}
-            tags={tags}
-            onTagsChange={setTags}
-            rollingType={rollingType}
-            onRollingTypeChange={setRollingType}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            customStartDate={customStartDate}
-            onCustomStartDateChange={setCustomStartDate}
-            customEndDate={customEndDate}
-            onCustomEndDateChange={setCustomEndDate}
-            expiryDate={expiryDate}
-            onExpiryDateChange={setExpiryDate}
-            steps={steps}
-            onStepsChange={(s) => {
-              setSteps(s);
-              setShouldFetch(false);
-            }}
-            funnelMode={funnelMode}
-            onFunnelModeChange={setFunnelMode}
-            conversionWindow={conversionWindow}
-            onConversionWindowChange={(v) => {
-              setConversionWindow(v);
-              setShouldFetch(false);
-            }}
-            onAnalyze={handleAnalyze}
-            isCreating={isCreating}
-            availableEvents={availableEvents}
-          />
+      <Box className={createFormClasses.createFormHeading}>
+        <Title order={2} fw={700}>
+          Add a new funnel
+        </Title>
+      </Box>
+
+      <Box className={createFormClasses.createFormBody}>
+        <Box className={createFormClasses.stepperContainer}>
+          <Stepper
+            className={createFormClasses.stepper}
+            color="blue"
+            active={activeStep}
+            onStepClick={onStepClick}
+            orientation="vertical"
+          >
+            {FUNNEL_CREATE_STEPS.map((step, index) => (
+              <Stepper.Step
+                key={step.label}
+                label={step.label}
+                description={step.description}
+                className={createFormClasses.stepperItem}
+                bg={activeStep === index ? "white" : undefined}
+                classNames={{
+                  stepWrapper: createFormClasses.stepperStepWrapper,
+                }}
+              />
+            ))}
+          </Stepper>
         </Box>
 
-        <Box className={classes.mainCanvas}>
-          {isLoading && shouldFetch && (
-            <Box className={classes.emptyState}>
-              <Loader color="teal" size="lg" />
-              <Text size="sm" c="dimmed" mt="md">
-                Analyzing funnel...
-              </Text>
-            </Box>
-          )}
-
-          {!isLoading && funnelResult && funnelResult.steps && (
-            <>
-              <FunnelVisualization
-                steps={funnelResult.steps}
-                totalConversionRate={
-                  trendResult?.totalConversionRate ??
-                  funnelResult.overallConversionRate
-                }
-                conversionTrend={trendResult?.conversionTrend ?? 0}
-                medianTimes={trendResult?.medianTimes ?? []}
+        <Box className={createFormClasses.formPanel}>
+          <Box className={createFormClasses.formPanelInner}>
+            <Box className={createFormClasses.formContent}>
+            {activeStep < 3 && (
+              <FunnelBuilder
+                wizardStep={activeStep as 0 | 1 | 2}
+                name={name}
+                onNameChange={setName}
+                description={description}
+                onDescriptionChange={setDescription}
+                tags={tags}
+                onTagsChange={setTags}
+                rollingType={rollingType}
+                onRollingTypeChange={setRollingType}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                customStartDate={customStartDate}
+                onCustomStartDateChange={setCustomStartDate}
+                customEndDate={customEndDate}
+                onCustomEndDateChange={setCustomEndDate}
+                expiryDate={expiryDate}
+                onExpiryDateChange={setExpiryDate}
+                steps={steps}
+                onStepsChange={(s) => {
+                  setSteps(s);
+                }}
+                funnelMode={funnelMode}
+                onFunnelModeChange={setFunnelMode}
+                conversionWindow={conversionWindow}
+                onConversionWindowChange={setConversionWindow}
+                onAnalyze={handleAnalyze}
+                isCreating={isCreating}
+                availableEvents={availableEvents}
               />
-              <FunnelDataTable
-                steps={funnelResult.steps}
-                timeRange={timeRange}
-                apiSteps={apiSteps}
-              />
-            </>
-          )}
+            )}
 
-          {!isLoading && !funnelResult && (
-            <Box className={classes.emptyState}>
-              <Box className={classes.emptyStateIcon}>
-                <IconChartFunnel size={28} color="#0ba09a" />
-              </Box>
-              <Text size="lg" fw={700} c="dark.6" mt="xs">
-                Build Your Funnel
-              </Text>
-              <Text size="sm" c="dimmed" mt={4} maw={380}>
-                Select events for each step, set your conversion window, and
-                click "Analyze Funnel" to see results.
-              </Text>
+            {activeStep === 3 && (
+              <Stack className={createFormClasses.filtersCreateStep} gap="xl">
+                <Box>
+                  <Text className={createFormClasses.filtersCreateIntro}>
+                    Audience filters
+                  </Text>
+                  <Text className={createFormClasses.filtersCreateHint} mt="xs">
+                    Optional. Choose OS, app version, or other dimensions to
+                    limit which users are included when this funnel is computed.
+                  </Text>
+                </Box>
+                <GlobalFilterBar
+                  comfortable
+                  className={createFormClasses.filterBarCreate}
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                  filterOptions={filterOptions}
+                />
+                <Box className={createFormClasses.finalStepCard}>
+                  <Box
+                    style={{
+                      color: "var(--mantine-color-blue-6)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      background: "rgba(34, 139, 230, 0.12)",
+                    }}
+                  >
+                    <IconChartFunnel size={26} stroke={1.5} />
+                  </Box>
+                  <Text size="lg" fw={700} c="dark.7" lh={1.3}>
+                    Ready to create
+                  </Text>
+                  <Text size="sm" c="dimmed" lh={1.55}>
+                    Filters above apply to how this funnel is computed. After
+                    creation, open the funnel detail page to explore conversion,
+                    trends, and step breakdown.
+                  </Text>
+                </Box>
+              </Stack>
+            )}
             </Box>
-          )}
+
+            <Box className={createFormClasses.stepNavEmbedded}>
+              <Group justify="space-between" gap="md" wrap="nowrap" w="100%">
+                <Button
+                  variant="outline"
+                  color="blue"
+                  size="md"
+                  onClick={goPrev}
+                  disabled={activeStep === 0}
+                >
+                  Back
+                </Button>
+                {activeStep < FUNNEL_CREATE_STEPS.length - 1 ? (
+                  <Button color="blue" size="md" onClick={goNext}>
+                    Next
+                  </Button>
+                ) : (
+                  <Button
+                    color="blue"
+                    size="md"
+                    onClick={handleAnalyze}
+                    disabled={!hasValidSteps || isCreating}
+                    loading={isCreating}
+                  >
+                    {isCreating ? "Creating…" : "Create funnel"}
+                  </Button>
+                )}
+              </Group>
+            </Box>
+          </Box>
         </Box>
+      </Box>
+      </Box>
       </Box>
     </Box>
   );
