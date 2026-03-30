@@ -1,17 +1,13 @@
-import { Box, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
-import {
-  IconChartFunnel,
-  IconLayoutGrid,
-  IconPlayerPlay,
-  IconRefresh,
-} from "@tabler/icons-react";
+import { Box, Button, Skeleton, Stack, Text } from "@mantine/core";
+import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { useGetInteractionDetailsGraphs } from "../../../../hooks/useGetInteractionDetailsGraphs";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import type { RcaReportTenantContext } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
-import { FunnelJourneyCard, HeatmapRcaCard, SessionCard } from "./components";
+import type { EvidenceCardProps } from "./components";
+import { EvidenceStrip } from "./components";
 import { getRootCauseMockLinkedFunnelsJourneys } from "./rootCauseMockLinkedFunnelsJourneys";
 import { getRootCauseMockRelatedSessions } from "./rootCauseMockRelatedSessions";
 import { buildScreenHeatmapUrl, getRcaHeatmapTargets } from "./rcaHeatmapLinks";
@@ -157,6 +153,45 @@ export const RootCause = ({
     };
     const relatedSessions = getRootCauseMockRelatedSessions();
     const linkedFunnelsJourneys = getRootCauseMockLinkedFunnelsJourneys();
+    const evidenceItems: EvidenceCardProps[] = [
+      ...relatedSessions.map((s) => ({
+        type: "session-replay" as const,
+        name: s.sessionId,
+        timestamp: s.relativeTime,
+        subtitle: `${s.duration} · ${s.device}`,
+        detail: s.failureSummary,
+        href: `/projects/${effectiveProjectId}/session-replay/${s.sessionId}`,
+      })),
+      ...linkedFunnelsJourneys.map((item) => {
+        const tagLine =
+          item.tags.length > 0
+            ? item.tags.slice(0, 4).join(" · ")
+            : `Created by ${item.createdBy}`;
+        return {
+          type: (item.type === "FUNNEL" ? "funnel" : "journey") as
+            | "funnel"
+            | "journey",
+          name: item.name,
+          timestamp: item.createdAt,
+          subtitle: tagLine,
+          detail: item.description,
+          href: `/projects/${effectiveProjectId}/funnels-journeys/${item.id}`,
+        };
+      }),
+      ...rcaHeatmapTargets.map((target) => ({
+        type: "heatmap" as const,
+        name: target.screenName,
+        subtitle: target.label,
+        detail:
+          "Tap and gesture density on this screen for the dashboard time range.",
+        href: buildScreenHeatmapUrl(
+          effectiveProjectId,
+          target.screenName,
+          startTime,
+          endTime,
+        ),
+      })),
+    ];
     return (
       <>
         <RcaReportView
@@ -165,113 +200,7 @@ export const RootCause = ({
           cached={reportPayload.cached}
           cachedAt={cachedAtFormatted}
         />
-        {relatedSessions.length > 0 && (
-          <section
-            className={classes.relatedReplaysSection}
-            aria-label="Related session replays"
-          >
-            <Group className={classes.relatedReplaysHeader} gap="xs">
-              <IconPlayerPlay
-                size={18}
-                color="var(--mantine-color-teal-7)"
-                aria-hidden
-              />
-              <Text className={classes.relatedReplaysTitle}>
-                Related Session Replays
-              </Text>
-              <Box component="span" className={classes.relatedReplaysBadge}>
-                {relatedSessions.length}
-              </Box>
-            </Group>
-            <div className={classes.relatedReplaysGrid}>
-              {relatedSessions.map((session) => (
-                <SessionCard
-                  key={session.sessionId}
-                  sessionId={session.sessionId}
-                  duration={session.duration}
-                  relativeTime={session.relativeTime}
-                  device={session.device}
-                  failureSummary={session.failureSummary}
-                  replayUrl={`/projects/${effectiveProjectId}/session-replay/${session.sessionId}`}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-        {linkedFunnelsJourneys.length > 0 && (
-          <section
-            className={classes.linkedFunnelsJourneysSection}
-            aria-label="Linked funnels and journeys"
-          >
-            <Group className={classes.linkedFunnelsJourneysHeader} gap="xs">
-              <IconChartFunnel
-                size={18}
-                color="var(--mantine-color-teal-7)"
-                aria-hidden
-              />
-              <Text className={classes.linkedFunnelsJourneysTitle}>
-                Related Funnels & Journeys
-              </Text>
-              <Box
-                component="span"
-                className={classes.linkedFunnelsJourneysBadge}
-              >
-                {linkedFunnelsJourneys.length}
-              </Box>
-            </Group>
-            <div className={classes.linkedFunnelsJourneysGrid}>
-              {linkedFunnelsJourneys.map((item) => (
-                <FunnelJourneyCard
-                  key={item.id}
-                  id={item.id}
-                  name={item.name}
-                  type={item.type}
-                  status={item.status}
-                  createdBy={item.createdBy}
-                  createdAt={item.createdAt}
-                  tags={item.tags}
-                  description={item.description}
-                  detailUrl={`/projects/${effectiveProjectId}/funnels-journeys/${item.id}`}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-        {rcaHeatmapTargets.length > 0 && (
-          <section
-            className={classes.relatedHeatmapsSection}
-            aria-label="Related heatmaps"
-          >
-            <Group className={classes.relatedReplaysHeader} gap="xs">
-              <IconLayoutGrid
-                size={18}
-                color="var(--mantine-color-teal-7)"
-                aria-hidden
-              />
-              <Text className={classes.relatedReplaysTitle}>
-                Related heatmaps
-              </Text>
-              <Box component="span" className={classes.relatedReplaysBadge}>
-                {rcaHeatmapTargets.length}
-              </Box>
-            </Group>
-            <div className={classes.relatedReplaysGrid}>
-              {rcaHeatmapTargets.map((target, idx) => (
-                <HeatmapRcaCard
-                  key={`${target.screenName}-${idx}`}
-                  screenName={target.screenName}
-                  label={target.label}
-                  heatmapUrl={buildScreenHeatmapUrl(
-                    effectiveProjectId,
-                    target.screenName,
-                    startTime,
-                    endTime,
-                  )}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+        <EvidenceStrip items={evidenceItems} />
       </>
     );
   }
