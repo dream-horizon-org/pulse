@@ -273,6 +273,56 @@ export const MOCK_SESSION_ITEMS: SessionItem[] = (() => {
       impactedScreens: { nonFatals: ["OrderListScreen"] },
       criticalInteractionNames: ["JoinContestButtonClick"],
     },
+    /** Curated for Interaction Details → Root Cause → Related Session Replays (aligns with mock RCA segments: Andr 4.0.0+OS13, iOS 4.2.0). */
+    {
+      sessionId: "sess_rca_join_mock_001",
+      startTime: t(0, 45),
+      durationMs: 198000,
+      user: "user_rca_andr_13",
+      qualityScore: 0.38,
+      issues: [
+        { type: "ANR", label: "ANRs", count: 1 },
+        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 2 },
+        { type: "NETWORK_ERROR", label: "Network Errors", count: 1 },
+      ],
+      platform: "Android",
+      spanCount: 156,
+      journey: [
+        "HomeScreen",
+        "OrderListScreen",
+        "SearchResultsScreen",
+        "ProductListScreen",
+      ],
+      impactedScreens: {
+        anrs: ["SearchResultsScreen"],
+        nonFatals: ["ProductListScreen"],
+      },
+      criticalInteractionNames: ["JoinContestButtonClick"],
+    },
+    {
+      sessionId: "sess_rca_join_mock_002",
+      startTime: t(1, 12),
+      durationMs: 245000,
+      user: null,
+      qualityScore: 0.52,
+      issues: [
+        { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 4 },
+        { type: "NETWORK_ERROR", label: "Network Errors", count: 2 },
+        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 1 },
+      ],
+      platform: "iOS",
+      spanCount: 178,
+      journey: [
+        "HomeScreen",
+        "ProductListScreen",
+        "ProductDetailScreen",
+        "OrderListScreen",
+      ],
+      impactedScreens: {
+        nonFatals: ["ProductListScreen", "OrderListScreen"],
+      },
+      criticalInteractionNames: ["JoinContestButtonClick"],
+    },
   ];
 })();
 

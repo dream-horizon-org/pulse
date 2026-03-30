@@ -184,6 +184,90 @@ export function heatmapMockCompare(
   };
 }
 
+/**
+ * Rich ProductListScreen mock: strong tap/rage/latency around contest rows & Join CTA
+ * (aligns with JoinContestButtonClick RCA — same screen as `/screens/ProductListScreen?tab=heatmap`).
+ */
+export function heatmapMockProductListJoinContest(): HeatmapDataResponse {
+  const base = heatmapMockPocDense("ProductListScreen");
+  const joinCtaCluster: Cluster[] = [
+    { cx: 0.72, cy: 0.46, count: 980, spread: 0.038, wMin: 14, wMax: 210 },
+    { cx: 0.42, cy: 0.52, count: 720, spread: 0.042, wMin: 10, wMax: 165 },
+    { cx: 0.88, cy: 0.44, count: 540, spread: 0.03, wMin: 8, wMax: 120 },
+  ];
+  const rand = mulberry32(hashScreenName("ProductListScreenJoin"));
+  const extraGlow: HeatmapGlowPoint[] = [];
+  for (const c of joinCtaCluster) {
+    const n = Math.min(c.count, 420);
+    for (let i = 0; i < n; i++) {
+      const x = clamp01(c.cx + (rand() - 0.5) * 2 * c.spread);
+      const y = clamp01(c.cy + (rand() - 0.5) * 2 * c.spread);
+      const weight = c.wMin + rand() * (c.wMax - c.wMin);
+      extraGlow.push({ x, y, weight: Math.round(weight * 10) / 10 });
+    }
+  }
+  const glow_map = [...base.layers.glow_map, ...extraGlow];
+  while (glow_map.length > POC_GLOW_MAX_POINTS) {
+    glow_map.pop();
+  }
+  const weightSum = glow_map.reduce((s, p) => s + p.weight, 0);
+
+  return {
+    metadata: {
+      ...base.metadata,
+      total_events: Math.round(weightSum) || glow_map.length,
+      app_version: "4.0.0",
+      platform: "Android",
+    },
+    layers: {
+      glow_map,
+      frustration_map: {
+        rage: [
+          ...base.layers.frustration_map.rage,
+          {
+            x: 0.72,
+            y: 0.46,
+            weight: 620,
+            avg_sequence_count: 6,
+          },
+          {
+            x: 0.42,
+            y: 0.52,
+            weight: 410,
+            avg_sequence_count: 4,
+          },
+        ],
+        dead: [
+          ...base.layers.frustration_map.dead,
+          { x: 0.72, y: 0.44, weight: 140 },
+        ],
+      },
+      observability_map: {
+        error_clicks: [
+          ...base.layers.observability_map.error_clicks,
+          { x: 0.72, y: 0.46, weight: 96, error_code: "504" },
+          { x: 0.42, y: 0.52, weight: 54, error_code: "JOIN_TIMEOUT" },
+        ],
+        latency_hotspots: [
+          ...base.layers.observability_map.latency_hotspots,
+          {
+            x: 0.72,
+            y: 0.46,
+            avg_latency_ms: 6872,
+            weight: 520,
+          },
+          {
+            x: 0.42,
+            y: 0.52,
+            avg_latency_ms: 5100,
+            weight: 380,
+          },
+        ],
+      },
+    },
+  };
+}
+
 /** Resolve scenario from screenName for E2E testing */
 export function resolveHeatmapData(screenName: string): HeatmapDataResponse {
   if (screenName === "__empty__") {
@@ -191,6 +275,9 @@ export function resolveHeatmapData(screenName: string): HeatmapDataResponse {
   }
   if (screenName === "__sparse__") {
     return heatmapMockFull(screenName);
+  }
+  if (screenName === "ProductListScreen") {
+    return heatmapMockProductListJoinContest();
   }
   return heatmapMockPocDense(screenName);
 }

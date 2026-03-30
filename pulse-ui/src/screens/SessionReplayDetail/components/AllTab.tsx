@@ -19,8 +19,8 @@ export function AllTab({
   onEventClick,
 }: AllTabProps) {
   return (
-    <Stack gap="sm" style={{ flex: 1, minHeight: 0 }}>
-      <Stack gap={4}>
+    <Stack gap="sm" style={{ flex: 1, minHeight: 0, width: "100%" }}>
+      <Stack gap={4} style={{ flexShrink: 0 }}>
         <Title order={5} fz="md" fw={600}>
           {TAB_PANEL_TITLE.ALL}
         </Title>

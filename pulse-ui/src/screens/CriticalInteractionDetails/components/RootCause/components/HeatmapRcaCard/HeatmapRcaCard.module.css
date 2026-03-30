@@ -2,10 +2,9 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  /* Fixed footprint so paired cards stay aligned; inner layout uses flex + line-clamp */
-  height: 280px;
-  min-height: 280px;
-  max-height: 280px;
+  height: 220px;
+  min-height: 220px;
+  max-height: 220px;
   border: 1px solid rgba(14, 201, 194, 0.2);
   border-radius: var(--mantine-radius-md);
   background: var(--mantine-color-white);
@@ -31,93 +30,52 @@
   outline-offset: 2px;
 }
 
-.cardInner {
+.inner {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  gap: var(--mantine-spacing-md);
+  gap: var(--mantine-spacing-sm);
   height: 100%;
 }
 
-.sessionRow {
+.titleRow {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--mantine-spacing-sm);
+  gap: var(--mantine-spacing-xs);
   flex-shrink: 0;
 }
 
-.sessionIdGroup {
-  min-width: 0;
-  flex: 1;
-}
-
-.sessionId {
+.screenName {
   font-weight: 600;
   font-size: var(--mantine-font-size-sm);
   color: var(--mantine-color-gray-9);
   min-width: 0;
 }
 
-.durationBadge {
-  font-size: var(--mantine-font-size-xs);
-  font-weight: 500;
-  flex-shrink: 0;
-}
-
-.relativeTime {
-  font-size: var(--mantine-font-size-xs);
-  color: var(--mantine-color-gray-6);
-  white-space: nowrap;
-  flex-shrink: 0;
-  padding-top: 2px;
-}
-
-.deviceRow {
-  flex-shrink: 0;
-  min-width: 0;
-}
-
-.deviceIcon {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.deviceText {
-  font-size: var(--mantine-font-size-sm);
-  line-height: 1.45;
-  color: var(--mantine-color-gray-7);
-  flex: 1;
-  min-width: 0;
-}
-
-.failureSummaryBox {
+.labelBox {
   flex: 1;
   min-height: 0;
-  display: flex;
-  align-items: flex-start;
   padding: var(--mantine-spacing-md);
-  background: rgba(14, 201, 194, 0.08);
-  border: 1px solid rgba(14, 201, 194, 0.2);
+  background: rgba(14, 201, 194, 0.06);
+  border: 1px solid rgba(14, 201, 194, 0.18);
   border-radius: var(--mantine-radius-sm);
   overflow: hidden;
 }
 
-.failureSummaryText {
+.labelText {
   font-size: var(--mantine-font-size-sm);
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--mantine-color-gray-8);
-  width: 100%;
 }
 
-.watchReplayFooter {
+.footer {
   flex-shrink: 0;
   margin-top: auto;
   padding-top: var(--mantine-spacing-xs);
 }
 
-.watchReplayLink {
+.viewLink {
   font-size: var(--mantine-font-size-sm);
   font-weight: 600;
   color: var(--mantine-color-teal-7);
@@ -125,18 +83,14 @@
   align-items: center;
   gap: var(--mantine-spacing-xs);
   text-decoration: none;
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: 0;
 }
 
-.watchReplayLink:hover {
+.viewLink:hover {
   color: var(--mantine-color-teal-8);
   text-decoration: underline;
 }
 
-.watchReplayLink:focus-visible {
+.viewLink:focus-visible {
   outline: 2px solid var(--mantine-color-teal-5);
   outline-offset: 2px;
   border-radius: var(--mantine-radius-xs);

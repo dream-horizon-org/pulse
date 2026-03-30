@@ -19,8 +19,14 @@ export function SessionDetailTabPanel({
   children,
 }: SessionDetailTabPanelProps) {
   return (
-    <Stack gap="sm" style={{ flex: 1, minHeight: 0 }}>
-      <Group justify="space-between" align="flex-start" wrap="wrap" gap="sm">
+    <Stack gap="sm" style={{ flex: 1, minHeight: 0, width: "100%" }}>
+      <Group
+        justify="space-between"
+        align="flex-start"
+        wrap="wrap"
+        gap="sm"
+        style={{ flexShrink: 0 }}
+      >
         <Stack gap={4} style={{ flex: "1 1 220px", minWidth: 0 }}>
           <Title order={5} fz="md" fw={600}>
             {title}

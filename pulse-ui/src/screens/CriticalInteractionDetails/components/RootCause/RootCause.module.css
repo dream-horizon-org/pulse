@@ -214,6 +214,14 @@
   margin-right: var(--mantine-spacing-md);
 }
 
+/* Related heatmaps (Screen → Heatmap) — below session replays on RCA */
+.relatedHeatmapsSection {
+  margin-top: var(--mantine-spacing-xl);
+  margin-bottom: var(--mantine-spacing-xl);
+  margin-left: var(--mantine-spacing-md);
+  margin-right: var(--mantine-spacing-md);
+}
+
 .relatedReplaysHeader {
   display: flex;
   align-items: center;
@@ -245,6 +253,7 @@
 
 .relatedReplaysGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--mantine-spacing-md);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: var(--mantine-spacing-lg);
+  align-items: start;
 }

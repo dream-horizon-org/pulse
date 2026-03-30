@@ -11,25 +11,29 @@
   border-radius: var(--mantine-radius-md);
 }
 
-/* Compact: height follows device + controls (same width as tabs column) */
+/* Compact: fills viewport slot between header and transport (no outer scroll) */
 .playerContainerCompact {
   min-height: 0;
-  flex: 0 1 auto;
+  min-width: 0;
+  flex: 1 1 0;
   align-self: stretch;
   width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .viewportSlot {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   width: 100%;
+  min-width: 0;
   min-height: 0;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   overflow: hidden;
 }

@@ -104,51 +104,50 @@
 }
 
 /*
- * Full-width grid, left-aligned: player 4fr, timeline / tabs 8fr (1∶2).
- * minmax(0, …) lets tracks shrink so overflow scrolls inside cells, not the page.
+ * Full-width row: player 4∶8. Split fills space below summary (detailMain flex);
+ * both columns share one height; scroll only inside tab panels / timeline, not the player card.
  */
 .playerSectionSplit {
   --session-detail-column-gap: var(--mantine-spacing-xl);
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   min-width: 0;
   width: 100%;
   margin-inline: 0;
   box-sizing: border-box;
-  display: grid;
-  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-  justify-content: start;
-  justify-items: stretch;
-  align-items: start;
-  column-gap: var(--session-detail-column-gap);
-  row-gap: var(--session-detail-column-gap);
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--session-detail-column-gap);
   margin-bottom: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .playerSectionLeft {
-  grid-column: 1;
-  grid-row: 1;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
+  flex: 4 1 0;
   min-width: 0;
   max-width: none;
   min-height: 0;
-  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: hidden;
 }
 
-/* Player card wraps content height (no longer stretched to match right column) */
+/* Player card fills the left column so it matches the right panel height */
 .playerSectionStretch {
   width: 100%;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-height: 0;
+  max-width: 100%;
 }
 
-/* Viewport area sizes to mockup + padding, not flex-fill */
+/* Viewport fills space between header and controls */
 .playerViewportGrow {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   width: 100%;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -156,25 +155,20 @@
 
 .playerControlsSlot {
   flex-shrink: 0;
-  /* Keep transport + timeline visible when the player card scrolls */
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+  min-width: 0;
 }
 
 .playerSectionRight {
-  grid-column: 2;
-  grid-row: 1;
-  width: 100%;
+  flex: 8 1 0;
   min-width: 0;
   max-width: none;
   min-height: 0;
-  max-height: calc(100dvh - 10.5rem);
-  max-height: calc(100svh - 10.5rem);
   display: flex;
   flex-direction: column;
   gap: var(--mantine-spacing-md);
   overflow: hidden;
+  align-self: stretch;
+  height: 100%;
 }
 
 .rightPanelSummary {
@@ -197,8 +191,8 @@
   }
 
   .playerSectionSplit {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     max-width: 100%;
     margin-inline: 0;
     flex: none;
@@ -210,14 +204,13 @@
 
   .playerSectionLeft,
   .playerSectionRight {
-    grid-column: 1;
+    flex: 1 1 auto;
     max-width: 100%;
     width: 100%;
     max-height: none;
   }
 
   .playerSectionRight {
-    flex: 1 1 auto;
     min-height: clamp(360px, 55vh, 720px);
     overflow: hidden;
   }
@@ -227,17 +220,17 @@
 .playerContainer {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   padding: 0;
   border-radius: var(--mantine-radius-md);
   border: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-white);
-  /* Allow vertical scroll if header + mockup + controls exceed column (overflow hidden clipped controls) */
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   min-height: 0;
   display: flex;
   flex-direction: column;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
 }
 
 .playerHeader {
@@ -299,6 +292,10 @@
   padding: var(--mantine-spacing-md);
   background: var(--mantine-color-white);
   border-top: 1px solid var(--mantine-color-gray-2);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .playerControls .timelineContainer {
@@ -380,6 +377,7 @@
 
 /* Consistent tab bar: every tab has an icon slot + label; horizontal scroll on narrow viewports */
 .sessionTabsList {
+  flex-shrink: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
@@ -428,6 +426,8 @@
 .allTabContainer {
   width: 100%;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   padding: 0;
   border-radius: var(--mantine-radius-md);
   border: 1px solid var(--mantine-color-gray-2);
@@ -437,8 +437,6 @@
   flex-direction: column;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   flex: 1;
-  min-height: 0;
-  max-height: 100%;
 }
 
 .allTabContainer .tabContent {
@@ -453,9 +451,8 @@
   box-sizing: border-box;
 }
 
-/* Tab panels fill height so raw section matches device player */
-.allTabContainer .tabContent > [role="tabpanel"],
-.allTabContainer .tabContent > div {
+/* Tab panels: only role=tabpanel (avoid styling Mantine wrappers that break layout) */
+.allTabContainer .tabContent > [role="tabpanel"] {
   flex: 1;
   min-height: 0;
   display: flex;
