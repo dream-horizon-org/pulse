@@ -5,12 +5,16 @@
 
 package io.opentelemetry.android
 
+import android.app.ActivityManager
 import android.app.Application
+import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
+import com.pulse.semconv.PulseDeviceAttributes
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
+import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.semconv.ServiceAttributes
@@ -23,6 +27,7 @@ import org.junit.jupiter.api.Test
 internal class AndroidResourceTest {
     private val appName: String = "robotron"
     private val rumSdkVersion: String = BuildConfig.OTEL_ANDROID_VERSION
+    private val systemTotalMemoryBytes: Long = 8_589_934_592L
 
     @RelaxedMockK
     private lateinit var app: Application
@@ -30,6 +35,15 @@ internal class AndroidResourceTest {
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this)
+        stubActivityManagerTotalMem(systemTotalMemoryBytes)
+    }
+
+    private fun stubActivityManagerTotalMem(totalMem: Long) {
+        val activityManager = mockk<ActivityManager>()
+        every { activityManager.getMemoryInfo(any()) } answers {
+            firstArg<ActivityManager.MemoryInfo>().totalMem = totalMem
+        }
+        every { app.getSystemService(Context.ACTIVITY_SERVICE) } returns activityManager
     }
 
     @Test
@@ -61,6 +75,7 @@ internal class AndroidResourceTest {
                         .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
                         .put(RumConstants.App.BUILD_ID, "0")
                         .put(RumConstants.App.BUILD_NAME, "_0")
+                        .put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_SIZE, systemTotalMemoryBytes)
                         .build(),
                 )
 
@@ -98,6 +113,7 @@ internal class AndroidResourceTest {
                         .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
                         .put(RumConstants.App.BUILD_ID, "0")
                         .put(RumConstants.App.BUILD_NAME, "_0")
+                        .put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_SIZE, systemTotalMemoryBytes)
                         .build(),
                 )
 
@@ -107,6 +123,7 @@ internal class AndroidResourceTest {
 
     @Test
     fun testProblematicContext() {
+        every { app.getSystemService(any()) } returns null
         every { app.applicationContext.applicationInfo } throws SecurityException("cannot do that")
         every { app.applicationContext.resources } throws SecurityException("boom")
 

@@ -10,6 +10,7 @@ import android.app.Application
 import android.content.Context
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseDeviceAttributes
+import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
 import kotlinx.coroutines.CoroutineDispatcher
@@ -76,13 +77,17 @@ internal class RamSampler(
     internal fun collectSample() {
         if (!active.get()) return
         val activityManager = activityManager ?: return
-        activityManager.getMemoryInfo(memInfo)
-        val appUsedBytes = runtime.totalMemory() - runtime.freeMemory()
-        synchronized(lock) {
-            systemUtilizationList.add(memInfo.totalMem - memInfo.availMem)
-            appUtilizationList.add(appUsedBytes)
-            timestampInMsList.add(System.currentTimeMillis())
-        }
+        PulseOtelUtils
+            .runPulseCatching("RamSampler:collectSample") {
+                activityManager.getMemoryInfo(memInfo)
+                runtime.totalMemory() - runtime.freeMemory()
+            }?.let {
+                synchronized(lock) {
+                    systemUtilizationList.add(memInfo.totalMem - memInfo.availMem)
+                    appUtilizationList.add(it)
+                    timestampInMsList.add(System.currentTimeMillis())
+                }
+            }
     }
 
     internal fun flushSamples() {
