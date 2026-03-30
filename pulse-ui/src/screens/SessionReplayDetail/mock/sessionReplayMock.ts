@@ -16,6 +16,7 @@ import type {
   FilterValue,
 } from "../../../services/sessionReplay/types";
 import type { SnapshotsDataResponse } from "../../../services/sessionReplay/sessionReplaySnapshotTypes";
+import { isEcommerceMockThemeEnabled } from "../../../mocks/mockEcommerceTheme";
 import { generateSessionDetailApiResponse } from "../../../mocks/responses/sessionReplayResponses";
 import { MOCK_SESSION_ITEMS } from "./mockSessionReplayScenarios";
 
@@ -82,8 +83,9 @@ function mockListingDerivatives(session: SessionItem) {
     memoryPeakMb: 120 + (session.spanCount % 380),
     slowFramePct: Math.min(100, slow * 8 + (seed % 15)),
     country: seed % 2 === 0 ? "IN" : "US",
-    region: seed % 3 === 0 ? "Mumbai" : seed % 3 === 1 ? "Delhi NCR" : "Bengaluru",
-    appVersion: `2.${(seed % 24)}.${seed % 12}`,
+    region:
+      seed % 3 === 0 ? "Mumbai" : seed % 3 === 1 ? "Delhi NCR" : "Bengaluru",
+    appVersion: `2.${seed % 24}.${seed % 12}`,
     appBuild: String(4000 + (seed % 12000)),
     eventCategory: session.issues.length > 0 ? "error" : "navigation",
     eventName: `session_${session.sessionId}`,
@@ -252,14 +254,10 @@ function evaluateListingCondition(
     case "device.type": {
       const plat = normalizePlatformKey(session.platform);
       if (op === "in" && Array.isArray(value)) {
-        return value.some(
-          (x) => normalizePlatformKey(String(x)) === plat,
-        );
+        return value.some((x) => normalizePlatformKey(String(x)) === plat);
       }
       if (op === "not_in" && Array.isArray(value)) {
-        return !value.some(
-          (x) => normalizePlatformKey(String(x)) === plat,
-        );
+        return !value.some((x) => normalizePlatformKey(String(x)) === plat);
       }
       return compareStrings(op, session.platform, value);
     }
@@ -565,8 +563,9 @@ export function getMockSessionsFiltersResponse(): FilterConfigResponse {
         fields: [
           {
             key: "critical_interaction.name",
-            displayName:
-              "Critical interaction (e.g. JoinContestButtonClick, PaymentSubmitClick)",
+            displayName: isEcommerceMockThemeEnabled()
+              ? "Critical interaction (e.g. AddToCartLineItem, PaymentAuthorize)"
+              : "Critical interaction (e.g. JoinContestButtonClick, PaymentSubmitClick)",
             dataType: "string",
             allowedOperators: [
               { key: "equals", label: "equals", valueType: "single" as const },

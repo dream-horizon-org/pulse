@@ -13,7 +13,7 @@ import {
 } from "../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import { PulseType } from "../../constants/PulseOtelSemcov";
 import {
-  PULSE_MOCK_INTERACTION_NAMES,
+  getActivePulseMockInteractionNames,
   PULSE_MOCK_SCREEN_NAMES,
 } from "../mockPulseProjectRegistry";
 
@@ -2726,9 +2726,9 @@ export class DataQueryMockGeneratorV2 {
         "Other",
       ],
       connectiontype: ["WiFi", "4G", "5G", "3G"],
-      spanname: [...PULSE_MOCK_INTERACTION_NAMES],
-      interactionname: [...PULSE_MOCK_INTERACTION_NAMES],
-      interaction_name: [...PULSE_MOCK_INTERACTION_NAMES],
+      spanname: [...getActivePulseMockInteractionNames()],
+      interactionname: [...getActivePulseMockInteractionNames()],
+      interaction_name: [...getActivePulseMockInteractionNames()],
       screen_name: [...PULSE_MOCK_SCREEN_NAMES],
       url: [
         "https://api.fancode.com/v1/contests/live",

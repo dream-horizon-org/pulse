@@ -457,6 +457,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
   const [direction, setDirection] = useState<"forward" | "reverse">(
     detail.direction || "forward",
   );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [depth, setDepth] = useState(detail.depth || 5);
 
   const [initialDataFetched, setInitialDataFetched] = useState(false);

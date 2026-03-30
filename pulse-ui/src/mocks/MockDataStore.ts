@@ -6,6 +6,8 @@
  */
 
 import { MockDataStore as IMockDataStore } from "./types";
+import { buildEcommerceInteractionJobs } from "./ecommerceInteractionJobsSeed";
+import { isEcommerceMockThemeEnabled } from "./mockEcommerceTheme";
 import {
   MockEventDefinition,
   mockEventDefinitions,
@@ -581,6 +583,11 @@ export class MockDataStore {
   private initializeJobs(): void {
     const now = Date.now();
     const oneDay = 24 * 60 * 60 * 1000;
+
+    if (isEcommerceMockThemeEnabled()) {
+      this.data.jobs = buildEcommerceInteractionJobs(now, oneDay);
+      return;
+    }
 
     // Interactions are atomic user actions - single operations with start/end events
     this.data.jobs = [
