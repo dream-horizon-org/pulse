@@ -7,13 +7,14 @@
 import type { RcaReportTenantContext } from "../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { isEcommerceMockThemeEnabled } from "../mockEcommerceTheme";
 
+/** Tenant baselines when overview metrics are unavailable — aligned with JoinContestButtonClick RCA demo. */
 const DEFAULT_NUM = {
   volLabel: "3,287",
-  apdex: 0.6,
-  errorRate: 9.31,
-  poorUsers: 5.8,
-  p50Ms: 2111.25,
-  p95Ms: 4179.76,
+  apdex: 0.85,
+  errorRate: 14.2,
+  poorUsers: 14.41,
+  p50Ms: 230,
+  p95Ms: 1161,
   crash: 1.22,
   anr: 0.49,
   frozen: 2.38,

@@ -14,7 +14,7 @@ export interface HeatmapAggregatesInteractionAvgCardProps {
 }
 
 /**
- * Screen-level average (Tap / Rage / Dead layers with data)—sits beside map quality.
+ * Screen-level average (Tap / Rage / Dead layers with data)—sits beside heatmap score.
  */
 export function HeatmapAggregatesInteractionAvgCard({
   payload,
@@ -45,7 +45,7 @@ export function HeatmapAggregatesInteractionAvgCard({
           Avg interaction score
         </Text>
         <Tooltip
-          label="Screen-wide average on a 0–1 scale (same blend as map quality, normalized). Use it alongside the heatmap for any signal—not only rage or dead."
+          label="Screen-wide average on a 0–1 scale (same blend as heatmap score). Use it alongside the heatmap for any signal—not only rage or dead."
           multiline
           w={300}
           withArrow

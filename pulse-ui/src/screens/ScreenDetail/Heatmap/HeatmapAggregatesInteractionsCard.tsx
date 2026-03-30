@@ -23,7 +23,7 @@ function accountedLayersLine(scores: ReturnType<typeof getInteractionLayerScores
   return parts.length > 0 ? parts.join(" · ") : "None in this scope";
 }
 
-/** Scores are 0–1; bands match map quality when scaled ×100. */
+/** Scores are 0–1; bands match heatmap score when scaled ×100. */
 function bandForScore01(score: number | null): HeatmapQualityMetrics["band"] {
   if (score == null) return "nodata";
   return bandFromNumericScore(Math.round(score * 100));
@@ -35,7 +35,7 @@ export interface HeatmapAggregatesInteractionsCardProps {
 
 /**
  * Screen-level breakdown (not tied to rage/dead): layers counted + per-type scores.
- * Avg sits beside map quality; this card is the detail row below.
+ * Avg sits beside heatmap score; this card is the detail row below.
  */
 export function HeatmapAggregatesInteractionsCard({
   payload,
@@ -62,7 +62,7 @@ export function HeatmapAggregatesInteractionsCard({
           Interaction breakdown
         </Text>
         <Tooltip
-          label="Screen-level scores on a 0–1 scale for this heatmap scope. Read next to the map for Tap, Rage, or Dead—same blend as map quality per layer."
+          label="Screen-level scores on a 0–1 scale for this heatmap scope. Read next to the map for Tap, Rage, or Dead—same blend as heatmap score per layer."
           multiline
           w={300}
           withArrow
@@ -122,7 +122,7 @@ export function HeatmapAggregatesInteractionsCard({
       </div>
 
       <Text size="10px" c="dimmed" lh={1.4} mt={8}>
-        Bands (0–1 scale, same cutoffs as map quality): Good ≥
+        Bands (0–1 scale, same cutoffs as heatmap score): Good ≥
         {(HEATMAP_QUALITY_GOOD_MIN / 100).toFixed(2)} · Average{" "}
         {(HEATMAP_QUALITY_AVERAGE_MIN / 100).toFixed(2)}–
         {((HEATMAP_QUALITY_GOOD_MIN - 1) / 100).toFixed(2)} · Poor below{" "}

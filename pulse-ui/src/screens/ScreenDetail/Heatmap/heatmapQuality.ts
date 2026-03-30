@@ -12,7 +12,7 @@ export const HEATMAP_QUALITY_GOOD_MIN = 70;
 /** Inclusive lower bound for the “Average” band (40–69). “Poor” is 0–39. */
 export const HEATMAP_QUALITY_AVERAGE_MIN = 40;
 
-/** Map a 0–100 score to Good / Average / Poor (same cutoffs as map quality). */
+/** Map a 0–100 score to Good / Average / Poor (bands match 0–1 heatmap score × 100). */
 export function bandFromNumericScore(
   score: number,
 ): Exclude<HeatmapQualityMetrics["band"], "nodata"> {
@@ -44,6 +44,12 @@ export function qualityLabelForBand(
 }
 
 export interface HeatmapQualityMetrics {
+  /**
+   * **0–1** heatmap score (coverage + hotspot concentration on tap / glow layer).
+   * Primary value for UI; aligns with interaction scores scale.
+   */
+  score01: number | null;
+  /** 0–100, `Math.round(score01 * 100)` when present — for band cutoffs and logging. */
   score: number | null;
   /** Good / Average / Poor / No data */
   label: string;
@@ -67,6 +73,7 @@ export function getHeatmapQualityMetrics(
   const glow = payload?.layers?.glow_map;
   if (!payload || !glow?.length) {
     return {
+      score01: null,
       score: null,
       label: "No data",
       band: "nodata",
@@ -84,14 +91,14 @@ export function getHeatmapQualityMetrics(
   /** How dominant the hottest bin is (0–1) */
   const dominance = sumW > 0 ? maxW / sumW : 0;
 
-  const score = Math.min(
-    100,
-    Math.max(0, Math.round(100 * (0.35 * coverage + 0.65 * dominance))),
-  );
+  const raw01 = Math.min(1, Math.max(0, 0.35 * coverage + 0.65 * dominance));
+  const score01 = Math.round(raw01 * 10_000) / 10_000;
+  const score = Math.round(score01 * 100);
 
   const bandResolved = bandFromNumericScore(score);
 
   return {
+    score01,
     score,
     label: qualityLabelForBand(bandResolved),
     band: bandResolved,

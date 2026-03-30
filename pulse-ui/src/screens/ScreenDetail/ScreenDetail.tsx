@@ -39,7 +39,7 @@ import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
 export function ScreenDetail(_props: ScreenDetailProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { screenName, projectId } = useParams<{
+  const { screenName } = useParams<{
     screenName: string;
     projectId: string;
   }>();
@@ -94,7 +94,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
   };
 
   const handleBack = () => {
-    navigate(`/projects/${projectId}/screens`);
+    navigate(-1);
   };
 
   // Format time for API calls (convert to ISO string)
@@ -216,7 +216,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
         <div className={classes.screenDetailHeader}>
           {/* Left Section - Back Button, Title */}
           <div className={classes.screenDetailHeaderContent}>
-            <Tooltip label="Back to screens">
+            <Tooltip label="Back">
               <span
                 onClick={handleBack}
                 className={classes.backButtonContainer}

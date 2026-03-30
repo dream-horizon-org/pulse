@@ -6,20 +6,25 @@ import {
   heatmapScoreColor,
   type HeatmapQualityMetrics,
 } from "./heatmapQuality";
+import { formatInteractionScore01 } from "./heatmapInteractionScores";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import classes from "./HeatmapPanel.module.css";
+
+const GOOD01 = HEATMAP_QUALITY_GOOD_MIN / 100;
+const AVG01 = HEATMAP_QUALITY_AVERAGE_MIN / 100;
+const GOOD_UPPER01 = (HEATMAP_QUALITY_GOOD_MIN - 1) / 100;
 
 export interface HeatmapAggregatesQualityCardProps {
   payload: HeatmapDataResponse | null | undefined;
   qualityMetrics: HeatmapQualityMetrics;
 }
 
-/** Map quality as a compact card matching other aggregate tiles (right panel). */
+/** Heatmap score (tap / glow layer) — compact card matching other aggregate tiles. */
 export function HeatmapAggregatesQualityCard({
   payload,
   qualityMetrics,
 }: HeatmapAggregatesQualityCardProps) {
-  const hasScore = payload && qualityMetrics.score != null;
+  const hasScore = Boolean(payload && qualityMetrics.score01 != null);
 
   return (
     <Paper
@@ -37,23 +42,23 @@ export function HeatmapAggregatesQualityCard({
           tt="uppercase"
           style={{ letterSpacing: "0.05em", marginBottom: 0 }}
         >
-          Map quality score
+          Heatmap score
         </Text>
         <Tooltip
-          label="How readable the tap / all-interactions heatmap is from event data (bins vs hotspot concentration). Not a product score. Compare with avg interaction score for the whole screen."
+          label="Indicative 0–1 score for how strong and readable the tap heatmap is for this screen and filters—derived from event weights in the map vs total events and how peaked the hottest area is. Not a business KPI; use it with the RCA and interaction scores."
           multiline
-          w={260}
+          w={280}
           withArrow
         >
-          <span className={classes.summaryQualityInfo} aria-label="About map quality">
+          <span className={classes.summaryQualityInfo} aria-label="About heatmap score">
             <IconInfoCircle size={14} stroke={1.5} />
           </span>
         </Tooltip>
       </Group>
 
-      {hasScore ? (
+      {hasScore && qualityMetrics.score01 != null ? (
         <Tooltip
-          label="~35% how much event weight is in the map vs total events, ~65% how peaked the hottest area is."
+          label="Blend: ~35% of weight represented in the map vs total events, ~65% how dominant the single hottest bin is. Same math as per-layer interaction scores."
           multiline
           w={260}
           withArrow
@@ -67,7 +72,7 @@ export function HeatmapAggregatesQualityCard({
               marginBottom: 6,
             }}
           >
-            {`${qualityMetrics.score} · ${qualityMetrics.label}`}
+            {`${formatInteractionScore01(qualityMetrics.score01)} · ${qualityMetrics.label}`}
           </Text>
         </Tooltip>
       ) : (
@@ -78,7 +83,9 @@ export function HeatmapAggregatesQualityCard({
 
       <div className={classes.aggregatesQualityChips}>
         <Tooltip
-          label={`Score ${HEATMAP_QUALITY_GOOD_MIN}+: map is easy to read and act on.`}
+          label={`${GOOD01.toFixed(2)}+ (0–1): clearer hotspots and coverage—easier to trust the map.`}
+          multiline
+          w={240}
           withArrow
         >
           <span
@@ -88,7 +95,9 @@ export function HeatmapAggregatesQualityCard({
           </span>
         </Tooltip>
         <Tooltip
-          label={`Score ${HEATMAP_QUALITY_AVERAGE_MIN}–${HEATMAP_QUALITY_GOOD_MIN - 1}: usable but noisier or flatter hotspots.`}
+          label={`${AVG01.toFixed(2)}–${GOOD_UPPER01.toFixed(2)}: usable but noisier or flatter hotspots.`}
+          multiline
+          w={240}
           withArrow
         >
           <span
@@ -98,7 +107,9 @@ export function HeatmapAggregatesQualityCard({
           </span>
         </Tooltip>
         <Tooltip
-          label={`Score below ${HEATMAP_QUALITY_AVERAGE_MIN}: harder to trust patterns from this aggregation.`}
+          label={`Below ${AVG01.toFixed(2)}: sparse or flat signal—harder to trust patterns from this aggregation (e.g. when frustration or errors fragment behavior, as in some RCAs).`}
+          multiline
+          w={260}
           withArrow
         >
           <span
@@ -110,12 +121,13 @@ export function HeatmapAggregatesQualityCard({
       </div>
 
       <Text size="10px" c="dimmed" lh={1.4} mt={6}>
-        Good {HEATMAP_QUALITY_GOOD_MIN}–100 · Average {HEATMAP_QUALITY_AVERAGE_MIN}–
-        {HEATMAP_QUALITY_GOOD_MIN - 1} · Poor 0–{HEATMAP_QUALITY_AVERAGE_MIN - 1}
+        Good {GOOD01.toFixed(2)}–1.00 · Average {AVG01.toFixed(2)}–{GOOD_UPPER01.toFixed(2)} · Poor
+        0.00–{(AVG01 - 0.01).toFixed(2)}
       </Text>
       <Text size="10px" c="dimmed" lh={1.4} mt={4}>
-        Good = clearer hotspots and coverage; Poor = sparse or flat signal for this screen
-        and filters.
+        Higher = clearer hotspots and coverage; lower = sparse or flat signal for this screen and
+        filters (often when frustration or errors fragment taps—check the RCA and interaction
+        scores).
       </Text>
     </Paper>
   );

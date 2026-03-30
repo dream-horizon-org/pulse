@@ -14,7 +14,7 @@ import type { HeatmapPanelProps } from "./heatmapPanel.types";
 export type { HeatmapPanelProps } from "./heatmapPanel.types";
 
 /**
- * Heatmap tab — Summary (metrics + map quality), Map (signal, compare, heatmap(s)).
+ * Heatmap tab — Summary (metrics + heatmap score), Map (signal, compare, heatmap(s)).
  */
 export function HeatmapPanel({
   screenName,

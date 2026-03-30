@@ -10,9 +10,8 @@ function clampScore01(raw: number): number {
 }
 
 /**
- * Per-layer readability on **0–1** scale: same blend as map quality — coverage in bins
- * vs total_events and single-bin dominance. Map quality UI still uses 0–100; interaction
- * scores are normalized to 0–1.
+ * Per-layer readability on **0–1** scale: same blend as heatmap score — coverage in bins
+ * vs total_events and single-bin dominance.
  */
 export function scoreForInteractionLayer(
   points: HeatmapGlowPoint[],
@@ -34,7 +33,7 @@ export function formatInteractionScore01(n: number | null | undefined): string {
   return n.toFixed(2);
 }
 
-/** Per-layer and aggregate scores on **[0, 1]** (same formula as map quality, ÷100). */
+/** Per-layer and aggregate scores on **[0, 1]** (same formula as heatmap score). */
 export interface InteractionLayerScores {
   tap: number | null;
   rage: number | null;
