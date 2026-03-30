@@ -1,4 +1,6 @@
 import type { PulseMockScreenName } from "../../../../mocks/mockPulseProjectRegistry";
+import { isEcommerceMockThemeEnabled } from "../../../../mocks/mockEcommerceTheme";
+import { ECOMMERCE_RCA_HEATMAP_BY_INTERACTION } from "./ecommerceRcaHeatmapLinks";
 
 export type RcaHeatmapTarget = {
   screenName: PulseMockScreenName;
@@ -41,9 +43,7 @@ const RCA_HEATMAP_BY_INTERACTION: Record<string, RcaHeatmapTarget[]> = {
   LeaderboardRefreshTap: [
     { screenName: "OrderListScreen", label: "Leaderboard / contests tab" },
   ],
-  ProfileSaveClick: [
-    { screenName: "ProfileScreen", label: "Profile — save" },
-  ],
+  ProfileSaveClick: [{ screenName: "ProfileScreen", label: "Profile — save" }],
   NotificationTap: [
     {
       screenName: "NotificationsScreen",
@@ -63,6 +63,9 @@ export function getRcaHeatmapTargets(
 ): RcaHeatmapTarget[] {
   const key = interactionName?.trim() ?? "";
   if (!key) return [];
+  if (isEcommerceMockThemeEnabled()) {
+    return ECOMMERCE_RCA_HEATMAP_BY_INTERACTION[key] ?? [];
+  }
   return RCA_HEATMAP_BY_INTERACTION[key] ?? [];
 }
 

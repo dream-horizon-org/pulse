@@ -2,6 +2,7 @@
  * Funnel Analysis & Journey Explorer Mock Responses
  */
 
+import { applyEcommerceThemeToFunnelJourneyRow } from "../ecommerceFunnelJourneyMockOverlay";
 import { MockRequest, MockResponse } from "../types";
 
 const MOCK_FUNNEL_ANALYZE_RESPONSE = {
@@ -335,21 +336,49 @@ const MOCK_ONBOARDING_JOURNEY_RESPONSE = {
   ],
   links: [
     { source: "App_Launch", target: "Screen_View: Welcome", value: 12400 },
-    { source: "Screen_View: Welcome", target: "Tap: Get Started", value: 10800 },
+    {
+      source: "Screen_View: Welcome",
+      target: "Tap: Get Started",
+      value: 10800,
+    },
     { source: "Screen_View: Welcome", target: "Exit", value: 1600 },
     { source: "Tap: Get Started", target: "Screen_View: Sign Up", value: 9900 },
     { source: "Tap: Get Started", target: "Exit", value: 900 },
-    { source: "Screen_View: Sign Up", target: "Tap: Create Account", value: 8500 },
+    {
+      source: "Screen_View: Sign Up",
+      target: "Tap: Create Account",
+      value: 8500,
+    },
     { source: "Screen_View: Sign Up", target: "Exit", value: 1400 },
-    { source: "Tap: Create Account", target: "Screen_View: Email Verification", value: 7800 },
+    {
+      source: "Tap: Create Account",
+      target: "Screen_View: Email Verification",
+      value: 7800,
+    },
     { source: "Tap: Create Account", target: "Exit", value: 700 },
-    { source: "Screen_View: Email Verification", target: "Tap: Verify Email", value: 6900 },
+    {
+      source: "Screen_View: Email Verification",
+      target: "Tap: Verify Email",
+      value: 6900,
+    },
     { source: "Screen_View: Email Verification", target: "Exit", value: 900 },
-    { source: "Tap: Verify Email", target: "Screen_View: Profile Setup", value: 6200 },
+    {
+      source: "Tap: Verify Email",
+      target: "Screen_View: Profile Setup",
+      value: 6200,
+    },
     { source: "Tap: Verify Email", target: "Exit", value: 700 },
-    { source: "Screen_View: Profile Setup", target: "Tap: Complete Profile", value: 5600 },
+    {
+      source: "Screen_View: Profile Setup",
+      target: "Tap: Complete Profile",
+      value: 5600,
+    },
     { source: "Screen_View: Profile Setup", target: "Exit", value: 600 },
-    { source: "Tap: Complete Profile", target: "Screen_View: Home", value: 5100 },
+    {
+      source: "Tap: Complete Profile",
+      target: "Screen_View: Home",
+      value: 5100,
+    },
     { source: "Tap: Complete Profile", target: "Exit", value: 500 },
     { source: "Screen_View: Home", target: "Tap: First Purchase", value: 2800 },
     { source: "Screen_View: Home", target: "Exit", value: 2300 },
@@ -588,7 +617,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     createdBy: "sarah@example.com",
     lastUpdatedAt: "2026-03-21T14:30:00Z",
     tags: ["payment", "conversion", "critical"],
-    description: "Tracks user conversion through the payment process including checkout and order completion.",
+    description:
+      "Tracks user conversion through the payment process including checkout and order completion.",
     funnelType: "ORDERED",
     rollingType: "RECURRING",
     windowSeconds: 3600,
@@ -610,14 +640,15 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     },
   },
   {
-    id: "journey-onboarding-001", 
+    id: "journey-onboarding-001",
     name: "User Onboarding Journey",
     kind: "JOURNEY",
     status: "ACTIVE",
     createdBy: "alex@example.com",
     lastUpdatedAt: "2026-03-17T09:15:00Z",
     tags: ["onboarding", "ux", "retention"],
-    description: "Maps the complete user journey from app launch to account creation and first purchase.",
+    description:
+      "Maps the complete user journey from app launch to account creation and first purchase.",
     anchorEvent: "App_Launch",
     direction: "forward",
     depth: 10,
@@ -697,7 +728,9 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
     tags: Array.from(new Set(pool.flatMap((i) => i.tags))).sort(),
   };
 
-  let items = [...pool];
+  let items = pool.map((row) =>
+    applyEcommerceThemeToFunnelJourneyRow({ ...row }),
+  );
 
   if (search) {
     items = items.filter((row) => row.name.toLowerCase().includes(search));
@@ -737,16 +770,21 @@ function mockFunnelJourneyDetail(id: string): MockResponse {
     };
   }
 
+  const rowOut = applyEcommerceThemeToFunnelJourneyRow({ ...row });
   const createdAt =
     row.kind === "FUNNEL" ? "2026-01-15T10:00:00Z" : "2026-02-01T12:00:00Z";
-  const description =
+  const defaultDescription =
     row.kind === "FUNNEL"
       ? "Conversion funnel across key product events. Edit steps and run analysis from the builder when the full editor is connected."
       : "Exploratory journey map for navigation paths after this anchor event. Open the journey explorer to adjust the root event and direction.";
+  const description =
+    typeof (rowOut as { description?: string }).description === "string"
+      ? (rowOut as { description: string }).description
+      : defaultDescription;
 
   return {
     data: {
-      ...row,
+      ...rowOut,
       description,
       createdAt,
     },
@@ -871,16 +909,20 @@ export function handleFunnelEndpoints(
     } catch {
       /* ignore */
     }
-    
+
     // Check if this is for the payment funnel based on steps
     const steps = body.steps || [];
-    const hasCartStep = steps.some((step: any) => step.eventName === "Screen_View: Cart");
-    const hasPaymentStep = steps.some((step: any) => step.eventName === "Screen_View: Payment");
-    
+    const hasCartStep = steps.some(
+      (step: any) => step.eventName === "Screen_View: Cart",
+    );
+    const hasPaymentStep = steps.some(
+      (step: any) => step.eventName === "Screen_View: Payment",
+    );
+
     if (hasCartStep && hasPaymentStep) {
       return { data: MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE, status: 200 };
     }
-    
+
     return { data: MOCK_FUNNEL_ANALYZE_RESPONSE, status: 200 };
   }
 
@@ -907,16 +949,20 @@ export function handleFunnelEndpoints(
     } catch {
       /* ignore */
     }
-    
+
     // Check if this is for the payment funnel based on steps
     const steps = body.steps || [];
-    const hasCartStep = steps.some((step: any) => step.eventName === "Screen_View: Cart");
-    const hasPaymentStep = steps.some((step: any) => step.eventName === "Screen_View: Payment");
-    
+    const hasCartStep = steps.some(
+      (step: any) => step.eventName === "Screen_View: Cart",
+    );
+    const hasPaymentStep = steps.some(
+      (step: any) => step.eventName === "Screen_View: Payment",
+    );
+
     if (hasCartStep && hasPaymentStep) {
       return { data: MOCK_PAYMENT_FUNNEL_CONVERSION_TREND, status: 200 };
     }
-    
+
     return { data: MOCK_FUNNEL_CONVERSION_TREND, status: 200 };
   }
 
@@ -952,12 +998,12 @@ export function handleFunnelEndpoints(
     }
     const direction = body.direction || "forward";
     const anchorEvent = body.anchorEvent || "";
-    
+
     // Check if this is for the onboarding journey
     if (anchorEvent === "App_Launch" && direction === "forward") {
       return { data: MOCK_ONBOARDING_JOURNEY_RESPONSE, status: 200 };
     }
-    
+
     const data =
       direction === "reverse" ? MOCK_JOURNEY_REVERSE : MOCK_JOURNEY_FORWARD;
     return { data, status: 200 };

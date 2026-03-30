@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ActionIcon, Badge, Box, Group, Loader, Text } from "@mantine/core";
-import { IconArrowLeft, IconChartFunnel, IconRoute } from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import ReactECharts from "echarts-for-react";
 import { ROUTES } from "../../constants";
@@ -29,14 +29,6 @@ import {
   NOT_FOUND_TITLE,
 } from "./FunnelJourneyDetail.constants";
 import classes from "./FunnelJourneyDetail.module.css";
-
-const MOCK_FUNNEL_STEP_EVENT_NAMES = [
-  "Screen_View: Home",
-  "Screen_View: Product Detail",
-  "Tap: Add to Cart",
-  "Tap: Checkout",
-  "Tap: Place Order",
-] as const;
 
 const MOCK_JOURNEY_ANCHOR_EVENT = "Screen_View: Home";
 
@@ -403,12 +395,15 @@ function JourneyDetailView({ detail }: { detail: any }) {
     [filters],
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [anchorEvent, setAnchorEvent] = useState(
     detail.anchorEvent || MOCK_JOURNEY_ANCHOR_EVENT,
   );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [direction, setDirection] = useState<"forward" | "reverse">(
     detail.direction || "forward",
   );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [depth, setDepth] = useState(detail.depth || 5);
 
   const requestBody = useMemo(
@@ -486,7 +481,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
     });
   };
 
-  const { data: data, isLoading } = useGetJourneyData({
+  const { data, isLoading } = useGetJourneyData({
     requestBody,
     enabled: shouldFetch && !!anchorEvent,
   });
@@ -662,7 +657,6 @@ export function FunnelJourneyDetail() {
     );
   }
 
-  const KindIcon = detail.kind === "FUNNEL" ? IconChartFunnel : IconRoute;
 
   return (
     <Box
