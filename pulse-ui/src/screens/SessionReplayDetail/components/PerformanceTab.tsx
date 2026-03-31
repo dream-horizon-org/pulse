@@ -1,6 +1,13 @@
 import { Stack, Text, Title, Badge, Accordion, Code, Box } from "@mantine/core";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
+import { formatSessionDisplayTimeMs } from "../../SessionReplaySessions/utils/sessionListUtils";
 import { TabPanelScrollArea } from "./TabPanelScrollArea";
+
+function formatExceptionTimestamp(raw: string): string {
+  const ms = Date.parse(raw.trim());
+  if (!Number.isFinite(ms)) return raw;
+  return formatSessionDisplayTimeMs(ms);
+}
 
 const EXCEPTION_FIELD_INDEX = {
   timestamp: 0,
@@ -68,7 +75,7 @@ export function PerformanceTab({ sessionData }: PerformanceTabProps) {
                         )}
                         {timestamp && (
                           <Text size="xs" c="dimmed">
-                            {timestamp}
+                            {formatExceptionTimestamp(timestamp)}
                           </Text>
                         )}
                       </Box>

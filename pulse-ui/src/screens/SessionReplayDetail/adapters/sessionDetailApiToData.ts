@@ -14,6 +14,7 @@ import type {
   SessionEvent,
   NetworkRequest,
 } from "../../../services/sessionReplay/mockSessionDetail";
+import { formatSessionDisplayTimeMs } from "../../SessionReplaySessions/utils/sessionListUtils";
 
 const TRACE_FIELDS = [
   "traceId",
@@ -93,6 +94,22 @@ export function parseSessionStartTimeToMs(
   if (typeof startTime !== "string" || !startTime.trim()) return NaN;
   const ms = new Date(normalizeApiDateTimeForParse(startTime)).getTime();
   return Number.isFinite(ms) ? ms : NaN;
+}
+
+
+export function naiveSqlDateTimeUtcToIso(input: string): string {
+  const ms = parseSessionStartTimeToMs(input);
+  if (!Number.isFinite(ms)) return input.trim();
+  return new Date(ms).toISOString();
+}
+
+export function formatSessionTimeFromStartOffset(
+  sessionStart: string,
+  offsetMs: number,
+): string {
+  const baseMs = parseSessionStartTimeToMs(sessionStart);
+  const ms = Number.isFinite(baseMs) ? baseMs + offsetMs : NaN;
+  return formatSessionDisplayTimeMs(ms);
 }
 
 /** Parse event timestamp (ISO string or relative ms number) to relative ms from session start. */

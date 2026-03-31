@@ -8,15 +8,52 @@ import {
 } from "../constants/sessionList.constants";
 import type { ImpactedScreens } from "../../../services/sessionReplay/types";
 
-export function formatTimestamp(isoString: string): string {
-  const date = new Date(isoString);
+function parseSessionDateTimeMs(input: string): number {
+  const t = input.trim();
+  if (!t) return NaN;
+  if (/^\d{10,}$/.test(t)) {
+    const n = Number(t);
+    if (!Number.isFinite(n)) return NaN;
+    if (n >= 1e12) return n;
+    if (n >= 1e9 && n < 1e12) return n * 1000;
+    return NaN;
+  }
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(t)) {
+    const iso = t.replace(" ", "T");
+    const withZone =
+      /Z$/i.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`;
+    return new Date(withZone).getTime();
+  }
+  return new Date(t).getTime();
+}
+
+export function formatSessionDisplayTimeMs(ms: number): string {
+  if (!Number.isFinite(ms)) return "—";
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     hour12: true,
   });
+}
+
+export function formatTimestamp(isoString: string): string {
+  const ms = parseSessionDateTimeMs(isoString);
+  return formatSessionDisplayTimeMs(ms);
+}
+
+/** Start instant + span duration, same display style as listing / detail tabs. */
+export function formatSessionDisplayEndTime(
+  startIsoOrSql: string,
+  durationMs: number,
+): string {
+  const startMs = parseSessionDateTimeMs(startIsoOrSql);
+  if (!Number.isFinite(startMs) || !Number.isFinite(durationMs)) return "—";
+  return formatSessionDisplayTimeMs(startMs + durationMs);
 }
 
 export function formatDuration(ms: number): string {

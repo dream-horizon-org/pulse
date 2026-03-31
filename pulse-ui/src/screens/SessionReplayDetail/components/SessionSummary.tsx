@@ -13,6 +13,7 @@ import {
   STATUS_LABELS_EXTENDED as STATUS_LABELS,
 } from "../constants/strings";
 import { getQualityColor } from "../utils/sessionUtils";
+import { formatTimestamp } from "../../SessionReplaySessions/utils/sessionListUtils";
 import classes from "./SessionSummary.module.css";
 
 interface SessionSummaryProps {
@@ -23,16 +24,7 @@ export function SessionSummary({ sessionData }: SessionSummaryProps) {
   const quality = sessionData.interactionQuality;
   const hasQuality = quality != null && Number.isFinite(quality);
 
-  const formattedTime = new Date(sessionData.startTime).toLocaleString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-  );
+  const formattedTime = formatTimestamp(sessionData.startTime);
 
   const qualityColor = hasQuality
     ? getQualityColor(quality as number)

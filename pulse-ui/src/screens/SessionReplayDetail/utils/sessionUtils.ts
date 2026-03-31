@@ -1,4 +1,5 @@
-import dayjs from "dayjs";
+import { formatSessionDisplayTimeMs } from "../../SessionReplaySessions/utils/sessionListUtils";
+import { parseSessionStartTimeToMs } from "../adapters/sessionDetailApiToData";
 
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -8,12 +9,18 @@ export function formatDuration(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-export function formatTimestamp(ms: number, sessionStart: Date): string {
-  const startMs = sessionStart.getTime();
-  if (!Number.isFinite(startMs) || !Number.isFinite(ms)) return "—";
-  const d = dayjs(startMs + ms);
-  if (!d.isValid()) return "—";
-  return d.format("MMM D YYYY, HH:mm:ss");
+
+export function formatTimestamp(
+  offsetMs: number,
+  sessionStart: Date | string,
+): string {
+  if (!Number.isFinite(offsetMs)) return "—";
+  const baseMs =
+    typeof sessionStart === "string"
+      ? parseSessionStartTimeToMs(sessionStart)
+      : sessionStart.getTime();
+  if (!Number.isFinite(baseMs)) return "—";
+  return formatSessionDisplayTimeMs(baseMs + offsetMs);
 }
 
 export function formatPlayerTime(ms: number): string {

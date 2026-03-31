@@ -27,16 +27,20 @@ describe("sessionUtils", () => {
   });
 
   describe("formatTimestamp", () => {
-    it("formats ms offset relative to session start as HH:mm:ss.SSS", () => {
+    it("formats ms offset with same locale style as session listing", () => {
       const sessionStart = new Date("2025-03-08T14:00:00.000Z");
       const t0 = formatTimestamp(0, sessionStart);
       const t5 = formatTimestamp(5000, sessionStart);
       const t65 = formatTimestamp(65000, sessionStart);
-      expect(t0).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
-      expect(t5).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
-      expect(t65).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
+      expect(t0).not.toBe("—");
       expect(t0).not.toBe(t5);
       expect(t5).not.toBe(t65);
+    });
+
+    it("accepts SQL-style session start string", () => {
+      const t = formatTimestamp(0, "2026-03-31 08:36:18.906000542");
+      expect(t).not.toBe("—");
+      expect(t).toMatch(/\d{1,2}:\d{2}/);
     });
   });
 
