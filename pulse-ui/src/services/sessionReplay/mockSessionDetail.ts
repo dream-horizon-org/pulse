@@ -53,6 +53,7 @@ export interface CriticalInteraction {
 
 export interface SessionEvent {
   timestamp: number;
+  detailTimestamp?: string;
   type: "click" | "navigation" | "api_call" | "error";
   eventType?: string;
   description: string;

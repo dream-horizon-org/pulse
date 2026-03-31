@@ -56,7 +56,7 @@ const EXCEPTION_FIELDS = [
   "pulseType",
 ];
 
-function toSafeISOString(ms: number): string {
+export function toSafeISOString(ms: number): string {
   if (typeof ms !== "number" || !Number.isFinite(ms))
     return "1970-01-01T00:00:00.000Z";
   const d = new Date(ms);
@@ -74,6 +74,25 @@ function normalizeIsoTimestampForParse(iso: string): string {
   const [, dateTime, frac, zone] = m;
   if (!frac || frac.length <= 4) return trimmed;
   return `${dateTime}${frac.slice(0, 4)}${zone}`;
+}
+
+/** API may return SQL datetimes (`YYYY-MM-DD HH:mm:ss...`) — `new Date()` alone is unreliable. */
+function normalizeApiDateTimeForParse(s: string): string {
+  const t = s.trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(t)) {
+    const iso = t.replace(" ", "T");
+    if (/Z$/i.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso)) return iso;
+    return `${iso}Z`;
+  }
+  return normalizeIsoTimestampForParse(t);
+}
+
+export function parseSessionStartTimeToMs(
+  startTime: string | undefined,
+): number {
+  if (typeof startTime !== "string" || !startTime.trim()) return NaN;
+  const ms = new Date(normalizeApiDateTimeForParse(startTime)).getTime();
+  return Number.isFinite(ms) ? ms : NaN;
 }
 
 /** Parse event timestamp (ISO string or relative ms number) to relative ms from session start. */
@@ -116,7 +135,7 @@ export function sessionDetailApiToData(
 ): SessionDetailData {
   const startTimeMs =
     typeof api.startTime === "string" && api.startTime
-      ? new Date(normalizeIsoTimestampForParse(api.startTime)).getTime()
+      ? new Date(normalizeApiDateTimeForParse(api.startTime)).getTime()
       : Date.now();
   const baseMs = Number.isFinite(startTimeMs) ? startTimeMs : Date.now();
 
@@ -137,8 +156,16 @@ export function sessionDetailApiToData(
 
   const events: SessionEvent[] = (api.events ?? []).map((e) => ({
     timestamp: parseEventTimestampMs(e.timestamp, baseMs),
-    type: e.eventType === "interaction" ? "click" : e.eventType,
-    eventType: e.eventType,
+    detailTimestamp: typeof e.timestamp === "string" ? e.timestamp : undefined,
+    type:
+      e.eventType === "interaction"
+        ? "click"
+        : e.eventType === "app_start"
+          ? "navigation"
+          : e.eventType === null || e.eventType === undefined
+            ? "error"
+            : e.eventType,
+    eventType: e.eventType ?? undefined,
     description: e.description,
     durationNs: e.durationNs,
     traceId: e.traceId,

@@ -463,7 +463,14 @@ export interface SessionDetailEvent {
   traceId: string;
   spanId: string;
   timestamp: string;
-  eventType: "click" | "navigation" | "api_call" | "error" | "interaction";
+  eventType:
+    | "click"
+    | "navigation"
+    | "api_call"
+    | "error"
+    | "interaction"
+    | "app_start"
+    | null;
   description: string;
   durationNs: number;
 }
