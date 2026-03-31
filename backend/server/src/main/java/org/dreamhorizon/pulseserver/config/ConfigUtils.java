@@ -30,6 +30,7 @@ public final class ConfigUtils {
             .addStore(hoconFile("conf/athena-default.conf", false))
             .addStore(hoconFile("conf/emr-serverless-default.conf", false))
             .addStore(hoconFile("conf/notification-default.conf", true))
+            .addStore(hoconFile("conf/spark-default.conf", false))
             .setScanPeriod(5000));
   }
 }

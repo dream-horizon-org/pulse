@@ -93,7 +93,7 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
         sparkConfig.getJobJarPath(),
         sparkConfig.getFunnelsMainClass(),
         funnelId,
-        List.of("--funnelId", String.valueOf(funnelId))
+        List.of("--reference_id", String.valueOf(funnelId))
     );
   }
 
@@ -105,7 +105,7 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
         sparkConfig.getJobJarPath(),
         sparkConfig.getJourneysMainClass(),
         journeyId,
-        List.of("--journeyId", String.valueOf(journeyId))
+        List.of("--reference_id", String.valueOf(journeyId))
     );
   }
 
@@ -125,10 +125,20 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
           // Append jobType and jobId to arguments
           java.util.ArrayList<String> fullArgs = new java.util.ArrayList<>(
               arguments);
-          fullArgs.add("--jobType");
+          fullArgs.add("--job_type");
           fullArgs.add(jobType.name());
-          fullArgs.add("--jobId");
+          fullArgs.add("--spark_job_id");
           fullArgs.add(String.valueOf(dbId));
+
+          fullArgs.add("--s3_bucket_prefix");
+          fullArgs.add("pulse-otel-");
+
+          fullArgs.add("--aws_region");
+          fullArgs.add("ap-south-1");
+
+          fullArgs.add("--secrets_name");
+          fullArgs.add("prod/pulseserver/appenv");
+
 
           SparkJobRequest request = SparkJobRequest.builder()
               .jobName(jobName)

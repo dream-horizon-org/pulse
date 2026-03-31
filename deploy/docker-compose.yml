@@ -165,12 +165,12 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 30s
-    
+
       # MinIO (S3-compatible storage for session recordings)
   minio:
     image: minio/minio:latest
@@ -188,7 +188,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -231,7 +231,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3400/healthcheck"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3400/healthcheck" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -262,7 +262,7 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-    restart: unless-stopped    
+    restart: unless-stopped
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.137.0
@@ -390,10 +390,10 @@ services:
       - CONFIG_REPLAY_API_BASE_URL=${CONFIG_REPLAY_API_BASE_URL}
 
       # Spark Job Configuration
-      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH:-local:///usr/lib/spark/examples/jars/spark-examples.jar}
-      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS:-org.dreamhorizon.spark.FunnelsDailyBatch}
-      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS:-org.dreamhorizon.spark.JourneysDailyBatch}
-      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS:-org.dreamhorizon.spark.EventsIncrementalBatch}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH:-s3://pulse-deployment-config/spark/pulse-spark-jobs-1.0-SNAPSHOT.jar}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
 
       # ClickHouse Database Configuration
       - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -413,7 +413,7 @@ services:
       - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
-     
+
       # Session Replay S3 (MinIO in dev)
       - SESSION_REPLAY_S3_BUCKET=${SESSION_REPLAY_S3_BUCKET:-session-recordings}
       - SESSION_REPLAY_S3_ENDPOINT=${SESSION_REPLAY_S3_ENDPOINT:-http://minio:9000}
@@ -542,7 +542,7 @@ services:
       clickhouse:
         condition: service_healthy
       minio-init:
-        condition: service_completed_successfully  
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:4000/healthcheck" ]
@@ -566,7 +566,7 @@ volumes:
   vector-data:
     driver: local
   kafka-data:
-    driver: local    
+    driver: local
   minio-data:
     driver: local  
 
