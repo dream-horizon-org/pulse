@@ -3,6 +3,9 @@ export const FUNNELS_JOURNEYS_PAGE_TITLE = "Funnels & Journeys";
 export const FUNNELS_JOURNEYS_SUBTITLE =
   "Browse saved funnels and journeys, or create a new analysis.";
 
+/** Loading line — aligned with Session List copy tone */
+export const FUNNELS_JOURNEYS_LOADING = "Loading funnels and journeys…";
+
 export const TAB_FUNNELS = "Funnels";
 
 export const TAB_JOURNEYS = "Journeys";
@@ -40,6 +43,8 @@ export const FILTER_TAGS_LABEL = "Tags";
 
 export const FILTER_TYPE_LABEL = "Type";
 
+export const COLUMN_CONVERSION_TITLE = "Conversion";
+
 export const STATUS_OPTION_ALL = "All statuses";
 
 export const TYPE_OPTION_ALL = "All types";
@@ -47,3 +52,22 @@ export const TYPE_OPTION_ALL = "All types";
 export const TYPE_OPTION_ORDERED = "Ordered";
 
 export const TYPE_OPTION_UNORDERED = "Unordered";
+
+/** Default rows per page — matches listing API default */
+export const DEFAULT_PAGE_SIZE = 10;
+
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+
+export const PAGINATION_PREVIOUS = "Previous";
+
+export const PAGINATION_NEXT = "Next";
+
+export const PAGINATION_PAGE_LABEL = "Page";
+
+export const PAGINATION_ROWS_PER_PAGE = "Rows per page";
+
+export const PAGINATION_SHOWING_RANGE = (
+  from: number,
+  to: number,
+  total: number,
+) => `Showing ${from}–${to} of ${total}`;

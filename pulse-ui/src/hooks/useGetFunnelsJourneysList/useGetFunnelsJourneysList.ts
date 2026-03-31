@@ -13,6 +13,8 @@ function stableQueryKey(params: FunnelsJourneysListQueryParams): string {
     createdBy: params.createdBy?.slice().sort().join(",") ?? "",
     tags: params.tags?.slice().sort().join(",") ?? "",
     funnelType: params.funnelType ?? "",
+    page: params.page ?? 1,
+    pageSize: params.pageSize ?? 10,
   });
 }
 
