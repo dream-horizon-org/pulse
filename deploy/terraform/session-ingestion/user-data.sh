@@ -1,11 +1,43 @@
 #!/bin/bash
 set -euo pipefail
 
-exec > >(tee /var/log/user-data.log) 2>&1
+exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting session-ingestion user-data at $(date)"
 
-# Golden AMI supplies built app + systemd unit; only inject env-specific config.
-cat > /etc/pulse/ingestion.env <<EOF
+export HOME=/home/admin
+cd "$HOME" || cd /root
+
+AWS_REGION="ap-south-1"
+CODEARTIFACT_DOMAIN="pulse-prod"
+CODEARTIFACT_REPOSITORY="pulse-session-replay-ingestion"
+APPLICATION_NAME="pulse-session-replay-ingestion"
+VERSION="${artifact_version}"
+INSTALL_DIR="/opt/pulse-session-replay-ingestion"
+
+aws codeartifact get-package-version-asset \
+  --region "$AWS_REGION" \
+  --domain "$CODEARTIFACT_DOMAIN" \
+  --repository "$CODEARTIFACT_REPOSITORY" \
+  --format generic \
+  --namespace "pulse" \
+  --package "$APPLICATION_NAME" \
+  --package-version "$VERSION" \
+  --asset "$APPLICATION_NAME-$VERSION.zip" \
+  "$APPLICATION_NAME.zip"
+
+unzip -o "$APPLICATION_NAME.zip"
+if [ ! -f "$APPLICATION_NAME/dist/index.js" ]; then
+  echo "ERROR: dist/index.js not found under $APPLICATION_NAME/"
+  exit 1
+fi
+
+sudo rm -rf "$INSTALL_DIR"
+sudo mkdir -p "$INSTALL_DIR"
+sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
+sudo chown -R root:root "$INSTALL_DIR"
+
+sudo mkdir -p /etc/pulse
+sudo tee /etc/pulse/ingestion.env >/dev/null <<EOF
 KAFKA_BROKERS=${kafka_brokers}
 KAFKA_TOPIC=${kafka_topic}
 KAFKA_METADATA_TOPIC=${kafka_metadata_topic}
@@ -19,11 +51,10 @@ MAX_BATCH_AGE_MS=${max_batch_age_ms}
 FETCH_BATCH_SIZE=${fetch_batch_size}
 S3_TIMEOUT_MS=${s3_timeout_ms}
 EOF
-
-chmod 644 /etc/pulse/ingestion.env
+sudo chmod 644 /etc/pulse/ingestion.env
 
 echo "Starting pulse-session-replay-ingestion service..."
-systemctl restart pulse-session-replay-ingestion
+sudo systemctl restart pulse-session-replay-ingestion
 
 sleep 5
 
@@ -31,7 +62,7 @@ if systemctl is-active --quiet pulse-session-replay-ingestion; then
   echo "Service started successfully"
 else
   echo "WARNING: Service may not have started. Checking logs:"
-  journalctl -u pulse-session-replay-ingestion --no-pager -n 30
+  journalctl -u pulse-session-replay-ingestion --no-pager -n 30 || true
 fi
 
 echo "User-data complete at $(date)"

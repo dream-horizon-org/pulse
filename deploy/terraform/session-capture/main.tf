@@ -66,10 +66,11 @@ resource "aws_launch_template" "capture" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user-data.sh", {
-    port          = var.listen_port
-    kafka_brokers = var.kafka_brokers
-    kafka_topic   = var.kafka_topic
-    rust_log      = var.rust_log
+    artifact_version = var.artifact_version
+    port             = var.listen_port
+    kafka_brokers    = var.kafka_brokers
+    kafka_topic      = var.kafka_topic
+    rust_log         = var.rust_log
   }))
 
   block_device_mappings {

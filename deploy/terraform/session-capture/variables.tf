@@ -5,7 +5,12 @@ variable "aws_region" {
 }
 
 variable "ami_id" {
-  description = "AMI ID with pulse-session-capture binary + systemd unit pre-baked"
+  description = "AMI ID: systemd unit pulse-session-capture + OS/libs; app binary fetched from CodeArtifact at boot (see user-data.sh)"
+  type        = string
+}
+
+variable "artifact_version" {
+  description = "CodeArtifact package version to deploy (same pattern as pulse-server TF_VAR_artifact_version)"
   type        = string
 }
 
@@ -46,7 +51,7 @@ variable "ssh_key_name" {
 }
 
 variable "instance_profile_name" {
-  description = "IAM instance profile name"
+  description = "IAM instance profile: allow codeartifact:GetPackageVersionAsset + sts:GetServiceBearerToken for boot artifact pull (and any VPC endpoints as for pulse-server)"
   type        = string
 }
 

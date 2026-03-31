@@ -65,6 +65,7 @@ resource "aws_launch_template" "ingestion" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user-data.sh", {
+    artifact_version     = var.artifact_version
     kafka_brokers        = var.kafka_brokers
     kafka_topic          = var.kafka_topic
     kafka_metadata_topic = var.kafka_metadata_topic

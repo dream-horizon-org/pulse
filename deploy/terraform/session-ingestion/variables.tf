@@ -5,7 +5,12 @@ variable "aws_region" {
 }
 
 variable "ami_id" {
-  description = "Golden AMI: Node.js runtime + built dist + systemd unit pulse-session-replay-ingestion (no git/npm on boot)"
+  description = "AMI ID: node-rdkafka runtime libs + systemd unit; app dist/node_modules from CodeArtifact at boot"
+  type        = string
+}
+
+variable "artifact_version" {
+  description = "CodeArtifact package version to deploy (same pattern as pulse-server TF_VAR_artifact_version)"
   type        = string
 }
 
@@ -46,7 +51,7 @@ variable "ssh_key_name" {
 }
 
 variable "instance_profile_name" {
-  description = "IAM instance profile (S3 write to recordings bucket; use instance role, omit static keys in env)"
+  description = "IAM instance profile: S3/Kafka as needed, plus codeartifact:GetPackageVersionAsset and sts:GetServiceBearerToken for boot-time artifact pull"
   type        = string
 }
 
