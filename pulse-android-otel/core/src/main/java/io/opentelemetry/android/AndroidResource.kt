@@ -15,6 +15,7 @@ import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.common.RumConstants.RUM_SDK_VERSION
+import io.opentelemetry.android.internal.features.readBatteryFullCapacityMicroAh
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME
 import io.opentelemetry.semconv.ServiceAttributes.SERVICE_VERSION
@@ -46,6 +47,13 @@ object AndroidResource {
 
         readSystemTotalMemoryBytes(application)?.let { totalBytes ->
             resourceBuilder.put(PulseDeviceAttributes.PULSE_SYSTEM_MEMORY_SIZE, totalBytes)
+        }
+
+        readBatteryFullCapacityMicroAh(application)?.let { capacityUah ->
+            resourceBuilder.put(
+                PulseDeviceAttributes.PULSE_SYSTEM_BATTERY_CAPACITY_UAH,
+                capacityUah,
+            )
         }
 
         return resourceBuilder

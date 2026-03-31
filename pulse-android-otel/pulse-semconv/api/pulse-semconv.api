@@ -62,6 +62,7 @@ public final class com/pulse/semconv/PulseDeviceAttributes {
 	public static final field DEVICE_SCREEN_WIDTH Lio/opentelemetry/api/common/AttributeKey;
 	public static final field INSTANCE Lcom/pulse/semconv/PulseDeviceAttributes;
 	public static final field PULSE_APP_MEMORY_UTILIZATION_ARRAY Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_SYSTEM_BATTERY_CAPACITY_UAH Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SYSTEM_BATTERY_LEVEL_ARRAY Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SYSTEM_BATTERY_PLUGGED_ARRAY Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SYSTEM_BATTERY_TIMESTAMP_ARRAY Lio/opentelemetry/api/common/AttributeKey;

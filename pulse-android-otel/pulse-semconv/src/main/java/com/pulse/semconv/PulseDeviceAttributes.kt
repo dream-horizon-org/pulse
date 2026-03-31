@@ -25,6 +25,14 @@ public object PulseDeviceAttributes {
         AttributeKey.longKey("pulse.system.memory.size")
 
     /**
+     * Estimated nominal full-charge battery capacity in **microampere-hours (µAh)**.
+     * Omitted when unavailable.
+     */
+    @JvmField
+    public val PULSE_SYSTEM_BATTERY_CAPACITY_UAH: AttributeKey<Long> =
+        AttributeKey.longKey("pulse.system.battery.capacity_uah")
+
+    /**
      * Sampled device RAM utilization values, each expressed as used bytes (`totalMem - availMem`).
      * Emitted as a log attribute alongside [PULSE_SYSTEM_MEMORY_TIMESTAMP_ARRAY].
      */
