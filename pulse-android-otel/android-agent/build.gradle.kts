@@ -9,6 +9,7 @@ android {
 
 dependencies {
     api(projects.core)
+    implementation(projects.instrumentation.androidInstrumentation)
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.instrumentation.api)
     implementation(projects.common)
@@ -25,6 +26,7 @@ dependencies {
     api(projects.instrumentation.slowrendering)
     api(projects.instrumentation.startup)
     api(projects.instrumentation.sessions)
+    api(projects.instrumentation.sessionReplay)
 
     // todo move this to pulse SDK
     api(projects.instrumentation.interaction.interactionLibrary)

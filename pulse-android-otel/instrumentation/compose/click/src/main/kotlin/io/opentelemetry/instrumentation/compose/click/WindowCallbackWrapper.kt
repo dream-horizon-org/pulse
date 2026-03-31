@@ -11,11 +11,13 @@ import android.view.MotionEvent
 import android.view.SearchEvent
 import android.view.Window.Callback
 import androidx.annotation.RequiresApi
+import io.opentelemetry.android.instrumentation.UnwrappableWindowCallback
 
 internal class WindowCallbackWrapper(
     private val callback: Callback,
     private val composeClickEventGenerator: ComposeClickEventGenerator,
-) : Callback by callback {
+) : UnwrappableWindowCallback,
+    Callback by callback {
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         composeClickEventGenerator.generateClick(event)
         return callback.dispatchTouchEvent(event)
@@ -30,5 +32,5 @@ internal class WindowCallbackWrapper(
         type: Int,
     ): ActionMode? = this.callback.onWindowStartingActionMode(callback, type)
 
-    fun unwrap(): Callback = callback
+    override fun unwrap(): Callback = callback
 }

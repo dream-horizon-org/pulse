@@ -40,6 +40,9 @@ public final class com/pulse/utils/PulseOtelUtils {
 	public final fun isNetworkSpan (Lio/opentelemetry/sdk/trace/ReadableSpan;)Z
 	public final fun logDebug (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
 	public final fun logError (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
+	public final fun logError (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun logWarn (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
+	public final fun logWarn (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
 }
 
 public final class com/pulse/utils/PulseOtelUtilsKt {

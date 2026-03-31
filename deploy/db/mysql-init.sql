@@ -167,6 +167,18 @@ INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active,
 ('dream11-pwa', 'dream11', 'Dream11 PWA', 'Dream11 Progressive Web App', 'pwa', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
+-- ============================================================================
+-- DEV MODE: Mock Users for Development/Testing
+-- These users are pre-created to bypass onboarding in development mode.
+-- When GOOGLE_OAUTH_ENABLED=false, these users can login with mock tokens.
+-- OpenFGA relationships are set up in deploy/openfga/init-openfga.sh
+-- ============================================================================
+INSERT INTO users (user_id, email, name, firebase_uid, status, created_at, last_login_at)
+VALUES 
+  ('mock-user-1', 'user1@example.com', 'Test User 1', 'mock-user-1-firebase-uid', 'active', NOW(), NOW()),
+  ('mock-user-2', 'user2@example.com', 'Test User 2', 'mock-user-2-firebase-uid', 'active', NOW(), NOW())
+ON DUPLICATE KEY UPDATE user_id = user_id;
+
 -- ============================================================
 -- Tables that reference projects
 -- ============================================================
@@ -187,27 +199,65 @@ CREATE TABLE interaction (
     CONSTRAINT fk_interaction_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
+-- ============================================================================
+-- DEV MODE: Sample Interactions for default-project
+-- These interactions match the current production data for testing.
+-- ============================================================================
+INSERT INTO interaction (project_id, name, status, details, is_archived, created_by, updated_by)
+VALUES
+-- BasicInteraction
+('default-project', 'BasicInteraction', 'RUNNING', JSON_OBJECT(
+    'description', 'NewInteraction',
+    'uptimeLowerLimitInMs', 16,
+    'uptimeMidLimitInMs', 50,
+    'uptimeUpperLimitInMs', 100,
+    'thresholdInMs', 20000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+-- FullShopping
+('default-project', 'FullShopping', 'RUNNING', JSON_OBJECT(
+    'description', 'FullShopping',
+    'uptimeLowerLimitInMs', 16,
+    'uptimeMidLimitInMs', 50,
+    'uptimeUpperLimitInMs', 100,
+    'thresholdInMs', 20000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'Add to cart', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system')
+ON DUPLICATE KEY UPDATE name = name;
+
+
 -- Symbol files table with project_id in composite primary key
 CREATE TABLE symbol_files (
     project_id VARCHAR(64) NOT NULL DEFAULT 'default',
     app_version VARCHAR(64) NOT NULL,
     app_version_code INT NOT NULL,
     platform ENUM('ios','android') NOT NULL,
-    framework ENUM('java','js', 'mapping', 'dsym') NOT NULL,
-    file_content LONGBLOB NOT NULL,
+    framework ENUM('js', 'mapping', 'dsym') NOT NULL,
+    s3_key VARCHAR(512) NOT NULL,
     bundleid VARCHAR(255),
     PRIMARY KEY (project_id, app_version, app_version_code, platform, framework),
     CONSTRAINT fk_symbol_files_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
 CREATE TABLE pulse_sdk_configs (
-    version INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    version INT UNSIGNED NOT NULL,
     project_id VARCHAR(64) NOT NULL,
     description TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     config_json JSON NOT NULL,
+    PRIMARY KEY (project_id, version),
     INDEX idx_sdk_configs_project (project_id),
     INDEX idx_sdk_configs_project_active (project_id, is_active),
     CONSTRAINT fk_sdk_configs_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
@@ -493,8 +543,7 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 -- Athena job tracking table (depends on projects table)
 CREATE TABLE IF NOT EXISTS athena_job (
     job_id VARCHAR(255) PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL DEFAULT 'default' COMMENT 'Parent tenant for organizational hierarchy',
-    project_id VARCHAR(64) COMMENT 'Project where query was executed (data isolation)',
+    project_id VARCHAR(64) NOT NULL COMMENT 'Project where query was executed (data isolation)',
     query_string TEXT NOT NULL,
     user_email VARCHAR(255) NOT NULL,
     query_execution_id VARCHAR(255),
@@ -513,10 +562,7 @@ CREATE TABLE IF NOT EXISTS athena_job (
     INDEX idx_created_at (created_at),
     INDEX idx_user_email (user_email),
     INDEX idx_user_email_created_at (user_email, created_at),
-    INDEX idx_athena_job_tenant (tenant_id),
     INDEX idx_athena_job_project (project_id),
-    INDEX idx_athena_job_tenant_project (tenant_id, project_id),
-    CONSTRAINT fk_athena_job_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
     CONSTRAINT fk_athena_job_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
@@ -712,6 +758,59 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
 ))
 ON DUPLICATE KEY UPDATE body = body;
 
+-- Insert contact support email template (free-tier user interested in Enterprise)
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('contact_support', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Enterprise Inquiry from {{userEmail}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;"><div style="background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;"><h1 style="color: #00BFA5; margin: 0; font-size: 28px;">Enterprise Plan Inquiry</h1></div><div style="background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"><p style="font-size: 16px;">A free-tier user is interested in upgrading to the <strong style="color: #00BFA5;">Enterprise</strong> plan.</p><table style="width: 100%; border-collapse: collapse; margin: 20px 0;"><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; width: 130px;">User Email</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;"><a href="mailto:{{userEmail}}" style="color: #00BFA5; text-decoration: none;">{{userEmail}}</a></td></tr><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee;">Tenant Name</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;">{{tenantName}}</td></tr></table><div style="background: #f8f9fa; border-left: 4px solid #00BFA5; padding: 15px 20px; border-radius: 4px; margin: 20px 0;"><p style="font-size: 14px; font-weight: 600; color: #555; margin: 0 0 8px 0;">Message from User</p><p style="font-size: 14px; color: #333; margin: 0; white-space: pre-wrap;">{{message}}</p></div><p style="font-size: 14px; color: #666;">Please follow up with this user regarding Enterprise pricing and onboarding.</p><hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;"><p style="color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;">-- Pulse Platform Notification</p></div></body></html>',
+    'text', '[Pulse] Enterprise Plan Inquiry\n\nA free-tier user is interested in upgrading to the Enterprise plan.\n\nUser Email: {{userEmail}}\nTenant Name: {{tenantName}}\n\nMessage from User:\n{{message}}\n\nPlease follow up with this user regarding Enterprise pricing and onboarding.\n\n-- Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Insert contact us email template (free-tier user requesting support)
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('contact_us', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Support Request from {{userEmail}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;"><div style="background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;"><h1 style="color: #00BFA5; margin: 0; font-size: 28px;">New Support Request</h1></div><div style="background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"><p style="font-size: 16px;">A user has submitted a <strong>support request</strong>.</p><table style="width: 100%; border-collapse: collapse; margin: 20px 0;"><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; width: 130px;">User Email</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;"><a href="mailto:{{userEmail}}" style="color: #00BFA5; text-decoration: none;">{{userEmail}}</a></td></tr><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee;">Tenant Name</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;">{{tenantName}}</td></tr></table><div style="background: #f8f9fa; border-left: 4px solid #00BFA5; padding: 15px 20px; border-radius: 4px; margin: 20px 0;"><p style="font-size: 14px; font-weight: 600; color: #555; margin: 0 0 8px 0;">Message from User</p><p style="font-size: 14px; color: #333; margin: 0; white-space: pre-wrap;">{{message}}</p></div><p style="font-size: 14px; color: #666;">Please respond to this support request at your earliest convenience.</p><hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;"><p style="color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;">-- Pulse Platform Notification</p></div></body></html>',
+    'text', '[Pulse] Support Request\n\nA user has submitted a support request.\n\nUser Email: {{userEmail}}\nTenant Name: {{tenantName}}\n\nMessage from User:\n{{message}}\n\nPlease respond to this support request at your earliest convenience.\n\n-- Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Template 1: Usage limit threshold alert (under 100%)
+-- Header and button use Pulse theme (#0ba09a); internal metric colors kept
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('usage_limit_threshold', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Usage Alert: {{threshold}}% {{notifyFor}} limit reached for {{projectName}}',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0}.container{max-width:600px;margin:0 auto;padding:20px}.header{background-color:#0ba09a;color:white;padding:20px;text-align:center;border-radius:5px 5px 0 0}.content{background-color:#f9f9f9;padding:20px;border:1px solid #ddd;border-radius:0 0 5px 5px}.metric-box{background-color:white;padding:15px;margin:10px 0;border-left:4px solid #ff9800;border-radius:3px}.metric-label{font-weight:bold;color:#666;font-size:14px}.metric-value{font-size:24px;color:#ff9800;font-weight:bold;margin-top:5px}.footer{margin-top:20px;padding:15px;text-align:center;font-size:12px;color:#666}.cta-button{display:inline-block;padding:12px 24px;background-color:#0ba09a;color:#ffffff !important;text-decoration:none;border-radius:5px;margin:20px 0;font-weight:bold}</style></head><body><div class=\"container\"><div class=\"header\"><h1 style=\"margin:0\">Usage Alert</h1></div><div class=\"content\"><p>Your project <strong>{{projectName}}</strong> has reached <strong>{{threshold}}%</strong> of your monthly {{notifyFor}} limit.</p><h3>Current Usage:</h3><div class=\"metric-box\"><div class=\"metric-label\">Events Usage</div><div class=\"metric-value\">{{eventsPercentageDisplay}}%</div></div><div class=\"metric-box\"><div class=\"metric-label\">Sessions Usage</div><div class=\"metric-value\">{{sessionsPercentageDisplay}}%</div></div><p>Please review your usage to avoid service interruption.</p><div style=\"text-align:center\"><a href=\"{{dashboardUrl}}/projects/{{projectId}}\" class=\"cta-button\" style=\"color:#ffffff !important;text-decoration:none\">View Usage Details</a></div></div><div class=\"footer\"><p>This is an automated notification from Pulse Observability Platform</p></div></div></body></html>',
+    'text', '[Pulse] Usage Alert: {{threshold}}% {{notifyFor}} limit reached\n\nYour project {{projectName}} has reached {{threshold}}% of your monthly {{notifyFor}} limit.\n\nCurrent Usage:\n- Events: {{eventsPercentageDisplay}}%\n- Sessions: {{sessionsPercentageDisplay}}%\n\nPlease review your usage to avoid service interruption.\n\nView details: {{dashboardUrl}}/projects/{{projectId}}\n\n--\nThis is an automated notification from Pulse Observability Platform'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Template 2: Usage limit reached (100% - within overage buffer)
+-- Header and button use Pulse theme (#0ba09a); internal warning/metric colors kept
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('usage_limit_reached', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[URGENT] {{projectName}} has reached 100% {{notifyFor}} limit',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.6;color:#333;margin:0;padding:0}.container{max-width:600px;margin:0 auto;padding:24px}.header{background-color:#0ba09a;color:white;padding:24px;text-align:center;border-radius:8px 8px 0 0}.content{background-color:#fff;padding:24px;border:1px solid #c62828;border-top:none;border-radius:0 0 8px 8px}.warning-box{background-color:#ffebee;border-left:4px solid #c62828;padding:16px;margin:20px 0;border-radius:4px}.metric-box{background-color:#fafafa;padding:16px;margin:12px 0;border-left:4px solid #666;border-radius:4px}.metric-box.at-limit{border-left-color:#c62828}.metric-label{font-weight:600;color:#555;font-size:14px}.metric-value{font-size:20px;font-weight:bold;margin-top:8px}.metric-value.at-limit{color:#c62828}.buffer-info{background-color:#fff8e1;padding:12px;margin:15px 0;border-radius:4px;border-left:3px solid #ffa000}.cta-button{display:inline-block;padding:14px 28px;background-color:#0ba09a;color:#ffffff !important;text-decoration:none;border-radius:6px;margin:20px 0;font-weight:600}.footer{margin-top:24px;padding:16px;text-align:center;font-size:12px;color:#666}</style></head><body><div class=\"container\"><div class=\"header\"><h1 style=\"margin:0;font-size:24px\">Limit Reached</h1></div><div class=\"content\"><div class=\"warning-box\"><strong>ACTION REQUIRED:</strong> Your project <strong>{{projectName}}</strong> has reached 100% of your monthly {{notifyFor}} limit.</div><p><strong>You are currently using your overage buffer.</strong> Please upgrade soon to avoid service interruption.</p><div class=\"buffer-info\"><strong>Overage Buffer Active:</strong> You have an overage buffer to prevent immediate service disruption. However, your service will be blocked if usage continues to increase.</div><h3 style=\"margin-top:24px;font-size:16px\">Current Usage</h3><div class=\"metric-box at-limit\"><div class=\"metric-label\">Events</div><div class=\"metric-value at-limit\">100%</div></div><div class=\"metric-box\"><div class=\"metric-label\">Sessions</div><div class=\"metric-value\">{{sessionsPercentageDisplay}}%</div></div><p><strong>Immediate Actions:</strong></p><ul><li>Upgrade your plan to avoid service disruption</li><li>Review and optimize your instrumentation</li><li>Your service will be blocked if you exceed the overage buffer</li></ul><div style=\"text-align:center\"><a href=\"{{dashboardUrl}}/{{tenantId}}/pricing\" class=\"cta-button\" style=\"color:#ffffff !important;text-decoration:none\">Upgrade Plan Now</a></div></div><div class=\"footer\"><p>This is an automated notification from Pulse Observability Platform</p></div></div></body></html>',
+    'text', '[URGENT] {{projectName}} has reached 100% {{notifyFor}} limit\n\nACTION REQUIRED\n\nYour project {{projectName}} has reached 100% of your monthly {{notifyFor}} limit.\n\nYou are currently using your overage buffer. Please upgrade soon to avoid service interruption.\n\nOverage Buffer Active: You have an overage buffer to prevent immediate service disruption. However, your service will be blocked if usage continues to increase.\n\nCurrent Usage:\n- Events: 100% AT LIMIT\n- Sessions: {{sessionsPercentageDisplay}}%\n\nIMMEDIATE ACTIONS:\n- Upgrade your plan to avoid service disruption\n- Review and optimize your instrumentation\n- Your service will be blocked if you exceed the overage buffer\n\nUpgrade now: {{dashboardUrl}}/{{tenantId}}/pricing\n\n--\nThis is an automated notification from Pulse Observability Platform'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- Template 3: Usage limit blocked (exceeded overage limit)
+-- Header and button use Pulse theme (#0ba09a); internal critical/metric colors kept
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('usage_limit_blocked', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[CRITICAL] {{projectName}} {{notifyFor}} service BLOCKED - Immediate action required',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.6;color:#333;margin:0;padding:0}.container{max-width:600px;margin:0 auto;padding:24px}.header{background-color:#0ba09a;color:white;padding:24px;text-align:center;border-radius:8px 8px 0 0}.content{background-color:#fff;padding:24px;border:1px solid #c62828;border-top:none;border-radius:0 0 8px 8px}.critical-box{background-color:#c62828;color:white;padding:20px;margin:20px 0;border-radius:6px;text-align:center}.metric-box{background-color:#fafafa;padding:16px;margin:12px 0;border-left:4px solid #666;border-radius:4px}.metric-box.blocked{border-left-color:#c62828;background-color:#ffebee}.metric-label{font-weight:600;color:#555;font-size:14px}.metric-value{font-size:20px;font-weight:bold;margin-top:8px}.blocked-badge{display:inline-block;background-color:#c62828;color:white;padding:8px 16px;border-radius:4px;font-size:14px;font-weight:600}.explanation-box{margin-top:20px;padding:16px;background-color:#fafafa;border-left:4px solid #c62828;border-radius:4px}.cta-button{display:inline-block;padding:14px 28px;background-color:#0ba09a;color:#ffffff !important;text-decoration:none;border-radius:6px;margin:20px 0;font-weight:600;font-size:16px}.footer{margin-top:24px;padding:16px;text-align:center;font-size:12px;color:#666}</style></head><body><div class=\"container\"><div class=\"header\"><h1 style=\"margin:0;font-size:24px\">CRITICAL: Service Blocked</h1></div><div class=\"content\"><div class=\"critical-box\"><h2 style=\"margin:0;font-size:20px\">SERVICE BLOCKED</h2><p style=\"margin:12px 0 0 0;font-size:16px;opacity:0.95\">Your project <strong>{{projectName}}</strong> has exceeded its limit</p></div><p><strong style=\"color:#c62828\">Your {{notifyFor}} data ingestion has been BLOCKED.</strong> No new data is being accepted until you upgrade your plan.</p><h3 style=\"margin-top:24px;font-size:16px\">Current Status</h3><div class=\"metric-box blocked\"><div class=\"metric-label\">Events</div><div><span class=\"blocked-badge\">BLOCKED</span></div></div><div class=\"metric-box\"><div class=\"metric-label\">Sessions</div><div class=\"metric-value\">{{sessionsPercentageDisplay}}%</div></div><p><strong style=\"color:#c62828\">Upgrade required</strong></p><ul><li>Upgrade immediately to restore data ingestion</li><li>Your observability data is not being collected</li><li>Service will resume automatically after upgrade</li></ul><div style=\"text-align:center\"><a href=\"{{dashboardUrl}}/{{tenantId}}/pricing\" class=\"cta-button\" style=\"color:#ffffff !important;text-decoration:none\">Upgrade Now - Restore Service</a></div><div class=\"explanation-box\"><strong>What happened?</strong> You exceeded your monthly limit and overage buffer. To protect your account, data ingestion has been stopped.</div></div><div class=\"footer\"><p>This is an automated critical notification from Pulse Observability Platform</p></div></div></body></html>',
+    'text', '[CRITICAL] {{projectName}} {{notifyFor}} service BLOCKED - Immediate action required\n\nSERVICE BLOCKED\n\nYour project {{projectName}} has exceeded its limit.\n\nYour {{notifyFor}} data ingestion has been BLOCKED. No new data is being accepted until you upgrade your plan.\n\nCurrent Status:\n- Events: BLOCKED\n- Sessions: {{sessionsPercentageDisplay}}%\n\nCRITICAL - UPGRADE REQUIRED:\n- Upgrade immediately to restore data ingestion\n- Your observability data is not being collected\n- Service will resume automatically after upgrade\n\nUPGRADE NOW: {{dashboardUrl}}/{{tenantId}}/pricing\n\nWhat happened? You exceeded your monthly limit and overage buffer. To protect your account, data ingestion has been stopped.\n\n--\nThis is an automated critical notification from Pulse Observability Platform'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
 CREATE TABLE IF NOT EXISTS channel_event_mapping (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
@@ -727,6 +826,12 @@ CREATE TABLE IF NOT EXISTS channel_event_mapping (
     UNIQUE KEY unique_mapping (channel_id, event_name, recipient_name),
     INDEX idx_mapping_project_event (project_id, event_name, is_active)
 );
+
+-- Contact channel mappings (uses NOTIFICATION_DEFAULT_PROJECT from NotificationConstants.java)
+INSERT INTO channel_event_mapping (project_id, channel_id, event_name, recipient, is_active) VALUES
+('default-project', 1, 'contact_us', 'contact@pulse-ux.com', TRUE),
+('default-project', 1, 'contact_support', 'support@pulse-ux.com', TRUE)
+ON DUPLICATE KEY UPDATE is_active = is_active;
 
 CREATE TABLE IF NOT EXISTS notification_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -766,6 +871,205 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
     INDEX idx_suppression_email (email)
 );
 
+-- Event Definitions catalog (project-scoped)
+CREATE TABLE IF NOT EXISTS event_definitions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL,
+    event_name VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255),
+    description TEXT,
+    category VARCHAR(64),
+    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by VARCHAR(255) NOT NULL,
+    updated_by VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_project_event (project_id, event_name),
+    INDEX idx_event_def_project (project_id),
+    INDEX idx_event_def_search (project_id, is_archived, event_name)
+);
+
+CREATE TABLE IF NOT EXISTS event_attribute_definitions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    event_definition_id BIGINT NOT NULL,
+    attribute_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    data_type VARCHAR(32) NOT NULL DEFAULT 'string',
+    is_required BOOLEAN NOT NULL DEFAULT FALSE,
+    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE KEY uk_event_attr (event_definition_id, attribute_name),
+    CONSTRAINT fk_attr_event FOREIGN KEY (event_definition_id)
+        REFERENCES event_definitions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS incidents (
+    id             BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title          VARCHAR(255) NOT NULL,
+    description    TEXT NOT NULL,
+    severity       ENUM('P1','P2','P3', 'P4') NOT NULL,
+    reporter_name  VARCHAR(255) NOT NULL,
+    reporter_email VARCHAR(255) NOT NULL,
+    org_identifier VARCHAR(64) NOT NULL,
+    status         ENUM('OPEN','ACKNOWLEDGED','RECOVERED','CLOSED') NOT NULL DEFAULT 'OPEN',
+    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    acknowledged_at TIMESTAMP NULL,
+    recovered_at    TIMESTAMP NULL,
+    closed_at       TIMESTAMP NULL,
+    INDEX idx_incidents_org (org_identifier),
+    INDEX idx_incidents_severity (severity)
+);
+
+CREATE TABLE IF NOT EXISTS usage_limit_notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NOT NULL,
+    thresholds_notified JSON NOT NULL DEFAULT ('{}'),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    UNIQUE KEY uk_project_month (project_id, (DATE_FORMAT(created_at, '%Y-%m'))),
+    INDEX idx_created_at (created_at),
+    
+    CONSTRAINT fk_usage_notif_project 
+        FOREIGN KEY (project_id) 
+        REFERENCES projects(project_id) 
+        ON DELETE CASCADE
+);
+
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';
+
+-- create_incident SLACK
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('create_incident', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'text', '🚨 New Incident INC-{{incidentId}} — {{title}}',
+    'blocks', JSON_ARRAY(
+        JSON_OBJECT('type', 'header', 'text', JSON_OBJECT('type', 'plain_text', 'text', '🚨 Incident INC-{{incidentId}} Reported', 'emoji', true)),
+        JSON_OBJECT('type', 'section', 'fields', JSON_ARRAY(
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Title:*\n{{title}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Severity:*\n{{severity}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\n{{status}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Email:*\n{{reporterEmail}}')
+        )),
+        JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
+        JSON_OBJECT('type', 'divider'),
+        JSON_OBJECT('type', 'actions', 'elements', JSON_ARRAY(
+            JSON_OBJECT('type', 'button', 'text', JSON_OBJECT('type', 'plain_text', 'text', '✅ Acknowledge', 'emoji', true), 'style', 'primary', 'action_id', 'ack', 'value', '{{incidentId}}')
+        ))
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- acknowledge_incident SLACK
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('acknowledge_incident', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'text', '👀 Incident INC-{{incidentId}} Acknowledged — {{title}}',
+    'blocks', JSON_ARRAY(
+        JSON_OBJECT('type', 'header', 'text', JSON_OBJECT('type', 'plain_text', 'text', '👀 Incident INC-{{incidentId}} Acknowledged', 'emoji', true)),
+        JSON_OBJECT('type', 'section', 'fields', JSON_ARRAY(
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Title:*\n{{title}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Severity:*\n{{severity}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nACKNOWLEDGED'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Acknowledged by:*\n{{actionBy}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+        )),
+        JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
+        JSON_OBJECT('type', 'divider'),
+        JSON_OBJECT('type', 'actions', 'elements', JSON_ARRAY(
+            JSON_OBJECT('type', 'button', 'text', JSON_OBJECT('type', 'plain_text', 'text', '🔧 Recover', 'emoji', true), 'style', 'primary', 'action_id', 'recover', 'value', '{{incidentId}}')
+        ))
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- recovered_incident SLACK
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('recover_incident', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'text', '✅ Incident INC-{{incidentId}} Recovered — {{title}}',
+    'blocks', JSON_ARRAY(
+        JSON_OBJECT('type', 'header', 'text', JSON_OBJECT('type', 'plain_text', 'text', '✅ Incident INC-{{incidentId}} Recovered', 'emoji', true)),
+        JSON_OBJECT('type', 'section', 'fields', JSON_ARRAY(
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Title:*\n{{title}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Severity:*\n{{severity}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nRECOVERED'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Recovered by:*\n{{actionBy}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+        )),
+        JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
+        JSON_OBJECT('type', 'divider'),
+        JSON_OBJECT('type', 'actions', 'elements', JSON_ARRAY(
+            JSON_OBJECT('type', 'button', 'text', JSON_OBJECT('type', 'plain_text', 'text', '🔒 Close Incident', 'emoji', true), 'action_id', 'close', 'value', '{{incidentId}}')
+        ))
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- close_incident SLACK
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('close_incident', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'text', '🔒 Incident INC-{{incidentId}} Closed — {{title}}',
+    'blocks', JSON_ARRAY(
+        JSON_OBJECT('type', 'header', 'text', JSON_OBJECT('type', 'plain_text', 'text', '🔒 Incident INC-{{incidentId}} Closed', 'emoji', true)),
+        JSON_OBJECT('type', 'section', 'fields', JSON_ARRAY(
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Title:*\n{{title}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Severity:*\n{{severity}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nCLOSED'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Closed by:*\n{{actionBy}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+        )),
+        JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', 'This incident has been resolved and closed. No further action required.'))
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- ==================== EMAIL TEMPLATES ====================
+
+-- create_incident EMAIL
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('create_incident', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Incident INC-{{incidentId}} Reported - {{title}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#d32f2f;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Reported</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been logged and our team has been notified.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">OPEN</td></tr></table><p style="color:#666;">You will receive updates as the incident progresses.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
+    'text', '[Pulse] Incident INC-{{incidentId}} Reported\n\nHi {{reporterName}},\n\nYour incident has been logged.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nStatus: OPEN\n\nYou will receive updates as the incident progresses.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- acknowledge_incident EMAIL
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('acknowledge_incident', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Incident INC-{{incidentId}} Acknowledged - {{title}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#f9a825;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Acknowledged</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been acknowledged and our on-call engineer is investigating.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">ACKNOWLEDGED</td></tr></table><p style="color:#666;">You will receive updates as the incident progresses.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
+    'text', '[Pulse] Incident INC-{{incidentId}} Acknowledged\n\nHi {{reporterName}},\n\nYour incident has been acknowledged and our on-call engineer is investigating.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nStatus: ACKNOWLEDGED\n\nYou will receive updates as the incident progresses.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- recovered_incident EMAIL
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('recover_incident', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Incident INC-{{incidentId}} Recovered - {{title}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#2e7d32;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Recovered</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been recovered. The issue has been resolved and services are back to normal.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">RECOVERED</td></tr></table><p style="color:#666;">A closure update will follow once the incident is formally closed.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
+    'text', '[Pulse] Incident INC-{{incidentId}} Recovered\n\nHi {{reporterName}},\n\nYour incident has been recovered. The issue has been resolved and services are back to normal.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nStatus: RECOVERED\n\nA closure update will follow once the incident is formally closed.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- close_incident EMAIL
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('close_incident', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Incident INC-{{incidentId}} Closed - {{title}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#424242;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Closed</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been formally closed. No further action is required.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">CLOSED</td></tr></table><p style="color:#666;">Thank you for your patience. If you experience further issues, please raise a new incident.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
+    'text', '[Pulse] Incident INC-{{incidentId}} Closed\n\nHi {{reporterName}},\n\nYour incident has been formally closed. No further action is required.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nStatus: CLOSED\n\nThank you for your patience. If you experience further issues, please raise a new incident.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);

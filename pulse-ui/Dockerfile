@@ -5,10 +5,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json yarn.lock ./
+COPY package.json yarn.lock .yarnrc.yml ./
 
-# Install dependencies using yarn
-RUN yarn install --frozen-lockfile
+# Install dependencies using Yarn 4 (Corepack + packageManager in package.json)
+RUN corepack enable && yarn install --immutable
 
 # Copy source code and configuration
 COPY . .
@@ -34,6 +34,17 @@ ENV REACT_APP_FIREBASE_PROJECT_ID=$REACT_APP_FIREBASE_PROJECT_ID
 
 ARG REACT_APP_FIREBASE_APP_ID
 ENV REACT_APP_FIREBASE_APP_ID=$REACT_APP_FIREBASE_APP_ID
+
+ARG REACT_APP_USE_MOCK_SERVER
+ENV REACT_APP_USE_MOCK_SERVER=${REACT_APP_USE_MOCK_SERVER:-false}
+ARG REACT_APP_MOCK_DELAY
+ENV REACT_APP_MOCK_DELAY=${REACT_APP_MOCK_DELAY:-500}
+ARG REACT_APP_MOCK_ERROR_RATE
+ENV REACT_APP_MOCK_ERROR_RATE=${REACT_APP_MOCK_ERROR_RATE:-0}
+ARG REACT_APP_MOCK_LOGGING
+ENV REACT_APP_MOCK_LOGGING=${REACT_APP_MOCK_LOGGING:-false}
+ARG REACT_APP_GCP_MULTI_TENANT_ENABLED
+ENV REACT_APP_GCP_MULTI_TENANT_ENABLED=${REACT_APP_GCP_MULTI_TENANT_ENABLED:-true}
 
 # Add babel plugin to fix warning
 ENV BABEL_ENV=production

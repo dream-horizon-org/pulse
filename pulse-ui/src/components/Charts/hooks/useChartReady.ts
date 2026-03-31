@@ -1,9 +1,7 @@
 import { useCallback } from "react";
-import { EChartsType } from "echarts/core";
 import { useFilterStore } from "../../../stores/useFilterStore";
-import {
-  getUTCDateTimeFromLocalStringDateValue,
-} from "../../../utils/DateUtil";
+import type { EChartsType } from "echarts";
+import { getUTCDateTimeFromLocalStringDateValue } from "../../../utils/DateUtil";
 import { useSearchParams } from "react-router-dom";
 import { StartEndDateTimeType } from "../../../screens/CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 
@@ -42,8 +40,13 @@ export const useChartReady = ({
         setSearchParams(newSearchParams);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [handleDateTimeApply, searchParams, setSearchParams, onTimeFilterChange],
+    [
+      handleDateTimeApply,
+      searchParams,
+      setSearchParams,
+      setActiveQuickTimeFilter,
+      onTimeFilterChange,
+    ],
   );
   const onChartReady = useCallback(
     (chartInstance: EChartsType) => {

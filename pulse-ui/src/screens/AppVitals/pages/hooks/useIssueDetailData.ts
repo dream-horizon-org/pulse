@@ -123,12 +123,18 @@ export function useIssueDetailData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "uniqCombined(UserId)",
+            expression: "uniqCombined64(nullIf(UserId, ''))",
           },
           alias: "affected_users",
         },
       ],
-      groupBy: ["group_id", "event_name", "error_message", "error_type", "title"],
+      groupBy: [
+        "group_id",
+        "event_name",
+        "error_message",
+        "error_type",
+        "title",
+      ],
       orderBy: [
         {
           field: "occurrences",
