@@ -276,7 +276,8 @@ internal class ComposeClickEventGeneratorTest {
         assertThat(openTelemetryRule.logRecords[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
-                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.RAGE),
+                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.GOOD),
+                equalTo(PulseAttributes.CLICK_IS_RAGE, true),
                 equalTo(PulseAttributes.CLICK_RAGE_COUNT, 6L),
             )
     }

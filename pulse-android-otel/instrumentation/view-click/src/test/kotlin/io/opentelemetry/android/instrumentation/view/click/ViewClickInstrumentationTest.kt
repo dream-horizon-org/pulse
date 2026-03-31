@@ -277,7 +277,7 @@ class ViewClickInstrumentationTest {
         assertThat(openTelemetryRule.logRecords).hasSize(0)
 
         // Advance past suppression window, then tap again → rage emitted, new tap buffered.
-        fakeClock.advanceMs(600)
+        fakeClock.advanceMs(2100)
         dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         assertThat(openTelemetryRule.logRecords).hasSize(1) // rage event emitted on window expiry
         generator.stopTracking()
