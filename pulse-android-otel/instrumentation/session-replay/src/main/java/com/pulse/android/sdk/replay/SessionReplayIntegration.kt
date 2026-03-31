@@ -230,7 +230,7 @@ public class SessionReplayIntegration(
                 wireframe = wireframeOrNull,
                 status = status,
                 timestamp = timestamp,
-                screenName = screenNameProvider(),
+                screenName = screenNameProvider().takeIf { it.isNotBlank() } ?: "unknown",
                 screenWidth = screenWidth,
                 screenHeight = screenHeight,
             )

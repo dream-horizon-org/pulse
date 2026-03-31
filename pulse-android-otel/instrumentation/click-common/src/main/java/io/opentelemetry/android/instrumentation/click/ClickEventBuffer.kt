@@ -8,6 +8,7 @@ package io.opentelemetry.android.instrumentation.click
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import androidx.annotation.UiThread
 
 /**
  * Data captured at tap time, held in the buffer until it is safe to emit individually
@@ -98,8 +99,14 @@ class ClickEventBuffer(
         internal val mainHandler: Handler by lazy { Handler(Looper.getMainLooper()) }
     }
 
+    init {
+        require(rageConfig.rageThreshold > 0) { "rageThreshold must be > 0, got ${rageConfig.rageThreshold}" }
+        require(rageConfig.timeWindowMs > 0) { "timeWindowMs must be > 0, got ${rageConfig.timeWindowMs}" }
+    }
+
     // Pre-squared so rage radius check avoids sqrt on every tap.
-    private val radiusPxSquared: Float = (rageConfig.radiusDp * densityScale).let { it * it }
+    private val effectiveDensity: Float = if (densityScale > 0f) densityScale else 1f
+    private val radiusPxSquared: Float = (rageConfig.radiusDp * effectiveDensity).let { it * it }
 
     // Pre-sized to rageThreshold + 1 so no resize occurs during normal rage detection.
     private val buffer = ArrayDeque<PendingClick>(rageConfig.rageThreshold + 1)
@@ -127,6 +134,7 @@ class ClickEventBuffer(
      *
      * @param click   The tap to record (coordinates in px).
      */
+    @UiThread
     fun record(click: PendingClick) {
         if (isRageActive) {
             if (click.timestampMs - lastRageTimeMs <= rageConfig.timeWindowMs) {
@@ -154,6 +162,7 @@ class ClickEventBuffer(
      * Emits any pending rage event and all buffered individual clicks, then resets state.
      * Call this when the generator stops tracking (activity pause).
      */
+    @UiThread
     fun flush() {
         cancelDelayed(emitPendingRageRunnable)
         pendingRage?.let { onRage(it) }
