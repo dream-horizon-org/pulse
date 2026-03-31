@@ -90,7 +90,7 @@ class ClickEventBuffer(
     private val cancelDelayed: (Runnable) -> Unit = { r -> mainHandler.removeCallbacks(r) },
 ) {
     companion object {
-        const val TIME_WINDOW_MS: Long = 500L
+        const val TIME_WINDOW_MS: Long = 2000L
         const val RAGE_THRESHOLD: Int = 3
         const val RADIUS_DP: Float = 50f
 
