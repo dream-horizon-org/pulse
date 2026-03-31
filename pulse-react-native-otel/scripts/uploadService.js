@@ -77,7 +77,9 @@ async function uploadFiles(commandName, options) {
       formData.append('fileContent', fileBlob, file.fileName);
     }
 
-    console.log(`\n📤 Uploading ${files.length} file(s) to ${options.apiUrl}...`);
+    console.log(
+      `\n📤 Uploading ${files.length} file(s) to ${options.apiUrl}...`
+    );
     console.log(`   Command: ${commandName}`);
     console.log(`   Platform: ${platform}`);
     files.forEach((file) => {

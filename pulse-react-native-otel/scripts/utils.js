@@ -6,9 +6,9 @@ const packageJson = require('../package.json');
 
 const FILE_TYPE_TO_BACKEND_TYPE = {
   'js-sourcemap': 'JS',
-  mapping: 'mapping',
+  'mapping': 'mapping',
   'android-ndk': 'ndk',
-  dsym: 'dsym',
+  'dsym': 'dsym',
 };
 
 function checkAndAssertNodeVersion() {
@@ -163,7 +163,9 @@ function prepareDsymForUpload(originalPath) {
       cwd: parent,
     });
     if (!fs.existsSync(zipPath)) {
-      throw new Error('Failed to create zip archive: zip did not produce a file');
+      throw new Error(
+        'Failed to create zip archive: zip did not produce a file'
+      );
     }
     const sz = fs.statSync(zipPath).size;
     if (sz === 0) {
