@@ -1,9 +1,25 @@
+export const FUNNELS_PAGE_TITLE = "Funnels";
+
+export const FUNNELS_SUBTITLE =
+  "Browse saved conversion funnels or create a new funnel.";
+
+export const FUNNELS_LOADING = "Loading funnels…";
+
+export const JOURNEYS_PAGE_TITLE = "Journeys";
+
+export const JOURNEYS_SUBTITLE =
+  "Browse saved journeys or create a new journey analysis.";
+
+export const JOURNEYS_LOADING = "Loading journeys…";
+
+/** @deprecated Combined page removed; use FUNNELS_* / JOURNEYS_* */
 export const FUNNELS_JOURNEYS_PAGE_TITLE = "Funnels & Journeys";
 
+/** @deprecated */
 export const FUNNELS_JOURNEYS_SUBTITLE =
   "Browse saved funnels and journeys, or create a new analysis.";
 
-/** Loading line — aligned with Session List copy tone */
+/** @deprecated */
 export const FUNNELS_JOURNEYS_LOADING = "Loading funnels and journeys…";
 
 export const TAB_FUNNELS = "Funnels";
@@ -34,6 +50,12 @@ export const CREATE_JOURNEY_ITEM = "New journey";
 
 export const EMPTY_FILTERED_DESCRIPTION =
   "Try adjusting search or filters, or create a new funnel or journey.";
+
+export const EMPTY_FILTERED_DESCRIPTION_FUNNELS =
+  "Try adjusting search or filters, or create a new funnel.";
+
+export const EMPTY_FILTERED_DESCRIPTION_JOURNEYS =
+  "Try adjusting search or filters, or create a new journey.";
 
 export const FILTER_STATUS_LABEL = "Status";
 

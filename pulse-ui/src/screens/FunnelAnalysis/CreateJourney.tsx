@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   ActionIcon,
@@ -20,7 +19,7 @@ import {
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { COMMON_CONSTANTS, ROUTES } from "../../constants";
 import { showNotification } from "../../helpers/showNotification";
-import { useCreateFunnelJourney } from "../../hooks/useCreateFunnelJourney";
+import { useCreateJourney } from "../../hooks/useCreateJourney";
 import classes from "./FunnelAnalysis.module.css";
 import createFormClasses from "./FunnelJourneyCreateForm.module.css";
 import {
@@ -37,7 +36,6 @@ import { buildRollingTimeRange } from "./mockData";
 
 export function CreateJourney() {
   const theme = useMantineTheme();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
 
@@ -94,8 +92,7 @@ export function CreateJourney() {
     [filters],
   );
 
-  const { mutate: createJourney, isPending: isCreating } =
-    useCreateFunnelJourney();
+  const { mutate: createJourney, isPending: isCreating } = useCreateJourney();
 
   const stepValid = (index: number): boolean => {
     switch (index) {
@@ -133,7 +130,6 @@ export function CreateJourney() {
         description,
         tags,
         rollingType,
-        kind: "JOURNEY",
         timeRange,
         filters: apiFilters,
         expiryDate:
@@ -145,12 +141,9 @@ export function CreateJourney() {
         depth,
       },
       {
-        onSuccess: async () => {
-          await queryClient.invalidateQueries({
-            queryKey: ["funnelsJourneysList"],
-          });
+        onSuccess: () => {
           if (projectId) {
-            navigate(generatePath(ROUTES.FUNNEL_ANALYSIS.path, { projectId }));
+            navigate(generatePath(ROUTES.JOURNEYS_LIST.path, { projectId }));
           }
         },
       },
@@ -159,7 +152,7 @@ export function CreateJourney() {
 
   const goBack = () => {
     if (projectId) {
-      navigate(generatePath(ROUTES.FUNNEL_ANALYSIS.path, { projectId }));
+      navigate(generatePath(ROUTES.JOURNEYS_LIST.path, { projectId }));
       return;
     }
     navigate(-1);

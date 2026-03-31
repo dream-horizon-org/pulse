@@ -943,7 +943,10 @@ function getMockFunnelAnalyzeAndTrendFromBody(body: {
   return built;
 }
 
-function mockFunnelsJourneysList(request: MockRequest): MockResponse {
+function mockFunnelsJourneysList(
+  request: MockRequest,
+  forcedKind?: "FUNNEL" | "JOURNEY",
+): MockResponse {
   let url: URL;
   try {
     url = new URL(request.url);
@@ -951,7 +954,8 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
     url = new URL(request.url, "http://localhost");
   }
   const params = url.searchParams;
-  const kindParam = params.get("kind") as "FUNNEL" | "JOURNEY" | null;
+  const kindParam =
+    forcedKind ?? (params.get("kind") as "FUNNEL" | "JOURNEY" | null);
   const search = (params.get("search") || "").trim().toLowerCase();
   const status = params.get("status") as
     | "ACTIVE"
@@ -1041,7 +1045,10 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
   };
 }
 
-function mockFunnelJourneyDetail(id: string): MockResponse {
+function mockFunnelJourneyDetail(
+  id: string,
+  expectedKind?: "FUNNEL" | "JOURNEY",
+): MockResponse {
   const row = MOCK_FUNNELS_JOURNEYS_ALL.find((r) => r.id === id);
   if (!row) {
     return {
@@ -1051,6 +1058,20 @@ function mockFunnelJourneyDetail(id: string): MockResponse {
         code: "NOT_FOUND",
         message: "Funnel or journey not found",
         cause: `No resource with id ${id}`,
+      },
+    };
+  }
+  if (expectedKind && row.kind !== expectedKind) {
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message:
+          expectedKind === "FUNNEL"
+            ? "Not a funnel resource"
+            : "Not a journey resource",
+        cause: `id ${id} is not a ${expectedKind}`,
       },
     };
   }
@@ -1084,103 +1105,110 @@ const MOCK_TAGS = [
   "feature",
 ];
 
+function mockPostCreateFunnelOrJourney(
+  request: MockRequest,
+  kind: "FUNNEL" | "JOURNEY",
+): MockResponse {
+  let body: any = {};
+  try {
+    body = JSON.parse(request.body || "{}");
+  } catch {
+    /* ignore */
+  }
+  const newId = `fj-${Date.now()}`;
+  const newItem = {
+    id: newId,
+    name: body.name || "Untitled",
+    description: body.description || "",
+    kind,
+    status: "CREATING" as const,
+    createdBy: "dev@example.com",
+    createdAt: new Date().toISOString(),
+    lastUpdatedAt: new Date().toISOString(),
+    tags: body.tags || [],
+    funnelType: body.funnelType,
+    filters: body.filters || [],
+    expiryDate: body.expiryDate ?? MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
+    rollingType: body.rollingType,
+    steps: body.steps,
+    timeRange: body.timeRange,
+    windowSeconds: body.windowSeconds,
+    anchorEvent: body.anchorEvent,
+    direction: body.direction,
+    depth: body.depth,
+  };
+  MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
+  return { data: newItem, status: 201 };
+}
+
+function mockPutFunnelOrJourney(
+  id: string,
+  request: MockRequest,
+  expectedKind: "FUNNEL" | "JOURNEY",
+): MockResponse {
+  let body: any = {};
+  try {
+    body = JSON.parse(request.body || "{}");
+  } catch {
+    /* ignore */
+  }
+
+  const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex((item) => item.id === id);
+  if (index === -1) {
+    return { data: null, status: 404 };
+  }
+  if (MOCK_FUNNELS_JOURNEYS_ALL[index].kind !== expectedKind) {
+    return { data: null, status: 404 };
+  }
+  MOCK_FUNNELS_JOURNEYS_ALL[index] = {
+    ...MOCK_FUNNELS_JOURNEYS_ALL[index],
+    ...body,
+    status: "UPDATING" as const,
+    lastUpdatedAt: new Date().toISOString(),
+  };
+  return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };
+}
+
 export function handleFunnelEndpoints(
   pathname: string,
   method: string,
   request: MockRequest,
 ): MockResponse {
-  if (pathname.includes("/v1/funnels-journeys") && method === "POST") {
-    let body: any = {};
-    try {
-      body = JSON.parse(request.body || "{}");
-    } catch {
-      /* ignore */
-    }
-    const newId = `fj-${Date.now()}`;
-    const newItem = {
-      id: newId,
-      name: body.name || "Untitled",
-      description: body.description || "",
-      kind: body.kind || "FUNNEL",
-      /** Listing shows “Creating”; detail page shows computing loader until status becomes ACTIVE (real backend) or mock is updated. */
-      status: "CREATING" as const,
-      createdBy: "dev@example.com",
-      createdAt: new Date().toISOString(),
-      lastUpdatedAt: new Date().toISOString(),
-      tags: body.tags || [],
-      funnelType: body.funnelType,
-      filters: body.filters || [],
-      expiryDate: body.expiryDate ?? MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
-      rollingType: body.rollingType,
-      steps: body.steps,
-      timeRange: body.timeRange,
-      windowSeconds: body.windowSeconds,
-      anchorEvent: body.anchorEvent,
-      direction: body.direction,
-      depth: body.depth,
-    };
-    MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
-    return { data: newItem, status: 201 };
+  const pathOnly = pathname.split("?")[0].replace(/\/$/, "");
+
+  if (method === "POST" && pathOnly.endsWith("/v1/funnels")) {
+    return mockPostCreateFunnelOrJourney(request, "FUNNEL");
+  }
+  if (method === "POST" && pathOnly.endsWith("/v1/journeys")) {
+    return mockPostCreateFunnelOrJourney(request, "JOURNEY");
   }
 
-  if (pathname.includes("/v1/funnels-journeys/") && method === "PUT") {
-    const id = pathname.split("/").pop();
-    let body: any = {};
-    try {
-      body = JSON.parse(request.body || "{}");
-    } catch {
-      /* ignore */
+  if (method === "PUT") {
+    const funnelPut = pathOnly.match(/\/v1\/funnels\/([^/]+)$/);
+    if (funnelPut) {
+      return mockPutFunnelOrJourney(funnelPut[1], request, "FUNNEL");
     }
-
-    const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex((item) => item.id === id);
-    if (index !== -1) {
-      MOCK_FUNNELS_JOURNEYS_ALL[index] = {
-        ...MOCK_FUNNELS_JOURNEYS_ALL[index],
-        ...body,
-        status: "UPDATING" as const,
-        lastUpdatedAt: new Date().toISOString(),
-      };
-      return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };
+    const journeyPut = pathOnly.match(/\/v1\/journeys\/([^/]+)$/);
+    if (journeyPut) {
+      return mockPutFunnelOrJourney(journeyPut[1], request, "JOURNEY");
     }
-    return { data: null, status: 404 };
   }
 
-  if (pathname.includes("/v1/funnels-journeys/") && method === "PUT") {
-    const id = pathname.split("/").pop();
-    let body: any = {};
-    try {
-      body = JSON.parse(request.body || "{}");
-    } catch {
-      /* ignore */
+  if (method === "GET") {
+    const funnelDetail = pathOnly.match(/\/v1\/funnels\/([^/]+)$/);
+    if (funnelDetail) {
+      return mockFunnelJourneyDetail(funnelDetail[1], "FUNNEL");
     }
-
-    const index = MOCK_FUNNELS_JOURNEYS_ALL.findIndex((item) => item.id === id);
-    if (index !== -1) {
-      MOCK_FUNNELS_JOURNEYS_ALL[index] = {
-        ...MOCK_FUNNELS_JOURNEYS_ALL[index],
-        ...body,
-        status: "UPDATING" as const,
-        lastUpdatedAt: new Date().toISOString(),
-      };
-      return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };
+    const journeyDetail = pathOnly.match(/\/v1\/journeys\/([^/]+)$/);
+    if (journeyDetail) {
+      return mockFunnelJourneyDetail(journeyDetail[1], "JOURNEY");
     }
-    return { data: null, status: 404 };
-  }
-
-  if (pathname.includes("/v1/funnels-journeys") && method === "GET") {
-    const pathOnly = pathname.split("?")[0].replace(/\/$/, "");
-    if (pathOnly.endsWith("/v1/funnels-journeys")) {
-      return mockFunnelsJourneysList(request);
+    if (pathOnly.endsWith("/v1/funnels")) {
+      return mockFunnelsJourneysList(request, "FUNNEL");
     }
-    const marker = "/v1/funnels-journeys/";
-    const markerIdx = pathOnly.lastIndexOf(marker);
-    if (markerIdx >= 0) {
-      const id = pathOnly.slice(markerIdx + marker.length);
-      if (id && !id.includes("/")) {
-        return mockFunnelJourneyDetail(id);
-      }
+    if (pathOnly.endsWith("/v1/journeys")) {
+      return mockFunnelsJourneysList(request, "JOURNEY");
     }
-    return mockFunnelsJourneysList(request);
   }
 
   if (pathname.includes("/v1/funnel/analyze") && method === "POST") {
