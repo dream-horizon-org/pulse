@@ -36,7 +36,7 @@ import { SessionReplayInsights } from "../screens/SessionReplayInsights";
 import { SessionReplaySessions } from "../screens/SessionReplaySessions";
 import { SessionReplayDetail } from "../screens/SessionReplayDetail";
 import { CreateFunnel, CreateJourney } from "../screens/FunnelAnalysis";
-import { FunnelsJourneysList } from "../screens/FunnelsJourneysList";
+import { FunnelsList, JourneysList } from "../screens/FunnelsJourneysList";
 import { FunnelJourneyDetail } from "../screens/FunnelJourneyDetail";
 
 export const ROUTES = {
@@ -216,20 +216,28 @@ export const ROUTES = {
     ...ROUTE_PATHS.SUPPORT_QUERIES,
     element: SupportQueries,
   },
-  FUNNEL_ANALYSIS: {
-    ...ROUTE_PATHS.FUNNEL_ANALYSIS,
-    element: FunnelsJourneysList,
+  FUNNELS_LIST: {
+    ...ROUTE_PATHS.FUNNELS_LIST,
+    element: FunnelsList,
   },
-  FUNNEL_ANALYSIS_CREATE_FUNNEL: {
-    ...ROUTE_PATHS.FUNNEL_ANALYSIS_CREATE_FUNNEL,
+  JOURNEYS_LIST: {
+    ...ROUTE_PATHS.JOURNEYS_LIST,
+    element: JourneysList,
+  },
+  FUNNELS_CREATE: {
+    ...ROUTE_PATHS.FUNNELS_CREATE,
     element: CreateFunnel,
   },
-  FUNNEL_ANALYSIS_CREATE_JOURNEY: {
-    ...ROUTE_PATHS.FUNNEL_ANALYSIS_CREATE_JOURNEY,
+  JOURNEYS_CREATE: {
+    ...ROUTE_PATHS.JOURNEYS_CREATE,
     element: CreateJourney,
   },
-  FUNNEL_JOURNEY_DETAIL: {
-    ...ROUTE_PATHS.FUNNEL_JOURNEY_DETAIL,
+  FUNNEL_DETAIL: {
+    ...ROUTE_PATHS.FUNNEL_DETAIL,
+    element: FunnelJourneyDetail,
+  },
+  JOURNEY_DETAIL: {
+    ...ROUTE_PATHS.JOURNEY_DETAIL,
     element: FunnelJourneyDetail,
   },
 };

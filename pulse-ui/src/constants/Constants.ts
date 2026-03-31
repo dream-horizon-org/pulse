@@ -15,6 +15,7 @@ import {
   IconListDetails,
   IconNetwork,
   IconRobot,
+  IconRoute,
   IconUsers,
   IconVideo,
 } from "@tabler/icons-react";
@@ -34,9 +35,6 @@ import {
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
-import { CreateFunnel, CreateJourney } from "../screens/FunnelAnalysis";
-import { FunnelsJourneysList } from "../screens/FunnelsJourneysList";
-import { FunnelJourneyDetail } from "../screens/FunnelJourneyDetail";
 
 export const APP_NAME: string = "Pulse";
 
@@ -270,29 +268,35 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
   },
-  FUNNEL_ANALYSIS: {
-    key: "FUNNEL_ANALYSIS",
-    basePath: "/projects/:projectId/funnels-journeys",
-    path: "/projects/:projectId/funnels-journeys",
-    element: FunnelsJourneysList,
+  FUNNELS_LIST: {
+    key: "FUNNELS_LIST",
+    basePath: "/projects/:projectId/funnels",
+    path: "/projects/:projectId/funnels",
   },
-  FUNNEL_ANALYSIS_CREATE_FUNNEL: {
-    key: "FUNNEL_ANALYSIS_CREATE_FUNNEL",
-    basePath: "/projects/:projectId/funnels-journeys/create/funnel",
-    path: "/projects/:projectId/funnels-journeys/create/funnel",
-    element: CreateFunnel,
+  JOURNEYS_LIST: {
+    key: "JOURNEYS_LIST",
+    basePath: "/projects/:projectId/journeys",
+    path: "/projects/:projectId/journeys",
   },
-  FUNNEL_ANALYSIS_CREATE_JOURNEY: {
-    key: "FUNNEL_ANALYSIS_CREATE_JOURNEY",
-    basePath: "/projects/:projectId/funnels-journeys/create/journey",
-    path: "/projects/:projectId/funnels-journeys/create/journey",
-    element: CreateJourney,
+  FUNNELS_CREATE: {
+    key: "FUNNELS_CREATE",
+    basePath: "/projects/:projectId/funnels/create",
+    path: "/projects/:projectId/funnels/create",
   },
-  FUNNEL_JOURNEY_DETAIL: {
-    key: "FUNNEL_JOURNEY_DETAIL",
-    basePath: "/projects/:projectId/funnels-journeys/:id",
-    path: "/projects/:projectId/funnels-journeys/:id",
-    element: FunnelJourneyDetail,
+  JOURNEYS_CREATE: {
+    key: "JOURNEYS_CREATE",
+    basePath: "/projects/:projectId/journeys/create",
+    path: "/projects/:projectId/journeys/create",
+  },
+  FUNNEL_DETAIL: {
+    key: "FUNNEL_DETAIL",
+    basePath: "/projects/:projectId/funnels/:funnelId",
+    path: "/projects/:projectId/funnels/:funnelId",
+  },
+  JOURNEY_DETAIL: {
+    key: "JOURNEY_DETAIL",
+    basePath: "/projects/:projectId/journeys/:journeyId",
+    path: "/projects/:projectId/journeys/:journeyId",
   },
   ...(ENABLE_AI_CHAT
     ? {
@@ -342,7 +346,8 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   SESSION_REPLAY: "/session-replay/sessions",
   QUERY_BUILDER: "/query-builder",
-  FUNNEL_ANALYSIS: "/funnels-journeys",
+  FUNNELS: "/funnels",
+  JOURNEYS: "/journeys",
   ALERTS: "/alerts",
   AI_CHAT: "/ai-chat",
   EVENT_CATALOG: "/event-catalog",
@@ -422,10 +427,17 @@ export const NAVBAR_ITEMS: NavbarItems = [
     iconSize: 25,
   },
   {
-    tabName: "Funnel Analysis",
+    tabName: "Funnels",
     icon: IconChartFunnel,
-    routeTo: NAVBAR_ROUTES.FUNNEL_ANALYSIS,
-    path: NAVBAR_ROUTES.FUNNEL_ANALYSIS,
+    routeTo: NAVBAR_ROUTES.FUNNELS,
+    path: NAVBAR_ROUTES.FUNNELS,
+    iconSize: 25,
+  },
+  {
+    tabName: "Journeys",
+    icon: IconRoute,
+    routeTo: NAVBAR_ROUTES.JOURNEYS,
+    path: NAVBAR_ROUTES.JOURNEYS,
     iconSize: 25,
   },
   {
