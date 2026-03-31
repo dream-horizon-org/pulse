@@ -31,6 +31,7 @@ dependencies {
     api(projects.instrumentation.sessions)
     api(projects.instrumentation.sessionReplay)
     api(projects.instrumentation.memory)
+    api(projects.instrumentation.battery)
 
     // todo move this to pulse SDK
     api(projects.instrumentation.interaction.interactionLibrary)

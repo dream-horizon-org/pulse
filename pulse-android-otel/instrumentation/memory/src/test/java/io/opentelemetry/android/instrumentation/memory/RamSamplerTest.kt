@@ -151,7 +151,7 @@ class RamSamplerTest {
                 val sampler = buildSampler(flushIntervalMs = 60_000L, dispatcher = StandardTestDispatcher(testScheduler))
 
                 sampler.start()
-                advanceTimeBy(RamSampler.DEFAULT_SAMPLE_INTERVAL_MS + 1)
+                advanceTimeBy(RamSampler.defaultSampleIntervalMs + 1)
 
                 sampler.flushSamples()
                 verify(atLeast = 1) { logger.logRecordBuilder() }
@@ -181,7 +181,7 @@ class RamSamplerTest {
 
                 sampler.start()
                 sampler.shutdown()
-                advanceTimeBy(RamSampler.DEFAULT_SAMPLE_INTERVAL_MS * 10)
+                advanceTimeBy(RamSampler.defaultSampleIntervalMs * 10)
 
                 sampler.flushSamples()
                 verify(exactly = 0) { logger.logRecordBuilder() }

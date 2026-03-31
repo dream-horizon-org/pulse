@@ -58,6 +58,8 @@ class InstrumentationConfiguration(
 
     private val ramUsage: RamUsageConfiguration by lazy { RamUsageConfiguration(config) }
 
+    private val batteryUsage: BatteryUsageConfiguration by lazy { BatteryUsageConfiguration(config) }
+
     fun activity(configure: ActivityLifecycleConfiguration.() -> Unit) {
         activity.configure()
     }
@@ -113,6 +115,14 @@ class InstrumentationConfiguration(
      */
     fun ramUsage(configure: RamUsageConfiguration.() -> Unit) {
         ramUsage.configure()
+    }
+
+    /**
+     * Battery instrumentation. Samples charge level and plug state from the sticky
+     * [android.content.Intent.ACTION_BATTERY_CHANGED] broadcast, flushed as logs on a configurable schedule.
+     */
+    fun batteryUsage(configure: BatteryUsageConfiguration.() -> Unit) {
+        batteryUsage.configure()
     }
 
     /**

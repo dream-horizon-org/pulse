@@ -46,6 +46,12 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/AnrReporte
 	public fun enabled (Z)V
 }
 
+public final class io/opentelemetry/android/agent/dsl/instrumentation/BatteryUsageConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {
+	public fun enabled (Z)V
+	public final fun setFlushIntervalMs (J)Lio/opentelemetry/android/agent/dsl/instrumentation/BatteryUsageConfiguration;
+	public final fun setSampleIntervalMs (J)Lio/opentelemetry/android/agent/dsl/instrumentation/BatteryUsageConfiguration;
+}
+
 public final class io/opentelemetry/android/agent/dsl/instrumentation/ComposeClickConfiguration {
 	public final fun captureContext (Z)V
 }
@@ -65,6 +71,7 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/Instrument
 	public fun <init> (Lio/opentelemetry/android/config/OtelRumConfig;Ljava/util/Map;Lkotlin/jvm/functions/Function0;)V
 	public final fun activity (Lkotlin/jvm/functions/Function1;)V
 	public final fun anrReporter (Lkotlin/jvm/functions/Function1;)V
+	public final fun batteryUsage (Lkotlin/jvm/functions/Function1;)V
 	public final fun composeClick (Lkotlin/jvm/functions/Function1;)V
 	public final fun crashReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun fragment (Lkotlin/jvm/functions/Function1;)V

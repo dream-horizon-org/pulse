@@ -47,4 +47,28 @@ public object PulseDeviceAttributes {
     @JvmField
     public val PULSE_APP_MEMORY_UTILIZATION_ARRAY: AttributeKey<List<Long>> =
         AttributeKey.longArrayKey("pulse.app.memory.utilization_array")
+
+    /**
+     * Remaining battery charge for each sample, as a percentage **0–100**.
+     * Same repeated samples are dropped
+     * Emitted with [PULSE_SYSTEM_BATTERY_PLUGGED_ARRAY] and [PULSE_SYSTEM_BATTERY_TIMESTAMP_ARRAY].
+     */
+    @JvmField
+    public val PULSE_SYSTEM_BATTERY_LEVEL_ARRAY: AttributeKey<List<Double>> =
+        AttributeKey.doubleArrayKey("pulse.system.battery.level_array")
+
+    /**
+     * Power source for each sample: `battery` when unplugged, or one of
+     * `usb`, `ac`, `wireless`, `dock` when charging; `unknown` if the plug state cannot be mapped.
+     */
+    @JvmField
+    public val PULSE_SYSTEM_BATTERY_PLUGGED_ARRAY: AttributeKey<List<String>> =
+        AttributeKey.stringArrayKey("pulse.system.battery.plugged_array")
+
+    /**
+     * Epoch-millisecond timestamps for each battery sample.
+     */
+    @JvmField
+    public val PULSE_SYSTEM_BATTERY_TIMESTAMP_ARRAY: AttributeKey<List<Long>> =
+        AttributeKey.longArrayKey("pulse.system.battery.timestamp_array")
 }

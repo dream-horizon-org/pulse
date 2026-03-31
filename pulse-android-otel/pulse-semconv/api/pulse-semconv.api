@@ -38,6 +38,7 @@ public final class com/pulse/semconv/PulseAttributes$PulseTypeValues {
 	public static final field APP_SESSION_END Ljava/lang/String;
 	public static final field APP_SESSION_START Ljava/lang/String;
 	public static final field APP_START Ljava/lang/String;
+	public static final field BATTERY Ljava/lang/String;
 	public static final field CRASH Ljava/lang/String;
 	public static final field CUSTOM_EVENT Ljava/lang/String;
 	public static final field FROZEN Ljava/lang/String;
@@ -61,6 +62,9 @@ public final class com/pulse/semconv/PulseDeviceAttributes {
 	public static final field DEVICE_SCREEN_WIDTH Lio/opentelemetry/api/common/AttributeKey;
 	public static final field INSTANCE Lcom/pulse/semconv/PulseDeviceAttributes;
 	public static final field PULSE_APP_MEMORY_UTILIZATION_ARRAY Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_SYSTEM_BATTERY_LEVEL_ARRAY Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_SYSTEM_BATTERY_PLUGGED_ARRAY Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_SYSTEM_BATTERY_TIMESTAMP_ARRAY Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SYSTEM_MEMORY_SIZE Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SYSTEM_MEMORY_TIMESTAMP_ARRAY Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SYSTEM_MEMORY_UTILIZATION_ARRAY Lio/opentelemetry/api/common/AttributeKey;

@@ -129,6 +129,6 @@ internal class RamSampler(
     )
 
     companion object {
-        const val DEFAULT_SAMPLE_INTERVAL_MS = 5_000L
+        val defaultSampleIntervalMs = if (PulseOtelUtils.isDebug()) 30_000L else 5_000L
     }
 }

@@ -115,6 +115,7 @@ public object PulseAttributes {
         private const val NETWORK: String = "network"
         public const val NETWORK_CHANGE: String = "network.change"
         public const val MEMORY: String = "memory"
+        public const val BATTERY: String = "battery"
 
         @JvmField
         public val PULSE_NETWORK: AttributeKeyTemplate<String> = stringKeyTemplate(NETWORK)
