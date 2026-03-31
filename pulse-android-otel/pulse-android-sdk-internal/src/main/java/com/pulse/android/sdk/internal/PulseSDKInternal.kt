@@ -204,18 +204,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY),
             )
 
-        val screenAspectRatio: String
-        application.resources.displayMetrics.let { dm ->
-            val screenWidthDp = (dm.widthPixels / dm.density).toLong()
-            val screenHeightDp = (dm.heightPixels / dm.density).toLong()
-            val gcd = gcd(screenWidthDp, screenHeightDp)
-            screenAspectRatio = "${screenWidthDp / gcd}:${screenHeightDp / gcd}"
-        }
-
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
             put(PulseAttributes.PROJECT_ID, extractProjectID(apiKey))
-            put(PulseAttributes.DEVICE_SCREEN_ASPECT_RATIO, screenAspectRatio)
             resource?.invoke(this)
         }
 
@@ -389,6 +380,12 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
                         attributesBuilder.put(PulseSessionAttributes.PULSE_METERING_SESSION_ID, meteredSessionManager.getSessionId())
+                        application.resources.displayMetrics.let { dm ->
+                            val w = (dm.widthPixels / dm.density).toLong()
+                            val h = (dm.heightPixels / dm.density).toLong()
+                            val g = gcd(w, h)
+                            attributesBuilder.put(PulseAttributes.DEVICE_SCREEN_ASPECT_RATIO, "${w / g}:${h / g}")
+                        }
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())
                         }
