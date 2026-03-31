@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS otel.funnel_results
 (
     funnel_id      String        COMMENT 'Same as MySQL funnel.funnel_id',
     project_id     String        COMMENT 'Project ID (proj-xxx)',
-    run_date       Date          COMMENT 'Date of the data window (report date)',
+    run_time       DateTime64(3, 'UTC') COMMENT 'Execution time of the Spark job',
     step_index     UInt8         COMMENT '0-based step index',
     step_name      String        COMMENT 'Event name for this step',
     user_count     UInt64        COMMENT 'Unique users (or sessions) reaching this step',
@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS otel.funnel_results
     CONSTRAINT chk_step_index CHECK step_index < 32
 )
 ENGINE = MergeTree()
-PARTITION BY toYYYYMM(run_date)
-ORDER BY (funnel_id, run_date, step_index)
+PARTITION BY toYYYYMM(toDate(run_time))
+ORDER BY (funnel_id, run_time, step_index)
 SETTINGS index_granularity = 8192;
 
 -- Optional: secondary index for project-scoped admin queries (uncomment if needed)

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.dreamhorizon.pulsespark.model.FunnelDefinition;
 import org.dreamhorizon.pulsespark.model.FunnelFilter;
 import org.dreamhorizon.pulsespark.model.FunnelStep;
+import org.dreamhorizon.pulsespark.model.JourneyDefinition;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -28,17 +29,20 @@ public class MysqlRepository {
         this.password = password;
     }
 
-    /** Fetches all funnels, or a single funnel if {@code funnelId} is non-null. */
-    public List<FunnelDefinition> fetchFunnels(String funnelId) throws Exception {
-        var sql = funnelId != null
-                ? "SELECT * FROM funnel WHERE funnel_id = ?"
-                : "SELECT * FROM funnel";
+    /**
+     * Fetches funnels. If referenceId is non-null, fetches the single funnel with that id.
+     * Otherwise fetches all AUTO funnels whose end_time is null or in the future.
+     */
+    public List<FunnelDefinition> fetchFunnels(Long referenceId) throws Exception {
+        var sql = referenceId != null
+                ? "SELECT * FROM funnel WHERE id = ?"
+                : "SELECT * FROM funnel WHERE funnel_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
 
         var results = new ArrayList<FunnelDefinition>();
         try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
              var stmt = conn.prepareStatement(sql)) {
 
-            if (funnelId != null) stmt.setString(1, funnelId);
+            if (referenceId != null) stmt.setLong(1, referenceId);
             var rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -48,13 +52,55 @@ public class MysqlRepository {
                         : List.of();
 
                 results.add(new FunnelDefinition(
-                        rs.getString("funnel_id"),
+                        rs.getLong("id"),
                         rs.getString("project_id"),
                         steps,
                         rs.getLong("window_seconds"),
                         rs.getString("mode"),
-                        rs.getInt("date_range_days"),
-                        filters
+                        rs.getInt("date_range"),
+                        filters,
+                        rs.getString("funnel_type"),
+                        rs.getTimestamp("start_time"),
+                        rs.getTimestamp("end_time")
+                ));
+            }
+        }
+        return results;
+    }
+
+    /**
+     * Fetches journeys. If referenceId is non-null, fetches the single journey with that id.
+     * Otherwise fetches all AUTO journeys whose end_time is null or in the future.
+     */
+    public List<JourneyDefinition> fetchJourneys(Long referenceId) throws Exception {
+        var sql = referenceId != null
+                ? "SELECT * FROM journey WHERE id = ?"
+                : "SELECT * FROM journey WHERE journey_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
+
+        var results = new ArrayList<JourneyDefinition>();
+        try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+             var stmt = conn.prepareStatement(sql)) {
+
+            if (referenceId != null) stmt.setLong(1, referenceId);
+            var rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                List<FunnelFilter> filters = rs.getString("filters_json") != null
+                        ? MAPPER.readValue(rs.getString("filters_json"), FILTERS_TYPE)
+                        : List.of();
+
+                results.add(new JourneyDefinition(
+                        rs.getLong("id"),
+                        rs.getString("project_id"),
+                        rs.getString("anchor_event"),
+                        rs.getString("direction"),
+                        rs.getInt("depth"),
+                        rs.getString("mode"),
+                        rs.getInt("date_range"),
+                        filters,
+                        rs.getString("journey_type"),
+                        rs.getTimestamp("start_time"),
+                        rs.getTimestamp("end_time")
                 ));
             }
         }
@@ -70,5 +116,34 @@ public class MysqlRepository {
             while (rs.next()) ids.add(rs.getString(1));
         }
         return ids;
+    }
+
+    public void updateSparkJobRunning(long sparkJobId) throws SQLException {
+        try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+             var stmt = conn.prepareStatement(
+                     "UPDATE spark_jobs SET status = 'RUNNING', started_at = NOW() WHERE id = ?")) {
+            stmt.setLong(1, sparkJobId);
+            stmt.executeUpdate();
+        }
+    }
+
+    public void updateSparkJobSucceeded(long sparkJobId) throws SQLException {
+        try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+             var stmt = conn.prepareStatement(
+                     "UPDATE spark_jobs SET status = 'SUCCEEDED', completed_at = NOW() WHERE id = ?")) {
+            stmt.setLong(1, sparkJobId);
+            stmt.executeUpdate();
+        }
+    }
+
+    public void updateSparkJobFailed(long sparkJobId, String errorMessage) throws SQLException {
+        try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+             var stmt = conn.prepareStatement(
+                     "UPDATE spark_jobs SET status = 'FAILED', error_message = ?, completed_at = NOW() WHERE id = ?")) {
+            stmt.setString(1, errorMessage != null && errorMessage.length() > 2000
+                    ? errorMessage.substring(0, 2000) : errorMessage);
+            stmt.setLong(2, sparkJobId);
+            stmt.executeUpdate();
+        }
     }
 }

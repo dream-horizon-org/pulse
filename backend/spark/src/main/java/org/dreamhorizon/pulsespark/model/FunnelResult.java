@@ -1,12 +1,9 @@
 package org.dreamhorizon.pulsespark.model;
 
-/**
- * One row written to ClickHouse otel.funnel_results.
- */
 public record FunnelResult(
-        String funnelId,
+        long funnelId,
         String projectId,
-        String runDate,
+        String runTime,
         int stepIndex,
         String stepName,
         long userCount,

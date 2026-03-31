@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS otel.event_catalog
     event_count  SimpleAggregateFunction(sum,  UInt64)           COMMENT 'Total occurrences accumulated across Spark runs',
     first_seen   SimpleAggregateFunction(min,  Date)             COMMENT 'Earliest date this event was observed',
     last_seen    SimpleAggregateFunction(max,  Date)             COMMENT 'Most recent date this event was observed',
-    run_date     Date                                             COMMENT 'Date of the Spark run that inserted this row'
+    run_time     DateTime64(3, 'UTC')                             COMMENT 'Execution time of the Spark job'
 )
 ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(last_seen)
@@ -53,10 +53,10 @@ CREATE TABLE IF NOT EXISTS otel.event_filter_values
     filter_key    LowCardinality(String)                         COMMENT 'Filter dimension name (Parquet column)',
     filter_value  String                                         COMMENT 'Observed value for this dimension',
     event_count   SimpleAggregateFunction(sum,  UInt64)          COMMENT 'Times this filter_value was seen on this event',
-    run_date      Date                                           COMMENT 'Date of the Spark run that inserted this row'
+    run_time      DateTime64(3, 'UTC')                           COMMENT 'Execution time of the Spark job'
 )
 ENGINE = AggregatingMergeTree()
-PARTITION BY toYYYYMM(run_date)
+PARTITION BY toYYYYMM(toDate(run_time))
 ORDER BY (project_id, event_name, filter_key, filter_value)
 SETTINGS index_granularity = 8192;
 

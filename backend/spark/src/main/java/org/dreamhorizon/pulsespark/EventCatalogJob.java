@@ -5,118 +5,49 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
-
-import org.apache.spark.sql.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.apache.spark.sql.functions.*;
 
-/**
- * Pulse Event Catalog — Spark 3.5 / Java 17
- *
- * <p>Scans S3 Parquet custom event data and writes two ClickHouse
- * {@code AggregatingMergeTree} tables that power the funnel-builder UI:
- * <ul>
- *   <li>{@code otel.event_catalog}       — distinct events per project with counts</li>
- *   <li>{@code otel.event_filter_values} — distinct dimension values per (project, event)</li>
- * </ul>
- *
- * <p>Both tables use {@code SimpleAggregateFunction(sum/min/max)} so that each daily
- * Spark run can safely append; ClickHouse accumulates across runs during background
- * merges. Read with {@code FINAL} or the {@code *Merge} aggregate functions.
- *
- * <p>spark-submit example:
- * <pre>
- *   spark-submit \
- *     --class org.dreamhorizon.pulsespark.EventCatalogJob \
- *     pulse-spark-jobs-1.0-SNAPSHOT.jar \
- *     --project_ids fancode,proj-abc \
- *     --lookback_days 30 \
- *     --mysql_host localhost --mysql_port 3307 \
- *     --mysql_db pulse --mysql_user pulse --mysql_password secret \
- *     --clickhouse_host localhost --clickhouse_port 8123 \
- *     --s3_bucket_prefix pulse-otel-
- * </pre>
- */
 public class EventCatalogJob {
 
     private static final Logger log = LoggerFactory.getLogger(EventCatalogJob.class);
 
-    /**
-     * Predefined filter dimensions — must match Parquet column names from Vector.
-     * These are the values exposed in the UI filter-value dropdowns.
-     */
     static final String[] FILTER_DIMENSIONS = {
             "os_name", "os_version", "app_build_name", "device_manufacturer",
             "device_model_identifier", "network_carrier_icc", "screen_name", "service_name"
     };
 
     private static final int DEFAULT_CHUNK_SIZE = 5_000;
+    private static final int CATALOG_LOOKBACK_DAYS = 1;
 
     // -------------------------------------------------------------------------
-    // Entry point
+    // Public entry point (called from SparkJobRunner)
     // -------------------------------------------------------------------------
 
-    public static void main(String[] args) throws Exception {
-        var params      = parseArgs(args);
-        var runDate     = params.getOrDefault("run_date", LocalDate.now().toString());
-        int lookback    = Integer.parseInt(params.getOrDefault("lookback_days", "30"));
-        int chunkSize   = Integer.parseInt(params.getOrDefault("insert_chunk_size",
-                                                               String.valueOf(DEFAULT_CHUNK_SIZE)));
-
-        var mysql = new MysqlRepository(
-                require(params, "mysql_host"),
-                Integer.parseInt(params.getOrDefault("mysql_port", "3306")),
-                require(params, "mysql_db"),
-                require(params, "mysql_user"),
-                require(params, "mysql_password")
-        );
-        var ch = new ClickHouseClient(
-                require(params, "clickhouse_host"),
-                Integer.parseInt(params.getOrDefault("clickhouse_port", "8123")),
-                params.getOrDefault("clickhouse_db", "otel"),
-                params.getOrDefault("clickhouse_user", "default"),
-                params.getOrDefault("clickhouse_password", "")
-        );
-        var s3Prefix = params.getOrDefault("s3_bucket_prefix", "pulse-otel-");
-
-        List<String> projectIds = params.containsKey("project_ids")
-                ? Arrays.asList(params.get("project_ids").split(","))
-                : mysql.fetchProjectIds();
-
+    public static void runCatalog(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
+                                   String s3BucketPrefix, String runTime) throws Exception {
+        List<String> projectIds = mysql.fetchProjectIds();
         if (projectIds.isEmpty()) {
             log.info("No projects found — nothing to do.");
             return;
         }
-        log.info("Processing {} project(s), lookback={} days, run_date={}", projectIds.size(), lookback, runDate);
+        log.info("Processing event catalog for {} project(s), run_time={}", projectIds.size(), runTime);
 
-        var spark = SparkSession.builder()
-                .appName("pulse-event-catalog-" + runDate)
-                .config("spark.sql.parquet.int96RebaseModeInRead", "CORRECTED")
-                .config("spark.sql.session.timeZone", "UTC")
-                .getOrCreate();
-        spark.sparkContext().setLogLevel("WARN");
-
-        boolean anyFailed = false;
         for (var projectId : projectIds) {
             try {
-                processProject(spark, ch, projectId.strip(), s3Prefix, runDate, lookback, chunkSize);
+                processProject(spark, ch, projectId.strip(), s3BucketPrefix, runTime);
             } catch (Exception e) {
-                log.error("Project {} failed: {}", projectId, e.getMessage(), e);
-                anyFailed = true;
+                log.error("Project {} catalog failed: {}", projectId, e.getMessage(), e);
+                throw e;
             }
         }
-
-        spark.stop();
-        if (anyFailed) System.exit(1);
     }
 
     // -------------------------------------------------------------------------
@@ -124,27 +55,27 @@ public class EventCatalogJob {
     // -------------------------------------------------------------------------
 
     private static void processProject(SparkSession spark, ClickHouseClient ch,
-                                       String projectId, String s3Prefix,
-                                       String runDate, int lookbackDays, int chunkSize) {
-        var endDate   = LocalDate.parse(runDate);
-        var startDate = endDate.minusDays(lookbackDays - 1L);
+                                       String projectId, String s3Prefix, String runTime) {
+        var endDate   = LocalDate.parse(runTime.substring(0, 10));
+        var startDate = endDate.minusDays(CATALOG_LOOKBACK_DAYS - 1L);
 
-        var s3Path = "s3://" + s3Prefix + projectId + "/vector-logs";
-        log.info("Scanning {} [{} → {}]", s3Path, startDate, endDate);
+        var s3Base = "s3a://" + s3Prefix + projectId + "/vector-logs/";
+        log.info("Scanning {} [{} → {}]", s3Base, startDate, endDate);
 
-        // Select only what we need
+        Dataset<Row> raw = FunnelComputeJob.readS3ByDateRange(spark, s3Base, startDate, endDate);
+        if (raw == null) {
+            log.warn("No S3 data for project {}", projectId);
+            return;
+        }
+
         var selectCols = new ArrayList<Column>();
         selectCols.add(col("project_id"));
         selectCols.add(col("event_name"));
         selectCols.add(col("timestamp"));
         for (var dim : FILTER_DIMENSIONS) selectCols.add(col(dim).cast(DataTypes.StringType));
 
-        Dataset<Row> raw = spark.read()
-                .format("parquet")
-                .option("recursiveFileLookup", "true")
-                .option("pathGlobFilter", "*.log")
-                .option("mergeSchema", "true")
-                .load(s3Path)
+        // raw already has project_id column from READ_COLS; filter and select catalog cols
+        Dataset<Row> df = raw
                 .select(selectCols.toArray(Column[]::new))
                 .filter(
                         col("project_id").equalTo(projectId)
@@ -156,10 +87,10 @@ public class EventCatalogJob {
                 .cache();
 
         try {
-            writeEventCatalog(ch, raw, runDate, chunkSize);
-            writeFilterValues(ch, raw, runDate, chunkSize);
+            writeEventCatalog(ch, df, runTime, DEFAULT_CHUNK_SIZE);
+            writeFilterValues(ch, df, runTime, DEFAULT_CHUNK_SIZE);
         } finally {
-            raw.unpersist();
+            df.unpersist();
         }
     }
 
@@ -168,7 +99,7 @@ public class EventCatalogJob {
     // -------------------------------------------------------------------------
 
     private static void writeEventCatalog(ClickHouseClient ch, Dataset<Row> raw,
-                                          String runDate, int chunkSize) {
+                                          String runTime, int chunkSize) {
         List<Row> agg = raw
                 .groupBy("project_id", "event_name")
                 .agg(
@@ -186,15 +117,15 @@ public class EventCatalogJob {
                     row.getLong(2),
                     row.getDate(3),
                     row.getDate(4),
-                    runDate
+                    runTime
             ));
         }
 
         if (!rows.isEmpty()) {
             ch.bulkInsert("event_catalog",
-                    "project_id,event_name,event_count,first_seen,last_seen,run_date",
+                    "project_id,event_name,event_count,first_seen,last_seen,run_time",
                     rows, chunkSize);
-            log.info("event_catalog: wrote {} rows for run_date={}", rows.size(), runDate);
+            log.info("event_catalog: wrote {} rows for run_time={}", rows.size(), runTime);
         }
     }
 
@@ -203,8 +134,7 @@ public class EventCatalogJob {
     // -------------------------------------------------------------------------
 
     private static void writeFilterValues(ClickHouseClient ch, Dataset<Row> raw,
-                                          String runDate, int chunkSize) {
-        // Build array of structs: [{filter_key: "os_name", filter_value: <value>}, ...]
+                                          String runTime, int chunkSize) {
         var structExprs = Arrays.stream(FILTER_DIMENSIONS)
                 .map(dim -> struct(lit(dim).alias("filter_key"), col(dim).alias("filter_value")))
                 .toArray(Column[]::new);
@@ -234,34 +164,16 @@ public class EventCatalogJob {
                     esc(row.getString(2)),
                     esc(row.getString(3)),
                     row.getLong(4),
-                    runDate
+                    runTime
             ));
         }
 
         if (!rows.isEmpty()) {
             ch.bulkInsert("event_filter_values",
-                    "project_id,event_name,filter_key,filter_value,event_count,run_date",
+                    "project_id,event_name,filter_key,filter_value,event_count,run_time",
                     rows, chunkSize);
-            log.info("event_filter_values: wrote {} rows for run_date={}", rows.size(), runDate);
+            log.info("event_filter_values: wrote {} rows for run_time={}", rows.size(), runTime);
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
-    private static Map<String, String> parseArgs(String[] args) {
-        var map = new HashMap<String, String>();
-        for (int i = 0; i < args.length - 1; i += 2) {
-            if (args[i].startsWith("--")) map.put(args[i].substring(2), args[i + 1]);
-        }
-        return map;
-    }
-
-    private static String require(Map<String, String> params, String key) {
-        var v = params.get(key);
-        if (v == null) throw new IllegalArgumentException("Missing required argument: --" + key);
-        return v;
     }
 
     private static String esc(String s) {

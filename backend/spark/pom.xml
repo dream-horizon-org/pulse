@@ -50,6 +50,12 @@
             <version>${jackson.version}</version>
         </dependency>
 
+        <!-- AWS Secrets Manager — bundled in the fat JAR -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-secretsmanager</artifactId>
+            <version>1.12.262</version>
+        </dependency>
 
     </dependencies>
 
@@ -84,8 +90,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>${maven.shade.plugin.version}</version>
+                <version>3.5.2</version>
                 <executions>
+                    <execution>
+                        <id>create-fat-jar</id>
+                        <phase>none</phase>
+                    </execution>
                     <execution>
                         <phase>package</phase>
                         <goals>
@@ -110,6 +120,11 @@
                                 <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>org.dreamhorizon.shaded.jackson</shadedPattern>
+                                </relocation>
+                                <!-- Relocate AWS SDK to avoid conflicts with EMR's aws-java-sdk-bundle -->
+                                <relocation>
+                                    <pattern>com.amazonaws</pattern>
+                                    <shadedPattern>org.dreamhorizon.shaded.amazonaws</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
