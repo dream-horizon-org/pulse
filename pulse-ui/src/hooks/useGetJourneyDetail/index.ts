@@ -1,0 +1,1 @@
+export { useGetJourneyDetail } from "./useGetJourneyDetail";

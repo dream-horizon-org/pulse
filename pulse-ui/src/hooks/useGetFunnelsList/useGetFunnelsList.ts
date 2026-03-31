@@ -1,13 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  fetchFunnelsJourneysList,
-  FunnelsJourneysListQueryParams,
+  fetchFunnelsList,
+  FunnelJourneyListQueryParams,
 } from "../../services/funnels.service";
 import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
-function stableQueryKey(params: FunnelsJourneysListQueryParams): string {
+function stableQueryKey(params: FunnelJourneyListQueryParams): string {
   return JSON.stringify({
-    kind: params.kind ?? "",
     search: params.search ?? "",
     status: params.status ?? "",
     createdBy: params.createdBy?.slice().sort().join(",") ?? "",
@@ -18,17 +17,17 @@ function stableQueryKey(params: FunnelsJourneysListQueryParams): string {
   });
 }
 
-export const useGetFunnelsJourneysList = ({
+export const useGetFunnelsList = ({
   queryParams,
 }: {
-  queryParams: FunnelsJourneysListQueryParams;
+  queryParams: FunnelJourneyListQueryParams;
 }) => {
   const enabled = useProjectQueryEnabled();
   const key = stableQueryKey(queryParams);
 
   return useQuery({
-    queryKey: ["funnelsJourneysList", key],
-    queryFn: () => fetchFunnelsJourneysList(queryParams),
+    queryKey: ["funnelsList", key],
+    queryFn: () => fetchFunnelsList(queryParams),
     enabled,
     refetchOnWindowFocus: false,
   });

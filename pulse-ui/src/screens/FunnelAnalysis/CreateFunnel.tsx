@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   ActionIcon,
@@ -34,7 +33,7 @@ import {
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks/useGetFunnelData";
-import { useCreateFunnelJourney } from "../../hooks/useCreateFunnelJourney";
+import { useCreateFunnel } from "../../hooks/useCreateFunnel";
 
 const EMPTY_STEPS: BuilderStep[] = [
   { id: "s-1", eventName: "" },
@@ -52,7 +51,6 @@ function toApiSteps(steps: BuilderStep[]): FunnelStep[] {
 
 export function CreateFunnel() {
   const theme = useMantineTheme();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
 
@@ -116,8 +114,7 @@ export function CreateFunnel() {
     [filters],
   );
 
-  const { mutate: createFunnel, isPending: isCreating } =
-    useCreateFunnelJourney();
+  const { mutate: createFunnel, isPending: isCreating } = useCreateFunnel();
 
   const hasValidSteps =
     steps.length >= 2 && steps.every((s) => Boolean(s.eventName));
@@ -158,7 +155,6 @@ export function CreateFunnel() {
         description,
         tags,
         rollingType,
-        kind: "FUNNEL",
         funnelType: funnelMode.toUpperCase(),
         steps: apiSteps,
         timeRange,
@@ -170,12 +166,9 @@ export function CreateFunnel() {
             : undefined,
       },
       {
-        onSuccess: async () => {
-          await queryClient.invalidateQueries({
-            queryKey: ["funnelsJourneysList"],
-          });
+        onSuccess: () => {
           if (projectId) {
-            navigate(generatePath(ROUTES.FUNNEL_ANALYSIS.path, { projectId }));
+            navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
           }
         },
       },
@@ -184,7 +177,7 @@ export function CreateFunnel() {
 
   const goBack = () => {
     if (projectId) {
-      navigate(generatePath(ROUTES.FUNNEL_ANALYSIS.path, { projectId }));
+      navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
       return;
     }
     navigate(-1);

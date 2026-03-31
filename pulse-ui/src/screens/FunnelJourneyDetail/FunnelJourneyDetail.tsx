@@ -3,8 +3,10 @@ import { ActionIcon, Badge, Box, Group, Loader, Text } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactECharts from "echarts-for-react";
-import { useGetFunnelJourneyDetail } from "../../hooks/useGetFunnelJourneyDetail";
-import { useUpdateFunnelJourney } from "../../hooks/useUpdateFunnelJourney";
+import { useGetFunnelDetail } from "../../hooks/useGetFunnelDetail";
+import { useGetJourneyDetail } from "../../hooks/useGetJourneyDetail";
+import { useUpdateFunnel } from "../../hooks/useUpdateFunnel";
+import { useUpdateJourney } from "../../hooks/useUpdateJourney";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import type { FunnelStep } from "../../hooks/useGetFunnelData";
 import {
@@ -230,8 +232,7 @@ function FunnelDetailView({ detail }: { detail: any }) {
     detail,
   ]);
 
-  const { mutate: updateFunnel, isPending: isUpdating } =
-    useUpdateFunnelJourney();
+  const { mutate: updateFunnel, isPending: isUpdating } = useUpdateFunnel();
 
   const handleUpdate = () => {
     updateFunnel({
@@ -524,8 +525,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
     detail,
   ]);
 
-  const { mutate: updateJourney, isPending: isUpdating } =
-    useUpdateFunnelJourney();
+  const { mutate: updateJourney, isPending: isUpdating } = useUpdateJourney();
 
   const handleUpdate = (config: any) => {
     updateJourney({
@@ -695,8 +695,19 @@ function JourneyDetailView({ detail }: { detail: any }) {
 
 export function FunnelJourneyDetail() {
   const navigate = useNavigate();
-  const { projectId, id } = useParams<{ projectId: string; id: string }>();
-  const { data: apiResponse, isLoading, error } = useGetFunnelJourneyDetail(id);
+  const { funnelId, journeyId } = useParams<{
+    projectId: string;
+    funnelId?: string;
+    journeyId?: string;
+  }>();
+
+  const funnelQuery = useGetFunnelDetail(funnelId);
+  const journeyQuery = useGetJourneyDetail(journeyId);
+  const isFunnelRoute = Boolean(funnelId);
+
+  const apiResponse = isFunnelRoute ? funnelQuery.data : journeyQuery.data;
+  const isLoading = isFunnelRoute ? funnelQuery.isLoading : journeyQuery.isLoading;
+  const error = isFunnelRoute ? funnelQuery.error : journeyQuery.error;
   const detail = apiResponse?.data ?? null;
   const isNotFound = apiResponse?.status === 404;
   const failMessage =

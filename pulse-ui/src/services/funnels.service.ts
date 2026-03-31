@@ -36,15 +36,15 @@ export type FunnelsJourneysListResponse = {
   totalPages?: number;
 };
 
-export type FunnelsJourneysListQueryParams = {
-  /** When set, only return funnels or only journeys. */
-  kind?: "FUNNEL" | "JOURNEY" | null;
+/** Query params for GET /v1/funnels or GET /v1/journeys (resource implied by path). */
+export type FunnelJourneyListQueryParams = {
   search?: string | null;
   status?: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING" | "COMPLETED" | null;
   /** Match if created by any of these users. */
   createdBy?: string[] | null;
   /** Match if item has any of these tags. */
   tags?: string[] | null;
+  /** Funnel listing only (GET /v1/funnels). */
   funnelType?: "ORDERED" | "UNORDERED" | null;
   /** 1-based page index (default 1). */
   page?: number | null;
@@ -52,7 +52,12 @@ export type FunnelsJourneysListQueryParams = {
   pageSize?: number | null;
 };
 
-/** Single funnel or journey returned by the detail API. */
+/** @deprecated Use FunnelJourneyListQueryParams */
+export type FunnelsJourneysListQueryParams = FunnelJourneyListQueryParams & {
+  kind?: "FUNNEL" | "JOURNEY" | null;
+};
+
+/** Single funnel or journey returned by detail APIs. */
 export type FunnelJourneyDetail = FunnelJourneyListItem & {
   description: string;
   createdAt: string;
@@ -67,14 +72,13 @@ export type FunnelJourneyDetail = FunnelJourneyListItem & {
   expiryDate?: string;
 };
 
-// TODO: update when backend is ready (path, query param names, and response shape may change).
-const FUNNELS_JOURNEYS_LIST_PATH = "/v1/funnels-journeys";
+const FUNNELS_BASE = "/v1/funnels";
+const JOURNEYS_BASE = "/v1/journeys";
 
-function filterNonNullParams(
-  params: FunnelsJourneysListQueryParams,
+function filterListParams(
+  params: FunnelJourneyListQueryParams,
 ): Record<string, string> {
   const out: Record<string, string> = {};
-  if (params.kind) out.kind = params.kind;
   if (params.search) out.search = params.search;
   if (params.status) out.status = params.status;
   if (params.createdBy?.length) out.createdBy = params.createdBy.join(",");
@@ -87,46 +91,60 @@ function filterNonNullParams(
   return out;
 }
 
-/**
- * Fetches saved funnels and journeys for the current project (project id is sent via request headers).
- * TODO: update when backend is ready.
- */
-export async function fetchFunnelsJourneysList(
-  queryParams: FunnelsJourneysListQueryParams,
-) {
-  const filtered = filterNonNullParams(queryParams);
+/** GET /v1/funnels */
+export async function fetchFunnelsList(queryParams: FunnelJourneyListQueryParams) {
+  const filtered = filterListParams(queryParams);
   const suffix =
     Object.keys(filtered).length > 0 ? getQueryParamString(filtered) : "";
 
   return makeRequest<FunnelsJourneysListResponse>({
-    url: `${API_BASE_URL}${FUNNELS_JOURNEYS_LIST_PATH}${suffix}`,
+    url: `${API_BASE_URL}${FUNNELS_BASE}${suffix}`,
     init: {
       method: "GET",
     },
   });
 }
 
-/**
- * Fetches one saved funnel or journey by id (project id is sent via headers).
- * TODO: update when backend is ready.
- */
-export async function fetchFunnelJourneyById(id: string) {
-  const encoded = encodeURIComponent(id);
-  return makeRequest<FunnelJourneyDetail>({
-    url: `${API_BASE_URL}${FUNNELS_JOURNEYS_LIST_PATH}/${encoded}`,
+/** GET /v1/journeys */
+export async function fetchJourneysList(queryParams: FunnelJourneyListQueryParams) {
+  const filtered = filterListParams(queryParams);
+  const suffix =
+    Object.keys(filtered).length > 0 ? getQueryParamString(filtered) : "";
+
+  return makeRequest<FunnelsJourneysListResponse>({
+    url: `${API_BASE_URL}${JOURNEYS_BASE}${suffix}`,
     init: {
       method: "GET",
     },
   });
 }
 
-/**
- * Creates a new funnel or journey.
- * TODO: update when backend is ready.
- */
-export async function createFunnelJourney(payload: any) {
+/** GET /v1/funnels/:funnelId */
+export async function fetchFunnelById(funnelId: string) {
+  const encoded = encodeURIComponent(funnelId);
   return makeRequest<FunnelJourneyDetail>({
-    url: `${API_BASE_URL}${FUNNELS_JOURNEYS_LIST_PATH}`,
+    url: `${API_BASE_URL}${FUNNELS_BASE}/${encoded}`,
+    init: {
+      method: "GET",
+    },
+  });
+}
+
+/** GET /v1/journeys/:journeyId */
+export async function fetchJourneyById(journeyId: string) {
+  const encoded = encodeURIComponent(journeyId);
+  return makeRequest<FunnelJourneyDetail>({
+    url: `${API_BASE_URL}${JOURNEYS_BASE}/${encoded}`,
+    init: {
+      method: "GET",
+    },
+  });
+}
+
+/** POST /v1/funnels */
+export async function createFunnel(payload: Record<string, unknown>) {
+  return makeRequest<FunnelJourneyDetail>({
+    url: `${API_BASE_URL}${FUNNELS_BASE}`,
     init: {
       method: "POST",
       body: JSON.stringify(payload),
@@ -134,9 +152,34 @@ export async function createFunnelJourney(payload: any) {
   });
 }
 
-export async function updateFunnelJourney(id: string, payload: any) {
+/** POST /v1/journeys */
+export async function createJourney(payload: Record<string, unknown>) {
   return makeRequest<FunnelJourneyDetail>({
-    url: `${API_BASE_URL}${FUNNELS_JOURNEYS_LIST_PATH}/${id}`,
+    url: `${API_BASE_URL}${JOURNEYS_BASE}`,
+    init: {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  });
+}
+
+/** PUT /v1/funnels/:funnelId */
+export async function updateFunnel(funnelId: string, payload: unknown) {
+  const encoded = encodeURIComponent(funnelId);
+  return makeRequest<FunnelJourneyDetail>({
+    url: `${API_BASE_URL}${FUNNELS_BASE}/${encoded}`,
+    init: {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  });
+}
+
+/** PUT /v1/journeys/:journeyId */
+export async function updateJourney(journeyId: string, payload: unknown) {
+  const encoded = encodeURIComponent(journeyId);
+  return makeRequest<FunnelJourneyDetail>({
+    url: `${API_BASE_URL}${JOURNEYS_BASE}/${encoded}`,
     init: {
       method: "PUT",
       body: JSON.stringify(payload),

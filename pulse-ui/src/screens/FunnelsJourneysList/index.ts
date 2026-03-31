@@ -1,1 +1,2 @@
-export { FunnelsJourneysList } from "./FunnelsJourneysList";
+export { FunnelsList } from "./FunnelsList";
+export { JourneysList } from "./JourneysList";

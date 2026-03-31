@@ -357,7 +357,8 @@ export class MockResponseGenerator {
 
     // Funnel Analysis, listing, & Journey Explorer (before /events catch-all)
     if (
-      pathname.includes("/v1/funnels-journeys") ||
+      pathname.includes("/v1/funnels") ||
+      pathname.includes("/v1/journeys") ||
       pathname.includes("/v1/funnel/") ||
       pathname.includes("/v1/journey/") ||
       pathname.includes("/v1/tags")
