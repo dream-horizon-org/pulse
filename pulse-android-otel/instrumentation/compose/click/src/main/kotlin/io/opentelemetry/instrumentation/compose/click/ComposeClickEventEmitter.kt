@@ -32,8 +32,6 @@ internal class ComposeClickEventEmitter(
     private val densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
     clock: () -> Long = SystemClock::elapsedRealtime,
-    private val viewportWidthPx: Int = 0,
-    private val viewportHeightPx: Int = 0,
 ) {
     // Buffer owns onRage and onEmit so the delayed-emission Handler Runnable can fire without a call-site callback.
     internal val clickEventBuffer =
@@ -74,7 +72,7 @@ internal class ComposeClickEventEmitter(
                 .setAttribute(APP_SCREEN_COORDINATE_X, click.x.toLong())
                 .setAttribute(APP_SCREEN_COORDINATE_Y, click.y.toLong())
                 .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.GOOD)
-                .applyViewportAttrs(click.x, click.y)
+                .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.x, click.y)
         click.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
         record.emit()
         Log.d(
@@ -92,7 +90,7 @@ internal class ComposeClickEventEmitter(
             .setAttribute(APP_SCREEN_COORDINATE_X, click.x.toLong())
             .setAttribute(APP_SCREEN_COORDINATE_Y, click.y.toLong())
             .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.DEAD)
-            .applyViewportAttrs(click.x, click.y)
+            .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.x, click.y)
             .emit()
         Log.d(CLICK_LOG_TAG, "app.widget.click (dead): x=${click.x.toLong()} y=${click.y.toLong()}")
     }
@@ -109,7 +107,7 @@ internal class ComposeClickEventEmitter(
                 .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
                 .setAttribute(PulseAttributes.CLICK_IS_RAGE, true)
                 .setAttribute(PulseAttributes.CLICK_RAGE_COUNT, rage.count.toLong())
-                .applyViewportAttrs(rage.x, rage.y)
+                .applyViewportAttrs(rage.viewportWidthPx, rage.viewportHeightPx, rage.x, rage.y)
         rage.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
         rage.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
         rage.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
@@ -122,15 +120,17 @@ internal class ComposeClickEventEmitter(
     }
 
     private fun io.opentelemetry.api.logs.LogRecordBuilder.applyViewportAttrs(
+        vpWidthPx: Int,
+        vpHeightPx: Int,
         x: Float,
         y: Float,
     ): io.opentelemetry.api.logs.LogRecordBuilder {
-        if (viewportWidthPx > 0 && viewportHeightPx > 0) {
+        if (vpWidthPx > 0 && vpHeightPx > 0) {
             val effectiveDensity = if (densityScale > 0f) densityScale else 1f
-            setAttribute(PulseAttributes.DEVICE_SCREEN_WIDTH, (viewportWidthPx / effectiveDensity).toLong())
-            setAttribute(PulseAttributes.DEVICE_SCREEN_HEIGHT, (viewportHeightPx / effectiveDensity).toLong())
-            setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, x.toDouble() / viewportWidthPx)
-            setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, y.toDouble() / viewportHeightPx)
+            setAttribute(PulseAttributes.DEVICE_SCREEN_WIDTH, (vpWidthPx / effectiveDensity).toLong())
+            setAttribute(PulseAttributes.DEVICE_SCREEN_HEIGHT, (vpHeightPx / effectiveDensity).toLong())
+            setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, x.toDouble() / vpWidthPx)
+            setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, y.toDouble() / vpHeightPx)
         }
         return this
     }

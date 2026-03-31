@@ -28,11 +28,9 @@ internal class ViewClickEventGenerator(
     densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
     clock: () -> Long = SystemClock::elapsedRealtime,
-    viewportWidthPx: Int = 0,
-    viewportHeightPx: Int = 0,
 ) {
     // All buffering, rage detection, and event emission is handled here.
-    internal val clickEmitter = ViewClickEventEmitter(eventLogger, densityScale, rageConfig, clock, viewportWidthPx, viewportHeightPx)
+    internal val clickEmitter = ViewClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
 
     private var windowRef: WeakReference<Window>? = null
     private val gestureTracker = PulseClickGestureTracker()
@@ -72,6 +70,7 @@ internal class ViewClickEventGenerator(
                         null
                     }
 
+                val decorView = windowRef?.get()?.decorView
                 clickEmitter.process(
                     PendingClick(
                         x = tapX,
@@ -82,6 +81,8 @@ internal class ViewClickEventGenerator(
                         widgetName = target?.let { viewToName(it) },
                         widgetId = target?.run { id.toString() },
                         clickContext = clickContext,
+                        viewportWidthPx = decorView?.width ?: 0,
+                        viewportHeightPx = decorView?.height ?: 0,
                     ),
                 )
             }

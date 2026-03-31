@@ -15,7 +15,6 @@ class ComposeClickInstrumentation : AndroidInstrumentation {
     override val name: String = "compose.click"
 
     override fun install(ctx: InstallationContext) {
-        val displayMetrics = ctx.application.resources.displayMetrics
         ctx.application.registerActivityLifecycleCallbacks(
             ComposeClickActivityCallback(
                 ComposeClickEventGenerator(
@@ -24,10 +23,8 @@ class ComposeClickInstrumentation : AndroidInstrumentation {
                         .loggerBuilder("io.opentelemetry.android.instrumentation.compose.click")
                         .build(),
                     isContextEnrichmentEnabled = ClickContextEnrichmentConfig.isComposeClickContextEnrichmentEnabled,
-                    densityScale = displayMetrics.density,
+                    densityScale = ctx.application.resources.displayMetrics.density,
                     rageConfig = ClickContextEnrichmentConfig.rageConfig,
-                    viewportWidthPx = displayMetrics.widthPixels,
-                    viewportHeightPx = displayMetrics.heightPixels,
                 ),
             ),
         )

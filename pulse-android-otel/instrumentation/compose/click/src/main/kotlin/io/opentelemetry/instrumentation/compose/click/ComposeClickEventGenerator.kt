@@ -27,11 +27,9 @@ internal class ComposeClickEventGenerator(
     densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
     clock: () -> Long = SystemClock::elapsedRealtime,
-    viewportWidthPx: Int = 0,
-    viewportHeightPx: Int = 0,
 ) {
     // All buffering, rage detection, and event emission is handled here.
-    internal val clickEmitter = ComposeClickEventEmitter(eventLogger, densityScale, rageConfig, clock, viewportWidthPx, viewportHeightPx)
+    internal val clickEmitter = ComposeClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
 
     private var windowRef: WeakReference<Window>? = null
     private val gestureTracker = PulseClickGestureTracker()
@@ -67,6 +65,8 @@ internal class ComposeClickEventGenerator(
                 val tapEpochMs = System.currentTimeMillis()
 
                 // Build PendingClick — widgetName/widgetId/clickContext only populated on a hit.
+                val vpWidthPx = decorView.width
+                val vpHeightPx = decorView.height
                 val pending =
                     tapTarget?.let { target ->
                         val node = target.node
@@ -91,6 +91,8 @@ internal class ComposeClickEventGenerator(
                             widgetName = composeTapTargetDetector.nodeToName(node),
                             widgetId = node.semanticsId.toString(),
                             clickContext = clickContext,
+                            viewportWidthPx = vpWidthPx,
+                            viewportHeightPx = vpHeightPx,
                         )
                     } ?: PendingClick(
                         x = windowX,
@@ -98,6 +100,8 @@ internal class ComposeClickEventGenerator(
                         timestampMs = clickEmitter.currentTimeMs(),
                         tapEpochMs = tapEpochMs,
                         hasTarget = false,
+                        viewportWidthPx = vpWidthPx,
+                        viewportHeightPx = vpHeightPx,
                     )
 
                 clickEmitter.process(pending)

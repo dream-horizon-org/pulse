@@ -25,6 +25,8 @@ public data class PendingClick(
     val widgetName: String? = null,
     val widgetId: String? = null,
     val clickContext: String? = null,
+    val viewportWidthPx: Int = 0, // decorView.width at tap time — app window, not device screen
+    val viewportHeightPx: Int = 0,
 )
 
 /**
@@ -44,6 +46,8 @@ public data class RageEvent(
     val widgetName: String? = null,
     val widgetId: String? = null,
     val clickContext: String? = null,
+    val viewportWidthPx: Int = 0,
+    val viewportHeightPx: Int = 0,
 )
 
 /**
@@ -174,6 +178,8 @@ class ClickEventBuffer(
                     widgetName = click.widgetName,
                     widgetId = click.widgetId,
                     clickContext = click.clickContext,
+                    viewportWidthPx = click.viewportWidthPx,
+                    viewportHeightPx = click.viewportHeightPx,
                 )
             buffer.clear()
             isRageActive = true
