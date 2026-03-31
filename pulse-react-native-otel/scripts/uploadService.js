@@ -4,6 +4,7 @@ const {
   getPlatform,
   validateFiles,
   validateVersionVersionCodeBundleId,
+  prepareDsymForUpload,
 } = require('./utils');
 
 function buildMetadata(files, appVersion, versionCode, platform, bundleId) {
@@ -24,9 +25,23 @@ async function uploadFiles(commandName, options) {
   }
 
   const platform = getPlatform(commandName);
-  const files = validateFiles(options);
+  const rawFiles = validateFiles(options);
   const version =
     platform === 'ios' ? options.bundleVersion : options.appVersion;
+
+  const cleanups = [];
+  const files = rawFiles.map((file) => {
+    if (file.optionName === 'dsym') {
+      const prep = prepareDsymForUpload(file.path);
+      cleanups.push(prep.cleanup);
+      return {
+        ...file,
+        path: prep.path,
+        fileName: prep.fileName,
+      };
+    }
+    return file;
+  });
 
   const metadata = buildMetadata(
     files,
@@ -54,64 +69,71 @@ async function uploadFiles(commandName, options) {
   });
   formData.append('metadata', metadataBlob, 'metadata.txt');
 
-  for (const file of files) {
-    const fileBuffer = fs.readFileSync(file.path);
-    const fileBlob = new Blob([fileBuffer]);
-    formData.append('fileContent', fileBlob, file.fileName);
-  }
-
-  console.log(`\n📤 Uploading ${files.length} file(s) to ${options.apiUrl}...`);
-  console.log(`   Command: ${commandName}`);
-  console.log(`   Platform: ${platform}`);
-  files.forEach((file) => {
-    console.log(`   - ${file.fileName} (${file.metadataType})`);
-  });
-
-  if (options.debug) {
-    console.log('\n🔍 Debug Info:');
-    console.log(`   API URL: ${options.apiUrl}`);
-    console.log(`   App Version: ${version}`);
-    console.log(`   Version Code: ${options.versionCode}`);
-    if (options.bundleId) {
-      console.log(`   Bundle ID: ${options.bundleId}`);
+  // try/finally: remove temp dSYM zips after upload or on read/fetch errors
+  try {
+    for (const file of files) {
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileBlob = new Blob([fileBuffer]);
+      formData.append('fileContent', fileBlob, file.fileName);
     }
+
+    console.log(`\n📤 Uploading ${files.length} file(s) to ${options.apiUrl}...`);
+    console.log(`   Command: ${commandName}`);
+    console.log(`   Platform: ${platform}`);
     files.forEach((file) => {
-      const stats = fs.statSync(file.path);
-      console.log(
-        `   File: ${file.fileName} (${(stats.size / 1024).toFixed(2)} KB)`
-      );
-      console.log(`   File Path: ${file.path}`);
+      console.log(`   - ${file.fileName} (${file.metadataType})`);
     });
+
+    if (options.debug) {
+      console.log('\n🔍 Debug Info:');
+      console.log(`   API URL: ${options.apiUrl}`);
+      console.log(`   App Version: ${version}`);
+      console.log(`   Version Code: ${options.versionCode}`);
+      if (options.bundleId) {
+        console.log(`   Bundle ID: ${options.bundleId}`);
+      }
+      files.forEach((file) => {
+        const stats = fs.statSync(file.path);
+        console.log(
+          `   File: ${file.fileName} (${(stats.size / 1024).toFixed(2)} KB)`
+        );
+        console.log(`   File Path: ${file.path}`);
+      });
+    }
+
+    const response = await fetch(options.apiUrl, {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': options.apiKey,
+      },
+      body: formData,
+    });
+
+    const responseData = await response.json().catch(async () => {
+      const text = await response.text();
+      return text ? { message: text } : {};
+    });
+
+    if (options.debug && responseData && Object.keys(responseData).length > 0) {
+      console.log('\n📥 Backend Response:');
+      console.log(`   Status: ${response.status} ${response.statusText}`);
+      console.log(`   Response: ${JSON.stringify(responseData, null, 2)}`);
+    }
+
+    if (!response.ok) {
+      const errorText =
+        responseData.error || responseData.message || 'Unknown error';
+      throw new Error(
+        `Upload failed: HTTP ${response.status} ${response.statusText}. ${errorText}`
+      );
+    }
+
+    console.log('\n✓ Files uploaded successfully');
+  } finally {
+    for (const cleanup of cleanups) {
+      cleanup();
+    }
   }
-
-  const response = await fetch(options.apiUrl, {
-    method: 'POST',
-    headers: {
-      'X-API-KEY': options.apiKey,
-    },
-    body: formData,
-  });
-
-  const responseData = await response.json().catch(async () => {
-    const text = await response.text();
-    return text ? { message: text } : {};
-  });
-
-  if (options.debug && responseData && Object.keys(responseData).length > 0) {
-    console.log('\n📥 Backend Response:');
-    console.log(`   Status: ${response.status} ${response.statusText}`);
-    console.log(`   Response: ${JSON.stringify(responseData, null, 2)}`);
-  }
-
-  if (!response.ok) {
-    const errorText =
-      responseData.error || responseData.message || 'Unknown error';
-    throw new Error(
-      `Upload failed: HTTP ${response.status} ${response.statusText}. ${errorText}`
-    );
-  }
-
-  console.log('\n✓ Files uploaded successfully');
 }
 
 async function upload(commandName, options) {

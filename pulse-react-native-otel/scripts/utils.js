@@ -1,11 +1,14 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { execFileSync } = require('child_process');
 const packageJson = require('../package.json');
 
 const FILE_TYPE_TO_BACKEND_TYPE = {
   'js-sourcemap': 'JS',
-  'mapping': 'mapping',
+  mapping: 'mapping',
   'android-ndk': 'ndk',
+  dsym: 'dsym',
 };
 
 function checkAndAssertNodeVersion() {
@@ -65,11 +68,16 @@ function validateFiles(options) {
       return;
     }
 
+    let metadataType = FILE_TYPE_TO_BACKEND_TYPE[fileOption];
+    if (fileOption === 'dsym') {
+      metadataType = validateDsymPathType(filePath);
+    }
+
     files.push({
       optionName: fileOption,
       path: filePath,
       fileName: path.basename(filePath),
-      metadataType: FILE_TYPE_TO_BACKEND_TYPE[fileOption],
+      metadataType,
     });
   });
 
@@ -107,14 +115,84 @@ function validateVersionVersionCodeBundleId(options, commandName) {
     );
   }
 
-  if (options.bundleId) {
-    const bundleIdPattern = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/i;
-    if (!bundleIdPattern.test(options.bundleId)) {
+  if (options.bundleId !== undefined && options.bundleId !== null) {
+    const trimmed = String(options.bundleId).trim();
+    if (trimmed.length === 0) {
       throw new Error(
-        `Invalid bundle-id: "${options.bundleId}". Must be in reverse domain notation (e.g., com.example.app).`
+        `Invalid bundle-id: "${options.bundleId}". Must be a non-empty string.`
       );
     }
   }
+}
+
+function pulseUploadDetectFileType(filePath) {
+  const base = path.basename(filePath);
+  const lower = base.toLowerCase();
+  const ext = path.extname(base).slice(1).toLowerCase();
+  if (lower.endsWith('.dsym') || ext === 'dsym') {
+    return 'dsym';
+  }
+  return 'unknown';
+}
+
+function validateDsymPathType(filePath) {
+  const detected = pulseUploadDetectFileType(filePath);
+  if (detected === 'dsym') {
+    return 'dsym';
+  }
+  const base = path.basename(filePath);
+  console.warn(
+    `warning: dSYM path does not look like a .dSYM bundle (${base}); upload may be rejected.`
+  );
+  return 'unknown';
+}
+
+/**
+ * Zip a dSYM bundle directory to a temp file, or pass through a non-empty file.
+ */
+function prepareDsymForUpload(originalPath) {
+  const stat = fs.statSync(originalPath);
+  if (stat.isDirectory()) {
+    const parent = path.dirname(originalPath);
+    const base = path.basename(originalPath);
+    const zipPath = path.join(os.tmpdir(), `${base}.zip`);
+    if (fs.existsSync(zipPath)) {
+      fs.unlinkSync(zipPath);
+    }
+    execFileSync('/usr/bin/zip', ['-r', '-q', zipPath, base], {
+      cwd: parent,
+    });
+    if (!fs.existsSync(zipPath)) {
+      throw new Error('Failed to create zip archive: zip did not produce a file');
+    }
+    const sz = fs.statSync(zipPath).size;
+    if (sz === 0) {
+      fs.unlinkSync(zipPath);
+      throw new Error(`Zip archive is empty: ${zipPath}`);
+    }
+    return {
+      path: zipPath,
+      fileName: `${base}.zip`,
+      cleanup: () => {
+        try {
+          fs.unlinkSync(zipPath);
+        } catch {
+          /* ignore */
+        }
+      },
+    };
+  }
+  if (stat.isFile()) {
+    if (stat.size === 0) {
+      throw new Error(`File is empty: ${originalPath}`);
+    }
+    return {
+      path: originalPath,
+      fileName: path.basename(originalPath),
+      cleanup: () => {},
+    };
+  }
+  throw new Error(`Not a file or directory: ${originalPath}`);
 }
 
 module.exports = {
@@ -122,4 +200,5 @@ module.exports = {
   getPlatform,
   validateFiles,
   validateVersionVersionCodeBundleId,
+  prepareDsymForUpload,
 };
