@@ -29,18 +29,29 @@ export function formatDuration(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
 }
 
-export function getDateRangeFromPreset(preset: string): { start: string; end: string } {
+export function getDateRangeFromPreset(preset: string): {
+  start: string;
+  end: string;
+} {
   const now = new Date();
   const end = now.toISOString();
   let start: string;
   switch (preset) {
     case "today":
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      start = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+      ).toISOString();
       break;
     case "yesterday": {
       const y = new Date(now);
       y.setDate(y.getDate() - 1);
-      start = new Date(y.getFullYear(), y.getMonth(), y.getDate()).toISOString();
+      start = new Date(
+        y.getFullYear(),
+        y.getMonth(),
+        y.getDate(),
+      ).toISOString();
       break;
     }
     case "14d":
@@ -58,4 +69,24 @@ export function getDateRangeFromPreset(preset: string): { start: string; end: st
       break;
   }
   return { start, end };
+}
+
+/** Rolling / once window for funnel & journey create flows (shared with JourneyExplorer). */
+export function buildRollingTimeRange(
+  rollingType: "RECURRING" | "ONCE",
+  dateRange: string,
+  customStartDate: Date | null,
+  customEndDate: Date | null,
+): { start: string; end: string } {
+  if (rollingType === "ONCE") {
+    return {
+      start: customStartDate
+        ? customStartDate.toISOString()
+        : new Date().toISOString(),
+      end: customEndDate
+        ? customEndDate.toISOString()
+        : new Date().toISOString(),
+    };
+  }
+  return getDateRangeFromPreset(dateRange);
 }

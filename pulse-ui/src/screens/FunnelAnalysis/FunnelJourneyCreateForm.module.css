@@ -1,0 +1,200 @@
+/* Matches CriticalInteractionForm: ~25% gray stepper column, white form column,
+   form content max-width ~36rem, nav directly under fields (not viewport-bottom). */
+.createFormRoot {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.createFormMain {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0 var(--mantine-spacing-lg);
+}
+
+.createFormHeading {
+    margin-left: var(--mantine-spacing-lg);
+    padding-top: var(--mantine-spacing-xs);
+    padding-bottom: var(--mantine-spacing-xs);
+    flex-shrink: 0;
+}
+
+.createFormDivider {
+    margin-top: 3%;
+    flex-shrink: 0;
+}
+
+.createFormBody {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    margin-top: var(--mantine-spacing-xs);
+    align-items: stretch;
+    /* One gray band behind stepper + form so the white panels align on the same baseline */
+    background-color: var(--mantine-color-gray-0);
+    padding-top: var(--mantine-spacing-md);
+    box-sizing: border-box;
+}
+
+/* Left column: gray continues from parent; no extra top padding (matches form column start) */
+.stepperContainer {
+    display: flex;
+    flex-direction: row;
+    width: 25%;
+    min-width: 200px;
+    flex-shrink: 0;
+    align-self: stretch;
+    padding: 0 0 var(--mantine-spacing-lg);
+    background-color: transparent;
+}
+
+.stepper {
+    width: 100%;
+}
+
+/* Stepper label matches right-hand step section titles (.formStepTitle) */
+.stepper :global(.mantine-Stepper-stepLabel) {
+    font-weight: 600;
+    font-size: var(--mantine-font-size-md);
+    line-height: 1.35;
+    color: var(--mantine-color-dark-7);
+}
+
+.stepper :global(.mantine-Stepper-stepDescription) {
+    font-size: var(--mantine-font-size-sm);
+    color: var(--mantine-color-dimmed);
+    line-height: 1.45;
+    margin-top: 4px;
+    font-weight: 400;
+}
+
+.stepperItem {
+    width: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: flex-start;
+    padding-block: var(--mantine-spacing-xs);
+}
+
+/* Right column: step headings (Funnel basics, Time window, …) */
+.formStepTitle {
+    font-size: var(--mantine-font-size-md);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--mantine-color-dark-7);
+    margin: 0 0 var(--mantine-spacing-sm);
+}
+
+.stepperStepWrapper {
+    margin-left: var(--mantine-spacing-lg);
+}
+
+/* Scroll area is transparent; white card is .formPanelInner (aligns with active step highlight) */
+.formPanel {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: transparent;
+}
+
+/* Natural height — do not flex-grow (avoids pushing nav to viewport bottom) */
+.formPanelInner {
+    flex: 0 0 auto;
+    width: 100%;
+    padding: var(--mantine-spacing-md) clamp(1rem, 2vw, 2rem) var(--mantine-spacing-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-sizing: border-box;
+    background: #fff;
+    border-radius: var(--mantine-radius-sm) 0 0 var(--mantine-radius-sm);
+}
+
+.formContent {
+    width: 100%;
+    max-width: 36rem;
+    min-width: 0;
+}
+
+/* Same width as form fields; spacing like JourneyName nextButtonContainer */
+.stepNavEmbedded {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 36rem;
+    margin-top: 2.25rem;
+    padding-bottom: var(--mantine-spacing-md);
+    box-sizing: border-box;
+}
+
+/* Final wizard step: filters + message only */
+.filtersCreateStep {
+    align-items: flex-start;
+    width: 100%;
+}
+
+.filterBarCreate {
+    padding: 16px 20px !important;
+    border-radius: var(--mantine-radius-md);
+    border: 1px solid var(--mantine-color-gray-3) !important;
+    background: #fafbfc !important;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.filtersCreateIntro {
+    margin: 0;
+    font-size: var(--mantine-font-size-md);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--mantine-color-dark-7);
+    letter-spacing: -0.01em;
+}
+
+.filtersCreateHint {
+    margin: 0;
+    font-size: var(--mantine-font-size-sm);
+    color: var(--mantine-color-dimmed);
+    line-height: 1.55;
+    max-width: 32rem;
+}
+
+.finalStepCard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--mantine-spacing-sm);
+    padding: var(--mantine-spacing-xl);
+    background: #fff;
+    border: 1px solid var(--mantine-color-gray-3);
+    border-radius: var(--mantine-radius-md);
+    width: 100%;
+    max-width: 28rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.finalCanvas {
+    flex: 0 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.finalCanvasInner {
+    flex: 0 1 auto;
+    min-height: auto;
+    overflow: visible;
+    padding: 0;
+}

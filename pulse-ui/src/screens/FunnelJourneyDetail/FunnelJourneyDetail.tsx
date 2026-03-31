@@ -1,56 +1,41 @@
-import { useState } from "react";
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Group,
-  Loader,
-  Paper,
-  SimpleGrid,
-  Text,
-  Title,
-} from "@mantine/core";
-import { IconArrowLeft, IconChartFunnel, IconRoute } from "@tabler/icons-react";
-import { generatePath, useNavigate, useParams } from "react-router-dom";
-import dayjs from "dayjs";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActionIcon, Badge, Box, Group, Loader, Text } from "@mantine/core";
+import { IconArrowLeft } from "@tabler/icons-react";
+import { useNavigate, useParams } from "react-router-dom";
 import ReactECharts from "echarts-for-react";
-import { useMemo } from "react";
-import { ROUTES } from "../../constants";
 import { useGetFunnelJourneyDetail } from "../../hooks/useGetFunnelJourneyDetail";
 import { useUpdateFunnelJourney } from "../../hooks/useUpdateFunnelJourney";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
+import type { FunnelStep } from "../../hooks/useGetFunnelData";
 import {
   useGetFunnelData,
-  useGetFunnelTrend,
-  useGetJourneyData,
   useGetFunnelEvents,
   useGetFunnelFilters,
+  useGetFunnelTrend,
+  useGetJourneyData,
 } from "../../hooks/useGetFunnelData";
-import type { FunnelStep } from "../../hooks/useGetFunnelData";
 import { getDateRangeFromPreset } from "../FunnelAnalysis/mockData";
 import { FunnelVisualization } from "../FunnelAnalysis/components/FunnelVisualization";
 import { FunnelDataTable } from "../FunnelAnalysis/components/FunnelDataTable";
 import { buildJourneySankeyOption } from "../FunnelAnalysis/utils/buildJourneySankeyOption";
-import { FunnelBuilder, BuilderStep } from "../FunnelAnalysis/components/FunnelBuilder";
+import { FunnelBuilder } from "../FunnelAnalysis/components/FunnelBuilder";
 import { JourneyExplorer } from "../FunnelAnalysis/components/JourneyExplorer";
 import { GlobalFilterBar } from "../FunnelAnalysis/components/GlobalFilterBar";
 import funnelClasses from "../FunnelAnalysis/FunnelAnalysis.module.css";
 import {
-  BACK_TO_LIST,
+  BACK_NAV_LABEL,
   NOT_FOUND_DESCRIPTION,
   NOT_FOUND_TITLE,
 } from "./FunnelJourneyDetail.constants";
 import classes from "./FunnelJourneyDetail.module.css";
 
-const MOCK_FUNNEL_STEP_EVENT_NAMES = [
-  "Screen_View: Home",
-  "Screen_View: Product Detail",
-  "Tap: Add to Cart",
-  "Tap: Checkout",
-  "Tap: Place Order",
-] as const;
-
-const MOCK_JOURNEY_ANCHOR_EVENT = "Screen_View: Home";
+function mapDetailFilters(detail: any) {
+  return (detail.filters || []).map((f: any) => ({
+    field: f.field,
+    operator: "EQ" as const,
+    value: f.value,
+  }));
+}
 
 function FunnelDetailView({ detail }: { detail: any }) {
   const [name, setName] = useState(detail.name || "");
@@ -59,50 +44,65 @@ function FunnelDetailView({ detail }: { detail: any }) {
   const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
     detail.rollingType || "RECURRING",
   );
-  
+
   const [dateRange, setDateRange] = useState("7d");
   const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
   const [expiryDate, setExpiryDate] = useState<Date | null>(
-    detail.expiryDate ? new Date(detail.expiryDate) : null
+    detail.expiryDate ? new Date(detail.expiryDate) : null,
   );
-  
+
   const [filters, setFilters] = useState<any[]>(
-    (detail.filters || []).map((f: any) => ({ property: f.field, value: f.value }))
+    (detail.filters || []).map((f: any) => ({
+      property: f.field,
+      value: f.value,
+    })),
   );
 
   const [steps, setSteps] = useState<any[]>(
     detail.steps && detail.steps.length > 0
-      ? detail.steps.map((s: any, i: number) => ({ id: `s-${i}`, eventName: s.eventName }))
+      ? detail.steps.map((s: any, i: number) => ({
+          id: `s-${i}`,
+          eventName: s.eventName,
+        }))
       : [
           { id: "s-1", eventName: "" },
           { id: "s-2", eventName: "" },
-        ]
+        ],
   );
-  
+
   const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
     detail.funnelType === "UNORDERED" ? "unordered" : "ordered",
   );
   const [conversionWindow, setConversionWindow] = useState(
-    detail.windowSeconds ? String(detail.windowSeconds) : "86400"
+    detail.windowSeconds ? String(detail.windowSeconds) : "86400",
   );
-  const [shouldFetch, setShouldFetch] = useState(true);
+  const [, setShouldFetch] = useState(false);
+  const [initialFunnelDataFetched, setInitialFunnelDataFetched] =
+    useState(false);
 
   const { data: eventsData } = useGetFunnelEvents();
   const availableEvents = eventsData?.data?.events ?? [];
 
   const { data: filtersData } = useGetFunnelFilters();
   const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
-  const filterOptions = EXPECTED_FILTER_KEYS.reduce((acc, key) => {
-    acc[key] = filtersData?.data?.filters?.[key] ?? [];
-    return acc;
-  }, {} as Record<string, string[]>);
+  const filterOptions = EXPECTED_FILTER_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = filtersData?.data?.filters?.[key] ?? [];
+      return acc;
+    },
+    {} as Record<string, string[]>,
+  );
 
   const timeRange = useMemo(() => {
     if (rollingType === "ONCE") {
       return {
-        start: customStartDate ? customStartDate.toISOString() : new Date().toISOString(),
-        end: customEndDate ? customEndDate.toISOString() : new Date().toISOString(),
+        start: customStartDate
+          ? customStartDate.toISOString()
+          : new Date().toISOString(),
+        end: customEndDate
+          ? customEndDate.toISOString()
+          : new Date().toISOString(),
       };
     }
     return getDateRangeFromPreset(dateRange);
@@ -110,10 +110,12 @@ function FunnelDetailView({ detail }: { detail: any }) {
 
   const apiSteps: FunnelStep[] = useMemo(
     () =>
-      steps.filter(s => s.eventName).map((s) => ({
-        eventName: s.eventName,
-        dataType: "LOGS" as const,
-      })),
+      steps
+        .filter((s) => s.eventName)
+        .map((s) => ({
+          eventName: s.eventName,
+          dataType: "LOGS" as const,
+        })),
     [steps],
   );
 
@@ -127,38 +129,109 @@ function FunnelDetailView({ detail }: { detail: any }) {
     [filters],
   );
 
-  const requestBody = useMemo(
+  // const requestBody = useMemo(
+  //   () => ({
+  //     steps: apiSteps,
+  //     timeRange,
+  //     mode: "UNIQUE_USERS" as const,
+  //     windowSeconds: parseInt(conversionWindow, 10),
+  //     filters: apiFilters,
+  //   }),
+  //   [apiSteps, timeRange, conversionWindow, apiFilters],
+  // );
+
+  /** Server-saved snapshot only — keeps chart stable when the form (e.g. rolling type) changes */
+  const stableFunnelRequestBody = useMemo(
     () => ({
-      steps: apiSteps,
-      timeRange,
+      steps: (detail.steps || []).map((s: any) => ({
+        eventName: s.eventName,
+        dataType: "LOGS" as const,
+      })),
       mode: "UNIQUE_USERS" as const,
-      windowSeconds: parseInt(conversionWindow, 10),
-      filters: apiFilters,
+      timeRange: detail.timeRange ?? getDateRangeFromPreset("7d"),
+      windowSeconds: detail.windowSeconds ?? 86400,
+      filters: mapDetailFilters(detail),
     }),
-    [apiSteps, timeRange, conversionWindow, apiFilters],
+    [
+      detail.id,
+      detail.steps,
+      detail.timeRange,
+      detail.windowSeconds,
+      detail.filters,
+    ],
   );
+
+  const visualizationTimeRange = useMemo(
+    () => detail.timeRange ?? getDateRangeFromPreset("7d"),
+    [detail.id, detail.timeRange],
+  );
+
+  useEffect(() => {
+    setInitialFunnelDataFetched(false);
+  }, [detail.id]);
+
+  useEffect(() => {
+    if (
+      (detail.rollingType || "RECURRING") === "ONCE" &&
+      detail.timeRange?.start &&
+      detail.timeRange?.end
+    ) {
+      setCustomStartDate(new Date(detail.timeRange.start));
+      setCustomEndDate(new Date(detail.timeRange.end));
+    }
+  }, [detail.id, detail.rollingType, detail.timeRange]);
 
   const isChanged = useMemo(() => {
     if (name !== detail.name) return true;
     if (description !== detail.description) return true;
     if (JSON.stringify(tags) !== JSON.stringify(detail.tags || [])) return true;
     if (rollingType !== (detail.rollingType || "RECURRING")) return true;
-    if (funnelMode !== (detail.funnelType === "UNORDERED" ? "unordered" : "ordered")) return true;
+    if (
+      funnelMode !==
+      (detail.funnelType === "UNORDERED" ? "unordered" : "ordered")
+    )
+      return true;
     if (conversionWindow !== String(detail.windowSeconds || 86400)) return true;
-    if (expiryDate?.toISOString() !== (detail.expiryDate ? new Date(detail.expiryDate).toISOString() : undefined)) return true;
-    
-    const currentFilters = filters.map(f => ({ field: f.property, value: f.value }));
-    const originalFilters = (detail.filters || []).map((f: any) => ({ field: f.field, value: f.value }));
-    if (JSON.stringify(currentFilters) !== JSON.stringify(originalFilters)) return true;
-    
-    const currentSteps = steps.map(s => s.eventName).filter(Boolean);
-    const originalSteps = (detail.steps || []).map((s: any) => s.eventName);
-    if (JSON.stringify(currentSteps) !== JSON.stringify(originalSteps)) return true;
-    
-    return false;
-  }, [name, description, tags, rollingType, funnelMode, conversionWindow, expiryDate, filters, steps, detail]);
+    if (
+      expiryDate?.toISOString() !==
+      (detail.expiryDate
+        ? new Date(detail.expiryDate).toISOString()
+        : undefined)
+    )
+      return true;
 
-  const { mutate: updateFunnel, isPending: isUpdating } = useUpdateFunnelJourney();
+    const currentFilters = filters.map((f) => ({
+      field: f.property,
+      value: f.value,
+    }));
+    const originalFilters = (detail.filters || []).map((f: any) => ({
+      field: f.field,
+      value: f.value,
+    }));
+    if (JSON.stringify(currentFilters) !== JSON.stringify(originalFilters))
+      return true;
+
+    const currentSteps = steps.map((s) => s.eventName).filter(Boolean);
+    const originalSteps = (detail.steps || []).map((s: any) => s.eventName);
+    if (JSON.stringify(currentSteps) !== JSON.stringify(originalSteps))
+      return true;
+
+    return false;
+  }, [
+    name,
+    description,
+    tags,
+    rollingType,
+    funnelMode,
+    conversionWindow,
+    expiryDate,
+    filters,
+    steps,
+    detail,
+  ]);
+
+  const { mutate: updateFunnel, isPending: isUpdating } =
+    useUpdateFunnelJourney();
 
   const handleUpdate = () => {
     updateFunnel({
@@ -173,20 +246,38 @@ function FunnelDetailView({ detail }: { detail: any }) {
         timeRange,
         windowSeconds: parseInt(conversionWindow, 10),
         filters: apiFilters,
-        expiryDate: rollingType === "RECURRING" && expiryDate ? expiryDate.toISOString() : undefined,
-      }
+        expiryDate:
+          rollingType === "RECURRING" && expiryDate
+            ? expiryDate.toISOString()
+            : undefined,
+      },
     });
   };
 
+  const vizStatuses = ["ACTIVE", "COMPLETED", "STOPPED"];
+
   const { data: funnelRes, isLoading: funnelLoading } = useGetFunnelData({
-    requestBody,
-    enabled: shouldFetch && apiSteps.length >= 2,
+    requestBody: stableFunnelRequestBody,
+    enabled:
+      !initialFunnelDataFetched &&
+      (detail.steps?.length ?? 0) >= 2 &&
+      vizStatuses.includes(detail.status),
   });
 
   const { data: trendRes, isLoading: trendLoading } = useGetFunnelTrend({
-    requestBody,
-    enabled: shouldFetch && apiSteps.length >= 2,
+    requestBody: stableFunnelRequestBody,
+    enabled:
+      !initialFunnelDataFetched &&
+      (detail.steps?.length ?? 0) >= 2 &&
+      vizStatuses.includes(detail.status),
   });
+
+  // Set initial funnel data fetched flag when data is loaded
+  useEffect(() => {
+    if ((funnelRes || trendRes) && !initialFunnelDataFetched) {
+      setInitialFunnelDataFetched(true);
+    }
+  }, [funnelRes, trendRes, initialFunnelDataFetched]);
 
   const funnelResult = funnelRes?.data;
   const trendResult = trendRes?.data;
@@ -202,8 +293,14 @@ function FunnelDetailView({ detail }: { detail: any }) {
         }}
         filterOptions={filterOptions}
       />
-      <Box className={funnelClasses.funnelLayout} style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
-        <Box className={funnelClasses.sidebar} style={{ overflowY: "auto", height: "100%", flexShrink: 0 }}>
+      <Box
+        className={funnelClasses.funnelLayout}
+        style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}
+      >
+        <Box
+          className={funnelClasses.sidebar}
+          style={{ overflowY: "auto", height: "100%", flexShrink: 0 }}
+        >
           <FunnelBuilder
             name={name}
             onNameChange={setName}
@@ -222,11 +319,17 @@ function FunnelDetailView({ detail }: { detail: any }) {
             expiryDate={expiryDate}
             onExpiryDateChange={setExpiryDate}
             steps={steps}
-            onStepsChange={(s) => { setSteps(s); setShouldFetch(false); }}
+            onStepsChange={(s) => {
+              setSteps(s);
+              setShouldFetch(false);
+            }}
             funnelMode={funnelMode}
             onFunnelModeChange={setFunnelMode}
             conversionWindow={conversionWindow}
-            onConversionWindowChange={(v) => { setConversionWindow(v); setShouldFetch(false); }}
+            onConversionWindowChange={(v) => {
+              setConversionWindow(v);
+              setShouldFetch(false);
+            }}
             onAnalyze={handleUpdate}
             isCreating={isUpdating}
             availableEvents={availableEvents}
@@ -234,15 +337,27 @@ function FunnelDetailView({ detail }: { detail: any }) {
             isValid={isChanged}
           />
         </Box>
-        <Box className={funnelClasses.mainCanvas} style={{ minHeight: 560, padding: 0, overflowY: "auto", height: "100%", flex: 1 }}>
+        <Box
+          className={funnelClasses.mainCanvas}
+          style={{
+            minHeight: 560,
+            padding: 0,
+            overflowY: "auto",
+            height: "100%",
+            flex: 1,
+          }}
+        >
           {detail.status === "CREATING" || detail.status === "UPDATING" ? (
             <Box className={funnelClasses.emptyState} py={60}>
               <Loader color="blue" size="lg" />
               <Text size="lg" fw={700} c="dark.6" mt="md">
-                {detail.status === "CREATING" ? "Computing" : "Updating"} Funnel Data
+                {detail.status === "CREATING" ? "Computing" : "Updating"} Funnel
+                Data
               </Text>
               <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
-                Your funnel is currently being {detail.status === "CREATING" ? "computed" : "updated"} on the server. This might take a few moments. Please check back later.
+                Your funnel is currently being{" "}
+                {detail.status === "CREATING" ? "computed" : "updated"} on the
+                server. This might take a few moments. Please check back later.
               </Text>
             </Box>
           ) : isLoading ? (
@@ -265,7 +380,7 @@ function FunnelDetailView({ detail }: { detail: any }) {
               />
               <FunnelDataTable
                 steps={funnelResult.steps}
-                timeRange={timeRange}
+                timeRange={visualizationTimeRange}
                 apiSteps={apiSteps}
               />
             </>
@@ -289,35 +404,43 @@ function JourneyDetailView({ detail }: { detail: any }) {
   const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
     detail.rollingType || "RECURRING",
   );
-  
+
   const [dateRange, setDateRange] = useState("7d");
   const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
   const [expiryDate, setExpiryDate] = useState<Date | null>(
-    detail.expiryDate ? new Date(detail.expiryDate) : null
-  );
-  
-  const [filters, setFilters] = useState<any[]>(
-    (detail.filters || []).map((f: any) => ({ property: f.field, value: f.value }))
+    detail.expiryDate ? new Date(detail.expiryDate) : null,
   );
 
-  const [shouldFetch, setShouldFetch] = useState(true);
+  const [filters, setFilters] = useState<any[]>(
+    (detail.filters || []).map((f: any) => ({
+      property: f.field,
+      value: f.value,
+    })),
+  );
 
   const { data: eventsData } = useGetFunnelEvents();
   const availableEvents = eventsData?.data?.events ?? [];
 
   const { data: filtersData } = useGetFunnelFilters();
   const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
-  const filterOptions = EXPECTED_FILTER_KEYS.reduce((acc, key) => {
-    acc[key] = filtersData?.data?.filters?.[key] ?? [];
-    return acc;
-  }, {} as Record<string, string[]>);
+  const filterOptions = EXPECTED_FILTER_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = filtersData?.data?.filters?.[key] ?? [];
+      return acc;
+    },
+    {} as Record<string, string[]>,
+  );
 
   const timeRange = useMemo(() => {
     if (rollingType === "ONCE") {
       return {
-        start: customStartDate ? customStartDate.toISOString() : new Date().toISOString(),
-        end: customEndDate ? customEndDate.toISOString() : new Date().toISOString(),
+        start: customStartDate
+          ? customStartDate.toISOString()
+          : new Date().toISOString(),
+        end: customEndDate
+          ? customEndDate.toISOString()
+          : new Date().toISOString(),
       };
     }
     return getDateRangeFromPreset(dateRange);
@@ -333,19 +456,31 @@ function JourneyDetailView({ detail }: { detail: any }) {
     [filters],
   );
 
-  const [anchorEvent, setAnchorEvent] = useState(detail.anchorEvent || MOCK_JOURNEY_ANCHOR_EVENT);
-  const [direction, setDirection] = useState<"forward" | "reverse">(detail.direction || "forward");
+  const [anchorEvent, setAnchorEvent] = useState(detail.anchorEvent || "");
+  const [direction, setDirection] = useState<"forward" | "reverse">(
+    detail.direction || "forward",
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [depth, setDepth] = useState(detail.depth || 5);
 
-  const requestBody = useMemo(
+  const [initialDataFetched, setInitialDataFetched] = useState(false);
+
+  const stableJourneyRequestBody = useMemo(
     () => ({
-      direction,
-      anchorEvent,
-      depth,
-      timeRange,
-      filters: apiFilters,
+      direction: detail.direction || "forward",
+      anchorEvent: detail.anchorEvent || "",
+      depth: detail.depth ?? 5,
+      timeRange: detail.timeRange ?? getDateRangeFromPreset("7d"),
+      filters: mapDetailFilters(detail),
     }),
-    [direction, anchorEvent, depth, timeRange, apiFilters],
+    [
+      detail.id,
+      detail.direction,
+      detail.anchorEvent,
+      detail.depth,
+      detail.timeRange,
+      detail.filters,
+    ],
   );
 
   const isChanged = useMemo(() => {
@@ -353,19 +488,44 @@ function JourneyDetailView({ detail }: { detail: any }) {
     if (description !== detail.description) return true;
     if (JSON.stringify(tags) !== JSON.stringify(detail.tags || [])) return true;
     if (rollingType !== (detail.rollingType || "RECURRING")) return true;
-    if (expiryDate?.toISOString() !== (detail.expiryDate ? new Date(detail.expiryDate).toISOString() : undefined)) return true;
-    if (anchorEvent !== (detail.anchorEvent || MOCK_JOURNEY_ANCHOR_EVENT)) return true;
+    if (
+      expiryDate?.toISOString() !==
+      (detail.expiryDate
+        ? new Date(detail.expiryDate).toISOString()
+        : undefined)
+    )
+      return true;
+    if (anchorEvent !== (detail.anchorEvent ?? "")) return true;
     if (direction !== (detail.direction || "forward")) return true;
     if (depth !== (detail.depth || 5)) return true;
-    
-    const currentFilters = filters.map(f => ({ field: f.property, value: f.value }));
-    const originalFilters = (detail.filters || []).map((f: any) => ({ field: f.field, value: f.value }));
-    if (JSON.stringify(currentFilters) !== JSON.stringify(originalFilters)) return true;
-    
-    return false;
-  }, [name, description, tags, rollingType, expiryDate, anchorEvent, direction, depth, filters, detail]);
 
-  const { mutate: updateJourney, isPending: isUpdating } = useUpdateFunnelJourney();
+    const currentFilters = filters.map((f) => ({
+      field: f.property,
+      value: f.value,
+    }));
+    const originalFilters = (detail.filters || []).map((f: any) => ({
+      field: f.field,
+      value: f.value,
+    }));
+    if (JSON.stringify(currentFilters) !== JSON.stringify(originalFilters))
+      return true;
+
+    return false;
+  }, [
+    name,
+    description,
+    tags,
+    rollingType,
+    expiryDate,
+    anchorEvent,
+    direction,
+    depth,
+    filters,
+    detail,
+  ]);
+
+  const { mutate: updateJourney, isPending: isUpdating } =
+    useUpdateFunnelJourney();
 
   const handleUpdate = (config: any) => {
     updateJourney({
@@ -377,16 +537,45 @@ function JourneyDetailView({ detail }: { detail: any }) {
         rollingType,
         timeRange,
         filters: apiFilters,
-        expiryDate: rollingType === "RECURRING" && expiryDate ? expiryDate.toISOString() : undefined,
+        expiryDate:
+          rollingType === "RECURRING" && expiryDate
+            ? expiryDate.toISOString()
+            : undefined,
         ...config,
-      }
+      },
     });
   };
 
-  const { data: data, isLoading } = useGetJourneyData({
-    requestBody,
-    enabled: shouldFetch && !!anchorEvent,
+  const journeyVizStatuses = ["ACTIVE", "COMPLETED", "STOPPED"];
+
+  const { data, isLoading } = useGetJourneyData({
+    requestBody: stableJourneyRequestBody,
+    enabled:
+      !initialDataFetched &&
+      !!detail.anchorEvent &&
+      journeyVizStatuses.includes(detail.status),
   });
+
+  useEffect(() => {
+    setInitialDataFetched(false);
+  }, [detail.id]);
+
+  useEffect(() => {
+    if (data?.data != null && !initialDataFetched) {
+      setInitialDataFetched(true);
+    }
+  }, [data, initialDataFetched]);
+
+  useEffect(() => {
+    if (
+      (detail.rollingType || "RECURRING") === "ONCE" &&
+      detail.timeRange?.start &&
+      detail.timeRange?.end
+    ) {
+      setCustomStartDate(new Date(detail.timeRange.start));
+      setCustomEndDate(new Date(detail.timeRange.end));
+    }
+  }, [detail.id, detail.rollingType, detail.timeRange]);
 
   const journeyData = data?.data;
 
@@ -394,14 +583,17 @@ function JourneyDetailView({ detail }: { detail: any }) {
     <>
       <GlobalFilterBar
         filters={filters}
-        onFiltersChange={(newFilters) => {
-          setFilters(newFilters);
-          setShouldFetch(false);
-        }}
+        onFiltersChange={setFilters}
         filterOptions={filterOptions}
       />
-      <Box className={funnelClasses.funnelLayout} style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
-        <Box className={funnelClasses.sidebar} style={{ overflowY: "auto", height: "100%", flexShrink: 0 }}>
+      <Box
+        className={funnelClasses.funnelLayout}
+        style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}
+      >
+        <Box
+          className={funnelClasses.sidebar}
+          style={{ overflowY: "auto", height: "100%", flexShrink: 0 }}
+        >
           <JourneyExplorer
             name={name}
             onNameChange={setName}
@@ -425,32 +617,58 @@ function JourneyDetailView({ detail }: { detail: any }) {
             filters={filters}
             isUpdateMode={true}
             isValid={isChanged}
+            anchorEvent={anchorEvent}
+            onAnchorEventChange={setAnchorEvent}
+            direction={direction}
+            onDirectionChange={setDirection}
+            depth={depth}
+            onDepthChange={setDepth}
           />
         </Box>
-        <Box className={funnelClasses.mainCanvas} style={{ minHeight: 560, padding: 0, overflowY: "auto", height: "100%", flex: 1 }}>
+        <Box
+          className={funnelClasses.mainCanvas}
+          style={{
+            minHeight: 560,
+            padding: 0,
+            overflowY: "auto",
+            height: "100%",
+            flex: 1,
+          }}
+        >
           <Box className={funnelClasses.journeyCanvas} style={{ padding: 0 }}>
             <Box className={funnelClasses.sankeyContainer}>
               <Text size="sm" fw={600} c="dark.7" mb="md">
-                {direction === "forward" ? "Forward" : "Reverse"} journey from{" "}
+                {(detail.direction || "forward") === "forward"
+                  ? "Forward"
+                  : "Reverse"}{" "}
+                journey from{" "}
                 <Text span c="teal" fw={700}>
-                  {anchorEvent}
+                  {detail.anchorEvent || "—"}
                 </Text>{" "}
-                (preview · depth {depth})
+                (saved · depth {detail.depth ?? 5})
               </Text>
 
               {detail.status === "CREATING" || detail.status === "UPDATING" ? (
                 <Box className={funnelClasses.emptyState} py={60}>
                   <Loader color="blue" size="lg" />
                   <Text size="lg" fw={700} c="dark.6" mt="md">
-                    {detail.status === "CREATING" ? "Computing" : "Updating"} Journey Data
+                    {detail.status === "CREATING" ? "Computing" : "Updating"}{" "}
+                    Journey Data
                   </Text>
                   <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
-                    Your journey is currently being {detail.status === "CREATING" ? "computed" : "updated"} on the server. This might take a few moments. Please check back later.
+                    Your journey is currently being{" "}
+                    {detail.status === "CREATING" ? "computed" : "updated"} on
+                    the server. This might take a few moments. Please check back
+                    later.
                   </Text>
                 </Box>
               ) : isLoading ? (
                 <Box
-                  style={{ display: "flex", justifyContent: "center", padding: 80 }}
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    padding: 80,
+                  }}
                 >
                   <Loader color="teal" size="lg" />
                 </Box>
@@ -485,17 +703,21 @@ export function FunnelJourneyDetail() {
     apiResponse?.error?.message ||
     (error instanceof Error ? error.message : NOT_FOUND_TITLE);
 
+  /** Prefer history so users return to Interaction Detail, session replay, etc., not only the funnel list. */
   const goBack = () => {
-    if (projectId) {
-      navigate(generatePath(ROUTES.FUNNEL_ANALYSIS.path, { projectId }));
-      return;
-    }
     navigate(-1);
   };
 
   if (isLoading) {
     return (
-      <Box className={classes.shell} style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)" }}>
+      <Box
+        className={classes.shell}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "calc(100vh - 60px)",
+        }}
+      >
         <Group justify="center" py={80}>
           <Loader color="teal" />
         </Group>
@@ -505,13 +727,20 @@ export function FunnelJourneyDetail() {
 
   if (!detail) {
     return (
-      <Box className={classes.shell} style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)" }}>
+      <Box
+        className={classes.shell}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "calc(100vh - 60px)",
+        }}
+      >
         <Group mb="md">
           <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
             <IconArrowLeft size={20} />
           </ActionIcon>
           <Text size="sm" c="dimmed">
-            {BACK_TO_LIST}
+            {BACK_NAV_LABEL}
           </Text>
         </Group>
         <ErrorAndEmptyState
@@ -522,14 +751,26 @@ export function FunnelJourneyDetail() {
     );
   }
 
-  const KindIcon = detail.kind === "FUNNEL" ? IconChartFunnel : IconRoute;
+  //const KindIcon = detail.kind === "FUNNEL" ? IconChartFunnel : IconRoute;
 
   return (
-    <Box className={classes.shell} style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)" }}>
+    <Box
+      className={classes.shell}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "calc(100vh - 60px)",
+      }}
+    >
       <Box className={funnelClasses.topBar}>
         <Box className={funnelClasses.topBarLeft}>
           <Group gap="sm" align="center">
-            <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={goBack}
+              size="lg"
+            >
               <IconArrowLeft size={20} />
             </ActionIcon>
             <Box>
@@ -543,7 +784,9 @@ export function FunnelJourneyDetail() {
                         ? "blue"
                         : detail.status === "UPDATING"
                           ? "orange"
-                          : "gray"
+                          : detail.status === "COMPLETED"
+                            ? "violet"
+                            : "gray"
                   }
                   variant="light"
                   size="sm"
@@ -554,7 +797,9 @@ export function FunnelJourneyDetail() {
                       ? "Creating"
                       : detail.status === "UPDATING"
                         ? "Updating"
-                        : "Stopped"}
+                        : detail.status === "COMPLETED"
+                          ? "Completed"
+                          : "Stopped"}
                 </Badge>
                 <Text size="xs" c="dimmed">
                   {detail.kind === "FUNNEL" ? "Funnel" : "Journey"}
@@ -573,4 +818,3 @@ export function FunnelJourneyDetail() {
     </Box>
   );
 }
-
