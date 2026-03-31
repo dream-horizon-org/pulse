@@ -1,6 +1,6 @@
-import { API_BASE_URL } from "../constants";
-import { makeRequest } from "../helpers/makeRequest";
-import { getQueryParamString } from "../helpers/queryParams";
+import {API_BASE_URL} from "../constants";
+import {makeRequest} from "../helpers/makeRequest";
+import {getQueryParamString} from "../helpers/queryParams";
 
 /** Saved funnel or journey row returned by the listing API. */
 export type FunnelJourneyListItem = {
