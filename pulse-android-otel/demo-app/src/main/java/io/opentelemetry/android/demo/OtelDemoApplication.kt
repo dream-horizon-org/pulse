@@ -49,7 +49,7 @@ class OtelDemoApplication : Application() {
         runCatching {
             PulseSDK.INSTANCE.initialize(
                 application = application,
-                apiKey = "default",
+                apiKey = DEMO_API_KEY,
                 dataCollectionState = PulseDataCollectionConsent.ALLOWED,
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
