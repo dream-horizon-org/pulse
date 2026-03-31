@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.resources.performance.models.QueryRequest;
 
 @Data
 @Builder
@@ -26,7 +27,7 @@ public class FunnelStep {
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class StepFilter {
     private String field;
-    private String operator;
+    private QueryRequest.Operator operator;
     private List<Object> value;
   }
 }

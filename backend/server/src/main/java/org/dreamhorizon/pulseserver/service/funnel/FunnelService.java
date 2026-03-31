@@ -1,16 +1,24 @@
 package org.dreamhorizon.pulseserver.service.funnel;
 
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
-import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelHealthResponse;
-import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelRequest;
-import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelResponse;
-import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelSessionsRequest;
-import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelSessionsResponse;
+import org.dreamhorizon.pulseserver.resources.funnel.models.CreateFunnelDefinitionRequest;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelDefinitionListResponse;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelDefinitionResponse;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelListQueryParams;
+import org.dreamhorizon.pulseserver.resources.funnel.models.UpdateFunnelDefinitionRequest;
 
 public interface FunnelService {
-  Single<FunnelResponse> analyzeFunnel(FunnelRequest request);
 
-  Single<FunnelHealthResponse> getFunnelHealth(FunnelRequest request);
+  Single<Long> create(
+      String projectId, CreateFunnelDefinitionRequest request, String createdBy);
 
-  Single<FunnelSessionsResponse> getFunnelSessions(FunnelSessionsRequest request);
+  Completable update(
+      String projectId, long id, UpdateFunnelDefinitionRequest request);
+
+  Completable delete(String projectId, long id);
+
+  Single<FunnelDefinitionResponse> get(String projectId, long id);
+
+  Single<FunnelDefinitionListResponse> list(String projectId, FunnelListQueryParams query);
 }

@@ -25,6 +25,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
@@ -65,6 +66,17 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
           JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
+          JsonObject emrServerlessJson = config.getJsonObject("emrServerless", new JsonObject());
+          EmrServerlessConfig emrServerlessConfig = EmrServerlessConfig.fromJsonObject(emrServerlessJson);
+          SharedDataUtils.put(vertx.getDelegate(), emrServerlessConfig);
+          
+          JsonObject sparkJson = config.getJsonObject("spark", new JsonObject());
+          SharedDataUtils.put(vertx.getDelegate(), sparkJson.mapTo(org.dreamhorizon.pulseserver.config.SparkConfig.class));
+          
+          log.info(
+              "EMR Serverless config: enabled={} region={}",
+              emrServerlessConfig.isEnabled(),
+              emrServerlessConfig.getEffectiveRegion());
                     JsonObject notificationConfig =
                             config.getJsonObject("notification", new JsonObject());
                     SharedDataUtils.put(
@@ -116,7 +128,8 @@ public class MainVerticle extends AbstractVerticle {
           // Validate startup configuration after all configs are loaded
           ApplicationConfig loadedAppConfig = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
           ClickhouseConfig loadedChConfig = SharedDataUtils.get(vertx.getDelegate(), ClickhouseConfig.class);
-          StartupConfigValidator.validate(loadedAppConfig, loadedChConfig);
+          StartupConfigValidator.validate(
+              loadedAppConfig, loadedChConfig, emrServerlessConfig);
 
           return config;
         })
@@ -158,7 +171,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void initializeDevMode() {
     try {
-      org.dreamhorizon.pulseserver.service.devmode.DevModeInitService devModeService = 
+      org.dreamhorizon.pulseserver.service.devmode.DevModeInitService devModeService =
           GuiceInjector.getGuiceInjector().getInstance(org.dreamhorizon.pulseserver.service.devmode.DevModeInitService.class);
       devModeService.initializeDevMode()
           .subscribe(

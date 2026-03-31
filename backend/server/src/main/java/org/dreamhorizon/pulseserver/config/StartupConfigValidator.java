@@ -13,20 +13,29 @@ public class StartupConfigValidator {
 
   private final ApplicationConfig appConfig;
   private final ClickhouseConfig clickhouseConfig;
+  private final EmrServerlessConfig emrServerlessConfig;
 
-  public StartupConfigValidator(ApplicationConfig appConfig, ClickhouseConfig clickhouseConfig) {
+  public StartupConfigValidator(
+      ApplicationConfig appConfig,
+      ClickhouseConfig clickhouseConfig,
+      EmrServerlessConfig emrServerlessConfig) {
     this.appConfig = appConfig;
     this.clickhouseConfig = clickhouseConfig;
+    this.emrServerlessConfig = emrServerlessConfig;
   }
 
-  public static void validate(ApplicationConfig appConfig, ClickhouseConfig clickhouseConfig) {
-    new StartupConfigValidator(appConfig, clickhouseConfig).validate();
+  public static void validate(
+      ApplicationConfig appConfig,
+      ClickhouseConfig clickhouseConfig,
+      EmrServerlessConfig emrServerlessConfig) {
+    new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig).validate();
   }
 
   public void validate() {
     List<String> errors = new ArrayList<>();
     errors.addAll(validateEnvironment());
     errors.addAll(validateClickhouseConfig());
+    errors.addAll(validateEmrServerlessConfig());
     failIfErrors(errors);
   }
 
@@ -49,6 +58,33 @@ public class StartupConfigValidator {
       return List.of("CLICKHOUSE_CLUSTER_NAME is required in production environment");
     }
     return Collections.emptyList();
+  }
+
+  /**
+   * In production, EMR Serverless must be enabled and all related settings non-blank.
+   */
+  List<String> validateEmrServerlessConfig() {
+    if (!isProduction()) {
+      return Collections.emptyList();
+    }
+    List<String> errors = new ArrayList<>();
+    if (!emrServerlessConfig.isEnabled()) {
+      errors.add(
+          "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED must be true in production environment");
+    }
+    if (isBlank(emrServerlessConfig.getRegion())) {
+      errors.add(
+          "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION is required in production environment");
+    }
+    if (isBlank(emrServerlessConfig.getApplicationId())) {
+      errors.add(
+          "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID is required in production environment");
+    }
+    if (isBlank(emrServerlessConfig.getExecutionRoleArn())) {
+      errors.add(
+          "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN is required in production environment");
+    }
+    return errors;
   }
 
   private void failIfErrors(List<String> errors) {
