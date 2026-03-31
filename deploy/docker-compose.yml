@@ -125,6 +125,8 @@ services:
       - ../backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
       - ../backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro
       - ../backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro
+      - ../backend/ingestion/clickhouse-event-catalog-schema.sql:/init/clickhouse-event-catalog-schema.sql:ro
+      - ../backend/ingestion/clickhouse-funnel-results-schema.sql:/init/clickhouse-funnel-results-schema.sql:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
@@ -331,11 +333,13 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID}
-        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL:-http://localhost:8080}
+        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL}
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
-        REACT_APP_FIREBASE_PROJECT_ID: ${REACT_APP_FIREBASE_PROJECT_ID}
+        REACT_APP_FIREBASE_PROJECT_ID: ${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
+        REACT_APP_FIREBASE_STORAGE_BUCKET: ${REACT_APP_FIREBASE_STORAGE_BUCKET}
+        REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
         REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
         REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER}
         REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY}
@@ -455,16 +459,16 @@ services:
       - SESSION_REPLAY_S3_REGION=${SESSION_REPLAY_S3_REGION:-us-east-1}
 
       # CloudFront Configuration
-      - CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID:-NONE}
+      - CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID:-NONE}
       - CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH:-/config/pulse-config.json}
       - INTERACTION_CLOUDFRONT_ASSET_PATH=${INTERACTION_CLOUDFRONT_ASSET_PATH:-/config/interaction-config.json}
 
-      # OpenTelemetry Configuration (defaults for local dev)
-      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL:-http://localhost:4318/v1/traces}
-      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL:-http://localhost:4318/v1/logs}
-      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL:-http://localhost:4318/v1/metrics}
-      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL:-http://localhost:4318/v1/traces}
-      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL:-http://localhost:4318/v1/logs}
+      # OpenTelemetry Configuration
+      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL}
+      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL}
+      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}
+      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}
+      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}
       # Query Engine Configuration
       - CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE:-athena}
       # Athena Configuration (only used when QUERY_ENGINE=athena)
@@ -605,5 +609,5 @@ volumes:
   kafka-data:
     driver: local
   minio-data:
-    driver: local  
+    driver: local
 

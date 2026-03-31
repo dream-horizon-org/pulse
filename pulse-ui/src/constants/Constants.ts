@@ -2,13 +2,12 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem,
+  ComboboxItem
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
   IconBell,
   IconCalendarEvent,
-  IconChartFunnel,
   IconDatabaseSearch,
   IconDeviceDesktop,
   IconHome,
@@ -16,12 +15,9 @@ import {
   IconNetwork,
   IconRobot,
   IconUsers,
-  IconVideo,
+  IconVideo
 } from "@tabler/icons-react";
-import {
-  CriticalInteractionDetailsFilterValues,
-  TimeFilter,
-} from "../screens/CriticalInteractionDetails";
+import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -30,7 +26,7 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps,
+  FormSteps
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
@@ -419,13 +415,6 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconDatabaseSearch,
     routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
     path: NAVBAR_ROUTES.QUERY_BUILDER,
-    iconSize: 25,
-  },
-  {
-    tabName: "Funnel Analysis",
-    icon: IconChartFunnel,
-    routeTo: NAVBAR_ROUTES.FUNNEL_ANALYSIS,
-    path: NAVBAR_ROUTES.FUNNEL_ANALYSIS,
     iconSize: 25,
   },
   {

@@ -31,5 +31,9 @@ clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" 
 clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < /init/clickhouse-session-replay-schema.sql
 echo "Creating session summary materialized views..."
 clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < /init/session-summary-mv.sql
+if [ -f /init/clickhouse-funnel-results-schema.sql ]; then
+    clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < /init/clickhouse-funnel-results-schema.sql
+    echo "✓ funnel_results schema applied"
+fi
 echo "✓ ClickHouse tables created successfully!"
 
