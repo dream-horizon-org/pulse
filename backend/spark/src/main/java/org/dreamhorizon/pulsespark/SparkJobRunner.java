@@ -69,6 +69,18 @@ public class SparkJobRunner {
                 .getOrCreate();
         normalizeS3TimeoutConfigs(spark);
         spark.sparkContext().setLogLevel("WARN");
+        try {
+            var ctx = (org.apache.logging.log4j.core.LoggerContext)
+                    org.apache.logging.log4j.LogManager.getContext(false);
+            var cfg = ctx.getConfiguration();
+            var lc  = new org.apache.logging.log4j.core.config.LoggerConfig(
+                    "org.dreamhorizon.pulsespark",
+                    org.apache.logging.log4j.Level.INFO, true);
+            cfg.addLogger("org.dreamhorizon.pulsespark", lc);
+            ctx.updateLoggers();
+        } catch (Exception | NoClassDefFoundError ignored) {
+            // log4j2 not available (e.g. local Spark 4.x) — fall back silently
+        }
 
         boolean failed = false;
         String errorMessage = null;
