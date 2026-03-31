@@ -1,6 +1,5 @@
 package com.pulse.android.sdk.replay.internal.pipeline
 
-import android.view.View
 import com.pulse.android.sdk.replay.SessionReplayConfig
 import com.pulse.android.sdk.replay.events.ReplayEventType
 import com.pulse.android.sdk.replay.events.ReplayFullSnapshotData
@@ -17,14 +16,11 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class SnapshotPipelineTest {
-    private lateinit var view: View
     private lateinit var status: ViewTreeSnapshotStatus
     private lateinit var config: SessionReplayConfig
 
     @BeforeEach
     fun setUp() {
-        view = mockk(relaxed = true)
-        every { view.context } returns mockk<android.content.Context>(relaxed = true)
         val listener = mockk<NextDrawListener>(relaxed = true)
         val maskRectCache = mockk<MaskRectCache>(relaxed = true)
         status = ViewTreeSnapshotStatus(listener, maskRectCache)
@@ -41,7 +37,7 @@ class SnapshotPipelineTest {
                     wireframe = wireframe,
                     status = status,
                     timestamp = 1000L,
-                    view = view,
+                    screenName = "TestScreen",
                     screenWidth = 1080,
                     screenHeight = 1920,
                 )
@@ -60,7 +56,7 @@ class SnapshotPipelineTest {
                     wireframe = wireframe,
                     status = status,
                     timestamp = 1000L,
-                    view = view,
+                    screenName = "TestScreen",
                     screenWidth = 800,
                     screenHeight = 600,
                 )
@@ -78,7 +74,7 @@ class SnapshotPipelineTest {
                     wireframe = wireframe,
                     status = status,
                     timestamp = 1000L,
-                    view = view,
+                    screenName = "TestScreen",
                     screenWidth = 1080,
                     screenHeight = 1920,
                 )
@@ -104,7 +100,7 @@ class SnapshotPipelineTest {
                     wireframe = wireframe,
                     status = status,
                     timestamp = 2000L,
-                    view = view,
+                    screenName = "TestScreen",
                     screenWidth = 1080,
                     screenHeight = 1920,
                 )
@@ -132,7 +128,7 @@ class SnapshotPipelineTest {
                     wireframe = newWireframe,
                     status = status,
                     timestamp = 2000L,
-                    view = view,
+                    screenName = "TestScreen",
                     screenWidth = 1080,
                     screenHeight = 1920,
                 )
@@ -161,7 +157,7 @@ class SnapshotPipelineTest {
                     wireframe = newWireframe,
                     status = status,
                     timestamp = 2000L,
-                    view = view,
+                    screenName = "TestScreen",
                     screenWidth = 1080,
                     screenHeight = 1920,
                 )
@@ -197,7 +193,7 @@ class SnapshotPipelineTest {
                     wireframe = newWireframe,
                     status = status,
                     timestamp = 2000L,
-                    view = view,
+                    screenName = "TestScreen",
                     screenWidth = 1080,
                     screenHeight = 1920,
                 )
@@ -216,7 +212,7 @@ class SnapshotPipelineTest {
                     wireframe = wireframe,
                     status = status,
                     timestamp = 2000L,
-                    view = view,
+                    screenName = "TestScreen",
                     screenWidth = 1080,
                     screenHeight = 1920,
                 )

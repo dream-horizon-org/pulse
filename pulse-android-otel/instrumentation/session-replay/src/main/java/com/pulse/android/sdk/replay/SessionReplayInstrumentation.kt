@@ -28,19 +28,21 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
 
         val storageDir = File(application.filesDir, STORAGE_DIR_NAME)
         val replayApiClient = config.replayApiBaseUrl?.let { SessionReplayApiClient(baseUrl = it) }
-        val appVersion = try {
-            val pkgInfo = application.packageManager.getPackageInfo(application.packageName, 0)
-            val versionName = pkgInfo.versionName.orEmpty()
-            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                getVersionCodeApi28(pkgInfo).toString()
-            } else {
-                @Suppress("DEPRECATION")
-                pkgInfo.versionCode.toString()
+        val appVersion =
+            try {
+                val pkgInfo = application.packageManager.getPackageInfo(application.packageName, 0)
+                val versionName = pkgInfo.versionName.orEmpty()
+                val versionCode =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        getVersionCodeApi28(pkgInfo).toString()
+                    } else {
+                        @Suppress("DEPRECATION")
+                        pkgInfo.versionCode.toString()
+                    }
+                "${versionName}_$versionCode"
+            } catch (_: Exception) {
+                null
             }
-            "${versionName}_${versionCode}"
-        } catch (_: Exception) {
-            null
-        }
 
         val buildEnvelope: (String, List<ReplayEvent>) -> String = { sessionId, events ->
             ReplayEnvelopeBuilder.buildEnvelope(

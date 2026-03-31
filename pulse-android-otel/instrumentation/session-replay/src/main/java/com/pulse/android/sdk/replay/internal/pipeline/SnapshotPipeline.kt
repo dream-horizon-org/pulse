@@ -96,5 +96,4 @@ internal object SnapshotPipeline {
         }
         return Triple(added, removed, updated)
     }
-
 }
