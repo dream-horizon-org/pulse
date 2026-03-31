@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_HEATMAP_BIN_BUDGET, topGlowBinsByWeight } from "./heatmapDisplay";
 import type { HeatmapGlowPoint } from "./heatmap.types";
 
-export function useHeatmapBinBudget(glowMap: HeatmapGlowPoint[]) {
+export type HeatmapBinBudget = {
+  binBudgetMax: number;
+  binBudget: number;
+  setBinBudget: (v: number) => void;
+  displayGlow: HeatmapGlowPoint[];
+};
+
+export function useHeatmapBinBudget(glowMap: HeatmapGlowPoint[]): HeatmapBinBudget {
   const binBudgetMax = Math.max(32, glowMap.length);
   const [binBudget, setBinBudget] = useState(() =>
     Math.min(

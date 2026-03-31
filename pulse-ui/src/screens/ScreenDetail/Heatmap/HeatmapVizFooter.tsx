@@ -37,15 +37,6 @@ export function HeatmapVizFooter({
         Showing top {displayCount} of {glowMapLength} bins by weight (normalized
         0–1; underlay for alignment only).
       </div>
-
-      <div className={classes.gradientLegend}>
-        <span className={classes.gradientCaption}>Cooler</span>
-        <div className={classes.gradientStrip} />
-        <span className={classes.gradientCaption}>Hotter</span>
-      </div>
-      <div className={classes.heatSubtitle} style={{ marginTop: 4 }}>
-        Normalized coordinates; screenshot is alignment only.
-      </div>
     </>
   );
 }

@@ -70,10 +70,9 @@ export function HeatmapFilterBar({
           </button>
         </div>
         <Text className={classes.focusHint}>
-          All interaction data: all taps, scrolls, gestures for the map signal
-          you picked. Primary score: Heatmap quality. Key actions only: taps
-          that start a Pulse interaction. Primary score: Pulse Interaction
-          Score.
+          All interaction data: density heatmap (glow / signal layers). Key
+          actions: Pulse interaction regions as boxes; hover for per-interaction
+          scores and average on each element.
         </Text>
       </div>
     </Box>

@@ -9,12 +9,14 @@ import {
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import type { HeatmapDataResponse } from "./heatmap.types";
+import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 import {
   HEATMAP_SIGNALS,
   glowLayerForSignal,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
 import { HeatmapVisualization } from "./HeatmapVisualization";
+import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapComparePanelProps {
@@ -147,6 +149,7 @@ function CompareColumn({
 }) {
   const glow = glowLayerForSignal(data, signal);
   const map = glow.length ? glow : data.layers.glow_map;
+  const binBudget = useHeatmapBinBudget(map);
 
   return (
     <Box>
@@ -154,10 +157,11 @@ function CompareColumn({
         {title}: {data.metadata.screenName}
       </Text>
       <HeatmapVisualization
-        screenshotUrl={data.metadata.screenshot_url || undefined}
+        screenshotUrls={screenshotUrlsFromMetadata(data.metadata)}
         glowMap={map}
-        signalLabel={signal}
-        totalTapsLabel={`${data.metadata.total_events.toLocaleString()} events`}
+        binBudget={binBudget}
+        focusLens="all"
+        interactionRegions={data.layers.interaction_map?.regions ?? []}
         sharedWeightMax={sharedWeightMax}
       />
     </Box>

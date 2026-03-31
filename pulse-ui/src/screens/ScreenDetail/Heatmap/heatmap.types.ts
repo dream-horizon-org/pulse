@@ -38,6 +38,12 @@ export interface HeatmapMetadata {
   screenName: string;
   ui_hash: string;
   screenshot_url: string;
+  /**
+   * Optional rotating backgrounds for the same heatmap (normalized glow_map applies to all).
+   * When present and non-empty, UI carousel uses this order; `screenshot_url` is ignored for the list
+   * but may still duplicate index 0 for legacy clients.
+   */
+  screenshot_urls?: string[];
   total_events: number;
   app_version?: string;
   platform?: string;
@@ -72,6 +78,32 @@ export interface HeatmapLatencyHotspot {
   weight?: number;
 }
 
+/** One Pulse interaction score tied to a screen element (Key actions / interaction map). */
+export interface HeatmapPulseInteractionScore {
+  /** Backend interaction / critical-interaction id when available */
+  interaction_id?: string;
+  name?: string;
+  score: number;
+}
+
+/**
+ * Axis-aligned element bounds on the screenshot, 0–1 normalized (top-left origin) or pixel coords (see normalizer).
+ * `interaction_scores` lists Pulse interactions that involve this element; optional `avg_score` may be server-provided.
+ */
+export interface HeatmapInteractionElementRegion {
+  element_id?: string;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  interaction_scores: HeatmapPulseInteractionScore[];
+  avg_score?: number;
+}
+
+export interface HeatmapInteractionMapLayer {
+  regions: HeatmapInteractionElementRegion[];
+}
+
 export interface HeatmapDataResponse {
   metadata: HeatmapMetadata;
   layers: {
@@ -84,6 +116,8 @@ export interface HeatmapDataResponse {
       error_clicks: HeatmapErrorClickPoint[];
       latency_hotspots: HeatmapLatencyHotspot[];
     };
+    /** Key-actions view: rectangular regions + per–Pulse-interaction scores (same heatmap API). */
+    interaction_map?: HeatmapInteractionMapLayer;
   };
 }
 

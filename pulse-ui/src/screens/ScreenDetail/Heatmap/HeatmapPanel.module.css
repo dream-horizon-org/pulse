@@ -10,6 +10,81 @@
   min-height: 0;
 }
 
+/* Main heatmap: primary content left, filters right (see HeatmapPanel.tsx) */
+.heatmapLayout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  align-items: stretch;
+}
+
+.heatmapMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+  flex: 1;
+  min-width: 0;
+}
+
+.heatmapFilterAside {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+@media (min-width: 992px) {
+  .heatmapLayout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--mantine-spacing-lg);
+  }
+
+  .heatmapMain {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .heatmapFilterAside {
+    width: min(400px, 36vw);
+    min-width: 320px;
+    position: sticky;
+    top: var(--mantine-spacing-md);
+    align-self: flex-start;
+    max-height: calc(100dvh - 96px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 2px;
+  }
+}
+
+.heatmapAsideStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+.heatmapAsideSection {
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+}
+
+/* Score cards stay stacked in the sidebar (avoid cramped two-column row) */
+.heatmapAsideStack .scoreRow {
+  flex-direction: column;
+}
+
+/* Narrow: show controls first so signal can be chosen before the viz */
+@media (max-width: 991px) {
+  .heatmapFilterAside {
+    order: -1;
+  }
+}
+
 .sessionScope {
   border-radius: var(--mantine-radius-md);
   background: #f8f9fa;
@@ -219,48 +294,6 @@
   color: #adb5bd;
 }
 
-.scoreLegend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-
-.scoreLegendLabel {
-  font-size: 10px;
-  font-weight: 600;
-  color: #868e96;
-}
-
-.legendChip {
-  border-radius: 4px;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.legendGood {
-  background: rgba(14, 201, 194, 0.1);
-  border: 1px solid #0ba09a;
-  color: #0ba09a;
-}
-
-.legendAvg {
-  background: rgba(253, 126, 20, 0.12);
-  border: 1px solid #fd7e14;
-  color: #c05621;
-}
-
-.legendPoor {
-  background: rgba(250, 82, 82, 0.12);
-  border: 1px solid #fa5252;
-  color: #c92a2a;
-}
-
-.legendChipActive {
-  box-shadow: 0 0 0 2px rgba(14, 201, 194, 0.35);
-}
-
 .heatViz {
   border-radius: 10px;
   padding: 14px;
@@ -270,13 +303,102 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: min(520px, 90vh);
+  min-height: min(380px, 72vh);
 }
 
-.heatTitle {
-  font-size: 14px;
-  font-weight: 700;
-  color: #212529;
+/* Screenshot caption + frame rail + intensity key (inside .heatViz) */
+.heatScreenshotStage {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+}
+
+.heatShotMetaRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #dee2e6;
+  background: #fff;
+}
+
+.heatShotMetaCount {
+  flex: 0 1 auto;
+  min-width: min(100%, 140px);
+}
+
+.heatShotMetaLegend {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.heatMetaSep {
+  color: #ced4da;
+  font-size: 12px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.heatIntensityInlineNote {
+  font-size: 11px;
+  font-weight: 500;
+  color: #868e96;
+  line-height: 1.35;
+}
+
+.heatFrameRail {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2vw, 16px);
+  width: 100%;
+  overflow-x: auto;
+}
+
+.heatShotNavBtn {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.heatShotNavSpacer {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+}
+
+/* Center column must not shrink to 0 beside nav buttons; phoneInner uses % width */
+.heatFrameCenter {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: min(280px, calc(100% - 108px));
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  .heatFrameRail {
+    gap: 6px;
+  }
+
+  .heatShotNavSpacer {
+    width: 36px;
+    height: 36px;
+  }
 }
 
 .heatSubtitle {
@@ -285,14 +407,18 @@
   line-height: 1.35;
 }
 
-/* Device silhouette ~390×844 (common mobile screenshot aspect); scales with viewport */
+/* Device silhouette — same 390×844 aspect; smaller footprint for dashboard preview */
 .phoneFrame {
   position: relative;
+  width: 100%;
+  max-width: 308px;
+  margin: 0 auto;
+  box-sizing: border-box;
   border-radius: 12px;
   background: #eceff2;
   border: 1px solid #ced4da;
-  min-height: min(480px, 50vh);
-  padding: 20px 16px;
+  min-height: min(300px, 38vh);
+  padding: 14px 12px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -301,10 +427,12 @@
 
 .phoneInner {
   position: relative;
-  /* Portrait phone: narrow width, tall body */
-  width: min(420px, 100%);
+  /* Portrait phone: fills frame up to cap (aspect preserved) */
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
   aspect-ratio: 390 / 844;
-  max-height: min(82vh, 920px);
+  max-height: min(58vh, 560px);
 }
 
 .screenImg {
@@ -325,6 +453,72 @@
   pointer-events: none;
   overflow: hidden;
 }
+
+/* Pulse interaction regions (Key actions) — pointer events on hit targets only */
+.heatInteractionOverlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 4;
+  border-radius: 16px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.interactionRegion {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 2px solid rgba(14, 201, 194, 0.85);
+  border-radius: 6px;
+  background: rgba(14, 201, 194, 0.12);
+  cursor: pointer;
+  pointer-events: auto;
+  box-sizing: border-box;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.interactionRegion:hover {
+  background: rgba(14, 201, 194, 0.22);
+  border-color: #0ba09a;
+  box-shadow: 0 0 0 1px rgba(14, 201, 194, 0.35);
+}
+
+.interactionRegion:focus-visible {
+  outline: 2px solid #0ba09a;
+  outline-offset: 2px;
+}
+
+.interactionEmptyState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  pointer-events: none;
+}
+
+.interactionEmptyCode {
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.interactionTooltipStack {
+  max-width: 240px;
+}
+
+.interactionTooltipRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 
 /* Outer stays position:absolute — heatmap.js forces container { position:relative } inline */
 .heatCanvasHost {
@@ -364,8 +558,8 @@
 .gradientLegend {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  margin-top: 4px;
 }
 
 .gradientStrip {

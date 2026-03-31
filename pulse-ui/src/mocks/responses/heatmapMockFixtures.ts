@@ -2,6 +2,7 @@ import type {
   HeatmapCompareResponse,
   HeatmapDataResponse,
   HeatmapGlowPoint,
+  HeatmapInteractionMapLayer,
 } from "../../screens/ScreenDetail/Heatmap/heatmap.types";
 import { HEATMAP_DEFAULT_UNDERLAY_URL } from "../../screens/ScreenDetail/Heatmap/heatmapViz.constants";
 
@@ -38,6 +39,11 @@ function baseMetadata(screenName: string): HeatmapDataResponse["metadata"] {
     screenName,
     ui_hash: MOCK_UI_HASH,
     screenshot_url: MOCK_SCREENSHOT,
+    screenshot_urls: [
+      MOCK_SCREENSHOT,
+      "https://placehold.co/390x844/334155/f1f5f9/png?text=Capture+2",
+      "https://placehold.co/390x844/0f172a/e2e8f0/png?text=Capture+3",
+    ],
     total_events: 15_420,
     app_version: "2.1.0",
     platform: "Android",
@@ -54,6 +60,55 @@ type Cluster = {
   wMin: number;
   wMax: number;
 };
+
+/** Mock Key-actions layer: normalized bounds + Pulse interaction scores per element. */
+export function heatmapMockInteractionMap(): HeatmapInteractionMapLayer {
+  return {
+    regions: [
+      {
+        element_id: "hero_cta",
+        minX: 0.14,
+        minY: 0.38,
+        maxX: 0.86,
+        maxY: 0.44,
+        interaction_scores: [
+          {
+            interaction_id: "pi_cta_primary",
+            name: "Primary CTA",
+            score: 0.88,
+          },
+          {
+            interaction_id: "pi_cta_second",
+            name: "Secondary funnel",
+            score: 0.71,
+          },
+        ],
+      },
+      {
+        element_id: "list_row_2",
+        minX: 0.08,
+        minY: 0.52,
+        maxX: 0.92,
+        maxY: 0.6,
+        avg_score: 0.64,
+        interaction_scores: [
+          { name: "Open detail", score: 0.72 },
+          { name: "Quick action", score: 0.55 },
+        ],
+      },
+      {
+        element_id: "nav_tab_home",
+        minX: 0.02,
+        minY: 0.88,
+        maxX: 0.22,
+        maxY: 0.97,
+        interaction_scores: [
+          { interaction_id: "pi_tab_home", name: "Home tab", score: 0.93 },
+        ],
+      },
+    ],
+  };
+}
 
 /**
  * Dense mock: bottom nav (4 “tabs”), top CTA, two content cards, FAB — capped by POC_GLOW_MAX_POINTS.
@@ -119,6 +174,7 @@ export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
           { x: 0.28, y: 0.48, avg_latency_ms: 2100, weight: 280 },
         ],
       },
+      interaction_map: heatmapMockInteractionMap(),
     },
   };
 }
@@ -145,6 +201,7 @@ export function heatmapMockFull(screenName: string): HeatmapDataResponse {
           { x: 0.5, y: 0.5, avg_latency_ms: 2450, weight: 300 },
         ],
       },
+      interaction_map: heatmapMockInteractionMap(),
     },
   };
 }
@@ -154,11 +211,13 @@ export function heatmapMockEmpty(screenName: string): HeatmapDataResponse {
     metadata: {
       ...baseMetadata(screenName),
       total_events: 0,
+      screenshot_urls: [],
     },
     layers: {
       glow_map: [],
       frustration_map: { rage: [], dead: [] },
       observability_map: { error_clicks: [], latency_hotspots: [] },
+      interaction_map: { regions: [] },
     },
   };
 }
