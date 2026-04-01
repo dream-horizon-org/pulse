@@ -8,10 +8,10 @@ public record FunnelDefinition(
         String projectId,
         List<FunnelStep> steps,
         long windowSeconds,
-        String mode,           // UNIQUE_USERS | SESSIONS
+        String mode,
         int dateRange,
         List<FunnelFilter> globalFilters,
-        String funnelType,     // AUTO | ONCE
-        Timestamp startTime,   // null for AUTO
-        Timestamp endTime      // null for AUTO
+        String funnelType,
+        Timestamp startTime,
+        Timestamp endTime
 ) {}

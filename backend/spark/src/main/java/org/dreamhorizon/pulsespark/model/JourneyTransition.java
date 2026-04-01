@@ -5,8 +5,8 @@ public record JourneyTransition(
         String projectId,
         String runTime,
         String direction,
-        int    posFrom,    // -1 = ENTRY
-        String eventFrom,  // "" = ENTRY
+        int    posFrom,
+        String eventFrom,
         int    posTo,
         String eventTo,
         long   userCount
