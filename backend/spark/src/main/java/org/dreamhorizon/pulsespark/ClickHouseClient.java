@@ -2,7 +2,6 @@ package org.dreamhorizon.pulsespark;
 
 import org.dreamhorizon.pulsespark.model.FunnelResult;
 import org.dreamhorizon.pulsespark.model.JourneyTransition;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,28 +37,25 @@ public class ClickHouseClient {
         ));
     }
 
+    public void ping() {
+        execute("ping", "SELECT 1");
+    }
+
     public void deleteFunnelResults(long funnelId, String runTime) {
         execute("deleteFunnelResults", String.format(
                 "ALTER TABLE %s.funnel_results DELETE WHERE funnel_id = '%d' AND run_time = '%s'",
                 db, funnelId, runTime
         ));
-        log.info("Deleted funnel_results for funnel_id={} run_time={}", funnelId, runTime);
-    }
-
-    public void ping() {
-        execute("ping", "SELECT 1");
     }
 
     public void insertFunnelResults(List<FunnelResult> rows) {
         if (rows.isEmpty()) {
-            log.warn("Skipping funnel_results insert because computed row set is empty");
+            log.warn("insertFunnelResults: no rows to insert");
             return;
         }
-
         var sb = new StringBuilder()
                 .append("INSERT INTO ").append(db).append(".funnel_results ")
                 .append("(funnel_id,project_id,run_time,step_index,step_name,user_count,conversion_pct) VALUES ");
-
         for (int i = 0; i < rows.size(); i++) {
             var r = rows.get(i);
             if (i > 0) sb.append(',');
@@ -77,19 +73,16 @@ public class ClickHouseClient {
                 "ALTER TABLE %s.journey_results DELETE WHERE journey_id = '%d' AND run_time = '%s'",
                 db, journeyId, runTime
         ));
-        log.info("Deleted journey_results for journey_id={} run_time={}", journeyId, runTime);
     }
 
     public void insertJourneyResults(List<JourneyTransition> rows) {
         if (rows.isEmpty()) {
-            log.warn("Skipping journey_results insert because computed row set is empty");
+            log.warn("insertJourneyResults: no rows to insert");
             return;
         }
-
         var sb = new StringBuilder()
                 .append("INSERT INTO ").append(db).append(".journey_results ")
                 .append("(journey_id,project_id,run_time,direction,pos_from,event_from,pos_to,event_to,user_count) VALUES ");
-
         for (int i = 0; i < rows.size(); i++) {
             var r = rows.get(i);
             if (i > 0) sb.append(',');
@@ -105,7 +98,7 @@ public class ClickHouseClient {
 
     public void bulkInsert(String table, String columnList, List<String> valueRows, int chunkSize) {
         if (valueRows.isEmpty()) {
-            log.warn("Skipping bulk insert into {}.{} because valueRows is empty", db, table);
+            log.warn("bulkInsert {}: no rows to insert", table);
             return;
         }
         for (int offset = 0; offset < valueRows.size(); offset += chunkSize) {
@@ -113,12 +106,11 @@ public class ClickHouseClient {
             var sql = "INSERT INTO " + db + "." + table + " (" + columnList + ") VALUES "
                     + String.join(",", batch);
             execute("bulkInsert:" + table, sql);
-            log.info("Bulk-inserted {} rows into {}.{} (offset {})", batch.size(), db, table, offset);
         }
+        log.info("bulkInsert {}: inserted {} rows", table, valueRows.size());
     }
 
     private void execute(String operation, String sql) {
-        log.info("Executing ClickHouse operation={} sqlBytes={}", operation, sql.length());
         var request = HttpRequest.newBuilder()
                 .uri(baseUri)
                 .header("Content-Type", "text/plain; charset=utf-8")
@@ -127,22 +119,14 @@ public class ClickHouseClient {
                 .build();
         try {
             var response = http.send(request, HttpResponse.BodyHandlers.ofString());
-            var body = response.body() == null ? "" : response.body();
-            var bodyPreview = body.substring(0, Math.min(500, body.length()));
+            var body     = response.body() == null ? "" : response.body();
             if (response.statusCode() != 200) {
-                log.error("ClickHouse operation failed operation={} status={} body={}",
-                        operation, response.statusCode(), bodyPreview);
-                throw new RuntimeException("ClickHouse [%d]: %s".formatted(response.statusCode(), bodyPreview));
-            }
-            if (!body.isBlank()) {
-                log.info("ClickHouse operation response operation={} status={} body={}",
-                        operation, response.statusCode(), bodyPreview);
-            } else {
-                log.info("ClickHouse operation succeeded operation={} status={}",
-                        operation, response.statusCode());
+                var preview = body.substring(0, Math.min(500, body.length()));
+                log.error("ClickHouse {} failed: status={} body={}", operation, response.statusCode(), preview);
+                throw new RuntimeException("ClickHouse [%d]: %s".formatted(response.statusCode(), preview));
             }
         } catch (IOException | InterruptedException e) {
-            log.error("ClickHouse request exception operation={} message={}", operation, e.getMessage(), e);
+            log.error("ClickHouse {} request failed: {}", operation, e.getMessage(), e);
             throw new RuntimeException("ClickHouse request failed: " + e.getMessage(), e);
         }
     }

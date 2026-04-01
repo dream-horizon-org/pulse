@@ -9,7 +9,6 @@ import org.dreamhorizon.pulsespark.model.FunnelDefinition;
 import org.dreamhorizon.pulsespark.model.FunnelFilter;
 import org.dreamhorizon.pulsespark.model.FunnelResult;
 import org.dreamhorizon.pulsespark.model.FunnelStep;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,58 +32,42 @@ public class FunnelComputeJob {
             "device_model_identifier", "network_carrier_icc", "screen_name", "service_name"
     };
 
-    // -------------------------------------------------------------------------
-    // Public entry point (called from SparkJobRunner)
-    // -------------------------------------------------------------------------
-
-    /**
-     * If referenceId is non-null: fetch the single ONCE funnel and use startTime/endTime
-     * for hour-level S3 reads. If null: fetch all AUTO funnels, group by project, read by date range.
-     */
     public static void runFunnels(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
                                    Long referenceId, String s3BucketPrefix, String runTime) throws Exception {
         List<FunnelDefinition> funnels = mysql.fetchFunnels(referenceId);
         if (funnels.isEmpty()) {
-            log.info("No funnels found — nothing to do.");
+            log.info("No funnels to process");
             return;
         }
-        log.info("Processing {} funnel(s), referenceId={}, run_time={}", funnels.size(), referenceId, runTime);
+        log.info("Processing {} funnel(s), referenceId={}", funnels.size(), referenceId);
 
         if (referenceId != null) {
             var funnel = funnels.get(0);
-            var s3Base = "s3a://" + s3BucketPrefix + funnel.projectId() + "/vector-logs/";
-            Dataset<Row> raw;
-            String actualRunTime;
-
-            if (funnel.startTime() != null && funnel.endTime() != null) {
-                // On-demand: hour-level S3 read using explicit time range
-                var startDt = funnel.startTime().toLocalDateTime();
-                var endDt   = funnel.endTime().toLocalDateTime();
-                actualRunTime = runTime; // Use the execution time for the result row
-                raw = readS3ByHours(spark, s3Base, startDt, endDt);
-            } else {
-                // Fallback: use date_range (no explicit time window set)
-                actualRunTime = runTime;
-                var endDate   = LocalDate.parse(runTime.substring(0, 10));
-                var startDate = endDate.minusDays(funnel.dateRange() - 1L);
-                raw = readS3ByDateRange(spark, s3Base, startDate, endDate);
+            if (funnel.startTime() == null || funnel.endTime() == null) {
+                throw new IllegalArgumentException("FUNNEL requires start_time and end_time for funnel_id=" + funnel.id());
             }
+            var startDt = funnel.startTime().toLocalDateTime();
+            var endDt   = funnel.endTime().toLocalDateTime();
+            var s3Base  = "s3a://" + s3BucketPrefix + funnel.projectId() + "/vector-logs/";
 
+            log.info("Funnel {} window [{} -> {}]", funnel.id(), startDt, endDt);
+            Dataset<Row> raw = readS3ByHours(spark, s3Base, startDt, endDt);
             if (raw == null) {
-                log.warn("No data found on S3 for funnel {}", funnel.id());
+                log.warn("No S3 data for funnel {}", funnel.id());
                 return;
             }
             raw = prepareRaw(raw, funnel.projectId()).cache();
             try {
-                var results = computeFunnel(raw, funnel, actualRunTime);
-                ch.deleteFunnelResults(funnel.id(), actualRunTime);
+                long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
+                long endEpoch   = endDt.toEpochSecond(ZoneOffset.UTC);
+                var results = computeFunnel(raw, funnel, runTime, startEpoch, endEpoch);
+                ch.deleteFunnelResults(funnel.id(), runTime);
                 ch.insertFunnelResults(results);
-                log.info("Wrote {} result rows for funnel {}", results.size(), funnel.id());
+                log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
             } finally {
                 raw.unpersist();
             }
         } else {
-            // Bulk: group by project, one wide S3 read covering max date range
             Map<String, List<FunnelDefinition>> byProject = new HashMap<>();
             for (var f : funnels) byProject.computeIfAbsent(f.projectId(), k -> new ArrayList<>()).add(f);
 
@@ -92,16 +75,12 @@ public class FunnelComputeJob {
                 try {
                     processProjectBulk(spark, ch, entry.getKey(), entry.getValue(), s3BucketPrefix, runTime);
                 } catch (Exception e) {
-                    log.error("Project {} failed: {}", entry.getKey(), e.getMessage(), e);
+                    log.error("Project {} funnels failed: {}", entry.getKey(), e.getMessage(), e);
                     throw e;
                 }
             }
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Bulk (AUTO) project processing
-    // -------------------------------------------------------------------------
 
     private static void processProjectBulk(SparkSession spark, ClickHouseClient ch,
                                             String projectId, List<FunnelDefinition> funnels,
@@ -109,24 +88,22 @@ public class FunnelComputeJob {
         int maxDays   = funnels.stream().mapToInt(FunnelDefinition::dateRange).max().orElse(7);
         var endDate   = LocalDate.parse(runTime.substring(0, 10));
         var startDate = endDate.minusDays(maxDays - 1L);
+        var s3Base    = "s3a://" + s3Prefix + projectId + "/vector-logs/";
 
-        var s3Base = "s3a://" + s3Prefix + projectId + "/vector-logs/";
-        log.info("Reading S3 {} [{} → {}] for {} funnel(s)", s3Base, startDate, endDate, funnels.size());
-
+        log.info("Project {} reading S3 [{} -> {}] for {} funnel(s)", projectId, startDate, endDate, funnels.size());
         Dataset<Row> raw = readS3ByDateRange(spark, s3Base, startDate, endDate);
         if (raw == null) {
             log.warn("No S3 data for project {}", projectId);
             return;
         }
         raw = prepareRaw(raw, projectId).cache();
-
         try {
             for (var funnel : funnels) {
                 try {
-                    var results = computeFunnel(raw, funnel, runTime);
+                    var results = computeFunnel(raw, funnel, runTime, null, null);
                     ch.deleteFunnelResults(funnel.id(), runTime);
                     ch.insertFunnelResults(results);
-                    log.info("Wrote {} result rows for funnel {}", results.size(), funnel.id());
+                    log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
                 } catch (Exception e) {
                     log.error("Funnel {} failed: {}", funnel.id(), e.getMessage(), e);
                     throw e;
@@ -137,29 +114,31 @@ public class FunnelComputeJob {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Funnel computation — cascading equi-join
-    // -------------------------------------------------------------------------
-
-    private static List<FunnelResult> computeFunnel(Dataset<Row> raw,
-                                                     FunnelDefinition funnel,
-                                                     String runTime) {
+    private static List<FunnelResult> computeFunnel(Dataset<Row> raw, FunnelDefinition funnel,
+                                                     String runTime,
+                                                     Long startEpochSeconds, Long endEpochSeconds) {
         var identityCol = "UNIQUE_USERS".equals(funnel.mode()) ? "user_id" : "session_id";
         long windowSecs = funnel.windowSeconds();
         var steps       = funnel.steps();
         int numSteps    = steps.size();
 
-        var endDate   = LocalDate.parse(runTime.substring(0, 10));
-        var startDate = endDate.minusDays(funnel.dateRange() - 1L);
-        Dataset<Row> df = raw.filter(
-                col("timestamp").cast(DataTypes.DateType).geq(lit(startDate.toString()))
-                        .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
-        );
-
+        Dataset<Row> df;
+        if (startEpochSeconds != null && endEpochSeconds != null) {
+            df = raw.filter(
+                    unix_timestamp(col("timestamp")).geq(lit(startEpochSeconds))
+                            .and(unix_timestamp(col("timestamp")).leq(lit(endEpochSeconds)))
+            );
+        } else {
+            var endDate   = LocalDate.parse(runTime.substring(0, 10));
+            var startDate = endDate.minusDays(funnel.dateRange() - 1L);
+            df = raw.filter(
+                    col("timestamp").cast(DataTypes.DateType).geq(lit(startDate.toString()))
+                            .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
+            );
+        }
         df = applyFilters(df, funnel.globalFilters());
 
-        Dataset<Row> step0Evts = stepEvents(df, steps.get(0), identityCol);
-        Dataset<Row> current = step0Evts
+        Dataset<Row> current = stepEvents(df, steps.get(0), identityCol)
                 .groupBy(col("identity"))
                 .agg(min(col("ts")).alias("ts0"))
                 .withColumn("ts_prev", col("ts0"))
@@ -167,7 +146,7 @@ public class FunnelComputeJob {
 
         long[] counts = new long[numSteps];
         counts[0] = current.count();
-        log.info("Funnel {} step 0 ({}) → {} identities", funnel.id(), steps.get(0).eventName(), counts[0]);
+        log.info("Funnel {} step 0 ({}) -> {} identities", funnel.id(), steps.get(0).eventName(), counts[0]);
 
         for (int i = 1; i < numSteps; i++) {
             if (counts[i - 1] == 0) break;
@@ -188,7 +167,7 @@ public class FunnelComputeJob {
             prevCache.unpersist();
 
             counts[i] = current.count();
-            log.info("Funnel {} step {} ({}) → {} identities", funnel.id(), i, steps.get(i).eventName(), counts[i]);
+            log.info("Funnel {} step {} ({}) -> {} identities", funnel.id(), i, steps.get(i).eventName(), counts[i]);
         }
         current.unpersist();
 
@@ -235,32 +214,23 @@ public class FunnelComputeJob {
         return df;
     }
 
-    // -------------------------------------------------------------------------
-    // S3 reading helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * Reads date-partitioned S3 paths: {s3BasePath}{yyyy-MM-dd}/ for each day in [startDate, endDate].
-     * Returns null if no paths could be loaded.
-     */
     static Dataset<Row> readS3ByDateRange(SparkSession spark, String s3BasePath,
                                            LocalDate startDate, LocalDate endDate) {
         Dataset<Row> combined = null;
-        int attempted = 0;
-        int loaded = 0;
+        int attempted = 0, loaded = 0;
         for (var d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
             attempted++;
-            var ds = loadPath(spark, s3BasePath + d.toString() + "/");
+            var ds = loadPath(spark, s3BasePath + d + "/");
             if (ds != null) {
                 loaded++;
                 combined = combined == null ? ds : combined.union(ds);
             }
         }
         if (combined == null) {
-            log.warn("S3 fetch status: no data loaded for date range {} to {} (attemptedPaths={}, loadedPaths={})",
+            log.warn("No S3 data for date range {} to {} (attempted={}, loaded={})",
                     startDate, endDate, attempted, loaded);
         } else {
-            log.info("S3 fetch status: data loaded for date range {} to {} (attemptedPaths={}, loadedPaths={})",
+            log.info("Loaded S3 date range {} to {} (attempted={}, loaded={})",
                     startDate, endDate, attempted, loaded);
         }
         return combined;
@@ -271,8 +241,7 @@ public class FunnelComputeJob {
         var cursor  = startDt.withMinute(0).withSecond(0).withNano(0);
         var endHour = endDt.withMinute(59).withSecond(59).withNano(0);
         Dataset<Row> combined = null;
-        int attempted = 0;
-        int loaded = 0;
+        int attempted = 0, loaded = 0;
         while (!cursor.isAfter(endHour)) {
             attempted++;
             var path = s3BasePath + cursor.toLocalDate() + "/" + String.format("%02d", cursor.getHour()) + "/";
@@ -284,10 +253,10 @@ public class FunnelComputeJob {
             cursor = cursor.plusHours(1);
         }
         if (combined == null) {
-            log.warn("S3 fetch status: no data loaded for hour range {} to {} (attemptedPaths={}, loadedPaths={})",
+            log.warn("No S3 data for hour range {} to {} (attempted={}, loaded={})",
                     startDt, endDt, attempted, loaded);
         } else {
-            log.info("S3 fetch status: data loaded for hour range {} to {} (attemptedPaths={}, loadedPaths={})",
+            log.info("Loaded S3 hour range {} to {} (attempted={}, loaded={})",
                     startDt, endDt, attempted, loaded);
         }
         return combined;
@@ -295,16 +264,14 @@ public class FunnelComputeJob {
 
     private static Dataset<Row> loadPath(SparkSession spark, String path) {
         try {
-            var ds = spark.read()
+            return spark.read()
                     .format("parquet")
                     .option("recursiveFileLookup", "true")
                     .option("mergeSchema", "true")
                     .load(path)
                     .select(buildReadExprs());
-            log.info("Loaded S3 path successfully: {}", path);
-            return ds;
         } catch (Exception e) {
-            log.warn("Unable to load S3 path: {}. Reason: {}", path, e.getMessage());
+            log.warn("Skipping S3 path {}: {}", path, e.getMessage());
             return null;
         }
     }
@@ -316,8 +283,6 @@ public class FunnelComputeJob {
     static Column[] buildReadExprs() {
         var cols = new ArrayList<Column>();
         for (var c : READ_COLS) cols.add(col(c));
-        // props column is read only for user_id extraction
-        // user_id: prefer explicit user_id, fall back to app.installation.id (dot-key needs bracket notation)
         cols.add(coalesce(
                 get_json_object(col("props"), "$.user_id"),
                 get_json_object(col("props"), "$['app.installation.id']")
