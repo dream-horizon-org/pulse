@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
@@ -29,7 +30,7 @@ public class JourneyDao {
         .preparedQuery(JourneyQueries.INSERT)
         .rxExecute(
             Tuple.from(
-                List.of(
+                Arrays.asList(
                     row.getProjectId(),
                     row.getName(),
                     row.getDescription(),
@@ -53,7 +54,7 @@ public class JourneyDao {
         .preparedQuery(JourneyQueries.UPDATE)
         .rxExecute(
             Tuple.from(
-                List.of(
+                Arrays.asList(
                     row.getName(),
                     row.getDescription(),
                     row.getAnchorEvent(),

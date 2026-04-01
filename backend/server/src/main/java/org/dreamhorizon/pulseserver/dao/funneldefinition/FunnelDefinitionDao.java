@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +32,7 @@ public class FunnelDefinitionDao {
         .preparedQuery(FunnelDefinitionQueries.INSERT)
         .rxExecute(
             Tuple.from(
-                List.of(
+                Arrays.asList(
                     row.getProjectId(),
                     row.getName(),
                     row.getDescription(),
@@ -55,7 +56,7 @@ public class FunnelDefinitionDao {
         .preparedQuery(FunnelDefinitionQueries.UPDATE)
         .rxExecute(
             Tuple.from(
-                List.of(
+                Arrays.asList(
                     row.getName(),
                     row.getDescription(),
                     row.getFunnelType(),
