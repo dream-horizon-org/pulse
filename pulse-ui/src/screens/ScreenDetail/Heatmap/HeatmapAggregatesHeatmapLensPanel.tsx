@@ -1,4 +1,5 @@
-import { Group, Paper, Stack, Table, Text } from "@mantine/core";
+import { Group, Paper, Stack, Table, Text, Tooltip } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { Fragment, useMemo, type ReactNode } from "react";
 import { buildHeatmapAggregateSnapshot } from "./heatmapAggregates";
 import type { HeatmapDataResponse } from "./heatmap.types";
@@ -182,9 +183,44 @@ export function HeatmapAggregatesHeatmapLensPanel({
 
         <Paper className={classes.aggregatesSubCard} radius="sm" p="sm" withBorder>
           <Group justify="space-between" align="center" wrap="wrap" gap="sm" mb={10}>
-            <Text size="sm" fw={600} c="dimmed">
-              Breakdown
-            </Text>
+            <Group gap={6} align="center" wrap="nowrap">
+              <Text
+                className={classes.aggregatesCardTitle}
+                size="xs"
+                fw={700}
+                c="#0ba09a"
+                tt="uppercase"
+                style={{ letterSpacing: "0.05em", marginBottom: 0 }}
+              >
+                Breakdown
+              </Text>
+              <Tooltip
+                label={
+                  <Text size="sm" lh={1.5} maw={320}>
+                    <strong>Total spots</strong> is how many map cells we summarize (not every
+                    individual tap). Per-layer <strong>Total events</strong> can differ from{" "}
+                    <strong>Total events</strong> in the score block above.
+                  </Text>
+                }
+                withArrow
+                multiline
+                w={340}
+                styles={{
+                  tooltip: {
+                    padding: "var(--mantine-spacing-sm) var(--mantine-spacing-md)",
+                    backgroundColor: "var(--mantine-color-gray-9)",
+                    color: "var(--mantine-color-white)",
+                  },
+                }}
+              >
+                <span
+                  className={classes.summaryQualityInfo}
+                  aria-label="About total spots and per-layer events"
+                >
+                  <IconInfoCircle size={14} stroke={1.5} />
+                </span>
+              </Tooltip>
+            </Group>
             <div
               className={classes.aggregatesScoreSignalBadge}
               title="Current map layer"
@@ -193,11 +229,6 @@ export function HeatmapAggregatesHeatmapLensPanel({
             </div>
           </Group>
           <LayerBreakdownTable rows={layerTableRows} />
-          <Text size="xs" c="dimmed" lh={1.45} mt={8}>
-            <strong>Total spots</strong> is how many map cells we summarize (not every individual
-            tap). Per-layer <strong>Total events</strong> can differ from <strong>Total events</strong>{" "}
-            in the score block above.
-          </Text>
         </Paper>
 
         <HeatmapPulseInteractionsAggregatesSection
