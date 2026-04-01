@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.module;
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import org.dreamhorizon.pulseserver.dao.funneldefinition.FunnelDefinitionDao;
+import org.dreamhorizon.pulseserver.dao.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.dao.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.impl.ConfigServiceImpl;
@@ -26,6 +27,7 @@ public class InteractionModule extends AbstractModule {
     bind(ConfigService.class).to(ConfigServiceImpl.class)
         .in(Singleton.class);
     bind(FunnelDefinitionDao.class).in(Singleton.class);
+    bind(FunnelResultsDao.class).in(Singleton.class);
     bind(FunnelService.class).to(FunnelServiceImpl.class).in(Singleton.class);
     bind(JourneyDao.class).in(Singleton.class);
     bind(JourneyService.class).to(JourneyServiceImpl.class).in(Singleton.class);

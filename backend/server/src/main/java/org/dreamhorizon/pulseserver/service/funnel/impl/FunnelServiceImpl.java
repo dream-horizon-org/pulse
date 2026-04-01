@@ -20,6 +20,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatus;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatusResolver;
 import org.dreamhorizon.pulseserver.dao.funneldefinition.FunnelDefinitionDao;
+import org.dreamhorizon.pulseserver.dao.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.dao.funneldefinition.FunnelDefinitionListParams;
 import org.dreamhorizon.pulseserver.dao.funneldefinition.models.FunnelDefinitionRow;
 import org.dreamhorizon.pulseserver.error.ServiceError;
@@ -30,10 +31,12 @@ import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelDefinitionResp
 import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelDefinitionStep;
 import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelListQueryParams;
 import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelMode;
+import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelResultsResponse;
 import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelType;
 import org.dreamhorizon.pulseserver.resources.funnel.models.StepOrderType;
 import org.dreamhorizon.pulseserver.resources.funnel.models.UpdateFunnelDefinitionRequest;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
+import org.dreamhorizon.pulseserver.service.funnel.FunnelResultsMapper;
 import org.dreamhorizon.pulseserver.service.funnel.FunnelService;
 
 @Slf4j
@@ -43,6 +46,7 @@ public class FunnelServiceImpl implements FunnelService {
   private static final int MAX_PAGE_SIZE = 50;
 
   private final FunnelDefinitionDao funnelDefinitionDao;
+  private final FunnelResultsDao funnelResultsDao;
   private final AnalyticsBatchServiceImpl analyticsBatchService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -166,8 +170,35 @@ public class FunnelServiceImpl implements FunnelService {
     return funnelDefinitionDao
         .findByProjectAndId(projectId, id)
         .switchIfEmpty(Maybe.error(ServiceError.FUNNEL_NOT_FOUND.getException()))
-        .map(this::toResponse)
-        .toSingle();
+        .toSingle()
+        .flatMap(
+            row ->
+                funnelResultsDao
+                    .queryLatest(projectId, id)
+                    .map(FunnelResultsMapper::fromRows)
+                    .onErrorResumeNext(
+                        err -> {
+                          log.warn(
+                              "Failed to load ClickHouse funnel results for funnel {} (project {}): {}",
+                              id,
+                              projectId,
+                              err.toString());
+                          return Single.just((FunnelResultsResponse) null);
+                        })
+                    .map(results -> toResponse(row, results)));
+  }
+
+  @Override
+  public Single<FunnelResultsResponse> getResults(String projectId, long id) {
+    return funnelDefinitionDao
+        .findByProjectAndId(projectId, id)
+        .switchIfEmpty(Maybe.error(ServiceError.FUNNEL_NOT_FOUND.getException()))
+        .toSingle()
+        .flatMap(
+            ignored ->
+                funnelResultsDao
+                    .queryLatest(projectId, id)
+                    .map(FunnelResultsMapper::fromRows));
   }
 
   @Override
@@ -324,6 +355,11 @@ public class FunnelServiceImpl implements FunnelService {
   }
 
   private FunnelDefinitionResponse toResponse(FunnelDefinitionRow row) {
+    return toResponse(row, null);
+  }
+
+  private FunnelDefinitionResponse toResponse(
+      FunnelDefinitionRow row, FunnelResultsResponse funnelResults) {
     try {
       List<FunnelDefinitionStep> steps =
           objectMapper.readValue(row.getStepsJson(), new TypeReference<>() {
@@ -355,6 +391,7 @@ public class FunnelServiceImpl implements FunnelService {
           .createdAt(row.getCreatedAt())
           .updatedAt(row.getUpdatedAt())
           .createdBy(row.getCreatedBy())
+          .funnelResults(funnelResults)
           .build();
     } catch (JsonProcessingException e) {
       log.error("Corrupt funnel JSON for id {}", row.getId(), e);

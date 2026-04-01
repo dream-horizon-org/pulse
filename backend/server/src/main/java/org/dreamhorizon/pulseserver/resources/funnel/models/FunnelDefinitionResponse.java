@@ -54,4 +54,10 @@ public class FunnelDefinitionResponse {
   private Instant updatedAt;
 
   private String createdBy;
+
+  /**
+   * Latest pre-computed funnel metrics from ClickHouse ({@code otel.funnel_results}), when available.
+   * Omitted when ClickHouse query fails or has not produced rows yet.
+   */
+  private FunnelResultsResponse funnelResults;
 }
