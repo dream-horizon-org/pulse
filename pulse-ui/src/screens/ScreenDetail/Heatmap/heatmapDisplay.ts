@@ -1,14 +1,14 @@
 import type { HeatmapGlowPoint } from "./heatmap.types";
 
-/** Default cap keeps dense API payloads readable until the user slides toward “more”. */
-export const DEFAULT_HEATMAP_BIN_BUDGET = 80;
-
 export function topGlowBinsByWeight(
   points: HeatmapGlowPoint[],
   budget: number,
 ): HeatmapGlowPoint[] {
-  if (budget <= 0 || points.length <= budget) {
-    return points.length ? [...points] : [];
+  if (!points.length || budget <= 0) {
+    return [];
+  }
+  if (points.length <= budget) {
+    return [...points];
   }
   return [...points]
     .sort((a, b) => b.weight - a.weight)

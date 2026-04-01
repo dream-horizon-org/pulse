@@ -14,10 +14,10 @@ export const HEATMAP_SCREEN_FALLBACK_URL =
  * applies `minOpacity`/`maxOpacity`). Saturated, darker cool end reads on white UIs.
  */
 export const HEATMAP_JS_GRADIENT: Record<string, string> = {
-  "0.0": "rgb(0, 65, 120)",
-  "0.22": "rgb(0, 120, 135)",
-  "0.45": "rgb(0, 155, 130)",
-  "0.65": "rgb(255, 155, 35)",
-  "0.85": "rgb(255, 75, 35)",
-  "1.0": "rgb(185, 0, 35)",
+  "0.0": "rgb(0, 75, 130)",
+  "0.22": "rgb(0, 128, 142)",
+  "0.45": "rgb(30, 165, 125)",
+  "0.65": "rgb(255, 165, 55)",
+  "0.85": "rgb(235, 95, 55)",
+  "1.0": "rgb(200, 45, 55)",
 };

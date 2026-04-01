@@ -1,17 +1,14 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Alert } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
 import { useHeatmapData } from "../../../hooks/useHeatmapData";
 import { useFilterStore } from "../../../stores/useFilterStore";
 import { ROUTES } from "../../../constants";
 import { getHeatmapQualityMetrics } from "./heatmapQuality";
 import { HeatmapVisualization } from "./HeatmapVisualization";
-import { HeatmapFilterBar } from "./HeatmapFilterBar";
-import { HeatmapScoreSection } from "./HeatmapScoreSection";
 import { HeatmapComparePanel } from "./HeatmapComparePanel";
 import { HeatmapDrillDown, HeatmapEngagementCards } from "./HeatmapPanelFooter";
 import { HeatmapVizFooter } from "./HeatmapVizFooter";
+import { HeatmapMainCard } from "./HeatmapMainCard";
 import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import {
@@ -26,7 +23,8 @@ import classes from "./HeatmapPanel.module.css";
 export type { HeatmapPanelProps } from "./heatmapPanel.types";
 
 /**
- * Heatmap tab — layout from wireframes/heatmap/frames.pen (sdHeatBody).
+ * Heatmap tab — Summary + Map cards (EngagementGraph styling), demo-aligned split
+ * and aggregates panel; retains heatmap.js, focus lens, carousel, and bin budget.
  */
 export function HeatmapPanel({
   screenName,
@@ -89,6 +87,16 @@ export function HeatmapPanel({
     [compareLeftPayload, compareRightPayload, signal],
   );
 
+  const compareLeftQualityMetrics = useMemo(
+    () => getHeatmapQualityMetrics(compareLeftPayload ?? null),
+    [compareLeftPayload],
+  );
+
+  const compareRightQualityMetrics = useMemo(
+    () => getHeatmapQualityMetrics(compareRightPayload ?? null),
+    [compareRightPayload],
+  );
+
   const qualityMetrics = useMemo(
     () => getHeatmapQualityMetrics(singlePayload ?? null),
     [singlePayload],
@@ -122,11 +130,18 @@ export function HeatmapPanel({
         "Request failed")
       : null;
 
+  const heatmapErrorMessage =
+    singleErr || heatmapQuery.isError
+      ? (singleErr?.message ?? "Request failed")
+      : null;
+
   if (compareEnabled) {
     return (
       <HeatmapComparePanel
         signal={signal}
         onSignalChange={setSignal}
+        focusLens={focusLens}
+        onFocusLensChange={setFocusLens}
         compareScreenName={compareScreenName}
         onCompareScreenNameChange={setCompareScreenName}
         onExitCompare={() => setCompareEnabled(false)}
@@ -136,6 +151,8 @@ export function HeatmapPanel({
         errorMessage={compareErrorMessage}
         compareLeftPayload={compareLeftPayload}
         compareRightPayload={compareRightPayload}
+        compareLeftQualityMetrics={compareLeftQualityMetrics}
+        compareRightQualityMetrics={compareRightQualityMetrics}
         compareSharedMax={compareSharedMax}
       />
     );
@@ -143,76 +160,56 @@ export function HeatmapPanel({
 
   return (
     <div className={classes.root}>
-      <div className={classes.heatmapLayout}>
-        <div className={classes.heatmapMain}>
-          {heatmapQuery.isLoading && (
-            <div className={classes.loadingSkeleton} />
-          )}
+      <HeatmapMainCard
+        engagement={engagement}
+        signal={signal}
+        onSignalChange={setSignal}
+        onCompareClick={() => setCompareEnabled(true)}
+        focusLens={focusLens}
+        onFocusLensChange={setFocusLens}
+        isLoading={heatmapQuery.isLoading}
+        errorMessage={heatmapErrorMessage}
+        singlePayload={singlePayload}
+        qualityMetrics={qualityMetrics}
+        mapColumn={
+          singlePayload ? (
+            <div className={classes.heatVizEmbedded}>
+              <HeatmapVisualization
+                embedded
+                signal={signal}
+                screenshotUrls={screenshotUrlsFromMetadata(singlePayload.metadata)}
+                glowMap={glowForSignal}
+                binBudget={binBudget}
+                showDensityFooter={false}
+                focusLens={focusLens}
+                interactionRegions={
+                  singlePayload.layers.interaction_map?.regions ?? []
+                }
+                showFrustrationMarkers={signal === "rage"}
+                ragePoints={rageForMarkers}
+              />
+              {focusLens === "all" && (
+                <div className={classes.embeddedBinBudget}>
+                  <HeatmapVizFooter
+                    glowMapLength={glowForSignal.length}
+                    displayCount={binBudget.displayGlow.length}
+                    binBudgetMax={binBudget.binBudgetMax}
+                    effectiveBudget={binBudget.binBudget}
+                    onBudgetChange={binBudget.setBinBudget}
+                  />
+                </div>
+              )}
+            </div>
+          ) : null
+        }
+      />
 
-          {(singleErr || heatmapQuery.isError) && (
-            <Alert
-              color="red"
-              title="Heatmap request failed"
-              icon={<IconInfoCircle />}
-            >
-              {singleErr?.message ?? "Request failed"}
-            </Alert>
-          )}
+      <HeatmapDrillDown
+        userEngagementPath={userEngagementPath}
+        appVitalsPath={appVitalsPath}
+      />
 
-          {singlePayload && (
-            <HeatmapVisualization
-              screenshotUrls={screenshotUrlsFromMetadata(singlePayload.metadata)}
-              glowMap={glowForSignal}
-              binBudget={binBudget}
-              showDensityFooter={false}
-              focusLens={focusLens}
-              interactionRegions={
-                singlePayload.layers.interaction_map?.regions ?? []
-              }
-              showFrustrationMarkers={signal === "rage"}
-              ragePoints={rageForMarkers}
-            />
-          )}
-
-          <HeatmapDrillDown
-            userEngagementPath={userEngagementPath}
-            appVitalsPath={appVitalsPath}
-          />
-
-          <HeatmapEngagementCards engagement={engagement} />
-        </div>
-
-        <aside
-          className={classes.heatmapFilterAside}
-          aria-label="Heatmap metrics and filters"
-        >
-          <div className={classes.heatmapAsideStack}>
-            <HeatmapFilterBar
-              signal={signal}
-              onSignalChange={setSignal}
-              onCompareClick={() => setCompareEnabled(true)}
-              focusLens={focusLens}
-              onFocusLensChange={setFocusLens}
-            />
-            {focusLens === "all" && (
-              <div className={classes.heatmapAsideSection}>
-                <HeatmapVizFooter
-                  glowMapLength={glowForSignal.length}
-                  displayCount={binBudget.displayGlow.length}
-                  binBudgetMax={binBudget.binBudgetMax}
-                  effectiveBudget={binBudget.binBudget}
-                  onBudgetChange={binBudget.setBinBudget}
-                />
-              </div>
-            )}
-            <HeatmapScoreSection
-              singlePayload={singlePayload}
-              qualityMetrics={qualityMetrics}
-              focusLens={focusLens}
-            />
-          </div>
-        </aside>
-      </div>
+      <HeatmapEngagementCards engagement={engagement} />
     </div>
   );
 }

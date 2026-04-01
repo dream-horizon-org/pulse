@@ -20,8 +20,9 @@ export function HeatmapScoreSection({
       <div className={classes.scoreCard}>
         <Text className={classes.scoreCardLabel}>Heatmap quality</Text>
         <Text className={classes.scoreCardValue}>
-          {singlePayload && qualityMetrics.score != null
-            ? `${qualityMetrics.score} · ${qualityMetrics.label}`
+          {singlePayload &&
+          (qualityMetrics.score01 != null || qualityMetrics.score != null)
+            ? `${qualityMetrics.score01 != null ? qualityMetrics.score01.toFixed(2) : qualityMetrics.score} · ${qualityMetrics.label}`
             : "—"}
         </Text>
         <Text className={classes.scoreCardSub}>

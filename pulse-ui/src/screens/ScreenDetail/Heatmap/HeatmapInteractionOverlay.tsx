@@ -24,9 +24,11 @@ function TooltipBody({ region }: { region: HeatmapInteractionElementRegion }) {
       ) : (
         rows.map((row, i) => (
           <div key={row.interaction_id ?? `${i}`} className={classes.interactionTooltipRow}>
-            <Text size="xs" c="white" lineClamp={2}>
-              {row.name ?? row.interaction_id ?? `Interaction ${i + 1}`}
-            </Text>
+            <div>
+              <Text size="xs" c="white" lineClamp={2}>
+                {row.name ?? row.interaction_id ?? `Interaction ${i + 1}`}
+              </Text>
+            </div>
             <Text size="xs" fw={600} c="teal.2" style={{ whiteSpace: "nowrap" }}>
               {row.score.toFixed(2)}
             </Text>

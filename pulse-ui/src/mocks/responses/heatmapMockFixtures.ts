@@ -9,8 +9,10 @@ import { HEATMAP_DEFAULT_UNDERLAY_URL } from "../../screens/ScreenDetail/Heatmap
 const MOCK_UI_HASH = "a".repeat(64);
 const MOCK_SCREENSHOT = HEATMAP_DEFAULT_UNDERLAY_URL;
 
-/** POC cap — dense but watchable in dev (DOM mode is one div per point; heatmap.js is fine with more). */
-const POC_GLOW_MAX_POINTS = 1800;
+/** Dense POC mock size (backend contract max for `glow_map` is 10k). */
+const POC_GLOW_MAX_POINTS = 10_000;
+
+const GOLDEN_RATIO_FRAC = 0.6180339887498949;
 
 function mulberry32(seed: number) {
   return function () {
@@ -30,8 +32,42 @@ function hashScreenName(s: string): number {
   return h >>> 0;
 }
 
+/**
+ * Per–browser-tab salt so mock heatmaps vary between sessions/manual QA runs
+ * while staying stable for the lifetime of the tab (fewer flaky surprises when
+ * refreshing a single screen).
+ */
+function heatmapMockSessionSalt(): number {
+  try {
+    if (typeof sessionStorage === "undefined") {
+      return 0;
+    }
+    const key = "pulseHeatmapMockSalt";
+    let s = sessionStorage.getItem(key);
+    if (s == null) {
+      s = String((Math.random() * 0x7fffffff) | 0);
+      sessionStorage.setItem(key, s);
+    }
+    return Number(s) >>> 0;
+  } catch {
+    return 0;
+  }
+}
+
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
+}
+
+/** XOR-in unpredictable bits so each mock response differs (QA), without breaking SSR. */
+function mockFetchEntropy(): number {
+  try {
+    const a = new Uint32Array(1);
+    globalThis.crypto?.getRandomValues?.(a);
+    if (a[0]) return a[0];
+  } catch {
+    /* ignore */
+  }
+  return (Math.random() * 0x7fffffff) >>> 0;
 }
 
 function baseMetadata(screenName: string): HeatmapDataResponse["metadata"] {
@@ -51,15 +87,6 @@ function baseMetadata(screenName: string): HeatmapDataResponse["metadata"] {
     created_at: "2026-03-01T12:00:00.000Z",
   };
 }
-
-type Cluster = {
-  cx: number;
-  cy: number;
-  count: number;
-  spread: number;
-  wMin: number;
-  wMax: number;
-};
 
 /** Mock Key-actions layer: normalized bounds + Pulse interaction scores per element. */
 export function heatmapMockInteractionMap(): HeatmapInteractionMapLayer {
@@ -92,8 +119,16 @@ export function heatmapMockInteractionMap(): HeatmapInteractionMapLayer {
         maxY: 0.6,
         avg_score: 0.64,
         interaction_scores: [
-          { name: "Open detail", score: 0.72 },
-          { name: "Quick action", score: 0.55 },
+          {
+            interaction_id: "pi_open_detail",
+            name: "Open detail",
+            score: 0.72,
+          },
+          {
+            interaction_id: "pi_quick_action",
+            name: "Quick action",
+            score: 0.55,
+          },
         ],
       },
       {
@@ -103,7 +138,11 @@ export function heatmapMockInteractionMap(): HeatmapInteractionMapLayer {
         maxX: 0.22,
         maxY: 0.97,
         interaction_scores: [
-          { interaction_id: "pi_tab_home", name: "Home tab", score: 0.93 },
+          {
+            interaction_id: "pi_tab_home",
+            name: "Home tab",
+            score: 0.93,
+          },
         ],
       },
     ],
@@ -111,60 +150,133 @@ export function heatmapMockInteractionMap(): HeatmapInteractionMapLayer {
 }
 
 /**
- * Dense mock: bottom nav (4 “tabs”), top CTA, two content cards, FAB — capped by POC_GLOW_MAX_POINTS.
- * Coordinates normalized [0,1], origin top-left (matches UI overlay).
+ * Many small hotspots spread across the frame. Ambient sprinkle is capped so
+ * heatmap.js doesn’t stack low-weight blobs into a gray/blue sheet.
  */
-export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
-  const rand = mulberry32(hashScreenName(screenName));
-  const clusters: Cluster[] = [
-    { cx: 0.12, cy: 0.91, count: 1180, spread: 0.035, wMin: 3, wMax: 48 },
-    { cx: 0.36, cy: 0.91, count: 1120, spread: 0.035, wMin: 3, wMax: 52 },
-    { cx: 0.6, cy: 0.91, count: 1120, spread: 0.035, wMin: 3, wMax: 50 },
-    { cx: 0.84, cy: 0.91, count: 980, spread: 0.03, wMin: 3, wMax: 45 },
-    { cx: 0.5, cy: 0.1, count: 320, spread: 0.028, wMin: 8, wMax: 140 },
-    { cx: 0.26, cy: 0.44, count: 420, spread: 0.042, wMin: 4, wMax: 62 },
-    { cx: 0.74, cy: 0.41, count: 400, spread: 0.042, wMin: 4, wMax: 58 },
-    { cx: 0.86, cy: 0.66, count: 460, spread: 0.032, wMin: 5, wMax: 95 },
-  ];
-
-  const planned = clusters.reduce((s, c) => s + c.count, 0);
-  const scale =
-    planned > POC_GLOW_MAX_POINTS ? POC_GLOW_MAX_POINTS / planned : 1;
-
+function buildDistributedGlowMap(rand: () => number, seed: number): HeatmapGlowPoint[] {
+  const maxPoints = POC_GLOW_MAX_POINTS;
   const glow_map: HeatmapGlowPoint[] = [];
-  for (const c of clusters) {
-    const n = Math.max(0, Math.floor(c.count * scale));
+  let remaining = maxPoints;
+
+  const layoutRoll = rand();
+  const rowBias = layoutRoll < 0.22;
+  const diffuseLayout = layoutRoll > 0.78;
+  const nAnchors = 20 + (seed % 7) + Math.floor(rand() * 16);
+  const anchorPortion = 0.88 + rand() * 0.1;
+  const targetAnchorPoints = Math.min(
+    Math.floor(maxPoints * anchorPortion),
+    Math.max(0, remaining),
+  );
+  const perAnchorBase =
+    nAnchors > 0 ? Math.max(10, Math.floor(targetAnchorPoints / nAnchors)) : 0;
+
+  for (let k = 0; k < nAnchors && remaining > 0; k++) {
+    if (rand() < 0.08) {
+      continue;
+    }
+
+    let u = (k * GOLDEN_RATIO_FRAC + rand() * 0.22) % 1;
+    let v = (k * GOLDEN_RATIO_FRAC * GOLDEN_RATIO_FRAC + rand() * 0.24) % 1;
+
+    if (rowBias) {
+      const band = Math.floor(rand() * 9) / 9;
+      v = clamp01(0.06 + band * 0.86 + (rand() - 0.5) * 0.045);
+      u = (u * 0.65 + rand() * 0.35) % 1;
+    }
+
+    const cx = clamp01(0.03 + u * 0.94 + (rand() - 0.5) * 0.06);
+    const cy = clamp01(0.03 + v * 0.94 + (rand() - 0.5) * 0.06);
+    const spreadBase = diffuseLayout ? 0.018 + rand() * 0.048 : 0.009 + rand() * 0.038;
+    const spread = spreadBase * (0.65 + rand() * 0.75);
+
+    let n = Math.min(
+      remaining,
+      Math.floor(perAnchorBase * (0.38 + rand() * 1.35)),
+    );
+    n = Math.max(4, n);
+
+    const hotSpot = rand() < (0.1 + rand() * 0.12);
+    const wMin = hotSpot ? 12 + rand() * 42 : 3 + rand() * 22;
+    const wMax = hotSpot
+      ? wMin + 60 + rand() * 220
+      : wMin + 10 + rand() * 95;
+
     for (let i = 0; i < n; i++) {
-      const x = clamp01(c.cx + (rand() - 0.5) * 2 * c.spread);
-      const y = clamp01(c.cy + (rand() - 0.5) * 2 * c.spread);
-      const weight = c.wMin + rand() * (c.wMax - c.wMin);
+      const x = clamp01(cx + (rand() - 0.5) * 2 * spread);
+      const y = clamp01(cy + (rand() - 0.5) * 2 * spread);
+      let weight = wMin + rand() * (wMax - wMin);
+      weight *= 0.82 + rand() * 0.38;
       glow_map.push({
         x,
         y,
         weight: Math.round(weight * 10) / 10,
       });
     }
+    remaining -= n;
   }
 
-  while (glow_map.length > POC_GLOW_MAX_POINTS) {
-    glow_map.pop();
+  const ambientFrac = 0.04 + rand() * 0.055;
+  const ambientCap = Math.min(remaining, Math.round(maxPoints * ambientFrac));
+  for (let a = 0; a < ambientCap; a++) {
+    const x = clamp01(0.02 + rand() * 0.96);
+    const y = clamp01(0.02 + rand() * 0.96);
+    const weight = (0.8 + rand() * 14) * (0.75 + rand() * 0.5);
+    glow_map.push({
+      x,
+      y,
+      weight: Math.round(weight * 10) / 10,
+    });
   }
 
-  const weightSum = glow_map.reduce((s, p) => s + p.weight, 0);
+  return glow_map;
+}
+
+/**
+ * Dense mock: wide, many-peak + ambient field — capped by POC_GLOW_MAX_POINTS.
+ * Coordinates normalized [0,1], origin top-left (matches UI overlay).
+ */
+export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
+  const salt = heatmapMockSessionSalt();
+  const seed = hashScreenName(screenName) ^ salt ^ mockFetchEntropy();
+  const rand = mulberry32(seed ^ 0x51bec0de);
+  const glow_map = buildDistributedGlowMap(rand, seed);
+
+  const glowWeightSum = glow_map.reduce((s, p) => s + p.weight, 0);
+  const total_events = Math.max(12_000, Math.round(glowWeightSum * 0.76));
+  const frustrationBudget = Math.max(400, Math.round(total_events * 0.13));
+  const rageA = Math.round(frustrationBudget * 0.52);
+  const rageB = Math.round(frustrationBudget * 0.31);
+  const deadW = Math.max(80, frustrationBudget - rageA - rageB);
 
   return {
     metadata: {
       ...baseMetadata(screenName),
-      total_events: Math.round(weightSum) || glow_map.length,
+      total_events,
     },
     layers: {
       glow_map,
       frustration_map: {
         rage: [
-          { x: 0.36, y: 0.91, weight: 450, avg_sequence_count: 5 },
-          { x: 0.86, y: 0.66, weight: 180, avg_sequence_count: 3 },
+          {
+            x: clamp01(0.36 + (rand() - 0.5) * 0.04),
+            y: clamp01(0.91 + (rand() - 0.5) * 0.03),
+            weight: rageA,
+            avg_sequence_count: 4 + Math.round(rand() * 4),
+          },
+          {
+            x: clamp01(0.86 + (rand() - 0.5) * 0.04),
+            y: clamp01(0.66 + (rand() - 0.5) * 0.04),
+            weight: rageB,
+            avg_sequence_count: 2 + Math.round(rand() * 4),
+          },
         ],
-        dead: [{ x: 0.12, y: 0.2, weight: 90 }],
+        dead: [
+          {
+            x: clamp01(0.12 + (rand() - 0.5) * 0.05),
+            y: clamp01(0.2 + (rand() - 0.5) * 0.05),
+            weight: deadW,
+          },
+        ],
       },
       observability_map: {
         error_clicks: [

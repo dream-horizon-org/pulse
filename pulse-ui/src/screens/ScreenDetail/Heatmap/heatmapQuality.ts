@@ -6,12 +6,72 @@ import type { HeatmapDataResponse } from "./heatmap.types";
  * an underlay for aligning normalized x/y (0–1) to pixels.
  */
 
+/** Inclusive lower bound for the “Good” band (70–100). */
+export const HEATMAP_QUALITY_GOOD_MIN = 70;
+
+/** Inclusive lower bound for the “Average” band (40–69). “Poor” is 0–39. */
+export const HEATMAP_QUALITY_AVERAGE_MIN = 40;
+
+/** Map a 0–100 score to Good / Average / Poor (bands match 0–1 heatmap score × 100). */
+export function bandFromNumericScore(
+  score: number,
+): Exclude<HeatmapQualityMetrics["band"], "nodata"> {
+  if (score >= HEATMAP_QUALITY_GOOD_MIN) return "good";
+  if (score >= HEATMAP_QUALITY_AVERAGE_MIN) return "average";
+  return "poor";
+}
+
+/** Text color aligned with grade chips (Good = teal, Average = orange, Poor = red). */
+export function heatmapScoreColor(band: HeatmapQualityMetrics["band"]): string {
+  switch (band) {
+    case "good":
+      return "#0ba09a";
+    case "average":
+      return "#c05621";
+    case "poor":
+      return "#c92a2a";
+    default:
+      return "var(--mantine-color-dimmed)";
+  }
+}
+
+export function qualityLabelForBand(
+  band: Exclude<HeatmapQualityMetrics["band"], "nodata">,
+): string {
+  if (band === "good") return "Good";
+  if (band === "average") return "Average";
+  return "Poor";
+}
+
 export interface HeatmapQualityMetrics {
+  /**
+   * **0–1** heatmap score (coverage + hotspot concentration on glow layer,
+   * adjusted for frustration mass in rage + dead bins).
+   * Primary value for UI; aligns with interaction scores scale.
+   */
+  score01: number | null;
+  /** 0–100, `Math.round(score01 * 100)` when present — for band cutoffs and logging. */
   score: number | null;
   /** Good / Average / Poor / No data */
   label: string;
   /** Maps to UI legend chip styling */
   band: "good" | "average" | "poor" | "nodata";
+  /**
+   * Glow weight sum ÷ total events (capped at 100%). How much reported volume
+   * is represented in heatmap bins.
+   */
+  eventWeightMatchPct: number | null;
+  /**
+   * Max bin weight ÷ sum of weights. How much of the map’s weight sits in the
+   * single hottest bin (0–100%).
+   */
+  hotspotPeakPct: number | null;
+  /** Sum of rage + dead bin weights (same units as glow weights). */
+  frustrationWeightSum: number | null;
+  /**
+   * Frustration share of (events + frustration) mass in [0, 1], used in the score blend.
+   */
+  frustrationPressure01: number | null;
 }
 
 export function getHeatmapQualityMetrics(
@@ -19,35 +79,66 @@ export function getHeatmapQualityMetrics(
 ): HeatmapQualityMetrics {
   const glow = payload?.layers?.glow_map;
   if (!payload || !glow?.length) {
-    return { score: null, label: "No data", band: "nodata" };
+    return {
+      score01: null,
+      score: null,
+      label: "No data",
+      band: "nodata",
+      eventWeightMatchPct: null,
+      hotspotPeakPct: null,
+      frustrationWeightSum: null,
+      frustrationPressure01: null,
+    };
   }
 
   const totalEvents = Math.max(1, payload.metadata.total_events);
   const sumW = glow.reduce((s, p) => s + p.weight, 0);
   const maxW = Math.max(...glow.map((p) => p.weight));
 
+  const rage = payload.layers?.frustration_map?.rage ?? [];
+  const dead = payload.layers?.frustration_map?.dead ?? [];
+  const frustrationWeightSum =
+    rage.reduce((s, p) => s + p.weight, 0) +
+    dead.reduce((s, p) => s + p.weight, 0);
+
   /** How much of reported traffic is represented in these bins */
   const coverage = Math.min(1, sumW / totalEvents);
   /** How dominant the hottest bin is (0–1) */
   const dominance = sumW > 0 ? maxW / sumW : 0;
 
-  const score = Math.min(
-    100,
-    Math.max(0, Math.round(100 * (0.35 * coverage + 0.65 * dominance))),
+  /**
+   * Frustration pressure: share of frustration weight vs overall engagement mass.
+   * Higher → more penalty on the composite score.
+   */
+  const denom = totalEvents + frustrationWeightSum;
+  const frustrationPressure01 =
+    denom > 0 ? Math.min(1, frustrationWeightSum / denom) : 0;
+
+  /**
+   * Blend: coverage + hotspot shape + calm term that decays as frustration grows.
+   * Weights sum to 1; frustration eats up to ~half the calm term when pressure → 1.
+   */
+  const calm = 1 - 0.55 * frustrationPressure01;
+  const raw01 = Math.min(
+    1,
+    Math.max(
+      0,
+      0.32 * coverage + 0.53 * dominance + 0.15 * calm,
+    ),
   );
+  const score01 = Math.round(raw01 * 10_000) / 10_000;
+  const score = Math.round(score01 * 100);
 
-  let label: string;
-  let band: HeatmapQualityMetrics["band"];
-  if (score >= 70) {
-    label = "Good";
-    band = "good";
-  } else if (score >= 40) {
-    label = "Average";
-    band = "average";
-  } else {
-    label = "Poor";
-    band = "poor";
-  }
+  const bandResolved = bandFromNumericScore(score);
 
-  return { score, label, band };
+  return {
+    score01,
+    score,
+    label: qualityLabelForBand(bandResolved),
+    band: bandResolved,
+    eventWeightMatchPct: Math.round(100 * coverage),
+    hotspotPeakPct: Math.round(100 * dominance),
+    frustrationWeightSum,
+    frustrationPressure01,
+  };
 }

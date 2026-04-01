@@ -49,9 +49,10 @@ export function HeatmapJsCanvas({
         width: w,
         height: h,
         radius,
-        minOpacity: 0.38,
-        maxOpacity: 1,
-        blur: n < 100 ? 0.58 : 0.76,
+        /** Keep low-intensity (cool) tail faint — avoids a sheet of gray/blue between peaks. */
+        minOpacity: 0.04,
+        maxOpacity: 0.48,
+        blur: n < 100 ? 0.68 : 0.82,
         gradient: HEATMAP_JS_GRADIENT,
         backgroundColor: "rgba(0,0,0,0)",
       });

@@ -3,66 +3,62 @@ import { ActionIcon, Text } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import classes from "./HeatmapPanel.module.css";
 
-export type HeatmapStageLegendMode = "heatmap" | "interaction";
+export type HeatmapDensityGradientVariant = "brand" | "thermal";
 
 export interface HeatmapScreenshotStageProps {
   count: number;
-  index: number;
   onPrev: () => void;
   onNext: () => void;
   /** Phone frame + overlays. */
   frame: ReactNode;
-  /** Meta row on the right: density scale vs interaction-map hint. */
-  legendMode?: HeatmapStageLegendMode;
+  /** Density strip matches tap (thermal) vs other signals (brand). */
+  densityGradientVariant?: HeatmapDensityGradientVariant;
+}
+
+function IntensityLegendStrip({
+  densityGradientVariant,
+}: {
+  densityGradientVariant: HeatmapDensityGradientVariant;
+}) {
+  return (
+    <div
+      className={classes.heatShotLegendBelow}
+      role="img"
+      aria-label="Intensity scale from lower to higher interaction density"
+    >
+      <div className={classes.gradientLegend}>
+        <Text size="xs" c="dimmed" fw={600} component="span" className={classes.gradientCaption}>
+          Less intensity
+        </Text>
+        <div
+          className={
+            densityGradientVariant === "thermal"
+              ? classes.gradientStripThermal
+              : classes.gradientStrip
+          }
+        />
+        <Text size="xs" c="dimmed" fw={600} component="span" className={classes.gradientCaption}>
+          More intensity
+        </Text>
+      </div>
+    </div>
+  );
 }
 
 /**
- * Screenshot meta row (count ∥ legend), then prev/frame/next rail.
+ * Prev / frame / next rail, then intensity legend centered below the screenshot.
  */
 export function HeatmapScreenshotStage({
   count,
-  index,
   onPrev,
   onNext,
   frame,
-  legendMode = "heatmap",
+  densityGradientVariant = "brand",
 }: HeatmapScreenshotStageProps) {
   const showNav = count > 1;
-  const safeIndex = count > 0 ? Math.min(index, count - 1) : 0;
 
   return (
     <div className={classes.heatScreenshotStage}>
-      <div className={classes.heatShotMetaRow}>
-        <div className={classes.heatShotMetaCount}>
-          {showNav && (
-            <Text size="xs" c="dimmed" fw={500} component="span">
-              Screenshot {safeIndex + 1} of {count}
-            </Text>
-          )}
-        </div>
-        <div className={classes.heatShotMetaLegend}>
-          {legendMode === "heatmap" ? (
-            <>
-              <div className={classes.gradientLegend}>
-                <span className={classes.gradientCaption}>Cooler</span>
-                <div className={classes.gradientStrip} />
-                <span className={classes.gradientCaption}>Hotter</span>
-              </div>
-              <span className={classes.heatMetaSep} aria-hidden>
-                ·
-              </span>
-              <span className={classes.heatIntensityInlineNote}>
-                Normalized coordinates; screenshot is alignment only.
-              </span>
-            </>
-          ) : (
-            <span className={classes.heatIntensityInlineNote}>
-              Bounding boxes: Pulse interactions on this screen · hover a region for scores
-            </span>
-          )}
-        </div>
-      </div>
-
       <div className={classes.heatFrameRail}>
         {showNav ? (
           <ActionIcon
@@ -96,6 +92,8 @@ export function HeatmapScreenshotStage({
           <span className={classes.heatShotNavSpacer} aria-hidden />
         )}
       </div>
+
+      <IntensityLegendStrip densityGradientVariant={densityGradientVariant} />
     </div>
   );
 }

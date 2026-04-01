@@ -3,15 +3,13 @@ import type {
   HeatmapGlowPoint,
 } from "./heatmap.types";
 
-export type HeatmapSignal = "tap" | "scroll" | "rage" | "dead" | "gesture";
+export type HeatmapSignal = "tap" | "rage" | "dead";
 export type HeatmapFocusLens = "all" | "key";
 
 export const HEATMAP_SIGNALS: { id: HeatmapSignal; label: string }[] = [
   { id: "tap", label: "Tap" },
-  { id: "scroll", label: "Scroll" },
   { id: "rage", label: "Rage" },
   { id: "dead", label: "Dead" },
-  { id: "gesture", label: "Gesture" },
 ];
 
 export function formatAvgTime(seconds: number | null | undefined): string {

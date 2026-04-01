@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DEFAULT_HEATMAP_BIN_BUDGET, topGlowBinsByWeight } from "./heatmapDisplay";
+import { topGlowBinsByWeight } from "./heatmapDisplay";
 import type { HeatmapGlowPoint } from "./heatmap.types";
 
 export type HeatmapBinBudget = {
@@ -9,22 +9,22 @@ export type HeatmapBinBudget = {
   displayGlow: HeatmapGlowPoint[];
 };
 
+/**
+ * Renders the API `glow_map` as returned (no client-side max cap). Optional slider
+ * can lower the count for exploration; bounds are only 1 … payload length.
+ */
 export function useHeatmapBinBudget(glowMap: HeatmapGlowPoint[]): HeatmapBinBudget {
-  const binBudgetMax = Math.max(32, glowMap.length);
-  const [binBudget, setBinBudget] = useState(() =>
-    Math.min(
-      DEFAULT_HEATMAP_BIN_BUDGET,
-      Math.max(32, glowMap.length || 32),
-    ),
-  );
+  const binBudgetMax = glowMap.length;
+  const [binBudget, setBinBudget] = useState(0);
 
   useEffect(() => {
-    setBinBudget((prev) =>
-      Math.min(Math.max(prev, 32), Math.max(32, glowMap.length)),
-    );
+    setBinBudget(glowMap.length);
   }, [glowMap.length]);
 
-  const effectiveBudget = Math.min(binBudget, binBudgetMax);
+  const effectiveBudget =
+    glowMap.length === 0
+      ? 0
+      : Math.min(binBudget === 0 ? glowMap.length : binBudget, glowMap.length);
 
   const displayGlow = useMemo(
     () => topGlowBinsByWeight(glowMap, effectiveBudget),

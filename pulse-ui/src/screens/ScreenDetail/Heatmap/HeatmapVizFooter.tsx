@@ -22,8 +22,8 @@ export function HeatmapVizFooter({
         <span className={classes.gradientCaption}>Fewer taps</span>
         <Slider
           className={classes.binBudgetSlider}
-          min={32}
-          max={binBudgetMax}
+          min={binBudgetMax > 0 ? 1 : 0}
+          max={Math.max(binBudgetMax, 1)}
           step={1}
           value={effectiveBudget}
           onChange={onBudgetChange}
