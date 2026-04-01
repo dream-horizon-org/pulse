@@ -61,7 +61,6 @@ ENV REACT_APP_GCP_MULTI_TENANT_ENABLED=${REACT_APP_GCP_MULTI_TENANT_ENABLED:-tru
 
 # Add babel plugin to fix warning
 ENV BABEL_ENV=production
-ENV NODE_ENV=production
 
 # Increase Node heap to avoid OOM during production builds
 ENV NODE_OPTIONS="--max-old-space-size=3072"
