@@ -22,6 +22,7 @@ import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatusResolver;
 import org.dreamhorizon.pulseserver.dao.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.journey.JourneyListParams;
 import org.dreamhorizon.pulseserver.dao.journey.models.JourneyRow;
+import org.dreamhorizon.pulseserver.dao.journeyresults.JourneyResultsDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelAttributeFilter;
 import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelMode;
@@ -31,8 +32,10 @@ import org.dreamhorizon.pulseserver.resources.journey.models.JourneyDirection;
 import org.dreamhorizon.pulseserver.resources.journey.models.JourneyListQueryParams;
 import org.dreamhorizon.pulseserver.resources.journey.models.JourneyListResponse;
 import org.dreamhorizon.pulseserver.resources.journey.models.JourneyResponse;
+import org.dreamhorizon.pulseserver.resources.journey.models.JourneyResultsResponse;
 import org.dreamhorizon.pulseserver.resources.journey.models.UpdateJourneyRequest;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
+import org.dreamhorizon.pulseserver.service.journey.JourneyResultsMapper;
 import org.dreamhorizon.pulseserver.service.journey.JourneyService;
 
 @Slf4j
@@ -42,6 +45,7 @@ public class JourneyServiceImpl implements JourneyService {
   private static final int MAX_PAGE_SIZE = 50;
 
   private final JourneyDao journeyDao;
+  private final JourneyResultsDao journeyResultsDao;
   private final AnalyticsBatchServiceImpl analyticsBatchService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -160,8 +164,23 @@ public class JourneyServiceImpl implements JourneyService {
     return journeyDao
         .findByProjectAndId(projectId, id)
         .switchIfEmpty(Maybe.error(ServiceError.JOURNEY_NOT_FOUND.getException()))
-        .map(this::toResponse)
-        .toSingle();
+        .toSingle()
+        .flatMap(
+            row ->
+                journeyResultsDao
+                    .queryLatest(projectId, id, row.getDirection())
+                    .map(JourneyResultsMapper::fromRows)
+                    .onErrorResumeNext(
+                        err -> {
+                          log.warn(
+                              "Failed to load ClickHouse journey results for journey {} (project {}):"
+                                  + " {}",
+                              id,
+                              projectId,
+                              err.toString());
+                          return Single.just((JourneyResultsResponse) null);
+                        })
+                    .map(graph -> toResponse(row, graph)));
   }
 
   @Override
@@ -286,6 +305,10 @@ public class JourneyServiceImpl implements JourneyService {
   }
 
   private JourneyResponse toResponse(JourneyRow row) {
+    return toResponse(row, null);
+  }
+
+  private JourneyResponse toResponse(JourneyRow row, JourneyResultsResponse journeyResults) {
     try {
       List<FunnelAttributeFilter> filters = null;
       if (row.getFiltersJson() != null && !row.getFiltersJson().isBlank()) {
@@ -313,6 +336,7 @@ public class JourneyServiceImpl implements JourneyService {
           .createdAt(row.getCreatedAt())
           .updatedAt(row.getUpdatedAt())
           .createdBy(row.getCreatedBy())
+          .journeyResults(journeyResults)
           .build();
     } catch (JsonProcessingException e) {
       log.error("Corrupt journey JSON for id {}", row.getId(), e);

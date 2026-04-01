@@ -13,7 +13,7 @@
 -- START direction: positions 0 (anchor), 1, 2, ... (events after anchor)
 -- END direction:   positions 0 (anchor), -1, -2, ... (events before anchor)
 --
--- Read via GET /v1/journey/{id}/results
+-- Exposed on GET /v1/journeys/{id} as journeyResults (nodes + links).
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS otel.journey_results

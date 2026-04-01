@@ -56,4 +56,10 @@ public class JourneyResponse {
   private Instant updatedAt;
 
   private String createdBy;
+
+  /**
+   * Latest pre-computed path graph from ClickHouse ({@code otel.journey_results}), when available.
+   * Same shape as POST {@code /v1/journey/explore} ({@code nodes} + {@code links}).
+   */
+  private JourneyResultsResponse journeyResults;
 }
