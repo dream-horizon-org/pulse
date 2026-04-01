@@ -46,21 +46,12 @@ class SessionReplayQueriesTest {
     }
 
     @Test
-    @DisplayName("should filter by ProjectId with placeholder")
-    void shouldFilterByProjectIdWithPlaceholder() {
-      String query = SessionReplayQueries.GET_BLOCK_LISTING_QUERY;
-
-      assertThat(query)
-          .contains("WHERE ProjectId = '${project_id}'");
-    }
-
-    @Test
     @DisplayName("should filter by SessionId with placeholder")
     void shouldFilterBySessionIdWithPlaceholder() {
       String query = SessionReplayQueries.GET_BLOCK_LISTING_QUERY;
 
       assertThat(query)
-          .contains("AND SessionId = '${session_id}'");
+          .contains("WHERE SessionId = '${session_id}'");
     }
 
     @Test
@@ -101,7 +92,6 @@ class SessionReplayQueriesTest {
           .contains("groupArrayArray(BlockLastTimestamps)")
           .contains("groupArrayArray(BlockUrls)")
           .contains("argMinMerge(SnapshotSource)")
-          .contains("ProjectId = '${project_id}'")
           .contains("SessionId = '${session_id}'");
 
       // Output aliases are in snake_case to match Java DTO field names
@@ -185,14 +175,11 @@ class SessionReplayQueriesTest {
     }
 
     @Test
-    @DisplayName("should not have hardcoded project or session IDs")
+    @DisplayName("should not have hardcoded session ID")
     void shouldNotHaveHardcodedIds() {
       String query = SessionReplayQueries.GET_BLOCK_LISTING_QUERY;
 
-      // Should use placeholders for dynamic substitution
-      assertThat(query)
-          .contains("${project_id}")
-          .contains("${session_id}");
+      assertThat(query).contains("${session_id}");
     }
   }
 }

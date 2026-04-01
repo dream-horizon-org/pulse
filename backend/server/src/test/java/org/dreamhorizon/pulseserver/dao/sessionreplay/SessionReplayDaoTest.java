@@ -171,7 +171,7 @@ class SessionReplayDaoTest {
     }
 
     @Test
-    void shouldSubstituteProjectIdAndSessionIdInQuery() {
+    void shouldSubstituteSessionIdInQueryAndSetProjectOnConfig() {
       BlockListingQueryRow row = new BlockListingQueryRow();
       row.setBlockFirstTimestamps("[]");
       row.setBlockLastTimestamps("[]");
@@ -189,8 +189,8 @@ class SessionReplayDaoTest {
       verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture(),
           eq(BlockListingQueryRow.class));
       String query = configCaptor.getValue().getQuery();
-      assertThat(query).contains(PROJECT_ID);
       assertThat(query).contains(SESSION_ID);
+      assertThat(query).contains("SessionId =");
       assertThat(configCaptor.getValue().getProjectId()).isEqualTo(PROJECT_ID);
       assertThat(configCaptor.getValue().getTimeoutMs()).isEqualTo(5000);
     }
