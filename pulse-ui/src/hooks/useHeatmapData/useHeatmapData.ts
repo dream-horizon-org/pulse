@@ -4,7 +4,10 @@ import utc from "dayjs/plugin/utc";
 import { useProjectContext } from "../../contexts";
 import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 import type { ApiResponse } from "../../helpers/makeRequest/makeRequest.interface";
-import type { HeatmapDataResponse } from "../../screens/ScreenDetail/Heatmap/heatmap.types";
+import type {
+  HeatmapDataResponse,
+  HeatmapIncludeLayer,
+} from "../../screens/ScreenDetail/Heatmap/heatmap.types";
 import {
   fetchHeatmapDataGet,
   fetchHeatmapDataPost,
@@ -20,9 +23,30 @@ export interface UseHeatmapDataParams {
   platform?: string;
   aspect_ratio?: string;
   cohort_id?: string;
+  /** Comma-separated layer ids for GET `layers` (glow, frustration, observability). */
+  layers?: string;
   /** Use POST with project id when true (heavy filter body). Default false = GET. */
   usePost?: boolean;
   enabled?: boolean;
+}
+
+const ALLOWED_LAYERS = new Set<HeatmapIncludeLayer>([
+  "glow",
+  "frustration",
+  "observability",
+]);
+
+function parseIncludeLayers(
+  layers?: string,
+): HeatmapIncludeLayer[] | undefined {
+  if (!layers?.trim()) return undefined;
+  const parts = layers
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is HeatmapIncludeLayer =>
+      ALLOWED_LAYERS.has(s as HeatmapIncludeLayer),
+    );
+  return parts.length ? parts : undefined;
 }
 
 const formatTime = (time: string): string => {
@@ -48,9 +72,12 @@ export const useHeatmapData = (
     platform,
     aspect_ratio,
     cohort_id,
+    layers,
     usePost = false,
     enabled = true,
   } = params;
+
+  const includeLayers = parseIncludeLayers(layers);
 
   const formattedStart = formatTime(startTime);
   const formattedEnd = formatTime(endTime);
@@ -76,6 +103,7 @@ export const useHeatmapData = (
       platform ?? "",
       aspect_ratio ?? "",
       cohort_id ?? "",
+      layers ?? "",
     ],
     queryFn: async () => {
       if (usePost) {
@@ -89,6 +117,7 @@ export const useHeatmapData = (
           platform,
           aspect_ratio,
           cohort_id,
+          includeLayers,
         });
       }
       return fetchHeatmapDataGet({
@@ -99,6 +128,7 @@ export const useHeatmapData = (
         platform,
         aspect_ratio,
         cohort_id,
+        layers,
       });
     },
     enabled: isProjectReady,

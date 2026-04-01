@@ -1,4 +1,4 @@
-import { Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
+import { Divider, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import {
   HEATMAP_QUALITY_AVERAGE_MIN,
@@ -24,9 +24,10 @@ function heatmapScoreInfoTooltipContent(qualityMetrics: HeatmapQualityMetrics) {
           Frustration
         </Text>
         <Text size="sm" c="inherit" opacity={0.95}>
-          Aggregated weight {qualityMetrics.frustrationWeightSum.toLocaleString()}; pressure{" "}
-          {Math.round(qualityMetrics.frustrationPressure01 * 100)}% of events + frustration (rage +
-          dead).
+          Frustration activity about{" "}
+          {qualityMetrics.frustrationWeightSum.toLocaleString()} units; about{" "}
+          {Math.round(qualityMetrics.frustrationPressure01 * 100)}% of combined tap and frustration
+          events in this view.
         </Text>
       </>
     ) : null;
@@ -38,35 +39,56 @@ function heatmapScoreInfoTooltipContent(qualityMetrics: HeatmapQualityMetrics) {
         diagnostic, not a business KPI.
       </Text>
       <Text size="sm" fw={600} c="inherit">
-        Bands (0–1)
+        Good · Average · Poor
       </Text>
       <Text size="sm" c="inherit" opacity={0.95}>
-        Good {GOOD01.toFixed(2)}–1.00 · Average {AVG01.toFixed(2)}–{GOOD_UPPER01.toFixed(2)} · Poor
-        0.00–{POOR_UPPER01.toFixed(2)}
+        Labels map to the same numeric bands as the headline (shown as 0–1 here; 0.72 = 72/100):
+      </Text>
+      <Text size="sm" c="inherit" opacity={0.95}>
+        <strong>Good</strong> {GOOD01.toFixed(2)}–1.00 — strong coverage and/or clear hotspots, low
+        frustration share in the blend.
+      </Text>
+      <Text size="sm" c="inherit" opacity={0.95}>
+        <strong>Average</strong> {AVG01.toFixed(2)}–{GOOD_UPPER01.toFixed(2)} — middling coverage or
+        shape, or noticeable frustration.
+      </Text>
+      <Text size="sm" c="inherit" opacity={0.95}>
+        <strong>Poor</strong> 0.00–{POOR_UPPER01.toFixed(2)} — sparse/flat signal or heavy
+        rage/dead weight for this view.
       </Text>
       <Text size="sm" fw={600} c="inherit" mt={2}>
         How to read it
       </Text>
       <Text size="sm" c="inherit" opacity={0.95}>
-        Higher: clearer hotspots and coverage, less frustration share. Lower: sparse or flat signal,
-        or heavier rage/dead for this scope.
+        Higher scores: clearer hotspots and coverage, less frustration share. Lower: sparse or flat
+        signal, or heavier rage/dead for this scope.
       </Text>
       {frustrationBlock}
     </Stack>
   );
 }
 
+const FRUSTRATION_TOOLTIP_INFO =
+  "Approximate share of heatmap weight from rage taps and unresponsive (dead) zones, compared with taps plus all frustration weight on this view. The remainder is mostly taps and movement. The heatmap score uses this mix—more frustration lowers the score.";
+
 export interface HeatmapAggregatesQualityCardProps {
   payload: HeatmapDataResponse | null | undefined;
   qualityMetrics: HeatmapQualityMetrics;
+  /** Summary total events (same scope as the score). */
+  totalEventsFormatted: string;
 }
 
-/** Heatmap score (tap / glow layer) — compact card matching other aggregate tiles. */
+/** Heatmap score plus scope metrics (no table). */
 export function HeatmapAggregatesQualityCard({
   payload,
   qualityMetrics,
+  totalEventsFormatted,
 }: HeatmapAggregatesQualityCardProps) {
   const hasScore = Boolean(payload && qualityMetrics.score01 != null);
+  const fPct =
+    qualityMetrics.frustrationPressure01 != null
+      ? Math.round(qualityMetrics.frustrationPressure01 * 100)
+      : null;
 
   return (
     <Paper
@@ -111,34 +133,59 @@ export function HeatmapAggregatesQualityCard({
           className={classes.aggregatesQualityScore}
           style={{
             color: heatmapScoreColor(qualityMetrics.band),
-            marginBottom: 6,
+            marginBottom: 4,
           }}
         >
           {`${formatInteractionScore01(qualityMetrics.score01)} · ${qualityMetrics.label}`}
         </Text>
       ) : (
-        <Text component="div" c="dimmed" className={classes.aggregatesQualityScore} mb={6}>
+        <Text component="div" c="dimmed" className={classes.aggregatesQualityScore} mb={4}>
           —
         </Text>
       )}
 
-      <div className={classes.aggregatesQualityChips}>
-        <span
-          className={`${classes.legendChip} ${classes.aggregatesQualityChip} ${classes.legendGood}${qualityMetrics.band === "good" ? ` ${classes.legendChipActive}` : ""}`}
-        >
-          Good
-        </span>
-        <span
-          className={`${classes.legendChip} ${classes.aggregatesQualityChip} ${classes.legendAvg}${qualityMetrics.band === "average" ? ` ${classes.legendChipActive}` : ""}`}
-        >
-          Average
-        </span>
-        <span
-          className={`${classes.legendChip} ${classes.aggregatesQualityChip} ${classes.legendPoor}${qualityMetrics.band === "poor" ? ` ${classes.legendChipActive}` : ""}`}
-        >
-          Poor
-        </span>
-      </div>
+      <Divider my="sm" color="var(--mantine-color-gray-3)" style={{ opacity: 0.85 }} />
+
+      <Stack gap={10}>
+        <Group justify="space-between" gap="md" wrap="nowrap" align="flex-start">
+          <Text size="sm" c="dimmed" lh={1.4} style={{ flex: "0 1 auto" }}>
+            Total events
+          </Text>
+          <Text size="sm" fw={600} ta="right" lh={1.4} style={{ flex: "0 1 auto" }}>
+            {totalEventsFormatted}
+          </Text>
+        </Group>
+        {fPct != null ? (
+          <Group justify="space-between" gap="md" wrap="nowrap" align="center">
+            <Group gap={6} wrap="nowrap">
+              <Text size="sm" c="dimmed" lh={1.4}>
+                Frustration vs. taps
+              </Text>
+              <Tooltip
+                withArrow
+                multiline
+                maw={320}
+                label={FRUSTRATION_TOOLTIP_INFO}
+                styles={{
+                  tooltip: {
+                    padding: "var(--mantine-spacing-xs) var(--mantine-spacing-sm)",
+                  },
+                }}
+              >
+                <span
+                  className={classes.summaryQualityInfo}
+                  aria-label="About frustration vs. taps"
+                >
+                  <IconInfoCircle size={14} stroke={1.5} />
+                </span>
+              </Tooltip>
+            </Group>
+            <Text size="sm" fw={600} ta="right" lh={1.4}>
+              ~{fPct}%
+            </Text>
+          </Group>
+        ) : null}
+      </Stack>
     </Paper>
   );
 }

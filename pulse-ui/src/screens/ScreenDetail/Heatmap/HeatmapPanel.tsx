@@ -1,22 +1,27 @@
-import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { useHeatmapData } from "../../../hooks/useHeatmapData";
+import { useGetScreenNames } from "../../../hooks/useGetScreenNames";
 import { useFilterStore } from "../../../stores/useFilterStore";
-import { ROUTES } from "../../../constants";
 import { getHeatmapQualityMetrics } from "./heatmapQuality";
 import { HeatmapVisualization } from "./HeatmapVisualization";
 import { HeatmapComparePanel } from "./HeatmapComparePanel";
-import { HeatmapDrillDown, HeatmapEngagementCards } from "./HeatmapPanelFooter";
 import { HeatmapVizFooter } from "./HeatmapVizFooter";
 import { HeatmapMainCard } from "./HeatmapMainCard";
+import { HeatmapFilterPanel } from "./HeatmapFilterPanel";
 import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import {
   compareSharedWeightMax,
   glowLayerForSignal,
+  heatmapLayersIncludeInteractionMapKey,
   type HeatmapFocusLens,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
+import {
+  defaultHeatmapLocalFilters,
+  heatmapFiltersToRequestArgs,
+  heatmapLocalFiltersMatchPage,
+} from "./heatmapLocalFilters";
 import type { HeatmapPanelProps } from "./heatmapPanel.types";
 import classes from "./HeatmapPanel.module.css";
 
@@ -32,45 +37,130 @@ export function HeatmapPanel({
   endTime,
   engagement,
 }: HeatmapPanelProps) {
-  const { projectId } = useParams<{ projectId: string }>();
   const { filterValues } = useFilterStore();
   const [compareEnabled, setCompareEnabled] = useState(false);
-  const [compareScreenName, setCompareScreenName] = useState("HomeScreen");
+  const [compareScreenName, setCompareScreenName] = useState("");
   const [signal, setSignal] = useState<HeatmapSignal>("tap");
   const [focusLens, setFocusLens] = useState<HeatmapFocusLens>("all");
 
-  const heatmapRequestFilters = useMemo(
-    () => ({
-      app_version: filterValues?.APP_VERSION?.trim() || undefined,
-      platform: filterValues?.PLATFORM?.trim() || undefined,
-    }),
-    [filterValues],
+  const pageBaseline = useMemo(
+    () => defaultHeatmapLocalFilters(filterValues, startTime, endTime),
+    [filterValues, startTime, endTime],
   );
 
-  const compareSliceReady =
-    compareEnabled && !!compareScreenName.trim();
+  const [singleFilters, setSingleFilters] = useState<typeof pageBaseline | null>(
+    null,
+  );
+
+  useEffect(() => {
+    setSingleFilters((prev) => (prev == null ? pageBaseline : prev));
+  }, [pageBaseline]);
+
+  const effectiveSingle = singleFilters ?? pageBaseline;
+
+  const [compareFiltersA, setCompareFiltersA] = useState<
+    typeof pageBaseline | null
+  >(null);
+  const [compareFiltersB, setCompareFiltersB] = useState<
+    typeof pageBaseline | null
+  >(null);
+
+  const effectiveCompareA = compareFiltersA ?? pageBaseline;
+  const effectiveCompareB = compareFiltersB ?? pageBaseline;
+
+  const singleMatchesPage = heatmapLocalFiltersMatchPage(
+    effectiveSingle,
+    filterValues,
+    startTime,
+    endTime,
+  );
+
+  const compareAMatchesPage = heatmapLocalFiltersMatchPage(
+    effectiveCompareA,
+    filterValues,
+    startTime,
+    endTime,
+  );
+
+  const compareBMatchesPage = heatmapLocalFiltersMatchPage(
+    effectiveCompareB,
+    filterValues,
+    startTime,
+    endTime,
+  );
+
+  const { screenNames: compareScreenNameOptions } = useGetScreenNames({
+    startTime: effectiveCompareB.startTime,
+    endTime: effectiveCompareB.endTime,
+    enabled: compareEnabled,
+  });
+
+  const compareScreenSelectData = useMemo(() => {
+    const rows = compareScreenNameOptions.map((n) => ({
+      value: n,
+      label: n,
+    }));
+    if (
+      compareScreenName.trim() &&
+      !rows.some((r) => r.value === compareScreenName)
+    ) {
+      return [
+        { value: compareScreenName, label: compareScreenName },
+        ...rows,
+      ];
+    }
+    return rows;
+  }, [compareScreenNameOptions, compareScreenName]);
+
+  const compareSliceReady = compareEnabled && !!compareScreenName.trim();
+
+  const openCompare = () => {
+    const base = singleFilters ?? pageBaseline;
+    setCompareFiltersA({ ...base });
+    setCompareFiltersB({ ...base });
+    setCompareEnabled(true);
+  };
+
+  useEffect(() => {
+    if (!compareEnabled || compareScreenNameOptions.length === 0) return;
+    if (!compareScreenName.trim()) {
+      const alt =
+        compareScreenNameOptions.find((s) => s !== screenName) ??
+        compareScreenNameOptions[0];
+      if (alt) setCompareScreenName(alt);
+    }
+  }, [
+    compareEnabled,
+    compareScreenName,
+    compareScreenNameOptions,
+    screenName,
+  ]);
+
+  const exitCompare = () => {
+    setCompareEnabled(false);
+    setCompareFiltersA(null);
+    setCompareFiltersB(null);
+  };
+
+  const singleRequest = heatmapFiltersToRequestArgs(effectiveSingle);
+  const compareARequest = heatmapFiltersToRequestArgs(effectiveCompareA);
+  const compareBRequest = heatmapFiltersToRequestArgs(effectiveCompareB);
 
   const heatmapQuery = useHeatmapData({
     screenName,
-    startTime,
-    endTime,
-    ...heatmapRequestFilters,
+    ...singleRequest,
     enabled: !compareEnabled,
   });
 
   const compareLeftQuery = useHeatmapData({
     screenName,
-    startTime,
-    endTime,
-    ...heatmapRequestFilters,
+    ...compareARequest,
     enabled: compareSliceReady,
   });
 
   const compareRightQuery = useHeatmapData({
-    screenName: compareScreenName.trim() || "HomeScreen",
-    startTime,
-    endTime,
-    ...heatmapRequestFilters,
+    screenName: compareScreenName.trim(),
+    ...compareBRequest,
     enabled: compareSliceReady,
   });
 
@@ -80,6 +170,37 @@ export function HeatmapPanel({
   const compareRightPayload = compareRightQuery.data?.data;
   const compareLeftErr = compareLeftQuery.data?.error;
   const compareRightErr = compareRightQuery.data?.error;
+
+  const singleShowInteractionMap = useMemo(
+    () =>
+      singlePayload
+        ? heatmapLayersIncludeInteractionMapKey(singlePayload.layers)
+        : false,
+    [singlePayload],
+  );
+
+  const compareShowInteractionMap = useMemo(
+    () =>
+      compareLeftPayload != null &&
+      compareRightPayload != null &&
+      heatmapLayersIncludeInteractionMapKey(compareLeftPayload.layers) &&
+      heatmapLayersIncludeInteractionMapKey(compareRightPayload.layers),
+    [compareLeftPayload, compareRightPayload],
+  );
+
+  useEffect(() => {
+    const allowInteractionMap = compareEnabled
+      ? compareShowInteractionMap
+      : singleShowInteractionMap;
+    if (!allowInteractionMap && focusLens === "key") {
+      setFocusLens("all");
+    }
+  }, [
+    compareEnabled,
+    compareShowInteractionMap,
+    singleShowInteractionMap,
+    focusLens,
+  ]);
 
   const compareSharedMax = useMemo(
     () =>
@@ -116,23 +237,20 @@ export function HeatmapPanel({
       weight: r.weight,
     })) ?? [];
 
-  const userEngagementPath = projectId
-    ? ROUTES.PROJECT_USER_ENGAGEMENT.path.replace(":projectId", projectId)
-    : "#";
-  const appVitalsPath = projectId
-    ? ROUTES.PROJECT_APP_VITALS.path.replace(":projectId", projectId)
-    : "#";
-
   const compareErrorMessage =
-    compareLeftErr || compareRightErr || compareLeftQuery.isError || compareRightQuery.isError
+    compareLeftErr ||
+    compareRightErr ||
+    compareLeftQuery.isError ||
+    compareRightQuery.isError
       ? (compareLeftErr?.message ??
         compareRightErr?.message ??
-        "Request failed")
+        "Something went wrong. Try again.")
       : null;
 
   const heatmapErrorMessage =
     singleErr || heatmapQuery.isError
-      ? (singleErr?.message ?? "Request failed")
+      ? (singleErr?.message ??
+        "Something went wrong. Try again.")
       : null;
 
   if (compareEnabled) {
@@ -142,9 +260,45 @@ export function HeatmapPanel({
         onSignalChange={setSignal}
         focusLens={focusLens}
         onFocusLensChange={setFocusLens}
+        screenAName={screenName}
         compareScreenName={compareScreenName}
         onCompareScreenNameChange={setCompareScreenName}
-        onExitCompare={() => setCompareEnabled(false)}
+        compareScreenOptions={compareScreenSelectData}
+        filtersSlotA={
+          <HeatmapFilterPanel
+            variant="dataOnly"
+            dataOnlyLayout="compareColumn"
+            sectionLabel="Screen A"
+            value={effectiveCompareA}
+            onChange={(v) => setCompareFiltersA(v)}
+            onResetToPage={() =>
+              setCompareFiltersA(defaultHeatmapLocalFilters(
+                filterValues,
+                startTime,
+                endTime,
+              ))
+            }
+            matchesPage={compareAMatchesPage}
+          />
+        }
+        filtersSlotB={
+          <HeatmapFilterPanel
+            variant="dataOnly"
+            dataOnlyLayout="compareColumn"
+            sectionLabel="Screen B"
+            value={effectiveCompareB}
+            onChange={(v) => setCompareFiltersB(v)}
+            onResetToPage={() =>
+              setCompareFiltersB(defaultHeatmapLocalFilters(
+                filterValues,
+                startTime,
+                endTime,
+              ))
+            }
+            matchesPage={compareBMatchesPage}
+          />
+        }
+        onExitCompare={exitCompare}
         isLoading={
           compareLeftQuery.isLoading || compareRightQuery.isLoading
         }
@@ -154,6 +308,7 @@ export function HeatmapPanel({
         compareLeftQualityMetrics={compareLeftQualityMetrics}
         compareRightQualityMetrics={compareRightQualityMetrics}
         compareSharedMax={compareSharedMax}
+        showInteractionMapOption={compareShowInteractionMap}
       />
     );
   }
@@ -163,14 +318,42 @@ export function HeatmapPanel({
       <HeatmapMainCard
         engagement={engagement}
         signal={signal}
-        onSignalChange={setSignal}
-        onCompareClick={() => setCompareEnabled(true)}
         focusLens={focusLens}
-        onFocusLensChange={setFocusLens}
         isLoading={heatmapQuery.isLoading}
         errorMessage={heatmapErrorMessage}
         singlePayload={singlePayload}
         qualityMetrics={qualityMetrics}
+        mapToolbar={
+          <HeatmapFilterPanel
+            variant="full"
+            value={effectiveSingle}
+            onChange={(v) => setSingleFilters(v)}
+            onResetToPage={() =>
+              setSingleFilters(
+                defaultHeatmapLocalFilters(
+                  filterValues,
+                  startTime,
+                  endTime,
+                ),
+              )
+            }
+            matchesPage={singleMatchesPage}
+            signal={signal}
+            onSignalChange={setSignal}
+            focusLens={focusLens}
+            onFocusLensChange={setFocusLens}
+            showInteractionMapOption={singleShowInteractionMap}
+            toolbarEnd={
+              <button
+                type="button"
+                className={classes.compareCta}
+                onClick={openCompare}
+              >
+                Compare screens
+              </button>
+            }
+          />
+        }
         mapColumn={
           singlePayload ? (
             <div className={classes.heatVizEmbedded}>
@@ -187,6 +370,7 @@ export function HeatmapPanel({
                 }
                 showFrustrationMarkers={signal === "rage"}
                 ragePoints={rageForMarkers}
+                densityBinTooltip={{ payload: singlePayload, signal }}
               />
               {focusLens === "all" && (
                 <div className={classes.embeddedBinBudget}>
@@ -203,13 +387,6 @@ export function HeatmapPanel({
           ) : null
         }
       />
-
-      <HeatmapDrillDown
-        userEngagementPath={userEngagementPath}
-        appVitalsPath={appVitalsPath}
-      />
-
-      <HeatmapEngagementCards engagement={engagement} />
     </div>
   );
 }

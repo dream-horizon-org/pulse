@@ -49,9 +49,8 @@ export function HeatmapInteractionOverlay({
       <div className={classes.heatInteractionOverlay}>
         <div className={classes.interactionEmptyState}>
           <Text size="xs" c="dimmed" ta="center">
-            No interaction regions in this response. Key actions need{" "}
-            <code className={classes.interactionEmptyCode}>layers.interaction_map</code> from
-            the API.
+            No key actions in this response. Switch to a heat map, choose another screen, or try a
+            wider time range.
           </Text>
         </div>
       </div>

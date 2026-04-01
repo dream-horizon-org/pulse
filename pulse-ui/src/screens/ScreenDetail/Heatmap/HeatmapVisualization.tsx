@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import graphClasses from "../components/EngagementGraph.module.css";
 import type {
+  HeatmapDataResponse,
   HeatmapGlowPoint,
   HeatmapInteractionElementRegion,
 } from "./heatmap.types";
@@ -32,6 +33,11 @@ export interface HeatmapVisualizationProps {
   embedded?: boolean;
   /** Chooses density legend gradient (tap → thermal, others → brand teal–red). */
   signal?: HeatmapSignal;
+  /** Enables bin tooltip: total events at spot + highlighted active layer count. */
+  densityBinTooltip?: {
+    payload: HeatmapDataResponse;
+    signal: HeatmapSignal;
+  };
 }
 
 /**
@@ -49,6 +55,7 @@ export function HeatmapVisualization({
   interactionRegions = [],
   embedded = false,
   signal = "tap",
+  densityBinTooltip,
 }: HeatmapVisualizationProps) {
   const { displayGlow, binBudgetMax, binBudget: effectiveBudget, setBinBudget } =
     binBudget;
@@ -99,7 +106,10 @@ export function HeatmapVisualization({
                 showFrustrationMarkers={showFrustrationMarkers}
                 ragePoints={ragePoints}
               />
-              <HeatmapGlowBinHoverLayer points={displayGlow} />
+              <HeatmapGlowBinHoverLayer
+                points={displayGlow}
+                binTooltip={densityBinTooltip}
+              />
             </>
           )}
         </HeatmapPhoneFrame>

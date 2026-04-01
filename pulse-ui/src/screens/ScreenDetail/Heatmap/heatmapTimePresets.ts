@@ -58,14 +58,3 @@ export function inferHeatmapTimePreset(
 
   return HEATMAP_TIME_PRESET_CUSTOM;
 }
-
-/** Options for Mantine `Select` (quick presets + custom). */
-export function getHeatmapQuickTimeSelectData(): {
-  value: string;
-  label: string;
-}[] {
-  return [
-    ...HEATMAP_QUICK_TIME_PRESETS.map((p) => ({ value: p.value, label: p.label })),
-    { value: HEATMAP_TIME_PRESET_CUSTOM, label: "Custom range" },
-  ];
-}

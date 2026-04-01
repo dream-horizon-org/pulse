@@ -1,17 +1,18 @@
+import { type ReactNode } from "react";
 import {
   Box,
-  Stack,
+  Divider,
   Group,
-  Text,
   Loader,
   Alert,
-  TextInput,
+  Select,
+  Stack,
+  Text,
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 import {
-  HEATMAP_SIGNALS,
   glowLayerForSignal,
   type HeatmapFocusLens,
   type HeatmapSignal,
@@ -20,6 +21,7 @@ import { HeatmapVisualization } from "./HeatmapVisualization";
 import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import { HeatmapAggregatesPanel } from "./HeatmapAggregatesPanel";
 import type { HeatmapQualityMetrics } from "./heatmapQuality";
+import { HeatmapMapViewControls } from "./HeatmapMapViewControls";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapComparePanelProps {
@@ -27,8 +29,12 @@ export interface HeatmapComparePanelProps {
   onSignalChange: (s: HeatmapSignal) => void;
   focusLens: HeatmapFocusLens;
   onFocusLensChange: (l: HeatmapFocusLens) => void;
+  screenAName: string;
   compareScreenName: string;
   onCompareScreenNameChange: (v: string) => void;
+  compareScreenOptions: { value: string; label: string }[];
+  filtersSlotA: ReactNode;
+  filtersSlotB: ReactNode;
   onExitCompare: () => void;
   isLoading: boolean;
   errorMessage: string | null | undefined;
@@ -37,6 +43,7 @@ export interface HeatmapComparePanelProps {
   compareLeftQualityMetrics: HeatmapQualityMetrics;
   compareRightQualityMetrics: HeatmapQualityMetrics;
   compareSharedMax: number;
+  showInteractionMapOption?: boolean;
 }
 
 export function HeatmapComparePanel({
@@ -44,8 +51,12 @@ export function HeatmapComparePanel({
   onSignalChange,
   focusLens,
   onFocusLensChange,
+  screenAName,
   compareScreenName,
   onCompareScreenNameChange,
+  compareScreenOptions,
+  filtersSlotA,
+  filtersSlotB,
   onExitCompare,
   isLoading,
   errorMessage,
@@ -54,52 +65,47 @@ export function HeatmapComparePanel({
   compareLeftQualityMetrics,
   compareRightQualityMetrics,
   compareSharedMax,
+  showInteractionMapOption = true,
 }: HeatmapComparePanelProps) {
   return (
     <Stack gap="md" className={classes.root}>
-      <CompareToolbar
-        signal={signal}
-        onSignalChange={onSignalChange}
-        compareScreenName={compareScreenName}
-        onCompareScreenNameChange={onCompareScreenNameChange}
-        onExitCompare={onExitCompare}
-      />
-      <div className={classes.focusBlock}>
-        <div className={classes.focusTop}>
-          <span className={classes.focusLabel}>Focus</span>
-          <Text size="xs" c="teal" fw={600}>
-            Advanced
+      <Box className={classes.filterBar}>
+        <Stack gap="md">
+          <Text fw={700} size="md">
+            Compare screens
           </Text>
-        </div>
-        <div className={classes.focusPills}>
-          <button
-            type="button"
-            className={`${classes.pill} ${focusLens === "all" ? classes.pillActive : ""}`}
-            onClick={() => onFocusLensChange("all")}
-          >
-            All interaction data
-          </button>
-          <button
-            type="button"
-            className={`${classes.pill} ${focusLens === "key" ? classes.pillActive : ""}`}
-            onClick={() => onFocusLensChange("key")}
-          >
-            Key actions only
-          </button>
-        </div>
-        <Text className={classes.focusHint}>
-          All interaction data: density heatmap (glow / signal layers). Key actions: Pulse
-          interaction regions as boxes; hover for per-interaction scores.
-        </Text>
-      </div>
+          <Group justify="space-between" align="center" wrap="wrap" w="100%" gap="md">
+            <HeatmapMapViewControls
+              signal={signal}
+              onSignalChange={onSignalChange}
+              focusLens={focusLens}
+              onFocusLensChange={onFocusLensChange}
+              showInteractionMapOption={showInteractionMapOption}
+            />
+            <button type="button" className={classes.compareCta} onClick={onExitCompare}>
+              Exit compare
+            </button>
+          </Group>
+          <Divider
+            w="100%"
+            color="var(--mantine-color-gray-3)"
+            style={{ opacity: 0.85 }}
+          />
+          <div className={classes.compareFilterColumns}>
+            {filtersSlotA}
+            {filtersSlotB}
+          </div>
+        </Stack>
+      </Box>
+
       {isLoading && (
         <Group>
           <Loader size="sm" color="teal" />
-          <Text size="sm">Loading compare…</Text>
+          <Text size="sm">Loading comparison…</Text>
         </Group>
       )}
       {errorMessage && (
-        <Alert color="red" title="Compare failed" icon={<IconInfoCircle />}>
+        <Alert color="red" title="Couldn't load comparison" icon={<IconInfoCircle />}>
           {errorMessage}
         </Alert>
       )}
@@ -107,27 +113,43 @@ export function HeatmapComparePanel({
         <>
           <div className={classes.compareGrid}>
             <CompareColumn
-              title="A"
               data={compareLeftPayload}
               signal={signal}
               focusLens={focusLens}
               sharedWeightMax={compareSharedMax}
+              headerSlot={
+                <Select
+                  label="Current screen"
+                  placeholder="—"
+                  size="sm"
+                  data={[{ value: screenAName, label: screenAName }]}
+                  value={screenAName}
+                  disabled
+                />
+              }
             />
             <CompareColumn
-              title="B"
               data={compareRightPayload}
               signal={signal}
               focusLens={focusLens}
               sharedWeightMax={compareSharedMax}
+              headerSlot={
+                <Select
+                  label="Compare to screen"
+                  placeholder="Choose a screen"
+                  size="sm"
+                  searchable
+                  data={compareScreenOptions}
+                  value={compareScreenName}
+                  onChange={(v) => onCompareScreenNameChange(v ?? "")}
+                />
+              }
             />
           </div>
-          <Text size="xs" c="dimmed">
-            Shared scale max (weight): {compareSharedMax.toLocaleString()}
-          </Text>
           <div className={classes.compareAggregatesGrid}>
             <Box className={classes.compareAggregatesCell}>
               <Text fw={700} mb="sm" size="sm">
-                A · {compareLeftPayload.metadata.screenName}
+                {screenAName}
               </Text>
               <HeatmapAggregatesPanel
                 payload={compareLeftPayload}
@@ -138,7 +160,7 @@ export function HeatmapComparePanel({
             </Box>
             <Box className={classes.compareAggregatesCell}>
               <Text fw={700} mb="sm" size="sm">
-                B · {compareRightPayload.metadata.screenName}
+                {compareRightPayload.metadata.screenName}
               </Text>
               <HeatmapAggregatesPanel
                 payload={compareRightPayload}
@@ -154,61 +176,14 @@ export function HeatmapComparePanel({
   );
 }
 
-function CompareToolbar({
-  signal,
-  onSignalChange,
-  compareScreenName,
-  onCompareScreenNameChange,
-  onExitCompare,
-}: {
-  signal: HeatmapSignal;
-  onSignalChange: (s: HeatmapSignal) => void;
-  compareScreenName: string;
-  onCompareScreenNameChange: (v: string) => void;
-  onExitCompare: () => void;
-}) {
-  return (
-    <Box className={classes.filterBar}>
-      <div className={classes.signalHeader}>
-        <span className={classes.signalLabel}>Compare screens</span>
-        <button
-          type="button"
-          className={classes.compareCta}
-          onClick={onExitCompare}
-        >
-          Exit compare
-        </button>
-      </div>
-      <div className={classes.chipsRow}>
-        {HEATMAP_SIGNALS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            className={`${classes.chip} ${signal === s.id ? classes.chipActive : ""}`}
-            onClick={() => onSignalChange(s.id)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
-      <TextInput
-        label="Other screen name"
-        value={compareScreenName}
-        onChange={(e) => onCompareScreenNameChange(e.currentTarget.value)}
-        size="sm"
-      />
-    </Box>
-  );
-}
-
 function CompareColumn({
-  title,
+  headerSlot,
   data,
   signal,
   focusLens,
   sharedWeightMax,
 }: {
-  title: string;
+  headerSlot: ReactNode;
   data: HeatmapDataResponse;
   signal: HeatmapSignal;
   focusLens: HeatmapFocusLens;
@@ -226,21 +201,22 @@ function CompareColumn({
 
   return (
     <Box>
-      <Text fw={700} mb="xs">
-        {title}: {data.metadata.screenName}
-      </Text>
-      <HeatmapVisualization
-        signal={signal}
-        screenshotUrls={screenshotUrlsFromMetadata(data.metadata)}
-        glowMap={map}
-        binBudget={binBudget}
-        focusLens={focusLens}
-        interactionRegions={data.layers.interaction_map?.regions ?? []}
-        sharedWeightMax={sharedWeightMax}
-        showDensityFooter={focusLens === "all"}
-        showFrustrationMarkers={signal === "rage"}
-        ragePoints={rageForMarkers}
-      />
+      {headerSlot}
+      <Box mt="md">
+        <HeatmapVisualization
+          signal={signal}
+          screenshotUrls={screenshotUrlsFromMetadata(data.metadata)}
+          glowMap={map}
+          binBudget={binBudget}
+          focusLens={focusLens}
+          interactionRegions={data.layers.interaction_map?.regions ?? []}
+          sharedWeightMax={sharedWeightMax}
+          showDensityFooter={focusLens === "all"}
+          showFrustrationMarkers={signal === "rage"}
+          ragePoints={rageForMarkers}
+          densityBinTooltip={{ payload: data, signal }}
+        />
+      </Box>
     </Box>
   );
 }

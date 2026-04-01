@@ -1,10 +1,11 @@
-import { Paper, Stack, Table, Text } from "@mantine/core";
+import { Group, Paper, Stack, Table, Text } from "@mantine/core";
 import { Fragment, useMemo, type ReactNode } from "react";
 import { buildHeatmapAggregateSnapshot } from "./heatmapAggregates";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import { HEATMAP_SIGNALS, formatInt, type HeatmapSignal } from "./heatmapPanelUtils";
 import type { HeatmapQualityMetrics } from "./heatmapQuality";
 import { HeatmapAggregatesQualityCard } from "./HeatmapAggregatesQualityCard";
+import { HeatmapPulseInteractionsAggregatesSection } from "./HeatmapPulseInteractionsAggregatesSection";
 import classes from "./HeatmapPanel.module.css";
 
 function formatWeight(n: number): string {
@@ -69,46 +70,6 @@ type LayerTableRow = {
   weightSum: number;
 };
 
-type SummaryScopeRow = {
-  key: string;
-  metric: string;
-  value: string;
-};
-
-function SummaryScopeTable({ rows }: { rows: SummaryScopeRow[] }) {
-  return (
-    <Table
-      className={classes.aggregatesLayerTable}
-      verticalSpacing={0}
-      horizontalSpacing="xs"
-      layout="fixed"
-    >
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th style={{ width: "55%" }}>Metric</Table.Th>
-          <Table.Th style={{ width: "45%", textAlign: "right" }}>Value</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {rows.map((r) => (
-          <Table.Tr key={r.key}>
-            <Table.Td>
-              <Text size="sm" c="dimmed" inherit>
-                {r.metric}
-              </Text>
-            </Table.Td>
-            <Table.Td style={{ textAlign: "right" }}>
-              <Text size="sm" fw={600} inherit>
-                {r.value}
-              </Text>
-            </Table.Td>
-          </Table.Tr>
-        ))}
-      </Table.Tbody>
-    </Table>
-  );
-}
-
 function LayerBreakdownTable({ rows }: { rows: LayerTableRow[] }) {
   return (
     <Table
@@ -119,7 +80,7 @@ function LayerBreakdownTable({ rows }: { rows: LayerTableRow[] }) {
     >
       <Table.Thead>
         <Table.Tr>
-          <Table.Th style={{ width: "50%" }}>Layer</Table.Th>
+          <Table.Th style={{ width: "50%" }}>View</Table.Th>
           <Table.Th style={{ width: "25%", textAlign: "right" }}>Total spots</Table.Th>
           <Table.Th style={{ width: "25%", textAlign: "right" }}>Total events</Table.Th>
         </Table.Tr>
@@ -160,31 +121,10 @@ export function HeatmapAggregatesHeatmapLensPanel({
   const signalLabel =
     HEATMAP_SIGNALS.find((s) => s.id === signal)?.label ?? signal;
 
-  const summaryScopeRows: SummaryScopeRow[] = [
-    {
-      key: "events",
-      metric: "Events in this view (Total events)",
-      value: formatInt(snap.totalEventsReported ?? 0),
-    },
-    {
-      key: "signal",
-      metric: "Heatmap signal",
-      value: signalLabel,
-    },
-  ];
-
-  if (qualityMetrics.frustrationPressure01 != null) {
-    summaryScopeRows.push({
-      key: "frustration",
-      metric: "Frustration share",
-      value: `${Math.round(qualityMetrics.frustrationPressure01 * 100)}% of events + frustration`,
-    });
-  }
-
   const layerTableRows: LayerTableRow[] = [
     {
       key: "tap",
-      layer: "Tap (density)",
+      layer: "Taps & movement",
       active: signal === "tap",
       cells: snap.glowMapBins,
       weightSum: snap.glowMapWeightSum,
@@ -198,7 +138,7 @@ export function HeatmapAggregatesHeatmapLensPanel({
     },
     {
       key: "dead",
-      layer: "Dead zone",
+      layer: "Unresponsive areas",
       active: signal === "dead",
       cells: snap.deadBins,
       weightSum: snap.deadWeightSum,
@@ -215,7 +155,7 @@ export function HeatmapAggregatesHeatmapLensPanel({
   const tapVersusRows: { label: string; value: string }[] = showTapVersusNote
     ? [
         {
-          label: "Tap layer (reference)",
+          label: "Taps & movement (reference)",
           value: `${formatInt(snap.glowMapBins)} · ${formatWeight(snap.glowMapWeightSum)}`,
         },
         {
@@ -235,31 +175,40 @@ export function HeatmapAggregatesHeatmapLensPanel({
             <HeatmapAggregatesQualityCard
               payload={payload}
               qualityMetrics={qualityMetrics}
+              totalEventsFormatted={formatInt(snap.totalEventsReported ?? 0)}
             />
           </div>
         </div>
 
-        <AggregatesCard title="Summary for this view">
-          <Text size="sm" c="dimmed" lh={1.5} mb={10}>
-            Same screen, filters, and date range as the heatmap.
-          </Text>
-          <SummaryScopeTable rows={summaryScopeRows} />
-
-          <Text size="sm" c="dimmed" fw={600} mt={14} mb={6}>
-            Layers
-          </Text>
+        <Paper className={classes.aggregatesSubCard} radius="sm" p="sm" withBorder>
+          <Group justify="space-between" align="center" wrap="wrap" gap="sm" mb={10}>
+            <Text size="sm" fw={600} c="dimmed">
+              Breakdown
+            </Text>
+            <div
+              className={classes.aggregatesScoreSignalBadge}
+              title="Current map layer"
+            >
+              {signalLabel}
+            </div>
+          </Group>
           <LayerBreakdownTable rows={layerTableRows} />
           <Text size="xs" c="dimmed" lh={1.45} mt={8}>
-            <strong>Total spots</strong> is the number of heatmap buckets (aggregated areas), not
-            every tap. <strong>Total events</strong> is summed activity for that layer and may differ
-            from <strong>Events in this view (Total events)</strong>.
+            <strong>Total spots</strong> is how many map cells we summarize (not every individual
+            tap). Per-layer <strong>Total events</strong> can differ from <strong>Total events</strong>{" "}
+            in the score block above.
           </Text>
-        </AggregatesCard>
+        </Paper>
+
+        <HeatmapPulseInteractionsAggregatesSection
+          payload={payload}
+          showElementsColumn={false}
+        />
 
         {tapVersusRows.length > 0 && (
-          <AggregatesCard title="Compared to tap density">
+          <AggregatesCard title="Compared to taps & movement">
             <Text size="sm" c="dimmed" lh={1.5} mb={8}>
-              This signal uses a different layer than tap.
+              This signal uses a different view than taps & movement.
             </Text>
             <AggregateRows rows={tapVersusRows} />
           </AggregatesCard>
@@ -267,7 +216,7 @@ export function HeatmapAggregatesHeatmapLensPanel({
       </div>
 
       <Text size="sm" c="dimmed" lh={1.5} px={2}>
-        Hover the map for bin detail. Use <strong>Tap · Rage · Dead</strong> to switch the heatmap.
+        Hover the map for cell detail. Use <strong>Tap · Rage · Dead</strong> to change what you see.
       </Text>
     </Stack>
   );

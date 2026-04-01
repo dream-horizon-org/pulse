@@ -39,7 +39,7 @@
 
 .controlsLabel {
   flex-shrink: 0;
-  letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 .mapBlock {
@@ -62,6 +62,51 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: var(--mantine-spacing-xs);
+}
+
+.heatmapFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--mantine-spacing-sm);
+}
+
+.layerChipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: var(--mantine-spacing-sm);
+}
+
+/* Non-compare: extra breathing room around the map filter toolbar inside the card */
+.heatmapMapToolbar {
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-md)
+    var(--mantine-spacing-xl);
+}
+
+/* Map type + heat-map layer — one row on the toolbar (wraps only on narrow widths) */
+.heatmapToolbarMapControls {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.compareFiltersStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+.compareFilterColumns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mantine-spacing-md);
+  align-items: start;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .compareFilterColumns {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .heatmapSplit {
@@ -147,6 +192,22 @@
 .aggregatesTopScoreCard {
   flex: 1;
   min-height: 0;
+}
+
+/* Active map layer (Tap / Rage Unresponsive / Dead) — ties score strip to toolbar layer */
+.aggregatesScoreSignalBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 14px;
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #0ba09a;
+  background: rgba(14, 201, 194, 0.12);
+  color: #0ba09a;
+  width: fit-content;
+  margin-bottom: 4px;
 }
 
 .aggregatesInteractionAvgHero {
@@ -833,64 +894,6 @@
   font-weight: 600;
   color: var(--mantine-color-dark-6);
   white-space: nowrap;
-}
-
-.crossLink {
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-  background: #f8f9fa;
-  padding: 12px 14px;
-}
-
-.engagementSection {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.engagementTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.engagementTitleBar {
-  width: 4px;
-  height: 18px;
-  border-radius: 2px;
-  background: #0ec9c2;
-}
-
-.engagementTitleText {
-  font-size: 16px;
-  font-weight: 700;
-  color: #212529;
-}
-
-.engagementGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
-}
-
-.engagementCard {
-  border-radius: 10px;
-  border: 1px solid #e9ecef;
-  background: #ffffff;
-  padding: 12px;
-  min-height: 100px;
-}
-
-.engagementCardLabel {
-  font-size: 11px;
-  color: #868e96;
-}
-
-.engagementCardValue {
-  font-size: 18px;
-  font-weight: 700;
-  color: #212529;
-  margin-top: 4px;
 }
 
 .compareGrid {

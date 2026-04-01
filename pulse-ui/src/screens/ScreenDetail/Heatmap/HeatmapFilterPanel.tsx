@@ -3,6 +3,7 @@ import { Divider, Group, Stack, Text } from "@mantine/core";
 import { useGetDashboardFilters } from "../../../hooks/useGetDashboardFilters";
 import { useFilterStore } from "../../../stores/useFilterStore";
 import { HeatmapAudienceFilterForm } from "./HeatmapAudienceFilterForm";
+import { HeatmapAudienceFilterPills } from "./HeatmapAudienceFilterPills";
 import { HeatmapAudienceFilterPopover } from "./HeatmapAudienceFilterPopover";
 import { HeatmapMapViewControls } from "./HeatmapMapViewControls";
 import { HeatmapTimeFilterPopover } from "./HeatmapTimeFilterPopover";
@@ -16,9 +17,9 @@ import {
 export type { HeatmapFilterPanelVariant, HeatmapFilterPanelProps } from "./heatmapFilterPanel.types";
 
 /**
- * Time and audience use the same popover pattern as the page header.
- * Map type (heat vs interaction) and heat-map layer (Tap / Rage / Dead) stay
- * on the toolbar so they stay visible while adjusting filters.
+ * Row 1 (full): map type / layer + optional `toolbarEnd` (e.g. Compare screens) on the right.
+ * Row 2 (full): time + audience popovers + audience pills.
+ * Compare column: section label, time + filters, then pills on the third row.
  */
 export function HeatmapFilterPanel({
   variant = "full",
@@ -26,12 +27,14 @@ export function HeatmapFilterPanel({
   onChange,
   onResetToPage,
   matchesPage = true,
-  timeMatchesPage = true,
   sectionLabel,
+  dataOnlyLayout = "inline",
+  toolbarEnd,
   signal = "tap",
   onSignalChange,
   focusLens = "all",
   onFocusLensChange,
+  showInteractionMapOption = true,
 }: HeatmapFilterPanelProps) {
   const { setFilterOptions } = useFilterStore();
   const { data: filterOptionsData } = useGetDashboardFilters();
@@ -63,17 +66,6 @@ export function HeatmapFilterPanel({
     [filterOptionsData],
   );
 
-  if (variant === "mapOnly") {
-    return (
-      <HeatmapMapViewControls
-        signal={signal}
-        onSignalChange={onSignalChange}
-        focusLens={focusLens}
-        onFocusLensChange={onFocusLensChange}
-      />
-    );
-  }
-
   if (!value || !onChange) {
     return null;
   }
@@ -99,7 +91,56 @@ export function HeatmapFilterPanel({
     />
   );
 
+  const timePopover = (
+    <HeatmapTimeFilterPopover
+      opened={timeOpen}
+      onOpenChange={setTimeOpen}
+      timeButtonLabel={timeButtonLabel}
+      dropdownWidth={420}
+    >
+      {timePopoverBody}
+    </HeatmapTimeFilterPopover>
+  );
+
+  const audiencePopover = (
+    <HeatmapAudienceFilterPopover
+      opened={filtersOpen}
+      onOpenChange={setFiltersOpen}
+      audienceActiveCount={audienceActiveCount}
+      dropdownWidth={variant === "dataOnly" && dataOnlyLayout === "inline" ? 400 : 420}
+      onResetToPage={onResetToPage}
+      audienceHint={
+        matchesPage
+          ? variant === "dataOnly"
+            ? "Using the same audience filters as the page header."
+            : "Heatmap uses the same audience scope as this page unless you change something here."
+          : variant === "dataOnly"
+            ? "Custom audience filters for this side of the comparison."
+            : "Custom audience filters for this heatmap only."
+      }
+    >
+      {audienceForm}
+    </HeatmapAudienceFilterPopover>
+  );
+
   if (variant === "dataOnly") {
+    if (dataOnlyLayout === "compareColumn") {
+      return (
+        <Stack gap="xs">
+          {sectionLabel ? (
+            <Text size="sm" fw={600}>
+              {sectionLabel}
+            </Text>
+          ) : null}
+          <Group gap="sm" wrap="wrap">
+            {timePopover}
+            {audiencePopover}
+          </Group>
+          <HeatmapAudienceFilterPills value={value} onChange={onChange} />
+        </Stack>
+      );
+    }
+
     return (
       <Stack gap={6}>
         {sectionLabel ? (
@@ -108,75 +149,35 @@ export function HeatmapFilterPanel({
           </Text>
         ) : null}
         <Group gap="sm" wrap="wrap">
-          <HeatmapTimeFilterPopover
-            opened={timeOpen}
-            onOpenChange={setTimeOpen}
-            timeButtonLabel={timeButtonLabel}
-            timeMatchesPage={timeMatchesPage}
-            dropdownWidth={420}
-          >
-            {timePopoverBody}
-          </HeatmapTimeFilterPopover>
-
-          <HeatmapAudienceFilterPopover
-            opened={filtersOpen}
-            onOpenChange={setFiltersOpen}
-            audienceActiveCount={audienceActiveCount}
-            dropdownWidth={400}
-            onResetToPage={onResetToPage}
-            audienceHint={
-              matchesPage
-                ? "Using the same audience filters as the page header."
-                : "Custom audience filters for this side of the comparison."
-            }
-          >
-            {audienceForm}
-          </HeatmapAudienceFilterPopover>
+          {timePopover}
+          {audiencePopover}
         </Group>
       </Stack>
     );
   }
 
   return (
-    <Group
-      gap="md"
-      wrap="wrap"
-      align="center"
-      style={{ flex: "0 1 auto", minWidth: 0 }}
-    >
-      <Group gap="sm" wrap="wrap">
-        <HeatmapTimeFilterPopover
-          opened={timeOpen}
-          onOpenChange={setTimeOpen}
-          timeButtonLabel={timeButtonLabel}
-          timeMatchesPage={timeMatchesPage}
-        >
-          {timePopoverBody}
-        </HeatmapTimeFilterPopover>
-
-        <HeatmapAudienceFilterPopover
-          opened={filtersOpen}
-          onOpenChange={setFiltersOpen}
-          audienceActiveCount={audienceActiveCount}
-          onResetToPage={onResetToPage}
-          audienceHint={
-            matchesPage
-              ? "Heatmap uses the same audience scope as this page unless you change something here."
-              : "Custom audience filters for this heatmap only."
-          }
-        >
-          {audienceForm}
-        </HeatmapAudienceFilterPopover>
+    <Stack gap="sm" style={{ flex: 1, minWidth: 0, width: "100%" }}>
+      <Group justify="space-between" align="center" wrap="wrap" w="100%" gap="md">
+        <HeatmapMapViewControls
+          signal={signal}
+          onSignalChange={onSignalChange}
+          focusLens={focusLens}
+          onFocusLensChange={onFocusLensChange}
+          showInteractionMapOption={showInteractionMapOption}
+        />
+        {toolbarEnd}
       </Group>
-
-      <Divider orientation="vertical" h={28} />
-
-      <HeatmapMapViewControls
-        signal={signal}
-        onSignalChange={onSignalChange}
-        focusLens={focusLens}
-        onFocusLensChange={onFocusLensChange}
+      <Divider
+        w="100%"
+        color="var(--mantine-color-gray-3)"
+        style={{ opacity: 0.85 }}
       />
-    </Group>
+      <Group gap="sm" wrap="wrap" align="center">
+        {timePopover}
+        {audiencePopover}
+        <HeatmapAudienceFilterPills value={value} onChange={onChange} />
+      </Group>
+    </Stack>
   );
 }

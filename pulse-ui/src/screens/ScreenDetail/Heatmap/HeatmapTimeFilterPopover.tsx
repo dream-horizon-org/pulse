@@ -1,4 +1,4 @@
-import { Badge, Button, Group, Popover } from "@mantine/core";
+import { Button, Group, Popover } from "@mantine/core";
 import { IconClock } from "@tabler/icons-react";
 import type { HeatmapTimeFilterPopoverProps } from "./heatmapFilterPanel.types";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
@@ -7,7 +7,6 @@ export function HeatmapTimeFilterPopover({
   opened,
   onOpenChange,
   timeButtonLabel,
-  timeMatchesPage,
   dropdownWidth = 420,
   children,
 }: HeatmapTimeFilterPopoverProps) {
@@ -32,11 +31,6 @@ export function HeatmapTimeFilterPopover({
           <Group gap={6} wrap="nowrap">
             <IconClock size={14} stroke={2.5} />
             <span>{timeButtonLabel}</span>
-            {!timeMatchesPage ? (
-              <Badge size="xs" color="teal" variant="light">
-                Custom
-              </Badge>
-            ) : null}
           </Group>
         </Button>
       </Popover.Target>

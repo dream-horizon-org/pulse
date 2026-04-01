@@ -8,6 +8,7 @@ export function HeatmapMapViewControls({
   onSignalChange,
   focusLens,
   onFocusLensChange,
+  showInteractionMapOption = true,
 }: HeatmapMapViewControlsProps) {
   const labelProps = {
     size: "xs" as const,
@@ -32,13 +33,15 @@ export function HeatmapMapViewControls({
         >
           Heat map
         </button>
-        <button
-          type="button"
-          className={`${heatmapClasses.pill} ${focusLens === "key" ? heatmapClasses.pillActive : ""}`}
-          onClick={() => onFocusLensChange?.("key")}
-        >
-          Interaction map
-        </button>
+        {showInteractionMapOption ? (
+          <button
+            type="button"
+            className={`${heatmapClasses.pill} ${focusLens === "key" ? heatmapClasses.pillActive : ""}`}
+            onClick={() => onFocusLensChange?.("key")}
+          >
+            Interaction map
+          </button>
+        ) : null}
       </div>
       {focusLens === "all" ? (
         <>

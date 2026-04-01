@@ -209,7 +209,7 @@ function buildDistributedGlowMap(rand: () => number, seed: number): HeatmapGlowP
       glow_map.push({
         x,
         y,
-        weight: Math.round(weight * 10) / 10,
+        weight: Math.max(0, Math.round(weight)),
       });
     }
     remaining -= n;
@@ -224,7 +224,7 @@ function buildDistributedGlowMap(rand: () => number, seed: number): HeatmapGlowP
     glow_map.push({
       x,
       y,
-      weight: Math.round(weight * 10) / 10,
+      weight: Math.max(0, Math.round(weight)),
     });
   }
 
@@ -355,13 +355,95 @@ export function heatmapMockCompare(
   };
 }
 
+/** Optional GET/POST hints so mocks reflect filter changes in QA. */
+export type HeatmapMockRequestHints = {
+  app_version?: string | null;
+  platform?: string | null;
+  cohort_id?: string | null;
+  from?: string | null;
+  to?: string | null;
+  layers?: string | null;
+};
+
+function hashHints(h: HeatmapMockRequestHints): number {
+  const s = [
+    h.app_version,
+    h.platform,
+    h.cohort_id,
+    h.from,
+    h.to,
+    h.layers,
+  ].join("|");
+  return hashScreenName(s);
+}
+
+function applyHintsToPayload(
+  data: HeatmapDataResponse,
+  hints: HeatmapMockRequestHints,
+): HeatmapDataResponse {
+  const salt = hashHints(hints);
+  const factor = 0.82 + (salt % 35) / 100;
+  let next: HeatmapDataResponse = {
+    ...data,
+    metadata: {
+      ...data.metadata,
+      total_events: Math.max(
+        100,
+        Math.round(data.metadata.total_events * factor),
+      ),
+      ...(hints.platform ? { platform: hints.platform } : {}),
+      ...(hints.app_version ? { app_version: hints.app_version } : {}),
+    },
+  };
+
+  if (hints.layers?.trim()) {
+    const allowed = new Set(
+      hints.layers.split(",").map((s) => s.trim()).filter(Boolean),
+    );
+    const L = next.layers;
+    next = {
+      ...next,
+      layers: {
+        glow_map: allowed.has("glow") ? L.glow_map : [],
+        frustration_map: allowed.has("frustration")
+          ? L.frustration_map
+          : { rage: [], dead: [] },
+        observability_map: allowed.has("observability")
+          ? L.observability_map
+          : { error_clicks: [], latency_hotspots: [] },
+        interaction_map: L.interaction_map,
+      },
+    };
+  }
+
+  return next;
+}
+
 /** Resolve scenario from screenName for E2E testing */
-export function resolveHeatmapData(screenName: string): HeatmapDataResponse {
+export function resolveHeatmapData(
+  screenName: string,
+  hints?: HeatmapMockRequestHints,
+): HeatmapDataResponse {
+  let data: HeatmapDataResponse;
   if (screenName === "__empty__") {
-    return heatmapMockEmpty("__empty__");
+    data = heatmapMockEmpty("__empty__");
+  } else if (screenName === "__sparse__") {
+    data = heatmapMockFull(screenName);
+  } else {
+    data = heatmapMockPocDense(screenName);
   }
-  if (screenName === "__sparse__") {
-    return heatmapMockFull(screenName);
+
+  if (
+    hints &&
+    (hints.platform ||
+      hints.app_version ||
+      hints.cohort_id ||
+      hints.from ||
+      hints.to ||
+      hints.layers)
+  ) {
+    data = applyHintsToPayload(data, hints);
   }
-  return heatmapMockPocDense(screenName);
+
+  return data;
 }

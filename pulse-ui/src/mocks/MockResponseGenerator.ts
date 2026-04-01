@@ -7424,7 +7424,14 @@ ${
           },
         };
       }
-      const data = resolveHeatmapData(screenName);
+      const data = resolveHeatmapData(screenName, {
+        app_version: url.searchParams.get("app_version"),
+        platform: url.searchParams.get("platform"),
+        cohort_id: url.searchParams.get("cohort_id"),
+        from: url.searchParams.get("from"),
+        to: url.searchParams.get("to"),
+        layers: url.searchParams.get("layers"),
+      });
       return { data, status: 200, error: undefined };
     }
 
@@ -7458,7 +7465,18 @@ ${
             },
           };
         }
-        const data = resolveHeatmapData(screenName);
+        const includeLayers = body?.includeLayers as string[] | undefined;
+        const data = resolveHeatmapData(screenName, {
+          app_version: body?.app_version,
+          platform: body?.platform,
+          cohort_id: body?.cohort_id,
+          from: body?.timeRange?.start,
+          to: body?.timeRange?.end,
+          layers:
+            includeLayers && includeLayers.length > 0
+              ? includeLayers.join(",")
+              : null,
+        });
         return { data, status: 200, error: undefined };
       } catch (e: unknown) {
         return {

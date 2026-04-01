@@ -468,6 +468,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
         {/* Heatmap Tab */}
         <Tabs.Panel value="heatmap">
           <HeatmapPanel
+            key={decodedScreenName}
             screenName={decodedScreenName}
             startTime={startTime || ""}
             endTime={endTime || ""}

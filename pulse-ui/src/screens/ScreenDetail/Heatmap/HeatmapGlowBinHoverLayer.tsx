@@ -1,6 +1,8 @@
-import { Box, Stack, Text, Tooltip } from "@mantine/core";
+import { Box, Group, Stack, Text, Tooltip } from "@mantine/core";
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { HeatmapGlowPoint } from "./heatmap.types";
+import type { HeatmapDataResponse, HeatmapGlowPoint } from "./heatmap.types";
+import { buildGlowBinTooltipModel } from "./heatmapGlowBinTooltip";
+import type { HeatmapSignal } from "./heatmapPanelUtils";
 import classes from "./HeatmapPanel.module.css";
 
 const GRID = 14;
@@ -21,13 +23,27 @@ function buildBuckets(points: HeatmapGlowPoint[]): Bucket[][] {
 
 export interface HeatmapGlowBinHoverLayerProps {
   points: HeatmapGlowPoint[];
+  /** When set: total clicks at spot, active layer count, activity zone vs layer max. */
+  binTooltip?: {
+    payload: HeatmapDataResponse;
+    signal: HeatmapSignal;
+  };
+}
+
+/** Bin weights are event-style counts in the API; show whole numbers (mocks used to emit one decimal). */
+function formatBinTooltipCount(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  return Math.round(n).toLocaleString();
 }
 
 /**
  * Hit-test nearest glow bin in normalized space (same layout as canvas inset) and
  * show a tooltip — one layer, grid-accelerated for large payloads.
  */
-export function HeatmapGlowBinHoverLayer({ points }: HeatmapGlowBinHoverLayerProps) {
+export function HeatmapGlowBinHoverLayer({
+  points,
+  binTooltip,
+}: HeatmapGlowBinHoverLayerProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const buckets = useMemo(() => buildBuckets(points), [points]);
   const [tip, setTip] = useState<{
@@ -89,6 +105,51 @@ export function HeatmapGlowBinHoverLayer({ points }: HeatmapGlowBinHoverLayerPro
     return null;
   }
 
+  const tooltipModel =
+    tip && binTooltip
+      ? buildGlowBinTooltipModel(binTooltip.payload, binTooltip.signal, tip.point)
+      : null;
+
+  const tooltipLabel = tooltipModel ? (
+    <Stack gap="sm" className={classes.glowBinTooltipStack}>
+      <Group justify="space-between" gap="xl" wrap="nowrap" align="flex-start">
+        <Text size="xs" c="gray.3" style={{ flexShrink: 0 }}>
+          Total clicks
+        </Text>
+        <Text size="sm" fw={600} c="white" ta="right" style={{ lineHeight: 1.3 }}>
+          {formatBinTooltipCount(tooltipModel.totalClicks)}
+        </Text>
+      </Group>
+      <Group justify="space-between" gap="xl" wrap="nowrap" align="flex-start">
+        <Text size="xs" c="gray.3" style={{ flexShrink: 0 }}>
+          {tooltipModel.layerLabel}
+        </Text>
+        <Text size="sm" fw={600} c="white" ta="right" style={{ lineHeight: 1.3 }}>
+          {formatBinTooltipCount(tooltipModel.layerValue)}
+        </Text>
+      </Group>
+      <Group justify="space-between" gap="xl" wrap="nowrap" align="flex-start">
+        <Text size="xs" c="gray.3" style={{ flexShrink: 0 }}>
+          Zone
+        </Text>
+        <Text size="sm" fw={600} c="teal.2" ta="right" style={{ lineHeight: 1.3 }}>
+          {tooltipModel.zoneLabel}
+        </Text>
+      </Group>
+    </Stack>
+  ) : tip ? (
+    <Stack gap="sm" className={classes.glowBinTooltipStack}>
+      <Group justify="space-between" gap="xl" wrap="nowrap" align="flex-start">
+        <Text size="xs" c="gray.3">
+          This bin
+        </Text>
+        <Text size="sm" fw={600} c="white" ta="right">
+          {formatBinTooltipCount(tip.point.weight)}
+        </Text>
+      </Group>
+    </Stack>
+  ) : null;
+
   return (
     <div
       ref={wrapRef}
@@ -97,28 +158,25 @@ export function HeatmapGlowBinHoverLayer({ points }: HeatmapGlowBinHoverLayerPro
       onMouseLeave={() => setTip(null)}
       aria-hidden
     >
-      {tip && (
+      {tip && tooltipLabel && (
         <Tooltip
           position="right"
           withArrow
-          openDelay={80}
           withinPortal
-          label={
-            <Stack gap={4} className={classes.glowBinTooltipStack}>
-              <Text size="xs" fw={700} c="white">
-                Density bin
-              </Text>
-              <Text size="xs" c="gray.2">
-                Weight (aggregated taps / events in bin)
-              </Text>
-              <Text size="sm" fw={600} c="teal.2">
-                {tip.point.weight.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-              </Text>
-              <Text size="xs" c="dimmed">
-                Norm. center ({tip.point.x.toFixed(3)}, {tip.point.y.toFixed(3)})
-              </Text>
-            </Stack>
-          }
+          opened
+          events={{ hover: false, focus: false, touch: false }}
+          positionDependencies={[
+            tip.px,
+            tip.py,
+            tip.point.weight,
+            tip.point.x,
+            tip.point.y,
+            binTooltip?.signal,
+            tooltipModel?.totalClicks,
+            tooltipModel?.layerValue,
+            tooltipModel?.zoneLabel,
+          ]}
+          label={tooltipLabel}
         >
           <Box
             component="span"

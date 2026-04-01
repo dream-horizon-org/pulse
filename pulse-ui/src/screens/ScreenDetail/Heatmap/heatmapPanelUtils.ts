@@ -23,6 +23,20 @@ export function formatInt(n: number): string {
   return n.toLocaleString();
 }
 
+/**
+ * True when the API included `layers.interaction_map` (non-null). Omitting the key
+ * means heatmap-only; clients must not show the Interaction map lens.
+ */
+export function heatmapLayersIncludeInteractionMapKey(
+  layers: HeatmapDataResponse["layers"] | undefined | null,
+): boolean {
+  if (layers == null || typeof layers !== "object") return false;
+  return (
+    Object.prototype.hasOwnProperty.call(layers, "interaction_map") &&
+    layers.interaction_map != null
+  );
+}
+
 export function glowLayerForSignal(
   data: HeatmapDataResponse | null | undefined,
   signal: HeatmapSignal,
