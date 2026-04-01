@@ -46,3 +46,15 @@ SETTINGS index_granularity = 8192;
 -- FROM otel.event_catalog_entries FINAL
 -- WHERE ProjectId = 'fancode' AND FilterKey = 'EVENT'
 -- ORDER BY FilterValue;
+
+-- Distinct non-EVENT filter keys (GET /v1/funnel/events → filterKeys)
+-- SELECT DISTINCT FilterKey
+-- FROM otel.event_catalog_entries FINAL
+-- WHERE ProjectId = 'fancode' AND FilterKey != 'EVENT'
+-- ORDER BY FilterKey;
+
+-- Values for one filter key (GET /v1/funnel/filters/{filterKey}/values)
+-- SELECT DISTINCT FilterValue
+-- FROM otel.event_catalog_entries FINAL
+-- WHERE ProjectId = 'fancode' AND FilterKey = 'OS'
+-- ORDER BY FilterValue;

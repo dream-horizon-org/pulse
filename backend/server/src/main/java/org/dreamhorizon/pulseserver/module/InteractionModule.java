@@ -2,12 +2,15 @@ package org.dreamhorizon.pulseserver.module;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
+import org.dreamhorizon.pulseserver.dao.eventcatalog.EventCatalogDao;
 import org.dreamhorizon.pulseserver.dao.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.dao.journeyresults.JourneyResultsDao;
 import org.dreamhorizon.pulseserver.dao.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.impl.ConfigServiceImpl;
+import org.dreamhorizon.pulseserver.service.eventcatalog.EventCatalogService;
+import org.dreamhorizon.pulseserver.service.eventcatalog.impl.EventCatalogServiceImpl;
 import org.dreamhorizon.pulseserver.service.funnel.FunnelService;
 import org.dreamhorizon.pulseserver.service.funnel.impl.FunnelServiceImpl;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
@@ -28,6 +31,8 @@ public class InteractionModule extends AbstractModule {
     bind(ConfigService.class).to(ConfigServiceImpl.class)
         .in(Singleton.class);
     bind(FunnelDefinitionDao.class).in(Singleton.class);
+    bind(EventCatalogDao.class).in(Singleton.class);
+    bind(EventCatalogService.class).to(EventCatalogServiceImpl.class).in(Singleton.class);
     bind(FunnelResultsDao.class).in(Singleton.class);
     bind(JourneyResultsDao.class).in(Singleton.class);
     bind(FunnelService.class).to(FunnelServiceImpl.class).in(Singleton.class);
