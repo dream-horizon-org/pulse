@@ -1,40 +1,44 @@
-import { CiritcalInteractionDetails } from "../screens/CriticalInteractionDetails";
-import { CriticalInteractionList } from "../screens/CriticalInteractionList";
-import { CriticalInteractionForm } from "../screens/CriticalInteractionForm";
-import { Login } from "../screens/Login";
-import { UniversalEventQuery } from "../screens/UniversalEventQuery/UniversalEventQuery";
-import { Home } from "../screens/Home";
-import { AppVitals, IssueDetail, OccurrenceDetail } from "../screens/AppVitals";
-import { SessionTimeline } from "../screens/SessionTimeline";
-import { ScreenList } from "../screens/ScreenList";
-import { ScreenDetail } from "../screens/ScreenDetail";
-import { NetworkDetail } from "../screens/NetworkDetail";
-import { NetworkList } from "../screens/NetworkList";
-import { UserEngagement } from "../screens/UserEngagement";
-import { ComingSoon } from "../screens/ComingSoon";
-import { Onboarding } from "../screens/Onboarding";
-import { OnboardingSuccess } from "../screens/OnboardingSuccess";
-import { Pricing } from "../screens/Pricing";
-import { ProjectSettings } from "../screens/ProjectSettings";
-import { SamplingConfig } from "../screens/SamplingConfig";
-import { Settings } from "../screens/Settings";
-import { AlertListingPage } from "../screens/AlertListingPage";
-import { AlertForm } from "../screens/AlertFormWizard";
-import { AlertDetail } from "../screens/AlertDetail";
-import { RealTimeQuery } from "../screens/RealTimeQuery";
-import { OrganizationDashboard } from "../screens/OrganizationDashboard";
-import { OrganizationSettings } from "../screens/OrganizationSettings";
-import { OrganizationMembers } from "../screens/OrganizationMembers";
-import { OrganizationProjects } from "../screens/OrganizationProjects";
-import { CreateProject } from "../screens/CreateProject";
-import { EventCatalog } from "../screens/EventCatalog";
-import { AiChat } from "../screens/AiChat";
-import { SupportQueries } from "../screens/SupportQueries";
-import { ROUTES as ROUTE_PATHS } from "../constants";
-import { SessionReplay } from "../screens/SessionReplay";
-import { SessionReplayInsights } from "../screens/SessionReplayInsights";
-import { SessionReplaySessions } from "../screens/SessionReplaySessions";
-import { SessionReplayDetail } from "../screens/SessionReplayDetail";
+import {CiritcalInteractionDetails} from "../screens/CriticalInteractionDetails";
+import {CriticalInteractionList} from "../screens/CriticalInteractionList";
+import {CriticalInteractionForm} from "../screens/CriticalInteractionForm";
+import {Login} from "../screens/Login";
+import {UniversalEventQuery} from "../screens/UniversalEventQuery/UniversalEventQuery";
+import {Home} from "../screens/Home";
+import {AppVitals, IssueDetail, OccurrenceDetail} from "../screens/AppVitals";
+import {SessionTimeline} from "../screens/SessionTimeline";
+import {ScreenList} from "../screens/ScreenList";
+import {ScreenDetail} from "../screens/ScreenDetail";
+import {NetworkDetail} from "../screens/NetworkDetail";
+import {NetworkList} from "../screens/NetworkList";
+import {UserEngagement} from "../screens/UserEngagement";
+import {ComingSoon} from "../screens/ComingSoon";
+import {Onboarding} from "../screens/Onboarding";
+import {OnboardingSuccess} from "../screens/OnboardingSuccess";
+import {Pricing} from "../screens/Pricing";
+import {ProjectSettings} from "../screens/ProjectSettings";
+import {SamplingConfig} from "../screens/SamplingConfig";
+import {Settings} from "../screens/Settings";
+import {AlertListingPage} from "../screens/AlertListingPage";
+import {AlertForm} from "../screens/AlertFormWizard";
+import {AlertDetail} from "../screens/AlertDetail";
+import {RealTimeQuery} from "../screens/RealTimeQuery";
+import {OrganizationDashboard} from "../screens/OrganizationDashboard";
+import {OrganizationSettings} from "../screens/OrganizationSettings";
+import {OrganizationMembers} from "../screens/OrganizationMembers";
+import {OrganizationProjects} from "../screens/OrganizationProjects";
+import {CreateProject} from "../screens/CreateProject";
+import {EventCatalog} from "../screens/EventCatalog";
+import {AiChat} from "../screens/AiChat";
+import {SupportQueries} from "../screens/SupportQueries";
+import {ROUTES as ROUTE_PATHS} from "../constants";
+import {SessionReplay} from "../screens/SessionReplay";
+import {SessionReplayInsights} from "../screens/SessionReplayInsights";
+import {SessionReplaySessions} from "../screens/SessionReplaySessions";
+import {SessionReplayDetail} from "../screens/SessionReplayDetail";
+import {CreateFunnel, CreateJourney} from "../screens/FunnelAnalysis";
+import {FunnelsList} from "../screens/FunnelsJourneysList/FunnelsList";
+import {JourneysList} from "../screens/FunnelsJourneysList/JourneysList";
+import {FunnelJourneyDetail} from "../screens/FunnelJourneyDetail";
 
 export const ROUTES = {
   // Organization-level routes
@@ -212,5 +216,29 @@ export const ROUTES = {
   SUPPORT_QUERIES: {
     ...ROUTE_PATHS.SUPPORT_QUERIES,
     element: SupportQueries,
+  },
+  FUNNELS_LIST: {
+    ...ROUTE_PATHS.FUNNELS_LIST,
+    element: FunnelsList,
+  },
+  JOURNEYS_LIST: {
+    ...ROUTE_PATHS.JOURNEYS_LIST,
+    element: JourneysList,
+  },
+  FUNNELS_CREATE: {
+    ...ROUTE_PATHS.FUNNELS_CREATE,
+    element: CreateFunnel,
+  },
+  JOURNEYS_CREATE: {
+    ...ROUTE_PATHS.JOURNEYS_CREATE,
+    element: CreateJourney,
+  },
+  FUNNEL_DETAIL: {
+    ...ROUTE_PATHS.FUNNEL_DETAIL,
+    element: FunnelJourneyDetail,
+  },
+  JOURNEY_DETAIL: {
+    ...ROUTE_PATHS.JOURNEY_DETAIL,
+    element: FunnelJourneyDetail,
   },
 };

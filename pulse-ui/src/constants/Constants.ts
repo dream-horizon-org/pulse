@@ -2,25 +2,24 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem,
+  ComboboxItem
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
-  IconDeviceDesktop,
-  IconNetwork,
-  IconUsers,
-  IconDatabaseSearch,
-  IconRobot,
   IconBell,
   IconCalendarEvent,
+  IconChartFunnel,
+  IconDatabaseSearch,
+  IconDeviceDesktop,
   IconHome,
   IconListDetails,
-  IconVideo,
+  IconNetwork,
+  IconRobot,
+  IconRoute,
+  IconUsers,
+  IconVideo
 } from "@tabler/icons-react";
-import {
-  CriticalInteractionDetailsFilterValues,
-  TimeFilter,
-} from "../screens/CriticalInteractionDetails";
+import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -29,7 +28,7 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps,
+  FormSteps
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
@@ -266,6 +265,36 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
   },
+  FUNNELS_LIST: {
+    key: "FUNNELS_LIST",
+    basePath: "/projects/:projectId/funnels",
+    path: "/projects/:projectId/funnels",
+  },
+  JOURNEYS_LIST: {
+    key: "JOURNEYS_LIST",
+    basePath: "/projects/:projectId/journeys",
+    path: "/projects/:projectId/journeys",
+  },
+  FUNNELS_CREATE: {
+    key: "FUNNELS_CREATE",
+    basePath: "/projects/:projectId/funnels/create",
+    path: "/projects/:projectId/funnels/create",
+  },
+  JOURNEYS_CREATE: {
+    key: "JOURNEYS_CREATE",
+    basePath: "/projects/:projectId/journeys/create",
+    path: "/projects/:projectId/journeys/create",
+  },
+  FUNNEL_DETAIL: {
+    key: "FUNNEL_DETAIL",
+    basePath: "/projects/:projectId/funnels/:funnelId",
+    path: "/projects/:projectId/funnels/:funnelId",
+  },
+  JOURNEY_DETAIL: {
+    key: "JOURNEY_DETAIL",
+    basePath: "/projects/:projectId/journeys/:journeyId",
+    path: "/projects/:projectId/journeys/:journeyId",
+  },
   ...(ENABLE_AI_CHAT
     ? {
         AI_CHAT: {
@@ -314,6 +343,8 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   SESSION_REPLAY: "/session-replay/sessions",
   QUERY_BUILDER: "/query-builder",
+  FUNNELS: "/funnels",
+  JOURNEYS: "/journeys",
   ALERTS: "/alerts",
   AI_CHAT: "/ai-chat",
   EVENT_CATALOG: "/event-catalog",
@@ -390,6 +421,20 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconDatabaseSearch,
     routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
     path: NAVBAR_ROUTES.QUERY_BUILDER,
+    iconSize: 25,
+  },
+  {
+    tabName: "Funnels",
+    icon: IconChartFunnel,
+    routeTo: NAVBAR_ROUTES.FUNNELS,
+    path: NAVBAR_ROUTES.FUNNELS,
+    iconSize: 25,
+  },
+  {
+    tabName: "Journeys",
+    icon: IconRoute,
+    routeTo: NAVBAR_ROUTES.JOURNEYS,
+    path: NAVBAR_ROUTES.JOURNEYS,
     iconSize: 25,
   },
   {
@@ -887,6 +932,51 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
+  FUNNEL_ANALYZE: {
+    key: "FUNNEL_ANALYZE",
+    apiPath: `/v1/funnel/analyze`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_HEALTH: {
+    key: "FUNNEL_HEALTH",
+    apiPath: `/v1/funnel/health`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_SESSIONS: {
+    key: "FUNNEL_SESSIONS",
+    apiPath: `/v1/funnel/sessions`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_TREND: {
+    key: "FUNNEL_TREND",
+    apiPath: `/v1/funnel/trend`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_GROUPED: {
+    key: "FUNNEL_GROUPED",
+    apiPath: `/v1/funnel/grouped`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_EXPLORE: {
+    key: "JOURNEY_EXPLORE",
+    apiPath: `/v1/journey/explore`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_EVENTS: {
+    key: "FUNNEL_EVENTS",
+    apiPath: `/v1/funnel/events`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_FILTERS: {
+    key: "FUNNEL_FILTERS",
+    apiPath: `/v1/funnel/filters`,
+    method: API_METHODS.GET,
+  },
+  GET_TAGS: {
+    key: "GET_TAGS",
+    apiPath: `/v1/tags`,
+    method: API_METHODS.GET,
+  },
   GET_TNC_STATUS: {
     key: "GET_TNC_STATUS",
     apiPath: `/v1/tnc/status`,
@@ -1199,13 +1289,13 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
   FOOTER_MESSAGE: "Have questions? Join our Discord community",
-  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
+  DISCORD_LINK:
+    "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
-  HELP_LINK:
-    "https://pulse.dreamhorizon.org/docs/intro",
+  HELP_LINK: "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {

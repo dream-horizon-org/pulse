@@ -35,7 +35,11 @@ public enum ServiceError implements RestError {
   INVALID_SLACK_CODE("400", "Invalid Slack code provided", 400),
   USER_NOT_FOUND("400", "User not found", 400),
   DUPLICATE_CHANNEL_TYPE("409", "A channel of this type already exists for the project", 409),
-  MEMBER_ALREADY_EXISTS("409", "User is already a member", 409);
+  MEMBER_ALREADY_EXISTS("409", "User is already a member", 409),
+  FUNNEL_NOT_FOUND("BE1010", "Funnel not found", 404),
+  FUNNEL_CREATION_FAILED("BE1011", "Funnel creation failed", 400),
+  JOURNEY_NOT_FOUND("BE1012", "Journey not found", 404),
+  JOURNEY_CREATION_FAILED("BE1013", "Journey creation failed", 400);
 
   private static final Logger log = LoggerFactory.getLogger(ServiceError.class);
   final String errorCode;

@@ -1,0 +1,1 @@
+export { FunnelJourneyDetail } from "./FunnelJourneyDetail";

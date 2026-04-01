@@ -4,11 +4,6 @@ export interface FunnelStep {
   eventName: string;
   dataType: "TRACES" | "LOGS";
   pulseType?: string;
-  stepFilters?: {
-    field: string;
-    operator: string;
-    value: (string | number)[];
-  }[];
 }
 
 export interface FunnelRequestBody {
@@ -179,4 +174,9 @@ export interface FunnelEventsResponse {
 // Funnel filter options
 export interface FunnelFiltersResponse {
   filters: Record<string, string[]>;
+}
+
+// Tags
+export interface TagsResponse {
+  tags: string[];
 }

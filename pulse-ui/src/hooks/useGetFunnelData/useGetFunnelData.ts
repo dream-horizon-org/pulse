@@ -15,6 +15,7 @@ import {
   GetFunnelTrendParams,
   GetFunnelGroupedParams,
   GetJourneyParams,
+  TagsResponse,
 } from "./useGetFunnelData.interface";
 import { makeRequest } from "../../helpers/makeRequest";
 import dayjs from "dayjs";
@@ -251,6 +252,7 @@ export const useGetJourneyData = ({
       requestBody.depth,
       requestBody.timeRange.start,
       requestBody.timeRange.end,
+      JSON.stringify(requestBody.filters),
     ],
     queryFn: async () => {
       return makeRequest<JourneyResponse>({
@@ -290,6 +292,22 @@ export const useGetFunnelFilters = () => {
     queryKey: [api.key],
     queryFn: async () => {
       return makeRequest<FunnelFiltersResponse>({
+        url: `${API_BASE_URL}${api.apiPath}`,
+        init: { method: api.method },
+      });
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 300000,
+  });
+};
+
+export const useGetTags = () => {
+  const api = API_ROUTES.GET_TAGS;
+
+  return useQuery({
+    queryKey: [api.key],
+    queryFn: async () => {
+      return makeRequest<TagsResponse>({
         url: `${API_BASE_URL}${api.apiPath}`,
         init: { method: api.method },
       });

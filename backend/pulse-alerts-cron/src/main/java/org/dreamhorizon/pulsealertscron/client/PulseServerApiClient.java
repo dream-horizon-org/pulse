@@ -2,6 +2,7 @@ package org.dreamhorizon.pulsealertscron.client;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -20,7 +21,8 @@ public class PulseServerApiClient {
   private final WebClient webClient;
   private final String apiBaseUrl;
   private final String serviceJwt;
-
+  private final ApplicationConfig config;
+  
   private static final String ACTIVE_LIMITS_PATH = "/internal/v1/projects/limits";
   private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
   private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
@@ -34,6 +36,7 @@ public class PulseServerApiClient {
     this.webClient = webClient;
     this.apiBaseUrl = config.getPulseServerUrl();
     this.serviceJwt = config.getServiceJwtSecret();
+    this.config = config;
   }
 
   public Single<UsageLimitsApiResponse.Response> getActiveLimits() {
@@ -105,6 +108,50 @@ public class PulseServerApiClient {
                 log.error("❌ Error calling API keys API", error)
             )
     );
+  }
+
+  public Completable triggerFunnelBatch() {
+    String endpoint = apiBaseUrl + config.getBatchFunnelsEndpoint();
+    return triggerBatchJob("FUNNELS_DAILY", endpoint);
+  }
+
+  public Completable triggerJourneyBatch() {
+    String endpoint = apiBaseUrl + config.getBatchJourneysEndpoint();
+    return triggerBatchJob("JOURNEYS_DAILY", endpoint);
+  }
+
+  public Completable triggerEventsBatch() {
+    String endpoint = apiBaseUrl + config.getBatchEventsEndpoint();
+    return triggerBatchJob("EVENTS_INCREMENTAL", endpoint);
+  }
+
+  private Completable triggerBatchJob(String jobType, String endpoint) {
+    log.info("[triggerBatchJob] Triggering {} batch job at: {}", jobType, endpoint);
+    
+    return Single.defer(() ->
+        webClient
+            .postAbs(endpoint)
+            .putHeader("Authorization", "Bearer " + serviceJwt)
+            .putHeader("Content-Type", "application/json")
+            .timeout(REQUEST_TIMEOUT_MS)
+            .rxSend()
+            .map(response -> {
+                int statusCode = response.statusCode();
+                if (statusCode < 200 || statusCode >= 300) {
+                    String errorMsg = String.format(
+                        "Batch job %s failed with status %d: %s",
+                        jobType, statusCode, response.bodyAsString()
+                    );
+                    log.error("[triggerBatchJob] {}", errorMsg);
+                    throw new RuntimeException(errorMsg);
+                }
+                log.info("[triggerBatchJob] Successfully triggered {} batch job", jobType);
+                return response;
+            })
+            .doOnError(error ->
+                log.error("[triggerBatchJob] Error triggering {} batch job", jobType, error)
+            )
+    ).ignoreElement();
   }
 
   /**

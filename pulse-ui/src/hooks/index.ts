@@ -105,3 +105,6 @@ export * from "./useUserProjects";
 
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from "./hooks.interface";
+
+// Funnel hooks
+export * from "./useGetFunnelData";
