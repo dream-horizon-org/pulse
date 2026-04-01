@@ -14,6 +14,7 @@ import type {
   SessionEvent,
   NetworkRequest,
 } from "../../../services/sessionReplay/mockSessionDetail";
+import { formatSessionDisplayTimeMs } from "../../SessionReplaySessions/utils/sessionListUtils";
 
 const TRACE_FIELDS = [
   "traceId",
@@ -56,7 +57,7 @@ const EXCEPTION_FIELDS = [
   "pulseType",
 ];
 
-function toSafeISOString(ms: number): string {
+export function toSafeISOString(ms: number): string {
   if (typeof ms !== "number" || !Number.isFinite(ms))
     return "1970-01-01T00:00:00.000Z";
   const d = new Date(ms);
@@ -74,6 +75,41 @@ function normalizeIsoTimestampForParse(iso: string): string {
   const [, dateTime, frac, zone] = m;
   if (!frac || frac.length <= 4) return trimmed;
   return `${dateTime}${frac.slice(0, 4)}${zone}`;
+}
+
+/** API may return SQL datetimes (`YYYY-MM-DD HH:mm:ss...`) — `new Date()` alone is unreliable. */
+function normalizeApiDateTimeForParse(s: string): string {
+  const t = s.trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(t)) {
+    const iso = t.replace(" ", "T");
+    if (/Z$/i.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso)) return iso;
+    return `${iso}Z`;
+  }
+  return normalizeIsoTimestampForParse(t);
+}
+
+export function parseSessionStartTimeToMs(
+  startTime: string | undefined,
+): number {
+  if (typeof startTime !== "string" || !startTime.trim()) return NaN;
+  const ms = new Date(normalizeApiDateTimeForParse(startTime)).getTime();
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
+
+export function naiveSqlDateTimeUtcToIso(input: string): string {
+  const ms = parseSessionStartTimeToMs(input);
+  if (!Number.isFinite(ms)) return input.trim();
+  return new Date(ms).toISOString();
+}
+
+export function formatSessionTimeFromStartOffset(
+  sessionStart: string,
+  offsetMs: number,
+): string {
+  const baseMs = parseSessionStartTimeToMs(sessionStart);
+  const ms = Number.isFinite(baseMs) ? baseMs + offsetMs : NaN;
+  return formatSessionDisplayTimeMs(ms);
 }
 
 /** Parse event timestamp (ISO string or relative ms number) to relative ms from session start. */
@@ -116,7 +152,7 @@ export function sessionDetailApiToData(
 ): SessionDetailData {
   const startTimeMs =
     typeof api.startTime === "string" && api.startTime
-      ? new Date(normalizeIsoTimestampForParse(api.startTime)).getTime()
+      ? new Date(normalizeApiDateTimeForParse(api.startTime)).getTime()
       : Date.now();
   const baseMs = Number.isFinite(startTimeMs) ? startTimeMs : Date.now();
 
@@ -137,8 +173,16 @@ export function sessionDetailApiToData(
 
   const events: SessionEvent[] = (api.events ?? []).map((e) => ({
     timestamp: parseEventTimestampMs(e.timestamp, baseMs),
-    type: e.eventType === "interaction" ? "click" : e.eventType,
-    eventType: e.eventType,
+    detailTimestamp: typeof e.timestamp === "string" ? e.timestamp : undefined,
+    type:
+      e.eventType === "interaction"
+        ? "click"
+        : e.eventType === "app_start"
+          ? "navigation"
+          : e.eventType === null || e.eventType === undefined
+            ? "error"
+            : e.eventType,
+    eventType: e.eventType ?? undefined,
     description: e.description,
     durationNs: e.durationNs,
     traceId: e.traceId,
@@ -167,12 +211,12 @@ export function sessionDetailApiToData(
     os: api.osVersion,
     appVersion: api.appVersion,
     geography: parseGeography(api.geography),
-    interactionQuality:
-      typeof api.quality === "number" &&
-      Number.isFinite(api.quality) &&
-      api.quality > 0
-        ? api.quality
-        : null,
+    interactionQuality: (() => {
+      const q = api.quality;
+      if (typeof q !== "number" || !Number.isFinite(q) || q <= 0) return null;
+      // 0–1 from API; values > 1 treated as legacy 0–10 scale
+      return q > 1 ? Math.min(1, q / 10) : q;
+    })(),
     sessionType: "exploration",
     detectedIssues: [],
     criticalInteractions,

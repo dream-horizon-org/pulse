@@ -1,14 +1,20 @@
-import { Paper, Box, Text, Badge, Group, RingProgress } from "@mantine/core";
+import {
+  Paper,
+  Box,
+  Text,
+  Badge,
+  Group,
+  RingProgress,
+  Stack,
+} from "@mantine/core";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
-import { UserJourney } from "./all/UserJourney";
-import { STATUS_LABELS_EXTENDED as STATUS_LABELS } from "../constants/strings";
+import {
+  LABELS,
+  STATUS_LABELS_EXTENDED as STATUS_LABELS,
+} from "../constants/strings";
+import { getQualityColor } from "../utils/sessionUtils";
+import { formatTimestamp } from "../../SessionReplaySessions/utils/sessionListUtils";
 import classes from "./SessionSummary.module.css";
-
-function getQualityColor(score: number): string {
-  if (score >= 8) return "var(--mantine-color-teal-6)";
-  if (score >= 6) return "var(--mantine-color-yellow-6)";
-  return "var(--mantine-color-red-6)";
-}
 
 interface SessionSummaryProps {
   sessionData: SessionDetailData;
@@ -18,91 +24,84 @@ export function SessionSummary({ sessionData }: SessionSummaryProps) {
   const quality = sessionData.interactionQuality;
   const hasQuality = quality != null && Number.isFinite(quality);
 
-  const formattedTime = new Date(sessionData.startTime).toLocaleString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-  );
+  const formattedTime = formatTimestamp(sessionData.startTime);
+
+  const qualityColor = hasQuality
+    ? getQualityColor(quality as number)
+    : undefined;
 
   return (
     <Paper className={classes.summary} withBorder p={0}>
-      {/* Single info row: most important first */}
       <Box className={classes.infoRow}>
-        {/* 1. Session ID */}
-        <Box className={classes.infoItem}>
-          <Text size="sm" ff="monospace" c="dimmed">
-            {sessionData.sessionId}
-          </Text>
-        </Box>
-
-        <Box className={classes.dot} />
-
-        {/* 2. User */}
-        <Box className={classes.infoItem}>
-          <Text size="md" fw={600}>
-            {sessionData.userId || "Anonymous"}
-          </Text>
-          <Badge
-            size="sm"
-            variant="light"
-            color={sessionData.isAnonymous ? "gray" : "blue"}
-          >
-            {sessionData.isAnonymous
-              ? STATUS_LABELS.ANONYMOUS
-              : STATUS_LABELS.IDENTIFIED_UPPERCASE}
-          </Badge>
-        </Box>
-
-        <Box className={classes.dot} />
-
-        {/* 3. Quality */}
-        <Box className={classes.infoItem}>
-          {hasQuality ? (
-            <Group gap={6} align="center">
-              <RingProgress
-                size={28}
-                thickness={3}
-                roundCaps
-                sections={[
-                  {
-                    value: (quality / 10) * 100,
-                    color: getQualityColor(quality),
-                  },
-                ]}
-              />
-              <Text
-                size="sm"
-                fw={600}
-                style={{ color: getQualityColor(quality) }}
-              >
-                {quality.toFixed(1)}
-              </Text>
-            </Group>
-          ) : (
-            <Text size="sm" fw={500} c="dimmed">
-              Quality: NA
+        <Stack gap={6} className={classes.idsBlock}>
+          <Text size="sm" className={classes.idLine}>
+            <Text component="span" c="dimmed" fw={500}>
+              {LABELS.SESSION_ID}:
+            </Text>{" "}
+            <Text
+              component="span"
+              ff="monospace"
+              style={{ wordBreak: "break-all" }}
+            >
+              {sessionData.sessionId}
             </Text>
-          )}
-        </Box>
-
-        <Box className={classes.dot} />
-
-        {/* 4. Timestamp */}
-        <Box className={classes.infoItem}>
-          <Text size="sm" c="dimmed">
-            {formattedTime}
           </Text>
-        </Box>
-      </Box>
+          <Group gap="xs" align="center" wrap="wrap" className={classes.idLine}>
+            <Text size="sm">
+              <Text component="span" c="dimmed" fw={500}>
+                {LABELS.USER_ID}:
+              </Text>{" "}
+              <Text component="span" fw={600}>
+                {sessionData.userId || "Anonymous"}
+              </Text>
+            </Text>
+            <Badge
+              size="sm"
+              variant="light"
+              color={sessionData.isAnonymous ? "gray" : "blue"}
+            >
+              {sessionData.isAnonymous
+                ? STATUS_LABELS.ANONYMOUS
+                : STATUS_LABELS.IDENTIFIED_UPPERCASE}
+            </Badge>
+          </Group>
+        </Stack>
 
-      {/* Journey */}
-      <Box className={classes.journeyBlock}>
-        <UserJourney journey={sessionData.journey} />
+        <Group gap="lg" wrap="wrap" className={classes.metricsGroup}>
+          <Box className={classes.infoItem}>
+            {hasQuality ? (
+              <Group gap={6} align="center">
+                <RingProgress
+                  size={28}
+                  thickness={3}
+                  roundCaps
+                  sections={[
+                    {
+                      value: Math.min(
+                        100,
+                        Math.max(0, (quality as number) * 100),
+                      ),
+                      color: qualityColor ?? "gray",
+                    },
+                  ]}
+                />
+                <Text size="sm" fw={600} c={qualityColor}>
+                  {(quality as number).toFixed(2)}
+                </Text>
+              </Group>
+            ) : (
+              <Text size="sm" fw={500} c="dark.9">
+                {LABELS.SESSION_QUALITY}: NA
+              </Text>
+            )}
+          </Box>
+
+          <Box className={classes.infoItem}>
+            <Text size="sm" c="dimmed">
+              {formattedTime}
+            </Text>
+          </Box>
+        </Group>
       </Box>
     </Paper>
   );
