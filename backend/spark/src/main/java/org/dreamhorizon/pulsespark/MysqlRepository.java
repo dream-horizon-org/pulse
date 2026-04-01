@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
 import org.dreamhorizon.pulsespark.model.FunnelDefinition;
@@ -37,7 +39,7 @@ public class MysqlRepository {
   public List<FunnelDefinition> fetchFunnels(Long referenceId) throws Exception {
     var sql = referenceId != null
         ? "SELECT * FROM funnel WHERE id = ?"
-        : "SELECT * FROM funnel WHERE funnel_type = 'ONCE' AND (end_time IS NULL OR end_time >= NOW())";
+        : "SELECT * FROM funnel WHERE funnel_type = 'AUTO' AND (end_time IS NULL OR end_time >= NOW())";
 
     var results = new ArrayList<FunnelDefinition>();
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
@@ -110,6 +112,25 @@ public class MysqlRepository {
       }
     }
     return results;
+  }
+
+  /**
+   * Latest {@code started_at} among succeeded event-catalog Spark jobs (UTC).
+   * Matches Spark {@code --job_type EVENTS_INCREMENTAL}.
+   * Current run is still {@code RUNNING}, so it is naturally excluded until it succeeds.
+   */
+  public Optional<Timestamp> getLatestSucceededEventCatalogJobStartedAt() throws SQLException {
+    try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
+         var stmt = conn.prepareStatement(
+             "SELECT MAX(started_at) AS ts FROM spark_jobs "
+                 + "WHERE job_type = 'EVENTS_INCREMENTAL' "
+                 + "AND status = 'SUCCEEDED' AND started_at IS NOT NULL")) {
+      var rs = stmt.executeQuery();
+      if (!rs.next() || rs.getTimestamp("ts") == null) {
+        return Optional.empty();
+      }
+      return Optional.of(rs.getTimestamp("ts"));
+    }
   }
 
   /**

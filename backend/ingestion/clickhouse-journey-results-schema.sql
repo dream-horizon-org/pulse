@@ -1,35 +1,31 @@
 -- =============================================================================
 -- ClickHouse: Pre-computed journey results (Spark → ClickHouse)
 -- =============================================================================
--- Journey definitions are stored in MySQL (journey table).
--- Spark reads the definition + S3 Parquet and writes aggregated path-graph rows here.
+-- Journey definitions live in **MySQL**. Spark reads definitions + S3 Parquet and
+-- writes aggregated path-graph rows here.
 --
--- Each row is a directed edge in the user path graph:
---   "user_count users transitioned from event_from@pos_from to event_to@pos_to"
+-- **Engine:** Single-node `MergeTree` — for local Docker / dev without ZooKeeper.
+-- For **multi-replica** production, use `clickhouse-funnel-journey-replicated-schema.sql`.
 --
--- ENTRY nodes: pos_from = -1, event_from = ''
---   Represents "N users triggered the anchor event" (anchor always at pos_to = 0).
---
--- START direction: positions 0 (anchor), 1, 2, ... (events after anchor)
--- END direction:   positions 0 (anchor), -1, -2, ... (events before anchor)
---
--- Exposed on GET /v1/journeys/{id} as journeyResults (nodes + links).
+-- Column names: **PascalCase** (consistent with other `otel.*` tables).
+-- ENTRY: PosFrom = -1, EventFrom = ''. Anchor at PosTo = 0.
+-- Read via API (e.g. GET /v1/journey/{id}/results).
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS otel.journey_results
 (
-    journey_id   String        COMMENT 'Same as MySQL journey.id (stored as string)',
-    project_id   String        COMMENT 'Project ID',
-    run_time     DateTime64(3, 'UTC') COMMENT 'Execution time of the Spark job',
-    direction    String        COMMENT 'START | END',
-    pos_from     Int32         COMMENT 'Path position of source node; -1 = ENTRY',
-    event_from   String        COMMENT 'Event name at pos_from; empty = ENTRY',
-    pos_to       Int32         COMMENT 'Path position of destination node',
-    event_to     String        COMMENT 'Event name at pos_to',
-    user_count   UInt64        COMMENT 'Unique users (or sessions) who made this transition',
-    created_at   DateTime64(3) DEFAULT now64(3)
+    `JourneyId`   UInt64 COMMENT 'MySQL journey.id',
+    `ProjectId`   LowCardinality(String) COMMENT 'Project ID',
+    `RunTime`     DateTime64(3, 'UTC') COMMENT 'Spark job execution time (UTC)',
+    `Direction`   LowCardinality(String) COMMENT 'START | END',
+    `PosFrom`     Int32 COMMENT 'Source path position; -1 = ENTRY',
+    `EventFrom`   String COMMENT 'Event at PosFrom; empty = ENTRY' CODEC(ZSTD(1)),
+    `PosTo`       Int32 COMMENT 'Destination path position',
+    `EventTo`     LowCardinality(String) COMMENT 'Event at PosTo',
+    `UserCount`   UInt64 COMMENT 'Distinct users or sessions on this edge',
+    `CreatedAt`   DateTime64(3, 'UTC') DEFAULT now64(3) COMMENT 'Row insert time (UTC)'
 )
-ENGINE = MergeTree()
-PARTITION BY toYYYYMM(toDate(run_time))
-ORDER BY (journey_id, run_time, direction, pos_from, event_from, pos_to, event_to)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(toDate(RunTime))
+ORDER BY (ProjectId, JourneyId, RunTime, Direction, PosFrom, EventFrom, PosTo, EventTo)
 SETTINGS index_granularity = 8192;

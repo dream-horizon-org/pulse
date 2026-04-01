@@ -7,12 +7,12 @@ public record JourneyDefinition(
         long id,
         String projectId,
         String anchorEvent,
-        String direction,      // START | END
+        String direction,
         int depth,
-        String mode,           // UNIQUE_USERS | SESSIONS
+        String mode,
         int dateRange,
         List<FunnelFilter> globalFilters,
-        String journeyType,    // AUTO | ONCE
-        Timestamp startTime,   // null for AUTO
-        Timestamp endTime      // null for AUTO
+        String journeyType,
+        Timestamp startTime,
+        Timestamp endTime
 ) {}

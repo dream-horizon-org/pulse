@@ -1,90 +1,48 @@
 -- =============================================================================
--- ClickHouse: Event Catalog + Filter Values (Spark → ClickHouse)
+-- ClickHouse: Unified event catalog (Spark EVENTS_INCREMENTAL → ClickHouse)
 -- =============================================================================
--- Populated by the event_catalog Spark job (backend/spark/event_catalog.py).
--- Both tables use AggregatingMergeTree with SimpleAggregateFunction so that
--- each daily Spark run can append incremental data; ClickHouse automatically
--- accumulates (sum/min/max) across runs during background merges.
+-- Distinct custom event names per project. All rows use FilterKey = 'EVENT';
+-- FilterValue is the event name.
 --
--- Typical read queries use FINAL to trigger merge on read:
---   SELECT project_id, event_name, sumMerge(event_count) AS total_events
---   FROM otel.event_catalog FINAL
---   WHERE project_id = 'fancode'
---   GROUP BY project_id, event_name
---   ORDER BY total_events DESC;
+-- Column names: **PascalCase** (consistent with `otel.otel_traces`, funnel/journey results).
+--
+-- **Engine:** Single-node `ReplacingMergeTree` — local Docker / dev without ZooKeeper.
+-- For **multi-replica** production, create `event_catalog_entries_local` +
+-- `event_catalog_entries` from `clickhouse-event-catalog-replicated-schema.sql`.
+--
+-- Populated by backend/spark EventCatalogJob.java.
+-- ENGINE ReplacingMergeTree deduplicates rows with the same ORDER BY key on merge;
+-- use FINAL in reads when you need a collapsed result set.
+--
+-- Incremental S3 windows: Spark reads MAX(started_at) from MySQL spark_jobs for the latest
+-- SUCCEEDED EVENTS_INCREMENTAL run; if none, scans 7 days of S3.
+--
+-- If you previously created event_catalog_entries with snake_case columns, migrate:
+--   CREATE TABLE otel.event_catalog_entries_new (...); INSERT ...; EXCHANGE TABLES; ...
 -- =============================================================================
 
+CREATE TABLE IF NOT EXISTS otel.event_catalog_entries
+(
+    `ProjectId`   LowCardinality(String) COMMENT 'Project ID',
+    `FilterKey`   LowCardinality(String) COMMENT 'Always EVENT for this table',
+    `FilterValue` String                  COMMENT 'Custom event name'
+)
+ENGINE = ReplacingMergeTree
+ORDER BY (ProjectId, FilterKey, FilterValue)
+SETTINGS index_granularity = 8192;
 
+-- ---------------------------------------------------------------------------
+-- Legacy tables (deprecated — drop after backfill/migration if they exist)
 -- ---------------------------------------------------------------------------
 -- otel.event_catalog
--- Distinct event names seen per project with aggregate counts and date range.
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS otel.event_catalog
-(
-    project_id   LowCardinality(String)                          COMMENT 'Project ID (proj-xxx)',
-    event_name   LowCardinality(String)                          COMMENT 'Custom event name',
-    event_count  SimpleAggregateFunction(sum,  UInt64)           COMMENT 'Total occurrences accumulated across Spark runs',
-    first_seen   SimpleAggregateFunction(min,  Date)             COMMENT 'Earliest date this event was observed',
-    last_seen    SimpleAggregateFunction(max,  Date)             COMMENT 'Most recent date this event was observed',
-    run_time     DateTime64(3, 'UTC')                             COMMENT 'Execution time of the Spark job'
-)
-ENGINE = AggregatingMergeTree()
-PARTITION BY toYYYYMM(last_seen)
-ORDER BY (project_id, event_name)
-SETTINGS index_granularity = 8192;
-
-
--- ---------------------------------------------------------------------------
 -- otel.event_filter_values
--- Distinct values for each predefined filter dimension, scoped to
--- (project_id, event_name). Powers the filter-value dropdowns in the UI
--- when a user is building a funnel step filter.
---
--- Filter dimensions (align with Parquet column names from Vector):
---   os_name | os_version | app_build_name | device_manufacturer
---   device_model_identifier | network_carrier_icc | screen_name | service_name
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS otel.event_filter_values
-(
-    project_id    LowCardinality(String)                         COMMENT 'Project ID',
-    event_name    LowCardinality(String)                         COMMENT 'Event this filter value was observed on',
-    filter_key    LowCardinality(String)                         COMMENT 'Filter dimension name (Parquet column)',
-    filter_value  String                                         COMMENT 'Observed value for this dimension',
-    event_count   SimpleAggregateFunction(sum,  UInt64)          COMMENT 'Times this filter_value was seen on this event',
-    run_time      DateTime64(3, 'UTC')                           COMMENT 'Execution time of the Spark job'
-)
-ENGINE = AggregatingMergeTree()
-PARTITION BY toYYYYMM(toDate(run_time))
-ORDER BY (project_id, event_name, filter_key, filter_value)
-SETTINGS index_granularity = 8192;
-
 
 -- ---------------------------------------------------------------------------
--- Example queries
+-- Example queries (use FINAL for deduplicated keys)
 -- ---------------------------------------------------------------------------
 
--- All event names for a project, ordered by popularity
--- SELECT project_id, event_name, sumMerge(event_count) AS total
--- FROM otel.event_catalog FINAL
--- WHERE project_id = 'fancode'
--- GROUP BY project_id, event_name
--- ORDER BY total DESC
--- LIMIT 100;
-
--- All distinct os_version values seen on a specific event
--- SELECT filter_value, sumMerge(event_count) AS total
--- FROM otel.event_filter_values FINAL
--- WHERE project_id = 'fancode'
---   AND event_name = 'Tap:AddToCart'
---   AND filter_key = 'os_version'
--- GROUP BY filter_value
--- ORDER BY total DESC;
-
--- All available filter keys and their distinct value counts for a project
--- SELECT filter_key, uniq(filter_value) AS distinct_values, sumMerge(event_count) AS total
--- FROM otel.event_filter_values FINAL
--- WHERE project_id = 'fancode'
--- GROUP BY filter_key
--- ORDER BY filter_key;
+-- All event names for a project
+-- SELECT FilterValue
+-- FROM otel.event_catalog_entries FINAL
+-- WHERE ProjectId = 'fancode' AND FilterKey = 'EVENT'
+-- ORDER BY FilterValue;

@@ -127,6 +127,7 @@ services:
       - ../backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro
       - ../backend/ingestion/clickhouse-event-catalog-schema.sql:/init/clickhouse-event-catalog-schema.sql:ro
       - ../backend/ingestion/clickhouse-funnel-results-schema.sql:/init/clickhouse-funnel-results-schema.sql:ro
+      - ../backend/ingestion/clickhouse-journey-results-schema.sql:/init/clickhouse-journey-results-schema.sql:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
