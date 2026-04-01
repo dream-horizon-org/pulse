@@ -101,6 +101,8 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.ios_lifecycle, 0.0, iosSdk));
         features.add(createFeature(Features.android_activity, 1.0, androidSdk));
         features.add(createFeature(Features.android_fragment, 0.0, androidSdk));
+        features.add(createFeature(Features.memory, 1.0, allSdks));
+        features.add(createFeature(Features.battery, 1.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()

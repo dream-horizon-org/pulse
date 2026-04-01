@@ -246,6 +246,7 @@ public final class com/pulse/sampling/models/PulseFeatureName : java/lang/Enum {
 	public static final field ANDROID_ACTIVITY Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field ANDROID_FRAGMENT Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field ANDROID_SLOWRENDERING Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field BATTERY Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CLICK Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CPP_ANR Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CPP_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
@@ -258,6 +259,7 @@ public final class com/pulse/sampling/models/PulseFeatureName : java/lang/Enum {
 	public static final field JAVA_ANR Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JAVA_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JS_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field MEMORY Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field NETWORK_CHANGE Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field RN_NETWORK Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field RN_SCREEN_INTERACTIVE Lcom/pulse/sampling/models/PulseFeatureName;

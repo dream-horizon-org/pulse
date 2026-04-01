@@ -6,6 +6,7 @@
 package io.opentelemetry.android.instrumentation.battery
 
 import com.google.auto.service.AutoService
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.InstallationContext
@@ -36,7 +37,7 @@ class BatteryUsageInstrumentation
 
         fun setFlushIntervalMs(intervalMs: Long): BatteryUsageInstrumentation {
             if (intervalMs <= 0) {
-                PulseOtelUtils.logError(
+                PulseLogger.logError(
                     BatteryUsageInstrumentation::class.java.name,
                 ) {
                     "Invalid flushIntervalMs: $intervalMs; must be positive"
@@ -49,7 +50,7 @@ class BatteryUsageInstrumentation
 
         fun setSampleIntervalMs(intervalMs: Long): BatteryUsageInstrumentation {
             if (intervalMs <= 0) {
-                PulseOtelUtils.logError(
+                PulseLogger.logError(
                     BatteryUsageInstrumentation::class.java.name,
                 ) {
                     "Invalid sampleIntervalMs: $intervalMs; must be positive"
@@ -62,7 +63,7 @@ class BatteryUsageInstrumentation
 
         override fun install(ctx: InstallationContext) {
             if (sampler != null) {
-                PulseOtelUtils.logDebug(
+                PulseLogger.logDebug(
                     BatteryUsageInstrumentation::class.java.name,
                 ) {
                     "BatteryUsageInstrumentation skipping installation (sampler already installed)"

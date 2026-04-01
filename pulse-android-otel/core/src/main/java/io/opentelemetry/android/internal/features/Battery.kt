@@ -10,6 +10,7 @@ import android.content.Context
 import android.os.BatteryManager
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseOtelUtils
 
 /**
@@ -26,7 +27,7 @@ internal fun readBatteryFullCapacityMicroAh(application: Application): Long? =
         val remainingUah = readChargeCounterMicroAh(batteryManager) ?: return null
         if (remainingUah < 0) return null
         (remainingUah * 100L / percent).also {
-            PulseOtelUtils.logDebug("readBatteryFullCapacityMicroAh") {
+            PulseLogger.logDebug("readBatteryFullCap") {
                 "batterCap = $it"
             }
         }

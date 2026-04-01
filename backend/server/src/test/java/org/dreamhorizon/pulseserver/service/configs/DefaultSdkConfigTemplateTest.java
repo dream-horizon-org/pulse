@@ -116,6 +116,8 @@ class DefaultSdkConfigTemplateTest {
               Features.java_anr,
               Features.network_change,
               Features.custom_events,
+              Features.memory,
+              Features.battery,
               Features.rn_screen_load,
               Features.rn_screen_interactive,
               Features.rn_screen_session,

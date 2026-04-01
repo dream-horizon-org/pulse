@@ -479,7 +479,7 @@ class ConfigServiceImplTest {
       List<String> expectedFeatures = Features.getFeatures();
       assertThat(result.getFeatures()).containsExactlyInAnyOrderElementsOf(expectedFeatures);
       assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change",
-          "rn_screen_session", "session_replay", "ios_crash", "ios_lifecycle", "android_activity", "android_fragment");
+          "rn_screen_session", "session_replay", "ios_crash", "ios_lifecycle", "android_activity", "android_fragment", "memory", "battery");
     }
   }
 
