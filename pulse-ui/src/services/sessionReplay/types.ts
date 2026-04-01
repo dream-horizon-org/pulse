@@ -56,7 +56,7 @@ export interface SessionResponse {
   metadata?: Record<string, any>;
 
   // Investigation-focused fields (NEW)
-  interactionQuality: number | null; // 0-10 scale, null if unavailable
+  interactionQuality: number | null;
   issueSummary: IssueSummary;
   outcome: SessionOutcome;
 }
@@ -463,7 +463,14 @@ export interface SessionDetailEvent {
   traceId: string;
   spanId: string;
   timestamp: string;
-  eventType: "click" | "navigation" | "api_call" | "error" | "interaction";
+  eventType:
+    | "click"
+    | "navigation"
+    | "api_call"
+    | "error"
+    | "interaction"
+    | "app_start"
+    | null;
   description: string;
   durationNs: number;
 }

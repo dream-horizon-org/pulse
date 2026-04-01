@@ -3,7 +3,11 @@ import { IconCheck, IconX, IconExternalLink } from "@tabler/icons-react";
 import { useLocation } from "react-router-dom";
 import type { CriticalInteraction } from "../../../../services/sessionReplay/mockSessionDetail";
 import { ROUTES } from "../../../../constants";
-import { STATUS_LABELS, FORMAT_STRINGS } from "../../constants/strings";
+import {
+  STATUS_LABELS,
+  FORMAT_STRINGS,
+  MESSAGES,
+} from "../../constants/strings";
 
 interface CriticalInteractionsProps {
   criticalInteractions: CriticalInteraction[];
@@ -37,6 +41,18 @@ export function CriticalInteractions({
   const successCount = criticalInteractions.filter(
     (i) => i.status === "success",
   ).length;
+
+  if (criticalInteractions.length === 0) {
+    return (
+      <Box py="xl" px="md" mih={200}>
+        <Group align="flex-start" gap="sm" wrap="nowrap">
+          <Text size="sm" c="dimmed" ta="left" lh={1.5} maw="100%">
+            {MESSAGES.NO_CRITICAL_INTERACTIONS}
+          </Text>
+        </Group>
+      </Box>
+    );
+  }
 
   return (
     <Box>

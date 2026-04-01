@@ -67,10 +67,7 @@ export function NetworkTab({
                   {req.url}
                 </Text>
                 <Text size="xs" c="dimmed" mt={4}>
-                  {formatTimestamp(
-                    req.timestamp,
-                    new Date(sessionData.startTime),
-                  )}
+                  {formatTimestamp(req.timestamp, sessionData.startTime)}
                 </Text>
               </Card>
             ))}

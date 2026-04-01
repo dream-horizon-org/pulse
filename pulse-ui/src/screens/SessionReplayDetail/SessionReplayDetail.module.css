@@ -74,10 +74,14 @@
   letter-spacing: 0.5px;
 }
 
+.summarySection {
+  margin-bottom: var(--mantine-spacing-xl);
+}
+
 /* Player + Tabs split section - same height for device and raw section */
 .playerSectionSplit {
   display: flex;
-  gap: var(--mantine-spacing-lg);
+  gap: var(--mantine-spacing-xl);
   align-items: stretch;
   margin-bottom: var(--mantine-spacing-lg);
   min-height: 420px;
@@ -87,11 +91,34 @@
   flex-shrink: 0;
   width: 320px;
   min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  align-self: stretch;
+}
+
+/* Fills split column height so player + tabs bottom edges align */
+.playerSectionStretch {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Grows between header and controls so viewport/placeholder matches tab panel height */
+.playerViewportGrow {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.playerControlsSlot {
+  flex-shrink: 0;
 }
 
 .playerSectionRight {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--mantine-spacing-md);
@@ -126,6 +153,7 @@
 }
 
 .playerHeader {
+  flex-shrink: 0;
   padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
   border-bottom: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-white);
@@ -239,9 +267,11 @@
   flex-direction: column;
 }
 
-/* Native scroll for Network, App Vitals, Events, Interaction tabs */
 .tabPanelScroll {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  align-self: stretch;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
