@@ -10,6 +10,14 @@ import org.junit.jupiter.api.Test;
 @DisplayName("SessionReplayQueries")
 class SessionReplayQueriesTest {
 
+  @Test
+  @DisplayName("should have GET_BLOCK_LISTING_QUERY constant defined")
+  void shouldHaveConstantDefined() {
+    assertThat(SessionReplayQueries.GET_BLOCK_LISTING_QUERY)
+        .isNotNull()
+        .isNotBlank();
+  }
+
   @Nested
   @DisplayName("GET_BLOCK_LISTING_QUERY")
   class GetBlockListingQuery {
