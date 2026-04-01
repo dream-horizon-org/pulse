@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS otel.journey_results
     `RunTime`     DateTime64(3, 'UTC') COMMENT 'Spark job execution time (UTC)',
     `Direction`   LowCardinality(String) COMMENT 'START | END',
     `PosFrom`     Int32 COMMENT 'Source path position; -1 = ENTRY',
-    `EventFrom`   String CODEC(ZSTD(1)) COMMENT 'Event at PosFrom; empty = ENTRY',
+    `EventFrom`   String COMMENT 'Event at PosFrom; empty = ENTRY' CODEC(ZSTD(1)),
     `PosTo`       Int32 COMMENT 'Destination path position',
     `EventTo`     LowCardinality(String) COMMENT 'Event at PosTo',
     `UserCount`   UInt64 COMMENT 'Distinct users or sessions on this edge',

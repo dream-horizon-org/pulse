@@ -32,7 +32,7 @@ ON CLUSTER `pulse-clickhouse`
     `StepIndex`     UInt8 COMMENT '0-based step index',
     `StepName`      LowCardinality(String) COMMENT 'Event name for this step',
     `UserCount`     UInt64 COMMENT 'Unique users or sessions reaching this step',
-    `ConversionPct` Float64 CODEC(ZSTD(1)) COMMENT 'Conversion % from step 0 to this step',
+    `ConversionPct` Float64 COMMENT 'Conversion % from step 0 to this step' CODEC(ZSTD(1)),
     `CreatedAt`     DateTime64(3, 'UTC') DEFAULT now64(3) COMMENT 'Row insert time (UTC)',
     CONSTRAINT chk_StepIndex_local CHECK StepIndex < 32
 )
@@ -58,7 +58,7 @@ ON CLUSTER `pulse-clickhouse`
     `RunTime`     DateTime64(3, 'UTC') COMMENT 'Spark job execution time (UTC)',
     `Direction`   LowCardinality(String) COMMENT 'START | END',
     `PosFrom`     Int32 COMMENT 'Source path position; -1 = ENTRY',
-    `EventFrom`   String CODEC(ZSTD(1)) COMMENT 'Event at PosFrom; empty = ENTRY',
+    `EventFrom`   String COMMENT 'Event at PosFrom; empty = ENTRY' CODEC(ZSTD(1)),
     `PosTo`       Int32 COMMENT 'Destination path position',
     `EventTo`     LowCardinality(String) COMMENT 'Event at PosTo',
     `UserCount`   UInt64 COMMENT 'Distinct users or sessions on this edge',
