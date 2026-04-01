@@ -90,7 +90,7 @@ export function SessionReplaySessions() {
     filterState.drillDown.value,
     filterState.advancedFilters?.conditions,
     filterActions,
-    interactionField
+    interactionField,
   ]);
 
   const handleSort = (field: SortField) => {
@@ -207,11 +207,6 @@ export function SessionReplaySessions() {
     navigate(`${sessionReplayBase}/${sessionId}`);
   };
 
-  const handleOpenInNewTab = (sessionId: string) => {
-    trackClick(`OpenSession_${sessionId}`);
-    window.open(`${sessionReplayBase}/${sessionId}`, "_blank");
-  };
-
   if (loading && !sessionsData) {
     return <SessionListLoadingState />;
   }
@@ -289,8 +284,7 @@ export function SessionReplaySessions() {
           sortDirection={sortDirection}
           onSort={handleSort}
           sessions={sessions}
-          onWatchSession={handleWatchSession}
-          onOpenSessionInNewTab={handleOpenInNewTab}
+          onSessionClick={handleWatchSession}
         />
       </Paper>
 

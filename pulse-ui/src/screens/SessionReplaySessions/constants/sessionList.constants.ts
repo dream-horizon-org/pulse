@@ -56,6 +56,7 @@ export const SESSION_LIST_LABELS = {
   moreAvailable: "(more available)",
   anonymousUser: "Anonymous",
   noQuality: "NA",
+  noImpactedScreens: "Na",
   watchSession: "Watch session",
   openInNewTab: "Open in new tab",
   clean: "Clean",
@@ -78,7 +79,6 @@ export const TABLE_COLUMN_LABELS = {
   issues: "Issues",
   platform: "Platform",
   impactedScreens: "Impacted Interactions",
-  actions: "Actions",
 } as const;
 
 export const PLATFORM_COLORS: Record<string, string> = {
@@ -87,5 +87,3 @@ export const PLATFORM_COLORS: Record<string, string> = {
 };
 
 export const DEFAULT_PLATFORM_COLOR = "gray";
-
-export const ACTIONS_COLUMN_WIDTH = 100;

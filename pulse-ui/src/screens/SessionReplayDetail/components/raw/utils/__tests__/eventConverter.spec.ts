@@ -1,6 +1,10 @@
 import { convertEventToFlameChartNode } from "../eventConverter";
 import type { UnifiedEvent } from "../unifiedEvents";
 import { mockSessionDataWithTechnical } from "../../../../__mock__/SessionReplayDetail.mock";
+import {
+  parseSessionStartTimeToMs,
+  toSafeISOString,
+} from "../../../../adapters/sessionDetailApiToData";
 
 describe("eventConverter", () => {
   const baseSessionData = {
@@ -152,8 +156,9 @@ describe("eventConverter", () => {
       categoryLabel: "Session",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
-    const expectedTs = new Date(baseSessionData.startTime).getTime() + 100;
+    const expectedMs =
+      parseSessionStartTimeToMs(baseSessionData.startTime) + 100;
     expect(result.metadata).toBeDefined();
-    expect(result.metadata!.timestamp).toBe(expectedTs);
+    expect(result.metadata!.timestamp).toBe(toSafeISOString(expectedMs));
   });
 });
