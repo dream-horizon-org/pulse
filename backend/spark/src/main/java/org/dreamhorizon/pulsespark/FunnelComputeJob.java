@@ -61,7 +61,6 @@ public class FunnelComputeJob {
                 long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
                 long endEpoch   = endDt.toEpochSecond(ZoneOffset.UTC);
                 var results = computeFunnel(raw, funnel, runTime, startEpoch, endEpoch);
-                ch.deleteFunnelResults(funnel.id(), runTime);
                 ch.insertFunnelResults(results);
                 log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
             } finally {
@@ -101,7 +100,6 @@ public class FunnelComputeJob {
             for (var funnel : funnels) {
                 try {
                     var results = computeFunnel(raw, funnel, runTime, null, null);
-                    ch.deleteFunnelResults(funnel.id(), runTime);
                     ch.insertFunnelResults(results);
                     log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
                 } catch (Exception e) {

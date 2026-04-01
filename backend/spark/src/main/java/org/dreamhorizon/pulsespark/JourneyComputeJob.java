@@ -54,7 +54,6 @@ public class JourneyComputeJob {
                 long startEpoch = startDt.toEpochSecond(ZoneOffset.UTC);
                 long endEpoch   = endDt.toEpochSecond(ZoneOffset.UTC);
                 var results = computeJourney(raw, journey, runTime, startEpoch, endEpoch);
-                ch.deleteJourneyResults(journey.id(), runTime);
                 ch.insertJourneyResults(results);
                 log.info("Journey {}: wrote {} transition rows", journey.id(), results.size());
             } finally {
@@ -94,7 +93,6 @@ public class JourneyComputeJob {
             for (var journey : journeys) {
                 try {
                     var results = computeJourney(raw, journey, runTime, null, null);
-                    ch.deleteJourneyResults(journey.id(), runTime);
                     ch.insertJourneyResults(results);
                     log.info("Journey {}: wrote {} transition rows", journey.id(), results.size());
                 } catch (Exception e) {
