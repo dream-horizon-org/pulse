@@ -1,8 +1,11 @@
 -- =============================================================================
 -- ClickHouse: Unified event catalog (Spark EVENTS_INCREMENTAL → ClickHouse)
 -- =============================================================================
--- Distinct custom event names per project. All rows use FilterKey = 'EVENT';
--- FilterValue is the event name.
+-- Distinct filter catalog per project. FilterKey identifies the dimension:
+--   EVENT            → FilterValue = custom event name (event_name)
+--   APP_BUILD_NAME   → FilterValue = app build label (parquet app_build_name)
+--   OS_VERSION       → FilterValue = OS version (parquet os_version)
+--   OS_NAME          → FilterValue = OS name (parquet os_name)
 --
 -- Column names: **PascalCase** (consistent with `otel.otel_traces`, funnel/journey results).
 --
@@ -24,8 +27,8 @@
 CREATE TABLE IF NOT EXISTS otel.event_catalog_entries
 (
     `ProjectId`   LowCardinality(String) COMMENT 'Project ID',
-    `FilterKey`   LowCardinality(String) COMMENT 'Always EVENT for this table',
-    `FilterValue` String                  COMMENT 'Custom event name'
+    `FilterKey`   LowCardinality(String) COMMENT 'EVENT | APP_BUILD_NAME | OS_VERSION | OS_NAME',
+    `FilterValue` String                  COMMENT 'Distinct value for that filter key'
 )
 ENGINE = ReplacingMergeTree
 ORDER BY (ProjectId, FilterKey, FilterValue)
@@ -41,8 +44,9 @@ SETTINGS index_granularity = 8192;
 -- Example queries (use FINAL for deduplicated keys)
 -- ---------------------------------------------------------------------------
 
--- All event names for a project
--- SELECT FilterValue
--- FROM otel.event_catalog_entries FINAL
--- WHERE ProjectId = 'fancode' AND FilterKey = 'EVENT'
--- ORDER BY FilterValue;
+-- Event names
+-- SELECT FilterValue FROM otel.event_catalog_entries FINAL
+-- WHERE ProjectId = 'fancode' AND FilterKey = 'EVENT' ORDER BY FilterValue;
+-- App build names
+-- SELECT FilterValue FROM otel.event_catalog_entries FINAL
+-- WHERE ProjectId = 'fancode' AND FilterKey = 'APP_BUILD_NAME' ORDER BY FilterValue;
