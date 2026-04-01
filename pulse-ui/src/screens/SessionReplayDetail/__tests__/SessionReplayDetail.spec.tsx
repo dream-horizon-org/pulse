@@ -32,9 +32,7 @@ const mockGetSessionReplayImages =
 
 const renderWithProvider = (
   sessionId: string,
-  component: React.ReactElement = (
-    <SessionReplayDetail />
-  ),
+  component: React.ReactElement = <SessionReplayDetail />,
 ) => {
   return render(
     <MantineProvider>
@@ -69,7 +67,7 @@ describe("SessionReplayDetail", () => {
 
   it("uses session id from route params", () => {
     renderWithProvider("my-session-id");
-    // Session data is derived via getMockSessionDetail(sessionId); header shows sessionId
+    // Session data comes from API; when no data, empty session placeholder is used
     expect(screen.getByText("my-session-id")).toBeInTheDocument();
   });
 
