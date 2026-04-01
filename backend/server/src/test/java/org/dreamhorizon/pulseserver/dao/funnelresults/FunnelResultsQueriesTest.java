@@ -15,8 +15,8 @@ class FunnelResultsQueriesTest {
   @Test
   void shouldBuildSqlWithFunnelAndProjectIds() {
     String sql = FunnelResultsQueries.buildLatestResultsSql("proj-1", 42L);
-    assertThat(sql).contains("funnel_id = '42'");
-    assertThat(sql).contains("project_id = 'proj-1'");
-    assertThat(sql).contains("ORDER BY step_index ASC");
+    assertThat(sql).contains("FunnelId = 42");
+    assertThat(sql).contains("ProjectId = 'proj-1'");
+    assertThat(sql).contains("ORDER BY StepIndex ASC");
   }
 }

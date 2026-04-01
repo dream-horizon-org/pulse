@@ -43,7 +43,7 @@ public class ClickHouseClient {
 
     public void deleteFunnelResults(long funnelId, String runTime) {
         execute("deleteFunnelResults", String.format(
-                "ALTER TABLE %s.funnel_results DELETE WHERE funnel_id = '%d' AND run_time = '%s'",
+                "ALTER TABLE %s.funnel_results DELETE WHERE FunnelId = %d AND RunTime = '%s'",
                 db, funnelId, runTime
         ));
     }
@@ -55,11 +55,11 @@ public class ClickHouseClient {
         }
         var sb = new StringBuilder()
                 .append("INSERT INTO ").append(db).append(".funnel_results ")
-                .append("(funnel_id,project_id,run_time,step_index,step_name,user_count,conversion_pct) VALUES ");
+                .append("(FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct) VALUES ");
         for (int i = 0; i < rows.size(); i++) {
             var r = rows.get(i);
             if (i > 0) sb.append(',');
-            sb.append(String.format("('%d','%s','%s',%d,'%s',%d,%.4f)",
+            sb.append(String.format("(%d,'%s','%s',%d,'%s',%d,%.4f)",
                     r.funnelId(), esc(r.projectId()), r.runTime(),
                     r.stepIndex(), esc(r.stepName()), r.userCount(), r.conversionPct()
             ));
@@ -70,7 +70,7 @@ public class ClickHouseClient {
 
     public void deleteJourneyResults(long journeyId, String runTime) {
         execute("deleteJourneyResults", String.format(
-                "ALTER TABLE %s.journey_results DELETE WHERE journey_id = '%d' AND run_time = '%s'",
+                "ALTER TABLE %s.journey_results DELETE WHERE JourneyId = %d AND RunTime = '%s'",
                 db, journeyId, runTime
         ));
     }
@@ -82,11 +82,11 @@ public class ClickHouseClient {
         }
         var sb = new StringBuilder()
                 .append("INSERT INTO ").append(db).append(".journey_results ")
-                .append("(journey_id,project_id,run_time,direction,pos_from,event_from,pos_to,event_to,user_count) VALUES ");
+                .append("(JourneyId, ProjectId, RunTime, Direction, PosFrom, EventFrom, PosTo, EventTo, UserCount) VALUES ");
         for (int i = 0; i < rows.size(); i++) {
             var r = rows.get(i);
             if (i > 0) sb.append(',');
-            sb.append(String.format("('%d','%s','%s','%s',%d,'%s',%d,'%s',%d)",
+            sb.append(String.format("(%d,'%s','%s','%s',%d,'%s',%d,'%s',%d)",
                     r.journeyId(), esc(r.projectId()), r.runTime(),
                     esc(r.direction()), r.posFrom(), esc(r.eventFrom()),
                     r.posTo(), esc(r.eventTo()), r.userCount()

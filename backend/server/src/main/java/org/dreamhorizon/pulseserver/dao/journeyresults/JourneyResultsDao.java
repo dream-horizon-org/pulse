@@ -19,7 +19,7 @@ public class JourneyResultsDao {
 
   private final ClickhouseQueryService clickhouseQueryService;
 
-  /** Rows for the latest {@code run_time} for this journey and direction. */
+  /** Rows for the latest {@code RunTime} for this journey and direction. */
   public Single<List<JourneyResultRow>> queryLatest(
       String projectId, long journeyId, String direction) {
     String sql = JourneyResultsQueries.buildLatestResultsSql(projectId, journeyId, direction);

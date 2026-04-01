@@ -9,7 +9,7 @@
 --
 -- Column names: **PascalCase** (consistent with other `otel.*` tables).
 -- ENTRY: PosFrom = -1, EventFrom = ''. Anchor at PosTo = 0.
--- Read via API (e.g. GET /v1/journey/{id}/results).
+-- Read via API (e.g. GET /v1/journeys/{id}, journeyResults).
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS otel.journey_results

@@ -19,7 +19,7 @@ public class FunnelResultsDao {
 
   private final ClickhouseQueryService clickhouseQueryService;
 
-  /** Rows for the latest {@code run_time} for this funnel, ordered by step. */
+  /** Rows for the latest {@code RunTime} for this funnel, ordered by step. */
   public Single<List<FunnelResultRow>> queryLatest(String projectId, long funnelId) {
     String sql = FunnelResultsQueries.buildLatestResultsSql(projectId, funnelId);
     QueryConfiguration config =

@@ -9,9 +9,9 @@ class JourneyResultsQueriesTest {
   @Test
   void shouldIncludeJourneyDirectionAndOrderBy() {
     String sql = JourneyResultsQueries.buildLatestResultsSql("proj-1", 7L, "START");
-    assertThat(sql).contains("journey_id = '7'");
-    assertThat(sql).contains("project_id = 'proj-1'");
-    assertThat(sql).contains("direction = 'START'");
-    assertThat(sql).contains("ORDER BY pos_from");
+    assertThat(sql).contains("JourneyId = 7");
+    assertThat(sql).contains("ProjectId = 'proj-1'");
+    assertThat(sql).contains("Direction = 'START'");
+    assertThat(sql).contains("ORDER BY PosFrom");
   }
 }

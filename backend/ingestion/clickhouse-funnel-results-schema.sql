@@ -10,7 +10,7 @@
 -- (or migrate with `EXCHANGE TABLES`).
 --
 -- Column names: **PascalCase** (consistent with `otel.otel_traces`, etc.).
--- Read via API (e.g. GET /v1/funnel/{id}/results).
+-- Read via API (e.g. GET /v1/funnels/{id}, funnelResults).
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS otel.funnel_results

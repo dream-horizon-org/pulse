@@ -6,25 +6,25 @@ public final class FunnelResultsQueries {
   private FunnelResultsQueries() {}
 
   /**
-   * Latest run for a funnel: all steps ordered by {@code step_index}.
+   * Latest run for a funnel: all steps ordered by {@code StepIndex}.
    *
-   * <p>Aliases match {@link org.dreamhorizon.pulseserver.dao.funnelresults.models.FunnelResultRow}
-   * for Jackson deserialization from the generic ClickHouse client.
+   * <p>Physical columns are PascalCase per {@code clickhouse-funnel-results-schema.sql}. Aliases
+   * match {@link org.dreamhorizon.pulseserver.dao.funnelresults.models.FunnelResultRow}.
    */
   public static String buildLatestResultsSql(String projectId, long funnelId) {
     String pid = escapeChStringLiteral(projectId);
     String fid = Long.toString(funnelId);
-    return "SELECT step_index AS stepIndex, step_name AS stepName, "
-        + "user_count AS userCount, conversion_pct AS conversionPct "
-        + "FROM otel.funnel_results WHERE funnel_id = '"
+    return "SELECT StepIndex AS stepIndex, StepName AS stepName, "
+        + "UserCount AS userCount, ConversionPct AS conversionPct "
+        + "FROM otel.funnel_results WHERE FunnelId = "
         + fid
-        + "' AND project_id = '"
+        + " AND ProjectId = '"
         + pid
-        + "' AND run_time = (SELECT max(run_time) FROM otel.funnel_results WHERE funnel_id = '"
+        + "' AND RunTime = (SELECT max(RunTime) FROM otel.funnel_results WHERE FunnelId = "
         + fid
-        + "' AND project_id = '"
+        + " AND ProjectId = '"
         + pid
-        + "') ORDER BY step_index ASC";
+        + "') ORDER BY StepIndex ASC";
   }
 
   static String escapeChStringLiteral(String s) {
