@@ -1,13 +1,15 @@
 package org.dreamhorizon.pulseserver.service.funnel;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.List;
-import org.dreamhorizon.pulseserver.dao.funnelresults.models.FunnelResultRow;
-import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelResultsResponse;
-import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelStepMeasureResult;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.models.FunnelResultRow;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelResultsResponse;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelStepMeasureResult;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelResultsMapper;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class FunnelResultsMapperTest {
 
@@ -23,19 +25,19 @@ class FunnelResultsMapperTest {
     @Test
     void shouldMapStepsAndDropoffFromPreviousStep() {
       List<FunnelResultRow> rows =
-          List.of(
-              FunnelResultRow.builder()
-                  .stepIndex(0)
-                  .stepName("A")
-                  .userCount(8750L)
-                  .conversionPct(100.0)
-                  .build(),
-              FunnelResultRow.builder()
-                  .stepIndex(1)
-                  .stepName("B")
-                  .userCount(6820L)
-                  .conversionPct(77.9)
-                  .build());
+        List.of(
+          FunnelResultRow.builder()
+            .stepIndex(0)
+            .stepName("A")
+            .userCount(8750L)
+            .conversionPct(100.0)
+            .build(),
+          FunnelResultRow.builder()
+            .stepIndex(1)
+            .stepName("B")
+            .userCount(6820L)
+            .conversionPct(77.9)
+            .build());
 
       FunnelResultsResponse out = FunnelResultsMapper.fromRows(rows);
 

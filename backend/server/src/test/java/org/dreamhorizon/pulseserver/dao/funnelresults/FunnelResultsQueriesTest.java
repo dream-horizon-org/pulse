@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.dao.funnelresults;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsQueries;
 import org.junit.jupiter.api.Test;
 
 class FunnelResultsQueriesTest {
@@ -9,7 +10,7 @@ class FunnelResultsQueriesTest {
   @Test
   void shouldEscapeQuotesInProjectIdForSqlLiteral() {
     assertThat(FunnelResultsQueries.escapeChStringLiteral("p'j"))
-        .isEqualTo("p''j");
+      .isEqualTo("p''j");
   }
 
   @Test

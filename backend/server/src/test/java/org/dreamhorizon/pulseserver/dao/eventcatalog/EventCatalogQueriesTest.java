@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.dao.eventcatalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.dreamhorizon.pulseserver.dao.productAnalysis.eventcatalog.EventCatalogQueries;
 import org.junit.jupiter.api.Test;
 
 class EventCatalogQueriesTest {
