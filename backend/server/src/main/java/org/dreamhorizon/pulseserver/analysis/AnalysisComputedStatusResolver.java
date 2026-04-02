@@ -1,6 +1,6 @@
 package org.dreamhorizon.pulseserver.analysis;
 
-import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelType;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
 
 /**
  * Derives display status from AUTO|ONCE and latest spark_jobs.status (PENDING, RUNNING, SUCCEEDED,
@@ -8,7 +8,8 @@ import org.dreamhorizon.pulseserver.resources.funnel.models.FunnelType;
  */
 public final class AnalysisComputedStatusResolver {
 
-  private AnalysisComputedStatusResolver() {}
+  private AnalysisComputedStatusResolver() {
+  }
 
   public static AnalysisComputedStatus compute(FunnelType autoOrOnce, String latestJobStatusOrNull) {
     String j = latestJobStatusOrNull == null ? null : latestJobStatusOrNull.trim().toUpperCase();
@@ -18,8 +19,8 @@ public final class AnalysisComputedStatusResolver {
     boolean noJob = j == null || j.isEmpty();
     if (noJob) {
       return autoOrOnce == FunnelType.ONCE
-          ? AnalysisComputedStatus.PENDING
-          : AnalysisComputedStatus.ACTIVE;
+        ? AnalysisComputedStatus.PENDING
+        : AnalysisComputedStatus.ACTIVE;
     }
     if (autoOrOnce == FunnelType.AUTO) {
       if ("FAILED".equals(j)) {
