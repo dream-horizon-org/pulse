@@ -943,7 +943,8 @@ function getMockFunnelAnalyzeAndTrendFromBody(body: {
   return built;
 }
 
-function mockFunnelsJourneysList(
+/** Shared listing logic for saved funnels or journeys (mock). */
+function mockResourceListing(
   request: MockRequest,
   forcedKind?: "FUNNEL" | "JOURNEY",
 ): MockResponse {
@@ -1045,7 +1046,7 @@ function mockFunnelsJourneysList(
   };
 }
 
-function mockFunnelJourneyDetail(
+function mockSavedResourceDetail(
   id: string,
   expectedKind?: "FUNNEL" | "JOURNEY",
 ): MockResponse {
@@ -1104,6 +1105,14 @@ const MOCK_TAGS = [
   "marketing",
   "feature",
 ];
+
+function mockFunnelListing(request: MockRequest): MockResponse {
+  return mockResourceListing(request, "FUNNEL");
+}
+
+function mockJourneyListing(request: MockRequest): MockResponse {
+  return mockResourceListing(request, "JOURNEY");
+}
 
 function mockPostCreateFunnelOrJourney(
   request: MockRequest,
@@ -1197,17 +1206,17 @@ export function handleFunnelEndpoints(
   if (method === "GET") {
     const funnelDetail = pathOnly.match(/\/v1\/funnels\/([^/]+)$/);
     if (funnelDetail) {
-      return mockFunnelJourneyDetail(funnelDetail[1], "FUNNEL");
+      return mockSavedResourceDetail(funnelDetail[1], "FUNNEL");
     }
     const journeyDetail = pathOnly.match(/\/v1\/journeys\/([^/]+)$/);
     if (journeyDetail) {
-      return mockFunnelJourneyDetail(journeyDetail[1], "JOURNEY");
+      return mockSavedResourceDetail(journeyDetail[1], "JOURNEY");
     }
     if (pathOnly.endsWith("/v1/funnels")) {
-      return mockFunnelsJourneysList(request, "FUNNEL");
+      return mockFunnelListing(request);
     }
     if (pathOnly.endsWith("/v1/journeys")) {
-      return mockFunnelsJourneysList(request, "JOURNEY");
+      return mockJourneyListing(request);
     }
   }
 

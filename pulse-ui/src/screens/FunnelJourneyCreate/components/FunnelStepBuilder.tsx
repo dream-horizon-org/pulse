@@ -10,7 +10,7 @@ import {
 } from "@mantine/core";
 import { IconPlus, IconTrash, IconGripVertical } from "@tabler/icons-react";
 import { FunnelStep } from "../../../hooks/useGetFunnelData";
-import classes from "../FunnelAnalysis.module.css";
+import classes from "../FunnelCreate.module.css";
 
 interface FunnelStepBuilderProps {
   steps: FunnelStep[];

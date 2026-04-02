@@ -19,30 +19,32 @@ import { useProjectContext } from "../../contexts";
 import { useGetFunnelsList } from "../../hooks/useGetFunnelsList";
 import type { FunnelJourneyListItem } from "../../services/funnels.service";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
-import { FunnelConversionCell } from "./FunnelConversionCell";
+import { FunnelConversionCell } from "./components/FunnelConversionCell";
+import {
+  DEFAULT_PAGE_SIZE,
+  FILTER_CREATED_BY_LABEL,
+  FILTER_STATUS_LABEL,
+  FILTER_TAGS_LABEL,
+  SEARCH_PLACEHOLDER,
+  STATUS_OPTION_ALL,
+} from "./FunnelJourneyListing.constants";
 import {
   COLUMN_CONVERSION_TITLE,
   CREATE_FUNNEL_ITEM,
-  DEFAULT_PAGE_SIZE,
   EMPTY_FILTERED_DESCRIPTION_FUNNELS,
   EMPTY_TAB_FUNNEL_DESCRIPTION,
   EMPTY_TAB_FUNNEL_FILTERED_TITLE,
   EMPTY_TAB_FUNNEL_TITLE,
-  FILTER_CREATED_BY_LABEL,
-  FILTER_STATUS_LABEL,
-  FILTER_TAGS_LABEL,
   FILTER_TYPE_LABEL,
   FUNNELS_LOADING,
   FUNNELS_PAGE_TITLE,
   FUNNELS_SUBTITLE,
-  SEARCH_PLACEHOLDER,
-  STATUS_OPTION_ALL,
   TYPE_OPTION_ALL,
   TYPE_OPTION_ORDERED,
   TYPE_OPTION_UNORDERED,
-} from "./FunnelsJourneysList.constants";
-import { FunnelsJourneysListPagination } from "./FunnelsJourneysListPagination";
-import classes from "./FunnelsJourneysList.module.css";
+} from "./funnelsList.constants";
+import { FunnelJourneyListingPagination } from "./FunnelJourneyListingPagination";
+import classes from "./FunnelJourneyListing.module.css";
 
 const badgeRootStyle = { fontFamily: "inherit" as const };
 
@@ -132,9 +134,7 @@ export function FunnelsList() {
 
   const goCreateFunnel = () => {
     if (!projectId) return;
-    navigate(
-      generatePath(ROUTES.FUNNELS_CREATE.path, { projectId }),
-    );
+    navigate(generatePath(ROUTES.FUNNELS_CREATE.path, { projectId }));
   };
 
   const openRow = (row: FunnelJourneyListItem) => {
@@ -260,7 +260,11 @@ export function FunnelsList() {
           <p className={classes.subtitle}>{FUNNELS_SUBTITLE}</p>
         </Box>
         <Box className={classes.toolbar}>
-          <Button color="teal" leftSection={<IconChartFunnel size={16} />} onClick={goCreateFunnel}>
+          <Button
+            color="teal"
+            leftSection={<IconChartFunnel size={16} />}
+            onClick={goCreateFunnel}
+          >
             {CREATE_FUNNEL_ITEM}
           </Button>
         </Box>
@@ -373,7 +377,7 @@ export function FunnelsList() {
               }}
             />
           </Box>
-          <FunnelsJourneysListPagination
+          <FunnelJourneyListingPagination
             currentPage={page}
             totalPages={totalPages}
             totalCount={totalCount}

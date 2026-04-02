@@ -5,3 +5,9 @@ export const NOT_FOUND_TITLE = "Funnel or journey not found";
 
 export const NOT_FOUND_DESCRIPTION =
   "It may have been deleted or you may not have access.";
+
+export const FUNNEL_DETAIL_WRONG_KIND_MESSAGE =
+  "This resource is not a funnel.";
+
+export const JOURNEY_DETAIL_WRONG_KIND_MESSAGE =
+  "This resource is not a journey.";

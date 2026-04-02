@@ -7,10 +7,10 @@ import {
   PAGINATION_PREVIOUS,
   PAGINATION_ROWS_PER_PAGE,
   PAGINATION_SHOWING_RANGE,
-} from "./FunnelsJourneysList.constants";
-import classes from "./FunnelsJourneysList.module.css";
+} from "./FunnelJourneyListing.constants";
+import classes from "./FunnelJourneyListing.module.css";
 
-export interface FunnelsJourneysListPaginationProps {
+export interface FunnelJourneyListingPaginationProps {
   currentPage: number;
   totalPages: number;
   totalCount: number;
@@ -21,7 +21,7 @@ export interface FunnelsJourneysListPaginationProps {
   onPageSizeChange: (pageSize: number) => void;
 }
 
-export function FunnelsJourneysListPagination({
+export function FunnelJourneyListingPagination({
   currentPage,
   totalPages,
   totalCount,
@@ -30,7 +30,7 @@ export function FunnelsJourneysListPagination({
   onNext,
   onGoToPage,
   onPageSizeChange,
-}: FunnelsJourneysListPaginationProps) {
+}: FunnelJourneyListingPaginationProps) {
   const [editValue, setEditValue] = useState<string | null>(null);
   const isEditing = editValue !== null;
 

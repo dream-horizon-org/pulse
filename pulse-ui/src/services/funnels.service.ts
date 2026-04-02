@@ -24,6 +24,10 @@ export type FunnelsJourneysListFilterOptions = {
   tags: string[];
 };
 
+/** Filter options for GET /v1/funnels or GET /v1/journeys (same shape). */
+export type FunnelListFilterOptions = FunnelsJourneysListFilterOptions;
+export type JourneyListFilterOptions = FunnelsJourneysListFilterOptions;
+
 export type FunnelsJourneysListResponse = {
   items: FunnelJourneyListItem[];
   filterOptions: FunnelsJourneysListFilterOptions;
@@ -35,6 +39,12 @@ export type FunnelsJourneysListResponse = {
   /** Total pages for current filters and page size. */
   totalPages?: number;
 };
+
+/** Listing payload for GET /v1/funnels. */
+export type FunnelListResponse = FunnelsJourneysListResponse;
+
+/** Listing payload for GET /v1/journeys. */
+export type JourneyListResponse = FunnelsJourneysListResponse;
 
 /** Query params for GET /v1/funnels or GET /v1/journeys (resource implied by path). */
 export type FunnelJourneyListQueryParams = {
@@ -97,7 +107,7 @@ export async function fetchFunnelsList(queryParams: FunnelJourneyListQueryParams
   const suffix =
     Object.keys(filtered).length > 0 ? getQueryParamString(filtered) : "";
 
-  return makeRequest<FunnelsJourneysListResponse>({
+  return makeRequest<FunnelListResponse>({
     url: `${API_BASE_URL}${FUNNELS_BASE}${suffix}`,
     init: {
       method: "GET",
@@ -111,7 +121,7 @@ export async function fetchJourneysList(queryParams: FunnelJourneyListQueryParam
   const suffix =
     Object.keys(filtered).length > 0 ? getQueryParamString(filtered) : "";
 
-  return makeRequest<FunnelsJourneysListResponse>({
+  return makeRequest<JourneyListResponse>({
     url: `${API_BASE_URL}${JOURNEYS_BASE}${suffix}`,
     init: {
       method: "GET",

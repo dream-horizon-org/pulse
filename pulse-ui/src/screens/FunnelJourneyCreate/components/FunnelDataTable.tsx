@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { Box, Table, Text, Select, Badge, Group, Loader } from "@mantine/core";
-import { IconArrowUp, IconArrowDown } from "@tabler/icons-react";
+import { Badge, Box, Group, Loader, Select, Table, Text } from "@mantine/core";
+import { IconArrowDown, IconArrowUp } from "@tabler/icons-react";
 import {
-  FunnelStepResult,
-  FunnelStep,
   FunnelGroupedRow,
+  FunnelStep,
+  FunnelStepResult,
   useGetFunnelGrouped,
 } from "../../../hooks/useGetFunnelData";
-import { formatDuration, GROUP_BY_OPTIONS } from "../mockData";
-import classes from "../FunnelAnalysis.module.css";
+import { formatDuration, GROUP_BY_OPTIONS } from "../FunnelJourneyCreate.util";
+import classes from "../FunnelCreate.module.css";
 
 interface FunnelDataTableProps {
   steps: FunnelStepResult[];
@@ -18,7 +18,11 @@ interface FunnelDataTableProps {
 
 type SortField = "stepName" | "count" | "conversionRate" | "dropoffRate";
 
-export function FunnelDataTable({ steps, timeRange, apiSteps }: FunnelDataTableProps) {
+export function FunnelDataTable({
+  steps,
+  timeRange,
+  apiSteps,
+}: FunnelDataTableProps) {
   const [sortField, setSortField] = useState<SortField>("count");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [groupBy, setGroupBy] = useState("none");
@@ -46,10 +50,23 @@ export function FunnelDataTable({ steps, timeRange, apiSteps }: FunnelDataTableP
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null;
-    return sortDir === "asc" ? <IconArrowUp size={12} /> : <IconArrowDown size={12} />;
+    return sortDir === "asc" ? (
+      <IconArrowUp size={12} />
+    ) : (
+      <IconArrowDown size={12} />
+    );
   };
 
-  const sortSteps = <T extends { stepName?: string; count?: number; conversionRate?: number; dropoffRate?: number }>(list: T[]): T[] => {
+  const sortSteps = <
+    T extends {
+      stepName?: string;
+      count?: number;
+      conversionRate?: number;
+      dropoffRate?: number;
+    },
+  >(
+    list: T[],
+  ): T[] => {
     return [...list].sort((a, b) => {
       const aVal = (a as any)[sortField] ?? 0;
       const bVal = (b as any)[sortField] ?? 0;
@@ -63,17 +80,37 @@ export function FunnelDataTable({ steps, timeRange, apiSteps }: FunnelDataTableP
     <Table.Thead>
       <Table.Tr>
         <Table.Th style={{ width: 40 }}>#</Table.Th>
-        <Table.Th style={{ cursor: "pointer" }} onClick={() => toggleSort("stepName")}>
-          <Group gap={4}>Step Name <SortIcon field="stepName" /></Group>
+        <Table.Th
+          style={{ cursor: "pointer" }}
+          onClick={() => toggleSort("stepName")}
+        >
+          <Group gap={4}>
+            Step Name <SortIcon field="stepName" />
+          </Group>
         </Table.Th>
-        <Table.Th style={{ cursor: "pointer", textAlign: "right" }} onClick={() => toggleSort("count")}>
-          <Group gap={4} justify="flex-end">Completed <SortIcon field="count" /></Group>
+        <Table.Th
+          style={{ cursor: "pointer", textAlign: "right" }}
+          onClick={() => toggleSort("count")}
+        >
+          <Group gap={4} justify="flex-end">
+            Completed <SortIcon field="count" />
+          </Group>
         </Table.Th>
-        <Table.Th style={{ cursor: "pointer", textAlign: "right" }} onClick={() => toggleSort("conversionRate")}>
-          <Group gap={4} justify="flex-end">Conversion % <SortIcon field="conversionRate" /></Group>
+        <Table.Th
+          style={{ cursor: "pointer", textAlign: "right" }}
+          onClick={() => toggleSort("conversionRate")}
+        >
+          <Group gap={4} justify="flex-end">
+            Conversion % <SortIcon field="conversionRate" />
+          </Group>
         </Table.Th>
-        <Table.Th style={{ cursor: "pointer", textAlign: "right" }} onClick={() => toggleSort("dropoffRate")}>
-          <Group gap={4} justify="flex-end">Drop-off % <SortIcon field="dropoffRate" /></Group>
+        <Table.Th
+          style={{ cursor: "pointer", textAlign: "right" }}
+          onClick={() => toggleSort("dropoffRate")}
+        >
+          <Group gap={4} justify="flex-end">
+            Drop-off % <SortIcon field="dropoffRate" />
+          </Group>
         </Table.Th>
         {groupBy !== "none" && (
           <Table.Th style={{ textAlign: "right" }}>Median Time</Table.Th>
@@ -85,29 +122,51 @@ export function FunnelDataTable({ steps, timeRange, apiSteps }: FunnelDataTableP
   const renderRows = (list: any[], offset = 0) =>
     sortSteps(list).map((step: any, i: number) => (
       <Table.Tr key={`${step.stepName}-${i}`}>
-        <Table.Td><Text size="xs" c="dimmed">{offset + i + 1}</Text></Table.Td>
-        <Table.Td><Text size="sm" fw={500}>{step.stepName}</Text></Table.Td>
-        <Table.Td style={{ textAlign: "right" }}>
-          <Text size="sm" fw={600}>{step.count.toLocaleString()}</Text>
+        <Table.Td>
+          <Text size="xs" c="dimmed">
+            {offset + i + 1}
+          </Text>
+        </Table.Td>
+        <Table.Td>
+          <Text size="sm" fw={500}>
+            {step.stepName}
+          </Text>
         </Table.Td>
         <Table.Td style={{ textAlign: "right" }}>
-          <Badge variant="light" color={step.conversionRate >= 50 ? "teal" : "orange"} size="sm">
+          <Text size="sm" fw={600}>
+            {step.count.toLocaleString()}
+          </Text>
+        </Table.Td>
+        <Table.Td style={{ textAlign: "right" }}>
+          <Badge
+            variant="light"
+            color={step.conversionRate >= 50 ? "teal" : "orange"}
+            size="sm"
+          >
             {step.conversionRate}%
           </Badge>
         </Table.Td>
         <Table.Td style={{ textAlign: "right" }}>
           {step.dropoffRate > 0 ? (
-            <Badge variant="light" color={step.dropoffRate > 30 ? "red" : "yellow"} size="sm">
+            <Badge
+              variant="light"
+              color={step.dropoffRate > 30 ? "red" : "yellow"}
+              size="sm"
+            >
               {step.dropoffRate}%
             </Badge>
           ) : (
-            <Text size="xs" c="dimmed">—</Text>
+            <Text size="xs" c="dimmed">
+              —
+            </Text>
           )}
         </Table.Td>
         {groupBy !== "none" && (
           <Table.Td style={{ textAlign: "right" }}>
             <Text size="sm">
-              {step.medianTimeToStep != null ? formatDuration(step.medianTimeToStep) : "—"}
+              {step.medianTimeToStep != null
+                ? formatDuration(step.medianTimeToStep)
+                : "—"}
             </Text>
           </Table.Td>
         )}
@@ -140,7 +199,12 @@ export function FunnelDataTable({ steps, timeRange, apiSteps }: FunnelDataTableP
       ) : (
         groupedRows.map((group) => (
           <Box key={group.groupValue}>
-            <Box px="lg" py="xs" bg="gray.0" style={{ borderBottom: "1px solid #f1f3f5" }}>
+            <Box
+              px="lg"
+              py="xs"
+              bg="gray.0"
+              style={{ borderBottom: "1px solid #f1f3f5" }}
+            >
               <Text size="xs" fw={700} c="dark.5" tt="uppercase">
                 {groupBy}: {group.groupValue}
               </Text>

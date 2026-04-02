@@ -26,9 +26,12 @@ import {
   DropResult,
 } from "@hello-pangea/dnd";
 import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../constants";
-import { CONVERSION_WINDOW_OPTIONS, DATE_RANGE_OPTIONS } from "../mockData";
+import {
+  CONVERSION_WINDOW_OPTIONS,
+  DATE_RANGE_OPTIONS,
+} from "../FunnelJourneyCreate.util";
 import { useGetTags } from "../../../hooks/useGetFunnelData";
-import classes from "../FunnelAnalysis.module.css";
+import classes from "../FunnelCreate.module.css";
 import createFormClasses from "../FunnelJourneyCreateForm.module.css";
 
 export interface BuilderStep {
