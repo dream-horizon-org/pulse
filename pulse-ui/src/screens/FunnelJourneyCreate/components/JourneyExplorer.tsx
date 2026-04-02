@@ -16,8 +16,11 @@ import { DateTimePicker } from "@mantine/dates";
 import { IconInfoCircle, IconRoute } from "@tabler/icons-react";
 import { useGetTags } from "../../../hooks/useGetFunnelData";
 import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../constants";
-import { buildRollingTimeRange, DATE_RANGE_OPTIONS } from "../mockData";
-import classes from "../FunnelAnalysis.module.css";
+import {
+  buildRollingTimeRange,
+  DATE_RANGE_OPTIONS,
+} from "../FunnelJourneyCreate.util";
+import classes from "../FunnelCreate.module.css";
 import createFormClasses from "../FunnelJourneyCreateForm.module.css";
 
 interface JourneyExplorerProps {

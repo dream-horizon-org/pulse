@@ -17,7 +17,7 @@ import {
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
-import classes from "../FunnelAnalysis.module.css";
+import classes from "../FunnelCreate.module.css";
 
 export interface ActiveFilter {
   property: string;

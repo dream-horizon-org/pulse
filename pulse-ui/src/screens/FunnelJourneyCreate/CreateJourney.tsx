@@ -13,43 +13,28 @@ import {
 } from "@mantine/core";
 import {
   IconArrowLeft,
-  IconChartFunnel,
+  IconRoute,
   IconSquareRoundedX,
 } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { COMMON_CONSTANTS, ROUTES } from "../../constants";
 import { showNotification } from "../../helpers/showNotification";
-import classes from "./FunnelAnalysis.module.css";
+import { useCreateJourney } from "../../hooks/useCreateJourney";
+import classes from "./FunnelCreate.module.css";
 import createFormClasses from "./FunnelJourneyCreateForm.module.css";
 import {
-  FUNNEL_CREATE_STEP_ERRORS,
-  FUNNEL_CREATE_STEPS,
-} from "./funnelJourneyCreateForm.constants";
+  JOURNEY_CREATE_STEP_ERRORS,
+  JOURNEY_CREATE_STEPS,
+} from "./FunnelJourneyCreateForm.constants";
 import { ActiveFilter, GlobalFilterBar } from "./components/GlobalFilterBar";
-import { BuilderStep, FunnelBuilder } from "./components/FunnelBuilder";
-import { getDateRangeFromPreset } from "./mockData";
+import { JourneyExplorer } from "./components/JourneyExplorer";
 import {
-  FunnelStep,
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks/useGetFunnelData";
-import { useCreateFunnel } from "../../hooks/useCreateFunnel";
+import { buildRollingTimeRange } from "./FunnelJourneyCreate.util";
 
-const EMPTY_STEPS: BuilderStep[] = [
-  { id: "s-1", eventName: "" },
-  { id: "s-2", eventName: "" },
-];
-
-function toApiSteps(steps: BuilderStep[]): FunnelStep[] {
-  return steps
-    .filter((s) => s.eventName)
-    .map((s) => ({
-      eventName: s.eventName,
-      dataType: "LOGS" as const,
-    }));
-}
-
-export function CreateFunnel() {
+export function CreateJourney() {
   const theme = useMantineTheme();
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
@@ -68,11 +53,9 @@ export function CreateFunnel() {
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
-  const [steps, setSteps] = useState<BuilderStep[]>(EMPTY_STEPS);
-  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
-    "ordered",
-  );
-  const [conversionWindow, setConversionWindow] = useState("86400");
+  const [anchorEvent, setAnchorEvent] = useState("");
+  const [direction, setDirection] = useState<"forward" | "reverse">("forward");
+  const [depth, setDepth] = useState(5);
 
   const { data: eventsData } = useGetFunnelEvents();
   const { data: filtersData } = useGetFunnelFilters();
@@ -88,21 +71,16 @@ export function CreateFunnel() {
     {} as Record<string, string[]>,
   );
 
-  const timeRange = useMemo(() => {
-    if (rollingType === "ONCE") {
-      return {
-        start: customStartDate
-          ? customStartDate.toISOString()
-          : new Date().toISOString(),
-        end: customEndDate
-          ? customEndDate.toISOString()
-          : new Date().toISOString(),
-      };
-    }
-    return getDateRangeFromPreset(dateRange);
-  }, [rollingType, dateRange, customStartDate, customEndDate]);
-
-  const apiSteps = useMemo(() => toApiSteps(steps), [steps]);
+  const timeRange = useMemo(
+    () =>
+      buildRollingTimeRange(
+        rollingType,
+        dateRange,
+        customStartDate,
+        customEndDate,
+      ),
+    [rollingType, dateRange, customStartDate, customEndDate],
+  );
 
   const apiFilters = useMemo(
     () =>
@@ -114,10 +92,7 @@ export function CreateFunnel() {
     [filters],
   );
 
-  const { mutate: createFunnel, isPending: isCreating } = useCreateFunnel();
-
-  const hasValidSteps =
-    steps.length >= 2 && steps.every((s) => Boolean(s.eventName));
+  const { mutate: createJourney, isPending: isCreating } = useCreateJourney();
 
   const stepValid = (index: number): boolean => {
     switch (index) {
@@ -129,7 +104,7 @@ export function CreateFunnel() {
         }
         return true;
       case 2:
-        return hasValidSteps;
+        return anchorEvent.trim().length > 0;
       default:
         return true;
     }
@@ -138,37 +113,37 @@ export function CreateFunnel() {
   const stepErrorMessage = (index: number): string => {
     switch (index) {
       case 0:
-        return FUNNEL_CREATE_STEP_ERRORS.NAME;
+        return JOURNEY_CREATE_STEP_ERRORS.NAME;
       case 1:
-        return FUNNEL_CREATE_STEP_ERRORS.SCHEDULE_ONCE;
+        return JOURNEY_CREATE_STEP_ERRORS.SCHEDULE_ONCE;
       case 2:
-        return FUNNEL_CREATE_STEP_ERRORS.STEPS;
+        return JOURNEY_CREATE_STEP_ERRORS.PATH;
       default:
         return "";
     }
   };
 
-  const handleAnalyze = () => {
-    createFunnel(
+  const handleCreateJourney = () => {
+    createJourney(
       {
         name,
         description,
         tags,
         rollingType,
-        funnelType: funnelMode.toUpperCase(),
-        steps: apiSteps,
         timeRange,
-        windowSeconds: parseInt(conversionWindow, 10),
         filters: apiFilters,
         expiryDate:
           rollingType === "RECURRING" && expiryDate
             ? expiryDate.toISOString()
             : undefined,
+        direction,
+        anchorEvent,
+        depth,
       },
       {
         onSuccess: () => {
           if (projectId) {
-            navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
+            navigate(generatePath(ROUTES.JOURNEYS_LIST.path, { projectId }));
           }
         },
       },
@@ -177,7 +152,7 @@ export function CreateFunnel() {
 
   const goBack = () => {
     if (projectId) {
-      navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
+      navigate(generatePath(ROUTES.JOURNEYS_LIST.path, { projectId }));
       return;
     }
     navigate(-1);
@@ -193,7 +168,7 @@ export function CreateFunnel() {
       );
       return;
     }
-    setActiveStep((s) => Math.min(s + 1, FUNNEL_CREATE_STEPS.length - 1));
+    setActiveStep((s) => Math.min(s + 1, JOURNEY_CREATE_STEPS.length - 1));
   };
 
   const goPrev = () => {
@@ -235,7 +210,7 @@ export function CreateFunnel() {
                 <IconArrowLeft size={20} />
               </ActionIcon>
               <Box>
-                <Text className={classes.moduleTitle}>Create Funnel</Text>
+                <Text className={classes.moduleTitle}>Create Journey</Text>
               </Box>
             </Group>
           </Box>
@@ -246,7 +221,7 @@ export function CreateFunnel() {
 
           <Box className={createFormClasses.createFormHeading}>
             <Title order={2} fw={700}>
-              Add a new funnel
+              Add a new journey
             </Title>
           </Box>
 
@@ -259,7 +234,7 @@ export function CreateFunnel() {
                 onStepClick={onStepClick}
                 orientation="vertical"
               >
-                {FUNNEL_CREATE_STEPS.map((step, index) => (
+                {JOURNEY_CREATE_STEPS.map((step, index) => (
                   <Stepper.Step
                     key={step.label}
                     label={step.label}
@@ -278,8 +253,9 @@ export function CreateFunnel() {
               <Box className={createFormClasses.formPanelInner}>
                 <Box className={createFormClasses.formContent}>
                   {activeStep < 3 && (
-                    <FunnelBuilder
+                    <JourneyExplorer
                       wizardStep={activeStep as 0 | 1 | 2}
+                      useExternalPathState
                       name={name}
                       onNameChange={setName}
                       description={description}
@@ -296,17 +272,16 @@ export function CreateFunnel() {
                       onCustomEndDateChange={setCustomEndDate}
                       expiryDate={expiryDate}
                       onExpiryDateChange={setExpiryDate}
-                      steps={steps}
-                      onStepsChange={(s) => {
-                        setSteps(s);
-                      }}
-                      funnelMode={funnelMode}
-                      onFunnelModeChange={setFunnelMode}
-                      conversionWindow={conversionWindow}
-                      onConversionWindowChange={setConversionWindow}
-                      onAnalyze={handleAnalyze}
-                      isCreating={isCreating}
                       availableEvents={availableEvents}
+                      onCreate={() => {}}
+                      isCreating={false}
+                      filters={filters}
+                      anchorEvent={anchorEvent}
+                      onAnchorEventChange={setAnchorEvent}
+                      direction={direction}
+                      onDirectionChange={setDirection}
+                      depth={depth}
+                      onDepthChange={setDepth}
                     />
                   )}
 
@@ -324,7 +299,7 @@ export function CreateFunnel() {
                           mt="xs"
                         >
                           Optional. Choose OS, app version, or other dimensions
-                          to limit which users are included when this funnel is
+                          to limit which users are included when this journey is
                           computed.
                         </Text>
                       </Box>
@@ -348,15 +323,15 @@ export function CreateFunnel() {
                             background: "rgba(34, 139, 230, 0.12)",
                           }}
                         >
-                          <IconChartFunnel size={26} stroke={1.5} />
+                          <IconRoute size={26} stroke={1.5} />
                         </Box>
                         <Text size="lg" fw={700} c="dark.7" lh={1.3}>
                           Ready to create
                         </Text>
                         <Text size="sm" c="dimmed" lh={1.55}>
-                          Filters above apply to how this funnel is computed.
-                          After creation, open the funnel detail page to explore
-                          conversion, trends, and step breakdown.
+                          Filters above apply to how this journey is computed.
+                          After creation, open the journey detail page to
+                          explore the Sankey visualization and metrics.
                         </Text>
                       </Box>
                     </Stack>
@@ -379,7 +354,7 @@ export function CreateFunnel() {
                     >
                       Back
                     </Button>
-                    {activeStep < FUNNEL_CREATE_STEPS.length - 1 ? (
+                    {activeStep < JOURNEY_CREATE_STEPS.length - 1 ? (
                       <Button color="blue" size="md" onClick={goNext}>
                         Next
                       </Button>
@@ -387,11 +362,11 @@ export function CreateFunnel() {
                       <Button
                         color="blue"
                         size="md"
-                        onClick={handleAnalyze}
-                        disabled={!hasValidSteps || isCreating}
+                        onClick={handleCreateJourney}
+                        disabled={!stepValid(2) || isCreating}
                         loading={isCreating}
                       >
-                        {isCreating ? "Creating…" : "Create funnel"}
+                        {isCreating ? "Creating…" : "Create journey"}
                       </Button>
                     )}
                   </Group>

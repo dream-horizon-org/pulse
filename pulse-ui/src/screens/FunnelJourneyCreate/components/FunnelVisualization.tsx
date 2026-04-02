@@ -1,8 +1,12 @@
 import { Box, Text, Tooltip } from "@mantine/core";
-import { IconTrendingUp, IconTrendingDown, IconClock } from "@tabler/icons-react";
+import {
+  IconClock,
+  IconTrendingDown,
+  IconTrendingUp,
+} from "@tabler/icons-react";
 import { FunnelStepResult } from "../../../hooks/useGetFunnelData";
-import { formatDuration } from "../mockData";
-import classes from "../FunnelAnalysis.module.css";
+import { formatDuration } from "../FunnelJourneyCreate.util";
+import classes from "../FunnelCreate.module.css";
 
 interface FunnelVisualizationProps {
   steps: FunnelStepResult[];
@@ -25,9 +29,7 @@ export function FunnelVisualization({
   return (
     <>
       <Box className={classes.kpiSection}>
-        <Text className={classes.kpiBigNumber}>
-          {totalConversionRate}%
-        </Text>
+        <Text className={classes.kpiBigNumber}>{totalConversionRate}%</Text>
         <Box>
           <Text className={classes.kpiLabel}>Total Conversion</Text>
           <Box
@@ -52,9 +54,7 @@ export function FunnelVisualization({
         {steps.map((step, index) => {
           const completedPct = (step.count / maxCompleted) * 100;
           const dropoffCount =
-            index === 0
-              ? 0
-              : steps[index - 1].count - step.count;
+            index === 0 ? 0 : steps[index - 1].count - step.count;
           const dropoffPct =
             index === 0 ? 0 : (dropoffCount / maxCompleted) * 100;
           const medianTime = medianTimes[index] ?? null;
@@ -64,7 +64,9 @@ export function FunnelVisualization({
               {medianTime !== null && (
                 <Box
                   className={`${classes.timeBadge} ${
-                    medianTime > SLOW_THRESHOLD_SECONDS ? classes.timeBadgeSlow : ""
+                    medianTime > SLOW_THRESHOLD_SECONDS
+                      ? classes.timeBadgeSlow
+                      : ""
                   }`}
                 >
                   <IconClock size={12} />

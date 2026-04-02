@@ -1,6 +1,6 @@
 import { Group, Text } from "@mantine/core";
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
-import type { FunnelJourneyListItem } from "../../services/funnels.service";
+import type { FunnelJourneyListItem } from "../../../services/funnels.service";
 
 export function FunnelConversionCell({ row }: { row: FunnelJourneyListItem }) {
   if (row.kind !== "FUNNEL") {

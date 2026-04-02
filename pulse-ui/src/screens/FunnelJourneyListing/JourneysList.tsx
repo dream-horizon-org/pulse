@@ -1,14 +1,4 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Group,
-  Loader,
-  MultiSelect,
-  Select,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { Badge, Box, Button, Group, Loader, MultiSelect, Select, Text, TextInput } from "@mantine/core";
 import { IconRoute, IconSearch } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -20,23 +10,25 @@ import { useGetJourneysList } from "../../hooks/useGetJourneysList";
 import type { FunnelJourneyListItem } from "../../services/funnels.service";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import {
-  CREATE_JOURNEY_ITEM,
   DEFAULT_PAGE_SIZE,
+  FILTER_CREATED_BY_LABEL,
+  FILTER_STATUS_LABEL,
+  FILTER_TAGS_LABEL,
+  SEARCH_PLACEHOLDER,
+  STATUS_OPTION_ALL
+} from "./FunnelJourneyListing.constants";
+import {
+  CREATE_JOURNEY_ITEM,
   EMPTY_FILTERED_DESCRIPTION_JOURNEYS,
   EMPTY_TAB_JOURNEY_DESCRIPTION,
   EMPTY_TAB_JOURNEY_FILTERED_TITLE,
   EMPTY_TAB_JOURNEY_TITLE,
-  FILTER_CREATED_BY_LABEL,
-  FILTER_STATUS_LABEL,
-  FILTER_TAGS_LABEL,
   JOURNEYS_LOADING,
   JOURNEYS_PAGE_TITLE,
-  JOURNEYS_SUBTITLE,
-  SEARCH_PLACEHOLDER,
-  STATUS_OPTION_ALL,
-} from "./FunnelsJourneysList.constants";
-import { FunnelsJourneysListPagination } from "./FunnelsJourneysListPagination";
-import classes from "./FunnelsJourneysList.module.css";
+  JOURNEYS_SUBTITLE
+} from "./journeysList.constants";
+import { FunnelJourneyListingPagination } from "./FunnelJourneyListingPagination";
+import classes from "./FunnelJourneyListing.module.css";
 
 const badgeRootStyle = { fontFamily: "inherit" as const };
 
@@ -85,7 +77,14 @@ export function JourneysList() {
       page,
       pageSize,
     }),
-    [debouncedSearch, statusFilter, createdByFilter, tagsFilter, page, pageSize],
+    [
+      debouncedSearch,
+      statusFilter,
+      createdByFilter,
+      tagsFilter,
+      page,
+      pageSize,
+    ],
   );
 
   const {
@@ -112,9 +111,7 @@ export function JourneysList() {
 
   const goCreateJourney = () => {
     if (!projectId) return;
-    navigate(
-      generatePath(ROUTES.JOURNEYS_CREATE.path, { projectId }),
-    );
+    navigate(generatePath(ROUTES.JOURNEYS_CREATE.path, { projectId }));
   };
 
   const openRow = (row: FunnelJourneyListItem) => {
@@ -232,7 +229,11 @@ export function JourneysList() {
           <p className={classes.subtitle}>{JOURNEYS_SUBTITLE}</p>
         </Box>
         <Box className={classes.toolbar}>
-          <Button color="teal" leftSection={<IconRoute size={16} />} onClick={goCreateJourney}>
+          <Button
+            color="teal"
+            leftSection={<IconRoute size={16} />}
+            onClick={goCreateJourney}
+          >
             {CREATE_JOURNEY_ITEM}
           </Button>
         </Box>
@@ -332,7 +333,7 @@ export function JourneysList() {
               }}
             />
           </Box>
-          <FunnelsJourneysListPagination
+          <FunnelJourneyListingPagination
             currentPage={page}
             totalPages={totalPages}
             totalCount={totalCount}
