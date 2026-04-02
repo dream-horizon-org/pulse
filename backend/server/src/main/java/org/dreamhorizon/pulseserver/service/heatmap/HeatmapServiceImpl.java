@@ -1,0 +1,285 @@
+package org.dreamhorizon.pulseserver.service.heatmap;
+
+import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Single;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.dao.heatmap.HeatmapQueries;
+import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.model.QueryConfiguration;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapClickHouseRowDto;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapDataRestResponse;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapFrustrationRestDto;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapInteractionMetadataRestDto;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapLayersRestDto;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapMetadataRestDto;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapPointRestDto;
+
+@Slf4j
+@RequiredArgsConstructor(onConstructor = @__({@Inject}))
+public class HeatmapServiceImpl implements HeatmapService {
+
+  private static final int TIMEOUT_MS = 60_000;
+
+  private final ClickhouseQueryService clickhouseQueryService;
+
+  @Override
+  public Single<HeatmapDataRestResponse> getHeatmapData(
+      String screenName,
+      String from,
+      String to,
+      String appVersion,
+      String platform,
+      String breakpoint,
+      String geographicalRegion) {
+
+    String projectId = ProjectContext.requireProjectId();
+
+    if (screenName == null || screenName.isBlank()) {
+      return Single.error(
+          ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException("screen_name is required"));
+    }
+    if (from == null || to == null) {
+      return Single.error(
+          ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException("from and to are required"));
+    }
+
+    final Instant fromInstant;
+    final Instant toInstant;
+    try {
+      fromInstant = Instant.parse(from.trim());
+      toInstant = Instant.parse(to.trim());
+    } catch (DateTimeParseException e) {
+      return Single.error(
+          ServiceError.INVALID_REQUEST_PARAM.getCustomException(
+              "from and to must be ISO-8601 instants, e.g. 2026-03-26T00:00:00Z"));
+    }
+
+    String dateFrom = fromInstant.atZone(ZoneOffset.UTC).toLocalDate().toString();
+    String dateTo = toInstant.atZone(ZoneOffset.UTC).toLocalDate().toString();
+
+    String heatmapWhere =
+        buildHeatmapWhereClause(
+            projectId,
+            dateFrom,
+            dateTo,
+            screenName,
+            appVersion,
+            platform,
+            breakpoint,
+            geographicalRegion);
+
+    String aggregateSql = String.format(HeatmapQueries.HEATMAP_AGGREGATE, heatmapWhere);
+
+    QueryConfiguration heatmapConfig =
+        QueryConfiguration.newQuery(aggregateSql)
+            .timeoutMs(TIMEOUT_MS)
+            .tenantId(projectId)
+            .projectId(projectId)
+            .build();
+
+    String interactionsWhere =
+        buildInteractionsWhereClause(
+            projectId, fromInstant, toInstant, screenName, appVersion, platform, geographicalRegion);
+    String interactionsSql =
+        String.format(HeatmapQueries.INTERACTIONS_APDEX_BY_SCREEN, interactionsWhere);
+
+    QueryConfiguration interactionsConfig =
+        QueryConfiguration.newQuery(interactionsSql)
+            .timeoutMs(TIMEOUT_MS)
+            .tenantId(projectId)
+            .projectId(projectId)
+            .build();
+
+    boolean breakpointFiltered = breakpoint != null && !breakpoint.isBlank();
+    String breakpointForMetadata = breakpointFiltered ? breakpoint : null;
+
+    Single<List<HeatmapClickHouseRowDto>> heatmapSingle =
+        clickhouseQueryService
+            .executeQueryOrCreateJob(heatmapConfig, HeatmapClickHouseRowDto.class)
+            .map(r -> r.getRows() != null ? r.getRows() : Collections.emptyList());
+
+    Single<List<HeatmapInteractionMetadataRestDto>> interactionsSingle =
+        clickhouseQueryService
+            .executeQueryOrCreateJob(interactionsConfig, HeatmapInteractionMetadataRestDto.class)
+            .map(r -> r.getRows() != null ? r.getRows() : Collections.emptyList());
+
+    return Single.zip(
+            heatmapSingle,
+            interactionsSingle,
+            (heatmapRows, interactionRows) ->
+                toResponse(
+                    heatmapRows,
+                    interactionRows,
+                    screenName,
+                    fromInstant,
+                    toInstant,
+                    appVersion,
+                    platform,
+                    breakpointForMetadata,
+                    geographicalRegion))
+        .doOnError(e -> log.error("Heatmap query failed for project {}", projectId, e));
+  }
+
+  private HeatmapDataRestResponse toResponse(
+      List<HeatmapClickHouseRowDto> rows,
+      List<HeatmapInteractionMetadataRestDto> interactionsMetadata,
+      String screenName,
+      Instant fromInstant,
+      Instant toInstant,
+      String appVersion,
+      String platform,
+      String breakpointSingle,
+      String geographicalRegion) {
+
+    long totalNormal =
+        rows.stream()
+            .mapToLong(r -> r.getWeightNormal() != null ? r.getWeightNormal() : 0L)
+            .sum();
+
+    List<HeatmapPointRestDto> glow = new ArrayList<>();
+    List<HeatmapPointRestDto> rage = new ArrayList<>();
+    List<HeatmapPointRestDto> dead = new ArrayList<>();
+
+    for (HeatmapClickHouseRowDto row : rows) {
+      if (row.getXBin() == null || row.getYBin() == null) {
+        continue;
+      }
+      double x = row.getXBin();
+      double y = row.getYBin();
+      long wN = row.getWeightNormal() != null ? row.getWeightNormal() : 0L;
+      long wR = row.getWeightRage() != null ? row.getWeightRage() : 0L;
+      long wD = row.getWeightDead() != null ? row.getWeightDead() : 0L;
+
+      if (wN > 0) {
+        glow.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wN).build());
+      }
+      if (wR > 0) {
+        rage.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wR).build());
+      }
+      if (wD > 0) {
+        dead.add(HeatmapPointRestDto.builder().x(x).y(y).weight(wD).build());
+      }
+    }
+
+    List<HeatmapInteractionMetadataRestDto> interactionList =
+        interactionsMetadata.stream()
+            .filter(
+                m ->
+                    m.getInteractionName() != null
+                        && !m.getInteractionName().isBlank())
+            .collect(Collectors.toList());
+
+    HeatmapMetadataRestDto meta =
+        HeatmapMetadataRestDto.builder()
+            .screenName(screenName)
+            .totalEvents(totalNormal)
+            .appVersion(blankToNull(appVersion))
+            .platform(blankToNull(platform))
+            .breakpoint(blankToNull(breakpointSingle))
+            .geographicalRegion(blankToNull(geographicalRegion))
+            .fromDate(fromInstant.toString())
+            .toDate(toInstant.toString())
+            .build();
+
+    HeatmapLayersRestDto layers =
+        HeatmapLayersRestDto.builder()
+            .glowMap(glow)
+            .frustrationMap(
+                HeatmapFrustrationRestDto.builder().rageTaps(rage).deadTaps(dead).build())
+            .build();
+
+    return HeatmapDataRestResponse.builder()
+        .metadata(meta)
+        .layers(layers)
+        .interactionsMetadata(interactionList)
+        .build();
+  }
+
+  private static String blankToNull(String s) {
+    return s == null || s.isBlank() ? null : s;
+  }
+
+  private static String buildHeatmapWhereClause(
+      String projectId,
+      String dateFrom,
+      String dateTo,
+      String screenName,
+      String appVersion,
+      String platform,
+      String breakpoint,
+      String geographicalRegion) {
+
+    StringBuilder sb = new StringBuilder();
+    sb.append("ProjectId = '").append(chString(projectId)).append('\'');
+    sb.append(" AND Date >= toDate('").append(chString(dateFrom)).append("')");
+    sb.append(" AND Date <= toDate('").append(chString(dateTo)).append('\'');
+    sb.append(" AND ScreenName = '").append(chString(screenName)).append('\'');
+
+    if (appVersion != null && !appVersion.isBlank()) {
+      sb.append(" AND AppVersion = '").append(chString(appVersion)).append('\'');
+    }
+    if (platform != null && !platform.isBlank()) {
+      sb.append(" AND Platform = '").append(chString(platform)).append('\'');
+    }
+    if (breakpoint != null && !breakpoint.isBlank()) {
+      sb.append(" AND Breakpoint = '").append(chString(breakpoint)).append('\'');
+    }
+    if (geographicalRegion != null && !geographicalRegion.isBlank()) {
+      sb.append(" AND GeographicalRegion = '").append(chString(geographicalRegion)).append('\'');
+    }
+    return sb.toString();
+  }
+
+  /**
+   * Filters {@code otel.otel_traces} interaction spans. Uses full {@code Timestamp} range.
+   * Breakpoint is not applied (not a column on traces).
+   */
+  private static String buildInteractionsWhereClause(
+      String projectId,
+      Instant fromInstant,
+      Instant toInstant,
+      String screenName,
+      String appVersion,
+      String platform,
+      String geographicalRegion) {
+
+    StringBuilder sb = new StringBuilder();
+    sb.append("ProjectId = '").append(chString(projectId)).append('\'');
+    sb.append(" AND PulseType = 'interaction'");
+    sb.append(" AND SpanAttributes['screen.name'] = '").append(chString(screenName)).append('\'');
+    sb.append(" AND Timestamp >= parseDateTime64BestEffort('")
+        .append(chString(fromInstant.toString()))
+        .append("', 9, 'UTC')");
+    sb.append(" AND Timestamp <= parseDateTime64BestEffort('")
+        .append(chString(toInstant.toString()))
+        .append("', 9, 'UTC')");
+
+    if (appVersion != null && !appVersion.isBlank()) {
+      sb.append(" AND AppVersion = '").append(chString(appVersion)).append('\'');
+    }
+    if (platform != null && !platform.isBlank()) {
+      sb.append(" AND Platform = '").append(chString(platform)).append('\'');
+    }
+    if (geographicalRegion != null && !geographicalRegion.isBlank()) {
+      sb.append(" AND GeoState = '").append(chString(geographicalRegion)).append('\'');
+    }
+    return sb.toString();
+  }
+
+  private static String chString(String value) {
+    if (value == null) {
+      return "";
+    }
+    return value.replace("'", "''");
+  }
+}
