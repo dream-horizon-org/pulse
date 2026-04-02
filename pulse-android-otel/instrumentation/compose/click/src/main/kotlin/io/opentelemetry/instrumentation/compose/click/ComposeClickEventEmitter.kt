@@ -77,8 +77,14 @@ internal class ComposeClickEventEmitter(
         record.emit()
         Log.d(
             CLICK_LOG_TAG,
-            "app.widget.click: x=${click.x.toLong()} y=${click.y.toLong()} " +
-                "name=${click.widgetName ?: "null"} context=${click.clickContext ?: "null"} id=${click.widgetId ?: "null"}",
+            "app.widget.click click.type=good " +
+                "app.screen.coordinate.x=${click.x.toLong()} app.screen.coordinate.y=${click.y.toLong()} " +
+                "app.screen.coordinate.nx=${"%.3f".format(click.x / click.viewportWidthPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.ny=${"%.3f".format(click.y / click.viewportHeightPx.coerceAtLeast(1))} " +
+                "device.screen.width=${(click.viewportWidthPx / densityScale).toLong()} " +
+                "device.screen.height=${(click.viewportHeightPx / densityScale).toLong()} " +
+                "app.widget.name=${click.widgetName ?: "null"} app.widget.id=${click.widgetId ?: "null"} " +
+                "app.click.context=${click.clickContext ?: "null"}",
         )
     }
 
@@ -92,7 +98,15 @@ internal class ComposeClickEventEmitter(
             .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.DEAD)
             .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.x, click.y)
             .emit()
-        Log.d(CLICK_LOG_TAG, "app.widget.click (dead): x=${click.x.toLong()} y=${click.y.toLong()}")
+        Log.d(
+            CLICK_LOG_TAG,
+            "app.widget.click click.type=dead " +
+                "app.screen.coordinate.x=${click.x.toLong()} app.screen.coordinate.y=${click.y.toLong()} " +
+                "app.screen.coordinate.nx=${"%.3f".format(click.x / click.viewportWidthPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.ny=${"%.3f".format(click.y / click.viewportHeightPx.coerceAtLeast(1))} " +
+                "device.screen.width=${(click.viewportWidthPx / densityScale).toLong()} " +
+                "device.screen.height=${(click.viewportHeightPx / densityScale).toLong()}",
+        )
     }
 
     private fun emitRageClick(rage: RageEvent) {
@@ -114,8 +128,14 @@ internal class ComposeClickEventEmitter(
         record.emit()
         Log.d(
             CLICK_LOG_TAG,
-            "app.widget.click (rage/$clickType): x=${rage.x.toLong()} y=${rage.y.toLong()} " +
-                "count=${rage.count} name=${rage.widgetName ?: "null"} context=${rage.clickContext ?: "null"}",
+            "app.widget.click click.type=$clickType click.is_rage=true click.rageCount=${rage.count} " +
+                "app.screen.coordinate.x=${rage.x.toLong()} app.screen.coordinate.y=${rage.y.toLong()} " +
+                "app.screen.coordinate.nx=${"%.3f".format(rage.x / rage.viewportWidthPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.ny=${"%.3f".format(rage.y / rage.viewportHeightPx.coerceAtLeast(1))} " +
+                "device.screen.width=${(rage.viewportWidthPx / densityScale).toLong()} " +
+                "device.screen.height=${(rage.viewportHeightPx / densityScale).toLong()} " +
+                "app.widget.name=${rage.widgetName ?: "null"} app.widget.id=${rage.widgetId ?: "null"} " +
+                "app.click.context=${rage.clickContext ?: "null"}",
         )
     }
 
