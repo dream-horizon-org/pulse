@@ -2,10 +2,18 @@ package org.dreamhorizon.pulseserver.service.rootcause;
 
 import java.util.List;
 
-/** ClickHouse SELECT with positional parameters ({@code ?}) for R2DBC binding (1-based bind indices). */
-public record RootCauseQuerySpec(String sql, List<Object> bindParameters) {
+/**
+ * ClickHouse SELECT for root-cause analysis with named R2DBC parameters ({@code :param}) as required by
+ * {@code clickhouse-r2dbc}.
+ */
+public record RootCauseQuerySpec(String sql, List<String> bindNames, List<Object> bindValues) {
 
   public RootCauseQuerySpec {
-    bindParameters = bindParameters == null ? List.of() : List.copyOf(bindParameters);
+    bindNames = bindNames == null ? List.of() : List.copyOf(bindNames);
+    bindValues = bindValues == null ? List.of() : List.copyOf(bindValues);
+    boolean sizesMismatch = bindNames.size() != bindValues.size();
+    if (sizesMismatch) {
+      throw new IllegalArgumentException("bindNames and bindValues must have the same size");
+    }
   }
 }

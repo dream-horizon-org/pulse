@@ -21,23 +21,39 @@ public class RootCauseQueryBuilder {
 
   /**
    * Builds the common WHERE clause for interaction traces in the time window.
-   * Values are passed via {@link RootCauseQuerySpec#bindParameters()} (positional {@code ?}).
+   * Values are passed via {@link RootCauseQuerySpec} named binds ({@code :rca_p0}, …) for ClickHouse R2DBC.
    */
-  public static String baseWhereSql(List<Object> outBinds, String projectId, String interactionName,
-      Instant startInclusive, Instant endExclusive) {
+  public static String baseWhereSql(
+      BindAccumulator acc,
+      String projectId,
+      String interactionName,
+      Instant startInclusive,
+      Instant endExclusive) {
+    String p0 = acc.nextName();
+    String p1 = acc.nextName();
+    String p2 = acc.nextName();
+    String p3 = acc.nextName();
+    acc.add(p0, emptyIfNull(projectId));
+    acc.add(p1, emptyIfNull(interactionName));
     String startStr =
         startInclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
     String endStr =
         endExclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
-    outBinds.add(emptyIfNull(projectId));
-    outBinds.add(emptyIfNull(interactionName));
-    outBinds.add(startStr);
-    outBinds.add(endStr);
-    return "ProjectId = ?"
-        + " AND PulseType = '" + InteractionTelemetryConstants.INTERACTION_PULSE_TYPE + "'"
-        + " AND SpanName = ?"
-        + " AND Timestamp >= toDateTime64(?, 9, 'UTC')"
-        + " AND Timestamp < toDateTime64(?, 9, 'UTC')";
+    acc.add(p2, startStr);
+    acc.add(p3, endStr);
+    return "ProjectId = :"
+        + p0
+        + " AND PulseType = '"
+        + InteractionTelemetryConstants.INTERACTION_PULSE_TYPE
+        + "'"
+        + " AND SpanName = :"
+        + p1
+        + " AND Timestamp >= toDateTime64(:"
+        + p2
+        + ", 9, 'UTC')"
+        + " AND Timestamp < toDateTime64(:"
+        + p3
+        + ", 9, 'UTC')";
   }
 
   /**
@@ -47,13 +63,12 @@ public class RootCauseQueryBuilder {
       String projectId,
       String interactionName,
       Instant startInclusive,
-      Instant endExclusive
-  ) {
-    List<Object> binds = new ArrayList<>();
+      Instant endExclusive) {
+    BindAccumulator acc = new BindAccumulator();
     String select = buildSelectClauseWithProblematic();
-    String where = baseWhereSql(binds, projectId, interactionName, startInclusive, endExclusive);
+    String where = baseWhereSql(acc, projectId, interactionName, startInclusive, endExclusive);
     String sql = "SELECT " + select + " FROM " + ClickhouseConstants.OTEL_TRACES_TABLE + " WHERE " + where;
-    return new RootCauseQuerySpec(sql, binds);
+    return acc.toSpec(sql);
   }
 
   /**
@@ -69,17 +84,16 @@ public class RootCauseQueryBuilder {
       Instant startInclusive,
       Instant endExclusive,
       List<String> dimensionColumns,
-      Map<String, String> dimensionFilters
-  ) {
+      Map<String, String> dimensionFilters) {
     if (dimensionColumns == null || dimensionColumns.isEmpty()) {
       throw new IllegalArgumentException("dimensionColumns must be non-empty for segment query");
     }
-    List<Object> binds = new ArrayList<>();
+    BindAccumulator acc = new BindAccumulator();
     String select = buildSelectClauseWithProblematicAndGroupBy(dimensionColumns);
     String where =
         appendDimensionFilters(
-            baseWhereSql(binds, projectId, interactionName, startInclusive, endExclusive),
-            binds,
+            baseWhereSql(acc, projectId, interactionName, startInclusive, endExclusive),
+            acc,
             dimensionFilters);
     String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
     String sql =
@@ -91,7 +105,7 @@ public class RootCauseQueryBuilder {
             + where
             + " GROUP BY "
             + groupBy;
-    return new RootCauseQuerySpec(sql, binds);
+    return acc.toSpec(sql);
   }
 
   /**
@@ -104,15 +118,14 @@ public class RootCauseQueryBuilder {
       Instant startInclusive,
       Instant endExclusive,
       String dimensionColumn,
-      Map<String, String> dimensionFilters
-  ) {
-    List<Object> binds = new ArrayList<>();
+      Map<String, String> dimensionFilters) {
+    BindAccumulator acc = new BindAccumulator();
     String select =
         dimensionColumn + ", " + RootCauseMetricsRegistry.getProblematicCountExpression() + " AS problematic_count";
     String where =
         appendDimensionFilters(
-            baseWhereSql(binds, projectId, interactionName, startInclusive, endExclusive),
-            binds,
+            baseWhereSql(acc, projectId, interactionName, startInclusive, endExclusive),
+            acc,
             dimensionFilters);
     String sql =
         "SELECT "
@@ -123,18 +136,19 @@ public class RootCauseQueryBuilder {
             + where
             + " GROUP BY "
             + dimensionColumn;
-    return new RootCauseQuerySpec(sql, binds);
+    return acc.toSpec(sql);
   }
 
   private static String appendDimensionFilters(
-      String baseWhereSql, List<Object> outBinds, Map<String, String> dimensionFilters) {
+      String baseWhereSql, BindAccumulator acc, Map<String, String> dimensionFilters) {
     if (dimensionFilters == null || dimensionFilters.isEmpty()) {
       return baseWhereSql;
     }
     StringBuilder sb = new StringBuilder(baseWhereSql);
     for (Map.Entry<String, String> e : dimensionFilters.entrySet()) {
-      sb.append(" AND ").append(e.getKey()).append(" = ?");
-      outBinds.add(emptyIfNull(e.getValue()));
+      String pn = acc.nextName();
+      acc.add(pn, emptyIfNull(e.getValue()));
+      sb.append(" AND ").append(e.getKey()).append(" = :").append(pn);
     }
     return sb.toString();
   }
@@ -170,6 +184,28 @@ public class RootCauseQueryBuilder {
     }
     sb.append(", ").append(RootCauseMetricsRegistry.getProblematicCountExpression()).append(" AS problematic_count");
     return sb.toString();
+  }
+
+  /** Collects {@code :rca_pN} names and values for {@link RootCauseQuerySpec}. */
+  public static final class BindAccumulator {
+    private int nextSeq;
+    private final List<String> bindNames = new ArrayList<>();
+    private final List<Object> bindValues = new ArrayList<>();
+
+    public String nextName() {
+      String name = "rca_p" + nextSeq;
+      nextSeq += 1;
+      return name;
+    }
+
+    public void add(String name, Object value) {
+      bindNames.add(name);
+      bindValues.add(value);
+    }
+
+    public RootCauseQuerySpec toSpec(String sql) {
+      return new RootCauseQuerySpec(sql, bindNames, bindValues);
+    }
   }
 
   /** Compute start (inclusive) and end (exclusive) for "last N days ending on date" (date = end of window, UTC). */

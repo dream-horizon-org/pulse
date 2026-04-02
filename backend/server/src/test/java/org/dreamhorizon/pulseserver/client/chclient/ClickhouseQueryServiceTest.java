@@ -168,7 +168,7 @@ class ClickhouseQueryServiceTest {
     }
 
     @Test
-    void shouldBindPositionalParametersForRootCauseQuery() {
+    void shouldBindNamedParametersForRootCauseQuery() {
       ClickhouseProjectCredentials credentials = ClickhouseProjectCredentials.builder()
           .projectId("proj_bind")
           .clickhouseUsername("ch_user")
@@ -192,8 +192,8 @@ class ClickhouseQueryServiceTest {
 
       Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
       io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
-      when(mockConnection.createStatement("SELECT col1 FROM t WHERE id = ?")).thenReturn(mockStatement);
-      when(mockStatement.bind(anyInt(), any())).thenReturn(mockStatement);
+      when(mockConnection.createStatement("SELECT col1 FROM t WHERE id = :id")).thenReturn(mockStatement);
+      when(mockStatement.bind(org.mockito.ArgumentMatchers.anyString(), any())).thenReturn(mockStatement);
       doReturn(Mono.just(mockResult)).when(mockStatement).execute();
       when(mockConnection.close()).thenReturn(Mono.empty());
 
@@ -207,10 +207,11 @@ class ClickhouseQueryServiceTest {
           .thenReturn(mockPool);
 
       clickhouseQueryService
-          .executeRootCauseQuery("proj_bind", "SELECT col1 FROM t WHERE id = ?", List.of("bound-id"))
+          .executeRootCauseQuery(
+              "proj_bind", "SELECT col1 FROM t WHERE id = :id", List.of("id"), List.of("bound-id"))
           .blockingGet();
 
-      verify(mockStatement).bind(1, "bound-id");
+      verify(mockStatement).bind("id", "bound-id");
     }
 
     @Test

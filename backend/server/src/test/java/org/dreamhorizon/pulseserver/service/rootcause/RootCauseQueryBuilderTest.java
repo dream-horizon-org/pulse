@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Nested;
@@ -75,14 +74,15 @@ class RootCauseQueryBuilderTest {
           RootCauseQueryBuilder.buildBaselineQuery(PROJECT, INTERACTION, START, END);
 
       assertThat(spec.sql()).contains("FROM otel.otel_traces");
-      assertThat(spec.sql()).contains("ProjectId = ?");
-      assertThat(spec.sql()).contains("SpanName = ?");
+      assertThat(spec.sql()).contains("ProjectId = :rca_p0");
+      assertThat(spec.sql()).contains("SpanName = :rca_p1");
       assertThat(spec.sql()).contains("PulseType = 'interaction'");
       assertThat(spec.sql()).contains("problematic_count");
       assertThat(spec.sql()).doesNotContain("GROUP BY");
-      assertThat(spec.bindParameters()).hasSize(4);
-      assertThat(spec.bindParameters().get(0)).isEqualTo(PROJECT);
-      assertThat(spec.bindParameters().get(1)).isEqualTo(INTERACTION);
+      assertThat(spec.bindNames()).hasSize(4);
+      assertThat(spec.bindValues()).hasSize(4);
+      assertThat(spec.bindValues().get(0)).isEqualTo(PROJECT);
+      assertThat(spec.bindValues().get(1)).isEqualTo(INTERACTION);
     }
 
     @Test
@@ -92,20 +92,22 @@ class RootCauseQueryBuilderTest {
 
       assertThat(spec.sql()).doesNotContain("p'1");
       assertThat(spec.sql()).doesNotContain("i'n");
-      assertThat(spec.bindParameters().get(0)).isEqualTo("p'1");
-      assertThat(spec.bindParameters().get(1)).isEqualTo("i'n");
+      assertThat(spec.bindValues().get(0)).isEqualTo("p'1");
+      assertThat(spec.bindValues().get(1)).isEqualTo("i'n");
     }
 
     @Test
-    void shouldBuildBaseWhereWithFourPlaceholders() {
-      List<Object> binds = new ArrayList<>();
+    void shouldBuildBaseWhereWithFourNamedParameters() {
+      RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
       String where =
-          RootCauseQueryBuilder.baseWhereSql(binds, PROJECT, INTERACTION, START, END);
+          RootCauseQueryBuilder.baseWhereSql(acc, PROJECT, INTERACTION, START, END);
 
-      assertThat(where).contains("ProjectId = ?");
-      assertThat(where).contains("SpanName = ?");
-      assertThat(where).contains("toDateTime64(?, 9, 'UTC')");
-      assertThat(binds).hasSize(4);
+      assertThat(where).contains("ProjectId = :rca_p0");
+      assertThat(where).contains("SpanName = :rca_p1");
+      assertThat(where).contains("toDateTime64(:rca_p2, 9, 'UTC')");
+      RootCauseQuerySpec spec = acc.toSpec("SELECT 1 WHERE " + where);
+      assertThat(spec.bindNames()).hasSize(4);
+      assertThat(spec.bindValues()).hasSize(4);
     }
 
     @Test
@@ -120,10 +122,10 @@ class RootCauseQueryBuilderTest {
               Map.of("Platform", "Android"));
 
       assertThat(spec.sql()).contains("GROUP BY Platform, OsVersion");
-      assertThat(spec.sql()).contains("Platform = ?");
+      assertThat(spec.sql()).contains("Platform = :rca_p4");
       assertThat(spec.sql()).contains("FROM otel.otel_traces");
-      assertThat(spec.bindParameters()).hasSize(5);
-      assertThat(spec.bindParameters().get(4)).isEqualTo("Android");
+      assertThat(spec.bindValues()).hasSize(5);
+      assertThat(spec.bindValues().get(4)).isEqualTo("Android");
     }
 
     @Test
@@ -148,10 +150,10 @@ class RootCauseQueryBuilderTest {
               Map.of("OsVersion", "14"));
 
       assertThat(spec.sql()).contains("GROUP BY Platform");
-      assertThat(spec.sql()).contains("OsVersion = ?");
+      assertThat(spec.sql()).contains("OsVersion = :rca_p4");
       assertThat(spec.sql()).contains("AS problematic_count");
-      assertThat(spec.bindParameters()).hasSize(5);
-      assertThat(spec.bindParameters().get(4)).isEqualTo("14");
+      assertThat(spec.bindValues()).hasSize(5);
+      assertThat(spec.bindValues().get(4)).isEqualTo("14");
     }
   }
 }

@@ -68,18 +68,20 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
   }
 
   /**
-   * Root-cause analysis ClickHouse queries only: runs SQL with positional {@code ?} binds (R2DBC 1-based).
+   * Root-cause analysis ClickHouse queries only: runs SQL with named binds ({@code :name}) as required by
+   * {@code clickhouse-r2dbc}.
    */
   public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeRootCauseQuery(
-      String projectId, String sql, List<Object> bindParameters) {
+      String projectId, String sql, List<String> bindNames, List<Object> bindValues) {
     final List<GetRawUserEventsResponseDto.Field> schemaFields = new ArrayList<>();
 
     if (projectId == null) {
       return Single.error(new IllegalArgumentException("Project ID must be provided - tenant-level access is not allowed"));
     }
 
-    log.debug("Executing root-cause query with binds for project: {}", projectId);
-    List<Object> binds = bindParameters == null ? List.of() : bindParameters;
+    log.debug("Executing root-cause query with named binds for project: {}", projectId);
+    List<String> names = bindNames == null ? List.of() : bindNames;
+    List<Object> values = bindValues == null ? List.of() : bindValues;
 
     return clickhouseProjectCredentialsDao
         .getCredentialsByProjectId(projectId)
@@ -91,7 +93,7 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
                       projectId,
                       credentials.getClickhouseUsername(),
                       credentials.getClickhousePasswordEncrypted());
-              return executeTenantQueryWithBoundParameters(pool, sql, binds, schemaFields);
+              return executeTenantQueryWithNamedParameters(pool, sql, names, values, schemaFields);
             })
         .doOnError(error -> log.error("Error executing root-cause query for project: {}", projectId, error));
   }
@@ -146,16 +148,17 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
             err -> Single.error(new Exception("Failed to execute tenant query", err)));
   }
 
-  private Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeTenantQueryWithBoundParameters(
+  private Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeTenantQueryWithNamedParameters(
       io.r2dbc.pool.ConnectionPool pool,
       String sql,
-      List<Object> bindParameters,
+      List<String> bindNames,
+      List<Object> bindValues,
       List<GetRawUserEventsResponseDto.Field> schemaFields) {
 
     return Single.fromPublisher(pool.create())
         .flatMap(
             conn -> Flowable.fromPublisher(
-                    bindParameters(conn, sql, bindParameters).execute())
+                    bindNamedParameters(conn, sql, bindNames, bindValues).execute())
                 .flatMap(
                     result -> {
                       return result.map(
@@ -322,13 +325,21 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
   }
 
   /**
-   * ClickHouse R2DBC uses 1-based indices for {@link Statement#bind(int, Object)}.
+   * ClickHouse R2DBC expects named parameters ({@code :param} in SQL, {@link Statement#bind(String, Object)}).
    */
-  private static Statement bindParameters(Connection conn, String sql, List<Object> bindParameters) {
+  private static Statement bindNamedParameters(
+      Connection conn, String sql, List<String> bindNames, List<Object> bindValues) {
     Statement statement = conn.createStatement(sql);
-    List<Object> binds = bindParameters == null ? List.of() : bindParameters;
-    for (int i = 0; i < binds.size(); i++) {
-      statement = statement.bind(i + 1, binds.get(i));
+    List<String> names = bindNames == null ? List.of() : bindNames;
+    List<Object> values = bindValues == null ? List.of() : bindValues;
+    boolean sizesMismatch = names.size() != values.size();
+    if (sizesMismatch) {
+      throw new IllegalArgumentException("bindNames and bindValues must have the same size");
+    }
+    for (int i = 0; i < names.size(); i++) {
+      String name = names.get(i);
+      Object value = values.get(i);
+      statement = statement.bind(name, value);
     }
     return statement;
   }
