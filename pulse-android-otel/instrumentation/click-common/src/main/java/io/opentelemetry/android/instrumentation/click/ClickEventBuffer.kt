@@ -17,7 +17,7 @@ import androidx.annotation.UiThread
  * Widget fields are non-null only when the tap landed on a clickable target ([hasTarget] = true).
  * [clickContext] is the pre-computed `app.click.context` label string (avoids re-traversal on flush).
  */
-public data class PendingClick(
+data class PendingClick(
     val x: Float,
     val y: Float,
     val timestampMs: Long, // monotonic (elapsedRealtime) — used for rage detection timing only
@@ -38,7 +38,7 @@ public data class PendingClick(
  * [hasTarget] mirrors the triggering [PendingClick.hasTarget] — reliable because the rage radius
  * constraint means all buffered taps are near the same point, so they share the same target state.
  */
-public data class RageEvent(
+data class RageEvent(
     val count: Int,
     val hasTarget: Boolean,
     val x: Float,
@@ -153,7 +153,7 @@ class ClickEventBuffer(
      * Returns the current monotonic timestamp in ms. Generators use this to stamp [PendingClick]
      * so that buffer timing tests work with an injected [clock].
      */
-    public fun currentTimeMs(): Long = clock()
+    internal fun currentTimeMs(): Long = clock()
 
     /**
      * Records a tap. Expired clusters are emitted, active clusters extended if the tap is nearby,

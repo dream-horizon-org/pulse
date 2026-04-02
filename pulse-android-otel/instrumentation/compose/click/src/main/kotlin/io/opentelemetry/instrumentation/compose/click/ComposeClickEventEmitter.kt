@@ -31,7 +31,7 @@ internal class ComposeClickEventEmitter(
     private val eventLogger: Logger,
     private val densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
-    clock: () -> Long = SystemClock::elapsedRealtime,
+    private val clock: () -> Long = SystemClock::elapsedRealtime,
 ) {
     // Buffer owns onRage and onEmit so the delayed-emission Handler Runnable can fire without a call-site callback.
     internal val clickEventBuffer =
@@ -43,7 +43,7 @@ internal class ComposeClickEventEmitter(
             clock = clock,
         )
 
-    fun currentTimeMs(): Long = clickEventBuffer.currentTimeMs()
+    fun currentTimeMs(): Long = clock()
 
     /** Records a tap and emits the appropriate event(s). */
     fun process(pending: PendingClick) {
