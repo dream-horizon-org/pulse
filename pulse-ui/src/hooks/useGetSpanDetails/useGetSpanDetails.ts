@@ -10,11 +10,38 @@ import {
   ExceptionEventName,
 } from "./useGetSpanDetails.interface";
 import { makeRequest } from "../../helpers/makeRequest";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import type { AttributeValue } from "../../types/attributes";
 
-dayjs.extend(utc);
+/**
+ * Same instant for `start` and `end` as the clicked event (ISO, SQL-style datetime, or unix ms string).
+ */
+function instantTimeRangeUtc(input: string): { start: string; end: string } {
+  const raw = String(input ?? "").trim();
+  if (!raw) {
+    const z = new Date(0).toISOString();
+    return { start: z, end: z };
+  }
+  if (/^\d+$/.test(raw)) {
+    const ms = Number(raw);
+    if (Number.isFinite(ms)) {
+      const iso = new Date(ms).toISOString();
+      return { start: iso, end: iso };
+    }
+  }
+  let s = raw;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) {
+    s = s.replace(" ", "T");
+  }
+  if (!/Z$/i.test(s) && !/[+-]\d{2}:?\d{2}$/.test(s)) {
+    s = `${s}Z`;
+  }
+  const parsed = Date.parse(s);
+  if (Number.isFinite(parsed)) {
+    const iso = new Date(parsed).toISOString();
+    return { start: iso, end: iso };
+  }
+  return { start: raw, end: raw };
+}
 
 /**
  * Fetches detailed attributes for a specific span
@@ -22,15 +49,13 @@ dayjs.extend(utc);
 const fetchSpanDetails = async (
   traceId: string,
   spanId: string,
-  timestamp: string
+  timestamp: string,
 ): Promise<SpanDetailsResponse> => {
-  const ts = dayjs.utc(timestamp);
-  const startTime = ts.subtract(1, "hour").toISOString();
-  const endTime = ts.add(1, "hour").toISOString();
+  const { start, end } = instantTimeRangeUtc(timestamp);
 
   const requestBody = {
     dataType: "TRACES",
-    timeRange: { start: startTime, end: endTime },
+    timeRange: { start, end },
     select: [
       // Map types - convert to JSON string
       {
@@ -95,7 +120,7 @@ const fetchSpanDetails = async (
   };
 
   const dataQuery = API_ROUTES.DATA_QUERY;
-  
+
   const response = await makeRequest<{ fields: string[]; rows: any[][] }>({
     url: `${API_BASE_URL}${dataQuery.apiPath}`,
     init: {
@@ -125,7 +150,9 @@ const fetchSpanDetails = async (
     };
   }
   const getField = (name: string) => {
-    const index = fields.findIndex((f: string) => f.toLowerCase() === name.toLowerCase());
+    const index = fields.findIndex(
+      (f: string) => f.toLowerCase() === name.toLowerCase(),
+    );
     return index >= 0 ? row[index] : null;
   };
 
@@ -138,9 +165,13 @@ const fetchSpanDetails = async (
   const eventsNameStr = String(getField("eventsName") || "");
   const eventsAttributesStr = String(getField("eventsAttributes") || "");
 
-  const eventsTimestamp = eventsTimestampStr ? eventsTimestampStr.split("|||") : [];
+  const eventsTimestamp = eventsTimestampStr
+    ? eventsTimestampStr.split("|||")
+    : [];
   const eventsName = eventsNameStr ? eventsNameStr.split("|||") : [];
-  const eventsAttributes = eventsAttributesStr ? eventsAttributesStr.split("|||") : [];
+  const eventsAttributes = eventsAttributesStr
+    ? eventsAttributesStr.split("|||")
+    : [];
 
   const events = eventsName
     .filter((name) => name) // Filter out empty strings
@@ -157,7 +188,9 @@ const fetchSpanDetails = async (
 
   const linksTraceId = linksTraceIdStr ? linksTraceIdStr.split("|||") : [];
   const linksSpanId = linksSpanIdStr ? linksSpanIdStr.split("|||") : [];
-  const linksAttributes = linksAttributesStr ? linksAttributesStr.split("|||") : [];
+  const linksAttributes = linksAttributesStr
+    ? linksAttributesStr.split("|||")
+    : [];
 
   const links = linksTraceId
     .filter((id) => id) // Filter out empty strings
@@ -181,19 +214,15 @@ const fetchSpanDetails = async (
 const fetchLogDetails = async (
   traceId: string,
   spanId: string,
-  timestamp: string
+  timestamp: string,
 ): Promise<LogDetailsResponse> => {
-  const ts = dayjs.utc(timestamp);
-  // Use a wider time range for logs to ensure we find the record
-  // (timestamp precision might vary between storage and query)
-  const startTime = ts.subtract(1, "minute").toISOString();
-  const endTime = ts.add(1, "minute").toISOString();
+  const { start, end } = instantTimeRangeUtc(timestamp);
 
   // Build filters - always filter by TraceId
   const filters: any[] = [
     { field: "TraceId", operator: "EQ", value: [traceId] },
   ];
-  
+
   // Only add SpanId filter if it's valid
   if (spanId && spanId !== "" && !spanId.startsWith("0000000")) {
     filters.push({ field: "SpanId", operator: "EQ", value: [spanId] });
@@ -201,7 +230,7 @@ const fetchLogDetails = async (
 
   const requestBody = {
     dataType: "LOGS",
-    timeRange: { start: startTime, end: endTime },
+    timeRange: { start, end },
     select: [
       {
         function: "CUSTOM",
@@ -219,8 +248,16 @@ const fetchLogDetails = async (
         alias: "scopeAttributes",
       },
       { function: "COL", param: { field: "Body" }, alias: "body" },
-      { function: "COL", param: { field: "SeverityText" }, alias: "severityText" },
-      { function: "COL", param: { field: "SeverityNumber" }, alias: "severityNumber" },
+      {
+        function: "COL",
+        param: { field: "SeverityText" },
+        alias: "severityText",
+      },
+      {
+        function: "COL",
+        param: { field: "SeverityNumber" },
+        alias: "severityNumber",
+      },
     ],
     filters,
     limit: 1,
@@ -261,7 +298,9 @@ const fetchLogDetails = async (
     };
   }
   const getField = (name: string) => {
-    const index = fields.findIndex((f: string) => f.toLowerCase() === name.toLowerCase());
+    const index = fields.findIndex(
+      (f: string) => f.toLowerCase() === name.toLowerCase(),
+    );
     return index >= 0 ? row[index] : null;
   };
 
@@ -281,16 +320,13 @@ const fetchLogDetails = async (
 const fetchExceptionDetails = async (
   traceId: string,
   timestamp: string,
-  groupId?: string
+  groupId?: string,
 ): Promise<ExceptionDetailsResponse | null> => {
-  const ts = dayjs.utc(timestamp);
-  // Use a wider time range for exceptions
-  const startTime = ts.subtract(1, "minute").toISOString();
-  const endTime = ts.add(1, "minute").toISOString();
+  const { start, end } = instantTimeRangeUtc(timestamp);
 
   // Build filters
   const filters: any[] = [];
-  
+
   // Prefer groupId + timestamp for exact match, fallback to traceId
   if (groupId) {
     filters.push({ field: "GroupId", operator: "EQ", value: [groupId] });
@@ -300,7 +336,7 @@ const fetchExceptionDetails = async (
 
   const requestBody = {
     dataType: "EXCEPTIONS",
-    timeRange: { start: startTime, end: endTime },
+    timeRange: { start, end },
     select: [
       // Attributes as JSON
       {
@@ -319,28 +355,60 @@ const fetchExceptionDetails = async (
         alias: "scopeAttributes",
       },
       // Exception details
-      { function: "COL", param: { field: "ExceptionStackTrace" }, alias: "exceptionStackTrace" },
-      { function: "COL", param: { field: "ExceptionStackTraceRaw" }, alias: "exceptionStackTraceRaw" },
-      { function: "COL", param: { field: "ExceptionMessage" }, alias: "exceptionMessage" },
-      { function: "COL", param: { field: "ExceptionType" }, alias: "exceptionType" },
+      {
+        function: "COL",
+        param: { field: "ExceptionStackTrace" },
+        alias: "exceptionStackTrace",
+      },
+      {
+        function: "COL",
+        param: { field: "ExceptionStackTraceRaw" },
+        alias: "exceptionStackTraceRaw",
+      },
+      {
+        function: "COL",
+        param: { field: "ExceptionMessage" },
+        alias: "exceptionMessage",
+      },
+      {
+        function: "COL",
+        param: { field: "ExceptionType" },
+        alias: "exceptionType",
+      },
       { function: "COL", param: { field: "Title" }, alias: "title" },
       { function: "COL", param: { field: "EventName" }, alias: "eventName" },
       // Context
       { function: "COL", param: { field: "ScreenName" }, alias: "screenName" },
-      { function: "COL", param: { field: "Interactions" }, alias: "interactions" },
+      {
+        function: "COL",
+        param: { field: "Interactions" },
+        alias: "interactions",
+      },
       { function: "COL", param: { field: "UserId" }, alias: "userId" },
       // Device/app info
       { function: "COL", param: { field: "Platform" }, alias: "platform" },
       { function: "COL", param: { field: "OsVersion" }, alias: "osVersion" },
-      { function: "COL", param: { field: "DeviceModel" }, alias: "deviceModel" },
+      {
+        function: "COL",
+        param: { field: "DeviceModel" },
+        alias: "deviceModel",
+      },
       { function: "COL", param: { field: "AppVersion" }, alias: "appVersion" },
-      { function: "COL", param: { field: "AppVersionCode" }, alias: "appVersionCode" },
+      {
+        function: "COL",
+        param: { field: "AppVersionCode" },
+        alias: "appVersionCode",
+      },
       { function: "COL", param: { field: "SdkVersion" }, alias: "sdkVersion" },
       { function: "COL", param: { field: "BundleId" }, alias: "bundleId" },
       // Grouping
       { function: "COL", param: { field: "GroupId" }, alias: "groupId" },
       { function: "COL", param: { field: "Signature" }, alias: "signature" },
-      { function: "COL", param: { field: "Fingerprint" }, alias: "fingerprint" },
+      {
+        function: "COL",
+        param: { field: "Fingerprint" },
+        alias: "fingerprint",
+      },
     ],
     filters,
     limit: 1,
@@ -367,7 +435,9 @@ const fetchExceptionDetails = async (
     return null;
   }
   const getField = (name: string) => {
-    const index = fields.findIndex((f: string) => f.toLowerCase() === name.toLowerCase());
+    const index = fields.findIndex(
+      (f: string) => f.toLowerCase() === name.toLowerCase(),
+    );
     return index >= 0 ? row[index] : null;
   };
 
@@ -416,7 +486,7 @@ const fetchExceptionDetails = async (
   ] as const;
 
   const stringFields = Object.fromEntries(
-    stringFieldNames.map((name) => [name, getNullableString(name)])
+    stringFieldNames.map((name) => [name, getNullableString(name)]),
   ) as Record<(typeof stringFieldNames)[number], string | null>;
 
   const exceptionStackTrace = getNullableString("exceptionStackTrace");
@@ -430,10 +500,13 @@ const fetchExceptionDetails = async (
         structuredStackTrace = parsed as ExceptionStackTraceNode[];
       }
     } catch (error) {
-      console.warn("[useGetSpanDetails] Failed to parse exception stack trace", {
-        exceptionStackTraceRaw,
-        error,
-      });
+      console.warn(
+        "[useGetSpanDetails] Failed to parse exception stack trace",
+        {
+          exceptionStackTraceRaw,
+          error,
+        },
+      );
     }
   }
 
@@ -469,12 +542,12 @@ const fetchExceptionDetails = async (
  */
 function parseJsonMap(value: unknown): Record<string, AttributeValue> {
   if (!value) return {};
-  
+
   // If it's already an object
   if (typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, AttributeValue>;
   }
-  
+
   // If it's a JSON string, parse safely (no eval).
   if (typeof value === "string") {
     try {
@@ -486,7 +559,7 @@ function parseJsonMap(value: unknown): Record<string, AttributeValue> {
       // Not valid JSON, return empty
     }
   }
-  
+
   return {};
 }
 
@@ -516,7 +589,10 @@ export const useGetSpanDetails = ({
     },
     refetchOnWindowFocus: false,
     // For logs/exceptions, we only need traceId or groupId; for spans, we need both traceId and spanId
-    enabled: enabled && (!!traceId || !!groupId) && (dataType === "LOGS" || dataType === "EXCEPTIONS" || !!spanId),
+    enabled:
+      enabled &&
+      (!!traceId || !!groupId) &&
+      (dataType === "LOGS" || dataType === "EXCEPTIONS" || !!spanId),
     staleTime: Infinity, // Cache forever since details don't change
   });
 };

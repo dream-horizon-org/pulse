@@ -19,10 +19,11 @@ alwaysApply: false
 | otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
 | vector | Build `../vector/` | 8686, 14317, 14318 | — | *(optional: set `VECTOR_ENABLED=true` in .env)* |
 | pulse-ui | Build `pulse-ui/` | 3000 | pulse-server |
-| pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse, openfga |
+| pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse, openfga, pulse-ai-agent |
+| pulse-ai-agent | Build `pulse_ai/` | 8000 | — |
 | pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse |
 
-**Note:** pulse-ai runs via its own `docker-compose.yml` in `pulse_ai/` (port 8000). Manage with `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
+**Pulse AI:** `pulse-ai-agent` is part of the default deploy stack (`docker compose up`). Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini; the process starts without it but model/API calls fail. **Standalone** AI-only dev: `pulse_ai/docker-compose.yml` + `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
 ## Network
 
@@ -30,12 +31,13 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 ## Volumes
 
-`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` when Vector profile is enabled.)
+`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` when Vector profile is enabled.) `pulse-ai-sessions` — SQLite session store for integrated `pulse-ai-agent` (not removed by `reset-databases.sh`; remove volume manually if needed).
 
 ## Environment Variables
 
 - `APP_ENVIRONMENT` — **Required.** Application environment (`dev`, `stag`, `uat`, `prod`). Validated at startup. Passed to pulse-server in docker-compose (default: `dev`).
 - `CONFIG_SERVICE_APPLICATION_*` — backend app config
+- `CONFIG_REPLAY_API_BASE_URL` — session replay API base URL (e.g. `http://localhost:3400`); used in default SDK config
 - `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
 - `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection
 - `REACT_APP_*` — frontend build-time config
@@ -44,7 +46,11 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI, UI redirect URL)
 - `OPENFGA_*` — OpenFGA authorization service config
 - `AWS_*` — AWS credentials for Athena/S3
-- `AI_SERVICE_URL` — Pulse AI agent service URL (default: `http://pulse-ai-agent:8000`)
+- `COMPOSE_PROFILES` — Optional. Used for Vector (`VECTOR_ENABLED=true` appends `vector`). Plain `docker compose` also reads this env when set manually.
+- `GOOGLE_API_KEY` — Google GenAI / ADK for `pulse-ai-agent` (process starts without it; Gemini calls fail at runtime).
+- `PULSE_BASE_URL` — Base URL for pulse_ai tools → pulse-server (compose default: `http://pulse-server:8080`).
+- `SESSION_DB_URL` — AI session DB; compose defaults to SQLite on volume `pulse-ai-sessions`.
+- `AI_SERVICE_URL` — URL pulse-server uses for AI proxy (compose default: `http://pulse-ai-agent:8000`). Override (e.g. `http://host.docker.internal:8000`) when AI runs on the host or outside deploy compose.
 - `SPAN_COLLECTOR_URL` — OTLP span collector endpoint (default: `http://localhost:4318/v1/traces`)
 - `LOGS_COLLECTOR_URL` — OTLP logs collector endpoint (default: `http://localhost:4318/v1/logs`)
 - `METRIC_COLLECTOR_URL` — OTLP metrics collector endpoint (default: `http://localhost:4318/v1/metrics`)
@@ -66,11 +72,11 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 | Script | Options |
 |--------|---------|
-| `build.sh` | `[--no-cache] [ui|server|cron|all]` |
-| `start.sh` | `[-d|--detach] [--build] [--no-cache] [--skip-env-check]` |
-| `stop.sh` | `-v` to remove volumes |
-| `logs.sh` | service name (e.g., `pulse-server`, `otel-collector`) |
-| `quickstart.sh` | `[--no-cache] [--skip-env-check]` — builds + starts all |
+| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `ai`, `all` — default / `all` includes `pulse-ai-agent` |
+| `start.sh` | `[-d` or `--detach] [--build] [--no-cache] [--skip-env-check]` |
+| `stop.sh` | `-v` to remove volumes; service aliases include `ai`, `pulse-ai-agent` |
+| `logs.sh` | service name (e.g., `server`, `ai`, `otel-collector`) |
+| `quickstart.sh` | `[--no-cache] [--skip-env-check]` — builds + starts stack (includes AI) |
 | `reset-databases.sh` | drops volumes and reinitializes |
 | `init-clickhouse.sh` | creates ClickHouse tables from schema SQL + session-summary MV |
 
@@ -78,4 +84,4 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 **Required (no default in compose):** `VAULT_ENCRYPTION_MASTER_KEY`, `REACT_APP_GOOGLE_CLIENT_ID`, `REACT_APP_FIREBASE_*`, `CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID`, `CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID`, `CONFIG_SERVICE_APPLICATION_WEBHOOKURL`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`. Must be set in `.env`. `SLACK_*` are optional (default empty; needed only for Slack API integration).
 
-**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is optional; enable via `VECTOR_ENABLED=true` in .env.
+**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is optional (`VECTOR_ENABLED=true`). `pulse-server` `depends_on` `pulse-ai-agent` with `condition: service_healthy`.

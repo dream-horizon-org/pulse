@@ -5,7 +5,7 @@
 
     <groupId>org.dreamhorizon</groupId>
     <artifactId>pulse-server</artifactId>
-    <version>1.4-SNAPSHOT</version>
+    <version>1.5-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>pulse-server</name>
 
@@ -631,6 +631,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/errorgrouping/IosLlvmSymbolicator.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -661,6 +662,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/errorgrouping/IosLlvmSymbolicator.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>

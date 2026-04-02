@@ -9,6 +9,7 @@ android {
 
 dependencies {
     api(projects.core)
+    implementation(projects.instrumentation.androidInstrumentation)
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.instrumentation.api)
     implementation(projects.common)

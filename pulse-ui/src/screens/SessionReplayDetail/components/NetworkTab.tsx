@@ -1,0 +1,79 @@
+import {
+  Stack,
+  Group,
+  SegmentedControl,
+  Card,
+  Badge,
+  Text,
+} from "@mantine/core";
+import { NetworkVisualization } from "./NetworkVisualization";
+import { formatTimestamp } from "../utils/sessionUtils";
+import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
+import { TabPanelScrollArea } from "./TabPanelScrollArea";
+
+interface NetworkTabProps {
+  sessionData: SessionDetailData;
+  viewMode: "text" | "graph";
+  onViewModeChange: (mode: "text" | "graph") => void;
+}
+
+export function NetworkTab({
+  sessionData,
+  viewMode,
+  onViewModeChange,
+}: NetworkTabProps) {
+  return (
+    <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
+      <Group justify="flex-end" wrap="nowrap" flex="0 0 auto">
+        <SegmentedControl
+          size="xs"
+          value={viewMode}
+          onChange={(value) => onViewModeChange(value as "text" | "graph")}
+          data={[
+            { label: "Text", value: "text" },
+            { label: "Graph", value: "graph" },
+          ]}
+        />
+      </Group>
+      <TabPanelScrollArea>
+        {viewMode === "graph" ? (
+          <NetworkVisualization
+            networkRequests={sessionData.networkRequests}
+            sessionStartTime={new Date(sessionData.startTime)}
+          />
+        ) : (
+          <Stack gap="xs">
+            {sessionData.networkRequests.map((req, idx) => (
+              <Card key={idx} padding="sm" withBorder>
+                <Group justify="space-between" mb={4}>
+                  <Group gap="xs">
+                    <Badge size="xs" variant="light">
+                      {req.method}
+                    </Badge>
+                    <Badge
+                      size="xs"
+                      color={
+                        req.status >= 200 && req.status < 300 ? "teal" : "red"
+                      }
+                    >
+                      {req.status}
+                    </Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    {req.duration}ms
+                  </Text>
+                </Group>
+                <Text size="sm" ff="monospace" truncate="end">
+                  {req.url}
+                </Text>
+                <Text size="xs" c="dimmed" mt={4}>
+                  {formatTimestamp(req.timestamp, sessionData.startTime)}
+                </Text>
+              </Card>
+            ))}
+          </Stack>
+        )}
+      </TabPanelScrollArea>
+    </Stack>
+  );
+}

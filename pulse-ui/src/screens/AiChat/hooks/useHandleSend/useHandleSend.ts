@@ -80,9 +80,10 @@ export const useHandleSend = () => {
           markLastMessageComplete(sid);
         },
         onError: (errMsg) => {
+          console.error("[Pulse AI]", errMsg);
           setStreaming(false);
-          setError(errMsg);
-          markLastMessageError(sid, AI_CHAT_TEXTS.FAILED_RESPONSE);
+          setError(AI_CHAT_TEXTS.ERROR_GENERIC);
+          markLastMessageError(sid, AI_CHAT_TEXTS.ERROR_GENERIC);
         },
       });
     },
