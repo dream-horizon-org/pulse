@@ -91,6 +91,12 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/NetworkMon
 	public fun enabled (Z)V
 }
 
+public final class io/opentelemetry/android/agent/dsl/instrumentation/RageConfiguration {
+	public final fun radiusDp (F)V
+	public final fun rageThreshold (I)V
+	public final fun timeWindowMs (J)V
+}
+
 public final class io/opentelemetry/android/agent/dsl/instrumentation/SlowRenderingReporterConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {
 	public final fun detectionPollInterval-LRDsOJo (J)V
 	public final fun disableFrameAttributes ()V
@@ -100,6 +106,7 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/SlowRender
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/ViewClickConfiguration {
 	public final fun captureContext (Z)V
+	public final fun rage (Lkotlin/jvm/functions/Function1;)V
 }
 
 public final class io/opentelemetry/android/agent/session/SessionConfig {

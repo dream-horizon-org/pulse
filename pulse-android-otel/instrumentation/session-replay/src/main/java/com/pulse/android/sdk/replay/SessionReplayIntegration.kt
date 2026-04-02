@@ -45,6 +45,7 @@ public class SessionReplayIntegration(
     private val config: SessionReplayConfig,
     private val eventEmitter: ReplayEventEmitter,
     private val sessionIdProvider: () -> String,
+    private val screenNameProvider: () -> String,
 ) : SessionReplayController {
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val logger: (String) -> Unit = { msg ->
@@ -229,7 +230,7 @@ public class SessionReplayIntegration(
                 wireframe = wireframeOrNull,
                 status = status,
                 timestamp = timestamp,
-                view = view,
+                screenName = screenNameProvider().takeIf { it.isNotBlank() } ?: "unknown",
                 screenWidth = screenWidth,
                 screenHeight = screenHeight,
             )

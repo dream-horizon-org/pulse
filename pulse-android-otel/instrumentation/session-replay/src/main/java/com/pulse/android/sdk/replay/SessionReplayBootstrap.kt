@@ -14,4 +14,11 @@ public data class SessionReplayBootstrap(
      * capture will begin once consent transitions to [PulseDataCollectionConsent.ALLOWED].
      */
     public val isStartActive: Boolean = true,
+    /**
+     * Provides the current screen name for the replay Meta event.
+     * Should return the same value as [screen.name] on OTel log records — i.e. the currently
+     * visible Fragment class name, falling back to Activity class name.
+     * Defaults to "unknown" if not provided.
+     */
+    public val screenNameProvider: () -> String = { "unknown" },
 )

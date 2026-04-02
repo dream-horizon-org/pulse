@@ -31,6 +31,28 @@ public sealed class PulseFeatureConfigData {
     ) : PulseFeatureConfigData()
 
     /**
+     * Click instrumentation feature config (rage-click detection parameters).
+     */
+    @Keep
+    @Serializable
+    public data class ClickInstrumentation(
+        @SerialName("featureName") val featureName: String? = null,
+        @SerialName("rage") val rage: Rage? = null,
+    ) : PulseFeatureConfigData() {
+        /**
+         * Rage-click detection parameters. All fields are optional; absent fields fall back to
+         * SDK hard-coded defaults (field-level override, not all-or-nothing).
+         */
+        @Keep
+        @Serializable
+        public data class Rage(
+            @SerialName("timeWindowMs") val timeWindowMs: Long? = null,
+            @SerialName("rageThreshold") val rageThreshold: Int? = null,
+            @SerialName("radius") val radius: Float? = null,
+        )
+    }
+
+    /**
      * Placeholder for features with no config or unknown config structure.
      */
     @Keep

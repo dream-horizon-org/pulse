@@ -20,7 +20,7 @@ class ReplayEnvelopeBuilderTest {
         assertThat(json).contains("sid-123")
         assertThat(json).contains("proj-1")
         assertThat(json).contains("user-1")
-        assertThat(json).contains("android")
+        assertThat(json).contains("Android")
         val obj = Json.parseToJsonElement(json).jsonObject
         assertThat(obj["event"]!!.jsonPrimitive.content).isEqualTo("snapshot")
         assertThat(

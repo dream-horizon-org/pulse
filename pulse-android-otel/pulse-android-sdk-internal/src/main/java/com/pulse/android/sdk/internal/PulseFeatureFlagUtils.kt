@@ -43,6 +43,10 @@ internal object PulseFeatureFlagUtils {
                     PulseFeatureName.RN_SCREEN_LOAD,
                     PulseFeatureName.RN_SCREEN_INTERACTIVE,
                     PulseFeatureName.SESSION_REPLAY,
+                    // CLICK suppression is intentionally omitted until the backend starts sending
+                    // the "click" feature. Once the backend rolls it out, add CLICK here so that
+                    // sessionSampleRate = 0.0 or feature absence can disable click instrumentation.
+                    PulseFeatureName.CLICK,
                     PulseFeatureName.UNKNOWN,
                     -> Unit
                 }

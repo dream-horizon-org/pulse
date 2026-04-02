@@ -47,29 +47,21 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 internal class ComposeClickEventGeneratorTest {
     private lateinit var openTelemetryRule: OpenTelemetryRule
-
     private lateinit var composeClickEventGenerator: ComposeClickEventGenerator
 
-    @MockK
-    lateinit var composeLayoutNodeUtil: ComposeLayoutNodeUtil
+    @MockK lateinit var composeLayoutNodeUtil: ComposeLayoutNodeUtil
 
-    @MockK
-    lateinit var window: Window
+    @MockK lateinit var window: Window
 
-    @MockK
-    lateinit var callback: Callback
+    @MockK lateinit var callback: Callback
 
-    @MockK
-    internal lateinit var composeView: AndroidComposeView
+    @MockK internal lateinit var composeView: AndroidComposeView
 
-    @MockK
-    lateinit var semanticsModifier: SemanticsModifier
+    @MockK lateinit var semanticsModifier: SemanticsModifier
 
-    @MockK
-    lateinit var modifier: Modifier
+    @MockK lateinit var modifier: Modifier
 
-    @MockK
-    lateinit var semanticsConfiguration: SemanticsConfiguration
+    @MockK lateinit var semanticsConfiguration: SemanticsConfiguration
 
     @Before
     fun setup() {
@@ -88,17 +80,17 @@ internal class ComposeClickEventGeneratorTest {
         every { window.decorView } returns composeView
         every { window.callback = any() } returns Unit
         every { window.context } returns ApplicationProvider.getApplicationContext<Context>()
+        // isPointInComposeView calls getLocationInWindow (relaxed → {0,0}) and width/height.
+        every { composeView.width } returns 1000
+        every { composeView.height } returns 1000
 
         composeClickEventGenerator.startTracking(window)
     }
 
     @Test
     fun `capture click for a single hit target`() {
-        val motionEvent =
-            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
-
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         every { composeView.childCount } returns 0
-
         buildMockLayoutNodeTree(
             targetX = motionEvent.x,
             targetY = motionEvent.y,
@@ -109,9 +101,11 @@ internal class ComposeClickEventGeneratorTest {
         val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
         motionEvent.recycle()
 
+        // Flush buffered click via stopTracking.
+        composeClickEventGenerator.stopTracking()
+
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
-
         assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
@@ -119,17 +113,15 @@ internal class ComposeClickEventGeneratorTest {
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
                 equalTo(APP_WIDGET_ID, "2"),
                 equalTo(APP_WIDGET_NAME, "click"),
+                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.GOOD),
             )
         upEvent.recycle()
     }
 
     @Test
     fun `capture click when there are two valid targets but the top target wins`() {
-        val motionEvent =
-            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
-
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         every { composeView.childCount } returns 0
-
         buildMockLayoutNodeTree(
             targetX = motionEvent.x,
             targetY = motionEvent.y,
@@ -139,10 +131,10 @@ internal class ComposeClickEventGeneratorTest {
 
         val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
         motionEvent.recycle()
+        composeClickEventGenerator.stopTracking()
 
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
-
         assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
@@ -150,17 +142,15 @@ internal class ComposeClickEventGeneratorTest {
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
                 equalTo(APP_WIDGET_ID, "3"),
                 equalTo(APP_WIDGET_NAME, "click"),
+                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.GOOD),
             )
         upEvent.recycle()
     }
 
     @Test
     fun `capture click when there are two valid targets but the top target wins and use content description for name`() {
-        val motionEvent =
-            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
-
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         every { composeView.childCount } returns 0
-
         buildMockLayoutNodeTree(
             targetX = motionEvent.x,
             targetY = motionEvent.y,
@@ -171,10 +161,10 @@ internal class ComposeClickEventGeneratorTest {
 
         val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
         motionEvent.recycle()
+        composeClickEventGenerator.stopTracking()
 
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
-
         assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
@@ -182,6 +172,7 @@ internal class ComposeClickEventGeneratorTest {
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
                 equalTo(APP_WIDGET_ID, "3"),
                 equalTo(APP_WIDGET_NAME, "clickMe"),
+                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.GOOD),
             )
         upEvent.recycle()
     }
@@ -203,11 +194,8 @@ internal class ComposeClickEventGeneratorTest {
         every { window.context } returns ApplicationProvider.getApplicationContext<Context>()
         generator.startTracking(window)
 
-        val motionEvent =
-            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
-
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         every { composeView.childCount } returns 0
-
         buildMockLayoutNodeTree(
             targetX = motionEvent.x,
             targetY = motionEvent.y,
@@ -217,6 +205,7 @@ internal class ComposeClickEventGeneratorTest {
 
         val upEvent = dispatchDownThenUpOnGenerator(generator, motionEvent.x, motionEvent.y)
         motionEvent.recycle()
+        generator.stopTracking()
 
         val events = localRule.logRecords
         assertThat(events).hasSize(1)
@@ -224,15 +213,84 @@ internal class ComposeClickEventGeneratorTest {
         upEvent.recycle()
     }
 
-    /** Real taps send ACTION_DOWN then ACTION_UP; the generator requires both for click detection. */
+    @Test
+    fun `dead click emits screen click event with dead type`() {
+        // No hit nodes → dead click.
+        every { composeView.childCount } returns 0
+        buildMockLayoutNodeTree(targetX = 999f, targetY = 999f) // nodes placed far from tap
+
+        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
+        motionEvent.recycle()
+        composeClickEventGenerator.stopTracking()
+
+        val events = openTelemetryRule.logRecords
+        assertThat(events).hasSize(1)
+        assertThat(events[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
+            .hasAttributesSatisfying(
+                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.DEAD),
+            )
+        upEvent.recycle()
+    }
+
+    @Test
+    fun `rage click emits single rage event and suppresses individual clicks`() {
+        val fakeClock = FakeClock()
+        val generator =
+            ComposeClickEventGenerator(
+                openTelemetryRule.openTelemetry.logsBridge
+                    .loggerBuilder("test")
+                    .build(),
+                isContextEnrichmentEnabled = false,
+                composeLayoutNodeUtil = composeLayoutNodeUtil,
+                clock = fakeClock::now,
+            )
+        every { window.callback } returns callback
+        every { window.callback = any() } returns Unit
+        every { window.context } returns ApplicationProvider.getApplicationContext<Context>()
+        generator.startTracking(window)
+
+        val x = 250f
+        val y = 50f
+        every { composeView.childCount } returns 0
+        buildMockLayoutNodeTree(targetX = x, targetY = y, hitIndexes = listOf(2), clickableIndexes = listOf(2))
+
+        // 3 taps → rage threshold crossed, window still open, nothing emitted yet.
+        repeat(3) {
+            fakeClock.advanceMs(50)
+            dispatchDownThenUpOnGenerator(generator, x, y)
+        }
+        assertThat(openTelemetryRule.logRecords).hasSize(0)
+
+        // Clicks 4-6 are suppressed, count accumulates to 6.
+        repeat(3) {
+            fakeClock.advanceMs(50)
+            dispatchDownThenUpOnGenerator(generator, x, y)
+        }
+        assertThat(openTelemetryRule.logRecords).hasSize(0)
+
+        // stopTracking (flush) closes the window → rage emitted with count=6.
+        generator.stopTracking()
+        assertThat(openTelemetryRule.logRecords).hasSize(1)
+        assertThat(openTelemetryRule.logRecords[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
+            .hasAttributesSatisfying(
+                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.GOOD),
+                equalTo(PulseAttributes.CLICK_IS_RAGE, true),
+                equalTo(PulseAttributes.CLICK_RAGE_COUNT, 6L),
+            )
+    }
+
+    // region Helpers
+
     private fun dispatchDownThenUpOnGenerator(
         generator: ComposeClickEventGenerator,
         x: Float,
         y: Float,
     ): MotionEvent {
         val down = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, x, y, 0)
-        val up =
-            MotionEvent.obtain(0L, SystemClock.uptimeMillis() + 10, MotionEvent.ACTION_UP, x, y, 0)
+        val up = MotionEvent.obtain(0L, SystemClock.uptimeMillis() + 10, MotionEvent.ACTION_UP, x, y, 0)
         generator.generateClick(down)
         generator.generateClick(up)
         down.recycle()
@@ -257,14 +315,16 @@ internal class ComposeClickEventGeneratorTest {
                     left = targetX - hitOffset[0],
                     right = targetX + hitOffset[0],
                     top = targetY - hitOffset[1],
-                    bottom = targetY + hitOffset[1],
+                    bottom =
+                        targetY + hitOffset[1],
                 )
             } else {
                 Rect(
                     left = targetX + hitOffset[0],
                     right = targetX + hitOffset[0],
                     top = targetY + hitOffset[1],
-                    bottom = targetY + hitOffset[1],
+                    bottom =
+                        targetY + hitOffset[1],
                 )
             }
 
@@ -272,32 +332,22 @@ internal class ComposeClickEventGeneratorTest {
         every { mockNode.getModifierInfo() } returns listOf(mockModifierInfo)
         if (clickable) {
             every { mockModifierInfo.modifier } returns semanticsModifier
-
             every { semanticsModifier.semanticsConfiguration } returns semanticsConfiguration
             every { semanticsConfiguration.contains(eq(SemanticsActions.OnClick)) } returns true
-
             if (useDescription) {
                 every { semanticsConfiguration.getOrNull(eq(SemanticsActions.OnClick)) } returns null
-                every { semanticsConfiguration.getOrNull(eq(SemanticsProperties.ContentDescription)) } returns
-                    listOf(
-                        "clickMe",
-                    )
+                every { semanticsConfiguration.getOrNull(eq(SemanticsProperties.ContentDescription)) } returns listOf("clickMe")
             } else {
                 every { semanticsConfiguration.getOrNull(eq(SemanticsActions.OnClick)) } returns
                     AccessibilityAction<() -> Boolean>("click") { true }
             }
-
             every { mockNode.semanticsId } returns id
         } else {
             every { mockModifierInfo.modifier } returns modifier
         }
 
         every { composeLayoutNodeUtil.getLayoutNodeBoundsInWindow(mockNode) } returns bounds
-        every { composeLayoutNodeUtil.getLayoutNodePositionInWindow(mockNode) } returns
-            Offset(
-                x = bounds.left,
-                y = bounds.top,
-            )
+        every { composeLayoutNodeUtil.getLayoutNodePositionInWindow(mockNode) } returns Offset(x = bounds.left, y = bounds.top)
 
         return mockNode
     }
@@ -309,26 +359,34 @@ internal class ComposeClickEventGeneratorTest {
         clickableIndexes: List<Int> = emptyList(),
         describableIndexes: List<Int> = emptyList(),
     ) {
-        val nodeList = mutableListOf<LayoutNode>()
-        for (i in 0 until 5) {
-            nodeList.add(
+        val nodeList =
+            (0 until 5).map {
                 createMockLayoutNode(
                     targetX = targetX,
                     targetY = targetY,
-                    id = i,
-                    hit = hitIndexes.contains(i),
-                    clickable = clickableIndexes.contains(i),
-                    useDescription = describableIndexes.contains(i),
-                ),
-            )
-        }
-
+                    id = it,
+                    hit = hitIndexes.contains(it),
+                    clickable = clickableIndexes.contains(it),
+                    useDescription = describableIndexes.contains(it),
+                )
+            }
         every { nodeList[0].zSortedChildren } returns mutableVectorOf(nodeList[1], nodeList[2])
         every { nodeList[1].zSortedChildren } returns mutableVectorOf(nodeList[4], nodeList[3])
         every { nodeList[2].zSortedChildren } returns mutableVectorOf()
-
         every { nodeList[3].zSortedChildren } returns mutableVectorOf()
         every { nodeList[4].zSortedChildren } returns mutableVectorOf()
         every { composeView.root } returns nodeList[0]
     }
+
+    private class FakeClock(
+        private var timeMs: Long = 0L,
+    ) {
+        fun now(): Long = timeMs
+
+        fun advanceMs(ms: Long) {
+            timeMs += ms
+        }
+    }
+
+    // endregion
 }

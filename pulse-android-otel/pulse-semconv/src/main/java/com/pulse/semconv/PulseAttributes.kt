@@ -30,11 +30,71 @@ public object PulseAttributes {
     public val PROJECT_ID: AttributeKey<String> = stringKey("project.id")
 
     /**
+     * Screen width in density-independent pixels (dp on Android, pt on iOS).
+     * Set once at SDK init time from the device display metrics.
+     */
+    @JvmField
+    public val DEVICE_SCREEN_WIDTH: AttributeKey<Long> = AttributeKey.longKey("device.screen.width")
+
+    /**
+     * Screen height in density-independent pixels (dp on Android, pt on iOS).
+     * Set once at SDK init time from the device display metrics.
+     */
+    @JvmField
+    public val DEVICE_SCREEN_HEIGHT: AttributeKey<Long> = AttributeKey.longKey("device.screen.height")
+
+    /**
+     * Simplified aspect ratio of the screen as "width:height", e.g. "9:20".
+     * Computed from [DEVICE_SCREEN_WIDTH] and [DEVICE_SCREEN_HEIGHT] via GCD reduction.
+     * Consistent across Android (dp) and iOS (pt) for standard display densities.
+     */
+    @JvmField
+    public val DEVICE_SCREEN_ASPECT_RATIO: AttributeKey<String> = stringKey("device.screen.aspect_ratio")
+
+    /**
      * Structured context for a click/tap. Model-readable format: `label=X` when a human-readable
      * label was extracted. Set on app.widget.click only. Omitted when nothing extractable.
      */
     @JvmField
     public val APP_CLICK_CONTEXT: AttributeKey<String> = stringKey("app.click.context")
+
+    /**
+     * Quality of the click: "good" when the tap landed on an interactive target,
+     * "dead" when it missed all clickable elements.
+     */
+    @JvmField
+    public val CLICK_TYPE: AttributeKey<String> = stringKey("click.type")
+
+    /** Number of taps in the rage-click cluster. Set when [CLICK_IS_RAGE] is true. */
+    @JvmField
+    public val CLICK_RAGE_COUNT: AttributeKey<Long> = AttributeKey.longKey("click.rageCount")
+
+    /**
+     * Normalised tap X coordinate: [APP_SCREEN_COORDINATE_X] / [VIEWPORT_WIDTH].
+     * Range 0.0–1.0 (0 = left edge, 1 = right edge). Device-size-independent.
+     */
+    @JvmField
+    public val APP_SCREEN_COORDINATE_NX: AttributeKey<Double> = AttributeKey.doubleKey("app.screen.coordinate.nx")
+
+    /**
+     * Normalised tap Y coordinate: [APP_SCREEN_COORDINATE_Y] / [VIEWPORT_HEIGHT].
+     * Range 0.0–1.0 (0 = top edge, 1 = bottom edge). Device-size-independent.
+     */
+    @JvmField
+    public val APP_SCREEN_COORDINATE_NY: AttributeKey<Double> = AttributeKey.doubleKey("app.screen.coordinate.ny")
+
+    /**
+     * True when the click is part of a rage cluster. Orthogonal to [CLICK_TYPE] —
+     * a rage event is still classified as "good" (hit a target) or "dead" (missed),
+     * with this flag and [CLICK_RAGE_COUNT] added alongside.
+     */
+    @JvmField
+    public val CLICK_IS_RAGE: AttributeKey<Boolean> = AttributeKey.booleanKey("click.is_rage")
+
+    public object ClickTypeValues {
+        public const val GOOD: String = "good"
+        public const val DEAD: String = "dead"
+    }
 
     public object AppClickContext {
         /**

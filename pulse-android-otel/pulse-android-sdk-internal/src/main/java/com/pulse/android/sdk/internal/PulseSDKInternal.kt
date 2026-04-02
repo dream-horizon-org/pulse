@@ -42,10 +42,13 @@ import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
+import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConfig
+import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationInstrumentationConstants
+import io.opentelemetry.android.internal.services.Services
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
@@ -311,6 +314,21 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             currentSdkConfig?.interaction?.configUrl?.let { interactionConfigUrl ->
                 instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
+            currentSdkConfig
+                ?.features
+                ?.firstOrNull { it.featureName == PulseFeatureName.CLICK }
+                ?.config
+                ?.let { it as? PulseFeatureConfigData.ClickInstrumentation }
+                ?.rage
+                ?.let { backendRage ->
+                    val local = ClickContextEnrichmentConfig.rageConfig
+                    ClickContextEnrichmentConfig.rageConfig =
+                        RageConfig(
+                            timeWindowMs = backendRage.timeWindowMs ?: local.timeWindowMs,
+                            rageThreshold = backendRage.rageThreshold ?: local.rageThreshold,
+                            radiusDp = backendRage.radius ?: local.radiusDp,
+                        )
+                }
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
             sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)
             pulseSamplingProcessors?.run {
@@ -327,6 +345,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     projectId = extractProjectID(apiKey),
                     userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
                     isStartActive = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
+                    screenNameProvider = { Services.get(application).visibleScreenTracker.currentlyVisibleScreen },
                 ),
             )
         }
@@ -361,6 +380,12 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         }
                         attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
                         attributesBuilder.put(PulseSessionAttributes.PULSE_METERING_SESSION_ID, meteredSessionManager.getSessionId())
+                        application.resources.displayMetrics.let { dm ->
+                            val w = (dm.widthPixels / dm.density).toLong()
+                            val h = (dm.heightPixels / dm.density).toLong()
+                            val g = gcd(w, h)
+                            attributesBuilder.put(PulseAttributes.DEVICE_SCREEN_ASPECT_RATIO, "${w / g}:${h / g}")
+                        }
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())
                         }
@@ -794,6 +819,11 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
+
+        private fun gcd(
+            a: Long,
+            b: Long,
+        ): Long = if (b == 0L) kotlin.math.abs(a) else gcd(b, a % b)
 
         internal fun extractProjectID(apiKey: String): String {
             val lastUnderscoreIndex = apiKey.lastIndexOf('_')
