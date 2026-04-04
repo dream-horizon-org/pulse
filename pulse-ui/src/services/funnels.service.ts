@@ -1,6 +1,6 @@
-import {API_BASE_URL} from "../constants";
-import {makeRequest} from "../helpers/makeRequest";
-import {getQueryParamString} from "../helpers/queryParams";
+import { API_BASE_URL } from "../constants";
+import { makeRequest } from "../helpers/makeRequest";
+import { getQueryParamString } from "../helpers/queryParams";
 
 /** Saved funnel or journey row returned by the listing API. */
 export type FunnelJourneyListItem = {
@@ -82,8 +82,8 @@ export type FunnelJourneyDetail = FunnelJourneyListItem & {
   expiryDate?: string;
 };
 
-const FUNNELS_BASE = "/v1/funnels";
-const JOURNEYS_BASE = "/v1/journeys";
+const FUNNELS_BASE = "/v1/funnel";
+const JOURNEYS_BASE = "/v1/journey";
 
 function filterListParams(
   params: FunnelJourneyListQueryParams,
@@ -102,7 +102,9 @@ function filterListParams(
 }
 
 /** GET /v1/funnels */
-export async function fetchFunnelsList(queryParams: FunnelJourneyListQueryParams) {
+export async function fetchFunnelsList(
+  queryParams: FunnelJourneyListQueryParams,
+) {
   const filtered = filterListParams(queryParams);
   const suffix =
     Object.keys(filtered).length > 0 ? getQueryParamString(filtered) : "";
@@ -116,7 +118,9 @@ export async function fetchFunnelsList(queryParams: FunnelJourneyListQueryParams
 }
 
 /** GET /v1/journeys */
-export async function fetchJourneysList(queryParams: FunnelJourneyListQueryParams) {
+export async function fetchJourneysList(
+  queryParams: FunnelJourneyListQueryParams,
+) {
   const filtered = filterListParams(queryParams);
   const suffix =
     Object.keys(filtered).length > 0 ? getQueryParamString(filtered) : "";

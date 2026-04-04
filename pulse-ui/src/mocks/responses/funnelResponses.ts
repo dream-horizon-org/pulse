@@ -2,7 +2,8 @@
  * Funnel Analysis & Journey Explorer Mock Responses
  */
 
-import {MockRequest, MockResponse} from "../types";
+import { MockRequest, MockResponse } from "../types";
+import { API_ROUTES } from "../../constants";
 
 /**
  * Single source of truth for funnel conversion KPIs in mocks.
@@ -64,69 +65,6 @@ const MOCK_PAYMENT_FUNNEL_ANALYZE_RESPONSE = {
   totalEnteredUsers: 8750,
   overallConversionRate:
     MOCK_FUNNEL_CONVERSION_BY_ID["funnel-payment-001"].overallConversionRate,
-};
-
-const MOCK_FUNNEL_HEALTH_RESPONSE = {
-  steps: [
-    {
-      stepLevel: 1,
-      stepName: "Screen_View: Home",
-      totalUsers: 14200,
-      crashUsers: 42,
-      anrUsers: 18,
-      nonFatalUsers: 120,
-      crashRate: 0.3,
-      anrRate: 0.13,
-      nonFatalRate: 0.85,
-    },
-    {
-      stepLevel: 2,
-      stepName: "Screen_View: Product Detail",
-      totalUsers: 9680,
-      crashUsers: 38,
-      anrUsers: 22,
-      nonFatalUsers: 95,
-      crashRate: 0.39,
-      anrRate: 0.23,
-      nonFatalRate: 0.98,
-    },
-    {
-      stepLevel: 3,
-      stepName: "Tap: Add to Cart",
-      totalUsers: 6840,
-      crashUsers: 15,
-      anrUsers: 8,
-      nonFatalUsers: 52,
-      crashRate: 0.22,
-      anrRate: 0.12,
-      nonFatalRate: 0.76,
-    },
-    {
-      stepLevel: 4,
-      stepName: "Tap: Checkout",
-      totalUsers: 5100,
-      crashUsers: 28,
-      anrUsers: 14,
-      nonFatalUsers: 41,
-      crashRate: 0.55,
-      anrRate: 0.27,
-      nonFatalRate: 0.8,
-    },
-    {
-      stepLevel: 5,
-      stepName: "Tap: Place Order",
-      totalUsers: 4600,
-      crashUsers: 52,
-      anrUsers: 31,
-      nonFatalUsers: 22,
-      crashRate: 1.13,
-      anrRate: 0.67,
-      nonFatalRate: 0.48,
-    },
-  ],
-  totalCrashUsers: 175,
-  totalAnrUsers: 93,
-  totalNonFatalUsers: 330,
 };
 
 const MOCK_FUNNEL_SESSIONS_RESPONSE = {
@@ -1185,42 +1123,51 @@ export function handleFunnelEndpoints(
 ): MockResponse {
   const pathOnly = pathname.split("?")[0].replace(/\/$/, "");
 
-  if (method === "POST" && pathOnly.endsWith("/v1/funnels")) {
+  /** Collection: /v1/funnel or /v1/funnels (journeys: optional s). */
+  const funnelCollectionSuffix = /\/v1\/funnels?$/;
+  const journeyCollectionSuffix = /\/v1\/journeys?$/;
+  const funnelIdPath = /\/v1\/funnels?\/([^/]+)$/;
+  const journeyIdPath = /\/v1\/journeys?\/([^/]+)$/;
+
+  if (method === "POST" && funnelCollectionSuffix.test(pathOnly)) {
     return mockPostCreateFunnelOrJourney(request, "FUNNEL");
   }
-  if (method === "POST" && pathOnly.endsWith("/v1/journeys")) {
+  if (method === "POST" && journeyCollectionSuffix.test(pathOnly)) {
     return mockPostCreateFunnelOrJourney(request, "JOURNEY");
   }
 
   if (method === "PUT") {
-    const funnelPut = pathOnly.match(/\/v1\/funnels\/([^/]+)$/);
+    const funnelPut = pathOnly.match(funnelIdPath);
     if (funnelPut) {
       return mockPutFunnelOrJourney(funnelPut[1], request, "FUNNEL");
     }
-    const journeyPut = pathOnly.match(/\/v1\/journeys\/([^/]+)$/);
+    const journeyPut = pathOnly.match(journeyIdPath);
     if (journeyPut) {
       return mockPutFunnelOrJourney(journeyPut[1], request, "JOURNEY");
     }
   }
 
   if (method === "GET") {
-    const funnelDetail = pathOnly.match(/\/v1\/funnels\/([^/]+)$/);
+    const funnelDetail = pathOnly.match(funnelIdPath);
     if (funnelDetail) {
       return mockSavedResourceDetail(funnelDetail[1], "FUNNEL");
     }
-    const journeyDetail = pathOnly.match(/\/v1\/journeys\/([^/]+)$/);
+    const journeyDetail = pathOnly.match(journeyIdPath);
     if (journeyDetail) {
       return mockSavedResourceDetail(journeyDetail[1], "JOURNEY");
     }
-    if (pathOnly.endsWith("/v1/funnels")) {
+    if (funnelCollectionSuffix.test(pathOnly)) {
       return mockFunnelListing(request);
     }
-    if (pathOnly.endsWith("/v1/journeys")) {
+    if (journeyCollectionSuffix.test(pathOnly)) {
       return mockJourneyListing(request);
     }
   }
 
-  if (pathname.includes("/v1/funnel/analyze") && method === "POST") {
+  if (
+    pathname.includes(API_ROUTES.FUNNEL_CREATE.apiPath) &&
+    method === API_ROUTES.FUNNEL_CREATE.method
+  ) {
     let body: any = {};
     try {
       body = JSON.parse(request.body || "{}");
@@ -1229,10 +1176,6 @@ export function handleFunnelEndpoints(
     }
     const { analyze } = getMockFunnelAnalyzeAndTrendFromBody(body);
     return { data: analyze, status: 200 };
-  }
-
-  if (pathname.includes("/v1/funnel/health") && method === "POST") {
-    return { data: MOCK_FUNNEL_HEALTH_RESPONSE, status: 200 };
   }
 
   if (pathname.includes("/v1/funnel/sessions") && method === "POST") {

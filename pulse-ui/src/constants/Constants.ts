@@ -2,7 +2,7 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem
+  ComboboxItem,
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
@@ -17,9 +17,12 @@ import {
   IconRobot,
   IconRoute,
   IconUsers,
-  IconVideo
+  IconVideo,
 } from "@tabler/icons-react";
-import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
+import {
+  CriticalInteractionDetailsFilterValues,
+  TimeFilter,
+} from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -28,7 +31,7 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps
+  FormSteps,
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
@@ -932,14 +935,9 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
-  FUNNEL_ANALYZE: {
-    key: "FUNNEL_ANALYZE",
-    apiPath: `/v1/funnel/analyze`,
-    method: API_METHODS.POST,
-  },
-  FUNNEL_HEALTH: {
-    key: "FUNNEL_HEALTH",
-    apiPath: `/v1/funnel/health`,
+  FUNNEL_CREATE: {
+    key: "FUNNEL_CREATE",
+    apiPath: `/v1/funnels`,
     method: API_METHODS.POST,
   },
   FUNNEL_SESSIONS: {
@@ -974,7 +972,7 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   GET_TAGS: {
     key: "GET_TAGS",
-    apiPath: `/v1/tags`,
+    apiPath: `/v1/funnels/tags`,
     method: API_METHODS.GET,
   },
   GET_TNC_STATUS: {
