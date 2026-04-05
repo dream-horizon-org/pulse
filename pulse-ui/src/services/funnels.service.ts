@@ -1,6 +1,8 @@
 import { API_BASE_URL, API_ROUTES } from "../constants";
 import { makeRequest } from "../helpers/makeRequest";
 import { getQueryParamString } from "../helpers/queryParams";
+import type { FunnelStep } from "../hooks/useGetFunnelData/useGetFunnelData.interface";
+import type { FilterField, TimeRange } from "../hooks/useGetDataQuery/useGetDataQuery.interface";
 
 /** Funnel schedule type: AUTO refreshes on a rolling window; ONCE is computed once. */
 export enum FunnelType {
@@ -84,15 +86,56 @@ export type FunnelJourneyDetail = FunnelJourneyListItem & {
   description: string;
   createdAt: string;
   funnelType?: FunnelType;
-  filters?: any[];
-  steps?: any[];
-  timeRange?: any;
+  filters?: FilterField[];
+  steps?: FunnelStep[];
+  timeRange?: TimeRange;
   windowSeconds?: number;
   anchorEvent?: string;
   direction?: string;
   depth?: number;
   expiryDate?: string;
 };
+
+/** Request body for POST /v1/funnel (create) and PUT /v1/funnel/:id (full replace). */
+export interface CreateFunnelRequestBody {
+  /** Display name of the funnel. */
+  name: string;
+  /** Optional free-text description. */
+  description?: string;
+  /** Taxonomy tags for grouping / filtering. */
+  tags?: string[];
+  /**
+   * Schedule type.
+   * AUTO — recomputes on a rolling window every 24 h.
+   * ONCE — computed once after creation; never auto-updated.
+   */
+  funnelType: FunnelType;
+  /** Whether steps must be completed in strict order or in any order. */
+  stepOrderType: StepOrderType;
+  /** Ordered list of funnel steps (min 2). */
+  steps: FunnelStep[];
+  /**
+   * Analysis time window.
+   * For ONCE funnels this is the fixed start/end range.
+   * For AUTO funnels this is the rolling window anchor (e.g. last 7 d).
+   */
+  timeRange: TimeRange;
+  /** Maximum seconds a user has to complete the funnel after entering step 1. */
+  windowSeconds: number;
+  /** Audience filters applied when computing conversion. */
+  filters?: FilterField[];
+  /**
+   * ISO-8601 datetime after which an AUTO funnel stops refreshing.
+   * Ignored for ONCE funnels.
+   */
+  expiryDate?: string;
+}
+
+/**
+ * Request body for PUT /v1/funnel/:id.
+ * PUT is a full replace so it accepts the same shape as create.
+ */
+export type UpdateFunnelRequestBody = CreateFunnelRequestBody;
 
 const FUNNELS_BASE = "/v1/funnels";
 const JOURNEYS_BASE = "/v1/journeys";
@@ -168,7 +211,7 @@ export async function fetchJourneyById(journeyId: string) {
 }
 
 /** POST /v1/funnels */
-export async function createFunnel(payload: Record<string, unknown>) {
+export async function createFunnel(payload: CreateFunnelRequestBody) {
   return makeRequest<FunnelJourneyDetail>({
     url: `${API_BASE_URL}${API_ROUTES.FUNNEL_CREATE.apiPath}`,
     init: {
@@ -190,7 +233,7 @@ export async function createJourney(payload: Record<string, unknown>) {
 }
 
 /** PUT /v1/funnels/:funnelId */
-export async function updateFunnel(funnelId: string, payload: unknown) {
+export async function updateFunnel(funnelId: string, payload: UpdateFunnelRequestBody) {
   const encoded = encodeURIComponent(funnelId);
   return makeRequest<FunnelJourneyDetail>({
     url: `${API_BASE_URL}${FUNNELS_BASE}/${encoded}`,
