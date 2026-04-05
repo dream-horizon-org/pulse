@@ -962,7 +962,7 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   FUNNEL_EVENTS: {
     key: "FUNNEL_EVENTS",
-    apiPath: `/v1/funnels/events`,
+    apiPath: `/v1/funnels/eventsList`,
     method: API_METHODS.GET,
   },
   FUNNEL_FILTERS: {
