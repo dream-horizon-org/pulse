@@ -1,8 +1,39 @@
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { API_BASE_URL, API_ROUTES } from "../constants";
 import { makeRequest } from "../helpers/makeRequest";
 import { getQueryParamString } from "../helpers/queryParams";
-import type { FunnelStep } from "../hooks/useGetFunnelData/useGetFunnelData.interface";
+import type {
+  FunnelEventsResponse,
+  FunnelFiltersResponse,
+  FunnelGroupedRequestBody,
+  FunnelGroupedResponse,
+  FunnelRequestBody,
+  FunnelResponse,
+  FunnelSessionsRequestBody,
+  FunnelSessionsResponse,
+  FunnelStep,
+  FunnelTrendResponse,
+  JourneyRequestBody,
+  JourneyResponse,
+  TagsResponse
+} from "../hooks/useGetFunnelData/useGetFunnelData.interface";
 import type { FilterField, TimeRange } from "../hooks/useGetDataQuery/useGetDataQuery.interface";
+
+dayjs.extend(utc);
+
+/**
+ * Normalise a time string to a UTC ISO-8601 string.
+ * Accepts both ISO format ("2026-03-17T00:00:00Z") and
+ * "YYYY-MM-DD HH:mm:ss" format used in some API responses.
+ */
+function formatTimeRange(timeRange: TimeRange): TimeRange {
+  const fmt = (t: string): string =>
+    t.includes("T") || t.includes("Z")
+      ? dayjs.utc(t).toISOString()
+      : dayjs.utc(t, "YYYY-MM-DD HH:mm:ss").toISOString();
+  return { start: fmt(timeRange.start), end: fmt(timeRange.end) };
+}
 
 /** Funnel schedule type: AUTO refreshes on a rolling window; ONCE is computed once. */
 export enum FunnelType {
@@ -233,7 +264,10 @@ export async function createJourney(payload: Record<string, unknown>) {
 }
 
 /** PUT /v1/funnels/:funnelId */
-export async function updateFunnel(funnelId: string, payload: UpdateFunnelRequestBody) {
+export async function updateFunnel(
+  funnelId: string,
+  payload: UpdateFunnelRequestBody,
+) {
   const encoded = encodeURIComponent(funnelId);
   return makeRequest<FunnelJourneyDetail>({
     url: `${API_BASE_URL}${FUNNELS_BASE}/${encoded}`,
@@ -253,5 +287,78 @@ export async function updateJourney(journeyId: string, payload: unknown) {
       method: "PUT",
       body: JSON.stringify(payload),
     },
+  });
+}
+
+// ─── Funnel analysis (compute / analytics endpoints) ────────────────────────
+
+/** POST /v1/funnels — run funnel conversion analysis; returns step metrics (not a saved funnel). */
+export async function analyzeFunnel(body: FunnelRequestBody) {
+  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
+  return makeRequest<FunnelResponse>({
+    url: `${API_BASE_URL}${FUNNELS_BASE}`,
+    init: { method: "POST", body: JSON.stringify(payload) },
+  });
+}
+
+/** POST /v1/funnels/sessions — fetch session-level drill-down for a specific funnel step. */
+export async function fetchFunnelSessions(body: FunnelSessionsRequestBody) {
+  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
+  return makeRequest<FunnelSessionsResponse>({
+    url: `${API_BASE_URL}${FUNNELS_BASE}/sessions`,
+    init: { method: "POST", body: JSON.stringify(payload) },
+  });
+}
+
+/** POST /v1/funnels/trend — fetch overall conversion trend over time for a funnel. */
+export async function fetchFunnelTrend(body: FunnelRequestBody) {
+  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
+  return makeRequest<FunnelTrendResponse>({
+    url: `${API_BASE_URL}${FUNNELS_BASE}/trend`,
+    init: { method: "POST", body: JSON.stringify(payload) },
+  });
+}
+
+/** POST /v1/funnels/grouped — fetch funnel results broken down by a grouping dimension. */
+export async function fetchFunnelGrouped(body: FunnelGroupedRequestBody) {
+  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
+  return makeRequest<FunnelGroupedResponse>({
+    url: `${API_BASE_URL}${FUNNELS_BASE}/grouped`,
+    init: { method: "POST", body: JSON.stringify(payload) },
+  });
+}
+
+/** POST /v1/journeys/explore — explore user journey paths forward or backward from an anchor event. */
+export async function exploreJourney(body: JourneyRequestBody) {
+  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
+  return makeRequest<JourneyResponse>({
+    url: `${API_BASE_URL}${JOURNEYS_BASE}/explore`,
+    init: { method: "POST", body: JSON.stringify(payload) },
+  });
+}
+
+// ─── Funnel metadata (lookup / options endpoints) ────────────────────────────
+
+/** GET /v1/funnels/eventsList — fetch all available event names for funnel step selection. */
+export async function fetchFunnelEvents() {
+  return makeRequest<FunnelEventsResponse>({
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_EVENTS.apiPath}`,
+    init: { method: API_ROUTES.FUNNEL_EVENTS.apiPath },
+  });
+}
+
+/** GET /v1/funnels/filters — fetch available filter keys and their possible values. */
+export async function fetchFunnelFilters() {
+  return makeRequest<FunnelFiltersResponse>({
+    url: `${API_BASE_URL}${FUNNELS_BASE}/filters`,
+    init: { method: "GET" },
+  });
+}
+
+/** GET /v1/funnels/tags — fetch all tags that have been applied to saved funnels. */
+export async function fetchTags() {
+  return makeRequest<TagsResponse>({
+    url: `${API_BASE_URL}${FUNNELS_BASE}/tags`,
+    init: { method: "GET" },
   });
 }

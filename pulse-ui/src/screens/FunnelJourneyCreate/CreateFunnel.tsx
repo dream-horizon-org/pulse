@@ -68,10 +68,13 @@ export function CreateFunnel() {
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
   const [steps, setSteps] = useState<BuilderStep[]>(EMPTY_STEPS);
-  const [funnelMode, setFunnelMode] = useState<StepOrderType>(StepOrderType.ORDERED);
+  const [funnelMode, setFunnelMode] = useState<StepOrderType>(
+    StepOrderType.ORDERED,
+  );
   const [conversionWindow, setConversionWindow] = useState("86400");
 
   const { data: eventsData } = useGetFunnelEvents();
+  console.log("eventsData", eventsData);
   const { data: filtersData } = useGetFunnelFilters();
 
   const availableEvents = eventsData?.data?.events ?? [];

@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchFunnelsList, FunnelJourneyListQueryParams } from "../../services/funnels.service";
+import {
+  fetchFunnelsList,
+  FunnelJourneyListQueryParams,
+} from "../../services/funnels.service";
 import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 function stableQueryKey(params: FunnelJourneyListQueryParams): string {
