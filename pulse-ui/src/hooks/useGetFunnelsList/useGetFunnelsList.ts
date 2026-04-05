@@ -1,8 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  fetchFunnelsList,
-  FunnelJourneyListQueryParams,
-} from "../../services/funnels.service";
+import { fetchFunnelsList, FunnelJourneyListQueryParams } from "../../services/funnels.service";
 import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 function stableQueryKey(params: FunnelJourneyListQueryParams): string {
@@ -11,7 +8,7 @@ function stableQueryKey(params: FunnelJourneyListQueryParams): string {
     status: params.status ?? "",
     createdBy: params.createdBy?.slice().sort().join(",") ?? "",
     tags: params.tags?.slice().sort().join(",") ?? "",
-    funnelType: params.funnelType ?? "",
+    funnelType: params.stepOrderType ?? "",
     page: params.page ?? 1,
     pageSize: params.pageSize ?? 10,
   });

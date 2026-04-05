@@ -13,7 +13,6 @@ import {
   GetFunnelTrendParams,
   GetJourneyParams,
   JourneyResponse,
-  TagsResponse,
 } from "./useGetFunnelData.interface";
 import { makeRequest } from "../../helpers/makeRequest";
 import dayjs from "dayjs";
@@ -265,10 +264,15 @@ export const useGetTags = () => {
   return useQuery({
     queryKey: [api.key],
     queryFn: async () => {
-      return makeRequest<TagsResponse>({
-        url: `${API_BASE_URL}${api.apiPath}`,
-        init: { method: api.method },
-      });
+      // return makeRequest<TagsResponse>({
+      //   url: `${API_BASE_URL}${api.apiPath}`,
+      //   init: { method: api.method },
+      // });
+      return {
+        data: {
+          tags: ["tag1", "tag2", "tag3"],
+        },
+      };
     },
     refetchOnWindowFocus: false,
     staleTime: 300000,

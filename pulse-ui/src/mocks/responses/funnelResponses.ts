@@ -4,6 +4,7 @@
 
 import { MockRequest, MockResponse } from "../types";
 import { API_ROUTES } from "../../constants";
+import { FunnelType, StepOrderType } from "../../services/funnels.service";
 
 /**
  * Single source of truth for funnel conversion KPIs in mocks.
@@ -539,8 +540,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   tags: string[];
   expiryDate?: string;
   description?: string;
-  funnelType?: "ORDERED" | "UNORDERED";
-  rollingType?: "RECURRING" | "ONCE";
+  stepOrderType?: StepOrderType;
+  funnelType?: FunnelType;
   windowSeconds?: number;
   filters?: any[];
   steps?: any[];
@@ -562,7 +563,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-20T14:22:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["checkout", "revenue"],
-    funnelType: "ORDERED",
+    stepOrderType: StepOrderType.ORDERED,
     filters: [
       { field: "OS Name", value: "iOS" },
       { field: "App Version", value: "4.2.1" },
@@ -585,8 +586,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-19T09:10:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding"],
-    funnelType: "UNORDERED",
-    rollingType: "RECURRING",
+    stepOrderType: StepOrderType.UNORDERED,
+    funnelType: FunnelType.AUTO,
     windowSeconds: 86400,
     timeRange: {
       start: "2026-03-17T00:00:00Z",
@@ -608,8 +609,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-10T18:45:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["search", "product"],
-    funnelType: "ORDERED",
-    rollingType: "RECURRING",
+    stepOrderType: StepOrderType.ORDERED,
+    funnelType: FunnelType.AUTO,
     windowSeconds: 172800,
     timeRange: {
       start: "2026-03-01T00:00:00Z",
@@ -657,8 +658,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-22T16:05:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["marketing"],
-    funnelType: "ORDERED",
-    rollingType: "RECURRING",
+    stepOrderType: StepOrderType.ORDERED,
+    funnelType: FunnelType.AUTO,
     windowSeconds: 3600,
     timeRange: {
       start: "2026-03-17T00:00:00Z",
@@ -681,8 +682,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     tags: ["payment", "conversion", "critical"],
     description:
       "Tracks user conversion through the payment process including checkout and order completion.",
-    funnelType: "ORDERED",
-    rollingType: "RECURRING",
+    stepOrderType: StepOrderType.ORDERED,
+    funnelType: FunnelType.AUTO,
     windowSeconds: 3600,
     filters: [
       { field: "OS Name", value: "iOS" },
@@ -716,7 +717,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     anchorEvent: "App_Launch",
     direction: "forward",
     depth: 5,
-    rollingType: "RECURRING",
+    funnelType: FunnelType.AUTO,
     filters: [
       { field: "OS Name", value: "Android" },
       { field: "App Version", value: "4.2.0" },
@@ -736,8 +737,8 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["promo", "checkout", "archived"],
     description: "Holiday campaign funnel — run completed; data is read-only.",
-    funnelType: "ORDERED",
-    rollingType: "ONCE",
+    stepOrderType: StepOrderType.ORDERED,
+    funnelType: FunnelType.ONCE,
     windowSeconds: 86400,
     filters: [{ field: "OS Name", value: "iOS" }],
     steps: [
@@ -767,7 +768,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     anchorEvent: "App_Launch",
     direction: "forward",
     depth: 5,
-    rollingType: "RECURRING",
+    funnelType: FunnelType.AUTO,
     filters: [{ field: "App Version", value: "4.2.1" }],
     timeRange: {
       start: "2026-03-01T00:00:00Z",
@@ -783,7 +784,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     lastUpdatedAt: "2026-03-24T10:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["feature"],
-    funnelType: "ORDERED",
+    stepOrderType: StepOrderType.ORDERED,
     steps: [{ eventName: "App_Opened" }, { eventName: "Tap: New Feature" }],
   },
   {
@@ -917,7 +918,7 @@ function mockResourceListing(
         .map((s) => s.trim())
         .filter(Boolean)
     : [];
-  const funnelType = params.get("funnelType") as "ORDERED" | "UNORDERED" | null;
+  const stepOrderType = params.get("stepOrderType") as StepOrderType | null;
 
   let pool = [...MOCK_FUNNELS_JOURNEYS_ALL];
   if (kindParam === "FUNNEL" || kindParam === "JOURNEY") {
@@ -949,9 +950,9 @@ function mockResourceListing(
   if (tagFilters.length) {
     items = items.filter((row) => tagFilters.some((t) => row.tags.includes(t)));
   }
-  if (funnelType === "ORDERED" || funnelType === "UNORDERED") {
+  if (stepOrderType === StepOrderType.ORDERED || stepOrderType === StepOrderType.UNORDERED) {
     items = items.filter(
-      (row) => row.kind === "FUNNEL" && row.funnelType === funnelType,
+      (row) => row.kind === "FUNNEL" && row.stepOrderType === stepOrderType,
     );
   }
 
@@ -1073,10 +1074,10 @@ function mockPostCreateFunnelOrJourney(
     createdAt: new Date().toISOString(),
     lastUpdatedAt: new Date().toISOString(),
     tags: body.tags || [],
-    funnelType: body.funnelType,
+    stepOrderType: body.stepOrderType,
     filters: body.filters || [],
     expiryDate: body.expiryDate ?? MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
-    rollingType: body.rollingType,
+    funnelType: body.funnelType,
     steps: body.steps,
     timeRange: body.timeRange,
     windowSeconds: body.windowSeconds,

@@ -1,6 +1,18 @@
-import { API_BASE_URL } from "../constants";
+import { API_BASE_URL, API_ROUTES } from "../constants";
 import { makeRequest } from "../helpers/makeRequest";
 import { getQueryParamString } from "../helpers/queryParams";
+
+/** Funnel schedule type: AUTO refreshes on a rolling window; ONCE is computed once. */
+export enum FunnelType {
+  AUTO = "AUTO",
+  ONCE = "ONCE",
+}
+
+/** Whether funnel steps must be completed in order or in any order. */
+export enum StepOrderType {
+  ORDERED = "ordered",
+  UNORDERED = "unordered",
+}
 
 /** Saved funnel or journey row returned by the listing API. */
 export type FunnelJourneyListItem = {
@@ -12,7 +24,7 @@ export type FunnelJourneyListItem = {
   lastUpdatedAt: string;
   tags: string[];
   /** Present when kind === "FUNNEL". */
-  funnelType?: "ORDERED" | "UNORDERED";
+  stepOrderType?: StepOrderType;
   /** Overall conversion rate (%) for funnels with computed metrics. */
   overallConversionRate?: number;
   /** Change vs prior period (percentage points); positive = up. */
@@ -55,7 +67,7 @@ export type FunnelJourneyListQueryParams = {
   /** Match if item has any of these tags. */
   tags?: string[] | null;
   /** Funnel listing only (GET /v1/funnels). */
-  funnelType?: "ORDERED" | "UNORDERED" | null;
+  stepOrderType?: StepOrderType | null;
   /** 1-based page index (default 1). */
   page?: number | null;
   /** Page size (default 10). */
@@ -71,7 +83,7 @@ export type FunnelsJourneysListQueryParams = FunnelJourneyListQueryParams & {
 export type FunnelJourneyDetail = FunnelJourneyListItem & {
   description: string;
   createdAt: string;
-  rollingType?: "RECURRING" | "ONCE";
+  funnelType?: FunnelType;
   filters?: any[];
   steps?: any[];
   timeRange?: any;
@@ -82,8 +94,8 @@ export type FunnelJourneyDetail = FunnelJourneyListItem & {
   expiryDate?: string;
 };
 
-const FUNNELS_BASE = "/v1/funnel";
-const JOURNEYS_BASE = "/v1/journey";
+const FUNNELS_BASE = "/v1/funnels";
+const JOURNEYS_BASE = "/v1/journeys";
 
 function filterListParams(
   params: FunnelJourneyListQueryParams,
@@ -93,7 +105,7 @@ function filterListParams(
   if (params.status) out.status = params.status;
   if (params.createdBy?.length) out.createdBy = params.createdBy.join(",");
   if (params.tags?.length) out.tags = params.tags.join(",");
-  if (params.funnelType) out.funnelType = params.funnelType;
+  if (params.stepOrderType) out.stepOrderType = params.stepOrderType;
   if (params.page != null && params.page > 0) out.page = String(params.page);
   if (params.pageSize != null && params.pageSize > 0) {
     out.pageSize = String(params.pageSize);
@@ -158,7 +170,7 @@ export async function fetchJourneyById(journeyId: string) {
 /** POST /v1/funnels */
 export async function createFunnel(payload: Record<string, unknown>) {
   return makeRequest<FunnelJourneyDetail>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}`,
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_CREATE.apiPath}`,
     init: {
       method: "POST",
       body: JSON.stringify(payload),

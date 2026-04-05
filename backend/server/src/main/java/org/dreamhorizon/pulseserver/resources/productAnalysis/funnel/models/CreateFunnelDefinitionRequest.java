@@ -46,8 +46,7 @@ public class CreateFunnelDefinitionRequest {
   @NotNull
   @Builder.Default
   private Long windowSeconds = 86400L;
-
-  @NotNull
+  
   @Builder.Default
   private FunnelMode mode = FunnelMode.UNIQUE_USERS;
 

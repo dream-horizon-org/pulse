@@ -27,13 +27,14 @@ import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
 import { FunnelVisualization } from "../FunnelJourneyCreate/components/FunnelVisualization";
 import { FunnelDataTable } from "../FunnelJourneyCreate/components/FunnelDataTable";
 import { mapDetailFilters } from "./FunnelJourneyDetails.util";
+import { FunnelType, StepOrderType } from "../../services/funnels.service";
 
 function FunnelDetailView({ detail }: { detail: any }) {
   const [name, setName] = useState(detail.name || "");
   const [description, setDescription] = useState(detail.description || "");
   const [tags, setTags] = useState<string[]>(detail.tags || []);
-  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
-    detail.rollingType || "RECURRING",
+  const [rollingType, setRollingType] = useState<FunnelType>(
+    detail.funnelType || FunnelType.AUTO,
   );
 
   const [dateRange, setDateRange] = useState("7d");
@@ -62,8 +63,8 @@ function FunnelDetailView({ detail }: { detail: any }) {
         ],
   );
 
-  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
-    detail.funnelType === "UNORDERED" ? "unordered" : "ordered",
+  const [funnelMode, setFunnelMode] = useState<StepOrderType>(
+    detail.stepOrderType || StepOrderType.ORDERED,
   );
   const [conversionWindow, setConversionWindow] = useState(
     detail.windowSeconds ? String(detail.windowSeconds) : "86400",
@@ -86,7 +87,7 @@ function FunnelDetailView({ detail }: { detail: any }) {
   );
 
   const timeRange = useMemo(() => {
-    if (rollingType === "ONCE") {
+    if (rollingType === FunnelType.ONCE) {
       return {
         start: customStartDate
           ? customStartDate.toISOString()
@@ -165,24 +166,21 @@ function FunnelDetailView({ detail }: { detail: any }) {
 
   useEffect(() => {
     if (
-      (detail.rollingType || "RECURRING") === "ONCE" &&
+      (detail.funnelType || FunnelType.AUTO) === FunnelType.ONCE &&
       detail.timeRange?.start &&
       detail.timeRange?.end
     ) {
       setCustomStartDate(new Date(detail.timeRange.start));
       setCustomEndDate(new Date(detail.timeRange.end));
     }
-  }, [detail.id, detail.rollingType, detail.timeRange]);
+  }, [detail.id, detail.funnelType, detail.timeRange]);
 
   const isChanged = useMemo(() => {
     if (name !== detail.name) return true;
     if (description !== detail.description) return true;
     if (JSON.stringify(tags) !== JSON.stringify(detail.tags || [])) return true;
-    if (rollingType !== (detail.rollingType || "RECURRING")) return true;
-    if (
-      funnelMode !==
-      (detail.funnelType === "UNORDERED" ? "unordered" : "ordered")
-    )
+    if (rollingType !== (detail.funnelType || FunnelType.AUTO)) return true;
+    if (funnelMode !== (detail.stepOrderType || StepOrderType.ORDERED))
       return true;
     if (conversionWindow !== String(detail.windowSeconds || 86400)) return true;
     if (
@@ -232,14 +230,14 @@ function FunnelDetailView({ detail }: { detail: any }) {
         name,
         description,
         tags,
-        rollingType,
-        funnelType: funnelMode.toUpperCase(),
+        funnelType: rollingType,
+        stepOrderType: funnelMode,
         steps: apiSteps,
         timeRange,
         windowSeconds: parseInt(conversionWindow, 10),
         filters: apiFilters,
         expiryDate:
-          rollingType === "RECURRING" && expiryDate
+          rollingType === FunnelType.AUTO && expiryDate
             ? expiryDate.toISOString()
             : undefined,
       },

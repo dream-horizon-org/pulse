@@ -31,6 +31,7 @@ import {
   DATE_RANGE_OPTIONS,
 } from "../FunnelJourneyCreate.util";
 import { useGetTags } from "../../../hooks/useGetFunnelData";
+import { FunnelType, StepOrderType } from "../../../services/funnels.service";
 import classes from "../FunnelCreate.module.css";
 import createFormClasses from "../FunnelJourneyCreateForm.module.css";
 
@@ -46,8 +47,8 @@ interface FunnelBuilderProps {
   onDescriptionChange: (desc: string) => void;
   tags: string[];
   onTagsChange: (tags: string[]) => void;
-  rollingType: "RECURRING" | "ONCE";
-  onRollingTypeChange: (type: "RECURRING" | "ONCE") => void;
+  rollingType: FunnelType;
+  onRollingTypeChange: (type: FunnelType) => void;
   dateRange: string;
   onDateRangeChange: (range: string) => void;
   customStartDate: Date | null;
@@ -58,8 +59,8 @@ interface FunnelBuilderProps {
   onExpiryDateChange: (date: Date | null) => void;
   steps: BuilderStep[];
   onStepsChange: (steps: BuilderStep[]) => void;
-  funnelMode: "ordered" | "unordered";
-  onFunnelModeChange: (mode: "ordered" | "unordered") => void;
+  funnelMode: StepOrderType;
+  onFunnelModeChange: (mode: StepOrderType) => void;
   conversionWindow: string;
   onConversionWindowChange: (value: string) => void;
   onAnalyze: () => void;
@@ -196,10 +197,10 @@ export function FunnelBuilder({
       </Group>
       <SegmentedControl
         value={rollingType}
-        onChange={(val) => onRollingTypeChange(val as "RECURRING" | "ONCE")}
+        onChange={(val) => onRollingTypeChange(val as FunnelType)}
         data={[
-          { label: "Recurring", value: "RECURRING" },
-          { label: "Once", value: "ONCE" },
+          { label: "Recurring", value: FunnelType.AUTO },
+          { label: "Once", value: FunnelType.ONCE },
         ]}
         size={fieldSize}
         fullWidth
@@ -207,7 +208,7 @@ export function FunnelBuilder({
         mb="sm"
       />
 
-      {rollingType === "ONCE" && (
+      {rollingType === FunnelType.ONCE && (
         <Group gap="xs" mb="md">
           <DateTimePicker
             placeholder="Start Date"
@@ -230,7 +231,7 @@ export function FunnelBuilder({
           />
         </Group>
       )}
-      {rollingType === "RECURRING" && (
+      {rollingType === FunnelType.AUTO && (
         <>
           <Select
             data={DATE_RANGE_OPTIONS.filter((opt) => opt.value !== "custom")}
@@ -295,10 +296,10 @@ export function FunnelBuilder({
       </Box>
       <SegmentedControl
         value={funnelMode}
-        onChange={(val) => onFunnelModeChange(val as "ordered" | "unordered")}
+        onChange={(val) => onFunnelModeChange(val as StepOrderType)}
         data={[
-          { label: "Sequential", value: "ordered" },
-          { label: "Any Order", value: "unordered" },
+          { label: "Sequential", value: StepOrderType.ORDERED },
+          { label: "Any Order", value: StepOrderType.UNORDERED },
         ]}
         size={fieldSize}
         fullWidth
@@ -309,7 +310,7 @@ export function FunnelBuilder({
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable
           droppableId="funnel-steps"
-          isDropDisabled={funnelMode === "ordered"}
+          isDropDisabled={funnelMode === StepOrderType.ORDERED}
         >
           {(provided) => (
             <Box ref={provided.innerRef} {...provided.droppableProps}>
@@ -318,7 +319,7 @@ export function FunnelBuilder({
                   key={step.id}
                   draggableId={step.id}
                   index={index}
-                  isDragDisabled={funnelMode === "ordered"}
+                  isDragDisabled={funnelMode === StepOrderType.ORDERED}
                 >
                   {(providedDraggable, snapshot) => (
                     <Box
@@ -347,7 +348,7 @@ export function FunnelBuilder({
                               display: "flex",
                               alignItems: "center",
                               cursor:
-                                funnelMode === "ordered"
+                                funnelMode === StepOrderType.ORDERED
                                   ? "not-allowed"
                                   : "grab",
                             }}

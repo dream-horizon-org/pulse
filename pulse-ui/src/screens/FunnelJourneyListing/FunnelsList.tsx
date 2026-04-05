@@ -18,6 +18,7 @@ import { ROUTES } from "../../constants";
 import { useProjectContext } from "../../contexts";
 import { useGetFunnelsList } from "../../hooks/useGetFunnelsList";
 import type { FunnelJourneyListItem } from "../../services/funnels.service";
+import { StepOrderType } from "../../services/funnels.service";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { FunnelConversionCell } from "./components/FunnelConversionCell";
 import {
@@ -55,7 +56,7 @@ type StatusFilterValue =
   | "CREATING"
   | "UPDATING"
   | "COMPLETED";
-type TypeFilterValue = "" | "ORDERED" | "UNORDERED";
+type TypeFilterValue = "" | StepOrderType;
 
 export function FunnelsList() {
   const navigate = useNavigate();
@@ -92,8 +93,8 @@ export function FunnelsList() {
           : null,
       createdBy: createdByFilter.length ? createdByFilter : null,
       tags: tagsFilter.length ? tagsFilter : null,
-      funnelType:
-        typeFilter === "ORDERED" || typeFilter === "UNORDERED"
+      stepOrderType:
+        typeFilter === StepOrderType.ORDERED || typeFilter === StepOrderType.UNORDERED
           ? typeFilter
           : null,
       page,
@@ -323,8 +324,8 @@ export function FunnelsList() {
             placeholder={TYPE_OPTION_ALL}
             clearable
             data={[
-              { value: "ORDERED", label: TYPE_OPTION_ORDERED },
-              { value: "UNORDERED", label: TYPE_OPTION_UNORDERED },
+              { value: StepOrderType.ORDERED, label: TYPE_OPTION_ORDERED },
+              { value: StepOrderType.UNORDERED, label: TYPE_OPTION_UNORDERED },
             ]}
             value={typeFilter || null}
             onChange={(v) => setTypeFilter((v as TypeFilterValue) || "")}

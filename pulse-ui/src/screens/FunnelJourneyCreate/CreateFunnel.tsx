@@ -34,6 +34,7 @@ import {
   useGetFunnelFilters,
 } from "../../hooks/useGetFunnelData";
 import { useCreateFunnel } from "../../hooks/useCreateFunnel";
+import { FunnelType, StepOrderType } from "../../services/funnels.service";
 
 const EMPTY_STEPS: BuilderStep[] = [
   { id: "s-1", eventName: "" },
@@ -59,9 +60,7 @@ export function CreateFunnel() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
-    "RECURRING",
-  );
+  const [rollingType, setRollingType] = useState<FunnelType>(FunnelType.AUTO);
   const [dateRange, setDateRange] = useState("7d");
   const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
@@ -69,9 +68,7 @@ export function CreateFunnel() {
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
   const [steps, setSteps] = useState<BuilderStep[]>(EMPTY_STEPS);
-  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
-    "ordered",
-  );
+  const [funnelMode, setFunnelMode] = useState<StepOrderType>(StepOrderType.ORDERED);
   const [conversionWindow, setConversionWindow] = useState("86400");
 
   const { data: eventsData } = useGetFunnelEvents();
@@ -89,7 +86,7 @@ export function CreateFunnel() {
   );
 
   const timeRange = useMemo(() => {
-    if (rollingType === "ONCE") {
+    if (rollingType === FunnelType.ONCE) {
       return {
         start: customStartDate
           ? customStartDate.toISOString()
@@ -124,7 +121,7 @@ export function CreateFunnel() {
       case 0:
         return name.trim().length > 0;
       case 1:
-        if (rollingType === "ONCE") {
+        if (rollingType === FunnelType.ONCE) {
           return !!(customStartDate && customEndDate);
         }
         return true;
@@ -154,14 +151,14 @@ export function CreateFunnel() {
         name,
         description,
         tags,
-        rollingType,
-        funnelType: funnelMode.toUpperCase(),
+        funnelType: rollingType,
+        stepOrderType: funnelMode,
         steps: apiSteps,
         timeRange,
         windowSeconds: parseInt(conversionWindow, 10),
         filters: apiFilters,
         expiryDate:
-          rollingType === "RECURRING" && expiryDate
+          rollingType === FunnelType.AUTO && expiryDate
             ? expiryDate.toISOString()
             : undefined,
       },

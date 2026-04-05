@@ -942,32 +942,32 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   FUNNEL_SESSIONS: {
     key: "FUNNEL_SESSIONS",
-    apiPath: `/v1/funnel/sessions`,
+    apiPath: `/v1/funnels/sessions`,
     method: API_METHODS.POST,
   },
   FUNNEL_TREND: {
     key: "FUNNEL_TREND",
-    apiPath: `/v1/funnel/trend`,
+    apiPath: `/v1/funnels/trend`,
     method: API_METHODS.POST,
   },
   FUNNEL_GROUPED: {
     key: "FUNNEL_GROUPED",
-    apiPath: `/v1/funnel/grouped`,
+    apiPath: `/v1/funnels/grouped`,
     method: API_METHODS.POST,
   },
   JOURNEY_EXPLORE: {
     key: "JOURNEY_EXPLORE",
-    apiPath: `/v1/journey/explore`,
+    apiPath: `/v1/journeys/explore`,
     method: API_METHODS.POST,
   },
   FUNNEL_EVENTS: {
     key: "FUNNEL_EVENTS",
-    apiPath: `/v1/funnel/events`,
+    apiPath: `/v1/funnels/events`,
     method: API_METHODS.GET,
   },
   FUNNEL_FILTERS: {
     key: "FUNNEL_FILTERS",
-    apiPath: `/v1/funnel/filters`,
+    apiPath: `/v1/funnels/filters`,
     method: API_METHODS.GET,
   },
   GET_TAGS: {

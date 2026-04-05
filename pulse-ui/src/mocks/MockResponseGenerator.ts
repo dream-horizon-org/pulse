@@ -356,12 +356,8 @@ export class MockResponseGenerator {
     }
 
     // Funnel/journey APIs (before /events catch-all). Client uses singular collection
-    // paths GET /v1/funnel and /v1/journey (see funnels.service); plural also supported in mocks.
-    if (
-      pathname.includes("/v1/funnel") ||
-      pathname.includes("/v1/journey") ||
-      pathname.includes("/v1/tags")
-    ) {
+    // paths GET /v1/funnels and /v1/journeys (see funnels.service); plural also supported in mocks.
+    if (pathname.includes("/v1/funnels") || pathname.includes("/v1/journeys")) {
       return handleFunnelEndpoints(pathname, method, request);
     }
 
