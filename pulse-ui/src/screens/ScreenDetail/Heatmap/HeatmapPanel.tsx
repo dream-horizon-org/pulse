@@ -27,7 +27,12 @@ import {
   heatmapFiltersToRequestArgs,
   heatmapLocalFiltersMatchPage,
 } from "./heatmapLocalFilters";
-import type { HeatmapPanelProps } from "./heatmapPanel.types";
+import {
+  HEATMAP_COPY_COMPARE_SCREENS,
+  HEATMAP_COPY_SECTION_SCREEN_A,
+  HEATMAP_COPY_SECTION_SCREEN_B,
+} from "./heatmapCopy";
+import type { HeatmapPanelProps } from "./heatmap.ui.types";
 import {
   isHeatmapMockServerEnabled,
   mockProfileToApiScreenName,
@@ -36,11 +41,15 @@ import {
 import { HeatmapMockScenarioToolbar } from "./HeatmapMockScenarioToolbar";
 import classes from "./HeatmapPanel.module.css";
 
-export type { HeatmapPanelProps } from "./heatmapPanel.types";
+export type { HeatmapPanelProps } from "./heatmap.ui.types";
 
 /**
  * Heatmap tab — Summary + Map cards (EngagementGraph styling), demo-aligned split
  * and aggregates panel; retains heatmap.js, focus lens, carousel, and bin budget.
+ *
+ * Compare mode issues two independent `useHeatmapData` queries (screen A vs B) so each
+ * column can use different filters; a single `POST …/heatmap/compare` exists on the API
+ * for mocks/types but is optional for the UI until we consolidate round-trips.
  */
 export function HeatmapPanel({
   screenName,
@@ -374,7 +383,7 @@ export function HeatmapPanel({
             <HeatmapFilterPanel
               variant="dataOnly"
               dataOnlyLayout="compareColumn"
-              sectionLabel="Screen A"
+              sectionLabel={HEATMAP_COPY_SECTION_SCREEN_A}
               value={effectiveCompareA}
               onChange={(v) => setCompareFiltersA(v)}
               onResetToPage={() =>
@@ -391,7 +400,7 @@ export function HeatmapPanel({
             <HeatmapFilterPanel
               variant="dataOnly"
               dataOnlyLayout="compareColumn"
-              sectionLabel="Screen B"
+              sectionLabel={HEATMAP_COPY_SECTION_SCREEN_B}
               value={effectiveCompareB}
               onChange={(v) => setCompareFiltersB(v)}
               onResetToPage={() =>
@@ -476,7 +485,7 @@ export function HeatmapPanel({
                 className={classes.compareCta}
                 onClick={openCompare}
               >
-                Compare screens
+                {HEATMAP_COPY_COMPARE_SCREENS}
               </button>
             }
           />

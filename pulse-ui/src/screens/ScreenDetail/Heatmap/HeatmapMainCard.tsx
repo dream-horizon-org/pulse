@@ -7,7 +7,16 @@ import { HeatmapDataEmptyAside } from "./HeatmapDataEmptyAside";
 import { HeatmapFetchErrorPanel } from "./HeatmapFetchErrorPanel";
 import { isHeatmapDataEmpty } from "./heatmapEmptyState";
 import classes from "./HeatmapPanel.module.css";
-import type { HeatmapPanelProps } from "./heatmapPanel.types";
+import {
+  HEATMAP_COPY_LOADING_HEATMAP,
+  HEATMAP_COPY_METRIC_AVG_TIME,
+  HEATMAP_COPY_METRIC_EVENTS,
+  HEATMAP_COPY_METRIC_SESSIONS,
+  HEATMAP_COPY_METRIC_USERS,
+  HEATMAP_COPY_SUMMARY_FILTERS_HINT,
+  HEATMAP_COPY_SUMMARY_TITLE,
+} from "./heatmapCopy";
+import type { HeatmapPanelProps } from "./heatmap.ui.types";
 import {
   formatAvgTime,
   formatInt,
@@ -55,32 +64,40 @@ export function HeatmapMainCard({
   return (
     <Stack gap="md">
       <Box className={graphClasses.graphCard}>
-        <div className={graphClasses.graphTitle}>Summary</div>
+        <div className={graphClasses.graphTitle}>{HEATMAP_COPY_SUMMARY_TITLE}</div>
         <Text size="xs" c="dimmed" mb="sm" lh={1.5}>
-          Filters and time range match the rest of this screen.
+          {HEATMAP_COPY_SUMMARY_FILTERS_HINT}
         </Text>
 
         <div className={classes.summaryMetricsGrid}>
           <div className={graphClasses.metricCard}>
-            <Text className={graphClasses.metricLabel}>Events (heatmap scope)</Text>
+            <Text className={graphClasses.metricLabel}>
+              {HEATMAP_COPY_METRIC_EVENTS}
+            </Text>
             <Text className={graphClasses.metricValue}>
               {eventCount ?? "—"}
             </Text>
           </div>
           <div className={graphClasses.metricCard}>
-            <Text className={graphClasses.metricLabel}>Sessions</Text>
+            <Text className={graphClasses.metricLabel}>
+              {HEATMAP_COPY_METRIC_SESSIONS}
+            </Text>
             <Text className={graphClasses.metricValue}>
               {formatInt(engagement?.totalSessions ?? 0)}
             </Text>
           </div>
           <div className={graphClasses.metricCard}>
-            <Text className={graphClasses.metricLabel}>Users</Text>
+            <Text className={graphClasses.metricLabel}>
+              {HEATMAP_COPY_METRIC_USERS}
+            </Text>
             <Text className={graphClasses.metricValue}>
               {formatInt(engagement?.totalUsers ?? 0)}
             </Text>
           </div>
           <div className={graphClasses.metricCard}>
-            <Text className={graphClasses.metricLabel}>Avg. time</Text>
+            <Text className={graphClasses.metricLabel}>
+              {HEATMAP_COPY_METRIC_AVG_TIME}
+            </Text>
             <Text className={graphClasses.metricValue}>
               {formatAvgTime(engagement?.avgTimeSpent ?? null)}
             </Text>
@@ -103,7 +120,7 @@ export function HeatmapMainCard({
             <Group gap="sm" py="md" justify="center" wrap="nowrap" w="100%">
               <Loader size="sm" color="teal" />
               <Text size="sm" c="dimmed">
-                Loading heatmap…
+                {HEATMAP_COPY_LOADING_HEATMAP}
               </Text>
             </Group>
             <div className={classes.loadingSkeleton} />

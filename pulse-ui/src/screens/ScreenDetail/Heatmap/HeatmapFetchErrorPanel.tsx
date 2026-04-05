@@ -1,4 +1,5 @@
 import { Button, Stack, Text } from "@mantine/core";
+import { HEATMAP_COPY_RETRY } from "./heatmapCopy";
 import {
   HEATMAP_USER_VISIBLE_ERROR_BODY,
   HEATMAP_USER_VISIBLE_ERROR_TITLE,
@@ -38,7 +39,7 @@ export function HeatmapFetchErrorPanel({
             onClick={() => onRetry()}
             size={compact ? "xs" : "sm"}
           >
-            Retry
+            {HEATMAP_COPY_RETRY}
           </Button>
         )}
       </Stack>

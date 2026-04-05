@@ -8,13 +8,13 @@ import { HeatmapAudienceFilterPopover } from "./HeatmapAudienceFilterPopover";
 import { HeatmapMapViewControls } from "./HeatmapMapViewControls";
 import { HeatmapTimeFilterPopover } from "./HeatmapTimeFilterPopover";
 import { HeatmapTimeRangePopoverBody } from "./HeatmapTimeRangePopoverBody";
-import type { HeatmapFilterPanelProps } from "./heatmapFilterPanel.types";
+import type { HeatmapFilterPanelProps } from "./heatmap.ui.types";
 import {
   countHeatmapAudienceFilters,
   formatHeatmapTimeButtonLabel,
 } from "./heatmapFilterPanelUtils";
 
-export type { HeatmapFilterPanelVariant, HeatmapFilterPanelProps } from "./heatmapFilterPanel.types";
+export type { HeatmapFilterPanelVariant, HeatmapFilterPanelProps } from "./heatmap.ui.types";
 
 /**
  * Row 1 (full): map type / layer + optional `toolbarEnd` (e.g. Compare screens) on the right.

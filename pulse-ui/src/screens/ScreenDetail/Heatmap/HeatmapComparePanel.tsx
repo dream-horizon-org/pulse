@@ -24,6 +24,19 @@ import { HeatmapMapViewControls } from "./HeatmapMapViewControls";
 import { HeatmapMapPlaceholder } from "./HeatmapMapPlaceholder";
 import { HeatmapDataEmptyAside } from "./HeatmapDataEmptyAside";
 import { HeatmapFetchErrorPanel } from "./HeatmapFetchErrorPanel";
+import {
+  HEATMAP_COPY_COMPARE_MODE_TITLE,
+  HEATMAP_COPY_COMPARE_TO_PLACEHOLDER,
+  HEATMAP_COPY_COMPARE_TO_SCREEN,
+  HEATMAP_COPY_CURRENT_SCREEN,
+  HEATMAP_COPY_EXIT_COMPARE,
+  HEATMAP_COPY_LOADING_COMPARISON,
+  HEATMAP_COPY_LOADING_METRICS,
+  HEATMAP_COPY_METRICS_BLOCKED_AFTER,
+  HEATMAP_COPY_METRICS_BLOCKED_BEFORE,
+  HEATMAP_COPY_RETRY,
+  HEATMAP_COPY_SCREEN_B_FALLBACK,
+} from "./heatmapCopy";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapComparePanelProps {
@@ -89,7 +102,7 @@ export function HeatmapComparePanel({
       <Box className={classes.filterBar}>
         <Stack gap="md">
           <Text fw={700} size="md">
-            Compare screens
+            {HEATMAP_COPY_COMPARE_MODE_TITLE}
           </Text>
           <Group justify="space-between" align="center" wrap="wrap" w="100%" gap="md">
             <HeatmapMapViewControls
@@ -100,7 +113,7 @@ export function HeatmapComparePanel({
               showInteractionMapOption={showInteractionMapOption}
             />
             <button type="button" className={classes.compareCta} onClick={onExitCompare}>
-              Exit compare
+              {HEATMAP_COPY_EXIT_COMPARE}
             </button>
           </Group>
           <Divider
@@ -118,7 +131,7 @@ export function HeatmapComparePanel({
       {anyLoading && (
         <Group justify="center" w="100%" py="sm" gap="sm" wrap="nowrap">
           <Loader size="sm" color="teal" />
-          <Text size="sm">Loading comparison…</Text>
+          <Text size="sm">{HEATMAP_COPY_LOADING_COMPARISON}</Text>
         </Group>
       )}
 
@@ -126,7 +139,7 @@ export function HeatmapComparePanel({
         <CompareMapColumn
           headerSlot={
             <Select
-              label="Current screen"
+              label={HEATMAP_COPY_CURRENT_SCREEN}
               placeholder="—"
               size="sm"
               data={[{ value: screenAName, label: screenAName }]}
@@ -147,8 +160,8 @@ export function HeatmapComparePanel({
         <CompareMapColumn
           headerSlot={
             <Select
-              label="Compare to screen"
-              placeholder="Choose a screen"
+              label={HEATMAP_COPY_COMPARE_TO_SCREEN}
+              placeholder={HEATMAP_COPY_COMPARE_TO_PLACEHOLDER}
               size="sm"
               searchable
               data={compareScreenOptions}
@@ -161,7 +174,7 @@ export function HeatmapComparePanel({
           onRetry={onRetryCompareRight}
           retryLoading={compareRightRetrying}
           payload={compareRightPayload}
-          screenLabel={compareScreenName.trim() || "Screen B"}
+          screenLabel={compareScreenName.trim() || HEATMAP_COPY_SCREEN_B_FALLBACK}
           signal={signal}
           focusLens={focusLens}
           sharedWeightMax={compareSharedMax}
@@ -182,12 +195,14 @@ export function HeatmapComparePanel({
         <CompareAggregatesCell
           title={
             compareRightPayload?.metadata.screenName ??
-            (compareScreenName.trim() || "Screen B")
+            (compareScreenName.trim() || HEATMAP_COPY_SCREEN_B_FALLBACK)
           }
           loading={compareRightLoading}
           fetchFailed={compareRightFetchFailed}
           payload={compareRightPayload}
-          contextScreenName={compareScreenName.trim() || "Screen B"}
+          contextScreenName={
+            compareScreenName.trim() || HEATMAP_COPY_SCREEN_B_FALLBACK
+          }
           signal={signal}
           qualityMetrics={compareRightQualityMetrics}
           focusLens={focusLens}
@@ -223,18 +238,18 @@ function CompareAggregatesCell({
       </Text>
       {fetchFailed && (
         <Text size="sm" c="dimmed" py="md" lh={1.5}>
-          Metrics load with the heatmap preview. Use{" "}
+          {HEATMAP_COPY_METRICS_BLOCKED_BEFORE}
           <Text span fw={600} c="dimmed">
-            Retry
-          </Text>{" "}
-          in the column above.
+            {HEATMAP_COPY_RETRY}
+          </Text>
+          {HEATMAP_COPY_METRICS_BLOCKED_AFTER}
         </Text>
       )}
       {!fetchFailed && loading && !payload && (
         <Group gap="sm" py="md" justify="center" w="100%" wrap="nowrap">
           <Loader size="sm" color="teal" />
           <Text size="sm" c="dimmed">
-            Loading metrics…
+            {HEATMAP_COPY_LOADING_METRICS}
           </Text>
         </Group>
       )}
@@ -291,7 +306,7 @@ function CompareMapColumn({
           />
         )}
         {!fetchFailed && loading && !payload && (
-          <HeatmapMapPlaceholder variant="loading" />
+          <HeatmapMapPlaceholder />
         )}
         {!fetchFailed && !loading && payload && (
           <CompareColumnVisualization

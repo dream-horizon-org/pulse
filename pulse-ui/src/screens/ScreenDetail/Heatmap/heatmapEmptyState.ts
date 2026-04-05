@@ -1,10 +1,8 @@
 import type { HeatmapDataResponse } from "./heatmap.types";
-import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 
 const INTERNAL_SCREEN_LABEL = /^__[a-zA-Z0-9_-]+__$/;
 
-/** True for mock/API sentinel names — never surface in product copy. */
-export function isHeatmapInternalScreenLabel(name: string | undefined): boolean {
+function isHeatmapInternalScreenLabel(name: string | undefined): boolean {
   const t = name?.trim();
   return !!t && INTERNAL_SCREEN_LABEL.test(t);
 }
@@ -30,9 +28,4 @@ export function isHeatmapDataEmpty(payload: HeatmapDataResponse): boolean {
   const rage = payload.layers?.frustration_map?.rage?.length ?? 0;
   const dead = payload.layers?.frustration_map?.dead?.length ?? 0;
   return glow === 0 && rage === 0 && dead === 0;
-}
-
-/** No underlay images — we still may render heatmap bins on a neutral background. */
-export function hasHeatmapScreenshots(payload: HeatmapDataResponse): boolean {
-  return screenshotUrlsFromMetadata(payload.metadata).length > 0;
 }

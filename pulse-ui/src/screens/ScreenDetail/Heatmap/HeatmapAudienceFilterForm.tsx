@@ -1,5 +1,5 @@
 import { Autocomplete, Stack, Text } from "@mantine/core";
-import type { HeatmapAudienceFilterFormProps } from "./heatmapFilterPanel.types";
+import type { HeatmapAudienceFilterFormProps } from "./heatmap.ui.types";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
 
 export function HeatmapAudienceFilterForm({
