@@ -145,6 +145,11 @@
   align-self: stretch;
 }
 
+.heatmapSplitRight:has(.heatmapDataEmptyAside) {
+  justify-content: center;
+  align-items: center;
+}
+
 .aggregatesStack {
   flex: 1 1 auto;
   width: 100%;
@@ -435,6 +440,74 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--mantine-color-dark-6);
+}
+
+/* Dev-only: REACT_APP_USE_MOCK_SERVER — scenario picks for magic API screen names */
+.mockScenarioBar {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-md);
+  border: 1px dashed var(--mantine-color-orange-4);
+  background: color-mix(in srgb, var(--mantine-color-orange-0) 65%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-xs);
+}
+
+.mockScenarioSelectInput {
+  min-width: min(100%, 260px);
+}
+
+.screenUnderlayEmpty {
+  position: absolute;
+  inset: 12px;
+  border-radius: 16px;
+  background: #1a1b1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.heatmapFetchErrorFull {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(360px, 55vh);
+  padding: var(--mantine-spacing-xl);
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+}
+
+.heatmapFetchErrorCompact {
+  padding: var(--mantine-spacing-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-gray-0);
+}
+
+.heatmapDataEmptyAside {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-sm);
+  box-sizing: border-box;
+}
+
+.heatmapMainLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-xs);
+  gap: var(--mantine-spacing-sm);
+}
+
+.heatmapMainLoading .loadingSkeleton {
+  width: 100%;
+  max-width: min(520px, 100%);
+  margin-inline: auto;
 }
 
 .compareCta {
@@ -947,4 +1020,14 @@
   100% {
     background-position: -200% 0;
   }
+}
+
+.heatmapMapPlaceholder {
+  min-height: min(280px, 36vh);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mantine-radius-md);
+  border: 1px dashed var(--mantine-color-gray-3);
+  background: var(--mantine-color-gray-0);
 }

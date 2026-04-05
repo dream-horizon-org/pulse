@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
-import { Alert, Box, Stack, Text } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { Box, Group, Loader, Stack, Text } from "@mantine/core";
 import graphClasses from "../components/EngagementGraph.module.css";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import { HeatmapAggregatesPanel } from "./HeatmapAggregatesPanel";
+import { HeatmapDataEmptyAside } from "./HeatmapDataEmptyAside";
+import { HeatmapFetchErrorPanel } from "./HeatmapFetchErrorPanel";
+import { isHeatmapDataEmpty } from "./heatmapEmptyState";
 import classes from "./HeatmapPanel.module.css";
 import type { HeatmapPanelProps } from "./heatmapPanel.types";
 import {
@@ -19,8 +21,12 @@ export interface HeatmapMainCardProps {
   signal: HeatmapSignal;
   focusLens: HeatmapFocusLens;
   isLoading: boolean;
-  errorMessage: string | null | undefined;
+  heatmapFetchError: boolean;
+  heatmapRetryLoading?: boolean;
+  onHeatmapRetry?: () => void;
   singlePayload: HeatmapDataResponse | null | undefined;
+  /** Route / context screen for empty-state copy when API uses a sentinel name. */
+  contextScreenName: string;
   qualityMetrics: HeatmapQualityMetrics;
   /** Time + filters + view popovers, plus Compare control — built in parent. */
   mapToolbar: ReactNode;
@@ -32,8 +38,11 @@ export function HeatmapMainCard({
   signal,
   focusLens,
   isLoading,
-  errorMessage,
+  heatmapFetchError,
+  heatmapRetryLoading = false,
+  onHeatmapRetry,
   singlePayload,
+  contextScreenName,
   qualityMetrics,
   mapToolbar,
   mapColumn,
@@ -82,34 +91,44 @@ export function HeatmapMainCard({
       <Box className={graphClasses.graphCard}>
         <div className={classes.heatmapMapToolbar}>{mapToolbar}</div>
 
-        {isLoading && !errorMessage && (
-          <div className={classes.loadingSkeleton} />
+        {heatmapFetchError && (
+          <HeatmapFetchErrorPanel
+            onRetry={onHeatmapRetry}
+            retryLoading={heatmapRetryLoading}
+          />
         )}
 
-        {errorMessage && (
-          <Alert
-            color="red"
-            title="Heatmap unavailable"
-            icon={<IconInfoCircle />}
-            mb="sm"
-            mt="md"
-          >
-            {errorMessage}
-          </Alert>
+        {!heatmapFetchError && isLoading && (
+          <div className={classes.heatmapMainLoading}>
+            <Group gap="sm" py="md" justify="center" wrap="nowrap" w="100%">
+              <Loader size="sm" color="teal" />
+              <Text size="sm" c="dimmed">
+                Loading heatmap…
+              </Text>
+            </Group>
+            <div className={classes.loadingSkeleton} />
+          </div>
         )}
 
-        {!isLoading && !errorMessage && singlePayload && (
+        {!isLoading && !heatmapFetchError && singlePayload && (
           <div className={classes.heatmapSplit}>
             <div className={classes.heatmapSplitLeft}>
               <div className={classes.mapBlock}>{mapColumn}</div>
             </div>
             <div className={classes.heatmapSplitRight}>
-              <HeatmapAggregatesPanel
-                payload={singlePayload}
-                signal={signal}
-                qualityMetrics={qualityMetrics}
-                focusLens={focusLens}
-              />
+              {isHeatmapDataEmpty(singlePayload) ? (
+                <HeatmapDataEmptyAside
+                  screenName={singlePayload.metadata.screenName}
+                  contextScreenName={contextScreenName}
+                />
+              ) : (
+                <HeatmapAggregatesPanel
+                  payload={singlePayload}
+                  signal={signal}
+                  qualityMetrics={qualityMetrics}
+                  focusLens={focusLens}
+                />
+              )}
             </div>
           </div>
         )}

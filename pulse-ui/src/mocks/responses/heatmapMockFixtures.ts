@@ -318,18 +318,36 @@ export function heatmapMockFull(screenName: string): HeatmapDataResponse {
   };
 }
 
+/**
+ * Dense heatmap with screenshot URLs stripped — UI “no capture” path.
+ * QA: magic screen `__no_screenshots__` or mock scenario toolbar.
+ */
+export function heatmapMockNoScreenshots(): HeatmapDataResponse {
+  const dense = heatmapMockPocDense("__no_screenshots__");
+  return {
+    ...dense,
+    metadata: {
+      ...dense.metadata,
+      screenshot_url: "",
+      screenshot_urls: [],
+    },
+  };
+}
+
+/**
+ * Successful response with no bins — omits `interaction_map` (heatmap-only API).
+ * QA: magic screen `__empty__` or mock scenario toolbar.
+ */
 export function heatmapMockEmpty(screenName: string): HeatmapDataResponse {
   return {
     metadata: {
       ...baseMetadata(screenName),
       total_events: 0,
-      screenshot_urls: [],
     },
     layers: {
       glow_map: [],
       frustration_map: { rage: [], dead: [] },
       observability_map: { error_clicks: [], latency_hotspots: [] },
-      interaction_map: { regions: [] },
     },
   };
 }
@@ -419,7 +437,15 @@ function applyHintsToPayload(
   return next;
 }
 
-/** Resolve scenario from screenName for E2E testing */
+/**
+ * Resolve scenario from `screenName` (query/body) for mocks:
+ * - `__empty__` — no glow/frustration bins (empty heatmap UI)
+ * - `__error__` — 500 from MockResponseGenerator (not handled here)
+ * - `__sparse__` — small fixed fixture
+ * - `__no_screenshots__` — full bins, empty screenshot list
+ * - `__mock_compare_b__` — alternate dense seed for compare column B
+ * - anything else — dense POC heatmap
+ */
 export function resolveHeatmapData(
   screenName: string,
   hints?: HeatmapMockRequestHints,
@@ -427,6 +453,8 @@ export function resolveHeatmapData(
   let data: HeatmapDataResponse;
   if (screenName === "__empty__") {
     data = heatmapMockEmpty("__empty__");
+  } else if (screenName === "__no_screenshots__") {
+    data = heatmapMockNoScreenshots();
   } else if (screenName === "__sparse__") {
     data = heatmapMockFull(screenName);
   } else {

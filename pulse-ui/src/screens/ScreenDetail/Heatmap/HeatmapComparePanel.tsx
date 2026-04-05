@@ -4,12 +4,10 @@ import {
   Divider,
   Group,
   Loader,
-  Alert,
   Select,
   Stack,
   Text,
 } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 import {
@@ -17,11 +15,15 @@ import {
   type HeatmapFocusLens,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
+import { isHeatmapDataEmpty } from "./heatmapEmptyState";
 import { HeatmapVisualization } from "./HeatmapVisualization";
 import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import { HeatmapAggregatesPanel } from "./HeatmapAggregatesPanel";
 import type { HeatmapQualityMetrics } from "./heatmapQuality";
 import { HeatmapMapViewControls } from "./HeatmapMapViewControls";
+import { HeatmapMapPlaceholder } from "./HeatmapMapPlaceholder";
+import { HeatmapDataEmptyAside } from "./HeatmapDataEmptyAside";
+import { HeatmapFetchErrorPanel } from "./HeatmapFetchErrorPanel";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapComparePanelProps {
@@ -36,8 +38,15 @@ export interface HeatmapComparePanelProps {
   filtersSlotA: ReactNode;
   filtersSlotB: ReactNode;
   onExitCompare: () => void;
-  isLoading: boolean;
-  errorMessage: string | null | undefined;
+  /** True while either side is fetching (initial or refetch). */
+  compareLeftLoading: boolean;
+  compareRightLoading: boolean;
+  compareLeftFetchFailed: boolean;
+  compareRightFetchFailed: boolean;
+  onRetryCompareLeft?: () => void;
+  onRetryCompareRight?: () => void;
+  compareLeftRetrying?: boolean;
+  compareRightRetrying?: boolean;
   compareLeftPayload: HeatmapDataResponse | null | undefined;
   compareRightPayload: HeatmapDataResponse | null | undefined;
   compareLeftQualityMetrics: HeatmapQualityMetrics;
@@ -58,8 +67,14 @@ export function HeatmapComparePanel({
   filtersSlotA,
   filtersSlotB,
   onExitCompare,
-  isLoading,
-  errorMessage,
+  compareLeftLoading,
+  compareRightLoading,
+  compareLeftFetchFailed,
+  compareRightFetchFailed,
+  onRetryCompareLeft,
+  onRetryCompareRight,
+  compareLeftRetrying = false,
+  compareRightRetrying = false,
   compareLeftPayload,
   compareRightPayload,
   compareLeftQualityMetrics,
@@ -67,6 +82,8 @@ export function HeatmapComparePanel({
   compareSharedMax,
   showInteractionMapOption = true,
 }: HeatmapComparePanelProps) {
+  const anyLoading = compareLeftLoading || compareRightLoading;
+
   return (
     <Stack gap="md" className={classes.root}>
       <Box className={classes.filterBar}>
@@ -98,96 +115,210 @@ export function HeatmapComparePanel({
         </Stack>
       </Box>
 
-      {isLoading && (
-        <Group>
+      {anyLoading && (
+        <Group justify="center" w="100%" py="sm" gap="sm" wrap="nowrap">
           <Loader size="sm" color="teal" />
           <Text size="sm">Loading comparison…</Text>
         </Group>
       )}
-      {errorMessage && (
-        <Alert color="red" title="Couldn't load comparison" icon={<IconInfoCircle />}>
-          {errorMessage}
-        </Alert>
-      )}
-      {compareLeftPayload && compareRightPayload && (
-        <>
-          <div className={classes.compareGrid}>
-            <CompareColumn
-              data={compareLeftPayload}
-              signal={signal}
-              focusLens={focusLens}
-              sharedWeightMax={compareSharedMax}
-              headerSlot={
-                <Select
-                  label="Current screen"
-                  placeholder="—"
-                  size="sm"
-                  data={[{ value: screenAName, label: screenAName }]}
-                  value={screenAName}
-                  disabled
-                />
-              }
+
+      <div className={classes.compareGrid}>
+        <CompareMapColumn
+          headerSlot={
+            <Select
+              label="Current screen"
+              placeholder="—"
+              size="sm"
+              data={[{ value: screenAName, label: screenAName }]}
+              value={screenAName}
+              disabled
             />
-            <CompareColumn
-              data={compareRightPayload}
-              signal={signal}
-              focusLens={focusLens}
-              sharedWeightMax={compareSharedMax}
-              headerSlot={
-                <Select
-                  label="Compare to screen"
-                  placeholder="Choose a screen"
-                  size="sm"
-                  searchable
-                  data={compareScreenOptions}
-                  value={compareScreenName}
-                  onChange={(v) => onCompareScreenNameChange(v ?? "")}
-                />
-              }
+          }
+          loading={compareLeftLoading}
+          fetchFailed={compareLeftFetchFailed}
+          onRetry={onRetryCompareLeft}
+          retryLoading={compareLeftRetrying}
+          payload={compareLeftPayload}
+          screenLabel={screenAName}
+          signal={signal}
+          focusLens={focusLens}
+          sharedWeightMax={compareSharedMax}
+        />
+        <CompareMapColumn
+          headerSlot={
+            <Select
+              label="Compare to screen"
+              placeholder="Choose a screen"
+              size="sm"
+              searchable
+              data={compareScreenOptions}
+              value={compareScreenName}
+              onChange={(v) => onCompareScreenNameChange(v ?? "")}
             />
-          </div>
-          <div className={classes.compareAggregatesGrid}>
-            <Box className={classes.compareAggregatesCell}>
-              <Text fw={700} mb="sm" size="sm">
-                {screenAName}
-              </Text>
-              <HeatmapAggregatesPanel
-                payload={compareLeftPayload}
-                signal={signal}
-                qualityMetrics={compareLeftQualityMetrics}
-                focusLens={focusLens}
-              />
-            </Box>
-            <Box className={classes.compareAggregatesCell}>
-              <Text fw={700} mb="sm" size="sm">
-                {compareRightPayload.metadata.screenName}
-              </Text>
-              <HeatmapAggregatesPanel
-                payload={compareRightPayload}
-                signal={signal}
-                qualityMetrics={compareRightQualityMetrics}
-                focusLens={focusLens}
-              />
-            </Box>
-          </div>
-        </>
-      )}
+          }
+          loading={compareRightLoading}
+          fetchFailed={compareRightFetchFailed}
+          onRetry={onRetryCompareRight}
+          retryLoading={compareRightRetrying}
+          payload={compareRightPayload}
+          screenLabel={compareScreenName.trim() || "Screen B"}
+          signal={signal}
+          focusLens={focusLens}
+          sharedWeightMax={compareSharedMax}
+        />
+      </div>
+
+      <div className={classes.compareAggregatesGrid}>
+        <CompareAggregatesCell
+          title={screenAName}
+          loading={compareLeftLoading}
+          fetchFailed={compareLeftFetchFailed}
+          payload={compareLeftPayload}
+          contextScreenName={screenAName}
+          signal={signal}
+          qualityMetrics={compareLeftQualityMetrics}
+          focusLens={focusLens}
+        />
+        <CompareAggregatesCell
+          title={
+            compareRightPayload?.metadata.screenName ??
+            (compareScreenName.trim() || "Screen B")
+          }
+          loading={compareRightLoading}
+          fetchFailed={compareRightFetchFailed}
+          payload={compareRightPayload}
+          contextScreenName={compareScreenName.trim() || "Screen B"}
+          signal={signal}
+          qualityMetrics={compareRightQualityMetrics}
+          focusLens={focusLens}
+        />
+      </div>
     </Stack>
   );
 }
 
-function CompareColumn({
+function CompareAggregatesCell({
+  title,
+  loading,
+  fetchFailed,
+  payload,
+  contextScreenName,
+  signal,
+  qualityMetrics,
+  focusLens,
+}: {
+  title: string;
+  loading: boolean;
+  fetchFailed: boolean;
+  payload: HeatmapDataResponse | null | undefined;
+  contextScreenName: string;
+  signal: HeatmapSignal;
+  qualityMetrics: HeatmapQualityMetrics;
+  focusLens: HeatmapFocusLens;
+}) {
+  return (
+    <Box className={classes.compareAggregatesCell}>
+      <Text fw={700} mb="sm" size="sm">
+        {title}
+      </Text>
+      {fetchFailed && (
+        <Text size="sm" c="dimmed" py="md" lh={1.5}>
+          Metrics load with the heatmap preview. Use{" "}
+          <Text span fw={600} c="dimmed">
+            Retry
+          </Text>{" "}
+          in the column above.
+        </Text>
+      )}
+      {!fetchFailed && loading && !payload && (
+        <Group gap="sm" py="md" justify="center" w="100%" wrap="nowrap">
+          <Loader size="sm" color="teal" />
+          <Text size="sm" c="dimmed">
+            Loading metrics…
+          </Text>
+        </Group>
+      )}
+      {!fetchFailed && payload && !isHeatmapDataEmpty(payload) && (
+        <HeatmapAggregatesPanel
+          payload={payload}
+          signal={signal}
+          qualityMetrics={qualityMetrics}
+          focusLens={focusLens}
+        />
+      )}
+      {!fetchFailed && payload && isHeatmapDataEmpty(payload) && (
+        <HeatmapDataEmptyAside
+          screenName={payload.metadata.screenName}
+          contextScreenName={contextScreenName}
+        />
+      )}
+    </Box>
+  );
+}
+
+function CompareMapColumn({
   headerSlot,
-  data,
+  loading,
+  fetchFailed,
+  onRetry,
+  retryLoading,
+  payload,
+  screenLabel,
   signal,
   focusLens,
   sharedWeightMax,
 }: {
   headerSlot: ReactNode;
+  loading: boolean;
+  fetchFailed: boolean;
+  onRetry?: () => void;
+  retryLoading?: boolean;
+  payload: HeatmapDataResponse | null | undefined;
+  screenLabel: string;
+  signal: HeatmapSignal;
+  focusLens: HeatmapFocusLens;
+  sharedWeightMax: number;
+}) {
+  return (
+    <Box>
+      {headerSlot}
+      <Box mt="md">
+        {fetchFailed && (
+          <HeatmapFetchErrorPanel
+            compact
+            onRetry={onRetry}
+            retryLoading={retryLoading}
+          />
+        )}
+        {!fetchFailed && loading && !payload && (
+          <HeatmapMapPlaceholder variant="loading" />
+        )}
+        {!fetchFailed && !loading && payload && (
+          <CompareColumnVisualization
+            data={payload}
+            signal={signal}
+            focusLens={focusLens}
+            sharedWeightMax={sharedWeightMax}
+            showBinTooltip={!isHeatmapDataEmpty(payload)}
+          />
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+function CompareColumnVisualization({
+  data,
+  signal,
+  focusLens,
+  sharedWeightMax,
+  showBinTooltip,
+}: {
   data: HeatmapDataResponse;
   signal: HeatmapSignal;
   focusLens: HeatmapFocusLens;
   sharedWeightMax: number;
+  showBinTooltip: boolean;
 }) {
   const glow = glowLayerForSignal(data, signal);
   const map = glow.length ? glow : data.layers.glow_map;
@@ -200,23 +331,20 @@ function CompareColumn({
     })) ?? [];
 
   return (
-    <Box>
-      {headerSlot}
-      <Box mt="md">
-        <HeatmapVisualization
-          signal={signal}
-          screenshotUrls={screenshotUrlsFromMetadata(data.metadata)}
-          glowMap={map}
-          binBudget={binBudget}
-          focusLens={focusLens}
-          interactionRegions={data.layers.interaction_map?.regions ?? []}
-          sharedWeightMax={sharedWeightMax}
-          showDensityFooter={focusLens === "all"}
-          showFrustrationMarkers={signal === "rage"}
-          ragePoints={rageForMarkers}
-          densityBinTooltip={{ payload: data, signal }}
-        />
-      </Box>
-    </Box>
+    <HeatmapVisualization
+      signal={signal}
+      screenshotUrls={screenshotUrlsFromMetadata(data.metadata)}
+      glowMap={map}
+      binBudget={binBudget}
+      focusLens={focusLens}
+      interactionRegions={data.layers.interaction_map?.regions ?? []}
+      sharedWeightMax={sharedWeightMax}
+      showDensityFooter={focusLens === "all"}
+      showFrustrationMarkers={signal === "rage"}
+      ragePoints={rageForMarkers}
+      densityBinTooltip={
+        showBinTooltip ? { payload: data, signal } : undefined
+      }
+    />
   );
 }

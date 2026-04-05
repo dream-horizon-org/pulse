@@ -112,8 +112,9 @@ export class MockResponseGenerator {
       console.log(`[Mock Server] ${method} ${pathname}`, request);
     }
 
-    // Add artificial delay
-    await this.delay(this.config.getDelay());
+    // Artificial delay (+ 1s on heatmap routes so loading states are visible in mock)
+    const heatmapExtraMs = pathname.includes("/heatmap/") ? 1000 : 0;
+    await this.delay(this.config.getDelay() + heatmapExtraMs);
 
     // Simulate random errors
     if (this.config.shouldSimulateError()) {

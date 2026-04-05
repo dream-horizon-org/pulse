@@ -15,6 +15,26 @@ import {
 
 dayjs.extend(utc);
 
+const HEATMAP_500_MAX_RETRIES = 3;
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Re-run request up to 3 extra times when the server returns HTTP 500 only. */
+async function fetchHeatmapWith500Retry(
+  fetchOnce: () => Promise<ApiResponse<HeatmapDataResponse>>,
+): Promise<ApiResponse<HeatmapDataResponse>> {
+  let response = await fetchOnce();
+  for (
+    let attempt = 0;
+    attempt < HEATMAP_500_MAX_RETRIES && response.status === 500;
+    attempt += 1
+  ) {
+    await delay(350 * (attempt + 1));
+    response = await fetchOnce();
+  }
+  return response;
+}
+
 export interface UseHeatmapDataParams {
   screenName: string;
   startTime: string;
@@ -110,26 +130,30 @@ export const useHeatmapData = (
         if (!projectId) {
           throw new Error("projectId required for POST heatmap data");
         }
-        return fetchHeatmapDataPost(projectId, {
+        return fetchHeatmapWith500Retry(() =>
+          fetchHeatmapDataPost(projectId, {
+            screenName,
+            timeRange: { start: formattedStart, end: formattedEnd },
+            app_version,
+            platform,
+            aspect_ratio,
+            cohort_id,
+            includeLayers,
+          }),
+        );
+      }
+      return fetchHeatmapWith500Retry(() =>
+        fetchHeatmapDataGet({
           screenName,
-          timeRange: { start: formattedStart, end: formattedEnd },
+          from: formattedStart,
+          to: formattedEnd,
           app_version,
           platform,
           aspect_ratio,
           cohort_id,
-          includeLayers,
-        });
-      }
-      return fetchHeatmapDataGet({
-        screenName,
-        from: formattedStart,
-        to: formattedEnd,
-        app_version,
-        platform,
-        aspect_ratio,
-        cohort_id,
-        layers,
-      });
+          layers,
+        }),
+      );
     },
     enabled: isProjectReady,
     staleTime: 10_000,
