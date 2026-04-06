@@ -66,7 +66,6 @@ public class FunnelServiceImpl implements FunnelService {
 
     FunnelDefinitionRow row =
       FunnelDefinitionRow.builder()
-        .id(0L)
         .projectId(projectId)
         .name(request.getName().trim())
         .description(StringUtils.trimToNull(request.getDescription()))
@@ -81,9 +80,6 @@ public class FunnelServiceImpl implements FunnelService {
         .endTime(request.getEndTime())
         .expiry(request.getExpiry())
         .createdBy(createdBy)
-        .createdAt(null)
-        .updatedAt(null)
-        .latestJobStatus(null)
         .build();
 
     List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
