@@ -220,7 +220,7 @@ class ClickEventBuffer(
             buffer.removeAll { withinRadius(it.x, it.y, click.x, click.y) }
             // Enforce cluster cap: emit the oldest cluster immediately if limit is reached.
             if (activeRageClusters.size >= MAX_ACTIVE_CLUSTERS) {
-                val oldest = activeRageClusters.minByOrNull { it.lastTapTimeMs }!!
+                val oldest = activeRageClusters.minByOrNull { it.lastTapTimeMs } ?: return
                 cancelDelayed(oldest.emitRunnable)
                 activeRageClusters.remove(oldest)
                 onRage(oldest.rage)
@@ -233,12 +233,12 @@ class ClickEventBuffer(
     // Emit clusters whose window expired before the current tap arrived.
     private fun emitExpiredClusters(nowMs: Long) {
         activeRageClusters.removeAll { cluster ->
-            val expired = nowMs - cluster.lastTapTimeMs > rageConfig.timeWindowMs
-            if (expired) {
+            val isExpired = nowMs - cluster.lastTapTimeMs > rageConfig.timeWindowMs
+            if (isExpired) {
                 cancelDelayed(cluster.emitRunnable)
                 onRage(cluster.rage)
             }
-            expired
+            isExpired
         }
     }
 
