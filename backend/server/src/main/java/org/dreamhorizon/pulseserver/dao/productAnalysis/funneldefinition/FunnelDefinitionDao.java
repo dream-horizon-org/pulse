@@ -8,6 +8,10 @@ import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -15,11 +19,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
 
 @Slf4j
 @Singleton
@@ -99,7 +98,7 @@ public class FunnelDefinitionDao {
         });
   }
 
-  public Single<List<FunnelDefinitionRow>> listByProject(String projectId, FunnelDefinitionListParams p) {
+  public Single<List<FunnelDefinitionRow>> listByProject(String projectId, FunnelDefinitionListParams funnelDefinitionListParams) {
     StringBuilder sql =
       new StringBuilder(
         "SELECT funnel.id, funnel.project_id, funnel.name, funnel.description, funnel.funnel_type, "
@@ -112,40 +111,40 @@ public class FunnelDefinitionDao {
     List<Object> params = new ArrayList<>();
     params.add(projectId);
 
-    if (p.getStatuses() != null && !p.getStatuses().isEmpty()) {
+    if (funnelDefinitionListParams.getStatuses() != null && !funnelDefinitionListParams.getStatuses().isEmpty()) {
       sql.append(" AND (").append(FunnelDefinitionQueries.FUNNEL_COMPUTED_STATUS_CASE).append(") IN (");
-      sql.append(String.join(",", p.getStatuses().stream().map(s -> "?").toList()));
+      sql.append(String.join(",", funnelDefinitionListParams.getStatuses().stream().map(s -> "?").toList()));
       sql.append(")");
-      params.addAll(p.getStatuses());
+      params.addAll(funnelDefinitionListParams.getStatuses());
     }
-    if (p.getFunnelType() != null && !p.getFunnelType().isBlank()) {
+    if (funnelDefinitionListParams.getFunnelType() != null && !funnelDefinitionListParams.getFunnelType().isBlank()) {
       sql.append(" AND funnel.funnel_type = ?");
-      params.add(p.getFunnelType());
+      params.add(funnelDefinitionListParams.getFunnelType());
     }
-    if (p.getNameLikePrefix() != null) {
+    if (funnelDefinitionListParams.getNameLikePrefix() != null) {
       sql.append(" AND funnel.name LIKE ?");
-      params.add(p.getNameLikePrefix());
+      params.add(funnelDefinitionListParams.getNameLikePrefix());
     }
-    if (p.isUseFullTextSearch() && p.getFtsBooleanQuery() != null && !p.getFtsBooleanQuery().isBlank()) {
+    if (funnelDefinitionListParams.isUseFullTextSearch() && funnelDefinitionListParams.getFtsBooleanQuery() != null && !funnelDefinitionListParams.getFtsBooleanQuery().isBlank()) {
       sql.append(" AND MATCH(funnel.name) AGAINST (? IN BOOLEAN MODE)");
-      params.add(p.getFtsBooleanQuery());
+      params.add(funnelDefinitionListParams.getFtsBooleanQuery());
     }
-    if (p.getUpdatedAfter() != null) {
+    if (funnelDefinitionListParams.getUpdatedAfter() != null) {
       sql.append(" AND funnel.updated_at >= ?");
-      params.add(LocalDateTime.ofInstant(p.getUpdatedAfter(), ZoneOffset.UTC));
+      params.add(LocalDateTime.ofInstant(funnelDefinitionListParams.getUpdatedAfter(), ZoneOffset.UTC));
     }
-    if (p.getUpdatedBefore() != null) {
+    if (funnelDefinitionListParams.getUpdatedBefore() != null) {
       sql.append(" AND funnel.updated_at <= ?");
-      params.add(LocalDateTime.ofInstant(p.getUpdatedBefore(), ZoneOffset.UTC));
+      params.add(LocalDateTime.ofInstant(funnelDefinitionListParams.getUpdatedBefore(), ZoneOffset.UTC));
     }
-    if (p.getCreatedBy() != null && !p.getCreatedBy().isBlank()) {
+    if (funnelDefinitionListParams.getCreatedBy() != null && !funnelDefinitionListParams.getCreatedBy().isBlank()) {
       sql.append(" AND funnel.created_by = ?");
-      params.add(p.getCreatedBy());
+      params.add(funnelDefinitionListParams.getCreatedBy());
     }
 
     sql.append(" ORDER BY funnel.updated_at DESC LIMIT ? OFFSET ?");
-    params.add(p.getLimit());
-    params.add(p.getOffset());
+    params.add(funnelDefinitionListParams.getLimit());
+    params.add(funnelDefinitionListParams.getOffset());
 
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool
