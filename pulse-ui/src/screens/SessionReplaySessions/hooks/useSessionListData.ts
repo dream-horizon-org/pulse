@@ -95,7 +95,17 @@ export function useSessionListData({
 
   const lastFetchKeyRef = useRef("");
   const prevSearchRef = useRef(filterState.searchQuery);
+  const cursorRef = useRef<string | null>(null);
+  const hasMoreRef = useRef(true);
 
+  // Keep cursor and hasMore refs in sync with state
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
   const performFetch = useCallback(
     async (fetchCursor: string | null, isInitialLoad: boolean) => {
       if (isInitialLoad) {
@@ -159,10 +169,21 @@ export function useSessionListData({
     await performFetch(null, true);
   }, [performFetch]);
 
-  const loadMore = useCallback(async () => {
-    if (!hasMore || isFetching || isLoading) return;
-    await performFetch(cursor, false);
-  }, [cursor, hasMore, isFetching, isLoading, performFetch]);
+  const loadMore = useCallback(
+    async () => {
+      if (!hasMoreRef.current || isFetching || isLoading) {
+        return;
+      }
+
+      // If cursor is null and hasMore is false, don't fetch
+      if (cursorRef.current === null && !hasMoreRef.current) {
+        return;
+      }
+
+      await performFetch(cursorRef.current, false);
+    },
+    [cursor, hasMore, isFetching, isLoading, performFetch],
+  );
 
   const isCustomWithoutDates =
     filterState.dateRange.preset === "custom" &&

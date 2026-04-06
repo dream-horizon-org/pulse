@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Text,
@@ -243,7 +243,6 @@ export function SessionsVirtualList({
   error,
 }: SessionsVirtualListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const tailRowRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
     count: sessions.length,
@@ -254,83 +253,77 @@ export function SessionsVirtualList({
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  useEffect(() => {
-    if (!tailRowRef.current) return;
+  const handleSentinelRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (!el || !hasMore) {
+        return;
+      }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isFetching && !isLoading) {
-          onLoadMore();
-        }
-      },
-      {
-        root: parentRef.current,
-        threshold: 0.1,
-        rootMargin: "100px",
-      },
-    );
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (
+            entries[0]?.isIntersecting &&
+            hasMore &&
+            !isFetching &&
+            !isLoading
+          ) {
+            onLoadMore();
+          }
+        },
+        {
+          root: parentRef.current,
+          threshold: 0.1,
+          rootMargin: "100px",
+        },
+      );
 
-    observer.observe(tailRowRef.current);
+      observer.observe(el);
 
-    return () => observer.disconnect();
-  }, [hasMore, isFetching, isLoading, onLoadMore]);
-
-  if (isLoading) {
-    return (
-      <div className={classes.loadingContainer}>
-        <Loader />
-        <Text>Loading sessions...</Text>
-      </div>
-    );
-  }
-
-  if (sessions.length === 0 && !isFetching) {
-    return (
-      <div className={classes.emptyState}>
-        <div className={classes.emptyStateIcon}>📋</div>
-        <div className={classes.emptyStateTitle}>No sessions found</div>
-        <div className={classes.emptyStateDescription}>
-          Try adjusting your filters or time range to see more results.
-        </div>
-      </div>
-    );
-  }
+      return () => {
+        observer.disconnect();
+      };
+    },
+    [hasMore, isFetching, isLoading, onLoadMore, parentRef],
+  );
 
   return (
-    <div className={classes.tableContainer}>
-      {/* Header */}
+    <div>
+      {/* Header Row */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          borderBottom: "1px solid #e9ecef",
-          backgroundColor: "white",
+          borderBottom: "2px solid #e9ecef",
+          backgroundColor: "#f8f9fa",
+          paddingTop: "var(--mantine-spacing-md)",
+          paddingBottom: "var(--mantine-spacing-md)",
+          paddingLeft: "var(--mantine-spacing-md)",
+          paddingRight: "var(--mantine-spacing-md)",
           height: HEADER_HEIGHT,
-          padding: "0 var(--mantine-spacing-md)",
-          position: "sticky",
-          top: 0,
-          zIndex: 10,
+          alignItems: "center",
+          fontWeight: 600,
+          fontSize: "var(--mantine-font-size-sm)",
+          color: "#495057",
         }}
       >
         <div
+          onClick={() => onSort("START_TIME")}
+          role="button"
+          tabIndex={0}
           style={{
             width: COLUMN_WIDTHS.startTime,
             flexShrink: 0,
             cursor: "pointer",
             userSelect: "none",
           }}
-          onClick={() => onSort("START_TIME")}
         >
-          <Group gap={4}>
-            <Text fw={500} size="sm">
-              {TABLE_COLUMN_LABELS.startTime}
-            </Text>
+          {TABLE_COLUMN_LABELS.startTime}
+          {sortBy === "START_TIME" && (
             <SortIcon
               column="START_TIME"
               currentSortBy={sortBy}
               sortDirection={sortDirection}
             />
-          </Group>
+          )}
         </div>
 
         <div
@@ -341,23 +334,21 @@ export function SessionsVirtualList({
             userSelect: "none",
           }}
           onClick={() => onSort("DURATION")}
+          role="button"
+          tabIndex={0}
         >
-          <Group gap={4}>
-            <Text fw={500} size="sm">
-              {TABLE_COLUMN_LABELS.duration}
-            </Text>
+          {TABLE_COLUMN_LABELS.duration}
+          {sortBy === "DURATION" && (
             <SortIcon
               column="DURATION"
               currentSortBy={sortBy}
               sortDirection={sortDirection}
             />
-          </Group>
+          )}
         </div>
 
         <div style={{ width: COLUMN_WIDTHS.user, flexShrink: 0 }}>
-          <Text fw={500} size="sm">
-            {TABLE_COLUMN_LABELS.user}
-          </Text>
+          {TABLE_COLUMN_LABELS.user}
         </div>
 
         <div
@@ -368,111 +359,144 @@ export function SessionsVirtualList({
             userSelect: "none",
           }}
           onClick={() => onSort("QUALITY_SCORE")}
+          role="button"
+          tabIndex={0}
         >
-          <Group gap={4}>
-            <Text fw={500} size="sm">
-              {TABLE_COLUMN_LABELS.quality}
-            </Text>
+          {TABLE_COLUMN_LABELS.quality}
+          {sortBy === "QUALITY_SCORE" && (
             <SortIcon
               column="QUALITY_SCORE"
               currentSortBy={sortBy}
               sortDirection={sortDirection}
             />
-          </Group>
+          )}
         </div>
 
         <div style={{ width: COLUMN_WIDTHS.issues, flexShrink: 0 }}>
-          <Text fw={500} size="sm">
-            {TABLE_COLUMN_LABELS.issues}
-          </Text>
+          {TABLE_COLUMN_LABELS.issues}
         </div>
 
         <div style={{ width: COLUMN_WIDTHS.platform, flexShrink: 0 }}>
-          <Text fw={500} size="sm">
-            {TABLE_COLUMN_LABELS.platform}
-          </Text>
+          {TABLE_COLUMN_LABELS.platform}
         </div>
 
         <div style={{ width: COLUMN_WIDTHS.impactedScreens, flexShrink: 0 }}>
-          <Text fw={500} size="sm">
-            {TABLE_COLUMN_LABELS.impactedScreens}
-          </Text>
+          {TABLE_COLUMN_LABELS.impactedScreens}
         </div>
       </div>
 
-      {/* Virtual Rows */}
-      <div
-        ref={parentRef}
-        style={{
-          height: "600px",
-          overflow: "auto",
-        }}
-      >
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            width: "100%",
-            position: "relative",
-          }}
-        >
-          {virtualItems.map((virtualItem) => {
-            const session = sessions[virtualItem.index];
-            const isLastItem = virtualItem.index === sessions.length - 1;
-
-            return (
-              <div
-                key={`${session.sessionId}-${virtualItem.index}`}
-                ref={isLastItem ? tailRowRef : undefined}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                <VirtualRow session={session} onSessionClick={onSessionClick} />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Loading Footer */}
-      {isFetching && (
-        <Center p="lg" style={{ borderTop: "1px solid #e9ecef" }}>
+      {isLoading && (
+        <Center p="lg">
           <Stack align="center" gap={8}>
             <Loader size="sm" />
             <Text size="sm" c="dimmed">
-              Loading more...
+              Loading sessions...
             </Text>
           </Stack>
         </Center>
       )}
 
-      {/* End of List */}
-      {!hasMore && sessions.length > 0 && (
-        <Center p="lg" style={{ borderTop: "1px solid #e9ecef" }}>
+      {!isLoading && sessions.length === 0 && (
+        <Center p="lg">
           <Text size="sm" c="dimmed">
-            End of results
+            No sessions found
           </Text>
         </Center>
       )}
 
-      {/* Error Display */}
-      {error && (
-        <div
-          style={{
-            padding: "var(--mantine-spacing-md)",
-            borderTop: "1px solid #e9ecef",
-            backgroundColor: "#ffe0e0",
-            color: "#c92a2a",
-          }}
-        >
-          <Text size="sm" fw={500}>
-            Error loading sessions: {error.message}
-          </Text>
-        </div>
+      {sessions.length > 0 && (
+        <>
+          {/* Virtual Rows */}
+          <div
+            ref={parentRef}
+            style={{
+              height: "calc(100vh - 400px)",
+              overflow: "auto",
+              minHeight: "600px",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: "100%",
+                position: "relative",
+              }}
+            >
+              {virtualItems.map((virtualItem) => {
+                const session = sessions[virtualItem.index];
+
+                return (
+                  <div
+                    key={`${session.sessionId}-${virtualItem.index}`}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    <VirtualRow
+                      session={session}
+                      onSessionClick={onSessionClick}
+                    />
+                  </div>
+                );
+              })}
+
+              {/* Sentinel element for infinite scroll */}
+              <div
+                ref={handleSentinelRef}
+                style={{
+                  position: "absolute",
+                  top: `${virtualizer.getTotalSize()}px`,
+                  left: 0,
+                  width: "100%",
+                  height: "1px",
+                }}
+                data-test="infinite-scroll-sentinel"
+              />
+            </div>
+          </div>
+
+          {/* Loading Footer */}
+          {isFetching && (
+            <Center p="lg" style={{ borderTop: "1px solid #e9ecef" }}>
+              <Stack align="center" gap={8}>
+                <Loader size="sm" />
+                <Text size="sm" c="dimmed">
+                  Loading more...
+                </Text>
+              </Stack>
+            </Center>
+          )}
+
+          {/* End of List */}
+          {!hasMore && sessions.length > 0 && (
+            <Center p="lg" style={{ borderTop: "1px solid #e9ecef" }}>
+              <Text size="sm" c="dimmed">
+                End of results
+              </Text>
+            </Center>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div
+              style={{
+                padding: "var(--mantine-spacing-md)",
+                borderTop: "1px solid #e9ecef",
+                backgroundColor: "#ffe0e0",
+                color: "#c92a2a",
+              }}
+            >
+              <Text size="sm" fw={500}>
+                Error loading sessions: {error.message}
+              </Text>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
