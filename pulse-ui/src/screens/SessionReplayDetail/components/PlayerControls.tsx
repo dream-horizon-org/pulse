@@ -16,7 +16,6 @@ import {
 } from "@tabler/icons-react";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
 import { formatPlayerTime } from "../utils/sessionUtils";
-import { LABELS } from "../constants/strings";
 import classes from "./PlayerControls.module.css";
 
 const SKIP_MS = 10_000;
