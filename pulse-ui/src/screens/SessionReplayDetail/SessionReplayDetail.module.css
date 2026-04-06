@@ -89,8 +89,8 @@
 
 .playerSectionLeft {
   flex-shrink: 0;
-  width: 320px;
-  min-width: 280px;
+  width: min(440px, 42%);
+  min-width: 300px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -249,6 +249,30 @@
 }
 
 /* Raw Events Container - same height as device player (fills tab content) */
+/* All tab: title + description above the unified event list */
+.allTabWrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sessionTimelineIntro {
+  flex-shrink: 0;
+}
+
+
+.sessionReplaySectionTitle {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--mantine-color-gray-9);
+}
+
+[data-mantine-color-scheme="dark"] .sessionReplaySectionTitle {
+  color: var(--mantine-color-gray-0);
+}
+
 .rawEventsContainer {
   padding: var(--mantine-spacing-md);
   border-radius: var(--mantine-radius-sm);
@@ -286,6 +310,16 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.sessionTabLabel {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--mantine-color-gray-9);
+}
+
+[data-mantine-color-scheme="dark"] .sessionTabLabel {
+  color: var(--mantine-color-gray-0);
 }
 
 /* All Tab Container - right panel tabs card */

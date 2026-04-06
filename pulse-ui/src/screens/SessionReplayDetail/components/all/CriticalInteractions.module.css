@@ -1,0 +1,40 @@
+/* Tab panel already applies horizontal padding via .tabContent */
+.section {
+  padding: 0;
+}
+
+.interactionRow {
+  padding: var(--mantine-spacing-md);
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.interactionRow:last-child {
+  border-bottom: none;
+}
+
+.interactionName {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Row names: semibold — lighter than heading so list doesn’t look “fat” (matches 1st ref) */
+.interactionNameText {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--mantine-color-gray-9);
+}
+
+[data-mantine-color-scheme="dark"] .interactionNameText {
+  color: var(--mantine-color-gray-0);
+}
+
+.interactionNameClickable {
+  cursor: pointer;
+}
+
+.interactionNameClickable:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

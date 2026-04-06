@@ -86,21 +86,14 @@ export function PlayerControls({
         </Group>
       </Box>
 
-      {/* Control Buttons */}
-      <Group justify="space-between" align="center">
-        <Group gap="xs">
-          <ActionIcon
-            size="lg"
-            variant="filled"
-            color="teal"
-            onClick={onPlayPause}
-          >
-            {isPlaying ? (
-              <IconPlayerPause size={18} />
-            ) : (
-              <IconPlayerPlay size={18} />
-            )}
-          </ActionIcon>
+      <Group
+        className={classes.controlsRow}
+        justify="space-between"
+        align="center"
+        wrap="nowrap"
+        gap="sm"
+      >
+        <Group gap="xs" wrap="nowrap" align="center">
           <Tooltip label="Back 10s">
             <ActionIcon
               size="md"
@@ -112,6 +105,19 @@ export function PlayerControls({
               <IconPlayerSkipBack size={16} />
             </ActionIcon>
           </Tooltip>
+          <ActionIcon
+            size="lg"
+            variant="filled"
+            color="teal"
+            radius="md"
+            onClick={onPlayPause}
+          >
+            {isPlaying ? (
+              <IconPlayerPause size={18} />
+            ) : (
+              <IconPlayerPlay size={18} />
+            )}
+          </ActionIcon>
           <Tooltip label="Forward 10s">
             <ActionIcon
               size="md"
@@ -123,31 +129,32 @@ export function PlayerControls({
               <IconPlayerSkipForward size={16} />
             </ActionIcon>
           </Tooltip>
+          <Tooltip label="Fullscreen">
+            <ActionIcon size="md" variant="subtle" color="gray">
+              <IconArrowsMaximize size={16} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
 
-        <Group gap="md">
-          <Group gap={4}>
-            <Text size="xs" c="dimmed">
-              {LABELS.SPEED}:
-            </Text>
-            <Group gap={4}>
-              {[0.5, 1, 1.5, 2].map((speed) => (
-                <Button
-                  key={speed}
-                  size="xs"
-                  variant={playbackSpeed === speed ? "filled" : "subtle"}
-                  color="gray"
-                  onClick={() => onSpeedChange(speed)}
-                >
-                  {speed}x
-                </Button>
-              ))}
-            </Group>
+        <Group
+          gap={4}
+          wrap="nowrap"
+          align="center"
+          className={classes.speedGroup}
+        >
+          <Group gap={4} wrap="nowrap">
+            {[0.5, 1, 1.5, 2].map((speed) => (
+              <Button
+                key={speed}
+                size="xs"
+                variant={playbackSpeed === speed ? "filled" : "subtle"}
+                color="gray"
+                onClick={() => onSpeedChange(speed)}
+              >
+                {speed}x
+              </Button>
+            ))}
           </Group>
-
-          <ActionIcon size="md" variant="subtle" color="gray">
-            <IconArrowsMaximize size={16} />
-          </ActionIcon>
         </Group>
       </Group>
     </Box>
