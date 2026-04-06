@@ -2,8 +2,9 @@ import { Paper, Stack, Table, Text, Tooltip } from "@mantine/core";
 import { useMemo } from "react";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import {
-  aggregatePulseInteractionsForScreen,
   formatPulseScore,
+  keyLensHasInteractionOverlay,
+  pulseInteractionRowsForKeyLens,
 } from "./heatmapKeyLensAggregates";
 import classes from "./HeatmapPanel.module.css";
 import { bandFromNumericScore, heatmapScoreColor } from "./heatmapQuality";
@@ -18,10 +19,9 @@ export function HeatmapPulseInteractionsAggregatesSection({
   payload,
   showElementsColumn = true,
 }: HeatmapPulseInteractionsAggregatesSectionProps) {
-  const rows = useMemo(
-    () => aggregatePulseInteractionsForScreen(payload.layers.interaction_map?.regions ?? []),
-    [payload],
-  );
+  const hasOverlay = useMemo(() => keyLensHasInteractionOverlay(payload), [payload]);
+  const rows = useMemo(() => pulseInteractionRowsForKeyLens(payload), [payload]);
+  const showElements = showElementsColumn && hasOverlay;
   const sorted = useMemo(
     () => [...rows].sort((a, b) => b.score01 - a.score01),
     [rows],
@@ -42,7 +42,7 @@ export function HeatmapPulseInteractionsAggregatesSection({
         </Text>
         {sorted.length === 0 ? (
           <Text size="md" c="dimmed">
-            No rows in <code className={classes.interactionEmptyCode}>interaction_map</code>.
+            No Pulse interaction scores for this screen in the current response.
           </Text>
         ) : (
           <div className={classes.keyLensInteractionList}>
@@ -54,20 +54,18 @@ export function HeatmapPulseInteractionsAggregatesSection({
             >
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th
-                    style={{ width: showElementsColumn ? "52%" : "65%" }}
-                  >
+                  <Table.Th style={{ width: showElements ? "52%" : "65%" }}>
                     Interaction
                   </Table.Th>
                   <Table.Th
                     style={{
-                      width: showElementsColumn ? "26%" : "35%",
+                      width: showElements ? "26%" : "35%",
                       textAlign: "right",
                     }}
                   >
                     Score
                   </Table.Th>
-                  {showElementsColumn ? (
+                  {showElements ? (
                     <Table.Th style={{ width: "22%", textAlign: "right" }}>
                       Elements
                     </Table.Th>
@@ -104,7 +102,7 @@ export function HeatmapPulseInteractionsAggregatesSection({
                         {formatPulseScore(row.score01)}
                       </Text>
                     </Table.Td>
-                    {showElementsColumn ? (
+                    {showElements ? (
                       <Table.Td style={{ textAlign: "right" }}>
                         <Text size="sm" c="dimmed">
                           {row.elementTouches}

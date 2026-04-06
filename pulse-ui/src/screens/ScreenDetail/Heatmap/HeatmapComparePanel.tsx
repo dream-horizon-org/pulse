@@ -17,6 +17,7 @@ import {
 } from "./heatmapPanelUtils";
 import { isHeatmapDataEmpty } from "./heatmapEmptyState";
 import { HeatmapVisualization } from "./HeatmapVisualization";
+import { isHeatmapMockServerEnabled } from "./heatmapMockDev";
 import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import { HeatmapAggregatesPanel } from "./HeatmapAggregatesPanel";
 import type { HeatmapQualityMetrics } from "./heatmapQuality";
@@ -66,6 +67,8 @@ export interface HeatmapComparePanelProps {
   compareRightQualityMetrics: HeatmapQualityMetrics;
   compareSharedMax: number;
   showInteractionMapOption?: boolean;
+  compareLeftBreakpoint?: string;
+  compareRightBreakpoint?: string;
 }
 
 export function HeatmapComparePanel({
@@ -94,6 +97,8 @@ export function HeatmapComparePanel({
   compareRightQualityMetrics,
   compareSharedMax,
   showInteractionMapOption = true,
+  compareLeftBreakpoint = "",
+  compareRightBreakpoint = "",
 }: HeatmapComparePanelProps) {
   const anyLoading = compareLeftLoading || compareRightLoading;
 
@@ -156,6 +161,7 @@ export function HeatmapComparePanel({
           signal={signal}
           focusLens={focusLens}
           sharedWeightMax={compareSharedMax}
+          breakpoint={compareLeftBreakpoint}
         />
         <CompareMapColumn
           headerSlot={
@@ -178,6 +184,7 @@ export function HeatmapComparePanel({
           signal={signal}
           focusLens={focusLens}
           sharedWeightMax={compareSharedMax}
+          breakpoint={compareRightBreakpoint}
         />
       </div>
 
@@ -282,6 +289,7 @@ function CompareMapColumn({
   signal,
   focusLens,
   sharedWeightMax,
+  breakpoint,
 }: {
   headerSlot: ReactNode;
   loading: boolean;
@@ -293,6 +301,7 @@ function CompareMapColumn({
   signal: HeatmapSignal;
   focusLens: HeatmapFocusLens;
   sharedWeightMax: number;
+  breakpoint?: string;
 }) {
   return (
     <Box>
@@ -315,6 +324,7 @@ function CompareMapColumn({
             focusLens={focusLens}
             sharedWeightMax={sharedWeightMax}
             showBinTooltip={!isHeatmapDataEmpty(payload)}
+            breakpoint={breakpoint}
           />
         )}
       </Box>
@@ -328,16 +338,19 @@ function CompareColumnVisualization({
   focusLens,
   sharedWeightMax,
   showBinTooltip,
+  breakpoint = "",
 }: {
   data: HeatmapDataResponse;
   signal: HeatmapSignal;
   focusLens: HeatmapFocusLens;
   sharedWeightMax: number;
   showBinTooltip: boolean;
+  breakpoint?: string;
 }) {
   const glow = glowLayerForSignal(data, signal);
   const map = glow.length ? glow : data.layers.glow_map;
-  const binBudget = useHeatmapBinBudget(map);
+  const mockBinControls = isHeatmapMockServerEnabled();
+  const binBudget = useHeatmapBinBudget(map, mockBinControls);
   const rageForMarkers =
     data.layers?.frustration_map?.rage?.map((r) => ({
       x: r.x,
@@ -352,9 +365,10 @@ function CompareColumnVisualization({
       glowMap={map}
       binBudget={binBudget}
       focusLens={focusLens}
+      breakpoint={breakpoint}
       interactionRegions={data.layers.interaction_map?.regions ?? []}
       sharedWeightMax={sharedWeightMax}
-      showDensityFooter={focusLens === "all"}
+      showDensityFooter={focusLens === "all" && mockBinControls}
       showFrustrationMarkers={signal === "rage"}
       ragePoints={rageForMarkers}
       densityBinTooltip={

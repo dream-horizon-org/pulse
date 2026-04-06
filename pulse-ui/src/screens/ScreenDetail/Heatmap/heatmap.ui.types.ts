@@ -34,7 +34,7 @@ export interface HeatmapFilterPanelProps {
   onSignalChange?: (s: HeatmapSignal) => void;
   focusLens?: HeatmapFocusLens;
   onFocusLensChange?: (l: HeatmapFocusLens) => void;
-  /** When false, only Heat map is offered (no `interaction_map` on the current response). */
+  /** When false, only Heat map is offered (no Key actions data on the response). */
   showInteractionMapOption?: boolean;
 }
 

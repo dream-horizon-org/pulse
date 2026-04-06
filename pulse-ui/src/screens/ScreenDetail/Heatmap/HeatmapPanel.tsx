@@ -18,7 +18,7 @@ import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import {
   compareSharedWeightMax,
   glowLayerForSignal,
-  heatmapLayersIncludeInteractionMapKey,
+  heatmapShowsKeyActionsLens,
   type HeatmapFocusLens,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
@@ -222,9 +222,7 @@ export function HeatmapPanel({
 
   const singleShowInteractionMap = useMemo(
     () =>
-      singlePayload
-        ? heatmapLayersIncludeInteractionMapKey(singlePayload.layers)
-        : false,
+      singlePayload ? heatmapShowsKeyActionsLens(singlePayload.layers) : false,
     [singlePayload],
   );
 
@@ -232,8 +230,8 @@ export function HeatmapPanel({
     () =>
       compareLeftPayload != null &&
       compareRightPayload != null &&
-      heatmapLayersIncludeInteractionMapKey(compareLeftPayload.layers) &&
-      heatmapLayersIncludeInteractionMapKey(compareRightPayload.layers),
+      heatmapShowsKeyActionsLens(compareLeftPayload.layers) &&
+      heatmapShowsKeyActionsLens(compareRightPayload.layers),
     [compareLeftPayload, compareRightPayload],
   );
 
@@ -277,7 +275,7 @@ export function HeatmapPanel({
     [singlePayload, signal],
   );
 
-  const binBudget = useHeatmapBinBudget(glowForSignal);
+  const binBudget = useHeatmapBinBudget(glowForSignal, mockServer);
 
   const rageForMarkers =
     singlePayload?.layers?.frustration_map?.rage?.map((r) => ({
@@ -436,6 +434,8 @@ export function HeatmapPanel({
           compareRightQualityMetrics={compareRightQualityMetrics}
           compareSharedMax={compareSharedMax}
           showInteractionMapOption={compareShowInteractionMap}
+          compareLeftBreakpoint={effectiveCompareA.breakpoint}
+          compareRightBreakpoint={effectiveCompareB.breakpoint}
         />
       </>
     );
@@ -501,6 +501,7 @@ export function HeatmapPanel({
                 binBudget={binBudget}
                 showDensityFooter={false}
                 focusLens={focusLens}
+                breakpoint={effectiveSingle.breakpoint}
                 interactionRegions={
                   singlePayload.layers.interaction_map?.regions ?? []
                 }
@@ -512,17 +513,19 @@ export function HeatmapPanel({
                     : { payload: singlePayload, signal }
                 }
               />
-              {!isHeatmapDataEmpty(singlePayload) && focusLens === "all" && (
-                <div className={classes.embeddedBinBudget}>
-                  <HeatmapVizFooter
-                    glowMapLength={glowForSignal.length}
-                    displayCount={binBudget.displayGlow.length}
-                    binBudgetMax={binBudget.binBudgetMax}
-                    effectiveBudget={binBudget.binBudget}
-                    onBudgetChange={binBudget.setBinBudget}
-                  />
-                </div>
-              )}
+              {mockServer && !isHeatmapDataEmpty(singlePayload) &&
+                focusLens === "all" &&
+                 (
+                  <div className={classes.embeddedBinBudget}>
+                    <HeatmapVizFooter
+                      glowMapLength={glowForSignal.length}
+                      displayCount={binBudget.displayGlow.length}
+                      binBudgetMax={binBudget.binBudgetMax}
+                      effectiveBudget={binBudget.binBudget}
+                      onBudgetChange={binBudget.setBinBudget}
+                    />
+                  </div>
+                )}
             </div>
           ) : null
         }

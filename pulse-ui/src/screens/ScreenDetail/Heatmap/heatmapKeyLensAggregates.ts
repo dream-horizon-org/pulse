@@ -1,4 +1,5 @@
 import type {
+  HeatmapDataResponse,
   HeatmapInteractionElementRegion,
   HeatmapPulseInteractionScore,
 } from "./heatmap.types";
@@ -72,4 +73,41 @@ export function screenPulseInteractionAverage01(
 
 export function formatPulseScore(n: number | null): string {
   return formatInteractionScore01(n);
+}
+
+/** Prefer `interaction_map` regions; otherwise rows from `interactions_metadata`. */
+export function pulseInteractionRowsForKeyLens(
+  payload: HeatmapDataResponse,
+): PulseInteractionAggregateRow[] {
+  const regions = payload.layers.interaction_map?.regions ?? [];
+  if (regions.length > 0) {
+    return aggregatePulseInteractionsForScreen(regions);
+  }
+  const meta = payload.layers.interactions_metadata ?? [];
+  if (meta.length === 0) return [];
+  return meta.map((r, i) => ({
+    key: `metadata-${i}-${r.interaction_name}`,
+    displayName: r.interaction_name,
+    score01: Number(r.avg_score),
+    elementTouches: 1,
+  }));
+}
+
+export function screenPulseInteractionAverageFromPayload(
+  payload: HeatmapDataResponse,
+): number | null {
+  const regions = payload.layers.interaction_map?.regions ?? [];
+  if (regions.length > 0) {
+    return screenPulseInteractionAverage01(regions);
+  }
+  const meta = payload.layers.interactions_metadata ?? [];
+  if (meta.length === 0) return null;
+  const sum = meta.reduce((s, r) => s + Number(r.avg_score), 0);
+  return Math.round((sum / meta.length) * 10_000) / 10_000;
+}
+
+export function keyLensHasInteractionOverlay(
+  payload: HeatmapDataResponse,
+): boolean {
+  return (payload.layers.interaction_map?.regions ?? []).length > 0;
 }

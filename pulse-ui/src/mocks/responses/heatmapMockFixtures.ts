@@ -1,9 +1,13 @@
 import type {
   HeatmapCompareResponse,
   HeatmapDataResponse,
+  HeatmapDataWireResponse,
   HeatmapGlowPoint,
   HeatmapInteractionMapLayer,
+  HeatmapInteractionsMetadataRow,
 } from "../../screens/ScreenDetail/Heatmap/heatmap.types";
+import { aggregatePulseInteractionsForScreen } from "../../screens/ScreenDetail/Heatmap/heatmapKeyLensAggregates";
+import { normalizeHeatmapWireResponse } from "../../screens/ScreenDetail/Heatmap/heatmapWireNormalize";
 import { HEATMAP_DEFAULT_UNDERLAY_URL } from "../../screens/ScreenDetail/Heatmap/heatmapViz.constants";
 
 const MOCK_UI_HASH = "a".repeat(64);
@@ -89,6 +93,15 @@ function baseMetadata(screenName: string): HeatmapDataResponse["metadata"] {
 }
 
 /** Mock Key-actions layer: normalized bounds + Pulse interaction scores per element. */
+function mockInteractionsMetadataFromMap(
+  layer: HeatmapInteractionMapLayer,
+): HeatmapInteractionsMetadataRow[] {
+  return aggregatePulseInteractionsForScreen(layer.regions).map((r) => ({
+    interaction_name: r.displayName,
+    avg_score: r.score01,
+  }));
+}
+
 export function heatmapMockInteractionMap(): HeatmapInteractionMapLayer {
   return {
     regions: [
@@ -247,8 +260,9 @@ export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
   const rageA = Math.round(frustrationBudget * 0.52);
   const rageB = Math.round(frustrationBudget * 0.31);
   const deadW = Math.max(80, frustrationBudget - rageA - rageB);
+  const interactionMap = heatmapMockInteractionMap();
 
-  return {
+  const wire: HeatmapDataWireResponse = {
     metadata: {
       ...baseMetadata(screenName),
       total_events,
@@ -256,7 +270,7 @@ export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
     layers: {
       glow_map,
       frustration_map: {
-        rage: [
+        rage_taps: [
           {
             x: clamp01(0.36 + (rand() - 0.5) * 0.04),
             y: clamp01(0.91 + (rand() - 0.5) * 0.03),
@@ -270,7 +284,7 @@ export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
             avg_sequence_count: 2 + Math.round(rand() * 4),
           },
         ],
-        dead: [
+        dead_taps: [
           {
             x: clamp01(0.12 + (rand() - 0.5) * 0.05),
             y: clamp01(0.2 + (rand() - 0.5) * 0.05),
@@ -286,14 +300,18 @@ export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
           { x: 0.28, y: 0.48, avg_latency_ms: 2100, weight: 280 },
         ],
       },
-      interaction_map: heatmapMockInteractionMap(),
+      interaction_map: interactionMap,
+      interactions_metadata: mockInteractionsMetadataFromMap(interactionMap),
     },
   };
+
+  return normalizeHeatmapWireResponse(wire);
 }
 
 /** Small fixture for tests / legacy compare mock */
 export function heatmapMockFull(screenName: string): HeatmapDataResponse {
-  return {
+  const interactionMap = heatmapMockInteractionMap();
+  return normalizeHeatmapWireResponse({
     metadata: baseMetadata(screenName),
     layers: {
       glow_map: [
@@ -302,8 +320,10 @@ export function heatmapMockFull(screenName: string): HeatmapDataResponse {
         { x: 0.72, y: 0.35, weight: 120 },
       ],
       frustration_map: {
-        rage: [{ x: 0.45, y: 0.82, weight: 450, avg_sequence_count: 5 }],
-        dead: [{ x: 0.1, y: 0.1, weight: 120 }],
+        rage_taps: [
+          { x: 0.45, y: 0.82, weight: 450, avg_sequence_count: 5 },
+        ],
+        dead_taps: [{ x: 0.1, y: 0.1, weight: 120 }],
       },
       observability_map: {
         error_clicks: [
@@ -313,9 +333,10 @@ export function heatmapMockFull(screenName: string): HeatmapDataResponse {
           { x: 0.5, y: 0.5, avg_latency_ms: 2450, weight: 300 },
         ],
       },
-      interaction_map: heatmapMockInteractionMap(),
+      interaction_map: interactionMap,
+      interactions_metadata: mockInteractionsMetadataFromMap(interactionMap),
     },
-  };
+  });
 }
 
 /**
@@ -335,21 +356,21 @@ export function heatmapMockNoScreenshots(): HeatmapDataResponse {
 }
 
 /**
- * Successful response with no bins — omits `interaction_map` (heatmap-only API).
+ * Successful response with no bins — no Key actions layer (heatmap-only API).
  * QA: magic screen `__empty__` or mock scenario toolbar.
  */
 export function heatmapMockEmpty(screenName: string): HeatmapDataResponse {
-  return {
+  return normalizeHeatmapWireResponse({
     metadata: {
       ...baseMetadata(screenName),
       total_events: 0,
     },
     layers: {
       glow_map: [],
-      frustration_map: { rage: [], dead: [] },
+      frustration_map: { rage_taps: [], dead_taps: [] },
       observability_map: { error_clicks: [], latency_hotspots: [] },
     },
-  };
+  });
 }
 
 export function heatmapMockCompare(
@@ -377,20 +398,20 @@ export function heatmapMockCompare(
 export type HeatmapMockRequestHints = {
   app_version?: string | null;
   platform?: string | null;
-  cohort_id?: string | null;
+  region?: string | null;
   from?: string | null;
   to?: string | null;
-  layers?: string | null;
+  breakpoint?: string | null;
 };
 
 function hashHints(h: HeatmapMockRequestHints): number {
   const s = [
     h.app_version,
     h.platform,
-    h.cohort_id,
+    h.region,
     h.from,
     h.to,
-    h.layers,
+    h.breakpoint,
   ].join("|");
   return hashScreenName(s);
 }
@@ -401,40 +422,24 @@ function applyHintsToPayload(
 ): HeatmapDataResponse {
   const salt = hashHints(hints);
   const factor = 0.82 + (salt % 35) / 100;
-  let next: HeatmapDataResponse = {
+  const bpTrim = hints.breakpoint?.trim();
+  const bpFactor =
+    bpTrim != null && bpTrim !== ""
+      ? 0.97 + (hashScreenName(bpTrim) % 7) / 200
+      : 1;
+
+  return {
     ...data,
     metadata: {
       ...data.metadata,
       total_events: Math.max(
         100,
-        Math.round(data.metadata.total_events * factor),
+        Math.round(data.metadata.total_events * factor * bpFactor),
       ),
       ...(hints.platform ? { platform: hints.platform } : {}),
       ...(hints.app_version ? { app_version: hints.app_version } : {}),
     },
   };
-
-  if (hints.layers?.trim()) {
-    const allowed = new Set(
-      hints.layers.split(",").map((s) => s.trim()).filter(Boolean),
-    );
-    const L = next.layers;
-    next = {
-      ...next,
-      layers: {
-        glow_map: allowed.has("glow") ? L.glow_map : [],
-        frustration_map: allowed.has("frustration")
-          ? L.frustration_map
-          : { rage: [], dead: [] },
-        observability_map: allowed.has("observability")
-          ? L.observability_map
-          : { error_clicks: [], latency_hotspots: [] },
-        interaction_map: L.interaction_map,
-      },
-    };
-  }
-
-  return next;
 }
 
 /**
@@ -465,10 +470,10 @@ export function resolveHeatmapData(
     hints &&
     (hints.platform ||
       hints.app_version ||
-      hints.cohort_id ||
+      hints.region ||
       hints.from ||
       hints.to ||
-      hints.layers)
+      hints.breakpoint?.trim())
   ) {
     data = applyHintsToPayload(data, hints);
   }

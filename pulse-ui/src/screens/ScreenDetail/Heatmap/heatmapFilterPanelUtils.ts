@@ -6,6 +6,10 @@ import {
 } from "../../../utils/DateUtil";
 import type { HeatmapLocalFilters } from "./heatmapLocalFilters";
 import {
+  HEATMAP_BREAKPOINT_LABELS,
+  type HeatmapBreakpoint,
+} from "./heatmap.types";
+import {
   HEATMAP_QUICK_TIME_PRESETS,
   HEATMAP_TIME_PRESET_CUSTOM,
   inferHeatmapTimePreset,
@@ -50,14 +54,24 @@ export function formatHeatmapTimeButtonLabel(
 }
 
 export function countHeatmapAudienceFilters(
-  value: Pick<HeatmapLocalFilters, "platform" | "appVersion" | "region">,
+  value: Pick<
+    HeatmapLocalFilters,
+    "platform" | "appVersion" | "region" | "breakpoint"
+  >,
 ): number {
-  return [value.platform, value.appVersion, value.region].filter((v) =>
-    v?.trim(),
-  ).length;
+  return [
+    value.platform,
+    value.appVersion,
+    value.region,
+    value.breakpoint,
+  ].filter((v) => v?.trim()).length;
 }
 
-export type HeatmapAudiencePillKey = "platform" | "appVersion" | "region";
+export type HeatmapAudiencePillKey =
+  | "platform"
+  | "appVersion"
+  | "region"
+  | "breakpoint";
 
 export type HeatmapAudiencePillEntry = {
   key: HeatmapAudiencePillKey;
@@ -72,6 +86,7 @@ export function getHeatmapAudiencePillEntries(
   const p = value.platform?.trim();
   const v = value.appVersion?.trim();
   const r = value.region?.trim();
+  const bp = value.breakpoint?.trim();
   if (p) {
     out.push({ key: "platform", label: `Platform · ${p}` });
   }
@@ -80,6 +95,13 @@ export function getHeatmapAudiencePillEntries(
   }
   if (r) {
     out.push({ key: "region", label: `Region · ${r}` });
+  }
+  if (bp) {
+    const label =
+      bp in HEATMAP_BREAKPOINT_LABELS
+        ? HEATMAP_BREAKPOINT_LABELS[bp as HeatmapBreakpoint]
+        : bp;
+    out.push({ key: "breakpoint", label: `Viewport · ${label}` });
   }
   return out;
 }

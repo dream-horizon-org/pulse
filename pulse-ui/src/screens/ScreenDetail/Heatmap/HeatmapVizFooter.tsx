@@ -1,4 +1,5 @@
 import { Slider } from "@mantine/core";
+import { isHeatmapMockServerEnabled } from "./heatmapMockDev";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapVizFooterProps {
@@ -16,6 +17,10 @@ export function HeatmapVizFooter({
   effectiveBudget,
   onBudgetChange,
 }: HeatmapVizFooterProps) {
+  if (!isHeatmapMockServerEnabled()) {
+    return null;
+  }
+
   return (
     <>
       <div className={classes.binBudgetRow}>

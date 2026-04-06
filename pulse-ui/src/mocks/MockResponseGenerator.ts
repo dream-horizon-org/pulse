@@ -7428,10 +7428,10 @@ ${
       const data = resolveHeatmapData(screenName, {
         app_version: url.searchParams.get("app_version"),
         platform: url.searchParams.get("platform"),
-        cohort_id: url.searchParams.get("cohort_id"),
+        region: url.searchParams.get("region"),
         from: url.searchParams.get("from"),
         to: url.searchParams.get("to"),
-        layers: url.searchParams.get("layers"),
+        breakpoint: url.searchParams.get("breakpoint"),
       });
       return { data, status: 200, error: undefined };
     }
@@ -7466,17 +7466,13 @@ ${
             },
           };
         }
-        const includeLayers = body?.includeLayers as string[] | undefined;
         const data = resolveHeatmapData(screenName, {
           app_version: body?.app_version,
           platform: body?.platform,
-          cohort_id: body?.cohort_id,
+          region: body?.region,
           from: body?.timeRange?.start,
           to: body?.timeRange?.end,
-          layers:
-            includeLayers && includeLayers.length > 0
-              ? includeLayers.join(",")
-              : null,
+          breakpoint: body?.breakpoint,
         });
         return { data, status: 200, error: undefined };
       } catch (e: unknown) {

@@ -2,7 +2,10 @@ import { Paper, Stack, Table, Text } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { useMemo } from "react";
 import type { HeatmapDataResponse } from "./heatmap.types";
-import { formatPulseScore, screenPulseInteractionAverage01 } from "./heatmapKeyLensAggregates";
+import {
+  formatPulseScore,
+  screenPulseInteractionAverageFromPayload,
+} from "./heatmapKeyLensAggregates";
 import { HeatmapPulseInteractionsAggregatesSection } from "./HeatmapPulseInteractionsAggregatesSection";
 import classes from "./HeatmapPanel.module.css";
 import { bandFromNumericScore, heatmapScoreColor } from "./heatmapQuality";
@@ -11,12 +14,12 @@ export interface HeatmapAggregatesKeyLensPanelProps {
   payload: HeatmapDataResponse;
 }
 
-/** Right rail when Focus = Key actions (Pulse interaction_map). */
+/** Right rail when Focus = Key actions (overlay and/or interaction list). */
 export function HeatmapAggregatesKeyLensPanel({
   payload,
 }: HeatmapAggregatesKeyLensPanelProps) {
   const screenAvg = useMemo(
-    () => screenPulseInteractionAverage01(payload.layers.interaction_map?.regions ?? []),
+    () => screenPulseInteractionAverageFromPayload(payload),
     [payload],
   );
   const band =
@@ -37,7 +40,7 @@ export function HeatmapAggregatesKeyLensPanel({
             Pulse · screen average
           </Text>
           <Text size="sm" c="dimmed" lh={1.5}>
-            Mean of per-element scores from <code className={classes.interactionEmptyCode}>interaction_map</code>.
+            Mean of Pulse interaction scores for this screen (element map when present, otherwise the interaction list).
           </Text>
           <Table
             className={classes.aggregatesLayerTable}

@@ -1,5 +1,5 @@
 /**
- * Heatmap API types — aligned with wireframes/heatmap/HEATMAP_UI.md
+ * Heatmap API types — wire (server) vs normalized (UI).
  * v1 heatmap fetches are read-only; use TanStack Query useQuery (not useMutation).
  */
 
@@ -8,7 +8,26 @@ export interface HeatmapTimeRange {
   end: string;
 }
 
-export type HeatmapIncludeLayer = "glow" | "frustration" | "observability";
+/** Sent as query/body `breakpoint`; values must match backend. */
+export const HEATMAP_BREAKPOINT_VALUES = [
+  "small_mobile",
+  "medium_folding",
+  "medium_mobile",
+  "medium_mobile_wide",
+  "large_tablet",
+  "extra_large_web",
+] as const;
+
+export type HeatmapBreakpoint = (typeof HEATMAP_BREAKPOINT_VALUES)[number];
+
+export const HEATMAP_BREAKPOINT_LABELS: Record<HeatmapBreakpoint, string> = {
+  small_mobile: "Small (mobile)",
+  medium_folding: "Medium (folding)",
+  medium_mobile: "Medium (mobile)",
+  medium_mobile_wide: "Medium (mobile · wide)",
+  large_tablet: "Large (tablet)",
+  extra_large_web: "Extra large (web)",
+};
 
 /** Query params for GET /v1/heatmap/data */
 export interface HeatmapDataQueryParams {
@@ -17,10 +36,9 @@ export interface HeatmapDataQueryParams {
   to?: string;
   app_version?: string;
   platform?: string;
-  aspect_ratio?: string;
-  cohort_id?: string;
-  /** Comma-separated layers */
-  layers?: string;
+  /** Region filter — wire name `region` (matches Java). */
+  region?: string;
+  breakpoint?: HeatmapBreakpoint | string;
 }
 
 /** Body for POST .../heatmap/data when filters are heavy */
@@ -29,9 +47,8 @@ export interface HeatmapDataRequestBody {
   timeRange: HeatmapTimeRange;
   app_version?: string;
   platform?: string;
-  aspect_ratio?: string;
-  cohort_id?: string;
-  includeLayers?: HeatmapIncludeLayer[];
+  region?: string;
+  breakpoint?: HeatmapBreakpoint | string;
 }
 
 export interface HeatmapMetadata {
@@ -104,6 +121,35 @@ export interface HeatmapInteractionMapLayer {
   regions: HeatmapInteractionElementRegion[];
 }
 
+/** API / wire row for right-rail Pulse interactions list. */
+export interface HeatmapInteractionsMetadataRow {
+  interaction_name: string;
+  avg_score: number;
+}
+
+/** Raw `layers` object from GET/POST before normalization. */
+export interface HeatmapDataWireLayers {
+  glow_map: HeatmapGlowPoint[];
+  frustration_map: {
+    rage_taps: HeatmapFrustrationPoint[];
+    dead_taps: HeatmapFrustrationPoint[];
+  };
+  observability_map: {
+    error_clicks: HeatmapErrorClickPoint[];
+    latency_hotspots: HeatmapLatencyHotspot[];
+  };
+  /** Future: overlay rectangles; optional on wire. */
+  interaction_map?: HeatmapInteractionMapLayer;
+  /** Primary source for Key lens · interactions table after normalize. */
+  interactions_metadata?: HeatmapInteractionsMetadataRow[];
+}
+
+/** Parsed JSON body for heatmap data before `normalizeHeatmapWireResponse`. */
+export interface HeatmapDataWireResponse {
+  metadata: HeatmapMetadata;
+  layers: HeatmapDataWireLayers;
+}
+
 export interface HeatmapDataResponse {
   metadata: HeatmapMetadata;
   layers: {
@@ -116,8 +162,10 @@ export interface HeatmapDataResponse {
       error_clicks: HeatmapErrorClickPoint[];
       latency_hotspots: HeatmapLatencyHotspot[];
     };
-    /** Key-actions view: rectangular regions + per–Pulse-interaction scores (same heatmap API). */
+    /** Optional overlay (future / mocks). */
     interaction_map?: HeatmapInteractionMapLayer;
+    /** From wire `interactions_metadata` — drives right-rail interaction table. */
+    interactions_metadata?: HeatmapInteractionsMetadataRow[];
   };
 }
 
