@@ -12,11 +12,11 @@ package io.opentelemetry.android.instrumentation.click
  * constructor gives identical behaviour to the previous hard-coded implementation.
  * Backend or DSL overrides are applied field-by-field before this object is constructed.
  *
- * @param timeWindowMs   Sliding window in ms. Taps outside this window are evicted from the
- *                       cluster and emitted individually.
- * @param rageThreshold  Minimum tap count within [timeWindowMs] and [radiusDp] to trigger rage.
- *                       Rage fires when the cluster count **>= rageThreshold**.
- * @param radiusDp       Radius in dp within which taps are considered the same location.
+ * @property timeWindowMs   Sliding window in ms. Taps outside this window are evicted from the
+ *                          cluster and emitted individually.
+ * @property rageThreshold  Minimum tap count within [timeWindowMs] and [radiusDp] to trigger rage.
+ *                          Rage fires when the cluster count **>= rageThreshold**.
+ * @property radiusDp       Radius in dp within which taps are considered the same location.
  */
 data class RageConfig(
     val timeWindowMs: Long = ClickEventBuffer.TIME_WINDOW_MS,
