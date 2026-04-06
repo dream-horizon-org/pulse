@@ -1,1 +1,2 @@
-export { FunnelJourneyDetail } from "./FunnelJourneyDetail";
+export { FunnelDetail } from "./FunnelDetail";
+export { JourneyDetail } from "./JourneyDetail";

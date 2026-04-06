@@ -16,6 +16,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.client.emr.EmrServerlessJobClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
@@ -39,6 +40,8 @@ import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.incident.IncidentService;
 import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
+import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
+import org.dreamhorizon.pulseserver.service.spark.impl.SparkJobServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
@@ -116,6 +119,8 @@ public class MainModule extends VertxAbstractModule {
     bind(SessionBlockFetcher.class).in(Singleton.class);
     bind(SessionReplayService.class).in(Singleton.class);
 
+    bind(EmrServerlessJobClient.class).in(Singleton.class);
+
     // OpenFGA Authorization
     bind(OpenFgaConfig.class).toProvider(() -> {
       OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
@@ -129,18 +134,24 @@ public class MainModule extends VertxAbstractModule {
 
     bind(OpenFgaService.class).toProvider(() -> {
         OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-        if (config != null && config.isEnabled()) {
+        try {
+            // OpenFgaService constructor handles null / disabled config gracefully
+            // by setting enabled=false and returning a safe no-op instance.
+            return new OpenFgaService(config);
+        } catch (Exception e) {
+            log.error("Failed to initialize OpenFgaService, falling back to disabled mode: {}", e.getMessage());
             try {
-                return new OpenFgaService(config);
-            } catch (Exception e) {
-                log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-                return null;
+                return new OpenFgaService(null);
+            } catch (Exception fallbackEx) {
+                throw new RuntimeException("Failed to create disabled OpenFgaService fallback", fallbackEx);
             }
         }
-          return null;
     }).in(Singleton.class);
 
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
+
+    // Spark Job Service
+    bind(SparkJobService.class).to(SparkJobServiceImpl.class).in(Singleton.class);
 
     bindNotificationFeature();
   }
