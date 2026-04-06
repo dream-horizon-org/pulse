@@ -205,23 +205,18 @@ export function SessionReplaySessions() {
     navigate(`${sessionReplayBase}/${sessionId}`);
   };
 
-  if (isLoading && sessions.length === 0) {
-    return <SessionListLoadingState />;
-  }
-
-  if (!isLoading && sessions.length === 0) {
-    return (
-      <SessionListEmptyState
-        hasActiveFilters={activeFiltersCount > 0}
-        onClearFilters={clearAllFilters}
-        onRemoveLastFilter={removeLastFilter}
-      />
-    );
-  }
+  const isInitialLoading = isLoading && sessions.length === 0;
+  const showEmptyState = !isLoading && sessions.length === 0;
 
   return (
     <div className={classes.container}>
-      <SessionListHeader />
+      <SessionListHeader
+        subtitle={
+          showEmptyState
+            ? SESSION_LIST_LABELS.emptyStateSubtitleFiltered
+            : undefined
+        }
+      />
 
       {filterState.drillDown.type &&
         filterState.drillDown.label &&
@@ -276,18 +271,28 @@ export function SessionReplaySessions() {
           onRemoveAdvancedFilter={removeAdvancedFilter}
         />
 
-        <SessionsVirtualList
-          sessions={sessions}
-          sortBy={sortBy}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-          onSessionClick={handleWatchSession}
-          onLoadMore={loadMore}
-          isLoading={isLoading}
-          isFetching={isFetching}
-          hasMore={hasMore}
-          error={error}
-        />
+        {isInitialLoading ? (
+          <SessionListLoadingState embedded />
+        ) : showEmptyState ? (
+          <SessionListEmptyState
+            hasActiveFilters={activeFiltersCount > 0}
+            onClearFilters={clearAllFilters}
+            onRemoveLastFilter={removeLastFilter}
+          />
+        ) : (
+          <SessionsVirtualList
+            sessions={sessions}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+            onSessionClick={handleWatchSession}
+            onLoadMore={loadMore}
+            isLoading={isLoading}
+            isFetching={isFetching}
+            hasMore={hasMore}
+            error={error}
+          />
+        )}
       </Paper>
     </div>
   );
