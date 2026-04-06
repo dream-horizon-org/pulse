@@ -249,6 +249,7 @@ CREATE TABLE IF NOT EXISTS otel.root_cause_cache
     `project_id`       LowCardinality(String) CODEC(ZSTD(1)),
     `interaction_name` LowCardinality(String) CODEC(ZSTD(1)),
     `date`             Date,
+    `window_end_utc`   DateTime64(3, 'UTC') COMMENT 'Exclusive upper bound of RCA query window' CODEC(ZSTD(1)),
     `mode`             LowCardinality(String) COMMENT 'hierarchical | flat' CODEC(ZSTD(1)),
     `baseline`         String COMMENT 'JSON' CODEC(ZSTD(1)),
     `segments`         String COMMENT 'JSON' CODEC(ZSTD(1)),
@@ -256,5 +257,5 @@ CREATE TABLE IF NOT EXISTS otel.root_cause_cache
 )
 ENGINE = ReplacingMergeTree(cached_at)
 PARTITION BY toYYYYMM(date)
-ORDER BY (project_id, interaction_name, date)
+ORDER BY (project_id, interaction_name, date, window_end_utc)
 SETTINGS index_granularity = 8192;

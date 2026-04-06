@@ -252,7 +252,7 @@ final class RcaReportProxyHandler {
 
     CompletableFuture<String> future = new CompletableFuture<>();
     rootCauseService
-        .getRootCause(projectId, interactionName, date, forceRootCauseRefresh)
+        .getRootCause(projectId, interactionName, date, Instant.now(), forceRootCauseRefresh)
         .subscribe(
             rootCauseResult -> {
               try {

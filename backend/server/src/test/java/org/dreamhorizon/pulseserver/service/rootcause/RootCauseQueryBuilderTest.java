@@ -53,15 +53,15 @@ class RootCauseQueryBuilderTest {
   class WindowBounds {
 
     @Test
-    void shouldComputeInclusiveStartAndExclusiveEnd() {
-      LocalDate endDate = LocalDate.of(2025, 6, 10);
-      RootCauseQueryBuilder.Window window = new RootCauseQueryBuilder.Window(endDate, 3);
+    void shouldComputeRollingWindowInclusiveStartAndExclusiveEnd() {
+      LocalDate anchor = LocalDate.of(2025, 6, 10);
+      Instant endExclusive = Instant.parse("2025-06-10T14:30:00Z");
+      RootCauseQueryBuilder.Window window = new RootCauseQueryBuilder.Window(anchor, 3, endExclusive);
 
-      Instant expectedEnd = endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
-      Instant expectedStart = endDate.minusDays(3).atStartOfDay(ZoneOffset.UTC).toInstant();
+      Instant expectedStart = anchor.minusDays(2).atStartOfDay(ZoneOffset.UTC).toInstant();
 
-      assertThat(window.endExclusive).isEqualTo(expectedEnd);
       assertThat(window.startInclusive).isEqualTo(expectedStart);
+      assertThat(window.endExclusive).isEqualTo(endExclusive);
     }
   }
 

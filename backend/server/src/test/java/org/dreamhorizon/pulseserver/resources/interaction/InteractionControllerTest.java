@@ -16,6 +16,7 @@ import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import jakarta.validation.Validator;
 import jakarta.ws.rs.WebApplicationException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.concurrent.CompletionStage;
@@ -76,7 +77,7 @@ class InteractionControllerTest {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test-project");
         CompletionStage<Response<RootCauseRestResponse>> result =
-            interactionController.getRootCause("my-interaction", "not-a-date");
+            interactionController.getRootCause("my-interaction", "not-a-date", null);
 
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
@@ -99,11 +100,12 @@ class InteractionControllerTest {
         LocalDate expectedDate = LocalDate.of(2024, 6, 15);
         RootCauseResult serviceResult =
             RootCauseResult.builder().mode(RootCauseAnalysisMode.FLAT).build();
-        when(rootCauseService.getRootCause("test-project", "my-interaction", expectedDate))
+        when(rootCauseService.getRootCause(
+                "test-project", "my-interaction", expectedDate, any(Instant.class)))
             .thenReturn(Single.just(serviceResult));
 
         CompletionStage<Response<RootCauseRestResponse>> result =
-            interactionController.getRootCause("my-interaction", "2024-06-15");
+            interactionController.getRootCause("my-interaction", "2024-06-15", null);
 
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
@@ -111,7 +113,8 @@ class InteractionControllerTest {
             assertNotNull(resp);
             assertNotNull(resp.getData());
             assertEquals(RootCauseAnalysisMode.FLAT, resp.getData().getMode());
-            verify(rootCauseService).getRootCause("test-project", "my-interaction", expectedDate);
+            verify(rootCauseService)
+                .getRootCause("test-project", "my-interaction", expectedDate, any(Instant.class));
           });
           testContext.completeNow();
         });
@@ -124,18 +127,21 @@ class InteractionControllerTest {
         ProjectContext.setProjectId("test-project");
         LocalDate expectedToday = LocalDate.now(ZoneOffset.UTC);
         RootCauseResult serviceResult = RootCauseResult.builder().build();
-        when(rootCauseService.getRootCause(eq("test-project"), eq("my-interaction"), any(LocalDate.class)))
+        when(rootCauseService.getRootCause(
+                eq("test-project"), eq("my-interaction"), any(LocalDate.class), any(Instant.class)))
             .thenReturn(Single.just(serviceResult));
 
         CompletionStage<Response<RootCauseRestResponse>> result =
-            interactionController.getRootCause("my-interaction", null);
+            interactionController.getRootCause("my-interaction", null, null);
 
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
             assertNotNull(resp);
             ArgumentCaptor<LocalDate> dateCaptor = ArgumentCaptor.forClass(LocalDate.class);
-            verify(rootCauseService).getRootCause(eq("test-project"), eq("my-interaction"), dateCaptor.capture());
+            verify(rootCauseService)
+                .getRootCause(
+                    eq("test-project"), eq("my-interaction"), dateCaptor.capture(), any(Instant.class));
             assertEquals(expectedToday, dateCaptor.getValue());
           });
           testContext.completeNow();
@@ -149,18 +155,21 @@ class InteractionControllerTest {
         ProjectContext.setProjectId("test-project");
         LocalDate expectedToday = LocalDate.now(ZoneOffset.UTC);
         RootCauseResult serviceResult = RootCauseResult.builder().build();
-        when(rootCauseService.getRootCause(eq("test-project"), eq("my-interaction"), any(LocalDate.class)))
+        when(rootCauseService.getRootCause(
+                eq("test-project"), eq("my-interaction"), any(LocalDate.class), any(Instant.class)))
             .thenReturn(Single.just(serviceResult));
 
         CompletionStage<Response<RootCauseRestResponse>> result =
-            interactionController.getRootCause("my-interaction", "   ");
+            interactionController.getRootCause("my-interaction", "   ", null);
 
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
             assertNotNull(resp);
             ArgumentCaptor<LocalDate> dateCaptor = ArgumentCaptor.forClass(LocalDate.class);
-            verify(rootCauseService).getRootCause(eq("test-project"), eq("my-interaction"), dateCaptor.capture());
+            verify(rootCauseService)
+                .getRootCause(
+                    eq("test-project"), eq("my-interaction"), dateCaptor.capture(), any(Instant.class));
             assertEquals(expectedToday, dateCaptor.getValue());
           });
           testContext.completeNow();

@@ -22,6 +22,10 @@ public class RootCauseCacheRow {
   private String interactionName;
 
   private LocalDate date;
+
+  @JsonProperty("window_end_utc")
+  private LocalDateTime windowEndUtc;
+
   private String mode;
   private String baseline;
   private String segments;
