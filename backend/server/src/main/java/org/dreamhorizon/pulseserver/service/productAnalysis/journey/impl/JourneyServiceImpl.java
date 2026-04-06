@@ -13,6 +13,8 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatus;
 import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatusResolver;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyListParams;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
@@ -22,6 +24,7 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelMode;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.*;
+import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyResultsMapper;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyService;
@@ -40,6 +43,7 @@ public class JourneyServiceImpl implements JourneyService {
   private static final int MAX_PAGE_SIZE = 50;
 
   private final JourneyDao journeyDao;
+  private final FunnelJourneyTagDao funnelJourneyTagDao;
   private final JourneyResultsDao journeyResultsDao;
   private final AnalyticsBatchServiceImpl analyticsBatchService;
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -143,15 +147,18 @@ public class JourneyServiceImpl implements JourneyService {
 
   @Override
   public Completable delete(String projectId, long id) {
-    return journeyDao
-      .delete(projectId, id)
-      .flatMapCompletable(
-        n -> {
-          if (n == 0) {
-            return Completable.error(ServiceError.JOURNEY_NOT_FOUND.getException());
-          }
-          return Completable.complete();
-        });
+    return funnelJourneyTagDao
+      .deleteAllForEntity(projectId, FunnelJourneyTagEntityType.JOURNEY, id)
+      .andThen(
+        journeyDao
+          .delete(projectId, id)
+          .flatMapCompletable(
+            n -> {
+              if (n == 0) {
+                return Completable.error(ServiceError.JOURNEY_NOT_FOUND.getException());
+              }
+              return Completable.complete();
+            }));
   }
 
   @Override
@@ -161,21 +168,27 @@ public class JourneyServiceImpl implements JourneyService {
       .switchIfEmpty(Maybe.error(ServiceError.JOURNEY_NOT_FOUND.getException()))
       .toSingle()
       .flatMap(
-        row ->
-          journeyResultsDao
-            .queryLatest(projectId, id, row.getDirection())
-            .map(JourneyResultsMapper::fromRows)
-            .onErrorResumeNext(
-              err -> {
-                log.warn(
-                  "Failed to load ClickHouse journey results for journey {} (project {}):"
-                    + " {}",
-                  id,
-                  projectId,
-                  err.toString());
-                return Single.just((JourneyResultsResponse) null);
-              })
-            .map(graph -> toResponse(row, graph)));
+        row -> {
+          Single<JourneyResultsResponse> graph =
+            journeyResultsDao
+                .queryLatest(projectId, id, row.getDirection())
+                .map(JourneyResultsMapper::fromRows)
+                .onErrorResumeNext(
+                  err -> {
+                    log.warn(
+                      "Failed to load ClickHouse journey results for journey {} (project {}):"
+                        + " {}",
+                      id,
+                      projectId,
+                      err.toString());
+                    return Single.just((JourneyResultsResponse) null);
+                  });
+          Single<List<String>> tags =
+            funnelJourneyTagDao
+                .listTagsForEntity(projectId, FunnelJourneyTagEntityType.JOURNEY, id)
+                .onErrorReturnItem(List.of());
+          return Single.zip(graph, tags, (g, t) -> toResponse(row, g, t));
+        });
   }
 
   @Override
@@ -215,11 +228,38 @@ public class JourneyServiceImpl implements JourneyService {
 
     return journeyDao
       .listByProject(projectId, params)
-      .map(
-        rows ->
-          JourneyListResponse.builder()
-            .items(rows.stream().map(this::toResponse).toList())
-            .build());
+      .flatMap(
+        rows -> {
+          if (rows.isEmpty()) {
+            return Single.just(JourneyListResponse.builder().items(List.of()).build());
+          }
+          List<Long> ids = rows.stream().map(JourneyRow::getId).toList();
+          return funnelJourneyTagDao
+            .listTagsForEntities(projectId, FunnelJourneyTagEntityType.JOURNEY, ids)
+            .map(
+              tagMap ->
+                JourneyListResponse.builder()
+                  .items(
+                    rows.stream()
+                      .map(
+                        r ->
+                          toResponse(r, null, tagMap.getOrDefault(r.getId(), List.of())))
+                  .toList())
+                  .build());
+        });
+  }
+
+  @Override
+  public Completable replaceTags(String projectId, long journeyId, List<String> tags) {
+    List<String> normalized = AnalysisEntityTags.normalizeOrThrow(tags);
+    return journeyDao
+      .findByProjectAndId(projectId, journeyId)
+      .switchIfEmpty(Maybe.error(ServiceError.JOURNEY_NOT_FOUND.getException()))
+      .toSingle()
+      .flatMapCompletable(
+        ignored ->
+          funnelJourneyTagDao.replaceTags(
+            projectId, FunnelJourneyTagEntityType.JOURNEY, journeyId, normalized));
   }
 
   private void validateFilters(List<FunnelAttributeFilter> filters) {
@@ -299,11 +339,8 @@ public class JourneyServiceImpl implements JourneyService {
     return q.trim().replaceAll("[%_\\\\]", "");
   }
 
-  private JourneyResponse toResponse(JourneyRow row) {
-    return toResponse(row, null);
-  }
-
-  private JourneyResponse toResponse(JourneyRow row, JourneyResultsResponse journeyResults) {
+  private JourneyResponse toResponse(
+    JourneyRow row, JourneyResultsResponse journeyResults, List<String> tags) {
     try {
       List<FunnelAttributeFilter> filters = null;
       if (row.getFiltersJson() != null && !row.getFiltersJson().isBlank()) {
@@ -333,6 +370,7 @@ public class JourneyServiceImpl implements JourneyService {
         .updatedAt(row.getUpdatedAt())
         .createdBy(row.getCreatedBy())
         .journeyResults(journeyResults)
+        .tags(tags)
         .build();
     } catch (JsonProcessingException e) {
       log.error("Corrupt journey JSON for id {}", row.getId(), e);

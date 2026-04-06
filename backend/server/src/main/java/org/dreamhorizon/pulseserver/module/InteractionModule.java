@@ -4,6 +4,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.eventcatalog.EventCatalogDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults.JourneyResultsDao;
@@ -31,6 +32,7 @@ public class InteractionModule extends AbstractModule {
     bind(ConfigService.class).to(ConfigServiceImpl.class)
       .in(Singleton.class);
     bind(FunnelDefinitionDao.class).in(Singleton.class);
+    bind(FunnelJourneyTagDao.class).in(Singleton.class);
     bind(EventCatalogDao.class).in(Singleton.class);
     bind(EventCatalogService.class).to(EventCatalogServiceImpl.class).in(Singleton.class);
     bind(FunnelResultsDao.class).in(Singleton.class);

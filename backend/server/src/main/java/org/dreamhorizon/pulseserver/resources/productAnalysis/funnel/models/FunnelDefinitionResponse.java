@@ -64,4 +64,7 @@ public class FunnelDefinitionResponse {
    * Omitted when ClickHouse query fails or has not produced rows yet.
    */
   private FunnelResultsResponse funnelResults;
+
+  /** Tags from {@code funnel_journey_tag} for this funnel. */
+  private List<String> tags;
 }

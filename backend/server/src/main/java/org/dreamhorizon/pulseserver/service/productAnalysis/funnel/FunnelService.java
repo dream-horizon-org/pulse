@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.productAnalysis.funnel;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
+import java.util.List;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
 
 public interface FunnelService {
@@ -22,4 +23,7 @@ public interface FunnelService {
    * Latest pre-computed funnel steps from ClickHouse ({@code otel.funnel_results}).
    */
   Single<FunnelResultsResponse> getResults(String projectId, long id);
+
+  /** Replaces tag mappings for the funnel ({@code funnel_journey_tag}). */
+  Completable replaceTags(String projectId, long funnelId, List<String> tags);
 }
