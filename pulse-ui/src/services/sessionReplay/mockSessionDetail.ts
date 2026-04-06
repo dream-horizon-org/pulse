@@ -53,6 +53,7 @@ export interface CriticalInteraction {
 
 export interface SessionEvent {
   timestamp: number;
+  detailTimestamp?: string;
   type: "click" | "navigation" | "api_call" | "error";
   eventType?: string;
   description: string;
@@ -350,7 +351,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetailData {
       country: "United States",
       city: "San Francisco",
     },
-    interactionQuality: 6.5,
+    interactionQuality: 0.65,
     sessionType: "error_encountered",
     detectedIssues: [
       {

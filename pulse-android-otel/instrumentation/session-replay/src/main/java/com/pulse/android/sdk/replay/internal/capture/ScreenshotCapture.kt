@@ -101,12 +101,15 @@ internal object ScreenshotCapture {
      * Mask rects must be collected on the **main thread** (via [MaskRectCache]) before calling
      * this method so that view coordinates are read atomically in the same frame. This method
      * only performs PixelCopy + mask drawing + encoding on the background thread.
-     *
+     * @param window [Window] to capture
+     * @param layout [ScreenshotLayoutSnapshot] of the captured view
+     * @param displayMetrics TBA by <anirudh.bharti> for session replay
      * @param maskRects Pre-collected mask rects in window coordinates (from main thread).
      * @param masksValid false if the mask collection was aborted (e.g. screen changed mid-walk).
      * @param drawCountAtCollection monotonic counter value captured when masks were collected.
      * @param currentDrawCount returns the current counter; if it differs from [drawCountAtCollection],
      *        the screen changed between mask collection and capture — masks are stale.
+     * @param logger Logger to log the data
      * @param screenshotScale Scale factor (0.01, 1.0]. e.g. 0.5 = half dimensions. Reduces payload size.
      * @param screenshotQuality WebP lossy quality 0–100. Lower = smaller size.
      */

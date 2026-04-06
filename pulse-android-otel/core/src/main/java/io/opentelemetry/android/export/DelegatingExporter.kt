@@ -13,17 +13,12 @@ import java.nio.BufferOverflowException
 
 /**
  * An exporter that delegates calls to a delegate exporter. Any data exported before the delegate
- * is set will be buffered in memory, up to the [maxBufferedData] number of entries.
+ * is set will be buffered in memory, up to the configured maximum number of entries.
  *
  * If the buffer is full, the exporter will drop any new signals.
  *
- * @param D the type of the delegate.
- * @param T the type of the data.
- * @param doExport a lambda that handles exporting to the delegate.
- * @param doFlush a lambda that handles flushing the delegate.
- * @param doShutdown a lambda that handles shutting down the delegate.
- * @param maxBufferedData the maximum number of data to buffer in memory before dropping new data.
- * @param logType the type of data being logged. This is used for logging.
+ * Export, flush, and shutdown lambdas are invoked on the delegate once it is set; the max buffer
+ * size caps buffered items before drops; the log type string labels warning logs.
  */
 internal class DelegatingExporter<D, T>(
     private val doExport: D.(data: Collection<T>) -> CompletableResultCode,

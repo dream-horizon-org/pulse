@@ -19,11 +19,16 @@ public class ParsedFrames {
   @Builder.Default
   private List<String> ndkTypes = new ArrayList<>();
   @Builder.Default
+  private List<String> iosNativeTypes = new ArrayList<>();
+  @Builder.Default
   private List<JavaFrame> javaFrames = new ArrayList<>();
   @Builder.Default
   private List<JsFrame> jsFrames = new ArrayList<>();
   @Builder.Default
   private List<NdkFrame> ndkFrames = new ArrayList<>();
+  /** Apple/KSCrash Mach-O frames from the crashed thread only ({@link Lane#IOS_NATIVE}). */
+  @Builder.Default
+  private List<NdkFrame> iosNativeFrames = new ArrayList<>();
   // Flag to indicate if this is a React Native JavaScript exception
   @Builder.Default
   private boolean isReactNativeJsException = false;

@@ -1,7 +1,6 @@
 /**
- * Session Replay mock for listing, detail, and snapshots.
- * Used when REACT_APP_USE_MOCK_SESSION_REPLAY=true so session list, detail,
- * and snapshots-data API use mock data in the same contract as the real API.
+ * Session replay mock generators (listing, detail, filters, snapshots).
+ * Consumed by the mock server when `REACT_APP_USE_MOCK_SERVER=true` for `/v1/sessions/*`.
  */
 
 import type {

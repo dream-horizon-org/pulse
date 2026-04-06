@@ -227,8 +227,8 @@ class SqlSessionScopeStore(SessionScopeStore):
             await session.commit()
 
 
-def _to_async_sqlalchemy_url(url: str) -> str:
-    """Map sync-style ADK URLs to SQLAlchemy async drivers."""
+def to_async_sqlalchemy_url(url: str) -> str:
+    """Map sync-style session DB URLs to SQLAlchemy async drivers (sqlite+aiosqlite, asyncpg)."""
     u = url.strip()
     if "+aiosqlite" in u or "+asyncpg" in u:
         return u
@@ -244,5 +244,5 @@ def _to_async_sqlalchemy_url(url: str) -> str:
 def create_session_scope_store(session_db_url: str | None) -> SessionScopeStore:
     """SQL sidecar when SESSION_DB_URL is set; else in-memory."""
     if session_db_url and session_db_url.strip():
-        return SqlSessionScopeStore(_to_async_sqlalchemy_url(session_db_url.strip()))
+        return SqlSessionScopeStore(to_async_sqlalchemy_url(session_db_url.strip()))
     return MemorySessionScopeStore()

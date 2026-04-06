@@ -5,7 +5,7 @@
 
     <groupId>org.dreamhorizon</groupId>
     <artifactId>pulse-server</artifactId>
-    <version>1.4-SNAPSHOT</version>
+    <version>1.5-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>pulse-server</name>
 
@@ -627,8 +627,11 @@
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
+                                <!-- LLVM subprocess + dSYM probing: covered by unit tests for static parsers; full path needs llvm on CI -->
+                                <exclude>org/dreamhorizon/pulseserver/errorgrouping/IosLlvmSymbolicator.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -656,8 +659,10 @@
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/errorgrouping/IosLlvmSymbolicator.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>

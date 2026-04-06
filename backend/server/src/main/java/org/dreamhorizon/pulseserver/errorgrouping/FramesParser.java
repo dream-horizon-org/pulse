@@ -41,6 +41,8 @@ public final class FramesParser {
       if (trimmed.isEmpty()) {
         continue;
       }
+      updateIosThreadState(trimmed, state);
+      captureIosProcessName(trimmed, state);
       // 1. Detect exception types
       detectExceptionTypes(line, trimmed, st, state);
       // 2. Parse frames (order matters: RN compact → standard JS → Java → NDK)
@@ -49,6 +51,9 @@ public final class FramesParser {
         continue;
       }
       if (tryParseJavaFrame(line, st, state)) {
+        continue;
+      }
+      if (tryParseIosNativeFrame(line, trimmed, st, state)) {
         continue;
       }
       tryParseNdkFrame(line, st, state);
@@ -94,15 +99,29 @@ public final class FramesParser {
       st.getJsTypes().add(mjs.group(1));
     }
 
-    // NDK signals
+    // NDK tombstone signals (avoid Apple "EXC_CRASH (SIGABRT)" lines)
     Matcher sig = Regex.NDK_SIGNAL.matcher(trimmed);
-    if (sig.find()) {
+    if (sig.find() && !trimmed.contains("Exception Type:") && !trimmed.contains("EXC_")) {
       String signal = sig.group();
       if (!st.getNdkTypes().contains(signal)) {
         st.getNdkTypes().add(signal);
         if (st.getPrimaryExceptionLane() == null) {
           st.setPrimaryExceptionLane(Lane.NDK);  // Track topmost exception
         }
+      }
+    }
+
+    // Apple / KSCrash style (crashed thread + Binary Images)
+    Matcher iosExc = Regex.IOS_EXCEPTION_TYPE.matcher(trimmed);
+    if (iosExc.find()) {
+      String desc = iosExc.group(1).trim();
+      if (!st.getIosNativeTypes().contains(desc)) {
+        st.getIosNativeTypes().add(desc);
+      }
+      if (!state.sawTopType) {
+        st.setPrimaryExceptionLane(Lane.IOS_NATIVE);
+        st.setExceptionHeaderLine(trimmed);
+        state.sawTopType = true;
       }
     }
 
@@ -191,6 +210,51 @@ public final class FramesParser {
     return true;
   }
 
+  /**
+   * Apple crash report: only lines inside {@code Thread N Crashed:} … next {@code Thread M:} block.
+   * Same shape as {@link NdkFrame} with {@link Lane#IOS_NATIVE} (image → ndkLib, PC → ndkPc).
+   */
+  private static boolean tryParseIosNativeFrame(String line, String trimmed, ParsedFrames st, ParserState state) {
+    if (!state.inIosCrashedThread) {
+      return false;
+    }
+    Matcher m = Regex.APPLE_CRASH_FRAME.matcher(trimmed);
+    if (!m.find()) {
+      return false;
+    }
+    String image = m.group(2).trim();
+    String pc = m.group(3);
+    if (!pc.startsWith("0x") && !pc.startsWith("0X")) {
+      pc = "0x" + pc;
+    }
+    String rest = m.group(4) == null ? "" : m.group(4).trim();
+    String sym = rest;
+    int plusIdx = rest.indexOf(" + ");
+    if (plusIdx > 0) {
+      sym = rest.substring(0, plusIdx).trim();
+    }
+    if (sym.isEmpty()) {
+      sym = null;
+    }
+    // "(null)" image rows often use "0x0 + <decimal>" with no real symbol name
+    if ("(null)".equals(image)) {
+      sym = null;
+    }
+    st.getIosNativeFrames().add(NdkFrame.builder()
+        .lane(Lane.IOS_NATIVE)
+        .iosAppBinaryName(state.iosProcessName)
+        .ndkPc(pc)
+        .ndkLib(image)
+        .ndkSymbol(sym)
+        .rawLine(line)
+        .originalPosition(state.framePosition++)
+        .build());
+    if (st.getPrimaryExceptionLane() == null) {
+      st.setPrimaryExceptionLane(Lane.IOS_NATIVE);
+    }
+    return true;
+  }
+
   private static boolean tryParseNdkFrame(String line, ParsedFrames st, ParserState state) {
     Matcher ndk = Regex.NDK_LINE.matcher(line);
     if (!ndk.find()) {
@@ -256,6 +320,28 @@ public final class FramesParser {
     return (i >= 0) ? p.substring(i + 1) : p;
   }
 
+  private static void captureIosProcessName(String trimmed, ParserState state) {
+    Matcher pm = Regex.IOS_PROCESS.matcher(trimmed);
+    if (pm.find()) {
+      state.iosProcessName = pm.group(1).trim();
+    }
+  }
+
+  /**
+   * Tracks the {@code Thread N Crashed:} block.
+   * Plain {@code Thread M:} (not "name:") ends the block.
+   */
+  private static void updateIosThreadState(String trimmed, ParserState state) {
+    if (Regex.THREAD_CRASHED.matcher(trimmed).find()) {
+      state.inIosCrashedThread = true;
+      return;
+    }
+    Matcher plainThread = Regex.THREAD_PLAIN.matcher(trimmed);
+    if (plainThread.find()) {
+      state.inIosCrashedThread = false;
+    }
+  }
+
   private static class Regex {
     private static final Pattern JAVA_TOP_TYPE =
         Pattern.compile("^(?:Exception in thread \".*?\"\\s+)?([\\w$]+(?:\\.[\\w$]+)+)(?::.*)?$");
@@ -284,6 +370,16 @@ public final class FramesParser {
     private static final Pattern NDK_LINE =
         Pattern.compile("^\\s*#\\d+\\s+pc\\s+([0-9a-fA-Fx]+)\\s+(\\S+)(?:\\s+\\(([^)]+)\\))?.*$");
     private static final Pattern NDK_SIGNAL = Pattern.compile("\\bSIG[A-Z0-9]+\\b");
+
+    private static final Pattern IOS_PROCESS =
+        Pattern.compile("^Process:\\s+(\\S+)\\s+\\[\\d+\\]\\s*$");
+    private static final Pattern IOS_EXCEPTION_TYPE =
+        Pattern.compile("^Exception Type:\\s*(.+)$");
+    /** Crash report frame: frame# image address symbol + offset */
+    private static final Pattern APPLE_CRASH_FRAME =
+        Pattern.compile("^\\s*(\\d+)\\s+(\\S+)\\s+(0x[0-9a-fA-F]+)(.*)$");
+    private static final Pattern THREAD_CRASHED = Pattern.compile("^Thread\\s+\\d+\\s+Crashed:\\s*$");
+    private static final Pattern THREAD_PLAIN = Pattern.compile("^Thread\\s+\\d+:\\s*$");
   }
 
   // Parser state holder
@@ -291,5 +387,7 @@ public final class FramesParser {
     boolean sawTopType = false;
     boolean isReactNativeJsException = false;
     int framePosition = 0;  // Track frame position for reconstruction
+    boolean inIosCrashedThread = false;
+    String iosProcessName = null;
   }
 }

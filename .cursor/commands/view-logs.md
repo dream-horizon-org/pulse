@@ -6,4 +6,4 @@ View logs for a specific Pulse service.
 4. Scan for errors or warnings and highlight them
 5. If errors found, suggest potential causes and fixes
 
-**Note:** pulse-ai runs via its own Docker Compose — view logs with `cd pulse_ai && ./setup.sh logs`.
+**Note:** Integrated AI: `cd deploy && ./scripts/logs.sh ai`. Standalone: `cd pulse_ai && ./setup.sh logs`.
