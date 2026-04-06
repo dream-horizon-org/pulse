@@ -1,4 +1,4 @@
-/* Tab panel already applies horizontal padding via .tabContent */
+
 .section {
   padding: 0;
 }
@@ -17,7 +17,6 @@
   min-width: 0;
 }
 
-/* Row names: semibold — lighter than heading so list doesn’t look “fat” (matches 1st ref) */
 .interactionNameText {
   font-size: var(--mantine-font-size-sm);
   font-weight: 600;

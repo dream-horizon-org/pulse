@@ -3,7 +3,6 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-/* Divider between “Session Time” + id and the metadata row (matches expected) */
 .headerSection {
   padding-bottom: var(--mantine-spacing-md);
   margin-bottom: 0;

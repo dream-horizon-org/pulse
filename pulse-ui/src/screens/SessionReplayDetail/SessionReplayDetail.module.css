@@ -249,7 +249,6 @@
 }
 
 /* Raw Events Container - same height as device player (fills tab content) */
-/* All tab: title + description above the unified event list */
 .allTabWrapper {
   flex: 1;
   min-height: 0;
