@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   GetFunnelDataParams,
   GetFunnelGroupedParams,
@@ -10,6 +10,7 @@ import {
   analyzeFunnel,
   exploreJourney,
   fetchFunnelEvents,
+  fetchFunnelFilterValues,
   fetchFunnelFilters,
   fetchFunnelGrouped,
   fetchFunnelSessions,
@@ -141,6 +142,26 @@ export const useGetFunnelFilters = () => {
     queryFn: () => fetchFunnelFilters(),
     refetchOnWindowFocus: false,
     staleTime: 300000,
+  });
+};
+
+/**
+ * Fetches values for each provided filter key in parallel.
+ * Only fires when `enabled` is true (e.g. when the user reaches step 4).
+ * Returns an ordered array of query results matching the `filterKeys` array.
+ */
+export const useGetAllFilterValues = (
+  filterKeys: string[],
+  enabled: boolean,
+) => {
+  return useQueries({
+    queries: filterKeys.map((key) => ({
+      queryKey: ["FUNNEL_FILTER_VALUES", key],
+      queryFn: () => fetchFunnelFilterValues(key),
+      enabled,
+      staleTime: 300000,
+      refetchOnWindowFocus: false,
+    })),
   });
 };
 

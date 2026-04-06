@@ -5,13 +5,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Data
 @Builder
@@ -22,7 +21,7 @@ import lombok.NoArgsConstructor;
 public class FunnelAttributeFilter {
 
   @NotBlank
-  private String attribute;
+  private String field;
 
   @NotNull
   private FunnelFilterOperator operator;

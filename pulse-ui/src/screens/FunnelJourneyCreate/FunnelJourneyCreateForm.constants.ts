@@ -30,6 +30,7 @@ export const FUNNEL_CREATE_STEPS: CreateWizardStepMeta[] = [
 export const FUNNEL_CREATE_STEP_ERRORS = {
   NAME: "Enter a funnel name before continuing.",
   SCHEDULE_ONCE: "For a one-off analysis, choose both a start and end date.",
+  SCHEDULE_RECURRING: "Choose an expiry date for recurring funnels.",
   STEPS: "Add at least two steps and select an event for each step.",
 } as const;
 

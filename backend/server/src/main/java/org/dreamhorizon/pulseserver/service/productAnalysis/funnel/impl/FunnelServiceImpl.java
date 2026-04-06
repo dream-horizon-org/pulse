@@ -74,7 +74,7 @@ public class FunnelServiceImpl implements FunnelService {
         .dateRangeDays(request.getDateRangeDays())
         .startTime(request.getStartTime())
         .endTime(request.getEndTime())
-        .expiry(request.getExpiry())
+        .expiry(request.getExpiryDate())
         .createdBy(createdBy)
         .createdAt(null)
         .updatedAt(null)
@@ -248,7 +248,6 @@ public class FunnelServiceImpl implements FunnelService {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Each step requires eventName");
       }
-      validateAttributeFilters(step.getStepFilters());
     }
     validateAttributeFilters(globalFilters);
   }
@@ -257,32 +256,22 @@ public class FunnelServiceImpl implements FunnelService {
     if (CollectionUtils.isEmpty(filters)) {
       return;
     }
-    for (FunnelAttributeFilter f : filters) {
-      if (f.getAttribute() == null || f.getAttribute().isBlank()) {
+    for (FunnelAttributeFilter filter : filters) {
+      if (filter.getField() == null || filter.getField().isBlank()) {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Filter attribute is required");
       }
-      if (f.getOperator() == null) {
+      if (filter.getOperator() == null) {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Filter operator is required");
       }
-      if (CollectionUtils.isEmpty(f.getValue())) {
+      if (CollectionUtils.isEmpty(filter.getValue())) {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Filter value must not be empty");
       }
-      switch (f.getOperator()) {
-        case EQ, NE -> {
-          if (f.getValue().size() != 1) {
-            throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-              "Operators EQ and NE require exactly one value");
-          }
-        }
-        case IN, NOT_IN -> {
-          if (f.getValue().size() < 1) {
-            throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-              "Operators IN and NOT_IN require at least one value");
-          }
-        }
+      if (filter.getValue().size() < 1) {
+        throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+          "Operators require at least one value");
       }
     }
   }

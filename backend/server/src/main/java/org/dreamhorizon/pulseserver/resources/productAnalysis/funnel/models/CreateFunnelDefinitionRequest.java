@@ -6,14 +6,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-
-import java.time.Instant;
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.Instant;
+import java.util.List;
 
 @Data
 @Builder
@@ -43,10 +42,12 @@ public class CreateFunnelDefinitionRequest {
   @Valid
   private List<FunnelAttributeFilter> filters;
 
+  private List<String> tags;
+
   @NotNull
   @Builder.Default
   private Long windowSeconds = 86400L;
-  
+
   @Builder.Default
   private FunnelMode mode = FunnelMode.UNIQUE_USERS;
 
@@ -58,5 +59,5 @@ public class CreateFunnelDefinitionRequest {
 
   private Instant endTime;
 
-  private Instant expiry;
+  private Instant expiryDate;
 }

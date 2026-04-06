@@ -34,7 +34,7 @@ public class FunnelsController {
   }
 
   @GET
-  @Path("/{id}")
+  @Path("/{id: \\d+}")
   public CompletionStage<Response<FunnelDefinitionResponse>> getFunnel(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
     @PathParam("id") long id) {
@@ -52,7 +52,7 @@ public class FunnelsController {
   }
 
   @PUT
-  @Path("/{id}")
+  @Path("/{id: \\d+}")
   public CompletionStage<Response<String>> updateFunnel(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
     @PathParam("id") long id,
@@ -63,7 +63,7 @@ public class FunnelsController {
   }
 
   @DELETE
-  @Path("/{id}")
+  @Path("/{id: \\d+}")
   public CompletionStage<Response<String>> deleteFunnel(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
     @PathParam("id") long id) {

@@ -13,6 +13,7 @@ import {
 import classes from "./FunnelJourneyDetail.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  useGetAllFilterValues,
   useGetFunnelEvents,
   useGetFunnelFilters,
   useGetJourneyData,
@@ -42,24 +43,25 @@ function JourneyDetailView({ detail }: { detail: any }) {
   );
 
   const [filters, setFilters] = useState<any[]>(
-    (detail.filters || []).map((f: any) => ({
-      property: f.field,
-      value: f.value,
-    })),
+    (detail.filters || []).flatMap((f: any) => {
+      const vals: string[] = Array.isArray(f.value) ? f.value : [f.value];
+      return vals.map((v) => ({ property: f.field, value: String(v) }));
+    }),
   );
 
   const { data: eventsData } = useGetFunnelEvents();
   const availableEvents = eventsData?.data?.events ?? [];
 
   const { data: filtersData } = useGetFunnelFilters();
-  const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
-  const filterOptions = EXPECTED_FILTER_KEYS.reduce(
-    (acc, key) => {
-      acc[key] = filtersData?.data?.filters?.[key] ?? [];
-      return acc;
-    },
-    {} as Record<string, string[]>,
-  );
+  const filterKeys = useMemo(() => filtersData?.data?.filters ?? [], [filtersData?.data?.filters]);
+  const filterValuesResults = useGetAllFilterValues(filterKeys, filterKeys.length > 0);
+  const filterOptions = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    filterKeys.forEach((key, index) => {
+      result[key] = filterValuesResults[index]?.data?.data?.values ?? [];
+    });
+    return result;
+  }, [filterKeys, filterValuesResults]);
 
   const timeRange = useMemo(() => {
     if (rollingType === "ONCE") {
@@ -75,15 +77,17 @@ function JourneyDetailView({ detail }: { detail: any }) {
     return getDateRangeFromPreset(dateRange);
   }, [rollingType, dateRange, customStartDate, customEndDate]);
 
-  const apiFilters = useMemo(
-    () =>
-      filters.map((f) => ({
-        field: f.property,
-        operator: "EQ" as const,
-        value: f.value,
-      })),
-    [filters],
-  );
+  const apiFilters = useMemo(() => {
+    const grouped: Record<string, string[]> = {};
+    for (const f of filters) {
+      (grouped[f.property] ??= []).push(f.value);
+    }
+    return Object.entries(grouped).map(([field, values]) => ({
+      field,
+      operator: "EQ" as const,
+      value: values,
+    }));
+  }, [filters]);
 
   const [anchorEvent, setAnchorEvent] = useState(detail.anchorEvent || "");
   const [direction, setDirection] = useState<"forward" | "reverse">(
@@ -130,15 +134,19 @@ function JourneyDetailView({ detail }: { detail: any }) {
     if (direction !== (detail.direction || "forward")) return true;
     if (depth !== (detail.depth || 5)) return true;
 
-    const currentFilters = filters.map((f) => ({
-      field: f.property,
-      value: f.value,
-    }));
-    const originalFilters = (detail.filters || []).map((f: any) => ({
-      field: f.field,
-      value: f.value,
-    }));
-    if (JSON.stringify(currentFilters) !== JSON.stringify(originalFilters))
+    const toGrouped = (pairs: Array<{ field: string; value: string }>) => {
+      const m: Record<string, string[]> = {};
+      for (const p of pairs) (m[p.field] ??= []).push(p.value);
+      return Object.entries(m)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([field, values]) => ({ field, values: [...values].sort() }));
+    };
+    const currentFiltersFlat = filters.map((f) => ({ field: f.property, value: f.value }));
+    const originalFiltersFlat = (detail.filters || []).flatMap((f: any) => {
+      const vals: string[] = Array.isArray(f.value) ? f.value : [f.value];
+      return vals.map((v) => ({ field: f.field, value: String(v) }));
+    });
+    if (JSON.stringify(toGrouped(currentFiltersFlat)) !== JSON.stringify(toGrouped(originalFiltersFlat)))
       return true;
 
     return false;

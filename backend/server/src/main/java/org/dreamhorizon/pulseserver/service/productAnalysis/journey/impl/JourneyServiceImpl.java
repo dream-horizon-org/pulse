@@ -227,7 +227,7 @@ public class JourneyServiceImpl implements JourneyService {
       return;
     }
     for (FunnelAttributeFilter f : filters) {
-      if (f.getAttribute() == null || f.getAttribute().isBlank()) {
+      if (f.getField() == null || f.getField().isBlank()) {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Filter attribute is required");
       }

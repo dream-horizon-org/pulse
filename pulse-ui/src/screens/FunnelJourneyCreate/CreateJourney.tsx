@@ -29,6 +29,7 @@ import {
 import { ActiveFilter, GlobalFilterBar } from "./components/GlobalFilterBar";
 import { JourneyExplorer } from "./components/JourneyExplorer";
 import {
+  useGetAllFilterValues,
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks/useGetFunnelData";
@@ -62,14 +63,16 @@ export function CreateJourney() {
 
   const availableEvents = eventsData?.data?.events ?? [];
 
-  const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
-  const filterOptions = EXPECTED_FILTER_KEYS.reduce(
-    (acc, key) => {
-      acc[key] = filtersData?.data?.filters?.[key] ?? [];
-      return acc;
-    },
-    {} as Record<string, string[]>,
-  );
+  const filterKeys = useMemo(() => filtersData?.data?.filters ?? [], [filtersData?.data?.filters]);
+  const filterValuesResults = useGetAllFilterValues(filterKeys, activeStep === 3);
+
+  const filterOptions = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    filterKeys.forEach((key, index) => {
+      result[key] = filterValuesResults[index]?.data?.data?.values ?? [];
+    });
+    return result;
+  }, [filterKeys, filterValuesResults]);
 
   const timeRange = useMemo(
     () =>
@@ -82,15 +85,17 @@ export function CreateJourney() {
     [rollingType, dateRange, customStartDate, customEndDate],
   );
 
-  const apiFilters = useMemo(
-    () =>
-      filters.map((f) => ({
-        field: f.property,
-        operator: "EQ" as const,
-        value: f.value,
-      })),
-    [filters],
-  );
+  const apiFilters = useMemo(() => {
+    const grouped: Record<string, string[]> = {};
+    for (const f of filters) {
+      (grouped[f.property] ??= []).push(f.value);
+    }
+    return Object.entries(grouped).map(([field, values]) => ({
+      field,
+      operator: "EQ" as const,
+      value: values,
+    }));
+  }, [filters]);
 
   const { mutate: createJourney, isPending: isCreating } = useCreateJourney();
 

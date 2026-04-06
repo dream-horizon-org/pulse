@@ -163,15 +163,17 @@ export function JourneyExplorer({
     [rollingType, dateRange, customStartDate, customEndDate],
   );
 
-  const apiFilters = useMemo(
-    () =>
-      filters.map((f) => ({
-        field: f.property,
-        operator: "EQ" as const,
-        value: f.value,
-      })),
-    [filters],
-  );
+  const apiFilters = useMemo(() => {
+    const grouped: Record<string, string[]> = {};
+    for (const f of filters) {
+      (grouped[f.property] ??= []).push(f.value);
+    }
+    return Object.entries(grouped).map(([field, values]) => ({
+      field,
+      operator: "EQ" as const,
+      value: values,
+    }));
+  }, [filters]);
 
   const isValid =
     externalIsValid !== undefined

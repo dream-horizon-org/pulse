@@ -6,6 +6,7 @@ import { getQueryParamString } from "../helpers/queryParams";
 import type {
   FunnelEventsResponse,
   FunnelFiltersResponse,
+  FunnelFilterValuesResponse,
   FunnelGroupedRequestBody,
   FunnelGroupedResponse,
   FunnelRequestBody,
@@ -40,6 +41,12 @@ export enum FunnelType {
   AUTO = "AUTO",
   ONCE = "ONCE",
 }
+
+export type FunnelFilter = {
+  field: string;
+  operator: "EQ" | "NE" | "IN" | "NOT_IN";
+  value: string | string[] | number | number[] | boolean | boolean[];
+};
 
 /** Whether funnel steps must be completed in order or in any order. */
 export enum StepOrderType {
@@ -107,11 +114,6 @@ export type FunnelJourneyListQueryParams = {
   pageSize?: number | null;
 };
 
-/** @deprecated Use FunnelJourneyListQueryParams */
-export type FunnelsJourneysListQueryParams = FunnelJourneyListQueryParams & {
-  kind?: "FUNNEL" | "JOURNEY" | null;
-};
-
 /** Single funnel or journey returned by detail APIs. */
 export type FunnelJourneyDetail = FunnelJourneyListItem & {
   description: string;
@@ -145,21 +147,26 @@ export interface CreateFunnelRequestBody {
   stepOrderType: StepOrderType;
   /** Ordered list of funnel steps (min 2). */
   steps: FunnelStep[];
-  /**
-   * Analysis time window.
-   * For ONCE funnels this is the fixed start/end range.
-   * For AUTO funnels this is the rolling window anchor (e.g. last 7 d).
-   */
-  timeRange: TimeRange;
   /** Maximum seconds a user has to complete the funnel after entering step 1. */
   windowSeconds: number;
   /** Audience filters applied when computing conversion. */
-  filters?: FilterField[];
+  filters?: FunnelFilter[];
   /**
-   * ISO-8601 datetime after which an AUTO funnel stops refreshing.
-   * Ignored for ONCE funnels.
+   * AUTO funnels only — rolling window size in days (e.g. 7 for "last 7 days").
+   * Derived from the date-range preset selected in the UI.
+   */
+  dateRangeDays?: number;
+  /**
+   * AUTO funnels only — ISO-8601 datetime after which the funnel stops refreshing.
+   * Required when funnelType is AUTO.
    */
   expiryDate?: string;
+  /** ONCE funnels only — ISO-8601 start of the fixed analysis window. */
+  startTime?: string;
+  /** ONCE funnels only — ISO-8601 end of the fixed analysis window. */
+  endTime?: string;
+  /** @deprecated Use startTime/endTime (ONCE) or dateRangeDays (AUTO) instead. */
+  timeRange?: TimeRange;
 }
 
 /**
@@ -343,14 +350,23 @@ export async function exploreJourney(body: JourneyRequestBody) {
 export async function fetchFunnelEvents() {
   return makeRequest<FunnelEventsResponse>({
     url: `${API_BASE_URL}${API_ROUTES.FUNNEL_EVENTS.apiPath}`,
-    init: { method: API_ROUTES.FUNNEL_EVENTS.apiPath },
+    init: { method: API_ROUTES.FUNNEL_EVENTS.method },
   });
 }
 
-/** GET /v1/funnels/filters — fetch available filter keys and their possible values. */
+/** GET /v1/funnels/filters — fetch the list of available filter key strings for the project. */
 export async function fetchFunnelFilters() {
   return makeRequest<FunnelFiltersResponse>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}/filters`,
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_FILTERS.apiPath}`,
+    init: { method: API_ROUTES.FUNNEL_FILTERS.method },
+  });
+}
+
+/** GET /v1/funnels/filters/:filterKey/values — fetch all possible values for one filter key. */
+export async function fetchFunnelFilterValues(filterKey: string) {
+  const encoded = encodeURIComponent(filterKey);
+  return makeRequest<FunnelFilterValuesResponse>({
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_FILTERS.apiPath}/${encoded}/values`,
     init: { method: "GET" },
   });
 }

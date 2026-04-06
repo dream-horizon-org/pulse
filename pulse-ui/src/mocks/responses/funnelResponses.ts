@@ -515,11 +515,20 @@ const MOCK_FUNNEL_EVENTS = [
   "Deep_Link_Opened",
 ];
 
-/** Options for GlobalFilterBar on funnel/journey create (GET /v1/funnel/filters mock). */
-const MOCK_FUNNEL_FILTER_OPTIONS: Record<string, string[]> = {
-  "OS Name": ["iOS", "Android"],
-  "OS Version": ["17.4.1", "17.3", "16.6", "14.0", "13.0"],
-  "App Version": ["4.2.1", "4.2.0", "4.1.9", "4.1.8", "4.1.7"],
+/**
+ * Mock filter keys returned by GET /v1/funnels/filters.
+ * These are server-side keys; the UI maps them to display labels via FILTER_KEY_LABEL_MAP.
+ */
+const MOCK_FUNNEL_FILTER_KEYS: string[] = ["os_name", "os_version", "app_version"];
+
+/**
+ * Mock values for each filter key returned by GET /v1/funnels/filters/{filterKey}/values.
+ * Keyed by server filter key.
+ */
+const MOCK_FUNNEL_FILTER_VALUES: Record<string, string[]> = {
+  os_name: ["iOS", "Android"],
+  os_version: ["17.4.1", "17.3", "16.6", "14.0", "13.0"],
+  app_version: ["4.2.1", "4.2.0", "4.1.9", "4.1.8", "4.1.7"],
 };
 
 /** Default expiry for mock funnels/journeys (one year from when the module loads). */
@@ -1148,6 +1157,28 @@ export function handleFunnelEndpoints(
     }
   }
 
+  // ── Named GET endpoints — must be checked before the generic /{id} matcher ──
+
+  if (method === "GET" && pathOnly.endsWith("/v1/funnels/events")) {
+    return { data: { events: MOCK_FUNNEL_EVENTS }, status: 200 };
+  }
+
+  // GET /v1/funnels/filters/{filterKey}/values (check before /filters to avoid prefix match)
+  const filterValuesMatch = pathOnly.match(/\/v1\/funnels\/filters\/([^/]+)\/values$/);
+  if (method === "GET" && filterValuesMatch) {
+    const filterKey = decodeURIComponent(filterValuesMatch[1]);
+    return { data: { values: MOCK_FUNNEL_FILTER_VALUES[filterKey] ?? [] }, status: 200 };
+  }
+
+  // GET /v1/funnels/filters — returns only the list of filter key strings
+  if (method === "GET" && pathOnly.endsWith("/v1/funnels/filters")) {
+    return { data: { filters: MOCK_FUNNEL_FILTER_KEYS }, status: 200 };
+  }
+
+  if (method === "GET" && pathname.includes("/v1/tags")) {
+    return { data: { tags: MOCK_TAGS }, status: 200 };
+  }
+
   if (method === "GET") {
     const funnelDetail = pathOnly.match(funnelIdPath);
     if (funnelDetail) {
@@ -1213,17 +1244,6 @@ export function handleFunnelEndpoints(
     return { data: { groups: MOCK_GROUPED_DATA[groupBy] || [] }, status: 200 };
   }
 
-  if (pathname.includes("/v1/funnel/events") && method === "GET") {
-    return { data: { events: MOCK_FUNNEL_EVENTS }, status: 200 };
-  }
-
-  if (pathname.includes("/v1/funnel/filters") && method === "GET") {
-    return { data: { filters: MOCK_FUNNEL_FILTER_OPTIONS }, status: 200 };
-  }
-
-  if (pathname.includes("/v1/tags") && method === "GET") {
-    return { data: { tags: MOCK_TAGS }, status: 200 };
-  }
 
   if (pathname.includes("/v1/journey/explore") && method === "POST") {
     let body: any = {};
