@@ -177,14 +177,14 @@ public class RootCauseService {
           if (optFirst.isEmpty()) {
             return buildFlatSegments(projectId, interactionName, window, baseline, dimOrder, maxSegments);
           }
-          SegmentPath first = optFirst.get();
+          FirstDimensionPick first = optFirst.get();
           return buildHierarchyThenFlat(
               projectId, interactionName, window, baseline, dimOrder, maxSegments,
-              totalProblematic, threshold, List.of(first));
+              totalProblematic, threshold, first.dimOrderIndex(), List.of(first.path()));
         });
   }
 
-  private Single<Optional<SegmentPath>> pickFirstDimension(
+  private Single<Optional<FirstDimensionPick>> pickFirstDimension(
       String projectId,
       String interactionName,
       RootCauseQueryBuilder.Window window,
@@ -192,17 +192,20 @@ public class RootCauseService {
       double threshold,
       long totalProblematic
   ) {
-    return Observable.fromIterable(dimOrder)
-        .concatMapSingle(dim -> {
+    return Observable.range(0, dimOrder.size())
+        .concatMapMaybe(i -> {
+          String dim = dimOrder.get(i);
           RootCauseQuerySpec q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
               projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
           return executeQuery(projectId, q)
-              .map(rows -> pickClosestToTotal(rows, dim, totalProblematic, threshold));
+              .flatMapMaybe(rows -> {
+                Optional<SegmentPath> path = pickClosestToTotal(rows, dim, totalProblematic, threshold);
+                return path.map(p -> Maybe.just(new FirstDimensionPick(i, p))).orElseGet(Maybe::empty);
+              });
         })
-        .filter(Optional::isPresent)
         .firstElement()
-        .switchIfEmpty(Maybe.just(Optional.<SegmentPath>empty()))
-        .toSingle();
+        .map(Optional::of)
+        .defaultIfEmpty(Optional.empty());
   }
 
   private Single<List<RootCauseSegment>> buildFlatSegments(
@@ -267,6 +270,7 @@ public class RootCauseService {
       int maxSegments,
       long totalProblematic,
       double threshold,
+      int hierarchyStartDimIndex,
       List<SegmentPath> path
   ) {
     if (path.size() >= maxSegments) {
@@ -274,7 +278,7 @@ public class RootCauseService {
     }
     Map<String, String> currentFilters = path.stream()
         .collect(Collectors.toMap(s -> s.dimension, s -> s.value, (a, b) -> b));
-    int nextDimIndex = path.size();
+    int nextDimIndex = hierarchyStartDimIndex + path.size();
     if (nextDimIndex >= dimOrder.size()) {
       return materializeSegments(projectId, interactionName, window, baseline, path);
     }
@@ -295,7 +299,7 @@ public class RootCauseService {
           newPath.add(picked.get());
           return buildHierarchyThenFlat(
               projectId, interactionName, window, baseline, dimOrder, maxSegments,
-              totalProblematic, threshold, newPath);
+              totalProblematic, threshold, hierarchyStartDimIndex, newPath);
         });
   }
 
@@ -531,6 +535,8 @@ public class RootCauseService {
         cause);
     return ServiceError.INTERNAL_SERVER_ERROR.getException();
   }
+
+  private record FirstDimensionPick(int dimOrderIndex, SegmentPath path) {}
 
   private record SegmentPath(String dimension, String value) {}
 }

@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import jakarta.ws.rs.WebApplicationException;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
@@ -411,6 +412,86 @@ class RootCauseServiceTest {
       assertThat(result.getSegments()).hasSize(2);
       assertThat(result.getSegments().get(0).getLabel()).doesNotContain(":");
       verify(cacheDao, times(1)).upsert(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldDeepenHierarchyFromNextDimOrderIndexWhenFirstPickSkipsEarlierDimensions() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(2);
+      when(rootCauseConfig.getDimensionOrder())
+          .thenReturn(List.of("Platform", "OsVersion", "AppVersion", "DeviceModel"));
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
+      AtomicBoolean sawOsVersionUnderAppVersion = new AtomicBoolean();
+      AtomicBoolean sawDeviceModelUnderAppVersion = new AtomicBoolean();
+
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                boolean isBaselineQuery = !q.contains("GROUP BY");
+                if (isBaselineQuery) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                boolean isSegmentMetricsQuery = q.contains(" AS volume");
+                if (isSegmentMetricsQuery) {
+                  Map<String, Object> row = segmentMetricRow();
+                  if (q.contains("GROUP BY AppVersion, DeviceModel")) {
+                    row.put("AppVersion", "2.0");
+                    row.put("DeviceModel", "Pixel");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  row.put("AppVersion", "2.0");
+                  return Single.just(singleRowTableResponse(row));
+                }
+                boolean isOsVersionUnderAppVersion =
+                    q.contains("GROUP BY OsVersion") && q.contains("AND AppVersion =");
+                if (isOsVersionUnderAppVersion) {
+                  sawOsVersionUnderAppVersion.set(true);
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("OsVersion", "14", "problematic_count", 100L)));
+                }
+                boolean isDeviceModelUnderAppVersion =
+                    q.contains("GROUP BY DeviceModel") && q.contains("AND AppVersion =");
+                if (isDeviceModelUnderAppVersion) {
+                  sawDeviceModelUnderAppVersion.set(true);
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("DeviceModel", "Pixel", "problematic_count", 100L)));
+                }
+                boolean isPlatformBreakdown =
+                    q.contains("GROUP BY Platform") && !q.contains("AND Platform =");
+                if (isPlatformBreakdown) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("Platform", "Android", "problematic_count", 50L)));
+                }
+                boolean isOsVersionUnscoped =
+                    q.contains("GROUP BY OsVersion") && !q.contains("AND AppVersion =");
+                if (isOsVersionUnscoped) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("OsVersion", "14", "problematic_count", 50L)));
+                }
+                boolean isAppVersionUnscoped =
+                    q.contains("GROUP BY AppVersion") && !q.contains("AND AppVersion =");
+                if (isAppVersionUnscoped) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("AppVersion", "2.0", "problematic_count", 100L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
+
+      assertThat(sawDeviceModelUnderAppVersion.get()).isTrue();
+      assertThat(sawOsVersionUnderAppVersion.get()).isFalse();
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getSegments()).hasSize(2);
     }
 
     @Test
