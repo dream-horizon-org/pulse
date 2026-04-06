@@ -42,8 +42,6 @@ public class CreateFunnelDefinitionRequest {
   @Valid
   private List<FunnelAttributeFilter> filters;
 
-  private List<String> tags;
-
   @NotNull
   @Builder.Default
   private Long windowSeconds = 86400L;
@@ -60,4 +58,9 @@ public class CreateFunnelDefinitionRequest {
   private Instant endTime;
 
   private Instant expiryDate;
+
+  /**
+   * Optional; persisted to {@code funnel_journey_tag} after the funnel is created.
+   */
+  private List<String> tags;
 }
