@@ -46,15 +46,24 @@ object OpenTelemetryRumInitializer {
      * Opinionated [OpenTelemetryRum] initialization.
      *
      * @param application Your android app's application object.
+     * @param shouldStartSendingData If data sending work start immediately
      * @param endpointBaseUrl The base endpoint for exporting all your signals.
      * @param endpointHeaders These will be added to each signal export request.
      * @param spanEndpointConnectivity Span-specific endpoint configuration.
      * @param logEndpointConnectivity Log-specific endpoint configuration.
      * @param metricEndpointConnectivity Metric-specific endpoint configuration.
+     * @param resource Configures the resource attributes that are used globally by acting on a [ResourceBuilder].
      * @param sessionConfig The session configuration, which includes inactivity timeout and maximum lifetime durations.
+     * @param meteredSessionProvider The session configuration for metering
      * @param globalAttributes Configures the set of global attributes to emit with every span and event.
      * @param diskBuffering Configures the disk buffering feature.
-     * @param resource Configures the resource attributes that are used globally by acting on a [ResourceBuilder].
+     * @param tracerProviderCustomizer Configures the tracer provider
+     * @param meterProviderCustomizer Configures the meter provider
+     * @param loggerProviderCustomizer Configures the logger provider
+     * @param spanExporter To customise [SpanExporter] by default it is [OtlpHttpSpanExporter]
+     * @param logRecordExporter To customise [LogRecordExporter] by default it is [OtlpHttpLogRecordExporter]
+     * @param metricExporter To customise [MetricExporter] by default it is [OtlpHttpMetricExporter]
+     * @param rumConfig [OtelRumConfig] to customise the sdk behaviour
      */
     @Suppress("LongParameterList")
     @JvmStatic
