@@ -12,11 +12,10 @@ export function useSessionReplayFromActiveConfig({
   projectId,
 }: UseSessionReplayFromActiveConfigParams = {}) {
   const hasProject = Boolean(projectId);
-  const { data, isLoading, isFetching, error, dataUpdatedAt } =
-    useGetActiveSdkConfig({
-      enabled: enabled && hasProject,
-      projectId,
-    });
+  const { data, isLoading, isFetching, error } = useGetActiveSdkConfig({
+    enabled: enabled && hasProject,
+    projectId,
+  });
 
   const isSessionReplayEnabled = useMemo(() => {
     const features = data?.data?.features;
@@ -25,7 +24,7 @@ export function useSessionReplayFromActiveConfig({
       (f) => f.featureName === SESSION_REPLAY_FEATURE_NAME,
     );
     return replay != null && replay.sessionSampleRate === 1;
-  }, [data, dataUpdatedAt]);
+  }, [data]);
 
   return {
     isSessionReplayEnabled,
