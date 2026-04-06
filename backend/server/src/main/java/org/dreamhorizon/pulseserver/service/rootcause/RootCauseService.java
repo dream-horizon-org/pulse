@@ -112,10 +112,10 @@ public class RootCauseService {
                 .build());
           }
           return runAlgorithm(projectId, interactionName, window, baselineRow, totalProblematic)
-              .map(segments -> RootCauseResult.builder()
+              .map(outcome -> RootCauseResult.builder()
                   .baseline(toBaselineMap(baselineRow))
-                  .segments(segments)
-                  .mode(segmentLayoutMode(segments))
+                  .segments(outcome.segments())
+                  .mode(outcome.mode())
                   .build());
         })
         .flatMap(result -> {
@@ -138,17 +138,11 @@ public class RootCauseService {
         });
   }
 
-  private static RootCauseAnalysisMode segmentLayoutMode(List<RootCauseSegment> segments) {
-    if (segments.isEmpty()) {
-      return RootCauseAnalysisMode.FLAT;
-    }
-    String firstLabel = segments.get(0).getLabel();
-    boolean labelHasColon = firstLabel != null && firstLabel.contains(":");
-    if (labelHasColon) {
-      return RootCauseAnalysisMode.FLAT;
-    }
-    return RootCauseAnalysisMode.HIERARCHICAL;
-  }
+  /**
+   * Segmentation outcome: mode follows the code path (flat vs hierarchy), not display labels — values
+   * may contain ":" (e.g. geo names), and single-step hierarchy uses the same "Dim: value" label as flat.
+   */
+  private record SegmentsWithMode(List<RootCauseSegment> segments, RootCauseAnalysisMode mode) {}
 
   private Single<Optional<Map<String, Object>>> runBaseline(
       String projectId,
@@ -161,7 +155,7 @@ public class RootCauseService {
         .map(rows -> rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0)));
   }
 
-  private Single<List<RootCauseSegment>> runAlgorithm(
+  private Single<SegmentsWithMode> runAlgorithm(
       String projectId,
       String interactionName,
       RootCauseQueryBuilder.Window window,
@@ -175,12 +169,14 @@ public class RootCauseService {
     return pickFirstDimension(projectId, interactionName, window, dimOrder, threshold, totalProblematic)
         .flatMap(optFirst -> {
           if (optFirst.isEmpty()) {
-            return buildFlatSegments(projectId, interactionName, window, baseline, dimOrder, maxSegments);
+            return buildFlatSegments(projectId, interactionName, window, baseline, dimOrder, maxSegments)
+                .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.FLAT));
           }
           FirstDimensionPick first = optFirst.get();
           return buildHierarchyThenFlat(
-              projectId, interactionName, window, baseline, dimOrder, maxSegments,
-              totalProblematic, threshold, first.dimOrderIndex(), List.of(first.path()));
+                  projectId, interactionName, window, baseline, dimOrder, maxSegments,
+                  totalProblematic, threshold, first.dimOrderIndex(), List.of(first.path()))
+              .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.HIERARCHICAL));
         });
   }
 

@@ -157,6 +157,7 @@ class RootCauseServiceTest {
       RootCauseResult result =
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
 
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
       assertThat(result.getSegments()).hasSize(1);
       assertThat(result.getSegments().get(0).getLabel()).contains("Android");
     }
@@ -412,6 +413,101 @@ class RootCauseServiceTest {
       assertThat(result.getSegments()).hasSize(2);
       assertThat(result.getSegments().get(0).getLabel()).doesNotContain(":");
       verify(cacheDao, times(1)).upsert(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldUseHierarchicalModeWhenFirstSegmentValueContainsColon() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(2);
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
+      String platformValueWithColon = "Washington: D.C.";
+
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                boolean isBaselineQuery = !q.contains("GROUP BY");
+                if (isBaselineQuery) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                boolean isSegmentMetricsQuery = q.contains(" AS volume");
+                if (isSegmentMetricsQuery) {
+                  boolean isTwoDims = q.contains("GROUP BY Platform, OsVersion");
+                  if (isTwoDims) {
+                    Map<String, Object> row = segmentMetricRow();
+                    row.put("Platform", platformValueWithColon);
+                    row.put("OsVersion", "14");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  Map<String, Object> row = segmentMetricRow();
+                  row.put("Platform", platformValueWithColon);
+                  return Single.just(singleRowTableResponse(row));
+                }
+                boolean isPlatformBreakdown =
+                    q.contains("GROUP BY Platform") && !q.contains("AND Platform =");
+                if (isPlatformBreakdown) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("Platform", platformValueWithColon, "problematic_count", 100L)));
+                }
+                boolean isOsVersionUnderPlatform =
+                    q.contains("GROUP BY OsVersion") && q.contains("AND Platform =");
+                if (isOsVersionUnderPlatform) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("OsVersion", "14", "problematic_count", 100L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getSegments()).hasSize(2);
+      assertThat(result.getSegments().get(0).getLabel()).contains(":");
+    }
+
+    @Test
+    void shouldUseHierarchicalModeWhenMaxSegmentsIsOneAndLabelUsesDimValueFormat() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(1);
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(200L, 50L);
+
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                boolean isBaselineQuery = !q.contains("GROUP BY");
+                if (isBaselineQuery) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                boolean isSegmentMetricsQuery = q.contains(" AS volume");
+                if (isSegmentMetricsQuery) {
+                  Map<String, Object> row = segmentMetricRow();
+                  row.put("Platform", "Android");
+                  return Single.just(singleRowTableResponse(row));
+                }
+                boolean isPlatformBreakdown =
+                    q.contains("GROUP BY Platform") && !q.contains("AND Platform =");
+                if (isPlatformBreakdown) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("Platform", "Android", "problematic_count", 50L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getSegments()).hasSize(1);
+      assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
     }
 
     @Test
