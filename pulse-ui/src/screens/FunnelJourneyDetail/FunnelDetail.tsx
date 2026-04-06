@@ -253,7 +253,7 @@ function FunnelDetailView({ detail }: { detail: any }) {
     });
   };
 
-  const vizStatuses = ["ACTIVE", "COMPLETED", "STOPPED"];
+  const vizStatuses = ["ACTIVE", "COMPLETED", "WARN"];
 
   const { data: funnelRes, isLoading: funnelLoading } = useGetFunnelData({
     requestBody: stableFunnelRequestBody,
@@ -346,17 +346,15 @@ function FunnelDetailView({ detail }: { detail: any }) {
             flex: 1,
           }}
         >
-          {detail.status === "CREATING" || detail.status === "UPDATING" ? (
+          {detail.status === "IN_PROGRESS" ? (
             <Box className={funnelClasses.emptyState} py={60}>
               <Loader color="blue" size="lg" />
               <Text size="lg" fw={700} c="dark.6" mt="md">
-                {detail.status === "CREATING" ? "Computing" : "Updating"} Funnel
-                Data
+                Computing Funnel Data
               </Text>
               <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
-                Your funnel is currently being{" "}
-                {detail.status === "CREATING" ? "computed" : "updated"} on the
-                server. This might take a few moments. Please check back later.
+                Your funnel is currently being computed on the server. This
+                might take a few moments. Please check back later.
               </Text>
             </Box>
           ) : isLoading ? (

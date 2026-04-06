@@ -11,8 +11,8 @@ export function FunnelConversionCell({ row }: { row: FunnelJourneyListItem }) {
     );
   }
   if (
-    row.status === "CREATING" ||
-    row.status === "UPDATING" ||
+    row.status === "IN_PROGRESS" ||
+    row.status === "PENDING" ||
     row.overallConversionRate == null ||
     row.conversionTrend == null
   ) {

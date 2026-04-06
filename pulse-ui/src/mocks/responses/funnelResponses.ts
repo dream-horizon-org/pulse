@@ -543,7 +543,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING" | "COMPLETED";
+  status: "ACTIVE" | "IN_PROGRESS" | "WARN" | "PENDING" | "FAILED" | "COMPLETED";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
@@ -613,7 +613,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     id: "fj-3",
     name: "Search to PDP",
     kind: "FUNNEL",
-    status: "STOPPED",
+    status: "WARN",
     createdBy: "alice@example.com",
     lastUpdatedAt: "2026-03-10T18:45:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
@@ -649,7 +649,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     id: "fj-5",
     name: "Cart abandonment",
     kind: "JOURNEY",
-    status: "STOPPED",
+    status: "FAILED",
     createdBy: "bob@example.com",
     lastUpdatedAt: "2026-02-28T08:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
@@ -788,7 +788,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     id: "fj-7",
     name: "New feature adoption",
     kind: "FUNNEL",
-    status: "CREATING",
+    status: "IN_PROGRESS",
     createdBy: "dev@example.com",
     lastUpdatedAt: "2026-03-24T10:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
@@ -800,7 +800,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     id: "fj-8",
     name: "Onboarding journey",
     kind: "JOURNEY",
-    status: "CREATING",
+    status: "IN_PROGRESS",
     createdBy: "alice@example.com",
     lastUpdatedAt: "2026-03-24T11:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
@@ -908,9 +908,10 @@ function mockResourceListing(
   const search = (params.get("search") || "").trim().toLowerCase();
   const status = params.get("status") as
     | "ACTIVE"
-    | "STOPPED"
-    | "CREATING"
-    | "UPDATING"
+    | "IN_PROGRESS"
+    | "WARN"
+    | "PENDING"
+    | "FAILED"
     | "COMPLETED"
     | null;
   const createdByRaw = params.get("createdBy");
@@ -946,9 +947,10 @@ function mockResourceListing(
   }
   if (
     status === "ACTIVE" ||
-    status === "STOPPED" ||
-    status === "CREATING" ||
-    status === "UPDATING" ||
+    status === "IN_PROGRESS" ||
+    status === "WARN" ||
+    status === "PENDING" ||
+    status === "FAILED" ||
     status === "COMPLETED"
   ) {
     items = items.filter((row) => row.status === status);
@@ -1078,7 +1080,7 @@ function mockPostCreateFunnelOrJourney(
     name: body.name || "Untitled",
     description: body.description || "",
     kind,
-    status: "CREATING" as const,
+    status: "IN_PROGRESS" as const,
     createdBy: "dev@example.com",
     createdAt: new Date().toISOString(),
     lastUpdatedAt: new Date().toISOString(),
@@ -1120,7 +1122,7 @@ function mockPutFunnelOrJourney(
   MOCK_FUNNELS_JOURNEYS_ALL[index] = {
     ...MOCK_FUNNELS_JOURNEYS_ALL[index],
     ...body,
-    status: "UPDATING" as const,
+    status: "IN_PROGRESS" as const,
     lastUpdatedAt: new Date().toISOString(),
   };
   return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };

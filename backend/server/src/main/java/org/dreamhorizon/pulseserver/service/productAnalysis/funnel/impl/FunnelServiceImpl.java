@@ -93,9 +93,9 @@ public class FunnelServiceImpl implements FunnelService {
       .flatMap(
         funnelId ->
           funnelJourneyTagDao
-              .replaceTags(
-                  projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, tagsToStore)
-              .toSingleDefault(funnelId))
+            .replaceTags(
+              projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, tagsToStore)
+            .toSingleDefault(funnelId))
       .flatMap(funnelId ->
         analyticsBatchService.triggerFunnelOnSaveJob(funnelId)
           .onErrorReturnItem(false) // Don't fail funnel creation if job submission fails
@@ -159,7 +159,7 @@ public class FunnelServiceImpl implements FunnelService {
           }
           List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
           return funnelJourneyTagDao.replaceTags(
-              projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
+            projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
         });
   }
 
@@ -189,21 +189,21 @@ public class FunnelServiceImpl implements FunnelService {
         row -> {
           Single<FunnelResultsResponse> results =
             funnelResultsDao
-                .queryLatest(projectId, id)
-                .map(FunnelResultsMapper::fromRows)
-                .onErrorResumeNext(
-                  err -> {
-                    log.warn(
-                      "Failed to load ClickHouse funnel results for funnel {} (project {}): {}",
-                      id,
-                      projectId,
-                      err.toString());
-                    return Single.just((FunnelResultsResponse) null);
-                  });
+              .queryLatest(projectId, id)
+              .map(FunnelResultsMapper::fromRows)
+              .onErrorResumeNext(
+                err -> {
+                  log.warn(
+                    "Failed to load ClickHouse funnel results for funnel {} (project {}): {}",
+                    id,
+                    projectId,
+                    err.toString());
+                  return Single.just((FunnelResultsResponse) null);
+                });
           Single<List<String>> tags =
             funnelJourneyTagDao
-                .listTagsForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
-                .onErrorReturnItem(List.of());
+              .listTagsForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
+              .onErrorReturnItem(List.of());
           return Single.zip(results, tags, (r, t) -> toResponse(row, r, t));
         });
   }
@@ -286,10 +286,10 @@ public class FunnelServiceImpl implements FunnelService {
                   .items(
                     funnels.stream()
                       .map(
-                        r ->
+                        funnel ->
                           toResponse(
-                            r, null, tagMap.getOrDefault(r.getId(), List.of())))
-                  .toList())
+                            funnel, null, tagMap.getOrDefault(funnel.getId(), List.of())))
+                      .toList())
                   .totalCount(totalCount)
                   .page(page)
                   .pageSize(pageSize)
@@ -301,8 +301,8 @@ public class FunnelServiceImpl implements FunnelService {
   @Override
   public Single<FunnelJourneyTagsListResponse> listDistinctTags(String projectId) {
     return funnelJourneyTagDao
-        .listDistinctTagsForProject(projectId)
-        .map(tags -> FunnelJourneyTagsListResponse.builder().tags(tags).build());
+      .listDistinctTagsForProject(projectId)
+      .map(tags -> FunnelJourneyTagsListResponse.builder().tags(tags).build());
   }
 
   @Override

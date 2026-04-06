@@ -184,7 +184,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
     });
   };
 
-  const journeyVizStatuses = ["ACTIVE", "COMPLETED", "STOPPED"];
+  const journeyVizStatuses = ["ACTIVE", "COMPLETED", "WARN"];
 
   const { data, isLoading } = useGetJourneyData({
     requestBody: stableJourneyRequestBody,
@@ -286,18 +286,15 @@ function JourneyDetailView({ detail }: { detail: any }) {
                 (saved · depth {detail.depth ?? 5})
               </Text>
 
-              {detail.status === "CREATING" || detail.status === "UPDATING" ? (
+              {detail.status === "IN_PROGRESS" ? (
                 <Box className={funnelClasses.emptyState} py={60}>
                   <Loader color="blue" size="lg" />
                   <Text size="lg" fw={700} c="dark.6" mt="md">
-                    {detail.status === "CREATING" ? "Computing" : "Updating"}{" "}
-                    Journey Data
+                    Computing Journey Data
                   </Text>
                   <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
-                    Your journey is currently being{" "}
-                    {detail.status === "CREATING" ? "computed" : "updated"} on
-                    the server. This might take a few moments. Please check back
-                    later.
+                    Your journey is currently being computed on the server. This
+                    might take a few moments. Please check back later.
                   </Text>
                 </Box>
               ) : isLoading ? (

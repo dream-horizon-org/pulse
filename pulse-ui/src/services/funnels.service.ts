@@ -59,7 +59,7 @@ export type FunnelJourneyListItem = {
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING" | "COMPLETED";
+  status: "ACTIVE" | "IN_PROGRESS" | "WARN" | "PENDING" | "FAILED" | "COMPLETED";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
@@ -101,7 +101,7 @@ export type JourneyListResponse = FunnelsJourneysListResponse;
 /** Query params for GET /v1/funnels or GET /v1/journeys (resource implied by path). */
 export type FunnelJourneyListQueryParams = {
   search?: string | null;
-  status?: "ACTIVE" | "STOPPED" | "CREATING" | "UPDATING" | "COMPLETED" | null;
+  status?: "ACTIVE" | "IN_PROGRESS" | "WARN" | "PENDING" | "FAILED" | "COMPLETED" | null;
   /** Match if created by any of these users. */
   createdBy?: string[] | null;
   /** Match if item has any of these tags. */

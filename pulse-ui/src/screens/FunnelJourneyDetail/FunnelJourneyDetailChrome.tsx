@@ -29,26 +29,30 @@ export function FunnelJourneyDetailChrome({
                 color={
                   detail.status === "ACTIVE"
                     ? "teal"
-                    : detail.status === "CREATING"
+                    : detail.status === "IN_PROGRESS"
                       ? "blue"
-                      : detail.status === "UPDATING"
+                      : detail.status === "WARN"
                         ? "orange"
                         : detail.status === "COMPLETED"
                           ? "violet"
-                          : "gray"
+                          : detail.status === "FAILED"
+                            ? "red"
+                            : "gray"
                 }
                 variant="light"
                 size="sm"
               >
                 {detail.status === "ACTIVE"
                   ? "Active"
-                  : detail.status === "CREATING"
-                    ? "Creating"
-                    : detail.status === "UPDATING"
-                      ? "Updating"
+                  : detail.status === "IN_PROGRESS"
+                    ? "In Progress"
+                    : detail.status === "WARN"
+                      ? "Warning"
                       : detail.status === "COMPLETED"
                         ? "Completed"
-                        : "Stopped"}
+                        : detail.status === "FAILED"
+                          ? "Failed"
+                          : "Pending"}
               </Badge>
               <Text size="xs" c="dimmed">
                 {detail.kind === "FUNNEL" ? "Funnel" : "Journey"}

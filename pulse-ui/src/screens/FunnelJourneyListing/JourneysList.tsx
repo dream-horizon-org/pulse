@@ -35,9 +35,10 @@ const badgeRootStyle = { fontFamily: "inherit" as const };
 type StatusFilterValue =
   | ""
   | "ACTIVE"
-  | "STOPPED"
-  | "CREATING"
-  | "UPDATING"
+  | "IN_PROGRESS"
+  | "WARN"
+  | "PENDING"
+  | "FAILED"
   | "COMPLETED";
 
 export function JourneysList() {
@@ -66,9 +67,10 @@ export function JourneysList() {
       search: debouncedSearch.trim() || null,
       status:
         statusFilter === "ACTIVE" ||
-        statusFilter === "STOPPED" ||
-        statusFilter === "CREATING" ||
-        statusFilter === "UPDATING" ||
+        statusFilter === "IN_PROGRESS" ||
+        statusFilter === "WARN" ||
+        statusFilter === "PENDING" ||
+        statusFilter === "FAILED" ||
         statusFilter === "COMPLETED"
           ? statusFilter
           : null,
@@ -148,26 +150,30 @@ export function JourneysList() {
             color={
               row.status === "ACTIVE"
                 ? "teal"
-                : row.status === "CREATING"
+                : row.status === "IN_PROGRESS"
                   ? "blue"
-                  : row.status === "UPDATING"
+                  : row.status === "WARN"
                     ? "orange"
                     : row.status === "COMPLETED"
                       ? "violet"
-                      : "gray"
+                      : row.status === "FAILED"
+                        ? "red"
+                        : "gray"
             }
             variant="light"
             styles={{ root: badgeRootStyle }}
           >
             {row.status === "ACTIVE"
               ? "Active"
-              : row.status === "CREATING"
-                ? "Creating"
-                : row.status === "UPDATING"
-                  ? "Updating"
+              : row.status === "IN_PROGRESS"
+                ? "In Progress"
+                : row.status === "WARN"
+                  ? "Warning"
                   : row.status === "COMPLETED"
                     ? "Completed"
-                    : "Stopped"}
+                    : row.status === "FAILED"
+                      ? "Failed"
+                      : "Pending"}
           </Badge>
         ),
       },
@@ -255,9 +261,10 @@ export function JourneysList() {
             clearable
             data={[
               { value: "ACTIVE", label: "Active" },
-              { value: "STOPPED", label: "Stopped" },
-              { value: "CREATING", label: "Creating" },
-              { value: "UPDATING", label: "Updating" },
+              { value: "IN_PROGRESS", label: "In Progress" },
+              { value: "WARN", label: "Warning" },
+              { value: "PENDING", label: "Pending" },
+              { value: "FAILED", label: "Failed" },
               { value: "COMPLETED", label: "Completed" },
             ]}
             value={statusFilter || null}
