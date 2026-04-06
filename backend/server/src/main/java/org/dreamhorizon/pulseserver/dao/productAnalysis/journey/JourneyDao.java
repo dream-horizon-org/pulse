@@ -106,7 +106,8 @@ public class JourneyDao {
           + "journey.direction, journey.depth, journey.mode, journey.filters_json, journey.start_time, "
           + "journey.end_time, journey.journey_type, journey.expiry, journey.date_range, "
           + "journey.created_at, journey.updated_at, journey.created_by, ");
-    sql.append(JourneyQueries.LATEST_JOURNEY_JOB_STATUS).append(" AS latest_job_status ");
+    sql.append(JourneyQueries.LATEST_JOURNEY_JOB_STATUS).append(" AS latest_job_status, ");
+    sql.append("COUNT(*) OVER() AS total_count ");
     sql.append("FROM journey WHERE journey.project_id = ? ");
     List<Object> params = new ArrayList<>();
     params.add(projectId);
@@ -178,6 +179,7 @@ public class JourneyDao {
       .updatedAt(toInstant(row, "updated_at"))
       .createdBy(row.getString("created_by"))
       .latestJobStatus(row.getString("latest_job_status"))
+      .totalCount(row.getColumnIndex("total_count") >= 0 ? row.getLong("total_count") : 0)
       .build();
   }
 

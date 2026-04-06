@@ -35,4 +35,8 @@ public class FunnelDefinitionRow {
    * Latest spark_jobs.status for FUNNEL, or null if no job.
    */
   String latestJobStatus;
+  /**
+   * Total matching rows before pagination (populated from COUNT(*) OVER() in list queries; 0 otherwise).
+   */
+  long totalCount;
 }

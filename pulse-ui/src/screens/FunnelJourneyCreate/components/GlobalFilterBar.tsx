@@ -33,6 +33,18 @@ interface GlobalFilterBarProps {
   className?: string;
 }
 
+/**
+ * Maps server-side filter keys to human-readable display labels shown in the UI.
+ * To support a new filter key returned from the server, add an entry here.
+ * If a key has no entry, the raw server key is displayed as a fallback.
+ */
+export const FILTER_KEY_LABEL_MAP: Record<string, string> = {
+  OS_NAME: "OS Name",
+  OS_VERSION: "OS Version",
+  APP_BUILD_NAME: "App Version",
+};
+
+/** Maps display labels to decorative emoji icons shown in selected-filter chips. */
 const PROPERTY_ICONS: Record<string, string> = {
   "OS Name": "🍏",
   "OS Version": "⚙️",
@@ -41,12 +53,14 @@ const PROPERTY_ICONS: Record<string, string> = {
 
 function FilterDropdown({
   property,
+  label,
   options,
   selectedValues,
   onToggle,
   buttonSize = "xs",
 }: {
   property: string;
+  label: string;
   options: string[];
   selectedValues: string[];
   onToggle: (value: string) => void;
@@ -69,7 +83,7 @@ function FilterDropdown({
           }
           style={{ fontWeight: 500 }}
         >
-          {property} {selectedValues.length > 0 && `(${selectedValues.length})`}
+          {label} {selectedValues.length > 0 && `(${selectedValues.length})`}
         </Button>
       </Popover.Target>
       <Popover.Dropdown p={0}>
@@ -159,6 +173,7 @@ export function GlobalFilterBar({
     <Box className={[classes.filterBar, className].filter(Boolean).join(" ")}>
       <Group gap={gap} wrap="wrap" align="flex-start">
         {Object.entries(filterOptions).map(([property, options]) => {
+          const label = FILTER_KEY_LABEL_MAP[property] ?? property;
           const selectedValues = filters
             .filter((f) => f.property === property)
             .map((f) => f.value);
@@ -167,6 +182,7 @@ export function GlobalFilterBar({
             <FilterDropdown
               key={property}
               property={property}
+              label={label}
               options={options}
               selectedValues={selectedValues}
               onToggle={(val) => toggleFilter(property, val)}
@@ -186,50 +202,53 @@ export function GlobalFilterBar({
           />
         )}
 
-        {Object.entries(groupedFilters).map(([property, values]) => (
-          <Group
-            key={property}
-            gap={gap}
-            style={{
-              border: "1px solid #e9ecef",
-              borderRadius: "24px",
-              padding: "4px 4px 4px 12px",
-              backgroundColor: "#f8f9fa",
-            }}
-          >
-            <Text
-              size="xs"
-              fw={600}
-              c="dimmed"
-              style={{ display: "flex", alignItems: "center", gap: "4px" }}
+        {Object.entries(groupedFilters).map(([property, values]) => {
+          const label = FILTER_KEY_LABEL_MAP[property] ?? property;
+          return (
+            <Group
+              key={property}
+              gap={gap}
+              style={{
+                border: "1px solid #e9ecef",
+                borderRadius: "24px",
+                padding: "4px 4px 4px 12px",
+                backgroundColor: "#f8f9fa",
+              }}
             >
-              {PROPERTY_ICONS[property] || "🏷️"} {property}
-            </Text>
-            {values.map((value, index) => (
-              <Badge
-                key={`${property}-${value}-${index}`}
-                variant="light"
-                color="teal"
-                size="sm"
-                radius="xl"
-                rightSection={
-                  <ActionIcon
-                    size="xs"
-                    color="teal"
-                    radius="xl"
-                    variant="transparent"
-                    onClick={() => removeFilter(property, value)}
-                  >
-                    <IconX size={10} />
-                  </ActionIcon>
-                }
-                style={{ textTransform: "none" }}
+              <Text
+                size="xs"
+                fw={600}
+                c="dimmed"
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
               >
-                {value}
-              </Badge>
-            ))}
-          </Group>
-        ))}
+                {PROPERTY_ICONS[label] || "🏷️"} {label}
+              </Text>
+              {values.map((value, index) => (
+                <Badge
+                  key={`${property}-${value}-${index}`}
+                  variant="light"
+                  color="teal"
+                  size="sm"
+                  radius="xl"
+                  rightSection={
+                    <ActionIcon
+                      size="xs"
+                      color="teal"
+                      radius="xl"
+                      variant="transparent"
+                      onClick={() => removeFilter(property, value)}
+                    >
+                      <IconX size={10} />
+                    </ActionIcon>
+                  }
+                  style={{ textTransform: "none" }}
+                >
+                  {value}
+                </Badge>
+              ))}
+            </Group>
+          );
+        })}
       </Group>
     </Box>
   );

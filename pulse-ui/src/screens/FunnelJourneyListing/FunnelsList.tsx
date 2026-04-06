@@ -18,6 +18,7 @@ import { ROUTES } from "../../constants";
 import { useProjectContext } from "../../contexts";
 import { useGetFunnelsList } from "../../hooks/useGetFunnelsList";
 import type { FunnelJourneyListItem } from "../../services/funnels.service";
+import { StepOrderType } from "../../services/funnels.service";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { FunnelConversionCell } from "./components/FunnelConversionCell";
 import {
@@ -51,11 +52,12 @@ const badgeRootStyle = { fontFamily: "inherit" as const };
 type StatusFilterValue =
   | ""
   | "ACTIVE"
-  | "STOPPED"
-  | "CREATING"
-  | "UPDATING"
+  | "IN_PROGRESS"
+  | "WARN"
+  | "PENDING"
+  | "FAILED"
   | "COMPLETED";
-type TypeFilterValue = "" | "ORDERED" | "UNORDERED";
+type TypeFilterValue = "" | StepOrderType;
 
 export function FunnelsList() {
   const navigate = useNavigate();
@@ -84,16 +86,17 @@ export function FunnelsList() {
       search: debouncedSearch.trim() || null,
       status:
         statusFilter === "ACTIVE" ||
-        statusFilter === "STOPPED" ||
-        statusFilter === "CREATING" ||
-        statusFilter === "UPDATING" ||
+        statusFilter === "IN_PROGRESS" ||
+        statusFilter === "WARN" ||
+        statusFilter === "PENDING" ||
+        statusFilter === "FAILED" ||
         statusFilter === "COMPLETED"
           ? statusFilter
           : null,
       createdBy: createdByFilter.length ? createdByFilter : null,
       tags: tagsFilter.length ? tagsFilter : null,
-      funnelType:
-        typeFilter === "ORDERED" || typeFilter === "UNORDERED"
+      stepOrderType:
+        typeFilter === StepOrderType.ORDERED || typeFilter === StepOrderType.UNORDERED
           ? typeFilter
           : null,
       page,
@@ -171,26 +174,30 @@ export function FunnelsList() {
             color={
               row.status === "ACTIVE"
                 ? "teal"
-                : row.status === "CREATING"
+                : row.status === "IN_PROGRESS"
                   ? "blue"
-                  : row.status === "UPDATING"
+                  : row.status === "WARN"
                     ? "orange"
                     : row.status === "COMPLETED"
                       ? "violet"
-                      : "gray"
+                      : row.status === "FAILED"
+                        ? "red"
+                        : "gray"
             }
             variant="light"
             styles={{ root: badgeRootStyle }}
           >
             {row.status === "ACTIVE"
               ? "Active"
-              : row.status === "CREATING"
-                ? "Creating"
-                : row.status === "UPDATING"
-                  ? "Updating"
+              : row.status === "IN_PROGRESS"
+                ? "In Progress"
+                : row.status === "WARN"
+                  ? "Warning"
                   : row.status === "COMPLETED"
                     ? "Completed"
-                    : "Stopped"}
+                    : row.status === "FAILED"
+                      ? "Failed"
+                      : "Pending"}
           </Badge>
         ),
       },
@@ -286,9 +293,10 @@ export function FunnelsList() {
             clearable
             data={[
               { value: "ACTIVE", label: "Active" },
-              { value: "STOPPED", label: "Stopped" },
-              { value: "CREATING", label: "Creating" },
-              { value: "UPDATING", label: "Updating" },
+              { value: "IN_PROGRESS", label: "In Progress" },
+              { value: "WARN", label: "Warning" },
+              { value: "PENDING", label: "Pending" },
+              { value: "FAILED", label: "Failed" },
               { value: "COMPLETED", label: "Completed" },
             ]}
             value={statusFilter || null}
@@ -323,8 +331,8 @@ export function FunnelsList() {
             placeholder={TYPE_OPTION_ALL}
             clearable
             data={[
-              { value: "ORDERED", label: TYPE_OPTION_ORDERED },
-              { value: "UNORDERED", label: TYPE_OPTION_UNORDERED },
+              { value: StepOrderType.ORDERED, label: TYPE_OPTION_ORDERED },
+              { value: StepOrderType.UNORDERED, label: TYPE_OPTION_UNORDERED },
             ]}
             value={typeFilter || null}
             onChange={(v) => setTypeFilter((v as TypeFilterValue) || "")}

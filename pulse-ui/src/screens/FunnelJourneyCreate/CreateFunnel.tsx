@@ -27,13 +27,19 @@ import {
 } from "./FunnelJourneyCreateForm.constants";
 import { ActiveFilter, GlobalFilterBar } from "./components/GlobalFilterBar";
 import { BuilderStep, FunnelBuilder } from "./components/FunnelBuilder";
-import { getDateRangeFromPreset } from "./FunnelJourneyCreate.util";
 import {
   FunnelStep,
+  useGetAllFilterValues,
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks/useGetFunnelData";
 import { useCreateFunnel } from "../../hooks/useCreateFunnel";
+import {
+  CreateFunnelRequestBody,
+  FunnelFilter,
+  FunnelType,
+  StepOrderType,
+} from "../../services/funnels.service";
 
 const EMPTY_STEPS: BuilderStep[] = [
   { id: "s-1", eventName: "" },
@@ -45,8 +51,26 @@ function toApiSteps(steps: BuilderStep[]): FunnelStep[] {
     .filter((s) => s.eventName)
     .map((s) => ({
       eventName: s.eventName,
-      dataType: "LOGS" as const,
     }));
+}
+
+/** Extracts an integer day-count from a preset string like "7d" → 7. "today"/"yesterday" → 1. */
+function extractDateRangeDays(preset: string): number {
+  const match = preset.match(/^(\d+)d$/);
+  if (match) return parseInt(match[1], 10);
+  return 1;
+}
+
+function toApiFilters(filters: ActiveFilter[]): FunnelFilter[] {
+  const grouped: Record<string, string[]> = {};
+  for (const filter of filters) {
+    (grouped[filter.property] ??= []).push(filter.value);
+  }
+  return Object.entries(grouped).map(([field, values]) => ({
+    field,
+    operator: "EQ" as const,
+    value: values,
+  }));
 }
 
 export function CreateFunnel() {
@@ -59,9 +83,7 @@ export function CreateFunnel() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
-    "RECURRING",
-  );
+  const [rollingType, setRollingType] = useState<FunnelType>(FunnelType.AUTO);
   const [dateRange, setDateRange] = useState("7d");
   const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
@@ -69,8 +91,8 @@ export function CreateFunnel() {
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
   const [steps, setSteps] = useState<BuilderStep[]>(EMPTY_STEPS);
-  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
-    "ordered",
+  const [funnelMode, setFunnelMode] = useState<StepOrderType>(
+    StepOrderType.ORDERED,
   );
   const [conversionWindow, setConversionWindow] = useState("86400");
 
@@ -79,40 +101,28 @@ export function CreateFunnel() {
 
   const availableEvents = eventsData?.data?.events ?? [];
 
-  const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
-  const filterOptions = EXPECTED_FILTER_KEYS.reduce(
-    (acc, key) => {
-      acc[key] = filtersData?.data?.filters?.[key] ?? [];
-      return acc;
-    },
-    {} as Record<string, string[]>,
+  // Server returns only the filter key strings; fetch values per-key when reaching step 4
+  const filterKeys = useMemo(
+    () => filtersData?.data?.filters ?? [],
+    [filtersData?.data?.filters],
+  );
+  const filterValuesResults = useGetAllFilterValues(
+    filterKeys,
+    activeStep === 3,
   );
 
-  const timeRange = useMemo(() => {
-    if (rollingType === "ONCE") {
-      return {
-        start: customStartDate
-          ? customStartDate.toISOString()
-          : new Date().toISOString(),
-        end: customEndDate
-          ? customEndDate.toISOString()
-          : new Date().toISOString(),
-      };
-    }
-    return getDateRangeFromPreset(dateRange);
-  }, [rollingType, dateRange, customStartDate, customEndDate]);
+  // Build filterOptions keyed by server key; GlobalFilterBar maps keys → labels for display
+  const filterOptions = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    filterKeys.forEach((key, index) => {
+      result[key] = filterValuesResults[index]?.data?.data?.values ?? [];
+    });
+    return result;
+  }, [filterKeys, filterValuesResults]);
 
   const apiSteps = useMemo(() => toApiSteps(steps), [steps]);
 
-  const apiFilters = useMemo(
-    () =>
-      filters.map((f) => ({
-        field: f.property,
-        operator: "EQ" as const,
-        value: f.value,
-      })),
-    [filters],
-  );
+  const apiFilters = useMemo(() => toApiFilters(filters), [filters]);
 
   const { mutate: createFunnel, isPending: isCreating } = useCreateFunnel();
 
@@ -124,10 +134,11 @@ export function CreateFunnel() {
       case 0:
         return name.trim().length > 0;
       case 1:
-        if (rollingType === "ONCE") {
+        if (rollingType === FunnelType.ONCE) {
           return !!(customStartDate && customEndDate);
         }
-        return true;
+        // AUTO (recurring): expiry is mandatory
+        return !!expiryDate;
       case 2:
         return hasValidSteps;
       default:
@@ -140,7 +151,9 @@ export function CreateFunnel() {
       case 0:
         return FUNNEL_CREATE_STEP_ERRORS.NAME;
       case 1:
-        return FUNNEL_CREATE_STEP_ERRORS.SCHEDULE_ONCE;
+        return rollingType === FunnelType.AUTO
+          ? FUNNEL_CREATE_STEP_ERRORS.SCHEDULE_RECURRING
+          : FUNNEL_CREATE_STEP_ERRORS.SCHEDULE_ONCE;
       case 2:
         return FUNNEL_CREATE_STEP_ERRORS.STEPS;
       default:
@@ -149,30 +162,32 @@ export function CreateFunnel() {
   };
 
   const handleAnalyze = () => {
-    createFunnel(
-      {
-        name,
-        description,
-        tags,
-        rollingType,
-        funnelType: funnelMode.toUpperCase(),
-        steps: apiSteps,
-        timeRange,
-        windowSeconds: parseInt(conversionWindow, 10),
-        filters: apiFilters,
-        expiryDate:
-          rollingType === "RECURRING" && expiryDate
-            ? expiryDate.toISOString()
-            : undefined,
+    const body: CreateFunnelRequestBody = {
+      name,
+      description,
+      tags,
+      funnelType: rollingType,
+      stepOrderType: funnelMode,
+      steps: apiSteps,
+      windowSeconds: parseInt(conversionWindow, 10),
+      filters: apiFilters,
+    };
+
+    if (rollingType === FunnelType.ONCE) {
+      body.startTime = customStartDate!.toISOString();
+      body.endTime = customEndDate!.toISOString();
+    } else {
+      body.dateRangeDays = extractDateRangeDays(dateRange);
+      body.expiryDate = expiryDate!.toISOString();
+    }
+
+    createFunnel(body, {
+      onSuccess: () => {
+        if (projectId) {
+          navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
+        }
       },
-      {
-        onSuccess: () => {
-          if (projectId) {
-            navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
-          }
-        },
-      },
-    );
+    });
   };
 
   const goBack = () => {

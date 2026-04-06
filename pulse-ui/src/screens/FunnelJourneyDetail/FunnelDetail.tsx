@@ -14,6 +14,7 @@ import classes from "./FunnelJourneyDetail.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   type FunnelStep,
+  useGetAllFilterValues,
   useGetFunnelData,
   useGetFunnelEvents,
   useGetFunnelFilters,
@@ -27,13 +28,14 @@ import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
 import { FunnelVisualization } from "../FunnelJourneyCreate/components/FunnelVisualization";
 import { FunnelDataTable } from "../FunnelJourneyCreate/components/FunnelDataTable";
 import { mapDetailFilters } from "./FunnelJourneyDetails.util";
+import { FunnelType, StepOrderType } from "../../services/funnels.service";
 
 function FunnelDetailView({ detail }: { detail: any }) {
   const [name, setName] = useState(detail.name || "");
   const [description, setDescription] = useState(detail.description || "");
   const [tags, setTags] = useState<string[]>(detail.tags || []);
-  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
-    detail.rollingType || "RECURRING",
+  const [rollingType, setRollingType] = useState<FunnelType>(
+    detail.funnelType || FunnelType.AUTO,
   );
 
   const [dateRange, setDateRange] = useState("7d");
@@ -44,10 +46,10 @@ function FunnelDetailView({ detail }: { detail: any }) {
   );
 
   const [filters, setFilters] = useState<any[]>(
-    (detail.filters || []).map((f: any) => ({
-      property: f.field,
-      value: f.value,
-    })),
+    (detail.filters || []).flatMap((f: any) => {
+      const vals: string[] = Array.isArray(f.value) ? f.value : [f.value];
+      return vals.map((v) => ({ property: f.field, value: String(v) }));
+    }),
   );
 
   const [steps, setSteps] = useState<any[]>(
@@ -62,8 +64,8 @@ function FunnelDetailView({ detail }: { detail: any }) {
         ],
   );
 
-  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
-    detail.funnelType === "UNORDERED" ? "unordered" : "ordered",
+  const [funnelMode, setFunnelMode] = useState<StepOrderType>(
+    detail.stepOrderType || StepOrderType.ORDERED,
   );
   const [conversionWindow, setConversionWindow] = useState(
     detail.windowSeconds ? String(detail.windowSeconds) : "86400",
@@ -76,17 +78,19 @@ function FunnelDetailView({ detail }: { detail: any }) {
   const availableEvents = eventsData?.data?.events ?? [];
 
   const { data: filtersData } = useGetFunnelFilters();
-  const EXPECTED_FILTER_KEYS = ["OS Name", "OS Version", "App Version"];
-  const filterOptions = EXPECTED_FILTER_KEYS.reduce(
-    (acc, key) => {
-      acc[key] = filtersData?.data?.filters?.[key] ?? [];
-      return acc;
-    },
-    {} as Record<string, string[]>,
-  );
+  const filterKeys = useMemo(() => filtersData?.data?.filters ?? [], [filtersData?.data?.filters]);
+  const filterValuesResults = useGetAllFilterValues(filterKeys, filterKeys.length > 0);
+
+  const filterOptions = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    filterKeys.forEach((key, index) => {
+      result[key] = filterValuesResults[index]?.data?.data?.values ?? [];
+    });
+    return result;
+  }, [filterKeys, filterValuesResults]);
 
   const timeRange = useMemo(() => {
-    if (rollingType === "ONCE") {
+    if (rollingType === FunnelType.ONCE) {
       return {
         start: customStartDate
           ? customStartDate.toISOString()
@@ -110,15 +114,17 @@ function FunnelDetailView({ detail }: { detail: any }) {
     [steps],
   );
 
-  const apiFilters = useMemo(
-    () =>
-      filters.map((f) => ({
-        field: f.property,
-        operator: "EQ" as const,
-        value: f.value,
-      })),
-    [filters],
-  );
+  const apiFilters = useMemo(() => {
+    const grouped: Record<string, string[]> = {};
+    for (const f of filters) {
+      (grouped[f.property] ??= []).push(f.value);
+    }
+    return Object.entries(grouped).map(([field, values]) => ({
+      field,
+      operator: "EQ" as const,
+      value: values,
+    }));
+  }, [filters]);
 
   // const requestBody = useMemo(
   //   () => ({
@@ -165,24 +171,21 @@ function FunnelDetailView({ detail }: { detail: any }) {
 
   useEffect(() => {
     if (
-      (detail.rollingType || "RECURRING") === "ONCE" &&
+      (detail.funnelType || FunnelType.AUTO) === FunnelType.ONCE &&
       detail.timeRange?.start &&
       detail.timeRange?.end
     ) {
       setCustomStartDate(new Date(detail.timeRange.start));
       setCustomEndDate(new Date(detail.timeRange.end));
     }
-  }, [detail.id, detail.rollingType, detail.timeRange]);
+  }, [detail.id, detail.funnelType, detail.timeRange]);
 
   const isChanged = useMemo(() => {
     if (name !== detail.name) return true;
     if (description !== detail.description) return true;
     if (JSON.stringify(tags) !== JSON.stringify(detail.tags || [])) return true;
-    if (rollingType !== (detail.rollingType || "RECURRING")) return true;
-    if (
-      funnelMode !==
-      (detail.funnelType === "UNORDERED" ? "unordered" : "ordered")
-    )
+    if (rollingType !== (detail.funnelType || FunnelType.AUTO)) return true;
+    if (funnelMode !== (detail.stepOrderType || StepOrderType.ORDERED))
       return true;
     if (conversionWindow !== String(detail.windowSeconds || 86400)) return true;
     if (
@@ -193,15 +196,19 @@ function FunnelDetailView({ detail }: { detail: any }) {
     )
       return true;
 
-    const currentFilters = filters.map((f) => ({
-      field: f.property,
-      value: f.value,
-    }));
-    const originalFilters = (detail.filters || []).map((f: any) => ({
-      field: f.field,
-      value: f.value,
-    }));
-    if (JSON.stringify(currentFilters) !== JSON.stringify(originalFilters))
+    const toGrouped = (pairs: Array<{ field: string; value: string }>) => {
+      const m: Record<string, string[]> = {};
+      for (const p of pairs) (m[p.field] ??= []).push(p.value);
+      return Object.entries(m)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([field, values]) => ({ field, values: [...values].sort() }));
+    };
+    const currentFiltersFlat = filters.map((f) => ({ field: f.property, value: f.value }));
+    const originalFiltersFlat = (detail.filters || []).flatMap((f: any) => {
+      const vals: string[] = Array.isArray(f.value) ? f.value : [f.value];
+      return vals.map((v) => ({ field: f.field, value: String(v) }));
+    });
+    if (JSON.stringify(toGrouped(currentFiltersFlat)) !== JSON.stringify(toGrouped(originalFiltersFlat)))
       return true;
 
     const currentSteps = steps.map((s) => s.eventName).filter(Boolean);
@@ -232,21 +239,21 @@ function FunnelDetailView({ detail }: { detail: any }) {
         name,
         description,
         tags,
-        rollingType,
-        funnelType: funnelMode.toUpperCase(),
+        funnelType: rollingType,
+        stepOrderType: funnelMode,
         steps: apiSteps,
         timeRange,
         windowSeconds: parseInt(conversionWindow, 10),
         filters: apiFilters,
         expiryDate:
-          rollingType === "RECURRING" && expiryDate
+          rollingType === FunnelType.AUTO && expiryDate
             ? expiryDate.toISOString()
             : undefined,
       },
     });
   };
 
-  const vizStatuses = ["ACTIVE", "COMPLETED", "STOPPED"];
+  const vizStatuses = ["ACTIVE", "COMPLETED", "WARN"];
 
   const { data: funnelRes, isLoading: funnelLoading } = useGetFunnelData({
     requestBody: stableFunnelRequestBody,
@@ -339,17 +346,15 @@ function FunnelDetailView({ detail }: { detail: any }) {
             flex: 1,
           }}
         >
-          {detail.status === "CREATING" || detail.status === "UPDATING" ? (
+          {detail.status === "IN_PROGRESS" ? (
             <Box className={funnelClasses.emptyState} py={60}>
               <Loader color="blue" size="lg" />
               <Text size="lg" fw={700} c="dark.6" mt="md">
-                {detail.status === "CREATING" ? "Computing" : "Updating"} Funnel
-                Data
+                Computing Funnel Data
               </Text>
               <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
-                Your funnel is currently being{" "}
-                {detail.status === "CREATING" ? "computed" : "updated"} on the
-                server. This might take a few moments. Please check back later.
+                Your funnel is currently being computed on the server. This
+                might take a few moments. Please check back later.
               </Text>
             </Box>
           ) : isLoading ? (

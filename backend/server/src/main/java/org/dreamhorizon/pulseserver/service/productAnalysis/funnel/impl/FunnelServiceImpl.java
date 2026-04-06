@@ -78,7 +78,7 @@ public class FunnelServiceImpl implements FunnelService {
         .dateRangeDays(request.getDateRangeDays())
         .startTime(request.getStartTime())
         .endTime(request.getEndTime())
-        .expiry(request.getExpiry())
+        .expiry(request.getExpiryDate())
         .createdBy(createdBy)
         .build();
 
@@ -89,9 +89,9 @@ public class FunnelServiceImpl implements FunnelService {
       .flatMap(
         funnelId ->
           funnelJourneyTagDao
-              .replaceTags(
-                  projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, tagsToStore)
-              .toSingleDefault(funnelId))
+            .replaceTags(
+              projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, tagsToStore)
+            .toSingleDefault(funnelId))
       .flatMap(funnelId ->
         analyticsBatchService.triggerFunnelOnSaveJob(funnelId)
           .onErrorReturnItem(false) // Don't fail funnel creation if job submission fails
@@ -155,7 +155,7 @@ public class FunnelServiceImpl implements FunnelService {
           }
           List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
           return funnelJourneyTagDao.replaceTags(
-              projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
+            projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
         });
   }
 
@@ -185,21 +185,21 @@ public class FunnelServiceImpl implements FunnelService {
         row -> {
           Single<FunnelResultsResponse> results =
             funnelResultsDao
-                .queryLatest(projectId, id)
-                .map(FunnelResultsMapper::fromRows)
-                .onErrorResumeNext(
-                  err -> {
-                    log.warn(
-                      "Failed to load ClickHouse funnel results for funnel {} (project {}): {}",
-                      id,
-                      projectId,
-                      err.toString());
-                    return Single.just((FunnelResultsResponse) null);
-                  });
+              .queryLatest(projectId, id)
+              .map(FunnelResultsMapper::fromRows)
+              .onErrorResumeNext(
+                err -> {
+                  log.warn(
+                    "Failed to load ClickHouse funnel results for funnel {} (project {}): {}",
+                    id,
+                    projectId,
+                    err.toString());
+                  return Single.just((FunnelResultsResponse) null);
+                });
           Single<List<String>> tags =
             funnelJourneyTagDao
-                .listTagsForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
-                .onErrorReturnItem(List.of());
+              .listTagsForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
+              .onErrorReturnItem(List.of());
           return Single.zip(results, tags, (r, t) -> toResponse(row, r, t));
         });
   }
@@ -237,8 +237,10 @@ public class FunnelServiceImpl implements FunnelService {
       }
     }
 
-    int limit = Math.min(Math.max(1, query.getLimit()), MAX_PAGE_SIZE);
-    int offset = Math.max(0, query.getOffset());
+    int pageSize = Math.min(Math.max(1, query.getPageSize()), MAX_PAGE_SIZE);
+    int page = Math.max(1, query.getPage());
+    int limit = pageSize;
+    int offset = (page - 1) * pageSize;
 
     FunnelDefinitionListParams params =
       FunnelDefinitionListParams.builder()
@@ -258,9 +260,18 @@ public class FunnelServiceImpl implements FunnelService {
       .listByProject(projectId, params)
       .flatMap(
         funnels -> {
+          long totalCount = funnels.isEmpty() ? 0 : funnels.get(0).getTotalCount();
+          int totalPages = totalCount == 0 ? 1 : (int) Math.ceil((double) totalCount / pageSize);
+
           if (funnels.isEmpty()) {
             return Single.just(
-              FunnelDefinitionListResponse.builder().items(List.of()).build());
+              FunnelDefinitionListResponse.builder()
+                .items(List.of())
+                .totalCount(0)
+                .page(page)
+                .pageSize(pageSize)
+                .totalPages(1)
+                .build());
           }
           List<Long> ids = funnels.stream().map(FunnelDefinitionRow::getId).toList();
           return funnelJourneyTagDao
@@ -271,10 +282,14 @@ public class FunnelServiceImpl implements FunnelService {
                   .items(
                     funnels.stream()
                       .map(
-                        r ->
+                        funnel ->
                           toResponse(
-                            r, null, tagMap.getOrDefault(r.getId(), List.of())))
-                  .toList())
+                            funnel, null, tagMap.getOrDefault(funnel.getId(), List.of())))
+                      .toList())
+                  .totalCount(totalCount)
+                  .page(page)
+                  .pageSize(pageSize)
+                  .totalPages(totalPages)
                   .build());
         });
   }
@@ -282,8 +297,8 @@ public class FunnelServiceImpl implements FunnelService {
   @Override
   public Single<FunnelJourneyTagsListResponse> listDistinctTags(String projectId) {
     return funnelJourneyTagDao
-        .listDistinctTagsForProject(projectId)
-        .map(tags -> FunnelJourneyTagsListResponse.builder().tags(tags).build());
+      .listDistinctTagsForProject(projectId)
+      .map(tags -> FunnelJourneyTagsListResponse.builder().tags(tags).build());
   }
 
   @Override
@@ -309,7 +324,6 @@ public class FunnelServiceImpl implements FunnelService {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Each step requires eventName");
       }
-      validateAttributeFilters(step.getStepFilters());
     }
     validateAttributeFilters(globalFilters);
   }
@@ -318,32 +332,22 @@ public class FunnelServiceImpl implements FunnelService {
     if (CollectionUtils.isEmpty(filters)) {
       return;
     }
-    for (FunnelAttributeFilter f : filters) {
-      if (f.getAttribute() == null || f.getAttribute().isBlank()) {
+    for (FunnelAttributeFilter filter : filters) {
+      if (filter.getField() == null || filter.getField().isBlank()) {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Filter attribute is required");
       }
-      if (f.getOperator() == null) {
+      if (filter.getOperator() == null) {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Filter operator is required");
       }
-      if (CollectionUtils.isEmpty(f.getValue())) {
+      if (CollectionUtils.isEmpty(filter.getValue())) {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Filter value must not be empty");
       }
-      switch (f.getOperator()) {
-        case EQ, NE -> {
-          if (f.getValue().size() != 1) {
-            throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-              "Operators EQ and NE require exactly one value");
-          }
-        }
-        case IN, NOT_IN -> {
-          if (f.getValue().size() < 1) {
-            throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-              "Operators IN and NOT_IN require at least one value");
-          }
-        }
+      if (filter.getValue().size() < 1) {
+        throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+          "Operators require at least one value");
       }
     }
   }

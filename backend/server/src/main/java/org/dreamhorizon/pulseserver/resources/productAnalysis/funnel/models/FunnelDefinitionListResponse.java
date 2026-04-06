@@ -19,4 +19,8 @@ import lombok.NoArgsConstructor;
 public class FunnelDefinitionListResponse {
 
   private List<FunnelDefinitionResponse> items;
+  private long totalCount;
+  private int page;
+  private int pageSize;
+  private int totalPages;
 }

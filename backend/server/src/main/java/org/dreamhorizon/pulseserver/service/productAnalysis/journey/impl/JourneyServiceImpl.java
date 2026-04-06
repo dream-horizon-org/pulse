@@ -224,8 +224,10 @@ public class JourneyServiceImpl implements JourneyService {
       namePrefix = sanitizeLikePrefix(q) + "%";
     }
 
-    int limit = Math.min(Math.max(1, query.getLimit()), MAX_PAGE_SIZE);
-    int offset = Math.max(0, query.getOffset());
+    int pageSize = Math.min(Math.max(1, query.getPageSize()), MAX_PAGE_SIZE);
+    int page = Math.max(1, query.getPage());
+    int limit = pageSize;
+    int offset = (page - 1) * pageSize;
 
     JourneyListParams params =
       JourneyListParams.builder()
@@ -245,8 +247,18 @@ public class JourneyServiceImpl implements JourneyService {
       .listByProject(projectId, params)
       .flatMap(
         rows -> {
+          long totalCount = rows.isEmpty() ? 0 : rows.get(0).getTotalCount();
+          int totalPages = totalCount == 0 ? 1 : (int) Math.ceil((double) totalCount / pageSize);
+
           if (rows.isEmpty()) {
-            return Single.just(JourneyListResponse.builder().items(List.of()).build());
+            return Single.just(
+              JourneyListResponse.builder()
+                .items(List.of())
+                .totalCount(0)
+                .page(page)
+                .pageSize(pageSize)
+                .totalPages(1)
+                .build());
           }
           List<Long> ids = rows.stream().map(JourneyRow::getId).toList();
           return funnelJourneyTagDao
@@ -260,6 +272,10 @@ public class JourneyServiceImpl implements JourneyService {
                         r ->
                           toResponse(r, null, tagMap.getOrDefault(r.getId(), List.of())))
                   .toList())
+                  .totalCount(totalCount)
+                  .page(page)
+                  .pageSize(pageSize)
+                  .totalPages(totalPages)
                   .build());
         });
   }
@@ -282,7 +298,7 @@ public class JourneyServiceImpl implements JourneyService {
       return;
     }
     for (FunnelAttributeFilter f : filters) {
-      if (f.getAttribute() == null || f.getAttribute().isBlank()) {
+      if (f.getField() == null || f.getField().isBlank()) {
         throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
           "Filter attribute is required");
       }

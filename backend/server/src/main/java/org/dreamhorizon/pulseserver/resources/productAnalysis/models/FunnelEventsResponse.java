@@ -1,17 +1,16 @@
-package org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models;
+package org.dreamhorizon.pulseserver.resources.productAnalysis.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
- * GET {@code /v1/funnel/events} — matches funnel builder event pickers.
+ * GET {@code /v1/funnels/events} — event names for funnel builder step pickers.
  */
 @Data
 @Builder
@@ -25,9 +24,4 @@ public class FunnelEventsResponse {
    * Custom event names ({@code FilterKey = EVENT}).
    */
   private List<String> events;
-
-  /**
-   * Distinct catalog filter keys for the project, excluding {@code EVENT}.
-   */
-  private List<String> filterKeys;
 }

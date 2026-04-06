@@ -1,17 +1,16 @@
-package org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models;
+package org.dreamhorizon.pulseserver.resources.productAnalysis.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
- * GET {@code /v1/funnel/filters/{filterKey}/values} — catalog values for one dimension.
+ * GET {@code /v1/funnels/filters} — distinct filter keys available for the project.
  */
 @Data
 @Builder
@@ -19,7 +18,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class FunnelFilterValuesResponse {
+public class FunnelFilterKeysResponse {
 
-  private List<String> values;
+  /**
+   * Distinct catalog filter keys for the project, excluding {@code EVENT}.
+   */
+  private List<String> filters;
 }
