@@ -407,7 +407,7 @@ public class FunnelServiceImpl implements FunnelService {
   }
 
   private static String sanitizeLikePrefix(String q) {
-    return q.trim().replaceAll("[%_\\\\]", "");
+    return q.trim().replaceAll("[%_\\\\]", "\\\\$0");
   }
 
   private FunnelDefinitionResponse toResponse(
