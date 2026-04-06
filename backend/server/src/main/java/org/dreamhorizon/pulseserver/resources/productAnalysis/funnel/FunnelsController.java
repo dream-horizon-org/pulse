@@ -9,6 +9,7 @@ import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ReplaceEntityTagsRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
@@ -24,6 +25,17 @@ import java.util.concurrent.CompletionStage;
 public class FunnelsController {
 
   private final FunnelService funnelService;
+
+  /**
+   * Distinct funnel/journey tag labels in the project ({@code funnel_journey_tag}). Literal path
+   * {@code /tags} must remain before {@code /{id}} routing.
+   */
+  @GET
+  @Path("/tags")
+  public CompletionStage<Response<FunnelJourneyTagsListResponse>> listFunnelJourneyTags(
+    @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId) {
+    return funnelService.listDistinctTags(projectId).to(RestResponse.jaxrsRestHandler());
+  }
 
   @GET
   public CompletionStage<Response<FunnelDefinitionListResponse>> listFunnels(

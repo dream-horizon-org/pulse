@@ -4,6 +4,7 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
 
 public interface FunnelService {
 
@@ -26,4 +27,9 @@ public interface FunnelService {
 
   /** Replaces tag mappings for the funnel ({@code funnel_journey_tag}). */
   Completable replaceTags(String projectId, long funnelId, List<String> tags);
+
+  /**
+   * Distinct tags in the project from {@code funnel_journey_tag} (funnels and journeys combined).
+   */
+  Single<FunnelJourneyTagsListResponse> listDistinctTags(String projectId);
 }

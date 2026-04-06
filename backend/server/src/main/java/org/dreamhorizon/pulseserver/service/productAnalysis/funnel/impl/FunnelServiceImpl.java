@@ -21,6 +21,7 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJ
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelResultsMapper;
@@ -265,6 +266,13 @@ public class FunnelServiceImpl implements FunnelService {
                   .toList())
                   .build());
         });
+  }
+
+  @Override
+  public Single<FunnelJourneyTagsListResponse> listDistinctTags(String projectId) {
+    return funnelJourneyTagDao
+        .listDistinctTagsForProject(projectId)
+        .map(tags -> FunnelJourneyTagsListResponse.builder().tags(tags).build());
   }
 
   @Override
