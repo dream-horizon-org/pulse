@@ -7,9 +7,14 @@ package io.opentelemetry.android.instrumentation.view.click
 
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.Window
-import io.opentelemetry.android.instrumentation.view.click.internal.APP_SCREEN_CLICK_EVENT_NAME
+import android.widget.EditText
+import android.widget.TextView
+import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
+import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
+import io.opentelemetry.android.instrumentation.click.common.PulseWidgetClickLogHelper
 import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.LogRecordBuilder
@@ -23,37 +28,63 @@ import java.util.LinkedList
 
 class ViewClickEventGenerator(
     private val eventLogger: Logger,
+    private val isContextEnrichmentEnabled: Boolean = true,
 ) {
     private var windowRef: WeakReference<Window>? = null
+    private val gestureTracker = PulseClickGestureTracker()
 
     private val viewCoordinates = IntArray(2)
 
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
+        gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
         val currentCallback: Window.Callback? = window.callback
         window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
     }
 
     fun generateClick(motionEvent: MotionEvent) {
-        windowRef?.get()?.let { window ->
-            if (motionEvent.actionMasked == MotionEvent.ACTION_UP) {
-                createEvent(APP_SCREEN_CLICK_EVENT_NAME)
-                    .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
-                    .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
-                    .emit()
-
-                findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
-                    createEvent(VIEW_CLICK_EVENT_NAME)
-                        .setAllAttributes(createViewAttributes(view))
-                        .emit()
+        when (motionEvent.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                gestureTracker.onActionDown(motionEvent)
+            }
+            MotionEvent.ACTION_UP -> {
+                if (!gestureTracker.onActionUp(motionEvent)) return
+                windowRef?.get()?.let { window ->
+                    findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
+                        val tapX = motionEvent.x.toLong()
+                        val tapY = motionEvent.y.toLong()
+                        val attributes = createViewAttributes(view, tapX, tapY)
+                        val widgetClickRecord =
+                            createEvent(VIEW_CLICK_EVENT_NAME)
+                                .setAllAttributes(attributes)
+                        val label =
+                            if (isContextEnrichmentEnabled) {
+                                getViewContextLabel(view)
+                            } else {
+                                null
+                            }
+                        PulseWidgetClickLogHelper.applyContextAndLogDebug(
+                            record = widgetClickRecord,
+                            attributes = attributes,
+                            logCoordX = tapX.toString(),
+                            logCoordY = tapY.toString(),
+                            isContextEnrichmentEnabled = isContextEnrichmentEnabled,
+                            label = label,
+                            logTag = CLICK_LOG_TAG,
+                        )
+                        widgetClickRecord.emit()
+                    }
                 }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                gestureTracker.onActionCancel()
             }
         }
     }
 
     fun stopTracking() {
         windowRef?.get()?.run {
-            callback = (callback as? WindowCallbackWrapper)?.unwrap()
+            callback = WindowCallbackUnwrap.fullyUnwrap(callback)
         }
         windowRef = null
     }
@@ -63,13 +94,16 @@ class ViewClickEventGenerator(
             .logRecordBuilder()
             .setEventName(name)
 
-    private fun createViewAttributes(view: View): Attributes {
+    private fun createViewAttributes(
+        view: View,
+        tapX: Long,
+        tapY: Long,
+    ): Attributes {
         val builder = Attributes.builder()
         builder.put(APP_WIDGET_NAME, viewToName(view))
         builder.put(APP_WIDGET_ID, view.id.toString())
-
-        builder.put(APP_SCREEN_COORDINATE_X, view.x.toLong())
-        builder.put(APP_SCREEN_COORDINATE_Y, view.y.toLong())
+        builder.put(APP_SCREEN_COORDINATE_X, tapX)
+        builder.put(APP_SCREEN_COORDINATE_Y, tapY)
         return builder.build()
     }
 
@@ -79,6 +113,113 @@ class ViewClickEventGenerator(
         } catch (_: Throwable) {
             view.id.toString()
         }
+
+    /**
+     * Extracts human-readable label/context for the clicked View (button text, content description, etc.).
+     * For ViewGroups (Card, etc.): merges segments with truncation at segment boundaries.
+     * For ImageView/ImageButton: uses contentDescription only (no sibling heuristic).
+     */
+    private fun getViewContextLabel(view: View): String? =
+        try {
+            if (view is ViewGroup) {
+                getLabelFromCard(view)
+            } else {
+                getLabelFromView(view)
+            }
+        } catch (_: Throwable) {
+            null
+        }
+
+    /**
+     * For EditText: never use text (contains typed PII/passwords). Use contentDescription or hint only.
+     * For other TextViews: use text, then contentDescription.
+     */
+    private fun getLabelFromView(view: View): String? =
+        if (view is EditText) {
+            view.contentDescription.nonBlankOrNull()
+                ?: view.hint.nonBlankOrNull()
+        } else {
+            (view as? TextView)?.text.nonBlankOrNull()
+                ?: view.contentDescription.nonBlankOrNull()
+        }
+
+    private fun CharSequence?.nonBlankOrNull(): String? {
+        val s = this?.toString() ?: return null
+        return s.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * For cards (ViewGroups): collects and merges up to [MAX_CARD_LABEL_SEGMENTS] text segments.
+     * Truncates at segment boundaries (drops segments from end) to avoid cutting mid-word.
+     */
+    private fun getLabelFromCard(card: ViewGroup): String? {
+        val segments = mutableListOf<String>()
+        getLabelFromView(card)?.let { segments.add(it) }
+        collectLabelsFromDescendants(
+            group = card,
+            out = segments,
+            maxSegments = MAX_CARD_LABEL_SEGMENTS,
+            depth = 0,
+            maxDepth = 4,
+        )
+        return trimSegmentsToMaxLength(segments.take(MAX_CARD_LABEL_SEGMENTS), MAX_CARD_LABEL_CHAR_LENGTH)
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Truncates by dropping whole segments from the end until under maxLength.
+     * Avoids cutting mid-word or mid-segment (e.g. "Match: Ayodhya... | Ayodhya Pr").
+     */
+    private fun trimSegmentsToMaxLength(
+        segments: List<String>,
+        maxLength: Int,
+    ): String? {
+        if (segments.isEmpty()) return null
+        val result = segments.joinToString(CARD_LABEL_DELIMITER)
+        if (result.length <= maxLength) return result
+        var dropFrom = segments.size
+        while (dropFrom > 1) {
+            val trimmed = segments.take(dropFrom - 1).joinToString(CARD_LABEL_DELIMITER)
+            if (trimmed.length <= maxLength) return trimmed
+            dropFrom--
+        }
+        return segments.first().take(maxLength)
+    }
+
+    private fun collectLabelsFromDescendants(
+        group: ViewGroup,
+        out: MutableList<String>,
+        maxSegments: Int,
+        depth: Int,
+        maxDepth: Int,
+    ) {
+        if (depth >= maxDepth || out.size >= maxSegments) return
+        for (i in 0 until group.childCount) {
+            if (out.size >= maxSegments) return
+            val child = group.getChildAt(i)
+            if (isJetpackComposeView(child) || !isViewActiveInHierarchyForLabel(child)) continue
+            getLabelFromView(child)?.let { label ->
+                if (label.isNotBlank() && label !in out) out.add(label)
+            }
+            (child as? ViewGroup)?.let {
+                collectLabelsFromDescendants(it, out, maxSegments, depth + 1, maxDepth)
+            }
+        }
+    }
+
+    private fun isViewActiveInHierarchyForLabel(view: View): Boolean =
+        view.isAttachedToWindow &&
+            view.isShown &&
+            view.isLaidOut &&
+            view.width > 0 &&
+            view.height > 0
+
+    private companion object {
+        private const val CLICK_LOG_TAG = "PulseClick"
+        private const val MAX_CARD_LABEL_SEGMENTS = 5
+        private const val MAX_CARD_LABEL_CHAR_LENGTH = 200
+        private const val CARD_LABEL_DELIMITER = " | "
+    }
 
     private fun findTargetForTap(
         decorView: View,

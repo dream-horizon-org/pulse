@@ -38,6 +38,7 @@ class ApplicationConfigTest {
     config.setConfigDetailCloudFrontAssetPath("cfPath");
     config.setWebhookUrl("webhook");
     config.setTncS3BucketName("tncS3BucketName");
+    config.setSymbolFilesS3BucketName("symbolFilesS3BucketName");
     config.setInteractionDetailsS3BucketFilePath("interactionPath");
     config.setInteractionDetailCloudFrontAssetPath("interactionAsset");
 
@@ -59,6 +60,8 @@ class ApplicationConfigTest {
     assertEquals("cfId", config.getCloudFrontDistributionId());
     assertEquals("cfPath", config.getConfigDetailCloudFrontAssetPath());
     assertEquals("webhook", config.getWebhookUrl());
+    assertEquals("tncS3BucketName", config.getTncS3BucketName());
+    assertEquals("symbolFilesS3BucketName", config.getSymbolFilesS3BucketName());
     assertEquals("interactionPath", config.getInteractionDetailsS3BucketFilePath());
     assertEquals("interactionAsset", config.getInteractionDetailCloudFrontAssetPath());
   }
@@ -89,7 +92,16 @@ class ApplicationConfigTest {
         "interactionAsset",
         "key",
         "tncS3Bucket",
-        "dev-api-key"
+        "http://ai:8000",
+        "symbolFilesS3Bucket",
+        "dev-api-key",
+        new SessionReplayS3Config(
+            "session-replay-bucket",
+            "http://minio:9000",
+            "us-east-1",
+            "access-key",
+            "secret-key"),
+        "replayBaseUrl"
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());

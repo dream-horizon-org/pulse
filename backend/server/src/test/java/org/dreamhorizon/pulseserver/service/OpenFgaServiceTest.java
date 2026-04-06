@@ -202,6 +202,23 @@ class OpenFgaServiceTest {
   }
 
   @Nested
+  class GetProjectAdmins {
+
+    @Test
+    void shouldReturnEmptySetWhenDisabled() {
+      Single<java.util.Set<String>> result = service.getProjectAdmins("proj_123");
+      result.test()
+          .assertValue(set -> set != null && set.isEmpty());
+    }
+
+    @Test
+    void shouldReturnNewHashSetInstance() {
+      Single<java.util.Set<String>> result = service.getProjectAdmins("proj_123");
+      assertThat(result.blockingGet()).isInstanceOf(HashSet.class);
+    }
+  }
+
+  @Nested
   class CountProjectAdmins {
 
     @Test
@@ -601,6 +618,34 @@ class OpenFgaServiceTest {
 
         Single<Optional<String>> result = enabledService.getUserTenantRole("user1", "tenant1");
         result.test().assertValue(Optional.of("admin"));
+      }
+    }
+
+    @Nested
+    class GetProjectAdminsEnabled {
+
+      @Test
+      void shouldReturnAdminUserIdsFromRead() throws Exception {
+        Tuple tuple1 = new Tuple();
+        tuple1.setKey(new TupleKey().user("user:u1").relation("admin")._object("project:proj_123"));
+        Tuple tuple2 = new Tuple();
+        tuple2.setKey(new TupleKey().user("user:u2").relation("admin")._object("project:proj_123"));
+        ClientReadResponse readResponse = mock(ClientReadResponse.class);
+        when(readResponse.getTuples()).thenReturn(List.of(tuple1, tuple2));
+        when(mockClient.read(any())).thenReturn(CompletableFuture.completedFuture(readResponse));
+
+        Single<java.util.Set<String>> result = enabledService.getProjectAdmins("proj_123");
+        assertThat(result.blockingGet()).containsExactlyInAnyOrder("u1", "u2");
+      }
+
+      @Test
+      void shouldReturnEmptySetWhenNoAdmins() throws Exception {
+        ClientReadResponse readResponse = mock(ClientReadResponse.class);
+        when(readResponse.getTuples()).thenReturn(Collections.emptyList());
+        when(mockClient.read(any())).thenReturn(CompletableFuture.completedFuture(readResponse));
+
+        Single<java.util.Set<String>> result = enabledService.getProjectAdmins("proj_123");
+        assertThat(result.blockingGet()).isEmpty();
       }
     }
 

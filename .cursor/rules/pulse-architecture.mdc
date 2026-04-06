@@ -15,7 +15,7 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 | `backend/pulse-alerts-cron/` | Alert evaluation cron | Java/Vert.x | 4000 |
 | `backend/ingestion/` | OTEL Collector configs + ClickHouse schema | YAML/SQL | — |
 | `pulse-ui/` | Dashboard | React 18, TypeScript, Mantine v7 | 3000 |
-| `pulse_ai/` | AI agent (own Docker Compose) | Python, Google ADK + Gemini | 8000 |
+| `pulse_ai/` | AI agent (`deploy` service `pulse-ai-agent` by default; standalone compose for AI-only dev) | Python, Google ADK + Gemini | 8000 |
 | `pulse-android-otel/` | Android SDK | Kotlin, OpenTelemetry | — |
 | `pulse-react-native-otel/` | React Native SDK | TypeScript | — |
 | `deploy/` | Docker Compose, scripts, Terraform | — | — |
@@ -24,7 +24,7 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 
 ```
 Mobile SDKs → OTEL Collector (port 4317/4318) → ClickHouse (otel DB)
-Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQuery  [Vector currently disabled in docker-compose]
+Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQuery  [Vector optional: set VECTOR_ENABLED=true in .env]
 ```
 
 ## Databases

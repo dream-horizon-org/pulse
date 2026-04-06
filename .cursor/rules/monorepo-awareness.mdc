@@ -15,6 +15,7 @@ cd backend/server && mvn verify               # tests + checkstyle
 ## Frontend (React/TypeScript)
 
 ```bash
+corepack enable                               # First-time only (Yarn 4)
 cd pulse-ui && yarn install && yarn start     # dev server on :3000
 cd pulse-ui && yarn build                     # production build
 cd pulse-ui && yarn lint                      # ESLint
@@ -32,11 +33,11 @@ cd pulse_ai && ./setup.sh stop                # stop
 ## Docker (full stack)
 
 ```bash
-cd deploy && ./scripts/quickstart.sh          # build + start all
-cd deploy && ./scripts/build.sh [ui|server|cron|all]
-cd deploy && ./scripts/start.sh [-d|--detach] [--build]
-cd deploy && ./scripts/stop.sh [-v]
-cd deploy && ./scripts/logs.sh [service]
+cd deploy && ./scripts/quickstart.sh              # build + start all (includes pulse-ai-agent)
+cd deploy && ./scripts/build.sh [ui|server|cron|ai|all] [--no-cache]
+cd deploy && ./scripts/start.sh [-d|--detach] [--build] [--no-cache]
+cd deploy && ./scripts/stop.sh [-v] [ai|server|ui|...]
+cd deploy && ./scripts/logs.sh [service]         # e.g. ai, server, mysql
 ```
 
 To discover running services and their actual ports:
@@ -50,7 +51,7 @@ docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
 |---------|------|--------|
 | pulse-server | 8080 | `/healthcheck` |
 | pulse-ui | 3000 | `/healthcheck.txt` |
-| pulse-ai (Docker) | 8000 | `curl http://localhost:8000` |
+| pulse-ai-agent (deploy stack or standalone `pulse_ai`) | 8000 | `curl -sf http://localhost:8000/health` |
 | alerts-cron | 4000 | `/healthcheck` |
 | ClickHouse | 8123 (HTTP), 9000 (native) | `SELECT 1` |
 | MySQL | 3307 | `mysqladmin ping` |

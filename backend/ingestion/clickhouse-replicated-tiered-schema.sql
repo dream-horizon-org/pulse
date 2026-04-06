@@ -90,6 +90,7 @@ ON CLUSTER `pulse-clickhouse`
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
     `UserId` String MATERIALIZED ifNull(nullIf(SpanAttributes['user.id'], ''), ifNull(SpanAttributes['app.installation.id'], '')),
     `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['metering.session.id'], ''),
+    INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_user_id UserId TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
@@ -153,6 +154,7 @@ ON CLUSTER `pulse-clickhouse`
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
     `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['metering.session.id'], ''),
+    INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/stack_trace_events_local', '{replica}')
