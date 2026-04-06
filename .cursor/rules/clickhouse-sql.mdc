@@ -17,6 +17,13 @@ alwaysApply: false
 | `otel_metrics_gauge` | MergeTree | Gauge metrics — MetricName, Value, Attributes, ResourceAttributes |
 | `stack_trace_events` | MergeTree | Symbolicated + grouped stack traces |
 
+Heatmap DDL lives in `backend/ingestion/clickhouse-otel-schema.sql`:
+
+| Table / object | Engine | Purpose |
+|----------------|--------|---------|
+| `interaction_heatmaps_daily` | SummingMergeTree | Daily binned aggregates for the heatmap API |
+| `interaction_heatmaps_daily_mv` | Materialized view | Aggregates from `otel_logs` where `PulseType = 'app.click'` |
+
 ## Key Columns in `otel_traces`
 
 `TraceId`, `SpanId`, `ParentSpanId`, `SpanName`, `SpanKind`, `ServiceName`, `Duration` (nanoseconds), `StatusCode`, `StatusMessage`, `SpanAttributes` (Map), `ResourceAttributes` (Map), `Timestamp` (DateTime64)
@@ -52,6 +59,7 @@ All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
 | `otel_logs` | `(ProjectId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)` |
 | `otel_metrics_gauge` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `stack_trace_events` | `(ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))` |
+| `interaction_heatmaps_daily` | `(Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin)` |
 
 ## `stack_trace_events` Key Columns
 

@@ -82,6 +82,17 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `UserId` String MATERIALIZED ifNull(nullIf(LogAttributes['user.id'], ''), ifNull(LogAttributes['app.installation.id'], '')),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
     `EventName` LowCardinality(String) CODEC(ZSTD(1)),
+    `ScreenName` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['screen.name'], ''),
+    `ClickType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['click.type'], ''),
+    `Rage` Bool MATERIALIZED (LogAttributes['click.is_rage'] = 'true'),
+    `RageCount` UInt8 MATERIALIZED toUInt8OrZero(LogAttributes['click.rageCount']),
+    `XPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.x']),
+    `YPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.y']),
+    `NormXPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.nx']),
+    `NormYPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.ny']),
+    `ViewportWidth` UInt16 MATERIALIZED toUInt16OrZero(LogAttributes['device.screen.width']),
+    `ViewportHeight` UInt16 MATERIALIZED toUInt16OrZero(LogAttributes['device.screen.height']),
+    `AspectRatio` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['device.screen.aspect_ratio'], ''),
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
 ENGINE = MergeTree
@@ -243,3 +254,47 @@ AS SELECT
     uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
 FROM otel.stack_trace_events
 GROUP BY project_id, month, source;
+
+CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily (
+    `Date` Date,
+    `ProjectId` LowCardinality(String),
+    `ScreenName` LowCardinality(String),
+    `AppVersion` LowCardinality(String),
+    `Platform` LowCardinality(String),
+    `GeographicalRegion` LowCardinality(String),
+    `Breakpoint` LowCardinality(String),
+    `XBin` Float32,
+    `YBin` Float32,
+    `WeightNormal` UInt64,
+    `WeightRage` UInt64,
+    `WeightDead` UInt64
+)
+ENGINE = SummingMergeTree()
+ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin);
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.interaction_heatmaps_daily_mv
+TO otel.interaction_heatmaps_daily AS
+SELECT
+    toDate(Timestamp) AS Date,
+    ProjectId,
+    ScreenName,
+    AppVersion,
+    Platform,
+    GeoState AS GeographicalRegion,
+    multiIf(
+        Platform = 'Web' AND ViewportWidth > 1024, 'Web_Extra_Large',
+        Platform = 'Web', 'Mobile_Medium',
+        ViewportWidth > 600, 'Tablet_Large',
+        ViewportWidth <= 600 AND (ViewportHeight / ViewportWidth) <= 1.5, 'Mobile_Small',
+        'Mobile_Medium'
+    ) AS Breakpoint,
+    round(NormXPer, 2) AS XBin,
+    round(NormYPer, 2) AS YBin,
+    count() AS WeightNormal,
+    countIf(Rage) AS WeightRage,
+    countIf(ClickType = 'dead') AS WeightDead
+FROM otel.otel_logs
+WHERE PulseType = 'app.click'
+GROUP BY Date, ProjectId, ScreenName, AppVersion, Platform, GeoState, Breakpoint, XBin, YBin;
+ 

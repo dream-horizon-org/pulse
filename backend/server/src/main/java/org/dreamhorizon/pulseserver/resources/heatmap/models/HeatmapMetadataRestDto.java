@@ -20,17 +20,6 @@ public class HeatmapMetadataRestDto {
   @JsonProperty("total_events")
   private long totalEvents;
 
-  @JsonProperty("app_version")
-  private String appVersion;
-
-  private String platform;
-
-  /** Present only when the client passes the {@code breakpoint} query parameter. */
-  private String breakpoint;
-
-  @JsonProperty("geographical_region")
-  private String geographicalRegion;
-
   @JsonProperty("from_date")
   private String fromDate;
 

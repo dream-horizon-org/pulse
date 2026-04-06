@@ -210,12 +210,6 @@ if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-session-replay-schema.sql" ]; 
 fi
 print_success "ClickHouse session replay schema found"
 
-if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-heatmap-schema.sql" ]; then
-    print_error "ClickHouse heatmap schema not found"
-    exit 1
-fi
-print_success "ClickHouse heatmap schema found"
-
 load_env
 
 # Validate .env against .env.example and docker-compose.yml

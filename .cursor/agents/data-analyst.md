@@ -26,6 +26,10 @@ Key columns: `MetricName`, `Value`, `TimeUnix`, `Attributes` (Map), `ResourceAtt
 ### `stack_trace_events` — symbolicated crashes/ANRs
 Key columns: `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `GroupId`, `Fingerprint`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`
 
+### Heatmap tables (`backend/ingestion/clickhouse-otel-schema.sql`)
+
+- **`interaction_heatmaps_daily`** — SummingMergeTree aggregates (`WeightNormal`, `WeightRage`, `WeightDead`, `XBin`, `YBin`, `Breakpoint`, …). Filled by **`interaction_heatmaps_daily_mv`** from **`otel_logs`** where **`PulseType = 'app.click'`** (tap/widget logs with normalized coordinates on `otel_logs`).
+
 ### Materialized Columns (all tables)
 
 These columns are extracted from Map attributes at insert time. **Always use these instead of accessing ResourceAttributes/SpanAttributes directly** — they are faster and indexed.

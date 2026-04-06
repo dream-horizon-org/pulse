@@ -100,9 +100,6 @@ public class HeatmapServiceImpl implements HeatmapService {
             .projectId(projectId)
             .build();
 
-    boolean breakpointFiltered = breakpoint != null && !breakpoint.isBlank();
-    String breakpointForMetadata = breakpointFiltered ? breakpoint : null;
-
     Single<List<HeatmapClickHouseRowDto>> heatmapSingle =
         clickhouseQueryService
             .executeQueryOrCreateJob(heatmapConfig, HeatmapClickHouseRowDto.class)
@@ -117,16 +114,7 @@ public class HeatmapServiceImpl implements HeatmapService {
             heatmapSingle,
             interactionsSingle,
             (heatmapRows, interactionRows) ->
-                toResponse(
-                    heatmapRows,
-                    interactionRows,
-                    screenName,
-                    fromInstant,
-                    toInstant,
-                    appVersion,
-                    platform,
-                    breakpointForMetadata,
-                    geographicalRegion))
+                toResponse(heatmapRows, interactionRows, screenName, fromInstant, toInstant))
         .doOnError(e -> log.error("Heatmap query failed for project {}", projectId, e));
   }
 
@@ -135,11 +123,7 @@ public class HeatmapServiceImpl implements HeatmapService {
       List<HeatmapInteractionMetadataRestDto> interactionsMetadata,
       String screenName,
       Instant fromInstant,
-      Instant toInstant,
-      String appVersion,
-      String platform,
-      String breakpointSingle,
-      String geographicalRegion) {
+      Instant toInstant) {
 
     long totalNormal =
         rows.stream()
@@ -183,10 +167,6 @@ public class HeatmapServiceImpl implements HeatmapService {
         HeatmapMetadataRestDto.builder()
             .screenName(screenName)
             .totalEvents(totalNormal)
-            .appVersion(blankToNull(appVersion))
-            .platform(blankToNull(platform))
-            .breakpoint(blankToNull(breakpointSingle))
-            .geographicalRegion(blankToNull(geographicalRegion))
             .fromDate(fromInstant.toString())
             .toDate(toInstant.toString())
             .build();
@@ -205,10 +185,6 @@ public class HeatmapServiceImpl implements HeatmapService {
         .build();
   }
 
-  private static String blankToNull(String s) {
-    return s == null || s.isBlank() ? null : s;
-  }
-
   private static String buildHeatmapWhereClause(
       String projectId,
       String dateFrom,
@@ -222,7 +198,7 @@ public class HeatmapServiceImpl implements HeatmapService {
     StringBuilder sb = new StringBuilder();
     sb.append("ProjectId = '").append(chString(projectId)).append('\'');
     sb.append(" AND Date >= toDate('").append(chString(dateFrom)).append("')");
-    sb.append(" AND Date <= toDate('").append(chString(dateTo)).append('\'');
+    sb.append(" AND Date <= toDate('").append(chString(dateTo)).append("')");
     sb.append(" AND ScreenName = '").append(chString(screenName)).append('\'');
 
     if (appVersion != null && !appVersion.isBlank()) {

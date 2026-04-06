@@ -104,8 +104,7 @@ services:
       - clickhouse-data:/var/lib/clickhouse
       - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/01-clickhouse-otel-schema.sql:ro
       - ../backend/ingestion/clickhouse-session-replay-schema.sql:/docker-entrypoint-initdb.d/02-clickhouse-session-replay-schema.sql:ro
-      - ../backend/ingestion/clickhouse-heatmap-schema.sql:/docker-entrypoint-initdb.d/03-clickhouse-heatmap-schema.sql:ro
-      - ../backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/04-session-summary-mv.sql:ro
+      - ../backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/03-session-summary-mv.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -125,7 +124,6 @@ services:
       - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
       - ../backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
       - ../backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro
-      - ../backend/ingestion/clickhouse-heatmap-schema.sql:/init/clickhouse-heatmap-schema.sql:ro
       - ../backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
