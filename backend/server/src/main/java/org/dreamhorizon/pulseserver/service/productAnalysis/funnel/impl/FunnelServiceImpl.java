@@ -16,10 +16,13 @@ import org.dreamhorizon.pulseserver.analysis.AnalysisComputedStatusResolver;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionListParams;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagDao;
+import org.dreamhorizon.pulseserver.dao.productAnalysis.funneljourneytag.FunnelJourneyTagEntityType;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResultsDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
+import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelResultsMapper;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
 
@@ -37,6 +40,7 @@ public class FunnelServiceImpl implements FunnelService {
   private static final int MAX_PAGE_SIZE = 50;
 
   private final FunnelDefinitionDao funnelDefinitionDao;
+  private final FunnelJourneyTagDao funnelJourneyTagDao;
   private final FunnelResultsDao funnelResultsDao;
   private final AnalyticsBatchServiceImpl analyticsBatchService;
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -145,15 +149,18 @@ public class FunnelServiceImpl implements FunnelService {
 
   @Override
   public Completable delete(String projectId, long id) {
-    return funnelDefinitionDao
-      .delete(projectId, id)
-      .flatMapCompletable(
-        n -> {
-          if (n == 0) {
-            return Completable.error(ServiceError.FUNNEL_NOT_FOUND.getException());
-          }
-          return Completable.complete();
-        });
+    return funnelJourneyTagDao
+      .deleteAllForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
+      .andThen(
+        funnelDefinitionDao
+          .delete(projectId, id)
+          .flatMapCompletable(
+            n -> {
+              if (n == 0) {
+                return Completable.error(ServiceError.FUNNEL_NOT_FOUND.getException());
+              }
+              return Completable.complete();
+            }));
   }
 
   @Override
@@ -163,20 +170,26 @@ public class FunnelServiceImpl implements FunnelService {
       .switchIfEmpty(Maybe.error(ServiceError.FUNNEL_NOT_FOUND.getException()))
       .toSingle()
       .flatMap(
-        row ->
-          funnelResultsDao
-            .queryLatest(projectId, id)
-            .map(FunnelResultsMapper::fromRows)
-            .onErrorResumeNext(
-              err -> {
-                log.warn(
-                  "Failed to load ClickHouse funnel results for funnel {} (project {}): {}",
-                  id,
-                  projectId,
-                  err.toString());
-                return Single.just((FunnelResultsResponse) null);
-              })
-            .map(results -> toResponse(row, results)));
+        row -> {
+          Single<FunnelResultsResponse> results =
+            funnelResultsDao
+                .queryLatest(projectId, id)
+                .map(FunnelResultsMapper::fromRows)
+                .onErrorResumeNext(
+                  err -> {
+                    log.warn(
+                      "Failed to load ClickHouse funnel results for funnel {} (project {}): {}",
+                      id,
+                      projectId,
+                      err.toString());
+                    return Single.just((FunnelResultsResponse) null);
+                  });
+          Single<List<String>> tags =
+            funnelJourneyTagDao
+                .listTagsForEntity(projectId, FunnelJourneyTagEntityType.FUNNEL, id)
+                .onErrorReturnItem(List.of());
+          return Single.zip(results, tags, (r, t) -> toResponse(row, r, t));
+        });
   }
 
   @Override
@@ -231,11 +244,40 @@ public class FunnelServiceImpl implements FunnelService {
 
     return funnelDefinitionDao
       .listByProject(projectId, params)
-      .map(
-        funnels ->
-          FunnelDefinitionListResponse.builder()
-            .items(funnels.stream().map(this::toResponse).toList())
-            .build());
+      .flatMap(
+        funnels -> {
+          if (funnels.isEmpty()) {
+            return Single.just(
+              FunnelDefinitionListResponse.builder().items(List.of()).build());
+          }
+          List<Long> ids = funnels.stream().map(FunnelDefinitionRow::getId).toList();
+          return funnelJourneyTagDao
+            .listTagsForEntities(projectId, FunnelJourneyTagEntityType.FUNNEL, ids)
+            .map(
+              tagMap ->
+                FunnelDefinitionListResponse.builder()
+                  .items(
+                    funnels.stream()
+                      .map(
+                        r ->
+                          toResponse(
+                            r, null, tagMap.getOrDefault(r.getId(), List.of())))
+                  .toList())
+                  .build());
+        });
+  }
+
+  @Override
+  public Completable replaceTags(String projectId, long funnelId, List<String> tags) {
+    List<String> normalized = AnalysisEntityTags.normalizeOrThrow(tags);
+    return funnelDefinitionDao
+      .findByProjectAndId(projectId, funnelId)
+      .switchIfEmpty(Maybe.error(ServiceError.FUNNEL_NOT_FOUND.getException()))
+      .toSingle()
+      .flatMapCompletable(
+        ignored ->
+          funnelJourneyTagDao.replaceTags(
+            projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, normalized));
   }
 
   private void validateCreateOrUpdate(
@@ -334,12 +376,10 @@ public class FunnelServiceImpl implements FunnelService {
     return q.trim().replaceAll("[%_\\\\]", "");
   }
 
-  private FunnelDefinitionResponse toResponse(FunnelDefinitionRow row) {
-    return toResponse(row, null);
-  }
-
   private FunnelDefinitionResponse toResponse(
-    FunnelDefinitionRow row, FunnelResultsResponse funnelResults) {
+    FunnelDefinitionRow row,
+    FunnelResultsResponse funnelResults,
+    List<String> tags) {
     try {
       List<FunnelDefinitionStep> steps =
         objectMapper.readValue(row.getStepsJson(), new TypeReference<>() {
@@ -372,6 +412,7 @@ public class FunnelServiceImpl implements FunnelService {
         .updatedAt(row.getUpdatedAt())
         .createdBy(row.getCreatedBy())
         .funnelResults(funnelResults)
+        .tags(tags)
         .build();
     } catch (JsonProcessingException e) {
       log.error("Corrupt funnel JSON for id {}", row.getId(), e);

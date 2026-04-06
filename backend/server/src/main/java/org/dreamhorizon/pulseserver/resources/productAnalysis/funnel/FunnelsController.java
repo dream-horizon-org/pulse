@@ -9,6 +9,7 @@ import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ReplaceEntityTagsRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
@@ -69,6 +70,22 @@ public class FunnelsController {
     @PathParam("id") long id) {
     return funnelService
       .delete(projectId, id)
+      .toSingleDefault(Response.successfulResponse("Success"))
+      .toCompletionStage();
+  }
+
+  /**
+   * Replaces all tags for the funnel (empty {@code tags} clears them). Mappings:
+   * {@code funnel_journey_tag}.
+   */
+  @PUT
+  @Path("/{id}/tags")
+  public CompletionStage<Response<String>> replaceFunnelTags(
+    @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
+    @PathParam("id") long id,
+    @NotNull @Valid ReplaceEntityTagsRequest request) {
+    return funnelService
+      .replaceTags(projectId, id, request.getTags())
       .toSingleDefault(Response.successfulResponse("Success"))
       .toCompletionStage();
   }

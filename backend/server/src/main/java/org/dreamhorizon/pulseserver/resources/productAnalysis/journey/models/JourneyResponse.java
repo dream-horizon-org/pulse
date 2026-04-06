@@ -64,4 +64,7 @@ public class JourneyResponse {
    * Same shape as POST {@code /v1/journey/explore} ({@code nodes} + {@code links}).
    */
   private JourneyResultsResponse journeyResults;
+
+  /** Tags from {@code funnel_journey_tag} for this journey. */
+  private List<String> tags;
 }
