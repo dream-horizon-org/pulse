@@ -19,4 +19,8 @@ import lombok.NoArgsConstructor;
 public class JourneyListResponse {
 
   private List<JourneyResponse> items;
+  private long totalCount;
+  private int page;
+  private int pageSize;
+  private int totalPages;
 }

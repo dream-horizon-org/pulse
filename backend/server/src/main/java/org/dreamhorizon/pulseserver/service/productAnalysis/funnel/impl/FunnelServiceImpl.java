@@ -225,8 +225,10 @@ public class FunnelServiceImpl implements FunnelService {
       }
     }
 
-    int limit = Math.min(Math.max(1, query.getLimit()), MAX_PAGE_SIZE);
-    int offset = Math.max(0, query.getOffset());
+    int pageSize = Math.min(Math.max(1, query.getPageSize()), MAX_PAGE_SIZE);
+    int page = Math.max(1, query.getPage());
+    int limit = pageSize;
+    int offset = (page - 1) * pageSize;
 
     FunnelDefinitionListParams params =
       FunnelDefinitionListParams.builder()
@@ -246,9 +248,18 @@ public class FunnelServiceImpl implements FunnelService {
       .listByProject(projectId, params)
       .flatMap(
         funnels -> {
+          long totalCount = funnels.isEmpty() ? 0 : funnels.get(0).getTotalCount();
+          int totalPages = totalCount == 0 ? 1 : (int) Math.ceil((double) totalCount / pageSize);
+
           if (funnels.isEmpty()) {
             return Single.just(
-              FunnelDefinitionListResponse.builder().items(List.of()).build());
+              FunnelDefinitionListResponse.builder()
+                .items(List.of())
+                .totalCount(0)
+                .page(page)
+                .pageSize(pageSize)
+                .totalPages(1)
+                .build());
           }
           List<Long> ids = funnels.stream().map(FunnelDefinitionRow::getId).toList();
           return funnelJourneyTagDao
@@ -263,6 +274,10 @@ public class FunnelServiceImpl implements FunnelService {
                           toResponse(
                             r, null, tagMap.getOrDefault(r.getId(), List.of())))
                   .toList())
+                  .totalCount(totalCount)
+                  .page(page)
+                  .pageSize(pageSize)
+                  .totalPages(totalPages)
                   .build());
         });
   }

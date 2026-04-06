@@ -10,8 +10,8 @@ import {
   analyzeFunnel,
   exploreJourney,
   fetchFunnelEvents,
-  fetchFunnelFilterValues,
   fetchFunnelFilters,
+  fetchFunnelFilterValues,
   fetchFunnelGrouped,
   fetchFunnelSessions,
   fetchFunnelTrend,
@@ -167,7 +167,7 @@ export const useGetAllFilterValues = (
 
 export const useGetTags = () => {
   return useQuery({
-    queryKey: ["GET_TAGS"],
+    queryKey: ["FUNNEL_TAGS"],
     queryFn: () => fetchTags(),
     refetchOnWindowFocus: false,
     staleTime: 300000,

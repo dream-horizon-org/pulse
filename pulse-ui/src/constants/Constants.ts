@@ -970,8 +970,8 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnels/filters`,
     method: API_METHODS.GET,
   },
-  GET_TAGS: {
-    key: "GET_TAGS",
+  FUNNEL_TAGS: {
+    key: "FUNNEL_TAGS",
     apiPath: `/v1/funnels/tags`,
     method: API_METHODS.GET,
   },

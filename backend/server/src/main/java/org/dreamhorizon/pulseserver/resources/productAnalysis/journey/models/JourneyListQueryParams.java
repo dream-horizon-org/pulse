@@ -32,6 +32,14 @@ public class JourneyListQueryParams {
   @QueryParam("createdBy")
   private String createdBy;
 
+  @QueryParam("page")
+  @DefaultValue("1")
+  private int page;
+
+  @QueryParam("pageSize")
+  @DefaultValue("10")
+  private int pageSize;
+
   @QueryParam("limit")
   @DefaultValue("50")
   private int limit;

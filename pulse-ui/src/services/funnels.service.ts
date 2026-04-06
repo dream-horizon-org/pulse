@@ -374,7 +374,7 @@ export async function fetchFunnelFilterValues(filterKey: string) {
 /** GET /v1/funnels/tags — fetch all tags that have been applied to saved funnels. */
 export async function fetchTags() {
   return makeRequest<TagsResponse>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}/tags`,
-    init: { method: "GET" },
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_TAGS.apiPath}`,
+    init: { method: API_ROUTES.FUNNEL_TAGS.method },
   });
 }

@@ -106,7 +106,8 @@ public class FunnelDefinitionDao {
           + "funnel.step_order_type, funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, "
           + "funnel.date_range, funnel.start_time, funnel.end_time, funnel.expiry, "
           + "funnel.created_at, funnel.updated_at, funnel.created_by, ");
-    sql.append(FunnelDefinitionQueries.LATEST_FUNNEL_JOB_STATUS).append(" AS latest_job_status ");
+    sql.append(FunnelDefinitionQueries.LATEST_FUNNEL_JOB_STATUS).append(" AS latest_job_status, ");
+    sql.append("COUNT(*) OVER() AS total_count ");
     sql.append("FROM funnel WHERE funnel.project_id = ? ");
     List<Object> params = new ArrayList<>();
     params.add(projectId);
@@ -178,6 +179,7 @@ public class FunnelDefinitionDao {
       .updatedAt(toInstant(row, "updated_at"))
       .createdBy(row.getString("created_by"))
       .latestJobStatus(row.getString("latest_job_status"))
+      .totalCount(row.getColumnIndex("total_count") >= 0 ? row.getLong("total_count") : 0)
       .build();
   }
 
