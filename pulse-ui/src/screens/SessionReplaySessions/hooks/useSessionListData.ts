@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { sessionReplayService } from "../../../services/sessionReplay/SessionReplayService";
 import type {
-  SessionListingResponse,
   TimeRange,
   AdvancedFilterGroup,
+  SessionItem,
 } from "../../../services/sessionReplay/types";
 
 import type { SortField, SortDirection } from "../../../services/sessionReplay";
@@ -11,7 +11,10 @@ import {
   DEFAULT_DATE_PRESET,
   SEARCH_DEBOUNCE_MS,
 } from "../constants/sessionList.constants";
-import { SessionReplayFilterState } from "../../../contexts/SessionReplayFilterContext";
+import {
+  SessionReplayFilterState,
+  INFINITE_SCROLL_PAGE_SIZE,
+} from "../../../contexts/SessionReplayFilterContext";
 
 function buildTimeRangeFromState(
   filterState: SessionReplayFilterState,
@@ -63,98 +66,117 @@ function buildAdvancedGroupFromState(
 
 export interface UseSessionListDataParams {
   filterState: SessionReplayFilterState;
-  filterActions: { setPage: (page: number) => void };
   sortBy: SortField;
   sortDirection: SortDirection;
 }
 
 export interface UseSessionListDataResult {
-  loading: boolean;
-  sessionsData: SessionListingResponse | null;
-  sessions: SessionListingResponse["sessions"];
-  hasMorePages: boolean;
-  maxPage: number;
-  fetchSessions: () => Promise<void>;
+  sessions: SessionItem[];
+  cursor: string | null;
+  hasMore: boolean;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  loadMore: () => Promise<void>;
+  refetch: () => Promise<void>;
 }
 
 export function useSessionListData({
   filterState,
-  filterActions,
   sortBy,
   sortDirection,
 }: UseSessionListDataParams): UseSessionListDataResult {
-  const [loading, setLoading] = useState(true);
-  const [sessionsData, setSessionsData] =
-    useState<SessionListingResponse | null>(null);
-  const [pageCursors, setPageCursors] = useState<(string | null)[]>([]);
-  const [maxPage, setMaxPage] = useState(1);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
-  const fetchSessions = useCallback(async () => {
-    setLoading(true);
-    try {
-      const timeRange = buildTimeRangeFromState(filterState);
-      const quick = Object.entries(filterState.quickFilters)
-        .filter(([, v]) => v)
-        .map(([k]) => k);
-      const advanced = buildAdvancedGroupFromState(filterState);
-      const cursor =
-        filterState.currentPage === 1
-          ? undefined
-          : (pageCursors[filterState.currentPage - 2] ?? undefined);
+  const lastFetchKeyRef = useRef("");
+  const prevSearchRef = useRef(filterState.searchQuery);
 
-      const response = await sessionReplayService.postSessionsListing({
-        timeRange,
-        page: {
-          limit: filterState.pageSize,
-          cursor: cursor ?? undefined,
-        },
-        filters:
-          quick.length > 0 || advanced
-            ? { quick: quick.length ? quick : undefined, advanced }
-            : undefined,
-        query: filterState.searchQuery || undefined,
-        sortBy,
-        sortDirection,
-      });
-
-      setSessionsData(response);
-      if (response.page.nextCursor != null) {
-        setPageCursors((prev) => {
-          const next = [...prev];
-          next[filterState.currentPage - 1] = response.page.nextCursor!;
-          return next;
-        });
-        setMaxPage((prev) => Math.max(prev, filterState.currentPage + 1));
+  const performFetch = useCallback(
+    async (fetchCursor: string | null, isInitialLoad: boolean) => {
+      if (isInitialLoad) {
+        setIsLoading(true);
       } else {
-        setMaxPage((prev) => Math.max(prev, filterState.currentPage));
+        setIsFetching(true);
       }
-    } catch (error) {
-      console.error("Failed to fetch sessions:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [filterState, pageCursors, sortBy, sortDirection]);
 
-  const fetchRef = useRef(fetchSessions);
-  fetchRef.current = fetchSessions;
+      try {
+        const timeRange = buildTimeRangeFromState(filterState);
+        const quick = Object.entries(filterState.quickFilters)
+          .filter(([, v]) => v)
+          .map(([k]) => k);
+        const advanced = buildAdvancedGroupFromState(filterState);
+
+        const response = await sessionReplayService.postSessionsListing({
+          timeRange,
+          page: {
+            limit: INFINITE_SCROLL_PAGE_SIZE,
+            cursor: fetchCursor ?? undefined,
+          },
+          filters:
+            quick.length > 0 || advanced
+              ? { quick: quick.length ? quick : undefined, advanced }
+              : undefined,
+          query: filterState.searchQuery || undefined,
+          sortBy,
+          sortDirection,
+        });
+
+        setError(null);
+
+        if (isInitialLoad) {
+          setSessions(response.sessions);
+        } else {
+          setSessions((prev) => [...prev, ...response.sessions]);
+        }
+
+        setCursor(response.page.nextCursor ?? null);
+        setHasMore(response.page.hasMore);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        console.error("Failed to fetch sessions:", error);
+      } finally {
+        if (isInitialLoad) {
+          setIsLoading(false);
+        } else {
+          setIsFetching(false);
+        }
+      }
+    },
+    [filterState, sortBy, sortDirection],
+  );
+
+  const refetch = useCallback(async () => {
+    setSessions([]);
+    setCursor(null);
+    setHasMore(true);
+    setError(null);
+    await performFetch(null, true);
+  }, [performFetch]);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || isFetching || isLoading) return;
+    await performFetch(cursor, false);
+  }, [cursor, hasMore, isFetching, isLoading, performFetch]);
 
   const isCustomWithoutDates =
     filterState.dateRange.preset === "custom" &&
     !filterState.dateRange.from &&
     !filterState.dateRange.to;
 
-  const lastFetchKeyRef = useRef("");
-
   useEffect(() => {
     if (isCustomWithoutDates) return;
 
     const fetchKey = JSON.stringify([
-      filterState.currentPage,
       filterState.dateRange,
       filterState.quickFilters,
       filterState.advancedFilters,
       filterState.drillDown,
-      filterState.pageSize,
       sortBy,
       sortDirection,
     ]);
@@ -162,20 +184,17 @@ export function useSessionListData({
     if (fetchKey === lastFetchKeyRef.current) return;
     lastFetchKeyRef.current = fetchKey;
 
-    fetchRef.current();
+    refetch();
   }, [
-    filterState.currentPage,
     filterState.dateRange,
     filterState.quickFilters,
     filterState.advancedFilters,
     filterState.drillDown,
-    filterState.pageSize,
     sortBy,
     sortDirection,
     isCustomWithoutDates,
+    refetch,
   ]);
-
-  const prevSearchRef = useRef(filterState.searchQuery);
 
   useEffect(() => {
     if (prevSearchRef.current === filterState.searchQuery) return;
@@ -183,38 +202,20 @@ export function useSessionListData({
 
     const timer = setTimeout(() => {
       lastFetchKeyRef.current = "";
-      if (filterState.currentPage === 1) {
-        fetchRef.current();
-      } else {
-        filterActions.setPage(1);
-      }
+      refetch();
     }, SEARCH_DEBOUNCE_MS);
+
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterState.searchQuery]);
-
-  useEffect(() => {
-    setMaxPage(1);
-    setPageCursors([]);
-  }, [
-    filterState.dateRange,
-    filterState.quickFilters,
-    filterState.advancedFilters,
-    filterState.drillDown,
-    filterState.searchQuery,
-    sortBy,
-    sortDirection,
-  ]);
-
-  const sessions = sessionsData?.sessions ?? [];
-  const hasMorePages = sessionsData?.page?.hasMore ?? false;
+  }, [filterState.searchQuery, refetch]);
 
   return {
-    loading,
-    sessionsData,
     sessions,
-    hasMorePages,
-    maxPage,
-    fetchSessions,
+    cursor,
+    hasMore,
+    isLoading,
+    isFetching,
+    error,
+    loadMore,
+    refetch,
   };
 }

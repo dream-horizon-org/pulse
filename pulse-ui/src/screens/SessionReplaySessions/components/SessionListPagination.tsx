@@ -3,6 +3,12 @@ import { Button, Group, Paper, Text, TextInput } from "@mantine/core";
 import { SESSION_LIST_LABELS } from "../constants/sessionList.constants";
 import classes from "../SessionReplaySessions.module.css";
 
+/**
+ * @deprecated
+ * SessionListPagination is deprecated as of the infinite scroll migration.
+ * Use SessionsVirtualList instead for virtualized infinite scroll pagination.
+ * This component is kept for backward compatibility only.
+ */
 export interface SessionListPaginationProps {
   currentPage: number;
   hasMorePages: boolean;
