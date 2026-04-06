@@ -63,4 +63,7 @@ public class CreateJourneyRequest {
   @NotNull
   @Builder.Default
   private Integer dateRangeDays = 7;
+
+  /** Optional; persisted to {@code funnel_journey_tag} after the journey is created. */
+  private List<String> tags;
 }

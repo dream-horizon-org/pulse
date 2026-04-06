@@ -86,8 +86,16 @@ public class FunnelServiceImpl implements FunnelService {
         .latestJobStatus(null)
         .build();
 
+    List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
+
     return funnelDefinitionDao
       .insert(row)
+      .flatMap(
+        funnelId ->
+          funnelJourneyTagDao
+              .replaceTags(
+                  projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, tagsToStore)
+              .toSingleDefault(funnelId))
       .flatMap(funnelId ->
         analyticsBatchService.triggerFunnelOnSaveJob(funnelId)
           .onErrorReturnItem(false) // Don't fail funnel creation if job submission fails
@@ -142,10 +150,17 @@ public class FunnelServiceImpl implements FunnelService {
     return funnelDefinitionDao
       .update(id, projectId, row)
       .flatMapCompletable(
-        updatedRows ->
-          updatedRows == 0
-            ? Completable.error(ServiceError.FUNNEL_NOT_FOUND.getException())
-            : Completable.complete());
+        updatedRows -> {
+          if (updatedRows == 0) {
+            return Completable.error(ServiceError.FUNNEL_NOT_FOUND.getException());
+          }
+          if (request.getTags() == null) {
+            return Completable.complete();
+          }
+          List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
+          return funnelJourneyTagDao.replaceTags(
+              projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
+        });
   }
 
   @Override

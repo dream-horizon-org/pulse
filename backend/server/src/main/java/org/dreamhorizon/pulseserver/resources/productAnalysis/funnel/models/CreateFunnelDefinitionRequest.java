@@ -60,4 +60,7 @@ public class CreateFunnelDefinitionRequest {
   private Instant endTime;
 
   private Instant expiry;
+
+  /** Optional; persisted to {@code funnel_journey_tag} after the funnel is created. */
+  private List<String> tags;
 }

@@ -58,4 +58,10 @@ public class UpdateJourneyRequest {
 
   @NotNull
   private Integer dateRangeDays;
+
+  /**
+   * When set (including empty list), replaces journey tag mappings; when omitted (JSON absent), tags
+   * are left unchanged.
+   */
+  private List<String> tags;
 }

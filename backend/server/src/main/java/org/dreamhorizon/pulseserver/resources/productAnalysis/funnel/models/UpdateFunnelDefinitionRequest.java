@@ -58,4 +58,10 @@ public class UpdateFunnelDefinitionRequest {
   private Instant endTime;
 
   private Instant expiry;
+
+  /**
+   * When set (including empty list), replaces funnel tag mappings; when omitted (JSON absent), tags
+   * are left unchanged.
+   */
+  private List<String> tags;
 }
