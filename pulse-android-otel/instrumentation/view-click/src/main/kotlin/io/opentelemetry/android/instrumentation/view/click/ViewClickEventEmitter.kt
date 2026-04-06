@@ -19,6 +19,7 @@ import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_CO
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_NAME
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
@@ -80,8 +81,8 @@ internal class ViewClickEventEmitter(
             CLICK_LOG_TAG,
             "app.widget.click click.type=good " +
                 "app.screen.coordinate.x=${click.x.toLong()} app.screen.coordinate.y=${click.y.toLong()} " +
-                "app.screen.coordinate.nx=${"%.3f".format(click.x / click.viewportWidthPx.coerceAtLeast(1))} " +
-                "app.screen.coordinate.ny=${"%.3f".format(click.y / click.viewportHeightPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.nx=${"%.3f".format(Locale.ROOT,click.x / click.viewportWidthPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.ny=${"%.3f".format(Locale.ROOT,click.y / click.viewportHeightPx.coerceAtLeast(1))} " +
                 "device.screen.width=${(click.viewportWidthPx / densityScale).toLong()} " +
                 "device.screen.height=${(click.viewportHeightPx / densityScale).toLong()} " +
                 "app.widget.name=${click.widgetName ?: "null"} app.widget.id=${click.widgetId ?: "null"} " +
@@ -103,8 +104,8 @@ internal class ViewClickEventEmitter(
             CLICK_LOG_TAG,
             "app.widget.click click.type=dead " +
                 "app.screen.coordinate.x=${click.x.toLong()} app.screen.coordinate.y=${click.y.toLong()} " +
-                "app.screen.coordinate.nx=${"%.3f".format(click.x / click.viewportWidthPx.coerceAtLeast(1))} " +
-                "app.screen.coordinate.ny=${"%.3f".format(click.y / click.viewportHeightPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.nx=${"%.3f".format(Locale.ROOT,click.x / click.viewportWidthPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.ny=${"%.3f".format(Locale.ROOT,click.y / click.viewportHeightPx.coerceAtLeast(1))} " +
                 "device.screen.width=${(click.viewportWidthPx / densityScale).toLong()} " +
                 "device.screen.height=${(click.viewportHeightPx / densityScale).toLong()}",
         )
@@ -131,8 +132,8 @@ internal class ViewClickEventEmitter(
             CLICK_LOG_TAG,
             "app.widget.click click.type=$clickType click.is_rage=true click.rageCount=${rage.count} " +
                 "app.screen.coordinate.x=${rage.x.toLong()} app.screen.coordinate.y=${rage.y.toLong()} " +
-                "app.screen.coordinate.nx=${"%.3f".format(rage.x / rage.viewportWidthPx.coerceAtLeast(1))} " +
-                "app.screen.coordinate.ny=${"%.3f".format(rage.y / rage.viewportHeightPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.nx=${"%.3f".format(Locale.ROOT,rage.x / rage.viewportWidthPx.coerceAtLeast(1))} " +
+                "app.screen.coordinate.ny=${"%.3f".format(Locale.ROOT,rage.y / rage.viewportHeightPx.coerceAtLeast(1))} " +
                 "device.screen.width=${(rage.viewportWidthPx / densityScale).toLong()} " +
                 "device.screen.height=${(rage.viewportHeightPx / densityScale).toLong()} " +
                 "app.widget.name=${rage.widgetName ?: "null"} app.widget.id=${rage.widgetId ?: "null"} " +
