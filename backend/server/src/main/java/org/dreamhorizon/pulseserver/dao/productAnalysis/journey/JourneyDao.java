@@ -13,13 +13,16 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
 
 @Singleton
+@Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class JourneyDao {
 
@@ -31,7 +34,7 @@ public class JourneyDao {
       .preparedQuery(JourneyQueries.INSERT)
       .rxExecute(
         Tuple.from(
-          List.of(
+          Arrays.asList(
             row.getProjectId(),
             row.getName(),
             row.getDescription(),
@@ -55,7 +58,7 @@ public class JourneyDao {
       .preparedQuery(JourneyQueries.UPDATE)
       .rxExecute(
         Tuple.from(
-          List.of(
+          Arrays.asList(
             row.getName(),
             row.getDescription(),
             row.getAnchorEvent(),
@@ -166,7 +169,7 @@ public class JourneyDao {
       .direction(row.getString("direction"))
       .depth(row.getInteger("depth"))
       .mode(row.getString("mode"))
-      .filtersJson(row.getString("filters_json"))
+      .filtersJson(row.getValue("filters_json") != null ? row.getValue("filters_json").toString() : null)
       .startTime(toInstant(row, "start_time"))
       .endTime(toInstant(row, "end_time"))
       .journeyType(row.getString("journey_type"))
