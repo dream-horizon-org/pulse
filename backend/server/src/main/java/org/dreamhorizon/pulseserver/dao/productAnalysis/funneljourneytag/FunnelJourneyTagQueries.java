@@ -12,6 +12,10 @@ public final class FunnelJourneyTagQueries {
   static final String SELECT_TAGS_FOR_ENTITY =
       "SELECT tag FROM funnel_journey_tag WHERE project_id = ? AND entity_type = ? AND entity_id = ? ORDER BY tag";
 
+  /** Distinct tag strings in a project (funnels and journeys). */
+  static final String SELECT_DISTINCT_TAGS_BY_PROJECT =
+      "SELECT DISTINCT tag FROM funnel_journey_tag WHERE project_id = ? ORDER BY tag";
+
   private FunnelJourneyTagQueries() {}
 
   static String buildSelectTagsForEntitiesIn(int placeholderCount) {

@@ -21,6 +21,15 @@ public class FunnelJourneyTagDao {
 
   private final MysqlClient mysqlClient;
 
+  /** All distinct tags used on any funnel or journey in the project. */
+  public Single<List<String>> listDistinctTagsForProject(String projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool
+        .preparedQuery(FunnelJourneyTagQueries.SELECT_DISTINCT_TAGS_BY_PROJECT)
+        .rxExecute(Tuple.of(projectId))
+        .map(FunnelJourneyTagDao::rowsToTagList);
+  }
+
   public Single<List<String>> listTagsForEntity(
       String projectId, FunnelJourneyTagEntityType entityType, long entityId) {
     MySQLPool pool = mysqlClient.getReaderPool();
