@@ -243,6 +243,12 @@ export function SessionsVirtualList({
   error,
 }: SessionsVirtualListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const hasMoreRef = useRef(hasMore);
+  const isFetchingRef = useRef(isFetching);
+  const isLoadingRef = useRef(isLoading);
+  hasMoreRef.current = hasMore;
+  isFetchingRef.current = isFetching;
+  isLoadingRef.current = isLoading;
 
   const virtualizer = useVirtualizer({
     count: sessions.length,
@@ -255,18 +261,19 @@ export function SessionsVirtualList({
 
   const handleSentinelRef = useCallback(
     (el: HTMLDivElement | null) => {
-      if (!el || !hasMore) {
+      if (!el) {
         return;
       }
 
       const observer = new IntersectionObserver(
         (entries) => {
-          if (
+          const shouldFire =
             entries[0]?.isIntersecting &&
-            hasMore &&
-            !isFetching &&
-            !isLoading
-          ) {
+            hasMoreRef.current &&
+            !isFetchingRef.current &&
+            !isLoadingRef.current;
+
+          if (shouldFire) {
             onLoadMore();
           }
         },
@@ -283,7 +290,7 @@ export function SessionsVirtualList({
         observer.disconnect();
       };
     },
-    [hasMore, isFetching, isLoading, onLoadMore, parentRef],
+    [onLoadMore, parentRef],
   );
 
   return (

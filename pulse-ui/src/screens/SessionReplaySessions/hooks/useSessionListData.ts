@@ -97,15 +97,16 @@ export function useSessionListData({
   const prevSearchRef = useRef(filterState.searchQuery);
   const cursorRef = useRef<string | null>(null);
   const hasMoreRef = useRef(true);
+  const isFetchingRef = useRef(false);
+  const isLoadingRef = useRef(true);
+  const loadMoreBusyRef = useRef(false);
 
-  // Keep cursor and hasMore refs in sync with state
-  useEffect(() => {
-    cursorRef.current = cursor;
-  }, [cursor]);
+  // Sync refs during render so callbacks/observers never read one frame behind state.
+  cursorRef.current = cursor;
+  hasMoreRef.current = hasMore;
+  isFetchingRef.current = isFetching;
+  isLoadingRef.current = isLoading;
 
-  useEffect(() => {
-    hasMoreRef.current = hasMore;
-  }, [hasMore]);
   const performFetch = useCallback(
     async (fetchCursor: string | null, isInitialLoad: boolean) => {
       if (isInitialLoad) {
@@ -169,21 +170,29 @@ export function useSessionListData({
     await performFetch(null, true);
   }, [performFetch]);
 
-  const loadMore = useCallback(
-    async () => {
-      if (!hasMoreRef.current || isFetching || isLoading) {
+  const loadMore = useCallback(async () => {
+    if (loadMoreBusyRef.current) {
+      return;
+    }
+    loadMoreBusyRef.current = true;
+    try {
+      if (
+        !hasMoreRef.current ||
+        isFetchingRef.current ||
+        isLoadingRef.current
+      ) {
         return;
       }
 
-      // If cursor is null and hasMore is false, don't fetch
       if (cursorRef.current === null && !hasMoreRef.current) {
         return;
       }
 
       await performFetch(cursorRef.current, false);
-    },
-    [cursor, hasMore, isFetching, isLoading, performFetch],
-  );
+    } finally {
+      loadMoreBusyRef.current = false;
+    }
+  }, [performFetch]);
 
   const isCustomWithoutDates =
     filterState.dateRange.preset === "custom" &&
