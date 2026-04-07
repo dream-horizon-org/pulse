@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulsespark;
 
+import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -22,9 +23,13 @@ public class EventCatalogJob {
 
     private static final Logger log = LoggerFactory.getLogger(EventCatalogJob.class);
 
-    private static final String FILTER_KEY_EVENT  = "EVENT";
-    private static final int    COLD_LOOKBACK_DAYS = 7;
-    private static final int    DEFAULT_CHUNK_SIZE  = 5_000;
+    private static final String FILTER_KEY_EVENT           = "EVENT";
+    private static final String FILTER_KEY_APP_BUILD_NAME  = "APP_BUILD_NAME";
+    private static final String FILTER_KEY_OS_VERSION      = "OS_VERSION";
+    private static final String FILTER_KEY_OS_NAME         = "OS_NAME";
+
+    private static final int COLD_LOOKBACK_DAYS   = 7;
+    private static final int DEFAULT_CHUNK_SIZE   = 5_000;
 
     public static void runCatalog(SparkSession spark, MysqlRepository mysql, ClickHouseClient ch,
                                    String s3BucketPrefix, String runTime) throws Exception {
@@ -80,7 +85,14 @@ public class EventCatalogJob {
                 : tsSec.gt(lit(windowStartEpoch)).and(tsSec.leq(lit(windowEndEpoch)));
 
         Dataset<Row> df = raw
-                .select(col("project_id"), col("event_name"), col("timestamp"))
+                .select(
+                        col("project_id"),
+                        col("event_name"),
+                        col("timestamp"),
+                        col("app_build_name"),
+                        col("os_version"),
+                        col("os_name")
+                )
                 .filter(
                         col("project_id").equalTo(projectId)
                                 .and(col("event_name").isNotNull())
@@ -90,11 +102,11 @@ public class EventCatalogJob {
                 .cache();
 
         try {
-            List<String> valueRows = buildEventCatalogRows(df);
+            List<String> valueRows = buildCatalogInsertRows(df);
             if (!valueRows.isEmpty()) {
                 ch.bulkInsert("event_catalog_entries", "ProjectId,FilterKey,FilterValue",
                         valueRows, DEFAULT_CHUNK_SIZE);
-                log.info("Project {}: wrote {} event_catalog_entries rows", projectId, valueRows.size());
+                log.info("Project {}: wrote {} event_catalog_entries rows (events + dimensions)", projectId, valueRows.size());
             } else {
                 log.info("Project {}: no new event catalog entries", projectId);
             }
@@ -103,17 +115,23 @@ public class EventCatalogJob {
         }
     }
 
-    private static List<String> buildEventCatalogRows(Dataset<Row> df) {
-        List<Row> rows = df
-                .select(
-                        col("project_id"),
-                        lit(FILTER_KEY_EVENT).alias("filter_key"),
-                        col("event_name").alias("filter_value")
-                )
-                .filter(col("filter_value").isNotNull().and(col("filter_value").notEqual("")))
-                .distinct()
-                .collectAsList();
+    /** Distinct (ProjectId, FilterKey, FilterValue) for EVENT and dimension filters from parquet columns. */
+    private static List<String> buildCatalogInsertRows(Dataset<Row> df) {
+        Column nonBlankFv = col("fv").isNotNull().and(length(trim(col("fv"))).gt(0));
 
+        Dataset<Row> events = df.select(
+                col("project_id").alias("pid"),
+                lit(FILTER_KEY_EVENT).alias("fk"),
+                col("event_name").cast("string").alias("fv")
+        ).filter(nonBlankFv);
+
+        Dataset<Row> unioned = events
+                .unionByName(dimensionSlice(df, FILTER_KEY_APP_BUILD_NAME, "app_build_name"))
+                .unionByName(dimensionSlice(df, FILTER_KEY_OS_VERSION, "os_version"))
+                .unionByName(dimensionSlice(df, FILTER_KEY_OS_NAME, "os_name"))
+                .distinct();
+
+        List<Row> rows = unioned.collectAsList();
         var out = new ArrayList<String>(rows.size());
         for (Row row : rows) {
             out.add("('%s','%s','%s')".formatted(
@@ -123,6 +141,15 @@ public class EventCatalogJob {
             ));
         }
         return out;
+    }
+
+    private static Dataset<Row> dimensionSlice(Dataset<Row> df, String filterKey, String valueCol) {
+        Column nonBlankFv = col("fv").isNotNull().and(length(trim(col("fv"))).gt(0));
+        return df.select(
+                col("project_id").alias("pid"),
+                lit(filterKey).alias("fk"),
+                col(valueCol).cast("string").alias("fv")
+        ).filter(nonBlankFv);
     }
 
     private static Instant parseRunTimeUtc(String runTime) {

@@ -15,6 +15,9 @@
 -- instead.
 --
 -- Shard routing: same as other OTEL Distributed tables (hash of entity id).
+--
+-- Spark appends rows via the Distributed table only (no pre-insert DELETE; multiple runs
+-- may leave multiple rows per funnel/journey — filter by RunTime or aggregate in reads).
 -- =============================================================================
 
 CREATE DATABASE IF NOT EXISTS otel ON CLUSTER `pulse-clickhouse`;

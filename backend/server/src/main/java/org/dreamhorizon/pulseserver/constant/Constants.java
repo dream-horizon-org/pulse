@@ -3,7 +3,7 @@ package org.dreamhorizon.pulseserver.constant;
 public final class Constants {
   //Alerts
   public static final String ALERT_EVALUATE_AND_TRIGGER_ALERT =
-    "/v1/alert/evaluateAndTriggerAlert";
+      "/v1/alert/evaluateAndTriggerAlert";
 
   public static final String MYSQL_WRITER_HOST = "mysql_writer_host";
   public static final String MYSQL_READER_HOST = "mysql_reader_host";
@@ -21,13 +21,13 @@ public final class Constants {
   public static final String HTTP_CLIENT_KEEP_ALIVE_TIMEOUT = "http_client_keep_alive_timeout";
   public static final String HTTP_CLIENT_IDLE_TIMEOUT = "http_client_idle_timeout";
   public static final String HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE =
-    "http_client_connection_pool_max_size";
+      "http_client_connection_pool_max_size";
   public static final String SHUTDOWN_STATUS = "__shutdown__";
 
   public static final String QUERY_COMPLETED_STATUS = "Query completed";
 
   public static final String EVENT_BUS_RESPONSE_UPDATE_ALERT_EVALUATION_LOGS_CHANNEL =
-    "athena.query.response.updateAlertEvaluationLogs";
+      "athena.query.response.updateAlertEvaluationLogs";
   public static final String EVENT_BUS_RESPONSE_UPDATE_ALERT_STATE_CHANNEL = "athena.query.response.updateAlertState";
 
   public static final String RESULT_SET_KEY = "resultSet";
