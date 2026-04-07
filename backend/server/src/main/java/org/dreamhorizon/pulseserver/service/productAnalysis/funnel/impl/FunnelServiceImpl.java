@@ -153,10 +153,10 @@ public class FunnelServiceImpl implements FunnelService {
           Completable tagStep = request.getTags() == null
             ? Completable.complete()
             : Completable.defer(() -> {
-                List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
-                return funnelJourneyTagDao.replaceTags(
-                  projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
-              });
+            List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
+            return funnelJourneyTagDao.replaceTags(
+              projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
+          });
           return tagStep.andThen(
             analyticsBatchService.triggerFunnelOnSaveJob(id)
               .onErrorReturnItem(false)
@@ -412,7 +412,7 @@ public class FunnelServiceImpl implements FunnelService {
   }
 
   private static String sanitizeLikePrefix(String q) {
-    return q.trim().replaceAll("[%_\\\\]", "");
+    return q.trim().replaceAll("[%_\\\\]", "\\\\$0");
   }
 
   private FunnelDefinitionResponse toResponse(

@@ -92,9 +92,9 @@ public class JourneyServiceImpl implements JourneyService {
       .flatMap(
         journeyId ->
           funnelJourneyTagDao
-              .replaceTags(
-                  projectId, FunnelJourneyTagEntityType.JOURNEY, journeyId, tagsToStore)
-              .toSingleDefault(journeyId))
+            .replaceTags(
+              projectId, FunnelJourneyTagEntityType.JOURNEY, journeyId, tagsToStore)
+            .toSingleDefault(journeyId))
       .flatMap(journeyId ->
         analyticsBatchService.triggerJourneyOnSaveJob(journeyId)
           .onErrorReturnItem(false) // Don't fail journey creation if job submission fails
@@ -154,10 +154,10 @@ public class JourneyServiceImpl implements JourneyService {
           Completable tagStep = request.getTags() == null
             ? Completable.complete()
             : Completable.defer(() -> {
-                List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
-                return funnelJourneyTagDao.replaceTags(
-                  projectId, FunnelJourneyTagEntityType.JOURNEY, id, tagsToStore);
-              });
+            List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
+            return funnelJourneyTagDao.replaceTags(
+              projectId, FunnelJourneyTagEntityType.JOURNEY, id, tagsToStore);
+          });
           return tagStep.andThen(
             analyticsBatchService.triggerJourneyOnSaveJob(id)
               .onErrorReturnItem(false)
@@ -191,22 +191,22 @@ public class JourneyServiceImpl implements JourneyService {
         row -> {
           Single<JourneyResultsResponse> graph =
             journeyResultsDao
-                .queryLatest(projectId, id, row.getDirection())
-                .map(JourneyResultsMapper::fromRows)
-                .onErrorResumeNext(
-                  err -> {
-                    log.warn(
-                      "Failed to load ClickHouse journey results for journey {} (project {}):"
-                        + " {}",
-                      id,
-                      projectId,
-                      err.toString());
-                    return Single.just((JourneyResultsResponse) null);
-                  });
+              .queryLatest(projectId, id, row.getDirection())
+              .map(JourneyResultsMapper::fromRows)
+              .onErrorResumeNext(
+                err -> {
+                  log.warn(
+                    "Failed to load ClickHouse journey results for journey {} (project {}):"
+                      + " {}",
+                    id,
+                    projectId,
+                    err.toString());
+                  return Single.just((JourneyResultsResponse) null);
+                });
           Single<List<String>> tags =
             funnelJourneyTagDao
-                .listTagsForEntity(projectId, FunnelJourneyTagEntityType.JOURNEY, id)
-                .onErrorReturnItem(List.of());
+              .listTagsForEntity(projectId, FunnelJourneyTagEntityType.JOURNEY, id)
+              .onErrorReturnItem(List.of());
           return Single.zip(graph, tags, (g, t) -> toResponse(row, g, t));
         });
   }
@@ -276,7 +276,7 @@ public class JourneyServiceImpl implements JourneyService {
                       .map(
                         r ->
                           toResponse(r, null, tagMap.getOrDefault(r.getId(), List.of())))
-                  .toList())
+                      .toList())
                   .totalCount(totalCount)
                   .page(page)
                   .pageSize(pageSize)
@@ -372,7 +372,7 @@ public class JourneyServiceImpl implements JourneyService {
   }
 
   private static String sanitizeLikePrefix(String q) {
-    return q.trim().replaceAll("[%_\\\\]", "");
+    return q.trim().replaceAll("[%_\\\\]", "\\\\$0");
   }
 
   private JourneyResponse toResponse(
