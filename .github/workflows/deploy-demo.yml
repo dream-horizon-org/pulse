@@ -69,7 +69,9 @@ jobs:
           
           REACT_APP_USE_MOCK_SESSION_REPLAY: 'true'
           REACT_APP_ROOT_CAUSE_ENABLED: 'true'
-          
+          REACT_APP_INTERACTION_DISCOVERY_ENABLED: 'true'
+          REACT_APP_ECOMMERCE_MOCK_THEME: 'true'
+
 
       - name: Add CNAME for custom domain
         run: echo 'demo.pulse-ux.com' > build/CNAME
