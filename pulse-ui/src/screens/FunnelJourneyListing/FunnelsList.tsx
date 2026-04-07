@@ -17,7 +17,7 @@ import dayjs from "dayjs";
 import { ROUTES } from "../../constants";
 import { useProjectContext } from "../../contexts";
 import { useGetFunnelsList } from "../../hooks/useGetFunnelsList";
-import type { FunnelJourneyListItem } from "../../services/funnels.service";
+import type { FunnelListItem } from "../../services/funnels.service";
 import { StepOrderType } from "../../services/funnels.service";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { FunnelConversionCell } from "./components/FunnelConversionCell";
@@ -130,17 +130,17 @@ export function FunnelsList() {
   }, [payload?.page]);
 
   const creatorOptions =
-    payload?.filterOptions?.creators?.map((c) => ({ value: c, label: c })) ??
+    (payload as any)?.filterOptions?.creators?.map((c: string) => ({ value: c, label: c })) ??
     [];
   const tagOptions =
-    payload?.filterOptions?.tags?.map((t) => ({ value: t, label: t })) ?? [];
+    (payload as any)?.filterOptions?.tags?.map((t: string) => ({ value: t, label: t })) ?? [];
 
   const goCreateFunnel = () => {
     if (!projectId) return;
     navigate(generatePath(ROUTES.FUNNELS_CREATE.path, { projectId }));
   };
 
-  const openRow = (row: FunnelJourneyListItem) => {
+  const openRow = (row: FunnelListItem) => {
     if (!projectId) return;
     navigate(
       generatePath(ROUTES.FUNNEL_DETAIL.path, {
@@ -159,7 +159,7 @@ export function FunnelsList() {
       {
         accessor: "name",
         title: "Name",
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: FunnelListItem) => (
           <Text size="sm" fw={700} lineClamp={1} ta="left">
             {row.name}
           </Text>
@@ -168,7 +168,7 @@ export function FunnelsList() {
       {
         accessor: "status",
         title: "Status",
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: FunnelListItem) => (
           <Badge
             size="sm"
             color={
@@ -204,14 +204,14 @@ export function FunnelsList() {
       {
         accessor: "conversion",
         title: COLUMN_CONVERSION_TITLE,
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: FunnelListItem) => (
           <FunnelConversionCell row={row} />
         ),
       },
       {
         accessor: "createdBy",
         title: "Created by",
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: FunnelListItem) => (
           <Text size="sm" c="dark.4" lineClamp={1} ta="left">
             {row.createdBy}
           </Text>
@@ -220,7 +220,7 @@ export function FunnelsList() {
       {
         accessor: "lastUpdatedAt",
         title: "Last updated",
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: FunnelListItem) => (
           <Text size="sm" c="dark.4" ta="left">
             {dayjs(row.lastUpdatedAt).format("MMM D, YYYY HH:mm")}
           </Text>

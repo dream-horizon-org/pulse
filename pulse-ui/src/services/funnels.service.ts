@@ -14,7 +14,6 @@ import type {
   FunnelSessionsRequestBody,
   FunnelSessionsResponse,
   FunnelStep,
-  FunnelTrendResponse,
   JourneyRequestBody,
   JourneyResponse,
   TagsResponse
@@ -50,20 +49,29 @@ export type FunnelFilter = {
 
 /** Whether funnel steps must be completed in order or in any order. */
 export enum StepOrderType {
-  ORDERED = "ordered",
-  UNORDERED = "unordered",
+  ORDERED = "ORDERED",
+  UNORDERED = "UNORDERED",
 }
 
-/** Saved funnel or journey row returned by the listing API. */
-export type FunnelJourneyListItem = {
+/** Computed status returned by the server for funnels and journeys. */
+export type AnalysisStatus =
+  | "ACTIVE"
+  | "IN_PROGRESS"
+  | "WARN"
+  | "PENDING"
+  | "FAILED"
+  | "COMPLETED";
+
+// ─── Funnel listing types ──────────────────────────────────────────────────────
+
+/** Single funnel row returned by GET /v1/funnels. */
+export type FunnelListItem = {
   id: string;
   name: string;
-  kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "IN_PROGRESS" | "WARN" | "PENDING" | "FAILED" | "COMPLETED";
+  status: AnalysisStatus;
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
-  /** Present when kind === "FUNNEL". */
   stepOrderType?: StepOrderType;
   /** Overall conversion rate (%) for funnels with computed metrics. */
   overallConversionRate?: number;
@@ -71,37 +79,40 @@ export type FunnelJourneyListItem = {
   conversionTrend?: number;
 };
 
-export type FunnelsJourneysListFilterOptions = {
-  creators: string[];
-  tags: string[];
-};
-
-/** Filter options for GET /v1/funnels or GET /v1/journeys (same shape). */
-export type FunnelListFilterOptions = FunnelsJourneysListFilterOptions;
-export type JourneyListFilterOptions = FunnelsJourneysListFilterOptions;
-
-export type FunnelsJourneysListResponse = {
-  items: FunnelJourneyListItem[];
-  filterOptions: FunnelsJourneysListFilterOptions;
-  /** Total items matching filters (before pagination). Omitted by some backends. */
+/** Listing payload for GET /v1/funnels. */
+export type FunnelListResponse = {
+  items: FunnelListItem[];
   totalCount?: number;
-  /** Current page (1-based). */
   page?: number;
   pageSize?: number;
-  /** Total pages for current filters and page size. */
   totalPages?: number;
 };
 
-/** Listing payload for GET /v1/funnels. */
-export type FunnelListResponse = FunnelsJourneysListResponse;
+// ─── Journey listing types ─────────────────────────────────────────────────────
+
+/** Single journey row returned by GET /v1/journeys. */
+export type JourneyListItem = {
+  id: string;
+  name: string;
+  status: AnalysisStatus;
+  createdBy: string;
+  lastUpdatedAt: string;
+  tags: string[];
+};
 
 /** Listing payload for GET /v1/journeys. */
-export type JourneyListResponse = FunnelsJourneysListResponse;
+export type JourneyListResponse = {
+  items: JourneyListItem[];
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+};
 
 /** Query params for GET /v1/funnels or GET /v1/journeys (resource implied by path). */
 export type FunnelJourneyListQueryParams = {
   search?: string | null;
-  status?: "ACTIVE" | "IN_PROGRESS" | "WARN" | "PENDING" | "FAILED" | "COMPLETED" | null;
+  status?: AnalysisStatus | null;
   /** Match if created by any of these users. */
   createdBy?: string[] | null;
   /** Match if item has any of these tags. */
@@ -114,19 +125,63 @@ export type FunnelJourneyListQueryParams = {
   pageSize?: number | null;
 };
 
-/** Single funnel or journey returned by detail APIs. */
-export type FunnelJourneyDetail = FunnelJourneyListItem & {
+// ─── Funnel detail types ───────────────────────────────────────────────────────
+
+/** Single funnel returned by GET /v1/funnels/:id. */
+export type FunnelDetail = {
+  id: string;
+  projectId?: string;
+  name: string;
   description: string;
-  createdAt: string;
-  funnelType?: FunnelType;
+  status: AnalysisStatus;
+  funnelType: FunnelType;
+  stepOrderType: StepOrderType;
+  steps: FunnelStep[];
   filters?: FilterField[];
-  steps?: FunnelStep[];
+  windowSeconds: number;
+  mode?: string;
+  dateRangeDays?: number;
+  startTime?: string;
+  endTime?: string;
+  expiry?: string;
+  createdAt: string;
+  updatedAt?: string;
+  createdBy: string;
+  tags: string[];
+  funnelResults?: unknown;
+  /** @deprecated Kept for backwards compat; use startTime/endTime or dateRangeDays. */
   timeRange?: TimeRange;
-  windowSeconds?: number;
-  anchorEvent?: string;
-  direction?: string;
-  depth?: number;
   expiryDate?: string;
+};
+
+// ─── Journey detail types ──────────────────────────────────────────────────────
+
+/** Single journey returned by GET /v1/journeys/:id. */
+export type JourneyDetail = {
+  id: string;
+  projectId?: string;
+  name: string;
+  description: string;
+  status: AnalysisStatus;
+  anchorEvent: string;
+  direction: string;
+  depth: number;
+  mode?: string;
+  journeyType?: FunnelType;
+  filters?: FilterField[];
+  startTime?: string;
+  endTime?: string;
+  expiry?: string;
+  dateRangeDays?: number;
+  createdAt: string;
+  updatedAt?: string;
+  createdBy: string;
+  tags: string[];
+  journeyResults?: unknown;
+  /** @deprecated */
+  timeRange?: TimeRange;
+  expiryDate?: string;
+  rollingType?: string;
 };
 
 /** Request body for POST /v1/funnel (create) and PUT /v1/funnel/:id (full replace). */
@@ -149,6 +204,8 @@ export interface CreateFunnelRequestBody {
   steps: FunnelStep[];
   /** Maximum seconds a user has to complete the funnel after entering step 1. */
   windowSeconds: number;
+  /** Analysis mode (e.g. UNIQUE_USERS). Defaults to UNIQUE_USERS on create. */
+  mode?: string;
   /** Audience filters applied when computing conversion. */
   filters?: FunnelFilter[];
   /**
@@ -229,10 +286,10 @@ export async function fetchJourneysList(
 /** GET /v1/funnels/:funnelId */
 export async function fetchFunnelById(funnelId: string) {
   const encoded = encodeURIComponent(funnelId);
-  return makeRequest<FunnelJourneyDetail>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}/${encoded}`,
+  return makeRequest<FunnelDetail>({
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_DETAILS.apiPath}/${encoded}`,
     init: {
-      method: "GET",
+      method: API_ROUTES.FUNNEL_DETAILS.method,
     },
   });
 }
@@ -240,7 +297,7 @@ export async function fetchFunnelById(funnelId: string) {
 /** GET /v1/journeys/:journeyId */
 export async function fetchJourneyById(journeyId: string) {
   const encoded = encodeURIComponent(journeyId);
-  return makeRequest<FunnelJourneyDetail>({
+  return makeRequest<JourneyDetail>({
     url: `${API_BASE_URL}${JOURNEYS_BASE}/${encoded}`,
     init: {
       method: "GET",
@@ -250,7 +307,7 @@ export async function fetchJourneyById(journeyId: string) {
 
 /** POST /v1/funnels */
 export async function createFunnel(payload: CreateFunnelRequestBody) {
-  return makeRequest<FunnelJourneyDetail>({
+  return makeRequest<FunnelDetail>({
     url: `${API_BASE_URL}${API_ROUTES.FUNNEL_CREATE.apiPath}`,
     init: {
       method: "POST",
@@ -261,7 +318,7 @@ export async function createFunnel(payload: CreateFunnelRequestBody) {
 
 /** POST /v1/journeys */
 export async function createJourney(payload: Record<string, unknown>) {
-  return makeRequest<FunnelJourneyDetail>({
+  return makeRequest<JourneyDetail>({
     url: `${API_BASE_URL}${JOURNEYS_BASE}`,
     init: {
       method: "POST",
@@ -276,7 +333,7 @@ export async function updateFunnel(
   payload: UpdateFunnelRequestBody,
 ) {
   const encoded = encodeURIComponent(funnelId);
-  return makeRequest<FunnelJourneyDetail>({
+  return makeRequest<FunnelDetail>({
     url: `${API_BASE_URL}${FUNNELS_BASE}/${encoded}`,
     init: {
       method: "PUT",
@@ -288,7 +345,7 @@ export async function updateFunnel(
 /** PUT /v1/journeys/:journeyId */
 export async function updateJourney(journeyId: string, payload: unknown) {
   const encoded = encodeURIComponent(journeyId);
-  return makeRequest<FunnelJourneyDetail>({
+  return makeRequest<JourneyDetail>({
     url: `${API_BASE_URL}${JOURNEYS_BASE}/${encoded}`,
     init: {
       method: "PUT",
@@ -313,15 +370,6 @@ export async function fetchFunnelSessions(body: FunnelSessionsRequestBody) {
   const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
   return makeRequest<FunnelSessionsResponse>({
     url: `${API_BASE_URL}${FUNNELS_BASE}/sessions`,
-    init: { method: "POST", body: JSON.stringify(payload) },
-  });
-}
-
-/** POST /v1/funnels/trend — fetch overall conversion trend over time for a funnel. */
-export async function fetchFunnelTrend(body: FunnelRequestBody) {
-  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
-  return makeRequest<FunnelTrendResponse>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}/trend`,
     init: { method: "POST", body: JSON.stringify(payload) },
   });
 }

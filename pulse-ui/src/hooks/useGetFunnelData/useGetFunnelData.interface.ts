@@ -101,18 +101,6 @@ export interface GetFunnelSessionsParams {
   enabled?: boolean;
 }
 
-// Conversion trend
-export interface FunnelTrendResponse {
-  totalConversionRate: number;
-  conversionTrend: number;
-  medianTimes: (number | null)[];
-}
-
-export interface GetFunnelTrendParams {
-  requestBody: FunnelRequestBody;
-  enabled?: boolean;
-}
-
 // Grouped funnel
 export interface FunnelGroupedStepResult {
   stepName: string;

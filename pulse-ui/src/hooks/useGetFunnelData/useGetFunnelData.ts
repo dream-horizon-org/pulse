@@ -3,7 +3,6 @@ import {
   GetFunnelDataParams,
   GetFunnelGroupedParams,
   GetFunnelSessionsParams,
-  GetFunnelTrendParams,
   GetJourneyParams,
 } from "./useGetFunnelData.interface";
 import {
@@ -14,7 +13,6 @@ import {
   fetchFunnelFilterValues,
   fetchFunnelGrouped,
   fetchFunnelSessions,
-  fetchFunnelTrend,
   fetchTags,
 } from "../../services/funnels.service";
 
@@ -60,28 +58,6 @@ export const useGetFunnelSessions = ({
     queryFn: () => fetchFunnelSessions(requestBody),
     refetchOnWindowFocus: false,
     enabled: enabled && requestBody.stepLevel >= 1,
-    staleTime: 10000,
-  });
-};
-
-export const useGetFunnelTrend = ({
-  requestBody,
-  enabled = true,
-}: GetFunnelTrendParams) => {
-  return useQuery({
-    queryKey: [
-      "FUNNEL_TREND",
-      JSON.stringify(requestBody.steps),
-      requestBody.timeRange.start,
-      requestBody.timeRange.end,
-      requestBody.mode,
-    ],
-    queryFn: () => fetchFunnelTrend(requestBody),
-    refetchOnWindowFocus: false,
-    enabled:
-      enabled &&
-      requestBody.steps.length >= 2 &&
-      requestBody.steps.every((s) => s.eventName.trim() !== ""),
     staleTime: 10000,
   });
 };

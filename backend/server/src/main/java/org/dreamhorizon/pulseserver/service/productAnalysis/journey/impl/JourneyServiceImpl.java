@@ -151,12 +151,17 @@ public class JourneyServiceImpl implements JourneyService {
           if (n == 0) {
             return Completable.error(ServiceError.JOURNEY_NOT_FOUND.getException());
           }
-          if (request.getTags() == null) {
-            return Completable.complete();
-          }
-          List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
-          return funnelJourneyTagDao.replaceTags(
-              projectId, FunnelJourneyTagEntityType.JOURNEY, id, tagsToStore);
+          Completable tagStep = request.getTags() == null
+            ? Completable.complete()
+            : Completable.defer(() -> {
+                List<String> tagsToStore = AnalysisEntityTags.normalizeOrThrow(request.getTags());
+                return funnelJourneyTagDao.replaceTags(
+                  projectId, FunnelJourneyTagEntityType.JOURNEY, id, tagsToStore);
+              });
+          return tagStep.andThen(
+            analyticsBatchService.triggerJourneyOnSaveJob(id)
+              .onErrorReturnItem(false)
+              .ignoreElement());
         });
   }
 

@@ -940,14 +940,14 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnels`,
     method: API_METHODS.POST,
   },
+  FUNNEL_DETAILS: {
+    key: "FUNNEL_DETAILS",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.GET,
+  },
   FUNNEL_SESSIONS: {
     key: "FUNNEL_SESSIONS",
     apiPath: `/v1/funnels/sessions`,
-    method: API_METHODS.POST,
-  },
-  FUNNEL_TREND: {
-    key: "FUNNEL_TREND",
-    apiPath: `/v1/funnels/trend`,
     method: API_METHODS.POST,
   },
   FUNNEL_GROUPED: {

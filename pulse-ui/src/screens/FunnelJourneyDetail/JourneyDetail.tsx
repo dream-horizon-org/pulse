@@ -1,12 +1,12 @@
 import { ActionIcon, Box, Group, Loader, Text } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { generatePath, useNavigate, useParams } from "react-router-dom";
+import { ROUTES } from "../../constants";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { useGetJourneyDetail } from "../../hooks/useGetJourneyDetail";
 import { FunnelJourneyDetailChrome } from "./FunnelJourneyDetailChrome";
 import {
   BACK_NAV_LABEL,
-  JOURNEY_DETAIL_WRONG_KIND_MESSAGE,
   NOT_FOUND_DESCRIPTION,
   NOT_FOUND_TITLE,
 } from "./FunnelJourneyDetail.constants";
@@ -28,6 +28,8 @@ import { buildJourneySankeyOption } from "../FunnelJourneyCreate/utils/buildJour
 import { mapDetailFilters } from "./FunnelJourneyDetails.util";
 
 function JourneyDetailView({ detail }: { detail: any }) {
+  const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string; journeyId: string }>();
   const [name, setName] = useState(detail.name || "");
   const [description, setDescription] = useState(detail.description || "");
   const [tags, setTags] = useState<string[]>(detail.tags || []);
@@ -149,6 +151,18 @@ function JourneyDetailView({ detail }: { detail: any }) {
     if (JSON.stringify(toGrouped(currentFiltersFlat)) !== JSON.stringify(toGrouped(originalFiltersFlat)))
       return true;
 
+    const origStartIso = detail.timeRange?.start
+      ? new Date(detail.timeRange.start).toISOString()
+      : undefined;
+    if (customStartDate?.toISOString() !== origStartIso) return true;
+
+    const origEndIso = detail.timeRange?.end
+      ? new Date(detail.timeRange.end).toISOString()
+      : undefined;
+    if (customEndDate?.toISOString() !== origEndIso) return true;
+
+    if (dateRange !== "7d") return true;
+
     return false;
   }, [
     name,
@@ -160,28 +174,40 @@ function JourneyDetailView({ detail }: { detail: any }) {
     direction,
     depth,
     filters,
+    customStartDate,
+    customEndDate,
+    dateRange,
     detail,
   ]);
 
   const { mutate: updateJourney, isPending: isUpdating } = useUpdateJourney();
 
   const handleUpdate = (config: any) => {
-    updateJourney({
-      id: detail.id,
-      payload: {
-        name,
-        description,
-        tags,
-        rollingType,
-        timeRange,
-        filters: apiFilters,
-        expiryDate:
-          rollingType === "RECURRING" && expiryDate
-            ? expiryDate.toISOString()
-            : undefined,
-        ...config,
+    updateJourney(
+      {
+        id: detail.id,
+        payload: {
+          name,
+          description,
+          tags,
+          rollingType,
+          timeRange,
+          filters: apiFilters,
+          expiryDate:
+            rollingType === "RECURRING" && expiryDate
+              ? expiryDate.toISOString()
+              : undefined,
+          ...config,
+        },
       },
-    });
+      {
+        onSuccess: () => {
+          if (projectId) {
+            navigate(generatePath(ROUTES.JOURNEYS_LIST.path, { projectId }));
+          }
+        },
+      },
+    );
   };
 
   const journeyVizStatuses = ["ACTIVE", "COMPLETED", "WARN"];
@@ -389,29 +415,6 @@ export function JourneyDetail() {
     );
   }
 
-  if (detail.kind !== "JOURNEY") {
-    return (
-      <Box
-        className={classes.shell}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "calc(100vh - 60px)",
-        }}
-      >
-        <Group mb="md">
-          <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
-            <IconArrowLeft size={20} />
-          </ActionIcon>
-          <Text size="sm" c="dimmed">
-            {BACK_NAV_LABEL}
-          </Text>
-        </Group>
-        <ErrorAndEmptyState message={JOURNEY_DETAIL_WRONG_KIND_MESSAGE} />
-      </Box>
-    );
-  }
-
   return (
     <Box
       className={classes.shell}
@@ -421,7 +424,7 @@ export function JourneyDetail() {
         height: "calc(100vh - 60px)",
       }}
     >
-      <FunnelJourneyDetailChrome detail={detail} onBack={goBack} />
+      <FunnelJourneyDetailChrome detail={detail} kind="JOURNEY" onBack={goBack} />
       <JourneyDetailView detail={detail} />
     </Box>
   );

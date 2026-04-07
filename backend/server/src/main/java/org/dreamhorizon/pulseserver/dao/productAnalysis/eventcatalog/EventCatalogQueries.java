@@ -49,7 +49,7 @@ public final class EventCatalogQueries {
       + "' ORDER BY FilterValue";
   }
 
-  static String escapeChStringLiteral(String s) {
+  public static String escapeChStringLiteral(String s) {
     if (s == null) {
       return "";
     }

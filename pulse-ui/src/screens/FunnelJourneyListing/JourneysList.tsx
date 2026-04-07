@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import { ROUTES } from "../../constants";
 import { useProjectContext } from "../../contexts";
 import { useGetJourneysList } from "../../hooks/useGetJourneysList";
-import type { FunnelJourneyListItem } from "../../services/funnels.service";
+import type { JourneyListItem } from "../../services/funnels.service";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import {
   DEFAULT_PAGE_SIZE,
@@ -106,17 +106,17 @@ export function JourneysList() {
   }, [payload?.page]);
 
   const creatorOptions =
-    payload?.filterOptions?.creators?.map((c) => ({ value: c, label: c })) ??
+    (payload as any)?.filterOptions?.creators?.map((c: string) => ({ value: c, label: c })) ??
     [];
   const tagOptions =
-    payload?.filterOptions?.tags?.map((t) => ({ value: t, label: t })) ?? [];
+    (payload as any)?.filterOptions?.tags?.map((t: string) => ({ value: t, label: t })) ?? [];
 
   const goCreateJourney = () => {
     if (!projectId) return;
     navigate(generatePath(ROUTES.JOURNEYS_CREATE.path, { projectId }));
   };
 
-  const openRow = (row: FunnelJourneyListItem) => {
+  const openRow = (row: JourneyListItem) => {
     if (!projectId) return;
     navigate(
       generatePath(ROUTES.JOURNEY_DETAIL.path, {
@@ -135,7 +135,7 @@ export function JourneysList() {
       {
         accessor: "name",
         title: "Name",
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: JourneyListItem) => (
           <Text size="sm" fw={700} lineClamp={1} ta="left">
             {row.name}
           </Text>
@@ -144,7 +144,7 @@ export function JourneysList() {
       {
         accessor: "status",
         title: "Status",
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: JourneyListItem) => (
           <Badge
             size="sm"
             color={
@@ -180,7 +180,7 @@ export function JourneysList() {
       {
         accessor: "createdBy",
         title: "Created by",
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: JourneyListItem) => (
           <Text size="sm" c="dark.4" lineClamp={1} ta="left">
             {row.createdBy}
           </Text>
@@ -189,7 +189,7 @@ export function JourneysList() {
       {
         accessor: "lastUpdatedAt",
         title: "Last updated",
-        render: (row: FunnelJourneyListItem) => (
+        render: (row: JourneyListItem) => (
           <Text size="sm" c="dark.4" ta="left">
             {dayjs(row.lastUpdatedAt).format("MMM D, YYYY HH:mm")}
           </Text>

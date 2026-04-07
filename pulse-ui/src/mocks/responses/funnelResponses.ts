@@ -981,12 +981,14 @@ function mockResourceListing(
   if (page > totalPages) page = totalPages;
 
   const start = (page - 1) * pageSize;
-  const paginatedItems = items.slice(start, start + pageSize);
+  // Strip internal `kind` field — real server doesn't return it
+  const paginatedItems = items.slice(start, start + pageSize).map(
+    ({ kind: _kind, ...rest }) => rest,
+  );
 
   return {
     data: {
       items: paginatedItems,
-      filterOptions,
       totalCount,
       page,
       pageSize,
@@ -1034,9 +1036,11 @@ function mockSavedResourceDetail(
       ? "Conversion funnel across key product events. Edit steps and run analysis from the builder when the full editor is connected."
       : "Exploratory journey map for navigation paths after this anchor event. Open the journey explorer to adjust the root event and direction.";
 
+  // Strip internal `kind` field — real server doesn't return it
+  const { kind: _kind, ...rest } = row;
   return {
     data: {
-      ...row,
+      ...rest,
       description,
       createdAt,
     },
@@ -1097,7 +1101,9 @@ function mockPostCreateFunnelOrJourney(
     depth: body.depth,
   };
   MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
-  return { data: newItem, status: 201 };
+  // Strip internal `kind` field — real server doesn't return it
+  const { kind: _kind, ...rest } = newItem;
+  return { data: rest, status: 201 };
 }
 
 function mockPutFunnelOrJourney(
@@ -1125,7 +1131,9 @@ function mockPutFunnelOrJourney(
     status: "IN_PROGRESS" as const,
     lastUpdatedAt: new Date().toISOString(),
   };
-  return { data: MOCK_FUNNELS_JOURNEYS_ALL[index], status: 200 };
+  // Strip internal `kind` field — real server doesn't return it
+  const { kind: _kind, ...rest } = MOCK_FUNNELS_JOURNEYS_ALL[index];
+  return { data: rest, status: 200 };
 }
 
 export function handleFunnelEndpoints(

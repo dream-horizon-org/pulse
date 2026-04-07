@@ -5,14 +5,15 @@ import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 type DetailChrome = {
   name: string;
   status: string;
-  kind: "FUNNEL" | "JOURNEY";
 };
 
 export function FunnelJourneyDetailChrome({
   detail,
+  kind,
   onBack,
 }: {
   detail: DetailChrome;
+  kind: "FUNNEL" | "JOURNEY";
   onBack: () => void;
 }) {
   return (
@@ -55,7 +56,7 @@ export function FunnelJourneyDetailChrome({
                           : "Pending"}
               </Badge>
               <Text size="xs" c="dimmed">
-                {detail.kind === "FUNNEL" ? "Funnel" : "Journey"}
+                {kind === "FUNNEL" ? "Funnel" : "Journey"}
               </Text>
             </Group>
           </Box>

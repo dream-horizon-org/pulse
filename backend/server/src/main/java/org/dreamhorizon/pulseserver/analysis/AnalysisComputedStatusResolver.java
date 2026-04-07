@@ -12,28 +12,28 @@ public final class AnalysisComputedStatusResolver {
   }
 
   public static AnalysisComputedStatus compute(FunnelType autoOrOnce, String latestJobStatusOrNull) {
-    String j = latestJobStatusOrNull == null ? null : latestJobStatusOrNull.trim().toUpperCase();
-    if ("PENDING".equals(j) || "RUNNING".equals(j)) {
+    String status = latestJobStatusOrNull == null ? null : latestJobStatusOrNull.trim().toUpperCase();
+    if ("PENDING".equals(status) || "RUNNING".equals(status) || "SUBMITTED".equals(status)) {
       return AnalysisComputedStatus.IN_PROGRESS;
     }
-    boolean noJob = j == null || j.isEmpty();
+    boolean noJob = status == null || status.isEmpty();
     if (noJob) {
       return autoOrOnce == FunnelType.ONCE
         ? AnalysisComputedStatus.PENDING
         : AnalysisComputedStatus.ACTIVE;
     }
     if (autoOrOnce == FunnelType.AUTO) {
-      if ("FAILED".equals(j)) {
+      if ("FAILED".equals(status)) {
         return AnalysisComputedStatus.WARN;
       }
-      if ("SUCCEEDED".equals(j)) {
+      if ("SUCCEEDED".equals(status)) {
         return AnalysisComputedStatus.ACTIVE;
       }
     } else {
-      if ("FAILED".equals(j)) {
+      if ("FAILED".equals(status)) {
         return AnalysisComputedStatus.FAILED;
       }
-      if ("SUCCEEDED".equals(j)) {
+      if ("SUCCEEDED".equals(status)) {
         return AnalysisComputedStatus.COMPLETED;
       }
     }

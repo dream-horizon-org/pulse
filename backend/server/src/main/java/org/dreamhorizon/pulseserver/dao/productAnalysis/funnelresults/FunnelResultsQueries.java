@@ -32,7 +32,7 @@ public final class FunnelResultsQueries {
       + "') ORDER BY StepIndex ASC";
   }
 
-  static String escapeChStringLiteral(String s) {
+  public static String escapeChStringLiteral(String s) {
     if (s == null) {
       return "";
     }

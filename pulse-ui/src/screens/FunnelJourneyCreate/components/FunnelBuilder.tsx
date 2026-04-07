@@ -209,27 +209,25 @@ export function FunnelBuilder({
       />
 
       {rollingType === FunnelType.ONCE && (
-        <Group gap="xs" mb="md">
+        <Box mb="md">
           <DateTimePicker
+            label="Start Date"
             placeholder="Start Date"
             value={customStartDate}
             onChange={onCustomStartDateChange}
             size={fieldSize}
-            style={{ flex: 1 }}
             clearable
+            mb="xs"
           />
-          <Text size="xs" c="dimmed">
-            -
-          </Text>
           <DateTimePicker
+            label="End Date"
             placeholder="End Date"
             value={customEndDate}
             onChange={onCustomEndDateChange}
             size={fieldSize}
-            style={{ flex: 1 }}
             clearable
           />
-        </Group>
+        </Box>
       )}
       {rollingType === FunnelType.AUTO && (
         <>
