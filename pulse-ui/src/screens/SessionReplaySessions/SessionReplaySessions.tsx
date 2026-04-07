@@ -24,7 +24,6 @@ import { SessionListEmptyState } from "./components/SessionListEmptyState";
 import { AdvancedFilterBuilder } from "./components/AdvancedFilterBuilder";
 import { SessionsTableToolbar } from "./components/SessionsTableToolbar";
 import { SessionsVirtualList } from "./components/SessionsVirtualList";
-import { SessionsVirtualList } from "./components/SessionsVirtualList";
 
 export function SessionReplaySessions() {
   const { trackClick } = useAnalytics("SessionReplaySessions");
@@ -38,7 +37,6 @@ export function SessionReplaySessions() {
   const [sortBy, setSortBy] = useState<SortField>("START_TIME");
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
 
-  const { sessions, isLoading, isFetching, hasMore, error, loadMore } =
   const { sessions, isLoading, isFetching, hasMore, error, loadMore } =
     useSessionListData({
       filterState,
