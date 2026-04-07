@@ -329,7 +329,10 @@ def get_conversion_events(
         FROM otel_traces
         WHERE ProjectId = %(pid)s
           AND PulseType LIKE 'network.2%%'
-          AND SpanAttributes['http.request.header.operation_name'] = %(op)s
+          AND coalesce(
+              nullIf(SpanAttributes['graphql.operation.name'], ''),
+              SpanAttributes['http.request.header.operation_name']
+          ) = %(op)s
           AND Timestamp >= now() - INTERVAL %(days)s DAY
           AND SessionId != ''
           {session_filter}
@@ -506,7 +509,10 @@ def discover_conversion_proxies(
     else:
         query = """
         SELECT
-            SpanAttributes['http.request.header.operation_name'] AS op_name,
+            coalesce(
+                nullIf(SpanAttributes['graphql.operation.name'], ''),
+                SpanAttributes['http.request.header.operation_name']
+            ) AS op_name,
             SpanAttributes['http.method'] AS method,
             uniqCombined64(SessionId) AS unique_sessions,
             count() AS total_calls
@@ -514,7 +520,10 @@ def discover_conversion_proxies(
         WHERE ProjectId = %(pid)s
           AND PulseType LIKE 'network.%%'
           AND Timestamp >= now() - INTERVAL %(days)s DAY
-          AND SpanAttributes['http.request.header.operation_name'] != ''
+          AND (
+              SpanAttributes['graphql.operation.name'] != ''
+              OR SpanAttributes['http.request.header.operation_name'] != ''
+          )
         GROUP BY op_name, method
         HAVING unique_sessions >= 3
         ORDER BY unique_sessions DESC
@@ -537,6 +546,30 @@ def discover_conversion_proxies(
                 conversion_rate=row["unique_sessions"] / total_sessions if total_sessions > 0 else 0,
             ))
 
-    type_priority = {"graphql_conversion": 0, "url_conversion": 1, "graphql_engagement": 2}
-    proxies.sort(key=lambda p: (type_priority.get(p.proxy_type, 99), -p.sessions_reached))
+    # Rank proxies: prefer actual transaction operations (createOrder, purchase,
+    # verifyPurchase) over check/validation operations (validateEntitlement,
+    # getPaymentConfigs). High-intent keywords get priority 0, general payment
+    # keywords get priority 1, engagement gets priority 2.
+    HIGH_INTENT_KEYWORDS = [
+        "create", "place", "complete", "confirm", "process", "submit",
+        "buy", "purchase", "verify", "redeem",
+    ]
+
+    def _proxy_sort_key(p):
+        type_pri = {"graphql_conversion": 0, "url_conversion": 1, "graphql_engagement": 2}
+        op_lower = p.identifier.lower()
+        is_high_intent = any(kw in op_lower for kw in HIGH_INTENT_KEYWORDS)
+        intent_pri = 0 if is_high_intent else 1
+        # Within same tier, prefer moderate reach (2-20%) over too broad (>50%)
+        # or too narrow (<1%). Ideal conversion rate is 2-20%.
+        rate = p.conversion_rate
+        if 0.02 <= rate <= 0.20:
+            rate_pri = 0
+        elif rate < 0.02:
+            rate_pri = 2  # Too narrow — might be noise
+        else:
+            rate_pri = 1  # Too broad — likely a check, not a conversion
+        return (type_pri.get(p.proxy_type, 99), intent_pri, rate_pri, -p.sessions_reached)
+
+    proxies.sort(key=_proxy_sort_key)
     return proxies
