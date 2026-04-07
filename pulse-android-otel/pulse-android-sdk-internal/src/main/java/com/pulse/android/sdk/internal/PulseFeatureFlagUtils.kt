@@ -30,11 +30,21 @@ internal object PulseFeatureFlagUtils {
         enumValues<PulseFeatureName>().forEach { feature ->
             if (feature !in enabledFeatures) {
                 when (feature) {
-                    PulseFeatureName.JAVA_CRASH -> config.suppressInstrumentation("crash")
-                    PulseFeatureName.JAVA_ANR -> config.suppressInstrumentation("anr")
-                    PulseFeatureName.NETWORK_CHANGE -> config.disableNetworkAttributes()
-                    PulseFeatureName.INTERACTION -> config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                    PulseFeatureName.CUSTOM_EVENTS -> isCustomEventEnabled = false
+                    PulseFeatureName.JAVA_CRASH -> {
+                        config.suppressInstrumentation("crash")
+                    }
+                    PulseFeatureName.JAVA_ANR -> {
+                        config.suppressInstrumentation("anr")
+                    }
+                    PulseFeatureName.NETWORK_CHANGE -> {
+                        config.disableNetworkAttributes()
+                    }
+                    PulseFeatureName.INTERACTION -> {
+                        config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                    }
+                    PulseFeatureName.CUSTOM_EVENTS -> {
+                        isCustomEventEnabled = false
+                    }
                     PulseFeatureName.CLICK -> {
                         config.suppressInstrumentation("view.click")
                         config.suppressInstrumentation("compose.click")
@@ -48,7 +58,9 @@ internal object PulseFeatureFlagUtils {
                     PulseFeatureName.RN_SCREEN_INTERACTIVE,
                     PulseFeatureName.SESSION_REPLAY,
                     PulseFeatureName.UNKNOWN,
-                    -> Unit
+                    -> {
+                        Unit
+                    }
                 }
             }
         }
