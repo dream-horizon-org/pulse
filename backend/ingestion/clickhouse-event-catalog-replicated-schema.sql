@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS otel.event_catalog_entries_local
 ON CLUSTER `pulse-clickhouse`
 (
     `ProjectId`   LowCardinality(String) COMMENT 'Project ID',
-    `FilterKey`   LowCardinality(String) COMMENT 'Always EVENT for this table',
-    `FilterValue` String                  COMMENT 'Custom event name'
+    `FilterKey`   LowCardinality(String) COMMENT 'EVENT | APP_BUILD_NAME | OS_VERSION | OS_NAME',
+    `FilterValue` String                  COMMENT 'Distinct value for that filter key'
 )
 ENGINE = ReplicatedReplacingMergeTree(
     '/clickhouse/tables/{shard}/otel/event_catalog_entries_local',
