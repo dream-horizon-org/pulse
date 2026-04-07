@@ -106,6 +106,17 @@ public class NotificationConfig {
   @AllArgsConstructor
   public static class IncidentConfig {
     private String defaultSlackChannelId;
+    private GoAlertConfig goAlert;
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class GoAlertConfig {
+    private String goAlertUrl;
+    private String goAlertApiKey;
+    private String goAlertServiceId;
+    private String slackBotToken;
   }
 
   @Data
