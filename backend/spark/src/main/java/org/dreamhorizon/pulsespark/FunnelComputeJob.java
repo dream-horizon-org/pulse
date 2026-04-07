@@ -262,12 +262,12 @@ public class FunnelComputeJob {
 
     private static Dataset<Row> loadPath(SparkSession spark, String path) {
         try {
-            return spark.read()
+            var ds = spark.read()
                     .format("parquet")
                     .option("recursiveFileLookup", "true")
                     .option("mergeSchema", "true")
-                    .load(path)
-                    .select(buildReadExprs());
+                    .load(path);
+            return ds.select(buildReadExprs(ds.columns()));
         } catch (Exception e) {
             log.warn("Skipping S3 path {}: {}", path, e.getMessage());
             return null;
@@ -278,9 +278,12 @@ public class FunnelComputeJob {
         return ds.filter(col("project_id").equalTo(projectId));
     }
 
-    static Column[] buildReadExprs() {
+    static Column[] buildReadExprs(String[] availableColumns) {
+        var available = new java.util.HashSet<>(java.util.Arrays.asList(availableColumns));
         var cols = new ArrayList<Column>();
-        for (var c : READ_COLS) cols.add(col(c));
+        for (var c : READ_COLS) {
+            cols.add(available.contains(c) ? col(c) : lit(null).cast(DataTypes.StringType).alias(c));
+        }
         cols.add(coalesce(
                 get_json_object(col("props"), "$.user_id"),
                 get_json_object(col("props"), "$['app.installation.id']")
