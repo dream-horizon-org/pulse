@@ -1,15 +1,8 @@
 import { Group, Text } from "@mantine/core";
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
-import type { FunnelJourneyListItem } from "../../../services/funnels.service";
+import type { FunnelListItem } from "../../../services/funnels.service";
 
-export function FunnelConversionCell({ row }: { row: FunnelJourneyListItem }) {
-  if (row.kind !== "FUNNEL") {
-    return (
-      <Text size="sm" c="dimmed">
-        —
-      </Text>
-    );
-  }
+export function FunnelConversionCell({ row }: { row: FunnelListItem }) {
   if (
     row.status === "IN_PROGRESS" ||
     row.status === "PENDING" ||

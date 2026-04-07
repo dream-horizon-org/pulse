@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.emrserverless.EmrServerlessClient;
@@ -23,14 +24,20 @@ public class EmrServerlessJobClient implements AutoCloseable {
   public EmrServerlessJobClient(EmrServerlessConfig config) {
     this.config = config;
     if (config.isEnabled()) {
+      // Resolve ambiguity for internally-created SDK clients (e.g. SSO credential provider)
+      // that discover HTTP implementations via classpath scanning.
+      System.setProperty("software.amazon.awssdk.http.service.impl",
+        "software.amazon.awssdk.http.urlconnection.UrlConnectionSdkHttpService");
+
       this.client = EmrServerlessClient.builder()
-          .region(Region.of(config.getEffectiveRegion()))
-          .httpClient(UrlConnectionHttpClient.builder().build())
-          .build();
+        .region(Region.of(config.getEffectiveRegion()))
+        .credentialsProvider(ProfileCredentialsProvider.create("delivr-prod"))
+        .httpClient(UrlConnectionHttpClient.builder().build())
+        .build();
       log.info(
-          "[EmrServerlessJobClient] Initialized region={} applicationId={}",
-          config.getEffectiveRegion(),
-          config.getApplicationId());
+        "[EmrServerlessJobClient] Initialized region={} applicationId={}",
+        config.getEffectiveRegion(),
+        config.getApplicationId());
     } else {
       this.client = null;
       log.info("[EmrServerlessJobClient] EMR Serverless integration is disabled");
@@ -58,7 +65,7 @@ public class EmrServerlessJobClient implements AutoCloseable {
   public StartJobRunRequest.Builder startJobRunRequestBuilder() {
     ensureEnabled();
     StartJobRunRequest.Builder builder = StartJobRunRequest.builder()
-        .applicationId(config.getApplicationId());
+      .applicationId(config.getApplicationId());
     if (config.getExecutionRoleArn() != null && !config.getExecutionRoleArn().isBlank()) {
       builder.executionRoleArn(config.getExecutionRoleArn());
     }
@@ -72,7 +79,7 @@ public class EmrServerlessJobClient implements AutoCloseable {
   private void ensureEnabled() {
     if (!config.isEnabled() || client == null) {
       throw new IllegalStateException(
-          "EMR Serverless is disabled; set emrServerless.enabled and required fields in configuration");
+        "EMR Serverless is disabled; set emrServerless.enabled and required fields in configuration");
     }
   }
 

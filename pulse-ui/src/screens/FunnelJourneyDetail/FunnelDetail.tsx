@@ -1,12 +1,12 @@
 import { ActionIcon, Box, Group, Loader, Text } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { generatePath, useNavigate, useParams } from "react-router-dom";
+import { ROUTES } from "../../constants";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { useGetFunnelDetail } from "../../hooks/useGetFunnelDetail";
 import { FunnelJourneyDetailChrome } from "./FunnelJourneyDetailChrome";
 import {
   BACK_NAV_LABEL,
-  FUNNEL_DETAIL_WRONG_KIND_MESSAGE,
   NOT_FOUND_DESCRIPTION,
   NOT_FOUND_TITLE,
 } from "./FunnelJourneyDetail.constants";
@@ -15,10 +15,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   type FunnelStep,
   useGetAllFilterValues,
-  useGetFunnelData,
   useGetFunnelEvents,
   useGetFunnelFilters,
-  useGetFunnelTrend,
 } from "../../hooks";
 import { getDateRangeFromPreset } from "../FunnelJourneyCreate/FunnelJourneyCreate.util";
 import { useUpdateFunnel } from "../../hooks/useUpdateFunnel";
@@ -27,10 +25,18 @@ import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
 import { FunnelVisualization } from "../FunnelJourneyCreate/components/FunnelVisualization";
 import { FunnelDataTable } from "../FunnelJourneyCreate/components/FunnelDataTable";
-import { mapDetailFilters } from "./FunnelJourneyDetails.util";
-import { FunnelType, StepOrderType } from "../../services/funnels.service";
+import { FunnelType, StepOrderType, type CreateFunnelRequestBody } from "../../services/funnels.service";
+
+/** Extracts an integer day-count from a preset string like "7d" → 7. */
+function extractDateRangeDays(preset: string): number {
+  const match = preset.match(/^(\d+)d$/);
+  if (match) return parseInt(match[1], 10);
+  return 1;
+}
 
 function FunnelDetailView({ detail }: { detail: any }) {
+  const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string; funnelId: string }>();
   const [name, setName] = useState(detail.name || "");
   const [description, setDescription] = useState(detail.description || "");
   const [tags, setTags] = useState<string[]>(detail.tags || []);
@@ -38,9 +44,15 @@ function FunnelDetailView({ detail }: { detail: any }) {
     detail.funnelType || FunnelType.AUTO,
   );
 
-  const [dateRange, setDateRange] = useState("7d");
-  const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
-  const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
+  const [dateRange, setDateRange] = useState(
+    detail.dateRangeDays ? `${detail.dateRangeDays}d` : "7d",
+  );
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(
+    detail.startTime ? new Date(detail.startTime) : null,
+  );
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(
+    detail.endTime ? new Date(detail.endTime) : null,
+  );
   const [expiryDate, setExpiryDate] = useState<Date | null>(
     detail.expiryDate ? new Date(detail.expiryDate) : null,
   );
@@ -71,8 +83,6 @@ function FunnelDetailView({ detail }: { detail: any }) {
     detail.windowSeconds ? String(detail.windowSeconds) : "86400",
   );
   const [, setShouldFetch] = useState(false);
-  const [initialFunnelDataFetched, setInitialFunnelDataFetched] =
-    useState(false);
 
   const { data: eventsData } = useGetFunnelEvents();
   const availableEvents = eventsData?.data?.events ?? [];
@@ -88,20 +98,6 @@ function FunnelDetailView({ detail }: { detail: any }) {
     });
     return result;
   }, [filterKeys, filterValuesResults]);
-
-  const timeRange = useMemo(() => {
-    if (rollingType === FunnelType.ONCE) {
-      return {
-        start: customStartDate
-          ? customStartDate.toISOString()
-          : new Date().toISOString(),
-        end: customEndDate
-          ? customEndDate.toISOString()
-          : new Date().toISOString(),
-      };
-    }
-    return getDateRangeFromPreset(dateRange);
-  }, [rollingType, dateRange, customStartDate, customEndDate]);
 
   const apiSteps: FunnelStep[] = useMemo(
     () =>
@@ -126,59 +122,17 @@ function FunnelDetailView({ detail }: { detail: any }) {
     }));
   }, [filters]);
 
-  // const requestBody = useMemo(
-  //   () => ({
-  //     steps: apiSteps,
-  //     timeRange,
-  //     mode: "UNIQUE_USERS" as const,
-  //     windowSeconds: parseInt(conversionWindow, 10),
-  //     filters: apiFilters,
-  //   }),
-  //   [apiSteps, timeRange, conversionWindow, apiFilters],
-  // );
-
-  /** Server-saved snapshot only — keeps chart stable when the form (e.g. rolling type) changes */
-  const stableFunnelRequestBody = useMemo(
-    () => ({
-      steps: (detail.steps || []).map((s: any) => ({
-        eventName: s.eventName,
-        dataType: "LOGS" as const,
-      })),
-      mode: "UNIQUE_USERS" as const,
-      timeRange: detail.timeRange ?? getDateRangeFromPreset("7d"),
-      windowSeconds: detail.windowSeconds ?? 86400,
-      filters: mapDetailFilters(detail),
-    }),
-    // Intentionally tied to persisted fields only, not the whole detail object
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable snapshot for analyze/trend APIs
-    [
-      detail.id,
-      detail.steps,
-      detail.timeRange,
-      detail.windowSeconds,
-      detail.filters,
-    ],
-  );
-
   const visualizationTimeRange = useMemo(
     () => detail.timeRange ?? getDateRangeFromPreset("7d"),
     [detail.timeRange],
   );
 
   useEffect(() => {
-    setInitialFunnelDataFetched(false);
-  }, [detail.id]);
-
-  useEffect(() => {
-    if (
-      (detail.funnelType || FunnelType.AUTO) === FunnelType.ONCE &&
-      detail.timeRange?.start &&
-      detail.timeRange?.end
-    ) {
-      setCustomStartDate(new Date(detail.timeRange.start));
-      setCustomEndDate(new Date(detail.timeRange.end));
+    if ((detail.funnelType || FunnelType.AUTO) === FunnelType.ONCE) {
+      if (detail.startTime) setCustomStartDate(new Date(detail.startTime));
+      if (detail.endTime) setCustomEndDate(new Date(detail.endTime));
     }
-  }, [detail.id, detail.funnelType, detail.timeRange]);
+  }, [detail.id, detail.funnelType, detail.startTime, detail.endTime]);
 
   const isChanged = useMemo(() => {
     if (name !== detail.name) return true;
@@ -211,6 +165,21 @@ function FunnelDetailView({ detail }: { detail: any }) {
     if (JSON.stringify(toGrouped(currentFiltersFlat)) !== JSON.stringify(toGrouped(originalFiltersFlat)))
       return true;
 
+    const origStartIso = detail.startTime
+      ? new Date(detail.startTime).toISOString()
+      : undefined;
+    if (customStartDate?.toISOString() !== origStartIso) return true;
+
+    const origEndIso = detail.endTime
+      ? new Date(detail.endTime).toISOString()
+      : undefined;
+    if (customEndDate?.toISOString() !== origEndIso) return true;
+
+    const origDateRange = detail.dateRangeDays
+      ? `${detail.dateRangeDays}d`
+      : "7d";
+    if (dateRange !== origDateRange) return true;
+
     const currentSteps = steps.map((s) => s.eventName).filter(Boolean);
     const originalSteps = (detail.steps || []).map((s: any) => s.eventName);
     if (JSON.stringify(currentSteps) !== JSON.stringify(originalSteps))
@@ -225,6 +194,9 @@ function FunnelDetailView({ detail }: { detail: any }) {
     funnelMode,
     conversionWindow,
     expiryDate,
+    customStartDate,
+    customEndDate,
+    dateRange,
     filters,
     steps,
     detail,
@@ -233,54 +205,41 @@ function FunnelDetailView({ detail }: { detail: any }) {
   const { mutate: updateFunnel, isPending: isUpdating } = useUpdateFunnel();
 
   const handleUpdate = () => {
-    updateFunnel({
-      id: detail.id,
-      payload: {
-        name,
-        description,
-        tags,
-        funnelType: rollingType,
-        stepOrderType: funnelMode,
-        steps: apiSteps,
-        timeRange,
-        windowSeconds: parseInt(conversionWindow, 10),
-        filters: apiFilters,
-        expiryDate:
-          rollingType === FunnelType.AUTO && expiryDate
-            ? expiryDate.toISOString()
-            : undefined,
+    const body: CreateFunnelRequestBody = {
+      name,
+      description,
+      tags,
+      funnelType: rollingType,
+      stepOrderType: funnelMode,
+      steps: apiSteps,
+      windowSeconds: parseInt(conversionWindow, 10),
+      filters: apiFilters,
+      mode: detail.mode || "UNIQUE_USERS",
+      dateRangeDays: extractDateRangeDays(dateRange),
+    };
+
+    if (rollingType === FunnelType.ONCE) {
+      if (customStartDate) body.startTime = customStartDate.toISOString();
+      if (customEndDate) body.endTime = customEndDate.toISOString();
+    } else {
+      if (expiryDate) body.expiryDate = expiryDate.toISOString();
+    }
+
+    updateFunnel(
+      { id: detail.id, payload: body },
+      {
+        onSuccess: () => {
+          if (projectId) {
+            navigate(generatePath(ROUTES.FUNNELS_LIST.path, { projectId }));
+          }
+        },
       },
-    });
+    );
   };
 
-  const vizStatuses = ["ACTIVE", "COMPLETED", "WARN"];
-
-  const { data: funnelRes, isLoading: funnelLoading } = useGetFunnelData({
-    requestBody: stableFunnelRequestBody,
-    enabled:
-      !initialFunnelDataFetched &&
-      (detail.steps?.length ?? 0) >= 2 &&
-      vizStatuses.includes(detail.status),
-  });
-
-  const { data: trendRes, isLoading: trendLoading } = useGetFunnelTrend({
-    requestBody: stableFunnelRequestBody,
-    enabled:
-      !initialFunnelDataFetched &&
-      (detail.steps?.length ?? 0) >= 2 &&
-      vizStatuses.includes(detail.status),
-  });
-
-  // Set initial funnel data fetched flag when data is loaded
-  useEffect(() => {
-    if ((funnelRes || trendRes) && !initialFunnelDataFetched) {
-      setInitialFunnelDataFetched(true);
-    }
-  }, [funnelRes, trendRes, initialFunnelDataFetched]);
-
-  const funnelResult = funnelRes?.data;
-  const trendResult = trendRes?.data;
-  const isLoading = funnelLoading || trendLoading;
+  const funnelResult = detail.funnelResults as
+    | { steps: any[]; overallConversionRate: number }
+    | undefined;
 
   return (
     <>
@@ -357,23 +316,13 @@ function FunnelDetailView({ detail }: { detail: any }) {
                 might take a few moments. Please check back later.
               </Text>
             </Box>
-          ) : isLoading ? (
-            <Box className={funnelClasses.emptyState}>
-              <Loader color="teal" size="lg" />
-              <Text size="sm" c="dimmed" mt="md">
-                Loading funnel visualization…
-              </Text>
-            </Box>
           ) : funnelResult?.steps?.length ? (
             <>
               <FunnelVisualization
                 steps={funnelResult.steps}
-                totalConversionRate={
-                  trendResult?.totalConversionRate ??
-                  funnelResult.overallConversionRate
-                }
-                conversionTrend={trendResult?.conversionTrend ?? 0}
-                medianTimes={trendResult?.medianTimes ?? []}
+                totalConversionRate={funnelResult.overallConversionRate ?? 0}
+                conversionTrend={0}
+                medianTimes={[]}
               />
               <FunnelDataTable
                 steps={funnelResult.steps}
@@ -455,29 +404,6 @@ export function FunnelDetail() {
     );
   }
 
-  if (detail.kind !== "FUNNEL") {
-    return (
-      <Box
-        className={classes.shell}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "calc(100vh - 60px)",
-        }}
-      >
-        <Group mb="md">
-          <ActionIcon variant="subtle" color="gray" onClick={goBack} size="lg">
-            <IconArrowLeft size={20} />
-          </ActionIcon>
-          <Text size="sm" c="dimmed">
-            {BACK_NAV_LABEL}
-          </Text>
-        </Group>
-        <ErrorAndEmptyState message={FUNNEL_DETAIL_WRONG_KIND_MESSAGE} />
-      </Box>
-    );
-  }
-
   return (
     <Box
       className={classes.shell}
@@ -487,7 +413,7 @@ export function FunnelDetail() {
         height: "calc(100vh - 60px)",
       }}
     >
-      <FunnelJourneyDetailChrome detail={detail} onBack={goBack} />
+      <FunnelJourneyDetailChrome detail={detail} kind="FUNNEL" onBack={goBack} />
       <FunnelDetailView detail={detail} />
     </Box>
   );

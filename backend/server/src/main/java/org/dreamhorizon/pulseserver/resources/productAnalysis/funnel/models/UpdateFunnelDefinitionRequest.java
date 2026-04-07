@@ -6,14 +6,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-
-import java.time.Instant;
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.Instant;
+import java.util.List;
 
 /**
  * Full replacement body for PUT /v1/funnels/{id}.
@@ -47,11 +46,12 @@ public class UpdateFunnelDefinitionRequest {
   @NotNull
   private Long windowSeconds;
 
-  @NotNull
-  private FunnelMode mode;
+  @Builder.Default
+  private FunnelMode mode = FunnelMode.UNIQUE_USERS;
 
   @NotNull
-  private Integer dateRangeDays;
+  @Builder.Default
+  private Integer dateRangeDays = 7;
 
   private Instant startTime;
 
