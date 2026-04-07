@@ -2,7 +2,7 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem
+  ComboboxItem,
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
@@ -17,9 +17,12 @@ import {
   IconRobot,
   IconRoute,
   IconUsers,
-  IconVideo
+  IconVideo,
 } from "@tabler/icons-react";
-import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
+import {
+  CriticalInteractionDetailsFilterValues,
+  TimeFilter,
+} from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -28,7 +31,7 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps
+  FormSteps,
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
