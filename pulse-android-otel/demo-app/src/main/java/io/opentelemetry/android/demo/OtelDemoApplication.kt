@@ -49,7 +49,7 @@ class OtelDemoApplication : Application() {
         runCatching {
             PulseSDK.INSTANCE.initialize(
                 application = application,
-                endpointBaseUrl = "http://10.0.2.2:4318",
+                endpointBaseUrl = OtelDemoInstrumentationHooks.otlpEndpointBaseUrl,
                 dataCollectionState = PulseDataCollectionConsent.ALLOWED,
                 apiKey = DEMO_API_KEY,
                 globalAttributes = {
@@ -62,7 +62,7 @@ class OtelDemoApplication : Application() {
             ) {
                 interaction {
                     enabled(true)
-                    setConfigUrl { "http://10.0.2.2:8080/v1/interaction-configs/" }
+                    setConfigUrl { OtelDemoInstrumentationHooks.interactionConfigUrl }
                 }
                 activity {
                     enabled(true)

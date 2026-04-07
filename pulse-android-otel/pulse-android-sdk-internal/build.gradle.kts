@@ -41,4 +41,6 @@ dependencies {
     testImplementation(testFixtures(projects.pulseSamplingModels))
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlin.coroutinesTest)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
