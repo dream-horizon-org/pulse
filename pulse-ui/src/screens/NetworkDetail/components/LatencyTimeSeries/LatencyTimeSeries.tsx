@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Box, Text } from "@mantine/core";
 import { IconChartLine, IconClock } from "@tabler/icons-react";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
 import { LineChart, CustomToolTip, createTooltipFormatter } from "../../../../components/Charts";
 import { ChartSkeleton } from "../../../../components/Skeletons";
@@ -9,6 +10,8 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { LatencyTimeSeriesProps } from "./LatencyTimeSeries.interface";
 import classes from "./LatencyTimeSeries.module.css";
+
+dayjs.extend(utc);
 
 const SERIES_COLORS: Record<string, string> = {
   avg: "#0ec9c2",
@@ -142,10 +145,12 @@ export const LatencyTimeSeries: React.FC<LatencyTimeSeriesProps> = ({
   );
 
   const formatTime = (timestamp: string) => {
-    const date = dayjs(timestamp);
+    const date = dayjs.utc(timestamp);
+    if (!date.isValid()) return String(timestamp);
     if (bucketSize.includes("d")) {
       return date.format("MMM DD");
-    } else if (bucketSize.includes("h")) {
+    }
+    if (bucketSize.includes("h")) {
       return date.format("MMM DD HH:mm");
     }
     return date.format("HH:mm");
@@ -244,7 +249,8 @@ export const LatencyTimeSeries: React.FC<LatencyTimeSeriesProps> = ({
               confine: true,
               formatter: createTooltipFormatter({
                 valueFormatter: (value: number) => formatLatency(value),
-                customHeaderFormatter: (axisValue: any) => axisValue || "",
+                customHeaderFormatter: (axisValue: any) =>
+                  axisValue ? formatTime(String(axisValue)) : "",
               }),
             },
             legend: {
@@ -253,12 +259,13 @@ export const LatencyTimeSeries: React.FC<LatencyTimeSeriesProps> = ({
             },
             xAxis: {
               type: "category",
-              data: timePoints.map(formatTime),
+              data: timePoints,
               axisTick: {
                 alignWithLabel: true,
               },
               axisLabel: {
                 fontSize: 10,
+                formatter: (v: string) => formatTime(v),
               },
             },
             yAxis: {
