@@ -148,18 +148,12 @@ function FunnelDetailView({ detail }: { detail: any }) {
       windowSeconds: detail.windowSeconds ?? 86400,
       filters: mapDetailFilters(detail),
     }),
-    [
-      detail.id,
-      detail.steps,
-      detail.timeRange,
-      detail.windowSeconds,
-      detail.filters,
-    ],
+    [detail],
   );
 
   const visualizationTimeRange = useMemo(
     () => detail.timeRange ?? getDateRangeFromPreset("7d"),
-    [detail.id, detail.timeRange],
+    [detail.timeRange],
   );
 
   useEffect(() => {
@@ -469,14 +463,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
       timeRange: detail.timeRange ?? getDateRangeFromPreset("7d"),
       filters: mapDetailFilters(detail),
     }),
-    [
-      detail.id,
-      detail.direction,
-      detail.anchorEvent,
-      detail.depth,
-      detail.timeRange,
-      detail.filters,
-    ],
+    [detail],
   );
 
   const isChanged = useMemo(() => {
@@ -691,7 +678,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
 
 export function FunnelJourneyDetail() {
   const navigate = useNavigate();
-  const { projectId, id } = useParams<{ projectId: string; id: string }>();
+  const { id } = useParams<{ projectId: string; id: string }>();
   const { data: apiResponse, isLoading, error } = useGetFunnelJourneyDetail(id);
   const detail = apiResponse?.data ?? null;
   const isNotFound = apiResponse?.status === 404;
