@@ -1,6 +1,8 @@
 package org.dreamhorizon.pulseserver.dao.rootcause;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 /** SQL for otel.root_cause_cache (ReplacingMergeTree). */
@@ -14,7 +16,7 @@ public final class RootCauseCacheQueries {
    * {@link #buildSelectByKeyQuery(String, String, String)}.
    */
   public static final String SELECT_FROM_ROOT_CAUSE_CACHE_FINAL =
-      "SELECT project_id, interaction_name, date, mode, baseline, segments, cached_at"
+      "SELECT project_id, interaction_name, date, window_end_utc, mode, baseline, segments, cached_at"
           + " FROM otel.root_cause_cache FINAL";
 
   /**
@@ -22,7 +24,7 @@ public final class RootCauseCacheQueries {
    * {@link #buildInsertQuery(String, String, String, String, String, String, LocalDateTime)}.
    */
   public static final String INSERT_INTO_ROOT_CAUSE_CACHE =
-      "INSERT INTO otel.root_cause_cache (project_id, interaction_name, date, mode, baseline, "
+      "INSERT INTO otel.root_cause_cache (project_id, interaction_name, date, window_end_utc, mode, baseline, "
           + "segments, cached_at) VALUES ";
 
   /**
@@ -31,16 +33,19 @@ public final class RootCauseCacheQueries {
    * @param projectId project id
    * @param interactionName interaction name
    * @param dateIso cache date as {@code yyyy-MM-dd}
+   * @param windowEndExclusiveUtc exclusive window end (UTC)
    * @return full SQL
    */
   public static String buildSelectByKeyQuery(
       final String projectId,
       final String interactionName,
-      final String dateIso) {
+      final String dateIso,
+      final Instant windowEndExclusiveUtc) {
     return SELECT_FROM_ROOT_CAUSE_CACHE_FINAL
         + " WHERE project_id = '" + escape(projectId) + "'"
         + " AND interaction_name = '" + escape(interactionName) + "'"
-        + " AND date = '" + escape(dateIso) + "'";
+        + " AND date = '" + escape(dateIso) + "'"
+        + " AND window_end_utc = " + toDateTime64Literal(windowEndExclusiveUtc);
   }
 
   /**
@@ -49,6 +54,7 @@ public final class RootCauseCacheQueries {
    * @param projectId project id
    * @param interactionName interaction name
    * @param dateIso cache date as {@code yyyy-MM-dd}
+   * @param windowEndExclusiveUtc exclusive window end (UTC)
    * @param mode analysis mode
    * @param baselineJson baseline JSON
    * @param segmentsJson segments JSON
@@ -59,6 +65,7 @@ public final class RootCauseCacheQueries {
       final String projectId,
       final String interactionName,
       final String dateIso,
+      final Instant windowEndExclusiveUtc,
       final String mode,
       final String baselineJson,
       final String segmentsJson,
@@ -70,11 +77,18 @@ public final class RootCauseCacheQueries {
         + "'" + escape(projectId) + "',"
         + "'" + escape(interactionName) + "',"
         + "'" + dateIso + "',"
+        + toDateTime64Literal(windowEndExclusiveUtc) + ","
         + "'" + escape(mode) + "',"
         + "'" + escapeJson(baselineJson) + "',"
         + "'" + escapeJson(segmentsJson) + "',"
         + "toDateTime64('" + escape(cachedAtStr) + "', 3, 'UTC')"
         + ")";
+  }
+
+  private static String toDateTime64Literal(Instant instant) {
+    String formatted =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC).format(instant);
+    return "toDateTime64('" + escape(formatted) + "', 3, 'UTC')";
   }
 
   private static String escape(final String s) {

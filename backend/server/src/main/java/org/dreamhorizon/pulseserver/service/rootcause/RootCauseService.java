@@ -45,11 +45,13 @@ public class RootCauseService {
 
   /**
    * Returns root cause analysis for the interaction. Read-through persistence in ClickHouse;
-   * computes on miss. Use {@link #getRootCause(String, String, LocalDate, boolean)} with
-   * {@code forceRefresh true} to recompute and replace the stored row.
+   * computes on miss. {@code windowEndExclusiveUtc} is the exclusive upper bound on span timestamps
+   * (typically request-time {@code Instant.now()}). Use {@link #getRootCause(String, String, LocalDate,
+   * Instant, boolean)} with {@code forceRefresh true} to recompute and replace the stored row.
    */
-  public Single<RootCauseResult> getRootCause(String projectId, String interactionName, LocalDate date) {
-    return getRootCause(projectId, interactionName, date, false);
+  public Single<RootCauseResult> getRootCause(
+      String projectId, String interactionName, LocalDate anchorDateUtc, Instant windowEndExclusiveUtc) {
+    return getRootCause(projectId, interactionName, anchorDateUtc, windowEndExclusiveUtc, false);
   }
 
   /**
@@ -58,17 +60,24 @@ public class RootCauseService {
   public Single<RootCauseResult> getRootCause(
       String projectId,
       String interactionName,
-      LocalDate date,
+      LocalDate anchorDateUtc,
+      Instant windowEndExclusiveUtc,
       boolean forceRefresh
   ) {
-    RootCauseQueryBuilder.Window window = new RootCauseQueryBuilder.Window(date, config.getLookbackDays());
-    if (forceRefresh) {
-      return computeAndCache(projectId, interactionName, date, window);
+    final RootCauseQueryBuilder.Window window;
+    try {
+      window =
+          new RootCauseQueryBuilder.Window(anchorDateUtc, config.getLookbackDays(), windowEndExclusiveUtc);
+    } catch (IllegalArgumentException e) {
+      return Single.error(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(e.getMessage()));
     }
-    return cacheDao.findByKey(projectId, interactionName, date)
+    if (forceRefresh) {
+      return computeAndCache(projectId, interactionName, anchorDateUtc, window);
+    }
+    return cacheDao.findByKey(projectId, interactionName, anchorDateUtc, windowEndExclusiveUtc)
         .flatMap(opt -> {
           if (opt.isEmpty()) {
-            return computeAndCache(projectId, interactionName, date, window);
+            return computeAndCache(projectId, interactionName, anchorDateUtc, window);
           }
           return Single.just(fromCacheRow(opt.get()));
         });
@@ -130,10 +139,11 @@ public class RootCauseService {
               projectId,
               interactionName,
               date,
+              window.endExclusive,
               modeForCache.getWireValue(),
               baselineJson,
               segmentsJson,
-              java.time.LocalDateTime.now()
+              java.time.LocalDateTime.now(ZoneOffset.UTC)
           ).andThen(Single.just(result.toBuilder().cachedAt(Instant.now()).build()));
         });
   }

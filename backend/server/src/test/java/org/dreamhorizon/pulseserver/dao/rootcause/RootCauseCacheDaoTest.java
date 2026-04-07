@@ -7,8 +7,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
@@ -31,6 +33,7 @@ class RootCauseCacheDaoTest {
   private static final String PROJECT = "proj-a";
   private static final String INTERACTION = "pay";
   private static final LocalDate DATE = LocalDate.of(2025, 4, 1);
+  private static final Instant WINDOW_END = LocalDateTime.of(2025, 4, 1, 14, 0).toInstant(ZoneOffset.UTC);
 
   @Mock
   private ClickhouseQueryService clickhouseQueryService;
@@ -56,7 +59,7 @@ class RootCauseCacheDaoTest {
                       .build()));
 
       Optional<RootCauseCacheRow> result =
-          dao.findByKey(PROJECT, INTERACTION, DATE).blockingGet();
+          dao.findByKey(PROJECT, INTERACTION, DATE, WINDOW_END).blockingGet();
 
       assertThat(result).isEmpty();
     }
@@ -82,7 +85,7 @@ class RootCauseCacheDaoTest {
                       .build()));
 
       Optional<RootCauseCacheRow> result =
-          dao.findByKey(PROJECT, INTERACTION, DATE).blockingGet();
+          dao.findByKey(PROJECT, INTERACTION, DATE, WINDOW_END).blockingGet();
 
       assertThat(result).contains(row);
     }
@@ -97,7 +100,7 @@ class RootCauseCacheDaoTest {
                       .rows(List.of())
                       .build()));
 
-      dao.findByKey(PROJECT, INTERACTION, DATE).blockingGet();
+      dao.findByKey(PROJECT, INTERACTION, DATE, WINDOW_END).blockingGet();
 
       ArgumentCaptor<QueryConfiguration> captor = ArgumentCaptor.forClass(QueryConfiguration.class);
       verify(clickhouseQueryService).executeQueryOrCreateJob(captor.capture(), eq(RootCauseCacheRow.class));
@@ -106,6 +109,7 @@ class RootCauseCacheDaoTest {
       assertThat(q).contains("proj-a");
       assertThat(q).contains("pay");
       assertThat(q).contains("2025-04-01");
+      assertThat(q).contains("window_end_utc");
       assertThat(captor.getValue().getProjectId()).isEqualTo(PROJECT);
     }
   }
@@ -122,7 +126,15 @@ class RootCauseCacheDaoTest {
       when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
           .thenReturn(Single.just(ok));
 
-      dao.upsert(PROJECT, INTERACTION, DATE, "flat", "{}", "[]", LocalDateTime.of(2025, 4, 1, 12, 0))
+      dao.upsert(
+              PROJECT,
+              INTERACTION,
+              DATE,
+              WINDOW_END,
+              "flat",
+              "{}",
+              "[]",
+              LocalDateTime.of(2025, 4, 1, 12, 0))
           .blockingAwait();
 
       ArgumentCaptor<QueryConfiguration> captor = ArgumentCaptor.forClass(QueryConfiguration.class);
@@ -137,7 +149,7 @@ class RootCauseCacheDaoTest {
           .thenReturn(Single.error(new RuntimeException("clickhouse down")));
 
       io.reactivex.rxjava3.observers.TestObserver<Void> observer = new io.reactivex.rxjava3.observers.TestObserver<>();
-      dao.upsert(PROJECT, INTERACTION, DATE, "m", "{}", "[]", LocalDateTime.now())
+      dao.upsert(PROJECT, INTERACTION, DATE, WINDOW_END, "m", "{}", "[]", LocalDateTime.now())
           .subscribe(observer);
       observer.assertError(RuntimeException.class);
     }

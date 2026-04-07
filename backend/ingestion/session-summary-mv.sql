@@ -120,22 +120,22 @@ GROUP BY ProjectId, SessionId;
 -- Requires otel.session_replay_events (from clickhouse-session-replay-schema.sql).
 -- Fires on insert into session_replay_events; merged with trace rows gives union of intervals.
 -- Also passes user_id so merged row can keep a non-empty userId (any() picks one when merging).
--- GROUP BY collapses any duplicate (project_id, session_id) in the same block; min/max for safety.
+-- GROUP BY collapses any duplicate (ProjectId, SessionId) in the same block; min/max for safety.
 -- Skips NULL timestamps so existing session min/max are never overwritten by nulls.
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_summary_replay_mv
 TO otel.session_summary
 AS SELECT
-    project_id                                                         AS ProjectId,
-    session_id                                                         AS sessionId,
-    min(min_first_timestamp)                                          AS startTime,
-    max(max_last_timestamp)                                            AS endTime,
-    any(user_id)                                                       AS userId
+    ProjectId,
+    SessionId                                                         AS sessionId,
+    min(MinFirstTimestamp)                                          AS startTime,
+    max(MaxLastTimestamp)                                            AS endTime,
+    any(UserId)                                                       AS userId
 FROM otel.session_replay_events
-WHERE session_id != ''
-  AND project_id != ''
-  AND min_first_timestamp IS NOT NULL
-  AND max_last_timestamp IS NOT NULL
-GROUP BY project_id, session_id;
+WHERE SessionId != ''
+  AND ProjectId != ''
+  AND MinFirstTimestamp IS NOT NULL
+  AND MaxLastTimestamp IS NOT NULL
+GROUP BY ProjectId, SessionId;
 
 
 -- =============================================================================
@@ -200,16 +200,16 @@ GROUP BY project_id, session_id;
 -- Run after 3a/3b if you want existing replay sessions to contribute to session_summary duration.
 -- INSERT INTO otel.session_summary (ProjectId, sessionId, startTime, endTime)
 -- SELECT
---     project_id                                                         AS ProjectId,
---     session_id                                                         AS sessionId,
---     min(min_first_timestamp)                                          AS startTime,
---     max(max_last_timestamp)                                            AS endTime
+--     ProjectId,
+--     SessionId                                                         AS sessionId,
+--     min(MinFirstTimestamp)                                          AS startTime,
+--     max(MaxLastTimestamp)                                            AS endTime
 -- FROM otel.session_replay_events
--- WHERE session_id != ''
---   AND project_id != ''
---   AND min_first_timestamp IS NOT NULL
---   AND max_last_timestamp IS NOT NULL
--- GROUP BY project_id, session_id;
+-- WHERE SessionId != ''
+--   AND ProjectId != ''
+--   AND MinFirstTimestamp IS NOT NULL
+--   AND MaxLastTimestamp IS NOT NULL
+-- GROUP BY ProjectId, SessionId;
 
 
 -- =============================================================================

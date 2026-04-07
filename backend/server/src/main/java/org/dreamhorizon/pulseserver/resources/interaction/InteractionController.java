@@ -17,6 +17,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
@@ -202,17 +203,20 @@ public class InteractionController {
   @RequiresPermission("can_view")
   public CompletionStage<Response<RootCauseRestResponse>> getRootCause(
       @PathParam("name") String name,
-      @QueryParam("date") String dateParam
+      @QueryParam("date") String dateParam,
+      @QueryParam("asOf") String asOfParam
   ) {
     String projectId = ProjectContext.requireProjectId();
     final LocalDate date;
+    final Instant windowEndExclusiveUtc;
     try {
       date = parseRootCauseQueryDate(dateParam);
+      windowEndExclusiveUtc = parseRootCauseAsOf(asOfParam);
     } catch (WebApplicationException e) {
       return CompletableFuture.failedFuture(e);
     }
 
-    return rootCauseService.getRootCause(projectId, name, date)
+    return rootCauseService.getRootCause(projectId, name, date, windowEndExclusiveUtc)
         .map(this::toRootCauseRestResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -226,6 +230,20 @@ public class InteractionController {
     } catch (DateTimeParseException e) {
       throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
           "Query parameter 'date' must be a valid ISO-8601 date (yyyy-MM-dd).",
+          e.getMessage());
+    }
+  }
+
+  /** Exclusive upper bound on span timestamps; ISO-8601 instant (e.g. {@code 2026-04-07T14:00:00Z}). */
+  private static Instant parseRootCauseAsOf(String asOfParam) {
+    if (asOfParam == null || asOfParam.isBlank()) {
+      return Instant.now();
+    }
+    try {
+      return Instant.parse(asOfParam);
+    } catch (DateTimeParseException e) {
+      throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+          "Query parameter 'asOf' must be a valid ISO-8601 instant (e.g. 2026-04-07T14:00:00Z).",
           e.getMessage());
     }
   }

@@ -208,14 +208,25 @@ public class RootCauseQueryBuilder {
     }
   }
 
-  /** Compute start (inclusive) and end (exclusive) for "last N days ending on date" (date = end of window, UTC). */
+  /**
+   * RCA window: {@code lookbackDays - 1} full UTC calendar days before {@code anchorDateUtc}, plus the
+   * partial day from UTC midnight on {@code anchorDateUtc} up to {@code endExclusiveUtc} (exclusive bound
+   * on span timestamps).
+   */
   public static class Window {
     public final Instant startInclusive;
     public final Instant endExclusive;
 
-    public Window(LocalDate endDateUtc, int lookbackDays) {
-      this.endExclusive = endDateUtc.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
-      this.startInclusive = endDateUtc.minusDays(lookbackDays).atStartOfDay(ZoneOffset.UTC).toInstant();
+    public Window(LocalDate anchorDateUtc, int lookbackDays, Instant endExclusiveUtc) {
+      if (lookbackDays < 1) {
+        throw new IllegalArgumentException("lookbackDays must be >= 1");
+      }
+      this.startInclusive =
+          anchorDateUtc.minusDays(lookbackDays - 1).atStartOfDay(ZoneOffset.UTC).toInstant();
+      this.endExclusive = endExclusiveUtc;
+      if (!endExclusiveUtc.isAfter(startInclusive)) {
+        throw new IllegalArgumentException("endExclusiveUtc must be after startInclusive");
+      }
     }
   }
 }

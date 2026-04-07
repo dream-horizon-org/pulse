@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.dao.rootcause;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -25,9 +26,11 @@ public class RootCauseCacheDao {
   /**
    * Reads the latest cache row by (projectId, interactionName, date) using FINAL.
    */
-  public Single<Optional<RootCauseCacheRow>> findByKey(String projectId, String interactionName, LocalDate date) {
+  public Single<Optional<RootCauseCacheRow>> findByKey(
+      String projectId, String interactionName, LocalDate date, Instant windowEndExclusiveUtc) {
     String dateStr = date.format(DATE_FMT);
-    String query = RootCauseCacheQueries.buildSelectByKeyQuery(projectId, interactionName, dateStr);
+    String query =
+        RootCauseCacheQueries.buildSelectByKeyQuery(projectId, interactionName, dateStr, windowEndExclusiveUtc);
     QueryConfiguration config = QueryConfiguration.newQuery(query)
         .projectId(projectId)
         .build();
@@ -43,6 +46,7 @@ public class RootCauseCacheDao {
       String projectId,
       String interactionName,
       LocalDate date,
+      Instant windowEndExclusiveUtc,
       String mode,
       String baselineJson,
       String segmentsJson,
@@ -53,6 +57,7 @@ public class RootCauseCacheDao {
         projectId,
         interactionName,
         dateStr,
+        windowEndExclusiveUtc,
         mode,
         baselineJson,
         segmentsJson,

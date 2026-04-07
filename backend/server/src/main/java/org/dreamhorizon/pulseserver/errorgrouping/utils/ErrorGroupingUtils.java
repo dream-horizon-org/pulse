@@ -35,7 +35,8 @@ public class ErrorGroupingUtils {
       case JS -> "js";
       case JAVA -> "java";
       case NDK -> "android-ndk";
-      default -> "unknown";
+      case IOS_NATIVE -> "ios-native";
+      case UNKNOWN -> "unknown";
     };
   }
 
