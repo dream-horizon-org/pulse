@@ -448,6 +448,27 @@ class InteractionManagerTest {
             }
 
         @Test
+        fun `after completed interaction stray event2 then event1 event2 uses new interaction id`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot("event1")
+                addEventWithNanoTimeFromBoot("event2")
+                val (firstCompletionId, _) = assertSingleFinalInteraction()
+
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+
+                addEventWithNanoTimeFromBoot("event1")
+                val secondRunOngoingId = assertSingleOngoingInteraction()
+                Assertions.assertThat(secondRunOngoingId).isNotEqualTo(firstCompletionId)
+
+                addEventWithNanoTimeFromBoot("event2")
+                val (secondCompletionId, _) = assertSingleFinalInteraction()
+                Assertions.assertThat(secondCompletionId).isNotEqualTo(firstCompletionId)
+                Assertions.assertThat(secondCompletionId).isEqualTo(secondRunOngoingId)
+            }
+
+        @Test
         fun `two interaction config with same event sequence`() =
             runTest(standardTestDispatcher) {
                 val firstConfig =
@@ -1359,6 +1380,35 @@ class InteractionManagerTest {
                 // terminal state
                 advanceTimeBy(30.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true)
+            }
+
+        @Test
+        fun `after completed interaction stray event2 then event1 event2 uses new interaction id`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            )
+                    )
+                )
+                addEventWithNanoTimeFromBoot("event1")
+                addEventWithNanoTimeFromBoot("event2")
+                val (firstCompletionId, _) = assertSingleFinalInteraction()
+
+                val timeEvent2 = addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = timeEvent2 - 1)
+                val (secondFinalInteractionId, _) = assertSingleFinalInteraction()
+
+                Assertions.assertThat(secondFinalInteractionId).isNotEqualTo(firstCompletionId)
             }
 
         @Disabled("Out of order processing is not supported")
