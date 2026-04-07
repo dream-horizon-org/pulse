@@ -33,7 +33,7 @@ import {
   useGetFunnelEvents,
   useGetFunnelFilters,
 } from "../../hooks/useGetFunnelData";
-import { buildRollingTimeRange } from "./FunnelJourneyCreate.util";
+import { FunnelType, type CreateJourneyRequestBody } from "../../services/funnels.service";
 
 export function CreateJourney() {
   const theme = useMantineTheme();
@@ -45,9 +45,7 @@ export function CreateJourney() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
-    "RECURRING",
-  );
+  const [rollingType, setRollingType] = useState<FunnelType>(FunnelType.AUTO);
   const [dateRange, setDateRange] = useState("7d");
   const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
   const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
@@ -55,7 +53,7 @@ export function CreateJourney() {
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
   const [anchorEvent, setAnchorEvent] = useState("");
-  const [direction, setDirection] = useState<"forward" | "reverse">("forward");
+  const [direction, setDirection] = useState<"START" | "END">("START");
   const [depth, setDepth] = useState(5);
 
   const { data: eventsData } = useGetFunnelEvents();
@@ -73,17 +71,6 @@ export function CreateJourney() {
     });
     return result;
   }, [filterKeys, filterValuesResults]);
-
-  const timeRange = useMemo(
-    () =>
-      buildRollingTimeRange(
-        rollingType,
-        dateRange,
-        customStartDate,
-        customEndDate,
-      ),
-    [rollingType, dateRange, customStartDate, customEndDate],
-  );
 
   const apiFilters = useMemo(() => {
     const grouped: Record<string, string[]> = {};
@@ -104,7 +91,7 @@ export function CreateJourney() {
       case 0:
         return name.trim().length > 0;
       case 1:
-        if (rollingType === "ONCE") {
+        if (rollingType === FunnelType.ONCE) {
           return !!(customStartDate && customEndDate);
         }
         return true;
@@ -129,30 +116,32 @@ export function CreateJourney() {
   };
 
   const handleCreateJourney = () => {
-    createJourney(
-      {
-        name,
-        description,
-        tags,
-        rollingType,
-        timeRange,
-        filters: apiFilters,
-        expiryDate:
-          rollingType === "RECURRING" && expiryDate
-            ? expiryDate.toISOString()
-            : undefined,
-        direction,
-        anchorEvent,
-        depth,
+    const body: CreateJourneyRequestBody = {
+      name,
+      description,
+      tags,
+      journeyType: rollingType,
+      direction,
+      anchorEvent,
+      depth,
+      filters: apiFilters,
+      dateRangeDays: parseInt(dateRange, 10) || 7,
+    };
+
+    if (rollingType === FunnelType.ONCE) {
+      if (customStartDate) body.startTime = customStartDate.toISOString();
+      if (customEndDate) body.endTime = customEndDate.toISOString();
+    } else {
+      if (expiryDate) body.expiry = expiryDate.toISOString();
+    }
+
+    createJourney(body, {
+      onSuccess: () => {
+        if (projectId) {
+          navigate(generatePath(ROUTES.JOURNEYS_LIST.path, { projectId }));
+        }
       },
-      {
-        onSuccess: () => {
-          if (projectId) {
-            navigate(generatePath(ROUTES.JOURNEYS_LIST.path, { projectId }));
-          }
-        },
-      },
-    );
+    });
   };
 
   const goBack = () => {

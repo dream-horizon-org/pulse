@@ -16,16 +16,14 @@ import {
   useGetAllFilterValues,
   useGetFunnelEvents,
   useGetFunnelFilters,
-  useGetJourneyData,
 } from "../../hooks";
-import { getDateRangeFromPreset } from "../FunnelJourneyCreate/FunnelJourneyCreate.util";
+import { FunnelType, type CreateJourneyRequestBody } from "../../services/funnels.service";
 import { useUpdateJourney } from "../../hooks/useUpdateJourney";
 import { GlobalFilterBar } from "../FunnelJourneyCreate/components/GlobalFilterBar";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { JourneyExplorer } from "../FunnelJourneyCreate/components/JourneyExplorer";
 import ReactECharts from "echarts-for-react";
 import { buildJourneySankeyOption } from "../FunnelJourneyCreate/utils/buildJourneySankeyOption";
-import { mapDetailFilters } from "./FunnelJourneyDetails.util";
 
 function JourneyDetailView({ detail }: { detail: any }) {
   const navigate = useNavigate();
@@ -33,15 +31,21 @@ function JourneyDetailView({ detail }: { detail: any }) {
   const [name, setName] = useState(detail.name || "");
   const [description, setDescription] = useState(detail.description || "");
   const [tags, setTags] = useState<string[]>(detail.tags || []);
-  const [rollingType, setRollingType] = useState<"RECURRING" | "ONCE">(
-    detail.rollingType || "RECURRING",
+  const [rollingType, setRollingType] = useState<FunnelType>(
+    detail.journeyType || FunnelType.AUTO,
   );
 
-  const [dateRange, setDateRange] = useState("7d");
-  const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
-  const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
+  const [dateRange, setDateRange] = useState(
+    detail.dateRangeDays ? `${detail.dateRangeDays}d` : "7d",
+  );
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(
+    detail.startTime ? new Date(detail.startTime) : null,
+  );
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(
+    detail.endTime ? new Date(detail.endTime) : null,
+  );
   const [expiryDate, setExpiryDate] = useState<Date | null>(
-    detail.expiryDate ? new Date(detail.expiryDate) : null,
+    detail.expiry ? new Date(detail.expiry) : null,
   );
 
   const [filters, setFilters] = useState<any[]>(
@@ -65,20 +69,6 @@ function JourneyDetailView({ detail }: { detail: any }) {
     return result;
   }, [filterKeys, filterValuesResults]);
 
-  const timeRange = useMemo(() => {
-    if (rollingType === "ONCE") {
-      return {
-        start: customStartDate
-          ? customStartDate.toISOString()
-          : new Date().toISOString(),
-        end: customEndDate
-          ? customEndDate.toISOString()
-          : new Date().toISOString(),
-      };
-    }
-    return getDateRangeFromPreset(dateRange);
-  }, [rollingType, dateRange, customStartDate, customEndDate]);
-
   const apiFilters = useMemo(() => {
     const grouped: Record<string, string[]> = {};
     for (const f of filters) {
@@ -92,48 +82,24 @@ function JourneyDetailView({ detail }: { detail: any }) {
   }, [filters]);
 
   const [anchorEvent, setAnchorEvent] = useState(detail.anchorEvent || "");
-  const [direction, setDirection] = useState<"forward" | "reverse">(
-    detail.direction || "forward",
+  const [direction, setDirection] = useState<"START" | "END">(
+    detail.direction || "START",
   );
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [depth, setDepth] = useState(detail.depth || 5);
-
-  const [initialDataFetched, setInitialDataFetched] = useState(false);
-
-  const stableJourneyRequestBody = useMemo(
-    () => ({
-      direction: detail.direction || "forward",
-      anchorEvent: detail.anchorEvent || "",
-      depth: detail.depth ?? 5,
-      timeRange: detail.timeRange ?? getDateRangeFromPreset("7d"),
-      filters: mapDetailFilters(detail),
-    }),
-    // Intentionally tied to persisted fields only, not the whole detail object
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable snapshot for journey explore API
-    [
-      detail.id,
-      detail.direction,
-      detail.anchorEvent,
-      detail.depth,
-      detail.timeRange,
-      detail.filters,
-    ],
-  );
 
   const isChanged = useMemo(() => {
     if (name !== detail.name) return true;
     if (description !== detail.description) return true;
     if (JSON.stringify(tags) !== JSON.stringify(detail.tags || [])) return true;
-    if (rollingType !== (detail.rollingType || "RECURRING")) return true;
+    if (rollingType !== (detail.journeyType || FunnelType.AUTO)) return true;
     if (
       expiryDate?.toISOString() !==
-      (detail.expiryDate
-        ? new Date(detail.expiryDate).toISOString()
-        : undefined)
+      (detail.expiry ? new Date(detail.expiry).toISOString() : undefined)
     )
       return true;
     if (anchorEvent !== (detail.anchorEvent ?? "")) return true;
-    if (direction !== (detail.direction || "forward")) return true;
+    if (direction !== (detail.direction || "START")) return true;
     if (depth !== (detail.depth || 5)) return true;
 
     const toGrouped = (pairs: Array<{ field: string; value: string }>) => {
@@ -151,17 +117,20 @@ function JourneyDetailView({ detail }: { detail: any }) {
     if (JSON.stringify(toGrouped(currentFiltersFlat)) !== JSON.stringify(toGrouped(originalFiltersFlat)))
       return true;
 
-    const origStartIso = detail.timeRange?.start
-      ? new Date(detail.timeRange.start).toISOString()
+    const origStartIso = detail.startTime
+      ? new Date(detail.startTime).toISOString()
       : undefined;
     if (customStartDate?.toISOString() !== origStartIso) return true;
 
-    const origEndIso = detail.timeRange?.end
-      ? new Date(detail.timeRange.end).toISOString()
+    const origEndIso = detail.endTime
+      ? new Date(detail.endTime).toISOString()
       : undefined;
     if (customEndDate?.toISOString() !== origEndIso) return true;
 
-    if (dateRange !== "7d") return true;
+    const origDateRange = detail.dateRangeDays
+      ? `${detail.dateRangeDays}d`
+      : "7d";
+    if (dateRange !== origDateRange) return true;
 
     return false;
   }, [
@@ -182,24 +151,28 @@ function JourneyDetailView({ detail }: { detail: any }) {
 
   const { mutate: updateJourney, isPending: isUpdating } = useUpdateJourney();
 
-  const handleUpdate = (config: any) => {
+  const handleUpdate = () => {
+    const body: CreateJourneyRequestBody = {
+      name,
+      description,
+      tags,
+      journeyType: rollingType,
+      direction,
+      anchorEvent,
+      depth,
+      filters: apiFilters,
+      dateRangeDays: parseInt(dateRange, 10) || 7,
+    };
+
+    if (rollingType === FunnelType.ONCE) {
+      if (customStartDate) body.startTime = customStartDate.toISOString();
+      if (customEndDate) body.endTime = customEndDate.toISOString();
+    } else {
+      if (expiryDate) body.expiry = expiryDate.toISOString();
+    }
+
     updateJourney(
-      {
-        id: detail.id,
-        payload: {
-          name,
-          description,
-          tags,
-          rollingType,
-          timeRange,
-          filters: apiFilters,
-          expiryDate:
-            rollingType === "RECURRING" && expiryDate
-              ? expiryDate.toISOString()
-              : undefined,
-          ...config,
-        },
-      },
+      { id: detail.id, payload: body },
       {
         onSuccess: () => {
           if (projectId) {
@@ -210,38 +183,20 @@ function JourneyDetailView({ detail }: { detail: any }) {
     );
   };
 
-  const journeyVizStatuses = ["ACTIVE", "COMPLETED", "WARN"];
-
-  const { data, isLoading } = useGetJourneyData({
-    requestBody: stableJourneyRequestBody,
-    enabled:
-      !initialDataFetched &&
-      !!detail.anchorEvent &&
-      journeyVizStatuses.includes(detail.status),
-  });
-
-  useEffect(() => {
-    setInitialDataFetched(false);
-  }, [detail.id]);
-
-  useEffect(() => {
-    if (data?.data != null && !initialDataFetched) {
-      setInitialDataFetched(true);
-    }
-  }, [data, initialDataFetched]);
+  const journeyData = detail.journeyResults as
+    | { nodes: any[]; links: any[] }
+    | undefined;
 
   useEffect(() => {
     if (
-      (detail.rollingType || "RECURRING") === "ONCE" &&
-      detail.timeRange?.start &&
-      detail.timeRange?.end
+      (detail.journeyType || FunnelType.AUTO) === FunnelType.ONCE &&
+      detail.startTime &&
+      detail.endTime
     ) {
-      setCustomStartDate(new Date(detail.timeRange.start));
-      setCustomEndDate(new Date(detail.timeRange.end));
+      setCustomStartDate(new Date(detail.startTime));
+      setCustomEndDate(new Date(detail.endTime));
     }
-  }, [detail.id, detail.rollingType, detail.timeRange]);
-
-  const journeyData = data?.data;
+  }, [detail.id, detail.journeyType, detail.startTime, detail.endTime]);
 
   return (
     <>
@@ -302,9 +257,9 @@ function JourneyDetailView({ detail }: { detail: any }) {
           <Box className={funnelClasses.journeyCanvas} style={{ padding: 0 }}>
             <Box className={funnelClasses.sankeyContainer}>
               <Text size="sm" fw={600} c="dark.7" mb="md">
-                {(detail.direction || "forward") === "forward"
-                  ? "Forward"
-                  : "Reverse"}{" "}
+                {(detail.direction || "START") === "START"
+                  ? "Start Point"
+                  : "End Point"}{" "}
                 journey from{" "}
                 <Text span c="teal" fw={700}>
                   {detail.anchorEvent || "—"}
@@ -323,17 +278,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
                     might take a few moments. Please check back later.
                   </Text>
                 </Box>
-              ) : isLoading ? (
-                <Box
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    padding: 80,
-                  }}
-                >
-                  <Loader color="teal" size="lg" />
-                </Box>
-              ) : journeyData ? (
+              ) : journeyData?.nodes?.length ? (
                 <ReactECharts
                   option={buildJourneySankeyOption(journeyData)}
                   style={{ height: "520px", width: "100%" }}

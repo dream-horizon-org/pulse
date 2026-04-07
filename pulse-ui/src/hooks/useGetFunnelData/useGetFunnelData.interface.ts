@@ -145,7 +145,7 @@ export interface JourneyResponse {
 }
 
 export interface JourneyRequestBody {
-  direction: "forward" | "reverse";
+  direction: "START" | "END";
   anchorEvent: string;
   depth: number;
   timeRange: TimeRange;

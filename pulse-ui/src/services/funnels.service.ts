@@ -232,6 +232,26 @@ export interface CreateFunnelRequestBody {
  */
 export type UpdateFunnelRequestBody = CreateFunnelRequestBody;
 
+/** Request body for POST /v1/journeys (create) and PUT /v1/journeys/:id (update). */
+export interface CreateJourneyRequestBody {
+  name: string;
+  description?: string;
+  tags?: string[];
+  journeyType: FunnelType;
+  direction: "START" | "END";
+  anchorEvent: string;
+  depth: number;
+  filters?: FunnelFilter[];
+  /** AUTO journeys — rolling window size in days. */
+  dateRangeDays?: number;
+  /** AUTO journeys — ISO-8601 datetime after which the journey stops refreshing. */
+  expiry?: string;
+  /** ONCE journeys — ISO-8601 start of the fixed analysis window. */
+  startTime?: string;
+  /** ONCE journeys — ISO-8601 end of the fixed analysis window. */
+  endTime?: string;
+}
+
 const FUNNELS_BASE = "/v1/funnels";
 const JOURNEYS_BASE = "/v1/journeys";
 
@@ -317,7 +337,7 @@ export async function createFunnel(payload: CreateFunnelRequestBody) {
 }
 
 /** POST /v1/journeys */
-export async function createJourney(payload: Record<string, unknown>) {
+export async function createJourney(payload: CreateJourneyRequestBody) {
   return makeRequest<JourneyDetail>({
     url: `${API_BASE_URL}${JOURNEYS_BASE}`,
     init: {
@@ -343,7 +363,7 @@ export async function updateFunnel(
 }
 
 /** PUT /v1/journeys/:journeyId */
-export async function updateJourney(journeyId: string, payload: unknown) {
+export async function updateJourney(journeyId: string, payload: CreateJourneyRequestBody) {
   const encoded = encodeURIComponent(journeyId);
   return makeRequest<JourneyDetail>({
     url: `${API_BASE_URL}${JOURNEYS_BASE}/${encoded}`,
