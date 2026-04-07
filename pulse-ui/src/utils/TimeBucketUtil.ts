@@ -113,3 +113,8 @@ export function getTimeBucketSize(
   // Fallback to largest bucket if needed
   return "1d";
 }
+
+/** Duration of one aggregation bucket in milliseconds. */
+export function getBucketDurationMs(bucketSize: TimeBucketSize): number {
+  return BUCKET_SIZES_MS[bucketSize];
+}

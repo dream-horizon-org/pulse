@@ -339,6 +339,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
           {issueType === ISSUE_TYPES.ANRS && (
@@ -351,6 +352,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
           {issueType === ISSUE_TYPES.NON_FATALS && (
@@ -363,6 +365,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
 

@@ -10,6 +10,11 @@ interface UseChartReadyProps {
   group?: string;
   enableBrushSelection?: boolean;
   onTimeFilterChange?: (value: StartEndDateTimeType) => void;
+  /** When set, maps x-axis category values from brush to filter times (e.g. ISO bucket keys). */
+  mapBrushToTimeFilter?: (
+    startLabel: string,
+    endLabel: string,
+  ) => StartEndDateTimeType | null | undefined;
 }
 
 export const useChartReady = ({
@@ -17,9 +22,14 @@ export const useChartReady = ({
   group = "default",
   enableBrushSelection = true,
   onTimeFilterChange,
+  mapBrushToTimeFilter,
 }: UseChartReadyProps = {}) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { handleDateTimeApply, setActiveQuickTimeFilter } = useFilterStore();
+  const {
+    handleDateTimeApply,
+    setActiveQuickTimeFilter,
+    handleQuickTimeFilterChange,
+  } = useFilterStore();
 
   const handleBrushSelect = useCallback(
     (xMin: number, xMax: number, axisData: string[]) => {
@@ -27,11 +37,23 @@ export const useChartReady = ({
       const endDate = axisData[Math.floor(xMax)];
 
       if (startDate && endDate) {
-        const timeFilterValue: StartEndDateTimeType = {
-          startDate: getUTCDateTimeFromLocalStringDateValue(startDate),
-          endDate: getUTCDateTimeFromLocalStringDateValue(endDate),
-        };
+        const timeFilterValue: StartEndDateTimeType | null | undefined =
+          mapBrushToTimeFilter
+            ? mapBrushToTimeFilter(startDate, endDate)
+            : {
+                startDate: getUTCDateTimeFromLocalStringDateValue(startDate),
+                endDate: getUTCDateTimeFromLocalStringDateValue(endDate),
+              };
+
+        if (
+          !timeFilterValue?.startDate?.trim() ||
+          !timeFilterValue?.endDate?.trim()
+        ) {
+          return;
+        }
+
         setActiveQuickTimeFilter(-1);
+        handleQuickTimeFilterChange(-1);
         const newSearchParams = handleDateTimeApply(
           timeFilterValue,
           searchParams,
@@ -45,7 +67,9 @@ export const useChartReady = ({
       searchParams,
       setSearchParams,
       setActiveQuickTimeFilter,
+      handleQuickTimeFilterChange,
       onTimeFilterChange,
+      mapBrushToTimeFilter,
     ],
   );
   const onChartReady = useCallback(

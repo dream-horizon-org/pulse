@@ -5,9 +5,10 @@ import { QueryState } from "../../../../components/QueryState";
 import { useQueryError } from "../../../../hooks/useQueryError";
 import {
   getBucketSize,
-  formatTrendDate,
   buildCommonFilters,
+  normalizeTrendBucketTime,
 } from "../TrendGraphWithData/helpers/trendDataHelpers";
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 import { NonFatalTrendGraphProps } from "./NonFatalTrendGraph.interface";
 import type {
   FilterField,
@@ -20,9 +21,13 @@ export function NonFatalTrendGraph({
   appVersion = "all",
   osVersion = "all",
   device = "all",
+  platform = "all",
+  networkProvider = "all",
+  state = "all",
   screenName,
   title,
   lineColor,
+  onTimeFilterChange,
 }: NonFatalTrendGraphProps) {
   const bucketSize = useMemo(
     () => getBucketSize(startTime, endTime),
@@ -47,11 +52,26 @@ export function NonFatalTrendGraph({
       });
     }
 
-    const commonFilters = buildCommonFilters(appVersion, osVersion, device);
+    const commonFilters = buildCommonFilters(
+      appVersion,
+      osVersion,
+      device,
+      platform,
+      networkProvider,
+      state,
+    );
     filterArray.push(...commonFilters);
 
     return filterArray;
-  }, [appVersion, osVersion, device, screenName]);
+  }, [
+    appVersion,
+    osVersion,
+    device,
+    platform,
+    networkProvider,
+    state,
+    screenName,
+  ]);
 
   const queryResult = useGetDataQuery({
     requestBody: {
@@ -63,7 +83,7 @@ export function NonFatalTrendGraph({
       select: [
         {
           function: "TIME_BUCKET",
-          param: { bucket: bucketSize, field: "Timestamp" },
+          param: { bucket: bucketSize, field: COLUMN_NAME.TIMESTAMP },
           alias: "t1",
         },
         {
@@ -97,11 +117,11 @@ export function NonFatalTrendGraph({
       const count = parseFloat(row[countIndex]) || 0;
 
       return {
-        date: formatTrendDate(timestamp, bucketSize),
+        bucketTime: normalizeTrendBucketTime(timestamp),
         count,
       };
     });
-  }, [data, bucketSize]);
+  }, [data]);
 
   return (
     <QueryState
@@ -115,9 +135,13 @@ export function NonFatalTrendGraph({
     >
       <TrendGraph
         data={trendData}
+        bucketSize={bucketSize}
         title={title}
         dataKey="count"
         lineColor={lineColor}
+        rangeStart={startTime}
+        rangeEnd={endTime}
+        onTimeFilterChange={onTimeFilterChange}
       />
     </QueryState>
   );

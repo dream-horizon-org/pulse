@@ -180,7 +180,9 @@ export const ExceptionTable: React.FC<ExceptionTableProps> = ({
                       exception.firstSeen !== "-" &&
                       dayjs(exception.firstSeen).isValid()
                       // better readable format for date and time
-                        ? dayjs(exception.firstSeen).format("MMM D, YYYY HH:mm:ss")
+                        ? dayjs(exception.firstSeen).format(
+                            "MMM DD, YYYY HH:mm:ss",
+                          )
                         : "-"}
                     </Text>
                   </Table.Td>
@@ -189,7 +191,9 @@ export const ExceptionTable: React.FC<ExceptionTableProps> = ({
                       {exception.lastSeen &&
                       exception.lastSeen !== "-" &&
                       dayjs(exception.lastSeen).isValid()
-                        ? dayjs(exception.lastSeen).format("MMM D, YYYY HH:mm:ss")
+                        ? dayjs(exception.lastSeen).format(
+                            "MMM DD, YYYY HH:mm:ss",
+                          )
                         : "-"}
                     </Text>
                   </Table.Td>
