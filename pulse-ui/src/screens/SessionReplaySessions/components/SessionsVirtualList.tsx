@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Text,
@@ -243,12 +243,23 @@ export function SessionsVirtualList({
   error,
 }: SessionsVirtualListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const sentinelObserverRef = useRef<IntersectionObserver | null>(null);
+  const onLoadMoreRef = useRef(onLoadMore);
+  onLoadMoreRef.current = onLoadMore;
+
   const hasMoreRef = useRef(hasMore);
   const isFetchingRef = useRef(isFetching);
   const isLoadingRef = useRef(isLoading);
   hasMoreRef.current = hasMore;
   isFetchingRef.current = isFetching;
   isLoadingRef.current = isLoading;
+
+  useEffect(() => {
+    return () => {
+      sentinelObserverRef.current?.disconnect();
+      sentinelObserverRef.current = null;
+    };
+  }, []);
 
   const virtualizer = useVirtualizer({
     count: sessions.length,
@@ -259,39 +270,36 @@ export function SessionsVirtualList({
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  const handleSentinelRef = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (!el) {
-        return;
-      }
+  const handleSentinelRef = useCallback((el: HTMLDivElement | null) => {
+    sentinelObserverRef.current?.disconnect();
+    sentinelObserverRef.current = null;
 
-      const observer = new IntersectionObserver(
-        (entries) => {
-          const shouldFire =
-            entries[0]?.isIntersecting &&
-            hasMoreRef.current &&
-            !isFetchingRef.current &&
-            !isLoadingRef.current;
+    if (!el) {
+      return;
+    }
 
-          if (shouldFire) {
-            onLoadMore();
-          }
-        },
-        {
-          root: parentRef.current,
-          threshold: 0.1,
-          rootMargin: "100px",
-        },
-      );
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const shouldFire =
+          entries[0]?.isIntersecting &&
+          hasMoreRef.current &&
+          !isFetchingRef.current &&
+          !isLoadingRef.current;
 
-      observer.observe(el);
+        if (shouldFire) {
+          onLoadMoreRef.current();
+        }
+      },
+      {
+        root: parentRef.current,
+        threshold: 0.1,
+        rootMargin: "100px",
+      },
+    );
 
-      return () => {
-        observer.disconnect();
-      };
-    },
-    [onLoadMore, parentRef],
-  );
+    sentinelObserverRef.current = observer;
+    observer.observe(el);
+  }, []);
 
   return (
     <div>

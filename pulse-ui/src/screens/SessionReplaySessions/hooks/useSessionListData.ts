@@ -145,8 +145,11 @@ export function useSessionListData({
           setSessions((prev) => [...prev, ...response.sessions]);
         }
 
-        setCursor(response.page.nextCursor ?? null);
-        setHasMore(response.page.hasMore);
+        const next = response.page.nextCursor ?? null;
+        setCursor(next);
+        // Cursor-based listing cannot continue without nextCursor; if the API
+        // sets hasMore without a cursor, requesting "next" would repeat page 1.
+        setHasMore(next != null && response.page.hasMore);
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         setError(error);
@@ -184,7 +187,7 @@ export function useSessionListData({
         return;
       }
 
-      if (cursorRef.current === null && !hasMoreRef.current) {
+      if (cursorRef.current === null) {
         return;
       }
 
