@@ -37,7 +37,7 @@ const BUCKET_SIZES_MS: Record<TimeBucketSize, number> = {
   "3h": 3 * 60 * 60 * 1000,
   "6h": 6 * 60 * 60 * 1000,
   "12h": 12 * 60 * 60 * 1000,
-  "1d": 1 * 24 * 60 * 60 * 1000,
+  "1d": 1 * 24 * 60 * 60 * 1000
   // "3d": 3 * 24 * 60 * 60 * 1000,
   // "1w": 7 * 24 * 60 * 60 * 1000,
   // "2w": 14 * 24 * 60 * 60 * 1000,
@@ -60,7 +60,7 @@ const BUCKET_ORDER: TimeBucketSize[] = [
   "3h",
   "6h",
   "12h",
-  "1d",
+  "1d"
   // "3d",
   // "1w",
   // "2w",
@@ -71,7 +71,7 @@ const BUCKET_ORDER: TimeBucketSize[] = [
   // "1y",
 ];
 
-const MAX_POINTS = 20;
+const MAX_POINTS = 100;
 const MIN_BUCKET_SIZE_MS = 1 * 60 * 1000; // 1 minutes
 const MAX_TIME_RANGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
@@ -86,7 +86,7 @@ export function getTimeBucketSize(
   startTime: string,
   endTime: string,
 ): TimeBucketSize {
-  if (!startTime || !endTime) return "5m";
+  if (!startTime || !endTime) return "1m";
 
   const start = new Date(startTime).getTime();
   const end = new Date(endTime).getTime();
