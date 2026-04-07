@@ -36,9 +36,6 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Session Replay integration: mirrors PostHog Android (Curtains, touch events, screenshot + wireframe).
  * Implements [SessionReplayController]. Install via [install]; provide [ReplayEventEmitter] to receive events.
- *
- * @param sessionIdProvider Supplies the session ID for each batch (e.g. from RUM [SessionProvider]).
- *   Replay batches use this ID so they align with the same session as other telemetry.
  */
 public class SessionReplayIntegration(
     private val context: Context,
