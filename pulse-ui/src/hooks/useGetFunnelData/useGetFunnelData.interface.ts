@@ -1,8 +1,11 @@
-import { FilterField, TimeRange } from "../useGetDataQuery/useGetDataQuery.interface";
+import {
+  FilterField,
+  TimeRange,
+} from "../useGetDataQuery/useGetDataQuery.interface";
 
 export interface FunnelStep {
   eventName: string;
-  dataType: "TRACES" | "LOGS";
+  dataType?: "TRACES" | "LOGS";
   pulseType?: string;
 }
 
@@ -98,18 +101,6 @@ export interface GetFunnelSessionsParams {
   enabled?: boolean;
 }
 
-// Conversion trend
-export interface FunnelTrendResponse {
-  totalConversionRate: number;
-  conversionTrend: number;
-  medianTimes: (number | null)[];
-}
-
-export interface GetFunnelTrendParams {
-  requestBody: FunnelRequestBody;
-  enabled?: boolean;
-}
-
 // Grouped funnel
 export interface FunnelGroupedStepResult {
   stepName: string;
@@ -171,9 +162,14 @@ export interface FunnelEventsResponse {
   events: string[];
 }
 
-// Funnel filter options
+// Funnel filter options — server returns only the list of filter key strings
 export interface FunnelFiltersResponse {
-  filters: Record<string, string[]>;
+  filters: string[];
+}
+
+// Values for a single filter key
+export interface FunnelFilterValuesResponse {
+  values: string[];
 }
 
 // Tags

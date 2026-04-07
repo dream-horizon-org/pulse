@@ -134,15 +134,18 @@ public class MainModule extends VertxAbstractModule {
 
     bind(OpenFgaService.class).toProvider(() -> {
         OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-        if (config != null && config.isEnabled()) {
+        try {
+            // OpenFgaService constructor handles null / disabled config gracefully
+            // by setting enabled=false and returning a safe no-op instance.
+            return new OpenFgaService(config);
+        } catch (Exception e) {
+            log.error("Failed to initialize OpenFgaService, falling back to disabled mode: {}", e.getMessage());
             try {
-                return new OpenFgaService(config);
-            } catch (Exception e) {
-                log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-                return null;
+                return new OpenFgaService(null);
+            } catch (Exception fallbackEx) {
+                throw new RuntimeException("Failed to create disabled OpenFgaService fallback", fallbackEx);
             }
         }
-          return null;
     }).in(Singleton.class);
 
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);

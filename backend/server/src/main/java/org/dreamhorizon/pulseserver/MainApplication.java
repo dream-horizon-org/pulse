@@ -7,8 +7,10 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.FileSystemOptions;
 import io.vertx.core.impl.cpu.CpuCoreSensor;
+
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
@@ -32,10 +34,10 @@ public class MainApplication extends Launcher {
   @Override
   public void beforeStartingVertx(VertxOptions vertxOptions) {
     vertxOptions
-        .setEventLoopPoolSize(this.getNumOfCores())
-        .setPreferNativeTransport(true)
-        .setFileSystemOptions(new FileSystemOptions().setClassPathResolvingEnabled(true))
-        .setWorkerPoolSize(10);
+      .setEventLoopPoolSize(2)
+      .setPreferNativeTransport(true)
+      .setFileSystemOptions(new FileSystemOptions().setClassPathResolvingEnabled(true))
+      .setWorkerPoolSize(10);
   }
 
   @Override
@@ -53,21 +55,21 @@ public class MainApplication extends Launcher {
     ApplicationConfig config = SharedDataUtils.get(vertx, ApplicationConfig.class);
     long shutdownDelayInterval = config.shutdownGracePeriod;
     Completable.complete()
-        .doOnComplete(() -> MaintenanceUtil.setShutdownStatus(vertx))
-        .delay(shutdownDelayInterval, TimeUnit.SECONDS)
-        .doOnComplete(() -> log.info("Successfully stopped application"))
-        .blockingSubscribe();
+      .doOnComplete(() -> MaintenanceUtil.setShutdownStatus(vertx))
+      .delay(shutdownDelayInterval, TimeUnit.SECONDS)
+      .doOnComplete(() -> log.info("Successfully stopped application"))
+      .blockingSubscribe();
   }
 
   protected Module[] getGoogleGuiceModules(Vertx vertx) {
-    return new Module[] {
-        new MainModule(vertx),
-        new ConfigModule(vertx),
-        new ValidationModule(),
-        new UploadInteractionDetailModule(vertx),
-        new InteractionModule(),
-        new QueryEngineModule(),
-        new EventDefinitionModule()
+    return new Module[]{
+      new MainModule(vertx),
+      new ConfigModule(vertx),
+      new ValidationModule(),
+      new UploadInteractionDetailModule(vertx),
+      new InteractionModule(),
+      new QueryEngineModule(),
+      new EventDefinitionModule()
     };
   }
 }

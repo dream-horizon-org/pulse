@@ -932,49 +932,44 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
-  FUNNEL_ANALYZE: {
-    key: "FUNNEL_ANALYZE",
-    apiPath: `/v1/funnel/analyze`,
+  FUNNEL_CREATE: {
+    key: "FUNNEL_CREATE",
+    apiPath: `/v1/funnels`,
     method: API_METHODS.POST,
   },
-  FUNNEL_HEALTH: {
-    key: "FUNNEL_HEALTH",
-    apiPath: `/v1/funnel/health`,
-    method: API_METHODS.POST,
+  FUNNEL_DETAILS: {
+    key: "FUNNEL_DETAILS",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.GET,
   },
   FUNNEL_SESSIONS: {
     key: "FUNNEL_SESSIONS",
-    apiPath: `/v1/funnel/sessions`,
-    method: API_METHODS.POST,
-  },
-  FUNNEL_TREND: {
-    key: "FUNNEL_TREND",
-    apiPath: `/v1/funnel/trend`,
+    apiPath: `/v1/funnels/sessions`,
     method: API_METHODS.POST,
   },
   FUNNEL_GROUPED: {
     key: "FUNNEL_GROUPED",
-    apiPath: `/v1/funnel/grouped`,
+    apiPath: `/v1/funnels/grouped`,
     method: API_METHODS.POST,
   },
   JOURNEY_EXPLORE: {
     key: "JOURNEY_EXPLORE",
-    apiPath: `/v1/journey/explore`,
+    apiPath: `/v1/journeys/explore`,
     method: API_METHODS.POST,
   },
   FUNNEL_EVENTS: {
     key: "FUNNEL_EVENTS",
-    apiPath: `/v1/funnel/events`,
+    apiPath: `/v1/funnels/events`,
     method: API_METHODS.GET,
   },
   FUNNEL_FILTERS: {
     key: "FUNNEL_FILTERS",
-    apiPath: `/v1/funnel/filters`,
+    apiPath: `/v1/funnels/filters`,
     method: API_METHODS.GET,
   },
-  GET_TAGS: {
-    key: "GET_TAGS",
-    apiPath: `/v1/tags`,
+  FUNNEL_TAGS: {
+    key: "FUNNEL_TAGS",
+    apiPath: `/v1/funnels/tags`,
     method: API_METHODS.GET,
   },
   GET_TNC_STATUS: {
