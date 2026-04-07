@@ -11,7 +11,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.List;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,12 +30,8 @@ public class ClickhouseProjectService {
   private static final SecureRandom RANDOM = new SecureRandom();
   private static final int PASSWORD_LENGTH = 32;
 
-  private static final List<String> CLICKHOUSE_TABLES = List.of(
-      "otel.otel_traces",
-      "otel.otel_logs",
-      "otel.otel_metrics_gauge",
-      "otel.stack_trace_events"
-  );
+  /** Row policy applies to all tables in this database (see ClickHouse {@code ON db.*}). */
+  private static final String OTEL_DB_ALL_TABLES = "otel.*";
 
   private static final String ROOT_CAUSE_CACHE_TABLE = "otel.root_cause_cache";
 
@@ -86,23 +81,21 @@ public class ClickhouseProjectService {
 
           // Step 1: Create ClickHouse user
           String createUserSQL = String.format(
-              "CREATE USER IF NOT EXISTS %s%s IDENTIFIED WITH plaintext_password BY '%s'",
+              "CREATE USER IF NOT EXISTS %s%s IDENTIFIED WITH sha256_password BY '%s'",
               username, onCluster, password
           );
           executeSQL(adminPool, createUserSQL);
           log.info("Created ClickHouse user: {}{}", username, onCluster.isBlank() ? "" : " on cluster");
 
-          // Step 2: Create row policies for all tables (AS RESTRICTIVE to enforce filtering)
-          for (String table : CLICKHOUSE_TABLES) {
-            String policyName = generatePolicyName(projectId, table);
-            String createPolicySQL = String.format(
-                "CREATE ROW POLICY IF NOT EXISTS %s%s ON %s AS RESTRICTIVE " +
-                    "FOR SELECT USING ProjectId = '%s' TO %s",
-                policyName, onCluster, table, projectId, username
-            );
-            executeSQL(adminPool, createPolicySQL);
-            log.debug("Created row policy: {} for table: {}", policyName, table);
-          }
+          // Step 2: Single DB-wide row policy on otel.* (PERMISSIVE; same ProjectId filter for all tables)
+          String policyName = generatePolicyName(projectId);
+          String createPolicySQL = String.format(
+              "CREATE ROW POLICY IF NOT EXISTS %s%s ON %s AS PERMISSIVE " +
+                  "FOR SELECT USING ProjectId = '%s' TO %s",
+              policyName, onCluster, OTEL_DB_ALL_TABLES, projectId, username
+          );
+          executeSQL(adminPool, createPolicySQL);
+          log.debug("Created row policy: {} on {}", policyName, OTEL_DB_ALL_TABLES);
 
           // Step 3: Grant SELECT permissions
           String grantSQL = String.format("GRANT%s SELECT ON otel.* TO %s", onCluster, username);
@@ -174,20 +167,12 @@ public class ClickhouseProjectService {
             ConnectionPool adminPool = poolManager.getAdminPool();
             String onCluster = poolManager.getOnClusterClause();
 
-            // Drop row policies
-            for (String table : CLICKHOUSE_TABLES) {
-                String policyName = generatePolicyName(projectId, table);
-                String dropPolicySQL = String.format(
-                    "DROP ROW POLICY IF EXISTS %s%s ON %s",
-                    policyName, onCluster, table
-                );
-                executeSQL(adminPool, dropPolicySQL);
-            }
-            String rootCausePolicyName = generatePolicyName(projectId, ROOT_CAUSE_CACHE_TABLE);
-            executeSQL(adminPool, String.format(
-                "DROP ROW POLICY IF EXISTS %s ON %s",
-                rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE
-            ));
+            String policyName = generatePolicyName(projectId);
+            String dropPolicySQL = String.format(
+                "DROP ROW POLICY IF EXISTS %s%s ON %s",
+                policyName, onCluster, OTEL_DB_ALL_TABLES
+            );
+            executeSQL(adminPool, dropPolicySQL);
 
             // Drop user
             String dropUserSQL = String.format("DROP USER IF EXISTS %s%s", username, onCluster);
@@ -227,7 +212,7 @@ public class ClickhouseProjectService {
 
             // Update ClickHouse user password
             String alterUserSQL = String.format(
-                "ALTER USER %s%s IDENTIFIED WITH plaintext_password BY '%s'",
+                "ALTER USER %s%s IDENTIFIED WITH sha256_password BY '%s'",
                 username, onCluster, newPassword
             );
             executeSQL(adminPool, alterUserSQL);
@@ -273,10 +258,9 @@ public class ClickhouseProjectService {
 
     // ==================== PRIVATE HELPERS ====================
 
-  private String generatePolicyName(String projectId, String tableName) {
+  private String generatePolicyName(String projectId) {
     String sanitized = projectId.replace("-", "_").replace("proj_", "");
-    String tableShort = tableName.replace("otel.", "").replace("_", "");
-    return String.format("proj_%s_policy_%s", sanitized, tableShort);
+    return "policy_" + sanitized;
   }
 
   private void executeSQL(ConnectionPool adminPool, String sql) {

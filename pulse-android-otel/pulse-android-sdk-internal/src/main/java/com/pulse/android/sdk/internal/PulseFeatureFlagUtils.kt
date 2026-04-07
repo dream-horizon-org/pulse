@@ -15,7 +15,7 @@ internal object PulseFeatureFlagUtils {
     /**
      * Holds the result of applying feature flags.
      *
-     * @param isCustomEventEnabled whether the CUSTOM_EVENTS feature remains enabled
+     * @property isCustomEventEnabled whether the CUSTOM_EVENTS feature remains enabled
      */
     internal data class FeatureFlagResult(
         val isCustomEventEnabled: Boolean,
