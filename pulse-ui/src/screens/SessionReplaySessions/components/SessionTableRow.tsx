@@ -9,6 +9,7 @@ import {
   getIssueBadgeColor,
   formatImpactedScreensPreview,
   formatImpactedScreensTooltip,
+  formatImpactedInteractionsCellTooltip,
 } from "../utils/sessionListUtils";
 import classes from "../SessionReplaySessions.module.css";
 
@@ -24,6 +25,11 @@ export function SessionTableRow({
   const hasIssues = session.issues.length > 0;
   const hasQuality =
     session.qualityScore != null && Number.isFinite(session.qualityScore);
+  const interactionNames =
+    session.impactedInteractionNames?.filter(Boolean) ?? [];
+  const hasInteractionPills = interactionNames.length > 0;
+  const pathPreview = formatImpactedScreensPreview(session.impactedScreens);
+  const hasPathSummary = pathPreview !== SESSION_LIST_LABELS.noImpactedScreens;
 
   return (
     <Table.Tr
@@ -66,6 +72,15 @@ export function SessionTableRow({
         </Text>
       </Table.Td>
       <Table.Td>
+        <Badge
+          size="sm"
+          variant="light"
+          color={getPlatformColor(session.platform)}
+        >
+          {session.platform}
+        </Badge>
+      </Table.Td>
+      <Table.Td>
         {!hasIssues ? (
           <Badge color="teal" variant="light" size="sm">
             {SESSION_LIST_LABELS.clean}
@@ -88,38 +103,51 @@ export function SessionTableRow({
         )}
       </Table.Td>
       <Table.Td>
-        <Badge
-          size="sm"
-          variant="light"
-          color={getPlatformColor(session.platform)}
-        >
-          {session.platform}
-        </Badge>
-      </Table.Td>
-      <Table.Td>
-        <Tooltip
-          label={formatImpactedScreensTooltip(session.impactedScreens)}
-          multiline
-          maw={300}
-        >
-          <Text
-            size="sm"
-            c={
-              formatImpactedScreensPreview(session.impactedScreens) ===
-              SESSION_LIST_LABELS.noImpactedScreens
-                ? "dimmed"
-                : undefined
-            }
-            className={classes.journey}
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
+        {hasInteractionPills ? (
+          <Tooltip
+            label={formatImpactedInteractionsCellTooltip(
+              interactionNames,
+              session.impactedScreens,
+            )}
+            multiline
+            maw={320}
           >
-            {formatImpactedScreensPreview(session.impactedScreens)}
-          </Text>
-        </Tooltip>
+            <Group gap={6} style={{ flexWrap: "wrap" }}>
+              {interactionNames.map((name, idx) => (
+                <Badge
+                  key={`${session.sessionId}-${name}-${idx}`}
+                  size="sm"
+                  variant="light"
+                  color="teal"
+                  tt="uppercase"
+                  fw={700}
+                  styles={{ label: { fontWeight: 700 } }}
+                >
+                  {name}
+                </Badge>
+              ))}
+            </Group>
+          </Tooltip>
+        ) : (
+          <Tooltip
+            label={formatImpactedScreensTooltip(session.impactedScreens)}
+            multiline
+            maw={300}
+          >
+            <Text
+              size="sm"
+              c={!hasPathSummary ? "dimmed" : undefined}
+              className={classes.journey}
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {pathPreview}
+            </Text>
+          </Tooltip>
+        )}
       </Table.Td>
     </Table.Tr>
   );

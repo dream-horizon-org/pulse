@@ -185,7 +185,12 @@ export const SessionReplayDetail: React.FC = () => {
         onItemClick={handleSpanClick}
       />
       */}
-      <DetailsSidebar item={selectedSpan} onClose={handleCloseSidebar} />
+      <DetailsSidebar
+        item={selectedSpan}
+        onClose={handleCloseSidebar}
+        sessionStartTime={sessionData.startTime}
+        sessionEndTime={sessionData.endTime}
+      />
     </Box>
   );
 };

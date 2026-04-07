@@ -232,6 +232,7 @@ export interface SessionDetailData {
   userId: string;
   isAnonymous: boolean;
   startTime: string;
+  endTime: string;
   duration: number;
   platform: "iOS" | "Android" | "Web";
   device: string;
@@ -342,6 +343,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetailData {
     userId: "user_3456",
     isAnonymous: false,
     startTime: sessionStart.toISOString(),
+    endTime: now.toISOString(),
     duration: 154000,
     platform: "iOS",
     device: "iPhone 15 Pro",

@@ -96,7 +96,6 @@ export function parseSessionStartTimeToMs(
   return Number.isFinite(ms) ? ms : NaN;
 }
 
-
 export function naiveSqlDateTimeUtcToIso(input: string): string {
   const ms = parseSessionStartTimeToMs(input);
   if (!Number.isFinite(ms)) return input.trim();
@@ -200,11 +199,20 @@ export function sessionDetailApiToData(
     }),
   );
 
+  const endTimeIso = (() => {
+    if (typeof api.endTime === "string" && api.endTime.trim()) {
+      return naiveSqlDateTimeUtcToIso(api.endTime);
+    }
+    const startMs = Number.isFinite(startTimeMs) ? startTimeMs : baseMs;
+    return toSafeISOString(startMs + (api.duration ?? 0));
+  })();
+
   return {
     sessionId: api.sessionId,
     userId: api.userId,
     isAnonymous: api.isAnonymous,
     startTime: api.startTime,
+    endTime: endTimeIso,
     duration: api.duration,
     platform: api.platform,
     device: api.device,
@@ -313,11 +321,13 @@ function buildExceptionsFromApi(
  */
 export function getEmptySessionDetail(sessionId: string): SessionDetailData {
   const baseMs = Date.now();
+  const startIso = new Date(baseMs).toISOString();
   return {
     sessionId,
     userId: "",
     isAnonymous: true,
-    startTime: new Date(baseMs).toISOString(),
+    startTime: startIso,
+    endTime: startIso,
     duration: 0,
     platform: "iOS",
     device: "",
