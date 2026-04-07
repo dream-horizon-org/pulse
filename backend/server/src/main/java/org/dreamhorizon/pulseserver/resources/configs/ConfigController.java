@@ -174,7 +174,7 @@ public class ConfigController {
       clickConfig.setRage(rage);
     }
     if (rage.getTimeWindowMs() == null) {
-      rage.setTimeWindowMs(1000L);
+      rage.setTimeWindowMs(2000L);
     }
     if (rage.getThreshold() == null) {
       rage.setThreshold(3);
