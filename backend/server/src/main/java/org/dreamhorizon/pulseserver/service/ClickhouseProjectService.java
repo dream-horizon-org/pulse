@@ -259,7 +259,15 @@ public class ClickhouseProjectService {
     // ==================== PRIVATE HELPERS ====================
 
   private String generatePolicyName(String projectId) {
+    return generatePolicyName(projectId, null);
+  }
+
+  private String generatePolicyName(String projectId, String tableName) {
     String sanitized = projectId.replace("-", "_").replace("proj_", "");
+    if (tableName != null && !tableName.isBlank()) {
+      String tableSuffix = tableName.replace("otel.", "").replace(".", "_");
+      return "policy_" + sanitized + "_" + tableSuffix;
+    }
     return "policy_" + sanitized;
   }
 
