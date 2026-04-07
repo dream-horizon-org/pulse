@@ -71,7 +71,7 @@ const BUCKET_ORDER: TimeBucketSize[] = [
   // "1y",
 ];
 
-const MAX_POINTS = 100;
+const MAX_POINTS = 50;
 const MIN_BUCKET_SIZE_MS = 1 * 60 * 1000; // 1 minutes
 const MAX_TIME_RANGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
@@ -111,5 +111,5 @@ export function getTimeBucketSize(
   }
 
   // Fallback to largest bucket if needed
-  return "3h";
+  return "1d";
 }
