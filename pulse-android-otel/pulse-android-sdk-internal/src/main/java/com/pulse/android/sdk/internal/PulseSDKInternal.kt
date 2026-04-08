@@ -335,6 +335,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
                 val flagResult = PulseFeatureFlagUtils.apply(config, this)
                 isCustomEventEnabled = flagResult.isCustomEventEnabled
+            } ?: run {
+                config.suppressInstrumentation("view.click")
+                config.suppressInstrumentation("compose.click")
             }
         }
 
