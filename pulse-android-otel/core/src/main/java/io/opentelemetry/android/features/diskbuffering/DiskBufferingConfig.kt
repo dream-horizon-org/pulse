@@ -8,6 +8,7 @@ package io.opentelemetry.android.features.diskbuffering
 import android.util.Log
 import io.opentelemetry.android.common.RumConstants.OTEL_RUM_LOG_TAG
 import java.io.File
+import java.util.Objects
 import java.util.concurrent.TimeUnit
 
 const val DEFAULT_MAX_CACHE_SIZE: Int = 10 * 1024 * 1024
@@ -16,7 +17,7 @@ const val DEFAULT_MAX_FILE_AGE_FOR_WRITE_MS = 30L
 const val DEFAULT_MIN_FILE_AGE_FOR_READ_MS = 33L
 const val DEFAULT_MAX_FILE_AGE_FOR_READ_MS = 18L
 
-data class DiskBufferingConfig
+class DiskBufferingConfig
     @JvmOverloads
     constructor(
         val isEnabled: Boolean = false,
@@ -32,6 +33,37 @@ data class DiskBufferingConfig
          */
         val signalsBufferDir: File? = null,
     ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is DiskBufferingConfig) return false
+            return isEnabled == other.isEnabled &&
+                maxCacheSize == other.maxCacheSize &&
+                maxFileAgeForWriteMillis == other.maxFileAgeForWriteMillis &&
+                minFileAgeForReadMillis == other.minFileAgeForReadMillis &&
+                maxFileAgeForReadMillis == other.maxFileAgeForReadMillis &&
+                maxCacheFileSize == other.maxCacheFileSize &&
+                isDebugEnabled == other.isDebugEnabled &&
+                signalsBufferDir == other.signalsBufferDir
+        }
+
+        override fun hashCode(): Int =
+            Objects.hash(
+                isEnabled,
+                maxCacheSize,
+                maxFileAgeForWriteMillis,
+                minFileAgeForReadMillis,
+                maxFileAgeForReadMillis,
+                maxCacheFileSize,
+                isDebugEnabled,
+                signalsBufferDir,
+            )
+
+        override fun toString(): String =
+            "DiskBufferingConfig(isEnabled=$isEnabled, maxCacheSize=$maxCacheSize, " +
+                "maxFileAgeForWriteMillis=$maxFileAgeForWriteMillis, minFileAgeForReadMillis=$minFileAgeForReadMillis, " +
+                "maxFileAgeForReadMillis=$maxFileAgeForReadMillis, maxCacheFileSize=$maxCacheFileSize, " +
+                "isDebugEnabled=$isDebugEnabled, signalsBufferDir=${signalsBufferDir ?: "null"})"
+
         companion object {
             /**
              * Convenience factory method that validates the min/max and fixes

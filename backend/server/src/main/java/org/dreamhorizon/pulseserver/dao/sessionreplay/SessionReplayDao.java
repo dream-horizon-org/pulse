@@ -22,7 +22,6 @@ public class SessionReplayDao {
   private final ClickhouseQueryService clickhouseQueryService;
 
   private static final int DEFAULT_TIMEOUT_MS = 5000;
-  private static final String PROJECT_ID_PLACEHOLDER = "project_id";
   private static final String SESSION_ID_PLACEHOLDER = "session_id";
 
 
@@ -30,7 +29,6 @@ public class SessionReplayDao {
     String projectId = ProjectContext.requireProjectId();
 
     Map<String, Object> substitutionMap = new HashMap<>();
-    substitutionMap.put(PROJECT_ID_PLACEHOLDER, projectId);
     substitutionMap.put(SESSION_ID_PLACEHOLDER, sessionId);
 
     String formattedQuery = new StringSubstitutor(substitutionMap)
