@@ -64,6 +64,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontAsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+
 import java.net.URI;
 
 @Slf4j
@@ -81,14 +82,14 @@ public class MainModule extends VertxAbstractModule {
   protected void bindConfiguration() {
     bind(Vertx.class).toInstance(this.vertx);
     bind(io.vertx.rxjava3.core.Vertx.class)
-        .toInstance(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
+      .toInstance(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
     bind(ObjectMapper.class).toInstance(getObjectMapper());
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
     bind(WebClient.class)
-        .annotatedWith(Names.named(Constants.WEB_CLIENT_AI_PROXY))
-        .toProvider(
-            () -> SharedDataUtils.get(vertx, WebClient.class, Constants.WEB_CLIENT_AI_PROXY))
-        .in(Singleton.class);
+      .annotatedWith(Names.named(Constants.WEB_CLIENT_AI_PROXY))
+      .toProvider(
+        () -> SharedDataUtils.get(vertx, WebClient.class, Constants.WEB_CLIENT_AI_PROXY))
+      .in(Singleton.class);
     bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
 
     // === NEW: Multi-tenancy & RBAC Services ===
@@ -126,26 +127,23 @@ public class MainModule extends VertxAbstractModule {
       OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
       if (config == null) {
         config = OpenFgaConfig.builder()
-            .enabled(false)
-            .build();
+          .enabled(false)
+          .build();
       }
       return config;
     }).in(Singleton.class);
 
     bind(OpenFgaService.class).toProvider(() -> {
-        OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
+      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
+      if (config != null && config.isEnabled()) {
         try {
-            // OpenFgaService constructor handles null / disabled config gracefully
-            // by setting enabled=false and returning a safe no-op instance.
-            return new OpenFgaService(config);
+          return new OpenFgaService(config);
         } catch (Exception e) {
-            log.error("Failed to initialize OpenFgaService, falling back to disabled mode: {}", e.getMessage());
-            try {
-                return new OpenFgaService(null);
-            } catch (Exception fallbackEx) {
-                throw new RuntimeException("Failed to create disabled OpenFgaService fallback", fallbackEx);
-            }
+          log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
+          return null;
         }
+      }
+      return null;
     }).in(Singleton.class);
 
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
@@ -173,7 +171,7 @@ public class MainModule extends VertxAbstractModule {
 
     bind(NotificationProviderFactory.class).in(Singleton.class);
     Multibinder<NotificationProvider> providerBinder =
-        Multibinder.newSetBinder(binder(), NotificationProvider.class);
+      Multibinder.newSetBinder(binder(), NotificationProvider.class);
     providerBinder.addBinding().to(EmailNotificationProvider.class).in(Singleton.class);
     providerBinder.addBinding().to(SlackNotificationProvider.class).in(Singleton.class);
     providerBinder.addBinding().to(SlackWebhookNotificationProvider.class).in(Singleton.class);
@@ -207,32 +205,32 @@ public class MainModule extends VertxAbstractModule {
       String accessKey = StringUtils.defaultString(sr.getAccessKeyId());
       String secretKey = StringUtils.defaultString(sr.getSecretAccessKey());
       return S3AsyncClient.builder()
-          .httpClientBuilder(NettyNioAsyncHttpClient.builder())
-          .region(Region.of(region))
-          .endpointOverride(URI.create(sr.getEndpoint()))
-          .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
-          .forcePathStyle(true)
-          .build();
+        .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+        .region(Region.of(region))
+        .endpointOverride(URI.create(sr.getEndpoint()))
+        .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
+        .forcePathStyle(true)
+        .build();
     }
     return S3AsyncClient.builder()
-        .httpClientBuilder(NettyNioAsyncHttpClient.builder())
-        .region(Region.AP_SOUTH_1)
-        .credentialsProvider(DefaultCredentialsProvider.create())
-        .build();
+      .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+      .region(Region.AP_SOUTH_1)
+      .credentialsProvider(DefaultCredentialsProvider.create())
+      .build();
   }
 
   private S3Presigner loadS3Presigner() {
     return S3Presigner.builder()
-        .region(Region.AP_SOUTH_1)
-        .credentialsProvider(DefaultCredentialsProvider.create())
-        .build();
+      .region(Region.AP_SOUTH_1)
+      .credentialsProvider(DefaultCredentialsProvider.create())
+      .build();
   }
 
   private CloudFrontAsyncClient loadCloudFrontClient() {
     return CloudFrontAsyncClient.builder()
-        .httpClientBuilder(NettyNioAsyncHttpClient.builder())
-        .region(Region.US_EAST_1) // CloudFront API is always in us-east-1
-        .credentialsProvider(DefaultCredentialsProvider.create())
-        .build();
+      .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+      .region(Region.US_EAST_1) // CloudFront API is always in us-east-1
+      .credentialsProvider(DefaultCredentialsProvider.create())
+      .build();
   }
 }

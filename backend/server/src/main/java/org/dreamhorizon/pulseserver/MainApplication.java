@@ -7,21 +7,15 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.FileSystemOptions;
 import io.vertx.core.impl.cpu.CpuCoreSensor;
-
-import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
-
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
-import org.dreamhorizon.pulseserver.module.EventDefinitionModule;
-import org.dreamhorizon.pulseserver.module.QueryEngineModule;
-import org.dreamhorizon.pulseserver.module.ConfigModule;
-import org.dreamhorizon.pulseserver.module.InteractionModule;
-import org.dreamhorizon.pulseserver.module.UploadInteractionDetailModule;
-import org.dreamhorizon.pulseserver.module.ValidationModule;
+import org.dreamhorizon.pulseserver.module.*;
 import org.dreamhorizon.pulseserver.util.MaintenanceUtil;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
+
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class MainApplication extends Launcher {
@@ -34,7 +28,7 @@ public class MainApplication extends Launcher {
   @Override
   public void beforeStartingVertx(VertxOptions vertxOptions) {
     vertxOptions
-      .setEventLoopPoolSize(2)
+      .setEventLoopPoolSize(getNumOfCores())
       .setPreferNativeTransport(true)
       .setFileSystemOptions(new FileSystemOptions().setClassPathResolvingEnabled(true))
       .setWorkerPoolSize(10);
