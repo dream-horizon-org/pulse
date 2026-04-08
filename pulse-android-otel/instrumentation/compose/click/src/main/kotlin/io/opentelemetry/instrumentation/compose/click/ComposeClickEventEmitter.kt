@@ -42,7 +42,6 @@ internal class ComposeClickEventEmitter(
             rageConfig = rageConfig,
             onRage = ::emitRageClick,
             onEmit = ::emitIndividualClick,
-            clock = clock,
         )
 
     fun currentTimeMs(): Long = clock()

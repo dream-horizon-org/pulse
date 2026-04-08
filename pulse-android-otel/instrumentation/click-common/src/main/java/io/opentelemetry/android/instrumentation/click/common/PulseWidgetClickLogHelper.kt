@@ -7,10 +7,7 @@ package io.opentelemetry.android.instrumentation.click.common
 
 import com.pulse.semconv.PulseAttributes
 import com.pulse.utils.PulseOtelUtils
-import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.LogRecordBuilder
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_NAME
 
 /**
  * Shared wiring for `app.widget.click` log records: optional [PulseAttributes.APP_CLICK_CONTEXT]

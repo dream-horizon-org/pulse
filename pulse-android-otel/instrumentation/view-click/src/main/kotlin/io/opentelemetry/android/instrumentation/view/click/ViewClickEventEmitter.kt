@@ -43,7 +43,6 @@ internal class ViewClickEventEmitter(
             rageConfig = rageConfig,
             onRage = ::emitRageClick,
             onEmit = ::emitIndividualClick,
-            clock = clock,
         )
 
     fun currentTimeMs(): Long = clock()

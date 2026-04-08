@@ -7,7 +7,6 @@ package io.opentelemetry.android.instrumentation.click
 
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import androidx.annotation.UiThread
 
 /**
@@ -38,6 +37,7 @@ class PendingClick(
  * [hasTarget] mirrors the triggering [PendingClick.hasTarget] — reliable because the rage radius
  * constraint means all buffered taps are near the same point, so they share the same target state.
  */
+@Suppress("ForbiddenPublicDataClass")
 data class RageEvent(
     val count: Int,
     val hasTarget: Boolean,
@@ -92,7 +92,6 @@ data class RageEvent(
  * @param rageConfig    Runtime rage-detection parameters.
  * @param onRage        Called on the UI thread when a rage cluster window closes.
  * @param onEmit        Called synchronously for each buffered click evicted or flushed.
- * @param clock         Monotonic clock in ms (injectable for tests).
  * @param postDelayed   Schedules a delayed UI-thread action (injectable for tests).
  * @param cancelDelayed Cancels a previously scheduled action (injectable for tests).
  */
@@ -101,7 +100,6 @@ class ClickEventBuffer(
     private val rageConfig: RageConfig = RageConfig(),
     private val onRage: (RageEvent) -> Unit = {},
     private val onEmit: (PendingClick) -> Unit = {},
-    private val clock: () -> Long = SystemClock::elapsedRealtime,
     private val postDelayed: (Runnable, Long) -> Unit = { r, ms -> mainHandler.postDelayed(r, ms) },
     private val cancelDelayed: (Runnable) -> Unit = { r -> mainHandler.removeCallbacks(r) },
 ) {
