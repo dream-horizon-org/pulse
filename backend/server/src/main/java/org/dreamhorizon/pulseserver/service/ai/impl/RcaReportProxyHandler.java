@@ -267,85 +267,67 @@ final class RcaReportProxyHandler {
                 JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
                 working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
 
-                // Get session evidence from best segment
-                if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
-                  RootCauseSegment bestSegment = rootCauseResult.getSegments().get(0);
-                  
-                  // Extract segment metrics (error_rate, apdex) for session filtering
-                  Map<String, Double> segmentMetrics = extractSegmentMetrics(bestSegment.getMetrics());
-                  
-                  // Call SessionEvidenceService with segment metrics (not deltas)
-                  // Use same lookback period as RCA (7 days) to find historical sessions
-                  LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
-                  
-                  log.info("DEBUG: Starting session evidence fetch for: project={}, interaction={}, date={}, lookback_start={}", 
-                      projectId, interactionName, date, lookbackStart);
-                  log.info("DEBUG: Dimensions={}", bestSegment.getDimensions());
-                  log.info("DEBUG: Metrics={}", segmentMetrics);
-                  
-                  sessionEvidenceService
-                      .getSessionEvidence(
-                          projectId,
-                          interactionName,
-                          lookbackStart.atStartOfDay().toInstant(ZoneOffset.UTC),
-                          date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
-                          bestSegment.getDimensions(),
-                          segmentMetrics,
-                          5)
-                      .subscribe(
-                          evidenceResult -> {
-                            try {
-                              int sessionCount = evidenceResult.getSessions() != null ? evidenceResult.getSessions().size() : 0;
-                              log.info("DEBUG: Session evidence callback - {} sessions found", sessionCount);
-                              
-                              // Extract session IDs
-                              List<String> sessionIds =
-                                  evidenceResult.getSessions().stream()
-                                      .map(s -> s.getSessionId())
-                                      .collect(Collectors.toList());
-                              
-                              log.info("DEBUG: Extracted {} session IDs: {}", sessionIds.size(), sessionIds);
-                              
-                              if (!sessionIds.isEmpty()) {
-                                // Add to rootCausePayload object (not to working root)
-                                JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
-                                if (rcPayloadNode instanceof ObjectNode) {
-                                  ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
-                                  rcPayload.set(
-                                      "exampleSessionIds",
-                                      objectMapper.valueToTree(sessionIds));
-                                  log.info("DEBUG: Successfully added exampleSessionIds to rootCausePayload");
-                                } else {
-                                  log.warn("DEBUG: rootCausePayload is not an ObjectNode, cannot add exampleSessionIds");
+                  // Get session evidence from best segment
+                  if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
+                    RootCauseSegment bestSegment = rootCauseResult.getSegments().get(0);
+                    
+                    // Extract segment metrics (error_rate, apdex) for session filtering
+                    Map<String, Double> segmentMetrics = extractSegmentMetrics(bestSegment.getMetrics());
+                    
+                    // Use same lookback period as RCA (7 days) to find historical sessions
+                    LocalDate lookbackStart = date.minusDays(6);
+                    
+                    sessionEvidenceService
+                        .getSessionEvidence(
+                            projectId,
+                            interactionName,
+                            lookbackStart.atStartOfDay().toInstant(ZoneOffset.UTC),
+                            date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
+                            bestSegment.getDimensions(),
+                            segmentMetrics,
+                            2)
+                        .subscribe(
+                            evidenceResult -> {
+                              try {
+                                // Extract session IDs
+                                List<String> sessionIds =
+                                    evidenceResult.getSessions().stream()
+                                        .map(s -> s.getSessionId())
+                                        .collect(Collectors.toList());
+                                
+                                if (!sessionIds.isEmpty()) {
+                                  // Add to rootCausePayload object
+                                  JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                  if (rcPayloadNode instanceof ObjectNode) {
+                                    ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                    rcPayload.set(
+                                        "exampleSessionIds",
+                                        objectMapper.valueToTree(sessionIds));
+                                  }
                                 }
-                              } else {
-                                log.info("DEBUG: No sessions found, not adding exampleSessionIds");
+                                
+                                String enriched = objectMapper.writeValueAsString(working);
+                                future.complete(enriched);
+                              } catch (Exception e) {
+                                log.warn("Exception in session evidence callback: {}", 
+                                    e.getMessage(), e);
+                                try {
+                                  String enriched = objectMapper.writeValueAsString(working);
+                                  future.complete(enriched);
+                                } catch (Exception e2) {
+                                  future.complete(fallbackBody);
+                                }
                               }
-                              
-                              String enriched = objectMapper.writeValueAsString(working);
-                              log.info("DEBUG: Enriched body contains exampleSessionIds: {}", enriched.contains("exampleSessionIds"));
-                              log.info("DEBUG: Final enriched body being sent: {}", enriched.substring(0, Math.min(500, enriched.length())));
-                              future.complete(enriched);
-                            } catch (Exception e) {
-                              log.warn("DEBUG: Exception in session evidence callback: {}", 
-                                  e.getMessage(), e);
+                            },
+                            error -> {
+                              log.warn("Session evidence error: {}", error.getMessage());
                               try {
                                 String enriched = objectMapper.writeValueAsString(working);
                                 future.complete(enriched);
-                              } catch (Exception e2) {
+                              } catch (Exception e) {
                                 future.complete(fallbackBody);
                               }
-                            }
-                          },
-                          error -> {
-                            log.warn("DEBUG: Session evidence error callback: {}", error.getMessage(), error);
-                            try {
-                              String enriched = objectMapper.writeValueAsString(working);
-                              future.complete(enriched);
-                            } catch (Exception e) {
-                              future.complete(fallbackBody);
-                            }
-                          });
+                            });
                 } else {
                   String enriched = objectMapper.writeValueAsString(working);
                   future.complete(enriched);
