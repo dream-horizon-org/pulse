@@ -5,11 +5,14 @@ import {
   Card,
   Badge,
   Text,
+  Title,
 } from "@mantine/core";
 import { NetworkVisualization } from "./NetworkVisualization";
 import { formatTimestamp } from "../utils/sessionUtils";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
+import { HEADERS, MESSAGES } from "../constants/strings";
 import { TabPanelScrollArea } from "./TabPanelScrollArea";
+import classes from "../SessionReplayDetail.module.css";
 
 interface NetworkTabProps {
   sessionData: SessionDetailData;
@@ -23,8 +26,30 @@ export function NetworkTab({
   onViewModeChange,
 }: NetworkTabProps) {
   return (
-    <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
-      <Group justify="flex-end" wrap="nowrap" flex="0 0 auto">
+    <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
+      <Group
+        justify="space-between"
+        align="flex-start"
+        wrap="nowrap"
+        gap="md"
+        flex="0 0 auto"
+      >
+        <Stack
+          gap={0}
+          maw="calc(100% - 140px)"
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          <Title
+            order={4}
+            size="h5"
+            className={classes.sessionReplaySectionTitle}
+          >
+            {HEADERS.SESSION_REPLAY_NETWORK_TITLE}
+          </Title>
+          <Text size="sm" c="dimmed" mt={4}>
+            {MESSAGES.SESSION_REPLAY_NETWORK_DESCRIPTION}
+          </Text>
+        </Stack>
         <SegmentedControl
           size="xs"
           value={viewMode}
@@ -33,6 +58,7 @@ export function NetworkTab({
             { label: "Text", value: "text" },
             { label: "Graph", value: "graph" },
           ]}
+          style={{ flexShrink: 0 }}
         />
       </Group>
       <TabPanelScrollArea>
@@ -67,10 +93,7 @@ export function NetworkTab({
                   {req.url}
                 </Text>
                 <Text size="xs" c="dimmed" mt={4}>
-                  {formatTimestamp(
-                    req.timestamp,
-                    new Date(sessionData.startTime),
-                  )}
+                  {formatTimestamp(req.timestamp, sessionData.startTime)}
                 </Text>
               </Card>
             ))}

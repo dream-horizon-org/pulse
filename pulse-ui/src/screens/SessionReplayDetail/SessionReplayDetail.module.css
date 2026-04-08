@@ -74,10 +74,14 @@
   letter-spacing: 0.5px;
 }
 
+.summarySection {
+  margin-bottom: var(--mantine-spacing-xl);
+}
+
 /* Player + Tabs split section - same height for device and raw section */
 .playerSectionSplit {
   display: flex;
-  gap: var(--mantine-spacing-lg);
+  gap: var(--mantine-spacing-xl);
   align-items: stretch;
   margin-bottom: var(--mantine-spacing-lg);
   min-height: 420px;
@@ -85,13 +89,36 @@
 
 .playerSectionLeft {
   flex-shrink: 0;
-  width: 320px;
-  min-width: 280px;
+  width: min(440px, 42%);
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  align-self: stretch;
+}
+
+/* Fills split column height so player + tabs bottom edges align */
+.playerSectionStretch {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Grows between header and controls so viewport/placeholder matches tab panel height */
+.playerViewportGrow {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.playerControlsSlot {
+  flex-shrink: 0;
 }
 
 .playerSectionRight {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--mantine-spacing-md);
@@ -126,6 +153,7 @@
 }
 
 .playerHeader {
+  flex-shrink: 0;
   padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
   border-bottom: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-white);
@@ -221,6 +249,29 @@
 }
 
 /* Raw Events Container - same height as device player (fills tab content) */
+.allTabWrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sessionTimelineIntro {
+  flex-shrink: 0;
+}
+
+
+.sessionReplaySectionTitle {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--mantine-color-gray-9);
+}
+
+[data-mantine-color-scheme="dark"] .sessionReplaySectionTitle {
+  color: var(--mantine-color-gray-0);
+}
+
 .rawEventsContainer {
   padding: var(--mantine-spacing-md);
   border-radius: var(--mantine-radius-sm);
@@ -239,9 +290,11 @@
   flex-direction: column;
 }
 
-/* Native scroll for Network, App Vitals, Events, Interaction tabs */
 .tabPanelScroll {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  align-self: stretch;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -256,6 +309,16 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.sessionTabLabel {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--mantine-color-gray-9);
+}
+
+[data-mantine-color-scheme="dark"] .sessionTabLabel {
+  color: var(--mantine-color-gray-0);
 }
 
 /* All Tab Container - right panel tabs card */

@@ -53,6 +53,7 @@ export interface CriticalInteraction {
 
 export interface SessionEvent {
   timestamp: number;
+  detailTimestamp?: string;
   type: "click" | "navigation" | "api_call" | "error";
   eventType?: string;
   description: string;
@@ -231,6 +232,7 @@ export interface SessionDetailData {
   userId: string;
   isAnonymous: boolean;
   startTime: string;
+  endTime: string;
   duration: number;
   platform: "iOS" | "Android" | "Web";
   device: string;
@@ -341,6 +343,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetailData {
     userId: "user_3456",
     isAnonymous: false,
     startTime: sessionStart.toISOString(),
+    endTime: now.toISOString(),
     duration: 154000,
     platform: "iOS",
     device: "iPhone 15 Pro",
@@ -350,7 +353,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetailData {
       country: "United States",
       city: "San Francisco",
     },
-    interactionQuality: 6.5,
+    interactionQuality: 0.65,
     sessionType: "error_encountered",
     detectedIssues: [
       {

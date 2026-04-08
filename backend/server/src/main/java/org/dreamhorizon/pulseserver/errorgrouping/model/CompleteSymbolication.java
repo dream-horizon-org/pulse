@@ -17,6 +17,7 @@ public class CompleteSymbolication {
   private List<String> symbolicatedJsFrames;
   private List<String> symbolicatedJavaFrames;
   private List<String> symbolicatedNdkFrames;
+  private List<String> symbolicatedIosNativeFrames;
 
   /**
    * Reconstructs the complete stack trace with symbolicated frames.
@@ -38,6 +39,8 @@ public class CompleteSymbolication {
         result.append(originalFrames.getJavaTypes().get(0)).append("\n");
       } else if (!originalFrames.getNdkTypes().isEmpty()) {
         result.append(originalFrames.getNdkTypes().get(0)).append("\n");
+      } else if (!originalFrames.getIosNativeTypes().isEmpty()) {
+        result.append(originalFrames.getIosNativeTypes().get(0)).append("\n");
       }
     }
 
@@ -81,6 +84,15 @@ public class CompleteSymbolication {
           ? symbolicatedNdkFrames.get(i)
           : frame.getRawLine();
       allFrames.add(new PositionedFrame(frame.getOriginalPosition(), Lane.NDK, symbolicatedFrame));
+    }
+
+    // iOS native (Mach-O) — same layout as NDK in output (no "at " prefix)
+    for (int i = 0; i < originalFrames.getIosNativeFrames().size(); i++) {
+      NdkFrame frame = originalFrames.getIosNativeFrames().get(i);
+      String symbolicatedFrame = i < symbolicatedIosNativeFrames.size()
+          ? symbolicatedIosNativeFrames.get(i)
+          : frame.getRawLine();
+      allFrames.add(new PositionedFrame(frame.getOriginalPosition(), Lane.IOS_NATIVE, symbolicatedFrame));
     }
 
     // Sort by original position to preserve order
