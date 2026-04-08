@@ -8,7 +8,7 @@ package io.opentelemetry.instrumentation.library.httpurlconnection
 import android.util.Log
 import java.io.IOException
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.nio.charset.StandardCharsets
 
 object HttpUrlConnectionTestUtil {
@@ -22,7 +22,7 @@ object HttpUrlConnectionTestUtil {
     ) {
         var connection: HttpURLConnection? = null
         try {
-            connection = URL(inputUrl).openConnection() as HttpURLConnection
+            connection = URI.create(inputUrl).toURL().openConnection() as HttpURLConnection
 
             // always call one API that reads from the connection
             val responseCode = connection.responseCode
@@ -41,7 +41,7 @@ object HttpUrlConnectionTestUtil {
     fun post(inputUrl: String) {
         var connection: HttpURLConnection? = null
         try {
-            connection = URL(inputUrl).openConnection() as HttpURLConnection
+            connection = URI.create(inputUrl).toURL().openConnection() as HttpURLConnection
             connection.doOutput = true
             connection.requestMethod = "POST"
 

@@ -6,7 +6,7 @@ import com.pulse.utils.PulseOtelUtils.HEX_CHARS
 import com.pulse.utils.PulseOtelUtils.REDACTED
 import com.pulse.utils.PulseOtelUtils.ULID_CHARS
 import okhttp3.OkHttpClient
-import java.net.URL
+import java.net.URI
 
 public object PulseNetworkingUtils {
     public val okHttpClient: OkHttpClient by lazy {
@@ -36,7 +36,7 @@ public object PulseNetworkingUtils {
     public fun endWithSlash(url: String): String = url.trimEnd('/') + "/"
 
     public fun extractBaseUrlWithSlash(fullUrl: String): String {
-        val url = URL(fullUrl)
+        val url = URI.create(fullUrl).toURL()
         return "${url.protocol}://${url.host}/"
     }
 }

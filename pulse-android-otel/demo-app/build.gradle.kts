@@ -58,6 +58,7 @@ android {
 
     kotlin {
         compilerOptions {
+            allWarningsAsErrors.set(true)
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
@@ -89,6 +90,7 @@ dependencies {
     implementation(libs.pulse.instrumentation.locationLibrary)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

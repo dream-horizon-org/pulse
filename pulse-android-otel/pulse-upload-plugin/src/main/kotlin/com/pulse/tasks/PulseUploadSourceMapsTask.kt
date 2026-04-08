@@ -5,7 +5,7 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
-import java.net.URL
+import java.net.URI
 import java.util.Locale
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -172,10 +172,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         val metadata = buildMetadata(type, appVersion, versionCode, platform, fileName)
         val boundary = "----WebKitFormBoundary${System.currentTimeMillis()}"
 
-        val connection = (
-            URL(apiUrl).openConnection()
-                ?: throw GradleException("Failed to open connection to $apiUrl")
-        ) as HttpURLConnection
+        val connection = URI.create(apiUrl).toURL().openConnection() as HttpURLConnection
 
         try {
             connection.requestMethod = "POST"
