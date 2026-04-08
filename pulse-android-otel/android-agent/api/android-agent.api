@@ -93,7 +93,7 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/NetworkMon
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/RageConfiguration {
 	public final fun radiusDp (F)V
-	public final fun rageThreshold (I)V
+	public final fun threshold (I)V
 	public final fun timeWindowMs (J)V
 }
 
