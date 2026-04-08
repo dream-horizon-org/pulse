@@ -8,7 +8,8 @@ pipeline {
     }
 
     parameters {
-        string(name: 'ARTIFACT_VERSION', description: 'Artifact version to be deployed')
+        string(name: 'ARTIFACT_VERSION', description: 'Pulse Server artifact version to be deployed')
+        string(name: 'PULSE_AI_VERSION', description: 'Pulse AI artifact version to be deployed')
     }
 
     environment {
@@ -63,7 +64,9 @@ pipeline {
                 sh '''
                     echo "Running Terraform Plan..."
                     cd deploy/terraform/pulse-server
-                    terraform plan -out=tfplan
+                    terraform plan -out=tfplan \
+                        -var="artifact_version=${params.ARTIFACT_VERSION}" \
+                        -var="pulse_ai_artifact_version=${params.PULSE_AI_VERSION}"
                 '''
             }
         }
@@ -79,7 +82,7 @@ pipeline {
                 sh '''
                     echo "Applying Terraform changes..."
                     cd deploy/terraform/pulse-server
-                    terraform apply -input=false tfplan
+                    terraform apply -input=false -auto-approve tfplan
                 '''
             }
         }
@@ -93,7 +96,9 @@ pipeline {
         success {
             script {
                 wrap([$class: 'BuildUser']) {
-                    def message = "<!channel> Pulse Server version *${ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_EMAIL}\n" +
+                    def message = "<!channel> Deployed to production by ${BUILD_USER_EMAIL}\n" +
+                            "- Pulse Server: *${params.ARTIFACT_VERSION}*\n" +
+                            "- Pulse AI: *${params.PULSE_AI_VERSION}*\n" +
                             "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                     def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
                     slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
@@ -102,7 +107,9 @@ pipeline {
         }
         failure {
             script {
-                def message = "<!channel> Pulse Server version *${ARTIFACT_VERSION}* deployment failed on production\n" +
+                def message = "<!channel> Deployment failed\\n" +
+                        "- Pulse Server: *${params.ARTIFACT_VERSION}*\n" +
+                        "- Pulse AI: *${params.PULSE_AI_VERSION}*\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
                 slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
