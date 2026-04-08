@@ -158,6 +158,22 @@ public class FunnelDefinitionDao {
         });
   }
 
+  /** Distinct non-null created_by values for all funnels in the project. */
+  public Single<List<String>> listDistinctCreatedBy(String projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool
+      .preparedQuery(FunnelDefinitionQueries.SELECT_DISTINCT_CREATED_BY)
+      .rxExecute(Tuple.of(projectId))
+      .map(rows -> {
+        List<String> out = new ArrayList<>();
+        rows.forEach(row -> {
+          String v = row.getString("created_by");
+          if (v != null) out.add(v);
+        });
+        return out;
+      });
+  }
+
   private static FunnelDefinitionRow mapRow(Row row) {
     return FunnelDefinitionRow.builder()
       .id(row.getLong("id"))

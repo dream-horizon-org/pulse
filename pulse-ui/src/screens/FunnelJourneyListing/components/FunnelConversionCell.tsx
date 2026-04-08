@@ -6,8 +6,7 @@ export function FunnelConversionCell({ row }: { row: FunnelListItem }) {
   if (
     row.status === "IN_PROGRESS" ||
     row.status === "PENDING" ||
-    row.overallConversionRate == null ||
-    row.conversionTrend == null
+    row.overallConversionRate == null
   ) {
     return (
       <Text size="sm" c="dimmed">
@@ -17,6 +16,15 @@ export function FunnelConversionCell({ row }: { row: FunnelListItem }) {
   }
   const rate = row.overallConversionRate;
   const trend = row.conversionTrend;
+
+  if (trend == null || trend === 0) {
+    return (
+      <Text size="sm" fw={600} ta="left">
+        {rate.toFixed(1)}%
+      </Text>
+    );
+  }
+
   const up = trend > 0;
 
   return (
@@ -24,36 +32,30 @@ export function FunnelConversionCell({ row }: { row: FunnelListItem }) {
       <Text size="sm" fw={600} ta="left">
         {rate.toFixed(1)}%
       </Text>
-      {trend === 0 ? (
-        <Text size="sm" c="dimmed" fw={500}>
-          0.0%
+      <Group gap={4} align="center" wrap="nowrap">
+        {up ? (
+          <IconTrendingUp
+            size={14}
+            style={{ color: "var(--mantine-color-teal-6)" }}
+            aria-hidden
+          />
+        ) : (
+          <IconTrendingDown
+            size={14}
+            style={{ color: "var(--mantine-color-red-6)" }}
+            aria-hidden
+          />
+        )}
+        <Text
+          size="sm"
+          fw={500}
+          c={up ? "teal.7" : "red.7"}
+          style={{ whiteSpace: "nowrap" }}
+        >
+          {up ? "+" : ""}
+          {trend.toFixed(1)}%
         </Text>
-      ) : (
-        <Group gap={4} align="center" wrap="nowrap">
-          {up ? (
-            <IconTrendingUp
-              size={14}
-              style={{ color: "var(--mantine-color-teal-6)" }}
-              aria-hidden
-            />
-          ) : (
-            <IconTrendingDown
-              size={14}
-              style={{ color: "var(--mantine-color-red-6)" }}
-              aria-hidden
-            />
-          )}
-          <Text
-            size="sm"
-            fw={500}
-            c={up ? "teal.7" : "red.7"}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            {up ? "+" : ""}
-            {trend.toFixed(1)}%
-          </Text>
-        </Group>
-      )}
+      </Group>
     </Group>
   );
 }

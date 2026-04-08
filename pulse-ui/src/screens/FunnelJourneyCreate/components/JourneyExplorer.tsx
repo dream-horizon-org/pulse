@@ -16,12 +16,10 @@ import { DateTimePicker } from "@mantine/dates";
 import { IconInfoCircle, IconRoute } from "@tabler/icons-react";
 import { useGetTags } from "../../../hooks/useGetFunnelData";
 import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../constants";
-import {
-  buildRollingTimeRange,
-  DATE_RANGE_OPTIONS,
-} from "../FunnelJourneyCreate.util";
+import { DATE_RANGE_OPTIONS } from "../FunnelJourneyCreate.util";
 import classes from "../FunnelCreate.module.css";
 import createFormClasses from "../FunnelJourneyCreateForm.module.css";
+import { FunnelType } from "../../../services/funnels.service";
 
 interface JourneyExplorerProps {
   name: string;
@@ -30,8 +28,8 @@ interface JourneyExplorerProps {
   onDescriptionChange: (desc: string) => void;
   tags: string[];
   onTagsChange: (tags: string[]) => void;
-  rollingType: "RECURRING" | "ONCE";
-  onRollingTypeChange: (type: "RECURRING" | "ONCE") => void;
+  rollingType: FunnelType;
+  onRollingTypeChange: (type: FunnelType) => void;
   dateRange: string;
   onDateRangeChange: (range: string) => void;
   customStartDate: Date | null;
@@ -48,8 +46,8 @@ interface JourneyExplorerProps {
   isValid?: boolean;
   anchorEvent?: string;
   onAnchorEventChange?: (event: string) => void;
-  direction?: "forward" | "reverse";
-  onDirectionChange?: (direction: "forward" | "reverse") => void;
+  direction?: "START" | "END";
+  onDirectionChange?: (direction: "START" | "END") => void;
   depth?: number;
   onDepthChange?: (depth: number) => void;
   /** Create wizard: show one segment only (0–2). Omit on journey detail. */
@@ -93,21 +91,21 @@ export function JourneyExplorer({
   wizardStep,
   useExternalPathState = false,
 }: JourneyExplorerProps) {
-  const [localDirection, setLocalDirection] = useState<"forward" | "reverse">(
-    "forward",
+  const [localDirection, setLocalDirection] = useState<"START" | "END">(
+    "START",
   );
   const [localAnchorEvent, setLocalAnchorEvent] = useState<string | null>(null);
   const [localDepth, setLocalDepth] = useState(5);
 
   const pathFromProps = isUpdateMode || useExternalPathState;
 
-  const direction = pathFromProps ? propDirection || "forward" : localDirection;
+  const direction = pathFromProps ? propDirection || "START" : localDirection;
   const anchorEvent = pathFromProps
     ? propAnchorEvent || null
     : localAnchorEvent;
   const depth = pathFromProps ? (propDepth ?? 5) : localDepth;
 
-  const setDirection = (dir: "forward" | "reverse") => {
+  const setDirection = (dir: "START" | "END") => {
     if (pathFromProps && onDirectionChange) {
       onDirectionChange(dir);
     } else {
@@ -152,17 +150,6 @@ export function JourneyExplorer({
       .map((e) => ({ value: e, label: e }));
   }, [availableEvents, anchorEvent]);
 
-  const timeRange = useMemo(
-    () =>
-      buildRollingTimeRange(
-        rollingType,
-        dateRange,
-        customStartDate,
-        customEndDate,
-      ),
-    [rollingType, dateRange, customStartDate, customEndDate],
-  );
-
   const apiFilters = useMemo(() => {
     const grouped: Record<string, string[]> = {};
     for (const f of filters) {
@@ -185,7 +172,6 @@ export function JourneyExplorer({
       direction,
       anchorEvent,
       depth,
-      timeRange,
       filters: apiFilters,
     });
   };
@@ -231,10 +217,10 @@ export function JourneyExplorer({
       </Group>
       <SegmentedControl
         value={rollingType}
-        onChange={(val) => onRollingTypeChange(val as "RECURRING" | "ONCE")}
+        onChange={(val) => onRollingTypeChange(val as FunnelType)}
         data={[
-          { label: "Recurring", value: "RECURRING" },
-          { label: "Once", value: "ONCE" },
+          { label: "Auto", value: FunnelType.AUTO },
+          { label: "Once", value: FunnelType.ONCE },
         ]}
         size={fieldSize}
         fullWidth
@@ -242,30 +228,28 @@ export function JourneyExplorer({
         mb="sm"
       />
 
-      {rollingType === "ONCE" && (
-        <Group gap="xs" mb="md">
+      {rollingType === FunnelType.ONCE && (
+        <Box mb="md">
           <DateTimePicker
+            label="Start Date"
             placeholder="Start Date"
             value={customStartDate}
             onChange={onCustomStartDateChange}
             size={fieldSize}
-            style={{ flex: 1 }}
             clearable
+            mb="xs"
           />
-          <Text size="xs" c="dimmed">
-            -
-          </Text>
           <DateTimePicker
+            label="End Date"
             placeholder="End Date"
             value={customEndDate}
             onChange={onCustomEndDateChange}
             size={fieldSize}
-            style={{ flex: 1 }}
             clearable
           />
-        </Group>
+        </Box>
       )}
-      {rollingType === "RECURRING" && (
+      {rollingType === FunnelType.AUTO && (
         <>
           <Select
             data={DATE_RANGE_OPTIONS.filter((opt) => opt.value !== "custom")}
@@ -352,10 +336,10 @@ export function JourneyExplorer({
       </Text>
       <SegmentedControl
         value={direction}
-        onChange={(val) => setDirection(val as "forward" | "reverse")}
+        onChange={(val) => setDirection(val as "START" | "END")}
         data={[
-          { label: "Start Point →", value: "forward" },
-          { label: "← End Point", value: "reverse" },
+          { label: "Start Point →", value: "START" },
+          { label: "← End Point", value: "END" },
         ]}
         size={fieldSize}
         color={accent}

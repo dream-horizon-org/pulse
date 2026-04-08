@@ -72,11 +72,18 @@ export type FunnelListItem = {
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
+  funnelType?: FunnelType;
   stepOrderType?: StepOrderType;
   /** Overall conversion rate (%) for funnels with computed metrics. */
   overallConversionRate?: number;
   /** Change vs prior period (percentage points); positive = up. */
   conversionTrend?: number;
+};
+
+/** Filter option metadata returned alongside listing data. */
+export type ListFilterOptions = {
+  creators?: string[];
+  tags?: string[];
 };
 
 /** Listing payload for GET /v1/funnels. */
@@ -86,6 +93,7 @@ export type FunnelListResponse = {
   page?: number;
   pageSize?: number;
   totalPages?: number;
+  filterOptions?: ListFilterOptions;
 };
 
 // ─── Journey listing types ─────────────────────────────────────────────────────
@@ -98,6 +106,7 @@ export type JourneyListItem = {
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
+  journeyType?: FunnelType;
 };
 
 /** Listing payload for GET /v1/journeys. */
@@ -107,6 +116,7 @@ export type JourneyListResponse = {
   page?: number;
   pageSize?: number;
   totalPages?: number;
+  filterOptions?: ListFilterOptions;
 };
 
 /** Query params for GET /v1/funnels or GET /v1/journeys (resource implied by path). */
@@ -232,6 +242,26 @@ export interface CreateFunnelRequestBody {
  */
 export type UpdateFunnelRequestBody = CreateFunnelRequestBody;
 
+/** Request body for POST /v1/journeys (create) and PUT /v1/journeys/:id (update). */
+export interface CreateJourneyRequestBody {
+  name: string;
+  description?: string;
+  tags?: string[];
+  journeyType: FunnelType;
+  direction: "START" | "END";
+  anchorEvent: string;
+  depth: number;
+  filters?: FunnelFilter[];
+  /** AUTO journeys — rolling window size in days. */
+  dateRangeDays?: number;
+  /** AUTO journeys — ISO-8601 datetime after which the journey stops refreshing. */
+  expiry?: string;
+  /** ONCE journeys — ISO-8601 start of the fixed analysis window. */
+  startTime?: string;
+  /** ONCE journeys — ISO-8601 end of the fixed analysis window. */
+  endTime?: string;
+}
+
 const FUNNELS_BASE = "/v1/funnels";
 const JOURNEYS_BASE = "/v1/journeys";
 
@@ -317,7 +347,7 @@ export async function createFunnel(payload: CreateFunnelRequestBody) {
 }
 
 /** POST /v1/journeys */
-export async function createJourney(payload: Record<string, unknown>) {
+export async function createJourney(payload: CreateJourneyRequestBody) {
   return makeRequest<JourneyDetail>({
     url: `${API_BASE_URL}${JOURNEYS_BASE}`,
     init: {
@@ -343,7 +373,7 @@ export async function updateFunnel(
 }
 
 /** PUT /v1/journeys/:journeyId */
-export async function updateJourney(journeyId: string, payload: unknown) {
+export async function updateJourney(journeyId: string, payload: CreateJourneyRequestBody) {
   const encoded = encodeURIComponent(journeyId);
   return makeRequest<JourneyDetail>({
     url: `${API_BASE_URL}${JOURNEYS_BASE}/${encoded}`,

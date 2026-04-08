@@ -556,7 +556,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   steps?: any[];
   timeRange?: { start: string; end: string };
   anchorEvent?: string;
-  direction?: "forward" | "reverse";
+  direction?: "START" | "END";
   depth?: number;
   /** FUNNEL listing: latest overall conversion % (mock). */
   overallConversionRate?: number;
@@ -642,7 +642,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     tags: ["auth", "onboarding"],
     filters: [{ field: "OS Name", value: "Android" }],
     anchorEvent: "Tap: Sign Up",
-    direction: "forward",
+    direction: "START",
     depth: 5,
   },
   {
@@ -655,7 +655,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["checkout", "cart"],
     anchorEvent: "Tap: Add to Cart",
-    direction: "forward",
+    direction: "START",
     depth: 4,
   },
   {
@@ -724,7 +724,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     description:
       "Maps the complete user journey from app launch to account creation and first purchase.",
     anchorEvent: "App_Launch",
-    direction: "forward",
+    direction: "START",
     depth: 5,
     funnelType: FunnelType.AUTO,
     filters: [
@@ -775,7 +775,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     description:
       "Exploratory journey for a past release — completed; no longer updating.",
     anchorEvent: "App_Launch",
-    direction: "forward",
+    direction: "START",
     depth: 5,
     funnelType: FunnelType.AUTO,
     filters: [{ field: "App Version", value: "4.2.1" }],
@@ -806,7 +806,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding"],
     anchorEvent: "App_Opened",
-    direction: "forward",
+    direction: "START",
     depth: 5,
   },
 ];
@@ -1262,11 +1262,11 @@ export function handleFunnelEndpoints(
     } catch {
       /* ignore */
     }
-    const direction = body.direction || "forward";
+    const direction = body.direction || "START";
     const anchorEvent = body.anchorEvent || "";
 
     // Check if this is for the onboarding journey
-    if (anchorEvent === "App_Launch" && direction === "forward") {
+    if (anchorEvent === "App_Launch" && direction === "START") {
       return { data: MOCK_ONBOARDING_JOURNEY_RESPONSE, status: 200 };
     }
 

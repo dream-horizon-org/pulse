@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import { ROUTES } from "../../constants";
 import { useProjectContext } from "../../contexts";
 import { useGetJourneysList } from "../../hooks/useGetJourneysList";
-import type { JourneyListItem } from "../../services/funnels.service";
+import { FunnelType, type JourneyListItem } from "../../services/funnels.service";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import {
   DEFAULT_PAGE_SIZE,
@@ -106,10 +106,9 @@ export function JourneysList() {
   }, [payload?.page]);
 
   const creatorOptions =
-    (payload as any)?.filterOptions?.creators?.map((c: string) => ({ value: c, label: c })) ??
-    [];
+    payload?.filterOptions?.creators?.map((c) => ({ value: c, label: c })) ?? [];
   const tagOptions =
-    (payload as any)?.filterOptions?.tags?.map((t: string) => ({ value: t, label: t })) ?? [];
+    payload?.filterOptions?.tags?.map((t) => ({ value: t, label: t })) ?? [];
 
   const goCreateJourney = () => {
     if (!projectId) return;
@@ -176,6 +175,36 @@ export function JourneysList() {
                       : "Pending"}
           </Badge>
         ),
+      },
+      {
+        accessor: "journeyType",
+        title: "Type",
+        render: (row: JourneyListItem) => (
+          <Badge
+            size="sm"
+            variant="light"
+            color={row.journeyType === FunnelType.AUTO ? "blue" : "grape"}
+            styles={{ root: badgeRootStyle }}
+          >
+            {row.journeyType === FunnelType.AUTO ? "Auto" : "Once"}
+          </Badge>
+        ),
+      },
+      {
+        accessor: "tags",
+        title: "Tags",
+        render: (row: JourneyListItem) =>
+          row.tags?.length ? (
+            <Group gap={4} wrap="wrap">
+              {row.tags.map((tag) => (
+                <Badge key={tag} size="sm" variant="light" color="gray" styles={{ root: badgeRootStyle }}>
+                  {tag}
+                </Badge>
+              ))}
+            </Group>
+          ) : (
+            <Text size="sm" c="dimmed">—</Text>
+          ),
       },
       {
         accessor: "createdBy",

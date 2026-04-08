@@ -18,7 +18,7 @@ import { ROUTES } from "../../constants";
 import { useProjectContext } from "../../contexts";
 import { useGetFunnelsList } from "../../hooks/useGetFunnelsList";
 import type { FunnelListItem } from "../../services/funnels.service";
-import { StepOrderType } from "../../services/funnels.service";
+import { FunnelType, StepOrderType } from "../../services/funnels.service";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { FunnelConversionCell } from "./components/FunnelConversionCell";
 import {
@@ -130,10 +130,9 @@ export function FunnelsList() {
   }, [payload?.page]);
 
   const creatorOptions =
-    (payload as any)?.filterOptions?.creators?.map((c: string) => ({ value: c, label: c })) ??
-    [];
+    payload?.filterOptions?.creators?.map((c) => ({ value: c, label: c })) ?? [];
   const tagOptions =
-    (payload as any)?.filterOptions?.tags?.map((t: string) => ({ value: t, label: t })) ?? [];
+    payload?.filterOptions?.tags?.map((t) => ({ value: t, label: t })) ?? [];
 
   const goCreateFunnel = () => {
     if (!projectId) return;
@@ -202,11 +201,41 @@ export function FunnelsList() {
         ),
       },
       {
+        accessor: "funnelType",
+        title: "Type",
+        render: (row: FunnelListItem) => (
+          <Badge
+            size="sm"
+            variant="light"
+            color={row.funnelType === FunnelType.AUTO ? "blue" : "grape"}
+            styles={{ root: badgeRootStyle }}
+          >
+            {row.funnelType === FunnelType.AUTO ? "Auto" : "Once"}
+          </Badge>
+        ),
+      },
+      {
         accessor: "conversion",
         title: COLUMN_CONVERSION_TITLE,
         render: (row: FunnelListItem) => (
           <FunnelConversionCell row={row} />
         ),
+      },
+      {
+        accessor: "tags",
+        title: "Tags",
+        render: (row: FunnelListItem) =>
+          row.tags?.length ? (
+            <Group gap={4} wrap="wrap">
+              {row.tags.map((tag) => (
+                <Badge key={tag} size="sm" variant="light" color="gray" styles={{ root: badgeRootStyle }}>
+                  {tag}
+                </Badge>
+              ))}
+            </Group>
+          ) : (
+            <Text size="sm" c="dimmed">—</Text>
+          ),
       },
       {
         accessor: "createdBy",
