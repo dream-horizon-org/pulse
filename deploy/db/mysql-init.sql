@@ -235,6 +235,49 @@ VALUES
 ), 0, 'system', 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
+-- Suggested interactions table (AI-mined interaction patterns)
+CREATE TABLE suggested_interaction (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL,
+    pattern_json JSON NOT NULL COMMENT 'Array of event names, e.g. ["pdp_open","cart_add"]',
+    total_occurrences INT NOT NULL DEFAULT 0,
+    unique_sessions INT NOT NULL DEFAULT 0,
+    session_pct DOUBLE NOT NULL DEFAULT 0,
+    mean_span_s DOUBLE NOT NULL DEFAULT 0,
+    median_span_s DOUBLE NOT NULL DEFAULT 0,
+    p95_span_s DOUBLE NOT NULL DEFAULT 0,
+    cv DOUBLE NOT NULL DEFAULT 0,
+    edges_json JSON COMMENT 'Array of edge objects with gap stats',
+    status VARCHAR(25) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    dismissed_by VARCHAR(255) NULL,
+    dismissed_at TIMESTAMP NULL,
+    INDEX idx_suggested_project_status (project_id, status),
+    CONSTRAINT fk_suggested_interaction_project FOREIGN KEY (project_id)
+        REFERENCES projects(project_id) ON DELETE CASCADE
+);
+
+-- Seed suggested interactions for default-project
+INSERT INTO suggested_interaction
+  (project_id, pattern_json, total_occurrences, unique_sessions, session_pct,
+   mean_span_s, median_span_s, p95_span_s, cv, edges_json, status)
+VALUES
+('default-project',
+ '["Go shopping","Telescope selected"]',
+ 8420, 6120, 72.5, 0.72, 0.68, 2.1, 0.12,
+ '[{"from":"Go shopping","to":"Telescope selected","mean_gap_s":0.72,"median_gap_s":0.68,"cv":0.12,"p5_s":0.31,"p95_s":2.1}]',
+ 'PENDING'),
+('default-project',
+ '["Go shopping","Telescope selected","Add to cart"]',
+ 5200, 3650, 43.2, 1.45, 1.32, 4.8, 0.18,
+ '[{"from":"Go shopping","to":"Telescope selected","mean_gap_s":0.72,"median_gap_s":0.68,"cv":0.12,"p5_s":0.31,"p95_s":2.1},{"from":"Telescope selected","to":"Add to cart","mean_gap_s":0.73,"median_gap_s":0.64,"cv":0.22,"p5_s":0.28,"p95_s":2.7}]',
+ 'PENDING'),
+('default-project',
+ '["Add to cart","Checkout started"]',
+ 3100, 2370, 28.1, 2.10, 1.85, 6.2, 0.25,
+ '[{"from":"Add to cart","to":"Checkout started","mean_gap_s":2.10,"median_gap_s":1.85,"cv":0.25,"p5_s":0.65,"p95_s":6.2}]',
+ 'PENDING');
+
 
 -- Symbol files table with project_id in composite primary key
 CREATE TABLE symbol_files (
