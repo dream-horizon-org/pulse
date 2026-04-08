@@ -4,14 +4,18 @@ import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.interaction.InteractionDao;
+import org.dreamhorizon.pulseserver.dao.suggestedinteraction.SuggestedInteractionDao;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
@@ -19,16 +23,20 @@ import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.UploadInteractionDetailService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsResponse;
+import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
+import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class InteractionServiceImpl implements InteractionService {
   private final InteractionDao interactionDao;
+  private final SuggestedInteractionDao suggestedInteractionDao;
   private final UploadInteractionDetailService uploadInteractionDetailService;
 
   private static final InteractionMapper mapper = InteractionMapper.INSTANCE;
@@ -153,5 +161,84 @@ public class InteractionServiceImpl implements InteractionService {
   public Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions() {
     return interactionDao.getTelemetryFilterOptions()
         .doOnError(err -> log.error("error while getting telemetry filter options", err));
+  }
+
+  @Override
+  public Single<GetSuggestedInteractionsResponse> getSuggestedInteractions() {
+    return suggestedInteractionDao.getSuggestedInteractions()
+        .doOnError(err -> log.error("error while getting suggested interactions", err));
+  }
+
+  @Override
+  public Single<EmptyResponse> dismissSuggestion(Long suggestionId, String userEmail) {
+    return suggestedInteractionDao.updateStatus(suggestionId, "DISMISSED", userEmail)
+        .doOnError(err -> log.error("error while dismissing suggestion", err));
+  }
+
+  @Override
+  public Single<EmptyResponse> activateSuggestion(Long suggestionId, String userEmail) {
+    String projectId = ProjectContext.getProjectId();
+    return suggestedInteractionDao.getSuggestionById(suggestionId)
+        .flatMap(suggestion ->
+            interactionDao.getAllActiveAndRunningInteractions(projectId)
+                .flatMap(existingInteractions -> {
+                  // Check for duplicate: same events in same order and same count
+                  for (InteractionDetails existing : existingInteractions) {
+                    List<String> existingEventNames = existing.getEvents().stream()
+                        .map(Event::getName)
+                        .toList();
+                    if (existingEventNames.equals(suggestion.getPattern())) {
+                      // Auto-dismiss the duplicate suggestion and return 400
+                      return suggestedInteractionDao.updateStatus(suggestionId, "DISMISSED", userEmail)
+                          .flatMap(dismissed -> Single.error(new WebApplicationException(
+                              jakarta.ws.rs.core.Response.status(400)
+                                  .entity(Map.of("error", Map.of(
+                                      "code", "DUPLICATE_INTERACTION",
+                                      "message", "An interaction with the same event sequence already exists ('"
+                                          + existing.getName() + "')")))
+                                  .type(MediaType.APPLICATION_JSON)
+                                  .build())));
+                    }
+                  }
+                  // No duplicate found — proceed with creation
+                  CreateInteractionRequest request = buildCreateRequestFromSuggestion(suggestion, userEmail);
+                  return createInteraction(request)
+                      .flatMap(created -> suggestedInteractionDao.updateStatus(suggestionId, "ACTIVATED", userEmail));
+                })
+        )
+        .doOnError(err -> log.error("error while activating suggestion", err));
+  }
+
+  private CreateInteractionRequest buildCreateRequestFromSuggestion(
+      SuggestedInteractionDetails suggestion, String userEmail) {
+    String name = String.join(" -> ", suggestion.getPattern());
+    String description = String.format(
+        "Auto-created from suggested interaction. Pattern: %s. Based on %d sessions (%.1f%% of traffic).",
+        name, suggestion.getUniqueSessions(), suggestion.getSessionPct());
+
+    List<Event> events = suggestion.getPattern().stream()
+        .map(eventName -> Event.builder()
+            .name(eventName)
+            .props(List.of())
+            .isBlacklisted(false)
+            .build())
+        .toList();
+
+    int lowerLimit = Math.max(1, (int) (suggestion.getMedianSpanS() * 1000));
+    int midLimit = Math.max(lowerLimit + 1, (int) (suggestion.getMeanSpanS() * 1000));
+    int upperLimit = Math.max(midLimit + 1, (int) (suggestion.getP95SpanS() * 1000));
+    int threshold = Math.max(upperLimit + 1, (int) (suggestion.getP95SpanS() * 2 * 1000));
+
+    return CreateInteractionRequest.builder()
+        .name(name)
+        .description(description)
+        .events(events)
+        .globalBlacklistedEvents(List.of())
+        .uptimeLowerLimitInMs(lowerLimit)
+        .uptimeMidLimitInMs(midLimit)
+        .uptimeUpperLimitInMs(upperLimit)
+        .thresholdInMs(threshold)
+        .user(userEmail)
+        .build();
   }
 }

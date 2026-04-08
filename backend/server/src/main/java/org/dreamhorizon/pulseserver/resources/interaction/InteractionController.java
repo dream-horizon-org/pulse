@@ -24,6 +24,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.DeleteInteractionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestRequest;
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
@@ -39,6 +40,7 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 
 @Slf4j
@@ -100,6 +102,40 @@ public class InteractionController {
         .map(resp -> RestInteractionDetail.builder()
             .id(resp.getId())
             .build())
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @GET
+  @Path("/suggestions")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
+  public CompletionStage<Response<GetSuggestedInteractionsResponse>> getSuggestedInteractions() {
+    return interactionService.getSuggestedInteractions()
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @PUT
+  @Path("/suggestions/{id}/dismiss")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
+  public CompletionStage<Response<EmptyResponse>> dismissSuggestion(
+      @PathParam("id") Long id,
+      @HeaderParam("user-email") String userEmail) {
+    return interactionService.dismissSuggestion(id, userEmail)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @PUT
+  @Path("/suggestions/{id}/activate")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
+  public CompletionStage<Response<EmptyResponse>> activateSuggestion(
+      @PathParam("id") Long id,
+      @HeaderParam("user-email") String userEmail) {
+    return interactionService.activateSuggestion(id, userEmail)
         .to(RestResponse.jaxrsRestHandler());
   }
 

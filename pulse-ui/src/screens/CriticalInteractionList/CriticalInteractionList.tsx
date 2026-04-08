@@ -16,7 +16,8 @@ import {
   CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS,
   ROUTES,
 } from "../../constants";
-import { IconFilterEdit } from "@tabler/icons-react";
+import { IconFilterEdit, IconX } from "@tabler/icons-react";
+import { showNotification } from "../../helpers/showNotification";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChangeEvent,
@@ -42,11 +43,16 @@ import { debounce, size, toNumber } from "lodash";
 import { getCookies } from "../../helpers/cookies";
 import { getDateFilterDetails } from "./utils";
 import { InteractionCard } from "./components/InteractionCard";
+import { SuggestedInteractionCard } from "./components/SuggestedInteractionCard/SuggestedInteractionCard";
 import { filtersToQueryString } from "../../helpers/filtersToQueryString";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { CardSkeleton } from "../../components/Skeletons";
 import { useGetDataQuery } from "../../hooks";
+import { useGetSuggestedInteractions } from "../../hooks/useGetSuggestedInteractions";
+import { useDismissSuggestion } from "../../hooks/useGetSuggestedInteractions/useDismissSuggestion";
+import { useActivateSuggestion } from "../../hooks/useGetSuggestedInteractions/useActivateSuggestion";
+import { SuggestedInteraction } from "../../hooks/useGetSuggestedInteractions/useGetSuggestedInteractions.interface";
 import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
@@ -244,6 +250,37 @@ export function CriticalInteractionList() {
     setRows({ totalInteractions: 0, interactions: [] });
   };
 
+  const { data: suggestionsResponse } = useGetSuggestedInteractions();
+  const dismissMutation = useDismissSuggestion();
+  const activateMutation = useActivateSuggestion();
+  const suggestions = suggestionsResponse?.data?.suggestions ?? [];
+
+  const handleDismissSuggestion = (id: number) => {
+    const email = getCookies(COOKIES_KEY.USER_EMAIL) || "";
+    dismissMutation.mutate({ id, userEmail: email });
+  };
+
+  const handleActivateSuggestion = (suggestion: SuggestedInteraction) => {
+    const email = getCookies(COOKIES_KEY.USER_EMAIL) || "";
+    activateMutation.mutate(
+      { id: suggestion.id, userEmail: email },
+      {
+        onSuccess: () => {
+          setRows({ interactions: [], totalInteractions: 0 });
+          setPagination({ page: 0, size: defaultPageSize });
+        },
+        onError: () => {
+          showNotification(
+            "Duplicate Interaction",
+            "An interaction with the same event sequence already exists.",
+            <IconX size={16} />,
+            "red",
+          );
+        },
+      },
+    );
+  };
+
   const data = useMemo(() => rows?.interactions || [], [rows]);
 
   const hasMore = data?.length < totalRecords;
@@ -384,7 +421,7 @@ export function CriticalInteractionList() {
       );
     }
 
-    if (data.length === 0) {
+    if (data.length === 0 && suggestions.length === 0) {
       return (
         <ErrorAndEmptyState
           classes={[classes.error]}
@@ -400,6 +437,32 @@ export function CriticalInteractionList() {
         viewportRef={scrollContainerRef}
         className={classes.scrollArea}
       >
+        {suggestions.length > 0 && (
+          <Box className={classes.suggestionsSection}>
+            <Box className={classes.suggestionsHeader}>
+              <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>
+              <span className={classes.suggestionsCount}>{suggestions.length}</span>
+            </Box>
+            <Box className={classes.suggestionsGrid}>
+              {suggestions.map((suggestion) => (
+                <SuggestedInteractionCard
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  onDismiss={handleDismissSuggestion}
+                  onActivate={handleActivateSuggestion}
+                  isDismissing={
+                    dismissMutation.isPending &&
+                    dismissMutation.variables?.id === suggestion.id
+                  }
+                  isActivating={
+                    activateMutation.isPending &&
+                    activateMutation.variables?.id === suggestion.id
+                  }
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
         <Box className={classes.criticalInteractionsTableContainer}>
           {data.map((item) => {
             const interactionName = item?.name || "";

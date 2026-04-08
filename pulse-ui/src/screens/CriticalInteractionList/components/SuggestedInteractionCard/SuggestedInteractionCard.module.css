@@ -1,0 +1,218 @@
+.suggestedCard {
+  background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 30%, #ffffff 100%);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 20px;
+  padding: 16px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 8px 20px rgba(245, 158, 11, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.suggestedCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 50%, transparent 100%);
+  opacity: 0.6;
+}
+
+.suggestedCard:hover {
+  box-shadow:
+    0 16px 32px rgba(245, 158, 11, 0.12),
+    0 8px 16px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateY(-4px);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.12);
+}
+
+.cardInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestedBadge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.patternName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin-bottom: 4px;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.patternFlow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.eventPill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+  white-space: nowrap;
+}
+
+.arrow {
+  font-size: 12px;
+  color: #d97706;
+  font-weight: 600;
+}
+
+.metricsGrid {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.04) 0%,
+    rgba(245, 158, 11, 0.08) 100%
+  );
+  border-radius: 14px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.metricCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.metricCard:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: -4px;
+  top: 15%;
+  bottom: 15%;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(245, 158, 11, 0.25),
+    transparent
+  );
+}
+
+.metricLabel {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--mantine-color-dark-4);
+  text-transform: capitalize;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.metricValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-8);
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dismissBtn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--mantine-color-dark-5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dismissBtn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.activateBtn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+}
+
+.activateBtn:hover {
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 600px) {
+  .suggestedCard {
+    padding: 12px;
+  }
+
+  .patternName {
+    font-size: 13px;
+  }
+
+  .metricsGrid {
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .metricLabel {
+    font-size: 9px;
+  }
+
+  .metricValue {
+    font-size: 12px;
+  }
+}
