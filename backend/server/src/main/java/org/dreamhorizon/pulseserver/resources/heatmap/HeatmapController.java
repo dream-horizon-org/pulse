@@ -27,7 +27,7 @@ public class HeatmapController {
   @Produces(MediaType.APPLICATION_JSON)
   @RequiresPermission("can_view")
   public CompletionStage<Response<HeatmapDataRestResponse>> getHeatmapData(
-      @QueryParam("screen_name") String screenName,
+      @QueryParam("screenName") String screenName,
       @QueryParam("from") String from,
       @QueryParam("to") String to,
       @QueryParam("app_version") String appVersion,

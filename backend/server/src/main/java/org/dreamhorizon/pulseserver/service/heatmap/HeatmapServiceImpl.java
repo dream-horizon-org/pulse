@@ -46,7 +46,7 @@ public class HeatmapServiceImpl implements HeatmapService {
 
     if (screenName == null || screenName.isBlank()) {
       return Single.error(
-          ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException("screen_name is required"));
+          ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException("screenName is required"));
     }
     if (from == null || to == null) {
       return Single.error(
