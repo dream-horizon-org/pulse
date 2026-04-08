@@ -40,6 +40,7 @@ def _build_rca_prompt(
     if example_session_ids and len(example_session_ids) > 0:
         # Build sessions instruction with ALL available sessions
         sessions_list = ', '.join([f'"{sid}"' for sid in example_session_ids])
+        example_sessions_truncated = ', '.join([f'"{sid[:10]}..."' for sid in example_session_ids[:2]])
         sessions_context = (
             f"\n## CRITICAL: Session Evidence for Replay Analysis\n"
             f"You have identified {len(example_session_ids)} real sessions that demonstrate this issue:\n"
@@ -49,7 +50,7 @@ def _build_rca_prompt(
             f"2. Select 1-3 of the most relevant session IDs from the list above for each segment\n"
             f"3. Only include sessions that directly support the segment's findings\n"
             f"4. The 'affected_sessions' field in JSON must be an array of strings, like:\n"
-            f'   {{"affected_sessions": [{", ".join([f\'"{sid[:10]}...\' for sid in example_session_ids[:2]])}]}}\n'
+            f'   {{"affected_sessions": [{example_sessions_truncated}]}}\n'
             f"5. If a segment has no relevant sessions, use an empty array: {{}}\n"
             f"6. These sessions WILL be clickable in the UI - users will review these exact sessions for validation\n"
             f"\nIMPORTANT: Do not omit affected_sessions or leave it null. Every segment needs this field populated."

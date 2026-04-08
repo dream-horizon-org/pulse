@@ -248,9 +248,13 @@ async def generate_root_cause_report(
         if request.rootCausePayload is not None:
             # Extract session IDs BEFORE converting to model (while still a dict)
             example_sessions = None
+            logger.info(f"[DEBUG] rootCausePayload type: {type(request.rootCausePayload)}")
+            logger.info(f"[DEBUG] rootCausePayload keys: {request.rootCausePayload.keys() if isinstance(request.rootCausePayload, dict) else 'N/A'}")
             if isinstance(request.rootCausePayload, dict):
                 example_sessions = request.rootCausePayload.get("exampleSessionIds")
                 logger.info(f"[DEBUG] Extracted exampleSessionIds from payload: {example_sessions}")
+                if example_sessions is None:
+                    logger.info(f"[DEBUG] exampleSessionIds not found. Full payload keys: {list(request.rootCausePayload.keys())}")
             else:
                 logger.info(f"[DEBUG] rootCausePayload is not a dict, it's: {type(request.rootCausePayload)}")
             
