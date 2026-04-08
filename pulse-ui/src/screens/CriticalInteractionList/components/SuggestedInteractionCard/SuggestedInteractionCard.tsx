@@ -48,7 +48,6 @@ export function SuggestedInteractionCard({
             ))}
           </div>
         </div>
-        <span className={classes.suggestedBadge}>Suggested</span>
       </div>
 
       <div className={classes.metricsGrid}>

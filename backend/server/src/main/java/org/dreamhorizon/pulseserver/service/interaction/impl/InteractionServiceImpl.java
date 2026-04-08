@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
@@ -165,8 +167,27 @@ public class InteractionServiceImpl implements InteractionService {
 
   @Override
   public Single<GetSuggestedInteractionsResponse> getSuggestedInteractions() {
-    return suggestedInteractionDao.getSuggestedInteractions()
-        .doOnError(err -> log.error("error while getting suggested interactions", err));
+    String projectId = ProjectContext.getProjectId();
+    return Single.zip(
+        suggestedInteractionDao.getSuggestedInteractions(),
+        interactionDao.getAllActiveAndRunningInteractions(projectId),
+        (suggestionsResponse, existingInteractions) -> {
+          Set<List<String>> existingPatterns = existingInteractions.stream()
+              .map(interaction -> interaction.getEvents().stream()
+                  .map(Event::getName)
+                  .toList())
+              .collect(Collectors.toSet());
+
+          List<SuggestedInteractionDetails> filtered = suggestionsResponse.getSuggestions().stream()
+              .filter(s -> !existingPatterns.contains(s.getPattern()))
+              .toList();
+
+          return GetSuggestedInteractionsResponse.builder()
+              .suggestions(filtered)
+              .totalSuggestions(filtered.size())
+              .build();
+        }
+    ).doOnError(err -> log.error("error while getting suggested interactions", err));
   }
 
   @Override
