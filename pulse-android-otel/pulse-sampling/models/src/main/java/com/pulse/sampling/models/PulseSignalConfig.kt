@@ -2,8 +2,10 @@ package com.pulse.sampling.models
 
 import androidx.annotation.Keep
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonClassDiscriminator
 
 @Keep
 @Serializable
@@ -132,11 +134,14 @@ public class PulseAttributesToDropEntry internal constructor(
 )
 
 @Keep
+@OptIn(ExperimentalSerializationApi::class)
+@JsonClassDiscriminator("type")
 @Serializable
 public sealed class PulseMetricsToAddTarget protected constructor() {
     /**
      * Name of the signal will be used as data to record the metric
      */
+    @Serializable
     @SerialName("name")
     public data class Name(
         @SerialName("type")
@@ -146,6 +151,7 @@ public sealed class PulseMetricsToAddTarget protected constructor() {
     /**
      * Attribute of the signal matched by [condition] will be used as data to record the metric
      */
+    @Serializable
     @SerialName("attribute")
     public class Attribute internal constructor(
         @SerialName("type")
@@ -161,31 +167,38 @@ public sealed class PulseMetricsToAddTarget protected constructor() {
 }
 
 @Keep
+@OptIn(ExperimentalSerializationApi::class)
+@JsonClassDiscriminator("type")
 @Serializable
 public sealed class PulseMetricsType {
+    @Serializable
     @SerialName("counter")
     public class Counter internal constructor(
         @SerialName("type")
         public val type: String,
     ) : PulseMetricsType()
 
+    @Serializable
     @SerialName("gauge")
     public class Gauge internal constructor(
         @SerialName("type")
         public val type: String,
-        @SerialName("isFraction") public val isFraction: Boolean,
+        @SerialName("isFraction")
+        public val isFraction: Boolean,
     ) : PulseMetricsType()
 
+    @Serializable
     @SerialName("histogram")
     public class Histogram internal constructor(
         @SerialName("type")
         public val type: String,
         @SerialName("bucket")
-        public val bucket: List<Number>?,
+        public val bucket: List<Double>?,
         @SerialName("isFraction")
         public val isFraction: Boolean,
     ) : PulseMetricsType()
 
+    @Serializable
     @SerialName("sum")
     public class Sum internal constructor(
         @SerialName("type")

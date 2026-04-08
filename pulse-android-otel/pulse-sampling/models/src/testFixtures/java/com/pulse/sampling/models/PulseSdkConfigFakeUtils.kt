@@ -184,7 +184,7 @@ public object PulseSdkConfigFakeUtils {
         PulseMetricsType.Gauge(type = "gauge", isFraction = isFraction)
 
     public fun createFakeHistogram(
-        bucket: List<Number>? = null,
+        bucket: List<Double>? = null,
         isFraction: Boolean = false,
     ): PulseMetricsType.Histogram =
         PulseMetricsType.Histogram(
