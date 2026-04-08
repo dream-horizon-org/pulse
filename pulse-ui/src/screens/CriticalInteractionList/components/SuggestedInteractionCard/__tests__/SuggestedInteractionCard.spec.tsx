@@ -1,0 +1,172 @@
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { renderWithProviders } from "../../../../../test-utils/renderWithProviders";
+import { SuggestedInteractionCard } from "../SuggestedInteractionCard";
+import {
+  mockSuggestion,
+  mockSuggestionLargeNumbers,
+  mockSuggestionLongDurations,
+  mockSuggestionSmallNumbers,
+} from "../__mock__/SuggestedInteractionCard.mock";
+
+describe("SuggestedInteractionCard", () => {
+  const defaultProps = {
+    suggestion: mockSuggestion,
+    onDismiss: jest.fn(),
+    onActivate: jest.fn(),
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("rendering", () => {
+    it("renders the pattern label with arrow separator", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(
+        screen.getByTitle("Go shopping \u2192 Telescope selected"),
+      ).toBeInTheDocument();
+    });
+
+    it("renders all event pills in the pattern flow", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("Go shopping")).toBeInTheDocument();
+      expect(screen.getByText("Telescope selected")).toBeInTheDocument();
+    });
+
+    it("shows the Suggested badge", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("Suggested")).toBeInTheDocument();
+    });
+
+    it("renders all metric labels", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("Volume")).toBeInTheDocument();
+      expect(screen.getByText("Sessions")).toBeInTheDocument();
+      expect(screen.getByText("P50")).toBeInTheDocument();
+      expect(screen.getByText("P95")).toBeInTheDocument();
+      expect(screen.getByText("Consistency")).toBeInTheDocument();
+    });
+  });
+
+  describe("metric values with default mock", () => {
+    it("displays correct Volume value", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("8.4K")).toBeInTheDocument();
+    });
+
+    it("displays correct Sessions percentage", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("72.5%")).toBeInTheDocument();
+    });
+
+    it("displays correct P50 value in milliseconds", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("680ms")).toBeInTheDocument();
+    });
+
+    it("displays correct P95 value in seconds", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("2.10s")).toBeInTheDocument();
+    });
+
+    it("displays correct Consistency value", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      // cv = 0.12, consistency = (1 - 0.12) * 100 = 88%
+      expect(screen.getByText("88%")).toBeInTheDocument();
+    });
+  });
+
+  describe("metric formatting", () => {
+    it("formats count in millions with M suffix", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionLargeNumbers}
+        />,
+      );
+      expect(screen.getByText("2.5M")).toBeInTheDocument();
+    });
+
+    it("formats count less than 1000 as raw number", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionSmallNumbers}
+        />,
+      );
+      expect(screen.getByText("500")).toBeInTheDocument();
+    });
+
+    it("formats duration >= 1s as seconds", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionLongDurations}
+        />,
+      );
+      // medianSpanS = 3.456 -> "3.46s"
+      expect(screen.getByText("3.46s")).toBeInTheDocument();
+    });
+  });
+
+  describe("actions", () => {
+    it("calls onDismiss with suggestion id when Dismiss is clicked", async () => {
+      const onDismiss = jest.fn();
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          onDismiss={onDismiss}
+        />,
+      );
+
+      const user = userEvent.setup();
+      await user.click(screen.getByText("Dismiss"));
+      expect(onDismiss).toHaveBeenCalledWith(1);
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it("calls onActivate with the full suggestion when Track this is clicked", async () => {
+      const onActivate = jest.fn();
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          onActivate={onActivate}
+        />,
+      );
+
+      const user = userEvent.setup();
+      await user.click(screen.getByText("Track this"));
+      expect(onActivate).toHaveBeenCalledWith(mockSuggestion);
+      expect(onActivate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("loading states", () => {
+    it("shows Dismissing... and disables button when isDismissing is true", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          isDismissing={true}
+        />,
+      );
+
+      const button = screen.getByText("Dismissing...");
+      expect(button).toBeInTheDocument();
+      expect(button.closest("button")).toBeDisabled();
+    });
+
+    it("shows Creating... and disables button when isActivating is true", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          isActivating={true}
+        />,
+      );
+
+      const button = screen.getByText("Creating...");
+      expect(button).toBeInTheDocument();
+      expect(button.closest("button")).toBeDisabled();
+    });
+  });
+});
