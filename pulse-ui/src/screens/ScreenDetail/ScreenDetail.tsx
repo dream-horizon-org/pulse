@@ -246,6 +246,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               }
               isLoading={isLoadingEngagement}
               error={engagementError}
+              onTimeFilterChange={handleTimeFilterChange}
             />
             <UserEngagementGraph
               screenName={decodedScreenName}
@@ -262,6 +263,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               device={device !== "all" ? device : undefined}
               startTime={startTime || undefined}
               endTime={endTime || undefined}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           </SimpleGrid>
         </Tabs.Panel>

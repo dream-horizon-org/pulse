@@ -13,4 +13,6 @@ export interface LineChartProps extends EChartsReactProps {
     startLabel: string,
     endLabel: string,
   ) => StartEndDateTimeType | null | undefined;
+  /** Sync chart dataZoom (time x-axis, ms) to the global time filter. */
+  syncDataZoomToTimeFilter?: boolean;
 }

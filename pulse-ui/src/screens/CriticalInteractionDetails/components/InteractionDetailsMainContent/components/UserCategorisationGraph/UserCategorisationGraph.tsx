@@ -19,6 +19,7 @@ export function UserCategorisationGraph({
   graphData,
   metrics,
   height,
+  onTimeFilterChange,
 }: GraphDataProps) {
   const theme = useMantineTheme();
 
@@ -58,6 +59,8 @@ export function UserCategorisationGraph({
         // height={300}
         height={height ?? 300}
         withLegend={false}
+        onTimeFilterChange={onTimeFilterChange}
+        syncDataZoomToTimeFilter
         option={{
           grid: {
             top: "20",
