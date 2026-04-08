@@ -111,7 +111,7 @@ describe("SuggestedInteractionCard", () => {
   });
 
   describe("actions", () => {
-    it("calls onDismiss with suggestion id when Dismiss is clicked", async () => {
+    it("calls onDismiss with suggestion id when Dismiss is clicked", () => {
       const onDismiss = jest.fn();
       renderWithProviders(
         <SuggestedInteractionCard
@@ -120,13 +120,12 @@ describe("SuggestedInteractionCard", () => {
         />,
       );
 
-      const user = userEvent.setup();
-      await user.click(screen.getByText("Dismiss"));
+      userEvent.click(screen.getByText("Dismiss"));
       expect(onDismiss).toHaveBeenCalledWith(1);
       expect(onDismiss).toHaveBeenCalledTimes(1);
     });
 
-    it("calls onActivate with the full suggestion when Track this is clicked", async () => {
+    it("calls onActivate with the full suggestion when Track this is clicked", () => {
       const onActivate = jest.fn();
       renderWithProviders(
         <SuggestedInteractionCard
@@ -135,8 +134,7 @@ describe("SuggestedInteractionCard", () => {
         />,
       );
 
-      const user = userEvent.setup();
-      await user.click(screen.getByText("Track this"));
+      userEvent.click(screen.getByText("Track this"));
       expect(onActivate).toHaveBeenCalledWith(mockSuggestion);
       expect(onActivate).toHaveBeenCalledTimes(1);
     });
