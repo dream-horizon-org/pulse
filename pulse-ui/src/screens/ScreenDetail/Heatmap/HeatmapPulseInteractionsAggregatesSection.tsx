@@ -23,7 +23,12 @@ export function HeatmapPulseInteractionsAggregatesSection({
   const rows = useMemo(() => pulseInteractionRowsForKeyLens(payload), [payload]);
   const showElements = showElementsColumn && hasOverlay;
   const sorted = useMemo(
-    () => [...rows].sort((a, b) => b.score01 - a.score01),
+    () =>
+      [...rows].sort((a, b) => {
+        const av = a.score01 ?? -Infinity;
+        const bv = b.score01 ?? -Infinity;
+        return bv - av;
+      }),
     [rows],
   );
 
@@ -94,9 +99,14 @@ export function HeatmapPulseInteractionsAggregatesSection({
                         size="sm"
                         fw={700}
                         style={{
-                          color: heatmapScoreColor(
-                            bandFromNumericScore(Math.round(row.score01 * 100)),
-                          ),
+                          color:
+                            row.score01 == null
+                              ? "var(--mantine-color-dimmed)"
+                              : heatmapScoreColor(
+                                  bandFromNumericScore(
+                                    Math.round(row.score01 * 100),
+                                  ),
+                                ),
                         }}
                       >
                         {formatPulseScore(row.score01)}

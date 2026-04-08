@@ -1,5 +1,6 @@
 import type {
   HeatmapDataResponse,
+  HeatmapDataWireLayers,
   HeatmapDataWireResponse,
   HeatmapFrustrationPoint,
   HeatmapInteractionsMetadataRow,
@@ -10,9 +11,42 @@ function asFrustrationPoints(arr: unknown): HeatmapFrustrationPoint[] {
   return arr as HeatmapFrustrationPoint[];
 }
 
+/** Legacy wire shape: some payloads nested `interactions_metadata` under `layers`. */
+type HeatmapDataWireLayersLegacy = HeatmapDataWireLayers & {
+  interactions_metadata?: unknown;
+};
+
+function wireInteractionsMetadataRaw(
+  wire: HeatmapDataWireResponse,
+): unknown[] | undefined {
+  const top = wire.interactions_metadata;
+  if (top != null && Array.isArray(top)) return top;
+
+  const legacy = (wire.layers as HeatmapDataWireLayersLegacy)
+    .interactions_metadata;
+  if (legacy != null && Array.isArray(legacy)) return legacy;
+
+  return undefined;
+}
+
+function mapWireInteractionMetadataRow(
+  r: Record<string, unknown>,
+): HeatmapInteractionsMetadataRow {
+  const name = String(r.interaction_name ?? "");
+  const raw = r.avg_score;
+  const avg_score =
+    raw === null || raw === undefined || raw === ""
+      ? null
+      : Number(raw);
+  return {
+    interaction_name: name,
+    avg_score: Number.isFinite(avg_score) ? avg_score : null,
+  };
+}
+
 /**
- * Maps API (wire) JSON → in-app `HeatmapDataResponse` (rage/dead frustr. keys,
- * optional `layers.interactions_metadata` kept for the right rail).
+ * Maps API (wire) JSON → in-app `HeatmapDataResponse` (rage/dead frustr. keys).
+ * `interactions_metadata` stays **top-level** on the result (legacy wire may nest under `layers` only as input).
  */
 export function normalizeHeatmapWireResponse(
   wire: HeatmapDataWireResponse,
@@ -20,14 +54,18 @@ export function normalizeHeatmapWireResponse(
   const fm = wire.layers?.frustration_map;
   const rage = asFrustrationPoints(fm?.rage_taps);
   const dead = asFrustrationPoints(fm?.dead_taps);
-  const metaRows: HeatmapInteractionsMetadataRow[] =
-    wire.layers?.interactions_metadata != null &&
-    Array.isArray(wire.layers.interactions_metadata)
-      ? wire.layers.interactions_metadata.map((r) => ({
-          interaction_name: String(r.interaction_name ?? ""),
-          avg_score: Number(r.avg_score),
-        }))
-      : [];
+
+  const rawMeta = wireInteractionsMetadataRaw(wire);
+  const metaRows: HeatmapInteractionsMetadataRow[] = [];
+  if (rawMeta != null) {
+    for (const item of rawMeta) {
+      if (item != null && typeof item === "object" && !Array.isArray(item)) {
+        metaRows.push(
+          mapWireInteractionMetadataRow(item as Record<string, unknown>),
+        );
+      }
+    }
+  }
 
   return {
     metadata: wire.metadata,
@@ -41,8 +79,8 @@ export function normalizeHeatmapWireResponse(
       ...(wire.layers?.interaction_map != null
         ? { interaction_map: wire.layers.interaction_map }
         : {}),
-      ...(metaRows.length > 0 ? { interactions_metadata: metaRows } : {}),
     },
+    ...(metaRows.length > 0 ? { interactions_metadata: metaRows } : {}),
   };
 }
 

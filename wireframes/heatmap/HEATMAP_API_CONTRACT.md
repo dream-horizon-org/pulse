@@ -78,8 +78,15 @@ Shared color scale for the two charts is computed **in the browser** from both r
 | Layer key            | Shape |
 |----------------------|--------|
 | `glow_map`           | `Array<{ x: number; y: number; weight: number }>` |
-| `frustration_map`    | `{ rage: FrustrationPoint[]; dead: FrustrationPoint[] }` |
+| `frustration_map`    | `{ rage: FrustrationPoint[]; dead: FrustrationPoint[] }` (wire may use `rage_taps` / `dead_taps`; client normalizes) |
 | `observability_map`  | `{ error_clicks: ErrorClickPoint[]; latency_hotspots: LatencyHotspot[] }` |
+| `interaction_map`    | optional — `{ regions: InteractionElementRegion[] }` for Key-actions overlay |
+
+### 2.3 `interactions_metadata` (top-level, not under `layers`)
+
+On the **wire** and in the **normalized `HeatmapDataResponse`**, `interactions_metadata` is **always top-level** — sibling of `metadata` and `layers`, never nested under `layers`. Each row: `{ "interaction_name": string, "avg_score": number | null }`.
+
+`normalizeHeatmapWireResponse` keeps that shape; it may still **read** a legacy wire payload that nested the array under `layers.interactions_metadata`, but the output only exposes **`interactions_metadata` at the root** (matches `HeatmapDataRestResponse` on the server).
 
 **`FrustrationPoint`:** `{ x, y, weight, avg_sequence_count? }`
 
@@ -127,9 +134,14 @@ Shared color scale for the two charts is computed **in the browser** from both r
         { "x": 0.5, "y": 0.5, "avg_latency_ms": 2450, "weight": 300 }
       ]
     }
-  }
+  },
+  "interactions_metadata": [
+    { "interaction_name": "Checkout", "avg_score": 0.82 }
+  ]
 }
 ```
+
+*(Wire and normalized UI type: `interactions_metadata` stays next to `layers` as shown — not inside `layers`.)*
 
 ---
 
