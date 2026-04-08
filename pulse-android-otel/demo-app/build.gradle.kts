@@ -58,6 +58,7 @@ android {
 
     kotlin {
         compilerOptions {
+            allWarningsAsErrors.set(true)
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
