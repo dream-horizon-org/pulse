@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import {
   Box,
   Divider,
@@ -10,6 +10,7 @@ import {
 } from "@mantine/core";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
+import { useResolvedHeatmapScreenshots } from "./useResolvedHeatmapScreenshots";
 import {
   glowLayerForSignal,
   heatmapFrustrationEmojiMarkers,
@@ -352,11 +353,23 @@ function CompareColumnVisualization({
   const mockBinControls = isHeatmapMockServerEnabled();
   const binBudget = useHeatmapBinBudget(glow, mockBinControls);
   const frustrationEmojiMarkers = heatmapFrustrationEmojiMarkers(data, signal);
+  const rawScreenshotUrls = useMemo(
+    () => screenshotUrlsFromMetadata(data.metadata),
+    [data],
+  );
+  const {
+    displayUrls: screenshotDisplayUrls,
+    loading: screenshotsLoading,
+    sourceKey: screenshotSourceKey,
+  } = useResolvedHeatmapScreenshots(rawScreenshotUrls);
 
   return (
     <HeatmapVisualization
       signal={signal}
-      screenshotUrls={screenshotUrlsFromMetadata(data.metadata)}
+      screenshotUrls={screenshotDisplayUrls}
+      screenshotCarouselCount={rawScreenshotUrls.length}
+      screenshotSourceKey={screenshotSourceKey}
+      screenshotsLoading={screenshotsLoading}
       glowMap={glow}
       binBudget={binBudget}
       focusLens={focusLens}

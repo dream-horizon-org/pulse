@@ -1,10 +1,12 @@
-import { Stack, Text } from "@mantine/core";
+import { Center, Loader, Stack, Text } from "@mantine/core";
 import { IconPhotoOff } from "@tabler/icons-react";
 import { HEATMAP_SCREEN_FALLBACK_URL } from "./heatmapViz.constants";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapScreenUnderlayProps {
   screenshotUrl: string | null | undefined;
+  /** True while JSON/base64 capture manifests are being fetched and decoded. */
+  loading?: boolean;
 }
 
 /**
@@ -13,7 +15,18 @@ export interface HeatmapScreenUnderlayProps {
  */
 export function HeatmapScreenUnderlay({
   screenshotUrl,
+  loading = false,
 }: HeatmapScreenUnderlayProps) {
+  if (loading && !screenshotUrl) {
+    return (
+      <div className={classes.screenUnderlayEmpty}>
+        <Center h="100%" py="xl">
+          <Loader size="sm" type="dots" />
+        </Center>
+      </div>
+    );
+  }
+
   if (screenshotUrl) {
     return (
       <img
