@@ -1,18 +1,21 @@
 """RCA (Root Cause Analysis) agent and pipeline.
 
-The RCA agent analyzes hierarchical segment data to identify correlations,
-anomalies, and root causes. It outputs explainable insights that are then
-formatted by the Report agent into charts and tables.
+Pipeline:
+  1. rca_agent       — pure reasoning, outputs analysis text → output_key="rca_analysis_result"
+  2. rca_formatter   — no tools, output_schema=RcaStructuredReportV1 → output_key="rca_structured_report"
 """
 
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.agents.sequential_agent import SequentialAgent
 
-from pulse_ai.constants import AGENT_MODEL, RCA_ANALYZER_AGENT_NAME, RCA_PIPELINE_AGENT_NAME, RCA_REPORT_AGENT_NAME
-from pulse_ai.agents.report.prompts import build_report_prompt
-from pulse_ai.agents.report.tools import create_chart, create_table
-from pulse_ai.agents.rca.tools import submit_rca_structured_report
-from .prompts import build_rca_prompt
+from pulse_ai.constants import (
+    AGENT_MODEL,
+    RCA_ANALYZER_AGENT_NAME,
+    RCA_FORMATTER_AGENT_NAME,
+    RCA_PIPELINE_AGENT_NAME,
+)
+from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
+from .prompts import build_rca_formatter_prompt, build_rca_prompt
 
 rca_agent = LlmAgent(
     model=AGENT_MODEL,
@@ -23,20 +26,24 @@ rca_agent = LlmAgent(
     output_key="rca_analysis_result",
 )
 
-# Separate instance from the EM pipeline's report_agent — ADK doesn't allow an agent to have multiple parents
-rca_report_agent = LlmAgent(
+# Formatter: no tools — output_schema forces structured JSON output (ADK constraint).
+# Reads rca_analysis_result from session state via build_rca_formatter_prompt.
+rca_formatter_agent = LlmAgent(
     model=AGENT_MODEL,
-    name=RCA_REPORT_AGENT_NAME,
-    description="Generates the final user-facing response with interactive charts and data tables.",
-    instruction=build_report_prompt,
-    tools=[create_chart, create_table, submit_rca_structured_report],
+    name=RCA_FORMATTER_AGENT_NAME,
+    description="Converts RCA analysis text into a validated RcaStructuredReportV1 JSON object.",
+    instruction=build_rca_formatter_prompt,
+    tools=[],
+    output_schema=RcaStructuredReportV1,
+    output_key="rca_structured_report",
+    include_contents="default",  # Needs full history to access original RootCausePayload for all metrics
 )
 
 rca_pipeline_agent = SequentialAgent(
     name=RCA_PIPELINE_AGENT_NAME,
-    sub_agents=[rca_agent, rca_report_agent],
+    sub_agents=[rca_agent, rca_formatter_agent],
     description=(
-        "Sequential pipeline: RCA Agent (root cause analysis) → "
-        "Report Agent (visualization with charts and tables)"
+        "Sequential pipeline: RCA Analyzer (root cause analysis) → "
+        "RCA Formatter (structured JSON output)"
     ),
 )

@@ -152,18 +152,75 @@ Structure your response with these two sections in this exact order:
      - Include only metrics that show significant degradation (critical or warning thresholds)
    - **Actionable recommendation**: One to two sentences. Include volume and impact context if relevant.
 
-2. **Executive Summary** (exactly 2 sentences, no more, no less)
+2. **Executive Summary** (up to 4 sentences)
    - Sentence 1: Overall health assessment
    - Sentence 2: Most critical finding
+   - Optional sentences 3–4: additional context if needed (e.g. secondary issues, scope of impact)
 
 ## Important Notes
 
 - **Be concise** — prioritize actionable insights over lengthy explanations
-- **Limit output** — Only include the most critical root causes (top 1–3 issues). Do not list every minor anomaly.
+- **Minimum output** — Always identify and output **at least 2 root causes**, even if the second is less severe. If only one critical issue exists, include the next most notable segment as a secondary finding. Only skip this if **noDataAvailable** or **everythingGood** is true.
 - **Strict format adherence** — Follow the output format exactly. Only output the two sections above.
 - Focus on **explainable insights** — not just numbers, but what they mean and what to do about them
 - Prioritize segments with **high volume** (more users affected) when ranking issues
 - If no anomalies are found, state that clearly: "No significant anomalies detected. All segments are performing within expected thresholds."
 - Remember: segments are FLAT and can have varying dimension combinations — compare them directly across the list to find patterns
 - If **noDataAvailable** or **everythingGood** is true in the payload, state that clearly and keep findings minimal.
+"""
+
+
+def build_rca_formatter_prompt(ctx=None) -> str:
+    """Prompt for the RCA Formatter agent.
+
+    Injects the rca_analysis_result from session state so the formatter can
+    convert the RCA agent's text output into a validated RcaStructuredReportV1
+    JSON object via output_schema — no tool call required.
+    """
+    rca_result = None
+    if ctx:
+        raw_state = getattr(ctx, "state", None)
+        if raw_state is not None:
+            try:
+                rca_result = raw_state.get("rca_analysis_result")
+            except Exception:
+                pass
+
+    analysis = rca_result or "No analysis data available."
+
+    return f"""\
+You are the RCA Structured Formatter for Pulse AI.
+
+Your only task is to convert the RCA analysis below into a structured JSON report.
+
+## RCA Analysis
+{analysis}
+
+## Output Schema Instructions
+
+Produce output with exactly these fields:
+
+**version**: always `1`
+
+**executive_summary**: Copy the Executive Summary from the RCA Analysis above verbatim.
+If no explicit summary exists, write a concise summary based on the analysis (up to 4 sentences).
+
+**segments**: Array of the top root cause segments. **Must contain at least 2 segments** — if the RCA analysis only highlighted one, include the next most notable segment from the analysis as rank 2. Only use an empty array if noDataAvailable or everythingGood was explicitly stated. For each segment:
+- `rank`: 1-based integer (1 = most impactful)
+- `title`: segment identifier string from the analysis (e.g. "device_model: SM-A135F", "app_version: 4.2.1 + network: 2G")
+- `impact`: optional short string describing user impact (e.g. "2,200 users affected")
+- `insights`: 2–4 sentences explaining why this segment ranks here. Summarise the most critical metric degradations, what they mean for the user, and why this segment is the top contributor. Example: "This segment shows a critically low APDEX of 0.03 (baseline 0.31), meaning nearly all users experienced poor performance. 89.5% of users fell into the poor experience bucket — more than 4× the baseline. The combination of high poor-user rate and low volume suggests a device-specific regression on the 22101316I model running Android 14."
+- `metrics`: **ALL metrics for this segment from the original RootCausePayload JSON** in the conversation — not just the ones the RCA analysis highlighted. The RCA analysis only calls out significant metrics; the metrics array must include every metric present in the payload for this segment (volume, apdex, error_rate, poor_user_pct, duration_p50, duration_p95, crash_rate, anr_rate, frozen_frame_rate, slow_frame_rate — whichever are present). Each metric row:
+  - `metric_id`: one of `volume`, `apdex`, `error_rate`, `poor_user_pct`, `duration_p50`, `duration_p95`, `crash_rate`, `anr_rate`, `frozen_frame_rate`, `slow_frame_rate`
+  - `metric_label`: human-readable label (e.g. "APDEX", "Error Rate", "Crash Rate", "Volume")
+  - `value_display`: formatted current value string (e.g. "0.43", "27.5%", "15,200ms", "2,200")
+  - `baseline_display`: formatted baseline value in the same unit/format as value_display
+  - `delta_display`: formatted delta with explicit sign (e.g. "+24.3%", "-0.38", "+120%")
+  - `value_number`: numeric current value without units — optional (e.g. 0.43, 27.5, 15200)
+  - `baseline_number`: numeric baseline value without units — optional
+
+**recommendations**: **Must contain at least 3** short actionable strings derived from the analysis (maximum 7). If the analysis provides fewer than 3 explicit recommendations, derive additional ones from the identified root causes and metrics data.
+
+Ground metric values strictly in the original RootCausePayload JSON. Do not invent or omit metrics.
+If no anomalies were found or data is unavailable: use an empty `segments` array and an honest `executive_summary`.
 """

@@ -11,6 +11,7 @@ REPORT_AGENT_NAME = "ReportAgent"
 PIPELINE_AGENT_NAME = "PulseAIPipeline"
 RCA_ANALYZER_AGENT_NAME = "RcaAnalyzerAgent"
 RCA_REPORT_AGENT_NAME = "RcaReportAgent"
+RCA_FORMATTER_AGENT_NAME = "RcaFormatterAgent"
 RCA_PIPELINE_AGENT_NAME = "RcaPipeline"
 
 CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
@@ -19,7 +20,7 @@ EM_AGENT_NAME = "EMAgent"
 
 # Timeouts are intentionally centralized so request and pipeline limits are visible.
 BACKEND_REQUEST_TIMEOUT_SECONDS = 30
-RCA_PIPELINE_TIMEOUT_SECONDS = 90
+RCA_PIPELINE_TIMEOUT_SECONDS = 300
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:3000",

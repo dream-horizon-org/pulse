@@ -8,11 +8,9 @@ from typing import Any
 
 from google.genai.types import Content
 
-from pulse_ai.agents.rca.report_event_parts import extract_structured_rca_report_from_event_parts
 from pulse_ai.constants import (
     HTTP_TIMEOUT_GATEWAY,
     RCA_PIPELINE_TIMEOUT_SECONDS,
-    RCA_REPORT_AGENT_NAME,
     USER_ID_RCA,
 )
 from pulse_ai.schemas import RootCausePayloadSchema
@@ -56,23 +54,13 @@ async def generate_rca_report(
         {"role": "user", "parts": [{"text": prompt}]},
     )
 
-    structured_report: RcaStructuredReportV1 | None = None
-
     async def _run() -> None:
-        nonlocal structured_report
-        async for event in runner.run_async(
+        async for _ in runner.run_async(
             user_id=USER_ID_RCA,
             session_id=session_id,
             new_message=message,
         ):
-            if not event.content or not event.content.parts:
-                continue
-
-            structured_part = extract_structured_rca_report_from_event_parts(
-                event.content.parts,
-            )
-            if structured_part is not None and event.author == RCA_REPORT_AGENT_NAME:
-                structured_report = structured_part
+            pass
 
     try:
         await asyncio.wait_for(_run(), timeout=RCA_PIPELINE_TIMEOUT_SECONDS)
@@ -82,7 +70,24 @@ async def generate_rca_report(
         logger.exception("RCA pipeline execution failed")
         raise RcaRunnerError(500, "RCA report generation failed") from error
 
+    # Read structured report from session state set by rca_formatter_agent (output_schema)
+    session = await runner.session_service.get_session(
+        app_name=runner.app_name,
+        user_id=USER_ID_RCA,
+        session_id=session_id,
+    )
+
+    structured_report: RcaStructuredReportV1 | None = None
+    if session:
+        raw = session.state.get("rca_structured_report")
+        if raw:
+            try:
+                structured_report = RcaStructuredReportV1.model_validate(raw)
+            except Exception:
+                logger.warning("Failed to validate structured report from session state", exc_info=True)
+
     if structured_report is None:
+        logger.error("RCA structured payload missing, session_id=%s", session_id)
         raise RcaRunnerError(500, "RCA report missing structured payload")
 
     report_payload = ReportPayloadSchema(structured=structured_report)

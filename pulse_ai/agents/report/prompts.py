@@ -10,13 +10,16 @@ def build_report_prompt(ctx=None) -> str:
     instructions: concise 2-line Executive Summary + precise insights.
     When the upstream is the EM agent, uses the standard full-analysis format.
     """
-    state = {}
+    rca_result = None
+    em_result = None
     if ctx:
-        if hasattr(ctx, 'state'):
-            state = ctx.state if isinstance(ctx.state, dict) else {}
-
-    rca_result = state.get("rca_analysis_result")
-    em_result = state.get("engineering_manager_result")
+        raw_state = getattr(ctx, 'state', None)
+        if raw_state is not None:
+            try:
+                rca_result = raw_state.get("rca_analysis_result")
+                em_result = raw_state.get("engineering_manager_result")
+            except Exception:
+                pass
 
     analysis = rca_result or em_result or "No analysis data available."
     is_rca_context = bool(rca_result)
@@ -46,11 +49,38 @@ Create targeted charts/tables to support your findings:
 **Keep the entire response concise.** The user needs actionable clarity, not a verbose report.
 
 ### Structured Report (required)
-After generating your response above, you MUST call `submit_rca_structured_report` exactly once with a JSON string conforming to RcaStructuredReportV1:
+After generating your response above, you MUST call `submit_rca_structured_report` exactly once with a JSON string conforming to `RcaStructuredReportV1`.
+
+**Top-level fields:**
 - `version`: must be `1`
 - `executive_summary`: the same 2-sentence summary you displayed above
-- `segments`: top contributing segments from the RCA Analysis, each with `rank`, `title`, `metrics` (use only registered metric_ids: `volume`, `apdex`, `error_rate`, `poor_user_pct`, `duration_p50`, `duration_p95`, `crash_rate`, `anr_rate`, `frozen_frame_rate`, `slow_frame_rate`), and optional `impact`
+- `segments`: array of top contributing segments from the RCA Analysis (see below)
 - `recommendations`: 3–7 short actionable strings
+
+**Each segment object:**
+- `rank`: 1-based integer (1 = most impactful)
+- `title`: segment identifier string (e.g. `"app_version: 4.2.1 + network: 2G"`, `"device_model: SM-A135F"`)
+- `impact`: optional short string describing user impact (e.g. `"2,200 users affected"`)
+- `metrics`: array of metric rows — include ALL metrics present in the input data for this segment (do not filter or omit any)
+
+**Each metric row object (all fields required unless marked optional):**
+- `metric_id`: one of the registered keys — `volume`, `apdex`, `error_rate`, `poor_user_pct`, `duration_p50`, `duration_p95`, `crash_rate`, `anr_rate`, `frozen_frame_rate`, `slow_frame_rate`
+- `metric_label`: human-readable label (e.g. `"APDEX"`, `"Error Rate"`, `"Crash Rate"`, `"Duration P95"`)
+- `value_display`: formatted current value string (e.g. `"0.43"`, `"27.5%"`, `"15,200ms"`, `"2,200"`)
+- `baseline_display`: formatted baseline value string (same unit/format as `value_display`)
+- `delta_display`: formatted delta string with explicit sign (e.g. `"+24.3%"`, `"-0.38"`, `"+120%"`)
+- `value_number`: *(optional)* numeric current value with no units — just the raw number (e.g. `0.43`, `27.5`, `15200`)
+- `baseline_number`: *(optional)* numeric baseline value with no units
+
+**Example `metrics` entry extracted from RCA Analysis text `"APDEX: 0.43 (Critically low, baseline 0.81)"`:
+```json
+{"metric_id": "apdex", "metric_label": "APDEX", "value_display": "0.43", "baseline_display": "0.81", "delta_display": "-0.38", "value_number": 0.43, "baseline_number": 0.81}
+```
+
+**Example `metrics` entry for `"Error Rate: 27.5% (Delta +24.3% absolute, baseline 3.2%)"`:
+```json
+{"metric_id": "error_rate", "metric_label": "Error Rate", "value_display": "27.5%", "baseline_display": "3.2%", "delta_display": "+24.3%", "value_number": 27.5, "baseline_number": 3.2}
+```
 
 Ground every value in the RCA Analysis data. Do not invent metrics.
 If `noDataAvailable` or `everythingGood`: still call it with empty `segments` and an honest `executive_summary`.\
