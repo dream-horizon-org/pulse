@@ -301,8 +301,8 @@ export function heatmapMockPocDense(screenName: string): HeatmapDataResponse {
         ],
       },
       interaction_map: interactionMap,
-      interactions_metadata: mockInteractionsMetadataFromMap(interactionMap),
     },
+    interactions_metadata: mockInteractionsMetadataFromMap(interactionMap),
   };
 
   return normalizeHeatmapWireResponse(wire);
@@ -334,8 +334,8 @@ export function heatmapMockFull(screenName: string): HeatmapDataResponse {
         ],
       },
       interaction_map: interactionMap,
-      interactions_metadata: mockInteractionsMetadataFromMap(interactionMap),
     },
+    interactions_metadata: mockInteractionsMetadataFromMap(interactionMap),
   });
 }
 

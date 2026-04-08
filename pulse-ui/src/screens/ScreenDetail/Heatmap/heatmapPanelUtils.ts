@@ -24,20 +24,23 @@ export function formatInt(n: number): string {
 }
 
 /**
- * True when Key actions lens should be offered: overlay (`interaction_map`) and/or
- * right-rail table data (`interactions_metadata`).
+ * True when Key actions lens should be offered: overlay (`payload.layers.interaction_map`) and/or
+ * top-level `payload.interactions_metadata`.
  */
 export function heatmapShowsKeyActionsLens(
-  layers: HeatmapDataResponse["layers"] | undefined | null,
+  payload: HeatmapDataResponse | null | undefined,
 ): boolean {
-  if (layers == null || typeof layers !== "object") return false;
-  if (
-    Object.prototype.hasOwnProperty.call(layers, "interaction_map") &&
-    layers.interaction_map != null
-  ) {
-    return true;
+  if (payload == null || typeof payload !== "object") return false;
+  const layers = payload.layers;
+  if (layers != null && typeof layers === "object") {
+    if (
+      Object.prototype.hasOwnProperty.call(layers, "interaction_map") &&
+      layers.interaction_map != null
+    ) {
+      return true;
+    }
   }
-  const meta = layers.interactions_metadata;
+  const meta = payload.interactions_metadata;
   return Array.isArray(meta) && meta.length > 0;
 }
 

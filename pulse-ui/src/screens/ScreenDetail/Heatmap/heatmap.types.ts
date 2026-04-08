@@ -121,13 +121,16 @@ export interface HeatmapInteractionMapLayer {
   regions: HeatmapInteractionElementRegion[];
 }
 
-/** API / wire row for right-rail Pulse interactions list. */
+/**
+ * Row for right-rail Pulse interactions list (wire + normalized).
+ * `avg_score` is 0–1 when present; `null` when the backend has no score yet.
+ */
 export interface HeatmapInteractionsMetadataRow {
   interaction_name: string;
-  avg_score: number;
+  avg_score: number | null;
 }
 
-/** Raw `layers` object from GET/POST before normalization. */
+/** Raw `layers` object from GET/POST before normalization (spatial layers only). */
 export interface HeatmapDataWireLayers {
   glow_map: HeatmapGlowPoint[];
   frustration_map: {
@@ -138,18 +141,25 @@ export interface HeatmapDataWireLayers {
     error_clicks: HeatmapErrorClickPoint[];
     latency_hotspots: HeatmapLatencyHotspot[];
   };
-  /** Future: overlay rectangles; optional on wire. */
+  /** Overlay rectangles + per-element Pulse scores; optional on wire. */
   interaction_map?: HeatmapInteractionMapLayer;
-  /** Primary source for Key lens · interactions table after normalize. */
-  interactions_metadata?: HeatmapInteractionsMetadataRow[];
 }
 
-/** Parsed JSON body for heatmap data before `normalizeHeatmapWireResponse`. */
+/**
+ * Parsed JSON body for heatmap data before `normalizeHeatmapWireResponse`.
+ * `interactions_metadata` is a **top-level** sibling of `metadata` and `layers` on the wire
+ * (not nested under `layers`). `interaction_map` remains under `layers`.
+ */
 export interface HeatmapDataWireResponse {
   metadata: HeatmapMetadata;
   layers: HeatmapDataWireLayers;
+  interactions_metadata?: HeatmapInteractionsMetadataRow[];
 }
 
+/**
+ * Normalized heatmap payload for the UI — mirrors the wire: **`interactions_metadata` is only
+ * top-level** (sibling of `metadata` and `layers`). Spatial layers + `interaction_map` stay under `layers`.
+ */
 export interface HeatmapDataResponse {
   metadata: HeatmapMetadata;
   layers: {
@@ -162,11 +172,11 @@ export interface HeatmapDataResponse {
       error_clicks: HeatmapErrorClickPoint[];
       latency_hotspots: HeatmapLatencyHotspot[];
     };
-    /** Optional overlay (future / mocks). */
+    /** Optional overlay (from wire `layers.interaction_map`). */
     interaction_map?: HeatmapInteractionMapLayer;
-    /** From wire `interactions_metadata` — drives right-rail interaction table. */
-    interactions_metadata?: HeatmapInteractionsMetadataRow[];
   };
+  /** Right-rail Pulse interaction table — not part of `layers`. */
+  interactions_metadata?: HeatmapInteractionsMetadataRow[];
 }
 
 export interface HeatmapCompareTarget {

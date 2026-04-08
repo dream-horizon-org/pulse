@@ -9,7 +9,8 @@ import { formatInteractionScore01 } from "./heatmapInteractionScores";
 export interface PulseInteractionAggregateRow {
   key: string;
   displayName: string;
-  score01: number;
+  /** 0–1 when known; `null` when wire had no score (e.g. metadata-only row). */
+  score01: number | null;
   /** How many UI regions reference this interaction */
   elementTouches: number;
 }
@@ -52,7 +53,7 @@ export function aggregatePulseInteractionsForScreen(
   return Array.from(acc.entries()).map(([mapKey, v]) => ({
     key: mapKey,
     displayName: v.displayName,
-    score01: v.w > 0 ? Math.round((v.scoreWeighted / v.w) * 10_000) / 10_000 : 0,
+    score01: v.w > 0 ? Math.round((v.scoreWeighted / v.w) * 10_000) / 10_000 : null,
     elementTouches: v.touches,
   }));
 }
@@ -71,11 +72,11 @@ export function screenPulseInteractionAverage01(
   return Math.round((sum / withScores.length) * 10_000) / 10_000;
 }
 
-export function formatPulseScore(n: number | null): string {
+export function formatPulseScore(n: number | null | undefined): string {
   return formatInteractionScore01(n);
 }
 
-/** Prefer `interaction_map` regions; otherwise rows from `interactions_metadata`. */
+/** Prefer `layers.interaction_map` regions; otherwise top-level `interactions_metadata` rows. */
 export function pulseInteractionRowsForKeyLens(
   payload: HeatmapDataResponse,
 ): PulseInteractionAggregateRow[] {
@@ -83,12 +84,12 @@ export function pulseInteractionRowsForKeyLens(
   if (regions.length > 0) {
     return aggregatePulseInteractionsForScreen(regions);
   }
-  const meta = payload.layers.interactions_metadata ?? [];
+  const meta = payload.interactions_metadata ?? [];
   if (meta.length === 0) return [];
   return meta.map((r, i) => ({
     key: `metadata-${i}-${r.interaction_name}`,
     displayName: r.interaction_name,
-    score01: Number(r.avg_score),
+    score01: r.avg_score,
     elementTouches: 1,
   }));
 }
@@ -100,10 +101,14 @@ export function screenPulseInteractionAverageFromPayload(
   if (regions.length > 0) {
     return screenPulseInteractionAverage01(regions);
   }
-  const meta = payload.layers.interactions_metadata ?? [];
+  const meta = payload.interactions_metadata ?? [];
   if (meta.length === 0) return null;
-  const sum = meta.reduce((s, r) => s + Number(r.avg_score), 0);
-  return Math.round((sum / meta.length) * 10_000) / 10_000;
+  const nums = meta
+    .map((r) => r.avg_score)
+    .filter((x): x is number => x != null && Number.isFinite(x));
+  if (nums.length === 0) return null;
+  const sum = nums.reduce((s, x) => s + x, 0);
+  return Math.round((sum / nums.length) * 10_000) / 10_000;
 }
 
 export function keyLensHasInteractionOverlay(

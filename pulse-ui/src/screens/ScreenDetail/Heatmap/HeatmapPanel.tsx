@@ -222,7 +222,7 @@ export function HeatmapPanel({
 
   const singleShowInteractionMap = useMemo(
     () =>
-      singlePayload ? heatmapShowsKeyActionsLens(singlePayload.layers) : false,
+      singlePayload ? heatmapShowsKeyActionsLens(singlePayload) : false,
     [singlePayload],
   );
 
@@ -230,8 +230,8 @@ export function HeatmapPanel({
     () =>
       compareLeftPayload != null &&
       compareRightPayload != null &&
-      heatmapShowsKeyActionsLens(compareLeftPayload.layers) &&
-      heatmapShowsKeyActionsLens(compareRightPayload.layers),
+      heatmapShowsKeyActionsLens(compareLeftPayload) &&
+      heatmapShowsKeyActionsLens(compareRightPayload),
     [compareLeftPayload, compareRightPayload],
   );
 
