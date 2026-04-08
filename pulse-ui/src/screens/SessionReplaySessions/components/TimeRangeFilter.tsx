@@ -13,7 +13,6 @@ export interface TimeRangeFilterProps {
   to: string | null;
   onPresetChange: (preset: string) => void;
   onCustomRangeChange: (from: string | null, to: string | null) => void;
-  onPageReset: () => void;
 }
 
 export function TimeRangeFilter({
@@ -22,7 +21,6 @@ export function TimeRangeFilter({
   to,
   onPresetChange,
   onCustomRangeChange,
-  onPageReset,
 }: TimeRangeFilterProps) {
   const isValidPreset = TIME_RANGE_OPTIONS.some((o) => o.value === preset);
   const value = isValidPreset ? preset : DEFAULT_DATE_PRESET;
@@ -31,17 +29,14 @@ export function TimeRangeFilter({
   const handlePresetChange = (v: string | null) => {
     const next = v ?? DEFAULT_DATE_PRESET;
     onPresetChange(next);
-    onPageReset();
   };
 
   const handleFromChange = (date: Date | null) => {
     onCustomRangeChange(date?.toISOString() ?? null, to);
-    onPageReset();
   };
 
   const handleToChange = (date: Date | null) => {
     onCustomRangeChange(from, date?.toISOString() ?? null);
-    onPageReset();
   };
 
   return (
