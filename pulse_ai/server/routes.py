@@ -247,6 +247,10 @@ async def generate_root_cause_report(
     try:
         if request.rootCausePayload is not None:
             payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
+            # Extract session IDs if present in request
+            example_sessions = None
+            if isinstance(request.rootCausePayload, dict):
+                example_sessions = request.rootCausePayload.get("exampleSessionIds")
         else:
             auth_value, project_value = _require_headers_for_rca_callback(
                 authorization,
@@ -258,10 +262,12 @@ async def generate_root_cause_report(
                 authorization=auth_value,
                 project_id=project_value,
             )
+            example_sessions = None
         return await generate_rca_report(
             runner=rca_runner,
             payload=payload,
             interaction_name=request.interactionName,
+            example_session_ids=example_sessions,
         )
     except RootCauseFetchError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error

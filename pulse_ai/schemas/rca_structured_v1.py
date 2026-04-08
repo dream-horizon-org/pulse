@@ -34,6 +34,7 @@ class RcaStructuredSegmentV1(BaseModel):
     title: str
     metrics: list[RcaStructuredMetricRowV1]
     impact: str | None = None
+    affected_sessions: list[str] | None = None
 
 
 class RcaStructuredReportV1(BaseModel):

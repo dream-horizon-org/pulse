@@ -285,6 +285,39 @@ const RcaStructuredReportV1View = ({
                           </Text>
                         </div>
                       )}
+                      {segment.affected_sessions &&
+                        segment.affected_sessions.length > 0 && (
+                          <Box
+                            mt="md"
+                            pt="md"
+                            style={{
+                              borderTop:
+                                "1px solid var(--mantine-color-gray-2)",
+                            }}
+                          >
+                            <Text size="xs" fw={600} c="dimmed" mb={6}>
+                              Affected Sessions
+                            </Text>
+                            <Group gap="xs" wrap="wrap">
+                              {segment.affected_sessions.map((sessionId) => (
+                                <Button
+                                  key={sessionId}
+                                  variant="light"
+                                  size="xs"
+                                  onClick={() => {
+                                    // Navigate to session replay
+                                    window.open(
+                                      `/sessions/${sessionId}/replay`,
+                                      "_blank",
+                                    );
+                                  }}
+                                >
+                                  {sessionId}
+                                </Button>
+                              ))}
+                            </Group>
+                          </Box>
+                        )}
                     </Card>
                   );
                 })}

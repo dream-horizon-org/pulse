@@ -10,14 +10,18 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.Error;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 
 /**
  * POST {@code rca/report}: read-through MySQL cache, optional {@code regenerate}, body enrichment
@@ -53,16 +57,19 @@ final class RcaReportProxyHandler {
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
   private final RcaReportCacheDao rcaReportCacheDao;
+  private final SessionEvidenceService sessionEvidenceService;
 
   RcaReportProxyHandler(
       AiUpstreamProxyExecutor upstream,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao) {
+      RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService) {
     this.upstream = upstream;
     this.objectMapper = objectMapper;
     this.rootCauseService = rootCauseService;
     this.rcaReportCacheDao = rcaReportCacheDao;
+    this.sessionEvidenceService = sessionEvidenceService;
   }
 
   CompletionStage<AiProxyUpstreamResult> handlePost(
@@ -258,8 +265,57 @@ final class RcaReportProxyHandler {
               try {
                 JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
                 working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
-                String enriched = objectMapper.writeValueAsString(working);
-                future.complete(enriched);
+
+                // Get session evidence from best segment
+                if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
+                  RootCauseSegment bestSegment = rootCauseResult.getSegments().get(0);
+                  
+                  // Call SessionEvidenceService with segment deltas
+                  sessionEvidenceService
+                      .getSessionEvidence(
+                          projectId,
+                          interactionName,
+                          date.atStartOfDay().toInstant(ZoneOffset.UTC),
+                          date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
+                          bestSegment.getDimensions(),
+                          bestSegment.getDeltas(),
+                          5)
+                      .subscribe(
+                          evidenceResult -> {
+                            try {
+                              // Extract session IDs
+                              List<String> sessionIds =
+                                  evidenceResult.getSessions().stream()
+                                      .map(s -> s.getSessionId())
+                                      .collect(Collectors.toList());
+                              
+                              // Add to working object for LLM context
+                              working.set(
+                                  "exampleSessionIds",
+                                  objectMapper.valueToTree(sessionIds));
+                              
+                              String enriched = objectMapper.writeValueAsString(working);
+                              future.complete(enriched);
+                            } catch (Exception e) {
+                              log.warn("Failed to serialize enriched RCA body with evidence: {}", 
+                                  e.getMessage());
+                              String enriched = objectMapper.writeValueAsString(working);
+                              future.complete(enriched);
+                            }
+                          },
+                          error -> {
+                            log.warn("Failed to fetch session evidence: {}", error.getMessage());
+                            try {
+                              String enriched = objectMapper.writeValueAsString(working);
+                              future.complete(enriched);
+                            } catch (Exception e) {
+                              future.complete(fallbackBody);
+                            }
+                          });
+                } else {
+                  String enriched = objectMapper.writeValueAsString(working);
+                  future.complete(enriched);
+                }
               } catch (Exception e) {
                 log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
                 future.complete(fallbackBody);
