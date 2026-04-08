@@ -15,14 +15,14 @@ You are a senior DevOps engineer specializing in the Pulse deployment infrastruc
 
 Services on `pulse-network` bridge:
 
-**Infrastructure**: mysql (3307), clickhouse (8123/9000), openfga (8180/8181/3001)
-**Init Containers**: openfga-migrate, openfga-init, clickhouse-init (run-once)
-**Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Vector (14317/14318 → S3) is optional; enable via `VECTOR_ENABLED=true` in .env.
+**Infrastructure**: mysql (3307), clickhouse (8123/9000), openfga (8180/8181/3001), kafka (9092), minio (9100 API / 9101 console on host)
+**Init Containers**: openfga-migrate, openfga-init, minio-init, clickhouse-init (run-once; clickhouse-init waits for clickhouse + kafka healthy)
+**Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Session capture: **pulse-session-capture** (3400) → Kafka; **pulse-session-replay-ingestion** (Kafka → MinIO + ClickHouse). Vector (14317/14318 → S3) is optional; enable via `VECTOR_ENABLED=true` in .env.
 **Application**: pulse-server (8080), pulse-ui (3000), pulse-alerts-cron (4000), pulse-ai-agent (8000, default stack)
 
 **Pulse AI:** Integrated: `deploy/docker-compose.yml` `pulse-ai-agent` (starts with `docker compose up`; pulse-server `depends_on` it healthy). Standalone: `pulse_ai/docker-compose.yml` + `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
-Startup order: DBs → OpenFGA → OTEL Collector → App Services → UI
+Startup order: DBs → Kafka / MinIO → inits → OTEL Collector → session pipeline → pulse-ai-agent → pulse-server → UI → alerts-cron (see `deploy/docker-compose.yml` `depends_on`)
 
 Always use `docker ps` to verify actual running services and ports.
 
@@ -44,7 +44,7 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 | Script | Purpose |
 |--------|---------|
 | `quickstart.sh` | Prereqs → build → start → health checks |
-| `build.sh` | Build images (`ui`, `server`, `cron`, `ai`, `all`, `--no-cache`; default includes AI) |
+| `build.sh` | Build images (`ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all`, `--no-cache`; default includes AI) |
 | `start.sh` | Start services (`-d`, `--build`, `--no-cache`) |
 | `stop.sh` | Stop services (`-v` removes volumes) |
 | `logs.sh` | View logs (optionally filter by service) |
@@ -54,7 +54,7 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 ## Database Initialization
 
 - MySQL: `deploy/db/mysql-init.sql` mounted to `/docker-entrypoint-initdb.d/`
-- ClickHouse: `backend/ingestion/clickhouse-otel-schema.sql` via `clickhouse-init` container (uses `pulse_user`/`pulse_password`)
+- ClickHouse: `backend/ingestion/clickhouse-otel-schema.sql` and related SQL (session replay, session-summary MV, funnel/journey results, event catalog mounts) via `clickhouse-init` + `deploy/scripts/init-clickhouse.sh` (uses `pulse_user`/`pulse_password`)
 
 ## OTEL Collector Config
 

@@ -26,6 +26,14 @@ Key columns: `MetricName`, `Value`, `TimeUnix`, `Attributes` (Map), `ResourceAtt
 ### `stack_trace_events` — symbolicated crashes/ANRs
 Key columns: `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `GroupId`, `Fingerprint`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`
 
+### Batch analytics (Spark → ClickHouse)
+
+Definitions live in MySQL; aggregated rows are written by Spark into:
+
+- **`funnel_results`** — pre-computed funnel steps (`FunnelId`, `ProjectId`, `RunTime`, `StepIndex`, `StepName`, `UserCount`, `ConversionPct`, …). Schema: `backend/ingestion/clickhouse-funnel-results-schema.sql`.
+- **`journey_results`** — path edges (`JourneyId`, `ProjectId`, `RunTime`, `Direction`, `PosFrom`/`PosTo`, `EventFrom`/`EventTo`, `UserCount`, …). Schema: `backend/ingestion/clickhouse-journey-results-schema.sql`.
+- **`event_catalog_entries`** — distinct filter values per project (`FilterKey` e.g. EVENT, APP_BUILD_NAME, …). Schema: `backend/ingestion/clickhouse-event-catalog-schema.sql`.
+
 ### Materialized Columns (all tables)
 
 These columns are extracted from Map attributes at insert time. **Always use these instead of accessing ResourceAttributes/SpanAttributes directly** — they are faster and indexed.

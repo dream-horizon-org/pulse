@@ -34,7 +34,7 @@ cd pulse_ai && ./setup.sh stop                # stop
 
 ```bash
 cd deploy && ./scripts/quickstart.sh              # build + start all (includes pulse-ai-agent)
-cd deploy && ./scripts/build.sh [ui|server|cron|ai|all] [--no-cache]
+cd deploy && ./scripts/build.sh [ui|server|cron|capture|ingestion|ai|all] [--no-cache]
 cd deploy && ./scripts/start.sh [-d|--detach] [--build] [--no-cache]
 cd deploy && ./scripts/stop.sh [-v] [ai|server|ui|...]
 cd deploy && ./scripts/logs.sh [service]         # e.g. ai, server, mysql
@@ -57,5 +57,8 @@ docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
 | MySQL | 3307 | `mysqladmin ping` |
 | OpenFGA | 8180 (HTTP), 8181 (gRPC), 3001 (playground) | `/healthz` |
 | OTEL Collector | 4317/4318, 13133 (health) | — |
+| Kafka | 9092 | broker (check container) |
+| MinIO | 9100 (API), 9101 (console) | container health |
+| pulse-session-capture | 3400 | `/healthcheck` |
 
 ## Never commit `.env` files. Use `.env.example` as template.

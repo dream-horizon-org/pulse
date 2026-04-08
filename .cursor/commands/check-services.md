@@ -14,5 +14,8 @@ Run health checks on all Docker services and report status:
 7. **pulse-alerts-cron**: `curl http://localhost:<port>/healthcheck` (default 4000 — verify from `docker ps`)
 
 8. **pulse-ai-agent**: `curl -sf http://localhost:8000/health` (default deploy stack; standalone: `cd pulse_ai && ./setup.sh`)
+9. **Kafka** (if running): `docker exec pulse-kafka kafka-topics --bootstrap-server localhost:9092 --list` (default broker port 9092)
+10. **MinIO** (if running): verify from `docker ps` (host API often 9100, console 9101)
+11. **pulse-session-capture**: `curl http://localhost:3400/healthcheck` (default 3400)
 
 Present results as a table with service name, status (healthy/unhealthy/not running), and port.
