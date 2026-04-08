@@ -40,8 +40,8 @@ internal class ViewClickEventGenerator(
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
         gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
-        val currentCallback: Window.Callback? = window.callback
-        window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
+        val currentCallback = window.callback ?: return
+        window.callback = WindowCallbackWrapper(currentCallback, this)
     }
 
     fun generateClick(motionEvent: MotionEvent) {
@@ -54,9 +54,9 @@ internal class ViewClickEventGenerator(
 
                 val tapX = motionEvent.x
                 val tapY = motionEvent.y
-                val hitResult =
-                    windowRef?.get()?.let { findTargetForTap(it.decorView, tapX, tapY) }
-                        ?: return
+                val window = windowRef?.get() ?: return
+                val decorView = window.decorView
+                val hitResult = findTargetForTap(decorView, tapX, tapY)
 
                 // ComposeView found during traversal — let ComposeClickEventGenerator handle it.
                 if (hitResult === HitResult.DeferToCompose) return
@@ -70,7 +70,6 @@ internal class ViewClickEventGenerator(
                         null
                     }
 
-                val decorView = windowRef?.get()?.decorView
                 clickEmitter.process(
                     PendingClick(
                         xInPx = tapX,
@@ -81,8 +80,8 @@ internal class ViewClickEventGenerator(
                         widgetName = target?.let { viewToName(it) },
                         widgetId = target?.run { id.toString() },
                         clickContext = clickContext,
-                        viewportWidthPx = decorView?.width ?: 0,
-                        viewportHeightPx = decorView?.height ?: 0,
+                        viewportWidthPx = decorView.width,
+                        viewportHeightPx = decorView.height,
                     ),
                 )
             }

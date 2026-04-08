@@ -37,8 +37,8 @@ internal class ComposeClickEventGenerator(
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
         gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
-        val currentCallback: Window.Callback? = window.callback
-        window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
+        val currentCallback = window.callback ?: return
+        window.callback = WindowCallbackWrapper(currentCallback, this)
     }
 
     fun generateClick(motionEvent: MotionEvent) {
@@ -58,8 +58,8 @@ internal class ComposeClickEventGenerator(
                 // Single traversal: owns the tap only when it lands inside a ComposeView.
                 // Returns NotFound for taps outside Compose — ViewClickEventGenerator handles those.
                 val findResult = composeTapTargetDetector.findTapResult(decorView, windowX, windowY)
-                if (findResult is ComposeFindResult.NotFound) return
-                val tapTarget = (findResult as ComposeFindResult.Found).target
+                if (findResult !is ComposeFindResult.Found) return
+                val tapTarget = findResult.target
 
                 // Capture wall-clock time once at tap time so all PendingClick paths share it.
                 val tapEpochMs = System.currentTimeMillis()

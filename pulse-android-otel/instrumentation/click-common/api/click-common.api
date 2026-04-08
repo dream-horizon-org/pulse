@@ -4,8 +4,8 @@ public final class io/opentelemetry/android/instrumentation/click/ClickEventBuff
 	public static final field RADIUS_DP F
 	public static final field RAGE_THRESHOLD I
 	public static final field TIME_WINDOW_MS J
-	public fun <init> (FLio/opentelemetry/android/instrumentation/click/RageConfig;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;)V
-	public synthetic fun <init> (FLio/opentelemetry/android/instrumentation/click/RageConfig;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (FLio/opentelemetry/android/instrumentation/click/RageConfig;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (FLio/opentelemetry/android/instrumentation/click/RageConfig;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun flush ()V
 	public final fun record (Lio/opentelemetry/android/instrumentation/click/PendingClick;)V
 }

@@ -143,7 +143,7 @@ class ClickEventBuffer(
 
         fun extend(click: PendingClick) {
             lastTapTimeMs = click.timestampMs
-            rage = rage.copy(count = rage.count + 1)
+            rage = rage.copy(count = rage.count + 1, tapEpochMs = click.tapEpochMs)
         }
     }
 
