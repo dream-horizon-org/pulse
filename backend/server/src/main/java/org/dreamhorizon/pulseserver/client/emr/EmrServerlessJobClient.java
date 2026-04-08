@@ -4,7 +4,6 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
-import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.emrserverless.EmrServerlessClient;
@@ -24,14 +23,8 @@ public class EmrServerlessJobClient implements AutoCloseable {
   public EmrServerlessJobClient(EmrServerlessConfig config) {
     this.config = config;
     if (config.isEnabled()) {
-      // Resolve ambiguity for internally-created SDK clients (e.g. SSO credential provider)
-      // that discover HTTP implementations via classpath scanning.
-      System.setProperty("software.amazon.awssdk.http.service.impl",
-        "software.amazon.awssdk.http.urlconnection.UrlConnectionSdkHttpService");
-
       this.client = EmrServerlessClient.builder()
         .region(Region.of(config.getEffectiveRegion()))
-        .credentialsProvider(ProfileCredentialsProvider.create("delivr-prod"))
         .httpClient(UrlConnectionHttpClient.builder().build())
         .build();
       log.info(
