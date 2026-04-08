@@ -193,7 +193,9 @@ internal class ComposeTapTargetDetector(
                 if (
                     className == CLASS_NAME_CLICKABLE_ELEMENT ||
                     className == CLASS_NAME_COMBINED_CLICKABLE_ELEMENT ||
-                    className == CLASS_NAME_TOGGLEABLE_ELEMENT
+                    className == CLASS_NAME_TOGGLEABLE_ELEMENT ||
+                    className == CLASS_NAME_SELECTABLE_ELEMENT ||
+                    className == CLASS_NAME_TRI_STATE_TOGGLEABLE_ELEMENT
                 ) {
                     return true
                 }
@@ -288,5 +290,11 @@ internal class ComposeTapTargetDetector(
             "androidx.compose.foundation.CombinedClickableElement"
         private const val CLASS_NAME_TOGGLEABLE_ELEMENT =
             "androidx.compose.foundation.selection.ToggleableElement"
+        // Modifier.selectable() — used by Material3 Tab and NavigationBarItem
+        private const val CLASS_NAME_SELECTABLE_ELEMENT =
+            "androidx.compose.foundation.selection.SelectableElement"
+        // Modifier.triStateToggleable() — used by indeterminate checkboxes
+        private const val CLASS_NAME_TRI_STATE_TOGGLEABLE_ELEMENT =
+            "androidx.compose.foundation.selection.TriStateToggleableElement"
     }
 }

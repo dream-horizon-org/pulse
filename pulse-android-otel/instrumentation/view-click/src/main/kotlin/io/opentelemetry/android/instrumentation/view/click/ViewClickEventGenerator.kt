@@ -130,7 +130,7 @@ internal class ViewClickEventGenerator(
         return HitResult.Hit(target)
     }
 
-    private fun isValidClickTarget(view: View): Boolean = view.isClickable && view.isVisible
+    private fun isValidClickTarget(view: View): Boolean = (view.isClickable || view.isLongClickable) && view.isVisible
 
     /**
      * Adds hit-tested children to the queue. Returns true if a ComposeView child was hit,
