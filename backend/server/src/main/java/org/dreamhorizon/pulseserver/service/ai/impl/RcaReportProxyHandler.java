@@ -307,17 +307,24 @@ final class RcaReportProxyHandler {
                               log.info("DEBUG: Extracted {} session IDs: {}", sessionIds.size(), sessionIds);
                               
                               if (!sessionIds.isEmpty()) {
-                                // Add to working object for LLM context
-                                working.set(
-                                    "exampleSessionIds",
-                                    objectMapper.valueToTree(sessionIds));
-                                log.info("DEBUG: Successfully added exampleSessionIds to working object");
+                                // Add to rootCausePayload object (not to working root)
+                                JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                if (rcPayloadNode instanceof ObjectNode) {
+                                  ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                  rcPayload.set(
+                                      "exampleSessionIds",
+                                      objectMapper.valueToTree(sessionIds));
+                                  log.info("DEBUG: Successfully added exampleSessionIds to rootCausePayload");
+                                } else {
+                                  log.warn("DEBUG: rootCausePayload is not an ObjectNode, cannot add exampleSessionIds");
+                                }
                               } else {
                                 log.info("DEBUG: No sessions found, not adding exampleSessionIds");
                               }
                               
                               String enriched = objectMapper.writeValueAsString(working);
                               log.info("DEBUG: Enriched body contains exampleSessionIds: {}", enriched.contains("exampleSessionIds"));
+                              log.info("DEBUG: Final enriched body being sent: {}", enriched.substring(0, Math.min(500, enriched.length())));
                               future.complete(enriched);
                             } catch (Exception e) {
                               log.warn("DEBUG: Exception in session evidence callback: {}", 
