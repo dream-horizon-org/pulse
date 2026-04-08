@@ -1395,8 +1395,8 @@ class InteractionManagerTest {
                                 InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     name = "event2",
                                 ),
-                            )
-                    )
+                            ),
+                    ),
                 )
                 addEventWithNanoTimeFromBoot("event1")
                 addEventWithNanoTimeFromBoot("event2")
