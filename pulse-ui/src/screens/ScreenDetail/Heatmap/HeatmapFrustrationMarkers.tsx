@@ -1,15 +1,23 @@
+import type { HeatmapFrustrationEmojiMarkersConfig } from "./heatmapPanelUtils";
+
 export interface HeatmapFrustrationMarkersProps {
-  points: Array<{ x: number; y: number; weight: number }>;
+  points: HeatmapFrustrationEmojiMarkersConfig["points"];
+  kind: HeatmapFrustrationEmojiMarkersConfig["kind"];
 }
 
 export function HeatmapFrustrationMarkers({
   points,
+  kind,
 }: HeatmapFrustrationMarkersProps) {
+  const emoji = kind === "rage" ? "😡" : "👻";
+  const label = kind === "rage" ? "Rage cluster" : "Dead click";
+  const keyPrefix = kind === "rage" ? "rage" : "dead";
+
   return (
     <>
       {points.map((r, i) => (
         <div
-          key={`rage-${i}`}
+          key={`${keyPrefix}-${i}`}
           style={{
             position: "absolute",
             left: `${r.x * 100}%`,
@@ -17,9 +25,9 @@ export function HeatmapFrustrationMarkers({
             transform: "translate(-50%, -100%)",
             fontSize: 14,
           }}
-          title={`Rage cluster · weight ${r.weight}`}
+          title={`${label} · weight ${r.weight}`}
         >
-          😡
+          {emoji}
         </div>
       ))}
     </>

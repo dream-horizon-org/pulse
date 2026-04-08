@@ -6,6 +6,12 @@ import type {
 export type HeatmapSignal = "tap" | "rage" | "dead";
 export type HeatmapFocusLens = "all" | "key";
 
+/** Emoji overlay on the heat canvas — rage (😡) or dead clicks (👻). */
+export type HeatmapFrustrationEmojiMarkersConfig = {
+  kind: Extract<HeatmapSignal, "rage" | "dead">;
+  points: Array<{ x: number; y: number; weight: number }>;
+};
+
 export const HEATMAP_SIGNALS: { id: HeatmapSignal; label: string }[] = [
   { id: "tap", label: "Tap" },
   { id: "rage", label: "Rage" },
@@ -44,6 +50,10 @@ export function heatmapShowsKeyActionsLens(
   return Array.isArray(meta) && meta.length > 0;
 }
 
+/**
+ * Density layer for the selected signal. Tap uses `glow_map`; rage/dead use only
+ * `frustration_map` — missing or empty arrays yield an empty layer (no fallback to tap).
+ */
 export function glowLayerForSignal(
   data: HeatmapDataResponse | null | undefined,
   signal: HeatmapSignal,
@@ -51,24 +61,38 @@ export function glowLayerForSignal(
   if (!data) return [];
   const base = data.layers.glow_map ?? [];
   if (signal === "rage") {
-    return (
-      data.layers.frustration_map?.rage?.map((r) => ({
-        x: r.x,
-        y: r.y,
-        weight: r.weight,
-      })) ?? base
-    );
+    const rage = data.layers.frustration_map?.rage ?? [];
+    return rage.map((r) => ({ x: r.x, y: r.y, weight: r.weight }));
   }
   if (signal === "dead") {
-    return (
-      data.layers.frustration_map?.dead?.map((r) => ({
-        x: r.x,
-        y: r.y,
-        weight: r.weight,
-      })) ?? base
-    );
+    const dead = data.layers.frustration_map?.dead ?? [];
+    return dead.map((r) => ({ x: r.x, y: r.y, weight: r.weight }));
   }
   return base;
+}
+
+/**
+ * Points + kind for per-cluster emoji markers when the density signal is rage or dead.
+ */
+export function heatmapFrustrationEmojiMarkers(
+  data: HeatmapDataResponse | null | undefined,
+  signal: HeatmapSignal,
+): HeatmapFrustrationEmojiMarkersConfig | undefined {
+  if (!data || (signal !== "rage" && signal !== "dead")) return undefined;
+  const src =
+    signal === "rage"
+      ? (data.layers.frustration_map?.rage ?? [])
+      : (data.layers.frustration_map?.dead ?? []);
+  return {
+    kind: signal,
+    points: src.map((r) => ({ x: r.x, y: r.y, weight: r.weight })),
+  };
+}
+
+/** Max `weight` in a glow layer — heatmap.js scaling uses this like compare-mode `sharedWeightMax`. */
+export function glowLayerWeightMax(points: HeatmapGlowPoint[]): number {
+  const m = points.reduce((acc, p) => Math.max(acc, p.weight), 0);
+  return Math.max(m, 1);
 }
 
 export function compareSharedWeightMax(
@@ -78,7 +102,5 @@ export function compareSharedWeightMax(
 ): number {
   const a = glowLayerForSignal(left, signal);
   const b = glowLayerForSignal(right, signal);
-  const ma = a.reduce((m, p) => Math.max(m, p.weight), 0);
-  const mb = b.reduce((m, p) => Math.max(m, p.weight), 0);
-  return Math.max(ma, mb, 1);
+  return Math.max(glowLayerWeightMax(a), glowLayerWeightMax(b));
 }
