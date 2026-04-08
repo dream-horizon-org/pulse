@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RootCauseCacheRow {
 
-  @JsonProperty("project_id")
+  @JsonProperty("ProjectId")
   private String projectId;
 
   @JsonProperty("interaction_name")

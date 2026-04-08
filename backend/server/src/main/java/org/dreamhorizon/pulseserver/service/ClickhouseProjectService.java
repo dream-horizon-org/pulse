@@ -102,16 +102,9 @@ public class ClickhouseProjectService {
           executeSQL(adminPool, grantSQL);
           log.info("Granted SELECT permissions to: {}", username);
 
-          // Step 4: Row policy for root_cause_cache (uses project_id, not ProjectId)
-          String rootCausePolicyName = generatePolicyName(projectId, ROOT_CAUSE_CACHE_TABLE);
-          String rootCausePolicySQL = String.format(
-              "CREATE ROW POLICY IF NOT EXISTS %s ON %s FOR SELECT USING project_id = '%s' TO %s",
-              rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE, projectId, username
-          );
-          executeSQL(adminPool, rootCausePolicySQL);
-          log.debug("Created row policy: {} for table: {}", rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE);
+          // root_cause_cache uses ProjectId like other otel.* tables; DB-wide row policy above applies.
 
-          // Step 5: Grant INSERT on root_cause_cache for cache upsert
+          // Step 4: Grant INSERT on root_cause_cache for cache upsert
           String grantInsertSQL = String.format("GRANT INSERT ON %s TO %s", ROOT_CAUSE_CACHE_TABLE, username);
           executeSQL(adminPool, grantInsertSQL);
           log.info("Granted INSERT on {} to: {}", ROOT_CAUSE_CACHE_TABLE, username);
@@ -173,6 +166,14 @@ public class ClickhouseProjectService {
                 policyName, onCluster, OTEL_DB_ALL_TABLES
             );
             executeSQL(adminPool, dropPolicySQL);
+
+            // Legacy: per-table policy on root_cause_cache when column was project_id (pre-ProjectId).
+            String rootCausePolicyName = generatePolicyName(projectId, ROOT_CAUSE_CACHE_TABLE);
+            String dropRootCausePolicySQL = String.format(
+                "DROP ROW POLICY IF EXISTS %s%s ON %s",
+                rootCausePolicyName, onCluster, ROOT_CAUSE_CACHE_TABLE
+            );
+            executeSQL(adminPool, dropRootCausePolicySQL);
 
             // Drop user
             String dropUserSQL = String.format("DROP USER IF EXISTS %s%s", username, onCluster);

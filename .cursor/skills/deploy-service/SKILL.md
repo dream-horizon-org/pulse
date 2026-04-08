@@ -17,11 +17,13 @@ cp .env.example .env    # first time only, then edit values
 
 ```bash
 cd deploy
-./scripts/build.sh ui         # pulse-ui only
-./scripts/build.sh server     # pulse-server only
-./scripts/build.sh cron       # pulse-alerts-cron only
-./scripts/build.sh ai         # pulse-ai-agent only
-./scripts/build.sh all        # ui + server + cron + pulse-ai-agent (same as default no-args build)
+./scripts/build.sh ui          # pulse-ui only
+./scripts/build.sh server      # pulse-server only
+./scripts/build.sh cron        # pulse-alerts-cron only
+./scripts/build.sh capture     # pulse-session-capture only
+./scripts/build.sh ingestion   # pulse-session-replay-ingestion only
+./scripts/build.sh ai          # pulse-ai-agent only
+./scripts/build.sh all         # same as omitting args: ui + server + cron + capture + ingestion + ai
 ```
 
 ## Start/Stop
@@ -72,6 +74,8 @@ Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover
 | OpenFGA | `curl http://localhost:8180/healthz` | 8180 |
 | OTEL Collector | `curl http://localhost:<port>/` | 13133 |
 | pulse-ai-agent | `curl -sf http://localhost:8000/health` | 8000 |
+| pulse-session-capture | `curl http://localhost:3400/healthcheck` | 3400 |
+| MinIO (dev) | S3 API on host `9100`, console `9101` | 9100 / 9101 |
 
 ## Troubleshooting
 
