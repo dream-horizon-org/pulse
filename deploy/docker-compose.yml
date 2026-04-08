@@ -410,7 +410,7 @@ services:
       # MySQL Database Configuration
       - MYSQL_WRITER_HOST=mysql
       - MYSQL_READER_HOST=mysql
-      - MYSQL_PORT=3307
+      - MYSQL_PORT=3306
       - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
       - MYSQL_USER=${MYSQL_USER:-pulse_user}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}

@@ -196,16 +196,30 @@ public class FunnelComputeJob {
 
     static Dataset<Row> applyFilters(Dataset<Row> df, List<FunnelFilter> filters) {
         for (var filter : filters) {
-            var fieldCol = col(filter.field());
-            var vals     = filter.value().toArray();
-            Column cond  = switch (filter.operator()) {
-                case "=", "IN"      -> fieldCol.isin(vals);
-                case "!=", "NOT IN" -> not(fieldCol.isin(vals));
-                case "CONTAINS"     -> filter.value().stream()
+            if (filter.field() == null || filter.field().isBlank()) {
+                log.warn("Skipping filter: field is null or blank");
+                continue;
+            }
+            String parquetField = FilterFieldMapper.toParquetColumn(filter.field());
+            var fieldCol = col(parquetField);
+            var vals = filter.value().toArray();
+            if (vals.length == 0) {
+                log.warn("Skipping filter: empty value list for field '{}' (resolved='{}')", filter.field(), parquetField);
+                continue;
+            }
+            String op = FunnelFilterOperators.normalize(filter.operator());
+            Column cond = switch (op) {
+                case "EQ", "=", "IN" -> fieldCol.isin(vals);
+                case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
+                case "CONTAINS" -> filter.value().stream()
                         .map(fieldCol::contains)
                         .reduce(Column::or)
                         .orElse(lit(true));
-                default             -> lit(true);
+                default -> {
+                    log.warn("Unknown filter operator '{}' (normalized='{}') for field '{}' — filter skipped",
+                            filter.operator(), op, filter.field());
+                    yield lit(true);
+                }
             };
             df = df.filter(cond);
         }

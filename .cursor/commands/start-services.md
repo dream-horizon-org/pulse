@@ -13,4 +13,5 @@ Start the Pulse Docker services for local development.
    - pulse-ui: `curl http://localhost:<port>/healthcheck.txt` (default 3000 — use port from step 4)
    - pulse-alerts-cron: `curl http://localhost:<port>/healthcheck` (default 4000 — use port from step 4)
    - pulse-ai-agent: `curl -sf http://localhost:8000/health` (included in default deploy stack; standalone: `cd pulse_ai && ./setup.sh`)
+   - Kafka / MinIO / pulse-session-capture: confirm with `docker ps` (e.g. capture health: `curl http://localhost:3400/healthcheck`)
 6. Report which services are healthy and which failed
