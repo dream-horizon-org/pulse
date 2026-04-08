@@ -54,7 +54,7 @@ public final class io/opentelemetry/android/instrumentation/click/RageConfig {
 	public static synthetic fun copy$default (Lio/opentelemetry/android/instrumentation/click/RageConfig;JIFILjava/lang/Object;)Lio/opentelemetry/android/instrumentation/click/RageConfig;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getRadiusDp ()F
-	public final fun getRageThreshold ()I
+	public final fun getThreshold ()I
 	public final fun getTimeWindowMs ()J
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;

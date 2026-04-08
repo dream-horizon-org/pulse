@@ -325,7 +325,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     ClickContextEnrichmentConfig.rageConfig =
                         RageConfig(
                             timeWindowMs = backendRage.timeWindowMs ?: local.timeWindowMs,
-                            rageThreshold = backendRage.rageThreshold ?: local.rageThreshold,
+                            threshold = backendRage.threshold ?: local.threshold,
                             radiusDp = backendRage.radius ?: local.radiusDp,
                         )
                 }

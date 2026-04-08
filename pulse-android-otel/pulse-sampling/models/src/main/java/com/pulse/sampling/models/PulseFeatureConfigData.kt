@@ -47,7 +47,7 @@ public sealed class PulseFeatureConfigData {
         @Serializable
         public data class Rage(
             @SerialName("timeWindowMs") val timeWindowMs: Long? = null,
-            @SerialName("rageThreshold") val rageThreshold: Int? = null,
+            @SerialName("threshold") val threshold: Int? = null,
             @SerialName("radius") val radius: Float? = null,
         )
     }

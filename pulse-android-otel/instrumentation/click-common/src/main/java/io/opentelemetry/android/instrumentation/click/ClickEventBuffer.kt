@@ -63,7 +63,7 @@ data class RageEvent(
  *    a. Evict buffer entries older than [RageConfig.timeWindowMs] via [onEmit].
  *    b. Add the tap to the buffer.
  *    c. Count how many buffered taps are within [RageConfig.radiusDp] of this tap.
- *    d. If count >= [RageConfig.rageThreshold], form a new cluster:
+ *    d. If count >= [RageConfig.threshold], form a new cluster:
  *       - Remove only the nearby taps from the buffer (taps at other locations stay).
  *       - Schedule the cluster's delayed emission after [RageConfig.timeWindowMs] of inactivity.
  * 4. Each cluster emits independently via [onRage] when its window closes — whichever comes first:
@@ -118,7 +118,7 @@ class ClickEventBuffer(
     }
 
     init {
-        require(rageConfig.rageThreshold > 0) { "rageThreshold must be > 0, got ${rageConfig.rageThreshold}" }
+        require(rageConfig.threshold > 0) { "rageThreshold must be > 0, got ${rageConfig.threshold}" }
         require(rageConfig.timeWindowMs > 0) { "timeWindowMs must be > 0, got ${rageConfig.timeWindowMs}" }
     }
 
@@ -198,7 +198,7 @@ class ClickEventBuffer(
         buffer.addLast(click)
 
         val nearbyCount = buffer.count { withinRadius(it.x, it.y, click.x, click.y) }
-        if (nearbyCount >= rageConfig.rageThreshold) {
+        if (nearbyCount >= rageConfig.threshold) {
             val cluster =
                 RageCluster(
                     initialRage =

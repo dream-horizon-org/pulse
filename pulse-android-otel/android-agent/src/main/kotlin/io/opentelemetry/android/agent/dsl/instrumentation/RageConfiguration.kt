@@ -20,7 +20,7 @@ import io.opentelemetry.android.instrumentation.click.RageConfig
  * viewClick {
  *     rage {
  *         timeWindowMs(1000)
- *         rageThreshold(3)
+ *         threshold(3)
  *         radiusDp(50f)
  *     }
  * }
@@ -29,7 +29,7 @@ import io.opentelemetry.android.instrumentation.click.RageConfig
 @OpenTelemetryDslMarker
 class RageConfiguration internal constructor() {
     private var timeWindowMs: Long = ClickEventBuffer.TIME_WINDOW_MS
-    private var rageThreshold: Int = ClickEventBuffer.RAGE_THRESHOLD
+    private var threshold: Int = ClickEventBuffer.RAGE_THRESHOLD
     private var radiusDp: Float = ClickEventBuffer.RADIUS_DP
 
     /** Sliding window in ms. Taps outside this window are not counted in the same rage cluster. */
@@ -39,10 +39,10 @@ class RageConfiguration internal constructor() {
 
     /**
      * Minimum number of taps within [timeWindowMs] and [radiusDp] to trigger a rage event.
-     * Rage fires when tap count **>= rageThreshold**.
+     * Rage fires when tap count **>= threshold**.
      */
-    fun rageThreshold(value: Int) {
-        rageThreshold = value
+    fun threshold(value: Int) {
+        threshold = value
     }
 
     /** Radius in dp within which taps are considered the same location for rage detection. */
@@ -53,7 +53,7 @@ class RageConfiguration internal constructor() {
     internal fun build(): RageConfig =
         RageConfig(
             timeWindowMs = timeWindowMs,
-            rageThreshold = rageThreshold,
+            threshold = threshold,
             radiusDp = radiusDp,
         )
 }
