@@ -6,14 +6,44 @@ import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 import type { ApiResponse } from "../../helpers/makeRequest/makeRequest.interface";
 import type {
   HeatmapDataResponse,
-  HeatmapIncludeLayer,
+  HeatmapDataWireResponse,
 } from "../../screens/ScreenDetail/Heatmap/heatmap.types";
 import {
   fetchHeatmapDataGet,
   fetchHeatmapDataPost,
 } from "../../screens/ScreenDetail/Heatmap/heatmapApi";
+import { normalizeHeatmapWireResponse } from "../../screens/ScreenDetail/Heatmap/heatmapWireNormalize";
 
 dayjs.extend(utc);
+
+const HEATMAP_500_MAX_RETRIES = 3;
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchHeatmapWith500Retry(
+  fetchOnce: () => Promise<ApiResponse<HeatmapDataResponse>>,
+): Promise<ApiResponse<HeatmapDataResponse>> {
+  let response = await fetchOnce();
+  for (
+    let attempt = 0;
+    attempt < HEATMAP_500_MAX_RETRIES && response.status === 500;
+    attempt += 1
+  ) {
+    await delay(350 * (attempt + 1));
+    response = await fetchOnce();
+  }
+  return response;
+}
+
+function mapWireResponse(
+  res: ApiResponse<HeatmapDataWireResponse>,
+): ApiResponse<HeatmapDataResponse> {
+  return {
+    ...res,
+    data:
+      res.data != null ? normalizeHeatmapWireResponse(res.data) : res.data,
+  };
+}
 
 export interface UseHeatmapDataParams {
   screenName: string;
@@ -21,32 +51,11 @@ export interface UseHeatmapDataParams {
   endTime: string;
   app_version?: string;
   platform?: string;
-  aspect_ratio?: string;
-  cohort_id?: string;
-  /** Comma-separated layer ids for GET `layers` (glow, frustration, observability). */
-  layers?: string;
+  region?: string;
+  breakpoint?: string;
   /** Use POST with project id when true (heavy filter body). Default false = GET. */
   usePost?: boolean;
   enabled?: boolean;
-}
-
-const ALLOWED_LAYERS = new Set<HeatmapIncludeLayer>([
-  "glow",
-  "frustration",
-  "observability",
-]);
-
-function parseIncludeLayers(
-  layers?: string,
-): HeatmapIncludeLayer[] | undefined {
-  if (!layers?.trim()) return undefined;
-  const parts = layers
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s): s is HeatmapIncludeLayer =>
-      ALLOWED_LAYERS.has(s as HeatmapIncludeLayer),
-    );
-  return parts.length ? parts : undefined;
 }
 
 const formatTime = (time: string): string => {
@@ -58,7 +67,8 @@ const formatTime = (time: string): string => {
 };
 
 /**
- * Fetches heatmap layers + metadata. Uses GET by default (useGetDataQuery-style reads).
+ * Fetches heatmap layers + metadata. Uses GET by default.
+ * Wire JSON is normalized once (rage_taps/dead_taps → rage/dead).
  */
 export const useHeatmapData = (
   params: UseHeatmapDataParams,
@@ -70,14 +80,11 @@ export const useHeatmapData = (
     endTime,
     app_version,
     platform,
-    aspect_ratio,
-    cohort_id,
-    layers,
+    region,
+    breakpoint,
     usePost = false,
     enabled = true,
   } = params;
-
-  const includeLayers = parseIncludeLayers(layers);
 
   const formattedStart = formatTime(startTime);
   const formattedEnd = formatTime(endTime);
@@ -101,34 +108,37 @@ export const useHeatmapData = (
       formattedEnd,
       app_version ?? "",
       platform ?? "",
-      aspect_ratio ?? "",
-      cohort_id ?? "",
-      layers ?? "",
+      region ?? "",
+      breakpoint ?? "",
     ],
     queryFn: async () => {
       if (usePost) {
         if (!projectId) {
           throw new Error("projectId required for POST heatmap data");
         }
-        return fetchHeatmapDataPost(projectId, {
-          screenName,
-          timeRange: { start: formattedStart, end: formattedEnd },
-          app_version,
-          platform,
-          aspect_ratio,
-          cohort_id,
-          includeLayers,
+        return fetchHeatmapWith500Retry(async () => {
+          const res = await fetchHeatmapDataPost(projectId, {
+            screenName,
+            timeRange: { start: formattedStart, end: formattedEnd },
+            app_version,
+            platform,
+            region: region?.trim() || undefined,
+            breakpoint: breakpoint?.trim() || undefined,
+          });
+          return mapWireResponse(res);
         });
       }
-      return fetchHeatmapDataGet({
-        screenName,
-        from: formattedStart,
-        to: formattedEnd,
-        app_version,
-        platform,
-        aspect_ratio,
-        cohort_id,
-        layers,
+      return fetchHeatmapWith500Retry(async () => {
+        const res = await fetchHeatmapDataGet({
+          screenName,
+          from: formattedStart,
+          to: formattedEnd,
+          app_version,
+          platform,
+          region: region?.trim() || undefined,
+          breakpoint: breakpoint?.trim() || undefined,
+        });
+        return mapWireResponse(res);
       });
     },
     enabled: isProjectReady,

@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useHeatmapData } from "../../../hooks/useHeatmapData";
 import { useGetScreenNames } from "../../../hooks/useGetScreenNames";
 import { useFilterStore } from "../../../stores/useFilterStore";
 import { getHeatmapQualityMetrics } from "./heatmapQuality";
+import { isHeatmapDataEmpty } from "./heatmapEmptyState";
+import {
+  notifyHeatmapTechnicalDetail,
+  shouldToastHeatmapErrorDetail,
+} from "./heatmapFetchErrors";
 import { HeatmapVisualization } from "./HeatmapVisualization";
 import { HeatmapComparePanel } from "./HeatmapComparePanel";
 import { HeatmapVizFooter } from "./HeatmapVizFooter";
@@ -13,7 +18,7 @@ import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import {
   compareSharedWeightMax,
   glowLayerForSignal,
-  heatmapLayersIncludeInteractionMapKey,
+  heatmapShowsKeyActionsLens,
   type HeatmapFocusLens,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
@@ -22,14 +27,29 @@ import {
   heatmapFiltersToRequestArgs,
   heatmapLocalFiltersMatchPage,
 } from "./heatmapLocalFilters";
-import type { HeatmapPanelProps } from "./heatmapPanel.types";
+import {
+  HEATMAP_COPY_COMPARE_SCREENS,
+  HEATMAP_COPY_SECTION_SCREEN_A,
+  HEATMAP_COPY_SECTION_SCREEN_B,
+} from "./heatmapCopy";
+import type { HeatmapPanelProps } from "./heatmap.ui.types";
+import {
+  isHeatmapMockServerEnabled,
+  mockProfileToApiScreenName,
+  type HeatmapMockProfile,
+} from "./heatmapMockDev";
+import { HeatmapMockScenarioToolbar } from "./HeatmapMockScenarioToolbar";
 import classes from "./HeatmapPanel.module.css";
 
-export type { HeatmapPanelProps } from "./heatmapPanel.types";
+export type { HeatmapPanelProps } from "./heatmap.ui.types";
 
 /**
  * Heatmap tab — Summary + Map cards (EngagementGraph styling), demo-aligned split
  * and aggregates panel; retains heatmap.js, focus lens, carousel, and bin budget.
+ *
+ * Compare mode issues two independent `useHeatmapData` queries (screen A vs B) so each
+ * column can use different filters; a single `POST …/heatmap/compare` exists on the API
+ * for mocks/types but is optional for the UI until we consolidate round-trips.
  */
 export function HeatmapPanel({
   screenName,
@@ -38,6 +58,11 @@ export function HeatmapPanel({
   engagement,
 }: HeatmapPanelProps) {
   const { filterValues } = useFilterStore();
+  const mockServer = isHeatmapMockServerEnabled();
+  const [mockProfileMain, setMockProfileMain] =
+    useState<HeatmapMockProfile>("live");
+  const [mockProfileCompareB, setMockProfileCompareB] =
+    useState<HeatmapMockProfile>("live");
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [compareScreenName, setCompareScreenName] = useState("");
   const [signal, setSignal] = useState<HeatmapSignal>("tap");
@@ -114,6 +139,30 @@ export function HeatmapPanel({
 
   const compareSliceReady = compareEnabled && !!compareScreenName.trim();
 
+  const effectiveApiScreenMain = useMemo(
+    () =>
+      mockServer
+        ? mockProfileToApiScreenName(mockProfileMain, screenName)
+        : screenName,
+    [mockServer, mockProfileMain, screenName],
+  );
+
+  const effectiveApiScreenCompareB = useMemo(() => {
+    const b = compareScreenName.trim();
+    if (!mockServer) return b;
+    return mockProfileToApiScreenName(mockProfileCompareB, b);
+  }, [mockServer, mockProfileCompareB, compareScreenName]);
+
+  const mockScenarioToolbar = mockServer ? (
+    <HeatmapMockScenarioToolbar
+      compareMode={compareEnabled}
+      profileMain={mockProfileMain}
+      onProfileMainChange={setMockProfileMain}
+      profileCompareB={mockProfileCompareB}
+      onProfileCompareBChange={setMockProfileCompareB}
+    />
+  ) : null;
+
   const openCompare = () => {
     const base = singleFilters ?? pageBaseline;
     setCompareFiltersA({ ...base });
@@ -147,19 +196,19 @@ export function HeatmapPanel({
   const compareBRequest = heatmapFiltersToRequestArgs(effectiveCompareB);
 
   const heatmapQuery = useHeatmapData({
-    screenName,
+    screenName: effectiveApiScreenMain,
     ...singleRequest,
     enabled: !compareEnabled,
   });
 
   const compareLeftQuery = useHeatmapData({
-    screenName,
+    screenName: effectiveApiScreenMain,
     ...compareARequest,
     enabled: compareSliceReady,
   });
 
   const compareRightQuery = useHeatmapData({
-    screenName: compareScreenName.trim(),
+    screenName: effectiveApiScreenCompareB,
     ...compareBRequest,
     enabled: compareSliceReady,
   });
@@ -173,9 +222,7 @@ export function HeatmapPanel({
 
   const singleShowInteractionMap = useMemo(
     () =>
-      singlePayload
-        ? heatmapLayersIncludeInteractionMapKey(singlePayload.layers)
-        : false,
+      singlePayload ? heatmapShowsKeyActionsLens(singlePayload.layers) : false,
     [singlePayload],
   );
 
@@ -183,8 +230,8 @@ export function HeatmapPanel({
     () =>
       compareLeftPayload != null &&
       compareRightPayload != null &&
-      heatmapLayersIncludeInteractionMapKey(compareLeftPayload.layers) &&
-      heatmapLayersIncludeInteractionMapKey(compareRightPayload.layers),
+      heatmapShowsKeyActionsLens(compareLeftPayload.layers) &&
+      heatmapShowsKeyActionsLens(compareRightPayload.layers),
     [compareLeftPayload, compareRightPayload],
   );
 
@@ -228,7 +275,7 @@ export function HeatmapPanel({
     [singlePayload, signal],
   );
 
-  const binBudget = useHeatmapBinBudget(glowForSignal);
+  const binBudget = useHeatmapBinBudget(glowForSignal, mockServer);
 
   const rageForMarkers =
     singlePayload?.layers?.frustration_map?.rage?.map((r) => ({
@@ -237,91 +284,180 @@ export function HeatmapPanel({
       weight: r.weight,
     })) ?? [];
 
-  const compareErrorMessage =
-    compareLeftErr ||
-    compareRightErr ||
-    compareLeftQuery.isError ||
-    compareRightQuery.isError
-      ? (compareLeftErr?.message ??
-        compareRightErr?.message ??
-        "Something went wrong. Try again.")
-      : null;
+  const compareLeftFetchFailed =
+    !!compareLeftErr || compareLeftQuery.isError;
 
-  const heatmapErrorMessage =
-    singleErr || heatmapQuery.isError
-      ? (singleErr?.message ??
-        "Something went wrong. Try again.")
-      : null;
+  const compareRightFetchFailed =
+    !!compareRightErr || compareRightQuery.isError;
+
+  const heatmapFetchFailed = !!singleErr || heatmapQuery.isError;
+
+  const heatmapErrorToastKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const failedSingle = !compareEnabled && heatmapFetchFailed;
+    const failedCompare =
+      compareEnabled && (compareLeftFetchFailed || compareRightFetchFailed);
+    if (!failedSingle && !failedCompare) {
+      heatmapErrorToastKeyRef.current = null;
+      return;
+    }
+
+    let detail = "";
+    if (!compareEnabled && heatmapFetchFailed) {
+      detail =
+        singleErr?.message?.trim() ||
+        singleErr?.cause?.trim() ||
+        (heatmapQuery.error instanceof Error
+          ? heatmapQuery.error.message
+          : "") ||
+        "";
+    } else if (compareEnabled && failedCompare) {
+      const parts: string[] = [];
+      if (compareLeftFetchFailed) {
+        const t =
+          compareLeftErr?.message?.trim() ||
+          compareLeftErr?.cause?.trim() ||
+          (compareLeftQuery.error instanceof Error
+            ? compareLeftQuery.error.message
+            : "");
+        if (t) parts.push(`A: ${t}`);
+      }
+      if (compareRightFetchFailed) {
+        const t =
+          compareRightErr?.message?.trim() ||
+          compareRightErr?.cause?.trim() ||
+          (compareRightQuery.error instanceof Error
+            ? compareRightQuery.error.message
+            : "");
+        if (t) parts.push(`B: ${t}`);
+      }
+      detail = parts.join("\n");
+    }
+
+    if (!detail || !shouldToastHeatmapErrorDetail(detail)) return;
+
+    const key = [
+      compareEnabled ? "c" : "s",
+      compareLeftFetchFailed ? "L" : "",
+      compareRightFetchFailed ? "R" : "",
+      effectiveApiScreenMain,
+      effectiveApiScreenCompareB,
+      detail,
+    ].join("|");
+
+    if (heatmapErrorToastKeyRef.current === key) return;
+    heatmapErrorToastKeyRef.current = key;
+    notifyHeatmapTechnicalDetail(detail);
+  }, [
+    compareEnabled,
+    heatmapFetchFailed,
+    compareLeftFetchFailed,
+    compareRightFetchFailed,
+    singleErr,
+    compareLeftErr,
+    compareRightErr,
+    heatmapQuery.error,
+    compareLeftQuery.error,
+    compareRightQuery.error,
+    effectiveApiScreenMain,
+    effectiveApiScreenCompareB,
+  ]);
 
   if (compareEnabled) {
     return (
-      <HeatmapComparePanel
-        signal={signal}
-        onSignalChange={setSignal}
-        focusLens={focusLens}
-        onFocusLensChange={setFocusLens}
-        screenAName={screenName}
-        compareScreenName={compareScreenName}
-        onCompareScreenNameChange={setCompareScreenName}
-        compareScreenOptions={compareScreenSelectData}
-        filtersSlotA={
-          <HeatmapFilterPanel
-            variant="dataOnly"
-            dataOnlyLayout="compareColumn"
-            sectionLabel="Screen A"
-            value={effectiveCompareA}
-            onChange={(v) => setCompareFiltersA(v)}
-            onResetToPage={() =>
-              setCompareFiltersA(defaultHeatmapLocalFilters(
-                filterValues,
-                startTime,
-                endTime,
-              ))
-            }
-            matchesPage={compareAMatchesPage}
-          />
-        }
-        filtersSlotB={
-          <HeatmapFilterPanel
-            variant="dataOnly"
-            dataOnlyLayout="compareColumn"
-            sectionLabel="Screen B"
-            value={effectiveCompareB}
-            onChange={(v) => setCompareFiltersB(v)}
-            onResetToPage={() =>
-              setCompareFiltersB(defaultHeatmapLocalFilters(
-                filterValues,
-                startTime,
-                endTime,
-              ))
-            }
-            matchesPage={compareBMatchesPage}
-          />
-        }
-        onExitCompare={exitCompare}
-        isLoading={
-          compareLeftQuery.isLoading || compareRightQuery.isLoading
-        }
-        errorMessage={compareErrorMessage}
-        compareLeftPayload={compareLeftPayload}
-        compareRightPayload={compareRightPayload}
-        compareLeftQualityMetrics={compareLeftQualityMetrics}
-        compareRightQualityMetrics={compareRightQualityMetrics}
-        compareSharedMax={compareSharedMax}
-        showInteractionMapOption={compareShowInteractionMap}
-      />
+      <>
+        {mockScenarioToolbar}
+        <HeatmapComparePanel
+          signal={signal}
+          onSignalChange={setSignal}
+          focusLens={focusLens}
+          onFocusLensChange={setFocusLens}
+          screenAName={screenName}
+          compareScreenName={compareScreenName}
+          onCompareScreenNameChange={setCompareScreenName}
+          compareScreenOptions={compareScreenSelectData}
+          filtersSlotA={
+            <HeatmapFilterPanel
+              variant="dataOnly"
+              dataOnlyLayout="compareColumn"
+              sectionLabel={HEATMAP_COPY_SECTION_SCREEN_A}
+              value={effectiveCompareA}
+              onChange={(v) => setCompareFiltersA(v)}
+              onResetToPage={() =>
+                setCompareFiltersA(defaultHeatmapLocalFilters(
+                  filterValues,
+                  startTime,
+                  endTime,
+                ))
+              }
+              matchesPage={compareAMatchesPage}
+            />
+          }
+          filtersSlotB={
+            <HeatmapFilterPanel
+              variant="dataOnly"
+              dataOnlyLayout="compareColumn"
+              sectionLabel={HEATMAP_COPY_SECTION_SCREEN_B}
+              value={effectiveCompareB}
+              onChange={(v) => setCompareFiltersB(v)}
+              onResetToPage={() =>
+                setCompareFiltersB(defaultHeatmapLocalFilters(
+                  filterValues,
+                  startTime,
+                  endTime,
+                ))
+              }
+              matchesPage={compareBMatchesPage}
+            />
+          }
+          onExitCompare={exitCompare}
+          compareLeftLoading={compareLeftQuery.isLoading}
+          compareRightLoading={compareRightQuery.isLoading}
+          compareLeftFetchFailed={compareLeftFetchFailed}
+          compareRightFetchFailed={compareRightFetchFailed}
+          onRetryCompareLeft={() => {
+            void compareLeftQuery.refetch();
+          }}
+          onRetryCompareRight={() => {
+            void compareRightQuery.refetch();
+          }}
+          compareLeftRetrying={
+            compareLeftQuery.isFetching && !compareLeftQuery.isPending
+          }
+          compareRightRetrying={
+            compareRightQuery.isFetching && !compareRightQuery.isPending
+          }
+          compareLeftPayload={compareLeftPayload}
+          compareRightPayload={compareRightPayload}
+          compareLeftQualityMetrics={compareLeftQualityMetrics}
+          compareRightQualityMetrics={compareRightQualityMetrics}
+          compareSharedMax={compareSharedMax}
+          showInteractionMapOption={compareShowInteractionMap}
+          compareLeftBreakpoint={effectiveCompareA.breakpoint}
+          compareRightBreakpoint={effectiveCompareB.breakpoint}
+        />
+      </>
     );
   }
 
   return (
     <div className={classes.root}>
+      {mockScenarioToolbar}
       <HeatmapMainCard
         engagement={engagement}
         signal={signal}
         focusLens={focusLens}
         isLoading={heatmapQuery.isLoading}
-        errorMessage={heatmapErrorMessage}
+        heatmapFetchError={heatmapFetchFailed}
+        heatmapRetryLoading={
+          heatmapQuery.isFetching && !heatmapQuery.isPending
+        }
+        onHeatmapRetry={() => {
+          void heatmapQuery.refetch();
+        }}
         singlePayload={singlePayload}
+        contextScreenName={screenName}
         qualityMetrics={qualityMetrics}
         mapToolbar={
           <HeatmapFilterPanel
@@ -349,7 +485,7 @@ export function HeatmapPanel({
                 className={classes.compareCta}
                 onClick={openCompare}
               >
-                Compare screens
+                {HEATMAP_COPY_COMPARE_SCREENS}
               </button>
             }
           />
@@ -365,24 +501,31 @@ export function HeatmapPanel({
                 binBudget={binBudget}
                 showDensityFooter={false}
                 focusLens={focusLens}
+                breakpoint={effectiveSingle.breakpoint}
                 interactionRegions={
                   singlePayload.layers.interaction_map?.regions ?? []
                 }
                 showFrustrationMarkers={signal === "rage"}
                 ragePoints={rageForMarkers}
-                densityBinTooltip={{ payload: singlePayload, signal }}
+                densityBinTooltip={
+                  isHeatmapDataEmpty(singlePayload)
+                    ? undefined
+                    : { payload: singlePayload, signal }
+                }
               />
-              {focusLens === "all" && (
-                <div className={classes.embeddedBinBudget}>
-                  <HeatmapVizFooter
-                    glowMapLength={glowForSignal.length}
-                    displayCount={binBudget.displayGlow.length}
-                    binBudgetMax={binBudget.binBudgetMax}
-                    effectiveBudget={binBudget.binBudget}
-                    onBudgetChange={binBudget.setBinBudget}
-                  />
-                </div>
-              )}
+              {mockServer && !isHeatmapDataEmpty(singlePayload) &&
+                focusLens === "all" &&
+                 (
+                  <div className={classes.embeddedBinBudget}>
+                    <HeatmapVizFooter
+                      glowMapLength={glowForSignal.length}
+                      displayCount={binBudget.displayGlow.length}
+                      binBudgetMax={binBudget.binBudgetMax}
+                      effectiveBudget={binBudget.binBudget}
+                      onBudgetChange={binBudget.setBinBudget}
+                    />
+                  </div>
+                )}
             </div>
           ) : null
         }

@@ -7,7 +7,7 @@ import {
   getUTCDateTimeStringFromDateValue,
   isValidUtcWallClockString,
 } from "../../../utils/DateUtil";
-import type { HeatmapTimeRangePopoverBodyProps } from "./heatmapFilterPanel.types";
+import type { HeatmapTimeRangePopoverBodyProps } from "./heatmap.ui.types";
 import { formatHeatmapCustomDateRangeLabel } from "./heatmapFilterPanelUtils";
 import {
   HEATMAP_QUICK_TIME_PRESETS,

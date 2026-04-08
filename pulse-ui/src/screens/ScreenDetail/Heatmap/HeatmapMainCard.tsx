@@ -1,11 +1,22 @@
 import type { ReactNode } from "react";
-import { Alert, Box, Stack, Text } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { Box, Group, Loader, Stack, Text } from "@mantine/core";
 import graphClasses from "../components/EngagementGraph.module.css";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import { HeatmapAggregatesPanel } from "./HeatmapAggregatesPanel";
+import { HeatmapDataEmptyAside } from "./HeatmapDataEmptyAside";
+import { HeatmapFetchErrorPanel } from "./HeatmapFetchErrorPanel";
+import { isHeatmapDataEmpty } from "./heatmapEmptyState";
 import classes from "./HeatmapPanel.module.css";
-import type { HeatmapPanelProps } from "./heatmapPanel.types";
+import {
+  HEATMAP_COPY_LOADING_HEATMAP,
+  HEATMAP_COPY_METRIC_AVG_TIME,
+  HEATMAP_COPY_METRIC_EVENTS,
+  HEATMAP_COPY_METRIC_SESSIONS,
+  HEATMAP_COPY_METRIC_USERS,
+  HEATMAP_COPY_SUMMARY_FILTERS_HINT,
+  HEATMAP_COPY_SUMMARY_TITLE,
+} from "./heatmapCopy";
+import type { HeatmapPanelProps } from "./heatmap.ui.types";
 import {
   formatAvgTime,
   formatInt,
@@ -19,8 +30,12 @@ export interface HeatmapMainCardProps {
   signal: HeatmapSignal;
   focusLens: HeatmapFocusLens;
   isLoading: boolean;
-  errorMessage: string | null | undefined;
+  heatmapFetchError: boolean;
+  heatmapRetryLoading?: boolean;
+  onHeatmapRetry?: () => void;
   singlePayload: HeatmapDataResponse | null | undefined;
+  /** Route / context screen for empty-state copy when API uses a sentinel name. */
+  contextScreenName: string;
   qualityMetrics: HeatmapQualityMetrics;
   /** Time + filters + view popovers, plus Compare control — built in parent. */
   mapToolbar: ReactNode;
@@ -32,8 +47,11 @@ export function HeatmapMainCard({
   signal,
   focusLens,
   isLoading,
-  errorMessage,
+  heatmapFetchError,
+  heatmapRetryLoading = false,
+  onHeatmapRetry,
   singlePayload,
+  contextScreenName,
   qualityMetrics,
   mapToolbar,
   mapColumn,
@@ -46,32 +64,40 @@ export function HeatmapMainCard({
   return (
     <Stack gap="md">
       <Box className={graphClasses.graphCard}>
-        <div className={graphClasses.graphTitle}>Summary</div>
+        <div className={graphClasses.graphTitle}>{HEATMAP_COPY_SUMMARY_TITLE}</div>
         <Text size="xs" c="dimmed" mb="sm" lh={1.5}>
-          Filters and time range match the rest of this screen.
+          {HEATMAP_COPY_SUMMARY_FILTERS_HINT}
         </Text>
 
         <div className={classes.summaryMetricsGrid}>
           <div className={graphClasses.metricCard}>
-            <Text className={graphClasses.metricLabel}>Events (heatmap scope)</Text>
+            <Text className={graphClasses.metricLabel}>
+              {HEATMAP_COPY_METRIC_EVENTS}
+            </Text>
             <Text className={graphClasses.metricValue}>
               {eventCount ?? "—"}
             </Text>
           </div>
           <div className={graphClasses.metricCard}>
-            <Text className={graphClasses.metricLabel}>Sessions</Text>
+            <Text className={graphClasses.metricLabel}>
+              {HEATMAP_COPY_METRIC_SESSIONS}
+            </Text>
             <Text className={graphClasses.metricValue}>
               {formatInt(engagement?.totalSessions ?? 0)}
             </Text>
           </div>
           <div className={graphClasses.metricCard}>
-            <Text className={graphClasses.metricLabel}>Users</Text>
+            <Text className={graphClasses.metricLabel}>
+              {HEATMAP_COPY_METRIC_USERS}
+            </Text>
             <Text className={graphClasses.metricValue}>
               {formatInt(engagement?.totalUsers ?? 0)}
             </Text>
           </div>
           <div className={graphClasses.metricCard}>
-            <Text className={graphClasses.metricLabel}>Avg. time</Text>
+            <Text className={graphClasses.metricLabel}>
+              {HEATMAP_COPY_METRIC_AVG_TIME}
+            </Text>
             <Text className={graphClasses.metricValue}>
               {formatAvgTime(engagement?.avgTimeSpent ?? null)}
             </Text>
@@ -82,34 +108,44 @@ export function HeatmapMainCard({
       <Box className={graphClasses.graphCard}>
         <div className={classes.heatmapMapToolbar}>{mapToolbar}</div>
 
-        {isLoading && !errorMessage && (
-          <div className={classes.loadingSkeleton} />
+        {heatmapFetchError && (
+          <HeatmapFetchErrorPanel
+            onRetry={onHeatmapRetry}
+            retryLoading={heatmapRetryLoading}
+          />
         )}
 
-        {errorMessage && (
-          <Alert
-            color="red"
-            title="Heatmap unavailable"
-            icon={<IconInfoCircle />}
-            mb="sm"
-            mt="md"
-          >
-            {errorMessage}
-          </Alert>
+        {!heatmapFetchError && isLoading && (
+          <div className={classes.heatmapMainLoading}>
+            <Group gap="sm" py="md" justify="center" wrap="nowrap" w="100%">
+              <Loader size="sm" color="teal" />
+              <Text size="sm" c="dimmed">
+                {HEATMAP_COPY_LOADING_HEATMAP}
+              </Text>
+            </Group>
+            <div className={classes.loadingSkeleton} />
+          </div>
         )}
 
-        {!isLoading && !errorMessage && singlePayload && (
+        {!isLoading && !heatmapFetchError && singlePayload && (
           <div className={classes.heatmapSplit}>
             <div className={classes.heatmapSplitLeft}>
               <div className={classes.mapBlock}>{mapColumn}</div>
             </div>
             <div className={classes.heatmapSplitRight}>
-              <HeatmapAggregatesPanel
-                payload={singlePayload}
-                signal={signal}
-                qualityMetrics={qualityMetrics}
-                focusLens={focusLens}
-              />
+              {isHeatmapDataEmpty(singlePayload) ? (
+                <HeatmapDataEmptyAside
+                  screenName={singlePayload.metadata.screenName}
+                  contextScreenName={contextScreenName}
+                />
+              ) : (
+                <HeatmapAggregatesPanel
+                  payload={singlePayload}
+                  signal={signal}
+                  qualityMetrics={qualityMetrics}
+                  focusLens={focusLens}
+                />
+              )}
             </div>
           </div>
         )}

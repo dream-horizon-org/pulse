@@ -1,6 +1,10 @@
-import { Autocomplete, Stack, Text } from "@mantine/core";
-import type { HeatmapAudienceFilterFormProps } from "./heatmapFilterPanel.types";
+import { Autocomplete, Select, Stack, Text } from "@mantine/core";
+import type { HeatmapAudienceFilterFormProps } from "./heatmap.ui.types";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
+import {
+  HEATMAP_BREAKPOINT_LABELS,
+  HEATMAP_BREAKPOINT_VALUES,
+} from "./heatmap.types";
 
 export function HeatmapAudienceFilterForm({
   value,
@@ -40,6 +44,19 @@ export function HeatmapAudienceFilterForm({
         value={value.region}
         onChange={(v) => onChange({ ...value, region: v ?? "" })}
         placeholder="All"
+      />
+      <Select
+        label="Viewport"
+        size="xs"
+        className={filterClasses.filterInput}
+        clearable
+        placeholder="All"
+        data={HEATMAP_BREAKPOINT_VALUES.map((v) => ({
+          value: v,
+          label: HEATMAP_BREAKPOINT_LABELS[v],
+        }))}
+        value={value.breakpoint?.trim() || null}
+        onChange={(v) => onChange({ ...value, breakpoint: v ?? "" })}
       />
     </Stack>
   );

@@ -1,6 +1,6 @@
 import { Divider, Group, Text } from "@mantine/core";
 import { HEATMAP_SIGNALS } from "./heatmapPanelUtils";
-import type { HeatmapMapViewControlsProps } from "./heatmapFilterPanel.types";
+import type { HeatmapMapViewControlsProps } from "./heatmap.ui.types";
 import heatmapClasses from "./HeatmapPanel.module.css";
 
 export function HeatmapMapViewControls({

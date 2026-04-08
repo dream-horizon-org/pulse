@@ -1,6 +1,6 @@
 import { Badge, Button, Divider, Group, Popover, Stack, Text } from "@mantine/core";
 import { IconFilter } from "@tabler/icons-react";
-import type { HeatmapAudienceFilterPopoverProps } from "./heatmapFilterPanel.types";
+import type { HeatmapAudienceFilterPopoverProps } from "./heatmap.ui.types";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
 
 export function HeatmapAudienceFilterPopover({

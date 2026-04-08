@@ -6,8 +6,10 @@ export type HeatmapLocalFilters = {
   endTime: string;
   platform: string;
   appVersion: string;
-  /** Pulse dashboard "state" dimension; sent as heatmap API cohort_id. */
+  /** Pulse dashboard `STATE` dimension; sent as heatmap API `region`. */
   region: string;
+  /** Viewport bucket; sent as `breakpoint` when set. */
+  breakpoint: string;
 };
 
 export function defaultHeatmapLocalFilters(
@@ -21,6 +23,7 @@ export function defaultHeatmapLocalFilters(
     platform: filterValues?.PLATFORM?.trim() ?? "",
     appVersion: filterValues?.APP_VERSION?.trim() ?? "",
     region: filterValues?.STATE?.trim() ?? "",
+    breakpoint: "",
   };
 }
 
@@ -40,17 +43,19 @@ export function heatmapLocalFiltersMatchPage(
     local.endTime === page.endTime &&
     local.platform === page.platform &&
     local.appVersion === page.appVersion &&
-    local.region === page.region
+    local.region === page.region &&
+    local.breakpoint === page.breakpoint
   );
 }
 
-/** Args for useHeatmapData (cohort_id maps dashboard region / STATE). */
+/** Args for `useHeatmapData` (regions + optional viewport breakpoint). */
 export function heatmapFiltersToRequestArgs(f: HeatmapLocalFilters) {
   return {
     startTime: f.startTime,
     endTime: f.endTime,
     app_version: f.appVersion.trim() || undefined,
     platform: f.platform.trim() || undefined,
-    cohort_id: f.region.trim() || undefined,
+    region: f.region.trim() || undefined,
+    breakpoint: f.breakpoint.trim() || undefined,
   };
 }

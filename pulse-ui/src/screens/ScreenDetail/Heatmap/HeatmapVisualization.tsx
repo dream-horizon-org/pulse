@@ -38,6 +38,8 @@ export interface HeatmapVisualizationProps {
     payload: HeatmapDataResponse;
     signal: HeatmapSignal;
   };
+  /** Local filter viewport bucket — adjusts phone frame aspect/width when set. */
+  breakpoint?: string;
 }
 
 /**
@@ -56,6 +58,7 @@ export function HeatmapVisualization({
   embedded = false,
   signal = "tap",
   densityBinTooltip,
+  breakpoint = "",
 }: HeatmapVisualizationProps) {
   const { displayGlow, binBudgetMax, binBudget: effectiveBudget, setBinBudget } =
     binBudget;
@@ -94,7 +97,7 @@ export function HeatmapVisualization({
       onNext={goNext}
       densityGradientVariant={densityGradientVariant}
       frame={
-        <HeatmapPhoneFrame>
+        <HeatmapPhoneFrame breakpoint={breakpoint}>
           <HeatmapScreenUnderlay screenshotUrl={activeScreenshotUrl} />
           {keyActionsView ? (
             <HeatmapInteractionOverlay regions={interactionRegions} />

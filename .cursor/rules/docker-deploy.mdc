@@ -31,7 +31,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 ## Volumes
 
-`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` when Vector profile is enabled.) `pulse-ai-sessions` — SQLite session store for integrated `pulse-ai-agent` (not removed by `reset-databases.sh`; remove volume manually if needed).
+`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. `vector-data` is declared in compose but only used when the Vector service block is uncommented.
 
 ## Environment Variables
 
@@ -84,4 +84,8 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 **Required (no default in compose):** `VAULT_ENCRYPTION_MASTER_KEY`, `REACT_APP_GOOGLE_CLIENT_ID`, `REACT_APP_FIREBASE_*`, `CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID`, `CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID`, `CONFIG_SERVICE_APPLICATION_WEBHOOKURL`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`. Must be set in `.env`. `SLACK_*` are optional (default empty; needed only for Slack API integration).
 
+
+**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is optional (`VECTOR_ENABLED=true`). `pulse-server` `depends_on` `pulse-ai-agent` with `condition: service_healthy`.
+
 **Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is optional: uncomment its service in compose and set `VECTOR_ENABLED=true` in `.env`.
+

@@ -24,17 +24,21 @@ export function formatInt(n: number): string {
 }
 
 /**
- * True when the API included `layers.interaction_map` (non-null). Omitting the key
- * means heatmap-only; clients must not show the Interaction map lens.
+ * True when Key actions lens should be offered: overlay (`interaction_map`) and/or
+ * right-rail table data (`interactions_metadata`).
  */
-export function heatmapLayersIncludeInteractionMapKey(
+export function heatmapShowsKeyActionsLens(
   layers: HeatmapDataResponse["layers"] | undefined | null,
 ): boolean {
   if (layers == null || typeof layers !== "object") return false;
-  return (
+  if (
     Object.prototype.hasOwnProperty.call(layers, "interaction_map") &&
     layers.interaction_map != null
-  );
+  ) {
+    return true;
+  }
+  const meta = layers.interactions_metadata;
+  return Array.isArray(meta) && meta.length > 0;
 }
 
 export function glowLayerForSignal(

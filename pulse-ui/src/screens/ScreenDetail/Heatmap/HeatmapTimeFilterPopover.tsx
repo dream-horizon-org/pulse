@@ -1,6 +1,6 @@
 import { Button, Group, Popover } from "@mantine/core";
 import { IconClock } from "@tabler/icons-react";
-import type { HeatmapTimeFilterPopoverProps } from "./heatmapFilterPanel.types";
+import type { HeatmapTimeFilterPopoverProps } from "./heatmap.ui.types";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
 
 export function HeatmapTimeFilterPopover({

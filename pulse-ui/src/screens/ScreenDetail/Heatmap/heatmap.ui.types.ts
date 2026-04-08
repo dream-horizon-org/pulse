@@ -2,6 +2,17 @@ import type { ReactNode } from "react";
 import type { HeatmapLocalFilters } from "./heatmapLocalFilters";
 import type { HeatmapFocusLens, HeatmapSignal } from "./heatmapPanelUtils";
 
+export interface HeatmapPanelProps {
+  screenName: string;
+  startTime: string;
+  endTime: string;
+  engagement?: {
+    avgTimeSpent: number | null;
+    totalSessions: number;
+    totalUsers: number;
+  } | null;
+}
+
 export type HeatmapFilterPanelVariant = "full" | "dataOnly";
 
 /** `compareColumn`: label, time + filters row, audience pills row (compare mode). */
@@ -23,7 +34,7 @@ export interface HeatmapFilterPanelProps {
   onSignalChange?: (s: HeatmapSignal) => void;
   focusLens?: HeatmapFocusLens;
   onFocusLensChange?: (l: HeatmapFocusLens) => void;
-  /** When false, only Heat map is offered (no `interaction_map` on the current response). */
+  /** When false, only Heat map is offered (no Key actions data on the response). */
   showInteractionMapOption?: boolean;
 }
 

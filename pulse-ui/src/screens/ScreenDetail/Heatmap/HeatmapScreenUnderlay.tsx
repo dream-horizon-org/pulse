@@ -1,3 +1,5 @@
+import { Stack, Text } from "@mantine/core";
+import { IconPhotoOff } from "@tabler/icons-react";
 import { HEATMAP_SCREEN_FALLBACK_URL } from "./heatmapViz.constants";
 import classes from "./HeatmapPanel.module.css";
 
@@ -5,6 +7,10 @@ export interface HeatmapScreenUnderlayProps {
   screenshotUrl: string | null | undefined;
 }
 
+/**
+ * Screen capture under the heatmap. When there is no URL (API omitted screenshots),
+ * show a neutral plate plus copy so heatmap-only mode is obvious.
+ */
 export function HeatmapScreenUnderlay({
   screenshotUrl,
 }: HeatmapScreenUnderlayProps) {
@@ -24,13 +30,16 @@ export function HeatmapScreenUnderlay({
   }
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 12,
-        borderRadius: 16,
-        background: "#1a1b1e",
-      }}
-    />
+    <div className={classes.screenUnderlayEmpty}>
+      <Stack align="center" justify="center" gap={6} px="md">
+        <IconPhotoOff size={28} stroke={1.2} color="var(--mantine-color-gray-5)" />
+        <Text size="xs" c="dimmed" ta="center" fw={500}>
+          No screenshot
+        </Text>
+        <Text size="xs" c="dimmed" ta="center" maw={200} lh={1.4} opacity={0.85}>
+          Heatmap still reflects taps and signals on this layout.
+        </Text>
+      </Stack>
+    </div>
   );
 }

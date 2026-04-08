@@ -1,9 +1,8 @@
 /**
  * Heatmap data access — pure functions using makeRequest.
- * Server returns { data, error }; heatmap payload is in data.
+ * Server returns { data, error }; wire payload in `data` is normalized in `useHeatmapData`.
  *
  * v1 heatmap reads are idempotent; consumers should use useQuery (see useHeatmapData).
- * useMutation is reserved for future state-changing endpoints (e.g. pin layout).
  */
 
 import { API_BASE_URL, API_ROUTES } from "../../../constants";
@@ -12,7 +11,7 @@ import type { ApiResponse } from "../../../helpers/makeRequest/makeRequest.inter
 import type {
   HeatmapDataQueryParams,
   HeatmapDataRequestBody,
-  HeatmapDataResponse,
+  HeatmapDataWireResponse,
 } from "./heatmap.types";
 
 export function heatmapProjectPath(
@@ -31,19 +30,18 @@ export function buildHeatmapDataQueryString(
   if (params.to) search.set("to", params.to);
   if (params.app_version) search.set("app_version", params.app_version);
   if (params.platform) search.set("platform", params.platform);
-  if (params.aspect_ratio) search.set("aspect_ratio", params.aspect_ratio);
-  if (params.cohort_id) search.set("cohort_id", params.cohort_id);
-  if (params.layers) search.set("layers", params.layers);
+  if (params.region?.trim()) search.set("region", params.region.trim());
+  if (params.breakpoint?.trim()) search.set("breakpoint", params.breakpoint.trim());
   return search.toString();
 }
 
 export async function fetchHeatmapDataGet(
   params: HeatmapDataQueryParams,
-): Promise<ApiResponse<HeatmapDataResponse>> {
+): Promise<ApiResponse<HeatmapDataWireResponse>> {
   const route = API_ROUTES.GET_HEATMAP_DATA;
   const qs = buildHeatmapDataQueryString(params);
   const url = `${API_BASE_URL}${route.apiPath}?${qs}`;
-  return makeRequest<HeatmapDataResponse>({
+  return makeRequest<HeatmapDataWireResponse>({
     url,
     init: { method: route.method },
   });
@@ -52,11 +50,11 @@ export async function fetchHeatmapDataGet(
 export async function fetchHeatmapDataPost(
   projectId: string,
   body: HeatmapDataRequestBody,
-): Promise<ApiResponse<HeatmapDataResponse>> {
+): Promise<ApiResponse<HeatmapDataWireResponse>> {
   const route = API_ROUTES.POST_HEATMAP_DATA;
   const path = heatmapProjectPath(route.apiPath, projectId);
   const url = `${API_BASE_URL}${path}`;
-  return makeRequest<HeatmapDataResponse>({
+  return makeRequest<HeatmapDataWireResponse>({
     url,
     init: {
       method: route.method,
