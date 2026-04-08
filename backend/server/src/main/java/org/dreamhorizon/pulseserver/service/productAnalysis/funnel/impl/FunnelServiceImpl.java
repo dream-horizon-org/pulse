@@ -22,6 +22,7 @@ import org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults.FunnelResu
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterOptions;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelResultsMapper;
@@ -261,12 +262,27 @@ public class FunnelServiceImpl implements FunnelService {
         .offset(offset)
         .build();
 
-    return funnelDefinitionDao
-      .listByProject(projectId, params)
+    return Single.zip(
+      funnelDefinitionDao.listByProject(projectId, params),
+      funnelDefinitionDao.listDistinctCreatedBy(projectId),
+      funnelJourneyTagDao.listDistinctTagsForProject(projectId),
+      (funnels, creators, allTags) -> new Object[] {funnels, creators, allTags})
       .flatMap(
-        funnels -> {
+        arr -> {
+          @SuppressWarnings("unchecked")
+          List<FunnelDefinitionRow> funnels = (List<FunnelDefinitionRow>) arr[0];
+          @SuppressWarnings("unchecked")
+          List<String> creators = (List<String>) arr[1];
+          @SuppressWarnings("unchecked")
+          List<String> allTags = (List<String>) arr[2];
+
           long totalCount = funnels.isEmpty() ? 0 : funnels.get(0).getTotalCount();
           int totalPages = totalCount == 0 ? 1 : (int) Math.ceil((double) totalCount / pageSize);
+
+          ListFilterOptions filterOptions = ListFilterOptions.builder()
+            .creators(creators)
+            .tags(allTags)
+            .build();
 
           if (funnels.isEmpty()) {
             return Single.just(
@@ -276,26 +292,33 @@ public class FunnelServiceImpl implements FunnelService {
                 .page(page)
                 .pageSize(pageSize)
                 .totalPages(1)
+                .filterOptions(filterOptions)
                 .build());
           }
           List<Long> ids = funnels.stream().map(FunnelDefinitionRow::getId).toList();
-          return funnelJourneyTagDao
-            .listTagsForEntities(projectId, FunnelJourneyTagEntityType.FUNNEL, ids)
-            .map(
-              tagMap ->
-                FunnelDefinitionListResponse.builder()
-                  .items(
-                    funnels.stream()
-                      .map(
-                        funnel ->
-                          toResponse(
-                            funnel, null, tagMap.getOrDefault(funnel.getId(), List.of())))
-                      .toList())
-                  .totalCount(totalCount)
-                  .page(page)
-                  .pageSize(pageSize)
-                  .totalPages(totalPages)
-                  .build());
+          return Single.zip(
+            funnelJourneyTagDao.listTagsForEntities(projectId, FunnelJourneyTagEntityType.FUNNEL, ids),
+            funnelResultsDao.queryConversionSummaries(projectId, ids),
+            (tagMap, conversionMap) ->
+              FunnelDefinitionListResponse.builder()
+                .items(
+                  funnels.stream()
+                    .map(
+                      funnel -> {
+                        var summary = conversionMap.get(funnel.getId());
+                        return toResponse(
+                          funnel, null,
+                          tagMap.getOrDefault(funnel.getId(), List.of()),
+                          summary != null ? summary.getConversionPct() : null,
+                          summary != null ? summary.getConversionTrend() : null);
+                      })
+                    .toList())
+                .totalCount(totalCount)
+                .page(page)
+                .pageSize(pageSize)
+                .totalPages(totalPages)
+                .filterOptions(filterOptions)
+                .build());
         });
   }
 
@@ -419,6 +442,15 @@ public class FunnelServiceImpl implements FunnelService {
     FunnelDefinitionRow row,
     FunnelResultsResponse funnelResults,
     List<String> tags) {
+    return toResponse(row, funnelResults, tags, null, null);
+  }
+
+  private FunnelDefinitionResponse toResponse(
+    FunnelDefinitionRow row,
+    FunnelResultsResponse funnelResults,
+    List<String> tags,
+    Double overallConversionRate,
+    Double conversionTrend) {
     try {
       List<FunnelDefinitionStep> steps =
         objectMapper.readValue(row.getStepsJson(), new TypeReference<>() {
@@ -450,6 +482,8 @@ public class FunnelServiceImpl implements FunnelService {
         .createdAt(row.getCreatedAt())
         .updatedAt(row.getUpdatedAt())
         .createdBy(row.getCreatedBy())
+        .overallConversionRate(overallConversionRate)
+        .conversionTrend(conversionTrend)
         .funnelResults(funnelResults)
         .tags(tags)
         .build();

@@ -24,6 +24,7 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelMode;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.*;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterOptions;
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyResultsMapper;
@@ -248,12 +249,27 @@ public class JourneyServiceImpl implements JourneyService {
         .offset(offset)
         .build();
 
-    return journeyDao
-      .listByProject(projectId, params)
+    return Single.zip(
+      journeyDao.listByProject(projectId, params),
+      journeyDao.listDistinctCreatedBy(projectId),
+      funnelJourneyTagDao.listDistinctTagsForProject(projectId),
+      (rows, creators, allTags) -> new Object[] {rows, creators, allTags})
       .flatMap(
-        rows -> {
+        arr -> {
+          @SuppressWarnings("unchecked")
+          List<JourneyRow> rows = (List<JourneyRow>) arr[0];
+          @SuppressWarnings("unchecked")
+          List<String> creators = (List<String>) arr[1];
+          @SuppressWarnings("unchecked")
+          List<String> allTags = (List<String>) arr[2];
+
           long totalCount = rows.isEmpty() ? 0 : rows.get(0).getTotalCount();
           int totalPages = totalCount == 0 ? 1 : (int) Math.ceil((double) totalCount / pageSize);
+
+          ListFilterOptions filterOptions = ListFilterOptions.builder()
+            .creators(creators)
+            .tags(allTags)
+            .build();
 
           if (rows.isEmpty()) {
             return Single.just(
@@ -263,6 +279,7 @@ public class JourneyServiceImpl implements JourneyService {
                 .page(page)
                 .pageSize(pageSize)
                 .totalPages(1)
+                .filterOptions(filterOptions)
                 .build());
           }
           List<Long> ids = rows.stream().map(JourneyRow::getId).toList();
@@ -281,6 +298,7 @@ public class JourneyServiceImpl implements JourneyService {
                   .page(page)
                   .pageSize(pageSize)
                   .totalPages(totalPages)
+                  .filterOptions(filterOptions)
                   .build());
         });
   }

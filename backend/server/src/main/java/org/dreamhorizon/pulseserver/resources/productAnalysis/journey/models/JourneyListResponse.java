@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterOptions;
 
 @Data
 @Builder
@@ -23,4 +24,5 @@ public class JourneyListResponse {
   private int page;
   private int pageSize;
   private int totalPages;
+  private ListFilterOptions filterOptions;
 }

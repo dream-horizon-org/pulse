@@ -59,6 +59,12 @@ public final class JourneyQueries {
       + " = 'SUCCEEDED' THEN 'ACTIVE' "
       + "ELSE 'ACTIVE' END";
 
+  /** Distinct non-null creator emails/names for all journeys in a project. */
+  public static final String SELECT_DISTINCT_CREATED_BY =
+    "SELECT DISTINCT created_by FROM journey WHERE project_id = ? "
+      + "AND created_by IS NOT NULL AND created_by != '' "
+      + "ORDER BY created_by";
+
   private JourneyQueries() {
   }
 }

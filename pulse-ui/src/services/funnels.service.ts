@@ -72,11 +72,18 @@ export type FunnelListItem = {
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
+  funnelType?: FunnelType;
   stepOrderType?: StepOrderType;
   /** Overall conversion rate (%) for funnels with computed metrics. */
   overallConversionRate?: number;
   /** Change vs prior period (percentage points); positive = up. */
   conversionTrend?: number;
+};
+
+/** Filter option metadata returned alongside listing data. */
+export type ListFilterOptions = {
+  creators?: string[];
+  tags?: string[];
 };
 
 /** Listing payload for GET /v1/funnels. */
@@ -86,6 +93,7 @@ export type FunnelListResponse = {
   page?: number;
   pageSize?: number;
   totalPages?: number;
+  filterOptions?: ListFilterOptions;
 };
 
 // ─── Journey listing types ─────────────────────────────────────────────────────
@@ -98,6 +106,7 @@ export type JourneyListItem = {
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
+  journeyType?: FunnelType;
 };
 
 /** Listing payload for GET /v1/journeys. */
@@ -107,6 +116,7 @@ export type JourneyListResponse = {
   page?: number;
   pageSize?: number;
   totalPages?: number;
+  filterOptions?: ListFilterOptions;
 };
 
 /** Query params for GET /v1/funnels or GET /v1/journeys (resource implied by path). */

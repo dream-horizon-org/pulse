@@ -6,10 +6,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
-import java.time.Instant;
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +13,9 @@ import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelMode;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
+
+import java.time.Instant;
+import java.util.List;
 
 @Data
 @Builder
@@ -42,7 +41,8 @@ public class UpdateJourneyRequest {
   private Integer depth;
 
   @NotNull
-  private FunnelMode mode;
+  @Builder.Default
+  private FunnelMode mode = FunnelMode.UNIQUE_USERS;
 
   @Valid
   private List<FunnelAttributeFilter> filters;

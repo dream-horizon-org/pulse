@@ -60,6 +60,18 @@ public class FunnelDefinitionResponse {
   private String createdBy;
 
   /**
+   * Overall conversion rate (%) from the latest funnel results.
+   * Available in listing responses without loading full step-level results.
+   */
+  private Double overallConversionRate;
+
+  /**
+   * Change in overall conversion rate vs the previous run (percentage points).
+   * Positive = improvement, negative = regression. 0 when only one run exists.
+   */
+  private Double conversionTrend;
+
+  /**
    * Latest pre-computed funnel metrics from ClickHouse ({@code otel.funnel_results}), when available.
    * Omitted when ClickHouse query fails or has not produced rows yet.
    */

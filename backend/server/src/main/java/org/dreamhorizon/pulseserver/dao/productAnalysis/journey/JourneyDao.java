@@ -159,6 +159,22 @@ public class JourneyDao {
         });
   }
 
+  /** Distinct non-null created_by values for all journeys in the project. */
+  public Single<List<String>> listDistinctCreatedBy(String projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool
+      .preparedQuery(JourneyQueries.SELECT_DISTINCT_CREATED_BY)
+      .rxExecute(Tuple.of(projectId))
+      .map(rows -> {
+        List<String> out = new ArrayList<>();
+        rows.forEach(row -> {
+          String v = row.getString("created_by");
+          if (v != null) out.add(v);
+        });
+        return out;
+      });
+  }
+
   private static JourneyRow mapRow(Row row) {
     return JourneyRow.builder()
       .id(row.getLong("id"))
