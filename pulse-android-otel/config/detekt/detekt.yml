@@ -34,6 +34,15 @@ console-reports:
 
 # output-reports section removed in detekt 2.0 (output-report config removed)
 
+libraries:
+  active: true
+  ForbiddenPublicDataClass:
+    active: true
+  LibraryCodeMustSpecifyReturnType:
+    active: false
+  LibraryEntitiesShouldNotBePublic:
+    active: false
+
 comments:
   active: true
   AbsentOrWrongFileLicense:
