@@ -32,11 +32,11 @@ internal data class TapTarget(
 /**
  * Result of [ComposeTapTargetDetector.findTapResult] — one view-tree traversal instead of two.
  *
- * - [NoCompose] — no ComposeView (Owner) contains the tap point; belongs to ViewClickEventGenerator.
+ * - [NotFound] — no ComposeView (Owner) contains the tap point; belongs to ViewClickEventGenerator.
  * - [Found]     — tap landed inside a ComposeView; [target] is the hit node or null (dead click).
  */
 internal sealed class ComposeFindResult {
-    object NoCompose : ComposeFindResult()
+    object NotFound : ComposeFindResult()
 
     data class Found(
         val target: TapTarget?,
@@ -74,7 +74,7 @@ internal class ComposeTapTargetDetector(
     /**
      * Single view-tree traversal that both checks ownership and finds the tap target.
      *
-     * Returns [ComposeFindResult.NoCompose] when no ComposeView (Owner) contains [x, y] — the tap
+     * Returns [ComposeFindResult.NotFound] when no ComposeView (Owner) contains [x, y] — the tap
      * belongs to ViewClickEventGenerator. Returns [ComposeFindResult.Found] otherwise, with a
      * non-null [TapTarget] for good clicks and null for dead clicks inside Compose.
      */
@@ -106,7 +106,7 @@ internal class ComposeTapTargetDetector(
                 }
             }
         }
-        return if (isTapInCompose) ComposeFindResult.Found(target) else ComposeFindResult.NoCompose
+        return if (isTapInCompose) ComposeFindResult.Found(target) else ComposeFindResult.NotFound
     }
 
     private fun viewContainsPoint(

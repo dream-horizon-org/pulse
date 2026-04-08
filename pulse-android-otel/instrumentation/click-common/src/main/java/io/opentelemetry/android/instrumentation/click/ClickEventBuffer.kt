@@ -18,8 +18,8 @@ import androidx.annotation.UiThread
  * [clickContext] is the pre-computed `app.click.context` label string (avoids re-traversal on flush).
  */
 data class PendingClick(
-    val x: Float,
-    val y: Float,
+    val xInPx: Float,
+    val yInPx: Float,
     val timestampMs: Long, // monotonic (elapsedRealtime) — used for rage detection timing only
     val tapEpochMs: Long, // wall-clock ms at tap time — used as the OTel event timestamp
     val hasTarget: Boolean,
@@ -41,8 +41,8 @@ data class PendingClick(
 data class RageEvent(
     val count: Int,
     val hasTarget: Boolean,
-    val x: Float,
-    val y: Float,
+    val xInPx: Float,
+    val yInPx: Float,
     val tapEpochMs: Long,
     val widgetName: String? = null,
     val widgetId: String? = null,
@@ -150,12 +150,6 @@ class ClickEventBuffer(
     }
 
     /**
-     * Returns the current monotonic timestamp in ms. Generators use this to stamp [PendingClick]
-     * so that buffer timing tests work with an injected [clock].
-     */
-    internal fun currentTimeMs(): Long = clock()
-
-    /**
      * Records a tap. Expired clusters are emitted, active clusters extended if the tap is nearby,
      * otherwise the tap is buffered and may form a new cluster. Returns Unit.
      */
@@ -166,8 +160,8 @@ class ClickEventBuffer(
         // Find the nearest active cluster within radius — nearest wins when clusters overlap.
         val matchingCluster =
             activeRageClusters
-                .filter { withinRadius(click.x, click.y, it.rage.x, it.rage.y) }
-                .minByOrNull { distanceSquared(click.x, click.y, it.rage.x, it.rage.y) }
+                .filter { withinRadius(click.xInPx, click.yInPx, it.rage.xInPx, it.rage.yInPx) }
+                .minByOrNull { distanceSquared(click.xInPx, click.yInPx, it.rage.xInPx, it.rage.yInPx) }
 
         if (matchingCluster != null) {
             matchingCluster.extend(click)
@@ -197,7 +191,7 @@ class ClickEventBuffer(
         evictStale(click.timestampMs)
         buffer.addLast(click)
 
-        val nearbyCount = buffer.count { withinRadius(it.x, it.y, click.x, click.y) }
+        val nearbyCount = buffer.count { withinRadius(it.xInPx, it.yInPx, click.xInPx, click.yInPx) }
         if (nearbyCount >= rageConfig.threshold) {
             val cluster =
                 RageCluster(
@@ -205,8 +199,8 @@ class ClickEventBuffer(
                         RageEvent(
                             count = nearbyCount,
                             hasTarget = click.hasTarget,
-                            x = click.x,
-                            y = click.y,
+                            xInPx = click.xInPx,
+                            yInPx = click.yInPx,
                             tapEpochMs = click.tapEpochMs,
                             widgetName = click.widgetName,
                             widgetId = click.widgetId,
@@ -217,7 +211,7 @@ class ClickEventBuffer(
                     tapTimeMs = click.timestampMs,
                 )
             // Remove only the taps that belong to this cluster — taps at other locations stay.
-            buffer.removeAll { withinRadius(it.x, it.y, click.x, click.y) }
+            buffer.removeAll { withinRadius(it.xInPx, it.yInPx, click.xInPx, click.yInPx) }
             // Enforce cluster cap: emit the oldest cluster immediately if limit is reached.
             if (activeRageClusters.size >= MAX_ACTIVE_CLUSTERS) {
                 val oldest = activeRageClusters.minByOrNull { it.lastTapTimeMs } ?: return

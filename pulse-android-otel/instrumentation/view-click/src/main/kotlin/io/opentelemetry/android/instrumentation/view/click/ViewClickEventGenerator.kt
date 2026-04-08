@@ -73,8 +73,8 @@ internal class ViewClickEventGenerator(
                 val decorView = windowRef?.get()?.decorView
                 clickEmitter.process(
                     PendingClick(
-                        x = tapX,
-                        y = tapY,
+                        xInPx = tapX,
+                        yInPx = tapY,
                         timestampMs = clickEmitter.currentTimeMs(),
                         tapEpochMs = System.currentTimeMillis(),
                         hasTarget = target != null,

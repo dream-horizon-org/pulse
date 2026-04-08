@@ -6,19 +6,20 @@
 package io.opentelemetry.instrumentation.compose.click
 
 import android.os.SystemClock
-import android.util.Log
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseAttributes.ClickTypeValues
+import com.pulse.semconv.PulseDeviceAttributes
+import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.android.instrumentation.click.ClickEventBuffer
 import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.click.RageEvent
+import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_X
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_NAME
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
@@ -35,7 +36,7 @@ internal class ComposeClickEventEmitter(
     private val clock: () -> Long = SystemClock::elapsedRealtime,
 ) {
     // Buffer owns onRage and onEmit so the delayed-emission Handler Runnable can fire without a call-site callback.
-    internal val clickEventBuffer =
+    private val clickEventBuffer =
         ClickEventBuffer(
             densityScale = densityScale,
             rageConfig = rageConfig,
@@ -56,13 +57,11 @@ internal class ComposeClickEventEmitter(
         clickEventBuffer.flush()
     }
 
-    // region Private emission helpers
-
-    private fun emitIndividualClick(click: PendingClick) {
+    private fun emitIndividualClick(click: PendingClick): Unit {
         if (click.hasTarget) emitGoodClick(click) else emitDeadClick(click)
     }
 
-    private fun emitGoodClick(click: PendingClick) {
+    private fun emitGoodClick(click: PendingClick): Unit {
         val record =
             eventLogger
                 .logRecordBuilder()
@@ -70,95 +69,73 @@ internal class ComposeClickEventEmitter(
                 .setEventName(VIEW_CLICK_EVENT_NAME)
                 .setAttribute(APP_WIDGET_NAME, click.widgetName.orEmpty())
                 .setAttribute(APP_WIDGET_ID, click.widgetId.orEmpty())
-                .setAttribute(APP_SCREEN_COORDINATE_X, click.x.toLong())
-                .setAttribute(APP_SCREEN_COORDINATE_Y, click.y.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_X, click.xInPx.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_Y, click.yInPx.toLong())
                 .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.GOOD)
-                .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.x, click.y)
+                .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.xInPx, click.yInPx)
         click.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
         record.emit()
-        Log.d(
-            CLICK_LOG_TAG,
-            "app.widget.click click.type=good " +
-                "app.screen.coordinate.x=${click.x.toLong()} app.screen.coordinate.y=${click.y.toLong()} " +
-                "app.screen.coordinate.nx=${"%.3f".format(Locale.ROOT,click.x / click.viewportWidthPx.coerceAtLeast(1))} " +
-                "app.screen.coordinate.ny=${"%.3f".format(Locale.ROOT,click.y / click.viewportHeightPx.coerceAtLeast(1))} " +
-                "device.screen.width=${(click.viewportWidthPx / densityScale).toLong()} " +
-                "device.screen.height=${(click.viewportHeightPx / densityScale).toLong()} " +
-                "app.widget.name=${click.widgetName ?: "null"} app.widget.id=${click.widgetId ?: "null"} " +
-                "app.click.context=${click.clickContext ?: "null"}",
-        )
+        PulseOtelUtils.logDebug(LOG_TAG) {
+            "click.type=good x=${click.xInPx.toLong()} y=${click.yInPx.toLong()} " +
+                "name=${click.widgetName} id=${click.widgetId} context=${click.clickContext}"
+        }
     }
 
-    private fun emitDeadClick(click: PendingClick) {
+    private fun emitDeadClick(click: PendingClick): Unit {
         eventLogger
             .logRecordBuilder()
             .setTimestamp(click.tapEpochMs, TimeUnit.MILLISECONDS)
             .setEventName(VIEW_CLICK_EVENT_NAME)
-            .setAttribute(APP_SCREEN_COORDINATE_X, click.x.toLong())
-            .setAttribute(APP_SCREEN_COORDINATE_Y, click.y.toLong())
+            .setAttribute(APP_SCREEN_COORDINATE_X, click.xInPx.toLong())
+            .setAttribute(APP_SCREEN_COORDINATE_Y, click.yInPx.toLong())
             .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.DEAD)
-            .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.x, click.y)
+            .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.xInPx, click.yInPx)
             .emit()
-        Log.d(
-            CLICK_LOG_TAG,
-            "app.widget.click click.type=dead " +
-                "app.screen.coordinate.x=${click.x.toLong()} app.screen.coordinate.y=${click.y.toLong()} " +
-                "app.screen.coordinate.nx=${"%.3f".format(Locale.ROOT,click.x / click.viewportWidthPx.coerceAtLeast(1))} " +
-                "app.screen.coordinate.ny=${"%.3f".format(Locale.ROOT,click.y / click.viewportHeightPx.coerceAtLeast(1))} " +
-                "device.screen.width=${(click.viewportWidthPx / densityScale).toLong()} " +
-                "device.screen.height=${(click.viewportHeightPx / densityScale).toLong()}",
-        )
+        PulseOtelUtils.logDebug(LOG_TAG) {
+            "click.type=dead x=${click.xInPx.toLong()} y=${click.yInPx.toLong()}"
+        }
     }
 
-    private fun emitRageClick(rage: RageEvent) {
+    private fun emitRageClick(rage: RageEvent): Unit {
         val clickType = if (rage.hasTarget) ClickTypeValues.GOOD else ClickTypeValues.DEAD
         val record =
             eventLogger
                 .logRecordBuilder()
                 .setTimestamp(rage.tapEpochMs, TimeUnit.MILLISECONDS)
                 .setEventName(VIEW_CLICK_EVENT_NAME)
-                .setAttribute(APP_SCREEN_COORDINATE_X, rage.x.toLong())
-                .setAttribute(APP_SCREEN_COORDINATE_Y, rage.y.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_X, rage.xInPx.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_Y, rage.yInPx.toLong())
                 .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
                 .setAttribute(PulseAttributes.CLICK_IS_RAGE, true)
                 .setAttribute(PulseAttributes.CLICK_RAGE_COUNT, rage.count.toLong())
-                .applyViewportAttrs(rage.viewportWidthPx, rage.viewportHeightPx, rage.x, rage.y)
+                .applyViewportAttrs(rage.viewportWidthPx, rage.viewportHeightPx, rage.xInPx, rage.yInPx)
         rage.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
         rage.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
         rage.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
         record.emit()
-        Log.d(
-            CLICK_LOG_TAG,
-            "app.widget.click click.type=$clickType click.is_rage=true click.rageCount=${rage.count} " +
-                "app.screen.coordinate.x=${rage.x.toLong()} app.screen.coordinate.y=${rage.y.toLong()} " +
-                "app.screen.coordinate.nx=${"%.3f".format(Locale.ROOT,rage.x / rage.viewportWidthPx.coerceAtLeast(1))} " +
-                "app.screen.coordinate.ny=${"%.3f".format(Locale.ROOT,rage.y / rage.viewportHeightPx.coerceAtLeast(1))} " +
-                "device.screen.width=${(rage.viewportWidthPx / densityScale).toLong()} " +
-                "device.screen.height=${(rage.viewportHeightPx / densityScale).toLong()} " +
-                "app.widget.name=${rage.widgetName ?: "null"} app.widget.id=${rage.widgetId ?: "null"} " +
-                "app.click.context=${rage.clickContext ?: "null"}",
-        )
+        PulseOtelUtils.logDebug(LOG_TAG) {
+            "click.type=${if (rage.hasTarget) "good" else "dead"} is_rage=true count=${rage.count} " +
+                "x=${rage.xInPx.toLong()} y=${rage.yInPx.toLong()} " +
+                "name=${rage.widgetName} id=${rage.widgetId} context=${rage.clickContext}"
+        }
     }
 
-    private fun io.opentelemetry.api.logs.LogRecordBuilder.applyViewportAttrs(
+    companion object {
+        private const val LOG_TAG = "PulseClick"
+    }
+
+    private fun LogRecordBuilder.applyViewportAttrs(
         vpWidthPx: Int,
         vpHeightPx: Int,
         x: Float,
         y: Float,
-    ): io.opentelemetry.api.logs.LogRecordBuilder {
+    ): LogRecordBuilder = apply {
         if (vpWidthPx > 0 && vpHeightPx > 0) {
             val effectiveDensity = if (densityScale > 0f) densityScale else 1f
-            setAttribute(PulseAttributes.DEVICE_SCREEN_WIDTH, (vpWidthPx / effectiveDensity).toLong())
-            setAttribute(PulseAttributes.DEVICE_SCREEN_HEIGHT, (vpHeightPx / effectiveDensity).toLong())
+            setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_WIDTH, (vpWidthPx / effectiveDensity).toLong())
+            setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_HEIGHT, (vpHeightPx / effectiveDensity).toLong())
             setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, x.toDouble() / vpWidthPx)
             setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, y.toDouble() / vpHeightPx)
         }
-        return this
-    }
-
-    // endregion
-
-    private companion object {
-        private const val CLICK_LOG_TAG = "PulseClick"
     }
 }

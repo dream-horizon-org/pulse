@@ -25,6 +25,7 @@ import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
+import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
 import com.pulse.utils.PulseOtelUtils
@@ -387,7 +388,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                             val w = (dm.widthPixels / dm.density).toLong()
                             val h = (dm.heightPixels / dm.density).toLong()
                             val g = gcd(w, h)
-                            attributesBuilder.put(PulseAttributes.DEVICE_SCREEN_ASPECT_RATIO, "${w / g}:${h / g}")
+                            attributesBuilder.put(PulseDeviceAttributes.DEVICE_SCREEN_ASPECT_RATIO, "${w / g}:${h / g}")
                         }
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())

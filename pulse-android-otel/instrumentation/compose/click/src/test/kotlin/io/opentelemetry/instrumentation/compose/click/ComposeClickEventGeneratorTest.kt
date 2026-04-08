@@ -47,21 +47,29 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 internal class ComposeClickEventGeneratorTest {
     private lateinit var openTelemetryRule: OpenTelemetryRule
+
     private lateinit var composeClickEventGenerator: ComposeClickEventGenerator
 
-    @MockK lateinit var composeLayoutNodeUtil: ComposeLayoutNodeUtil
+    @MockK
+    lateinit var composeLayoutNodeUtil: ComposeLayoutNodeUtil
 
-    @MockK lateinit var window: Window
+    @MockK
+    lateinit var window: Window
 
-    @MockK lateinit var callback: Callback
+    @MockK
+    lateinit var callback: Callback
 
-    @MockK internal lateinit var composeView: AndroidComposeView
+    @MockK
+    internal lateinit var composeView: AndroidComposeView
 
-    @MockK lateinit var semanticsModifier: SemanticsModifier
+    @MockK
+    lateinit var semanticsModifier: SemanticsModifier
 
-    @MockK lateinit var modifier: Modifier
+    @MockK
+    lateinit var modifier: Modifier
 
-    @MockK lateinit var semanticsConfiguration: SemanticsConfiguration
+    @MockK
+    lateinit var semanticsConfiguration: SemanticsConfiguration
 
     @Before
     fun setup() {
@@ -101,11 +109,11 @@ internal class ComposeClickEventGeneratorTest {
         val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
         motionEvent.recycle()
 
-        // Flush buffered click via stopTracking.
         composeClickEventGenerator.stopTracking()
 
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
+
         assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(

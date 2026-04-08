@@ -30,28 +30,6 @@ public object PulseAttributes {
     public val PROJECT_ID: AttributeKey<String> = stringKey("project.id")
 
     /**
-     * Screen width in density-independent pixels (dp on Android, pt on iOS).
-     * Set once at SDK init time from the device display metrics.
-     */
-    @JvmField
-    public val DEVICE_SCREEN_WIDTH: AttributeKey<Long> = AttributeKey.longKey("device.screen.width")
-
-    /**
-     * Screen height in density-independent pixels (dp on Android, pt on iOS).
-     * Set once at SDK init time from the device display metrics.
-     */
-    @JvmField
-    public val DEVICE_SCREEN_HEIGHT: AttributeKey<Long> = AttributeKey.longKey("device.screen.height")
-
-    /**
-     * Simplified aspect ratio of the screen as "width:height", e.g. "9:20".
-     * Computed from [DEVICE_SCREEN_WIDTH] and [DEVICE_SCREEN_HEIGHT] via GCD reduction.
-     * Consistent across Android (dp) and iOS (pt) for standard display densities.
-     */
-    @JvmField
-    public val DEVICE_SCREEN_ASPECT_RATIO: AttributeKey<String> = stringKey("device.screen.aspect_ratio")
-
-    /**
      * Structured context for a click/tap. Model-readable format: `label=X` when a human-readable
      * label was extracted. Set on app.widget.click only. Omitted when nothing extractable.
      */

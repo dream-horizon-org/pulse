@@ -56,9 +56,9 @@ internal class ComposeClickEventGenerator(
                 val windowY = motionEvent.y
 
                 // Single traversal: owns the tap only when it lands inside a ComposeView.
-                // Returns NoCompose for taps outside Compose — ViewClickEventGenerator handles those.
+                // Returns NotFound for taps outside Compose — ViewClickEventGenerator handles those.
                 val findResult = composeTapTargetDetector.findTapResult(decorView, windowX, windowY)
-                if (findResult is ComposeFindResult.NoCompose) return
+                if (findResult is ComposeFindResult.NotFound) return
                 val tapTarget = (findResult as ComposeFindResult.Found).target
 
                 // Capture wall-clock time once at tap time so all PendingClick paths share it.
@@ -83,8 +83,8 @@ internal class ComposeClickEventGenerator(
                                 null
                             }
                         PendingClick(
-                            x = windowX,
-                            y = windowY,
+                            xInPx = windowX,
+                            yInPx = windowY,
                             timestampMs = clickEmitter.currentTimeMs(),
                             tapEpochMs = tapEpochMs,
                             hasTarget = true,
@@ -95,8 +95,8 @@ internal class ComposeClickEventGenerator(
                             viewportHeightPx = vpHeightPx,
                         )
                     } ?: PendingClick(
-                        x = windowX,
-                        y = windowY,
+                        xInPx = windowX,
+                        yInPx = windowY,
                         timestampMs = clickEmitter.currentTimeMs(),
                         tapEpochMs = tapEpochMs,
                         hasTarget = false,
