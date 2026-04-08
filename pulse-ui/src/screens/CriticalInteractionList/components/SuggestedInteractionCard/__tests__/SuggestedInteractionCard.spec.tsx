@@ -34,9 +34,9 @@ describe("SuggestedInteractionCard", () => {
       expect(screen.getByText("Telescope selected")).toBeInTheDocument();
     });
 
-    it("shows the Suggested badge", () => {
+    it("does not show the Suggested badge", () => {
       renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
-      expect(screen.getByText("Suggested")).toBeInTheDocument();
+      expect(screen.queryByText("Suggested")).not.toBeInTheDocument();
     });
 
     it("renders all metric labels", () => {

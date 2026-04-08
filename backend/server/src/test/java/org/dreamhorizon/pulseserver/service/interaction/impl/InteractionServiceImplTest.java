@@ -1258,6 +1258,8 @@ class InteractionServiceImplTest {
 
       Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
           .thenReturn(Single.just(response));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of()));
 
       TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
       actual.assertNoErrors()
@@ -1269,12 +1271,77 @@ class InteractionServiceImplTest {
           });
 
       Mockito.verify(suggestedInteractionDao, Mockito.times(1)).getSuggestedInteractions();
+      Mockito.verify(interactionDao, Mockito.times(1)).getAllActiveAndRunningInteractions("test");
+    }
+
+    @Test
+    void shouldFilterOutDuplicateSuggestions() {
+      SuggestedInteractionDetails suggestion1 = buildSuggestedInteraction(1L, List.of("EventA", "EventB"));
+      SuggestedInteractionDetails suggestion2 = buildSuggestedInteraction(2L, List.of("EventC", "EventD"));
+      GetSuggestedInteractionsResponse response = GetSuggestedInteractionsResponse.builder()
+          .suggestions(List.of(suggestion1, suggestion2))
+          .totalSuggestions(2)
+          .build();
+
+      InteractionDetails existingInteraction = InteractionDetails.builder()
+          .name("Existing Interaction")
+          .events(List.of(
+              Event.builder().name("EventA").props(List.of()).isBlacklisted(false).build(),
+              Event.builder().name("EventB").props(List.of()).isBlacklisted(false).build()))
+          .status(InteractionStatus.RUNNING)
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+          .thenReturn(Single.just(response));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of(existingInteraction)));
+
+      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      actual.assertNoErrors()
+          .assertValue(resp -> {
+            assertThat(resp.getSuggestions()).hasSize(1);
+            assertThat(resp.getTotalSuggestions()).isEqualTo(1);
+            assertThat(resp.getSuggestions().get(0).getPattern()).containsExactly("EventC", "EventD");
+            return true;
+          });
+    }
+
+    @Test
+    void shouldFilterOutAllWhenAllAreDuplicates() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, List.of("EventA", "EventB"));
+      GetSuggestedInteractionsResponse response = GetSuggestedInteractionsResponse.builder()
+          .suggestions(List.of(suggestion))
+          .totalSuggestions(1)
+          .build();
+
+      InteractionDetails existingInteraction = InteractionDetails.builder()
+          .name("Existing Interaction")
+          .events(List.of(
+              Event.builder().name("EventA").props(List.of()).isBlacklisted(false).build(),
+              Event.builder().name("EventB").props(List.of()).isBlacklisted(false).build()))
+          .status(InteractionStatus.RUNNING)
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+          .thenReturn(Single.just(response));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of(existingInteraction)));
+
+      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      actual.assertNoErrors()
+          .assertValue(resp -> {
+            assertThat(resp.getSuggestions()).isEmpty();
+            assertThat(resp.getTotalSuggestions()).isEqualTo(0);
+            return true;
+          });
     }
 
     @Test
     void shouldPropagateErrorFromDao() {
       Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
           .thenReturn(Single.error(new RuntimeException("DB error")));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of()));
 
       TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
       actual.assertError(RuntimeException.class);
