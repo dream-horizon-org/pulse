@@ -1,6 +1,6 @@
 /**
  * DetailsSidebar Component
- * 
+ *
  * Slide-out panel that displays detailed information about a selected
  * timeline item (span, log, or exception). Fetches additional details
  * from the API and displays attributes, events, and links.
@@ -17,18 +17,21 @@ import {
   IconClock,
   IconHash,
 } from "@tabler/icons-react";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-
-import { FlameChartNode, getColorForPulseType, formatPulseType } from "../../utils/flameChartTransform";
-import { formatDuration, formatTimestamp } from "../../utils/formatters";
+import {
+  FlameChartNode,
+  getColorForPulseType,
+  formatPulseType,
+} from "../../utils/flameChartTransform";
+import { formatDuration } from "../../utils/formatters";
+import {
+  formatTimestamp as formatSessionDisplayTimestamp,
+  formatSessionDisplayEndTime,
+} from "../../../SessionReplaySessions/utils/sessionListUtils";
 import { useGetSpanDetails } from "../../../../hooks/useGetSpanDetails";
 import { ExceptionDetails, AttributeList } from "./components";
 import classes from "./DetailsSidebar.module.css";
 import type { AttributeValue } from "../../../../types/attributes";
 import type { ExceptionDetailsResponse } from "../../../../hooks/useGetSpanDetails/useGetSpanDetails.interface";
-
-dayjs.extend(utc);
 
 // ============================================================================
 // Types
@@ -37,6 +40,8 @@ dayjs.extend(utc);
 interface DetailsSidebarProps {
   item: FlameChartNode | null;
   onClose: () => void;
+  sessionStartTime?: string;
+  sessionEndTime?: string;
 }
 
 type TabType = "attributes" | "events" | "links";
@@ -51,7 +56,12 @@ function getStatusClass(statusCode: string): string {
   return classes.statusUnset;
 }
 
-export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
+export function DetailsSidebar({
+  item,
+  onClose,
+  sessionStartTime,
+  sessionEndTime,
+}: DetailsSidebarProps) {
   const [activeTab, setActiveTab] = useState<TabType>("attributes");
 
   const isLog = item?.type === "log" || item?.type === "orphan-log";
@@ -73,6 +83,8 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
     spanId: item?.spanId || "",
     timestamp: getMetadataString(item?.metadata?.timestamp),
     groupId: getMetadataString(item?.metadata?.groupId),
+    sessionStartTime,
+    sessionEndTime,
     enabled: !!item,
   });
 
@@ -85,43 +97,63 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
   };
 
   // Get attributes based on type - merge API response with pre-fetched metadata attributes
-  
+
   // For resource attributes: prefer API response, fallback to pre-fetched from metadata
-  const apiResourceAttributes = details && "resourceAttributes" in details ? details.resourceAttributes : {};
+  const apiResourceAttributes =
+    details && "resourceAttributes" in details
+      ? details.resourceAttributes
+      : {};
   const metadataResourceAttributes =
     (item.metadata?.resourceAttributes as Record<string, AttributeValue>) || {};
-  const resourceAttributes = Object.keys(apiResourceAttributes).length > 0 
-    ? apiResourceAttributes 
-    : metadataResourceAttributes;
-  
+  const resourceAttributes =
+    Object.keys(apiResourceAttributes).length > 0
+      ? apiResourceAttributes
+      : metadataResourceAttributes;
+
   // For main attributes (log/span/exception attributes): prefer API response, fallback to pre-fetched
   const apiMainAttributes = isException
-    ? (details && "logAttributes" in details ? details.logAttributes : {})
+    ? details && "logAttributes" in details
+      ? details.logAttributes
+      : {}
     : isLog
-      ? (details && "logAttributes" in details ? details.logAttributes : {})
-      : (details && "spanAttributes" in details ? details.spanAttributes : {});
-  const metadataMainAttributes = isLog 
-    ? ((item.metadata?.logAttributes as Record<string, AttributeValue>) || {})
+      ? details && "logAttributes" in details
+        ? details.logAttributes
+        : {}
+      : details && "spanAttributes" in details
+        ? details.spanAttributes
+        : {};
+  const metadataMainAttributes = isLog
+    ? (item.metadata?.logAttributes as Record<string, AttributeValue>) || {}
     : {};
-  
+
   // Build simple metadata attributes from item.metadata (excluding internal/complex fields)
   const simpleMetadataAttributes: Record<string, AttributeValue> = {};
   if (item.metadata) {
-    const excludeKeys = ["timestamp", "pulseType", "logAttributes", "resourceAttributes"]; // These are shown elsewhere or handled separately
+    const excludeKeys = [
+      "timestamp",
+      "pulseType",
+      "logAttributes",
+      "resourceAttributes",
+    ]; // These are shown elsewhere or handled separately
     for (const [key, value] of Object.entries(item.metadata)) {
-      if (!excludeKeys.includes(key) && value !== undefined && value !== null && value !== "") {
+      if (
+        !excludeKeys.includes(key) &&
+        value !== undefined &&
+        value !== null &&
+        value !== ""
+      ) {
         simpleMetadataAttributes[key] = value as AttributeValue;
       }
     }
   }
-  
+
   // Merge: API attributes take precedence, then pre-fetched attributes, then simple metadata
-  const mainAttributes = { 
-    ...simpleMetadataAttributes, 
-    ...metadataMainAttributes, 
-    ...apiMainAttributes 
+  const mainAttributes = {
+    ...simpleMetadataAttributes,
+    ...metadataMainAttributes,
+    ...apiMainAttributes,
   };
-  
+
   // Exception-specific details from API
   const exceptionDetails =
     isException && details && "exceptionStackTrace" in details
@@ -134,14 +166,23 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
   const serviceName = getMetadataString(item.metadata?.serviceName);
   const severityText = getMetadataString(item.metadata?.severityText);
   const logBody = getMetadataString(item.metadata?.body);
-  
-  const events = !isLog && !isException && details && "events" in details ? details.events : [];
-  const links = !isLog && !isException && details && "links" in details ? details.links : [];
 
+  const events =
+    !isLog && !isException && details && "events" in details
+      ? details.events
+      : [];
+  const links =
+    !isLog && !isException && details && "links" in details
+      ? details.links
+      : [];
 
   const renderEvents = () => {
     if (!events || events.length === 0) {
-      return <Box className={classes.emptyAttributes}>No events attached to this span</Box>;
+      return (
+        <Box className={classes.emptyAttributes}>
+          No events attached to this span
+        </Box>
+      );
     }
 
     return (
@@ -150,7 +191,9 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
           <Box key={idx} className={classes.eventItem}>
             <Box className={classes.eventHeader}>
               <Text className={classes.eventName}>{event.name}</Text>
-              <Text className={classes.eventTimestamp}>{formatTimestamp(event.timestamp)}</Text>
+              <Text className={classes.eventTimestamp}>
+                {formatSessionDisplayTimestamp(event.timestamp)}
+              </Text>
             </Box>
             {Object.keys(event.attributes).length > 0 && (
               <AttributeList attributes={event.attributes} />
@@ -163,7 +206,11 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
 
   const renderLinks = () => {
     if (!links || links.length === 0) {
-      return <Box className={classes.emptyAttributes}>No links attached to this span</Box>;
+      return (
+        <Box className={classes.emptyAttributes}>
+          No links attached to this span
+        </Box>
+      );
     }
 
     return (
@@ -192,7 +239,11 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
           <Box className={classes.headerTitle}>
             <Box className={classes.titleIndicator} />
             <Text className={classes.title}>
-              {isException ? "Exception Details" : isLog ? "Log Details" : "Span Details"}
+              {isException
+                ? "Exception Details"
+                : isLog
+                  ? "Log Details"
+                  : "Span Details"}
             </Text>
           </Box>
           <Button
@@ -215,16 +266,19 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
             </Box>
 
             <Box className={classes.metaGrid}>
-              <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
+              <Box
+                className={classes.metaItem}
+                style={{ gridColumn: "1 / -1" }}
+              >
                 <Text className={classes.metaLabel}>Name</Text>
                 <Text className={classes.metaValue}>{item.name}</Text>
               </Box>
 
               <Box className={classes.metaItem}>
                 <Text className={classes.metaLabel}>Type</Text>
-                <Badge 
+                <Badge
                   className={classes.typeBadge}
-                  style={{ 
+                  style={{
                     backgroundColor: getColorForPulseType(pulseType),
                     color: "#ffffff",
                   }}
@@ -236,7 +290,9 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
               {!isLog && statusCode && (
                 <Box className={classes.metaItem}>
                   <Text className={classes.metaLabel}>Status</Text>
-                  <Badge className={`${classes.statusBadge} ${getStatusClass(statusCode)}`}>
+                  <Badge
+                    className={`${classes.statusBadge} ${getStatusClass(statusCode)}`}
+                  >
                     {statusCode}
                   </Badge>
                 </Box>
@@ -249,24 +305,31 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                     <IconClock size={12} style={{ marginRight: 4 }} />
                     Duration
                   </Text>
-                  <Text className={classes.metaValue}>{formatDuration(item.duration)}</Text>
+                  <Text className={classes.metaValue}>
+                    {formatDuration(item.duration)}
+                  </Text>
                 </Box>
               )}
 
               <Box className={classes.metaItem}>
                 <Text className={classes.metaLabel}>Start Offset</Text>
-                <Text className={classes.metaValue}>{formatDuration(item.start)}</Text>
+                <Text className={classes.metaValue}>
+                  {formatDuration(item.start)}
+                </Text>
               </Box>
 
               {/* Timestamp for logs */}
               {isLog && timestamp && (
-                <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
+                <Box
+                  className={classes.metaItem}
+                  style={{ gridColumn: "1 / -1" }}
+                >
                   <Text className={classes.metaLabel}>
                     <IconClock size={12} style={{ marginRight: 4 }} />
                     Timestamp
                   </Text>
                   <Text className={classes.metaValueMono}>
-                    {formatTimestamp(timestamp)}
+                    {formatSessionDisplayTimestamp(timestamp)}
                   </Text>
                 </Box>
               )}
@@ -274,53 +337,57 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
               {/* Start Time and End Time for spans */}
               {!isLog && timestamp && (
                 <>
-                  <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
+                  <Box
+                    className={classes.metaItem}
+                    style={{ gridColumn: "1 / -1" }}
+                  >
                     <Text className={classes.metaLabel}>
                       <IconClock size={12} style={{ marginRight: 4 }} />
                       Start Time
                     </Text>
                     <Text className={classes.metaValueMono}>
-                      {formatTimestamp(timestamp)}
+                      {formatSessionDisplayTimestamp(timestamp)}
                     </Text>
                   </Box>
-                  <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
+                  <Box
+                    className={classes.metaItem}
+                    style={{ gridColumn: "1 / -1" }}
+                  >
                     <Text className={classes.metaLabel}>
                       <IconClock size={12} style={{ marginRight: 4 }} />
                       End Time
                     </Text>
                     <Text className={classes.metaValueMono}>
-                      {(() => {
-                        // Parse as UTC, add duration, then convert to local time
-                        const startTime = dayjs.utc(timestamp);
-                        if (!startTime.isValid()) return "—";
-                        // Duration is in milliseconds, add to start time and convert to local
-                        const endTime = startTime.add(item.duration, "milliseconds").local();
-                        return endTime.format("MMM D, YYYY HH:mm:ss.SSS");
-                      })()}
+                      {formatSessionDisplayEndTime(timestamp, item.duration)}
                     </Text>
                   </Box>
                 </>
               )}
 
-              <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
+              <Box
+                className={classes.metaItem}
+                style={{ gridColumn: "1 / -1" }}
+              >
                 <Text className={classes.metaLabel}>
                   <IconHash size={12} style={{ marginRight: 4 }} />
                   Trace ID
                 </Text>
-                <Text className={classes.metaValueMono}>
-                  {item.traceId}
-                </Text>
+                <Text className={classes.metaValueMono}>{item.traceId}</Text>
               </Box>
 
-              <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
+              <Box
+                className={classes.metaItem}
+                style={{ gridColumn: "1 / -1" }}
+              >
                 <Text className={classes.metaLabel}>Span ID</Text>
-                <Text className={classes.metaValueMono}>
-                  {item.spanId}
-                </Text>
+                <Text className={classes.metaValueMono}>{item.spanId}</Text>
               </Box>
 
               {item.parentSpanId && (
-                <Box className={classes.metaItem} style={{ gridColumn: "1 / -1" }}>
+                <Box
+                  className={classes.metaItem}
+                  style={{ gridColumn: "1 / -1" }}
+                >
                   <Text className={classes.metaLabel}>Parent Span ID</Text>
                   <Text className={classes.metaValueMono}>
                     {item.parentSpanId}
@@ -353,18 +420,20 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
             {/* Log Body */}
             {isLog && logBody && (
               <Box style={{ marginTop: 16 }}>
-                <Text className={classes.metaLabel} mb={4}>Body</Text>
-                <Box className={classes.bodyContent}>
-                  {logBody}
-                </Box>
+                <Text className={classes.metaLabel} mb={4}>
+                  Body
+                </Text>
+                <Box className={classes.bodyContent}>{logBody}</Box>
               </Box>
             )}
 
             {/* Exception Details - Extracted to sub-component */}
             {isException && (
-              <ExceptionDetails item={item} exceptionDetails={exceptionDetails} />
+              <ExceptionDetails
+                item={item}
+                exceptionDetails={exceptionDetails}
+              />
             )}
-
           </Box>
 
           {/* Tabs for Attributes/Events/Links */}
@@ -400,7 +469,9 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
           {isLoading ? (
             <Box className={classes.loadingContainer}>
               <Loader color="teal" size="md" />
-              <Text size="sm" c="dimmed">Loading details...</Text>
+              <Text size="sm" c="dimmed">
+                Loading details...
+              </Text>
             </Box>
           ) : (
             <>
@@ -409,23 +480,35 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
                   <Box className={classes.section}>
                     <Box className={classes.sectionHeader}>
                       <Text className={classes.sectionTitle}>
-                        {isException ? "Log Attributes" : isLog ? "Log Attributes" : "Span Attributes"}
+                        {isException
+                          ? "Log Attributes"
+                          : isLog
+                            ? "Log Attributes"
+                            : "Span Attributes"}
                       </Text>
                       <Badge className={classes.sectionBadge}>
                         {Object.keys(mainAttributes).length}
                       </Badge>
                     </Box>
-                    <AttributeList attributes={mainAttributes} emptyMessage="No attributes found" />
+                    <AttributeList
+                      attributes={mainAttributes}
+                      emptyMessage="No attributes found"
+                    />
                   </Box>
 
                   <Box className={classes.section}>
                     <Box className={classes.sectionHeader}>
-                      <Text className={classes.sectionTitle}>Resource Attributes</Text>
+                      <Text className={classes.sectionTitle}>
+                        Resource Attributes
+                      </Text>
                       <Badge className={classes.sectionBadge}>
                         {Object.keys(resourceAttributes).length}
                       </Badge>
                     </Box>
-                    <AttributeList attributes={resourceAttributes} emptyMessage="No resource attributes found" />
+                    <AttributeList
+                      attributes={resourceAttributes}
+                      emptyMessage="No resource attributes found"
+                    />
                   </Box>
                 </>
               )}
@@ -460,4 +543,3 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
     </>
   );
 }
-

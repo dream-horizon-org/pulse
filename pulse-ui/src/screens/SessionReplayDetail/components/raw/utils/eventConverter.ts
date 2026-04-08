@@ -2,6 +2,10 @@ import type { SessionDetailData } from "../../../../../services/sessionReplay/mo
 import type { FlameChartNode } from "../../../../SessionTimeline/utils/flameChartTransform";
 import type { AttributeValue } from "../../../../../types/attributes";
 import type { UnifiedEvent, EventType } from "./unifiedEvents";
+import {
+  parseSessionStartTimeToMs,
+  toSafeISOString,
+} from "../../../adapters/sessionDetailApiToData";
 
 export function convertEventToFlameChartNode(
   event: UnifiedEvent,
@@ -95,9 +99,16 @@ export function convertEventToFlameChartNode(
     };
   }
 
-  // Create metadata with event details
+  const baseMs = parseSessionStartTimeToMs(sessionData.startTime);
+  const absoluteMs = Number.isFinite(baseMs) ? baseMs + event.timestamp : NaN;
+
+  
   const metadata: Record<string, AttributeValue> = {
-    timestamp: new Date(sessionData.startTime).getTime() + event.timestamp,
+    timestamp:
+      event.detailTimestamp ??
+      (Number.isFinite(absoluteMs)
+        ? toSafeISOString(absoluteMs)
+        : toSafeISOString(0)),
     description: event.description,
     eventType: event.type,
     color: event.color,

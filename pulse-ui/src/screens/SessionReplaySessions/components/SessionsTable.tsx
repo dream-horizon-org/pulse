@@ -6,10 +6,7 @@ import {
 } from "@tabler/icons-react";
 import type { SessionItem } from "../../../services/sessionReplay";
 import type { SortField, SortDirection } from "../../../services/sessionReplay";
-import {
-  TABLE_COLUMN_LABELS,
-  ACTIONS_COLUMN_WIDTH,
-} from "../constants/sessionList.constants";
+import { TABLE_COLUMN_LABELS } from "../constants/sessionList.constants";
 import { SessionTableRow } from "./SessionTableRow";
 
 export interface SessionsTableProps {
@@ -17,8 +14,7 @@ export interface SessionsTableProps {
   sortDirection: SortDirection;
   onSort: (field: SortField) => void;
   sessions: SessionItem[];
-  onWatchSession: (sessionId: string) => void;
-  onOpenSessionInNewTab: (sessionId: string) => void;
+  onSessionClick: (sessionId: string) => void;
 }
 
 function SortIcon({
@@ -70,8 +66,7 @@ export function SessionsTable({
   sortDirection,
   onSort,
   sessions,
-  onWatchSession,
-  onOpenSessionInNewTab,
+  onSessionClick,
 }: SessionsTableProps) {
   const thStyle = (column: SortField) =>
     SORTABLE_COLUMNS.includes(column)
@@ -91,7 +86,7 @@ export function SessionsTable({
       <Table.Thead>
         <Table.Tr>
           <Table.Th
-            style={{ ...thStyle("START_TIME"), width: "15%" }}
+            style={{ ...thStyle("START_TIME"), width: "16%" }}
             onClick={() => onSort("START_TIME")}
           >
             {TABLE_COLUMN_LABELS.startTime}
@@ -102,7 +97,7 @@ export function SessionsTable({
             />
           </Table.Th>
           <Table.Th
-            style={{ ...thStyle("DURATION"), width: "10%" }}
+            style={{ ...thStyle("DURATION"), width: "11%" }}
             onClick={() => onSort("DURATION")}
           >
             {TABLE_COLUMN_LABELS.duration}
@@ -112,11 +107,11 @@ export function SessionsTable({
               sortDirection={sortDirection}
             />
           </Table.Th>
-          <Table.Th style={{ width: "10%" }}>
+          <Table.Th style={{ width: "11%" }}>
             {TABLE_COLUMN_LABELS.user}
           </Table.Th>
           <Table.Th
-            style={{ ...thStyle("QUALITY_SCORE"), width: "9%" }}
+            style={{ ...thStyle("QUALITY_SCORE"), width: "10%" }}
             onClick={() => onSort("QUALITY_SCORE")}
           >
             {TABLE_COLUMN_LABELS.quality}
@@ -126,17 +121,14 @@ export function SessionsTable({
               sortDirection={sortDirection}
             />
           </Table.Th>
-          <Table.Th style={{ width: "11%" }}>
-            {TABLE_COLUMN_LABELS.issues}
-          </Table.Th>
           <Table.Th style={{ width: "10%" }}>
             {TABLE_COLUMN_LABELS.platform}
           </Table.Th>
-          <Table.Th style={{ width: "20%" }}>
-            {TABLE_COLUMN_LABELS.impactedScreens}
+          <Table.Th style={{ width: "12%" }}>
+            {TABLE_COLUMN_LABELS.issues}
           </Table.Th>
-          <Table.Th style={{ width: ACTIONS_COLUMN_WIDTH }}>
-            {TABLE_COLUMN_LABELS.actions}
+          <Table.Th style={{ width: "30%" }}>
+            {TABLE_COLUMN_LABELS.impactedScreens}
           </Table.Th>
         </Table.Tr>
       </Table.Thead>
@@ -145,8 +137,7 @@ export function SessionsTable({
           <SessionTableRow
             key={session.sessionId}
             session={session}
-            onWatch={onWatchSession}
-            onOpenInNewTab={onOpenSessionInNewTab}
+            onSessionClick={onSessionClick}
           />
         ))}
       </Table.Tbody>

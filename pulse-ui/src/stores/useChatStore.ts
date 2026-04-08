@@ -188,7 +188,10 @@ export const useChatStore = create<ChatState & ChatActions>()(
           updated[updated.length - 1] = {
             ...last,
             isStreaming: false,
-            text: last.text || fallbackText,
+            /** Always replace text so streamed upstream error bodies are not left visible. */
+            text: fallbackText,
+            charts: undefined,
+            tables: undefined,
           };
           return { messages: { ...state.messages, [sessionId]: updated } };
         }),

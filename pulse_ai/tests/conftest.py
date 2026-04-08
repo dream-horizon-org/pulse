@@ -30,8 +30,6 @@ def load_fixture(name: str) -> dict:
 def _clean_env(monkeypatch):
     """Ensure tests don't leak env vars. Sets safe defaults."""
     monkeypatch.setenv("PULSE_BASE_URL", "http://localhost:8080")
-    monkeypatch.setenv("PULSE_ACCESS_TOKEN", "test-access-token")
-    monkeypatch.setenv("PULSE_REFRESH_TOKEN", "test-refresh-token")
     monkeypatch.setenv("PULSE_USER_EMAIL", "test@example.com")
 
 
@@ -45,7 +43,6 @@ def mock_tool_context():
     ctx = MagicMock()
     ctx.state = {
         "jwt": "ctx-access-token",
-        "refresh_token": "ctx-refresh-token",
         "user_email": "ctx-user@example.com",
     }
     return ctx

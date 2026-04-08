@@ -14,7 +14,6 @@ export function TabPanelScrollArea({ children }: { children: ReactNode }) {
       className={classes.tabPanelScroll}
       style={{
         maxHeight: TAB_PANEL_SCROLL_MAX,
-        minHeight: 160,
       }}
     >
       {children}

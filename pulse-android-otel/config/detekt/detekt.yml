@@ -34,6 +34,15 @@ console-reports:
 
 # output-reports section removed in detekt 2.0 (output-report config removed)
 
+libraries:
+  active: true
+  ForbiddenPublicDataClass:
+    active: true
+  LibraryCodeMustSpecifyReturnType:
+    active: false
+  LibraryEntitiesShouldNotBePublic:
+    active: false
+
 comments:
   active: true
   AbsentOrWrongFileLicense:
@@ -53,9 +62,9 @@ comments:
     active: true
     excludes: &testFolders [ '**/test/**', '**/androidTest/**', '**/commonTest/**', '**/jvmTest/**', '**/jsTest/**', '**/iosTest/**' ]
   OutdatedDocumentation:
-    active: false
-    matchTypeParameters: false
-    matchDeclarationsOrder: false
+    active: true
+    matchTypeParameters: true
+    matchDeclarationsOrder: true
     allowParamOnConstructorProperties: false
   UndocumentedPublicClass:
     active: false

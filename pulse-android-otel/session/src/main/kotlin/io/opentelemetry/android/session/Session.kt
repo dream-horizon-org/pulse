@@ -14,6 +14,8 @@ interface Session {
         val NONE = DefaultSession("", -1)
     }
 
+    // suppressing so that end users apis are convenient
+    @Suppress("ForbiddenPublicDataClass")
     data class DefaultSession(
         private val id: String,
         private val startTimestampNanos: Long,
@@ -21,16 +23,5 @@ interface Session {
         override fun getId(): String = id
 
         override fun getStartTimestamp(): Long = startTimestampNanos
-
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as DefaultSession
-
-            return id == other.id
-        }
-
-        override fun hashCode(): Int = id.hashCode()
     }
 }
