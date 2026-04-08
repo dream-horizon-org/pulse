@@ -37,6 +37,7 @@ export * from "./useGetDataQuery";
 export * from "./useGetErrorRate";
 export * from "./useGetEventProps";
 export * from "./useGetGraphDataFromJobId";
+export * from "./useHeatmapData";
 export * from "./useGetInteractionDetails";
 export * from "./useGetInteractionDetailsGraphs";
 export * from "./useGetInteractionListFilters";

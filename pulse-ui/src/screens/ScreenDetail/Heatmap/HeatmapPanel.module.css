@@ -1,0 +1,950 @@
+/**
+ * Heatmap tab — EngagementGraph cards + main-demo-aligned split, phone frame,
+ * and density gradients (brand vs thermal for tap).
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  background: #fafbfc;
+  flex: 1;
+  min-height: 0;
+}
+
+.filterBarInner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.controlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.controlsLeft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.controlsLabel {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.mapBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.mapBlockLabel {
+  margin-bottom: 10px;
+}
+
+.heatmapChartTight {
+  padding-bottom: 0;
+}
+
+.summaryMetricsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+.heatmapFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--mantine-spacing-sm);
+}
+
+.layerChipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: var(--mantine-spacing-sm);
+}
+
+/* Non-compare: extra breathing room around the map filter toolbar inside the card */
+.heatmapMapToolbar {
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-md)
+    var(--mantine-spacing-xl);
+}
+
+/* Map type + heat-map layer — one row on the toolbar (wraps only on narrow widths) */
+.heatmapToolbarMapControls {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.compareFiltersStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+.compareFilterColumns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mantine-spacing-md);
+  align-items: start;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .compareFilterColumns {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.heatmapSplit {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--mantine-spacing-lg);
+  margin-top: var(--mantine-spacing-md);
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.heatmapSplitLeft {
+  flex: 0 1 440px;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.heatmapSplitLeft .phoneFrame {
+  min-height: min(260px, 36vh);
+}
+
+.heatmapSplitLeft .phoneInner {
+  width: min(400px, 100%);
+}
+
+.heatmapSplitRight {
+  flex: 1 1 320px;
+  min-width: 0;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.aggregatesStack {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.aggregatesQualitySpan {
+  grid-column: 1 / -1;
+}
+
+.aggregatesScoreRow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.aggregatesScoreRowCell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.aggregatesScoreRowSingle {
+  grid-template-columns: 1fr;
+}
+
+.keyLensInteractionList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(440px, 58vh);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.keyLensInteractionName {
+  min-width: 0;
+}
+
+.aggregatesTopScoreCard {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Active map layer (Tap / Rage Unresponsive / Dead) — ties score strip to toolbar layer */
+.aggregatesScoreSignalBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 14px;
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #0ba09a;
+  background: rgba(14, 201, 194, 0.12);
+  color: #0ba09a;
+  width: fit-content;
+  margin-bottom: 4px;
+}
+
+.aggregatesInteractionAvgHero {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+}
+
+@media (max-width: 380px) {
+  .aggregatesScoreRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.aggregatesQualityScore {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+}
+
+.aggregatesQualityChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.aggregatesQualityChip {
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+}
+
+/* Single column so every aggregate card uses the full width of the right rail */
+.aggregatesGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.aggregatesSubCard {
+  background: #f8fafb !important;
+  min-width: 0;
+}
+
+.aggregatesCardTitle {
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+}
+
+@media (max-width: 900px) {
+  .heatmapSplit {
+    flex-direction: column;
+  }
+
+  .heatmapSplitLeft,
+  .heatmapSplitRight {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+.aggregatesKvGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  row-gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  min-width: 0;
+}
+
+.aggregatesKvLabel {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.aggregatesKvValue {
+  white-space: nowrap;
+  text-align: right;
+  font-size: 14px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Compact layer breakdown table (density sidebar) */
+.aggregatesLayerTable {
+  --agg-table-fz: 14px;
+  font-size: var(--agg-table-fz);
+}
+
+.aggregatesLayerTable :global(thead tr th) {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #868e96;
+  font-weight: 700;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.aggregatesLayerTable :global(tbody tr td) {
+  padding: 8px;
+  border-bottom: 1px solid #f1f3f5;
+  font-variant-numeric: tabular-nums;
+}
+
+.aggregatesLayerTable :global(tbody tr:last-child td) {
+  border-bottom: none;
+}
+
+.aggregatesLayerTableActive :global(td) {
+  background: rgba(14, 201, 194, 0.06);
+  font-weight: 600;
+}
+
+.summaryQualityInfo {
+  display: inline-flex;
+  color: var(--mantine-color-dimmed);
+  cursor: help;
+  transition: color 0.12s ease;
+  vertical-align: middle;
+}
+
+.summaryQualityInfo:hover {
+  color: #0ba09a;
+}
+
+.heatVizEmbedded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+  min-height: 0;
+  width: 100%;
+}
+
+.embeddedBinBudget {
+  padding-top: 4px;
+}
+
+.legendChip {
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.legendGood {
+  background: rgba(14, 201, 194, 0.1);
+  border: 1px solid #0ba09a;
+  color: #0ba09a;
+}
+
+.legendAvg {
+  background: rgba(253, 126, 20, 0.12);
+  border: 1px solid #fd7e14;
+  color: #c05621;
+}
+
+.legendPoor {
+  background: rgba(250, 82, 82, 0.12);
+  border: 1px solid #fa5252;
+  color: #c92a2a;
+}
+
+.legendChipActive {
+  box-shadow: 0 0 0 2px rgba(14, 201, 194, 0.35);
+}
+
+.sessionScope {
+  border-radius: var(--mantine-radius-md);
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sessionScopeCaption {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #868e96;
+}
+
+.sessionScopeLine1 {
+  font-size: 11px;
+  font-weight: 500;
+  color: #495057;
+  line-height: 1.4;
+}
+
+.sessionScopeLine2 {
+  font-size: 10px;
+  color: #adb5bd;
+  line-height: 1.35;
+}
+
+.filterBar {
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.signalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.signalLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+}
+
+.compareCta {
+  border-radius: 6px;
+  border: 1px solid rgba(14, 201, 194, 0.35);
+  background: rgba(14, 201, 194, 0.08);
+  color: #0ba09a;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 12px;
+  height: 30px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.compareCta:hover {
+  background: rgba(14, 201, 194, 0.14);
+}
+
+.compareHint {
+  font-size: 10px;
+  color: #adb5bd;
+}
+
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border-radius: 16px;
+  min-height: 34px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #dee2e6;
+  background: transparent;
+  color: #495057;
+  cursor: pointer;
+}
+
+.chipActive {
+  border-color: #0ba09a;
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+}
+
+.filterDivider {
+  height: 1px;
+  background: rgba(14, 201, 194, 0.12);
+  width: 100%;
+}
+
+.focusBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.focusTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.focusLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.focusPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  border-radius: 14px;
+  height: 28px;
+  padding: 0 14px;
+  font-size: 12px;
+  border: 1px solid #dee2e6;
+  background: transparent;
+  cursor: pointer;
+  color: #495057;
+}
+
+.pillActive {
+  border-color: #0ba09a;
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+}
+
+.focusHint {
+  font-size: 11px;
+  color: #adb5bd;
+  line-height: 1.35;
+}
+
+.variationBox {
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  background: #ffffff;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.variationHint {
+  font-size: 10px;
+  color: #adb5bd;
+}
+
+.scoreRow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .scoreRow {
+    flex-direction: row;
+  }
+}
+
+.scoreCard {
+  flex: 1;
+  border-radius: 10px;
+  padding: 14px;
+  min-height: 88px;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scoreCardLabel {
+  font-size: 11px;
+  color: #868e96;
+  font-weight: 500;
+}
+
+.scoreCardValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.scoreCardSub {
+  font-size: 11px;
+  color: #adb5bd;
+}
+
+/* Standalone viz (e.g. compare): full card chrome */
+.heatViz {
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid rgba(14, 201, 194, 0.18);
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafb 100%);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+  min-height: min(480px, 85vh);
+}
+
+/* Frame rail + intensity legend below phone (inside .heatViz) */
+.heatScreenshotStage {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+}
+
+.heatShotLegendBelow {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0 8px;
+}
+
+.heatShotLegendBelow .gradientLegend {
+  justify-content: center;
+  width: 100%;
+  max-width: min(360px, 100%);
+  margin-top: 0;
+}
+
+.heatFrameRail {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2vw, 16px);
+  width: 100%;
+  overflow-x: auto;
+}
+
+.heatShotNavBtn {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.heatShotNavSpacer {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+}
+
+/* Center column must not shrink to 0 beside nav buttons; phoneInner uses % width */
+.heatFrameCenter {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: min(280px, calc(100% - 108px));
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  .heatFrameRail {
+    gap: 6px;
+  }
+
+  .heatShotNavSpacer {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.heatSubtitle {
+  font-size: 11px;
+  color: #868e96;
+  line-height: 1.35;
+}
+
+/* Device frame — demo gradient bezel + width cap inside split */
+.phoneFrame {
+  position: relative;
+  border-radius: var(--mantine-radius-md);
+  background: linear-gradient(
+    145deg,
+    rgba(14, 201, 194, 0.08) 0%,
+    rgba(241, 245, 249, 0.95) 50%,
+    #e2e8f0 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  min-height: min(280px, 36vh);
+  padding: 18px 14px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.phoneInner {
+  position: relative;
+  width: min(420px, 100%);
+  aspect-ratio: 390 / 844;
+  max-height: min(82vh, 920px);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.screenImg {
+  position: absolute;
+  inset: 12px;
+  z-index: 0;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+.heatOverlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 3;
+  border-radius: 16px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Pulse interaction regions (Key actions) — pointer events on hit targets only */
+.heatInteractionOverlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 4;
+  border-radius: 16px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Density bins — hover hit surface above canvas (canvas is pointer-events: none) */
+.heatGlowHitLayer {
+  position: absolute;
+  inset: 12px;
+  z-index: 4;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.glowBinTooltipAnchor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.glowBinTooltipStack {
+  max-width: 220px;
+}
+
+.interactionRegion {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 2px solid rgba(14, 201, 194, 0.85);
+  border-radius: 6px;
+  background: rgba(14, 201, 194, 0.12);
+  cursor: pointer;
+  pointer-events: auto;
+  box-sizing: border-box;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.interactionRegion:hover {
+  background: rgba(14, 201, 194, 0.22);
+  border-color: #0ba09a;
+  box-shadow: 0 0 0 1px rgba(14, 201, 194, 0.35);
+}
+
+.interactionRegion:focus-visible {
+  outline: 2px solid #0ba09a;
+  outline-offset: 2px;
+}
+
+.interactionEmptyState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  pointer-events: none;
+}
+
+.interactionEmptyCode {
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.interactionTooltipStack {
+  max-width: 240px;
+}
+
+.interactionTooltipRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+
+/* Outer stays position:absolute — heatmap.js forces container { position:relative } inline */
+.heatCanvasHost {
+  position: absolute;
+  inset: 12px;
+  border-radius: 16px;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* Inner fills outer; library mounts canvas here so outer inset layout is not collapsed */
+.heatCanvasInner {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.heatCanvasHost canvas {
+  border-radius: 14px;
+}
+
+.binBudgetRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.binBudgetSlider {
+  flex: 1;
+  min-width: 160px;
+  max-width: min(420px, 100%);
+}
+
+.gradientLegend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.gradientStrip {
+  height: 12px;
+  flex: 1;
+  min-width: 120px;
+  max-width: min(320px, 42vw);
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #0ec9c2 0%,
+    #fcc419 45%,
+    #fa5252 100%
+  );
+}
+
+/* Tap density — thermal blue → red (matches main-demo plume palette) */
+.gradientStripThermal {
+  height: 12px;
+  flex: 1;
+  min-width: 120px;
+  max-width: min(320px, 42vw);
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #2d56d2 0%,
+    #37a0e6 18%,
+    #37b273 38%,
+    #eecc41 56%,
+    #f77d37 76%,
+    #cd3234 100%
+  );
+}
+
+.gradientCaption {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+  white-space: nowrap;
+}
+
+.compareGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 992px) {
+  .compareGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.compareAggregatesGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mantine-spacing-lg);
+  align-items: start;
+  width: 100%;
+}
+
+.compareAggregatesCell {
+  min-width: 0;
+}
+
+@media (min-width: 992px) {
+  .compareAggregatesGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.loadingSkeleton {
+  border-radius: var(--mantine-radius-lg);
+  min-height: 200px;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  background: linear-gradient(
+    90deg,
+    #f1f3f5 25%,
+    #e9ecef 50%,
+    #f1f3f5 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

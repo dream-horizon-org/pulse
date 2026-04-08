@@ -275,6 +275,12 @@ export function getDateFromUTCTimeString(value: string): DateValue {
   return dayjs.utc(value).toDate();
 }
 
+/** True if `value` is a non-empty UTC wall-clock string used by the filter store. */
+export function isValidUtcWallClockString(value: string | undefined): boolean {
+  if (!value?.trim()) return false;
+  return dayjs.utc(value.trim(), "YYYY-MM-DD HH:mm:ss", true).isValid();
+}
+
 export function getUTCDateTimeFromLocalStringDateValue(
   value: string | undefined,
 ) {
