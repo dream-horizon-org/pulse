@@ -110,11 +110,25 @@ public class HeatmapServiceImpl implements HeatmapService {
             .executeQueryOrCreateJob(interactionsConfig, HeatmapInteractionMetadataRestDto.class)
             .map(r -> r.getRows() != null ? r.getRows() : Collections.emptyList());
 
+    List<String> screenshotUrls =
+        resolveScreenshotUrlsForScreen(
+            projectId,
+            screenName,
+            nonBlankOrNull(appVersion),
+            nonBlankOrNull(platform),
+            nonBlankOrNull(breakpoint));
+
     return Single.zip(
             heatmapSingle,
             interactionsSingle,
             (heatmapRows, interactionRows) ->
-                toResponse(heatmapRows, interactionRows, screenName, fromInstant, toInstant))
+                toResponse(
+                    heatmapRows,
+                    interactionRows,
+                    screenName,
+                    fromInstant,
+                    toInstant,
+                    screenshotUrls))
         .doOnError(e -> log.error("Heatmap query failed for project {}", projectId, e));
   }
 
@@ -123,7 +137,8 @@ public class HeatmapServiceImpl implements HeatmapService {
       List<HeatmapInteractionMetadataRestDto> interactionsMetadata,
       String screenName,
       Instant fromInstant,
-      Instant toInstant) {
+      Instant toInstant,
+      List<String> screenshotUrls) {
 
     long totalNormal =
         rows.stream()
@@ -166,6 +181,7 @@ public class HeatmapServiceImpl implements HeatmapService {
     HeatmapMetadataRestDto meta =
         HeatmapMetadataRestDto.builder()
             .screenName(screenName)
+            .screenshotUrls(screenshotUrls)
             .totalEvents(totalNormal)
             .fromDate(fromInstant.toString())
             .toDate(toInstant.toString())
@@ -183,6 +199,30 @@ public class HeatmapServiceImpl implements HeatmapService {
         .layers(layers)
         .interactionsMetadata(interactionList)
         .build();
+  }
+
+  /**
+   * TODO: Load screenshot URLs for the screen (e.g. from S3 metadata or a project store). When
+   * {@code appVersion}, {@code platform}, or {@code breakpoint} are non-null, scope the lookup to
+   * that heatmap filter slice. Returns an empty list until implemented.
+   */
+  private static List<String> resolveScreenshotUrlsForScreen(
+      String projectId,
+      String screenName,
+      String appVersion,
+      String platform,
+      String breakpoint) {
+    if (appVersion != null || platform != null || breakpoint != null) {
+      // TODO: resolve URLs for projectId + screenName + optional filter dimensions
+    }
+    return Collections.emptyList();
+  }
+
+  private static String nonBlankOrNull(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    return value.trim();
   }
 
   private static String buildHeatmapWhereClause(
