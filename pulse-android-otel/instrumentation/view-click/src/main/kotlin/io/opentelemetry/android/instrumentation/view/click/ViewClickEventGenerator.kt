@@ -104,7 +104,7 @@ internal class ViewClickEventGenerator(
     // region View traversal & label extraction
 
     private sealed class HitResult {
-        data class Hit(
+        class Hit(
             val view: View?,
         ) : HitResult() // view == null means dead click (miss)
 

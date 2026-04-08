@@ -18,7 +18,7 @@ package io.opentelemetry.android.instrumentation.click
  *                          Rage fires when the cluster count **>= threshold**.
  * @property radiusDp       Radius in dp within which taps are considered the same location.
  */
-data class RageConfig(
+class RageConfig(
     val timeWindowMs: Long = ClickEventBuffer.TIME_WINDOW_MS,
     val threshold: Int = ClickEventBuffer.RAGE_THRESHOLD,
     val radiusDp: Float = ClickEventBuffer.RADIUS_DP,

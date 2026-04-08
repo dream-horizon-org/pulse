@@ -19,29 +19,25 @@ import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_NA
 object PulseWidgetClickLogHelper {
     const val DEFAULT_LOG_TAG: String = "PulseClick"
 
-    fun applyContextAndLogDebug(
-        record: LogRecordBuilder,
-        attributes: Attributes,
-        logCoordX: String,
-        logCoordY: String,
-        isContextEnrichmentEnabled: Boolean,
-        label: String?,
+    fun logClick(
+        clickType: String,
+        xInPx: Float,
+        yInPx: Float,
+        widgetName: String? = null,
+        widgetId: String? = null,
+        clickContext: String? = null,
+        isRage: Boolean = false,
+        rageCount: Int = 0,
         logTag: String = DEFAULT_LOG_TAG,
     ) {
-        val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
-        val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
-        if (isContextEnrichmentEnabled) {
-            PulseAttributes.AppClickContext.buildContext(label)?.let { ctxStr ->
-                record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, ctxStr)
-            }
-            PulseOtelUtils.logDebug(logTag) {
-                "app.widget.click: x=$logCoordX y=$logCoordY name=$widgetNameForLog " +
-                    "context=${label.orEmpty()} widgetId=$widgetIdForLog"
-            }
-        } else {
-            PulseOtelUtils.logDebug(logTag) {
-                "app.widget.click: x=$logCoordX y=$logCoordY name=$widgetNameForLog " +
-                    "widgetId=$widgetIdForLog (no app.click.context)"
+        PulseOtelUtils.logDebug(logTag) {
+            buildString {
+                append("click.type=$clickType")
+                if (isRage) append(" is_rage=true count=$rageCount")
+                append(" x=${xInPx.toLong()} y=${yInPx.toLong()}")
+                widgetName?.let { append(" name=$it") }
+                widgetId?.let { append(" id=$it") }
+                clickContext?.let { append(" context=$it") }
             }
         }
     }

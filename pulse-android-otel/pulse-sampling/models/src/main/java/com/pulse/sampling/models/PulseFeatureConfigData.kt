@@ -35,9 +35,9 @@ public sealed class PulseFeatureConfigData {
      */
     @Keep
     @Serializable
-    public data class ClickInstrumentation(
-        @SerialName("featureName") val featureName: String? = null,
-        @SerialName("rage") val rage: Rage? = null,
+    public class ClickInstrumentation(
+        @SerialName("featureName") public val featureName: String? = null,
+        @SerialName("rage") public val rage: Rage? = null,
     ) : PulseFeatureConfigData() {
         /**
          * Rage-click detection parameters. All fields are optional; absent fields fall back to
@@ -45,10 +45,10 @@ public sealed class PulseFeatureConfigData {
          */
         @Keep
         @Serializable
-        public data class Rage(
-            @SerialName("timeWindowMs") val timeWindowMs: Long? = null,
-            @SerialName("threshold") val threshold: Int? = null,
-            @SerialName("radius") val radius: Float? = null,
+        public class Rage(
+            @SerialName("timeWindowMs") public val timeWindowMs: Long? = null,
+            @SerialName("threshold") public val threshold: Int? = null,
+            @SerialName("radius") public val radius: Float? = null,
         )
     }
 

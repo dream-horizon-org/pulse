@@ -9,11 +9,11 @@ import android.os.SystemClock
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseAttributes.ClickTypeValues
 import com.pulse.semconv.PulseDeviceAttributes
-import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.android.instrumentation.click.ClickEventBuffer
 import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.click.RageEvent
+import io.opentelemetry.android.instrumentation.click.common.PulseWidgetClickLogHelper
 import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
 import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
@@ -59,42 +59,28 @@ internal class ViewClickEventEmitter(
     }
 
     private fun emitIndividualClick(click: PendingClick) {
-        if (click.hasTarget) emitGoodClick(click) else emitDeadClick(click)
-    }
-
-    private fun emitGoodClick(click: PendingClick) {
+        val clickType = if (click.hasTarget) ClickTypeValues.GOOD else ClickTypeValues.DEAD
         val record =
             eventLogger
                 .logRecordBuilder()
                 .setTimestamp(click.tapEpochMs, TimeUnit.MILLISECONDS)
                 .setEventName(VIEW_CLICK_EVENT_NAME)
-                .setAttribute(APP_WIDGET_NAME, click.widgetName.orEmpty())
-                .setAttribute(APP_WIDGET_ID, click.widgetId.orEmpty())
                 .setAttribute(APP_SCREEN_COORDINATE_X, click.xInPx.toLong())
                 .setAttribute(APP_SCREEN_COORDINATE_Y, click.yInPx.toLong())
-                .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.GOOD)
+                .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
                 .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.xInPx, click.yInPx)
+        click.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
+        click.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
         click.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
         record.emit()
-        PulseOtelUtils.logDebug(LOG_TAG) {
-            "click.type=good x=${click.xInPx.toLong()} y=${click.yInPx.toLong()} " +
-                "name=${click.widgetName} id=${click.widgetId} context=${click.clickContext}"
-        }
-    }
-
-    private fun emitDeadClick(click: PendingClick) {
-        eventLogger
-            .logRecordBuilder()
-            .setTimestamp(click.tapEpochMs, TimeUnit.MILLISECONDS)
-            .setEventName(VIEW_CLICK_EVENT_NAME)
-            .setAttribute(APP_SCREEN_COORDINATE_X, click.xInPx.toLong())
-            .setAttribute(APP_SCREEN_COORDINATE_Y, click.yInPx.toLong())
-            .setAttribute(PulseAttributes.CLICK_TYPE, ClickTypeValues.DEAD)
-            .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.xInPx, click.yInPx)
-            .emit()
-        PulseOtelUtils.logDebug(LOG_TAG) {
-            "click.type=dead x=${click.xInPx.toLong()} y=${click.yInPx.toLong()}"
-        }
+        PulseWidgetClickLogHelper.logClick(
+            clickType = clickType,
+            xInPx = click.xInPx,
+            yInPx = click.yInPx,
+            widgetName = click.widgetName,
+            widgetId = click.widgetId,
+            clickContext = click.clickContext,
+        )
     }
 
     private fun emitRageClick(rage: RageEvent) {
@@ -114,15 +100,16 @@ internal class ViewClickEventEmitter(
         rage.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
         rage.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
         record.emit()
-        PulseOtelUtils.logDebug(LOG_TAG) {
-            "click.type=${if (rage.hasTarget) "good" else "dead"} is_rage=true count=${rage.count} " +
-                "x=${rage.xInPx.toLong()} y=${rage.yInPx.toLong()} " +
-                "name=${rage.widgetName} id=${rage.widgetId} context=${rage.clickContext}"
-        }
-    }
-
-    companion object {
-        private const val LOG_TAG = "PulseClick"
+        PulseWidgetClickLogHelper.logClick(
+            clickType = clickType,
+            xInPx = rage.xInPx,
+            yInPx = rage.yInPx,
+            widgetName = rage.widgetName,
+            widgetId = rage.widgetId,
+            clickContext = rage.clickContext,
+            isRage = true,
+            rageCount = rage.count,
+        )
     }
 
     private fun LogRecordBuilder.applyViewportAttrs(

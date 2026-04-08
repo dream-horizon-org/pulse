@@ -38,7 +38,7 @@ internal data class TapTarget(
 internal sealed class ComposeFindResult {
     object NotFound : ComposeFindResult()
 
-    data class Found(
+    class Found(
         val target: TapTarget?,
     ) : ComposeFindResult()
 }

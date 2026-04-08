@@ -370,6 +370,7 @@ class ViewClickInstrumentationTest {
         val mockView = mockkClass(T::class)
         every { mockView.visibility } returns visibility
         every { mockView.isClickable } returns clickable
+        every { mockView.isLongClickable } returns false
         every { mockView.id } returns id
 
         val location = IntArray(2)

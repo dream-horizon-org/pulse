@@ -17,7 +17,7 @@ import androidx.annotation.UiThread
  * Widget fields are non-null only when the tap landed on a clickable target ([hasTarget] = true).
  * [clickContext] is the pre-computed `app.click.context` label string (avoids re-traversal on flush).
  */
-data class PendingClick(
+class PendingClick(
     val xInPx: Float,
     val yInPx: Float,
     val timestampMs: Long, // monotonic (elapsedRealtime) — used for rage detection timing only
