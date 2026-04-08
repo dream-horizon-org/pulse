@@ -102,8 +102,9 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-      - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ../backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/02-session-summary-mv.sql:ro
+      - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/01-clickhouse-otel-schema.sql:ro
+      - ../backend/ingestion/clickhouse-session-replay-schema.sql:/docker-entrypoint-initdb.d/02-clickhouse-session-replay-schema.sql:ro
+      - ../backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/03-session-summary-mv.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -122,6 +123,7 @@ services:
     volumes:
       - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
       - ../backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
+      - ../backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro
       - ../backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
@@ -133,7 +135,134 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: "no"
+
+  # Kafka (KRaft mode, no Zookeeper)
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: pulse-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_NUM_PARTITIONS: 12
+      KAFKA_LOG_RETENTION_HOURS: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    
+      # MinIO (S3-compatible storage for session recordings)
+  minio:
+    image: minio/minio:latest
+    container_name: pulse-minio
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-pulse_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-pulse_minio_secret}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # MinIO bucket initializer (creates the session-recordings bucket)
+  minio-init:
+    image: minio/mc:latest
+    container_name: pulse-minio-init
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 pulse_minio pulse_minio_secret;
+      mc mb --ignore-existing local/session-recordings;
+      echo 'Bucket session-recordings ready';
+      "
+    networks:
+      - pulse-network
+    depends_on:
+      minio:
+        condition: service_healthy
     restart: "no"  # Only run once
+
+  # Session Capture Service (Rust — HTTP ingestion for mobile SDK)
+  pulse-session-capture:
+    build:
+      context: ../backend/session-capture-service
+      dockerfile: Dockerfile
+    container_name: pulse-session-capture
+    ports:
+      - "3400:3400"
+    environment:
+      PORT: "3400"
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: session_recording_events
+      RUST_LOG: pulse_session_capture=info
+    networks:
+      - pulse-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3400/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Session Replay Ingestion Consumer (Node.js — Kafka → S3 + ClickHouse)
+  pulse-session-replay-ingestion:
+    build:
+      context: ../backend/session-replay-ingestion
+      dockerfile: Dockerfile
+    container_name: pulse-session-replay-ingestion
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: session_recording_events
+      KAFKA_METADATA_TOPIC: clickhouse_session_replay_events
+      KAFKA_GROUP_ID: session-replay-ingestion
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: session-recordings
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-pulse_minio}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-pulse_minio_secret}
+      S3_REGION: us-east-1
+      MAX_BATCH_SIZE_KB: "102400"
+      MAX_BATCH_AGE_MS: "10000"
+    networks:
+      - pulse-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped    
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.137.0
@@ -161,6 +290,39 @@ services:
       - "4318:4318"   # OTLP HTTP receiver
       - "8888:8888"   # Prometheus metrics (collector internal)
       - "13133:13133" # Health check
+
+  # Pulse AI Agent (starts with the stack; set GOOGLE_API_KEY for Gemini — proxy/API may error without it)
+  pulse-ai-agent:
+    build:
+      context: ../pulse_ai
+      dockerfile: Dockerfile
+    container_name: pulse-ai-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-0}
+      - AGENT_MODEL=${AGENT_MODEL:-gemini-2.5-flash}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+      - PULSE_BASE_URL=${PULSE_BASE_URL:-http://pulse-server:8080}
+      - SESSION_DB_URL=${SESSION_DB_URL:-sqlite:////var/lib/pulse_ai/sessions.db}
+    volumes:
+      - pulse-ai-sessions:/var/lib/pulse_ai
+      - ../pulse_ai/__init__.py:/app/pulse_ai/__init__.py:ro
+      - ../pulse_ai/agent.py:/app/pulse_ai/agent.py:ro
+      - ../pulse_ai/server:/app/pulse_ai/server:ro
+      - ../pulse_ai/constants.py:/app/pulse_ai/constants.py:ro
+      - ../pulse_ai/agents:/app/pulse_ai/agents:ro
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   # Pulse UI Service (React Frontend)
   pulse-ui:
@@ -262,6 +424,7 @@ services:
       - CONFIG_SERVICE_APPLICATION_JWTSECRET=${CONFIG_SERVICE_APPLICATION_JWTSECRET:-dev-secret-key-at-least-32-characters-long-for-local-testing-only}
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
       - DEV_MODE_API_KEY=${DEV_MODE_API_KEY:-default-project_devkey01}
+      - CONFIG_REPLAY_API_BASE_URL=${CONFIG_REPLAY_API_BASE_URL}
 
       # ClickHouse Database Configuration
       - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -281,6 +444,13 @@ services:
       - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
+     
+      # Session Replay S3 (MinIO in dev)
+      - SESSION_REPLAY_S3_BUCKET=${SESSION_REPLAY_S3_BUCKET:-session-recordings}
+      - SESSION_REPLAY_S3_ENDPOINT=${SESSION_REPLAY_S3_ENDPOINT:-http://minio:9000}
+      - SESSION_REPLAY_S3_ACCESS_KEY_ID=${SESSION_REPLAY_S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-pulse_minio}}
+      - SESSION_REPLAY_S3_SECRET_ACCESS_KEY=${SESSION_REPLAY_S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-pulse_minio_secret}}
+      - SESSION_REPLAY_S3_REGION=${SESSION_REPLAY_S3_REGION:-us-east-1}
 
       # CloudFront Configuration
       - CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID:-NONE}
@@ -310,8 +480,8 @@ services:
       - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID:-}
       - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
 
-      # pulse-server → pulse_ai upstream (see deploy/.env.example)
-      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://host.docker.internal:8000}
+      # pulse-server → pulse-ai-agent on pulse-network; override for host/standalone AI (e.g. host.docker.internal:8000)
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://pulse-ai-agent:8000}
       # Incident Configuration
       - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
 
@@ -342,6 +512,8 @@ services:
         condition: service_healthy
       openfga-init:
         condition: service_completed_successfully
+      pulse-ai-agent:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
@@ -378,7 +550,7 @@ services:
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEDATABASE=otel
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEUSERNAME=pulse_user
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPASSWORD=pulse_password
-      - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-ascend-redis}
+      - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-redis}
       - CONFIG_SERVICE_APPLICATION_REDISPORT=${REDIS_PORT:-6379}
     networks:
       - pulse-network
@@ -389,6 +561,8 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully  
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:4000/healthcheck" ]
@@ -411,4 +585,10 @@ volumes:
     driver: local
   vector-data:
     driver: local
+  pulse-ai-sessions:
+    driver: local
+  kafka-data:
+    driver: local    
+  minio-data:
+    driver: local  
 

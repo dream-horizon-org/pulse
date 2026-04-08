@@ -197,6 +197,17 @@ export class MockResponseGenerator {
       return this.handleTenantEndpoints(pathname, method, request);
     }
 
+    if (pathname.includes("/v1/sessions")) {
+      const sessionReplayResponse = this.handleV1SessionReplayEndpoints(
+        pathname,
+        method,
+        request,
+      );
+      if (sessionReplayResponse) {
+        return sessionReplayResponse;
+      }
+    }
+
     // User endpoints - removed to avoid conflict with activity tracking endpoints
     // if (pathname.includes('/user')) {
     //   return this.handleUserEndpoints(pathname, method, request);
@@ -735,6 +746,7 @@ export class MockResponseGenerator {
             "custom_events",
             "rn_screen_load",
             "rn_screen_interactive",
+            "session_replay",
           ],
         },
         status: 200,
@@ -1033,6 +1045,97 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
+ 
+  private handleV1SessionReplayEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse | null {
+    if (
+      /\/v1\/sessions\/listing\/?$/.test(pathname.replace(/\/$/, "") || "/") &&
+      method === "POST"
+    ) {
+      let body: Record<string, unknown> = {};
+      try {
+        body = request.body ? JSON.parse(request.body) : {};
+      } catch {
+        body = {};
+      }
+      const {
+        getMockSessionListingResponse,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSessionListingResponse(body),
+        status: 200,
+      };
+    }
+
+    if (pathname.includes("/v1/sessions/filters") && method === "GET") {
+      const {
+        getMockSessionsFiltersResponse,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSessionsFiltersResponse(),
+        status: 200,
+      };
+    }
+
+    if (pathname.includes("/snapshots-data") && method === "GET") {
+      const url = this.parseURL(request.url);
+      const startBlobKey = url.searchParams.get("start_blob_key") || "0";
+      const {
+        getMockSnapshotsData,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSnapshotsData(startBlobKey),
+        status: 200,
+      };
+    }
+
+    if (pathname.includes("/snapshots-source") && method === "GET") {
+      const m = pathname.match(/\/v1\/sessions\/([^/]+)\/snapshots-source\/?$/);
+      const sessionId = m ? decodeURIComponent(m[1]) : "";
+      return {
+        data: {
+          sessionId: sessionId || "unknown",
+          snapshotSource: "android",
+          sources: [
+            {
+              source: "blob",
+              blobKey: "0",
+              startTimestamp: "2026-03-13 12:17:28.354000",
+              endTimestamp: "2026-03-13 12:17:36.197000",
+            },
+            {
+              source: "blob",
+              blobKey: "1",
+              startTimestamp: "2026-03-13 12:17:37.197000",
+              endTimestamp: "2026-03-13 12:17:46.219000",
+            },
+          ],
+        },
+        status: 200,
+      };
+    }
+
+    const detailMatch = pathname.match(/^\/v1\/sessions\/([^/]+)\/?$/);
+    if (detailMatch && method === "GET") {
+      const sessionId = decodeURIComponent(detailMatch[1]);
+      if (sessionId === "listing" || sessionId === "filters") {
+        return null;
+      }
+      const {
+        getMockSessionDetailApiResponse,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSessionDetailApiResponse(sessionId),
+        status: 200,
+      };
+    }
+
+    return null;
+  }
+
   private handleV1UserEndpoints(
     pathname: string,
     method: string,
@@ -1055,7 +1158,7 @@ export class MockResponseGenerator {
         data: {
           tenantId: tenant.tenantId,
           tenantName: tenant.tenantName,
-          projects,
+          projects: Array.isArray(tenant.projects) ? tenant.projects : [],
           redirectTo,
         },
         status: 200,
@@ -1465,6 +1568,11 @@ export class MockResponseGenerator {
     for (const email of uniqueEmails) {
       if (!email || !email.includes("@")) {
         failedEmails.push(email);
+        continue;
+      }
+
+      if (this.dataStore.hasProjectMember(projectId, email)) {
+        skippedEmails.push(email);
         continue;
       }
       const existingMember = this.dataStore.getProjectMemberByEmail(
@@ -2107,6 +2215,11 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
+      if (this.dataStore.hasTenantMember(tenantId, email)) {
+        skippedEmails.push(email);
+        continue;
+      }
+
       const existingMember = this.dataStore.getTenantMemberByEmail(
         tenantId,
         email,

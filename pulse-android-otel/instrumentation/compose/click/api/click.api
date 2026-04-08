@@ -5,7 +5,6 @@ public final class io/opentelemetry/instrumentation/compose/click/ComposeClickIn
 }
 
 public final class io/opentelemetry/instrumentation/compose/click/ComposeLayoutNodeUtilKt {
-	public static final field APP_SCREEN_CLICK_EVENT_NAME Ljava/lang/String;
 	public static final field VIEW_CLICK_EVENT_NAME Ljava/lang/String;
 }
 

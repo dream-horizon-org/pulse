@@ -10,8 +10,8 @@ import pytest
 from pulse_ai.server.session_scope_store import (
     MemorySessionScopeStore,
     SqlSessionScopeStore,
-    _to_async_sqlalchemy_url,
     create_session_scope_store,
+    to_async_sqlalchemy_url,
 )
 
 
@@ -25,7 +25,7 @@ async def sql_store() -> SqlSessionScopeStore:
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     tmp.close()
     path = Path(tmp.name)
-    url = _to_async_sqlalchemy_url(f"sqlite:///{path}")
+    url = to_async_sqlalchemy_url(f"sqlite:///{path}")
     store = SqlSessionScopeStore(url)
     yield store
     await store._engine.dispose()
@@ -34,11 +34,17 @@ async def sql_store() -> SqlSessionScopeStore:
 
 class TestToAsyncSqlalchemyUrl:
     def test_sqlite_converts_to_aiosqlite(self) -> None:
-        assert _to_async_sqlalchemy_url("sqlite:///foo.db") == "sqlite+aiosqlite:///foo.db"
+        assert to_async_sqlalchemy_url("sqlite:///foo.db") == "sqlite+aiosqlite:///foo.db"
+
+    def test_sqlite_four_slashes_absolute_path(self) -> None:
+        assert (
+            to_async_sqlalchemy_url("sqlite:////var/lib/pulse_ai/sessions.db")
+            == "sqlite+aiosqlite:////var/lib/pulse_ai/sessions.db"
+        )
 
     def test_already_async_unchanged(self) -> None:
         u = "sqlite+aiosqlite:///x.db"
-        assert _to_async_sqlalchemy_url(u) == u
+        assert to_async_sqlalchemy_url(u) == u
 
 
 class TestMemorySessionScopeStore:

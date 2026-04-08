@@ -48,6 +48,10 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/AnrReporte
 	public fun enabled (Z)V
 }
 
+public final class io/opentelemetry/android/agent/dsl/instrumentation/ComposeClickConfiguration {
+	public final fun captureContext (Z)V
+}
+
 public final class io/opentelemetry/android/agent/dsl/instrumentation/CrashReporterConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled, io/opentelemetry/android/agent/dsl/instrumentation/WithEventAttributes {
 	public fun addAttributesExtractor (Lio/opentelemetry/android/instrumentation/common/EventAttributesExtractor;)V
 	public fun enabled (Z)V
@@ -64,6 +68,7 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/Instrument
 	public synthetic fun <init> (Lio/opentelemetry/android/config/OtelRumConfig;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun activity (Lkotlin/jvm/functions/Function1;)V
 	public final fun anrReporter (Lkotlin/jvm/functions/Function1;)V
+	public final fun composeClick (Lkotlin/jvm/functions/Function1;)V
 	public final fun crashReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun fragment (Lkotlin/jvm/functions/Function1;)V
 	public final fun getSessionReplayConfig ()Lcom/pulse/android/sdk/replay/SessionReplayConfig;
@@ -71,6 +76,7 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/Instrument
 	public final fun networkMonitoring (Lkotlin/jvm/functions/Function1;)V
 	public final fun sessionReplay (Lkotlin/jvm/functions/Function1;)V
 	public final fun slowRenderingReporter (Lkotlin/jvm/functions/Function1;)V
+	public final fun viewClick (Lkotlin/jvm/functions/Function1;)V
 }
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/InteractionConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {
@@ -90,6 +96,10 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/SlowRender
 	public final fun disableFrameAttributes ()V
 	public final fun enableVerboseDebugLogging ()V
 	public fun enabled (Z)V
+}
+
+public final class io/opentelemetry/android/agent/dsl/instrumentation/ViewClickConfiguration {
+	public final fun captureContext (Z)V
 }
 
 public final class io/opentelemetry/android/agent/session/SessionConfig {

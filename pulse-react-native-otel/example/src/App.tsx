@@ -11,6 +11,7 @@ import NetworkInterceptorExample from './examples/NetworkInterceptorExample';
 import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
 import AndroidFeaturesExample from './examples/AndroidFeaturesExample';
 import InteractionDemo from './examples/InteractionDemo';
+import SessionReplayExample from './examples/SessionReplayExample';
 
 Pulse.start({
   networkHeaders: {
@@ -28,6 +29,13 @@ type DemoConfig = {
 };
 
 const DEMO_CONFIGS: DemoConfig[] = [
+  {
+    id: 'sessionReplayMask',
+    label: '🔐 Session Replay Masking',
+    title: 'Session Replay Privacy Masking',
+    color: '#E91E63',
+    component: SessionReplayExample,
+  },
   {
     id: 'navigation',
     label: '🚀 Native Stack Navigation',

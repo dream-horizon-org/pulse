@@ -16,6 +16,7 @@ import { AppContextProvider } from "./contexts";
 import "@mantine/dates/styles.css";
 import { Suspense, useEffect } from "react";
 import { initGA, logPageView } from "./helpers/googleAnalytics";
+import { SessionReplayFilterProvider } from "./contexts/SessionReplayFilterContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export default function App() {
@@ -29,27 +30,29 @@ export default function App() {
       <Router basename={process.env.PUBLIC_URL || "/"}>
         <PageTracker />
         <QueryClientProvider client={queryClient}>
-          <AppContextProvider>
-            <Layout>
-              <ErrorBoundary>
-                <Suspense fallback={null}>
-                  <Routes>
-                    {Object.entries(ROUTES).map(([_, value]) => {
-                      const Component = value.element;
-                      return (
-                        <Route
-                          key={value.key}
-                          path={value.path}
-                          element={<Component />}
-                        />
-                      );
-                    })}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </ErrorBoundary>
-            </Layout>
-          </AppContextProvider>
+          <SessionReplayFilterProvider>
+            <AppContextProvider>
+              <Layout>
+                <ErrorBoundary>
+                  <Suspense fallback={null}>
+                    <Routes>
+                      {Object.entries(ROUTES).map(([_, value]) => {
+                        const Component = value.element;
+                        return (
+                          <Route
+                            key={value.key}
+                            path={value.path}
+                            element={<Component />}
+                          />
+                        );
+                      })}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </ErrorBoundary>
+              </Layout>
+            </AppContextProvider>
+          </SessionReplayFilterProvider>
         </QueryClientProvider>
       </Router>
     </MantineProvider>

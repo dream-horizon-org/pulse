@@ -24,6 +24,7 @@ import {
   MULTI_TENANT_CONSTANTS,
   NAVBAR_CONSTANTS,
   NAVBAR_ITEMS,
+  NAVBAR_ROUTES,
   ROUTES,
 } from "../../constants";
 import { TIERS } from "../../constants/Tiers";
@@ -39,11 +40,12 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { getCookies } from "../../helpers/cookies";
 import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
 import { useProjectContext, useTenantContext } from "../../contexts";
 import { usePermissions } from "../../hooks";
+import { useSessionReplayFromActiveConfig } from "../../hooks/useSessionReplayFromActiveConfig";
 import { performLogout } from "../../helpers/logout";
 import { ConfirmationModal } from "../ConfirmationModal";
 
@@ -59,6 +61,7 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
+  const [popoverOpened, setPopoverOpened] = useState(false);
   const {
     projectId: contextProjectId,
     clearProject,
@@ -66,10 +69,31 @@ export function Navbar({
   } = useProjectContext();
   const { tenantId, tenantName, tier, clearTenant, projects } =
     useTenantContext();
-  const [popoverOpened, setPopoverOpened] = useState(false);
-
   const permissions = usePermissions();
   const [logoutModalOpened, setLogoutModalOpened] = useState(false);
+
+  const { isSessionReplayEnabled, isLoading: sessionReplayConfigLoading } =
+    useSessionReplayFromActiveConfig({
+      enabled:
+        pathname.startsWith("/projects/") && !pathname.includes("/onboarding"),
+      projectId: contextProjectId,
+    });
+
+  const navbarItemsToShow = useMemo(() => {
+    if (
+      !pathname.startsWith("/projects/") ||
+      pathname.includes("/onboarding")
+    ) {
+      return NAVBAR_ITEMS;
+    }
+    return NAVBAR_ITEMS.filter((item) => {
+      if (item.routeTo === NAVBAR_ROUTES.SESSION_REPLAY) {
+        if (sessionReplayConfigLoading) return false;
+        return isSessionReplayEnabled;
+      }
+      return true;
+    });
+  }, [pathname, isSessionReplayEnabled, sessionReplayConfigLoading]);
 
   // Show nav items only on project dashboard pages (not on org pages or onboarding)
   const isProjectDashboard =
@@ -209,7 +233,7 @@ export function Navbar({
               width: "100%",
             }}
           >
-            {NAVBAR_ITEMS.map((item) => {
+            {navbarItemsToShow.map((item) => {
               const NavbarIcon = item.icon;
               const active = isActive(item.routeTo);
 
