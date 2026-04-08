@@ -10,14 +10,14 @@ public interface SessionEvidenceService {
   /**
    * Get session evidence (session IDs) for an interaction and segment.
    *
-   * Finds sessions WORSE THAN the segment itself by comparing to segment deltas.
+   * Finds sessions WORSE THAN the segment itself by comparing to segment metrics.
    *
    * @param projectId project scope
    * @param interactionName the interaction being analyzed
    * @param startTime inclusive window start
    * @param endTime exclusive window end
    * @param segmentDimensions dimension filters from root cause segment
-   * @param segmentDeltas metric deltas from root cause analysis (e.g., error_rate, poor_interaction)
+   * @param segmentMetrics segment's own metrics (error_rate, apdex) to use as thresholds
    * @param limit max sessions to return (default 5 if null)
    * @return SessionEvidenceResult with list of session IDs
    */
@@ -27,11 +27,11 @@ public interface SessionEvidenceService {
       Instant startTime,
       Instant endTime,
       Map<String, String> segmentDimensions,
-      Map<String, Double> segmentDeltas,
+      Map<String, Double> segmentMetrics,
       Integer limit);
 
   /**
-   * Backward compatible overload without deltas.
+   * Backward compatible overload without metrics.
    */
   Single<SessionEvidenceResult> getSessionEvidence(
       String projectId,

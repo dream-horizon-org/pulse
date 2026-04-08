@@ -16,7 +16,7 @@ public final class RootCauseCacheQueries {
    * {@link #buildSelectByKeyQuery(String, String, String)}.
    */
   public static final String SELECT_FROM_ROOT_CAUSE_CACHE_FINAL =
-      "SELECT project_id, interaction_name, date, window_end_utc, mode, baseline, segments, cached_at"
+      "SELECT ProjectId, interaction_name, date, window_end_utc, mode, baseline, segments, cached_at"
           + " FROM otel.root_cause_cache FINAL";
 
   /**
@@ -24,7 +24,7 @@ public final class RootCauseCacheQueries {
    * {@link #buildInsertQuery(String, String, String, String, String, String, LocalDateTime)}.
    */
   public static final String INSERT_INTO_ROOT_CAUSE_CACHE =
-      "INSERT INTO otel.root_cause_cache (project_id, interaction_name, date, window_end_utc, mode, baseline, "
+      "INSERT INTO otel.root_cause_cache (ProjectId, interaction_name, date, window_end_utc, mode, baseline, "
           + "segments, cached_at) VALUES ";
 
   /**
@@ -42,7 +42,7 @@ public final class RootCauseCacheQueries {
       final String dateIso,
       final Instant windowEndExclusiveUtc) {
     return SELECT_FROM_ROOT_CAUSE_CACHE_FINAL
-        + " WHERE project_id = '" + escape(projectId) + "'"
+        + " WHERE ProjectId = '" + escape(projectId) + "'"
         + " AND interaction_name = '" + escape(interactionName) + "'"
         + " AND date = '" + escape(dateIso) + "'"
         + " AND window_end_utc = " + toDateTime64Literal(windowEndExclusiveUtc);

@@ -11,6 +11,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
@@ -270,41 +271,67 @@ final class RcaReportProxyHandler {
                 if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
                   RootCauseSegment bestSegment = rootCauseResult.getSegments().get(0);
                   
-                  // Call SessionEvidenceService with segment deltas
+                  // Extract segment metrics (error_rate, apdex) for session filtering
+                  Map<String, Double> segmentMetrics = extractSegmentMetrics(bestSegment.getMetrics());
+                  
+                  // Call SessionEvidenceService with segment metrics (not deltas)
+                  // Use same lookback period as RCA (7 days) to find historical sessions
+                  LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
+                  
+                  log.info("DEBUG: Starting session evidence fetch for: project={}, interaction={}, date={}, lookback_start={}", 
+                      projectId, interactionName, date, lookbackStart);
+                  log.info("DEBUG: Dimensions={}", bestSegment.getDimensions());
+                  log.info("DEBUG: Metrics={}", segmentMetrics);
+                  
                   sessionEvidenceService
                       .getSessionEvidence(
                           projectId,
                           interactionName,
-                          date.atStartOfDay().toInstant(ZoneOffset.UTC),
+                          lookbackStart.atStartOfDay().toInstant(ZoneOffset.UTC),
                           date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
                           bestSegment.getDimensions(),
-                          bestSegment.getDeltas(),
+                          segmentMetrics,
                           5)
                       .subscribe(
                           evidenceResult -> {
                             try {
+                              int sessionCount = evidenceResult.getSessions() != null ? evidenceResult.getSessions().size() : 0;
+                              log.info("DEBUG: Session evidence callback - {} sessions found", sessionCount);
+                              
                               // Extract session IDs
                               List<String> sessionIds =
                                   evidenceResult.getSessions().stream()
                                       .map(s -> s.getSessionId())
                                       .collect(Collectors.toList());
                               
-                              // Add to working object for LLM context
-                              working.set(
-                                  "exampleSessionIds",
-                                  objectMapper.valueToTree(sessionIds));
+                              log.info("DEBUG: Extracted {} session IDs: {}", sessionIds.size(), sessionIds);
+                              
+                              if (!sessionIds.isEmpty()) {
+                                // Add to working object for LLM context
+                                working.set(
+                                    "exampleSessionIds",
+                                    objectMapper.valueToTree(sessionIds));
+                                log.info("DEBUG: Successfully added exampleSessionIds to working object");
+                              } else {
+                                log.info("DEBUG: No sessions found, not adding exampleSessionIds");
+                              }
                               
                               String enriched = objectMapper.writeValueAsString(working);
+                              log.info("DEBUG: Enriched body contains exampleSessionIds: {}", enriched.contains("exampleSessionIds"));
                               future.complete(enriched);
                             } catch (Exception e) {
-                              log.warn("Failed to serialize enriched RCA body with evidence: {}", 
-                                  e.getMessage());
-                              String enriched = objectMapper.writeValueAsString(working);
-                              future.complete(enriched);
+                              log.warn("DEBUG: Exception in session evidence callback: {}", 
+                                  e.getMessage(), e);
+                              try {
+                                String enriched = objectMapper.writeValueAsString(working);
+                                future.complete(enriched);
+                              } catch (Exception e2) {
+                                future.complete(fallbackBody);
+                              }
                             }
                           },
                           error -> {
-                            log.warn("Failed to fetch session evidence: {}", error.getMessage());
+                            log.warn("DEBUG: Session evidence error callback: {}", error.getMessage(), error);
                             try {
                               String enriched = objectMapper.writeValueAsString(working);
                               future.complete(enriched);
@@ -326,6 +353,33 @@ final class RcaReportProxyHandler {
               future.complete(fallbackBody);
             });
     return future;
+  }
+
+  /**
+   * Extract error_rate and apdex metrics from segment metrics map.
+   * Converts Object values to Double for numeric comparison in query.
+   */
+  private Map<String, Double> extractSegmentMetrics(Map<String, Object> metrics) {
+    Map<String, Double> result = new java.util.HashMap<>();
+    if (metrics != null) {
+      Object errorRateObj = metrics.get("error_rate");
+      if (errorRateObj != null) {
+        try {
+          result.put("error_rate", Double.parseDouble(errorRateObj.toString()));
+        } catch (NumberFormatException e) {
+          log.warn("Failed to parse error_rate metric: {}", errorRateObj);
+        }
+      }
+      Object apdexObj = metrics.get("apdex");
+      if (apdexObj != null) {
+        try {
+          result.put("apdex", Double.parseDouble(apdexObj.toString()));
+        } catch (NumberFormatException e) {
+          log.warn("Failed to parse apdex metric: {}", apdexObj);
+        }
+      }
+    }
+    return result;
   }
 
   private LocalDate resolveDateFromNode(JsonNode dateNode) {

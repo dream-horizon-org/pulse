@@ -92,7 +92,7 @@ Same as the main plan:
 - **Query builder:** Build ClickHouse SELECTs for baseline (no GROUP BY) and segment (GROUP BY dimension(s)); support dimension filters.
 - **Problematic count:** Per-segment and total count of spans that are error OR poor (union; span is either poor or error so union = sum). Used for "similar to total." No minimum-volume rule; only criterion is segment count ≥ X% of total.
 - **Config:** Similarity threshold (default 75), lookback days (default 7; window = **last N days ending on date**), cache TTL (e.g. 24h), **dimension order** (single fixed list: Platform, OsVersion, AppVersion, DeviceModel, NetworkProvider, GeoState — used for tie-breaking and for flat segments; no separate "remaining" list). Reference is always total. **Max segments:** 3–4.
-- **Cache table:** Same as the other plan — e.g. `otel.root_cause_cache` with tenant_id, project_id, interaction_name, date, mode, baseline (JSON), segments (JSON), cached_at.
+- **Cache table:** Same as the other plan — e.g. `otel.root_cause_cache` with tenant_id, projectId, interaction_name, date, mode, baseline (JSON), segments (JSON), cached_at.
 
 ---
 

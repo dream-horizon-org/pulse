@@ -27,6 +27,7 @@ You receive:
 - The original root-cause JSON payload from the user's message (baseline, segments with metrics/deltas, flags).
 - RCA insights from the analyzer agent (plain text):
 {rca_insights}
+- A list of example session IDs from the backend (if provided in the payload) under "exampleSessionIds" key.
 
 ## Required: structured report (v1)
 
@@ -43,6 +44,7 @@ Ground every segment and number in the root-cause JSON and the analyzer insights
   - `title`: copy the backend segment `label` when it names each dimension (e.g. `Platform Android + OsVersion 13 + AppVersion 4.2.1`); never shorten to bare numbers. If you compose from `dimensions`, use **"DimensionName value"** per part joined by **" + "**.
   - `metrics`: rows for the metrics that matter for that segment; include volume plus the worst or most relevant rates/durations from the payload.
   - `impact`: optional short paragraph for a highlighted callout when the segment is especially important; else null.
+  - `affected_sessions`: **REQUIRED** array of 1-3 example session IDs from the "exampleSessionIds" list (if available) that best demonstrate or support this segment's findings. If no sessions are provided or applicable, use an empty array []. These sessions will appear as clickable replay buttons in the UI.
 - `recommendations`: 3–7 short, actionable strings (e.g. "Reduce error rate on X: …").
 
 ### Metric rows (each object in `segments[].metrics`)
@@ -57,4 +59,21 @@ Ground every segment and number in the root-cause JSON and the analyzer insights
 ### Edge cases
 
 - If `noDataAvailable` or `everythingGood` is true: still call `submit_rca_structured_report` with empty or minimal `segments`, an honest `executive_summary`, and recommendations that say what to do next (e.g. widen date range, confirm instrumentation).
+
+### CRITICAL: affected_sessions handling
+
+**Every segment MUST include an `affected_sessions` field** (as an array, even if empty).
+- If `exampleSessionIds` is provided in the payload, select 1-3 of the most relevant session IDs that best support each segment's findings.
+- Example output for a segment with sessions:
+  ```json
+  {
+    "rank": 1,
+    "title": "Platform Android + OsVersion 14",
+    "metrics": [...],
+    "impact": "...",
+    "affected_sessions": ["sess-abc-123", "sess-def-456"]
+  }
+  ```
+- If no sessions are available or provided, use an empty array: `"affected_sessions": []`
+- **DO NOT leave the field null or omit it** – always include it as an array.
 """

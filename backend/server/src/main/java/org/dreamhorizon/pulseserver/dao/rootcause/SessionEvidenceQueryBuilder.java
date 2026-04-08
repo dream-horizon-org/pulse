@@ -15,24 +15,22 @@ public final class SessionEvidenceQueryBuilder {
   private SessionEvidenceQueryBuilder() {}
 
   /**
-   * Build a ClickHouse query to find sessions WORSE THAN the segment itself.
+   * Build a ClickHouse query to find sessions within a segment that are WORSE than the segment itself.
    *
    * Query logic:
-   * 1. RCA identifies a segment with specific deltas (e.g., error_rate +28%, poor_interactions +35%)
-   * 2. Within that segment, find sessions that EXCEED those deltas
-   * 3. Return top sessions by both metrics combined
+   * 1. RCA identifies a segment with specific metrics (e.g., error_rate 5%, apdex 0.035)
+   * 2. Within that segment's dimensions, find sessions that are worse than the segment
+   * 3. Return top sessions by error rate and apdex (worst first)
    *
-   * Example:
-   * - Segment delta: error_rate_delta = 28%, poor_interaction_delta = 35%
-   * - Find sessions where: error_count > (0.28 * avg_interactions) AND poor_count > (0.35 * avg_interactions)
-   * - Rank by: error_count DESC, poor_interaction_count DESC
+   * Note: Uses HAVING clause to filter for sessions worse than segment metrics.
+   * This ensures we get the most problematic sessions as evidence.
    *
    * @param projectId project scope
    * @param interactionName span.name to filter
    * @param startTime inclusive window start
    * @param endTime exclusive window end
    * @param segmentDimensions dimension filters
-   * @param segmentDeltas error_rate and apdex deltas from RCA analysis
+   * @param segmentMetrics segment's own metrics (error_rate, apdex) used as thresholds
    * @param limit max sessions to return
    * @return ClickHouse SQL query string
    */
@@ -42,19 +40,20 @@ public final class SessionEvidenceQueryBuilder {
       Instant startTime,
       Instant endTime,
       Map<String, String> segmentDimensions,
-      Map<String, Double> segmentDeltas,
+      Map<String, Double> segmentMetrics,
       Integer limit) {
 
     String effectiveLimit = limit != null ? limit.toString() : String.valueOf(DEFAULT_LIMIT);
 
-    // Extract deltas (values are percentages, e.g., 28.0 for 28%)
-    Double errorRateDelta = segmentDeltas != null ? segmentDeltas.getOrDefault("error_rate", 0.0) : 0.0;
-    Double poorInteractionDelta = segmentDeltas != null ? segmentDeltas.getOrDefault("poor_interaction", 0.0) : 0.0;
+    // Extract segment's metrics - these are thresholds for finding worse sessions
+    // error_rate: percentage (e.g., 5 for 5% error rate in the segment)
+    // apdex: absolute value (e.g., 0.035 for apdex score of 0.035 in the segment)
+    Double errorRateThreshold = segmentMetrics != null ? segmentMetrics.getOrDefault("error_rate", 0.0) : 0.0;
+    Double apdexThreshold = segmentMetrics != null ? segmentMetrics.getOrDefault("apdex", 1.0) : 1.0;
 
-    // Convert percentages to decimals for comparison
-    // e.g., 28% delta -> 0.28
-    double errorRateThreshold = errorRateDelta / 100.0;
-    double poorInteractionThreshold = poorInteractionDelta / 100.0;
+    // Convert error_rate percentage to decimal
+    // e.g., 5% -> 0.05
+    double errorRateThresholdDecimal = errorRateThreshold / 100.0;
 
     StringBuilder query = new StringBuilder();
 
@@ -62,16 +61,14 @@ public final class SessionEvidenceQueryBuilder {
         .append("  SessionId,\n")
         .append("  countIf(is_error = 'true') as error_count,\n")
         .append("  count() as total_interactions,\n")
-        .append("  countIf(apdex_score < 0.5) as poor_interaction_count,\n")
-        .append("  avg(toFloat32(apdex_score)) as avg_apdex,\n")
-        .append("  (error_count / total_interactions) as error_rate,\n")
-        .append("  (poor_interaction_count / total_interactions) as poor_interaction_rate\n")
+        .append("  avg(toFloat32OrNull(apdex_score)) as avg_apdex,\n")
+        .append("  (error_count / total_interactions) as error_rate\n")
         .append("FROM (\n")
         .append("  SELECT\n")
         .append("    SessionId,\n")
         .append("    SpanAttributes['pulse.interaction.is_error'] as is_error,\n")
-        .append("    toFloat32(SpanAttributes['pulse.interaction.apdex_score']) as apdex_score\n")
-        .append("  FROM otel_traces\n")
+        .append("    SpanAttributes['pulse.interaction.apdex_score'] as apdex_score\n")
+        .append("  FROM otel.otel_traces\n")
         .append("  WHERE\n")
         .append("    ProjectId = '")
         .append(escapeStringLiteral(projectId))
@@ -92,15 +89,14 @@ public final class SessionEvidenceQueryBuilder {
     query.append(")\n")
         .append("GROUP BY SessionId\n")
         .append("HAVING\n")
-        // Filter: Sessions where error_rate > segment_delta_error_rate
-        .append("  error_rate > ").append(errorRateThreshold).append("\n")
-        // Filter: Sessions where poor_interaction_rate > segment_delta_poor_interaction_rate
-        .append("  AND poor_interaction_rate > ").append(poorInteractionThreshold).append("\n")
-        // Sort: By error_count DESC (most errors first)
+        // Filter: Sessions where error_rate > segment's own error_rate OR avg_apdex < segment's own apdex
+        // Use OR so we catch sessions bad in either metric
+        .append("  (error_rate > ").append(errorRateThresholdDecimal).append(")\n")
+        .append("  OR (avg_apdex < ").append(apdexThreshold).append(")\n")
+        // Sort: By error_count DESC (most errors first), then by avg_apdex ASC (lowest apdex first)
         .append("ORDER BY\n")
         .append("  error_count DESC,\n")
-        // Secondary: By poor_interaction_count DESC (most poor interactions second)
-        .append("  poor_interaction_count DESC\n")
+        .append("  avg_apdex ASC\n")
         .append("LIMIT ")
         .append(effectiveLimit)
         .append("\n");
@@ -109,7 +105,7 @@ public final class SessionEvidenceQueryBuilder {
   }
 
   /**
-   * Backward compatible overload: if deltas not provided, default to > 0.
+   * Backward compatible overload: if metrics not provided, default to low thresholds.
    */
   public static String buildSessionEvidenceQuery(
       String projectId,
@@ -124,7 +120,7 @@ public final class SessionEvidenceQueryBuilder {
         startTime,
         endTime,
         segmentDimensions,
-        null,  // No deltas provided
+        null,  // No metrics provided - will default to 0% error, 1.0 apdex
         limit);
   }
 
@@ -141,7 +137,7 @@ public final class SessionEvidenceQueryBuilder {
     StringBuilder query = new StringBuilder();
 
     query.append("SELECT uniqCombined64(nullIf(SessionId, '')) as total_sessions\n")
-        .append("FROM otel_traces\n")
+        .append("FROM otel.otel_traces\n")
         .append("WHERE\n")
         .append("  ProjectId = '")
         .append(escapeStringLiteral(projectId))

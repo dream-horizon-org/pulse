@@ -29,7 +29,7 @@ public class SessionEvidenceServiceImpl implements SessionEvidenceService {
       Instant startTime,
       Instant endTime,
       Map<String, String> segmentDimensions,
-      Map<String, Double> segmentDeltas,
+      Map<String, Double> segmentMetrics,
       Integer limit) {
 
     return Single.fromCallable(
@@ -40,29 +40,34 @@ public class SessionEvidenceServiceImpl implements SessionEvidenceService {
                     startTime,
                     endTime,
                     segmentDimensions,
-                    segmentDeltas,
+                    segmentMetrics,
                     limit))
         .doOnSuccess(
-            query ->
-                log.debug(
-                    "Built session evidence query for interaction={}, limit={}, deltas={}",
-                    interactionName,
-                    limit,
-                    segmentDeltas))
+            query -> {
+              log.info("Built session evidence query for interaction={}, limit={}, metrics={}", 
+                  interactionName, limit, segmentMetrics);
+              log.info("Full Query:\n{}", query);
+            })
         .flatMap(
             sqlQuery -> {
+              log.info("Executing session evidence query...");
               QueryConfiguration config = QueryConfiguration.newQuery(sqlQuery)
                   .projectId(projectId)
                   .build();
               return clickhouseQueryService.executeQueryOrCreateJob(config);
             })
+        .doOnSuccess(response -> 
+            log.info("ClickHouse returned response for session evidence"))
         .map(this::parseSessionEvidenceResponse)
+        .doOnSuccess(result ->
+            log.info("Parsed session evidence result: {} sessions", result.getSessions().size()))
         .onErrorResumeNext(
             error -> {
               log.error(
-                  "Failed to get session evidence for interaction={}: {}",
+                  "Failed to get session evidence for interaction={}: {} ({})",
                   interactionName,
                   error.getMessage(),
+                  error.getClass().getSimpleName(),
                   error);
               return Single.just(SessionEvidenceResult.builder()
                   .sessions(new ArrayList<>())
@@ -85,7 +90,7 @@ public class SessionEvidenceServiceImpl implements SessionEvidenceService {
         startTime,
         endTime,
         segmentDimensions,
-        null,  // No deltas
+        null,  // No metrics
         limit);
   }
 

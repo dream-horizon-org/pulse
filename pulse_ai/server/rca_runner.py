@@ -37,18 +37,22 @@ def _build_rca_prompt(
     serialized_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
     
     sessions_context = ""
-    if example_session_ids:
+    if example_session_ids and len(example_session_ids) > 0:
+        # Build sessions instruction with ALL available sessions
+        sessions_list = ', '.join([f'"{sid}"' for sid in example_session_ids])
         sessions_context = (
-            f"\n## Example Sessions for Replay Analysis\n"
-            f"Available session IDs: {', '.join(example_session_ids)}\n"
-            f"\n**IMPORTANT INSTRUCTION FOR STRUCTURED OUTPUT:**\n"
-            f"For each segment in your analysis, populate the 'affected_sessions' field "
-            f"with the relevant example session IDs from the list above. "
-            f"Include sessions that demonstrate or support the key findings of that segment. "
-            f"Example format for segment:\n"
-            f'{{"affected_sessions": {json.dumps(example_session_ids[:2])}}}\n'
-            f"These sessions are clickable in the UI for replay analysis and help users "
-            f"validate your findings."
+            f"\n## CRITICAL: Session Evidence for Replay Analysis\n"
+            f"You have identified {len(example_session_ids)} real sessions that demonstrate this issue:\n"
+            f"Available sessions: [{sessions_list}]\n"
+            f"\n**MANDATORY INSTRUCTION - DO NOT SKIP:**\n"
+            f"1. For EACH segment in your structured output, you MUST populate the 'affected_sessions' field\n"
+            f"2. Select 1-3 of the most relevant session IDs from the list above for each segment\n"
+            f"3. Only include sessions that directly support the segment's findings\n"
+            f"4. The 'affected_sessions' field in JSON must be an array of strings, like:\n"
+            f'   {{"affected_sessions": [{", ".join([f\'"{sid[:10]}...\' for sid in example_session_ids[:2]])}]}}\n'
+            f"5. If a segment has no relevant sessions, use an empty array: {{}}\n"
+            f"6. These sessions WILL be clickable in the UI - users will review these exact sessions for validation\n"
+            f"\nIMPORTANT: Do not omit affected_sessions or leave it null. Every segment needs this field populated."
         )
     
     return (
@@ -56,7 +60,7 @@ def _build_rca_prompt(
         f"Interaction: {interaction_name}\n"
         f"RootCausePayload(JSON): {serialized_payload}"
         f"{sessions_context}"
-        "\nEnsure each segment's findings are supported by the example sessions where applicable."
+        "\n\nEnsure your structured JSON output includes the 'affected_sessions' array in each segment."
     )
 
 
@@ -74,7 +78,9 @@ async def generate_rca_report(
     - Raises RcaRunnerError(504) on timeout.
     """
     session_id = str(uuid.uuid4())
+    logger.info(f"RCA Report Generation: example_session_ids={example_session_ids}")
     prompt = _build_rca_prompt(interaction_name, payload, example_session_ids)
+    logger.info(f"RCA Prompt (first 500 chars): {prompt[:500]}")
     message = Content.model_validate(
         {"role": "user", "parts": [{"text": prompt}]},
     )

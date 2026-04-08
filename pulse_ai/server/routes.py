@@ -246,11 +246,15 @@ async def generate_root_cause_report(
     """
     try:
         if request.rootCausePayload is not None:
-            payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
-            # Extract session IDs if present in request
+            # Extract session IDs BEFORE converting to model (while still a dict)
             example_sessions = None
             if isinstance(request.rootCausePayload, dict):
                 example_sessions = request.rootCausePayload.get("exampleSessionIds")
+                logger.info(f"[DEBUG] Extracted exampleSessionIds from payload: {example_sessions}")
+            else:
+                logger.info(f"[DEBUG] rootCausePayload is not a dict, it's: {type(request.rootCausePayload)}")
+            
+            payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
         else:
             auth_value, project_value = _require_headers_for_rca_callback(
                 authorization,
