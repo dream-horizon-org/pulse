@@ -54,7 +54,8 @@ export function normalizedGlowXY(points: HeatmapGlowPoint[]): Array<{
 /**
  * heatmap.js needs a spread of numeric `value`; rounding tiny weights to integers
  * collapses everything to 1 and washes the canvas. We either scale against
- * `sharedWeightMax` (compare mode) or min–max the visible bins (single screen).
+ * `sharedWeightMax` when set (compare mode **and** single-screen) scales weights to that max;
+ * otherwise min–max visible bins (legacy fallback).
  */
 export function buildHeatmapJsPayload(
   points: HeatmapGlowPoint[],

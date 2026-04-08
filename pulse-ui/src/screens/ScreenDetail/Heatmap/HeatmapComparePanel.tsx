@@ -12,6 +12,7 @@ import type { HeatmapDataResponse } from "./heatmap.types";
 import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 import {
   glowLayerForSignal,
+  heatmapFrustrationEmojiMarkers,
   type HeatmapFocusLens,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
@@ -348,29 +349,22 @@ function CompareColumnVisualization({
   breakpoint?: string;
 }) {
   const glow = glowLayerForSignal(data, signal);
-  const map = glow.length ? glow : data.layers.glow_map;
   const mockBinControls = isHeatmapMockServerEnabled();
-  const binBudget = useHeatmapBinBudget(map, mockBinControls);
-  const rageForMarkers =
-    data.layers?.frustration_map?.rage?.map((r) => ({
-      x: r.x,
-      y: r.y,
-      weight: r.weight,
-    })) ?? [];
+  const binBudget = useHeatmapBinBudget(glow, mockBinControls);
+  const frustrationEmojiMarkers = heatmapFrustrationEmojiMarkers(data, signal);
 
   return (
     <HeatmapVisualization
       signal={signal}
       screenshotUrls={screenshotUrlsFromMetadata(data.metadata)}
-      glowMap={map}
+      glowMap={glow}
       binBudget={binBudget}
       focusLens={focusLens}
       breakpoint={breakpoint}
       interactionRegions={data.layers.interaction_map?.regions ?? []}
       sharedWeightMax={sharedWeightMax}
       showDensityFooter={focusLens === "all" && mockBinControls}
-      showFrustrationMarkers={signal === "rage"}
-      ragePoints={rageForMarkers}
+      frustrationEmojiMarkers={frustrationEmojiMarkers}
       densityBinTooltip={
         showBinTooltip ? { payload: data, signal } : undefined
       }

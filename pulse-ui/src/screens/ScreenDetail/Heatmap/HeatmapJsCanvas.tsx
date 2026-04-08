@@ -3,23 +3,31 @@ import h337 from "heatmap.js";
 import type { HeatmapGlowPoint } from "./heatmap.types";
 import { buildHeatmapJsPayload } from "./heatmapDisplay";
 import { HEATMAP_JS_GRADIENT } from "./heatmapViz.constants";
+import type { HeatmapFrustrationEmojiMarkersConfig } from "./heatmapPanelUtils";
 import { HeatmapFrustrationMarkers } from "./HeatmapFrustrationMarkers";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapJsCanvasProps {
   displayGlow: HeatmapGlowPoint[];
   sharedWeightMax?: number;
-  showFrustrationMarkers: boolean;
-  ragePoints: Array<{ x: number; y: number; weight: number }>;
+  /** Rage (😡) or dead-click (👻) emoji at each frustration cluster — unset when density is tap-only. */
+  frustrationEmojiMarkers?: HeatmapFrustrationEmojiMarkersConfig;
 }
 
 const LAYOUT_RETRY_FRAMES = 90;
 
+/** Fraction of min(canvas w,h) used as heatmap.js kernel radius — smaller = tighter bins. */
+const RADIUS_FACTOR_FEW = 0.048;
+const RADIUS_FACTOR_MANY = 0.034;
+const RADIUS_MIN_PX = 8;
+/** `BLUR_FEW`: softer falloff when point count is low. `BLUR_MANY`: slightly tighter for dense maps. */
+const BLUR_FEW = 0.58;
+const BLUR_MANY = 0.64;
+
 export function HeatmapJsCanvas({
   displayGlow,
   sharedWeightMax,
-  showFrustrationMarkers,
-  ragePoints,
+  frustrationEmojiMarkers,
 }: HeatmapJsCanvasProps) {
   const outerRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
@@ -38,9 +46,10 @@ export function HeatmapJsCanvas({
 
       inner.innerHTML = "";
       const n = displayGlow.length;
-      const radiusFactor = n > 0 && n < 140 ? 0.1 : 0.072;
+      const radiusFactor =
+        n > 0 && n < 140 ? RADIUS_FACTOR_FEW : RADIUS_FACTOR_MANY;
       const radius = Math.max(
-        16,
+        RADIUS_MIN_PX,
         Math.round(Math.min(w, h) * radiusFactor),
       );
 
@@ -52,7 +61,7 @@ export function HeatmapJsCanvas({
         /** Keep low-intensity (cool) tail faint — avoids a sheet of gray/blue between peaks. */
         minOpacity: 0.04,
         maxOpacity: 0.48,
-        blur: n < 100 ? 0.68 : 0.82,
+        blur: n < 100 ? BLUR_FEW : BLUR_MANY,
         gradient: HEATMAP_JS_GRADIENT,
         backgroundColor: "rgba(0,0,0,0)",
       });
@@ -105,9 +114,12 @@ export function HeatmapJsCanvas({
       <div ref={outerRef} className={classes.heatCanvasHost} aria-hidden>
         <div ref={innerRef} className={classes.heatCanvasInner} />
       </div>
-      {showFrustrationMarkers && (
+      {frustrationEmojiMarkers != null && (
         <div className={classes.heatOverlay}>
-          <HeatmapFrustrationMarkers points={ragePoints} />
+          <HeatmapFrustrationMarkers
+            kind={frustrationEmojiMarkers.kind}
+            points={frustrationEmojiMarkers.points}
+          />
         </div>
       )}
     </>

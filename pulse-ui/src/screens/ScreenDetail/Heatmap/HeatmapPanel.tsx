@@ -18,6 +18,8 @@ import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
 import {
   compareSharedWeightMax,
   glowLayerForSignal,
+  glowLayerWeightMax,
+  heatmapFrustrationEmojiMarkers,
   heatmapShowsKeyActionsLens,
   type HeatmapFocusLens,
   type HeatmapSignal,
@@ -275,14 +277,17 @@ export function HeatmapPanel({
     [singlePayload, signal],
   );
 
+  const singleSharedWeightMax = useMemo(
+    () => glowLayerWeightMax(glowForSignal),
+    [glowForSignal],
+  );
+
   const binBudget = useHeatmapBinBudget(glowForSignal, mockServer);
 
-  const rageForMarkers =
-    singlePayload?.layers?.frustration_map?.rage?.map((r) => ({
-      x: r.x,
-      y: r.y,
-      weight: r.weight,
-    })) ?? [];
+  const frustrationEmojiMarkers = useMemo(
+    () => heatmapFrustrationEmojiMarkers(singlePayload ?? null, signal),
+    [singlePayload, signal],
+  );
 
   const compareLeftFetchFailed =
     !!compareLeftErr || compareLeftQuery.isError;
@@ -499,14 +504,14 @@ export function HeatmapPanel({
                 screenshotUrls={screenshotUrlsFromMetadata(singlePayload.metadata)}
                 glowMap={glowForSignal}
                 binBudget={binBudget}
+                sharedWeightMax={singleSharedWeightMax}
                 showDensityFooter={false}
                 focusLens={focusLens}
                 breakpoint={effectiveSingle.breakpoint}
                 interactionRegions={
                   singlePayload.layers.interaction_map?.regions ?? []
                 }
-                showFrustrationMarkers={signal === "rage"}
-                ragePoints={rageForMarkers}
+                frustrationEmojiMarkers={frustrationEmojiMarkers}
                 densityBinTooltip={
                   isHeatmapDataEmpty(singlePayload)
                     ? undefined
