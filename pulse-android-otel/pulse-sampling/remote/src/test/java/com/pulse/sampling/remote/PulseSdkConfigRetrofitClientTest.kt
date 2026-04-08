@@ -5,6 +5,8 @@ package com.pulse.sampling.remote
 
 import com.pulse.sampling.models.PulseDeviceAttributeName
 import com.pulse.sampling.models.PulseFeatureName
+import com.pulse.sampling.models.PulseMetricsToAddTarget
+import com.pulse.sampling.models.PulseMetricsType
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.utils.PulseSerialisationUtils
@@ -120,9 +122,71 @@ class PulseSdkConfigRetrofitClientTest {
                     .value,
             ).isEqualTo("critical")
 
+            assertThat(config.sampling.signalsToSample).hasSize(1)
+            assertThat(config.sampling.signalsToSample[0].sampleRate).isEqualTo(0.25f)
+            assertThat(
+                config.sampling.signalsToSample[0]
+                    .condition.name,
+            ).isEqualTo("slow_render")
+            assertThat(
+                config.sampling.signalsToSample[0]
+                    .condition.props,
+            ).hasSize(1)
+            assertThat(
+                config.sampling.signalsToSample[0]
+                    .condition.props
+                    .first()
+                    .name,
+            ).isEqualTo("frame_drop")
+            assertThat(
+                config.sampling.signalsToSample[0]
+                    .condition.props
+                    .first()
+                    .value,
+            ).isEqualTo("high")
+            assertThat(
+                config.sampling.signalsToSample[0]
+                    .condition.scopes
+                    .toSet(),
+            ).containsExactlyInAnyOrder(
+                PulseSignalScope.TRACES,
+                PulseSignalScope.METRICS,
+            )
+            assertThat(
+                config.sampling.signalsToSample[0]
+                    .condition.sdks
+                    .toSet(),
+            ).containsExactlyInAnyOrder(
+                PulseSdkName.ANDROID_JAVA,
+                PulseSdkName.ANDROID_RN,
+            )
+
             assertThat(config.signals.scheduleDurationMs).isEqualTo(5000L)
             assertThat(config.signals.spanCollectorUrl).isEqualTo("http://localhost:4318/v1/traces")
             assertThat(config.signals.attributesToDrop).hasSize(2)
+
+            assertThat(config.signals.metricsToAdd).hasSize(2)
+            val counterMetric = config.signals.metricsToAdd.first { it.name == "signal_event_count" }
+            assertThat(counterMetric.target).isInstanceOf(PulseMetricsToAddTarget.Name::class.java)
+            assertThat((counterMetric.target as PulseMetricsToAddTarget.Name).type).isEqualTo("name")
+            assertThat(counterMetric.condition.name).isEqualTo(".*")
+            assertThat(counterMetric.condition.props).isEmpty()
+            assertThat(counterMetric.condition.scopes.toSet()).containsExactly(PulseSignalScope.TRACES)
+            assertThat(counterMetric.condition.sdks.toSet()).containsExactly(PulseSdkName.ANDROID_JAVA)
+            assertThat(counterMetric.type).isInstanceOf(PulseMetricsType.Counter::class.java)
+            assertThat((counterMetric.type as PulseMetricsType.Counter).type).isEqualTo("counter")
+            assertThat(counterMetric.attributesToPick).isEmpty()
+
+            val sumMetric = config.signals.metricsToAdd.first { it.name == "payment_duration_sum" }
+            assertThat(sumMetric.target).isInstanceOf(PulseMetricsToAddTarget.Name::class.java)
+            assertThat((sumMetric.target as PulseMetricsToAddTarget.Name).type).isEqualTo("name")
+            assertThat(sumMetric.condition.name).isEqualTo("payment\\..*")
+            assertThat(sumMetric.condition.scopes.toSet()).containsExactly(PulseSignalScope.METRICS)
+            assertThat(sumMetric.type).isInstanceOf(PulseMetricsType.Sum::class.java)
+            assertThat((sumMetric.type as PulseMetricsType.Sum).type).isEqualTo("sum")
+            assertThat((sumMetric.type as PulseMetricsType.Sum).isFraction).isFalse()
+            assertThat((sumMetric.type as PulseMetricsType.Sum).isMonotonic).isTrue()
+            assertThat(sumMetric.attributesToPick).isEmpty()
 
             assertThat(config.interaction.collectorUrl).isEqualTo("http://localhost:4318/v1/interactions")
             assertThat(config.interaction.configUrl).isEqualTo("http://localhost:8080/v1/configs/latest-version")
@@ -494,7 +558,26 @@ class PulseSdkConfigRetrofitClientTest {
                                     ]
                                 }
                             ]
-                        }
+                        },
+                        "signalsToSample": [
+                            {
+                                "condition": {
+                                    "name": "slow_render",
+                                    "props": [
+                                        {
+                                            "name": "frame_drop",
+                                            "value": "high"
+                                        }
+                                    ],
+                                    "scopes": ["traces", "metrics"],
+                                    "sdks": [
+                                        "pulse_android_java",
+                                        "pulse_android_rn"
+                                    ]
+                                },
+                                "sampleRate": 0.25
+                            }
+                        ]
                     },
                     "signals": {
                         "scheduleDurationMs": 5000,
@@ -582,6 +665,45 @@ class PulseSdkConfigRetrofitClientTest {
                                         "pulse_ios_rn"
                                     ]
                                 }
+                            }
+                        ],
+                        "metricsToAdd": [
+                            {
+                                "name": "signal_event_count",
+                                "target": {
+                                    "type": "name"
+                                },
+                                "condition": {
+                                    "name": ".*",
+                                    "props": [],
+                                    "scopes": ["traces"],
+                                    "sdks": ["pulse_android_java"]
+                                },
+                                "type": {
+                                    "type": "counter"
+                                },
+                                "attributesToPick": []
+                            },
+                            {
+                                "name": "payment_duration_sum",
+                                "target": {
+                                    "type": "name"
+                                },
+                                "condition": {
+                                    "name": "payment\\..*",
+                                    "props": [],
+                                    "scopes": ["metrics"],
+                                    "sdks": [
+                                        "pulse_android_java",
+                                        "pulse_android_rn"
+                                    ]
+                                },
+                                "type": {
+                                    "type": "sum",
+                                    "isFraction": false,
+                                    "isMonotonic": true
+                                },
+                                "attributesToPick": []
                             }
                         ]
                     },
