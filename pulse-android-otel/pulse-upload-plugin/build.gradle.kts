@@ -39,6 +39,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
 }
 
 dependencies {
+    detektPlugins(libs.detekt.rules.libraries)
     implementation(libs.android.plugin)
     implementation(libs.gson)
 }

@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { FilterGroup } from "../services/sessionReplay/filterConfig";
 
+export const INFINITE_SCROLL_PAGE_SIZE = 25;
+
 /**
  * Drill-down types for navigating from Insights to Session List
  */
@@ -37,10 +39,6 @@ export interface SessionReplayFilterState {
   quickFilters: Record<string, boolean>;
   advancedFilters: FilterGroup | null;
   searchQuery: string;
-
-  // Pagination
-  currentPage: number;
-  pageSize: number;
 }
 
 /**
@@ -57,7 +55,6 @@ export interface SessionReplayFilterActions {
   setQuickFilters: (filters: Record<string, boolean>) => void;
   setAdvancedFilters: (filters: FilterGroup | null) => void;
   setSearchQuery: (query: string) => void;
-  setPage: (page: number) => void;
   resetFilters: () => void;
   resetAll: () => void;
 }
@@ -88,8 +85,6 @@ const DEFAULT_STATE: SessionReplayFilterState = {
   quickFilters: {},
   advancedFilters: null,
   searchQuery: "",
-  currentPage: 1,
-  pageSize: 10,
 };
 
 /**
@@ -108,7 +103,6 @@ export function SessionReplayFilterProvider({
       setState((prev) => ({
         ...prev,
         dateRange: { preset, from, to },
-        currentPage: 1, // Reset pagination when date range changes
       }));
     },
 
@@ -116,7 +110,6 @@ export function SessionReplayFilterProvider({
       setState((prev) => ({
         ...prev,
         drillDown: { type, value, label },
-        currentPage: 1,
       }));
     },
 
@@ -124,7 +117,6 @@ export function SessionReplayFilterProvider({
       setState((prev) => ({
         ...prev,
         drillDown: { type: null, value: null, label: null },
-        currentPage: 1,
       }));
     },
 
@@ -132,7 +124,6 @@ export function SessionReplayFilterProvider({
       setState((prev) => ({
         ...prev,
         quickFilters: filters,
-        currentPage: 1,
       }));
     },
 
@@ -140,7 +131,6 @@ export function SessionReplayFilterProvider({
       setState((prev) => ({
         ...prev,
         advancedFilters: filters,
-        currentPage: 1,
       }));
     },
 
@@ -148,14 +138,6 @@ export function SessionReplayFilterProvider({
       setState((prev) => ({
         ...prev,
         searchQuery: query,
-        currentPage: 1,
-      }));
-    },
-
-    setPage: (page) => {
-      setState((prev) => ({
-        ...prev,
-        currentPage: page,
       }));
     },
 
@@ -165,7 +147,6 @@ export function SessionReplayFilterProvider({
         quickFilters: {},
         advancedFilters: null,
         searchQuery: "",
-        currentPage: 1,
       }));
     },
 
