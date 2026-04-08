@@ -53,9 +53,9 @@ internal class InteractionEventsTracker(
                             localMarkers,
                             interactionConfig,
                         ).also { logDebug { "matchSeq result = ${it ?: "null"}" } } ?: run {
-                            isInteractionClosed = true
-                            return
-                        }
+                        isInteractionClosed = true
+                        return
+                    }
                 val (oldInteractionStatus, newInteractionStatus) =
                     if (shouldResetList) {
                         logDebug { "resetList called with shouldTakeFirstEvent = $shouldTakeFirstEvent" }
