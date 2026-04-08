@@ -92,9 +92,12 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/NetworkMon
 }
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/RageConfiguration {
-	public final fun radiusDp (F)V
-	public final fun threshold (I)V
-	public final fun timeWindowMs (J)V
+	public final fun getRadiusDp ()F
+	public final fun getThreshold ()I
+	public final fun getTimeWindowMs ()J
+	public final fun setRadiusDp (F)V
+	public final fun setThreshold (I)V
+	public final fun setTimeWindowMs (J)V
 }
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/SlowRenderingReporterConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {

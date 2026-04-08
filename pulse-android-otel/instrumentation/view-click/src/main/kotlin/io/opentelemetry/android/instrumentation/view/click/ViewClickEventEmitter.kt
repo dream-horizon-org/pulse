@@ -6,9 +6,9 @@
 package io.opentelemetry.android.instrumentation.view.click
 
 import android.os.SystemClock
-import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseAttributes.ClickTypeValues
+import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.android.instrumentation.click.ClickEventBuffer
 import io.opentelemetry.android.instrumentation.click.PendingClick

@@ -37,8 +37,8 @@ public final class io/opentelemetry/android/instrumentation/click/PendingClick {
 	public final fun getViewportWidthPx ()I
 	public final fun getWidgetId ()Ljava/lang/String;
 	public final fun getWidgetName ()Ljava/lang/String;
-	public final fun getX ()F
-	public final fun getY ()F
+	public final fun getXInPx ()F
+	public final fun getYInPx ()F
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -84,8 +84,8 @@ public final class io/opentelemetry/android/instrumentation/click/RageEvent {
 	public final fun getViewportWidthPx ()I
 	public final fun getWidgetId ()Ljava/lang/String;
 	public final fun getWidgetName ()Ljava/lang/String;
-	public final fun getX ()F
-	public final fun getY ()F
+	public final fun getXInPx ()F
+	public final fun getYInPx ()F
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

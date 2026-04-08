@@ -57,11 +57,11 @@ internal class ComposeClickEventEmitter(
         clickEventBuffer.flush()
     }
 
-    private fun emitIndividualClick(click: PendingClick): Unit {
+    private fun emitIndividualClick(click: PendingClick) {
         if (click.hasTarget) emitGoodClick(click) else emitDeadClick(click)
     }
 
-    private fun emitGoodClick(click: PendingClick): Unit {
+    private fun emitGoodClick(click: PendingClick) {
         val record =
             eventLogger
                 .logRecordBuilder()
@@ -81,7 +81,7 @@ internal class ComposeClickEventEmitter(
         }
     }
 
-    private fun emitDeadClick(click: PendingClick): Unit {
+    private fun emitDeadClick(click: PendingClick) {
         eventLogger
             .logRecordBuilder()
             .setTimestamp(click.tapEpochMs, TimeUnit.MILLISECONDS)
@@ -96,7 +96,7 @@ internal class ComposeClickEventEmitter(
         }
     }
 
-    private fun emitRageClick(rage: RageEvent): Unit {
+    private fun emitRageClick(rage: RageEvent) {
         val clickType = if (rage.hasTarget) ClickTypeValues.GOOD else ClickTypeValues.DEAD
         val record =
             eventLogger
@@ -129,13 +129,14 @@ internal class ComposeClickEventEmitter(
         vpHeightPx: Int,
         x: Float,
         y: Float,
-    ): LogRecordBuilder = apply {
-        if (vpWidthPx > 0 && vpHeightPx > 0) {
-            val effectiveDensity = if (densityScale > 0f) densityScale else 1f
-            setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_WIDTH, (vpWidthPx / effectiveDensity).toLong())
-            setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_HEIGHT, (vpHeightPx / effectiveDensity).toLong())
-            setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, x.toDouble() / vpWidthPx)
-            setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, y.toDouble() / vpHeightPx)
+    ): LogRecordBuilder =
+        apply {
+            if (vpWidthPx > 0 && vpHeightPx > 0) {
+                val effectiveDensity = if (densityScale > 0f) densityScale else 1f
+                setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_WIDTH, (vpWidthPx / effectiveDensity).toLong())
+                setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_HEIGHT, (vpHeightPx / effectiveDensity).toLong())
+                setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, x.toDouble() / vpWidthPx)
+                setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, y.toDouble() / vpHeightPx)
+            }
         }
-    }
 }
