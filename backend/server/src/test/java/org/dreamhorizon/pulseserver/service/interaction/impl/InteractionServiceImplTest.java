@@ -3,15 +3,18 @@ package org.dreamhorizon.pulseserver.service.interaction.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
+import jakarta.ws.rs.WebApplicationException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.interaction.InteractionDao;
+import org.dreamhorizon.pulseserver.dao.suggestedinteraction.SuggestedInteractionDao;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
@@ -22,9 +25,11 @@ import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteraction
 import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsResponse;
+import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
+import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +50,9 @@ class InteractionServiceImplTest {
   InteractionDao interactionDao;
 
   @Mock
+  SuggestedInteractionDao suggestedInteractionDao;
+
+  @Mock
   UploadInteractionDetailService uploadInteractionDetailService;
 
   @BeforeEach
@@ -53,7 +61,17 @@ class InteractionServiceImplTest {
     TenantContext.setTenantId(TEST_TENANT_ID);
     Mockito.lenient().when(uploadInteractionDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()))
         .thenReturn(Single.just(EmptyResponse.emptyResponse));
-    interactionService = new InteractionServiceImpl(interactionDao, uploadInteractionDetailService);
+    interactionService = new InteractionServiceImpl(interactionDao, suggestedInteractionDao, uploadInteractionDetailService);
+  }
+
+  private SuggestedInteractionDetails buildSuggestedInteraction(Long id, List<String> pattern) {
+    return SuggestedInteractionDetails.builder()
+        .id(id).projectId("test").pattern(pattern)
+        .totalOccurrences(8420).uniqueSessions(6120).sessionPct(72.5)
+        .meanSpanS(0.72).medianSpanS(0.68).p95SpanS(2.1).cv(0.12)
+        .edges(List.of()).status("PENDING")
+        .createdAt(Timestamp.valueOf(LocalDateTime.now()))
+        .build();
   }
 
   @Nested
@@ -1223,6 +1241,185 @@ class InteractionServiceImplTest {
 
       Mockito.verify(interactionDao, Mockito.times(1)).getTelemetryFilterOptions();
       verifyNoMoreInteractions(interactionDao);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  class TestGetSuggestedInteractions {
+
+    @Test
+    void shouldReturnSuggestedInteractions() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, List.of("EventA", "EventB"));
+      GetSuggestedInteractionsResponse response = GetSuggestedInteractionsResponse.builder()
+          .suggestions(List.of(suggestion))
+          .totalSuggestions(1)
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+          .thenReturn(Single.just(response));
+
+      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      actual.assertNoErrors()
+          .assertValue(resp -> {
+            assertThat(resp.getSuggestions()).hasSize(1);
+            assertThat(resp.getTotalSuggestions()).isEqualTo(1);
+            assertThat(resp.getSuggestions().get(0).getPattern()).containsExactly("EventA", "EventB");
+            return true;
+          });
+
+      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).getSuggestedInteractions();
+    }
+
+    @Test
+    void shouldPropagateErrorFromDao() {
+      Mockito.when(suggestedInteractionDao.getSuggestedInteractions())
+          .thenReturn(Single.error(new RuntimeException("DB error")));
+
+      TestObserver<GetSuggestedInteractionsResponse> actual = interactionService.getSuggestedInteractions().test();
+      actual.assertError(RuntimeException.class);
+
+      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).getSuggestedInteractions();
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  class TestDismissSuggestion {
+
+    @Test
+    void shouldDismissSuccessfully() {
+      Mockito.when(suggestedInteractionDao.updateStatus(1L, "DISMISSED", "user@test.com"))
+          .thenReturn(Single.just(new EmptyResponse()));
+
+      TestObserver<EmptyResponse> actual = interactionService.dismissSuggestion(1L, "user@test.com").test();
+      actual.assertNoErrors();
+
+      Mockito.verify(suggestedInteractionDao, Mockito.times(1)).updateStatus(1L, "DISMISSED", "user@test.com");
+    }
+
+    @Test
+    void shouldPropagateErrorOnDismiss() {
+      Mockito.when(suggestedInteractionDao.updateStatus(1L, "DISMISSED", "user@test.com"))
+          .thenReturn(Single.error(new RuntimeException("DB error")));
+
+      TestObserver<EmptyResponse> actual = interactionService.dismissSuggestion(1L, "user@test.com").test();
+      actual.assertError(RuntimeException.class);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  class TestActivateSuggestion {
+
+    final String userEmail = "user@test.com";
+
+    @Test
+    void shouldActivateWhenNoDuplicate() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, List.of("EventA", "EventB"));
+
+      Mockito.when(suggestedInteractionDao.getSuggestionById(1L))
+          .thenReturn(Single.just(suggestion));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of()));
+      Mockito.when(interactionDao.isInteractionPresent("EventA -> EventB"))
+          .thenReturn(Single.just(false));
+
+      ArgumentCaptor<InteractionDetails> captor = ArgumentCaptor.forClass(InteractionDetails.class);
+      InteractionDetails createdInteraction = InteractionDetails.builder()
+          .id(100L).name("EventA -> EventB").description("test").status(InteractionStatus.RUNNING)
+          .events(List.of()).uptimeLowerLimitInMs(680).uptimeMidLimitInMs(720)
+          .uptimeUpperLimitInMs(2100).thresholdInMs(4200)
+          .createdAt(Timestamp.valueOf(LocalDateTime.now()))
+          .createdBy(userEmail).updatedAt(Timestamp.valueOf(LocalDateTime.now()))
+          .updatedBy(userEmail).projectId("test")
+          .build();
+      CreateInteractionDaoResponse daoResponse = CreateInteractionDaoResponse.builder()
+          .interactionDetails(createdInteraction)
+          .interactionDetailUploadMetadata(InteractionDetailUploadMetadata.builder().build())
+          .build();
+
+      Mockito.when(interactionDao.createInteractionAndUploadMetadata(captor.capture()))
+          .thenReturn(Single.just(daoResponse));
+      Mockito.when(suggestedInteractionDao.updateStatus(1L, "ACTIVATED", userEmail))
+          .thenReturn(Single.just(new EmptyResponse()));
+
+      TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
+      actual.assertNoErrors();
+
+      // Verify the created interaction has correct values derived from suggestion
+      InteractionDetails captured = captor.getValue();
+      assertThat(captured.getName()).isEqualTo("EventA -> EventB");
+      assertThat(captured.getDescription()).startsWith("Auto-created from suggested interaction");
+      assertThat(captured.getEvents()).hasSize(2);
+      assertThat(captured.getEvents().get(0).getName()).isEqualTo("EventA");
+      assertThat(captured.getEvents().get(1).getName()).isEqualTo("EventB");
+      assertThat(captured.getUptimeLowerLimitInMs()).isEqualTo(680);
+      assertThat(captured.getUptimeMidLimitInMs()).isEqualTo(720);
+      assertThat(captured.getUptimeUpperLimitInMs()).isEqualTo(2100);
+      assertThat(captured.getThresholdInMs()).isEqualTo(4200);
+
+      Mockito.verify(suggestedInteractionDao).updateStatus(1L, "ACTIVATED", userEmail);
+    }
+
+    @Test
+    void shouldAutoDismissAndThrow400WhenDuplicate() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, List.of("EventA", "EventB"));
+
+      InteractionDetails existingInteraction = InteractionDetails.builder()
+          .id(50L).name("ExistingInteraction").description("existing").status(InteractionStatus.RUNNING)
+          .events(List.of(
+              Event.builder().name("EventA").props(List.of()).isBlacklisted(false).build(),
+              Event.builder().name("EventB").props(List.of()).isBlacklisted(false).build()))
+          .uptimeLowerLimitInMs(100).uptimeMidLimitInMs(200).uptimeUpperLimitInMs(300).thresholdInMs(400)
+          .createdAt(Timestamp.valueOf(LocalDateTime.now())).createdBy("system")
+          .updatedAt(Timestamp.valueOf(LocalDateTime.now())).updatedBy("system").projectId("test")
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestionById(1L))
+          .thenReturn(Single.just(suggestion));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.just(List.of(existingInteraction)));
+      Mockito.when(suggestedInteractionDao.updateStatus(1L, "DISMISSED", userEmail))
+          .thenReturn(Single.just(new EmptyResponse()));
+
+      TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
+      actual.assertError(throwable -> {
+        assertThat(throwable).isInstanceOf(WebApplicationException.class);
+        WebApplicationException wae = (WebApplicationException) throwable;
+        assertThat(wae.getResponse().getStatus()).isEqualTo(400);
+        return true;
+      });
+
+      Mockito.verify(suggestedInteractionDao).updateStatus(1L, "DISMISSED", userEmail);
+      Mockito.verify(interactionDao, Mockito.never()).createInteractionAndUploadMetadata(any());
+    }
+
+    @Test
+    void shouldPropagateErrorWhenGetSuggestionFails() {
+      Mockito.when(suggestedInteractionDao.getSuggestionById(1L))
+          .thenReturn(Single.error(new RuntimeException("Suggestion not found")));
+
+      TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
+      actual.assertError(RuntimeException.class);
+
+      verifyNoInteractions(interactionDao);
+    }
+
+    @Test
+    void shouldPropagateErrorWhenGetAllInteractionsFails() {
+      SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, List.of("EventA", "EventB"));
+
+      Mockito.when(suggestedInteractionDao.getSuggestionById(1L))
+          .thenReturn(Single.just(suggestion));
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
+          .thenReturn(Single.error(new RuntimeException("DB error")));
+
+      TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
+      actual.assertError(RuntimeException.class);
+
+      Mockito.verify(interactionDao, Mockito.never()).createInteractionAndUploadMetadata(any());
+      Mockito.verify(suggestedInteractionDao, Mockito.never()).updateStatus(any(), any(), any());
     }
   }
 
