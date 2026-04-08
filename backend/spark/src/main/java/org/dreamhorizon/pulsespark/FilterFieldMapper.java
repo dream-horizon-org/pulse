@@ -7,18 +7,10 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Maps event-catalog / API filter keys (e.g. {@code OS_NAME} from {@code event_catalog_entries.FilterKey})
- * to Parquet column names used in funnel/journey Spark jobs ({@link FunnelComputeJob#applyFilters}).
- *
- * <p>When {@link #toParquetColumn(String)} receives a name that is not a known catalog key, it is returned
- * unchanged so callers can use native Parquet column names (e.g. {@code os_name}) directly.
- */
 public final class FilterFieldMapper {
 
   private static final Logger log = LoggerFactory.getLogger(FilterFieldMapper.class);
 
-  /** Catalog {@code FilterKey} → Parquet column (aligned with {@code event_catalog_entries} dimensions). */
   private static final Map<String, String> CATALOG_KEY_TO_COLUMN;
 
   static {
@@ -31,10 +23,6 @@ public final class FilterFieldMapper {
 
   private FilterFieldMapper() {}
 
-  /**
-   * Resolves a filter {@code field} from persisted JSON to the Parquet column name used in
-   * {@link FunnelComputeJob#READ_COLS} / {@code buildReadExprs}.
-   */
   public static String toParquetColumn(String field) {
     if (field == null || field.isBlank()) {
       return field;
