@@ -1303,7 +1303,7 @@ class PulseSamplingSignalProcessorsTest {
                                     ),
                                 type =
                                     PulseSdkConfigFakeUtils.createFakeHistogram(
-                                        bucket = listOf(1, 5.0, 10),
+                                        bucket = listOf(1.0, 5.0, 10.0),
                                         isFraction = false,
                                     ),
                             ),
