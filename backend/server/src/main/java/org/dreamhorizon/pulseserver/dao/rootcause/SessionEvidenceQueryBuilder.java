@@ -1,6 +1,8 @@
 package org.dreamhorizon.pulseserver.dao.rootcause;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +59,11 @@ public final class SessionEvidenceQueryBuilder {
 
     StringBuilder query = new StringBuilder();
 
+    // Format timestamps for ClickHouse: convert from ISO format to "YYYY-MM-DD HH:MM:SS"
+    DateTimeFormatter chFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC);
+    String formattedStartTime = chFormatter.format(startTime);
+    String formattedEndTime = chFormatter.format(endTime);
+
     query.append("SELECT \n")
         .append("  SessionId,\n")
         .append("  countIf(is_error = 'true') as error_count,\n")
@@ -77,10 +84,10 @@ public final class SessionEvidenceQueryBuilder {
         .append(escapeStringLiteral(interactionName))
         .append("'\n")
         .append("    AND Timestamp >= '")
-        .append(startTime)
+        .append(formattedStartTime)
         .append("'\n")
         .append("    AND Timestamp < '")
-        .append(endTime)
+        .append(formattedEndTime)
         .append("'\n")
         .append("    AND SessionId != ''\n");
 
@@ -136,6 +143,11 @@ public final class SessionEvidenceQueryBuilder {
 
     StringBuilder query = new StringBuilder();
 
+    // Format timestamps for ClickHouse: convert from ISO format to "YYYY-MM-DD HH:MM:SS"
+    DateTimeFormatter chFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC);
+    String formattedStartTime = chFormatter.format(startTime);
+    String formattedEndTime = chFormatter.format(endTime);
+
     query.append("SELECT uniqCombined64(nullIf(SessionId, '')) as total_sessions\n")
         .append("FROM otel.otel_traces\n")
         .append("WHERE\n")
@@ -146,10 +158,10 @@ public final class SessionEvidenceQueryBuilder {
         .append(escapeStringLiteral(interactionName))
         .append("'\n")
         .append("  AND Timestamp >= '")
-        .append(startTime)
+        .append(formattedStartTime)
         .append("'\n")
         .append("  AND Timestamp < '")
-        .append(endTime)
+        .append(formattedEndTime)
         .append("'\n")
         .append("  AND SessionId != ''\n");
 
