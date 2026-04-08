@@ -34,10 +34,11 @@ class RcaStructuredSegmentV1(BaseModel):
     title: str
     metrics: list[RcaStructuredMetricRowV1]
     impact: str | None = None
+    insights: str | None = None
 
 
 class RcaStructuredReportV1(BaseModel):
-    version: Literal[1] = 1
+    version: int = 1
     executive_summary: str
     segments: list[RcaStructuredSegmentV1]
     recommendations: list[str]
