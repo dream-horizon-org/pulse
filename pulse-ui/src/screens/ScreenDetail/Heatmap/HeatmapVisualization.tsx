@@ -21,7 +21,17 @@ import type {
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapVisualizationProps {
+  /**
+   * Resolved display URLs (`data:`, `blob:`, or direct image href) for `<img src>`.
+   * May be empty briefly while JSON capture manifests load; use `screenshotCarouselCount` for carousel size.
+   */
   screenshotUrls: string[];
+  /** Length of `screenshot_urls` from API when it differs from `screenshotUrls.length` during resolve. */
+  screenshotCarouselCount?: number;
+  /** Bumps carousel index reset when raw manifest list changes (e.g. `sourceKey` from `useResolvedHeatmapScreenshots`). */
+  screenshotSourceKey?: string;
+  /** True while captures are being fetched/decoded. */
+  screenshotsLoading?: boolean;
   glowMap: HeatmapGlowPoint[];
   binBudget: HeatmapBinBudget;
   showDensityFooter?: boolean;
@@ -50,6 +60,9 @@ export interface HeatmapVisualizationProps {
  */
 export function HeatmapVisualization({
   screenshotUrls,
+  screenshotCarouselCount,
+  screenshotSourceKey,
+  screenshotsLoading = false,
   glowMap,
   binBudget,
   showDensityFooter = true,
@@ -69,8 +82,10 @@ export function HeatmapVisualization({
   const densityGradientVariant = signal === "tap" ? "thermal" : "brand";
 
   const [shotIndex, setShotIndex] = useState(0);
-  const urlsKey = screenshotUrls.join("\0");
-  const count = screenshotUrls.length;
+  const urlsKey =
+    screenshotSourceKey ?? screenshotUrls.join("\0");
+  const count =
+    screenshotCarouselCount ?? screenshotUrls.length;
 
   useEffect(() => {
     setShotIndex(0);
@@ -100,7 +115,12 @@ export function HeatmapVisualization({
       densityGradientVariant={densityGradientVariant}
       frame={
         <HeatmapPhoneFrame breakpoint={breakpoint}>
-          <HeatmapScreenUnderlay screenshotUrl={activeScreenshotUrl} />
+          <HeatmapScreenUnderlay
+            screenshotUrl={activeScreenshotUrl}
+            loading={
+              screenshotsLoading && count > 0 && !activeScreenshotUrl
+            }
+          />
           {keyActionsView ? (
             <HeatmapInteractionOverlay regions={interactionRegions} />
           ) : (

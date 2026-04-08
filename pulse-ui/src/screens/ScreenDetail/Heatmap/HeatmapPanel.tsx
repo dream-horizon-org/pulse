@@ -15,6 +15,7 @@ import { HeatmapMainCard } from "./HeatmapMainCard";
 import { HeatmapFilterPanel } from "./HeatmapFilterPanel";
 import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 import { useHeatmapBinBudget } from "./useHeatmapBinBudget";
+import { useResolvedHeatmapScreenshots } from "./useResolvedHeatmapScreenshots";
 import {
   compareSharedWeightMax,
   glowLayerForSignal,
@@ -289,6 +290,18 @@ export function HeatmapPanel({
     [singlePayload, signal],
   );
 
+  const rawScreenshotUrls = useMemo(
+    () =>
+      singlePayload ? screenshotUrlsFromMetadata(singlePayload.metadata) : [],
+    [singlePayload],
+  );
+
+  const {
+    displayUrls: screenshotDisplayUrls,
+    loading: screenshotsLoading,
+    sourceKey: screenshotSourceKey,
+  } = useResolvedHeatmapScreenshots(rawScreenshotUrls);
+
   const compareLeftFetchFailed =
     !!compareLeftErr || compareLeftQuery.isError;
 
@@ -501,7 +514,10 @@ export function HeatmapPanel({
               <HeatmapVisualization
                 embedded
                 signal={signal}
-                screenshotUrls={screenshotUrlsFromMetadata(singlePayload.metadata)}
+                screenshotUrls={screenshotDisplayUrls}
+                screenshotCarouselCount={rawScreenshotUrls.length}
+                screenshotSourceKey={screenshotSourceKey}
+                screenshotsLoading={screenshotsLoading}
                 glowMap={glowForSignal}
                 binBudget={binBudget}
                 sharedWeightMax={singleSharedWeightMax}

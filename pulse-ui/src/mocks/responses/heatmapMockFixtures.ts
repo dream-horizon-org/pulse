@@ -13,6 +13,12 @@ import { HEATMAP_DEFAULT_UNDERLAY_URL } from "../../screens/ScreenDetail/Heatmap
 const MOCK_UI_HASH = "a".repeat(64);
 const MOCK_SCREENSHOT = HEATMAP_DEFAULT_UNDERLAY_URL;
 
+/**
+ * Same-origin capture manifests (`public/mock/heatmap-captures/*.json`) exercise
+ * `useResolvedHeatmapScreenshots` + JSON `image.data` decoding (production uses S3 `.json` URLs).
+ */
+const MOCK_HEATMAP_CAPTURE_BASE = `${process.env.PUBLIC_URL || ""}/mock/heatmap-captures`;
+
 /** Dense POC mock size (backend contract max for `glow_map` is 10k). */
 const POC_GLOW_MAX_POINTS = 10_000;
 
@@ -78,11 +84,12 @@ function baseMetadata(screenName: string): HeatmapDataResponse["metadata"] {
   return {
     screenName,
     ui_hash: MOCK_UI_HASH,
-    screenshot_url: MOCK_SCREENSHOT,
+    screenshot_url: `${MOCK_HEATMAP_CAPTURE_BASE}/capture-1.json`,
     screenshot_urls: [
+      `${MOCK_HEATMAP_CAPTURE_BASE}/capture-1.json`,
+      `${MOCK_HEATMAP_CAPTURE_BASE}/capture-2.json`,
+      `${MOCK_HEATMAP_CAPTURE_BASE}/capture-3.json`,
       MOCK_SCREENSHOT,
-      "https://placehold.co/390x844/334155/f1f5f9/png?text=Capture+2",
-      "https://placehold.co/390x844/0f172a/e2e8f0/png?text=Capture+3",
     ],
     total_events: 15_420,
     app_version: "2.1.0",
