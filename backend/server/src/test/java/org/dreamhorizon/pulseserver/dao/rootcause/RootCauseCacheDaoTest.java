@@ -59,7 +59,7 @@ class RootCauseCacheDaoTest {
                       .build()));
 
       Optional<RootCauseCacheRow> result =
-          dao.findByKey(PROJECT, INTERACTION, DATE, WINDOW_END).blockingGet();
+          dao.findByKey(PROJECT, INTERACTION, DATE).blockingGet();
 
       assertThat(result).isEmpty();
     }
@@ -85,7 +85,7 @@ class RootCauseCacheDaoTest {
                       .build()));
 
       Optional<RootCauseCacheRow> result =
-          dao.findByKey(PROJECT, INTERACTION, DATE, WINDOW_END).blockingGet();
+          dao.findByKey(PROJECT, INTERACTION, DATE).blockingGet();
 
       assertThat(result).contains(row);
     }
@@ -100,12 +100,12 @@ class RootCauseCacheDaoTest {
                       .rows(List.of())
                       .build()));
 
-      dao.findByKey(PROJECT, INTERACTION, DATE, WINDOW_END).blockingGet();
+      dao.findByKey(PROJECT, INTERACTION, DATE).blockingGet();
 
       ArgumentCaptor<QueryConfiguration> captor = ArgumentCaptor.forClass(QueryConfiguration.class);
       verify(clickhouseQueryService).executeQueryOrCreateJob(captor.capture(), eq(RootCauseCacheRow.class));
       String q = captor.getValue().getQuery();
-      assertThat(q).contains(RootCauseCacheQueries.SELECT_FROM_ROOT_CAUSE_CACHE_FINAL);
+      assertThat(q).contains(RootCauseCacheQueries.SELECT_FROM_ROOT_CAUSE_CACHE);
       assertThat(q).contains("proj-a");
       assertThat(q).contains("pay");
       assertThat(q).contains("2025-04-01");

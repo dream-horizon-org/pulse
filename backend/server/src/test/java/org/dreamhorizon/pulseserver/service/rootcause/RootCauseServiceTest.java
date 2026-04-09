@@ -132,7 +132,7 @@ class RootCauseServiceTest {
               .windowEndUtc(WINDOW_END_LDT)
               .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
               .build();
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.of(row)));
 
       RootCauseResult result =
@@ -157,7 +157,7 @@ class RootCauseServiceTest {
               .windowEndUtc(WINDOW_END_LDT)
               .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
               .build();
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.of(row)));
 
       RootCauseResult result =
@@ -178,7 +178,7 @@ class RootCauseServiceTest {
               .windowEndUtc(WINDOW_END_LDT)
               .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
               .build();
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.of(row)));
 
       assertThatThrownBy(() -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet())
@@ -203,7 +203,7 @@ class RootCauseServiceTest {
               .windowEndUtc(WINDOW_END_LDT)
               .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
               .build();
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.of(row)));
 
       assertThatThrownBy(() -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet())
@@ -222,7 +222,7 @@ class RootCauseServiceTest {
               .windowEndUtc(WINDOW_END_LDT)
               .cachedAt(LocalDateTime.now(ZoneOffset.UTC).minusHours(48))
               .build();
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.of(stale)));
 
       RootCauseResult result =
@@ -253,7 +253,7 @@ class RootCauseServiceTest {
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END, true).blockingGet();
 
       assertThat(result.getEverythingGood()).isTrue();
-      verify(cacheDao, never()).findByKey(any(), any(), any(), any());
+      verify(cacheDao, never()).findByKey(any(), any(), any());
       verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
   }
@@ -263,7 +263,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldReturnNoDataWhenBaselineQueryReturnsNoRows() {
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
       when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.just(emptyTableResponse()));
@@ -277,7 +277,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldTreatIncompleteClickhouseJobAsEmptyBaseline() {
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
       GetQueryDataResponseDto<GetRawUserEventsResponseDto> incomplete =
           GetQueryDataResponseDto.<GetRawUserEventsResponseDto>builder()
@@ -294,7 +294,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldReturnNoDataWhenBaselineRowHasZeroVolume() {
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 0L);
@@ -319,7 +319,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldReturnEverythingGoodWhenVolumePositiveAndNoProblematicEvents() {
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 200L);
@@ -345,7 +345,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldFinishWithFlatModeWhenProblematicVolumeButNoSegmentCandidates() {
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 100L);
@@ -372,7 +372,7 @@ class RootCauseServiceTest {
     @Test
     void shouldBuildHierarchicalModeWhenTwoDimensionsMatchSimilarityThreshold() {
       when(rootCauseConfig.getMaxSegments()).thenReturn(2);
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
@@ -427,7 +427,7 @@ class RootCauseServiceTest {
     @Test
     void shouldUseHierarchicalModeWhenFirstSegmentValueContainsColon() {
       when(rootCauseConfig.getMaxSegments()).thenReturn(2);
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
@@ -482,7 +482,7 @@ class RootCauseServiceTest {
     @Test
     void shouldUseHierarchicalModeWhenMaxSegmentsIsOneAndLabelUsesDimValueFormat() {
       when(rootCauseConfig.getMaxSegments()).thenReturn(1);
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(200L, 50L);
@@ -524,7 +524,7 @@ class RootCauseServiceTest {
       when(rootCauseConfig.getMaxSegments()).thenReturn(2);
       when(rootCauseConfig.getDimensionOrder())
           .thenReturn(List.of("Platform", "OsVersion", "AppVersion", "DeviceModel"));
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
@@ -601,7 +601,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldOmitFlatSegmentWhenSegmentMetricsQueryReturnsNoRows() {
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(100L, 20L);
@@ -654,7 +654,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldTreatJobCompleteWithNullDataAsEmptyBaseline() {
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
       GetQueryDataResponseDto<GetRawUserEventsResponseDto> noDataPayload =
           GetQueryDataResponseDto.<GetRawUserEventsResponseDto>builder()
@@ -672,7 +672,7 @@ class RootCauseServiceTest {
 
     @Test
     void shouldPadMissingRowCellsWithNullWhenSchemaIsWider() {
-      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END))
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
 
       GetRawUserEventsResponseDto.Field fVol = new GetRawUserEventsResponseDto.Field();
