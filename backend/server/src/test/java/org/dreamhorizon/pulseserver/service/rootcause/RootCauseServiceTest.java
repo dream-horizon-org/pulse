@@ -120,6 +120,43 @@ class RootCauseServiceTest {
   }
 
   @Nested
+  class WindowValidation {
+
+    @Test
+    void shouldMapIllegalLookbackToBadRequest() {
+      when(rootCauseConfig.getLookbackDays()).thenReturn(0);
+
+      assertThatThrownBy(
+              () -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet())
+          .isInstanceOf(WebApplicationException.class)
+          .satisfies(
+              t -> {
+                WebApplicationException wae = (WebApplicationException) t;
+                assertThat(wae.getResponse().getStatus())
+                    .isEqualTo(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getHttpStatusCode());
+              });
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
+    }
+
+    @Test
+    void shouldMapEndBeforeWindowStartToBadRequest() {
+      // anchor 2025-03-10, lookback 7 -> startInclusive = 2025-03-04T00:00:00Z
+      Instant endBeforeStart = Instant.parse("2025-03-03T23:00:00Z");
+
+      assertThatThrownBy(
+              () -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, endBeforeStart).blockingGet())
+          .isInstanceOf(WebApplicationException.class)
+          .satisfies(
+              t -> {
+                WebApplicationException wae = (WebApplicationException) t;
+                assertThat(wae.getResponse().getStatus())
+                    .isEqualTo(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getHttpStatusCode());
+              });
+      verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
+    }
+  }
+
+  @Nested
   class CacheBehavior {
 
     @Test
@@ -142,6 +179,45 @@ class RootCauseServiceTest {
       assertThat(result.getBaseline()).containsEntry("volume", 10);
       assertThat(result.getSegments()).isEmpty();
       verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
+    }
+
+    @Test
+    void shouldTreatBlankBaselineAndSegmentsInCacheAsEmptyCollections() {
+      RootCauseCacheRow row =
+          RootCauseCacheRow.builder()
+              .baseline("   ")
+              .segments("")
+              .mode("flat")
+              .windowEndUtc(WINDOW_END_LDT)
+              .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
+              .build();
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.of(row)));
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getBaseline()).isEmpty();
+      assertThat(result.getSegments()).isEmpty();
+    }
+
+    @Test
+    void shouldDefaultUnknownCacheModeWireValueToFlat() {
+      RootCauseCacheRow row =
+          RootCauseCacheRow.builder()
+              .baseline("{\"volume\":1}")
+              .segments("[]")
+              .mode("unknown-mode")
+              .windowEndUtc(WINDOW_END_LDT)
+              .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
+              .build();
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.of(row)));
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
     }
 
     @Test
@@ -671,6 +747,122 @@ class RootCauseServiceTest {
     }
 
     @Test
+    void shouldBuildMultipleFlatSegmentsWhenNoDimensionMatchesSimilarityThreshold() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(2);
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+      // totalProblematic 100 -> threshold 75; unscoped breakdown rows stay at 10 so pickFirst never
+      // matches, but flat mode still picks top values with count > 0 (same SQL for both phases).
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(300L, 100L);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (q.contains(" AS volume")) {
+                  Map<String, Object> row = segmentMetricRow();
+                  if (q.contains("GROUP BY Platform") && q.contains("AND Platform =")) {
+                    row.put("Platform", "Android");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  if (q.contains("GROUP BY OsVersion") && q.contains("AND OsVersion =")) {
+                    row.put("OsVersion", "14");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  return Single.just(emptyTableResponse());
+                }
+                if (q.contains("GROUP BY Platform") && !q.contains("AND Platform =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("Platform", "Android", "problematic_count", 10L)));
+                }
+                if (q.contains("GROUP BY OsVersion")
+                    && !q.contains("AND OsVersion =")
+                    && !q.contains("AND Platform =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("OsVersion", "14", "problematic_count", 10L)));
+                }
+                if (q.contains("GROUP BY AppVersion") && !q.contains("AND AppVersion =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("AppVersion", "2.1", "problematic_count", 10L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
+      assertThat(result.getSegments()).hasSize(2);
+      assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
+      assertThat(result.getSegments().get(1).getLabel()).isEqualTo("OsVersion: 14");
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldAddFlatExtrasWhenHierarchyChildDimensionHasNoRowAboveThreshold() {
+      when(rootCauseConfig.getMaxSegments()).thenReturn(4);
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
+      // threshold 75 -> 75; second hierarchy step returns only 50 problematic (< 75) -> flat extras
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (q.contains(" AS volume")) {
+                  Map<String, Object> row = segmentMetricRow();
+                  if (q.contains("GROUP BY Platform") && q.contains("AND Platform =")) {
+                    row.put("Platform", "Android");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  if (q.contains("GROUP BY OsVersion") && q.contains("AND OsVersion =")) {
+                    row.put("OsVersion", "14");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  return Single.just(emptyTableResponse());
+                }
+                if (q.contains("GROUP BY Platform") && !q.contains("AND Platform =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("Platform", "Android", "problematic_count", 100L)));
+                }
+                if (q.contains("GROUP BY OsVersion") && q.contains("AND Platform =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("OsVersion", "14", "problematic_count", 50L)));
+                }
+                if (q.contains("GROUP BY OsVersion")
+                    && !q.contains("AND OsVersion =")
+                    && !q.contains("AND Platform =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("OsVersion", "14", "problematic_count", 90L)));
+                }
+                if (q.contains("GROUP BY AppVersion") && !q.contains("AND AppVersion =")) {
+                  return Single.just(emptyTableResponse());
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getSegments()).hasSize(2);
+      assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Android");
+      assertThat(result.getSegments().get(1).getLabel()).isEqualTo("OsVersion: 14");
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void shouldPadMissingRowCellsWithNullWhenSchemaIsWider() {
       when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.empty()));
@@ -743,6 +935,47 @@ class RootCauseServiceTest {
     void shouldReturnEmptyListWhenNoRows() {
       when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
           .thenReturn(Single.just(emptyTableResponse()));
+      RootCauseQueryBuilder.Window w =
+          new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
+      List<String> screens =
+          service.fetchDistinctScreensForInteraction(PROJECT_ID, INTERACTION, w).blockingGet();
+      assertThat(screens).isEmpty();
+    }
+
+    @Test
+    void shouldNormalizeScreensFromStringArrayAndTrimValues() {
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenReturn(
+              Single.just(
+                  singleRowTableResponse(
+                      Map.of("screens", new String[] {" home ", "", "cart"}))));
+      RootCauseQueryBuilder.Window w =
+          new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
+      List<String> screens =
+          service.fetchDistinctScreensForInteraction(PROJECT_ID, INTERACTION, w).blockingGet();
+      assertThat(screens).containsExactly("home", "cart");
+    }
+
+    @Test
+    void shouldNormalizeScreensFromObjectArraySkippingNulls() {
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenReturn(
+              Single.just(
+                  singleRowTableResponse(
+                      Map.of("screens", new Object[] {"a", null, "  b  "}))));
+      RootCauseQueryBuilder.Window w =
+          new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
+      List<String> screens =
+          service.fetchDistinctScreensForInteraction(PROJECT_ID, INTERACTION, w).blockingGet();
+      assertThat(screens).containsExactly("a", "b");
+    }
+
+    @Test
+    void shouldReturnEmptyScreensWhenColumnIsNull() {
+      Map<String, Object> row = new LinkedHashMap<>();
+      row.put("screens", null);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenReturn(Single.just(singleRowTableResponse(row)));
       RootCauseQueryBuilder.Window w =
           new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
       List<String> screens =
