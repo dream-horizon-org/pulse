@@ -14,8 +14,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
+import javax.inject.Inject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
@@ -76,7 +76,7 @@ public class RootCauseService {
     if (forceRefresh) {
       return computeAndCache(projectId, interactionName, anchorDateUtc, window);
     }
-    return cacheDao.findByKey(projectId, interactionName, anchorDateUtc, windowEndExclusiveUtc)
+    return cacheDao.findByKey(projectId, interactionName, anchorDateUtc)
         .flatMap(opt -> {
           if (opt.isEmpty()) {
             return computeAndCache(projectId, interactionName, anchorDateUtc, window);
@@ -358,9 +358,14 @@ public class RootCauseService {
         .flatMap(rows -> {
           Optional<SegmentPath> picked = pickClosestToTotal(rows, nextDim, totalProblematic, threshold);
           if (picked.isEmpty()) {
+            // Collect flat extras from ALL dimensions not yet in the hierarchy path
+            // Start from index 0 to include dimensions before the hierarchy start
+            java.util.Set<String> dimsInPath = path.stream()
+                .map(s -> s.dimension)
+                .collect(Collectors.toSet());
             List<SegmentPath> flatExtras = new ArrayList<>(path);
             return collectFlatExtrasFromDimensionIndex(
-                projectId, interactionName, window, dimOrder, maxSegments, nextDimIndex, flatExtras)
+                projectId, interactionName, window, dimOrder, maxSegments, 0, flatExtras, dimsInPath)
                 .flatMap(finalPath ->
                     materializeSegments(projectId, interactionName, window, baseline, finalPath));
           }
@@ -390,12 +395,18 @@ public class RootCauseService {
       List<String> dimOrder,
       int maxSegments,
       int index,
-      List<SegmentPath> flatExtras
+      List<SegmentPath> flatExtras,
+      java.util.Set<String> dimsInHierarchy
   ) {
     if (flatExtras.size() >= maxSegments || index >= dimOrder.size()) {
       return Single.just(flatExtras);
     }
     String d = dimOrder.get(index);
+    // Skip dimensions already in the hierarchy path
+    if (dimsInHierarchy.contains(d)) {
+      return collectFlatExtrasFromDimensionIndex(
+          projectId, interactionName, window, dimOrder, maxSegments, index + 1, flatExtras, dimsInHierarchy);
+    }
     RootCauseQuerySpec q2 = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
         projectId, interactionName, window.startInclusive, window.endExclusive, d, null);
     return executeQuery(projectId, q2).flatMap(r2 -> {
@@ -405,13 +416,14 @@ public class RootCauseService {
           .max(Map.Entry.comparingByValue());
       List<SegmentPath> next = new ArrayList<>(flatExtras);
       if (top.isPresent()) {
-        next.add(new SegmentPath(d, top.get().getKey()));
+        // Flat extras are standalone single-dimension filters
+        next.add(new SegmentPath(d, top.get().getKey(), true));
       }
       if (next.size() >= maxSegments) {
         return Single.just(next);
       }
       return collectFlatExtrasFromDimensionIndex(
-          projectId, interactionName, window, dimOrder, maxSegments, index + 1, next);
+          projectId, interactionName, window, dimOrder, maxSegments, index + 1, next, dimsInHierarchy);
     });
   }
 
@@ -429,11 +441,23 @@ public class RootCauseService {
       return Single.just(segments);
     }
     SegmentPath p = path.get(index);
-    LinkedHashMap<String, String> nextAcc = new LinkedHashMap<>(acc);
+    // Flat extras are standalone single-dimension filters, not cumulative with hierarchy
+    LinkedHashMap<String, String> nextAcc;
+    if (p.isFlatExtra) {
+      nextAcc = new LinkedHashMap<>();
+    } else {
+      nextAcc = new LinkedHashMap<>(acc);
+    }
     nextAcc.put(p.dimension, p.value);
-    String label = path.size() == 1
-        ? p.dimension + ": " + p.value
-        : String.join(" + ", nextAcc.values());
+    // Flat extras always use "Dimension: Value" label format
+    String label;
+    if (p.isFlatExtra) {
+      label = p.dimension + ": " + p.value;
+    } else {
+      label = path.size() == 1
+          ? p.dimension + ": " + p.value
+          : String.join(" + ", nextAcc.values());
+    }
     return fetchSegmentMetrics(
             projectId, interactionName, window, baseline, label, Map.copyOf(nextAcc))
         .flatMap(opt -> {
@@ -482,12 +506,14 @@ public class RootCauseService {
     long bestDiff = Long.MAX_VALUE;
     for (Map<String, Object> row : rows) {
       long count = NumberCoercionUtils.toLong(row.get("problematic_count"));
-      if (count < threshold) continue;
+      if (count < threshold) {
+        continue;
+      }
       long diff = Math.abs(count - totalProblematic);
       if (diff < bestDiff) {
         bestDiff = diff;
         Object val = row.get(dimensionColumn);
-        best = new SegmentPath(dimensionColumn, val != null ? val.toString() : "");
+        best = new SegmentPath(dimensionColumn, val != null ? val.toString() : "", false);
       }
     }
     return Optional.ofNullable(best);
@@ -498,13 +524,19 @@ public class RootCauseService {
     for (String metric : RootCauseMetricsRegistry.getMetricExpressions().keySet()) {
       Object b = baseline.get(metric);
       Object s = segment.get(metric);
-      if (b == null || s == null) continue;
+      if (b == null || s == null) {
+        continue;
+      }
       double bv = NumberCoercionUtils.toDouble(b);
       double sv = NumberCoercionUtils.toDouble(s);
       if (metric.equals(RootCauseMetricsRegistry.VOLUME)) {
-        if (bv != 0) deltas.put(metric, (sv / bv) * 100 - 100);
+        if (bv != 0) {
+          deltas.put(metric, (sv / bv) * 100 - 100);
+        }
       } else {
-        if (bv != 0) deltas.put(metric, ((sv - bv) / bv) * 100);
+        if (bv != 0) {
+          deltas.put(metric, ((sv - bv) / bv) * 100);
+        }
       }
     }
     return deltas;
@@ -539,9 +571,13 @@ public class RootCauseService {
   private static Map<String, Object> toBaselineMap(Map<String, Object> row) {
     Map<String, Object> m = new LinkedHashMap<>();
     for (String key : RootCauseMetricsRegistry.getMetricExpressions().keySet()) {
-      if (row.containsKey(key)) m.put(key, row.get(key));
+      if (row.containsKey(key)) {
+        m.put(key, row.get(key));
+      }
     }
-    if (row.containsKey("problematic_count")) m.put("problematic_count", row.get("problematic_count"));
+    if (row.containsKey("problematic_count")) {
+      m.put("problematic_count", row.get("problematic_count"));
+    }
     return m;
   }
 
@@ -607,5 +643,5 @@ public class RootCauseService {
 
   private record FirstDimensionPick(int dimOrderIndex, SegmentPath path) {}
 
-  private record SegmentPath(String dimension, String value) {}
+  private record SegmentPath(String dimension, String value, boolean isFlatExtra) {}
 }

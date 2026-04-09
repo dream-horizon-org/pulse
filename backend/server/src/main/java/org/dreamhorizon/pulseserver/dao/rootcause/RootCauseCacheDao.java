@@ -24,19 +24,28 @@ public class RootCauseCacheDao {
   private final ClickhouseQueryService clickhouseQueryService;
 
   /**
-   * Reads the latest cache row by (projectId, interactionName, date) using FINAL.
+   * Reads the latest cache row by (projectId, interactionName, date).
+   * If multiple rows exist (before ReplacingMergeTree merge), returns the one with max cached_at.
    */
   public Single<Optional<RootCauseCacheRow>> findByKey(
-      String projectId, String interactionName, LocalDate date, Instant windowEndExclusiveUtc) {
+      String projectId, String interactionName, LocalDate date) {
     String dateStr = date.format(DATE_FMT);
     String query =
-        RootCauseCacheQueries.buildSelectByKeyQuery(projectId, interactionName, dateStr, windowEndExclusiveUtc);
+        RootCauseCacheQueries.buildSelectByKeyQuery(projectId, interactionName, dateStr);
     QueryConfiguration config = QueryConfiguration.newQuery(query)
         .projectId(projectId)
         .build();
     return clickhouseQueryService.executeQueryOrCreateJob(config, RootCauseCacheRow.class)
         .map(QueryResultResponse::getRows)
-        .map(rows -> rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0)));
+        .map(rows -> {
+          if (rows.isEmpty()) {
+            return Optional.empty();
+          }
+          // If duplicates exist before merge, pick the latest by cached_at
+          return rows.stream()
+              .max(java.util.Comparator.comparing(RootCauseCacheRow::getCachedAt))
+              .or(() -> Optional.of(rows.get(0)));
+        });
   }
 
   /**
