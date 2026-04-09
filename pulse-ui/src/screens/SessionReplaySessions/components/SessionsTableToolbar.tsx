@@ -22,7 +22,6 @@ export interface SessionsTableToolbarProps {
   dateTo: string | null;
   onDatePresetChange: (preset: string) => void;
   onDateCustomChange: (from: string | null, to: string | null) => void;
-  onPageReset: () => void;
   // Table summary
   sessionCount: number;
   hasMore: boolean;
@@ -55,7 +54,6 @@ export function SessionsTableToolbar({
   dateTo,
   onDatePresetChange,
   onDateCustomChange,
-  onPageReset,
   sessionCount,
   hasMore,
   filtersConfig,
@@ -86,7 +84,6 @@ export function SessionsTableToolbar({
           to={dateTo}
           onPresetChange={onDatePresetChange}
           onCustomRangeChange={onDateCustomChange}
-          onPageReset={onPageReset}
         />
 
         <Group justify="space-between" align="flex-start" wrap="nowrap">
