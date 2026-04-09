@@ -7,5 +7,6 @@ public record FunnelResult(
         int stepIndex,
         String stepName,
         long userCount,
-        double conversionPct
+        double conversionPct,
+        Long medianStepSeconds
 ) {}

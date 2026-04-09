@@ -28,4 +28,7 @@ public class FunnelResultRow {
 
   @JsonProperty("conversionPct")
   private Double conversionPct;
+
+  @JsonProperty("medianStepSeconds")
+  private Long medianStepSeconds;
 }

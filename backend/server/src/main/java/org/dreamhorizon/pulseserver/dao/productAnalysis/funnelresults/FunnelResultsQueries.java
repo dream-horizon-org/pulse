@@ -20,7 +20,8 @@ public final class FunnelResultsQueries {
     String pid = escapeChStringLiteral(projectId);
     String fid = Long.toString(funnelId);
     return "SELECT StepIndex AS stepIndex, StepName AS stepName, "
-      + "UserCount AS userCount, ConversionPct AS conversionPct "
+      + "UserCount AS userCount, ConversionPct AS conversionPct, "
+      + "MedianStepSeconds AS medianStepSeconds "
       + "FROM otel.funnel_results WHERE FunnelId = "
       + fid
       + " AND ProjectId = '"

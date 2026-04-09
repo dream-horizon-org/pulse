@@ -51,6 +51,7 @@ public final class FunnelResultsMapper {
           .count(count)
           .conversionRate(conversion)
           .dropoffRate(dropoff)
+          .medianStepSeconds(r.getMedianStepSeconds())
           .build());
       prevCount = count;
     }
