@@ -16,6 +16,9 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.heatmap.HeatmapQueries;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
+import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
+import org.dreamhorizon.pulseserver.service.configs.ConfigService;
+import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapClickHouseRowDto;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapDataRestResponse;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapFrustrationRestDto;
@@ -30,6 +33,7 @@ public class HeatmapServiceImpl implements HeatmapService {
 
   private static final int TIMEOUT_MS = 60_000;
 
+  private final ConfigService configService;
   private final ClickhouseQueryService clickhouseQueryService;
 
   @Override
@@ -63,6 +67,51 @@ public class HeatmapServiceImpl implements HeatmapService {
           ServiceError.INVALID_REQUEST_PARAM.getCustomException(
               "from and to must be ISO-8601 instants, e.g. 2026-03-26T00:00:00Z"));
     }
+
+    return configService
+        .getActiveSdkConfig(projectId)
+        .flatMap(
+            cfg -> {
+              if (!isHeatmapFeatureEnabled(cfg)) {
+                return Single.error(
+                    ServiceError.FORBIDDEN.getCustomException(
+                        "Heatmaps are disabled for this project"));
+              }
+              return queryHeatmapAndBuildResponse(
+                  projectId,
+                  screenName,
+                  fromInstant,
+                  toInstant,
+                  appVersion,
+                  platform,
+                  breakpoint,
+                  geographicalRegion);
+            })
+        .doOnError(e -> log.error("Heatmap query failed for project {}", projectId, e));
+  }
+
+  private static boolean isHeatmapFeatureEnabled(PulseConfig config) {
+    if (config == null || config.getFeatures() == null) {
+      return false;
+    }
+    return config.getFeatures().stream()
+        .filter(f -> f.getFeatureName() == Features.heatmap)
+        .findFirst()
+        .map(
+            f ->
+                f.getSessionSampleRate() != null && f.getSessionSampleRate() > 0.0)
+        .orElse(false);
+  }
+
+  private Single<HeatmapDataRestResponse> queryHeatmapAndBuildResponse(
+      String projectId,
+      String screenName,
+      Instant fromInstant,
+      Instant toInstant,
+      String appVersion,
+      String platform,
+      String breakpoint,
+      String geographicalRegion) {
 
     String dateFrom = fromInstant.atZone(ZoneOffset.UTC).toLocalDate().toString();
     String dateTo = toInstant.atZone(ZoneOffset.UTC).toLocalDate().toString();
@@ -119,17 +168,16 @@ public class HeatmapServiceImpl implements HeatmapService {
             nonBlankOrNull(breakpoint));
 
     return Single.zip(
-            heatmapSingle,
-            interactionsSingle,
-            (heatmapRows, interactionRows) ->
-                toResponse(
-                    heatmapRows,
-                    interactionRows,
-                    screenName,
-                    fromInstant,
-                    toInstant,
-                    screenshotUrls))
-        .doOnError(e -> log.error("Heatmap query failed for project {}", projectId, e));
+        heatmapSingle,
+        interactionsSingle,
+        (heatmapRows, interactionRows) ->
+            toResponse(
+                heatmapRows,
+                interactionRows,
+                screenName,
+                fromInstant,
+                toInstant,
+                screenshotUrls));
   }
 
   private HeatmapDataRestResponse toResponse(
