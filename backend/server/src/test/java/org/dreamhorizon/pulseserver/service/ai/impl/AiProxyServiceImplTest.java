@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service.ai.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -39,6 +40,7 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
+import org.dreamhorizon.pulseserver.service.rootcause.models.SessionEvidenceResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -89,6 +91,8 @@ class AiProxyServiceImplTest {
     lenient().when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
     when(rootCauseService.fetchDistinctScreensForInteraction(anyString(), anyString(), any()))
         .thenReturn(Single.just(List.of()));
+    lenient().when(sessionEvidenceService.getSessionEvidence(anyString(), anyString(), any(), any(), any(), any(), anyInt()))
+        .thenReturn(Single.just(SessionEvidenceResult.builder().sessions(List.of()).build()));
   }
 
   private AiProxyServiceImpl fullPipelineService() {
