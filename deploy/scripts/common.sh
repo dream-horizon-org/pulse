@@ -32,6 +32,7 @@ CONTAINER_MINIO="pulse-minio"
 CONTAINER_MINIO_INIT="pulse-minio-init"
 CONTAINER_SESSION_CAPTURE="pulse-session-capture"
 CONTAINER_SESSION_INGESTION="pulse-session-replay-ingestion"
+CONTAINER_HEATMAP_INGESTION="pulse-heatmap-screenshot-ingestion"
 
 # Ordered list (start order)
 ALL_CONTAINERS=(
@@ -44,6 +45,7 @@ ALL_CONTAINERS=(
     "$CONTAINER_OTEL_COLLECTOR"
     "$CONTAINER_SESSION_CAPTURE"
     "$CONTAINER_SESSION_INGESTION"
+    "$CONTAINER_HEATMAP_INGESTION"
     "$CONTAINER_SERVER"
     "$CONTAINER_AI"
     "$CONTAINER_UI"
@@ -67,6 +69,7 @@ IMAGE_AI="pulse-ai-agent:local"
 IMAGE_ALERTS_CRON="pulse-alerts-cron:local"
 IMAGE_SESSION_CAPTURE="pulse-session-capture:local"
 IMAGE_SESSION_INGESTION="pulse-session-replay-ingestion:local"
+IMAGE_HEATMAP_INGESTION="pulse-heatmap-screenshot-ingestion:local"
 
 # ---------------------------------------------------------------------------
 # Constants -- Network & Volumes
