@@ -50,6 +50,7 @@ class SignalsConfigTest {
           .customEventCollectorUrl("http://custom-events.example.com")
           .attributesToDrop(attributesToDrop)
           .attributesToAdd(attributesToAdd)
+          .metricsToAdd(new ArrayList<>())
           .build();
 
       assertEquals(5000, signalsConfig.getScheduleDurationMs());
@@ -59,6 +60,7 @@ class SignalsConfigTest {
       assertEquals("http://custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
       assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
       assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
+      assertEquals(new ArrayList<>(), signalsConfig.getMetricsToAdd());
     }
 
     /**
@@ -77,7 +79,8 @@ class SignalsConfigTest {
           "http://spans.example.com",
           "http://custom-events.example.com",
           attributesToDrop,
-          attributesToAdd
+          attributesToAdd,
+          new ArrayList<>()
       );
 
       assertEquals(3000, signalsConfig.getScheduleDurationMs());
@@ -87,6 +90,7 @@ class SignalsConfigTest {
       assertEquals("http://custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
       assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
       assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
+      assertEquals(new ArrayList<>(), signalsConfig.getMetricsToAdd());
     }
   }
 
@@ -171,6 +175,7 @@ class SignalsConfigTest {
       signalsConfig.setCustomEventCollectorUrl("http://new-custom-events.example.com");
       signalsConfig.setAttributesToDrop(attributesToDrop);
       signalsConfig.setAttributesToAdd(attributesToAdd);
+      signalsConfig.setMetricsToAdd(new ArrayList<>());
 
       assertEquals(10000, signalsConfig.getScheduleDurationMs());
       assertEquals("http://new-logs.example.com", signalsConfig.getLogsCollectorUrl());
@@ -179,6 +184,7 @@ class SignalsConfigTest {
       assertEquals("http://new-custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
       assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
       assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
+      assertEquals(new ArrayList<>(), signalsConfig.getMetricsToAdd());
     }
 
     /**

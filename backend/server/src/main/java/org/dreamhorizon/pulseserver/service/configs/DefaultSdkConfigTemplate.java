@@ -35,6 +35,7 @@ public class DefaultSdkConfigTemplate {
             .criticalSessionPolicies(CriticalSessionPolicies.builder()
                 .alwaysSend(new ArrayList<>())
                 .build())
+            .signalsToSample(new ArrayList<>())
             .build();
 
         // Signals configuration
@@ -46,6 +47,7 @@ public class DefaultSdkConfigTemplate {
             .customEventCollectorUrl(System.getenv().getOrDefault("CUSTOM_EVENT_COLLECTOR_URL", "http://localhost:4318/v1/events"))
             .attributesToDrop(new ArrayList<>())
             .attributesToAdd(new ArrayList<>())
+            .metricsToAdd(new ArrayList<>())
             .build();
 
         // Interaction configuration

@@ -37,6 +37,7 @@ class DefaultSdkConfigTemplateTest {
       assertThat(config.getSampling().getDefaultSampling().getSessionSampleRate()).isEqualTo(1.0);
       assertThat(config.getSampling().getRules()).isEmpty();
       assertThat(config.getSampling().getCriticalSessionPolicies()).isNotNull();
+      assertThat(config.getSampling().getSignalsToSample()).isEmpty();
     }
 
     @Test
@@ -50,6 +51,7 @@ class DefaultSdkConfigTemplateTest {
       assertThat(config.getSignals().getCustomEventCollectorUrl()).isNotBlank();
       assertThat(config.getSignals().getAttributesToDrop()).isEmpty();
       assertThat(config.getSignals().getAttributesToAdd()).isEmpty();
+      assertThat(config.getSignals().getMetricsToAdd()).isEmpty();
     }
 
     @Test
