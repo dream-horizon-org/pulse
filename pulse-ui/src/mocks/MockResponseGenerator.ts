@@ -757,6 +757,8 @@ export class MockResponseGenerator {
             "rn_screen_load",
             "rn_screen_interactive",
             "session_replay",
+            "click",
+            "heatmap",
           ],
         },
         status: 200,

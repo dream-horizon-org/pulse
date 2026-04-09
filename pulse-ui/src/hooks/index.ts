@@ -73,6 +73,8 @@ export * from "./useQueryStats";
 export * from "./useResumeAlert";
 export * from "./useRunUniversalQuery";
 export * from "./useSdkConfig";
+export * from "./useSessionReplayFromActiveConfig";
+export * from "./useHeatmapFromActiveConfig";
 export * from "./useSnoozeAlert";
 export * from "./useSubmitQuery";
 export * from "./useUniversalQueryTableColumns";
