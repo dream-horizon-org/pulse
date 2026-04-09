@@ -138,3 +138,16 @@ export function formatImpactedScreensTooltip(
   const list = flattenImpactedScreens(impactedScreens ?? null);
   return list.join("\n") || SESSION_LIST_LABELS.noImpactedScreens;
 }
+
+export function formatImpactedInteractionsCellTooltip(
+  names: string[] | undefined,
+  impactedScreens: ImpactedScreens | null | undefined,
+): string {
+  const pathLines = flattenImpactedScreens(impactedScreens ?? null);
+  const nameBlock = names?.length ? names.join("\n") : "";
+  if (nameBlock && pathLines.length) {
+    return `${nameBlock}\n\n${pathLines.join("\n")}`;
+  }
+  if (nameBlock) return nameBlock;
+  return pathLines.join("\n") || SESSION_LIST_LABELS.noImpactedScreens;
+}

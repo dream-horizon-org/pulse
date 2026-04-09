@@ -12,6 +12,40 @@ import {
 import { makeRequest } from "../../helpers/makeRequest";
 import type { AttributeValue } from "../../types/attributes";
 
+
+function sessionWallClockTimeRangeUtc(
+  startInput: string,
+  endInput: string,
+): { start: string; end: string } {
+  const startIso = instantTimeRangeUtc(startInput).start;
+  const endIso = instantTimeRangeUtc(endInput).start;
+  const t0 = Date.parse(startIso);
+  const t1 = Date.parse(endIso);
+  if (!Number.isFinite(t0) || !Number.isFinite(t1)) {
+    return { start: startIso, end: endIso };
+  }
+  if (t1 < t0) {
+    return {
+      start: new Date(t1).toISOString(),
+      end: new Date(t0).toISOString(),
+    };
+  }
+  return { start: new Date(t0).toISOString(), end: new Date(t1).toISOString() };
+}
+
+function resolveDataQueryTimeRange(params: {
+  sessionStartTime?: string;
+  sessionEndTime?: string;
+  eventTimestamp: string;
+}): { start: string; end: string } {
+  const s = params.sessionStartTime?.trim();
+  const e = params.sessionEndTime?.trim();
+  if (s && e) {
+    return sessionWallClockTimeRangeUtc(s, e);
+  }
+  return instantTimeRangeUtc(params.eventTimestamp);
+}
+
 /**
  * Same instant for `start` and `end` as the clicked event (ISO, SQL-style datetime, or unix ms string).
  */
@@ -50,8 +84,14 @@ const fetchSpanDetails = async (
   traceId: string,
   spanId: string,
   timestamp: string,
+  sessionStartTime?: string,
+  sessionEndTime?: string,
 ): Promise<SpanDetailsResponse> => {
-  const { start, end } = instantTimeRangeUtc(timestamp);
+  const { start, end } = resolveDataQueryTimeRange({
+    sessionStartTime,
+    sessionEndTime,
+    eventTimestamp: timestamp,
+  });
 
   const requestBody = {
     dataType: "TRACES",
@@ -215,8 +255,14 @@ const fetchLogDetails = async (
   traceId: string,
   spanId: string,
   timestamp: string,
+  sessionStartTime?: string,
+  sessionEndTime?: string,
 ): Promise<LogDetailsResponse> => {
-  const { start, end } = instantTimeRangeUtc(timestamp);
+  const { start, end } = resolveDataQueryTimeRange({
+    sessionStartTime,
+    sessionEndTime,
+    eventTimestamp: timestamp,
+  });
 
   // Build filters - always filter by TraceId
   const filters: any[] = [
@@ -321,8 +367,14 @@ const fetchExceptionDetails = async (
   traceId: string,
   timestamp: string,
   groupId?: string,
+  sessionStartTime?: string,
+  sessionEndTime?: string,
 ): Promise<ExceptionDetailsResponse | null> => {
-  const { start, end } = instantTimeRangeUtc(timestamp);
+  const { start, end } = resolveDataQueryTimeRange({
+    sessionStartTime,
+    sessionEndTime,
+    eventTimestamp: timestamp,
+  });
 
   // Build filters
   const filters: any[] = [];
@@ -569,18 +621,47 @@ export const useGetSpanDetails = ({
   spanId,
   timestamp,
   groupId,
+  sessionStartTime,
+  sessionEndTime,
   enabled = true,
 }: GetSpanDetailsParams) => {
   return useQuery({
-    queryKey: ["spanDetails", dataType, traceId, spanId, timestamp, groupId],
+    queryKey: [
+      "spanDetails",
+      dataType,
+      traceId,
+      spanId,
+      timestamp,
+      groupId,
+      sessionStartTime,
+      sessionEndTime,
+    ],
     queryFn: async () => {
       switch (dataType) {
         case "EXCEPTIONS":
-          return fetchExceptionDetails(traceId, timestamp, groupId);
+          return fetchExceptionDetails(
+            traceId,
+            timestamp,
+            groupId,
+            sessionStartTime,
+            sessionEndTime,
+          );
         case "LOGS":
-          return fetchLogDetails(traceId, spanId, timestamp);
+          return fetchLogDetails(
+            traceId,
+            spanId,
+            timestamp,
+            sessionStartTime,
+            sessionEndTime,
+          );
         case "TRACES":
-          return fetchSpanDetails(traceId, spanId, timestamp);
+          return fetchSpanDetails(
+            traceId,
+            spanId,
+            timestamp,
+            sessionStartTime,
+            sessionEndTime,
+          );
         default: {
           const unreachable: never = dataType;
           throw new Error(`Unhandled dataType: ${unreachable}`);
