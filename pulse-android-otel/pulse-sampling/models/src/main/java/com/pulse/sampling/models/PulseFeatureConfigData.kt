@@ -15,19 +15,19 @@ public sealed class PulseFeatureConfigData {
      */
     @Keep
     @Serializable
-    public data class SessionReplay(
-        @SerialName("featureName") val featureName: String? = null,
-        @SerialName("textAndInputPrivacy") val textAndInputPrivacy: String? = null,
-        @SerialName("imagePrivacy") val imagePrivacy: String? = null,
-        @SerialName("throttleDelayMs") val throttleDelayMs: Long? = null,
-        @SerialName("screenshotScale") val screenshotScale: Float? = null,
-        @SerialName("screenshotQuality") val screenshotQuality: Int? = null,
-        @SerialName("flushIntervalSeconds") val flushIntervalSeconds: Int? = null,
+    public class SessionReplay(
+        @SerialName("featureName") public val featureName: String? = null,
+        @SerialName("textAndInputPrivacy") public val textAndInputPrivacy: String? = null,
+        @SerialName("imagePrivacy") public val imagePrivacy: String? = null,
+        @SerialName("throttleDelayMs") public val throttleDelayMs: Long? = null,
+        @SerialName("screenshotScale") public val screenshotScale: Float? = null,
+        @SerialName("screenshotQuality") public val screenshotQuality: Int? = null,
+        @SerialName("flushIntervalSeconds") public val flushIntervalSeconds: Int? = null,
         /** Max replay batch files per backend upload; also queue size that triggers a flush. */
-        @SerialName("flushAt") val flushAt: Int? = null,
+        @SerialName("flushAt") public val flushAt: Int? = null,
         /** Max replay batch files retained on disk (oldest evicted when exceeded). */
-        @SerialName("maxBatchSize") val maxBatchSize: Int? = null,
-        @SerialName("replayApiBaseUrl") val replayApiBaseUrl: String? = null,
+        @SerialName("maxBatchSize") public val maxBatchSize: Int? = null,
+        @SerialName("replayApiBaseUrl") public val replayApiBaseUrl: String? = null,
     ) : PulseFeatureConfigData()
 
     /**

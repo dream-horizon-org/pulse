@@ -336,7 +336,7 @@ class ClickhouseProjectServiceTest {
     }
 
     @Test
-    void shouldCreateUserAndPoliciesForAllTables() {
+    void shouldCreateUserSingleDbWideRowPolicyAndGrant() {
       ConnectionPool mockPool = mock(ConnectionPool.class);
       Connection mockConnection = mock(Connection.class);
       Statement mockStatement = mock(Statement.class);
@@ -348,8 +348,8 @@ class ClickhouseProjectServiceTest {
           .test()
           .assertComplete();
 
-      // 1 CREATE USER + 5 ROW POLICIES (4 otel + root_cause_cache) + 2 GRANTS (SELECT + INSERT)
-      verify(mockConnection, times(8)).createStatement(anyString());
+      // 1 CREATE USER + 1 CREATE ROW POLICY (otel.*) + 1 GRANT SELECT + 1 GRANT INSERT = 4 SQL statements
+      verify(mockConnection, times(4)).createStatement(anyString());
     }
   }
 
@@ -389,7 +389,7 @@ class ClickhouseProjectServiceTest {
     }
 
     @Test
-    void shouldDropAllPoliciesAndUser() {
+    void shouldDropDbWidePolicyAndUser() {
       ConnectionPool mockPool = mock(ConnectionPool.class);
       Connection mockConnection = mock(Connection.class);
       Statement mockStatement = mock(Statement.class);
@@ -405,8 +405,8 @@ class ClickhouseProjectServiceTest {
           .test()
           .assertComplete();
 
-      // 5 DROP ROW POLICY (4 otel + root_cause_cache) + 1 DROP USER = 6 SQL statements
-      verify(mockConnection, times(6)).createStatement(anyString());
+      // 1 DROP ROW POLICY (otel.*) + 1 DROP ROW POLICY (legacy root_cause_cache) + 1 DROP USER = 3 SQL statements
+      verify(mockConnection, times(3)).createStatement(anyString());
     }
   }
 

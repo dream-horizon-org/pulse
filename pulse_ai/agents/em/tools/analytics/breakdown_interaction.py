@@ -43,7 +43,18 @@ async def breakdown_interaction(
         time_range: One of: """ + TIME_RANGE_DOC + """
         start_time: ISO 8601 start (only when time_range="custom")
         end_time: ISO 8601 end (only when time_range="custom")
-        filters: Optional dimension filters as JSON string to narrow within another dimension, e.g. '{"platform": "Android"}' when dimension is "device"
+        filters: Optional dimension filters as a JSON string to narrow within another dimension.
+            Valid keys:
+            "platform"    → e.g. '{"platform": "Android"}' or '{"platform": "iOS"}'
+            "app_version" → e.g. '{"app_version": "5.29.1"}' or '{"app_version": ["5.29.0", "5.29.1"]}'
+            "device"      → e.g. '{"device": "Samsung Galaxy S21"}'
+            "os_version"  → e.g. '{"os_version": "14.0"}'
+            "network"     → e.g. '{"network": "WiFi"}' or '{"network": "4G"}'
+            "region"      → currently state names e.g. '"region": "Maharashtra"' or '"region": "Karnataka"';
+                            in future may also accept country names e.g. '"region": "India"' or '"region": "Canada"'
+            Multiple:       '{"platform": "Android", "app_version": "5.29.1"}'
+            Example: dimension="device" + filters='{"platform":"Android"}' → Android devices only.
+            Values can be a single string or a list of strings for multi-value filtering.
     """
     # Parse filters JSON string → dict
     parsed_filters = None

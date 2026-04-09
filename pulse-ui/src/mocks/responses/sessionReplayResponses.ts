@@ -401,7 +401,7 @@ export function generateSessionDetailApiResponse(
     osVersion: "14",
     appVersion: "2.3.1",
     geography: "United States, San Francisco",
-    quality: 6.5,
+    quality: 0.65,
     journey: ["com.fc.home", "com.fc.home.Product", "com.fc.home.Cart"],
     interactions: [
       {

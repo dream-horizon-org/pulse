@@ -23,6 +23,7 @@ export type EventType =
 
 export interface UnifiedEvent {
   timestamp: number;
+  detailTimestamp?: string;
   type: EventType;
   description: string;
   color: string;
@@ -107,6 +108,7 @@ export function createUnifiedEvents(
 
     events.push({
       timestamp: event.timestamp,
+      detailTimestamp: event.detailTimestamp,
       type,
       description: `${category.label}: ${content}: ${status}`,
       color: category.color,

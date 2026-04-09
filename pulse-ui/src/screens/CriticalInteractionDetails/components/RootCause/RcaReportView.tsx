@@ -172,6 +172,8 @@ const RcaStructuredReportV1View = ({
                   const rank = segment.rank ?? index + 1;
                   const impactText = segment.impact?.trim() ?? "";
                   const hasImpact = impactText !== "";
+                  const insightsText = segment.insights?.trim() ?? "";
+                  const hasInsights = insightsText !== "";
                   const metrics = segment.metrics ?? [];
                   return (
                     <Card
@@ -282,6 +284,16 @@ const RcaStructuredReportV1View = ({
                           </Text>
                           <Text size="sm" lh={1.6}>
                             {impactText}
+                          </Text>
+                        </div>
+                      )}
+                      {hasInsights && (
+                        <div className={rcaClasses.insightsCallout}>
+                          <Text size="xs" fw={600} c="dimmed" mb={6}>
+                            Insights
+                          </Text>
+                          <Text size="sm" lh={1.6}>
+                            {insightsText}
                           </Text>
                         </div>
                       )}

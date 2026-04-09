@@ -1,5 +1,4 @@
-import { Table, Text, Badge, Group, ActionIcon, Tooltip } from "@mantine/core";
-import { IconVideo, IconExternalLink } from "@tabler/icons-react";
+import { Table, Text, Badge, Group, Tooltip } from "@mantine/core";
 import type { SessionItem } from "../../../services/sessionReplay";
 import { SESSION_LIST_LABELS } from "../constants/sessionList.constants";
 import {
@@ -10,25 +9,41 @@ import {
   getIssueBadgeColor,
   formatImpactedScreensPreview,
   formatImpactedScreensTooltip,
+  formatImpactedInteractionsCellTooltip,
 } from "../utils/sessionListUtils";
 import classes from "../SessionReplaySessions.module.css";
 
 export interface SessionTableRowProps {
   session: SessionItem;
-  onWatch: (sessionId: string) => void;
-  onOpenInNewTab: (sessionId: string) => void;
+  onSessionClick: (sessionId: string) => void;
 }
 
 export function SessionTableRow({
   session,
-  onWatch,
-  onOpenInNewTab,
+  onSessionClick,
 }: SessionTableRowProps) {
   const hasIssues = session.issues.length > 0;
-  const quality = session.qualityScore ?? 0;
+  const hasQuality =
+    session.qualityScore != null && Number.isFinite(session.qualityScore);
+  const interactionNames =
+    session.impactedInteractionNames?.filter(Boolean) ?? [];
+  const hasInteractionPills = interactionNames.length > 0;
+  const pathPreview = formatImpactedScreensPreview(session.impactedScreens);
+  const hasPathSummary = pathPreview !== SESSION_LIST_LABELS.noImpactedScreens;
 
   return (
-    <Table.Tr className={classes.tableRow}>
+    <Table.Tr
+      className={classes.tableRow}
+      tabIndex={0}
+      role="link"
+      onClick={() => onSessionClick(session.sessionId)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSessionClick(session.sessionId);
+        }
+      }}
+    >
       <Table.Td>
         <Text size="sm">{formatTimestamp(session.startTime)}</Text>
       </Table.Td>
@@ -41,11 +56,29 @@ export function SessionTableRow({
         </Text>
       </Table.Td>
       <Table.Td>
-        <Text size="sm" fw={600} c={getQualityColor(quality)}>
-          {session.qualityScore != null
-            ? session.qualityScore.toFixed(2)
+        <Text
+          size="sm"
+          fw={hasQuality ? 600 : undefined}
+          className={!hasQuality ? classes.qualityNa : undefined}
+          c={
+            hasQuality
+              ? getQualityColor(session.qualityScore as number)
+              : undefined
+          }
+        >
+          {hasQuality
+            ? (session.qualityScore as number).toFixed(2)
             : SESSION_LIST_LABELS.noQuality}
         </Text>
+      </Table.Td>
+      <Table.Td>
+        <Badge
+          size="sm"
+          variant="light"
+          color={getPlatformColor(session.platform)}
+        >
+          {session.platform}
+        </Badge>
       </Table.Td>
       <Table.Td>
         {!hasIssues ? (
@@ -70,59 +103,51 @@ export function SessionTableRow({
         )}
       </Table.Td>
       <Table.Td>
-        <Badge
-          size="sm"
-          variant="light"
-          color={getPlatformColor(session.platform)}
-        >
-          {session.platform}
-        </Badge>
-      </Table.Td>
-      <Table.Td>
-        <Tooltip
-          label={formatImpactedScreensTooltip(session.impactedScreens)}
-          multiline
-          maw={300}
-        >
-          <Text
-            size="sm"
-            c={
-              formatImpactedScreensPreview(session.impactedScreens) === "—"
-                ? "dimmed"
-                : undefined
-            }
-            className={classes.journey}
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
+        {hasInteractionPills ? (
+          <Tooltip
+            label={formatImpactedInteractionsCellTooltip(
+              interactionNames,
+              session.impactedScreens,
+            )}
+            multiline
+            maw={320}
           >
-            {formatImpactedScreensPreview(session.impactedScreens)}
-          </Text>
-        </Tooltip>
-      </Table.Td>
-      <Table.Td>
-        <Group gap={4}>
-          <Tooltip label={SESSION_LIST_LABELS.watchSession}>
-            <ActionIcon
-              variant="light"
-              color="teal"
-              onClick={() => onWatch(session.sessionId)}
-            >
-              <IconVideo size={16} />
-            </ActionIcon>
+            <Group gap={6} style={{ flexWrap: "wrap" }}>
+              {interactionNames.map((name, idx) => (
+                <Badge
+                  key={`${session.sessionId}-${name}-${idx}`}
+                  size="sm"
+                  variant="light"
+                  color="teal"
+                  tt="uppercase"
+                  fw={700}
+                  styles={{ label: { fontWeight: 700 } }}
+                >
+                  {name}
+                </Badge>
+              ))}
+            </Group>
           </Tooltip>
-          <Tooltip label={SESSION_LIST_LABELS.openInNewTab}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={() => onOpenInNewTab(session.sessionId)}
+        ) : (
+          <Tooltip
+            label={formatImpactedScreensTooltip(session.impactedScreens)}
+            multiline
+            maw={300}
+          >
+            <Text
+              size="sm"
+              c={!hasPathSummary ? "dimmed" : undefined}
+              className={classes.journey}
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
             >
-              <IconExternalLink size={16} />
-            </ActionIcon>
+              {pathPreview}
+            </Text>
           </Tooltip>
-        </Group>
+        )}
       </Table.Td>
     </Table.Tr>
   );

@@ -101,7 +101,7 @@ class InteractionControllerTest {
         RootCauseResult serviceResult =
             RootCauseResult.builder().mode(RootCauseAnalysisMode.FLAT).build();
         when(rootCauseService.getRootCause(
-                "test-project", "my-interaction", expectedDate, any(Instant.class)))
+                eq("test-project"), eq("my-interaction"), eq(expectedDate), any(Instant.class)))
             .thenReturn(Single.just(serviceResult));
 
         CompletionStage<Response<RootCauseRestResponse>> result =
@@ -114,7 +114,7 @@ class InteractionControllerTest {
             assertNotNull(resp.getData());
             assertEquals(RootCauseAnalysisMode.FLAT, resp.getData().getMode());
             verify(rootCauseService)
-                .getRootCause("test-project", "my-interaction", expectedDate, any(Instant.class));
+                .getRootCause(eq("test-project"), eq("my-interaction"), eq(expectedDate), any(Instant.class));
           });
           testContext.completeNow();
         });

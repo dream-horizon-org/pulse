@@ -133,8 +133,7 @@ public final class SessionListingQueryBuilder {
         String idList = buildIdList(sessionIds);
 
         return JOURNEY_SELECT + '\n'
-                + "WHERE ProjectId = " + quote(projectId) + '\n'
-                + "  AND SessionId IN (" + idList + ")\n"
+                + "WHERE SessionId IN (" + idList + ")\n"
                 + "  AND Timestamp >= " + toDateTime64(startTime) + '\n'
                 + "GROUP BY SessionId";
     }
@@ -153,8 +152,7 @@ public final class SessionListingQueryBuilder {
         String idList = buildIdList(sessionIds);
 
         return IMPACTED_SCREENS_SELECT + '\n'
-                + "WHERE ProjectId = " + quote(projectId) + '\n'
-                + "  AND SessionId IN (" + idList + ")\n"
+                + "WHERE SessionId IN (" + idList + ")\n"
                 + "  AND Timestamp >= " + toDateTime64(startTime) + '\n'
                 + "  AND Timestamp <= " + toDateTime64(endTime) + '\n'
                 + "GROUP BY SessionId";
@@ -174,8 +172,7 @@ public final class SessionListingQueryBuilder {
         String idList = buildIdList(sessionIds);
 
         return IMPACTED_INTERACTIONS_SELECT + '\n'
-                + "WHERE ProjectId = " + quote(projectId) + '\n'
-                + "  AND SessionId IN (" + idList + ")\n"
+                + "WHERE SessionId IN (" + idList + ")\n"
                 + "  AND Timestamp >= " + toDateTime64(startTime) + '\n'
                 + "  AND Timestamp <= " + toDateTime64(endTime) + '\n'
                 + "  AND PulseType = 'interaction'\n"
@@ -187,8 +184,7 @@ public final class SessionListingQueryBuilder {
     // -------------------------------------------------------------------------
 
     private void buildWhereClause(StringBuilder sql) {
-        sql.append("WHERE ProjectId = ").append(quote(projectId)).append('\n');
-        sql.append("  AND startTime >= ").append(toDateTime64(startTime)).append('\n');
+        sql.append("WHERE startTime >= ").append(toDateTime64(startTime)).append('\n');
         sql.append("  AND startTime <= ").append(toDateTime64(endTime)).append('\n');
 
         if (search != null && !search.isBlank()) {
@@ -217,8 +213,7 @@ public final class SessionListingQueryBuilder {
                 .toList();
 
         sql.append("    ").append(SEMI_JOIN_SELECT).append('\n');
-        sql.append("    WHERE ProjectId = ").append(quote(projectId)).append('\n');
-        sql.append("    AND Timestamp >= ").append(toDateTime64(startTime)).append('\n');
+        sql.append("    WHERE Timestamp >= ").append(toDateTime64(startTime)).append('\n');
         sql.append("    AND Timestamp <= ").append(toDateTime64(endTime)).append('\n');
         sql.append("    AND SessionId != ''\n");
 
