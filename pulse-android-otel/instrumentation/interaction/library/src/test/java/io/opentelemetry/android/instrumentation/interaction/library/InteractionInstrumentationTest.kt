@@ -1,7 +1,9 @@
 package io.opentelemetry.android.instrumentation.interaction.library
 
+import com.pulse.android.core.InteractionErrorType
 import com.pulse.android.core.InteractionFakeUtils
 import com.pulse.android.core.InteractionLocalEventFakeUtils
+import com.pulse.android.core.errorMessage
 import com.pulse.android.remote.InteractionRemoteFakeUtils
 import com.pulse.android.remote.models.InteractionConfig
 import io.opentelemetry.api.common.AttributeKey
@@ -135,6 +137,9 @@ class InteractionInstrumentationTest {
                 config = config,
                 events = events,
                 isSuccess = false,
+                errorType = InteractionErrorType.SEQUENCE_VIOLATION,
+                sequenceViolationExpectedEventName = "event2",
+                sequenceViolationReceivedEventName = "wrong",
             )
         val status = InteractionFakeUtils.createFakeOngoingMatch(interaction, config)
 
@@ -142,6 +147,9 @@ class InteractionInstrumentationTest {
 
         val span = spanExporter.finishedSpanItems.single()
         assertThat(span.status.statusCode).isEqualTo(StatusCode.ERROR)
+        assertThat(span.status.description).isEqualTo(interaction.errorMessage)
+        assertThat(span.status.description).contains("event2")
+        assertThat(span.status.description).contains("wrong")
     }
 
     @Test

@@ -15,14 +15,26 @@ public object InteractionFakeUtils {
         events: List<InteractionLocalEvent>,
         markers: List<InteractionLocalEvent> = emptyList(),
         isSuccess: Boolean = true,
-    ): Interaction =
-        InteractionUtil.buildPulseInteraction(
-            interactionId = interactionId,
-            interactionConfig = config,
-            events = events,
-            localMarkers = markers,
-            isSuccessInteraction = isSuccess,
+        errorType: InteractionErrorType? = null,
+        sequenceViolationExpectedEventName: String? = null,
+        sequenceViolationReceivedEventName: String? = null,
+        timeoutExpectedEventName: String? = null,
+    ): Interaction {
+        require(isSuccess == (errorType == null)) {
+            "createFakeInteraction: use isSuccess true with errorType null, or isSuccess false with a non-null errorType"
+        }
+        return InteractionUtil.buildPulseInteraction(
+            interactionId,
+            config,
+            events,
+            markers,
+            isSuccess,
+            errorType,
+            sequenceViolationExpectedEventName,
+            sequenceViolationReceivedEventName,
+            timeoutExpectedEventName,
         )
+    }
 
     public fun createFakeOngoingMatch(
         interaction: Interaction,
