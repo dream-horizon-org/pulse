@@ -8,6 +8,8 @@ public final class com/pulse/android/core/InteractionConstant {
 	public static final field APDEX_SCORE Ljava/lang/String;
 	public static final field CONFIG_ID Ljava/lang/String;
 	public static final field CONFIG_NAME Ljava/lang/String;
+	public static final field ERROR_MESSAGE Ljava/lang/String;
+	public static final field ERROR_TYPE Ljava/lang/String;
 	public static final field ID Ljava/lang/String;
 	public static final field INSTANCE Lcom/pulse/android/core/InteractionConstant;
 	public static final field IS_ERROR Ljava/lang/String;
@@ -17,6 +19,19 @@ public final class com/pulse/android/core/InteractionConstant {
 	public static final field NAME Ljava/lang/String;
 	public static final field TIME_TO_COMPLETE_IN_NANO Ljava/lang/String;
 	public static final field USER_CATEGORY Ljava/lang/String;
+}
+
+public final class com/pulse/android/core/InteractionErrorType : java/lang/Enum {
+	public static final field Companion Lcom/pulse/android/core/InteractionErrorType$Companion;
+	public static final field SEQUENCE_VIOLATION Lcom/pulse/android/core/InteractionErrorType;
+	public static final field TIMEOUT Lcom/pulse/android/core/InteractionErrorType;
+	public final fun getCode ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/android/core/InteractionErrorType;
+	public static fun values ()[Lcom/pulse/android/core/InteractionErrorType;
+}
+
+public final class com/pulse/android/core/InteractionErrorType$Companion {
+	public final fun fromCode (Ljava/lang/String;)Lcom/pulse/android/core/InteractionErrorType;
 }
 
 public final class com/pulse/android/core/InteractionEventsTrackerKt {
@@ -65,6 +80,8 @@ public final class com/pulse/android/core/InteractionRunningStatus$OngoingMatch 
 }
 
 public final class com/pulse/android/core/InteractionUtilKt {
+	public static final fun getErrorMessage (Lcom/pulse/android/core/Interaction;)Ljava/lang/String;
+	public static final fun getErrorTypeCode (Lcom/pulse/android/core/Interaction;)Ljava/lang/String;
 	public static final fun getEvents (Lcom/pulse/android/core/Interaction;)Ljava/util/List;
 	public static final fun getMarkerEvents (Lcom/pulse/android/core/Interaction;)Ljava/util/List;
 	public static final fun getTimeSpanInNanos (Lcom/pulse/android/core/Interaction;Lcom/pulse/android/core/InteractionRunningStatus$OngoingMatch;)Lkotlin/Pair;

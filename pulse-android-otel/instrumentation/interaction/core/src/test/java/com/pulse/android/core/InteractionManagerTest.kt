@@ -1512,9 +1512,11 @@ class InteractionManagerTest {
                 val (_, timeoutInteraction) =
                     assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
                 assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
-                Assertions.assertThat(timeoutInteraction.errorTypeCode)
+                Assertions
+                    .assertThat(timeoutInteraction.errorTypeCode)
                     .isEqualTo(InteractionErrorType.TIMEOUT.code)
-                Assertions.assertThat(timeoutInteraction.errorMessage)
+                Assertions
+                    .assertThat(timeoutInteraction.errorMessage)
                     .isEqualTo("Timed out while waiting for event \"event2\".")
             }
 
@@ -1706,7 +1708,8 @@ class InteractionManagerTest {
                     )
                 // Wrong event is not a repeat of firstEvent: emitted interaction carries only matched prefix [event1].
                 assertFinalInteractionTimeRange(time1, time1)
-                Assertions.assertThat(failedInteraction.errorTypeCode)
+                Assertions
+                    .assertThat(failedInteraction.errorTypeCode)
                     .isEqualTo(InteractionErrorType.SEQUENCE_VIOLATION.code)
                 Assertions.assertThat(interactionId2).isEqualTo(interactionId)
 
@@ -1742,7 +1745,8 @@ class InteractionManagerTest {
 
                 val (failedInteractionId, failedInteraction) = assertSingleFinalInteraction(isSuccess = false)
                 assertFinalInteractionTimeRange(time1, time1)
-                Assertions.assertThat(failedInteraction.errorTypeCode)
+                Assertions
+                    .assertThat(failedInteraction.errorTypeCode)
                     .isEqualTo(InteractionErrorType.SEQUENCE_VIOLATION.code)
 
                 addEventWithNanoTimeFromBoot("event1")

@@ -8,7 +8,6 @@ public enum class InteractionErrorType(
     ;
 
     public companion object {
-        public fun fromCode(value: String?): InteractionErrorType? =
-            value?.let { v -> values().find { it.code == v } }
+        public fun fromCode(value: String?): InteractionErrorType? = value?.let { v -> values().find { it.code == v } }
     }
 }
