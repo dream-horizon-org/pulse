@@ -14,10 +14,12 @@ public final class RootCauseCacheQueries {
   /**
    * SELECT list and source for cache reads; WHERE clause is appended by
    * {@link #buildSelectByKeyQuery(String, String, String)}.
+   * Note: No FINAL - query relies on ReplacingMergeTree background merges.
+   * If duplicates exist, the DAO returns the row with the latest cached_at.
    */
-  public static final String SELECT_FROM_ROOT_CAUSE_CACHE_FINAL =
+  public static final String SELECT_FROM_ROOT_CAUSE_CACHE =
       "SELECT ProjectId, interaction_name, date, window_end_utc, mode, baseline, segments, cached_at"
-          + " FROM otel.root_cause_cache FINAL";
+          + " FROM otel.root_cause_cache";
 
   /**
    * INSERT target columns; VALUES tuple is built by
@@ -29,23 +31,22 @@ public final class RootCauseCacheQueries {
 
   /**
    * Builds a SELECT for one cache key (escaped string literals for ClickHouse HTTP query).
+   * Relies on ReplacingMergeTree background merges for deduplication.
+   * If multiple rows exist, caller should pick the one with max cached_at.
    *
    * @param projectId project id
    * @param interactionName interaction name
    * @param dateIso cache date as {@code yyyy-MM-dd}
-   * @param windowEndExclusiveUtc exclusive window end (UTC)
    * @return full SQL
    */
   public static String buildSelectByKeyQuery(
       final String projectId,
       final String interactionName,
-      final String dateIso,
-      final Instant windowEndExclusiveUtc) {
-    return SELECT_FROM_ROOT_CAUSE_CACHE_FINAL
+      final String dateIso) {
+    return SELECT_FROM_ROOT_CAUSE_CACHE
         + " WHERE ProjectId = '" + escape(projectId) + "'"
         + " AND interaction_name = '" + escape(interactionName) + "'"
-        + " AND date = '" + escape(dateIso) + "'"
-        + " AND window_end_utc = " + toDateTime64Literal(windowEndExclusiveUtc);
+        + " AND date = '" + escape(dateIso) + "'";
   }
 
   /**
