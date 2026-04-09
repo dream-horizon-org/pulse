@@ -33,6 +33,7 @@ import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.equalTo
 import io.opentelemetry.sdk.testing.junit4.OpenTelemetryRule
+import io.opentelemetry.sdk.testing.time.TestClock
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_X
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
@@ -43,6 +44,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.runner.RunWith
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 @ExtendWith(MockKExtension::class)
@@ -198,7 +200,7 @@ class ViewClickInstrumentationTest {
 
     @Test
     fun rage_click_emits_single_rage_event_and_suppresses_individuals() {
-        val fakeClock = FakeClock()
+        val testClock = TestClock.create()
         val generator =
             ViewClickEventGenerator(
                 eventLogger =
@@ -206,7 +208,7 @@ class ViewClickInstrumentationTest {
                         .loggerBuilder("test")
                         .build(),
                 isContextEnrichmentEnabled = false,
-                clock = fakeClock::now,
+                clock = testClock,
             )
 
         every { window.callback } returns callback
@@ -220,7 +222,7 @@ class ViewClickInstrumentationTest {
 
         // 3 taps within 500 ms at the same spot → rage threshold crossed, window still open.
         repeat(3) {
-            fakeClock.advanceMs(50)
+            testClock.advance(50, TimeUnit.MILLISECONDS)
             dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         }
         // Rage is pending — window hasn't closed yet, so nothing emitted.
@@ -228,7 +230,7 @@ class ViewClickInstrumentationTest {
 
         // Taps 4-6 within suppression window → suppressed, count accumulates to 6.
         repeat(3) {
-            fakeClock.advanceMs(50)
+            testClock.advance(50, TimeUnit.MILLISECONDS)
             dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         }
         assertThat(openTelemetryRule.logRecords).hasSize(0)
@@ -249,7 +251,7 @@ class ViewClickInstrumentationTest {
 
     @Test
     fun rage_suppression_resets_after_window_expires() {
-        val fakeClock = FakeClock()
+        val testClock = TestClock.create()
         val generator =
             ViewClickEventGenerator(
                 eventLogger =
@@ -257,7 +259,7 @@ class ViewClickInstrumentationTest {
                         .loggerBuilder("test")
                         .build(),
                 isContextEnrichmentEnabled = false,
-                clock = fakeClock::now,
+                clock = testClock,
             )
 
         every { window.callback } returns callback
@@ -271,13 +273,13 @@ class ViewClickInstrumentationTest {
 
         // Trigger rage (pending, not emitted yet).
         repeat(3) {
-            fakeClock.advanceMs(50)
+            testClock.advance(50, TimeUnit.MILLISECONDS)
             dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         }
         assertThat(openTelemetryRule.logRecords).hasSize(0)
 
         // Advance past suppression window, then tap again → rage emitted, new tap buffered.
-        fakeClock.advanceMs(2100)
+        testClock.advance(2100, TimeUnit.MILLISECONDS)
         dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         assertThat(openTelemetryRule.logRecords).hasSize(1) // rage event emitted on window expiry
         generator.stopTracking()
@@ -390,17 +392,6 @@ class ViewClickInstrumentationTest {
         applyOthers.invoke(mockView)
 
         return mockView
-    }
-
-    /** Controllable monotonic clock for deterministic buffer timing tests. */
-    private class FakeClock(
-        private var timeMs: Long = 0L,
-    ) {
-        fun now(): Long = timeMs
-
-        fun advanceMs(ms: Long) {
-            timeMs += ms
-        }
     }
 
     // endregion

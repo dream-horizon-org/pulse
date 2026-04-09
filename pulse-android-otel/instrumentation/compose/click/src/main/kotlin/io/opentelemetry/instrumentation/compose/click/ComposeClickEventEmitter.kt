@@ -5,7 +5,6 @@
 
 package io.opentelemetry.instrumentation.compose.click
 
-import android.os.SystemClock
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseAttributes.ClickTypeValues
 import com.pulse.semconv.PulseDeviceAttributes
@@ -16,6 +15,7 @@ import io.opentelemetry.android.instrumentation.click.RageEvent
 import io.opentelemetry.android.instrumentation.click.common.PulseWidgetClickLogHelper
 import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
+import io.opentelemetry.sdk.common.Clock
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_X
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
@@ -33,7 +33,7 @@ internal class ComposeClickEventEmitter(
     private val eventLogger: Logger,
     private val densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
-    private val clock: () -> Long = SystemClock::elapsedRealtime,
+    private val clock: Clock = Clock.getDefault(),
 ) {
     // Buffer owns onRage and onEmit so the delayed-emission Handler Runnable can fire without a call-site callback.
     private val clickEventBuffer =
@@ -44,7 +44,7 @@ internal class ComposeClickEventEmitter(
             onEmit = ::emitIndividualClick,
         )
 
-    fun currentTimeMs(): Long = clock()
+    fun currentTimeMs(): Long = clock.nanoTime() / 1_000_000
 
     /** Records a tap and emits the appropriate event(s). */
     fun process(pending: PendingClick) {
@@ -63,18 +63,18 @@ internal class ComposeClickEventEmitter(
                 .logRecordBuilder()
                 .setTimestamp(click.tapEpochMs, TimeUnit.MILLISECONDS)
                 .setEventName(VIEW_CLICK_EVENT_NAME)
-                .setAttribute(APP_SCREEN_COORDINATE_X, click.xInPx.toLong())
-                .setAttribute(APP_SCREEN_COORDINATE_Y, click.yInPx.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_X, click.xPx.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_Y, click.yPx.toLong())
                 .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
-                .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.xInPx, click.yInPx)
+                .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.xPx, click.yPx)
         click.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
         click.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
         click.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
         record.emit()
         PulseWidgetClickLogHelper.logClick(
             clickType = clickType,
-            xInPx = click.xInPx,
-            yInPx = click.yInPx,
+            xPx = click.xPx,
+            yPx = click.yPx,
             widgetName = click.widgetName,
             widgetId = click.widgetId,
             clickContext = click.clickContext,
@@ -88,24 +88,23 @@ internal class ComposeClickEventEmitter(
                 .logRecordBuilder()
                 .setTimestamp(rage.tapEpochMs, TimeUnit.MILLISECONDS)
                 .setEventName(VIEW_CLICK_EVENT_NAME)
-                .setAttribute(APP_SCREEN_COORDINATE_X, rage.xInPx.toLong())
-                .setAttribute(APP_SCREEN_COORDINATE_Y, rage.yInPx.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_X, rage.xPx.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_Y, rage.yPx.toLong())
                 .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
                 .setAttribute(PulseAttributes.CLICK_IS_RAGE, true)
                 .setAttribute(PulseAttributes.CLICK_RAGE_COUNT, rage.count.toLong())
-                .applyViewportAttrs(rage.viewportWidthPx, rage.viewportHeightPx, rage.xInPx, rage.yInPx)
+                .applyViewportAttrs(rage.viewportWidthPx, rage.viewportHeightPx, rage.xPx, rage.yPx)
         rage.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
         rage.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
         rage.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
         record.emit()
         PulseWidgetClickLogHelper.logClick(
             clickType = clickType,
-            xInPx = rage.xInPx,
-            yInPx = rage.yInPx,
+            xPx = rage.xPx,
+            yPx = rage.yPx,
             widgetName = rage.widgetName,
             widgetId = rage.widgetId,
             clickContext = rage.clickContext,
-            isRage = true,
             rageCount = rage.count,
         )
     }
@@ -113,16 +112,16 @@ internal class ComposeClickEventEmitter(
     private fun LogRecordBuilder.applyViewportAttrs(
         vpWidthPx: Int,
         vpHeightPx: Int,
-        x: Float,
-        y: Float,
+        xPx: Float,
+        yPx: Float,
     ): LogRecordBuilder =
         apply {
             if (vpWidthPx > 0 && vpHeightPx > 0) {
                 val effectiveDensity = if (densityScale > 0f) densityScale else 1f
                 setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_WIDTH, (vpWidthPx / effectiveDensity).toLong())
                 setAttribute(PulseDeviceAttributes.DEVICE_SCREEN_HEIGHT, (vpHeightPx / effectiveDensity).toLong())
-                setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, x.toDouble() / vpWidthPx)
-                setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, y.toDouble() / vpHeightPx)
+                setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NX, xPx.toDouble() / vpWidthPx)
+                setAttribute(PulseAttributes.APP_SCREEN_COORDINATE_NY, yPx.toDouble() / vpHeightPx)
             }
         }
 }

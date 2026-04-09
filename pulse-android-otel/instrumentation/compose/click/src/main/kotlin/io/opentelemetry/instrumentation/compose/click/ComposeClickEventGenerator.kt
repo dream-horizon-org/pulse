@@ -7,7 +7,6 @@
 
 package io.opentelemetry.instrumentation.compose.click
 
-import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.Window
@@ -17,6 +16,7 @@ import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
 import io.opentelemetry.api.logs.Logger
+import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
 
 internal class ComposeClickEventGenerator(
@@ -26,9 +26,8 @@ internal class ComposeClickEventGenerator(
     private val composeTapTargetDetector: ComposeTapTargetDetector = ComposeTapTargetDetector(composeLayoutNodeUtil),
     densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
-    clock: () -> Long = SystemClock::elapsedRealtime,
+    clock: Clock = Clock.getDefault(),
 ) {
-    // All buffering, rage detection, and event emission is handled here.
     internal val clickEmitter = ComposeClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
 
     private var windowRef: WeakReference<Window>? = null
@@ -83,8 +82,8 @@ internal class ComposeClickEventGenerator(
                                 null
                             }
                         PendingClick(
-                            xInPx = windowX,
-                            yInPx = windowY,
+                            xPx = windowX,
+                            yPx = windowY,
                             timestampMs = clickEmitter.currentTimeMs(),
                             tapEpochMs = tapEpochMs,
                             hasTarget = true,
@@ -95,8 +94,8 @@ internal class ComposeClickEventGenerator(
                             viewportHeightPx = vpHeightPx,
                         )
                     } ?: PendingClick(
-                        xInPx = windowX,
-                        yInPx = windowY,
+                        xPx = windowX,
+                        yPx = windowY,
                         timestampMs = clickEmitter.currentTimeMs(),
                         tapEpochMs = tapEpochMs,
                         hasTarget = false,

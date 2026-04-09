@@ -23,6 +23,7 @@ import com.pulse.android.sdk.replay.models.PulseReplayRemovedNode
 import com.pulse.android.sdk.replay.models.PulseReplaySnapshotEvent
 import com.pulse.android.sdk.replay.models.PulseReplayStyle
 import com.pulse.android.sdk.replay.models.PulseReplayWireframe
+import com.pulse.utils.PulseMathUtils
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -44,7 +45,7 @@ internal object ReplayEventPayloadEncoder {
     private fun ReplayEventData.toPulseReplayWire(): PulseReplayEventData =
         when (this) {
             is ReplayMetaData -> {
-                val g = gcd(width, height)
+                val g = PulseMathUtils.gcd(width, height)
                 PulseReplayMetaData(
                     href = href,
                     width = width,
@@ -157,11 +158,6 @@ internal object ReplayEventPayloadEncoder {
             iconLeft = iconLeft,
             iconRight = iconRight,
         )
-
-    private fun gcd(
-        a: Int,
-        b: Int,
-    ): Int = if (b == 0) kotlin.math.abs(a) else gcd(b, a % b)
 
     private fun Map<String, Any>.toJsonObject(): JsonObject =
         buildJsonObject {

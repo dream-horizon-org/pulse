@@ -28,6 +28,7 @@ import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
+import com.pulse.utils.PulseMathUtils
 import com.pulse.utils.PulseOtelUtils
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
@@ -321,13 +322,13 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 ?.config
                 ?.let { it as? PulseFeatureConfigData.ClickInstrumentation }
                 ?.rage
-                ?.let { backendRage ->
+                ?.let { remoteRage ->
                     val local = ClickContextEnrichmentConfig.rageConfig
                     ClickContextEnrichmentConfig.rageConfig =
                         RageConfig(
-                            timeWindowMs = backendRage.timeWindowMs ?: local.timeWindowMs,
-                            threshold = backendRage.threshold ?: local.threshold,
-                            radiusDp = backendRage.radius ?: local.radiusDp,
+                            timeWindowMs = remoteRage.timeWindowMs ?: local.timeWindowMs,
+                            threshold = remoteRage.threshold ?: local.threshold,
+                            radiusDp = remoteRage.radiusDp ?: local.radiusDp,
                         )
                 }
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
@@ -387,7 +388,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         application.resources.displayMetrics.let { dm ->
                             val w = (dm.widthPixels / dm.density).toLong()
                             val h = (dm.heightPixels / dm.density).toLong()
-                            val g = gcd(w, h)
+                            val g = PulseMathUtils.gcd(w, h)
                             attributesBuilder.put(PulseDeviceAttributes.DEVICE_SCREEN_ASPECT_RATIO, "${w / g}:${h / g}")
                         }
                         if (globalAttributes != null) {
@@ -823,11 +824,6 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
-
-        private fun gcd(
-            a: Long,
-            b: Long,
-        ): Long = if (b == 0L) kotlin.math.abs(a) else gcd(b, a % b)
 
         internal fun extractProjectID(apiKey: String): String {
             val lastUnderscoreIndex = apiKey.lastIndexOf('_')

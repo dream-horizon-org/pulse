@@ -18,20 +18,19 @@ object PulseWidgetClickLogHelper {
 
     fun logClick(
         clickType: String,
-        xInPx: Float,
-        yInPx: Float,
+        xPx: Float,
+        yPx: Float,
         widgetName: String? = null,
         widgetId: String? = null,
         clickContext: String? = null,
-        isRage: Boolean = false,
-        rageCount: Int = 0,
+        rageCount: Int? = null,
         logTag: String = DEFAULT_LOG_TAG,
     ) {
         PulseOtelUtils.logDebug(logTag) {
             buildString {
                 append("click.type=$clickType")
-                if (isRage) append(" is_rage=true count=$rageCount")
-                append(" x=${xInPx.toLong()} y=${yInPx.toLong()}")
+                rageCount?.let { append(" is_rage=true count=$it") }
+                append(" x=${xPx.toLong()} y=${yPx.toLong()}")
                 widgetName?.let { append(" name=$it") }
                 widgetId?.let { append(" id=$it") }
                 clickContext?.let { append(" context=$it") }

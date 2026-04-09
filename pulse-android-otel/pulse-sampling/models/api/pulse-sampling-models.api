@@ -187,7 +187,7 @@ public final class com/pulse/sampling/models/PulseFeatureConfigData$ClickInstrum
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/Long;Ljava/lang/Integer;Ljava/lang/Float;)V
 	public synthetic fun <init> (Ljava/lang/Long;Ljava/lang/Integer;Ljava/lang/Float;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun getRadius ()Ljava/lang/Float;
+	public final fun getRadiusDp ()Ljava/lang/Float;
 	public final fun getThreshold ()Ljava/lang/Integer;
 	public final fun getTimeWindowMs ()Ljava/lang/Long;
 }

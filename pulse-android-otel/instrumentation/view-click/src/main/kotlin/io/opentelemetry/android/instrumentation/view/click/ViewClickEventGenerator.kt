@@ -5,7 +5,6 @@
 
 package io.opentelemetry.android.instrumentation.view.click
 
-import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -19,6 +18,7 @@ import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
 import io.opentelemetry.api.logs.Logger
+import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
 import java.util.LinkedList
 
@@ -27,9 +27,8 @@ internal class ViewClickEventGenerator(
     private val isContextEnrichmentEnabled: Boolean = true,
     densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
-    clock: () -> Long = SystemClock::elapsedRealtime,
+    clock: Clock = Clock.getDefault(),
 ) {
-    // All buffering, rage detection, and event emission is handled here.
     internal val clickEmitter = ViewClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
 
     private var windowRef: WeakReference<Window>? = null
@@ -72,8 +71,8 @@ internal class ViewClickEventGenerator(
 
                 clickEmitter.process(
                     PendingClick(
-                        xInPx = tapX,
-                        yInPx = tapY,
+                        xPx = tapX,
+                        yPx = tapY,
                         timestampMs = clickEmitter.currentTimeMs(),
                         tapEpochMs = System.currentTimeMillis(),
                         hasTarget = target != null,
@@ -100,12 +99,13 @@ internal class ViewClickEventGenerator(
         windowRef = null
     }
 
-    // region View traversal & label extraction
-
     private sealed class HitResult {
+        /**
+         * [view] == null means dead click (miss).
+         */
         class Hit(
             val view: View?,
-        ) : HitResult() // view == null means dead click (miss)
+        ) : HitResult()
 
         object DeferToCompose : HitResult()
     }
