@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
@@ -260,13 +261,51 @@ final class RcaReportProxyHandler {
                   enrichment.anchorDate(),
                   rootCauseConfig.getLookbackDays(),
                   enrichment.windowEndExclusive());
-          rcaRelatedHeatmapsMerger.mergeInto(root, enrichment.rootCause().getSegments(), window);
-          body = objectMapper.writeValueAsString(root);
+          CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
+          rootCauseService
+              .fetchDistinctScreensForInteraction(
+                  keyParts.projectId(), keyParts.interactionName(), window)
+              .subscribeOn(Schedulers.io())
+              .subscribe(
+                  screens -> {
+                    try {
+                      rcaRelatedHeatmapsMerger.mergeInto(
+                          root, enrichment.rootCause().getSegments(), window, screens);
+                      String merged = objectMapper.writeValueAsString(root);
+                      persistBufferedRcaReport(merged, result, keyParts)
+                          .whenComplete(
+                              (updated, err) -> {
+                                if (err != null) {
+                                  done.completeExceptionally(err);
+                                } else {
+                                  done.complete(updated);
+                                }
+                              });
+                    } catch (Exception e) {
+                      log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
+                      persistBufferedRcaReport(body, result, keyParts)
+                          .whenComplete(
+                              (updated, err) -> {
+                                if (err != null) {
+                                  done.completeExceptionally(err);
+                                } else {
+                                  done.complete(updated);
+                                }
+                              });
+                    }
+                  },
+                  err -> done.completeExceptionally(err));
+          return done;
         }
       } catch (Exception e) {
         log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
       }
     }
+    return persistBufferedRcaReport(body, result, keyParts);
+  }
+
+  private CompletionStage<AiProxyUpstreamResult> persistBufferedRcaReport(
+      String body, AiProxyUpstreamResult result, RcaCacheKeyParts keyParts) {
     String withMeta = applyCacheMetadata(body, true, Instant.now());
     String mediaType = result.getMediaType();
     AiProxyUpstreamResult updated =

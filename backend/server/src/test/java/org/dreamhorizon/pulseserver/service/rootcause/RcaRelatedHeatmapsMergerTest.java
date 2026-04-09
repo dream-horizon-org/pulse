@@ -35,7 +35,7 @@ class RcaRelatedHeatmapsMergerTest {
   class MergeInto {
 
     @Test
-    void shouldAddRelatedHeatmapsPerSegmentWithFiltersAndPlaceholderScreen() throws Exception {
+    void shouldAddRelatedHeatmapsPerSegmentWithFiltersAndScreens() throws Exception {
       ObjectNode root =
           (ObjectNode)
               objectMapper.readTree(
@@ -64,11 +64,11 @@ class RcaRelatedHeatmapsMergerTest {
                   .dimensions(Map.of("Platform", "Android", "AppVersion", "9.6.1"))
                   .build());
 
-      merger.mergeInto(root, rcaSegments, window7Day());
+      merger.mergeInto(root, rcaSegments, window7Day(), List.of("home", "checkout"));
 
       ObjectNode seg0 = (ObjectNode) root.path("report").path("structured").path("segments").get(0);
-      assertThat(seg0.path("related_heatmaps").path("screens").get(0).asText())
-          .isEqualTo("test_screen");
+      assertThat(seg0.path("related_heatmaps").path("screens").get(0).asText()).isEqualTo("home");
+      assertThat(seg0.path("related_heatmaps").path("screens").get(1).asText()).isEqualTo("checkout");
       ObjectNode hf0 = (ObjectNode) seg0.path("related_heatmaps").path("heatmap_filters");
       assertThat(hf0.path("platform").asText()).isEqualTo("Android");
       assertThat(hf0.path("app_version").asText()).isEqualTo("9.6.1");
@@ -87,7 +87,7 @@ class RcaRelatedHeatmapsMergerTest {
     void shouldNoOpWhenRcaSegmentsEmpty() throws Exception {
       String json = "{\"report\":{\"structured\":{\"segments\":[{\"x\":1}]}}}";
       ObjectNode root = (ObjectNode) objectMapper.readTree(json);
-      merger.mergeInto(root, List.of(), window7Day());
+      merger.mergeInto(root, List.of(), window7Day(), List.of("ignored"));
       assertThat(root.path("report").path("structured").path("segments").get(0).path("related_heatmaps").isMissingNode())
           .isTrue();
     }
@@ -98,7 +98,8 @@ class RcaRelatedHeatmapsMergerTest {
       merger.mergeInto(
           root,
           List.of(RootCauseSegment.builder().dimensions(Map.of("Platform", "iOS")).build()),
-          window7Day());
+          window7Day(),
+          List.of());
       assertThat(root.isEmpty()).isTrue();
     }
 
@@ -113,7 +114,7 @@ class RcaRelatedHeatmapsMergerTest {
               RootCauseSegment.builder().dimensions(Map.of("Platform", "A")).build(),
               RootCauseSegment.builder().dimensions(Map.of("Platform", "B")).build());
 
-      merger.mergeInto(root, rcaSegments, window7Day());
+      merger.mergeInto(root, rcaSegments, window7Day(), List.of("s1", "s2"));
 
       ObjectNode segments = (ObjectNode) root.path("report").path("structured").path("segments");
       assertThat(segments.get(0).path("related_heatmaps").path("heatmap_filters").path("platform").asText())
@@ -121,6 +122,21 @@ class RcaRelatedHeatmapsMergerTest {
       assertThat(segments.get(1).path("related_heatmaps").path("heatmap_filters").path("platform").asText())
           .isEqualTo("B");
       assertThat(segments.get(2).path("related_heatmaps").isMissingNode()).isTrue();
+    }
+
+    @Test
+    void shouldEmitEmptyScreensArrayWhenListEmpty() throws Exception {
+      ObjectNode root =
+          (ObjectNode)
+              objectMapper.readTree(
+                  "{\"report\":{\"structured\":{\"segments\":[{\"rank\":1}]}}}");
+      merger.mergeInto(
+          root,
+          List.of(RootCauseSegment.builder().dimensions(Map.of("Platform", "Android")).build()),
+          window7Day(),
+          List.of());
+      assertThat(root.path("report").path("structured").path("segments").get(0).path("related_heatmaps").path("screens").size())
+          .isEqualTo(0);
     }
   }
 }

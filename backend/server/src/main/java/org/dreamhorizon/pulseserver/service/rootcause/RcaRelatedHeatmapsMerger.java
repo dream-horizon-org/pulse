@@ -16,15 +16,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 
 /**
- * Injects {@code related_heatmaps} (placeholder screen + {@code heatmap_filters}) into each
+ * Injects {@code related_heatmaps} ({@code screens} + {@code heatmap_filters}) into each
  * {@code report.structured.segments[i]} using RCA segment dimensions and the RCA query window.
  */
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public final class RcaRelatedHeatmapsMerger {
-
-  private static final String PLACEHOLDER_SCREEN = "test_screen";
 
   private final ObjectMapper objectMapper;
 
@@ -37,10 +35,14 @@ public final class RcaRelatedHeatmapsMerger {
    * endExclusive}.
    */
   public void mergeInto(
-      ObjectNode responseRoot, List<RootCauseSegment> rcaSegments, RootCauseQueryBuilder.Window window) {
+      ObjectNode responseRoot,
+      List<RootCauseSegment> rcaSegments,
+      RootCauseQueryBuilder.Window window,
+      List<String> screens) {
     if (rcaSegments == null || rcaSegments.isEmpty()) {
       return;
     }
+    List<String> screenList = screens == null ? List.of() : screens;
     JsonNode structured = responseRoot.path("report").path("structured");
     if (!structured.isObject()) {
       log.debug("RCA related heatmaps: report.structured missing or not an object");
@@ -64,9 +66,11 @@ public final class RcaRelatedHeatmapsMerger {
       }
       ObjectNode segObj = (ObjectNode) seg;
       ObjectNode related = objectMapper.createObjectNode();
-      ArrayNode screens = objectMapper.createArrayNode();
-      screens.add(PLACEHOLDER_SCREEN);
-      related.set("screens", screens);
+      ArrayNode screensArray = objectMapper.createArrayNode();
+      for (String s : screenList) {
+        screensArray.add(s);
+      }
+      related.set("screens", screensArray);
       related.set(
           "heatmap_filters",
           buildHeatmapFilters(rcaSegments.get(i).getDimensions(), fromIso, toIso));

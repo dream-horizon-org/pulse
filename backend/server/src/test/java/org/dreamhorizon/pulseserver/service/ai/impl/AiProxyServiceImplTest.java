@@ -7,12 +7,12 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -83,6 +83,8 @@ class AiProxyServiceImplTest {
     lenient().when(webClient.deleteAbs(anyString())).thenReturn(httpRequest);
     lenient().when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
     lenient().when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
+    when(rootCauseService.fetchDistinctScreensForInteraction(anyString(), anyString(), any()))
+        .thenReturn(Single.just(List.of()));
   }
 
   private AiProxyServiceImpl fullPipelineService() {
@@ -317,6 +319,9 @@ class AiProxyServiceImplTest {
       when(rootCauseService.getRootCause(
               eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), any(Instant.class), eq(false)))
           .thenReturn(Single.just(rc));
+      when(rootCauseService.fetchDistinctScreensForInteraction(
+              eq(PROJECT_ID), eq("checkout"), any()))
+          .thenReturn(Single.just(List.of("home", "cart")));
       String upstreamJson =
           "{\"report\":{\"structured\":{\"segments\":[{\"rank\":1,\"title\":\"Platform Android\"}]}}}";
       HttpResponse<Buffer> upstreamResponse =
@@ -333,10 +338,11 @@ class AiProxyServiceImplTest {
       verify(rcaReportCacheDao, timeout(3000))
           .put(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), putBody.capture());
       JsonNode stored = objectMapper.readTree(putBody.getValue());
-      JsonNode rh =
+      JsonNode related =
           stored.path("report").path("structured").path("segments").get(0).path("related_heatmaps");
-      assertThat(rh.path("screens").get(0).asText()).isEqualTo("test_screen");
-      JsonNode hf = rh.path("heatmap_filters");
+      assertThat(related.path("screens").get(0).asText()).isEqualTo("home");
+      assertThat(related.path("screens").get(1).asText()).isEqualTo("cart");
+      JsonNode hf = related.path("heatmap_filters");
       assertThat(hf.path("platform").asText()).isEqualTo("Android");
       assertThat(hf.path("app_version").asText()).isEqualTo("2.0.0");
       assertThat(hf.path("from_date").asText()).matches("\\d{4}-\\d{2}-\\d{2}");
