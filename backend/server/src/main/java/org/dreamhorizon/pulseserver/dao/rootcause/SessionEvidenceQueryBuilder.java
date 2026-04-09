@@ -96,10 +96,10 @@ public final class SessionEvidenceQueryBuilder {
     query.append(")\n")
         .append("GROUP BY SessionId\n")
         .append("HAVING\n")
-        // Filter: Sessions where error_rate > segment's own error_rate OR avg_apdex < segment's own apdex
-        // Use OR so we catch sessions bad in either metric
-        .append("  (error_rate > ").append(errorRateThresholdDecimal).append(")\n")
-        .append("  OR (avg_apdex < ").append(apdexThreshold).append(")\n")
+        // Filter: Sessions where error_rate >= segment's own error_rate OR avg_apdex <= segment's own apdex
+        // Use >= and <= to include sessions equal to baseline
+        .append("  (error_rate >= ").append(errorRateThresholdDecimal).append(")\n")
+        .append("  OR (avg_apdex <= ").append(apdexThreshold).append(")\n")
         // Sort: By error_count DESC (most errors first), then by avg_apdex ASC (lowest apdex first)
         .append("ORDER BY\n")
         .append("  error_count DESC,\n")

@@ -267,15 +267,17 @@ final class RcaReportProxyHandler {
                 JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
                 working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
 
-                  // Get session evidence from best segment
-                  if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
-                    RootCauseSegment bestSegment = rootCauseResult.getSegments().get(0);
-                    
-                    // Extract segment metrics (error_rate, apdex) for session filtering
-                    Map<String, Double> segmentMetrics = extractSegmentMetrics(bestSegment.getMetrics());
-                    
-                    // Use same lookback period as RCA (7 days) to find historical sessions
-                    LocalDate lookbackStart = date.minusDays(6);
+                // Get session evidence for each segment
+                if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
+                  List<RootCauseSegment> segments = rootCauseResult.getSegments();
+                  LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
+                  
+                  // Collect all sessions from all segments into a single list
+                  List<String> allSessionIds = new java.util.ArrayList<>();
+                  java.util.concurrent.atomic.AtomicInteger pendingQueries = new java.util.concurrent.atomic.AtomicInteger(segments.size());
+                  
+                  for (RootCauseSegment segment : segments) {
+                    Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
                     
                     sessionEvidenceService
                         .getSessionEvidence(
@@ -283,51 +285,61 @@ final class RcaReportProxyHandler {
                             interactionName,
                             lookbackStart.atStartOfDay().toInstant(ZoneOffset.UTC),
                             date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
-                            bestSegment.getDimensions(),
+                            segment.getDimensions(),
                             segmentMetrics,
                             2)
                         .subscribe(
                             evidenceResult -> {
                               try {
-                                // Extract session IDs
                                 List<String> sessionIds =
                                     evidenceResult.getSessions().stream()
                                         .map(s -> s.getSessionId())
                                         .collect(Collectors.toList());
                                 
-                                if (!sessionIds.isEmpty()) {
-                                  // Add to rootCausePayload object
-                                  JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
-                                  if (rcPayloadNode instanceof ObjectNode) {
-                                    ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
-                                    rcPayload.set(
-                                        "exampleSessionIds",
-                                        objectMapper.valueToTree(sessionIds));
-                                  }
+                                synchronized (allSessionIds) {
+                                  allSessionIds.addAll(sessionIds);
                                 }
                                 
-                                String enriched = objectMapper.writeValueAsString(working);
-                                future.complete(enriched);
+                                if (pendingQueries.decrementAndGet() == 0) {
+                                  // All queries complete - add sessions to payload
+                                  if (!allSessionIds.isEmpty()) {
+                                    JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                    if (rcPayloadNode instanceof ObjectNode) {
+                                      ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                      rcPayload.set(
+                                          "exampleSessionIds",
+                                          objectMapper.valueToTree(allSessionIds));
+                                    }
+                                  }
+                                  
+                                  String enriched = objectMapper.writeValueAsString(working);
+                                  future.complete(enriched);
+                                }
                               } catch (Exception e) {
                                 log.warn("Exception in session evidence callback: {}", 
                                     e.getMessage(), e);
-                                try {
-                                  String enriched = objectMapper.writeValueAsString(working);
-                                  future.complete(enriched);
-                                } catch (Exception e2) {
-                                  future.complete(fallbackBody);
+                                if (pendingQueries.decrementAndGet() == 0) {
+                                  try {
+                                    String enriched = objectMapper.writeValueAsString(working);
+                                    future.complete(enriched);
+                                  } catch (Exception e2) {
+                                    future.complete(fallbackBody);
+                                  }
                                 }
                               }
                             },
                             error -> {
                               log.warn("Session evidence error: {}", error.getMessage());
-                              try {
-                                String enriched = objectMapper.writeValueAsString(working);
-                                future.complete(enriched);
-                              } catch (Exception e) {
-                                future.complete(fallbackBody);
+                              if (pendingQueries.decrementAndGet() == 0) {
+                                try {
+                                  String enriched = objectMapper.writeValueAsString(working);
+                                  future.complete(enriched);
+                                } catch (Exception e) {
+                                  future.complete(fallbackBody);
+                                }
                               }
                             });
+                  }
                 } else {
                   String enriched = objectMapper.writeValueAsString(working);
                   future.complete(enriched);
