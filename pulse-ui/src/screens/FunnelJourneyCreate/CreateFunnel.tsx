@@ -1,45 +1,22 @@
 import { useMemo, useState } from "react";
-import {
-  ActionIcon,
-  Box,
-  Button,
-  Divider,
-  Group,
-  Stack,
-  Stepper,
-  Text,
-  Title,
-  useMantineTheme,
-} from "@mantine/core";
-import {
-  IconArrowLeft,
-  IconChartFunnel,
-  IconSquareRoundedX,
-} from "@tabler/icons-react";
+import { ActionIcon, Box, Button, Divider, Group, Stack, Stepper, Text, Title, useMantineTheme } from "@mantine/core";
+import { IconArrowLeft, IconChartFunnel, IconSquareRoundedX } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { COMMON_CONSTANTS, ROUTES } from "../../constants";
 import { showNotification } from "../../helpers/showNotification";
 import classes from "./FunnelCreate.module.css";
 import createFormClasses from "./FunnelJourneyCreateForm.module.css";
-import {
-  FUNNEL_CREATE_STEP_ERRORS,
-  FUNNEL_CREATE_STEPS,
-} from "./FunnelJourneyCreateForm.constants";
+import { FUNNEL_CREATE_STEP_ERRORS, FUNNEL_CREATE_STEPS } from "./FunnelJourneyCreateForm.constants";
 import { ActiveFilter, GlobalFilterBar } from "./components/GlobalFilterBar";
 import { BuilderStep, FunnelBuilder } from "./components/FunnelBuilder";
 import {
   FunnelStep,
   useGetAllFilterValues,
   useGetFunnelEvents,
-  useGetFunnelFilters,
+  useGetFunnelFilters
 } from "../../hooks/useGetFunnelData";
 import { useCreateFunnel } from "../../hooks/useCreateFunnel";
-import {
-  CreateFunnelRequestBody,
-  FunnelFilter,
-  FunnelType,
-  StepOrderType,
-} from "../../services/funnels.service";
+import { CreateFunnelRequestBody, FunnelFilter, FunnelType, StepOrderType } from "../../services/funnels.service";
 
 const EMPTY_STEPS: BuilderStep[] = [
   { id: "s-1", eventName: "" },
@@ -68,7 +45,7 @@ function toApiFilters(filters: ActiveFilter[]): FunnelFilter[] {
   }
   return Object.entries(grouped).map(([field, values]) => ({
     field,
-    operator: "EQ" as const,
+    operator: "IN" as const,
     value: values,
   }));
 }

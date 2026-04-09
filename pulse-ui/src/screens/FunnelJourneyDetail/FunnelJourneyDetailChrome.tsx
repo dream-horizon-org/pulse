@@ -1,10 +1,13 @@
 import { ActionIcon, Badge, Box, Group, Text } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
+import dayjs from "dayjs";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 
 type DetailChrome = {
   name: string;
   status: string;
+  createdBy?: string;
+  updatedAt?: string;
 };
 
 export function FunnelJourneyDetailChrome({
@@ -58,6 +61,22 @@ export function FunnelJourneyDetailChrome({
               <Text size="xs" c="dimmed">
                 {kind === "FUNNEL" ? "Funnel" : "Journey"}
               </Text>
+              {detail.createdBy && (
+                <>
+                  <Text size="xs" c="dimmed">·</Text>
+                  <Text size="xs" c="dark.3" fw={500}>
+                    Created by {detail.createdBy}
+                  </Text>
+                </>
+              )}
+              {detail.updatedAt && (
+                <>
+                  <Text size="xs" c="dimmed">·</Text>
+                  <Text size="xs" c="dark.3" fw={500}>
+                    Updated {dayjs(detail.updatedAt).format("MMM D, YYYY HH:mm")}
+                  </Text>
+                </>
+              )}
             </Group>
           </Box>
         </Group>

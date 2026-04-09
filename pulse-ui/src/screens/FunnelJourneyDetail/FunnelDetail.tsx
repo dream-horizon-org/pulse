@@ -1,5 +1,5 @@
-import { ActionIcon, Box, Group, Loader, Text } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { ActionIcon, Box, Button, Group, Loader, Text } from "@mantine/core";
+import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "../../constants";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
@@ -34,7 +34,7 @@ function extractDateRangeDays(preset: string): number {
   return 1;
 }
 
-function FunnelDetailView({ detail }: { detail: any }) {
+function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditing: boolean; onEdit: () => void }) {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string; funnelId: string }>();
   const [name, setName] = useState(detail.name || "");
@@ -259,41 +259,62 @@ function FunnelDetailView({ detail }: { detail: any }) {
           className={funnelClasses.sidebar}
           style={{ overflowY: "auto", height: "100%", flexShrink: 0 }}
         >
-          <FunnelBuilder
-            name={name}
-            onNameChange={setName}
-            description={description}
-            onDescriptionChange={setDescription}
-            tags={tags}
-            onTagsChange={setTags}
-            rollingType={rollingType}
-            onRollingTypeChange={setRollingType}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            customStartDate={customStartDate}
-            onCustomStartDateChange={setCustomStartDate}
-            customEndDate={customEndDate}
-            onCustomEndDateChange={setCustomEndDate}
-            expiryDate={expiryDate}
-            onExpiryDateChange={setExpiryDate}
-            steps={steps}
-            onStepsChange={(s) => {
-              setSteps(s);
-              setShouldFetch(false);
+          {!isEditing && (
+            <Button
+              fullWidth
+              variant="light"
+              color="teal"
+              size="sm"
+              leftSection={<IconPencil size={14} />}
+              onClick={onEdit}
+              mb="md"
+            >
+              Edit Funnel
+            </Button>
+          )}
+          <div
+            style={{
+              cursor: isEditing ? undefined : "not-allowed",
             }}
-            funnelMode={funnelMode}
-            onFunnelModeChange={setFunnelMode}
-            conversionWindow={conversionWindow}
-            onConversionWindowChange={(v) => {
-              setConversionWindow(v);
-              setShouldFetch(false);
-            }}
-            onAnalyze={handleUpdate}
-            isCreating={isUpdating}
-            availableEvents={availableEvents}
-            isUpdateMode={true}
-            isValid={isChanged}
-          />
+          >
+            <div style={{ pointerEvents: isEditing ? undefined : "none" }}>
+            <FunnelBuilder
+              name={name}
+              onNameChange={setName}
+              description={description}
+              onDescriptionChange={setDescription}
+              tags={tags}
+              onTagsChange={setTags}
+              rollingType={rollingType}
+              onRollingTypeChange={setRollingType}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              customStartDate={customStartDate}
+              onCustomStartDateChange={setCustomStartDate}
+              customEndDate={customEndDate}
+              onCustomEndDateChange={setCustomEndDate}
+              expiryDate={expiryDate}
+              onExpiryDateChange={setExpiryDate}
+              steps={steps}
+              onStepsChange={(s) => {
+                setSteps(s);
+                setShouldFetch(false);
+              }}
+              funnelMode={funnelMode}
+              onFunnelModeChange={setFunnelMode}
+              conversionWindow={conversionWindow}
+              onConversionWindowChange={(v) => {
+                setConversionWindow(v);
+                setShouldFetch(false);
+              }}
+              onAnalyze={handleUpdate}
+              isCreating={isUpdating}
+              availableEvents={availableEvents}
+              isUpdateMode={true}
+              isValid={isChanged}
+            />
+            </div>
+          </div>
         </Box>
         <Box
           className={funnelClasses.mainCanvas}
@@ -346,6 +367,7 @@ function FunnelDetailView({ detail }: { detail: any }) {
 export function FunnelDetail() {
   const navigate = useNavigate();
   const { funnelId } = useParams<{ projectId: string; funnelId: string }>();
+  const [isEditing, setIsEditing] = useState(false);
 
   const funnelQuery = useGetFunnelDetail(funnelId);
   const apiResponse = funnelQuery.data;
@@ -414,7 +436,7 @@ export function FunnelDetail() {
       }}
     >
       <FunnelJourneyDetailChrome detail={detail} kind="FUNNEL" onBack={goBack} />
-      <FunnelDetailView detail={detail} />
+      <FunnelDetailView detail={detail} isEditing={isEditing} onEdit={() => setIsEditing(true)} />
     </Box>
   );
 }

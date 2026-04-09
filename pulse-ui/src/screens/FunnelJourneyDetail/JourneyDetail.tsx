@@ -1,5 +1,5 @@
-import { ActionIcon, Box, Group, Loader, Text } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { ActionIcon, Box, Button, Group, Loader, Text } from "@mantine/core";
+import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "../../constants";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
@@ -25,7 +25,7 @@ import { JourneyExplorer } from "../FunnelJourneyCreate/components/JourneyExplor
 import ReactECharts from "echarts-for-react";
 import { buildJourneySankeyOption } from "../FunnelJourneyCreate/utils/buildJourneySankeyOption";
 
-function JourneyDetailView({ detail }: { detail: any }) {
+function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditing: boolean; onEdit: () => void }) {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string; journeyId: string }>();
   const [name, setName] = useState(detail.name || "");
@@ -213,36 +213,57 @@ function JourneyDetailView({ detail }: { detail: any }) {
           className={funnelClasses.sidebar}
           style={{ overflowY: "auto", height: "100%", flexShrink: 0 }}
         >
-          <JourneyExplorer
-            name={name}
-            onNameChange={setName}
-            description={description}
-            onDescriptionChange={setDescription}
-            tags={tags}
-            onTagsChange={setTags}
-            rollingType={rollingType}
-            onRollingTypeChange={setRollingType}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            customStartDate={customStartDate}
-            onCustomStartDateChange={setCustomStartDate}
-            customEndDate={customEndDate}
-            onCustomEndDateChange={setCustomEndDate}
-            expiryDate={expiryDate}
-            onExpiryDateChange={setExpiryDate}
-            availableEvents={availableEvents}
-            onCreate={handleUpdate}
-            isCreating={isUpdating}
-            filters={filters}
-            isUpdateMode={true}
-            isValid={isChanged}
-            anchorEvent={anchorEvent}
-            onAnchorEventChange={setAnchorEvent}
-            direction={direction}
-            onDirectionChange={setDirection}
-            depth={depth}
-            onDepthChange={setDepth}
-          />
+          {!isEditing && (
+            <Button
+              fullWidth
+              variant="light"
+              color="teal"
+              size="sm"
+              leftSection={<IconPencil size={14} />}
+              onClick={onEdit}
+              mb="md"
+            >
+              Edit Journey
+            </Button>
+          )}
+          <div
+            style={{
+              cursor: isEditing ? undefined : "not-allowed",
+            }}
+          >
+            <div style={{ pointerEvents: isEditing ? undefined : "none" }}>
+            <JourneyExplorer
+              name={name}
+              onNameChange={setName}
+              description={description}
+              onDescriptionChange={setDescription}
+              tags={tags}
+              onTagsChange={setTags}
+              rollingType={rollingType}
+              onRollingTypeChange={setRollingType}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              customStartDate={customStartDate}
+              onCustomStartDateChange={setCustomStartDate}
+              customEndDate={customEndDate}
+              onCustomEndDateChange={setCustomEndDate}
+              expiryDate={expiryDate}
+              onExpiryDateChange={setExpiryDate}
+              availableEvents={availableEvents}
+              onCreate={handleUpdate}
+              isCreating={isUpdating}
+              filters={filters}
+              isUpdateMode={true}
+              isValid={isChanged}
+              anchorEvent={anchorEvent}
+              onAnchorEventChange={setAnchorEvent}
+              direction={direction}
+              onDirectionChange={setDirection}
+              depth={depth}
+              onDepthChange={setDepth}
+            />
+            </div>
+          </div>
         </Box>
         <Box
           className={funnelClasses.mainCanvas}
@@ -302,6 +323,7 @@ function JourneyDetailView({ detail }: { detail: any }) {
 export function JourneyDetail() {
   const navigate = useNavigate();
   const { journeyId } = useParams<{ projectId: string; journeyId: string }>();
+  const [isEditing, setIsEditing] = useState(false);
 
   const journeyQuery = useGetJourneyDetail(journeyId);
   const apiResponse = journeyQuery.data;
@@ -370,7 +392,7 @@ export function JourneyDetail() {
       }}
     >
       <FunnelJourneyDetailChrome detail={detail} kind="JOURNEY" onBack={goBack} />
-      <JourneyDetailView detail={detail} />
+      <JourneyDetailView detail={detail} isEditing={isEditing} onEdit={() => setIsEditing(true)} />
     </Box>
   );
 }
