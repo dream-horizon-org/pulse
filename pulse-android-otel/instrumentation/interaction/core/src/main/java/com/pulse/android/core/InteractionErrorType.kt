@@ -8,6 +8,9 @@ public enum class InteractionErrorType(
     ;
 
     public companion object {
-        public fun fromCode(value: String?): InteractionErrorType? = value?.let { v -> values().find { it.code == v } }
+        private val byCode: Map<String, InteractionErrorType> =
+            values().associateBy { it.code }
+
+        public fun fromCode(value: String?): InteractionErrorType? = value?.let { byCode[it] }
     }
 }

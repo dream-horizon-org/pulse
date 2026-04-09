@@ -39,7 +39,7 @@ internal class InteractionEventsTracker(
             ) {
                 logDebug { "match for event = ${event.name}, timeInNano = ${event.timeInNano}" }
                 localEvents.add(event)
-                val matchResult =
+                val (shouldTakeFirstEvent, shouldResetList, interactionStatus) =
                     InteractionUtil
                         .matchSequence(
                             if (isInteractionClosed) {
@@ -56,9 +56,6 @@ internal class InteractionEventsTracker(
                         isInteractionClosed = true
                         return
                     }
-                val shouldTakeFirstEvent = matchResult.shouldTakeFirstEvent
-                val shouldResetList = matchResult.shouldResetList
-                val interactionStatus = matchResult.interactionStatus
                 val (oldInteractionStatus, newInteractionStatus) =
                     if (shouldResetList) {
                         logDebug { "resetList called with shouldTakeFirstEvent = $shouldTakeFirstEvent" }
@@ -79,8 +76,9 @@ internal class InteractionEventsTracker(
                                     localEvents,
                                     localMarkers,
                                     InteractionErrorType.SEQUENCE_VIOLATION,
-                                    matchResult.sequenceViolationExpectedEventName,
-                                    matchResult.sequenceViolationReceivedEventName,
+                                    null,
+                                    interactionStatus.sequenceViolationExpectedEventName,
+                                    interactionStatus.sequenceViolationReceivedEventName,
                                 )
                             clearStates()
                             localEvents.add(lastEvent)
@@ -89,6 +87,8 @@ internal class InteractionEventsTracker(
                                 interactionStatus.copy(
                                     interactionId = UUID.randomUUID().toString(),
                                     interaction = null,
+                                    sequenceViolationExpectedEventName = null,
+                                    sequenceViolationReceivedEventName = null,
                                 )
                         } else {
                             isInteractionClosed = true
@@ -132,8 +132,6 @@ internal class InteractionEventsTracker(
                                         localEvents,
                                         localMarkers,
                                         InteractionErrorType.TIMEOUT,
-                                        null,
-                                        null,
                                         interactionConfig.events.getOrNull(lastValue.index + 1)?.name,
                                     ),
                                 )
@@ -157,9 +155,9 @@ internal class InteractionEventsTracker(
         localEvents: List<InteractionLocalEvent>,
         localMarkers: List<InteractionLocalEvent>,
         errorType: InteractionErrorType,
+        timeoutExpectedEventName: String? = null,
         sequenceViolationExpectedEventName: String? = null,
         sequenceViolationReceivedEventName: String? = null,
-        timeoutExpectedEventName: String? = null,
     ): InteractionRunningStatus.OngoingMatch =
         this.copy(
             interaction =
@@ -168,11 +166,10 @@ internal class InteractionEventsTracker(
                     interactionConfig,
                     localEvents,
                     localMarkers,
-                    false,
                     errorType,
-                    sequenceViolationExpectedEventName,
-                    sequenceViolationReceivedEventName,
                     timeoutExpectedEventName,
+                    sequenceViolationExpectedEventName,
+                    sequenceViolationReceivedEventName
                 ),
         )
 
@@ -209,13 +206,25 @@ public sealed class InteractionRunningStatus {
         public val interactionId: String,
         public val interactionConfig: InteractionConfig,
         public val interaction: Interaction?,
+        internal val sequenceViolationExpectedEventName: String? = null,
+        internal val sequenceViolationReceivedEventName: String? = null,
     ) : InteractionRunningStatus() {
         internal fun copy(
             index: Int = this.index,
             interactionId: String = this.interactionId,
             interactionConfig: InteractionConfig = this.interactionConfig,
             interaction: Interaction? = this.interaction,
-        ): OngoingMatch = OngoingMatch(index, interactionId, interactionConfig, interaction)
+            sequenceViolationExpectedEventName: String? = this.sequenceViolationExpectedEventName,
+            sequenceViolationReceivedEventName: String? = this.sequenceViolationReceivedEventName,
+        ): OngoingMatch =
+            OngoingMatch(
+                index,
+                interactionId,
+                interactionConfig,
+                interaction,
+                sequenceViolationExpectedEventName,
+                sequenceViolationReceivedEventName,
+            )
 
         override fun toString(): String =
             "OngoingMatch(index=$index, interactionId='$interactionId', " +

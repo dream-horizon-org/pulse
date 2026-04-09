@@ -1706,7 +1706,6 @@ class InteractionManagerTest {
                         skipAdvancing = true,
                         isSuccess = false,
                     )
-                // Wrong event is not a repeat of firstEvent: emitted interaction carries only matched prefix [event1].
                 assertFinalInteractionTimeRange(time1, time1)
                 Assertions
                     .assertThat(failedInteraction.errorTypeCode)

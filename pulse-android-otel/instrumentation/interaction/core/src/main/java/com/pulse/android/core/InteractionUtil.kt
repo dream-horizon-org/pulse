@@ -43,8 +43,6 @@ internal object InteractionUtil {
                     shouldTakeFirstEvent = false,
                     shouldResetList = true,
                     interactionStatus = InteractionRunningStatus.NoOngoingMatch(null),
-                    sequenceViolationExpectedEventName = null,
-                    sequenceViolationReceivedEventName = null,
                 )
             }
 
@@ -60,8 +58,6 @@ internal object InteractionUtil {
                             shouldTakeFirstEvent = false,
                             shouldResetList = true,
                             interactionStatus = InteractionRunningStatus.NoOngoingMatch(null),
-                            sequenceViolationExpectedEventName = null,
-                            sequenceViolationReceivedEventName = null,
                         )
                     } else {
                         stepWiseTimeInNano.add(localEvent)
@@ -89,11 +85,8 @@ internal object InteractionUtil {
                                                 interactionConfig = interactionConfig,
                                                 events = stepWiseTimeInNano,
                                                 localMarkers = localMarkers,
-                                                isSuccessInteraction = true,
                                             ),
                                     ),
-                                sequenceViolationExpectedEventName = null,
-                                sequenceViolationReceivedEventName = null,
                             )
                         } else {
                             isMatchOnGoing = true
@@ -108,8 +101,6 @@ internal object InteractionUtil {
                                         interactionConfig = interactionConfig,
                                         interaction = null,
                                     ),
-                                sequenceViolationExpectedEventName = null,
-                                sequenceViolationReceivedEventName = null,
                             )
                         }
                     }
@@ -132,14 +123,13 @@ internal object InteractionUtil {
                                         interactionConfig = interactionConfig,
                                         events = stepWiseTimeInNano,
                                         localMarkers = localMarkers,
-                                        isSuccessInteraction = false,
                                         errorType = InteractionErrorType.SEQUENCE_VIOLATION,
                                         sequenceViolationExpectedEventName = configEvent.name,
                                         sequenceViolationReceivedEventName = localEvent.name,
                                     ),
+                                sequenceViolationExpectedEventName = configEvent.name,
+                                sequenceViolationReceivedEventName = localEvent.name,
                             ),
-                        sequenceViolationExpectedEventName = configEvent.name,
-                        sequenceViolationReceivedEventName = localEvent.name,
                     )
                 } else {
                     // no match is ongoing
@@ -196,50 +186,54 @@ internal object InteractionUtil {
         }
     }
 
+    private fun interactionErrorMessage(
+        errorType: InteractionErrorType,
+        timeoutExpectedEventName: String?,
+        sequenceViolationExpectedEventName: String?,
+        sequenceViolationReceivedEventName: String?,
+    ): String =
+        when (errorType) {
+            InteractionErrorType.TIMEOUT ->
+                if (timeoutExpectedEventName != null) {
+                    "Timed out while waiting for event \"$timeoutExpectedEventName\"."
+                } else {
+                    "Timed out before the next expected event arrived."
+                }
+            InteractionErrorType.SEQUENCE_VIOLATION ->
+                if (sequenceViolationExpectedEventName != null && sequenceViolationReceivedEventName != null) {
+                    "Expected event \"$sequenceViolationExpectedEventName\", received \"$sequenceViolationReceivedEventName\"."
+                } else {
+                    "An event did not match the next expected event in this interaction."
+                }
+        }
+
     internal fun buildPulseInteraction(
         interactionId: String,
         interactionConfig: InteractionConfig,
         events: List<InteractionLocalEvent>,
         localMarkers: List<InteractionLocalEvent>,
-        isSuccessInteraction: Boolean,
         errorType: InteractionErrorType? = null,
+        timeoutExpectedEventName: String? = null,
         sequenceViolationExpectedEventName: String? = null,
         sequenceViolationReceivedEventName: String? = null,
-        timeoutExpectedEventName: String? = null,
     ): Interaction {
         require(events.isNotEmpty()) { "buildPulseInteraction requires at least one event" }
         val interactionName = interactionConfig.name
         val interactionConfigId = interactionConfig.id
         val lastEventTimeInNano = events.last().timeInNano
 
-        if (isSuccessInteraction) {
-            require(errorType == null) { "success interaction must not set errorType" }
-        } else {
-            require(errorType != null) { "error interactions require errorType" }
-        }
-
-        val errorMessage: String? =
-            if (!isSuccessInteraction && errorType != null) {
-                when (errorType) {
-                    InteractionErrorType.TIMEOUT ->
-                        if (timeoutExpectedEventName != null) {
-                            "Timed out while waiting for event \"$timeoutExpectedEventName\"."
-                        } else {
-                            "Timed out before the next expected event arrived."
-                        }
-                    InteractionErrorType.SEQUENCE_VIOLATION ->
-                        if (sequenceViolationExpectedEventName != null && sequenceViolationReceivedEventName != null) {
-                            "Expected event \"$sequenceViolationExpectedEventName\", received \"$sequenceViolationReceivedEventName\"."
-                        } else {
-                            "An event did not match the next expected event in this interaction."
-                        }
-                }
-            } else {
-                null
+        val errorMessage =
+            errorType?.let {
+                interactionErrorMessage(
+                    it,
+                    timeoutExpectedEventName,
+                    sequenceViolationExpectedEventName,
+                    sequenceViolationReceivedEventName,
+                )
             }
 
         val (timeDifferenceInNano, timeCategory, upTimeIndex) =
-            if (isSuccessInteraction) {
+            if (errorType == null) {
                 val timeDifferenceInNano = lastEventTimeInNano - events.first().timeInNano
                 val timeDifferenceInMs = timeDifferenceInNano / 1000_000
                 val lowerLimitInMs = interactionConfig.uptimeLowerLimitInMs
@@ -277,30 +271,24 @@ internal object InteractionUtil {
             } else {
                 Triple(null, null, null)
             }
+            
         val timeInMsDiffPair = events.getTimeSpanInNanos(interactionConfig.thresholdInMs)
+        
         val maps =
-            mapOf(
-                InteractionConstant.NAME to interactionName,
-                InteractionConstant.CONFIG_ID to interactionConfigId,
-                InteractionConstant.LAST_EVENT_TIME_IN_NANO to lastEventTimeInNano,
-                InteractionConstant.LOCAL_EVENTS to events.toList(),
-                InteractionConstant.MARKER_EVENTS to (
-                    timeInMsDiffPair?.let { localMarkers.getEventsBetween(it.first, it.second) } ?: localMarkers.toList()
-                ),
-                InteractionConstant.APDEX_SCORE to upTimeIndex,
-                InteractionConstant.USER_CATEGORY to timeCategory?.categoryName,
-                InteractionConstant.TIME_TO_COMPLETE_IN_NANO to timeDifferenceInNano,
-                InteractionConstant.IS_ERROR to !isSuccessInteraction,
-            )
-        val maps =
-            if (!isSuccessInteraction && errorType != null && errorMessage != null) {
-                baseMaps +
-                    mapOf(
-                        InteractionConstant.ERROR_TYPE to errorType.code,
-                        InteractionConstant.ERROR_MESSAGE to errorMessage,
-                    )
-            } else {
-                baseMaps
+            buildMap {
+                put(InteractionConstant.NAME, interactionName)
+                put(InteractionConstant.CONFIG_ID, interactionConfigId)
+                put(InteractionConstant.LAST_EVENT_TIME_IN_NANO, lastEventTimeInNano)
+                put(InteractionConstant.LOCAL_EVENTS, events.toList())
+                put(InteractionConstant.MARKER_EVENTS, (
+                    timeInMsDiffPair?.let { localMarkers.getEventsBetween(it.first, it.second) } ?: localMarkers.toList())
+                )
+                put(InteractionConstant.APDEX_SCORE, upTimeIndex)
+                put(InteractionConstant.USER_CATEGORY, timeCategory?.categoryName)
+                put(InteractionConstant.TIME_TO_COMPLETE_IN_NANO, timeDifferenceInNano)
+                put(InteractionConstant.IS_ERROR, !success)
+                put(InteractionConstant.ERROR_TYPE, errorType?.code)
+                put(InteractionConstant.ERROR_MESSAGE, errorMessage)
             }
 
         return Interaction(
@@ -320,8 +308,6 @@ internal object InteractionUtil {
         val shouldTakeFirstEvent: Boolean,
         val shouldResetList: Boolean,
         val interactionStatus: InteractionRunningStatus,
-        val sequenceViolationExpectedEventName: String?,
-        val sequenceViolationReceivedEventName: String?,
     )
 }
 
@@ -352,15 +338,17 @@ internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): 
         }
         return null
     }
-    if (isErrored) {
-        val errorTypeParsed = InteractionErrorType.fromCode(props[InteractionConstant.ERROR_TYPE] as? String)
-        if (errorTypeParsed == InteractionErrorType.TIMEOUT) {
-            val firstNs = steps.first().timeInNano
-            val lastNs = steps.last().timeInNano
-            val thresholdNs = timeOutInMs * 1_000_000L
-            return firstNs to (firstNs + thresholdNs + (lastNs - firstNs))
-        }
-        return steps.first().timeInNano to steps.last().timeInNano
+    val errorTypeParsed = InteractionErrorType.fromCode(props[InteractionConstant.ERROR_TYPE] as? String)
+    if (errorTypeParsed != null) {
+        val firstNs = steps.first().timeInNano
+        val lastNs = steps.last().timeInNano
+        val thresholdNs = timeOutInMs * 1_000_000L
+        return firstNs to
+            if (errorTypeParsed == InteractionErrorType.TIMEOUT) {
+                firstNs + thresholdNs + (lastNs - firstNs)
+            } else {
+                lastNs
+            }
     }
     if (steps.size == 1) {
         return steps[0].timeInNano to steps[0].timeInNano + timeOutInMs * 1000000
@@ -401,7 +389,6 @@ public val Interaction.isErrored: Boolean
         return isError
     }
 
-/** [InteractionErrorType.code] under [InteractionConstant.ERROR_TYPE] when [isErrored]. */
 public val Interaction.errorTypeCode: String?
     get() = props[InteractionConstant.ERROR_TYPE] as? String
 
