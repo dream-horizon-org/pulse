@@ -12,6 +12,7 @@ import type {
 } from "../../../AppVitals.interface";
 import { useExceptionTimestamps } from "./useExceptionTimestamps";
 import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
+import { buildCommonFilters } from "../../TrendGraphWithData/helpers/trendDataHelpers";
 export type ExceptionType = "crash" | "anr" | "nonfatal";
 
 interface UseExceptionListDataParams {
@@ -20,6 +21,9 @@ interface UseExceptionListDataParams {
   appVersion?: string;
   osVersion?: string;
   device?: string;
+  platform?: string;
+  networkProvider?: string;
+  state?: string;
   screenName?: string;
   exceptionType: ExceptionType;
 }
@@ -32,6 +36,9 @@ export function useExceptionListData({
   appVersion = "all",
   osVersion = "all",
   device = "all",
+  platform = "all",
+  networkProvider = "all",
+  state = "all",
   screenName,
   exceptionType,
 }: UseExceptionListDataParams) {
@@ -69,33 +76,28 @@ export function useExceptionListData({
       });
     }
 
-    // Add other filters
-    if (appVersion && appVersion !== "all") {
-      filterArray.push({
-        field: COLUMN_NAME.APP_VERSION,
-        operator: "EQ" as const,
-        value: [appVersion],
-      });
-    }
-
-    if (osVersion && osVersion !== "all") {
-      filterArray.push({
-        field: "OsVersion",
-        operator: "EQ" as const,
-        value: [osVersion],
-      });
-    }
-
-    if (device && device !== "all") {
-      filterArray.push({
-        field: "DeviceModel",
-        operator: "EQ" as const,
-        value: [device],
-      });
-    }
+    filterArray.push(
+      ...buildCommonFilters(
+        appVersion,
+        osVersion,
+        device,
+        platform,
+        networkProvider,
+        state,
+      ),
+    );
 
     return filterArray.length > 0 ? filterArray : undefined;
-  }, [appVersion, osVersion, device, screenName, exceptionType]);
+  }, [
+    appVersion,
+    osVersion,
+    device,
+    platform,
+    networkProvider,
+    state,
+    screenName,
+    exceptionType,
+  ]);
 
   // Build select fields - include error_type for non-fatal
   const selectFields = useMemo((): SelectField[] => {
