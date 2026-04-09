@@ -27,12 +27,28 @@ class RcaRunnerError(Exception):
         self.message = message
 
 
-def _build_rca_prompt(interaction_name: str, payload: RootCausePayloadSchema) -> str:
+def _build_rca_prompt(
+    interaction_name: str,
+    payload: RootCausePayloadSchema,
+    example_session_ids: list[str] | None = None,
+) -> str:
     serialized_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
+    
+    sessions_context = ""
+    if example_session_ids and len(example_session_ids) > 0:
+        sessions_list = ', '.join([f'"{sid}"' for sid in example_session_ids])
+        sessions_context = (
+            f"\n## Session Evidence\n"
+            f"Available sessions for replay: [{sessions_list}]\n"
+            f"For each segment, select 1-2 most relevant session IDs that demonstrate the issue.\n"
+            f"Include in 'affected_sessions' field as an array (e.g., {{'affected_sessions': ['{example_session_ids[0]}']}})"
+        )
+    
     return (
         "Generate a root cause analysis report for the given interaction.\n"
         f"Interaction: {interaction_name}\n"
         f"RootCausePayload(JSON): {serialized_payload}"
+        f"{sessions_context}"
     )
 
 
@@ -40,6 +56,7 @@ async def generate_rca_report(
     runner: Any,
     payload: RootCausePayloadSchema,
     interaction_name: str,
+    example_session_ids: list[str] | None = None,
 ) -> RcaReportResponse:
     """
     Runs the RCA pipeline in one shot and returns typed report response.
@@ -49,7 +66,7 @@ async def generate_rca_report(
     - Raises RcaRunnerError(504) on timeout.
     """
     session_id = str(uuid.uuid4())
-    prompt = _build_rca_prompt(interaction_name, payload)
+    prompt = _build_rca_prompt(interaction_name, payload, example_session_ids)
     message = Content.model_validate(
         {"role": "user", "parts": [{"text": prompt}]},
     )

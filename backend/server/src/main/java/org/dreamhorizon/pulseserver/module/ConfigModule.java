@@ -9,6 +9,8 @@ import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceServiceImpl;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 public class ConfigModule extends AbstractModule {
@@ -28,6 +30,7 @@ public class ConfigModule extends AbstractModule {
     bind(AthenaConfig.class).toProvider(() -> SharedDataUtils.get(vertx, AthenaConfig.class));
     bind(NotificationConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, NotificationConfig.class));
+    bind(SessionEvidenceService.class).to(SessionEvidenceServiceImpl.class).in(Singleton.class);
     bind(AiProxyService.class).to(AiProxyServiceImpl.class).in(Singleton.class);
   }
 }

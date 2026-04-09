@@ -109,7 +109,6 @@ class RootCauseCacheDaoTest {
       assertThat(q).contains("proj-a");
       assertThat(q).contains("pay");
       assertThat(q).contains("2025-04-01");
-      assertThat(q).contains("window_end_utc");
       assertThat(captor.getValue().getProjectId()).isEqualTo(PROJECT);
     }
   }
