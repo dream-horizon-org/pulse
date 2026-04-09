@@ -10,14 +10,19 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.Error;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 
 /**
  * POST {@code rca/report}: read-through MySQL cache, optional {@code regenerate}, body enrichment
@@ -53,16 +58,19 @@ final class RcaReportProxyHandler {
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
   private final RcaReportCacheDao rcaReportCacheDao;
+  private final SessionEvidenceService sessionEvidenceService;
 
   RcaReportProxyHandler(
       AiUpstreamProxyExecutor upstream,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao) {
+      RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService) {
     this.upstream = upstream;
     this.objectMapper = objectMapper;
     this.rootCauseService = rootCauseService;
     this.rcaReportCacheDao = rcaReportCacheDao;
+    this.sessionEvidenceService = sessionEvidenceService;
   }
 
   CompletionStage<AiProxyUpstreamResult> handlePost(
@@ -258,8 +266,84 @@ final class RcaReportProxyHandler {
               try {
                 JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
                 working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
-                String enriched = objectMapper.writeValueAsString(working);
-                future.complete(enriched);
+
+                // Get session evidence for each segment
+                if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
+                  List<RootCauseSegment> segments = rootCauseResult.getSegments();
+                  LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
+                  
+                  // Collect all sessions from all segments into a single list
+                  List<String> allSessionIds = new java.util.ArrayList<>();
+                  java.util.concurrent.atomic.AtomicInteger pendingQueries = new java.util.concurrent.atomic.AtomicInteger(segments.size());
+                  
+                  for (RootCauseSegment segment : segments) {
+                    Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
+                    
+                    sessionEvidenceService
+                        .getSessionEvidence(
+                            projectId,
+                            interactionName,
+                            lookbackStart.atStartOfDay().toInstant(ZoneOffset.UTC),
+                            date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
+                            segment.getDimensions(),
+                            segmentMetrics,
+                            2)
+                        .subscribe(
+                            evidenceResult -> {
+                              try {
+                                List<String> sessionIds =
+                                    evidenceResult.getSessions().stream()
+                                        .map(s -> s.getSessionId())
+                                        .collect(Collectors.toList());
+                                
+                                synchronized (allSessionIds) {
+                                  allSessionIds.addAll(sessionIds);
+                                }
+                                
+                                if (pendingQueries.decrementAndGet() == 0) {
+                                  // All queries complete - add sessions to payload
+                                  if (!allSessionIds.isEmpty()) {
+                                    JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                    if (rcPayloadNode instanceof ObjectNode) {
+                                      ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                      rcPayload.set(
+                                          "exampleSessionIds",
+                                          objectMapper.valueToTree(allSessionIds));
+                                    }
+                                  }
+                                  
+                                  String enriched = objectMapper.writeValueAsString(working);
+                                  future.complete(enriched);
+                                }
+                              } catch (Exception e) {
+                                log.warn("Exception in session evidence callback: {}", 
+                                    e.getMessage(), e);
+                                if (pendingQueries.decrementAndGet() == 0) {
+                                  try {
+                                    String enriched = objectMapper.writeValueAsString(working);
+                                    future.complete(enriched);
+                                  } catch (Exception e2) {
+                                    future.complete(fallbackBody);
+                                  }
+                                }
+                              }
+                            },
+                            error -> {
+                              log.warn("Session evidence error: {}", error.getMessage());
+                              if (pendingQueries.decrementAndGet() == 0) {
+                                try {
+                                  String enriched = objectMapper.writeValueAsString(working);
+                                  future.complete(enriched);
+                                } catch (Exception e) {
+                                  future.complete(fallbackBody);
+                                }
+                              }
+                            });
+                  }
+                } else {
+                  String enriched = objectMapper.writeValueAsString(working);
+                  future.complete(enriched);
+                }
               } catch (Exception e) {
                 log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
                 future.complete(fallbackBody);
@@ -270,6 +354,33 @@ final class RcaReportProxyHandler {
               future.complete(fallbackBody);
             });
     return future;
+  }
+
+  /**
+   * Extract error_rate and apdex metrics from segment metrics map.
+   * Converts Object values to Double for numeric comparison in query.
+   */
+  private Map<String, Double> extractSegmentMetrics(Map<String, Object> metrics) {
+    Map<String, Double> result = new java.util.HashMap<>();
+    if (metrics != null) {
+      Object errorRateObj = metrics.get("error_rate");
+      if (errorRateObj != null) {
+        try {
+          result.put("error_rate", Double.parseDouble(errorRateObj.toString()));
+        } catch (NumberFormatException e) {
+          log.warn("Failed to parse error_rate metric: {}", errorRateObj);
+        }
+      }
+      Object apdexObj = metrics.get("apdex");
+      if (apdexObj != null) {
+        try {
+          result.put("apdex", Double.parseDouble(apdexObj.toString()));
+        } catch (NumberFormatException e) {
+          log.warn("Failed to parse apdex metric: {}", apdexObj);
+        }
+      }
+    }
+    return result;
   }
 
   private LocalDate resolveDateFromNode(JsonNode dateNode) {

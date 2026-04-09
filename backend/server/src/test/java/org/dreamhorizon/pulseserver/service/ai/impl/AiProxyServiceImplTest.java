@@ -36,6 +36,7 @@ import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -68,6 +69,9 @@ class AiProxyServiceImplTest {
   @Mock
   private RcaReportCacheDao rcaReportCacheDao;
 
+  @Mock
+  private SessionEvidenceService sessionEvidenceService;
+
   private ObjectMapper objectMapper;
 
   @BeforeEach
@@ -86,7 +90,8 @@ class AiProxyServiceImplTest {
 
   private AiProxyServiceImpl fullPipelineService() {
     return new AiProxyServiceImpl(
-        webClient, AI_SERVICE_URL, objectMapper, rootCauseService, rcaReportCacheDao);
+        webClient, AI_SERVICE_URL, objectMapper, rootCauseService, rcaReportCacheDao,
+        sessionEvidenceService);
   }
 
   private HttpResponse<Buffer> mockBufferedResponse(int status, String contentType, String body) {

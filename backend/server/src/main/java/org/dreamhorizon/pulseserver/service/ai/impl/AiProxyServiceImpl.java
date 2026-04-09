@@ -12,6 +12,7 @@ import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 
 /**
  * HTTP client implementation for forwarding requests to the Pulse AI service.
@@ -42,8 +43,10 @@ public class AiProxyServiceImpl implements AiProxyService {
       ApplicationConfig config,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao) {
-    this(wiringForProduction(webClient, config, objectMapper, rootCauseService, rcaReportCacheDao));
+      RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService) {
+    this(wiringForProduction(webClient, config, objectMapper, rootCauseService, rcaReportCacheDao,
+        sessionEvidenceService));
   }
 
   /**
@@ -61,10 +64,12 @@ public class AiProxyServiceImpl implements AiProxyService {
       String aiServiceUrl,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao) {
+      RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService) {
     this(
         wiringForFullPipeline(
-            webClient, aiServiceUrl, objectMapper, rootCauseService, rcaReportCacheDao));
+            webClient, aiServiceUrl, objectMapper, rootCauseService, rcaReportCacheDao,
+            sessionEvidenceService));
   }
 
   private AiProxyServiceImpl(AiProxyWiring wiring) {
@@ -78,9 +83,11 @@ public class AiProxyServiceImpl implements AiProxyService {
       ApplicationConfig config,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao) {
+      RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService) {
     return wiringForFullPipeline(
-        webClient, config.getAiServiceUrl(), objectMapper, rootCauseService, rcaReportCacheDao);
+        webClient, config.getAiServiceUrl(), objectMapper, rootCauseService, rcaReportCacheDao,
+        sessionEvidenceService);
   }
 
   private static AiProxyWiring wiringForFullPipeline(
@@ -88,11 +95,13 @@ public class AiProxyServiceImpl implements AiProxyService {
       String aiServiceUrl,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao) {
+      RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService) {
     String base = normalizeAiServiceUrl(aiServiceUrl);
     AiUpstreamProxyExecutor executor = new AiUpstreamProxyExecutor(webClient, base);
     RcaReportProxyHandler rcaHandler =
-        new RcaReportProxyHandler(executor, objectMapper, rootCauseService, rcaReportCacheDao);
+        new RcaReportProxyHandler(executor, objectMapper, rootCauseService, rcaReportCacheDao,
+            sessionEvidenceService);
     return new AiProxyWiring(executor, rcaHandler);
   }
 

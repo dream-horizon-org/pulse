@@ -15,6 +15,7 @@ export type RcaStructuredSegmentV1 = {
   metrics: RcaStructuredMetricRowV1[];
   impact?: string | null;
   insights?: string | null;
+  affected_sessions?: string[] | null;
 };
 
 export type RcaStructuredReportV1 = {
