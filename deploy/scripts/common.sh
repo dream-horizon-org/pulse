@@ -315,7 +315,9 @@ validate_env_against_example_and_compose() {
     _validate_env_collect_env_keys() {
         local file="$1"
         local keys=""
-        while IFS= read -r line; do
+        # Use "|| [ -n "$line" ]" so the last line is not dropped when the file
+        # has no trailing newline (common after pasting long AWS_SESSION_TOKEN).
+        while IFS= read -r line || [ -n "$line" ]; do
             line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             [ -z "$line" ] && continue
             [[ "$line" =~ ^# ]] && continue

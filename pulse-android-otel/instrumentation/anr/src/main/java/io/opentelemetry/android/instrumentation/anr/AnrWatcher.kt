@@ -26,6 +26,10 @@ internal val DEFAULT_POLL_DURATION_NS = SECONDS.toNanos(1)
  * Runnables to the main thread. If 5 consecutive responses
  * time out, then an ANR is detected.
  *
+ * @param uiHandler [Handler] for ui updates
+ * @param mainThread Main thread in android
+ * @param anrLogger [Logger] used for logging the anr
+ * @param additionalExtractors Extractors to enrich anr log
  * @param pollDurationNs - exists for testing
  */
 internal class AnrWatcher(

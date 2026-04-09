@@ -17,10 +17,28 @@ public final class HeatmapQueries {
       """;
 
   /**
-   * Average Apdex per interaction on a screen, from interaction spans. {@code WHERE %s} is built in
-   * {@link org.dreamhorizon.pulseserver.service.heatmap.HeatmapServiceImpl}.
+   * Distinct span event names observed on a screen via {@code Events.Attributes['screen.name']}
+   * (not span-level {@code SpanAttributes['screen.name']}).
    */
-  public static final String INTERACTIONS_APDEX_BY_SCREEN = """
+  public static final String DISTINCT_EVENT_NAMES_ON_SCREEN = """
+      SELECT DISTINCT event_name AS event_name
+      FROM otel.otel_traces
+      ARRAY JOIN
+          `Events.Name` AS event_name,
+          `Events.Attributes` AS event_attrs
+      WHERE ProjectId = '%s'
+        AND event_attrs['screen.name'] = '%s'
+        AND length(`Events.Name`) > 0
+        AND Timestamp >= parseDateTime64BestEffort('%s', 9, 'UTC')
+        AND Timestamp <= parseDateTime64BestEffort('%s', 9, 'UTC')
+      """;
+
+  /**
+   * Average Apdex per interaction from interaction spans whose {@code pulse.interaction.name} is in
+   * the eligible set (screen association comes from t0 ∈ distinct event names, not span screen).
+   * {@code WHERE %s} is built in {@link org.dreamhorizon.pulseserver.service.heatmap.HeatmapServiceImpl}.
+   */
+  public static final String INTERACTIONS_APDEX_FOR_INTERACTION_NAMES = """
       SELECT
           SpanAttributes['pulse.interaction.name'] AS interaction_name,
           round(avgIf(

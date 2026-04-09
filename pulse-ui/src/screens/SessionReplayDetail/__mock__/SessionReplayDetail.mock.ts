@@ -12,6 +12,7 @@ export const mockSessionDataWithTechnical: SessionDetailData = {
   userId: "user-456",
   isAnonymous: false,
   startTime: "2025-03-08T14:00:00.000Z",
+  endTime: "2025-03-08T14:02:34.000Z",
   duration: 154000,
   platform: "Web",
   device: "Chrome",

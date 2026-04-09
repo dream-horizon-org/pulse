@@ -37,6 +37,7 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 187,
       journey: ["/home", "/search", "/contest", "/checkout"],
       impactedScreens: { nonFatals: ["/search"] },
+      impactedInteractionNames: ["PAYMENTSUBMITCLICK", "CONTESTLISTAPIFETCH"],
     },
     {
       sessionId: "sess_mock_002",
@@ -52,6 +53,7 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 94,
       journey: ["/login", "/home", "/offers", "/cart"],
       impactedScreens: { nonFatals: ["/offers"] },
+      impactedInteractionNames: ["JOINCONTESTBUTTONCLICK"],
     },
     {
       sessionId: "sess_mock_003",
@@ -64,6 +66,7 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 256,
       journey: ["/home", "/search", "/contest", "/pay", "/wallet", "/receipt"],
       impactedScreens: null,
+      impactedInteractionNames: ["JOINCONTESTBUTTONCLICK"],
     },
     {
       sessionId: "sess_mock_004",
@@ -86,6 +89,7 @@ function getMockSessionItems(): SessionItem[] {
         crashes: ["/home"],
         nonFatals: ["/home", "/feed", "/settings"],
       },
+      impactedInteractionNames: ["JOINCONTESTBUTTONCLICK"],
     },
     {
       sessionId: "sess_mock_005",
@@ -103,6 +107,7 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 203,
       journey: ["/home", "/profile", "/settings", "/notifications"],
       impactedScreens: { anrs: ["/profile"] },
+      impactedInteractionNames: ["WALLETBALANCEFETCH", "PLAYERSELECTTAP"],
     },
     {
       sessionId: "sess_mock_006",
@@ -119,6 +124,7 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 312,
       journey: ["/home", "/shop", "/product", "/reviews", "/cart"],
       impactedScreens: { nonFatals: ["/product", "/reviews"] },
+      impactedInteractionNames: ["PAYMENTSUBMITCLICK"],
     },
     {
       sessionId: "sess_mock_007",
@@ -134,6 +140,7 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 142,
       journey: ["/dashboard", "/reports", "/export"],
       impactedScreens: null,
+      impactedInteractionNames: ["PROFILESAVECLICK"],
     },
     {
       sessionId: "sess_mock_008",
@@ -146,6 +153,10 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 18,
       journey: ["/onboarding", "/permissions"],
       impactedScreens: { crashes: ["/permissions"] },
+      impactedInteractionNames: [
+        "JOINCONTESTBUTTONCLICK",
+        "PAYMENTSUBMITCLICK",
+      ],
     },
     {
       sessionId: "sess_mock_009",
@@ -171,6 +182,7 @@ function getMockSessionItems(): SessionItem[] {
       impactedScreens: {
         nonFatals: ["/withdraw", "/wallet"],
       },
+      impactedInteractionNames: ["CONTESTLISTAPIFETCH"],
     },
     {
       sessionId: "sess_mock_010",
@@ -190,6 +202,7 @@ function getMockSessionItems(): SessionItem[] {
         anrs: ["/fullscreen"],
         crashes: ["/video"],
       },
+      impactedInteractionNames: ["PAYMENTSUBMITCLICK"],
     },
     {
       sessionId: "sess_mock_011",
@@ -202,6 +215,7 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 72,
       journey: ["/", "/smoke", "/health"],
       impactedScreens: null,
+      impactedInteractionNames: ["SMOKEHEALTHCHECK"],
     },
     {
       sessionId: "sess_mock_012",
@@ -218,6 +232,7 @@ function getMockSessionItems(): SessionItem[] {
       spanCount: 198,
       journey: ["/tab/home", "/tab/explore", "/tab/profile"],
       impactedScreens: { nonFatals: ["/tab/explore"] },
+      impactedInteractionNames: ["EXPLORETABLOAD"],
     },
   ];
 }
@@ -242,7 +257,11 @@ function sessionMatchesSearch(session: SessionItem, query: string | undefined) {
   return (
     session.sessionId.toLowerCase().includes(q) ||
     (session.user?.toLowerCase().includes(q) ?? false) ||
-    session.journey.some((p) => p.toLowerCase().includes(q))
+    session.journey.some((p) => p.toLowerCase().includes(q)) ||
+    (session.impactedInteractionNames?.some((n) =>
+      n.toLowerCase().includes(q),
+    ) ??
+      false)
   );
 }
 

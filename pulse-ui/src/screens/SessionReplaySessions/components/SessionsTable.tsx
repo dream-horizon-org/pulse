@@ -121,11 +121,11 @@ export function SessionsTable({
               sortDirection={sortDirection}
             />
           </Table.Th>
-          <Table.Th style={{ width: "12%" }}>
-            {TABLE_COLUMN_LABELS.issues}
-          </Table.Th>
           <Table.Th style={{ width: "10%" }}>
             {TABLE_COLUMN_LABELS.platform}
+          </Table.Th>
+          <Table.Th style={{ width: "12%" }}>
+            {TABLE_COLUMN_LABELS.issues}
           </Table.Th>
           <Table.Th style={{ width: "30%" }}>
             {TABLE_COLUMN_LABELS.impactedScreens}

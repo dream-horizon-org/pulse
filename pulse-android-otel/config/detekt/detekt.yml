@@ -53,9 +53,9 @@ comments:
     active: true
     excludes: &testFolders [ '**/test/**', '**/androidTest/**', '**/commonTest/**', '**/jvmTest/**', '**/jsTest/**', '**/iosTest/**' ]
   OutdatedDocumentation:
-    active: false
-    matchTypeParameters: false
-    matchDeclarationsOrder: false
+    active: true
+    matchTypeParameters: true
+    matchDeclarationsOrder: true
     allowParamOnConstructorProperties: false
   UndocumentedPublicClass:
     active: false
