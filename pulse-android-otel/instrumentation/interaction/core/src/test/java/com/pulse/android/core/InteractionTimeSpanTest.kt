@@ -16,9 +16,9 @@ class InteractionTimeSpanTest {
                         InteractionRemoteFakeUtils.createFakeInteractionEvent("c"),
                     ),
             )
-        val t0 = 1_000L * 1_000_000_000
-        val t1 = t0 + 2_000_000_000L
-        val t2 = t0 + 9_000_000_000L
+        val t0 = 1L
+        val t1 = t0 + 1L
+        val t2 = t0 + 2L
         val events =
             listOf(
                 InteractionLocalEventFakeUtils.createFakeInteractionLocalEvent("a", t0),
@@ -44,8 +44,8 @@ class InteractionTimeSpanTest {
                         InteractionRemoteFakeUtils.createFakeInteractionEvent("b"),
                     ),
             )
-        val t0 = 100L
-        val t1 = 500L
+        val t0 = 1L
+        val t1 = t0 + 1L
         val events =
             listOf(
                 InteractionLocalEventFakeUtils.createFakeInteractionLocalEvent("a", t0),
@@ -62,8 +62,12 @@ class InteractionTimeSpanTest {
 
     @Test
     fun `getTimeSpanInNanos single event extends end by threshold`() {
-        val config = InteractionRemoteFakeUtils.createFakeInteractionConfig()
-        val t0 = 5_000L * 1_000_000_000
+        val config =
+            InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                eventSequence =
+                    listOf(InteractionRemoteFakeUtils.createFakeInteractionEvent("solo")),
+            )
+        val t0 = 1L
         val thresholdMs = config.thresholdInMs
         val events = listOf(InteractionLocalEventFakeUtils.createFakeInteractionLocalEvent("solo", t0))
         val interaction =
