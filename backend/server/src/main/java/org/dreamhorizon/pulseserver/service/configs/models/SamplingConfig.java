@@ -22,4 +22,7 @@ public class SamplingConfig {
 
   @JsonProperty("criticalSessionPolicies")
   private CriticalSessionPolicies criticalSessionPolicies;
+
+  @JsonProperty("signalsToSample")
+  private List<SignalsToSampleEntry> signalsToSample;
 }

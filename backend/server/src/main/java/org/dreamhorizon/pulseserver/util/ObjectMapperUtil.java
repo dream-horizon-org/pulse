@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.util;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.google.inject.Inject;
 import java.util.Collection;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ObjectMapperUtil {
 
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper =
+      new ObjectMapper().registerModule(new KotlinModule.Builder().build());
 
   public String writeValueAsString(Object value) {
     try {

@@ -35,4 +35,7 @@ public class SignalsConfig {
 
   @JsonProperty("attributesToAdd")
   private List<AttributeToAdd> attributesToAdd;
+
+  @JsonProperty("metricsToAdd")
+  private List<MetricsToAddEntry> metricsToAdd;
 }
