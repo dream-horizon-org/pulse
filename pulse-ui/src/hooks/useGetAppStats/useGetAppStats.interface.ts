@@ -4,6 +4,9 @@ export interface UseGetAppStatsProps {
   appVersion?: string;
   osVersion?: string;
   device?: string;
+  platform?: string;
+  networkProvider?: string;
+  state?: string;
 }
 
 export interface AppStatsData {

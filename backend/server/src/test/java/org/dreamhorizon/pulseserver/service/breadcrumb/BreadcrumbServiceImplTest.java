@@ -12,12 +12,11 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.sql.Timestamp;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryResponseDto;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
-import org.dreamhorizon.pulseserver.tenant.Tenant;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -47,14 +46,12 @@ public class BreadcrumbServiceImplTest {
   void setUp() {
     athenaConfig = new AthenaConfig("us-east-1", "pulse_athena_db", "s3://output");
     service = new BreadcrumbServiceImpl(queryService, athenaConfig);
-    TenantContext.setTenant(Tenant.builder()
-        .tenantId("test_tenant")
-        .build());
+    ProjectContext.setProjectId("test_tenant");
   }
 
   @AfterEach
   void tearDown() {
-    TenantContext.clear();
+    ProjectContext.clear();
   }
 
   @Nested

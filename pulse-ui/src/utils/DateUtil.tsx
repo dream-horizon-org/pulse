@@ -278,7 +278,9 @@ export function getDateFromUTCTimeString(value: string): DateValue {
 export function getUTCDateTimeFromLocalStringDateValue(
   value: string | undefined,
 ) {
-  return value ? dayjs(value).utc().format("YYYY-MM-DD HH:mm:ss") : "";
+  if (!value?.trim()) return "";
+  const d = dayjs(value).utc();
+  return d.isValid() ? d.format("YYYY-MM-DD HH:mm:ss") : "";
 }
 
 export function getLocalStringFromUTCDateTimeValue(value: string | undefined) {

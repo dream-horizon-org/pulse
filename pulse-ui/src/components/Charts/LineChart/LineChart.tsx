@@ -35,6 +35,9 @@ export function LineChart({
   tooltipValueFormatter,
   syncTooltips = true,
   group = "defaultChartGroup",
+  onTimeFilterChange,
+  mapBrushToTimeFilter,
+  syncDataZoomToTimeFilter = false,
   ...props
 }: LineChartProps) {
   const chartRef = useRef<ReactECharts>(null);
@@ -43,6 +46,9 @@ export function LineChart({
     syncTooltips,
     group,
     enableBrushSelection: true,
+    onTimeFilterChange,
+    mapBrushToTimeFilter,
+    syncDataZoomToTimeFilter,
   });
 
   const tooltip = useTooltip({ tooltipValueFormatter });

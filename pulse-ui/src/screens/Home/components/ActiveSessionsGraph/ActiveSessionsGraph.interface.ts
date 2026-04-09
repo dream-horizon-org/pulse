@@ -1,3 +1,5 @@
+import type { StartEndDateTimeType } from "../../../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
+
 export interface ActiveSessions {
   current: number;
   peak: number;
@@ -16,4 +18,5 @@ export interface ActiveSessionsGraphProps {
   device?: string;
   startTime?: string;
   endTime?: string;
+  onTimeFilterChange?: (value: StartEndDateTimeType) => void;
 }
