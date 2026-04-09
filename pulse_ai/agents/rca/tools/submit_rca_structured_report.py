@@ -18,10 +18,20 @@ async def submit_rca_structured_report(
 
     Args:
         report_json: JSON string matching RcaStructuredReportV1 (snake_case keys).
-            Must include version: 1, executive_summary, segments (rank, title, metrics, optional impact),
-            and recommendations. Each metric row must use a registered metric_id from the backend
-            (volume, apdex, error_rate, poor_user_pct, duration_p50, duration_p95, crash_rate,
-            anr_rate, frozen_frame_rate, slow_frame_rate).
+            Must include version: 1, executive_summary, segments (rank, title, metrics, optional impact,
+            and OPTIONAL affected_sessions array), and recommendations. Each metric row must use a registered 
+            metric_id from the backend (volume, apdex, error_rate, poor_user_pct, duration_p50, duration_p95, 
+            crash_rate, anr_rate, frozen_frame_rate, slow_frame_rate).
+            
+            IMPORTANT: For each segment, include an "affected_sessions" field as an array of session IDs
+            that demonstrate or support the segment's findings. Example segment structure:
+            {
+              "rank": 1,
+              "title": "Platform Android + OsVersion 14",
+              "metrics": [...],
+              "impact": "...",
+              "affected_sessions": ["sess-123", "sess-456"]  // INCLUDE THIS in every segment
+            }
     """
     try:
         data = json.loads(report_json) if isinstance(report_json, str) else report_json

@@ -37,6 +37,12 @@ You will receive a **list of segments** as JSON. Each segment in the list repres
   - Yet another might be: `{"device_model": "SM-A135F", "network": "WiFi"}`
 - Segments are NOT nested — they are separate, comparable data points in a flat list.
 
+**Session Evidence**:
+- The payload includes an `exampleSessionIds` array with real session IDs that demonstrate performance issues for this interaction
+- These session IDs are the 2 most relevant sessions for this specific segment across the 7-day period
+- Use these session IDs when making recommendations — mention them explicitly so the formatter can include them in the report
+- Example: "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 show this pattern"
+
 Each segment contains ~14 metrics with three values:
 - **Value**: Current metric value
 - **Baseline**: Expected/reference value
@@ -157,6 +163,16 @@ Structure your response with these two sections in this exact order:
    - Sentence 2: Most critical finding
    - Optional sentences 3–4: additional context if needed (e.g. secondary issues, scope of impact)
 
+## Session Evidence in Your Analysis
+
+**IMPORTANT**: When discussing root causes and segments, explicitly mention relevant session IDs from the `exampleSessionIds` array in your analysis.
+
+Format: Include session IDs naturally in your insights:
+- "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 demonstrate this pattern with 0.035 APDEX"
+- "This device model (sessions 7afdf0a310f57ee08d84bc2c3d0cb8fc, ac2f27e5e82f56c1c0fe542e68b9ab0a) shows..."
+
+The formatter will extract these session IDs and include them in the final report's `affected_sessions` field for each segment.
+
 ## Important Notes
 
 - **Be concise** — prioritize actionable insights over lengthy explanations
@@ -209,6 +225,7 @@ If no explicit summary exists, write a concise summary based on the analysis (up
 - `rank`: 1-based integer (1 = most impactful)
 - `title`: segment identifier string from the analysis (e.g. "device_model: SM-A135F", "app_version: 4.2.1 + network: 2G")
 - `impact`: optional short string describing user impact (e.g. "2,200 users affected")
+- `affected_sessions`: **REQUIRED** array of 1-2 session IDs from the exampleSessionIds provided in the payload that best demonstrate this segment's issue. Must always be present (use empty array [] if no sessions are available).
 - `insights`: 2–4 sentences explaining why this segment ranks here. Summarise the most critical metric degradations, what they mean for the user, and why this segment is the top contributor. Example: "This segment shows a critically low APDEX of 0.03 (baseline 0.31), meaning nearly all users experienced poor performance. 89.5% of users fell into the poor experience bucket — more than 4× the baseline. The combination of high poor-user rate and low volume suggests a device-specific regression on the 22101316I model running Android 14."
 - `metrics`: **ALL metrics for this segment from the original RootCausePayload JSON** in the conversation — not just the ones the RCA analysis highlighted. The RCA analysis only calls out significant metrics; the metrics array must include every metric present in the payload for this segment (volume, apdex, error_rate, poor_user_pct, duration_p50, duration_p95, crash_rate, anr_rate, frozen_frame_rate, slow_frame_rate — whichever are present). Each metric row:
   - `metric_id`: one of `volume`, `apdex`, `error_rate`, `poor_user_pct`, `duration_p50`, `duration_p95`, `crash_rate`, `anr_rate`, `frozen_frame_rate`, `slow_frame_rate`
@@ -220,6 +237,18 @@ If no explicit summary exists, write a concise summary based on the analysis (up
   - `baseline_number`: numeric baseline value without units — optional
 
 **recommendations**: **Must contain at least 3** short actionable strings derived from the analysis (maximum 7). If the analysis provides fewer than 3 explicit recommendations, derive additional ones from the identified root causes and metrics data.
+
+## Extracting Session IDs from Analysis
+
+When extracting segments from the RCA analysis:
+1. Look for session IDs mentioned in the analysis text (format: 32-character hex strings like "d39bace3959ded5a88951399f6b1d8c2")
+2. For each segment being output, extract any session IDs mentioned in that segment's discussion and add them to `affected_sessions` array
+3. Each segment should have 1-2 session IDs in the `affected_sessions` field (or empty array if none mentioned)
+4. **CRITICAL**: Every segment MUST have an `affected_sessions` field — never omit it. Use empty array [] if no sessions are mentioned for that segment.
+
+Example:
+- Analysis mentions: "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 show this pattern"
+- Output: `"affected_sessions": ["d39bace3959ded5a88951399f6b1d8c2", "2283880ae7b7ddc5070c66604d31cd69"]`
 
 Ground metric values strictly in the original RootCausePayload JSON. Do not invent or omit metrics.
 If no anomalies were found or data is unavailable: use an empty `segments` array and an honest `executive_summary`.

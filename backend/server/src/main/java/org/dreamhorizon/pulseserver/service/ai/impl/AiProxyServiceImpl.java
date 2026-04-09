@@ -14,6 +14,7 @@ import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 
 /**
  * HTTP client implementation for forwarding requests to the Pulse AI service.
@@ -45,17 +46,12 @@ public class AiProxyServiceImpl implements AiProxyService {
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService,
       RootCauseConfig rootCauseConfig,
       RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger) {
-    this(
-        wiringForProduction(
-            webClient,
-            config,
-            objectMapper,
-            rootCauseService,
-            rcaReportCacheDao,
-            rootCauseConfig,
-            rcaRelatedHeatmapsMerger));
+    this(wiringForProduction(webClient, config, objectMapper, rootCauseService, rcaReportCacheDao,
+        sessionEvidenceService, rootCauseConfig,
+        rcaRelatedHeatmapsMerger));
   }
 
   /**
@@ -73,15 +69,12 @@ public class AiProxyServiceImpl implements AiProxyService {
       String aiServiceUrl,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao) {
+      RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService) {
     this(
         wiringForFullPipeline(
-            webClient,
-            aiServiceUrl,
-            objectMapper,
-            rootCauseService,
-            rcaReportCacheDao,
-            RootCauseConfig.withDefaults(null),
+            webClient, aiServiceUrl, objectMapper, rootCauseService, rcaReportCacheDao,
+            sessionEvidenceService, RootCauseConfig.withDefaults(null),
             new RcaRelatedHeatmapsMerger(objectMapper)));
   }
 
@@ -97,15 +90,14 @@ public class AiProxyServiceImpl implements AiProxyService {
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService,
       RootCauseConfig rootCauseConfig,
       RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger) {
+
+
     return wiringForFullPipeline(
-        webClient,
-        config.getAiServiceUrl(),
-        objectMapper,
-        rootCauseService,
-        rcaReportCacheDao,
-        rootCauseConfig,
+        webClient, config.getAiServiceUrl(), objectMapper, rootCauseService, rcaReportCacheDao,
+        sessionEvidenceService,rootCauseConfig,
         rcaRelatedHeatmapsMerger);
   }
 
@@ -115,18 +107,15 @@ public class AiProxyServiceImpl implements AiProxyService {
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao,
+      SessionEvidenceService sessionEvidenceService,
       RootCauseConfig rootCauseConfig,
       RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger) {
     String base = normalizeAiServiceUrl(aiServiceUrl);
     AiUpstreamProxyExecutor executor = new AiUpstreamProxyExecutor(webClient, base);
     RcaReportProxyHandler rcaHandler =
-        new RcaReportProxyHandler(
-            executor,
-            objectMapper,
-            rootCauseService,
-            rcaReportCacheDao,
-            rootCauseConfig,
-            rcaRelatedHeatmapsMerger);
+        new RcaReportProxyHandler(executor, objectMapper, rootCauseService, rcaReportCacheDao,
+            rootCauseConfig, rcaRelatedHeatmapsMerger,
+            sessionEvidenceService);
     return new AiProxyWiring(executor, rcaHandler);
   }
 
