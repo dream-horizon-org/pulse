@@ -58,7 +58,7 @@ type QueryMode = "builder" | "sql" | "ai";
 
 export function RealTimeQuery() {
   // Query mode state
-  const [queryMode, setQueryMode] = useState<QueryMode>("ai");
+  const [queryMode, setQueryMode] = useState<QueryMode>("builder");
   
   // SQL query state (for SQL mode)
   const [sqlQuery, setSqlQuery] = useState<string>("");
@@ -203,15 +203,15 @@ export function RealTimeQuery() {
                 value={queryMode}
                 onChange={handleModeChange}
                 data={[
-                  {
-                    value: "ai",
-                    label: (
-                      <Group gap={6} wrap="nowrap">
-                        <IconSparkles size={16} />
-                        <Text size="sm" fw={600}>AI</Text>
-                      </Group>
-                    ),
-                  },
+                  // {
+                  //   value: "ai",
+                  //   label: (
+                  //     <Group gap={6} wrap="nowrap">
+                  //       <IconSparkles size={16} />
+                  //       <Text size="sm" fw={600}>AI</Text>
+                  //     </Group>
+                  //   ),
+                  // },
                   {
                     value: "builder",
                     label: (
@@ -251,7 +251,7 @@ export function RealTimeQuery() {
         </Box>
 
         {/* AI Chat takes the full content area */}
-        <AiChat />
+        {/* <AiChat /> */}
 
         {/* Query History Modal */}
         <QueryHistory
@@ -279,15 +279,15 @@ export function RealTimeQuery() {
               value={queryMode}
               onChange={handleModeChange}
               data={[
-                {
-                  value: "ai",
-                  label: (
-                    <Group gap={6} wrap="nowrap">
-                      <IconSparkles size={16} />
-                      <Text size="sm" fw={600}>AI</Text>
-                    </Group>
-                  ),
-                },
+                // {
+                //   value: "ai",
+                //   label: (
+                //     <Group gap={6} wrap="nowrap">
+                //       <IconSparkles size={16} />
+                //       <Text size="sm" fw={600}>AI</Text>
+                //     </Group>
+                //   ),
+                // },
                 {
                   value: "builder",
                   label: (
