@@ -1,0 +1,29 @@
+name: PulseSPMExample
+options:
+  bundleIdPrefix: org.pulsekit
+  deploymentTarget:
+    iOS: "15.0"
+  developmentLanguage: en
+packages:
+  PulseSPMPackage:
+    path: .
+targets:
+  PulseSPMExample:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: HostApp
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.pulsekit.PulseSPMExample
+        INFOPLIST_FILE: HostApp/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.0"
+    dependencies:
+      - package: PulseSPMPackage
+        product: PulseSPMExampleSupport
