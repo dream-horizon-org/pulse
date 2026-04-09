@@ -7,8 +7,11 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapAppVersionRowDto;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapClickHouseRowDto;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapDataRestResponse;
 import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapEventNameRowDto;
@@ -37,6 +41,9 @@ import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetail
 public class HeatmapServiceImpl implements HeatmapService {
 
   private static final int TIMEOUT_MS = 60_000;
+
+  private static final String DEFAULT_SCREENSHOT_PLATFORM = "Android";
+  private static final String DEFAULT_SCREENSHOT_BREAKPOINT = "Mobile_Medium";
 
   private final ConfigService configService;
   private final ClickhouseQueryService clickhouseQueryService;
@@ -186,25 +193,144 @@ public class HeatmapServiceImpl implements HeatmapService {
                           r -> r.getRows() != null ? r.getRows() : Collections.emptyList());
                 });
 
-    List<String> screenshotUrls =
-        resolveScreenshotUrlsForScreen(
-            projectId,
-            screenName,
-            nonBlankOrNull(appVersion),
-            nonBlankOrNull(platform),
-            nonBlankOrNull(breakpoint));
+    Single<Optional<String>> resolvedScreenshotAppVersionSingle =
+        nonBlankOrNull(appVersion) != null
+            ? Single.just(Optional.of(nonBlankOrNull(appVersion)))
+            : fetchLatestAppVersionInSlice(
+                projectId,
+                dateFrom,
+                dateTo,
+                screenName,
+                platform,
+                breakpoint,
+                geographicalRegion);
 
     return Single.zip(
         heatmapSingle,
         interactionsSingle,
-        (heatmapRows, interactionRows) ->
-            toResponse(
-                heatmapRows,
-                interactionRows,
-                screenName,
-                fromInstant,
-                toInstant,
-                screenshotUrls));
+        resolvedScreenshotAppVersionSingle,
+        (heatmapRows, interactionRows, resolvedAppVersionOpt) -> {
+          String screenshotPlatform =
+              nonBlankOrNull(platform) != null
+                  ? nonBlankOrNull(platform)
+                  : DEFAULT_SCREENSHOT_PLATFORM;
+          String screenshotBreakpoint =
+              nonBlankOrNull(breakpoint) != null
+                  ? nonBlankOrNull(breakpoint)
+                  : DEFAULT_SCREENSHOT_BREAKPOINT;
+          String screenshotAppVersion =
+              nonBlankOrNull(appVersion) != null
+                  ? nonBlankOrNull(appVersion)
+                  : resolvedAppVersionOpt.orElse(null);
+          List<String> screenshotUrls =
+              resolveScreenshotUrlsForScreen(
+                  projectId,
+                  screenName,
+                  dateFrom,
+                  dateTo,
+                  screenshotAppVersion,
+                  screenshotPlatform,
+                  screenshotBreakpoint);
+          return toResponse(
+              heatmapRows,
+              interactionRows,
+              screenName,
+              fromInstant,
+              toInstant,
+              screenshotUrls);
+        });
+  }
+
+  /**
+   * Distinct {@code AppVersion} in the heatmap slice (request filters only; no AppVersion
+   * predicate), then greatest {@code major.minor.patch} via {@link #maxMajorMinorPatchVersion}.
+   */
+  private Single<Optional<String>> fetchLatestAppVersionInSlice(
+      String projectId,
+      String dateFrom,
+      String dateTo,
+      String screenName,
+      String platform,
+      String breakpoint,
+      String geographicalRegion) {
+
+    String where =
+        buildHeatmapWhereClause(
+            projectId,
+            dateFrom,
+            dateTo,
+            screenName,
+            null,
+            platform,
+            breakpoint,
+            geographicalRegion);
+    String sql = String.format(HeatmapQueries.DISTINCT_APP_VERSIONS_IN_SLICE, where);
+    QueryConfiguration config =
+        QueryConfiguration.newQuery(sql)
+            .timeoutMs(TIMEOUT_MS)
+            .tenantId(projectId)
+            .projectId(projectId)
+            .build();
+    return clickhouseQueryService
+        .executeQueryOrCreateJob(config, HeatmapAppVersionRowDto.class)
+        .map(
+            r -> {
+              if (r.getRows() == null || r.getRows().isEmpty()) {
+                return Optional.<String>empty();
+              }
+              List<String> versions =
+                  r.getRows().stream()
+                      .map(HeatmapAppVersionRowDto::getAppVersion)
+                      .collect(Collectors.toList());
+              return maxMajorMinorPatchVersion(versions);
+            });
+  }
+
+  /**
+   * Greatest {@code major.minor.patch} by integer segment comparison; skips strings that do not
+   * parse as three integer segments.
+   */
+  private static Optional<String> maxMajorMinorPatchVersion(List<String> rawVersions) {
+    if (rawVersions == null || rawVersions.isEmpty()) {
+      return Optional.empty();
+    }
+    List<String> list =
+        rawVersions.stream()
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .collect(Collectors.toList());
+    return Optional.ofNullable(findLatestMajorMinorPatch(list));
+  }
+
+  private static String findLatestMajorMinorPatch(List<String> versions) {
+    if (versions == null || versions.isEmpty()) {
+      return null;
+    }
+    return versions.stream()
+        .filter(
+            v -> {
+              try {
+                parseVersionSegment(v, 0);
+                parseVersionSegment(v, 1);
+                parseVersionSegment(v, 2);
+                return true;
+              } catch (NumberFormatException e) {
+                return false;
+              }
+            })
+        .max(
+            Comparator.comparingInt((String v) -> parseVersionSegment(v, 0))
+                .thenComparingInt(v -> parseVersionSegment(v, 1))
+                .thenComparingInt(v -> parseVersionSegment(v, 2)))
+        .orElse(null);
+  }
+
+  private static int parseVersionSegment(String version, int index) {
+    String v =
+        version.startsWith("v") || version.startsWith("V") ? version.substring(1) : version;
+    String[] parts = v.split("\\.");
+    return index < parts.length ? Integer.parseInt(parts[index]) : 0;
   }
 
   /**
@@ -324,19 +450,20 @@ public class HeatmapServiceImpl implements HeatmapService {
   }
 
   /**
-   * TODO: Load screenshot URLs for the screen (e.g. from S3 metadata or a project store). When
-   * {@code appVersion}, {@code platform}, or {@code breakpoint} are non-null, scope the lookup to
-   * that heatmap filter slice. Returns an empty list until implemented.
+   * TODO: Load screenshot URLs for the screen (e.g. from S3 metadata or a project store). {@code
+   * appVersion}, {@code platform}, and {@code breakpoint} are already resolved (defaults applied in
+   * {@link #queryHeatmapAndBuildResponse} when the API omitted them). Returns an empty list until
+   * implemented.
    */
+  @SuppressWarnings("unused")
   private static List<String> resolveScreenshotUrlsForScreen(
       String projectId,
       String screenName,
+      String dateFrom,
+      String dateTo,
       String appVersion,
       String platform,
       String breakpoint) {
-    if (appVersion != null || platform != null || breakpoint != null) {
-      // TODO: resolve URLs for projectId + screenName + optional filter dimensions
-    }
     return Collections.emptyList();
   }
 
