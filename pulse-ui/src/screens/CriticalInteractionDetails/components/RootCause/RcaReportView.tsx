@@ -4,11 +4,13 @@ import {
   Button,
   Card,
   Group,
+  SimpleGrid,
   Stack,
   Table,
   Text,
 } from "@mantine/core";
 import { IconRefresh, IconSparkles } from "@tabler/icons-react";
+import { SessionCard } from "../../../../components/SessionCard/SessionCard";
 import type {
   RcaStructuredMetricRowV1,
   RcaStructuredReportV1,
@@ -307,27 +309,30 @@ const RcaStructuredReportV1View = ({
                                 "1px solid var(--mantine-color-gray-2)",
                             }}
                           >
-                            <Text size="xs" fw={600} c="dimmed" mb={6}>
-                              Affected Sessions
+                            <Text size="xs" fw={600} c="dimmed" mb="md">
+                              Related Session Replays
                             </Text>
-                            <Group gap="xs" wrap="wrap">
+                            <SimpleGrid
+                              cols={{
+                                base: 1,
+                                sm: 2,
+                                md: 2,
+                              }}
+                              spacing="sm"
+                            >
                               {segment.affected_sessions.map((sessionId) => (
-                                <Button
+                                <SessionCard
                                   key={sessionId}
-                                  variant="light"
-                                  size="xs"
-                                  onClick={() => {
-                                    // Navigate to session replay
+                                  sessionId={sessionId}
+                                  onNavigate={(id) => {
                                     window.open(
-                                      `/sessions/${sessionId}/replay`,
+                                      `/session-replay/${id}`,
                                       "_blank",
                                     );
                                   }}
-                                >
-                                  {sessionId}
-                                </Button>
+                                />
                               ))}
-                            </Group>
+                            </SimpleGrid>
                           </Box>
                         )}
                     </Card>
