@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 
 class DemoViewModel : ViewModel() {
     val sessionIdState = MutableStateFlow("? unknown ?")
@@ -58,8 +58,8 @@ class DemoViewModel : ViewModel() {
     fun makeNetworkCall() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val url = URL("https://httpbin.org/get")
-                val connection = url.openConnection() as HttpURLConnection
+                val connection =
+                    URI.create("https://httpbin.org/get").toURL().openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 10_000
                 connection.readTimeout = 10_000
