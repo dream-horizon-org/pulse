@@ -1,5 +1,5 @@
-import { ActionIcon, Box, Button, Group, Loader, Text } from "@mantine/core";
-import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
+import { ActionIcon, Box, Button, Group, Loader, Text, Tooltip } from "@mantine/core";
+import { IconArrowLeft, IconMinus, IconPencil, IconPlus, IconRefresh } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "../../constants";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
@@ -11,7 +11,7 @@ import {
   NOT_FOUND_TITLE,
 } from "./FunnelJourneyDetail.constants";
 import classes from "./FunnelJourneyDetail.module.css";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useGetAllFilterValues,
   useGetFunnelEvents,
@@ -80,6 +80,38 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
       value: values,
     }));
   }, [filters]);
+
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const handleZoomIn = () => setZoomLevel((z) => Math.min(z + 0.25, 3));
+  const handleZoomOut = () => setZoomLevel((z) => Math.max(z - 0.25, 0.5));
+  const handleZoomReset = () => setZoomLevel(1);
+
+  // ── Expansion state for progressive depth reveal ──
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [globalExpanded, setGlobalExpanded] = useState(false);
+
+  const handleGlobalExpand = useCallback(() => {
+    setGlobalExpanded(true);
+    setExpandedNodes(new Set());
+  }, []);
+  const handleGlobalCollapse = useCallback(() => {
+    setGlobalExpanded(false);
+    setExpandedNodes(new Set());
+  }, []);
+  const handleChartClick = useCallback((params: any) => {
+    if (params.data?.expandable || params.data?.expanded) {
+      const nodeName = params.name as string;
+      setExpandedNodes((prev) => {
+        const next = new Set(prev);
+        if (next.has(nodeName)) {
+          next.delete(nodeName);
+        } else {
+          next.add(nodeName);
+        }
+        return next;
+      });
+    }
+  }, []);
 
   const [anchorEvent, setAnchorEvent] = useState(detail.anchorEvent || "");
   const [direction, setDirection] = useState<"START" | "END">(
@@ -187,6 +219,11 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
     | { nodes: any[]; links: any[] }
     | undefined;
 
+  const graphResult = useMemo(() => {
+    if (!journeyData?.nodes?.length) return null;
+    return buildJourneySankeyOption(journeyData, { expandedNodes, globalExpanded });
+  }, [journeyData, expandedNodes, globalExpanded]);
+
   useEffect(() => {
     if (
       (detail.journeyType || FunnelType.AUTO) === FunnelType.ONCE &&
@@ -268,16 +305,26 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
         <Box
           className={funnelClasses.mainCanvas}
           style={{
-            minHeight: 560,
             padding: 0,
-            overflowY: "auto",
-            height: "100%",
+            overflow: "hidden",
             flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
           }}
         >
-          <Box className={funnelClasses.journeyCanvas} style={{ padding: 0 }}>
-            <Box className={funnelClasses.sankeyContainer}>
-              <Text size="sm" fw={600} c="dark.7" mb="md">
+          <Box
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+              padding: 16,
+            }}
+          >
+            {/* ── Header row: title + zoom controls ── */}
+            <Group justify="space-between" align="center" mb="sm" style={{ flexShrink: 0 }}>
+              <Text size="sm" fw={600} c="dark.7">
                 {(detail.direction || "START") === "START"
                   ? "Start Point"
                   : "End Point"}{" "}
@@ -288,31 +335,95 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
                 (saved · depth {detail.depth ?? 5})
               </Text>
 
-              {detail.status === "IN_PROGRESS" ? (
-                <Box className={funnelClasses.emptyState} py={60}>
-                  <Loader color="blue" size="lg" />
-                  <Text size="lg" fw={700} c="dark.6" mt="md">
-                    Computing Journey Data
+              {graphResult ? (
+                <Group gap={8}>
+                  {/* Expand / Collapse all depths */}
+                  {graphResult.hasHiddenPaths && !globalExpanded && (
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      color="blue"
+                      onClick={handleGlobalExpand}
+                    >
+                      Expand All
+                    </Button>
+                  )}
+                  {(globalExpanded || expandedNodes.size > 0) && (
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      color="gray"
+                      onClick={handleGlobalCollapse}
+                    >
+                      Collapse All
+                    </Button>
+                  )}
+
+                  {/* Zoom controls */}
+                  <Tooltip label="Zoom in" position="top" withArrow>
+                    <ActionIcon variant="light" color="gray" size="sm" onClick={handleZoomIn}>
+                      <IconPlus size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Zoom out" position="top" withArrow>
+                    <ActionIcon variant="light" color="gray" size="sm" onClick={handleZoomOut}>
+                      <IconMinus size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Reset zoom" position="top" withArrow>
+                    <ActionIcon variant="light" color="gray" size="sm" onClick={handleZoomReset}>
+                      <IconRefresh size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Text size="xs" c="dimmed" ml={4}>
+                    {Math.round(zoomLevel * 100)}%
                   </Text>
-                  <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
-                    Your journey is currently being computed on the server. This
-                    might take a few moments. Please check back later.
-                  </Text>
-                </Box>
-              ) : journeyData?.nodes?.length ? (
+                </Group>
+              ) : null}
+            </Group>
+
+            {/* ── Chart area — fills remaining height ── */}
+            {detail.status === "IN_PROGRESS" ? (
+              <Box className={funnelClasses.emptyState} py={60}>
+                <Loader color="blue" size="lg" />
+                <Text size="lg" fw={700} c="dark.6" mt="md">
+                  Computing Journey Data
+                </Text>
+                <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
+                  Your journey is currently being computed on the server. This
+                  might take a few moments. Please check back later.
+                </Text>
+              </Box>
+            ) : graphResult ? (
+              <Box
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflow: "auto",
+                  border: "1px solid #e9ecef",
+                  borderRadius: 8,
+                  background: "#fff",
+                }}
+              >
                 <ReactECharts
-                  option={buildJourneySankeyOption(journeyData)}
-                  style={{ height: "520px", width: "100%" }}
+                  option={graphResult.option}
+                  style={{
+                    width: `${Math.round(graphResult.graphWidth * zoomLevel)}px`,
+                    height: `${Math.round(graphResult.graphHeight * zoomLevel)}px`,
+                    minWidth: "100%",
+                    minHeight: "100%",
+                  }}
+                  onEvents={{ click: handleChartClick }}
                   notMerge
                 />
-              ) : (
-                <Box className={funnelClasses.emptyState}>
-                  <Text size="sm" c="dimmed">
-                    Journey data could not be loaded.
-                  </Text>
-                </Box>
-              )}
-            </Box>
+              </Box>
+            ) : (
+              <Box className={funnelClasses.emptyState}>
+                <Text size="sm" c="dimmed">
+                  Journey data could not be loaded.
+                </Text>
+              </Box>
+            )}
           </Box>
         </Box>
       </Box>

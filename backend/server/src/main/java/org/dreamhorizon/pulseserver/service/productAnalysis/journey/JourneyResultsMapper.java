@@ -45,8 +45,11 @@ public final class JourneyResultsMapper {
   }
 
   /**
-   * ENTRY edges use {@code pos_from = -1} and empty {@code event_from}. Other nodes use the event
-   * name, or a fallback when empty.
+   * Produces a depth-qualified node label so the same event at different depth
+   * levels maps to separate Sankey nodes (e.g. {@code "HomeLoaded::0"},
+   * {@code "SearchIconDisplayed::1"}).
+   *
+   * <p>ENTRY edges ({@code pos_from = -1}, empty event) stay as plain "ENTRY".
    */
   private static String nodeLabel(Integer pos, String event) {
     int p = pos == null ? Integer.MIN_VALUE : pos;
@@ -55,7 +58,7 @@ public final class JourneyResultsMapper {
       return "ENTRY";
     }
     if (!emptyEvent) {
-      return event.trim();
+      return event.trim() + "::" + p;
     }
     return "@" + p;
   }
