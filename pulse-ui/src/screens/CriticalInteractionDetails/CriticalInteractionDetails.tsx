@@ -297,6 +297,7 @@ export function CiritcalInteractionDetails() {
                 dashboardFilters={filterValues}
                 startTime={startTime}
                 endTime={endTime}
+                onTimeFilterChange={handleTimeFilterChange}
               />
             </div>
           ) : null}

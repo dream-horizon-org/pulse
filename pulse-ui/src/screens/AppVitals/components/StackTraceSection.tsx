@@ -44,10 +44,13 @@ interface StackTrace {
 
 interface StackTraceSectionProps {
   stackTraces: StackTrace[];
+  /** Total event count in the selected time range (from issue detail). When greater than loaded traces, copy clarifies the sample. */
+  totalOccurrences?: number;
 }
 
 export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
   stackTraces = [],
+  totalOccurrences,
 }) => {
   const [currentOccurrence, setCurrentOccurrence] = useState(0);
   const [activeTab, setActiveTab] = useState<string | null>("stacktrace");
@@ -60,6 +63,21 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
 
   const currentTrace =
     stackTraces.length > 0 ? stackTraces[safeCurrentOccurrence] : null;
+
+  const loadedCount = stackTraces.length;
+  const showSampleNote =
+    typeof totalOccurrences === "number" &&
+    totalOccurrences > loadedCount &&
+    loadedCount > 0;
+  const occurrenceDenominator =
+    typeof totalOccurrences === "number" &&
+    totalOccurrences === loadedCount &&
+    loadedCount > 0
+      ? totalOccurrences
+      : loadedCount;
+  const occurrencePrimaryLabel = showSampleNote
+    ? `Occurrence ${safeCurrentOccurrence + 1} of ${loadedCount} shown`
+    : `Occurrence ${safeCurrentOccurrence + 1} of ${occurrenceDenominator}`;
 
   const {
     breadcrumbs,
@@ -114,7 +132,7 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
     <Paper className={classes.sectionContainer}>
       <Box className={classes.header}>
         <Text className={classes.sectionTitle}>Error Trace</Text>
-        <Group gap="sm">
+        <Group gap="sm" align="center" wrap="nowrap">
           <ActionIcon
             variant="light"
             color="teal"
@@ -124,9 +142,17 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
           >
             <IconChevronLeft size={18} />
           </ActionIcon>
-          <Text className={classes.occurrenceLabel}>
-            Occurrence {safeCurrentOccurrence + 1} of {stackTraces.length}
-          </Text>
+          <Box>
+            <Text className={classes.occurrenceLabel}>
+              {occurrencePrimaryLabel}
+            </Text>
+            {showSampleNote && totalOccurrences !== undefined && (
+              <Text size="xs" c="dimmed" ta="center" mt={2}>
+                {totalOccurrences.toLocaleString()} events in period · showing{" "}
+                {loadedCount} most recent
+              </Text>
+            )}
+          </Box>
           <ActionIcon
             variant="light"
             color="teal"

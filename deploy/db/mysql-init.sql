@@ -881,8 +881,7 @@ CREATE TABLE IF NOT EXISTS rca_report_cache (
     date DATE NOT NULL,
     report_body LONGTEXT NOT NULL,
     cached_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (project_id, interaction_name, date),
-    INDEX idx_rca_report_cached_at (cached_at)
+    PRIMARY KEY (project_id, interaction_name, date)
 );
 
 -- Event Definitions catalog (project-scoped)

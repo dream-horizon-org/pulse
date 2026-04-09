@@ -7,9 +7,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -81,6 +83,67 @@ public class RootCauseService {
           }
           return Single.just(fromCacheRow(opt.get()));
         });
+  }
+
+  /**
+   * Distinct non-empty {@code screen.name} values for spans with {@code pulse.interaction.name}
+   * matching {@code interactionName} in the RCA window (aligned with session listing). On ClickHouse
+   * error returns an empty list.
+   */
+  public Single<List<String>> fetchDistinctScreensForInteraction(
+      String projectId, String interactionName, RootCauseQueryBuilder.Window window) {
+    RootCauseQuerySpec spec =
+        RootCauseQueryBuilder.buildDistinctScreensForInteractionQuery(
+            projectId, interactionName, window);
+    return executeQuery(projectId, spec)
+        .map(RootCauseService::extractDistinctScreensFromRows)
+        .onErrorResumeNext(
+            e -> {
+              log.warn(
+                  "Distinct screens query failed for project={}, interaction={}: {}",
+                  projectId,
+                  interactionName,
+                  e.getMessage());
+              return Single.just(List.of());
+            });
+  }
+
+  private static List<String> extractDistinctScreensFromRows(List<Map<String, Object>> rows) {
+    if (rows == null || rows.isEmpty()) {
+      return List.of();
+    }
+    return normalizeScreensValue(rows.get(0).get("screens"));
+  }
+
+  private static List<String> normalizeScreensValue(Object raw) {
+    if (raw == null) {
+      return List.of();
+    }
+    if (raw instanceof List) {
+      return ((List<?>) raw)
+          .stream()
+          .filter(Objects::nonNull)
+          .map(Object::toString)
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .toList();
+    }
+    if (raw instanceof String[] arr) {
+      return Arrays.stream(arr)
+          .filter(Objects::nonNull)
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .toList();
+    }
+    if (raw instanceof Object[] arr) {
+      return Arrays.stream(arr)
+          .filter(Objects::nonNull)
+          .map(Object::toString)
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .toList();
+    }
+    return List.of();
   }
 
   private Single<RootCauseResult> computeAndCache(

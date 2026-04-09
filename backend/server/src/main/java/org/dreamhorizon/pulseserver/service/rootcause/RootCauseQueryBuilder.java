@@ -57,6 +57,60 @@ public class RootCauseQueryBuilder {
   }
 
   /**
+   * Distinct non-empty {@code screen.name} values for spans matching {@code pulse.interaction.name}
+   * (session listing semantics), same time window as RCA heatmap filters. One row with column
+   * {@code screens}.
+   */
+  public static RootCauseQuerySpec buildDistinctScreensForInteractionQuery(
+      String projectId, String interactionName, Window window) {
+    return buildDistinctScreensForInteractionQuery(
+        projectId, interactionName, window.startInclusive, window.endExclusive);
+  }
+
+  /**
+   * @see #buildDistinctScreensForInteractionQuery(String, String, Window)
+   */
+  public static RootCauseQuerySpec buildDistinctScreensForInteractionQuery(
+      String projectId,
+      String interactionName,
+      Instant startInclusive,
+      Instant endExclusive) {
+    BindAccumulator acc = new BindAccumulator();
+    String p0 = acc.nextName();
+    String p1 = acc.nextName();
+    String p2 = acc.nextName();
+    String p3 = acc.nextName();
+    acc.add(p0, emptyIfNull(projectId));
+    acc.add(p1, emptyIfNull(interactionName));
+    String startStr =
+        startInclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    String endStr =
+        endExclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    acc.add(p2, startStr);
+    acc.add(p3, endStr);
+    String where =
+        "ProjectId = :"
+            + p0
+            + " AND PulseType = '"
+            + InteractionTelemetryConstants.INTERACTION_PULSE_TYPE
+            + "'"
+            + " AND nullIf(trimBoth(SpanAttributes['pulse.interaction.name']), '') = :"
+            + p1
+            + " AND Timestamp >= toDateTime64(:"
+            + p2
+            + ", 9, 'UTC')"
+            + " AND Timestamp < toDateTime64(:"
+            + p3
+            + ", 9, 'UTC')";
+    String sql =
+        "SELECT arraySort(groupUniqArray(nullIf(trimBoth(SpanAttributes['screen.name']), ''))) AS screens FROM "
+            + ClickhouseConstants.OTEL_TRACES_TABLE
+            + " WHERE "
+            + where;
+    return acc.toSpec(sql);
+  }
+
+  /**
    * Builds baseline query: no GROUP BY, returns one row with all metrics + problematic_count.
    */
   public static RootCauseQuerySpec buildBaselineQuery(

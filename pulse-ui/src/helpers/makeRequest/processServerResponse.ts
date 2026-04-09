@@ -89,16 +89,27 @@ export const processServerResponse = async <D>(
     error?: DefaultErrorResponse | null;
   };
 
-  if (data) {
+  // Prefer an explicit API `error` payload even when HTTP status is 2xx (e.g. misbehaving proxies)
+  // or when both `data` and `error` appear (defensive: surface the error).
+  if (error != null) {
     return {
-      status: status,
+      status,
+      data: (data as D | null | undefined) ?? null,
+      error,
+    };
+  }
+
+  if (data !== undefined && data !== null) {
+    return {
+      status,
       data: data as D,
       error: null,
     };
   }
+
   return {
-    status: status,
+    status,
     data: null,
-    error: error ?? (!response.ok ? buildHttpError(status, json) : null),
+    error: null,
   };
 };

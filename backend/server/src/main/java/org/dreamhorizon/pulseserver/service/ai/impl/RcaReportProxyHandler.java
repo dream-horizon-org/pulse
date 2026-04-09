@@ -14,13 +14,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.Error;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
+import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 
@@ -58,6 +63,8 @@ final class RcaReportProxyHandler {
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
   private final RcaReportCacheDao rcaReportCacheDao;
+  private final RootCauseConfig rootCauseConfig;
+  private final RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger;
   private final SessionEvidenceService sessionEvidenceService;
 
   RcaReportProxyHandler(
@@ -65,11 +72,15 @@ final class RcaReportProxyHandler {
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao,
+      RootCauseConfig rootCauseConfig,
+      RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger,
       SessionEvidenceService sessionEvidenceService) {
     this.upstream = upstream;
     this.objectMapper = objectMapper;
     this.rootCauseService = rootCauseService;
     this.rcaReportCacheDao = rcaReportCacheDao;
+    this.rootCauseConfig = rootCauseConfig;
+    this.rcaRelatedHeatmapsMerger = rcaRelatedHeatmapsMerger;
     this.sessionEvidenceService = sessionEvidenceService;
   }
 
@@ -83,9 +94,7 @@ final class RcaReportProxyHandler {
     RcaCacheKeyParts keyParts = parsed.keyParts();
     String targetUrl = upstream.buildTargetUrl(RCA_REPORT_PATH, rawQuery);
     if (keyParts.regenerate()) {
-      return withRcaErrorLogging(
-          doEnrichAndProxyRca(targetUrl, parsed, authorization, true)
-              .thenCompose(result -> finalizeSuccessfulRcaProxyResult(result, keyParts)));
+      return withRcaErrorLogging(doEnrichAndProxyRca(targetUrl, parsed, authorization, keyParts, true));
     }
     return withRcaErrorLogging(
         proxyRcaAfterMysqlCacheLookup(keyParts, targetUrl, parsed, authorization));
@@ -105,12 +114,15 @@ final class RcaReportProxyHandler {
       String targetUrl,
       ParsedRcaPost parsed,
       String authorization,
+      RcaCacheKeyParts keyParts,
       boolean forceRootCauseRefresh) {
-    String projectId = parsed.keyParts().projectId();
+    String projectId = keyParts.projectId();
     return enrichRcaBodyAsync(parsed, forceRootCauseRefresh)
         .thenCompose(
-            enrichedBody ->
-                upstream.executeProxy("POST", targetUrl, enrichedBody, authorization, projectId));
+            outcome ->
+                upstream
+                    .executeProxy("POST", targetUrl, outcome.body(), authorization, projectId)
+                    .thenCompose(proxyResult -> finalizeSuccessfulRcaProxyResult(proxyResult, outcome, keyParts)));
   }
 
   /**
@@ -137,8 +149,7 @@ final class RcaReportProxyHandler {
               resultFuture.complete(rcaCacheReadFailedResult());
             },
             () ->
-                doEnrichAndProxyRca(targetUrl, parsed, authorization, false)
-                    .thenCompose(result -> finalizeSuccessfulRcaProxyResult(result, keyParts))
+                doEnrichAndProxyRca(targetUrl, parsed, authorization, keyParts, false)
                     .whenComplete(
                         (result, ex) -> {
                           if (ex != null) {
@@ -160,6 +171,17 @@ final class RcaReportProxyHandler {
 
   /** Parsed JSON body and cache key after {@link #validateRcaReportPost} succeeds. */
   private record ParsedRcaPost(String rawBody, ObjectNode bodyRoot, RcaCacheKeyParts keyParts) {}
+
+  /**
+   * Outcome of root-cause enrichment: request body sent upstream plus context for merging related
+   * heatmaps after the AI response.
+   */
+  private record RcaEnrichmentOutcome(
+      String body,
+      RootCauseResult rootCause,
+      LocalDate anchorDate,
+      Instant windowEndExclusive,
+      boolean enrichmentOk) {}
 
   private sealed interface RcaPostValidation permits RcaPostValidation.Valid, RcaPostValidation.Invalid {
     record Valid(ParsedRcaPost parsed) implements RcaPostValidation {}
@@ -225,15 +247,74 @@ final class RcaReportProxyHandler {
   }
 
   /**
-   * On successful buffered RCA JSON, sets {@code cached} and {@code cachedAt} (for UI), persists to
-   * MySQL, returns updated result.
+   * On successful buffered RCA JSON, merges per-segment related heatmaps when enrichment
+   * succeeded, sets {@code cached} and {@code cachedAt} (for UI), persists to MySQL, returns
+   * updated result.
    */
   private CompletionStage<AiProxyUpstreamResult> finalizeSuccessfulRcaProxyResult(
-      AiProxyUpstreamResult result, RcaCacheKeyParts keyParts) {
+      AiProxyUpstreamResult result, RcaEnrichmentOutcome enrichment, RcaCacheKeyParts keyParts) {
     if (!AiProxyUpstreamResult.isSuccessfulBuffered(result)) {
       return CompletableFuture.completedFuture(result);
     }
-    String withMeta = applyCacheMetadata(result.getBufferedBody(), true, Instant.now());
+    String body = result.getBufferedBody();
+    if (enrichment.enrichmentOk()
+        && enrichment.rootCause() != null
+        && enrichment.rootCause().getSegments() != null
+        && !enrichment.rootCause().getSegments().isEmpty()) {
+      try {
+        JsonNode tree = objectMapper.readTree(body);
+        if (tree instanceof ObjectNode root) {
+          RootCauseQueryBuilder.Window window =
+              new RootCauseQueryBuilder.Window(
+                  enrichment.anchorDate(),
+                  rootCauseConfig.getLookbackDays(),
+                  enrichment.windowEndExclusive());
+          CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
+          rootCauseService
+              .fetchDistinctScreensForInteraction(
+                  keyParts.projectId(), keyParts.interactionName(), window)
+              .subscribeOn(Schedulers.io())
+              .subscribe(
+                  screens -> {
+                    try {
+                      rcaRelatedHeatmapsMerger.mergeInto(
+                          root, enrichment.rootCause().getSegments(), window, screens);
+                      String merged = objectMapper.writeValueAsString(root);
+                      persistBufferedRcaReport(merged, result, keyParts)
+                          .whenComplete(
+                              (updated, err) -> {
+                                if (err != null) {
+                                  done.completeExceptionally(err);
+                                } else {
+                                  done.complete(updated);
+                                }
+                              });
+                    } catch (Exception e) {
+                      log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
+                      persistBufferedRcaReport(body, result, keyParts)
+                          .whenComplete(
+                              (updated, err) -> {
+                                if (err != null) {
+                                  done.completeExceptionally(err);
+                                } else {
+                                  done.complete(updated);
+                                }
+                              });
+                    }
+                  },
+                  err -> done.completeExceptionally(err));
+          return done;
+        }
+      } catch (Exception e) {
+        log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
+      }
+    }
+    return persistBufferedRcaReport(body, result, keyParts);
+  }
+
+  private CompletionStage<AiProxyUpstreamResult> persistBufferedRcaReport(
+      String body, AiProxyUpstreamResult result, RcaCacheKeyParts keyParts) {
+    String withMeta = applyCacheMetadata(body, true, Instant.now());
     String mediaType = result.getMediaType();
     AiProxyUpstreamResult updated =
         AiProxyUpstreamResult.buffered(result.getStatusCode(), mediaType, withMeta);
@@ -248,7 +329,7 @@ final class RcaReportProxyHandler {
     return done;
   }
 
-  private CompletionStage<String> enrichRcaBodyAsync(
+  private CompletionStage<RcaEnrichmentOutcome> enrichRcaBodyAsync(
       ParsedRcaPost parsed, boolean forceRootCauseRefresh) {
     ObjectNode working = parsed.bodyRoot().deepCopy();
     working.remove(REGENERATE_FIELD);
@@ -257,10 +338,11 @@ final class RcaReportProxyHandler {
     String projectId = keyParts.projectId();
     String interactionName = keyParts.interactionName();
     LocalDate date = keyParts.date();
+    Instant windowEndExclusive = Instant.now();
 
-    CompletableFuture<String> future = new CompletableFuture<>();
+    CompletableFuture<RcaEnrichmentOutcome> future = new CompletableFuture<>();
     rootCauseService
-        .getRootCause(projectId, interactionName, date, Instant.now(), forceRootCauseRefresh)
+        .getRootCause(projectId, interactionName, date, windowEndExclusive, forceRootCauseRefresh)
         .subscribe(
             rootCauseResult -> {
               try {
@@ -271,14 +353,14 @@ final class RcaReportProxyHandler {
                 if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
                   List<RootCauseSegment> segments = rootCauseResult.getSegments();
                   LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
-                  
+
                   // Collect all sessions from all segments into a single list
                   List<String> allSessionIds = new java.util.ArrayList<>();
                   java.util.concurrent.atomic.AtomicInteger pendingQueries = new java.util.concurrent.atomic.AtomicInteger(segments.size());
-                  
+
                   for (RootCauseSegment segment : segments) {
                     Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
-                    
+
                     sessionEvidenceService
                         .getSessionEvidence(
                             projectId,
@@ -295,11 +377,11 @@ final class RcaReportProxyHandler {
                                     evidenceResult.getSessions().stream()
                                         .map(s -> s.getSessionId())
                                         .collect(Collectors.toList());
-                                
+
                                 synchronized (allSessionIds) {
                                   allSessionIds.addAll(sessionIds);
                                 }
-                                
+
                                 if (pendingQueries.decrementAndGet() == 0) {
                                   // All queries complete - add sessions to payload
                                   if (!allSessionIds.isEmpty()) {
@@ -311,19 +393,25 @@ final class RcaReportProxyHandler {
                                           objectMapper.valueToTree(allSessionIds));
                                     }
                                   }
-                                  
-                                  String enriched = objectMapper.writeValueAsString(working);
-                                  future.complete(enriched);
+
+                                  String enrichedBody = objectMapper.writeValueAsString(working);
+                                  future.complete(
+                                      new RcaEnrichmentOutcome(
+                                          enrichedBody, rootCauseResult, date, windowEndExclusive, true));
                                 }
                               } catch (Exception e) {
-                                log.warn("Exception in session evidence callback: {}", 
+                                log.warn("Exception in session evidence callback: {}",
                                     e.getMessage(), e);
                                 if (pendingQueries.decrementAndGet() == 0) {
                                   try {
-                                    String enriched = objectMapper.writeValueAsString(working);
-                                    future.complete(enriched);
+                                    String enrichedBody = objectMapper.writeValueAsString(working);
+                                    future.complete(
+                                        new RcaEnrichmentOutcome(
+                                            enrichedBody, rootCauseResult, date, windowEndExclusive, true));
                                   } catch (Exception e2) {
-                                    future.complete(fallbackBody);
+                                    future.complete(
+                                        new RcaEnrichmentOutcome(
+                                            fallbackBody, null, date, windowEndExclusive, false));
                                   }
                                 }
                               }
@@ -332,26 +420,35 @@ final class RcaReportProxyHandler {
                               log.warn("Session evidence error: {}", error.getMessage());
                               if (pendingQueries.decrementAndGet() == 0) {
                                 try {
-                                  String enriched = objectMapper.writeValueAsString(working);
-                                  future.complete(enriched);
+                                  String enrichedBody = objectMapper.writeValueAsString(working);
+                                  future.complete(
+                                      new RcaEnrichmentOutcome(
+                                          enrichedBody, rootCauseResult, date, windowEndExclusive, true));
                                 } catch (Exception e) {
-                                  future.complete(fallbackBody);
+                                  future.complete(
+                                      new RcaEnrichmentOutcome(
+                                          fallbackBody, null, date, windowEndExclusive, false));
                                 }
                               }
                             });
                   }
                 } else {
-                  String enriched = objectMapper.writeValueAsString(working);
-                  future.complete(enriched);
+                  String enrichedBody = objectMapper.writeValueAsString(working);
+                  future.complete(
+                      new RcaEnrichmentOutcome(
+                          enrichedBody, rootCauseResult, date, windowEndExclusive, true));
                 }
               } catch (Exception e) {
                 log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
-                future.complete(fallbackBody);
+                future.complete(
+                    new RcaEnrichmentOutcome(
+                        fallbackBody, null, date, windowEndExclusive, false));
               }
             },
             error -> {
               log.warn("Failed to fetch root-cause data for enrichment: {}", error.getMessage());
-              future.complete(fallbackBody);
+              future.complete(
+                  new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
             });
     return future;
   }

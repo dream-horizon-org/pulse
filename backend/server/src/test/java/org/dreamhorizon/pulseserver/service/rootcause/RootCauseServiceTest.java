@@ -714,6 +714,55 @@ class RootCauseServiceTest {
     }
   }
 
+  @Nested
+  class DistinctScreensForInteraction {
+
+    @Test
+    void shouldReturnScreensFromFirstQueryRow() {
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenReturn(Single.just(singleRowTableResponse(Map.of("screens", List.of("home", "cart")))));
+      RootCauseQueryBuilder.Window w =
+          new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
+      List<String> screens =
+          service.fetchDistinctScreensForInteraction(PROJECT_ID, INTERACTION, w).blockingGet();
+      assertThat(screens).containsExactly("home", "cart");
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenQueryFails() {
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenReturn(Single.error(new RuntimeException("ch down")));
+      RootCauseQueryBuilder.Window w =
+          new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
+      List<String> screens =
+          service.fetchDistinctScreensForInteraction(PROJECT_ID, INTERACTION, w).blockingGet();
+      assertThat(screens).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenNoRows() {
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenReturn(Single.just(emptyTableResponse()));
+      RootCauseQueryBuilder.Window w =
+          new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
+      List<String> screens =
+          service.fetchDistinctScreensForInteraction(PROJECT_ID, INTERACTION, w).blockingGet();
+      assertThat(screens).isEmpty();
+    }
+
+    @Test
+    void distinctScreensSqlUsesPulseInteractionNameNotSpanName() {
+      RootCauseQueryBuilder.Window w =
+          new RootCauseQueryBuilder.Window(ANALYSIS_DATE, 7, WINDOW_END);
+      RootCauseQuerySpec spec =
+          RootCauseQueryBuilder.buildDistinctScreensForInteractionQuery(PROJECT_ID, INTERACTION, w);
+      assertThat(spec.sql()).contains("pulse.interaction.name");
+      assertThat(spec.sql()).contains("screen.name");
+      assertThat(spec.sql()).doesNotContain("SpanName");
+      assertThat(spec.bindValues()).hasSize(4);
+    }
+  }
+
   private static Map<String, Object> baselineWithVolumeAndProblematic(long volume, long problematic) {
     Map<String, Object> baseline = new LinkedHashMap<>();
     for (String metric : RootCauseMetricsRegistry.getMetricExpressions().keySet()) {
