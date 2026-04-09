@@ -20,6 +20,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.spark.sql.expressions.Window;
+import org.apache.spark.sql.expressions.WindowSpec;
+
 import static org.apache.spark.sql.functions.*;
 
 public class FunnelComputeJob {
@@ -136,15 +139,20 @@ public class FunnelComputeJob {
         }
         df = applyFilters(df, funnel.globalFilters());
 
+        // Step 0: keep ALL occurrences of step A — each is a separate attempt.
+        // No groupBy+min: best-attempt evaluates every attempt individually.
         Dataset<Row> current = stepEvents(df, steps.get(0), identityCol)
-                .groupBy(col("identity"))
-                .agg(min(col("ts")).alias("ts0"))
-                .withColumn("ts_prev", col("ts0"))
+                .select(col("identity"), col("ts").alias("ts0"), col("ts").alias("ts_prev"))
                 .cache();
 
         long[] counts = new long[numSteps];
-        counts[0] = current.count();
+        counts[0] = current.select("identity").distinct().count();
         log.info("Funnel {} step 0 ({}) -> {} identities", funnel.id(), steps.get(0).eventName(), counts[0]);
+
+        // stepTs[i] holds a cached {identity, ts0, ts_i} snapshot for attempts that survived to step i.
+        // Each entry is cached independently so it survives after the main alive dataset is unpersisted.
+        List<Dataset<Row>> stepTs = new ArrayList<>(numSteps);
+        stepTs.add(current.select(col("identity"), col("ts0")).cache()); // step 0: ts0 itself
 
         for (int i = 1; i < numSteps; i++) {
             if (counts[i - 1] == 0) break;
@@ -164,10 +172,15 @@ public class FunnelComputeJob {
                     .cache();
             prevCache.unpersist();
 
-            counts[i] = current.count();
+            counts[i] = current.select("identity").distinct().count();
             log.info("Funnel {} step {} ({}) -> {} identities", funnel.id(), i, steps.get(i).eventName(), counts[i]);
+
+            stepTs.add(current.select(col("identity"), col("ts0"), col("ts_prev").alias("ts_" + i)).cache());
         }
+
+        long[] medians = computeMedians(stepTs, numSteps, counts);
         current.unpersist();
+        stepTs.forEach(Dataset::unpersist);
 
         long step0Count = counts[0];
         var results = new ArrayList<FunnelResult>(numSteps);
@@ -177,10 +190,74 @@ public class FunnelComputeJob {
                     funnel.id(), funnel.projectId(), runTime,
                     i, steps.get(i).eventName(),
                     counts[i],
-                    Math.round(pct * 10_000.0) / 10_000.0
+                    Math.round(pct * 10_000.0) / 10_000.0,
+                    i == 0 ? null : (medians[i] >= 0 ? medians[i] : null)
             ));
         }
         return results;
+    }
+
+    /**
+     * For each step transition (i-1 → i), computes the median seconds elapsed
+     * using each user's best attempt: the attempt that reached the farthest step,
+     * with the earliest ts0 as tiebreaker among equal-depth attempts.
+     *
+     * @return array of length numSteps; index 0 is always 0 (no prior step).
+     *         Returns -1 at index i if there were no users at that step.
+     */
+    private static long[] computeMedians(List<Dataset<Row>> stepTs, int numSteps, long[] counts) {
+        long[] medians = new long[numSteps]; // medians[0] = 0 by default
+
+        if (numSteps <= 1 || stepTs.size() <= 1) {
+            return medians;
+        }
+
+        // Build wide timeline: one row per (identity, ts0), columns ts_1..ts_{N-1} (null = didn't reach).
+        // Start with step-0 base {identity, ts0}.
+        Dataset<Row> timeline = stepTs.get(0); // {identity, ts0}
+        for (int i = 1; i < stepTs.size(); i++) {
+            // Alias join-key columns to avoid ambiguity after the join, then drop them.
+            Dataset<Row> snap = stepTs.get(i)  // {identity, ts0, ts_i}
+                    .withColumnRenamed("identity", "_j_identity")
+                    .withColumnRenamed("ts0", "_j_ts0");
+            Column joinCond = col("identity").equalTo(snap.col("_j_identity"))
+                    .and(col("ts0").equalTo(snap.col("_j_ts0")));
+            timeline = timeline.join(snap, joinCond, "left").drop("_j_identity", "_j_ts0");
+        }
+
+        // Score each attempt by farthest step reached (count of non-null ts_i for i>=1).
+        Column scoreExpr = lit(0);
+        for (int i = 1; i < stepTs.size(); i++) {
+            scoreExpr = scoreExpr.plus(when(col("ts_" + i).isNotNull(), lit(1)).otherwise(lit(0)));
+        }
+        timeline = timeline.withColumn("_score", scoreExpr);
+
+        // Per-user: pick attempt with highest score, then earliest ts0.
+        WindowSpec userWin = Window.partitionBy("identity")
+                .orderBy(col("_score").desc(), col("ts0").asc());
+        Dataset<Row> bestAttempt = timeline
+                .withColumn("_rn", row_number().over(userWin))
+                .filter(col("_rn").equalTo(1))
+                .drop("_score", "_rn")
+                .cache();
+
+        // Compute median for each step transition.
+        for (int i = 1; i < stepTs.size(); i++) {
+            if (counts[i] == 0) {
+                medians[i] = -1;
+                continue;
+            }
+            String tsCol  = "ts_" + i;
+            String prevCol = (i == 1) ? "ts0" : "ts_" + (i - 1);
+            Dataset<Row> eligible = bestAttempt.filter(col(tsCol).isNotNull());
+            Row r = eligible.agg(
+                    percentile_approx(col(tsCol).minus(col(prevCol)), lit(0.5), lit(10000)).alias("med")
+            ).first();
+            medians[i] = (r == null || r.isNullAt(0)) ? -1L : r.getLong(0);
+        }
+
+        bestAttempt.unpersist();
+        return medians;
     }
 
     private static Dataset<Row> stepEvents(Dataset<Row> df, FunnelStep step, String identityCol) {
@@ -196,16 +273,30 @@ public class FunnelComputeJob {
 
     static Dataset<Row> applyFilters(Dataset<Row> df, List<FunnelFilter> filters) {
         for (var filter : filters) {
-            var fieldCol = col(filter.field());
-            var vals     = filter.value().toArray();
-            Column cond  = switch (filter.operator()) {
-                case "=", "IN"      -> fieldCol.isin(vals);
-                case "!=", "NOT IN" -> not(fieldCol.isin(vals));
-                case "CONTAINS"     -> filter.value().stream()
+            if (filter.field() == null || filter.field().isBlank()) {
+                log.warn("Skipping filter: field is null or blank");
+                continue;
+            }
+            String parquetField = FilterFieldMapper.toParquetColumn(filter.field());
+            var fieldCol = col(parquetField);
+            var vals = filter.value().toArray();
+            if (vals.length == 0) {
+                log.warn("Skipping filter: empty value list for field '{}' (resolved='{}')", filter.field(), parquetField);
+                continue;
+            }
+            String op = FunnelFilterOperators.normalize(filter.operator());
+            Column cond = switch (op) {
+                case "EQ", "=", "IN" -> fieldCol.isin(vals);
+                case "NE", "!=", "NOT_IN" -> not(fieldCol.isin(vals));
+                case "CONTAINS" -> filter.value().stream()
                         .map(fieldCol::contains)
                         .reduce(Column::or)
                         .orElse(lit(true));
-                default             -> lit(true);
+                default -> {
+                    log.warn("Unknown filter operator '{}' (normalized='{}') for field '{}' — filter skipped",
+                            filter.operator(), op, filter.field());
+                    yield lit(true);
+                }
             };
             df = df.filter(cond);
         }

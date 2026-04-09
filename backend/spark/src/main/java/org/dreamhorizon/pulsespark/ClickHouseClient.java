@@ -47,15 +47,16 @@ public class ClickHouseClient {
     }
     var sb = new StringBuilder()
         .append("INSERT INTO ").append(db).append(".funnel_results ")
-        .append("(FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct) VALUES ");
+        .append("(FunnelId,ProjectId,RunTime,StepIndex,StepName,UserCount,ConversionPct,MedianStepSeconds) VALUES ");
     for (int i = 0; i < rows.size(); i++) {
       var r = rows.get(i);
       if (i > 0) {
         sb.append(',');
       }
-      sb.append(String.format("('%d','%s','%s',%d,'%s',%d,%.4f)",
+      String medianVal = r.medianStepSeconds() == null ? "NULL" : String.valueOf(r.medianStepSeconds());
+      sb.append(String.format("('%d','%s','%s',%d,'%s',%d,%.4f,%s)",
           r.funnelId(), esc(r.projectId()), esc(r.runTime()),
-          r.stepIndex(), esc(r.stepName()), r.userCount(), r.conversionPct()
+          r.stepIndex(), esc(r.stepName()), r.userCount(), r.conversionPct(), medianVal
       ));
     }
     execute("insertFunnelResults", sb.toString());

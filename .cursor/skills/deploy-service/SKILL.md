@@ -17,11 +17,13 @@ cp .env.example .env    # first time only, then edit values
 
 ```bash
 cd deploy
-./scripts/build.sh ui         # pulse-ui only
-./scripts/build.sh server     # pulse-server only
-./scripts/build.sh cron       # pulse-alerts-cron only
-./scripts/build.sh ai         # pulse-ai-agent only
-./scripts/build.sh all        # ui + server + cron + pulse-ai-agent (same as default no-args build)
+./scripts/build.sh ui          # pulse-ui only
+./scripts/build.sh server      # pulse-server only
+./scripts/build.sh cron        # pulse-alerts-cron only
+./scripts/build.sh capture     # pulse-session-capture only
+./scripts/build.sh ingestion   # pulse-session-replay-ingestion only
+./scripts/build.sh ai          # pulse-ai-agent only
+./scripts/build.sh all         # ui + server + cron + pulse-ai-agent (same as default no-args build)
 ```
 
 ## Start/Stop
@@ -72,6 +74,9 @@ Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover
 | OpenFGA | `curl http://localhost:8180/healthz` | 8180 |
 | OTEL Collector | `curl http://localhost:<port>/` | 13133 |
 | pulse-ai-agent | `curl -sf http://localhost:8000/health` | 8000 |
+| Kafka | `kafka-topics --bootstrap-server localhost:9092 --list` (in container) | 9092 |
+| MinIO | `mc ready local` (in container) | 9100 (API), 9101 (console) |
+| pulse-session-capture | `curl http://localhost:3400/healthcheck` | 3400 |
 
 ## Troubleshooting
 

@@ -20,9 +20,10 @@ CREATE TABLE IF NOT EXISTS otel.funnel_results
     `RunTime`       DateTime64(3, 'UTC') COMMENT 'Spark job execution time (UTC)',
     `StepIndex`     UInt8 COMMENT '0-based step index',
     `StepName`      LowCardinality(String) COMMENT 'Event name for this step',
-    `UserCount`     UInt64 COMMENT 'Unique users or sessions reaching this step',
-    `ConversionPct` Float64 COMMENT 'Conversion % from step 0 to this step' CODEC(ZSTD(1)),
-    `CreatedAt`     DateTime64(3, 'UTC') DEFAULT now64(3) COMMENT 'Row insert time (UTC)',
+    `UserCount`          UInt64 COMMENT 'Unique users or sessions reaching this step',
+    `ConversionPct`      Float64 COMMENT 'Conversion % from step 0 to this step' CODEC(ZSTD(1)),
+    `MedianStepSeconds`  Nullable(Int64) COMMENT 'Median seconds from previous step; NULL for step 0',
+    `CreatedAt`          DateTime64(3, 'UTC') DEFAULT now64(3) COMMENT 'Row insert time (UTC)',
     CONSTRAINT chk_StepIndex CHECK StepIndex < 32
 )
 ENGINE = MergeTree
