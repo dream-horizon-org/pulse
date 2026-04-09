@@ -1,4 +1,5 @@
 import org.gradle.api.GradleException
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     `kotlin-dsl`
@@ -16,6 +17,12 @@ gradlePlugin {
             displayName = "Pulse Gradle Plugin"
             description = "Pulse Gradle plugin for uploading build artifacts"
         }
+    }
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    compilerOptions {
+        allWarningsAsErrors.set(true)
     }
 }
 

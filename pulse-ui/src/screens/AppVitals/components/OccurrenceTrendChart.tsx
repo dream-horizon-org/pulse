@@ -1,9 +1,17 @@
 import { Box } from "@mantine/core";
 import { useMemo } from "react";
 import { LineChart } from "../../../components/Charts";
+import {
+  trendRangeSpansMultipleUtcDays,
+  formatTrendDate,
+  trendBrushSelectionToTimeFilter,
+} from "./TrendGraphWithData/helpers/trendDataHelpers";
+import type { TimeBucketSize } from "../../../utils/TimeBucketUtil";
+import type { StartEndDateTimeType } from "../../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 
 interface TrendDataPoint {
   label: string;
+  bucketTime?: string;
   count?: number;
   [key: string]: any;
 }
@@ -17,26 +25,46 @@ interface OccurrenceTrendChartProps {
   trendData: TrendDataPoint[];
   trendView: string;
   chartColors: ChartColors;
+  bucketSize: TimeBucketSize;
+  rangeStart?: string;
+  rangeEnd?: string;
   getXAxisInterval: () => number;
+  onTimeFilterChange?: (value: StartEndDateTimeType) => void;
 }
 
 export const OccurrenceTrendChart: React.FC<OccurrenceTrendChartProps> = ({
   trendData,
   trendView,
   chartColors,
+  bucketSize,
+  rangeStart,
+  rangeEnd,
   getXAxisInterval,
+  onTimeFilterChange,
 }) => {
-  // Extract unique app versions and OS versions from trendData
+  const multiDay =
+    rangeStart &&
+    rangeEnd &&
+    trendRangeSpansMultipleUtcDays(rangeStart, rangeEnd);
+
+  const mapBrushToTimeFilter = useMemo(
+    () =>
+      onTimeFilterChange
+        ? (startIso: string, endIso: string) =>
+            trendBrushSelectionToTimeFilter(startIso, endIso, bucketSize)
+        : undefined,
+    [onTimeFilterChange, bucketSize],
+  );
+
   const { appVersions, osVersions } = useMemo(() => {
     if (!trendData || trendData.length === 0) {
       return { appVersions: [], osVersions: [] };
     }
 
-    // Get all keys from all data points (excluding 'label' and 'count')
     const allKeys = new Set<string>();
     trendData.forEach((point) => {
       Object.keys(point).forEach((key) => {
-        if (key !== "label" && key !== "count") {
+        if (key !== "label" && key !== "count" && key !== "bucketTime") {
           allKeys.add(key);
         }
       });
@@ -44,9 +72,6 @@ export const OccurrenceTrendChart: React.FC<OccurrenceTrendChartProps> = ({
 
     const keysArray = Array.from(allKeys).sort();
 
-    // For appVersion view, assume keys are version numbers
-    // For os view, assume keys are OS versions
-    // We'll use the same keys for both and let the parent component determine the context
     return {
       appVersions: keysArray,
       osVersions: keysArray,
@@ -86,14 +111,29 @@ export const OccurrenceTrendChart: React.FC<OccurrenceTrendChartProps> = ({
     return [];
   };
 
+  const xCategories = trendData.map((d) => d.bucketTime || d.label);
+
   return (
     <Box style={{ height: 262, width: "100%" }}>
       <LineChart
         height={262}
+        onTimeFilterChange={onTimeFilterChange}
+        mapBrushToTimeFilter={mapBrushToTimeFilter}
         option={{
+          grid: {
+            top: "20",
+            left: "25",
+            right: "25",
+            bottom: multiDay ? 56 : 50,
+            containLabel: true,
+          },
           xAxis: {
             type: "category",
-            data: trendData.map((d) => d.label),
+            data: xCategories,
+            axisLabel: {
+              interval: getXAxisInterval(),
+              formatter: (value: string) => formatTrendDate(value, bucketSize),
+            },
           },
           yAxis: {
             type: "value",

@@ -12,9 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryResponseDto;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -130,7 +130,8 @@ public class BreadcrumbServiceImpl implements BreadcrumbService {
   }
 
   String buildQuery(String sessionId, Instant errorInstant) {
-    String tenantId = TenantContext.requireTenantId();
+    // Must match ProjectContext / SqlQueryValidator: Athena tables are otel_data_{projectId}, not tenant id.
+    String projectId = ProjectContext.requireProjectId();
     String database = athenaConfig.getDatabase();
     String escapedSessionId = sessionId.replace("'", "''");
 
@@ -144,7 +145,7 @@ public class BreadcrumbServiceImpl implements BreadcrumbService {
 
     StringBuilder sb = new StringBuilder();
     sb.append("SELECT event_name, \"timestamp\", screen_name, props ");
-    sb.append("FROM ").append(database).append(".otel_data_").append(tenantId).append(" ");
+    sb.append("FROM ").append(database).append(".otel_data_").append(projectId).append(" ");
     sb.append("WHERE session_id = '").append(escapedSessionId).append("' ");
 
     if (startDateStr.equals(endDateStr)) {

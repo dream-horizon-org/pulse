@@ -15,6 +15,7 @@ export function ErrorMetricsGraph({
   className,
   graphData,
   metrics,
+  onTimeFilterChange,
 }: GraphDataProps) {
   const theme = useMantineTheme();
 
@@ -124,7 +125,13 @@ export function ErrorMetricsGraph({
         />
       </div>
 
-      <LineChart option={option} height={220} withLegend={false} />
+      <LineChart
+        option={option}
+        height={220}
+        withLegend={false}
+        onTimeFilterChange={onTimeFilterChange}
+        syncDataZoomToTimeFilter
+      />
     </div>
   );
 }
