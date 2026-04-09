@@ -32,4 +32,9 @@ public class FunnelStepMeasureResult {
    * Drop-off from previous step (% of users), {@code 0} on first step.
    */
   private double dropoffRate;
+
+  /**
+   * Median seconds from the previous step to this step; {@code null} for step 0.
+   */
+  private Long medianStepSeconds;
 }
