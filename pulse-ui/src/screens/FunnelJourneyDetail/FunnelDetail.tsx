@@ -343,7 +343,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
                 steps={funnelResult.steps}
                 totalConversionRate={funnelResult.overallConversionRate ?? 0}
                 conversionTrend={0}
-                medianTimes={[]}
+                medianTimes={funnelResult.steps.map((s: any) => s.medianStepSeconds ?? null)}
               />
               <FunnelDataTable
                 steps={funnelResult.steps}
