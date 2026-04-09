@@ -7,12 +7,12 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +37,7 @@ import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,8 @@ class AiProxyServiceImplTest {
     lenient().when(webClient.deleteAbs(anyString())).thenReturn(httpRequest);
     lenient().when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
     lenient().when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
+    when(rootCauseService.fetchDistinctScreensForInteraction(anyString(), anyString(), any()))
+        .thenReturn(Single.just(List.of()));
   }
 
   private AiProxyServiceImpl fullPipelineService() {
@@ -297,6 +300,53 @@ class AiProxyServiceImplTest {
       JsonNode stored = objectMapper.readTree(putBody.getValue());
       assertThat(stored.path("report").asText()).isEqualTo("ai");
       assertThat(stored.path("cached").asBoolean()).isTrue();
+    }
+
+    @Test
+    void shouldMergeRelatedHeatmapsWhenMysqlMissesAndUpstreamReturnsStructuredSegments()
+        throws Exception {
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+          .thenReturn(Maybe.empty());
+      RootCauseSegment seg =
+          RootCauseSegment.builder()
+              .dimensions(Map.of("Platform", "Android", "AppVersion", "2.0.0"))
+              .build();
+      RootCauseResult rc =
+          RootCauseResult.builder()
+              .baseline(Map.of())
+              .segments(List.of(seg))
+              .build();
+      when(rootCauseService.getRootCause(
+              eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), any(Instant.class), eq(false)))
+          .thenReturn(Single.just(rc));
+      when(rootCauseService.fetchDistinctScreensForInteraction(
+              eq(PROJECT_ID), eq("checkout"), any()))
+          .thenReturn(Single.just(List.of("home", "cart")));
+      String upstreamJson =
+          "{\"report\":{\"structured\":{\"segments\":[{\"rank\":1,\"title\":\"Platform Android\"}]}}}";
+      HttpResponse<Buffer> upstreamResponse =
+          mockBufferedResponse(200, "application/json", upstreamJson);
+      stubSendReturns(upstreamResponse);
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      ArgumentCaptor<String> putBody = ArgumentCaptor.forClass(String.class);
+      verify(rcaReportCacheDao, timeout(3000))
+          .put(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), putBody.capture());
+      JsonNode stored = objectMapper.readTree(putBody.getValue());
+      JsonNode related =
+          stored.path("report").path("structured").path("segments").get(0).path("related_heatmaps");
+      assertThat(related.path("screens").get(0).asText()).isEqualTo("home");
+      assertThat(related.path("screens").get(1).asText()).isEqualTo("cart");
+      JsonNode hf = related.path("heatmap_filters");
+      assertThat(hf.path("platform").asText()).isEqualTo("Android");
+      assertThat(hf.path("app_version").asText()).isEqualTo("2.0.0");
+      assertThat(hf.path("from_date").asText()).matches("\\d{4}-\\d{2}-\\d{2}");
+      assertThat(hf.path("to_date").asText()).matches("\\d{4}-\\d{2}-\\d{2}");
     }
 
     @Test
