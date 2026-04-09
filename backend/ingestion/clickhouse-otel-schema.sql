@@ -257,5 +257,5 @@ CREATE TABLE IF NOT EXISTS otel.root_cause_cache
 )
 ENGINE = ReplacingMergeTree(cached_at)
 PARTITION BY toYYYYMM(date)
-ORDER BY (ProjectId, interaction_name, date, window_end_utc)
+ORDER BY (ProjectId, interaction_name, date)
 SETTINGS index_granularity = 8192;
