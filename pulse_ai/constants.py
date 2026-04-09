@@ -3,12 +3,15 @@ import os
 APP_NAME = "pulse_ai"
 
 DEFAULT_MODEL = "gemini-2.5-flash"
-AGENT_MODEL = os.getenv("AGENT_MODEL", DEFAULT_MODEL)
+AGENT_MODEL_ENV_KEY = "AGENT_MODEL"
+AGENT_MODEL = os.getenv(AGENT_MODEL_ENV_KEY, DEFAULT_MODEL)
+PULSE_SERVER_BASE_URL = os.getenv("PULSE_SERVER_BASE_URL", "http://localhost:8080")
 
 REPORT_AGENT_NAME = "ReportAgent"
 PIPELINE_AGENT_NAME = "PulseAIPipeline"
 RCA_ANALYZER_AGENT_NAME = "RcaAnalyzerAgent"
 RCA_REPORT_AGENT_NAME = "RcaReportAgent"
+RCA_FORMATTER_AGENT_NAME = "RcaFormatterAgent"
 RCA_PIPELINE_AGENT_NAME = "RcaPipeline"
 
 CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
@@ -17,7 +20,7 @@ EM_AGENT_NAME = "EMAgent"
 
 # Timeouts are intentionally centralized so request and pipeline limits are visible.
 BACKEND_REQUEST_TIMEOUT_SECONDS = 30
-RCA_PIPELINE_TIMEOUT_SECONDS = 90
+RCA_PIPELINE_TIMEOUT_SECONDS = 300
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:3000",
@@ -68,3 +71,8 @@ SESSION_SCOPE_PROJECT_ID_LEN = 256
 # Synthetic ADK user: RCA is one-shot (fresh session_id per request) and does not decode JWT here.
 # Keeps ephemeral RCA sessions separate from real chat users in the shared session_service.
 USER_ID_RCA = "rca_report_service"
+# Authentication
+PULSE_ACCESS_TOKEN_ENV_KEY = 'PULSE_ACCESS_TOKEN'
+PULSE_REFRESH_TOKEN_ENV_KEY = 'PULSE_REFRESH_TOKEN'
+
+PULSE_USER_EMAIL_ENV_KEY = "PULSE_USER_EMAIL"

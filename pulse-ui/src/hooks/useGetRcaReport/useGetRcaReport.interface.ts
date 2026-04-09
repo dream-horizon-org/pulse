@@ -14,6 +14,7 @@ export type RcaStructuredSegmentV1 = {
   title: string;
   metrics: RcaStructuredMetricRowV1[];
   impact?: string | null;
+  insights?: string | null;
 };
 
 export type RcaStructuredReportV1 = {
