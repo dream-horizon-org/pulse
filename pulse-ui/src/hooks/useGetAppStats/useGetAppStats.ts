@@ -24,6 +24,9 @@ export function useGetAppStats({
   appVersion,
   osVersion,
   device,
+  platform,
+  networkProvider,
+  state,
 }: UseGetAppStatsProps): {
   data: AppStatsData | null;
   isLoading: boolean;
@@ -67,8 +70,32 @@ export function useGetAppStats({
       });
     }
 
+    if (platform && platform !== "all") {
+      filterArray.push({
+        field: COLUMN_NAME.PLATFORM,
+        operator: "EQ",
+        value: [platform],
+      });
+    }
+
+    if (networkProvider && networkProvider !== "all") {
+      filterArray.push({
+        field: COLUMN_NAME.NETWORK_PROVIDER,
+        operator: "EQ",
+        value: [networkProvider],
+      });
+    }
+
+    if (state && state !== "all") {
+      filterArray.push({
+        field: COLUMN_NAME.STATE,
+        operator: "EQ",
+        value: [state],
+      });
+    }
+
     return filterArray;
-  }, [appVersion, osVersion, device]);
+  }, [appVersion, osVersion, device, platform, networkProvider, state]);
 
   // Format time strings to ISO if needed
   const formattedStartTime = useMemo(() => {

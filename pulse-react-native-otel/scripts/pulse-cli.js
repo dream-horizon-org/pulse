@@ -78,6 +78,10 @@ uploadCommand
     '-b, --bundle-id <id>',
     `${TAG_OPTIONAL} CodePush bundle label for identifying the specific bundle version (e.g., v1)`
   )
+  .option(
+    '-p, --dsym <path>',
+    `${TAG_OPTIONAL} dSYM bundle (directory) or file for native iOS symbolication`
+  )
   .option('-d, --debug', `${TAG_OPTIONAL} Show debug information`)
   .action(async (options) => {
     await upload('react-native-ios', options);

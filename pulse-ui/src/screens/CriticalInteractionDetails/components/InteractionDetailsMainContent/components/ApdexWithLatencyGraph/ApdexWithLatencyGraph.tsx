@@ -15,6 +15,7 @@ export function ApdexWithLatencyGraph({
   className,
   graphData,
   metrics,
+  onTimeFilterChange,
 }: GraphDataProps) {
   const theme = useMantineTheme();
 
@@ -131,7 +132,13 @@ export function ApdexWithLatencyGraph({
         />
       </div>
 
-      <LineChart option={option} height={220} withLegend={false} />
+      <LineChart
+        option={option}
+        height={220}
+        withLegend={false}
+        onTimeFilterChange={onTimeFilterChange}
+        syncDataZoomToTimeFilter
+      />
     </div>
   );
 }

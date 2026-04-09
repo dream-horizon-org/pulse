@@ -121,19 +121,35 @@ export function Navbar({
     }
   }
 
-  const isActive = (path: string) => {
+  const isActive = (navPath: string) => {
     const decodedRouteName = decodeURIComponent(pathname);
 
-    // For project-scoped routes, check the part after /projects/:projectId
+    // For project-scoped routes, match the path after /projects/:projectId
     if (decodedRouteName.startsWith("/projects/")) {
-      const projectPathParts = decodedRouteName.split("/").slice(3); // Skip '', 'projects', projectId
-      const projectPath = "/" + projectPathParts.join("/");
-      const basePath = "/" + path.split("/")[1];
-      return projectPath.startsWith(basePath);
+      const segments = decodedRouteName.split("/").filter(Boolean);
+      if (segments[0] !== "projects" || segments.length < 2) {
+        return false;
+      }
+      const afterProjectId = segments.slice(2);
+      const projectSubPath =
+        afterProjectId.length === 0
+          ? "/"
+          : `/${afterProjectId.join("/")}`;
+
+      // Home is "/": every other path also starts with "/", so only match the project root.
+      if (navPath === NAVBAR_ROUTES.HOME) {
+        return afterProjectId.length === 0;
+      }
+
+      const normalizedNav =
+        navPath.startsWith("/") ? navPath : `/${navPath}`;
+      return (
+        projectSubPath === normalizedNav ||
+        projectSubPath.startsWith(`${normalizedNav}/`)
+      );
     }
 
-    // For other routes, use the old logic
-    const base = path.split("/")[1];
+    const base = navPath.split("/")[1];
     const baseMatch = decodedRouteName.split("/")[1];
     return base === baseMatch;
   };

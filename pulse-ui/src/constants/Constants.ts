@@ -68,7 +68,7 @@ export const PASCAL_CASE_FORM_REGEX: RegExp = /(^[A-Z])\w+[a-z]$/;
 
 export const FORM_REGEX: RegExp = /^[a-z]*$/;
 
-export const REQUEST_TIMEOUT: number = 60000;
+export const REQUEST_TIMEOUT: number = 180000;
 
 // Alerts constants
 export const ALERTS_SEARCH_PLACEHOLDER: string = "Search your alert here";
