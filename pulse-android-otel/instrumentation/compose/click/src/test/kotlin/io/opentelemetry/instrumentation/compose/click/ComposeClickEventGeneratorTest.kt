@@ -99,8 +99,11 @@ internal class ComposeClickEventGeneratorTest {
 
     @Test
     fun `capture click for a single hit target`() {
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+
         every { composeView.childCount } returns 0
+
         buildMockLayoutNodeTree(
             targetX = motionEvent.x,
             targetY = motionEvent.y,
@@ -130,8 +133,11 @@ internal class ComposeClickEventGeneratorTest {
 
     @Test
     fun `capture click when there are two valid targets but the top target wins`() {
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+
         every { composeView.childCount } returns 0
+
         buildMockLayoutNodeTree(
             targetX = motionEvent.x,
             targetY = motionEvent.y,
@@ -145,6 +151,7 @@ internal class ComposeClickEventGeneratorTest {
 
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
+
         assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
@@ -159,8 +166,11 @@ internal class ComposeClickEventGeneratorTest {
 
     @Test
     fun `capture click when there are two valid targets but the top target wins and use content description for name`() {
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+
         every { composeView.childCount } returns 0
+
         buildMockLayoutNodeTree(
             targetX = motionEvent.x,
             targetY = motionEvent.y,
@@ -175,6 +185,7 @@ internal class ComposeClickEventGeneratorTest {
 
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)
+
         assertThat(events[0])
             .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
@@ -204,8 +215,11 @@ internal class ComposeClickEventGeneratorTest {
         every { window.context } returns ApplicationProvider.getApplicationContext<Context>()
         generator.startTracking(window)
 
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+
         every { composeView.childCount } returns 0
+
         buildMockLayoutNodeTree(
             targetX = motionEvent.x,
             targetY = motionEvent.y,
@@ -292,15 +306,15 @@ internal class ComposeClickEventGeneratorTest {
             )
     }
 
-    // region Helpers
-
+    /** Real taps send ACTION_DOWN then ACTION_UP; the generator requires both for click detection. */
     private fun dispatchDownThenUpOnGenerator(
         generator: ComposeClickEventGenerator,
         x: Float,
         y: Float,
     ): MotionEvent {
         val down = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, x, y, 0)
-        val up = MotionEvent.obtain(0L, SystemClock.uptimeMillis() + 10, MotionEvent.ACTION_UP, x, y, 0)
+        val up =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis() + 10, MotionEvent.ACTION_UP, x, y, 0)
         generator.generateClick(down)
         generator.generateClick(up)
         down.recycle()
@@ -340,22 +354,32 @@ internal class ComposeClickEventGeneratorTest {
         every { mockNode.getModifierInfo() } returns listOf(mockModifierInfo)
         if (clickable) {
             every { mockModifierInfo.modifier } returns semanticsModifier
+
             every { semanticsModifier.semanticsConfiguration } returns semanticsConfiguration
             every { semanticsConfiguration.contains(eq(SemanticsActions.OnClick)) } returns true
+
             if (useDescription) {
                 every { semanticsConfiguration.getOrNull(eq(SemanticsActions.OnClick)) } returns null
-                every { semanticsConfiguration.getOrNull(eq(SemanticsProperties.ContentDescription)) } returns listOf("clickMe")
+                every { semanticsConfiguration.getOrNull(eq(SemanticsProperties.ContentDescription)) } returns
+                    listOf(
+                        "clickMe",
+                    )
             } else {
                 every { semanticsConfiguration.getOrNull(eq(SemanticsActions.OnClick)) } returns
                     AccessibilityAction<() -> Boolean>("click") { true }
             }
+
             every { mockNode.semanticsId } returns id
         } else {
             every { mockModifierInfo.modifier } returns modifier
         }
 
         every { composeLayoutNodeUtil.getLayoutNodeBoundsInWindow(mockNode) } returns bounds
-        every { composeLayoutNodeUtil.getLayoutNodePositionInWindow(mockNode) } returns Offset(x = bounds.left, y = bounds.top)
+        every { composeLayoutNodeUtil.getLayoutNodePositionInWindow(mockNode) } returns
+            Offset(
+                x = bounds.left,
+                y = bounds.top,
+            )
 
         return mockNode
     }
@@ -367,24 +391,26 @@ internal class ComposeClickEventGeneratorTest {
         clickableIndexes: List<Int> = emptyList(),
         describableIndexes: List<Int> = emptyList(),
     ) {
-        val nodeList =
-            (0 until 5).map {
+        val nodeList = mutableListOf<LayoutNode>()
+        for (i in 0 until 5) {
+            nodeList.add(
                 createMockLayoutNode(
                     targetX = targetX,
                     targetY = targetY,
-                    id = it,
-                    hit = hitIndexes.contains(it),
-                    clickable = clickableIndexes.contains(it),
-                    useDescription = describableIndexes.contains(it),
-                )
-            }
+                    id = i,
+                    hit = hitIndexes.contains(i),
+                    clickable = clickableIndexes.contains(i),
+                    useDescription = describableIndexes.contains(i),
+                ),
+            )
+        }
+
         every { nodeList[0].zSortedChildren } returns mutableVectorOf(nodeList[1], nodeList[2])
         every { nodeList[1].zSortedChildren } returns mutableVectorOf(nodeList[4], nodeList[3])
         every { nodeList[2].zSortedChildren } returns mutableVectorOf()
+
         every { nodeList[3].zSortedChildren } returns mutableVectorOf()
         every { nodeList[4].zSortedChildren } returns mutableVectorOf()
         every { composeView.root } returns nodeList[0]
     }
-
-    // endregion
 }

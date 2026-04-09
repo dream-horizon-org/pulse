@@ -6,11 +6,11 @@
 package io.opentelemetry.android.instrumentation.click
 
 /**
- * Resolved, immutable rage-detection parameters used by [ClickEventBuffer].
+ * Resolved, immutable rage-detection parameters.
  *
- * All fields default to [ClickEventBuffer] compile-time constants so that a zero-argument
- * constructor gives identical behaviour to the previous hard-coded implementation.
- * Backend or DSL overrides are applied field-by-field before this object is constructed.
+ * All fields default to the compile-time constants so that a zero-argument constructor gives
+ * identical behaviour to the previous hard-coded implementation. Backend or DSL overrides are
+ * applied field-by-field before this object is constructed.
  *
  * @property timeWindowMs   Sliding window in ms. Taps outside this window are evicted from the
  *                          cluster and emitted individually.
@@ -19,7 +19,13 @@ package io.opentelemetry.android.instrumentation.click
  * @property radiusDp       Radius in dp within which taps are considered the same location.
  */
 class RageConfig(
-    val timeWindowMs: Long = ClickEventBuffer.TIME_WINDOW_MS,
-    val threshold: Int = ClickEventBuffer.RAGE_THRESHOLD,
-    val radiusDp: Float = ClickEventBuffer.RADIUS_DP,
-)
+    val timeWindowMs: Long = TIME_WINDOW_MS,
+    val threshold: Int = RAGE_THRESHOLD,
+    val radiusDp: Float = RADIUS_DP,
+) {
+    companion object {
+        const val TIME_WINDOW_MS: Long = 2000L
+        const val RAGE_THRESHOLD: Int = 3
+        const val RADIUS_DP: Float = 50f
+    }
+}

@@ -14,6 +14,7 @@ import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
+import io.opentelemetry.android.instrumentation.click.common.ClickEventEmitter
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.sdk.common.Clock
@@ -28,7 +29,7 @@ internal class ComposeClickEventGenerator(
     rageConfig: RageConfig = RageConfig(),
     clock: Clock = Clock.getDefault(),
 ) {
-    internal val clickEmitter = ComposeClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
+    internal val clickEmitter = ClickEventEmitter(eventLogger, VIEW_CLICK_EVENT_NAME, densityScale, rageConfig, clock)
 
     private var windowRef: WeakReference<Window>? = null
     private val gestureTracker = PulseClickGestureTracker()
@@ -84,7 +85,7 @@ internal class ComposeClickEventGenerator(
                         PendingClick(
                             xPx = windowX,
                             yPx = windowY,
-                            timestampMs = clickEmitter.currentTimeMs(),
+                            timestampMs = clickEmitter.currentMonotonicTimeMs(),
                             tapEpochMs = tapEpochMs,
                             hasTarget = true,
                             widgetName = composeTapTargetDetector.nodeToName(node),
@@ -96,7 +97,7 @@ internal class ComposeClickEventGenerator(
                     } ?: PendingClick(
                         xPx = windowX,
                         yPx = windowY,
-                        timestampMs = clickEmitter.currentTimeMs(),
+                        timestampMs = clickEmitter.currentMonotonicTimeMs(),
                         tapEpochMs = tapEpochMs,
                         hasTarget = false,
                         viewportWidthPx = vpWidthPx,

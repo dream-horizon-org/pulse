@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package io.opentelemetry.instrumentation.compose.click
+package io.opentelemetry.android.instrumentation.click.common
 
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseAttributes.ClickTypeValues
@@ -12,7 +12,6 @@ import io.opentelemetry.android.instrumentation.click.ClickEventBuffer
 import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
 import io.opentelemetry.android.instrumentation.click.RageEvent
-import io.opentelemetry.android.instrumentation.click.common.PulseWidgetClickLogHelper
 import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.sdk.common.Clock
@@ -23,19 +22,22 @@ import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_NA
 import java.util.concurrent.TimeUnit
 
 /**
- * Handles all click event emission for the Compose click instrumentation:
- * buffers taps, detects rage clusters, and emits good / dead / rage events.
+ * Shared click event emitter: buffers taps, detects rage clusters, and emits good / dead / rage
+ * events. Used by both View and Compose click instrumentations.
  *
- * Kept separate from [ComposeClickEventGenerator] so that Compose-node traversal logic
- * and emission/rage-detection logic have clear, independent boundaries.
+ * @param eventLogger   OTel logger to emit events against.
+ * @param eventName     OTel event name for emitted log records.
+ * @param densityScale  [android.util.DisplayMetrics.density] — used for dp → px conversion.
+ * @param rageConfig    Rage-detection parameters.
+ * @param clock         Injectable clock; defaults to the system clock.
  */
-internal class ComposeClickEventEmitter(
+class ClickEventEmitter(
     private val eventLogger: Logger,
+    private val eventName: String,
     private val densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
     private val clock: Clock = Clock.getDefault(),
 ) {
-    // Buffer owns onRage and onEmit so the delayed-emission Handler Runnable can fire without a call-site callback.
     private val clickEventBuffer =
         ClickEventBuffer(
             densityScale = densityScale,
@@ -44,7 +46,11 @@ internal class ComposeClickEventEmitter(
             onEmit = ::emitIndividualClick,
         )
 
-    fun currentTimeMs(): Long = clock.nanoTime() / 1_000_000
+    /**
+     * Returns the current monotonic time in milliseconds. Used for rage-detection timing only —
+     * not for OTel event timestamps (those use wall-clock time).
+     */
+    fun currentMonotonicTimeMs(): Long = clock.nanoTime() / 1_000_000
 
     /** Records a tap and emits the appropriate event(s). */
     fun process(pending: PendingClick) {
@@ -57,55 +63,73 @@ internal class ComposeClickEventEmitter(
     }
 
     private fun emitIndividualClick(click: PendingClick) {
-        val clickType = if (click.hasTarget) ClickTypeValues.GOOD else ClickTypeValues.DEAD
-        val record =
-            eventLogger
-                .logRecordBuilder()
-                .setTimestamp(click.tapEpochMs, TimeUnit.MILLISECONDS)
-                .setEventName(VIEW_CLICK_EVENT_NAME)
-                .setAttribute(APP_SCREEN_COORDINATE_X, click.xPx.toLong())
-                .setAttribute(APP_SCREEN_COORDINATE_Y, click.yPx.toLong())
-                .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
-                .applyViewportAttrs(click.viewportWidthPx, click.viewportHeightPx, click.xPx, click.yPx)
-        click.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
-        click.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
-        click.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
-        record.emit()
-        PulseWidgetClickLogHelper.logClick(
-            clickType = clickType,
+        emitClick(
+            hasTarget = click.hasTarget,
             xPx = click.xPx,
             yPx = click.yPx,
+            tapEpochMs = click.tapEpochMs,
             widgetName = click.widgetName,
             widgetId = click.widgetId,
             clickContext = click.clickContext,
+            viewportWidthPx = click.viewportWidthPx,
+            viewportHeightPx = click.viewportHeightPx,
         )
     }
 
     private fun emitRageClick(rage: RageEvent) {
-        val clickType = if (rage.hasTarget) ClickTypeValues.GOOD else ClickTypeValues.DEAD
-        val record =
-            eventLogger
-                .logRecordBuilder()
-                .setTimestamp(rage.tapEpochMs, TimeUnit.MILLISECONDS)
-                .setEventName(VIEW_CLICK_EVENT_NAME)
-                .setAttribute(APP_SCREEN_COORDINATE_X, rage.xPx.toLong())
-                .setAttribute(APP_SCREEN_COORDINATE_Y, rage.yPx.toLong())
-                .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
-                .setAttribute(PulseAttributes.CLICK_IS_RAGE, true)
-                .setAttribute(PulseAttributes.CLICK_RAGE_COUNT, rage.count.toLong())
-                .applyViewportAttrs(rage.viewportWidthPx, rage.viewportHeightPx, rage.xPx, rage.yPx)
-        rage.widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
-        rage.widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
-        rage.clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
-        record.emit()
-        PulseWidgetClickLogHelper.logClick(
-            clickType = clickType,
+        emitClick(
+            hasTarget = rage.hasTarget,
             xPx = rage.xPx,
             yPx = rage.yPx,
+            tapEpochMs = rage.tapEpochMs,
             widgetName = rage.widgetName,
             widgetId = rage.widgetId,
             clickContext = rage.clickContext,
+            viewportWidthPx = rage.viewportWidthPx,
+            viewportHeightPx = rage.viewportHeightPx,
             rageCount = rage.count,
+        ) {
+            setAttribute(PulseAttributes.CLICK_IS_RAGE, true)
+            setAttribute(PulseAttributes.CLICK_RAGE_COUNT, rage.count.toLong())
+        }
+    }
+
+    private fun emitClick(
+        hasTarget: Boolean,
+        xPx: Float,
+        yPx: Float,
+        tapEpochMs: Long,
+        widgetName: String?,
+        widgetId: String?,
+        clickContext: String?,
+        viewportWidthPx: Int,
+        viewportHeightPx: Int,
+        rageCount: Int? = null,
+        extraAttrs: (LogRecordBuilder.() -> Unit)? = null,
+    ) {
+        val clickType = if (hasTarget) ClickTypeValues.GOOD else ClickTypeValues.DEAD
+        val record =
+            eventLogger
+                .logRecordBuilder()
+                .setTimestamp(tapEpochMs, TimeUnit.MILLISECONDS)
+                .setEventName(eventName)
+                .setAttribute(APP_SCREEN_COORDINATE_X, xPx.toLong())
+                .setAttribute(APP_SCREEN_COORDINATE_Y, yPx.toLong())
+                .setAttribute(PulseAttributes.CLICK_TYPE, clickType)
+                .applyViewportAttrs(viewportWidthPx, viewportHeightPx, xPx, yPx)
+        widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
+        widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
+        clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
+        extraAttrs?.invoke(record)
+        record.emit()
+        PulseWidgetClickLogHelper.logClick(
+            clickType = clickType,
+            xPx = xPx,
+            yPx = yPx,
+            widgetName = widgetName,
+            widgetId = widgetId,
+            clickContext = clickContext,
+            rageCount = rageCount,
         )
     }
 

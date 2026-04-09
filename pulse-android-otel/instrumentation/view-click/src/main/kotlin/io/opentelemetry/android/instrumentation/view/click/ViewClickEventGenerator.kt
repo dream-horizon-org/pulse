@@ -16,7 +16,9 @@ import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
+import io.opentelemetry.android.instrumentation.click.common.ClickEventEmitter
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
+import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
@@ -29,7 +31,7 @@ internal class ViewClickEventGenerator(
     rageConfig: RageConfig = RageConfig(),
     clock: Clock = Clock.getDefault(),
 ) {
-    internal val clickEmitter = ViewClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
+    internal val clickEmitter = ClickEventEmitter(eventLogger, VIEW_CLICK_EVENT_NAME, densityScale, rageConfig, clock)
 
     private var windowRef: WeakReference<Window>? = null
     private val gestureTracker = PulseClickGestureTracker()
@@ -73,7 +75,7 @@ internal class ViewClickEventGenerator(
                     PendingClick(
                         xPx = tapX,
                         yPx = tapY,
-                        timestampMs = clickEmitter.currentTimeMs(),
+                        timestampMs = clickEmitter.currentMonotonicTimeMs(),
                         tapEpochMs = System.currentTimeMillis(),
                         hasTarget = target != null,
                         widgetName = target?.let { viewToName(it) },

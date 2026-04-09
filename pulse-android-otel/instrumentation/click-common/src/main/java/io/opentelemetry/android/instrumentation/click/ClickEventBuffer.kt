@@ -49,7 +49,7 @@ class PendingClick(
  * [hasTarget] mirrors the triggering [PendingClick.hasTarget] — reliable because the rage radius
  * constraint means all buffered taps are near the same point, so they share the same target state.
  */
-class RageEvent internal constructor(
+internal class RageEvent(
     val count: Int,
     val hasTarget: Boolean,
     val xPx: Float,
@@ -122,7 +122,7 @@ class RageEvent internal constructor(
  * @param postDelayed   Schedules a delayed UI-thread action (injectable for tests).
  * @param cancelDelayed Cancels a previously scheduled action (injectable for tests).
  */
-class ClickEventBuffer(
+internal class ClickEventBuffer(
     densityScale: Float,
     private val rageConfig: RageConfig = RageConfig(),
     private val onRage: (RageEvent) -> Unit = {},
@@ -131,10 +131,6 @@ class ClickEventBuffer(
     private val cancelDelayed: (Runnable) -> Unit = { r -> mainHandler.removeCallbacks(r) },
 ) {
     companion object {
-        const val TIME_WINDOW_MS: Long = 2000L
-        const val RAGE_THRESHOLD: Int = 3
-        const val RADIUS_DP: Float = 50f
-
         /** Maximum number of simultaneously active rage clusters. Oldest is emitted when exceeded. */
         const val MAX_ACTIVE_CLUSTERS: Int = 5
 
