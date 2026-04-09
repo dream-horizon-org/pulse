@@ -105,6 +105,7 @@ class RootCauseCacheDaoTest {
       ArgumentCaptor<QueryConfiguration> captor = ArgumentCaptor.forClass(QueryConfiguration.class);
       verify(clickhouseQueryService).executeQueryOrCreateJob(captor.capture(), eq(RootCauseCacheRow.class));
       String q = captor.getValue().getQuery();
+      assertThat(q).contains(RootCauseCacheQueries.SELECT_FROM_ROOT_CAUSE_CACHE);
       assertThat(q).contains("proj-a");
       assertThat(q).contains("pay");
       assertThat(q).contains("2025-04-01");
