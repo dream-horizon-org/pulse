@@ -94,7 +94,7 @@ export const processServerResponse = async <D>(
   if (error != null) {
     return {
       status,
-      data: data ?? null,
+      data: (data as D | null | undefined) ?? null,
       error,
     };
   }
@@ -102,7 +102,7 @@ export const processServerResponse = async <D>(
   if (data !== undefined && data !== null) {
     return {
       status,
-      data,
+      data: data as D,
       error: null,
     };
   }
