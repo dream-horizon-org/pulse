@@ -139,6 +139,9 @@ public class PulseConfig {
 
         @JsonProperty("criticalSessionPolicies")
         private CriticalSessionPolicies criticalSessionPolicies;
+
+        @JsonProperty("signalsToSample")
+        private List<SignalsToSampleEntry> signalsToSample;
     }
 
     @Data
@@ -229,6 +232,9 @@ public class PulseConfig {
 
         @JsonProperty("attributesToAdd")
         private List<AttributeToAdd> attributesToAdd;
+
+        @JsonProperty("metricsToAdd")
+        private List<MetricsToAddEntry> metricsToAdd;
     }
 
     @Data
