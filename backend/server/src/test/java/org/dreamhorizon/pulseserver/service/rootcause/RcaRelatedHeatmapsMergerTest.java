@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.rootcause;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
@@ -116,7 +117,7 @@ class RcaRelatedHeatmapsMergerTest {
 
       merger.mergeInto(root, rcaSegments, window7Day(), List.of("s1", "s2"));
 
-      ObjectNode segments = (ObjectNode) root.path("report").path("structured").path("segments");
+      JsonNode segments = root.path("report").path("structured").path("segments");
       assertThat(segments.get(0).path("related_heatmaps").path("heatmap_filters").path("platform").asText())
           .isEqualTo("A");
       assertThat(segments.get(1).path("related_heatmaps").path("heatmap_filters").path("platform").asText())
