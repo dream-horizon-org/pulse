@@ -2,8 +2,10 @@
 # This file controls who is tagged for review for any given pull request.
 
  # For anything not explicitly taken by someone else:
-* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @mayankkush1 @yasir6jan @Sarabjyot123
+* @chiragSharmaD11 @atulgpt17 @shubhamguptadream11 @princektripathi @yasir6jan @Sarabjyot123 @kunalchavhan @anirudhdream11
 /deploy/ @yasir6jan
+/pulse-ui/ @JatinDream11
 /pulse_ai/ @sarthak-d11
+/backend/ @mohithemnani11 @prathameshy7  @Sarabjyot123
 /backend/ingestion/clickhouse-otel-schema.sql @mohithemnani11 @Racha2004 @Sarabjyot123
 /backend/ingestion/clickhouse-replicated-tiered-schema.sql @mohithemnani11 @Racha2004 @Sarabjyot123
