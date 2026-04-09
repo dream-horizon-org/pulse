@@ -3,7 +3,10 @@ import { SuggestedInteraction } from "../../../../../hooks/useGetSuggestedIntera
 export const mockSuggestion: SuggestedInteraction = {
   id: 1,
   projectId: "test-project",
-  pattern: ["Go shopping", "Telescope selected"],
+  events: [
+    { name: "Go shopping", props: [], isBlacklisted: false },
+    { name: "Telescope selected", props: [], isBlacklisted: false },
+  ],
   totalOccurrences: 8420,
   uniqueSessions: 6120,
   sessionPct: 72.5,

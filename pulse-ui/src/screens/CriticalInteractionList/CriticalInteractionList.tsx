@@ -16,8 +16,7 @@ import {
   CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS,
   ROUTES,
 } from "../../constants";
-import { IconFilterEdit, IconX } from "@tabler/icons-react";
-import { showNotification } from "../../helpers/showNotification";
+import { IconFilterEdit } from "@tabler/icons-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChangeEvent,
@@ -256,26 +255,16 @@ export function CriticalInteractionList() {
   const suggestions = suggestionsResponse?.data?.suggestions ?? [];
 
   const handleDismissSuggestion = (id: number) => {
-    const email = getCookies(COOKIES_KEY.USER_EMAIL) || "";
-    dismissMutation.mutate({ id, userEmail: email });
+    dismissMutation.mutate({ id });
   };
 
   const handleActivateSuggestion = (suggestion: SuggestedInteraction) => {
-    const email = getCookies(COOKIES_KEY.USER_EMAIL) || "";
     activateMutation.mutate(
-      { id: suggestion.id, userEmail: email },
+      { id: suggestion.id },
       {
         onSuccess: () => {
           setRows({ interactions: [], totalInteractions: 0 });
           setPagination({ page: 0, size: defaultPageSize });
-        },
-        onError: () => {
-          showNotification(
-            "Duplicate Interaction",
-            "An interaction with the same event sequence already exists.",
-            <IconX size={16} />,
-            "red",
-          );
         },
       },
     );

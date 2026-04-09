@@ -8,10 +8,22 @@ export interface SuggestedInteractionEdge {
   p95S: number;
 }
 
+export interface SuggestedEventProp {
+  name: string;
+  value: string;
+  operator: string;
+}
+
+export interface SuggestedEvent {
+  name: string;
+  props: SuggestedEventProp[];
+  isBlacklisted: boolean;
+}
+
 export interface SuggestedInteraction {
   id: number;
   projectId: string;
-  pattern: string[];
+  events: SuggestedEvent[];
   totalOccurrences: number;
   uniqueSessions: number;
   sessionPct: number;

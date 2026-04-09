@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
+import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionEdge;
@@ -70,10 +71,15 @@ public class SuggestedInteractionDao {
   }
 
   private SuggestedInteractionDetails mapRow(Row row) {
-    List<String> pattern = objectMapper.convertValue(
-        objectMapper.readValue(row.getValue("pattern_json").toString(), Object.class),
-        objectMapper.constructCollectionType(List.class, String.class)
-    );
+    List<Event> events = List.of();
+    Object eventsRaw = row.getValue("events_json");
+    if (eventsRaw != null) {
+      Object parsed = objectMapper.readValue(eventsRaw.toString(), Object.class);
+      events = objectMapper.convertValue(
+          parsed,
+          objectMapper.constructCollectionType(List.class, Event.class)
+      );
+    }
 
     List<SuggestedInteractionEdge> edges = List.of();
     Object edgesRaw = row.getValue("edges_json");
@@ -88,7 +94,7 @@ public class SuggestedInteractionDao {
     return SuggestedInteractionDetails.builder()
         .id(row.getLong("id"))
         .projectId(row.getString("project_id"))
-        .pattern(pattern)
+        .events(events)
         .totalOccurrences(row.getInteger("total_occurrences"))
         .uniqueSessions(row.getInteger("unique_sessions"))
         .sessionPct(row.getDouble("session_pct"))

@@ -28,7 +28,8 @@ export function SuggestedInteractionCard({
   isDismissing = false,
   isActivating = false,
 }: SuggestedInteractionCardProps) {
-  const patternLabel = suggestion.pattern.join(" → ");
+  const eventNames = suggestion.events.map((e) => e.name);
+  const patternLabel = eventNames.join(" → ");
 
   return (
     <div className={classes.suggestedCard}>
@@ -38,10 +39,10 @@ export function SuggestedInteractionCard({
             {patternLabel}
           </Text>
           <div className={classes.patternFlow}>
-            {suggestion.pattern.map((event, idx) => (
+            {eventNames.map((event, idx) => (
               <span key={idx}>
                 <span className={classes.eventPill}>{event}</span>
-                {idx < suggestion.pattern.length - 1 && (
+                {idx < eventNames.length - 1 && (
                   <span className={classes.arrow}> → </span>
                 )}
               </span>

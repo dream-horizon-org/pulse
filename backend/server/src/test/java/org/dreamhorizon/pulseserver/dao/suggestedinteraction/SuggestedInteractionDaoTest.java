@@ -65,7 +65,9 @@ class SuggestedInteractionDaoTest {
 
   private Row mockDataRow(boolean includeEdges) {
     Row row = mock(Row.class);
-    when(row.getValue("pattern_json")).thenReturn("[\"StepOne\",\"StepTwo\"]");
+    when(row.getValue("events_json")).thenReturn(
+        "[{\"name\":\"StepOne\",\"props\":[],\"isBlacklisted\":false},"
+            + "{\"name\":\"StepTwo\",\"props\":[],\"isBlacklisted\":false}]");
     when(row.getValue("edges_json")).thenReturn(
         includeEdges
             ? "[{\"from\":\"StepOne\",\"to\":\"StepTwo\",\"mean_gap_s\":0.5,\"median_gap_s\":0.4,"

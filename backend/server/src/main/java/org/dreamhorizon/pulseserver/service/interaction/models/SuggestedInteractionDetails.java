@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class SuggestedInteractionDetails {
   private Long id;
   private String projectId;
-  private List<String> pattern;
+  private List<Event> events;
   private Integer totalOccurrences;
   private Integer uniqueSessions;
   private Double sessionPct;
@@ -25,4 +25,17 @@ public class SuggestedInteractionDetails {
   private List<SuggestedInteractionEdge> edges;
   private String status;
   private Timestamp createdAt;
+
+  /**
+   * Convenience method to get event names as a list of strings.
+   * Used for display purposes and building interaction names.
+   */
+  public List<String> getPattern() {
+    if (events == null) {
+      return List.of();
+    }
+    return events.stream()
+        .map(Event::getName)
+        .toList();
+  }
 }

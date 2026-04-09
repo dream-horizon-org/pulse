@@ -16,7 +16,10 @@ class GetSuggestedInteractionsResponseTest {
     @Test
     void shouldBuildWithAllFieldsAndReturnCorrectValues() {
       SuggestedInteractionDetails detail = SuggestedInteractionDetails.builder()
-          .id(1L).projectId("test").pattern(List.of("A", "B")).status("PENDING")
+          .id(1L).projectId("test").events(List.of(
+              Event.builder().name("A").props(List.of()).isBlacklisted(false).build(),
+              Event.builder().name("B").props(List.of()).isBlacklisted(false).build()
+          )).status("PENDING")
           .createdAt(Timestamp.valueOf(LocalDateTime.of(2025, 1, 15, 10, 30)))
           .build();
 

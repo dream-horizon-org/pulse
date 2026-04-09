@@ -12,6 +12,12 @@ class SuggestedInteractionDetailsTest {
 
   private static final Timestamp TEST_TIMESTAMP = Timestamp.valueOf(LocalDateTime.of(2025, 1, 15, 10, 30));
 
+  private List<Event> eventsFromNames(String... names) {
+    return java.util.Arrays.stream(names)
+        .map(name -> Event.builder().name(name).props(List.of()).isBlacklisted(false).build())
+        .toList();
+  }
+
   @Nested
   class BuilderAndGetters {
 
@@ -23,7 +29,7 @@ class SuggestedInteractionDetailsTest {
       SuggestedInteractionDetails details = SuggestedInteractionDetails.builder()
           .id(42L)
           .projectId("test-project")
-          .pattern(List.of("StepOne", "StepTwo"))
+          .events(eventsFromNames("StepOne", "StepTwo"))
           .totalOccurrences(100)
           .uniqueSessions(80)
           .sessionPct(12.5)
@@ -38,6 +44,8 @@ class SuggestedInteractionDetailsTest {
 
       assertThat(details.getId()).isEqualTo(42L);
       assertThat(details.getProjectId()).isEqualTo("test-project");
+      assertThat(details.getEvents()).hasSize(2);
+      assertThat(details.getEvents().get(0).getName()).isEqualTo("StepOne");
       assertThat(details.getPattern()).containsExactly("StepOne", "StepTwo");
       assertThat(details.getTotalOccurrences()).isEqualTo(100);
       assertThat(details.getUniqueSessions()).isEqualTo(80);
@@ -61,7 +69,7 @@ class SuggestedInteractionDetailsTest {
       SuggestedInteractionDetails details = new SuggestedInteractionDetails();
       details.setId(1L);
       details.setProjectId("proj");
-      details.setPattern(List.of("EventA"));
+      details.setEvents(eventsFromNames("EventA"));
       details.setTotalOccurrences(50);
       details.setUniqueSessions(40);
       details.setSessionPct(80.0);
@@ -94,11 +102,12 @@ class SuggestedInteractionDetailsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
+      List<Event> events = eventsFromNames("E1", "E2");
       List<SuggestedInteractionEdge> edges = List.of(
           SuggestedInteractionEdge.builder().from("X").to("Y").build());
 
       SuggestedInteractionDetails details = new SuggestedInteractionDetails(
-          10L, "project-1", List.of("E1", "E2"), 200, 150, 75.0,
+          10L, "project-1", events, 200, 150, 75.0,
           1.5, 1.2, 4.0, 0.2, edges, "DISMISSED", TEST_TIMESTAMP);
 
       assertThat(details.getId()).isEqualTo(10L);
@@ -118,15 +127,38 @@ class SuggestedInteractionDetailsTest {
   }
 
   @Nested
+  class GetPatternConvenience {
+
+    @Test
+    void shouldDerivePatternFromEvents() {
+      SuggestedInteractionDetails details = SuggestedInteractionDetails.builder()
+          .id(1L).projectId("p").events(eventsFromNames("A", "B", "C")).status("PENDING")
+          .createdAt(TEST_TIMESTAMP).build();
+
+      assertThat(details.getPattern()).containsExactly("A", "B", "C");
+    }
+
+    @Test
+    void shouldReturnEmptyPatternWhenEventsNull() {
+      SuggestedInteractionDetails details = SuggestedInteractionDetails.builder()
+          .id(1L).projectId("p").events(null).status("PENDING")
+          .createdAt(TEST_TIMESTAMP).build();
+
+      assertThat(details.getPattern()).isEmpty();
+    }
+  }
+
+  @Nested
   class EqualsAndHashCode {
 
     @Test
     void shouldBeEqualForIdenticalObjects() {
+      List<Event> events = eventsFromNames("A");
       SuggestedInteractionDetails d1 = SuggestedInteractionDetails.builder()
-          .id(1L).projectId("p").pattern(List.of("A")).status("PENDING")
+          .id(1L).projectId("p").events(events).status("PENDING")
           .createdAt(TEST_TIMESTAMP).build();
       SuggestedInteractionDetails d2 = SuggestedInteractionDetails.builder()
-          .id(1L).projectId("p").pattern(List.of("A")).status("PENDING")
+          .id(1L).projectId("p").events(events).status("PENDING")
           .createdAt(TEST_TIMESTAMP).build();
 
       assertThat(d1).isEqualTo(d2);
