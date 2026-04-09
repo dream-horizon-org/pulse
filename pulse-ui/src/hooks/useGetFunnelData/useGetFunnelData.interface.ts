@@ -23,6 +23,7 @@ export interface FunnelStepResult {
   count: number;
   conversionRate: number;
   dropoffRate: number;
+  medianStepSeconds?: number | null;
 }
 
 export interface FunnelResponse {

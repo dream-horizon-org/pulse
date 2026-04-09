@@ -112,9 +112,7 @@ export function FunnelDataTable({
             Drop-off % <SortIcon field="dropoffRate" />
           </Group>
         </Table.Th>
-        {groupBy !== "none" && (
-          <Table.Th style={{ textAlign: "right" }}>Median Time</Table.Th>
-        )}
+        <Table.Th style={{ textAlign: "right" }}>Median Time</Table.Th>
       </Table.Tr>
     </Table.Thead>
   );
@@ -161,15 +159,13 @@ export function FunnelDataTable({
             </Text>
           )}
         </Table.Td>
-        {groupBy !== "none" && (
-          <Table.Td style={{ textAlign: "right" }}>
-            <Text size="sm">
-              {step.medianTimeToStep != null
-                ? formatDuration(step.medianTimeToStep)
-                : "—"}
-            </Text>
-          </Table.Td>
-        )}
+        <Table.Td style={{ textAlign: "right" }}>
+          <Text size="sm">
+            {(step.medianTimeToStep ?? step.medianStepSeconds) != null
+              ? formatDuration(step.medianTimeToStep ?? step.medianStepSeconds)
+              : "—"}
+          </Text>
+        </Table.Td>
       </Table.Tr>
     ));
 
