@@ -18,18 +18,20 @@ import {
   getIssueBadgeColor,
   formatImpactedScreensPreview,
   formatImpactedScreensTooltip,
+  formatImpactedInteractionsCellTooltip,
 } from "../utils/sessionListUtils";
 import classes from "../SessionReplaySessions.module.css";
 
-export const ESTIMATED_ROW_HEIGHT = 60;
+/** Default row height (estimate); virtualizer measures real height per row when content wraps. */
+export const ESTIMATED_ROW_HEIGHT = 72;
 
 export const COLUMN_WIDTHS = {
   startTime: "16%",
   duration: "11%",
   user: "11%",
   quality: "10%",
-  issues: "12%",
   platform: "10%",
+  issues: "12%",
   impactedScreens: "30%",
 } as const;
 
@@ -82,6 +84,11 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
   const hasIssues = session.issues.length > 0;
   const hasQuality =
     session.qualityScore != null && Number.isFinite(session.qualityScore);
+  const interactionNames =
+    session.impactedInteractionNames?.filter(Boolean) ?? [];
+  const hasInteractionPills = interactionNames.length > 0;
+  const pathPreview = formatImpactedScreensPreview(session.impactedScreens);
+  const hasPathSummary = pathPreview !== SESSION_LIST_LABELS.noImpactedScreens;
 
   return (
     <div
@@ -97,12 +104,13 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
       style={{
         display: "flex",
         alignItems: "center",
+        boxSizing: "border-box",
         borderBottom: "1px solid #e9ecef",
         backgroundColor: "white",
         cursor: "pointer",
         transition: "background-color 0.15s ease",
-        height: ESTIMATED_ROW_HEIGHT,
-        padding: "0 var(--mantine-spacing-md)",
+        minHeight: ESTIMATED_ROW_HEIGHT,
+        padding: "10px var(--mantine-spacing-md)",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.backgroundColor = "#f8f9fa";
@@ -143,13 +151,23 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
         </Text>
       </div>
 
+      <div style={{ width: COLUMN_WIDTHS.platform, flexShrink: 0 }}>
+        <Badge
+          size="sm"
+          variant="light"
+          color={getPlatformColor(session.platform)}
+        >
+          {session.platform}
+        </Badge>
+      </div>
+
       <div style={{ width: COLUMN_WIDTHS.issues, flexShrink: 0 }}>
         {!hasIssues ? (
           <Badge color="teal" variant="light" size="sm">
             {SESSION_LIST_LABELS.clean}
           </Badge>
         ) : (
-          <Group gap={4} style={{ flexWrap: "wrap" }}>
+          <Group gap={8} style={{ flexWrap: "wrap" }}>
             {session.issues.map((issue) => (
               <Badge
                 key={issue.type}
@@ -166,16 +184,6 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
         )}
       </div>
 
-      <div style={{ width: COLUMN_WIDTHS.platform, flexShrink: 0 }}>
-        <Badge
-          size="sm"
-          variant="light"
-          color={getPlatformColor(session.platform)}
-        >
-          {session.platform}
-        </Badge>
-      </div>
-
       <div
         style={{
           width: COLUMN_WIDTHS.impactedScreens,
@@ -183,29 +191,51 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
           overflow: "hidden",
         }}
       >
-        <Tooltip
-          label={formatImpactedScreensTooltip(session.impactedScreens)}
-          multiline
-          maw={300}
-        >
-          <Text
-            size="sm"
-            c={
-              formatImpactedScreensPreview(session.impactedScreens) ===
-              SESSION_LIST_LABELS.noImpactedScreens
-                ? "dimmed"
-                : undefined
-            }
-            className={classes.journey}
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
+        {hasInteractionPills ? (
+          <Tooltip
+            label={formatImpactedInteractionsCellTooltip(
+              interactionNames,
+              session.impactedScreens,
+            )}
+            multiline
+            maw={320}
           >
-            {formatImpactedScreensPreview(session.impactedScreens)}
-          </Text>
-        </Tooltip>
+            <Group gap={8} style={{ flexWrap: "wrap" }}>
+              {interactionNames.map((name, idx) => (
+                <Badge
+                  key={`${session.sessionId}-${name}-${idx}`}
+                  size="sm"
+                  variant="light"
+                  color="teal"
+                  tt="uppercase"
+                  fw={700}
+                  styles={{ label: { fontWeight: 700 } }}
+                >
+                  {name}
+                </Badge>
+              ))}
+            </Group>
+          </Tooltip>
+        ) : (
+          <Tooltip
+            label={formatImpactedScreensTooltip(session.impactedScreens)}
+            multiline
+            maw={300}
+          >
+            <Text
+              size="sm"
+              c={!hasPathSummary ? "dimmed" : undefined}
+              className={classes.journey}
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {pathPreview}
+            </Text>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

@@ -189,12 +189,12 @@ export function SessionsVirtualList({
           )}
         </div>
 
-        <div style={{ width: COLUMN_WIDTHS.issues, flexShrink: 0 }}>
-          {TABLE_COLUMN_LABELS.issues}
-        </div>
-
         <div style={{ width: COLUMN_WIDTHS.platform, flexShrink: 0 }}>
           {TABLE_COLUMN_LABELS.platform}
+        </div>
+
+        <div style={{ width: COLUMN_WIDTHS.issues, flexShrink: 0 }}>
+          {TABLE_COLUMN_LABELS.issues}
         </div>
 
         <div style={{ width: COLUMN_WIDTHS.impactedScreens, flexShrink: 0 }}>
@@ -246,6 +246,8 @@ export function SessionsVirtualList({
                 return (
                   <div
                     key={`${session.sessionId}-${virtualItem.index}`}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualItem.index}
                     style={{
                       position: "absolute",
                       top: 0,
