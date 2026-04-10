@@ -198,14 +198,14 @@ internal object InteractionUtil {
         when (error.type) {
             InteractionErrorType.TIMEOUT -> {
                 if (error.timeoutExpectedEventName != null) {
-                    "Timed out while waiting for event \"${error.timeoutExpectedEventName}\"."
+                    """Timed out while waiting for event "${error.timeoutExpectedEventName}"."""
                 } else {
                     "Timed out before the next expected event arrived."
                 }
             }
             InteractionErrorType.SEQUENCE_VIOLATION -> {
                 if (error.sequenceViolationExpectedEventName != null && error.sequenceViolationReceivedEventName != null) {
-                    """Expected event \"${error.sequenceViolationExpectedEventName}\", received \"${error.sequenceViolationReceivedEventName}\"."""
+                    """Expected event "${error.sequenceViolationExpectedEventName}", received "${error.sequenceViolationReceivedEventName}"."""
                 } else {
                     "An event did not match the next expected event in this interaction."
                 }
