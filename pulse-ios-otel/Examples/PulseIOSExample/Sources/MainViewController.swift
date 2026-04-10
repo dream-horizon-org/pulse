@@ -515,7 +515,7 @@ class MainViewController: UIViewController {
     
     @objc private func networkRequestTapped() {
         print("━━━ networkRequestTapped ━━━")
-        guard let url = URL(string: "https://httpbin.org/get1") else { return }
+        guard let url = URL(string: "https://httpbin.org/get") else { return }
         let task = URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
