@@ -333,7 +333,8 @@ internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): 
         }
         return null
     }
-    val errorTypeParsed = InteractionErrorType.fromCode(props[InteractionConstant.ERROR_TYPE] as? String)
+    val errorTypeParsed =
+        (props[InteractionConstant.ERROR_TYPE] as? String)?.let { InteractionErrorType.fromCode(it) }
     if (errorTypeParsed != null) {
         val firstNs = steps.first().timeInNano
         val lastNs = steps.last().timeInNano

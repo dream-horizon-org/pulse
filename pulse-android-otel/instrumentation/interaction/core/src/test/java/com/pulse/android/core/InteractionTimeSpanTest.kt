@@ -105,12 +105,12 @@ class InteractionTimeSpanTest {
                 config = config,
                 events = events,
                 isSuccess = false,
-                errorType = InteractionErrorType.TIMEOUT,
+                errorTypeCode = "timeout",
                 timeoutExpectedEventName = "b",
             )
         val thresholdNs = thresholdMs * 1_000_000L
         val expectedEnd = t0 + thresholdNs + (t1 - t0)
         assertThat(interaction.getTimeSpanInNanos(config.thresholdInMs)).isEqualTo(t0 to expectedEnd)
-        assertThat(interaction.errorTypeCode).isEqualTo(InteractionErrorType.TIMEOUT.code)
+        assertThat(interaction.errorTypeCode).isEqualTo("timeout")
     }
 }

@@ -21,19 +21,6 @@ public final class com/pulse/android/core/InteractionConstant {
 	public static final field USER_CATEGORY Ljava/lang/String;
 }
 
-public final class com/pulse/android/core/InteractionErrorType : java/lang/Enum {
-	public static final field Companion Lcom/pulse/android/core/InteractionErrorType$Companion;
-	public static final field SEQUENCE_VIOLATION Lcom/pulse/android/core/InteractionErrorType;
-	public static final field TIMEOUT Lcom/pulse/android/core/InteractionErrorType;
-	public final fun getCode ()Ljava/lang/String;
-	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/android/core/InteractionErrorType;
-	public static fun values ()[Lcom/pulse/android/core/InteractionErrorType;
-}
-
-public final class com/pulse/android/core/InteractionErrorType$Companion {
-	public final fun fromCode (Ljava/lang/String;)Lcom/pulse/android/core/InteractionErrorType;
-}
-
 public final class com/pulse/android/core/InteractionEventsTrackerKt {
 	public static final fun getRunningIds (Ljava/util/List;)Ljava/util/List;
 	public static final fun getRunningNames (Ljava/util/List;)Ljava/util/List;

@@ -15,13 +15,13 @@ public object InteractionFakeUtils {
         events: List<InteractionLocalEvent>,
         markers: List<InteractionLocalEvent> = emptyList(),
         isSuccess: Boolean = true,
-        errorType: InteractionErrorType? = null,
+        errorTypeCode: String? = null,
         sequenceViolationExpectedEventName: String? = null,
         sequenceViolationReceivedEventName: String? = null,
         timeoutExpectedEventName: String? = null,
     ): Interaction {
-        require(isSuccess == (errorType == null)) {
-            "createFakeInteraction: use isSuccess true with errorType null, or isSuccess false with a non-null errorType"
+        require(isSuccess == (errorTypeCode == null)) {
+            "createFakeInteraction: use isSuccess true with errorTypeCode null, or isSuccess false with a non-null errorTypeCode"
         }
         return InteractionUtil.buildPulseInteraction(
             interactionId,
@@ -32,7 +32,10 @@ public object InteractionFakeUtils {
                 null
             } else {
                 InteractionBuildError(
-                    type = errorType!!,
+                    type =
+                        requireNotNull(InteractionErrorType.fromCode(errorTypeCode!!)) {
+                            "createFakeInteraction: unknown errorTypeCode=$errorTypeCode"
+                        },
                     timeoutExpectedEventName = timeoutExpectedEventName,
                     sequenceViolationExpectedEventName = sequenceViolationExpectedEventName,
                     sequenceViolationReceivedEventName = sequenceViolationReceivedEventName,

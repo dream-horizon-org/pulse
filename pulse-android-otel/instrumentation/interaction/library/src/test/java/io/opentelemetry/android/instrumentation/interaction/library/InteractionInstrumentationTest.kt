@@ -1,6 +1,5 @@
 package io.opentelemetry.android.instrumentation.interaction.library
 
-import com.pulse.android.core.InteractionErrorType
 import com.pulse.android.core.InteractionFakeUtils
 import com.pulse.android.core.InteractionLocalEventFakeUtils
 import com.pulse.android.core.errorMessage
@@ -137,7 +136,7 @@ class InteractionInstrumentationTest {
                 config = config,
                 events = events,
                 isSuccess = false,
-                errorType = InteractionErrorType.SEQUENCE_VIOLATION,
+                errorTypeCode = "sequence_violation",
                 sequenceViolationExpectedEventName = "event2",
                 sequenceViolationReceivedEventName = "wrong",
             )
