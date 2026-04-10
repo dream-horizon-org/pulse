@@ -17,7 +17,7 @@ let package = Package(
         .target(
             name: "PulseKitWrapper",
             dependencies: [
-                .product(name: "PulseKit", package: "pulse-ios-sdk"),
+                .product(name: "PulseKit", package: "pulse-ios-otel"),
             ],
             path: "PulseKitWrapper"
         ),

@@ -67,6 +67,10 @@ let package = Package(
             name: "SwiftProtobufBinary",
             path: "../../build/SwiftProtobuf.xcframework"
         ),
+        .binaryTarget(
+            name: "libwebpBinary",
+            path: "../../build/libwebp.xcframework"
+        ),
         .target(
             name: "PulseKitWrapper",
             dependencies: [
@@ -75,6 +79,7 @@ let package = Package(
                 "OpenTelemetryApiBinary",
                 "OpenTelemetrySdkBinary",
                 "SwiftProtobufBinary",
+                "libwebpBinary",
             ],
             path: "PulseKitWrapper"
         ),
