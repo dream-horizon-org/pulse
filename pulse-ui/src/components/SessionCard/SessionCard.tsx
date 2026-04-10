@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { Card, Group, Loader, Stack, Text, ThemeIcon } from "@mantine/core";
 import {
   IconDeviceMobile,
@@ -22,11 +23,11 @@ const formatDuration = (ms: number): string => {
 export const SessionCard = ({ sessionId, onNavigate }: SessionCardProps) => {
   const { data: session, isLoading, error } = useGetSessionDetail(sessionId);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     onNavigate
       ? onNavigate(sessionId)
       : window.open(`/session-replay/${sessionId}`, "_blank");
-  };
+  }, [sessionId, onNavigate]);
 
   const errorCount =
     session?.interactions?.reduce((sum, i) => sum + (i.failureCount || 0), 0) ??
@@ -63,9 +64,14 @@ export const SessionCard = ({ sessionId, onNavigate }: SessionCardProps) => {
             <Loader size="xs" />
           </Group>
         ) : error ? (
-          <Text size="10px" c="red">
-            Failed to load
-          </Text>
+          <Stack gap="4px" align="center" py="sm">
+            <Text size="10px" c="red" fw={500}>
+              Failed to load session details
+            </Text>
+            <Text size="9px" c="dimmed">
+              Please try again later
+            </Text>
+          </Stack>
         ) : session ? (
           <Stack gap="6px">
             <Group justify="space-between" wrap="nowrap">
@@ -133,7 +139,13 @@ export const SessionCard = ({ sessionId, onNavigate }: SessionCardProps) => {
               </Group>
             )}
           </Stack>
-        ) : null}
+        ) : (
+          <Stack gap="4px" align="center" py="sm">
+            <Text size="10px" c="dimmed">
+              No session data available
+            </Text>
+          </Stack>
+        )}
       </Card.Section>
 
       <Card.Section withBorder inheritPadding py="6px" mt="xs">

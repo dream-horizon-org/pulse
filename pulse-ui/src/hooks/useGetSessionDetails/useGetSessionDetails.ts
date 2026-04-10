@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { sessionReplayService } from "../../services/sessionReplay/SessionReplayService";
 import type { SessionDetailApiResponse } from "../../services/sessionReplay/types";
 
+const SESSION_DETAIL_STALE_TIME = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Fetches session details for a given session ID
  * Uses existing SessionReplayService.getSessionDetail()
@@ -16,7 +18,7 @@ export function useGetSessionDetail(sessionId: string) {
       return response;
     },
     enabled: !!sessionId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: SESSION_DETAIL_STALE_TIME,
     retry: 1,
   });
 }
