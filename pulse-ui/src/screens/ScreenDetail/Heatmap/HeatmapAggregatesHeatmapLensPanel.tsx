@@ -231,10 +231,7 @@ export function HeatmapAggregatesHeatmapLensPanel({
           <LayerBreakdownTable rows={layerTableRows} />
         </Paper>
 
-        <HeatmapPulseInteractionsAggregatesSection
-          payload={payload}
-          showElementsColumn={false}
-        />
+        <HeatmapPulseInteractionsAggregatesSection payload={payload} />
 
         {tapVersusRows.length > 0 && (
           <AggregatesCard title="Compared to taps & movement">

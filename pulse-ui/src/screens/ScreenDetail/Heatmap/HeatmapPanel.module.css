@@ -725,6 +725,11 @@
   overflow-x: auto;
 }
 
+.heatShotCarouselCounter {
+  margin: 0;
+  padding: 0 8px;
+}
+
 .heatShotNavBtn {
   flex-shrink: 0;
   align-self: center;

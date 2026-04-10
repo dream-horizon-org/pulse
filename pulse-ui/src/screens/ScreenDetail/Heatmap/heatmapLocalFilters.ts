@@ -1,4 +1,9 @@
 import type { CriticalInteractionDetailsFilterValues } from "../../CriticalInteractionDetails/CriticalInteractionDetails.interface";
+import {
+  HEATMAP_BREAKPOINT_VALUES,
+  LEGACY_HEATMAP_BREAKPOINT_TO_API,
+  type HeatmapBreakpoint,
+} from "./heatmap.types";
 
 /** Heatmap-only filter state; mirrors page filters until the user edits or resets. */
 export type HeatmapLocalFilters = {
@@ -48,6 +53,17 @@ export function heatmapLocalFiltersMatchPage(
   );
 }
 
+function normalizeBreakpointForApi(raw: string): string | undefined {
+  const b = raw.trim();
+  if (!b) return undefined;
+  if ((HEATMAP_BREAKPOINT_VALUES as readonly string[]).includes(b)) {
+    return b;
+  }
+  const mapped = LEGACY_HEATMAP_BREAKPOINT_TO_API[b];
+  if (mapped) return mapped;
+  return b;
+}
+
 /** Args for `useHeatmapData` (regions + optional viewport breakpoint). */
 export function heatmapFiltersToRequestArgs(f: HeatmapLocalFilters) {
   return {
@@ -56,6 +72,18 @@ export function heatmapFiltersToRequestArgs(f: HeatmapLocalFilters) {
     app_version: f.appVersion.trim() || undefined,
     platform: f.platform.trim() || undefined,
     region: f.region.trim() || undefined,
-    breakpoint: f.breakpoint.trim() || undefined,
+    breakpoint: normalizeBreakpointForApi(f.breakpoint),
   };
+}
+
+/** Maps a stored filter value to canonical `HeatmapBreakpoint` when possible (e.g. legacy keys). */
+export function canonicalHeatmapBreakpoint(
+  raw: string | undefined,
+): HeatmapBreakpoint | "" {
+  const b = raw?.trim() ?? "";
+  if (!b) return "";
+  if ((HEATMAP_BREAKPOINT_VALUES as readonly string[]).includes(b)) {
+    return b as HeatmapBreakpoint;
+  }
+  return LEGACY_HEATMAP_BREAKPOINT_TO_API[b] ?? "";
 }

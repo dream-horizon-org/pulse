@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import {
   formatPulseScore,
+  keyLensHasInteractionOverlay,
   screenPulseInteractionAverageFromPayload,
 } from "./heatmapKeyLensAggregates";
 import { HeatmapPulseInteractionsAggregatesSection } from "./HeatmapPulseInteractionsAggregatesSection";
@@ -25,6 +26,8 @@ export function HeatmapAggregatesKeyLensPanel({
   const band =
     screenAvg != null ? bandFromNumericScore(Math.round(screenAvg * 100)) : "nodata";
 
+  const hasOverlay = keyLensHasInteractionOverlay(payload);
+
   return (
     <Stack gap="sm" className={classes.aggregatesStack}>
       <Paper className={classes.aggregatesSubCard} radius="sm" p="sm" withBorder>
@@ -40,7 +43,8 @@ export function HeatmapAggregatesKeyLensPanel({
             Pulse · screen average
           </Text>
           <Text size="sm" c="dimmed" lh={1.5}>
-            Mean of Pulse interaction scores for this screen (element map when present, otherwise the interaction list).
+            Mean of Pulse interaction scores from <strong>interactions_metadata</strong> (separate from the spatial
+            interaction map overlay).
           </Text>
           <Table
             className={classes.aggregatesLayerTable}
@@ -82,12 +86,20 @@ export function HeatmapAggregatesKeyLensPanel({
         </Stack>
       </Paper>
 
-      <HeatmapPulseInteractionsAggregatesSection payload={payload} showElementsColumn />
+      <HeatmapPulseInteractionsAggregatesSection payload={payload} />
 
-      <Text size="sm" c="dimmed" lh={1.5} px={2} style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-        <IconInfoCircle size={14} stroke={1.5} style={{ flexShrink: 0, marginTop: 2 }} />
-        Hover regions on the map for per-element breakdown.
-      </Text>
+      {hasOverlay ? (
+        <Text
+          size="sm"
+          c="dimmed"
+          lh={1.5}
+          px={2}
+          style={{ display: "flex", alignItems: "flex-start", gap: 6 }}
+        >
+          <IconInfoCircle size={14} stroke={1.5} style={{ flexShrink: 0, marginTop: 2 }} />
+          Hover regions on the map for per-element breakdown.
+        </Text>
+      ) : null}
     </Stack>
   );
 }

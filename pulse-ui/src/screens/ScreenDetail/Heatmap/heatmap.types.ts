@@ -8,26 +8,42 @@ export interface HeatmapTimeRange {
   end: string;
 }
 
-/** Sent as query/body `breakpoint`; values must match backend. */
+/**
+ * Sent as query/body `breakpoint`; must match `interaction_heatmaps_daily.Breakpoint`
+ * (see `backend/ingestion/clickhouse-otel-schema.sql` MV).
+ */
 export const HEATMAP_BREAKPOINT_VALUES = [
-  "small_mobile",
-  "medium_folding",
-  "medium_mobile",
-  "medium_mobile_wide",
-  "large_tablet",
-  "extra_large_web",
+  "Mobile_Small",
+  "Mobile_Medium",
+  "Tablet_Large",
+  "Web_Extra_Large",
 ] as const;
 
 export type HeatmapBreakpoint = (typeof HEATMAP_BREAKPOINT_VALUES)[number];
 
-export const HEATMAP_BREAKPOINT_LABELS: Record<HeatmapBreakpoint, string> = {
-  small_mobile: "Small (mobile)",
-  medium_folding: "Medium (folding)",
-  medium_mobile: "Medium (mobile)",
-  medium_mobile_wide: "Medium (mobile · wide)",
-  large_tablet: "Large (tablet)",
-  extra_large_web: "Extra large (web)",
-};
+/**
+ * UI label for each wire `breakpoint` value (same string with underscores as spaces).
+ * {@link heatmapFiltersToRequestArgs} still sends the underscore form to the API.
+ */
+export function heatmapBreakpointDisplayLabel(wireValue: string): string {
+  return wireValue.trim().replace(/_/g, " ");
+}
+
+export const HEATMAP_BREAKPOINT_NAMES: Record<HeatmapBreakpoint, string> =
+  Object.fromEntries(
+    HEATMAP_BREAKPOINT_VALUES.map((v) => [v, heatmapBreakpointDisplayLabel(v)]),
+  ) as Record<HeatmapBreakpoint, string>;
+
+/** Legacy UI values pre–MV rename — normalized on API request. */
+export const LEGACY_HEATMAP_BREAKPOINT_TO_API: Record<string, HeatmapBreakpoint> =
+  {
+    small_mobile: "Mobile_Small",
+    medium_folding: "Mobile_Medium",
+    medium_mobile: "Mobile_Medium",
+    medium_mobile_wide: "Mobile_Medium",
+    large_tablet: "Tablet_Large",
+    extra_large_web: "Web_Extra_Large",
+  };
 
 /** Query params for GET /v1/heatmap/data */
 export interface HeatmapDataQueryParams {

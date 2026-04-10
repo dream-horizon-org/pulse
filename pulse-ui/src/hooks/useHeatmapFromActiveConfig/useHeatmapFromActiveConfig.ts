@@ -28,7 +28,7 @@ export function useHeatmapFromActiveConfig({
       (f) => f.featureName === HEATMAP_FEATURE_NAME,
     );
     return heatmap != null && heatmap.sessionSampleRate === 1;
-  }, [data]);
+  }, [data?.data?.features]);
 
   return {
     isHeatmapEnabled,

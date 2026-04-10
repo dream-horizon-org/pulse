@@ -3,7 +3,7 @@ import type {
   HeatmapInteractionElementRegion,
   HeatmapPulseInteractionScore,
 } from "./heatmap.types";
-import { normalizeInteractionRegions, regionAverageScore } from "./heatmapInteractionUtils";
+import { normalizeInteractionRegions } from "./heatmapInteractionUtils";
 import { formatInteractionScore01 } from "./heatmapInteractionScores";
 
 export interface PulseInteractionAggregateRow {
@@ -58,32 +58,14 @@ export function aggregatePulseInteractionsForScreen(
   }));
 }
 
-/** Mean of per–element average scores (0–1). */
-export function screenPulseInteractionAverage01(
-  regions: HeatmapInteractionElementRegion[],
-): number | null {
-  const norm = normalizeInteractionRegions(regions);
-  if (!norm.length) return null;
-  const withScores = norm.filter(
-    (r) => r.interaction_scores?.length || r.avg_score != null,
-  );
-  if (!withScores.length) return null;
-  const sum = withScores.reduce((s, r) => s + regionAverageScore(r), 0);
-  return Math.round((sum / withScores.length) * 10_000) / 10_000;
-}
-
 export function formatPulseScore(n: number | null | undefined): string {
   return formatInteractionScore01(n);
 }
 
-/** Prefer `layers.interaction_map` regions; otherwise top-level `interactions_metadata` rows. */
+/** Right-rail Pulse list — always from top-level `interactions_metadata`, never from `layers.interaction_map`. */
 export function pulseInteractionRowsForKeyLens(
   payload: HeatmapDataResponse,
 ): PulseInteractionAggregateRow[] {
-  const regions = payload.layers.interaction_map?.regions ?? [];
-  if (regions.length > 0) {
-    return aggregatePulseInteractionsForScreen(regions);
-  }
   const meta = payload.interactions_metadata ?? [];
   if (meta.length === 0) return [];
   return meta.map((r, i) => ({
@@ -97,10 +79,6 @@ export function pulseInteractionRowsForKeyLens(
 export function screenPulseInteractionAverageFromPayload(
   payload: HeatmapDataResponse,
 ): number | null {
-  const regions = payload.layers.interaction_map?.regions ?? [];
-  if (regions.length > 0) {
-    return screenPulseInteractionAverage01(regions);
-  }
   const meta = payload.interactions_metadata ?? [];
   if (meta.length === 0) return null;
   const nums = meta

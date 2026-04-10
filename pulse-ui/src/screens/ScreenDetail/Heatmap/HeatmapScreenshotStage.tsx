@@ -7,6 +7,8 @@ export type HeatmapDensityGradientVariant = "brand" | "thermal";
 
 export interface HeatmapScreenshotStageProps {
   count: number;
+  /** 1-based active slide when the carousel has at least one screenshot. */
+  activeIndex?: number;
   onPrev: () => void;
   onNext: () => void;
   /** Phone frame + overlays. */
@@ -50,12 +52,18 @@ function IntensityLegendStrip({
  */
 export function HeatmapScreenshotStage({
   count,
+  activeIndex,
   onPrev,
   onNext,
   frame,
   densityGradientVariant = "brand",
 }: HeatmapScreenshotStageProps) {
   const showNav = count > 1;
+  const showCounter =
+    count > 0 &&
+    activeIndex != null &&
+    activeIndex >= 1 &&
+    activeIndex <= count;
 
   return (
     <div className={classes.heatScreenshotStage}>
@@ -92,6 +100,18 @@ export function HeatmapScreenshotStage({
           <span className={classes.heatShotNavSpacer} aria-hidden />
         )}
       </div>
+
+      {showCounter ? (
+        <Text
+          size="xs"
+          c="dimmed"
+          fw={600}
+          ta="center"
+          className={classes.heatShotCarouselCounter}
+        >
+          Screenshot {activeIndex} of {count}
+        </Text>
+      ) : null}
 
       <IntensityLegendStrip densityGradientVariant={densityGradientVariant} />
     </div>

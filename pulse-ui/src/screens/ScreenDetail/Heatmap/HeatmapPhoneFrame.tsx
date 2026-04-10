@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { HeatmapBreakpoint } from "./heatmap.types";
+import { canonicalHeatmapBreakpoint } from "./heatmapLocalFilters";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapPhoneFrameProps {
@@ -9,19 +10,18 @@ export interface HeatmapPhoneFrameProps {
 }
 
 const INNER_CLASS: Partial<Record<HeatmapBreakpoint, string>> = {
-  small_mobile: classes.phoneInnerSmallMobile,
-  medium_folding: classes.phoneInnerMediumFolding,
-  medium_mobile: classes.phoneInnerMediumMobile,
-  medium_mobile_wide: classes.phoneInnerMediumWide,
-  large_tablet: classes.phoneInnerLargeTablet,
-  extra_large_web: classes.phoneInnerExtraLargeWeb,
+  Mobile_Small: classes.phoneInnerSmallMobile,
+  Mobile_Medium: classes.phoneInnerMediumMobile,
+  Tablet_Large: classes.phoneInnerLargeTablet,
+  Web_Extra_Large: classes.phoneInnerExtraLargeWeb,
 };
 
 export function HeatmapPhoneFrame({
   children,
   breakpoint = "",
 }: HeatmapPhoneFrameProps) {
-  const bp = breakpoint?.trim() as HeatmapBreakpoint;
+  const raw = breakpoint?.trim() ?? "";
+  const bp = (canonicalHeatmapBreakpoint(raw) || raw) as HeatmapBreakpoint;
   const innerExtra =
     bp && Object.prototype.hasOwnProperty.call(INNER_CLASS, bp)
       ? INNER_CLASS[bp]!

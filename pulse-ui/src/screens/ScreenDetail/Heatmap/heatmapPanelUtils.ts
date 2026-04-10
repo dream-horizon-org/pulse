@@ -30,24 +30,23 @@ export function formatInt(n: number): string {
 }
 
 /**
- * True when Key actions lens should be offered: overlay (`payload.layers.interaction_map`) and/or
- * top-level `payload.interactions_metadata`.
+ * True when the Interaction map lens may be offered — only when the wire includes
+ * `layers.interaction_map` (spatial overlay). Top-level `interactions_metadata` is unrelated.
  */
 export function heatmapShowsKeyActionsLens(
   payload: HeatmapDataResponse | null | undefined,
 ): boolean {
   if (payload == null || typeof payload !== "object") return false;
   const layers = payload.layers;
-  if (layers != null && typeof layers === "object") {
-    if (
-      Object.prototype.hasOwnProperty.call(layers, "interaction_map") &&
-      layers.interaction_map != null
-    ) {
-      return true;
-    }
+  if (layers == null || typeof layers !== "object") return false;
+  if (
+    !Object.prototype.hasOwnProperty.call(layers, "interaction_map") ||
+    layers.interaction_map == null
+  ) {
+    return false;
   }
-  const meta = payload.interactions_metadata;
-  return Array.isArray(meta) && meta.length > 0;
+  const regions = layers.interaction_map.regions;
+  return Array.isArray(regions) && regions.length > 0;
 }
 
 /**

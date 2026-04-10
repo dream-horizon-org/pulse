@@ -5,10 +5,8 @@ import {
   isValidUtcWallClockString,
 } from "../../../utils/DateUtil";
 import type { HeatmapLocalFilters } from "./heatmapLocalFilters";
-import {
-  HEATMAP_BREAKPOINT_LABELS,
-  type HeatmapBreakpoint,
-} from "./heatmap.types";
+import { canonicalHeatmapBreakpoint } from "./heatmapLocalFilters";
+import { heatmapBreakpointDisplayLabel } from "./heatmap.types";
 import {
   HEATMAP_QUICK_TIME_PRESETS,
   HEATMAP_TIME_PRESET_CUSTOM,
@@ -97,11 +95,12 @@ export function getHeatmapAudiencePillEntries(
     out.push({ key: "region", label: `Region · ${r}` });
   }
   if (bp) {
-    const label =
-      bp in HEATMAP_BREAKPOINT_LABELS
-        ? HEATMAP_BREAKPOINT_LABELS[bp as HeatmapBreakpoint]
-        : bp;
-    out.push({ key: "breakpoint", label: `Viewport · ${label}` });
+    const canon = canonicalHeatmapBreakpoint(bp);
+    const wire = canon || bp;
+    out.push({
+      key: "breakpoint",
+      label: `Viewport · ${heatmapBreakpointDisplayLabel(wire)}`,
+    });
   }
   return out;
 }

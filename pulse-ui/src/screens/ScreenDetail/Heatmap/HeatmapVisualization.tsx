@@ -110,6 +110,7 @@ export function HeatmapVisualization({
   const stage = (
     <HeatmapScreenshotStage
       count={count}
+      activeIndex={count > 0 ? safeIndex + 1 : undefined}
       onPrev={goPrev}
       onNext={goNext}
       densityGradientVariant={densityGradientVariant}
