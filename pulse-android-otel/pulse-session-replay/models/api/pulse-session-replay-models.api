@@ -119,11 +119,6 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayIncrementalMut
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
-public final class com/pulse/android/sdk/replay/models/PulseReplayJson {
-	public static final field INSTANCE Lcom/pulse/android/sdk/replay/models/PulseReplayJson;
-	public final fun getInstance ()Lkotlinx/serialization/json/Json;
-}
-
 public final class com/pulse/android/sdk/replay/models/PulseReplayMetaData : com/pulse/android/sdk/replay/models/PulseReplayEventData {
 	public static final field Companion Lcom/pulse/android/sdk/replay/models/PulseReplayMetaData$Companion;
 	public fun <init> (Ljava/lang/String;IILjava/lang/String;)V

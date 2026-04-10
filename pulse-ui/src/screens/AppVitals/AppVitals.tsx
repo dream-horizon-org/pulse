@@ -9,7 +9,7 @@ import {
   ANRTrendGraph,
   NonFatalTrendGraph,
   VitalsFilters,
-  VitalsHeaderFilters,
+  AppVitalsFilters,
   CrashList,
   ANRList,
   NonFatalList,
@@ -39,15 +39,22 @@ export const AppVitals: React.FC = () => {
     handleTimeFilterChange: storeHandleTimeFilterChange,
     initializeFromUrlParams,
     selectedTimeFilter,
+    filterValues,
   } = useFilterStore();
-  const { trackTabSwitch, trackFilter } = useAnalytics("AppVitals");
+  const { trackTabSwitch } = useAnalytics("AppVitals");
 
   const [filters, setFilters] = useState<VitalsFiltersType>({
     issueType: ISSUE_TYPES.CRASHES,
-    appVersion: "all",
-    osVersion: "all",
-    device: "all",
   });
+
+  const toFilterParam = (v: string | undefined) =>
+    v && v.trim() !== "" ? v : "all";
+
+  const appVersion = toFilterParam(filterValues?.APP_VERSION);
+  const osVersion = toFilterParam(filterValues?.OS_VERSION);
+  const platform = toFilterParam(filterValues?.PLATFORM);
+  const networkProvider = toFilterParam(filterValues?.NETWORK_PROVIDER);
+  const state = toFilterParam(filterValues?.STATE);
 
   // Initialize default time range (Last 24 hours)
   const getDefaultTimeRange = () => {
@@ -109,21 +116,6 @@ export const AppVitals: React.FC = () => {
     setFilters((prev) => ({ ...prev, issueType: value as IssueType }));
   };
 
-  const handleAppVersionChange = (value: string | null) => {
-    trackFilter("appVersion", value || "all");
-    setFilters((prev) => ({ ...prev, appVersion: value || "all" }));
-  };
-
-  const handleOsVersionChange = (value: string | null) => {
-    trackFilter("osVersion", value || "all");
-    setFilters((prev) => ({ ...prev, osVersion: value || "all" }));
-  };
-
-  const handleDeviceChange = (value: string | null) => {
-    trackFilter("device", value || "all");
-    setFilters((prev) => ({ ...prev, device: value || "all" }));
-  };
-
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
     storeHandleTimeFilterChange(value);
   };
@@ -132,36 +124,48 @@ export const AppVitals: React.FC = () => {
   const { data: appStats } = useGetAppStats({
     startTime: formattedStartTime,
     endTime: formattedEndTime,
-    appVersion: filters.appVersion,
-    osVersion: filters.osVersion,
-    device: filters.device,
+    appVersion,
+    osVersion,
+    device: "all",
+    platform,
+    networkProvider,
+    state,
   });
 
   // Fetch data from API for stats calculation
   const { exceptions: crashes } = useExceptionListData({
     startTime: formattedStartTime,
     endTime: formattedEndTime,
-    appVersion: filters.appVersion,
-    osVersion: filters.osVersion,
-    device: filters.device,
+    appVersion,
+    osVersion,
+    device: "all",
+    platform,
+    networkProvider,
+    state,
     exceptionType: "crash",
   });
 
   const { exceptions: anrs } = useExceptionListData({
     startTime: formattedStartTime,
     endTime: formattedEndTime,
-    appVersion: filters.appVersion,
-    osVersion: filters.osVersion,
-    device: filters.device,
+    appVersion,
+    osVersion,
+    device: "all",
+    platform,
+    networkProvider,
+    state,
     exceptionType: "anr",
   });
 
   const { exceptions: nonFatals } = useExceptionListData({
     startTime: formattedStartTime,
     endTime: formattedEndTime,
-    appVersion: filters.appVersion,
-    osVersion: filters.osVersion,
-    device: filters.device,
+    appVersion,
+    osVersion,
+    device: "all",
+    platform,
+    networkProvider,
+    state,
     exceptionType: "nonfatal",
   });
 
@@ -185,9 +189,12 @@ export const AppVitals: React.FC = () => {
           <CrashList
             startTime={formattedStartTime}
             endTime={formattedEndTime}
-            appVersion={filters.appVersion}
-            osVersion={filters.osVersion}
-            device={filters.device}
+            appVersion={appVersion}
+            osVersion={osVersion}
+            device="all"
+            platform={platform}
+            networkProvider={networkProvider}
+            state={state}
           />
         );
       case ISSUE_TYPES.ANRS:
@@ -195,13 +202,14 @@ export const AppVitals: React.FC = () => {
           <ANRList
             startTime={formattedStartTime}
             endTime={formattedEndTime}
-            appVersion={
-              filters.appVersion !== "all" ? filters.appVersion : undefined
+            appVersion={appVersion !== "all" ? appVersion : undefined}
+            osVersion={osVersion !== "all" ? osVersion : undefined}
+            device="all"
+            platform={platform !== "all" ? platform : undefined}
+            networkProvider={
+              networkProvider !== "all" ? networkProvider : undefined
             }
-            osVersion={
-              filters.osVersion !== "all" ? filters.osVersion : undefined
-            }
-            device={filters.device !== "all" ? filters.device : undefined}
+            state={state !== "all" ? state : undefined}
           />
         );
       case ISSUE_TYPES.NON_FATALS:
@@ -209,13 +217,14 @@ export const AppVitals: React.FC = () => {
           <NonFatalList
             startTime={formattedStartTime}
             endTime={formattedEndTime}
-            appVersion={
-              filters.appVersion !== "all" ? filters.appVersion : undefined
+            appVersion={appVersion !== "all" ? appVersion : undefined}
+            osVersion={osVersion !== "all" ? osVersion : undefined}
+            device="all"
+            platform={platform !== "all" ? platform : undefined}
+            networkProvider={
+              networkProvider !== "all" ? networkProvider : undefined
             }
-            osVersion={
-              filters.osVersion !== "all" ? filters.osVersion : undefined
-            }
-            device={filters.device !== "all" ? filters.device : undefined}
+            state={state !== "all" ? state : undefined}
           />
         );
       default:
@@ -242,14 +251,7 @@ export const AppVitals: React.FC = () => {
               onIssueTypeChange={handleIssueTypeChange}
               stats={stats}
             />
-            <VitalsHeaderFilters
-              appVersion={filters.appVersion}
-              onAppVersionChange={handleAppVersionChange}
-              osVersion={filters.osVersion}
-              onOsVersionChange={handleOsVersionChange}
-              device={filters.device}
-              onDeviceChange={handleDeviceChange}
-            />
+            <AppVitalsFilters />
             <DateTimeRangePicker
               handleTimefilterChange={handleTimeFilterChange}
               selectedQuickTimeFilterIndex={
@@ -279,18 +281,24 @@ export const AppVitals: React.FC = () => {
         <CrashMetricsStats
           startTime={formattedStartTime}
           endTime={formattedEndTime}
-          appVersion={filters.appVersion}
-          osVersion={filters.osVersion}
-          device={filters.device}
+          appVersion={appVersion}
+          osVersion={osVersion}
+          device="all"
+          platform={platform}
+          networkProvider={networkProvider}
+          state={state}
           externalTotalUsers={appStats?.totalUsers}
           externalTotalSessions={appStats?.totalSessions}
         />
         <ANRMetricsStats
           startTime={formattedStartTime}
           endTime={formattedEndTime}
-          appVersion={filters.appVersion}
-          osVersion={filters.osVersion}
-          device={filters.device}
+          appVersion={appVersion}
+          osVersion={osVersion}
+          device="all"
+          platform={platform}
+          networkProvider={networkProvider}
+          state={state}
           externalTotalUsers={appStats?.totalUsers}
           externalTotalSessions={appStats?.totalSessions}
         />
@@ -305,33 +313,45 @@ export const AppVitals: React.FC = () => {
         <CrashTrendGraph
           startTime={formattedStartTime}
           endTime={formattedEndTime}
-          appVersion={filters.appVersion}
-          osVersion={filters.osVersion}
-          device={filters.device}
+          appVersion={appVersion}
+          osVersion={osVersion}
+          device="all"
+          platform={platform}
+          networkProvider={networkProvider}
+          state={state}
           title={graphConfig.title}
           lineColor={graphConfig.color}
+          onTimeFilterChange={handleTimeFilterChange}
         />
       )}
       {filters.issueType === ISSUE_TYPES.ANRS && (
         <ANRTrendGraph
           startTime={formattedStartTime}
           endTime={formattedEndTime}
-          appVersion={filters.appVersion}
-          osVersion={filters.osVersion}
-          device={filters.device}
+          appVersion={appVersion}
+          osVersion={osVersion}
+          device="all"
+          platform={platform}
+          networkProvider={networkProvider}
+          state={state}
           title={graphConfig.title}
           lineColor={graphConfig.color}
+          onTimeFilterChange={handleTimeFilterChange}
         />
       )}
       {filters.issueType === ISSUE_TYPES.NON_FATALS && (
         <NonFatalTrendGraph
           startTime={formattedStartTime}
           endTime={formattedEndTime}
-          appVersion={filters.appVersion}
-          osVersion={filters.osVersion}
-          device={filters.device}
+          appVersion={appVersion}
+          osVersion={osVersion}
+          device="all"
+          platform={platform}
+          networkProvider={networkProvider}
+          state={state}
           title={graphConfig.title}
           lineColor={graphConfig.color}
+          onTimeFilterChange={handleTimeFilterChange}
         />
       )}
 

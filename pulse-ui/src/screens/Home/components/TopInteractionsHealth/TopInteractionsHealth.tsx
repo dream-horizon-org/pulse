@@ -1,8 +1,8 @@
 import { TopInteractionsHealthProps } from "./TopInteractionsHealth.interface";
 import classes from "./TopInteractionsHealth.module.css";
 import { InteractionCard } from "../../../CriticalInteractionList/components/InteractionCard";
-import { Button } from "@mantine/core";
-import { IconArrowRight } from "@tabler/icons-react";
+import { Alert, Button } from "@mantine/core";
+import { IconAlertCircle, IconArrowRight } from "@tabler/icons-react";
 import { useMemo } from "react";
 import dayjs from "dayjs";
 import { useGetTopInteractionsHealthData } from "../../../../hooks/useGetTopInteractionsHealthData";
@@ -24,11 +24,12 @@ export function TopInteractionsHealth({
     };
   }, []);
 
-  const { data: topInteractionsData, isLoading } = useGetTopInteractionsHealthData({
-    startTime,
-    endTime,
-    limit: 4,
-  });
+  const { data: topInteractionsData, isLoading, error: interactionsError } =
+    useGetTopInteractionsHealthData({
+      startTime,
+      endTime,
+      limit: 4,
+    });
 
   return (
     <div>
@@ -51,6 +52,16 @@ export function TopInteractionsHealth({
             <CardSkeleton height={180} showHeader contentRows={3} />
             <CardSkeleton height={180} showHeader contentRows={3} />
           </>
+        ) : interactionsError ? (
+          <Alert
+            className={classes.errorState}
+            color="red"
+            variant="light"
+            title="Couldn't load registered interactions"
+            icon={<IconAlertCircle size={18} />}
+          >
+            {interactionsError}
+          </Alert>
         ) : topInteractionsData.length === 0 ? (
           <div className={classes.emptyState}>
             <span className={classes.emptyStateText}>No interaction data available</span>

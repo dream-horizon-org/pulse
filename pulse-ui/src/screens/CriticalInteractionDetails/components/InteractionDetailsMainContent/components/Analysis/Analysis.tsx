@@ -42,7 +42,7 @@ export const Analysis: React.FC<AnalysisProps> = ({
   };
 
   return (
-    <Box py="md">
+    <Box py="md" p={"md"}>
       {/* Section Pills */}
       <Box mb="lg">
         <SegmentedControl

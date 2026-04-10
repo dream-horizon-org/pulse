@@ -80,7 +80,7 @@ export const IssueDetailsCard: React.FC<IssueDetailsCardProps> = ({
               <Text className={classes.compactStatValue}>
                 {issue.occurrences.toLocaleString()}
               </Text>
-              <Text className={classes.compactStatLabel}>occurrences</Text>
+              <Text className={classes.compactStatLabel}>events in period</Text>
             </Group>
           </Box>
           <Box className={classes.compactStatItem}>

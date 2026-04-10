@@ -9,9 +9,13 @@ import {
   getBucketSize,
   formatTrendDate,
   buildCommonFilters,
+  normalizeTrendBucketTime,
 } from "../../components/TrendGraphWithData/helpers/trendDataHelpers";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
+
+dayjs.extend(utc);
 interface UseIssueTrendDataParams {
   groupId: string;
   startTime?: string;
@@ -24,6 +28,8 @@ interface UseIssueTrendDataParams {
 
 interface TrendDataPoint {
   label: string;
+  /** ISO bucket start for chart axis + brush (global time filter). */
+  bucketTime: string;
   count?: number;
   [key: string]: any;
 }
@@ -79,7 +85,7 @@ export function useIssueTrendData({
     const baseFields: SelectField[] = [
       {
         function: "TIME_BUCKET" as const,
-        param: { bucket: bucketSize, field: "Timestamp" },
+        param: { bucket: bucketSize, field: COLUMN_NAME.TIMESTAMP },
         alias: "t1",
       },
       {
@@ -161,6 +167,7 @@ export function useIssueTrendData({
       const timestamp = row[timeIndex] || "";
       const count = parseFloat(row[countIndex]) || 0;
       const label = formatTrendDate(timestamp, bucketSize);
+      const bucketTime = normalizeTrendBucketTime(timestamp);
 
       // Get the breakdown value (app version or OS version)
       let breakdownValue: string | undefined;
@@ -178,6 +185,7 @@ export function useIssueTrendData({
         } else {
           timeBucketMap.set(timestamp, {
             label,
+            bucketTime,
             count,
           });
         }
@@ -189,6 +197,7 @@ export function useIssueTrendData({
         } else {
           const point: TrendDataPoint = {
             label,
+            bucketTime,
             [breakdownValue]: count,
           };
           timeBucketMap.set(timestamp, point);
@@ -196,27 +205,20 @@ export function useIssueTrendData({
       }
     });
 
-    // Convert map to array and sort by timestamp
-    const result = Array.from(timeBucketMap.values());
-    
-    // Sort by label (which is the formatted date)
-    // We need to parse the label back to timestamp for proper sorting
-    result.sort((a, b) => {
-      // Try to parse the label, fallback to string comparison
-      const dateA = dayjs(a.label).valueOf();
-      const dateB = dayjs(b.label).valueOf();
-      if (!isNaN(dateA) && !isNaN(dateB)) {
-        return dateA - dateB;
-      }
-      return a.label.localeCompare(b.label);
-    });
-
-    return result;
+    // Sort by bucket timestamp (ISO), not formatted label
+    return Array.from(timeBucketMap.entries())
+      .sort(
+        ([ta], [tb]) =>
+          dayjs.utc(ta).valueOf() - dayjs.utc(tb).valueOf(),
+      )
+      .map(([, v]) => v);
   }, [data, bucketSize, trendView]);
 
   return {
     trendData,
     queryState,
+    timeRange,
+    bucketSize,
   };
 }
 

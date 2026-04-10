@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // utils around serialisation
+
 package com.pulse.sampling.models
 
 import kotlinx.serialization.KSerializer
