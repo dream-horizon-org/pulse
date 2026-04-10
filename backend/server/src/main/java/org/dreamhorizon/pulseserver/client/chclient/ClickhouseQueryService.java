@@ -67,6 +67,7 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
     }
   }
 
+  // TODO: Combine this with the executeTenantQuery method
   /**
    * Root-cause analysis ClickHouse queries only: runs SQL with named binds ({@code :name}) as required by
    * {@code clickhouse-r2dbc}.
