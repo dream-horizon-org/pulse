@@ -92,8 +92,8 @@ internal class ViewClickEventGenerator(
         }
     }
 
+    /** Flushes buffered clicks and unwraps the window callback. Call on activity pause. */
     fun stopTracking() {
-        // Flush buffered clicks before unwrapping so no taps are silently dropped on pause.
         clickEmitter.flush()
         windowRef?.get()?.run {
             callback = WindowCallbackUnwrap.fullyUnwrap(callback)
@@ -264,8 +264,6 @@ internal class ViewClickEventGenerator(
     private fun isJetpackComposeView(view: View): Boolean = view::class.java.name.startsWith("androidx.compose.ui.platform.ComposeView")
 
     private val View.isVisible: Boolean get() = visibility == View.VISIBLE
-
-    // endregion
 
     private companion object {
         private const val MAX_CARD_LABEL_SEGMENTS = 5

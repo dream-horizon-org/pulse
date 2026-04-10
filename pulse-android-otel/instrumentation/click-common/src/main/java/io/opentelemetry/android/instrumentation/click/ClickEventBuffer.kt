@@ -170,7 +170,7 @@ internal class ClickEventBuffer(
 
     /**
      * Records a tap. Expired clusters are emitted, active clusters extended if the tap is nearby,
-     * otherwise the tap is buffered and may form a new cluster. Returns Unit.
+     * otherwise the tap is buffered and may form a new cluster.
      */
     @UiThread
     fun record(click: PendingClick) {
