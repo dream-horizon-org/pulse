@@ -1,5 +1,5 @@
 /*
- * Copyright The OpenTelemetry Authors
+ * Copyright The Pulse Authors
  * SPDX-License-Identifier: Apache-2.0
  *
  * Sampling exporters: add → metrics → drop → targeted sampling (signalsToSample) → session sampling (Batch 4, LLD §8).

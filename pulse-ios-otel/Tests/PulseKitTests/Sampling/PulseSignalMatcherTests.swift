@@ -1,5 +1,5 @@
 /*
- * Copyright The OpenTelemetry Authors
+ * Copyright The Pulse Authors
  * SPDX-License-Identifier: Apache-2.0
  *
  * Tests for Batch 3: PulseSignalMatcher / PulseSignalsAttrMatcher.

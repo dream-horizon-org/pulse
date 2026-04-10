@@ -1,5 +1,5 @@
 /*
- * Copyright The OpenTelemetry Authors
+ * Copyright The Pulse Authors
  * SPDX-License-Identifier: Apache-2.0
  *
  * SessionReplayRemoteConfig: Parser for Session Replay config from backend feature config.

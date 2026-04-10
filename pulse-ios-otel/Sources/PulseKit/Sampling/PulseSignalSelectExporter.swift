@@ -1,5 +1,5 @@
 /*
- * Copyright The OpenTelemetry Authors
+ * Copyright The Pulse Authors
  * SPDX-License-Identifier: Apache-2.0
  *
  * Signal-select exporter: route spans/logs to different exporters by first matching condition (Batch 5, LLD §9).

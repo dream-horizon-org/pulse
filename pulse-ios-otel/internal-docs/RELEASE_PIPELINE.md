@@ -1,58 +1,70 @@
-# PulseKit release pipeline
-
-How a new **PulseKit** version gets from **`pulse-ios-otel/`** (monorepo source) to **[dream-horizon-org/pulse-ios](https://github.com/dream-horizon-org/pulse-ios)** (binaries + CocoaPods + SPM consumers).
-
----
+# PulseKit Release Pipeline
 
 ## Overview
 
-1. **Develop and merge** in `dream-horizon-org/pulse` under `pulse-ios-otel/`. CI (**iOS SDK - Checks**) runs SwiftLint, `swift test`, iOS simulator builds, the CocoaPods example app, and a full XCFramework build to guard regressions.
+PulseKit source lives in **`pulse-ios-otel/`** on [dream-horizon-org/pulse](https://github.com/dream-horizon-org/pulse).
 
-2. **Cut a release** by bumping **`spec.version`** in **`pulse-ios-otel/PulseKit.podspec`**, then run the monorepo workflow **“iOS SDK — XCFramework & release PR”** (`.github/workflows/ios-sdk-release.yml`). That job builds XCFrameworks from the **PulseIOSExample** CocoaPods workspace, copies **`PulseKit.xcframework`** and every **peer** `*.xcframework` into the release repo, opens a PR on `pulse-ios`, and sets the release repo podspec version to match.
-
-3. **Review and merge** the PR in **`pulse-ios`**. That repo’s own workflows (validate, then publish) create the git tag, GitHub Release notes, and **`pod trunk push`** when maintainers merge to `main`.
-
-Peer frameworks are whatever **`Scripts/print-peer-xcframework-entries.rb`** derives from **`PulseKit.podspec`** after `pod install`—keep the release PR’s **`spec.vendored_frameworks`** and **`Package.swift`** binary targets in sync with the copied `*.xcframework` folders.
+Releases ship from a separate repo, [dream-horizon-org/pulse-ios](https://github.com/dream-horizon-org/pulse-ios), which hosts the published **XCFrameworks**, consumer **CocoaPods podspec**, and **SPM binary targets**. The monorepo release workflow opens a PR there automatically.
 
 ---
 
-## Steps to release a new version
+## Repo Roles
 
-1. **Implement and merge** your changes to `main` (or your release branch policy) in the **pulse** monorepo; ensure **iOS SDK - Checks** is green.
-
-2. **Bump the version** in **`pulse-ios-otel/PulseKit.podspec`** (`spec.version = "x.y.z"`). Commit and push to the branch the release workflow will run from (usually `main`).
-
-3. **Run the release workflow** in **pulse**: _Actions → iOS SDK — XCFramework & release PR → Run workflow_.  
-   Requires secret **`RELEASE_REPO_TOKEN`** (token able to push branches and open PRs on **`dream-horizon-org/pulse-ios`**).
-
-4. **In `pulse-ios`**, review the opened **`release/x.y.z`** PR: vendored frameworks, `Package.swift` binary targets, and `PulseKit.podspec` match the artifacts. Merge per that repo’s process; publish/tag/trunk steps run there.
+| Repo | Role |
+| --- | --- |
+| **pulse** | Sources, tests, `PulseKit.podspec`, scripts, example apps |
+| **pulse-ios** | Tagged binaries, consumer `PulseKit.podspec` + `Package.swift`. Apps integrate from here |
 
 ---
 
-## Important notes
+## Release Steps
 
-### Run `build-xcframework.sh`
-
-Run **`./Scripts/build-xcframework.sh`** with current directory **`pulse/pulse-ios-otel/`** (contains **`Package.swift`**, **`Scripts/`**, **`PulseKit.podspec`**). Example: **`cd ~/src/pulse/pulse-ios-otel`** then **`./Scripts/build-xcframework.sh`**.
-
-Prerequisite: **`pod install`** in **`Examples/PulseIOSExample/`** so **`Examples/PulseIOSExample/PulseIOSExample.xcworkspace`** exists.
-
-### KSCrash and `@_implementationOnly`
-
-The XCFramework is built via CocoaPods (single **`KSCrash`** module). SPM upstream may expose finer-grained modules. PulseKit uses conditional imports and **`@_implementationOnly`** so the built **`.swiftinterface`** does not force consumers to resolve different KSCrash module shapes. See source in PulseKit where KSCrash is imported.
-
-### Release repo vs monorepo
-
-- **`pulse` / `pulse-ios-otel`:** sources, tests, development podspec, scripts, example apps.
-- **`pulse-ios`:** tagged **binaries** and consumer-facing **`PulseKit.podspec` + `Package.swift`**. App developers integrate from **`pulse-ios`** (CocoaPods or SPM binary targets in that repo).
+1. **Land changes** in `dream-horizon-org/pulse` under `pulse-ios-otel/` and ensure **iOS SDK - Checks** is green.
+2. **Bump the version** in `pulse-ios-otel/PulseKit.podspec` (`spec.version = "x.y.z"`). Commit and push to the branch the workflow runs from (usually `main`).
+3. **Run the workflow** on `pulse`: _Actions → **iOS SDK — XCFramework & release PR** → Run workflow_. Requires the `RELEASE_REPO_TOKEN` secret (push branches + open PRs on `pulse-ios`).
+4. **Review the PR** on `pulse-ios` (e.g. `release/x.y.z`): verify `PulseKit.xcframework`, every peer `*.xcframework`, `PulseKit.podspec`, and `Package.swift` binary targets all match. Peers are defined by `PulseKit.podspec` (see `Scripts/print-peer-xcframework-entries.rb` after `pod install` in the example app).
+5. **Merge** in `pulse-ios` per that repo's process. Tagging, GitHub Release, and `pod trunk push` run from that repo's workflows.
 
 ---
 
 ## Secrets
 
-| Secret                   | Where                        | Purpose                                                                                                               |
-| ------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **`RELEASE_REPO_TOKEN`** | **pulse** (monorepo)         | Used by **ios-sdk-release.yml** to push **`release/{version}`** and open the PR on **`dream-horizon-org/pulse-ios`**. |
-| **`COCOAPODS_TRUNK_*`**  | **pulse-ios** (release repo) | Used by that repo’s publish workflow for **`pod trunk push`** (exact names as configured there).                      |
+| Secret | Repo | Purpose |
+| --- | --- | --- |
+| `RELEASE_REPO_TOKEN` | **pulse** (monorepo) | Used by `ios-sdk-release.yml` to push `release/{version}` and open the PR on `dream-horizon-org/pulse-ios` |
+| `COCOAPODS_TRUNK_*` | **pulse-ios** (release repo) | Used by that repo's publish workflow for `pod trunk push` (exact names as configured there) |
 
-Do not commit tokens; configure them in GitHub **Settings → Secrets and variables**.
+Do not commit tokens. Configure them in GitHub **Settings → Secrets and variables**.
+
+---
+
+## Why We Ship Prebuilt XCFrameworks
+
+PulseKit is released together with prebuilt XCFrameworks for every external dependency it links — OpenTelemetry, SwiftProtobuf, KSCrash, libwebp, and others listed in `PulseKit.podspec`. This is deliberate.
+
+### Swift Package Manager
+
+PulseKit is built as a **dynamic** framework. With SPM, the app's loader can resolve `@rpath` to dynamic libraries for peer dependencies, but SPM's build pipeline does not provide a reliable way to produce **matching dynamic frameworks** for every peer at the consumer's build time. That mismatch causes crashes when frameworks the main binary expects are never built correctly. Shipping **binary targets** (XCFrameworks) for PulseKit and each peer avoids this entirely.
+
+### CocoaPods
+
+`BUILD_LIBRARY_FOR_DISTRIBUTION = YES` is recommended for distributed Swift frameworks — it improves Swift version and toolchain compatibility across Xcode versions. If only PulseKit were built with this flag while Xcode rebuilt dependency pods from source without it, you get inconsistent module stability. Requiring every app to enable this flag on every transitive pod is hard to document, verify, and support. We already build one coherent set of frameworks in the release pipeline; `vendored_frameworks` in the podspec points at that set so consumers don't have to manage per-pod flags.
+
+### Dynamic vs Static
+
+We ship **dynamic** XCFrameworks to avoid **duplicate symbol** errors, which occur more often when the same code is linked statically in multiple places.
+
+---
+
+## Local Build Notes
+
+### Running `build-xcframework.sh`
+
+Run from `pulse/pulse-ios-otel/` (the folder containing `Package.swift`, `Scripts/`, and `PulseKit.podspec`):
+
+```sh
+cd pulse/pulse-ios-otel
+./Scripts/build-xcframework.sh
+```
+
+Run `pod install` under `Examples/PulseIOSExample/` first so that `PulseIOSExample.xcworkspace` exists.
