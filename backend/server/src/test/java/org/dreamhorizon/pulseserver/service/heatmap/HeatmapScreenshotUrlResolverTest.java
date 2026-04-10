@@ -2,9 +2,11 @@ package org.dreamhorizon.pulseserver.service.heatmap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
@@ -41,19 +43,34 @@ class HeatmapScreenshotUrlResolverTest {
 
     assertThat(
             resolver.resolveForScreen(
-                "p", "s", "2026-04-08", "2026-04-08", "1.0", "Android", "Mobile_Small"))
+                "p", "s", "2026-04-08", "2026-04-08",
+                List.of("1.0"), "Android", "Mobile_Small"))
         .isEmpty();
   }
 
   @Test
-  void returnsEmptyWhenAppVersionMissing() {
+  void returnsEmptyWhenAppVersionListEmpty() {
     ApplicationConfig cfg = new ApplicationConfig();
     cfg.setSessionReplayS3(new SessionReplayS3Config("b", "http://minio:9000", "us-east-1", "k", "s"));
     HeatmapScreenshotUrlResolver resolver = new HeatmapScreenshotUrlResolver(s3Client, cfg);
 
     assertThat(
             resolver.resolveForScreen(
-                "p", "s", "2026-04-08", "2026-04-08", null, "Android", "Mobile_Small"))
+                "p", "s", "2026-04-08", "2026-04-08",
+                Collections.emptyList(), "Android", "Mobile_Small"))
+        .isEmpty();
+  }
+
+  @Test
+  void returnsEmptyWhenAppVersionListNull() {
+    ApplicationConfig cfg = new ApplicationConfig();
+    cfg.setSessionReplayS3(new SessionReplayS3Config("b", "http://minio:9000", "us-east-1", "k", "s"));
+    HeatmapScreenshotUrlResolver resolver = new HeatmapScreenshotUrlResolver(s3Client, cfg);
+
+    assertThat(
+            resolver.resolveForScreen(
+                "p", "s", "2026-04-08", "2026-04-08",
+                null, "Android", "Mobile_Small"))
         .isEmpty();
   }
 
@@ -77,7 +94,46 @@ class HeatmapScreenshotUrlResolverTest {
 
     HeatmapScreenshotUrlResolver resolver = new HeatmapScreenshotUrlResolver(s3Client, cfg);
     List<String> urls =
-        resolver.resolveForScreen("p", "s", "2026-04-08", "2026-04-08", "1.0", "Android", "Mobile_Small");
+        resolver.resolveForScreen(
+            "p", "s", "2026-04-08", "2026-04-08",
+            List.of("1.0"), "Android", "Mobile_Small");
+
+    assertThat(urls)
+        .containsExactly(
+            "https://cdn.example/bucket/heatmap-screenshots/p/20260408/s/Android/1.0/Mobile_Small/capture-1.json");
+  }
+
+  @Test
+  void fallsBackToOlderVersionWhenLatestHasNoScreenshots() {
+    ApplicationConfig cfg = new ApplicationConfig();
+    cfg.setHeatmapS3(new HeatmapS3Config("heatmap-assets", null, null, null, null, null));
+    cfg.setSessionReplayS3(
+        new SessionReplayS3Config("session-recordings", "http://minio:9000", "us-east-1", "k", "s"));
+    cfg.setHeatmapScreenshotsPublicBaseUrl("https://cdn.example/bucket");
+
+    ListObjectsV2Response emptyResponse =
+        ListObjectsV2Response.builder().contents(Collections.emptyList())
+            .isTruncated(false).build();
+    S3Object o1 =
+        S3Object.builder()
+            .key("heatmap-screenshots/p/20260408/s/Android/1.0/Mobile_Small/capture-1.json")
+            .lastModified(Instant.parse("2026-04-08T12:00:00Z"))
+            .build();
+    ListObjectsV2Response olderVersionResponse =
+        ListObjectsV2Response.builder().contents(o1).isTruncated(false).build();
+
+    when(s3Client.listObjectsV2(argThat((ListObjectsV2Request r) ->
+            r != null && r.prefix() != null && r.prefix().contains("/2.0/"))))
+        .thenReturn(CompletableFuture.completedFuture(emptyResponse));
+    when(s3Client.listObjectsV2(argThat((ListObjectsV2Request r) ->
+            r != null && r.prefix() != null && r.prefix().contains("/1.0/"))))
+        .thenReturn(CompletableFuture.completedFuture(olderVersionResponse));
+
+    HeatmapScreenshotUrlResolver resolver = new HeatmapScreenshotUrlResolver(s3Client, cfg);
+    List<String> urls =
+        resolver.resolveForScreen(
+            "p", "s", "2026-04-08", "2026-04-08",
+            List.of("2.0", "1.0"), "Android", "Mobile_Small");
 
     assertThat(urls)
         .containsExactly(

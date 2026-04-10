@@ -11,7 +11,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -194,10 +193,10 @@ public class HeatmapServiceImpl implements HeatmapService {
                           r -> r.getRows() != null ? r.getRows() : Collections.emptyList());
                 });
 
-    Single<Optional<String>> resolvedScreenshotAppVersionSingle =
+    Single<List<String>> screenshotAppVersionsSingle =
         nonBlankOrNull(appVersion) != null
-            ? Single.just(Optional.of(nonBlankOrNull(appVersion)))
-            : fetchLatestAppVersionInSlice(
+            ? Single.just(Collections.singletonList(nonBlankOrNull(appVersion)))
+            : fetchAppVersionsSortedLatestFirst(
                 projectId,
                 dateFrom,
                 dateTo,
@@ -209,8 +208,8 @@ public class HeatmapServiceImpl implements HeatmapService {
     return Single.zip(
         heatmapSingle,
         interactionsSingle,
-        resolvedScreenshotAppVersionSingle,
-        (heatmapRows, interactionRows, resolvedAppVersionOpt) -> {
+        screenshotAppVersionsSingle,
+        (heatmapRows, interactionRows, screenshotAppVersions) -> {
           String screenshotPlatform =
               nonBlankOrNull(platform) != null
                   ? nonBlankOrNull(platform)
@@ -219,17 +218,13 @@ public class HeatmapServiceImpl implements HeatmapService {
               nonBlankOrNull(breakpoint) != null
                   ? nonBlankOrNull(breakpoint)
                   : DEFAULT_SCREENSHOT_BREAKPOINT;
-          String screenshotAppVersion =
-              nonBlankOrNull(appVersion) != null
-                  ? nonBlankOrNull(appVersion)
-                  : resolvedAppVersionOpt.orElse(null);
           List<String> screenshotUrls =
               heatmapScreenshotUrlResolver.resolveForScreen(
                   projectId,
                   screenName,
                   dateFrom,
                   dateTo,
-                  screenshotAppVersion,
+                  screenshotAppVersions,
                   screenshotPlatform,
                   screenshotBreakpoint);
           return toResponse(
@@ -243,11 +238,10 @@ public class HeatmapServiceImpl implements HeatmapService {
   }
 
   /**
-   * Distinct {@code AppVersion} in the heatmap slice (request filters only; no AppVersion
-   * predicate), then greatest by {@link #findLatest(List)} (segment ints after normalizing {@code _}
-   * to {@code .}).
+   * Distinct {@code AppVersion} values in the heatmap slice, returned sorted latest-first by
+   * {@link #parseVersion(String)} segment order. Unparseable versions are appended at the end.
    */
-  private Single<Optional<String>> fetchLatestAppVersionInSlice(
+  private Single<List<String>> fetchAppVersionsSortedLatestFirst(
       String projectId,
       String dateFrom,
       String dateTo,
@@ -278,27 +272,40 @@ public class HeatmapServiceImpl implements HeatmapService {
         .map(
             r -> {
               if (r.getRows() == null || r.getRows().isEmpty()) {
-                return Optional.<String>empty();
+                return Collections.<String>emptyList();
               }
               List<String> versions =
                   r.getRows().stream()
                       .map(HeatmapAppVersionRowDto::getAppVersion)
+                      .filter(v -> v != null && !v.isBlank())
+                      .distinct()
                       .collect(Collectors.toList());
-              return pickLatestAppVersion(versions);
+              return sortVersionsLatestFirst(versions);
             });
   }
 
-  private static Optional<String> pickLatestAppVersion(List<String> rawVersions) {
+  static List<String> sortVersionsLatestFirst(List<String> rawVersions) {
     if (rawVersions == null || rawVersions.isEmpty()) {
-      return Optional.empty();
+      return Collections.emptyList();
     }
-    List<String> list =
-        rawVersions.stream()
-            .filter(Objects::nonNull)
-            .map(String::trim)
-            .filter(s -> !s.isEmpty())
-            .collect(Collectors.toList());
-    return Optional.ofNullable(findLatest(list));
+    List<String> parseable = new ArrayList<>();
+    List<String> unparseable = new ArrayList<>();
+    for (String v : rawVersions) {
+      try {
+        parseVersion(v);
+        parseable.add(v);
+      } catch (NumberFormatException e) {
+        unparseable.add(v);
+      }
+    }
+    parseable.sort(
+        Comparator.comparingInt((String v) -> parseVersion(v)[0])
+            .thenComparingInt(v -> parseVersion(v)[1])
+            .thenComparingInt(v -> parseVersion(v)[2])
+            .thenComparingInt(v -> parseVersion(v)[3])
+            .reversed());
+    parseable.addAll(unparseable);
+    return parseable;
   }
 
   /**
@@ -318,35 +325,6 @@ public class HeatmapServiceImpl implements HeatmapService {
     return segments;
   }
 
-  /**
-   * Greatest version by {@link #parseVersion(String)} segment order (major through optional fourth
-   * segment). Versions that do not parse as integers per segment are ignored; if none parse,
-   * returns {@code null}.
-   */
-  private static String findLatest(List<String> versions) {
-    if (versions == null || versions.isEmpty()) {
-      return null;
-    }
-    List<String> parseable = new ArrayList<>();
-    for (String v : versions) {
-      try {
-        parseVersion(v);
-        parseable.add(v);
-      } catch (NumberFormatException ignored) {
-        // skip unparseable
-      }
-    }
-    if (parseable.isEmpty()) {
-      return null;
-    }
-    return parseable.stream()
-        .max(
-            Comparator.comparingInt((String v) -> parseVersion(v)[0])
-                .thenComparingInt(v -> parseVersion(v)[1])
-                .thenComparingInt(v -> parseVersion(v)[2])
-                .thenComparingInt(v -> parseVersion(v)[3]))
-        .orElse(null);
-  }
 
   /**
    * Interaction {@code name} values whose t0 event (first configured event) appears among distinct

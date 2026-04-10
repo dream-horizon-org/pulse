@@ -42,6 +42,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 public class HeatmapScreenshotUrlResolver {
 
   private static final int MAX_SEGMENT_LEN = 200;
+  private static final int MIN_SCREENSHOTS = 5;
   private static final int MAX_OBJECTS_TOTAL = 20;
   private static final int MAX_OBJECTS_PER_DAY = 5;
   private static final Duration PRESIGN_TTL = Duration.ofMinutes(15);
@@ -57,15 +58,20 @@ public class HeatmapScreenshotUrlResolver {
   private volatile S3AsyncClient heatmapDedicatedListClient;
 
   /**
+   * Resolves screenshot URLs by iterating app versions (latest first) and days (newest first)
+   * within each version. Stops early once at least {@link #MIN_SCREENSHOTS} are collected;
+   * never exceeds {@link #MAX_OBJECTS_TOTAL}.
+   *
    * @param dateFrom inclusive ISO local date (UTC calendar day), e.g. {@code 2026-04-08}
-   * @param dateTo inclusive ISO local date (UTC calendar day)
+   * @param dateTo   inclusive ISO local date (UTC calendar day)
+   * @param appVersions app versions sorted latest-first; the resolver tries each in order
    */
   public List<String> resolveForScreen(
       String projectId,
       String screenName,
       String dateFrom,
       String dateTo,
-      String appVersion,
+      List<String> appVersions,
       String platform,
       String breakpoint) {
     HeatmapS3Config hm = applicationConfig.getHeatmapS3();
@@ -75,7 +81,7 @@ public class HeatmapScreenshotUrlResolver {
     if (bucket == null) {
       return Collections.emptyList();
     }
-    if (StringUtils.isBlank(appVersion)) {
+    if (appVersions == null || appVersions.isEmpty()) {
       return Collections.emptyList();
     }
 
@@ -94,16 +100,30 @@ public class HeatmapScreenshotUrlResolver {
 
     String rootPrefix = normalizedRootPrefix();
     List<String> keys = new ArrayList<>();
-    for (LocalDate d = newest; !d.isBefore(oldest) && keys.size() < MAX_OBJECTS_TOTAL; d = d.minusDays(1)) {
-      String prefix = buildListPrefix(rootPrefix, projectId, d, screenName, platform, appVersion, breakpoint);
-      List<S3Object> dayObjects = listJsonObjectsUnderPrefix(hm, sr, bucket, prefix);
-      dayObjects.sort(Comparator.comparing(S3Object::lastModified, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
-      int n = Math.min(MAX_OBJECTS_PER_DAY, MAX_OBJECTS_TOTAL - keys.size());
-      for (int i = 0; i < Math.min(n, dayObjects.size()); i++) {
-        String key = dayObjects.get(i).key();
-        if (StringUtils.isNotBlank(key) && !key.endsWith("/")) {
-          keys.add(key);
+
+    for (String version : appVersions) {
+      if (StringUtils.isBlank(version)) {
+        continue;
+      }
+      for (LocalDate d = newest;
+          !d.isBefore(oldest) && keys.size() < MAX_OBJECTS_TOTAL;
+          d = d.minusDays(1)) {
+        String prefix = buildListPrefix(
+            rootPrefix, projectId, d, screenName, platform, version, breakpoint);
+        List<S3Object> dayObjects = listJsonObjectsUnderPrefix(hm, sr, bucket, prefix);
+        dayObjects.sort(Comparator.comparing(
+            S3Object::lastModified,
+            Comparator.nullsLast(Comparator.naturalOrder())).reversed());
+        int n = Math.min(MAX_OBJECTS_PER_DAY, MAX_OBJECTS_TOTAL - keys.size());
+        for (int i = 0; i < Math.min(n, dayObjects.size()); i++) {
+          String key = dayObjects.get(i).key();
+          if (StringUtils.isNotBlank(key) && !key.endsWith("/")) {
+            keys.add(key);
+          }
         }
+      }
+      if (keys.size() >= MIN_SCREENSHOTS) {
+        break;
       }
     }
 
