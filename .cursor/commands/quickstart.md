@@ -5,7 +5,7 @@ Set up and start the full Pulse stack for a new developer.
    - `deploy/.env`: copy from `deploy/.env.example` if missing
    - `pulse_ai/.env`: copy from `.env.example` if missing
    - `pulse-ui/.env`: copy from `.env.example` if missing
-3. Build services: `cd deploy && ./scripts/build.sh all` (includes pulse-ai-agent by default)
+3. Build services: `cd deploy && ./scripts/build.sh` or `./scripts/build.sh all` (default: ui + server + cron + session capture + session replay ingestion + pulse-ai-agent)
 4. Start services: `cd deploy && ./scripts/start.sh -d`
 5. Read credentials from `deploy/.env` for health check commands
 6. Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover actual ports
