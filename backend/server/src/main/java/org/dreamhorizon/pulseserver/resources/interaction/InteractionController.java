@@ -197,6 +197,7 @@ public class InteractionController {
         .to(RestResponse.jaxrsRestHandler());
   }
 
+  // This is used as fallback by pulse-ai if tabular data is not present in /rca/report request
   @GET
   @Path("/{name}/root-cause")
   @Produces(MediaType.APPLICATION_JSON)
