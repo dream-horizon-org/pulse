@@ -17,6 +17,8 @@ export interface HeatmapScreenshotStageProps {
   densityGradientVariant?: HeatmapDensityGradientVariant;
   /** Laid-out size (CSS px) of the inner phone frame. */
   frameDimensions?: { width: number; height: number } | null;
+  /** From capture JSON `appVersion` for the active screenshot; omitted when unset. */
+  screenshotAppVersion?: string;
 }
 
 function IntensityLegendStrip({
@@ -60,6 +62,7 @@ export function HeatmapScreenshotStage({
   frame,
   densityGradientVariant = "brand",
   frameDimensions = null,
+  screenshotAppVersion,
 }: HeatmapScreenshotStageProps) {
   const showNav = count > 1;
   const showCounter =
@@ -73,10 +76,34 @@ export function HeatmapScreenshotStage({
     frameDimensions.height > 0
       ? `${frameDimensions.width} × ${frameDimensions.height} px`
       : null;
-  const showMetaRow = showCounter || frameDimsLabel != null;
+  const appVersionTrimmed = screenshotAppVersion?.trim() ?? "";
+  const showAppVersion = appVersionTrimmed.length > 0;
+  const showTopMetaRow = showCounter || showAppVersion;
+  const showDimensionsRow = frameDimsLabel != null;
 
   return (
     <div className={classes.heatScreenshotStage}>
+      {showTopMetaRow ? (
+        <Text
+          component="div"
+          size="xs"
+          c="dimmed"
+          fw={600}
+          className={classes.heatShotTopMeta}
+        >
+          {showCounter ? (
+            <span className={classes.heatShotTopMetaSlot}>
+              Screenshot {activeIndex} of {count}
+            </span>
+          ) : null}
+          {showAppVersion ? (
+            <span className={classes.heatShotTopMetaSlot}>
+              App version · {appVersionTrimmed}
+            </span>
+          ) : null}
+        </Text>
+      ) : null}
+
       <div className={classes.heatFrameRail}>
         {showNav ? (
           <ActionIcon
@@ -111,7 +138,7 @@ export function HeatmapScreenshotStage({
         )}
       </div>
 
-      {showMetaRow ? (
+      {showDimensionsRow ? (
         <Text
           component="div"
           size="xs"
@@ -120,11 +147,7 @@ export function HeatmapScreenshotStage({
           ta="center"
           className={classes.heatShotCarouselCounter}
         >
-          {showCounter ? (
-            <span>Screenshot {activeIndex} of {count}</span>
-          ) : null}
-          {showCounter && frameDimsLabel ? <span> · </span> : null}
-          {frameDimsLabel ? <span>{frameDimsLabel}</span> : null}
+          {frameDimsLabel}
         </Text>
       ) : null}
 

@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { resolveHeatmapScreenshotUrl } from "./heatmapCaptureResolve";
+import { resolveHeatmapScreenshot } from "./heatmapCaptureResolve";
 
 export type UseResolvedHeatmapScreenshotsResult = {
   /** Displayable URLs for `<img src>` (data:, blob:, or https:). */
   displayUrls: string[];
+  /**
+   * Per-URL `appVersion` from JSON capture manifests; null when absent, not JSON, or raw image.
+   * Same order and length as `displayUrls` after a successful resolve.
+   */
+  captureAppVersions: (string | null)[];
+  /**
+   * Per-URL `breakpoint` from JSON capture manifests; null when absent, not JSON, or raw image.
+   */
+  captureBreakpoints: (string | null)[];
   loading: boolean;
   /** Stable key when `screenshot_urls` from API change (for carousel reset). */
   sourceKey: string;
@@ -23,6 +32,12 @@ export function useResolvedHeatmapScreenshots(
   const key = useMemo(() => sourcesKey(rawUrls), [rawUrls]);
 
   const [displayUrls, setDisplayUrls] = useState<string[]>([]);
+  const [captureAppVersions, setCaptureAppVersions] = useState<
+    (string | null)[]
+  >([]);
+  const [captureBreakpoints, setCaptureBreakpoints] = useState<
+    (string | null)[]
+  >([]);
   const [loading, setLoading] = useState(() => rawUrls.length > 0);
 
   useEffect(() => {
@@ -36,6 +51,8 @@ export function useResolvedHeatmapScreenshots(
 
     if (urls.length === 0) {
       setDisplayUrls([]);
+      setCaptureAppVersions([]);
+      setCaptureBreakpoints([]);
       setLoading(false);
       return undefined;
     }
@@ -45,18 +62,28 @@ export function useResolvedHeatmapScreenshots(
 
     setLoading(true);
     setDisplayUrls([]);
+    setCaptureAppVersions([]);
+    setCaptureBreakpoints([]);
 
     void (async () => {
       try {
         const out: string[] = [];
+        const versions: (string | null)[] = [];
+        const breakpoints: (string | null)[] = [];
         for (const u of urls) {
-          const resolved = await resolveHeatmapScreenshotUrl(u);
+          const {
+            displayUrl,
+            captureAppVersion,
+            captureBreakpoint,
+          } = await resolveHeatmapScreenshot(u);
           if (dead) {
-            if (resolved.startsWith("blob:")) URL.revokeObjectURL(resolved);
+            if (displayUrl.startsWith("blob:")) URL.revokeObjectURL(displayUrl);
             return;
           }
-          if (resolved.startsWith("blob:")) blobUrls.push(resolved);
-          out.push(resolved);
+          if (displayUrl.startsWith("blob:")) blobUrls.push(displayUrl);
+          out.push(displayUrl);
+          versions.push(captureAppVersion);
+          breakpoints.push(captureBreakpoint);
         }
 
         if (dead) {
@@ -65,6 +92,8 @@ export function useResolvedHeatmapScreenshots(
         }
 
         setDisplayUrls(out);
+        setCaptureAppVersions(versions);
+        setCaptureBreakpoints(breakpoints);
         setLoading(false);
       } catch {
         if (dead) {
@@ -73,6 +102,8 @@ export function useResolvedHeatmapScreenshots(
         }
         blobUrls.forEach((b) => URL.revokeObjectURL(b));
         setDisplayUrls([...urls]);
+        setCaptureAppVersions(urls.map(() => null));
+        setCaptureBreakpoints(urls.map(() => null));
         setLoading(false);
       }
     })();
@@ -84,5 +115,11 @@ export function useResolvedHeatmapScreenshots(
     };
   }, [key]);
 
-  return { displayUrls, loading, sourceKey: key };
+  return {
+    displayUrls,
+    captureAppVersions,
+    captureBreakpoints,
+    loading,
+    sourceKey: key,
+  };
 }

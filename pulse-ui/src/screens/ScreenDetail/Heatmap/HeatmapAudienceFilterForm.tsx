@@ -1,4 +1,5 @@
 import { Autocomplete, Select, Stack, Text } from "@mantine/core";
+import type { OptionsFilter } from "@mantine/core";
 import type { HeatmapAudienceFilterFormProps } from "./heatmap.ui.types";
 import filterClasses from "../../CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.module.css";
 import {
@@ -6,6 +7,9 @@ import {
   HEATMAP_BREAKPOINT_VALUES,
 } from "./heatmap.types";
 import { canonicalHeatmapBreakpoint } from "./heatmapLocalFilters";
+
+/** Show full suggestion lists; default Autocomplete filters by input and hides most rows when a value is set. */
+const heatmapAudienceOptionsFilter: OptionsFilter = ({ options }) => options;
 
 export function HeatmapAudienceFilterForm({
   value,
@@ -26,6 +30,7 @@ export function HeatmapAudienceFilterForm({
         data={platformSuggestions}
         value={value.platform}
         comboboxProps={{ withinPortal: false }}
+        filter={heatmapAudienceOptionsFilter}
         onChange={(v) => onChange({ ...value, platform: v ?? "" })}
         placeholder="All"
       />
@@ -36,6 +41,7 @@ export function HeatmapAudienceFilterForm({
         data={appVersionSuggestions}
         value={value.appVersion}
         comboboxProps={{ withinPortal: false }}
+        filter={heatmapAudienceOptionsFilter}
         onChange={(v) => onChange({ ...value, appVersion: v ?? "" })}
         placeholder="All"
       />
@@ -46,6 +52,7 @@ export function HeatmapAudienceFilterForm({
         data={regionSuggestions}
         value={value.region}
         comboboxProps={{ withinPortal: false }}
+        filter={heatmapAudienceOptionsFilter}
         onChange={(v) => onChange({ ...value, region: v ?? "" })}
         placeholder="All"
       />

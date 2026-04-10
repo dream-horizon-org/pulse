@@ -292,6 +292,8 @@ export function HeatmapPanel({
 
   const {
     displayUrls: screenshotDisplayUrls,
+    captureAppVersions: screenshotCaptureAppVersions,
+    captureBreakpoints: screenshotCaptureBreakpoints,
     loading: screenshotsLoading,
     sourceKey: screenshotSourceKey,
   } = useResolvedHeatmapScreenshots(rawScreenshotUrls);
@@ -512,6 +514,8 @@ export function HeatmapPanel({
                 screenshotCarouselCount={rawScreenshotUrls.length}
                 screenshotSourceKey={screenshotSourceKey}
                 screenshotsLoading={screenshotsLoading}
+                screenshotCaptureAppVersions={screenshotCaptureAppVersions}
+                screenshotCaptureBreakpoints={screenshotCaptureBreakpoints}
                 glowMap={glowForSignal}
                 binBudget={binBudget}
                 sharedWeightMax={singleSharedWeightMax}

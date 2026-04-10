@@ -28,6 +28,13 @@ export interface HeatmapVisualizationProps {
   screenshotSourceKey?: string;
   /** True while captures are being fetched/decoded. */
   screenshotsLoading?: boolean;
+  /** `appVersion` per carousel item from capture JSON; same order as raw screenshot URLs. */
+  screenshotCaptureAppVersions?: (string | null)[];
+  /**
+   * `breakpoint` per carousel item from capture JSON; when set for the active slide it drives
+   * the phone frame instead of the filter `breakpoint`.
+   */
+  screenshotCaptureBreakpoints?: (string | null)[];
   glowMap: HeatmapGlowPoint[];
   binBudget: HeatmapBinBudget;
   showDensityFooter?: boolean;
@@ -58,6 +65,8 @@ export function HeatmapVisualization({
   screenshotCarouselCount,
   screenshotSourceKey,
   screenshotsLoading = false,
+  screenshotCaptureAppVersions,
+  screenshotCaptureBreakpoints,
   glowMap,
   binBudget,
   showDensityFooter = true,
@@ -110,6 +119,20 @@ export function HeatmapVisualization({
     setShotIndex((i) => (i + 1) % count);
   }, [count]);
 
+  const activeCaptureAppVersion = screenshotCaptureAppVersions?.[safeIndex];
+  const screenshotAppVersionForStage =
+    typeof activeCaptureAppVersion === "string" &&
+    activeCaptureAppVersion.trim().length > 0
+      ? activeCaptureAppVersion.trim()
+      : undefined;
+
+  const activeCaptureBreakpoint = screenshotCaptureBreakpoints?.[safeIndex];
+  const frameBreakpoint =
+    typeof activeCaptureBreakpoint === "string" &&
+    activeCaptureBreakpoint.trim().length > 0
+      ? activeCaptureBreakpoint.trim()
+      : breakpoint;
+
   const stage = (
     <HeatmapScreenshotStage
       count={count}
@@ -118,9 +141,10 @@ export function HeatmapVisualization({
       onNext={goNext}
       densityGradientVariant={densityGradientVariant}
       frameDimensions={frameLayoutPx}
+      screenshotAppVersion={screenshotAppVersionForStage}
       frame={
         <HeatmapPhoneFrame
-          breakpoint={breakpoint}
+          breakpoint={frameBreakpoint}
           onInnerLayout={onFrameInnerLayout}
         >
           <HeatmapScreenUnderlay

@@ -5,7 +5,7 @@
   "snapshotSource": "Android",
   "appVersion": "2.1.0",
   "screenHref": "MockHeatmapScreen",
-  "breakpoint": "Mobile_Small",
+  "breakpoint": "Tablet_Large",
   "metaTimestamp": 1712345679000,
   "viewport": { "width": 400, "height": 900 },
   "image": {

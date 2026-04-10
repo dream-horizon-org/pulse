@@ -731,6 +731,21 @@
   line-height: 1.35;
 }
 
+/* Screenshot index + capture app version (above phone rail). */
+.heatShotTopMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  margin: 0;
+  padding: 0 8px;
+  line-height: 1.35;
+}
+
+.heatShotTopMetaSlot {
+  min-width: 0;
+}
+
 .heatShotNavBtn {
   flex-shrink: 0;
   align-self: center;
@@ -837,8 +852,9 @@
   height: calc(100% - 24px);
   object-fit: cover;
   border-radius: 16px;
-  /* Slight fade so heat layers read over busy screenshots */
-  opacity: 0.60;
+  /* Subdue busy UI chrome so density / glow layers read clearly */
+  opacity: 0.68;
+  filter: brightness(0.68) saturate(0.78) contrast(0.96);
   pointer-events: none;
 }
 

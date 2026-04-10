@@ -357,6 +357,8 @@ function CompareColumnVisualization({
   );
   const {
     displayUrls: screenshotDisplayUrls,
+    captureAppVersions: screenshotCaptureAppVersions,
+    captureBreakpoints: screenshotCaptureBreakpoints,
     loading: screenshotsLoading,
     sourceKey: screenshotSourceKey,
   } = useResolvedHeatmapScreenshots(rawScreenshotUrls);
@@ -368,6 +370,8 @@ function CompareColumnVisualization({
       screenshotCarouselCount={rawScreenshotUrls.length}
       screenshotSourceKey={screenshotSourceKey}
       screenshotsLoading={screenshotsLoading}
+      screenshotCaptureAppVersions={screenshotCaptureAppVersions}
+      screenshotCaptureBreakpoints={screenshotCaptureBreakpoints}
       glowMap={glow}
       binBudget={binBudget}
       focusLens={focusLens}
