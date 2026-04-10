@@ -1,5 +1,5 @@
-import { ActionIcon, Box, Button, Group, Loader, Text, Tooltip } from "@mantine/core";
-import { IconArrowLeft, IconMinus, IconPencil, IconPlus, IconRefresh } from "@tabler/icons-react";
+import { ActionIcon, Box, Button, Group, Loader, Text } from "@mantine/core";
+import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import { generatePath, useNavigate, useParams } from "react-router-dom";
 import { ROUTES } from "../../constants";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
@@ -22,8 +22,11 @@ import { useUpdateJourney } from "../../hooks/useUpdateJourney";
 import { GlobalFilterBar } from "../FunnelJourneyCreate/components/GlobalFilterBar";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { JourneyExplorer } from "../FunnelJourneyCreate/components/JourneyExplorer";
-import ReactECharts from "echarts-for-react";
-import { buildJourneySankeyOption } from "../FunnelJourneyCreate/utils/buildJourneySankeyOption";
+import { ReactFlowProvider } from "@xyflow/react";
+import {
+  JourneyFlowGraph,
+  buildJourneyFlowData,
+} from "../FunnelJourneyCreate/components/JourneyGraph";
 
 function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditing: boolean; onEdit: () => void }) {
   const navigate = useNavigate();
@@ -81,11 +84,6 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
     }));
   }, [filters]);
 
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const handleZoomIn = () => setZoomLevel((z) => Math.min(z + 0.25, 3));
-  const handleZoomOut = () => setZoomLevel((z) => Math.max(z - 0.25, 0.5));
-  const handleZoomReset = () => setZoomLevel(1);
-
   // ── Expansion state for progressive depth reveal ──
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [globalExpanded, setGlobalExpanded] = useState(false);
@@ -98,19 +96,16 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
     setGlobalExpanded(false);
     setExpandedNodes(new Set());
   }, []);
-  const handleChartClick = useCallback((params: any) => {
-    if (params.data?.expandable || params.data?.expanded) {
-      const nodeName = params.name as string;
-      setExpandedNodes((prev) => {
-        const next = new Set(prev);
-        if (next.has(nodeName)) {
-          next.delete(nodeName);
-        } else {
-          next.add(nodeName);
-        }
-        return next;
-      });
-    }
+  const handleToggleExpand = useCallback((nodeName: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeName)) {
+        next.delete(nodeName);
+      } else {
+        next.add(nodeName);
+      }
+      return next;
+    });
   }, []);
 
   const [anchorEvent, setAnchorEvent] = useState(detail.anchorEvent || "");
@@ -219,10 +214,14 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
     | { nodes: any[]; links: any[] }
     | undefined;
 
-  const graphResult = useMemo(() => {
+  const flowResult = useMemo(() => {
     if (!journeyData?.nodes?.length) return null;
-    return buildJourneySankeyOption(journeyData, { expandedNodes, globalExpanded });
-  }, [journeyData, expandedNodes, globalExpanded]);
+    return buildJourneyFlowData(
+      journeyData,
+      { expandedNodes, globalExpanded },
+      handleToggleExpand,
+    );
+  }, [journeyData, expandedNodes, globalExpanded, handleToggleExpand]);
 
   useEffect(() => {
     if (
@@ -322,7 +321,7 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
               padding: 16,
             }}
           >
-            {/* ── Header row: title + zoom controls ── */}
+            {/* ── Header row: title + expand/collapse controls ── */}
             <Group justify="space-between" align="center" mb="sm" style={{ flexShrink: 0 }}>
               <Text size="sm" fw={600} c="dark.7">
                 {(detail.direction || "START") === "START"
@@ -335,10 +334,9 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
                 (saved · depth {detail.depth ?? 5})
               </Text>
 
-              {graphResult ? (
+              {flowResult ? (
                 <Group gap={8}>
-                  {/* Expand / Collapse all depths */}
-                  {graphResult.hasHiddenPaths && !globalExpanded && (
+                  {flowResult.hasHiddenPaths && !globalExpanded && (
                     <Button
                       size="compact-xs"
                       variant="light"
@@ -358,26 +356,6 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
                       Collapse All
                     </Button>
                   )}
-
-                  {/* Zoom controls */}
-                  <Tooltip label="Zoom in" position="top" withArrow>
-                    <ActionIcon variant="light" color="gray" size="sm" onClick={handleZoomIn}>
-                      <IconPlus size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Zoom out" position="top" withArrow>
-                    <ActionIcon variant="light" color="gray" size="sm" onClick={handleZoomOut}>
-                      <IconMinus size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Reset zoom" position="top" withArrow>
-                    <ActionIcon variant="light" color="gray" size="sm" onClick={handleZoomReset}>
-                      <IconRefresh size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Text size="xs" c="dimmed" ml={4}>
-                    {Math.round(zoomLevel * 100)}%
-                  </Text>
                 </Group>
               ) : null}
             </Group>
@@ -394,28 +372,22 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
                   might take a few moments. Please check back later.
                 </Text>
               </Box>
-            ) : graphResult ? (
+            ) : flowResult ? (
               <Box
                 style={{
                   flex: 1,
                   minHeight: 0,
-                  overflow: "auto",
                   border: "1px solid #e9ecef",
                   borderRadius: 8,
                   background: "#fff",
                 }}
               >
-                <ReactECharts
-                  option={graphResult.option}
-                  style={{
-                    width: `${Math.round(graphResult.graphWidth * zoomLevel)}px`,
-                    height: `${Math.round(graphResult.graphHeight * zoomLevel)}px`,
-                    minWidth: "100%",
-                    minHeight: "100%",
-                  }}
-                  onEvents={{ click: handleChartClick }}
-                  notMerge
-                />
+                <ReactFlowProvider>
+                  <JourneyFlowGraph
+                    nodes={flowResult.nodes}
+                    edges={flowResult.edges}
+                  />
+                </ReactFlowProvider>
               </Box>
             ) : (
               <Box className={funnelClasses.emptyState}>
