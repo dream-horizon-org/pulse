@@ -137,8 +137,6 @@ internal object InteractionUtil {
                                                 sequenceViolationReceivedEventName = localEvent.name,
                                             ),
                                     ),
-                                sequenceViolationExpectedEventName = configEvent.name,
-                                sequenceViolationReceivedEventName = localEvent.name,
                             ),
                     )
                 } else {
@@ -198,18 +196,20 @@ internal object InteractionUtil {
 
     private fun interactionErrorMessage(error: InteractionBuildError): String =
         when (error.type) {
-            InteractionErrorType.TIMEOUT ->
+            InteractionErrorType.TIMEOUT -> {
                 if (error.timeoutExpectedEventName != null) {
                     "Timed out while waiting for event \"${error.timeoutExpectedEventName}\"."
                 } else {
                     "Timed out before the next expected event arrived."
                 }
-            InteractionErrorType.SEQUENCE_VIOLATION ->
+            }
+            InteractionErrorType.SEQUENCE_VIOLATION -> {
                 if (error.sequenceViolationExpectedEventName != null && error.sequenceViolationReceivedEventName != null) {
-                    "Expected event \"${error.sequenceViolationExpectedEventName}\", received \"${error.sequenceViolationReceivedEventName}\"."
+                    """Expected event \"${error.sequenceViolationExpectedEventName}\", received \"${error.sequenceViolationReceivedEventName}\"."""
                 } else {
                     "An event did not match the next expected event in this interaction."
                 }
+            }
         }
 
     internal fun buildPulseInteraction(
