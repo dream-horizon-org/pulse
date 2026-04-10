@@ -15,9 +15,11 @@
 		ACF0AA99DB6FB9B3D6490E50 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4809262F0CC3F7522B037F79 /* MainViewController.swift */; };
 		C3D4E5F607182930DEADBEEF /* ThirdViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F60718293A41DEADBEEF /* ThirdViewController.swift */; };
 		E5F607182930AABBDEADBEEF /* TabBarExampleViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F607182930AABBCCDEADBEEF /* TabBarExampleViewController.swift */; };
+		AABBCCDD0011223344556602 /* ExampleColorCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0011223344556601 /* ExampleColorCompat.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		AABBCCDD0011223344556601 /* ExampleColorCompat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleColorCompat.swift; sourceTree = "<group>"; };
 		4809262F0CC3F7522B037F79 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		722C925C8A9252C06605DA96 /* Pods_PulseIOSExample.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PulseIOSExample.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		7F8AD428C642C9E44211715C /* PulseIOSExample.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PulseIOSExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -84,6 +86,7 @@
 			isa = PBXGroup;
 			children = (
 				D6EA93D73928505C418FDAD0 /* AppDelegate.swift */,
+				AABBCCDD0011223344556601 /* ExampleColorCompat.swift */,
 				8BCAE0C4209F493AFAF1E455 /* Info.plist */,
 				4809262F0CC3F7522B037F79 /* MainViewController.swift */,
 				B2C3D4E5F6071829DEADBEEF /* SecondViewController.swift */,
@@ -196,6 +199,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6CFABB4504645C1C0D533BA6 /* AppDelegate.swift in Sources */,
+				AABBCCDD0011223344556602 /* ExampleColorCompat.swift in Sources */,
 				ACF0AA99DB6FB9B3D6490E50 /* MainViewController.swift in Sources */,
 				A1B2C3D4E5F60718DEADBEEF /* SecondViewController.swift in Sources */,
 				C3D4E5F607182930DEADBEEF /* ThirdViewController.swift in Sources */,
@@ -278,7 +282,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -354,7 +358,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

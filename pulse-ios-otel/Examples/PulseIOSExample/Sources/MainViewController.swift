@@ -274,7 +274,7 @@ class MainViewController: UIViewController {
         stackView.addArrangedSubview(createButton(
             title: "Tap Demo →",
             action: #selector(openTapDemoTapped),
-            color: .systemCyan
+            color: ExampleColorCompat.systemCyan
         ))
 
         stackView.addArrangedSubview(createSeparator())
@@ -293,27 +293,27 @@ class MainViewController: UIViewController {
         stackView.addArrangedSubview(createButton(
             title: "Push Second Screen →",
             action: #selector(pushSecondScreenTapped),
-            color: .systemIndigo
+            color: ExampleColorCompat.systemIndigo
         ))
         stackView.addArrangedSubview(createButton(
             title: "Present Modal (pageSheet)",
             action: #selector(presentModalScreenTapped),
-            color: .systemIndigo
+            color: ExampleColorCompat.systemIndigo
         ))
         stackView.addArrangedSubview(createButton(
             title: "Present Modal (fullScreen)",
             action: #selector(presentFullScreenModalTapped),
-            color: .systemIndigo
+            color: ExampleColorCompat.systemIndigo
         ))
         stackView.addArrangedSubview(createButton(
             title: "Open TabBar (2 tabs)",
             action: #selector(openTabBarTapped),
-            color: .systemIndigo
+            color: ExampleColorCompat.systemIndigo
         ))
         stackView.addArrangedSubview(createButton(
             title: "Show Current Lifecycle State",
             action: #selector(showLifecycleStateTapped),
-            color: .systemIndigo
+            color: ExampleColorCompat.systemIndigo
         ))
         
         stackView.addArrangedSubview(createSeparator())

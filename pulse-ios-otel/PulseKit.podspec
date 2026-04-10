@@ -52,7 +52,7 @@ Pod::Spec.new do |spec|
   ]
   
   spec.swift_version = "5.10"
-  spec.ios.deployment_target = "15.1"
+  spec.ios.deployment_target = "13.0"
   spec.module_name = "PulseKit"
 
   spec.ios.frameworks = "CoreTelephony", "CoreLocation"

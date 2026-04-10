@@ -23,7 +23,7 @@ pod install
 open PulseIOSExample.xcworkspace
 ```
 
-Build and run (**⌘R**) on an iOS 15.1+ simulator.
+Build and run (**⌘R**) on an iOS 13.0+ simulator (newer simulators are fine).
 
 ---
 

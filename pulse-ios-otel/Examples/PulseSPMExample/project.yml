@@ -2,7 +2,7 @@ name: PulseSPMExample
 options:
   bundleIdPrefix: org.pulsekit
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "13.0"
   developmentLanguage: en
 packages:
   PulseSPMPackage:
@@ -11,7 +11,7 @@ targets:
   PulseSPMExample:
     type: application
     platform: iOS
-    deploymentTarget: "15.0"
+    deploymentTarget: "13.0"
     sources:
       - path: HostApp
         excludes:

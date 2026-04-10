@@ -163,7 +163,7 @@ class TapDemoViewController: UIViewController {
         let tableView = IntrinsicTableView()
         tableView.dataSource = self
         tableView.delegate = self
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        tableView.register(SubtitleTableViewCell.self, forCellReuseIdentifier: "cell")
         tableView.isScrollEnabled = false
         tableView.layer.cornerRadius = 10
         tableView.layer.borderColor = UIColor.separator.cgColor
@@ -446,6 +446,18 @@ private extension UILabel {
     }
 }
 
+// MARK: - SubtitleTableViewCell (iOS 13 — plain UITableViewCell register uses .default, not .subtitle)
+
+private final class SubtitleTableViewCell: UITableViewCell {
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: .subtitle, reuseIdentifier: reuseIdentifier)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
 // MARK: - UITableViewDataSource / Delegate
 
 private let tableItems: [(title: String, detail: String)] = [
@@ -460,14 +472,13 @@ extension TapDemoViewController: UITableViewDataSource, UITableViewDelegate {
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath) as! SubtitleTableViewCell
         let item = tableItems[indexPath.row]
-        // Using subtitle style — textLabel + detailTextLabel both hold text
+        // Subtitle style — textLabel + detailTextLabel (iOS 13+). On iOS 14+ we could use
+        // defaultContentConfiguration(), but labels keep one code path for the deployment floor.
         // SDK recursive scan: cell → contentView → [UILabel(textLabel), UILabel(detailTextLabel)]
-        var content = cell.defaultContentConfiguration()
-        content.text = item.title
-        content.secondaryText = item.detail
-        cell.contentConfiguration = content
+        cell.textLabel?.text = item.title
+        cell.detailTextLabel?.text = item.detail
         // NO accessibilityLabel or accessibilityIdentifier set
         return cell
     }

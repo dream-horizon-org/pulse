@@ -7,7 +7,7 @@ class SecondViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Second Screen"
-        view.backgroundColor = .systemIndigo
+        view.backgroundColor = ExampleColorCompat.systemIndigo
 
         let stackView = UIStackView()
         stackView.axis = .vertical
@@ -40,7 +40,7 @@ class SecondViewController: UIViewController {
 
         addButton(to: stackView, title: "Track Event", color: .systemOrange, action: #selector(trackEventTapped))
         addButton(to: stackView, title: "Track Span", color: .systemGreen, action: #selector(trackSpanTapped))
-        addButton(to: stackView, title: "Push Third Screen →", color: .white, titleColor: .systemIndigo, action: #selector(pushThirdScreen))
+        addButton(to: stackView, title: "Push Third Screen →", color: .white, titleColor: ExampleColorCompat.systemIndigo, action: #selector(pushThirdScreen))
     }
 
     private func addButton(to stack: UIStackView, title: String, color: UIColor, titleColor: UIColor = .white, action: Selector) {
