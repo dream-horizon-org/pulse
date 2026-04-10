@@ -2,7 +2,7 @@ import { Box, Button, Modal, Skeleton, Stack, Text } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import { useRegenerateRcaReport } from "../../../../hooks/useRegenerateRcaReport/useRegenerateRcaReport";
 import { isRcaStructuredReportV1WithContent } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
@@ -24,6 +24,8 @@ const RCA_HTTP_STATUS = {
   SERVICE_UNAVAILABLE: 503,
 } as const;
 
+const REGENERATE_DEBOUNCE_MS = 500;
+
 function formatRcaReportCachedAt(
   iso: string | null | undefined,
 ): string | null {
@@ -43,6 +45,7 @@ export function RootCause({
     isGenerationNoticeModalDelayElapsed,
     setIsGenerationNoticeModalDelayElapsed,
   ] = useState(false);
+  const regenerateDebounceTimerRef = useRef<number | null>(null);
 
   const effectiveProjectId = projectId ?? null;
   const {
@@ -110,6 +113,14 @@ export function RootCause({
     };
   }, [showLoadingUi]);
 
+  useEffect(() => {
+    return () => {
+      if (regenerateDebounceTimerRef.current !== null) {
+        window.clearTimeout(regenerateDebounceTimerRef.current);
+      }
+    };
+  }, []);
+
   const isGenerationNoticeModalOpen =
     showLoadingUi &&
     !userDismissedGenerationNotice &&
@@ -164,14 +175,23 @@ export function RootCause({
 
   if (showReport && reportPayload) {
     const cachedAtFormatted = formatRcaReportCachedAt(reportPayload.cachedAt);
-    const handleRegenerate = () => {
-      if (!interactionName) return;
-      regenerateRcaReport.mutate({
-        interactionName,
-        date: date ?? null,
-        projectId: trimmedProjectId,
-      });
-    };
+    const handleRegenerate = useCallback(() => {
+      const isInteractionNameInvalid = !interactionName;
+      if (isInteractionNameInvalid) return;
+
+      if (regenerateDebounceTimerRef.current !== null) {
+        window.clearTimeout(regenerateDebounceTimerRef.current);
+      }
+
+      regenerateDebounceTimerRef.current = window.setTimeout(() => {
+        regenerateRcaReport.mutate({
+          interactionName,
+          date: date ?? null,
+          projectId: trimmedProjectId,
+        });
+        regenerateDebounceTimerRef.current = null;
+      }, REGENERATE_DEBOUNCE_MS);
+    }, [interactionName, date, trimmedProjectId, regenerateRcaReport]);
     return (
       <RcaReportView
         report={reportPayload.report ?? {}}
