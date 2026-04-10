@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -258,11 +256,7 @@ final class RcaReportProxyHandler {
     if (!AiProxyUpstreamResult.isSuccessfulBuffered(result)) {
       return CompletableFuture.completedFuture(result);
     }
-    // Use enriched body if available (contains segment-specific exampleSessionIds),
-    // otherwise fall back to original AI response body
-    String body = enrichment.enrichmentOk() && enrichment.body() != null 
-        ? enrichment.body() 
-        : result.getBufferedBody();
+    String body = result.getBufferedBody();
     if (enrichment.enrichmentOk()
         && enrichment.rootCause() != null
         && enrichment.rootCause().getSegments() != null
@@ -360,11 +354,11 @@ final class RcaReportProxyHandler {
                   List<RootCauseSegment> segments = rootCauseResult.getSegments();
                   LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
 
-                  AtomicInteger pendingQueries = new AtomicInteger(segments.size());
+                  // Collect all sessions from all segments into a single list
+                  List<String> allSessionIds = new java.util.ArrayList<>();
+                  java.util.concurrent.atomic.AtomicInteger pendingQueries = new java.util.concurrent.atomic.AtomicInteger(segments.size());
 
-                  for (int i = 0; i < segments.size(); i++) {
-                    RootCauseSegment segment = segments.get(i);
-                    final int segmentIndex = i;
+                  for (RootCauseSegment segment : segments) {
                     Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
 
                     sessionEvidenceService
@@ -384,20 +378,20 @@ final class RcaReportProxyHandler {
                                         .map(s -> s.getSessionId())
                                         .collect(Collectors.toList());
 
-                                // Store sessions directly in the segment
-                                synchronized (segments) {
-                                  RootCauseSegment seg = segments.get(segmentIndex);
-                                  seg.setExampleSessionIds(sessionIds);
-                                  log.info("Attached {} example sessions to segment {}: {}",
-                                      sessionIds.size(), segmentIndex, seg.getLabel());
+                                synchronized (allSessionIds) {
+                                  allSessionIds.addAll(sessionIds);
                                 }
 
                                 if (pendingQueries.decrementAndGet() == 0) {
-                                  // All queries complete - update payload with enriched segments
-                                  JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
-                                  if (rcPayloadNode instanceof ObjectNode) {
-                                    ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
-                                    rcPayload.set("segments", objectMapper.valueToTree(segments));
+                                  // All queries complete - add sessions to payload
+                                  if (!allSessionIds.isEmpty()) {
+                                    JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                    if (rcPayloadNode instanceof ObjectNode) {
+                                      ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                      rcPayload.set(
+                                          "exampleSessionIds",
+                                          objectMapper.valueToTree(allSessionIds));
+                                    }
                                   }
 
                                   String enrichedBody = objectMapper.writeValueAsString(working);
