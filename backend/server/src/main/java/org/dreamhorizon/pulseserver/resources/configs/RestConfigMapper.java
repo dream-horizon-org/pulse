@@ -1,9 +1,8 @@
 package org.dreamhorizon.pulseserver.resources.configs;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 
 /**
@@ -15,10 +14,7 @@ public final class RestConfigMapper {
 
   public static final RestConfigMapper INSTANCE = new RestConfigMapper();
 
-  private static final ObjectMapper MAPPER =
-      new ObjectMapper()
-          .registerModule(new KotlinModule.Builder().build())
-          .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+  private static final ObjectMapper MAPPER = ObjectMapperFactory.get();
 
   private RestConfigMapper() {}
 
