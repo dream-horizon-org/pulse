@@ -245,6 +245,9 @@ load_env() {
     export MINIO_ROOT_USER="${MINIO_ROOT_USER:-pulse_minio}"
     export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-pulse_minio_secret}"
     export SESSION_REPLAY_S3_BUCKET="${SESSION_REPLAY_S3_BUCKET:-session-recordings}"
+    export HEATMAP_S3_BUCKET="${HEATMAP_S3_BUCKET:-heatmap-assets}"
+    export HEATMAP_S3_ENDPOINT="${HEATMAP_S3_ENDPOINT:-http://minio:9000}"
+    export HEATMAP_S3_REGION="${HEATMAP_S3_REGION:-us-east-1}"
 
     # ClickHouse / OTEL
     export OTEL_CLICKHOUSE_DATABASE="${OTEL_CLICKHOUSE_DATABASE:-otel}"

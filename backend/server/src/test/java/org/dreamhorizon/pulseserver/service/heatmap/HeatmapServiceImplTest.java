@@ -33,12 +33,16 @@ class HeatmapServiceImplTest {
   @Mock private ConfigService configService;
   @Mock private ClickhouseQueryService clickhouseQueryService;
   @Mock private InteractionDao interactionDao;
+  @Mock private HeatmapScreenshotUrlResolver heatmapScreenshotUrlResolver;
 
   @InjectMocks private HeatmapServiceImpl heatmapService;
 
   @BeforeEach
   void setProject() {
     ProjectContext.setProjectId(PROJECT);
+    when(heatmapScreenshotUrlResolver.resolveForScreen(
+            any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(Collections.emptyList());
   }
 
   @AfterEach

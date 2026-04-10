@@ -261,9 +261,9 @@ docker run --rm \
     --name "$CONTAINER_MINIO_INIT" \
     --network "$NETWORK_NAME" \
     "$IMAGE_MINIO_MC" \
-    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET}" > /dev/null 2>&1
+    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET} && mc mb --ignore-existing local/${HEATMAP_S3_BUCKET}" > /dev/null 2>&1
 
-print_success "MinIO bucket '${SESSION_REPLAY_S3_BUCKET}' ready"
+print_success "MinIO buckets '${SESSION_REPLAY_S3_BUCKET}' and '${HEATMAP_S3_BUCKET}' ready"
 
 # ── Phase 3: ClickHouse init + OTEL Collector ────────────────────────────
 print_section "Phase 3: Initialising ClickHouse tables & OTEL Collector"
@@ -359,6 +359,29 @@ docker run -d \
 
 print_success "$CONTAINER_SESSION_INGESTION container started"
 
+remove_container "$CONTAINER_HEATMAP_INGESTION"
+print_info "Starting $CONTAINER_HEATMAP_INGESTION ..."
+
+docker run -d \
+    --name "$CONTAINER_HEATMAP_INGESTION" \
+    --network "$NETWORK_NAME" \
+    --restart unless-stopped \
+    -e KAFKA_BROKERS=kafka:9092 \
+    -e KAFKA_TOPIC=session_recording_events \
+    -e KAFKA_GROUP_ID=heatmap-screenshot-ingestion \
+    -e "HEATMAP_S3_ENDPOINT=${HEATMAP_S3_ENDPOINT}" \
+    -e "HEATMAP_S3_BUCKET=${HEATMAP_S3_BUCKET}" \
+    -e "HEATMAP_S3_REGION=${HEATMAP_S3_REGION}" \
+    -e "HEATMAP_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}" \
+    -e "HEATMAP_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}" \
+    -e S3_PREFIX=heatmap-screenshots \
+    -e "REDIS_URL=${REDIS_URL:-}" \
+    -e "REDIS_HOST=${REDIS_HOST:-}" \
+    -e "REDIS_PORT=${REDIS_PORT:-6379}" \
+    "$IMAGE_HEATMAP_INGESTION" > /dev/null
+
+print_success "$CONTAINER_HEATMAP_INGESTION container started"
+
 print_info "Waiting for session capture service..."
 wait_for_healthy "$CONTAINER_SESSION_CAPTURE" 60
 
@@ -409,6 +432,12 @@ docker run -d \
     -e "SESSION_REPLAY_S3_ACCESS_KEY_ID=${SESSION_REPLAY_S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER}}" \
     -e "SESSION_REPLAY_S3_SECRET_ACCESS_KEY=${SESSION_REPLAY_S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD}}" \
     -e "SESSION_REPLAY_S3_REGION=${SESSION_REPLAY_S3_REGION:-us-south-1}" \
+    \
+    -e "HEATMAP_S3_BUCKET=${HEATMAP_S3_BUCKET}" \
+    -e "HEATMAP_S3_ENDPOINT=${HEATMAP_S3_ENDPOINT}" \
+    -e "HEATMAP_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}" \
+    -e "HEATMAP_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}" \
+    -e "HEATMAP_S3_REGION=${HEATMAP_S3_REGION}" \
     \
     -e "CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID}" \
     -e "CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH}" \

@@ -101,7 +101,10 @@ class ApplicationConfigTest {
             "us-east-1",
             "access-key",
             "secret-key"),
-        "replayBaseUrl"
+        "replayBaseUrl",
+        null,
+        null,
+        null
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());

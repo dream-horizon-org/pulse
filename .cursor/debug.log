@@ -1,0 +1,609 @@
+{"id":"log_1773148377_82188","timestamp":1773148377000,"location":"debug_health_check.sh:31","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-01449b9d08468f030","kongIp":"10.250.65.89"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773148378_82188","timestamp":1773148378000,"location":"debug_health_check.sh:42","message":"Target Group not found","data":{"tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773148413_82275","timestamp":1773148413000,"location":"debug_health_check.sh:31","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-01449b9d08468f030","kongIp":"10.250.65.89"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773148415_82275","timestamp":1773148415000,"location":"debug_health_check.sh:42","message":"Target Group not found","data":{"tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773148618_82850","timestamp":1773148618000,"location":"debug_health_check.sh:61","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-09327940a30aa5df3","kongIp":"10.250.68.31"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773148620_82850","timestamp":1773148620000,"location":"debug_health_check.sh:78","message":"Target Group found via ASG","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9","tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773148620_82850","timestamp":1773148620000,"location":"debug_health_check.sh:126","message":"Target Group found","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773148620_82850","timestamp":1773148620000,"location":"debug_health_check.sh:130","message":"Checking health check configuration","data":{},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773148621_82850","timestamp":1773148621000,"location":"debug_health_check.sh:151","message":"Health check config retrieved","data":{
+    "Path": "/status",
+    "Port": "8001",
+    "Protocol": "HTTP",
+    "Interval": 30,
+    "Timeout": 5,
+    "HealthyThreshold": 2,
+    "UnhealthyThreshold": 2,
+    "Matcher": "200-399"
+},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773148621_82850","timestamp":1773148621000,"location":"debug_health_check.sh:155","message":"Checking target health status","data":{"instanceId":"i-09327940a30aa5df3"},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773148621_82850","timestamp":1773148621000,"location":"debug_health_check.sh:185","message":"Target health status retrieved","data":{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "i-09327940a30aa5df3",
+                "Port": 8000
+            },
+            "HealthCheckPort": "8001",
+            "TargetHealth": {
+                "State": "unhealthy",
+                "Reason": "Target.FailedHealthChecks",
+                "Description": "Health checks failed"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        }
+    ]
+},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773148621_82850","timestamp":1773148621000,"location":"debug_health_check.sh:190","message":"Testing Kong endpoint accessibility","data":{"kongIp":"10.250.68.31"},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773148631_82850","timestamp":1773148631000,"location":"debug_health_check.sh:213","message":"Kong endpoint NOT accessible","data":{"httpCode":"000","error":""},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773148631_82850","timestamp":1773148631000,"location":"debug_health_check.sh:218","message":"Checking security group rules","data":{},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773148633_82850","timestamp":1773148633000,"location":"debug_health_check.sh:240","message":"Security group rules checked","data":[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8001,
+        "ToPort": 8001,
+        "UserIdGroupPairs": [],
+        "IpRanges": [
+            {
+                "Description": "Allow Kong Admin API from NLB",
+                "CidrIp": "10.250.0.0/16"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+],"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773148633_82850","timestamp":1773148633000,"location":"debug_health_check.sh:260","message":"NLB SG NOT allowed","data":{"nlbSg":"sg-0f5db91a2e0c070e2","ec2Sg":"sg-0127513e829b5cb68"},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773148633_82850","timestamp":1773148633000,"location":"debug_health_check.sh:267","message":"Checking ASG health check configuration","data":{"asgName":"pulse-kong-asg"},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773148634_82850","timestamp":1773148634000,"location":"debug_health_check.sh:284","message":"ASG config retrieved","data":{
+    "HealthCheckType": "ELB",
+    "HealthCheckGracePeriod": 120,
+    "TargetGroupARNs": [
+        "arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"
+    ]
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773148635_82850","timestamp":1773148635000,"location":"debug_health_check.sh:299","message":"Instance status in ASG","data":{
+    "LifecycleState": "InService",
+    "HealthStatus": "HEALTHY",
+    "ASGName": "pulse-kong-asg"
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773148635_82850","timestamp":1773148635000,"location":"debug_health_check.sh:304","message":"Checking Kong container status","data":{},"runId":"health_check_debug","hypothesisId":"G"}
+{"id":"log_1773148635_82850","timestamp":1773148635000,"location":"debug_health_check.sh:347","message":"Diagnostic complete","data":{"instanceId":"i-09327940a30aa5df3","kongIp":"10.250.68.31","targetState":"unhealthy"},"runId":"health_check_debug","hypothesisId":"SUMMARY"}
+{"id":"log_1773149728_85453","timestamp":1773149728000,"location":"debug_health_check.sh:61","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-002bf5257b64c825e","kongIp":"10.250.68.31"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149729_85453","timestamp":1773149729000,"location":"debug_health_check.sh:78","message":"Target Group found via ASG","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9","tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149729_85453","timestamp":1773149729000,"location":"debug_health_check.sh:126","message":"Target Group found","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149729_85453","timestamp":1773149729000,"location":"debug_health_check.sh:130","message":"Checking health check configuration","data":{},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773149730_85453","timestamp":1773149730000,"location":"debug_health_check.sh:151","message":"Health check config retrieved","data":{
+    "Path": "/status",
+    "Port": "8001",
+    "Protocol": "HTTP",
+    "Interval": 30,
+    "Timeout": 5,
+    "HealthyThreshold": 2,
+    "UnhealthyThreshold": 2,
+    "Matcher": "200-399"
+},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773149730_85453","timestamp":1773149730000,"location":"debug_health_check.sh:155","message":"Checking target health status","data":{"instanceId":"i-002bf5257b64c825e"},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773149730_85453","timestamp":1773149730000,"location":"debug_health_check.sh:185","message":"Target health status retrieved","data":{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "i-002bf5257b64c825e",
+                "Port": 8000
+            },
+            "HealthCheckPort": "8001",
+            "TargetHealth": {
+                "State": "initial",
+                "Reason": "Elb.InitialHealthChecking",
+                "Description": "Initial health checks in progress"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        }
+    ]
+},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773149730_85453","timestamp":1773149730000,"location":"debug_health_check.sh:190","message":"Testing Kong endpoint accessibility","data":{"kongIp":"10.250.68.31"},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773149741_85453","timestamp":1773149741000,"location":"debug_health_check.sh:213","message":"Kong endpoint NOT accessible","data":{"httpCode":"000","error":""},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773149741_85453","timestamp":1773149741000,"location":"debug_health_check.sh:218","message":"Checking security group rules","data":{},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149742_85453","timestamp":1773149742000,"location":"debug_health_check.sh:240","message":"Security group rules checked","data":[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8001,
+        "ToPort": 8001,
+        "UserIdGroupPairs": [
+            {
+                "Description": "Allow Kong Admin proxy traffic from NLB",
+                "UserId": "650012445044",
+                "GroupId": "sg-0f5db91a2e0c070e2"
+            }
+        ],
+        "IpRanges": [
+            {
+                "Description": "Allow Kong Admin API from VPC",
+                "CidrIp": "10.250.0.0/16"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+],"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149743_85453","timestamp":1773149743000,"location":"debug_health_check.sh:257","message":"NLB SG allowed","data":{"nlbSg":"sg-0f5db91a2e0c070e2","ec2Sg":"sg-0127513e829b5cb68"},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149743_85453","timestamp":1773149743000,"location":"debug_health_check.sh:267","message":"Checking ASG health check configuration","data":{"asgName":"pulse-kong-asg"},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149743_85453","timestamp":1773149743000,"location":"debug_health_check.sh:284","message":"ASG config retrieved","data":{
+    "HealthCheckType": "ELB",
+    "HealthCheckGracePeriod": 120,
+    "TargetGroupARNs": [
+        "arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"
+    ]
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149744_85453","timestamp":1773149744000,"location":"debug_health_check.sh:299","message":"Instance status in ASG","data":{
+    "LifecycleState": "InService",
+    "HealthStatus": "HEALTHY",
+    "ASGName": "pulse-kong-asg"
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149744_85453","timestamp":1773149744000,"location":"debug_health_check.sh:304","message":"Checking Kong container status","data":{},"runId":"health_check_debug","hypothesisId":"G"}
+{"id":"log_1773149744_85453","timestamp":1773149744000,"location":"debug_health_check.sh:347","message":"Diagnostic complete","data":{"instanceId":"i-002bf5257b64c825e","kongIp":"10.250.68.31","targetState":"initial"},"runId":"health_check_debug","hypothesisId":"SUMMARY"}
+{"id":"log_1773149762_85666","timestamp":1773149762000,"location":"debug_health_check.sh:61","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-002bf5257b64c825e","kongIp":"10.250.68.31"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149764_85666","timestamp":1773149764000,"location":"debug_health_check.sh:78","message":"Target Group found via ASG","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9","tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149764_85666","timestamp":1773149764000,"location":"debug_health_check.sh:126","message":"Target Group found","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149764_85666","timestamp":1773149764000,"location":"debug_health_check.sh:130","message":"Checking health check configuration","data":{},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773149764_85666","timestamp":1773149764000,"location":"debug_health_check.sh:151","message":"Health check config retrieved","data":{
+    "Path": "/status",
+    "Port": "8001",
+    "Protocol": "HTTP",
+    "Interval": 30,
+    "Timeout": 5,
+    "HealthyThreshold": 2,
+    "UnhealthyThreshold": 2,
+    "Matcher": "200-399"
+},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773149764_85666","timestamp":1773149764000,"location":"debug_health_check.sh:155","message":"Checking target health status","data":{"instanceId":"i-002bf5257b64c825e"},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773149765_85666","timestamp":1773149765000,"location":"debug_health_check.sh:185","message":"Target health status retrieved","data":{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "i-002bf5257b64c825e",
+                "Port": 8000
+            },
+            "HealthCheckPort": "8001",
+            "TargetHealth": {
+                "State": "initial",
+                "Reason": "Elb.InitialHealthChecking",
+                "Description": "Initial health checks in progress"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        }
+    ]
+},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773149765_85666","timestamp":1773149765000,"location":"debug_health_check.sh:190","message":"Testing Kong endpoint accessibility","data":{"kongIp":"10.250.68.31"},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773149775_85666","timestamp":1773149775000,"location":"debug_health_check.sh:213","message":"Kong endpoint NOT accessible","data":{"httpCode":"000","error":""},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773149775_85666","timestamp":1773149775000,"location":"debug_health_check.sh:218","message":"Checking security group rules","data":{},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149776_85666","timestamp":1773149776000,"location":"debug_health_check.sh:240","message":"Security group rules checked","data":[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8001,
+        "ToPort": 8001,
+        "UserIdGroupPairs": [
+            {
+                "Description": "Allow Kong Admin proxy traffic from NLB",
+                "UserId": "650012445044",
+                "GroupId": "sg-0f5db91a2e0c070e2"
+            }
+        ],
+        "IpRanges": [
+            {
+                "Description": "Allow Kong Admin API from VPC",
+                "CidrIp": "10.250.0.0/16"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+],"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149777_85666","timestamp":1773149777000,"location":"debug_health_check.sh:257","message":"NLB SG allowed","data":{"nlbSg":"sg-0f5db91a2e0c070e2","ec2Sg":"sg-0127513e829b5cb68"},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149777_85666","timestamp":1773149777000,"location":"debug_health_check.sh:267","message":"Checking ASG health check configuration","data":{"asgName":"pulse-kong-asg"},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149778_85666","timestamp":1773149778000,"location":"debug_health_check.sh:284","message":"ASG config retrieved","data":{
+    "HealthCheckType": "ELB",
+    "HealthCheckGracePeriod": 120,
+    "TargetGroupARNs": [
+        "arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"
+    ]
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149779_85666","timestamp":1773149779000,"location":"debug_health_check.sh:299","message":"Instance status in ASG","data":{
+    "LifecycleState": "InService",
+    "HealthStatus": "HEALTHY",
+    "ASGName": "pulse-kong-asg"
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149779_85666","timestamp":1773149779000,"location":"debug_health_check.sh:304","message":"Checking Kong container status","data":{},"runId":"health_check_debug","hypothesisId":"G"}
+{"id":"log_1773149779_85666","timestamp":1773149779000,"location":"debug_health_check.sh:347","message":"Diagnostic complete","data":{"instanceId":"i-002bf5257b64c825e","kongIp":"10.250.68.31","targetState":"initial"},"runId":"health_check_debug","hypothesisId":"SUMMARY"}
+{"id":"log_1773149792_85936","timestamp":1773149792000,"location":"debug_health_check.sh:61","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-002bf5257b64c825e","kongIp":"10.250.70.23"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149793_85936","timestamp":1773149793000,"location":"debug_health_check.sh:78","message":"Target Group found via ASG","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9","tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149793_85936","timestamp":1773149793000,"location":"debug_health_check.sh:126","message":"Target Group found","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149793_85936","timestamp":1773149793000,"location":"debug_health_check.sh:130","message":"Checking health check configuration","data":{},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773149794_85936","timestamp":1773149794000,"location":"debug_health_check.sh:151","message":"Health check config retrieved","data":{
+    "Path": "/status",
+    "Port": "8001",
+    "Protocol": "HTTP",
+    "Interval": 30,
+    "Timeout": 5,
+    "HealthyThreshold": 2,
+    "UnhealthyThreshold": 2,
+    "Matcher": "200-399"
+},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773149794_85936","timestamp":1773149794000,"location":"debug_health_check.sh:155","message":"Checking target health status","data":{"instanceId":"i-002bf5257b64c825e"},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773149794_85936","timestamp":1773149794000,"location":"debug_health_check.sh:185","message":"Target health status retrieved","data":{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "i-002bf5257b64c825e",
+                "Port": 8000
+            },
+            "HealthCheckPort": "8001",
+            "TargetHealth": {
+                "State": "initial",
+                "Reason": "Elb.InitialHealthChecking",
+                "Description": "Initial health checks in progress"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        }
+    ]
+},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773149794_85936","timestamp":1773149794000,"location":"debug_health_check.sh:190","message":"Testing Kong endpoint accessibility","data":{"kongIp":"10.250.70.23"},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773149804_85936","timestamp":1773149804000,"location":"debug_health_check.sh:213","message":"Kong endpoint NOT accessible","data":{"httpCode":"000","error":""},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773149804_85936","timestamp":1773149804000,"location":"debug_health_check.sh:218","message":"Checking security group rules","data":{},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149806_85936","timestamp":1773149806000,"location":"debug_health_check.sh:240","message":"Security group rules checked","data":[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8001,
+        "ToPort": 8001,
+        "UserIdGroupPairs": [
+            {
+                "Description": "Allow Kong Admin proxy traffic from NLB",
+                "UserId": "650012445044",
+                "GroupId": "sg-0f5db91a2e0c070e2"
+            }
+        ],
+        "IpRanges": [
+            {
+                "Description": "Allow Kong Admin API from VPC",
+                "CidrIp": "10.250.0.0/16"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+],"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149806_85936","timestamp":1773149806000,"location":"debug_health_check.sh:257","message":"NLB SG allowed","data":{"nlbSg":"sg-0f5db91a2e0c070e2","ec2Sg":"sg-0127513e829b5cb68"},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149806_85936","timestamp":1773149806000,"location":"debug_health_check.sh:267","message":"Checking ASG health check configuration","data":{"asgName":"pulse-kong-asg"},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149807_85936","timestamp":1773149807000,"location":"debug_health_check.sh:284","message":"ASG config retrieved","data":{
+    "HealthCheckType": "ELB",
+    "HealthCheckGracePeriod": 120,
+    "TargetGroupARNs": [
+        "arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"
+    ]
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149807_85936","timestamp":1773149807000,"location":"debug_health_check.sh:299","message":"Instance status in ASG","data":{
+    "LifecycleState": "InService",
+    "HealthStatus": "HEALTHY",
+    "ASGName": "pulse-kong-asg"
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149807_85936","timestamp":1773149807000,"location":"debug_health_check.sh:304","message":"Checking Kong container status","data":{},"runId":"health_check_debug","hypothesisId":"G"}
+{"id":"log_1773149807_85936","timestamp":1773149807000,"location":"debug_health_check.sh:347","message":"Diagnostic complete","data":{"instanceId":"i-002bf5257b64c825e","kongIp":"10.250.70.23","targetState":"initial"},"runId":"health_check_debug","hypothesisId":"SUMMARY"}
+{"id":"log_1773149903_86426","timestamp":1773149903000,"location":"debug_health_check.sh:61","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-002bf5257b64c825e","kongIp":"10.250.70.23"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149904_86426","timestamp":1773149904000,"location":"debug_health_check.sh:78","message":"Target Group found via ASG","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9","tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149904_86426","timestamp":1773149904000,"location":"debug_health_check.sh:126","message":"Target Group found","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773149904_86426","timestamp":1773149904000,"location":"debug_health_check.sh:130","message":"Checking health check configuration","data":{},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773149905_86426","timestamp":1773149905000,"location":"debug_health_check.sh:151","message":"Health check config retrieved","data":{
+    "Path": "/status",
+    "Port": "8001",
+    "Protocol": "HTTP",
+    "Interval": 30,
+    "Timeout": 5,
+    "HealthyThreshold": 2,
+    "UnhealthyThreshold": 2,
+    "Matcher": "200-399"
+},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773149905_86426","timestamp":1773149905000,"location":"debug_health_check.sh:155","message":"Checking target health status","data":{"instanceId":"i-002bf5257b64c825e"},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773149905_86426","timestamp":1773149905000,"location":"debug_health_check.sh:185","message":"Target health status retrieved","data":{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "i-002bf5257b64c825e",
+                "Port": 8000
+            },
+            "HealthCheckPort": "8001",
+            "TargetHealth": {
+                "State": "draining",
+                "Reason": "Target.DeregistrationInProgress",
+                "Description": "Target deregistration is in progress"
+            }
+        }
+    ]
+},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773149905_86426","timestamp":1773149905000,"location":"debug_health_check.sh:190","message":"Testing Kong endpoint accessibility","data":{"kongIp":"10.250.70.23"},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773149915_86426","timestamp":1773149915000,"location":"debug_health_check.sh:213","message":"Kong endpoint NOT accessible","data":{"httpCode":"000","error":""},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773149915_86426","timestamp":1773149915000,"location":"debug_health_check.sh:218","message":"Checking security group rules","data":{},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149917_86426","timestamp":1773149917000,"location":"debug_health_check.sh:240","message":"Security group rules checked","data":[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8001,
+        "ToPort": 8001,
+        "UserIdGroupPairs": [
+            {
+                "Description": "Allow Kong Admin proxy traffic from NLB",
+                "UserId": "650012445044",
+                "GroupId": "sg-0f5db91a2e0c070e2"
+            }
+        ],
+        "IpRanges": [
+            {
+                "Description": "Allow Kong Admin API from VPC",
+                "CidrIp": "10.250.0.0/16"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+],"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149917_86426","timestamp":1773149917000,"location":"debug_health_check.sh:257","message":"NLB SG allowed","data":{"nlbSg":"sg-0f5db91a2e0c070e2","ec2Sg":"sg-0127513e829b5cb68"},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773149917_86426","timestamp":1773149917000,"location":"debug_health_check.sh:267","message":"Checking ASG health check configuration","data":{"asgName":"pulse-kong-asg"},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149918_86426","timestamp":1773149918000,"location":"debug_health_check.sh:284","message":"ASG config retrieved","data":{
+    "HealthCheckType": "ELB",
+    "HealthCheckGracePeriod": 120,
+    "TargetGroupARNs": [
+        "arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"
+    ]
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149919_86426","timestamp":1773149919000,"location":"debug_health_check.sh:299","message":"Instance status in ASG","data":{
+    "LifecycleState": "Terminating",
+    "HealthStatus": "UNHEALTHY",
+    "ASGName": "pulse-kong-asg"
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773149919_86426","timestamp":1773149919000,"location":"debug_health_check.sh:304","message":"Checking Kong container status","data":{},"runId":"health_check_debug","hypothesisId":"G"}
+{"id":"log_1773149919_86426","timestamp":1773149919000,"location":"debug_health_check.sh:347","message":"Diagnostic complete","data":{"instanceId":"i-002bf5257b64c825e","kongIp":"10.250.70.23","targetState":"draining"},"runId":"health_check_debug","hypothesisId":"SUMMARY"}
+{"id":"log_1773150032_86837","timestamp":1773150032000,"location":"debug_health_check.sh:61","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-08f94f60b7146e884","kongIp":"10.250.66.191"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150033_86837","timestamp":1773150033000,"location":"debug_health_check.sh:78","message":"Target Group found via ASG","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9","tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150033_86837","timestamp":1773150033000,"location":"debug_health_check.sh:126","message":"Target Group found","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150033_86837","timestamp":1773150033000,"location":"debug_health_check.sh:130","message":"Checking health check configuration","data":{},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773150034_86837","timestamp":1773150034000,"location":"debug_health_check.sh:151","message":"Health check config retrieved","data":{
+    "Path": "/status",
+    "Port": "8001",
+    "Protocol": "HTTP",
+    "Interval": 30,
+    "Timeout": 5,
+    "HealthyThreshold": 2,
+    "UnhealthyThreshold": 2,
+    "Matcher": "200-399"
+},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773150034_86837","timestamp":1773150034000,"location":"debug_health_check.sh:155","message":"Checking target health status","data":{"instanceId":"i-08f94f60b7146e884"},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773150035_86837","timestamp":1773150035000,"location":"debug_health_check.sh:185","message":"Target health status retrieved","data":{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "i-08f94f60b7146e884",
+                "Port": 8000
+            },
+            "HealthCheckPort": "8001",
+            "TargetHealth": {
+                "State": "initial",
+                "Reason": "Elb.InitialHealthChecking",
+                "Description": "Initial health checks in progress"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        }
+    ]
+},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773150035_86837","timestamp":1773150035000,"location":"debug_health_check.sh:190","message":"Testing Kong endpoint accessibility","data":{"kongIp":"10.250.66.191"},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773150045_86837","timestamp":1773150045000,"location":"debug_health_check.sh:213","message":"Kong endpoint NOT accessible","data":{"httpCode":"000","error":""},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773150045_86837","timestamp":1773150045000,"location":"debug_health_check.sh:218","message":"Checking security group rules","data":{},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150046_86837","timestamp":1773150046000,"location":"debug_health_check.sh:240","message":"Security group rules checked","data":[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8001,
+        "ToPort": 8001,
+        "UserIdGroupPairs": [
+            {
+                "Description": "Allow Kong Admin proxy traffic from NLB",
+                "UserId": "650012445044",
+                "GroupId": "sg-0f5db91a2e0c070e2"
+            }
+        ],
+        "IpRanges": [
+            {
+                "Description": "Allow Kong Admin API from VPC",
+                "CidrIp": "10.250.0.0/16"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+],"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150047_86837","timestamp":1773150047000,"location":"debug_health_check.sh:257","message":"NLB SG allowed","data":{"nlbSg":"sg-0f5db91a2e0c070e2","ec2Sg":"sg-0127513e829b5cb68"},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150047_86837","timestamp":1773150047000,"location":"debug_health_check.sh:267","message":"Checking ASG health check configuration","data":{"asgName":"pulse-kong-asg"},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150048_86837","timestamp":1773150048000,"location":"debug_health_check.sh:284","message":"ASG config retrieved","data":{
+    "HealthCheckType": "ELB",
+    "HealthCheckGracePeriod": 120,
+    "TargetGroupARNs": [
+        "arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"
+    ]
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150049_86837","timestamp":1773150049000,"location":"debug_health_check.sh:299","message":"Instance status in ASG","data":{
+    "LifecycleState": "InService",
+    "HealthStatus": "HEALTHY",
+    "ASGName": "pulse-kong-asg"
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150049_86837","timestamp":1773150049000,"location":"debug_health_check.sh:304","message":"Checking Kong container status","data":{},"runId":"health_check_debug","hypothesisId":"G"}
+{"id":"log_1773150049_86837","timestamp":1773150049000,"location":"debug_health_check.sh:347","message":"Diagnostic complete","data":{"instanceId":"i-08f94f60b7146e884","kongIp":"10.250.66.191","targetState":"initial"},"runId":"health_check_debug","hypothesisId":"SUMMARY"}
+{"id":"log_1773150056_87205","timestamp":1773150056000,"location":"debug_health_check.sh:62","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-08f94f60b7146e884","kongIp":"10.250.66.191"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150058_87205","timestamp":1773150058000,"location":"debug_health_check.sh:79","message":"Target Group found via ASG","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9","tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150058_87205","timestamp":1773150058000,"location":"debug_health_check.sh:127","message":"Target Group found","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150058_87205","timestamp":1773150058000,"location":"debug_health_check.sh:131","message":"Checking health check configuration","data":{},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773150058_87205","timestamp":1773150058000,"location":"debug_health_check.sh:152","message":"Health check config retrieved","data":{
+    "Path": "/status",
+    "Port": "8001",
+    "Protocol": "HTTP",
+    "Interval": 30,
+    "Timeout": 5,
+    "HealthyThreshold": 2,
+    "UnhealthyThreshold": 2,
+    "Matcher": "200-399"
+},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773150058_87205","timestamp":1773150058000,"location":"debug_health_check.sh:156","message":"Checking target health status","data":{"instanceId":"i-08f94f60b7146e884"},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773150059_87205","timestamp":1773150059000,"location":"debug_health_check.sh:186","message":"Target health status retrieved","data":{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "i-08f94f60b7146e884",
+                "Port": 8000
+            },
+            "HealthCheckPort": "8001",
+            "TargetHealth": {
+                "State": "initial",
+                "Reason": "Elb.InitialHealthChecking",
+                "Description": "Initial health checks in progress"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        }
+    ]
+},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773150059_87205","timestamp":1773150059000,"location":"debug_health_check.sh:191","message":"Testing Kong endpoint accessibility","data":{"kongIp":"10.250.66.191"},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773150069_87205","timestamp":1773150069000,"location":"debug_health_check.sh:214","message":"Kong endpoint NOT accessible","data":{"httpCode":"000","error":""},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773150069_87205","timestamp":1773150069000,"location":"debug_health_check.sh:219","message":"Checking security group rules","data":{},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150070_87205","timestamp":1773150070000,"location":"debug_health_check.sh:241","message":"Security group rules checked","data":[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8001,
+        "ToPort": 8001,
+        "UserIdGroupPairs": [
+            {
+                "Description": "Allow Kong Admin proxy traffic from NLB",
+                "UserId": "650012445044",
+                "GroupId": "sg-0f5db91a2e0c070e2"
+            }
+        ],
+        "IpRanges": [
+            {
+                "Description": "Allow Kong Admin API from VPC",
+                "CidrIp": "10.250.0.0/16"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+],"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150071_87205","timestamp":1773150071000,"location":"debug_health_check.sh:258","message":"NLB SG allowed","data":{"nlbSg":"sg-0f5db91a2e0c070e2","ec2Sg":"sg-0127513e829b5cb68"},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150071_87205","timestamp":1773150071000,"location":"debug_health_check.sh:268","message":"Checking ASG health check configuration","data":{"asgName":"pulse-kong-asg"},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150072_87205","timestamp":1773150072000,"location":"debug_health_check.sh:285","message":"ASG config retrieved","data":{
+    "HealthCheckType": "ELB",
+    "HealthCheckGracePeriod": 120,
+    "TargetGroupARNs": [
+        "arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"
+    ]
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150072_87205","timestamp":1773150072000,"location":"debug_health_check.sh:300","message":"Instance status in ASG","data":{
+    "LifecycleState": "InService",
+    "HealthStatus": "HEALTHY",
+    "ASGName": "pulse-kong-asg"
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150072_87205","timestamp":1773150072000,"location":"debug_health_check.sh:305","message":"Checking Kong container status","data":{},"runId":"health_check_debug","hypothesisId":"G"}
+{"id":"log_1773150072_87205","timestamp":1773150072000,"location":"debug_health_check.sh:348","message":"Diagnostic complete","data":{"instanceId":"i-08f94f60b7146e884","kongIp":"10.250.66.191","targetState":"initial"},"runId":"health_check_debug","hypothesisId":"SUMMARY"}
+{"id":"log_1773150079_87534","timestamp":1773150079000,"location":"debug_health_check.sh:62","message":"Starting Target Group health check diagnostic","data":{"instanceId":"i-08f94f60b7146e884","kongIp":"10.250.66.191"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150080_87534","timestamp":1773150080000,"location":"debug_health_check.sh:79","message":"Target Group found via ASG","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9","tgName":"pulse-kong-tg"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150080_87534","timestamp":1773150080000,"location":"debug_health_check.sh:127","message":"Target Group found","data":{"tgArn":"arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"},"runId":"health_check_debug","hypothesisId":"A"}
+{"id":"log_1773150080_87534","timestamp":1773150080000,"location":"debug_health_check.sh:131","message":"Checking health check configuration","data":{},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773150081_87534","timestamp":1773150081000,"location":"debug_health_check.sh:152","message":"Health check config retrieved","data":{
+    "Path": "/status",
+    "Port": "8001",
+    "Protocol": "HTTP",
+    "Interval": 30,
+    "Timeout": 5,
+    "HealthyThreshold": 2,
+    "UnhealthyThreshold": 2,
+    "Matcher": "200-399"
+},"runId":"health_check_debug","hypothesisId":"B"}
+{"id":"log_1773150081_87534","timestamp":1773150081000,"location":"debug_health_check.sh:156","message":"Checking target health status","data":{"instanceId":"i-08f94f60b7146e884"},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773150082_87534","timestamp":1773150082000,"location":"debug_health_check.sh:186","message":"Target health status retrieved","data":{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "i-08f94f60b7146e884",
+                "Port": 8000
+            },
+            "HealthCheckPort": "8001",
+            "TargetHealth": {
+                "State": "unhealthy",
+                "Reason": "Target.FailedHealthChecks",
+                "Description": "Health checks failed"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        }
+    ]
+},"runId":"health_check_debug","hypothesisId":"C"}
+{"id":"log_1773150082_87534","timestamp":1773150082000,"location":"debug_health_check.sh:191","message":"Testing Kong endpoint accessibility","data":{"kongIp":"10.250.66.191"},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773150092_87534","timestamp":1773150092000,"location":"debug_health_check.sh:214","message":"Kong endpoint NOT accessible","data":{"httpCode":"000","error":""},"runId":"health_check_debug","hypothesisId":"D"}
+{"id":"log_1773150092_87534","timestamp":1773150092000,"location":"debug_health_check.sh:219","message":"Checking security group rules","data":{},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150093_87534","timestamp":1773150093000,"location":"debug_health_check.sh:241","message":"Security group rules checked","data":[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 8001,
+        "ToPort": 8001,
+        "UserIdGroupPairs": [
+            {
+                "Description": "Allow Kong Admin proxy traffic from NLB",
+                "UserId": "650012445044",
+                "GroupId": "sg-0f5db91a2e0c070e2"
+            }
+        ],
+        "IpRanges": [
+            {
+                "Description": "Allow Kong Admin API from VPC",
+                "CidrIp": "10.250.0.0/16"
+            }
+        ],
+        "Ipv6Ranges": [],
+        "PrefixListIds": []
+    }
+],"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150094_87534","timestamp":1773150094000,"location":"debug_health_check.sh:258","message":"NLB SG allowed","data":{"nlbSg":"sg-0f5db91a2e0c070e2","ec2Sg":"sg-0127513e829b5cb68"},"runId":"health_check_debug","hypothesisId":"E"}
+{"id":"log_1773150094_87534","timestamp":1773150094000,"location":"debug_health_check.sh:268","message":"Checking ASG health check configuration","data":{"asgName":"pulse-kong-asg"},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150095_87534","timestamp":1773150095000,"location":"debug_health_check.sh:285","message":"ASG config retrieved","data":{
+    "HealthCheckType": "ELB",
+    "HealthCheckGracePeriod": 120,
+    "TargetGroupARNs": [
+        "arn:aws:elasticloadbalancing:ap-south-1:650012445044:targetgroup/pulse-kong-tg/9eff70e3d4d44ff9"
+    ]
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150095_87534","timestamp":1773150095000,"location":"debug_health_check.sh:300","message":"Instance status in ASG","data":{
+    "LifecycleState": "InService",
+    "HealthStatus": "HEALTHY",
+    "ASGName": "pulse-kong-asg"
+},"runId":"health_check_debug","hypothesisId":"F"}
+{"id":"log_1773150095_87534","timestamp":1773150095000,"location":"debug_health_check.sh:305","message":"Checking Kong container status","data":{},"runId":"health_check_debug","hypothesisId":"G"}
+{"id":"log_1773150095_87534","timestamp":1773150095000,"location":"debug_health_check.sh:348","message":"Diagnostic complete","data":{"instanceId":"i-08f94f60b7146e884","kongIp":"10.250.66.191","targetState":"unhealthy"},"runId":"health_check_debug","hypothesisId":"SUMMARY"}

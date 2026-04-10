@@ -40,6 +40,18 @@ public class ApplicationConfig {
   public String devModeApiKey;
   public SessionReplayS3Config sessionReplayS3;
   public String replayApiBaseUrl;
+  /** S3 key prefix for heatmap screenshot JSON (ingestion default: heatmap-screenshots). */
+  public String heatmapScreenshotsS3Prefix;
+  /**
+   * Optional public or CDN base URL for heatmap screenshot objects (no trailing slash). When set,
+   * API returns {@code base + "/" + objectKey}. When unset, presigned GET URLs are used.
+   */
+  public String heatmapScreenshotsPublicBaseUrl;
+  /**
+   * When {@code bucket} is set, heatmap screenshot list/presign uses this bucket; otherwise session
+   * replay S3 bucket. Endpoint/keys fall back to session replay when omitted (same MinIO).
+   */
+  public HeatmapS3Config heatmapS3;
 
   /**
    * Get the dev mode API key with a sensible default.

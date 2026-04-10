@@ -42,6 +42,10 @@ cd deploy
 ./scripts/logs.sh ai             # pulse-ai-agent
 ```
 
+## Heatmap screenshot ingestion
+
+**Service:** `pulse-heatmap-screenshot-ingestion` (Kafka → S3). Objects go to **`HEATMAP_S3_BUCKET`** (default `heatmap-assets`), prefix `heatmap-screenshots/`. **`pulse-server`** uses the same `HEATMAP_S3_*` vars to list/presign screenshot URLs. **Redis** is not started by deploy compose: set `REDIS_URL` or `REDIS_HOST` + `REDIS_PORT` for quota/dedupe. See `deploy/.env.example`.
+
 ## Pulse AI
 
 **Integrated (deploy stack):** `pulse-ai-agent` starts with `./scripts/start.sh -d`. Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini. Health: `curl -sf http://localhost:8000/health`.

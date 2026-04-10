@@ -48,6 +48,7 @@ public class HeatmapServiceImpl implements HeatmapService {
   private final ConfigService configService;
   private final ClickhouseQueryService clickhouseQueryService;
   private final InteractionDao interactionDao;
+  private final HeatmapScreenshotUrlResolver heatmapScreenshotUrlResolver;
 
   @Override
   public Single<HeatmapDataRestResponse> getHeatmapData(
@@ -223,7 +224,7 @@ public class HeatmapServiceImpl implements HeatmapService {
                   ? nonBlankOrNull(appVersion)
                   : resolvedAppVersionOpt.orElse(null);
           List<String> screenshotUrls =
-              resolveScreenshotUrlsForScreen(
+              heatmapScreenshotUrlResolver.resolveForScreen(
                   projectId,
                   screenName,
                   dateFrom,
@@ -447,24 +448,6 @@ public class HeatmapServiceImpl implements HeatmapService {
         .layers(layers)
         .interactionsMetadata(interactionList)
         .build();
-  }
-
-  /**
-   * TODO: Load screenshot URLs for the screen (e.g. from S3 metadata or a project store). {@code
-   * appVersion}, {@code platform}, and {@code breakpoint} are already resolved (defaults applied in
-   * {@link #queryHeatmapAndBuildResponse} when the API omitted them). Returns an empty list until
-   * implemented.
-   */
-  @SuppressWarnings("unused")
-  private static List<String> resolveScreenshotUrlsForScreen(
-      String projectId,
-      String screenName,
-      String dateFrom,
-      String dateTo,
-      String appVersion,
-      String platform,
-      String breakpoint) {
-    return Collections.emptyList();
   }
 
   private static String nonBlankOrNull(String value) {

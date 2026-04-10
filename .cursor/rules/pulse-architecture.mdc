@@ -14,6 +14,7 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 | `backend/server/` | REST API | Java 17, Vert.x 4.5, Guice, Maven | 8080 |
 | `backend/pulse-alerts-cron/` | Alert evaluation cron | Java/Vert.x | 4000 |
 | `backend/ingestion/` | OTEL Collector configs + ClickHouse schema | YAML/SQL | — |
+| `backend/heatmap-screenshot-ingestion/` | Heatmap screenshots (Kafka → S3); optional external Redis quota/dedupe | Node.js | — |
 | `pulse-ui/` | Dashboard | React 18, TypeScript, Mantine v7 | 3000 |
 | `pulse_ai/` | AI agent (`deploy` service `pulse-ai-agent` by default; standalone compose for AI-only dev) | Python, Google ADK + Gemini | 8000 |
 | `pulse-android-otel/` | Android SDK | Kotlin, OpenTelemetry | — |
@@ -25,6 +26,7 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 ```
 Mobile SDKs → OTEL Collector (port 4317/4318) → ClickHouse (otel DB)
 Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQuery  [Vector optional: service is commented out in `deploy/docker-compose.yml` by default; uncomment + set VECTOR_ENABLED=true in .env]
+Session replay / heatmap → Kafka → pulse-heatmap-screenshot-ingestion → S3 bucket `heatmap-assets` (keys under `heatmap-screenshots/`); optional external Redis for quota / dedupe
 ```
 
 ## Databases
