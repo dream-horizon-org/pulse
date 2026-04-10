@@ -43,7 +43,7 @@ DATA_QUERY_URL = "http://localhost:8080/v1/interactions/performance-metric/distr
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_health_returns_transformed_data():
+async def test_health_returns_transformed_data(pulse_tool_context):
     """Health tool returns list-of-dicts from columnar response."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_health import query_interaction_health
 
@@ -51,7 +51,7 @@ async def test_health_returns_transformed_data():
         return_value=httpx.Response(200, json=MOCK_HEALTH_RESPONSE)
     )
 
-    result = await query_interaction_health()
+    result = await query_interaction_health(tool_context=pulse_tool_context)
 
     assert result["status"] == "success"
     assert len(result["data"]) == 2
@@ -62,7 +62,7 @@ async def test_health_returns_transformed_data():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_health_sends_correct_request_body():
+async def test_health_sends_correct_request_body(pulse_tool_context):
     """Health tool sends QueryRequest with correct select/groupBy/orderBy."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_health import query_interaction_health
 
@@ -70,7 +70,7 @@ async def test_health_sends_correct_request_body():
         return_value=httpx.Response(200, json=MOCK_HEALTH_RESPONSE)
     )
 
-    await query_interaction_health(top_n=5)
+    await query_interaction_health(top_n=5, tool_context=pulse_tool_context)
 
     assert route.called
     body = route.calls[0].request.read()
@@ -86,7 +86,7 @@ async def test_health_sends_correct_request_body():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_health_with_specific_interactions():
+async def test_health_with_specific_interactions(pulse_tool_context):
     """Health tool filters by specific interaction names."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_health import query_interaction_health
 
@@ -94,7 +94,10 @@ async def test_health_with_specific_interactions():
         return_value=httpx.Response(200, json=MOCK_HEALTH_RESPONSE)
     )
 
-    await query_interaction_health(interaction_names=["ContestJoin"])
+    await query_interaction_health(
+        interaction_names=["ContestJoin"],
+        tool_context=pulse_tool_context,
+    )
 
     import json
     body = json.loads(route.calls[0].request.read())
@@ -106,7 +109,7 @@ async def test_health_with_specific_interactions():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_health_backend_error():
+async def test_health_backend_error(pulse_tool_context):
     """Health tool returns structured error on backend failure."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_health import query_interaction_health
 
@@ -117,7 +120,7 @@ async def test_health_backend_error():
         })
     )
 
-    result = await query_interaction_health()
+    result = await query_interaction_health(tool_context=pulse_tool_context)
 
     assert result["status"] == "error"
     assert "DB timeout" in result["message"]
@@ -131,7 +134,7 @@ async def test_health_backend_error():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_metrics_apdex_returns_data():
+async def test_metrics_apdex_returns_data(pulse_tool_context):
     """Metrics tool with apdex metric returns transformed data."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_metrics import query_interaction_metrics
 
@@ -140,7 +143,9 @@ async def test_metrics_apdex_returns_data():
     )
 
     result = await query_interaction_metrics(
-        metric_type="apdex", interaction_name="ContestJoin"
+        metric_type="apdex",
+        interaction_name="ContestJoin",
+        tool_context=pulse_tool_context,
     )
 
     assert result["status"] == "success"
@@ -150,7 +155,7 @@ async def test_metrics_apdex_returns_data():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_metrics_timeseries_includes_time_bucket():
+async def test_metrics_timeseries_includes_time_bucket(pulse_tool_context):
     """Metrics tool with timeseries=True sends TIME_BUCKET in select."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_metrics import query_interaction_metrics
 
@@ -162,7 +167,10 @@ async def test_metrics_timeseries_includes_time_bucket():
     )
 
     await query_interaction_metrics(
-        metric_type="apdex", interaction_name="ContestJoin", timeseries=True
+        metric_type="apdex",
+        interaction_name="ContestJoin",
+        timeseries=True,
+        tool_context=pulse_tool_context,
     )
 
     import json
@@ -188,7 +196,7 @@ async def test_metrics_invalid_type_returns_error():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_metrics_with_filters():
+async def test_metrics_with_filters(pulse_tool_context):
     """Metrics tool passes user filters to QueryRequest."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_metrics import query_interaction_metrics
 
@@ -200,6 +208,7 @@ async def test_metrics_with_filters():
         metric_type="latency",
         interaction_name="ContestJoin",
         filters='{"platform": "Android"}',
+        tool_context=pulse_tool_context,
     )
 
     import json
@@ -233,7 +242,7 @@ async def test_metrics_with_invalid_json_filters():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_sessions_returns_session_list():
+async def test_sessions_returns_session_list(pulse_tool_context):
     """Sessions tool scope=sessions returns session rows."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_sessions import query_interaction_sessions
 
@@ -247,7 +256,11 @@ async def test_sessions_returns_session_list():
         })
     )
 
-    result = await query_interaction_sessions(scope="sessions", interaction_name="ContestJoin")
+    result = await query_interaction_sessions(
+        scope="sessions",
+        interaction_name="ContestJoin",
+        tool_context=pulse_tool_context,
+    )
 
     assert result["status"] == "success"
     assert len(result["data"]) == 1
@@ -257,7 +270,7 @@ async def test_sessions_returns_session_list():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_sessions_stats_returns_aggregates():
+async def test_sessions_stats_returns_aggregates(pulse_tool_context):
     """Sessions tool scope=stats returns aggregate counts."""
     from pulse_ai.agents.em.tools.analytics.query_interaction_sessions import query_interaction_sessions
 
@@ -271,7 +284,11 @@ async def test_sessions_stats_returns_aggregates():
         })
     )
 
-    result = await query_interaction_sessions(scope="stats", interaction_name="ContestJoin")
+    result = await query_interaction_sessions(
+        scope="stats",
+        interaction_name="ContestJoin",
+        tool_context=pulse_tool_context,
+    )
 
     assert result["status"] == "success"
     assert result["data"][0]["total_sessions"] == 500
@@ -298,7 +315,7 @@ async def test_sessions_invalid_scope_returns_error():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_breakdown_device_returns_data():
+async def test_breakdown_device_returns_data(pulse_tool_context):
     """Breakdown tool with device dimension returns grouped data."""
     from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
@@ -315,7 +332,11 @@ async def test_breakdown_device_returns_data():
         })
     )
 
-    result = await breakdown_interaction(dimension="device", interaction_name="ContestJoin")
+    result = await breakdown_interaction(
+        dimension="device",
+        interaction_name="ContestJoin",
+        tool_context=pulse_tool_context,
+    )
 
     assert result["status"] == "success"
     assert len(result["data"]) == 2
@@ -338,7 +359,7 @@ async def test_breakdown_invalid_dimension_returns_error():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_breakdown_sends_correct_groupby():
+async def test_breakdown_sends_correct_groupby(pulse_tool_context):
     """Breakdown tool sends correct groupBy for the dimension."""
     from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
@@ -349,7 +370,11 @@ async def test_breakdown_sends_correct_groupby():
         })
     )
 
-    await breakdown_interaction(dimension="region", interaction_name="ContestJoin")
+    await breakdown_interaction(
+        dimension="region",
+        interaction_name="ContestJoin",
+        tool_context=pulse_tool_context,
+    )
 
     import json
     body = json.loads(route.calls[0].request.read())
@@ -359,7 +384,7 @@ async def test_breakdown_sends_correct_groupby():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_breakdown_cross_dimensional_filter():
+async def test_breakdown_cross_dimensional_filter(pulse_tool_context):
     """Breakdown with cross-dimensional filter (e.g. device + platform filter)."""
     from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
@@ -378,6 +403,7 @@ async def test_breakdown_cross_dimensional_filter():
         interaction_name="ContestJoin",
         time_range="last_7d",
         filters='{"platform": "Android"}',
+        tool_context=pulse_tool_context,
     )
 
     assert result["status"] == "success"
@@ -393,7 +419,7 @@ async def test_breakdown_cross_dimensional_filter():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_breakdown_same_dimension_as_filter_warns():
+async def test_breakdown_same_dimension_as_filter_warns(pulse_tool_context):
     """Breakdown with filter matching the same dimension produces valid but redundant query.
 
     dimension="platform" + filters='{"platform":"Android"}' is technically valid SQL
@@ -417,6 +443,7 @@ async def test_breakdown_same_dimension_as_filter_warns():
         interaction_name="PaymentCheckout",
         time_range="last_7d",
         filters='{"platform": "Android"}',
+        tool_context=pulse_tool_context,
     )
 
     # Currently this succeeds but returns only 1 platform (redundant filter)
@@ -431,7 +458,7 @@ async def test_breakdown_same_dimension_as_filter_warns():
 @respx.mock
 @freeze_time("2026-03-09T12:00:00Z")
 @pytest.mark.asyncio
-async def test_breakdown_platform_no_filters_returns_all_platforms():
+async def test_breakdown_platform_no_filters_returns_all_platforms(pulse_tool_context):
     """Breakdown with dimension=platform and NO filters returns all platforms."""
     from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
@@ -452,6 +479,7 @@ async def test_breakdown_platform_no_filters_returns_all_platforms():
         dimension="platform",
         interaction_name="PaymentCheckout",
         time_range="last_7d",
+        tool_context=pulse_tool_context,
     )
 
     assert result["status"] == "success"
