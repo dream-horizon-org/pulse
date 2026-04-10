@@ -195,17 +195,41 @@ def build_rca_formatter_prompt(ctx=None) -> str:
     Injects the rca_analysis_result from session state so the formatter can
     convert the RCA agent's text output into a validated RcaStructuredReportV1
     JSON object via output_schema — no tool call required.
+    
+    Also extracts the original RootCausePayload so formatter can map segments
+    to their exampleSessionIds.
     """
     rca_result = None
+    root_cause_payload_json = None
     if ctx:
         raw_state = getattr(ctx, "state", None)
         if raw_state is not None:
             try:
                 rca_result = raw_state.get("rca_analysis_result")
+                # Extract original payload for session ID mapping
+                user_message = raw_state.get("messages", [])
+                if user_message and len(user_message) > 0:
+                    # First user message contains the payload in the prompt
+                    for msg in user_message:
+                        if hasattr(msg, 'content') and isinstance(msg.content, str):
+                            # Extract JSON payload from the message text
+                            if 'RootCausePayload(JSON):' in msg.content:
+                                try:
+                                    import json
+                                    payload_start = msg.content.index('RootCausePayload(JSON):') + len('RootCausePayload(JSON):\n')
+                                    payload_json_str = msg.content[payload_start:].strip()
+                                    # Try to parse just the JSON part
+                                    if payload_json_str.startswith('{'):
+                                        payload_json_str = payload_json_str.split('\n## Session Evidence')[0] if '\n## Session Evidence' in payload_json_str else payload_json_str
+                                        root_cause_payload_json = payload_json_str
+                                        break
+                                except Exception:
+                                    pass
             except Exception:
                 pass
 
     analysis = rca_result or "No analysis data available."
+    payload_section = f"\n\n## Original RootCausePayload (for session ID mapping)\n{root_cause_payload_json}" if root_cause_payload_json else ""
 
     return f"""\
 You are the RCA Structured Formatter for Pulse AI.
@@ -213,7 +237,7 @@ You are the RCA Structured Formatter for Pulse AI.
 Your only task is to convert the RCA analysis below into a structured JSON report.
 
 ## RCA Analysis
-{analysis}
+{analysis}{payload_section}
 
 ## Output Schema Instructions
 
@@ -243,23 +267,42 @@ If no explicit summary exists, write a concise summary based on the analysis (up
 
 ## Extracting Session IDs from Payload
 
-**CRITICAL**: For each segment in your output, map it to the corresponding segment in the original RootCausePayload JSON and extract its `exampleSessionIds`:
+**CRITICAL**: For each segment in your output, map it to the corresponding segment in the "Original RootCausePayload" section above and extract its `exampleSessionIds`:
 
 **Mapping segments**:
-- Match segment by **label** (e.g., "OsVersion: 11" in output matches "label": "OsVersion: 11" in rootCausePayload.segments)
+- Look at the "Original RootCausePayload" section which contains the payload with segments and their exampleSessionIds
+- Match segment by **label** (e.g., "OsVersion: 11" in output matches "label": "OsVersion: 11" in the payload's segments array)
 - Extract the `exampleSessionIds` array from the matched payload segment
 - Copy those session IDs into the output segment's `affected_sessions` field
 
-**Example**:
-- RootCausePayload has: `{"label": "OsVersion: 11", "exampleSessionIds": ["s_1506", "s_1540"]}`
-- Output segment should have: `"affected_sessions": ["s_1506", "s_1540"]`
+**Example from payload**:
+```json
+"segments": [
+  {"label": "OsVersion: 11", "exampleSessionIds": ["s_1506", "s_1540"]},
+  {"label": "Platform: android", "exampleSessionIds": ["s_1052", "s_243"]}
+]
+```
+
+Your output segments should have:
+```json
+{
+  "title": "OsVersion: 11",
+  "affected_sessions": ["s_1506", "s_1540"]
+},
+{
+  "title": "Platform: android", 
+  "affected_sessions": ["s_1052", "s_243"]
+}
+```
 
 **CRITICAL RULES**:
 1. Every output segment MUST have an `affected_sessions` field — never omit it
-2. Extract sessions DIRECTLY from the payload's `exampleSessionIds` for each segment
-3. Do NOT search for sessions in the analysis text
-4. Do NOT invent session IDs
-5. Use empty array [] ONLY if the payload segment has no exampleSessionIds
+2. Extract sessions DIRECTLY from the payload's `exampleSessionIds` for each segment by matching labels
+3. Use the payload JSON in the "Original RootCausePayload" section above — it has all the mappings
+4. Do NOT search for sessions in the analysis text
+5. Do NOT invent session IDs
+6. Use empty array [] ONLY if the payload segment has no exampleSessionIds
+7. The segment **title** in your output should match the segment **label** in the payload for accurate mapping
 
 Ground metric values strictly in the original RootCausePayload JSON. Do not invent or omit metrics.
 If no anomalies were found or data is unavailable: use an empty `segments` array and an honest `executive_summary`.
