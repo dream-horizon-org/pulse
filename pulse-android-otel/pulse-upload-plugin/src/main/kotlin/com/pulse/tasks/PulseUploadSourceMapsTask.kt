@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // todo replace with Kotlin serialisation
+
 package com.pulse.tasks
 
 import com.google.gson.Gson
