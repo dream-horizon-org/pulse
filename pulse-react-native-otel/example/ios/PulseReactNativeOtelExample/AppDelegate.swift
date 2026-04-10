@@ -4,6 +4,7 @@ import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import PulseReactNativeOtel
 import OpenTelemetryApi
+import OpenTelemetrySdk
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -22,25 +23,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
-    
+
     let globalAttributes: [String: AttributeValue] = [
       "global.string": AttributeValue.string("test_string_value"),
       "global.number": AttributeValue.int(42),
       "global.bool": AttributeValue.bool(true),
     ]
-    
-    // Example: Initialize with instrumentations configuration
-    // You can configure URLSession, Sessions, SignPost, and Interaction instrumentations
+
+    // Demonstrates every `PulseSDK.initialize` parameter (each forwards into PulseKit; RN merges screen processors).
     PulseSDK.initialize(
       endpointBaseUrl: "http://127.0.0.1:4318",
-      projectId: "default",
+      apiKey: "default-project_devkey01",
+      configEndpointUrl: "http://127.0.0.1:8080/v1/configs/active/",
+      customEventCollectorUrl: "http://127.0.0.1:4318/v1/logs",
+      endpointHeaders: ["X-RN-Example-App": "true"],
       globalAttributes: globalAttributes,
+      resource: { attributes in
+        attributes["app.rn_example.resource"] = AttributeValue.string("PulseReactNativeOtelExample")
+      },
+      configuration: { kit in
+        kit.includeScreenAttributes = true
+        kit.includeNetworkAttributes = true
+        kit.includeGlobalAttributes = true
+      },
       instrumentations: { config in
-        // Configure URLSession instrumentation
         config.screenLifecycle { screenLifecycleConfig in
           screenLifecycleConfig.enabled(false)
         }
-      }
+      },
+      dataCollectionState: .allowed
     )
 
     window = UIWindow(frame: UIScreen.main.bounds)
@@ -50,7 +61,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       in: window,
       launchOptions: launchOptions
     )
-    
+
     // Test: Track an event after 10 seconds to verify screen name is attached
     DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
       let currentTimeMs = Date().timeIntervalSince1970 * 1000
@@ -62,7 +73,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
           "source": AttributeValue.string("app_delegate")
         ]
       )
-      
+
       let span = PulseSDK.startSpan(
         name: "test_span_from_app_delegate",
         params: [

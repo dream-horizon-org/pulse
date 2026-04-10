@@ -10,7 +10,7 @@ public class PulseSDK: NSObject {
   
     public static func initialize(
         endpointBaseUrl: String,
-        projectId: String,
+        apiKey: String,
         configEndpointUrl: String? = nil,
         customEventCollectorUrl: String? = nil,
         endpointHeaders: [String: String]? = nil,
@@ -18,6 +18,10 @@ public class PulseSDK: NSObject {
         resource: ((inout [String: AttributeValue]) -> Void)? = nil,
         configuration: ((inout PulseKitConfiguration) -> Void)? = nil,
         instrumentations: ((inout InstrumentationConfiguration) -> Void)? = nil,
+        dataCollectionState: PulseDataCollectionConsent = .allowed,
+        beforeSendSpan: BeforeSendSpanCallback? = nil,
+        beforeSendLog: BeforeSendLogCallback? = nil,
+        beforeSendMetric: BeforeSendMetricCallback? = nil,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = nil,
         loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil
     ) {
@@ -63,7 +67,7 @@ public class PulseSDK: NSObject {
 
         Pulse.shared.initialize(
             endpointBaseUrl: endpointBaseUrl,
-            projectId: projectId,
+            apiKey: apiKey,
             configEndpointUrl: configEndpointUrl,
             customEventCollectorUrl: customEventCollectorUrl,
             endpointHeaders: endpointHeaders,
@@ -71,6 +75,10 @@ public class PulseSDK: NSObject {
             resource: rnResource,
             configuration: configuration,
             instrumentations: instrumentations,
+            dataCollectionState: dataCollectionState,
+            beforeSendSpan: beforeSendSpan,
+            beforeSendLog: beforeSendLog,
+            beforeSendMetric: beforeSendMetric,
             tracerProviderCustomizer: mergedTracerProviderCustomizer,
             loggerProviderCustomizer: mergedLoggerProviderCustomizer
         )
@@ -216,6 +224,27 @@ public class PulseSDK: NSObject {
         )
     }
   
+    /// Native Swift API; use from iOS code with type safety.
+    public static func setDataCollectionState(_ consent: PulseDataCollectionConsent) {
+        Pulse.shared.setDataCollectionState(consent)
+    }
+
+    /// RN / ObjC entry: JS sends string enum values (`"ALLOWED"` / `"DENIED"` / `"PENDING"`).
+    /// `PulseDataCollectionConsent` is not `@objc`, so the bridge cannot pass it from `NSString` otherwise.
+    @objc(pulseSetDataCollectionState:)
+    public static func x(_ state: String) {
+        let consent: PulseDataCollectionConsent
+        switch state.uppercased() {
+        case "ALLOWED":
+            consent = .allowed
+        case "DENIED":
+            consent = .denied
+        default:
+            consent = .pending
+        }
+        setDataCollectionState(consent)
+    }
+
     @objc(pulseIsInitialized)
     public static func isSDKInitialized() -> Bool {
         return Pulse.shared.isSDKInitialized()

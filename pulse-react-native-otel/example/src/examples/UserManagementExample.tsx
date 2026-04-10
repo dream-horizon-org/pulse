@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import {
   Pulse,
+  PulseDataCollectionConsent,
   type PulseAttributes,
 } from '@dreamhorizonorg/pulse-react-native';
 
@@ -39,6 +40,18 @@ export default function UserManagementExample() {
     setUserId(null);
   };
 
+  const handleSetDataCollectionStateToDenied = () => {
+    Pulse.setDataCollectionState(PulseDataCollectionConsent.DENIED);
+  };
+
+  const handleSetDataCollectionStateToAllowed = () => {
+    Pulse.setDataCollectionState(PulseDataCollectionConsent.ALLOWED);
+  };
+
+  const handleSetDataCollectionStateToPending = () => {
+    Pulse.setDataCollectionState(PulseDataCollectionConsent.PENDING);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>User Management</Text>
@@ -63,6 +76,37 @@ export default function UserManagementExample() {
         onPress={handleRemoveUserAndEvent}
       >
         <Text style={styles.buttonText}>Remove User & Trigger Event</Text>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.button,
+          styles.removeButton,
+          { opacity: pressed ? 0.6 : 1.0 },
+        ]}
+        onPress={handleSetDataCollectionStateToDenied}
+      >
+        <Text style={styles.buttonText}>Set Data Collection State to Denied</Text>
+      </Pressable>
+      <Pressable
+        style={({ pressed }) => [
+          styles.button,
+          styles.removeButton,
+          { opacity: pressed ? 0.6 : 1.0 },
+        ]}
+        onPress={handleSetDataCollectionStateToAllowed}
+      >
+        <Text style={styles.buttonText}>Set Data Collection State to Allowed</Text>
+      </Pressable>
+      <Pressable
+        style={({ pressed }) => [
+          styles.button,
+          styles.removeButton,
+          { opacity: pressed ? 0.6 : 1.0 },
+        ]}
+        onPress={handleSetDataCollectionStateToPending}
+      >
+        <Text style={styles.buttonText}>Set Data Collection State to Pending</Text>
       </Pressable>
     </View>
   );

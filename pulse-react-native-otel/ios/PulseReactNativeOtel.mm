@@ -86,6 +86,11 @@ RCT_EXPORT_MODULE()
   [PulseSDK pulseSetUserProperty:name value:attrValue];
 }
 
+- (void)doSetDataCollectionState:(NSString *)state
+{
+  [PulseSDK pulseSetDataCollectionState:state ?: @"PENDING"];
+}
+
 - (NSNumber *)doSetCurrentScreenName:(NSString *)screenName
 {
   [ReactNativeScreenNameTracker setCurrentScreenName:screenName];
@@ -136,6 +141,8 @@ RCT_EXPORT_MODULE()
 - (void)setUserProperties:(NSDictionary *)properties { [self doSetUserProperties:properties]; }
 
 - (void)setUserProperty:(NSString *)name value:(NSString *)value { [self doSetUserProperty:name value:value]; }
+
+- (void)setDataCollectionState:(NSString *)state { [self doSetDataCollectionState:state]; }
 
 - (void)triggerAnr { }
 
@@ -195,6 +202,9 @@ RCT_EXPORT_METHOD(setUserProperties:(NSDictionary *)properties)
 
 RCT_EXPORT_METHOD(setUserProperty:(NSString *)name value:(NSString *)value)
 { [self doSetUserProperty:name value:value]; }
+
+RCT_EXPORT_METHOD(setDataCollectionState:(NSString *)state)
+{ [self doSetDataCollectionState:state]; }
 
 RCT_EXPORT_METHOD(triggerAnr)
 { }
