@@ -1,21 +1,24 @@
 package org.dreamhorizon.pulseserver.service.configs.models
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 
 /**
  * One derived-metric rule under `signals.metricsToAdd`.
  */
-@JsonIgnoreProperties(ignoreUnknown = true)
 data class MetricsToAddEntry(
-    @JsonProperty("name")
+    @param:JsonProperty("name")
+    @get:JsonProperty("name")
     var name: String? = null,
-    @JsonProperty("target")
+    @param:JsonProperty("target")
+    @get:JsonProperty("target")
     var target: MetricsToAddTarget? = null,
-    @JsonProperty("condition")
+    @param:JsonProperty("condition")
+    @get:JsonProperty("condition")
     var condition: EventFilter? = null,
-    @JsonProperty("type")
+    @param:JsonProperty("type")
+    @get:JsonProperty("type")
     var type: MetricsType? = null,
-    @JsonProperty("attributesToPick")
+    @param:JsonProperty("attributesToPick")
+    @get:JsonProperty("attributesToPick")
     var attributesToPick: List<EventFilter>? = null,
 )
