@@ -19,6 +19,7 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 | `pulse-ui/` | Dashboard | React 18, TypeScript, Mantine v7 | 3000 |
 | `pulse_ai/` | AI agent (`deploy` service `pulse-ai-agent` by default; standalone compose for AI-only dev) | Python, Google ADK + Gemini | 8000 |
 | `pulse-android-otel/` | Android SDK | Kotlin, OpenTelemetry | — |
+| `pulse-ios-otel/` | iOS SDK (PulseKit) | Swift, OpenTelemetry | — |
 | `pulse-react-native-otel/` | React Native SDK | TypeScript | — |
 | `deploy/` | Docker Compose, scripts, Terraform | — | — |
 
