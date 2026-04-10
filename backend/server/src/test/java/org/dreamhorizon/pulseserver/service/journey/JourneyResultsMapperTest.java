@@ -36,9 +36,11 @@ class JourneyResultsMapperTest {
 
     assertThat(out.getLinks()).hasSize(2);
     assertThat(out.getLinks().get(0).getSource()).isEqualTo("ENTRY");
-    assertThat(out.getLinks().get(0).getTarget()).isEqualTo("App_Launch");
+    assertThat(out.getLinks().get(0).getTarget()).isEqualTo("App_Launch::0");
     assertThat(out.getLinks().get(0).getValue()).isEqualTo(100L);
+    assertThat(out.getLinks().get(1).getSource()).isEqualTo("App_Launch::0");
+    assertThat(out.getLinks().get(1).getTarget()).isEqualTo("Screen_View: Home::1");
     assertThat(out.getNodes().stream().map(n -> n.getName()))
-      .contains("ENTRY", "App_Launch", "Screen_View: Home");
+      .contains("ENTRY", "App_Launch::0", "Screen_View: Home::1");
   }
 }
