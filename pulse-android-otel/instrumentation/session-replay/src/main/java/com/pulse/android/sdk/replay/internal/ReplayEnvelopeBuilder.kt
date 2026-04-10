@@ -16,13 +16,14 @@ import kotlinx.serialization.json.jsonObject
 
 internal object ReplayEnvelopeBuilder {
     private const val ANONYMOUS_USER_ID = "anonymous"
-    private const val SNAPSHOT_SOURCE = "android"
+    private const val SNAPSHOT_SOURCE = "Android"
 
     fun buildEnvelope(
         sessionId: String,
         events: List<ReplayEvent>,
         projectId: String,
         userId: String,
+        appVersion: String? = null,
     ): String {
         val wireSnapshotEvents = ReplayEventPayloadEncoder.toPulseReplayWireEvents(events)
         val envelope =
@@ -35,6 +36,7 @@ internal object ReplayEnvelopeBuilder {
                         sessionId = sessionId,
                         snapshotData = wireSnapshotEvents,
                         snapshotSource = SNAPSHOT_SOURCE,
+                        appVersion = appVersion?.takeIf { it.isNotEmpty() },
                     ),
             )
         return PulseReplayJson.instance.encodeToString(envelope)

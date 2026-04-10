@@ -36,17 +36,13 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Session Replay integration: mirrors PostHog Android (Curtains, touch events, screenshot + wireframe).
  * Implements [SessionReplayController]. Install via [install]; provide [ReplayEventEmitter] to receive events.
- * @param context non ui [Context]
- * @param config [SessionReplayConfig] to customise the session handling
- * @param eventEmitter [ReplayEventEmitter] to emit the event
- * @param sessionIdProvider Supplies the session ID for each batch (e.g. from RUM [io.opentelemetry.android.session.SessionProvider]).
- * Replay batches use this ID so they align with the same session as other telemetry.
  */
 public class SessionReplayIntegration(
     private val context: Context,
     private val config: SessionReplayConfig,
     private val eventEmitter: ReplayEventEmitter,
     private val sessionIdProvider: () -> String,
+    private val screenNameProvider: () -> String,
 ) : SessionReplayController {
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val logger: (String) -> Unit = { msg ->
@@ -231,7 +227,7 @@ public class SessionReplayIntegration(
                 wireframe = wireframeOrNull,
                 status = status,
                 timestamp = timestamp,
-                view = view,
+                screenName = screenNameProvider().takeIf { it.isNotBlank() } ?: "unknown",
                 screenWidth = screenWidth,
                 screenHeight = screenHeight,
             )

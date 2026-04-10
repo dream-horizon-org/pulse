@@ -23,6 +23,7 @@ dependencies {
     // using api as we are exposing the pulse.api types
     api(projects.pulseAndroidApi)
     implementation(projects.androidAgent)
+    implementation(projects.services)
     implementation(projects.common)
     implementation(projects.pulseSemconv)
     implementation(projects.pulseSamplingModels)

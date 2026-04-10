@@ -44,7 +44,9 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayEnvelope$Compa
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayEnvelopeProperties {
 	public static final field Companion Lcom/pulse/android/sdk/replay/models/PulseReplayEnvelopeProperties$Companion;
-	public fun <init> (Ljava/lang/String;Ljava/util/List;Ljava/lang/String;)V
+	public fun <init> (Ljava/lang/String;Ljava/util/List;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getAppVersion ()Ljava/lang/String;
 	public final fun getSessionId ()Ljava/lang/String;
 	public final fun getSnapshotData ()Ljava/util/List;
 	public final fun getSnapshotSource ()Ljava/lang/String;
@@ -124,7 +126,8 @@ public final class com/pulse/android/sdk/replay/models/PulseReplayJson {
 
 public final class com/pulse/android/sdk/replay/models/PulseReplayMetaData : com/pulse/android/sdk/replay/models/PulseReplayEventData {
 	public static final field Companion Lcom/pulse/android/sdk/replay/models/PulseReplayMetaData$Companion;
-	public fun <init> (Ljava/lang/String;II)V
+	public fun <init> (Ljava/lang/String;IILjava/lang/String;)V
+	public final fun getAspectRatio ()Ljava/lang/String;
 	public final fun getHeight ()I
 	public final fun getHref ()Ljava/lang/String;
 	public final fun getWidth ()I

@@ -49,11 +49,12 @@ public abstract interface class com/pulse/android/sdk/replay/ReplayStorageEncryp
 }
 
 public final class com/pulse/android/sdk/replay/SessionReplayBootstrap {
-	public fun <init> (Lcom/pulse/android/sdk/replay/SessionReplayConfig;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Z)V
-	public synthetic fun <init> (Lcom/pulse/android/sdk/replay/SessionReplayConfig;Ljava/lang/String;Lkotlin/jvm/functions/Function0;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/SessionReplayConfig;Ljava/lang/String;Lkotlin/jvm/functions/Function0;ZLkotlin/jvm/functions/Function0;)V
+	public synthetic fun <init> (Lcom/pulse/android/sdk/replay/SessionReplayConfig;Ljava/lang/String;Lkotlin/jvm/functions/Function0;ZLkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getConfig ()Lcom/pulse/android/sdk/replay/SessionReplayConfig;
 	public final fun getProjectId ()Ljava/lang/String;
+	public final fun getScreenNameProvider ()Lkotlin/jvm/functions/Function0;
 	public final fun getUserIdProvider ()Lkotlin/jvm/functions/Function0;
 	public fun hashCode ()I
 	public final fun isStartActive ()Z
@@ -117,7 +118,7 @@ public final class com/pulse/android/sdk/replay/SessionReplayInstrumentation$Com
 }
 
 public final class com/pulse/android/sdk/replay/SessionReplayIntegration : com/pulse/android/sdk/replay/SessionReplayController {
-	public fun <init> (Landroid/content/Context;Lcom/pulse/android/sdk/replay/SessionReplayConfig;Lcom/pulse/android/sdk/replay/ReplayEventEmitter;Lkotlin/jvm/functions/Function0;)V
+	public fun <init> (Landroid/content/Context;Lcom/pulse/android/sdk/replay/SessionReplayConfig;Lcom/pulse/android/sdk/replay/ReplayEventEmitter;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;)V
 	public final fun flush ()V
 	public final fun install ()V
 	public fun isActive ()Z
