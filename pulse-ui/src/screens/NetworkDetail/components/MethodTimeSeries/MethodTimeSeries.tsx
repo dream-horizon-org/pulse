@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Box, Text } from "@mantine/core";
 import { IconChartLine, IconActivity } from "@tabler/icons-react";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
 import {
   AreaChart,
@@ -13,6 +14,8 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { MethodTimeSeriesProps } from "./MethodTimeSeries.interface";
 import classes from "./MethodTimeSeries.module.css";
+
+dayjs.extend(utc);
 
 // Color palette for HTTP methods
 const METHOD_COLORS: Record<string, string> = {
@@ -201,10 +204,12 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
 
   // Format time for display
   const formatTime = (timestamp: string) => {
-    const date = dayjs(timestamp);
+    const date = dayjs.utc(timestamp);
+    if (!date.isValid()) return String(timestamp);
     if (bucketSize.includes("d")) {
       return date.format("MMM DD");
-    } else if (bucketSize.includes("h")) {
+    }
+    if (bucketSize.includes("h")) {
       return date.format("MMM DD HH:mm");
     }
     return date.format("HH:mm");
@@ -298,7 +303,8 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
               formatter: createTooltipFormatter({
                 valueFormatter: (value: number) =>
                   isGraphqlMode ? `${value.toFixed(1)}%` : value.toLocaleString(),
-                customHeaderFormatter: (axisValue: any) => axisValue || "",
+                customHeaderFormatter: (axisValue: any) =>
+                  axisValue ? formatTime(String(axisValue)) : "",
               }),
             },
             legend: {
@@ -307,12 +313,13 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
             },
             xAxis: {
               type: "category",
-              data: timePoints.map(formatTime),
+              data: timePoints,
               axisTick: {
                 alignWithLabel: true,
               },
               axisLabel: {
-                fontSize: 10
+                fontSize: 10,
+                formatter: (v: string) => formatTime(v),
               },
             },
             yAxis: {

@@ -41,6 +41,7 @@ android {
 
     kotlin {
         compilerOptions {
+            allWarningsAsErrors.set(true)
             jvmTarget.set(targetJvm)
             apiVersion.set(minKotlinVersion)
             languageVersion.set(minKotlinVersion)
@@ -86,6 +87,7 @@ apiValidation.validationDisabled = ignoredModules.contains(project.name)
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 dependencies {
+    detektPlugins(libs.findLibrary("detekt-rules-libraries").get())
     implementation(libs.findLibrary("androidx-annotation").get())
     implementation(libs.findLibrary("findbugs-jsr305").get())
     implementation(libs.findLibrary("auto-service-annotations").get())

@@ -1,9 +1,11 @@
 package com.pulse.android.sdk.replay
 
+import java.util.Objects
+
 /**
  * Minimal params the SDK passes so the session-replay module can build emitter and integration internally.
  */
-public data class SessionReplayBootstrap(
+public class SessionReplayBootstrap(
     public val config: SessionReplayConfig,
     public val projectId: String,
     /** Provides current user id for envelope; empty/null is treated as anonymous. */
@@ -14,4 +16,15 @@ public data class SessionReplayBootstrap(
      * capture will begin once consent transitions to [PulseDataCollectionConsent.ALLOWED].
      */
     public val isStartActive: Boolean = true,
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is SessionReplayBootstrap) return false
+        return config == other.config &&
+            projectId == other.projectId &&
+            userIdProvider == other.userIdProvider &&
+            isStartActive == other.isStartActive
+    }
+
+    override fun hashCode(): Int = Objects.hash(config, projectId, userIdProvider, isStartActive)
+}

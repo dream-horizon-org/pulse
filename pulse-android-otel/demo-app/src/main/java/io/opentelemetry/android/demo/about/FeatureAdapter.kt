@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.RecyclerView.NO_POSITION
 import io.opentelemetry.android.demo.R
 
 class FeatureAdapter(private val features: List<Feature>) : RecyclerView.Adapter<FeatureAdapter.FeatureViewHolder>() {
@@ -23,7 +24,10 @@ class FeatureAdapter(private val features: List<Feature>) : RecyclerView.Adapter
 
             itemView.setOnClickListener {
                 feature.isExpanded = !feature.isExpanded
-                notifyItemChanged(adapterPosition)
+                val pos = bindingAdapterPosition
+                if (pos != NO_POSITION) {
+                    notifyItemChanged(pos)
+                }
             }
         }
     }
