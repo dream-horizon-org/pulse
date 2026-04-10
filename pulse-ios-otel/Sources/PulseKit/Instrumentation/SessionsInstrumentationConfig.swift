@@ -19,7 +19,7 @@ public struct SessionsInstrumentationConfig {
     public mutating func enabled(_ value: Bool) {
         self.enabled = value
     }
-    
+
     public mutating func maxLifetime(_ value: TimeInterval?) {
         self.maxLifetime = value
     }
@@ -27,7 +27,7 @@ public struct SessionsInstrumentationConfig {
     public mutating func backgroundInactivityTimeout(_ value: TimeInterval?) {
         self.backgroundInactivityTimeout = value
     }
-    
+
     public mutating func shouldPersist(_ value: Bool) {
         self.shouldPersist = value
     }
@@ -37,7 +37,7 @@ public struct SessionsInstrumentationConfig {
         otelLogProcessor: LogRecordProcessor
     )? {
         guard self.enabled else { return nil }
-        
+
         let otelConfig = SessionConfig(
             backgroundInactivityTimeout: backgroundInactivityTimeout,
             maxLifetime: maxLifetime,
@@ -48,10 +48,10 @@ public struct SessionsInstrumentationConfig {
         let otelManager = SessionManager(configuration: otelConfig)
         // Register with SessionManagerProvider so session replay uses the same session
         SessionManagerProvider.register(sessionManager: otelManager)
-        
+
         let otelSpanProcessor = SessionSpanProcessor(sessionManager: otelManager)
         let otelLogProcessor = SessionLogRecordProcessor(nextProcessor: baseLogProcessor, sessionManager: otelManager)
-        
+
         return (otelSpanProcessor, otelLogProcessor)
     }
 }

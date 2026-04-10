@@ -91,7 +91,7 @@ internal class VisibleScreenTracker {
         guard queue.sync(execute: { _emitLifecycleSpans }) else { return }
         let screenName = String(describing: type(of: viewController))
 
-        var capturedTracer: Tracer? = nil
+        var capturedTracer: Tracer?
         var spanAlreadyExists = false
         queue.sync {
             capturedTracer = self.tracer
@@ -126,7 +126,7 @@ internal class VisibleScreenTracker {
     func viewControllerDidAppear(_ viewController: UIViewController) {
         let screenName = String(describing: type(of: viewController))
 
-        var capturedTracer: Tracer? = nil
+        var capturedTracer: Tracer?
         var emitLifecycle = false
         queue.sync { [weak self] in
             guard let self = self else { return }
@@ -301,4 +301,3 @@ internal class VisibleScreenTracker {
         }
     }
 }
-

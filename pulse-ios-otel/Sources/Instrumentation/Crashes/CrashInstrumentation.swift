@@ -125,7 +125,7 @@ public final class CrashInstrumentation {
         }
         observers.removeAll()
         isInstalled = false
-      //TODO: implement complete uninstall for crashes inclduing kscrash handlers 
+      // TODO: implement complete uninstall for crashes inclduing kscrash handlers 
     }
 
     // MARK: - Report Processing

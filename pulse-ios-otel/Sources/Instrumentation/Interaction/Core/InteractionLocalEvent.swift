@@ -18,4 +18,3 @@ public struct InteractionLocalEvent {
         self.props = props
     }
 }
-

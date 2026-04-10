@@ -50,7 +50,7 @@ public class Pulse {
     private var _consentMetricExporter: ConsentMetricExporter?
     private var meterProvider: MeterProviderSdk?
     private var instrumentationConfig: InstrumentationConfiguration?
-    
+
     // User session emitter
     internal lazy var userSessionEmitter: PulseUserSessionEmitter = {
         PulseUserSessionEmitter(
@@ -62,7 +62,7 @@ public class Pulse {
             }
         )
     }()
-    
+
     internal lazy var installationIdManager: PulseInstallationIdManager = {
         PulseInstallationIdManager(
             loggerProvider: { [weak self] in
@@ -73,8 +73,8 @@ public class Pulse {
             }
         )
     }()
-    
-    internal var _globalAttributes: [String: AttributeValue]? = nil
+
+    internal var _globalAttributes: [String: AttributeValue]?
     internal var _configuration: PulseKitConfiguration = PulseKitConfiguration()
 
     /// Config loaded from persistence at init; used for this launch. Nil when none persisted or decode failed.
@@ -232,7 +232,7 @@ public class Pulse {
                         }
                     }
                 }
-                
+
                 applyClickFeatureConfig(from: sdkConfig, to: &config, currentSdkName: currentSdkName)
             }
 
@@ -342,7 +342,7 @@ public class Pulse {
             feature.sdks.contains(currentSdkName) &&
             feature.sessionSampleRate > 0
         }
-        
+
         if let feature = clickFeature {
             let remoteConfig = ClickFeatureRemoteConfig.from(featureConfig: feature)
             var resolvedRage = config.uiKitTap.rage
@@ -440,7 +440,7 @@ public class Pulse {
         let selectExporter = PulseSignalSelectExporter(currentSdkName: currentSdkName)
         let logMap: [(PulseSignalMatchCondition, LogRecordExporter)] = [
             (PulseSignalMatchCondition.allMatchLogCondition, defaultLogsExporter),
-            (PulseSignalMatchCondition.customEventLogCondition(pulseTypeKey: PulseAttributes.pulseType, customEventValue: PulseAttributes.PulseTypeValues.customEvent), customEventExporter),
+            (PulseSignalMatchCondition.customEventLogCondition(pulseTypeKey: PulseAttributes.pulseType, customEventValue: PulseAttributes.PulseTypeValues.customEvent), customEventExporter)
         ]
         let logsExporter = selectExporter.makeSelectedLogExporter(logMap: logMap)
 
@@ -545,7 +545,7 @@ public class Pulse {
         for processor in spanProcessors {
             tracerProviderBuilder = tracerProviderBuilder.add(spanProcessor: processor)
         }
-        
+
         if let customizer = tracerProviderCustomizer {
             tracerProviderBuilder = customizer(tracerProviderBuilder)
         }
@@ -555,7 +555,7 @@ public class Pulse {
         let loggerProviderBuilder = LoggerProviderBuilder()
             .with(resource: resource)
             .with(processors: logProcessors)
-        
+
         let loggerProvider = loggerProviderBuilder.build()
 
         OpenTelemetry.registerTracerProvider(tracerProvider: tracerProvider)
@@ -578,7 +578,6 @@ public class Pulse {
         var spanProcessors: [SpanProcessor] = []
         var logProcessor = baseLogProcessor
 
-
         // Apply customizer first, right after baseLogProcessor
         if let customizer = loggerProviderCustomizer {
             let modified = customizer([logProcessor])
@@ -586,7 +585,6 @@ public class Pulse {
                 logProcessor = firstModified
             }
         }
-
 
         // Build SDK processor chain
         if _configuration.includeGlobalAttributes {
@@ -598,14 +596,14 @@ public class Pulse {
             spanProcessors.append(globalAttributesSpanProcessor)
             logProcessor = globalAttributesLogProcessor
         }
-        
+
         if _configuration.includeScreenAttributes {
             let screenAttributesSpanProcessor = ScreenAttributesSpanProcessor()
             let screenAttributesLogProcessor = ScreenAttributesLogRecordProcessor(nextProcessor: logProcessor)
             spanProcessors.append(screenAttributesSpanProcessor)
             logProcessor = screenAttributesLogProcessor
         }
-        
+
         if _configuration.includeNetworkAttributes {
             let networkAttributesSpanProcessor = NetworkAttributesSpanProcessor()
             let networkAttributesLogProcessor = NetworkAttributesLogRecordProcessor(nextProcessor: logProcessor)
@@ -624,7 +622,6 @@ public class Pulse {
         spanProcessors.append(pulseSpanProcessor)
         spanProcessors.append(baseSpanProcessor)
 
-
         let pulseLogProcessor = pulseSignalProcessor.createLogProcessor(nextProcessor: logProcessor)
         var logProcessors: [LogRecordProcessor] = [pulseLogProcessor]
 
@@ -632,14 +629,14 @@ public class Pulse {
             spanProcessors.append(otelProcessors.otelSpanProcessor)
             logProcessor = otelProcessors.otelLogProcessor
         }
-        
+
         let meteredProcessors = meteredConfig.createProcessors(
             baseLogProcessor: logProcessor,
             meteredManager: meteredManager
         )
         spanProcessors.append(meteredProcessors.meteredSpanProcessor)
         logProcessors = [meteredProcessors.meteredLogProcessor]
-        
+
         if config.interaction.enabled,
            let interactionLogProcessor = config.interaction.createLogProcessor(baseLogProcessor: logProcessors.last ?? pulseLogProcessor) {
             logProcessors = logProcessors.dropLast() + [interactionLogProcessor]
@@ -845,12 +842,12 @@ public class Pulse {
         guard !isShutdown else { return nil }
         return openTelemetry
     }
-    
+
     public func getOtelOrNull() -> OpenTelemetry? {
         guard !isShutdown else { return nil }
         return openTelemetry
     }
-    
+
     public func getOtelOrThrow() -> OpenTelemetry {
         if isShutdown {
             fatalError("Pulse SDK has been shut down. No further API calls are allowed.")
@@ -864,17 +861,17 @@ public class Pulse {
     public func isSDKInitialized() -> Bool {
         return isInitialized
     }
-    
+
     public func setUserId(_ id: String?) {
         guard isActive else { return }
         userSessionEmitter.userId = id
     }
-    
+
     public func setUserProperty(name: String, value: AttributeValue?) {
         guard isActive else { return }
         userSessionEmitter.setUserProperty(name: name, value: value)
     }
-    
+
     public func setUserProperties(_ properties: [String: AttributeValue?]) {
         guard isActive else { return }
         userSessionEmitter.setUserProperties(properties)
@@ -1017,5 +1014,3 @@ internal class PulseLoggingMetricExporter: MetricExporter {
         delegate.getAggregationTemporality(for: instrument)
     }
 }
-
-

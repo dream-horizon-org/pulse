@@ -12,4 +12,3 @@ public protocol InteractionConfigFetcher {
     /// Returns nil in case of error
     func getConfigs() async throws -> [InteractionConfig]?
 }
-

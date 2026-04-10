@@ -228,7 +228,7 @@ public enum MetricsAdapter {
     pointData.exemplars.forEach {
       var protoExemplar = Opentelemetry_Proto_Metrics_V1_Exemplar()
       protoExemplar.timeUnixNano = $0.epochNanos
-		
+
 	  if let doubleExemplar = $0 as? DoubleExemplarData {
 		protoExemplar.value = .asDouble(doubleExemplar.value)
 	  }

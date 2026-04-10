@@ -6,7 +6,7 @@
 import Foundation
 
 public enum AppState: String {
-    case created = "created"
-    case foreground = "foreground"
-    case background = "background"
+    case created
+    case foreground
+    case background
 }

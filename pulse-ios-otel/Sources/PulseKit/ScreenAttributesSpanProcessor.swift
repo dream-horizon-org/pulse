@@ -10,13 +10,13 @@ import OpenTelemetryApi
 internal class ScreenAttributesSpanProcessor: SpanProcessor {
     var isStartRequired: Bool = true
     var isEndRequired: Bool = false
-    
+
     private let visibleScreenTracker: VisibleScreenTracker
-    
+
     init(visibleScreenTracker: VisibleScreenTracker = VisibleScreenTracker.shared) {
         self.visibleScreenTracker = visibleScreenTracker
     }
-    
+
     func onStart(parentContext: SpanContext?, span: ReadableSpan) {
         if span.toSpanData().attributes[PulseAttributes.screenName] == nil {
             let screenName = visibleScreenTracker.currentlyVisibleScreen
@@ -27,14 +27,13 @@ internal class ScreenAttributesSpanProcessor: SpanProcessor {
             span.setAttribute(key: PulseAttributes.lastScreenName, value: AttributeValue.string(previousScreen))
         }
     }
-    
+
     func onEnd(span: any OpenTelemetrySdk.ReadableSpan) {
     }
-    
+
     func shutdown(explicitTimeout: TimeInterval?) {
     }
-    
+
     func forceFlush(timeout: TimeInterval?) {
     }
 }
-

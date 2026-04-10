@@ -14,7 +14,7 @@ internal class PulseUtils {
     /// Cache for computed GCD values using string keys.
     private static var gcdCache: [String: Int] = [:]
     private static let gcdCacheLock = NSLock()
-    
+
     /// Computes current viewport aspect ratio from active key UIWindow as "w:h".
     /// Uses window bounds in points to match click viewport width/height semantics.
     static func currentViewportAspectRatio() -> String? {
@@ -54,7 +54,7 @@ internal class PulseUtils {
         let x = abs(max(a, b))
         let y = abs(min(a, b))
         let cacheKey = "\(x),\(y)"
-        
+
         if let cached = cachedGCDValue(for: cacheKey) {
             return cached
         }

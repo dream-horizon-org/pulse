@@ -23,7 +23,7 @@ public struct InteractionInstrumentationConfig {
     public mutating func setConfigUrl(_ provider: @escaping () -> String) {
         self.configUrlProvider = provider
     }
-    
+
     internal func createLogProcessor(baseLogProcessor: LogRecordProcessor) -> LogRecordProcessor? {
         guard self.enabled else {
             return nil
@@ -53,4 +53,3 @@ extension InteractionInstrumentationConfig: InstrumentationLifecycle {
         InteractionInstrumentation.getInstance()?.uninstall()
     }
 }
-

@@ -18,7 +18,7 @@ public struct SessionEvent {
   public let eventType: SessionEventType
   public let eventName: String
   public let endTimestamp: Date?
-  
+
   public init(session: Session, eventType: SessionEventType, eventName: String, endTimestamp: Date? = nil) {
     self.session = session
     self.eventType = eventType
@@ -59,7 +59,7 @@ public class SessionEventInstrumentation {
   /// Flag to track if the instrumentation has been applied.
   /// Controls whether new sessions are queued or immediately processed via notifications.
   static var isApplied = false
-  
+
   /// Serial queue for posting notifications asynchronously while maintaining order.
   /// This prevents deadlock (by posting async) while ensuring events are processed in order.
   private static let notificationQueue = DispatchQueue(label: "io.opentelemetry.sessions.notifications", qos: .utility)
@@ -167,11 +167,11 @@ public class SessionEventInstrumentation {
       .setEventName(eventName)
       .setBody(AttributeValue.string(eventName))
       .setAttributes(attributes)
-    
+
     if let timestamp = endTimestamp {
       logRecordBuilder = logRecordBuilder.setTimestamp(timestamp)
     }
-    
+
     logRecordBuilder.emit()
   }
 
@@ -179,7 +179,7 @@ public class SessionEventInstrumentation {
   static func addSession(session: Session, eventType: SessionEventType, eventName: String, endTimestamp: Date? = nil) {
     let sessionEvent = SessionEvent(session: session, eventType: eventType, eventName: eventName, endTimestamp: endTimestamp)
     if isApplied {
-      
+
       notificationQueue.async {
         NotificationCenter.default.post(
           name: sessionEventNotification,

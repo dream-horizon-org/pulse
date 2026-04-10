@@ -21,7 +21,7 @@ public struct URLSessionInstrumentationConfig {
     public mutating func setShouldInstrument(_ handler: @escaping (URLRequest) -> Bool) {
         self.shouldInstrument = handler
     }
-    
+
     public mutating func excludeOtlpEndpoints(baseUrl: String) {
         let userShouldInstrument = self.shouldInstrument
         self.shouldInstrument = Self.createOtlpExclusionHandler(
@@ -29,7 +29,7 @@ public struct URLSessionInstrumentationConfig {
             userHandler: userShouldInstrument
         )
     }
-    
+
     private static func createOtlpExclusionHandler(
         baseUrl: String,
         userHandler: ((URLRequest) -> Bool)?
@@ -41,7 +41,7 @@ public struct URLSessionInstrumentationConfig {
             if urlString.contains("/v1/traces") || urlString.contains("/v1/logs") || urlString.contains("/v1/metrics") {
                 return false
             }
-            
+
             return userHandler?(request) ?? true
         }
     }

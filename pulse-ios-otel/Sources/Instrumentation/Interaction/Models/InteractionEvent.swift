@@ -18,4 +18,3 @@ public struct InteractionEvent: Codable {
         self.isBlacklisted = isBlacklisted
     }
 }
-

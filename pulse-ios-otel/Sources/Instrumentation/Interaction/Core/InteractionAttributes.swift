@@ -19,7 +19,7 @@ internal enum InteractionAttributes {
     static let localEvents = "internal_events"
     static let markerEvents = "internal_marker"
     static let logTag = "InteractionManager"
-    
+
     enum Operators: String {
         case equals = "EQUALS"
         case notEquals = "NOTEQUALS"
@@ -28,16 +28,15 @@ internal enum InteractionAttributes {
         case startsWith = "STARTSWITH"
         case endsWith = "ENDSWITH"
     }
-    
+
     enum TimeCategory: String {
         case excellent = "Excellent"
         case good = "Good"
         case average = "Average"
         case poor = "Poor"
     }
-    
+
     // Pulse type constants
     static let pulseType = "pulse.type"
     static let pulseTypeInteraction = "interaction"
 }
-

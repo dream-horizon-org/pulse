@@ -36,7 +36,7 @@ class URLSessionLogger {
     if request.value(forHTTPHeaderField: RN_TRACKED_HEADER) != nil {
       return nil
     }
-    
+
     guard instrumentation.configuration.shouldInstrument?(request) ?? true else {
       return nil
     }
@@ -147,10 +147,10 @@ class URLSessionLogger {
     }
     span.setAttribute(key: SemanticAttributes.httpStatusCode.rawValue, value: AttributeValue.int(statusCode))
     span.status = URLSessionLogger.statusForStatusCode(code: statusCode)
-    
+
     // Set pulse.type with status code for network spans (error case)
     span.setAttribute(key: "pulse.type", value: AttributeValue.string("network.\(statusCode)"))
-    
+
     instrumentation.configuration.receivedError?(error, dataOrFile, statusCode, span)
 
     span.end()

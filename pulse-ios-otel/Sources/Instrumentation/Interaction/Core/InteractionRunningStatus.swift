@@ -9,7 +9,7 @@ import Foundation
 public indirect enum InteractionRunningStatus: Equatable {
     /// No ongoing match
     case noOngoingMatch(oldOngoingInteractionRunningStatus: InteractionRunningStatus?)
-    
+
     /// Ongoing match with current state
     case ongoingMatch(
         index: Int,
@@ -17,7 +17,7 @@ public indirect enum InteractionRunningStatus: Equatable {
         interactionConfig: InteractionConfig,
         interaction: Interaction?
     )
-    
+
     // Equatable conformance
     public static func == (lhs: InteractionRunningStatus, rhs: InteractionRunningStatus) -> Bool {
         switch (lhs, rhs) {
@@ -35,4 +35,3 @@ public indirect enum InteractionRunningStatus: Equatable {
         }
     }
 }
-

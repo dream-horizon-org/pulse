@@ -22,7 +22,7 @@ enum GeoAttributes {
 final class CachedLocationSaver {
     static let shared = CachedLocationSaver()
     private init() {}
-    
+
     var cachedLocation: CachedLocation?
 }
 
@@ -41,14 +41,14 @@ enum LocationAttributesUtils {
            !memCached.isExpired(cacheInvalidationTime) {
             return buildLocationAttributes(memCached)
         }
-        
+
         // Fallback to UserDefaults if in-memory cache is null or expired
         guard let data = userDefaults.data(forKey: cacheKey),
               let cached = try? JSONDecoder().decode(CachedLocation.self, from: data),
               !cached.isExpired(cacheInvalidationTime) else {
             return [:]
         }
-        
+
         // Update in-memory cache from UserDefaults
         CachedLocationSaver.shared.cachedLocation = cached
         return buildLocationAttributes(cached)

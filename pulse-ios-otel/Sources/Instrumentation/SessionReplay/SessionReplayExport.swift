@@ -26,7 +26,7 @@ struct MetaEventData: Encodable {
     let width: Int
     let height: Int
     let aspectRatio: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case href
         case width
@@ -133,18 +133,18 @@ class SessionReplayEventTransformer {
         aspectRatio: String? = nil
     ) -> [SessionReplayEvent] {
         var events: [SessionReplayEvent] = []
-        
+
         if frame.sessionId != currentSessionId {
             currentSessionId = frame.sessionId
         }
-        
+
         if !windowStatus.sentMetaEvent {
             events.append(.meta(makeMetaEvent(from: frame, aspectRatio: aspectRatio)))
             windowStatus.sentMetaEvent = true
         }
-        
+
         let wireframe = makeWireframe(from: frame)
-        
+
         if !windowStatus.sentFullSnapshot {
             events.append(.fullSnapshot(makeFullSnapshotEvent(from: frame)))
             windowStatus.sentFullSnapshot = true
@@ -155,7 +155,7 @@ class SessionReplayEventTransformer {
                 windowStatus.lastSnapshot = wireframe
             }
         }
-        
+
         return events
     }
 

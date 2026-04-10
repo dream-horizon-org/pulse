@@ -19,15 +19,15 @@ internal class GlobalAttributesLogRecordProcessor: LogRecordProcessor {
         self.pulse = pulse
         self.nextProcessor = nextProcessor
     }
-    
+
     func onEmit(logRecord: ReadableLogRecord) {
         guard let pulse = pulse else {
             nextProcessor.onEmit(logRecord: logRecord)
             return
         }
-        
+
         var enhancedRecord = logRecord
-        
+
         // Add static global attributes (set during initialization)
         if let globalAttributes = pulse._globalAttributes {
             for (key, value) in globalAttributes {
@@ -41,31 +41,30 @@ internal class GlobalAttributesLogRecordProcessor: LogRecordProcessor {
                 value: .string(aspectRatio)
             )
         }
-        
+
         // Add installation ID (persists across app launches until uninstall)
         enhancedRecord.setAttribute(
             key: PulseAttributes.appInstallationId,
             value: AttributeValue.string(pulse.installationIdManager.installationId)
         )
-        
+
         // Add dynamic user properties (can be updated after initialization)
         if let userId = pulse.userSessionEmitter.userId {
             enhancedRecord.setAttribute(key: PulseAttributes.userId, value: AttributeValue.string(userId))
         }
-        
+
         for (key, value) in pulse.userSessionEmitter.userProperties {
             enhancedRecord.setAttribute(key: PulseAttributes.pulseUserParameter(key), value: value)
         }
-        
+
         nextProcessor.onEmit(logRecord: enhancedRecord)
     }
-    
+
     func shutdown(explicitTimeout: TimeInterval?) -> ExportResult {
         return nextProcessor.shutdown(explicitTimeout: explicitTimeout)
     }
-    
+
     func forceFlush(explicitTimeout: TimeInterval?) -> ExportResult {
         return nextProcessor.forceFlush(explicitTimeout: explicitTimeout)
     }
 }
-

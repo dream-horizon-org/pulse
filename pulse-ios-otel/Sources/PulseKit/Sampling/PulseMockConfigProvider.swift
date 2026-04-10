@@ -26,7 +26,7 @@ public enum PulseMockMetricsTestCase: CaseIterable {
 /// Static factory for a complete PulseSdkConfig with realistic metricsToAdd entries for dev/testing.
 public enum PulseMockConfigProvider {
     /// Change this to test one scenario at a time. Nil = all scenarios (default for fullMockConfig).
-    public static var activeMetricsTestCase: PulseMockMetricsTestCase? = nil
+    public static var activeMetricsTestCase: PulseMockMetricsTestCase?
 
     /// Returns a full PulseSdkConfig with metricsToAdd. Uses activeMetricsTestCase when case is nil.
     /// Used when useLocalMockConfig is true in PulseSdkConfigCoordinator.

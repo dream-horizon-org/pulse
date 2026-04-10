@@ -11,14 +11,14 @@ import Foundation
 /// Type-erased wrapper for any Codable value, allowing dynamic JSON decoding.
 public struct AnyCodable: Codable, Equatable {
     public let value: Any
-    
+
     public init(_ value: Any) {
         self.value = value
     }
-    
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        
+
         if container.decodeNil() {
             self.value = NSNull()
         } else if let bool = try? container.decode(Bool.self) {
@@ -40,10 +40,10 @@ public struct AnyCodable: Codable, Equatable {
             )
         }
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        
+
         switch value {
         case is NSNull:
             try container.encodeNil()
@@ -67,7 +67,7 @@ public struct AnyCodable: Codable, Equatable {
             throw EncodingError.invalidValue(value, context)
         }
     }
-    
+
     public static func == (lhs: AnyCodable, rhs: AnyCodable) -> Bool {
         switch (lhs.value, rhs.value) {
         case (is NSNull, is NSNull):

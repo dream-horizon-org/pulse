@@ -12,7 +12,7 @@ import CoreTelephony
 
 internal class NetworkAttributesLogRecordProcessor: LogRecordProcessor {
     private let nextProcessor: LogRecordProcessor
-    
+
     #if os(iOS) && !targetEnvironment(macCatalyst)
     private var networkStatus: NetworkStatus?
     #endif
@@ -27,20 +27,20 @@ internal class NetworkAttributesLogRecordProcessor: LogRecordProcessor {
         }
         #endif
     }
-    
+
     func onEmit(logRecord: ReadableLogRecord) {
         var enhancedRecord = logRecord
-        
+
         #if os(iOS) && !targetEnvironment(macCatalyst)
         if let netstat = networkStatus {
             let (connectionType, subtype, carrier) = netstat.status()
-            
+
             enhancedRecord.setAttribute(key: SemanticAttributes.networkConnectionType.rawValue, value: AttributeValue.string(connectionType))
-            
+
             if let subtype = subtype {
                 enhancedRecord.setAttribute(key: SemanticAttributes.networkConnectionSubtype.rawValue, value: AttributeValue.string(subtype))
             }
-            
+
             // Only add carrier info if it's valid (filter out iOS 16+ placeholder values)
             // iOS 16+ returns "--" for carrier name/ISO code and "65535" for MCC/MNC when unavailable
             // iOS < 16 returns valid carrier information
@@ -69,16 +69,15 @@ internal class NetworkAttributesLogRecordProcessor: LogRecordProcessor {
             }
         }
         #endif
-        
+
         nextProcessor.onEmit(logRecord: enhancedRecord)
     }
-    
+
     func shutdown(explicitTimeout: TimeInterval?) -> ExportResult {
         return nextProcessor.shutdown(explicitTimeout: explicitTimeout)
     }
-    
+
     func forceFlush(explicitTimeout: TimeInterval?) -> ExportResult {
         return nextProcessor.forceFlush(explicitTimeout: explicitTimeout)
     }
 }
-

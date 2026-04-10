@@ -21,7 +21,7 @@ public class MeteredSessionLogProcessor: LogRecordProcessor {
     var enhancedRecord = logRecord
 
     let hasMeteredSessionId = logRecord.attributes[SessionConstants.meteredId] != nil
-    
+
     if !hasMeteredSessionId {
       let session = meteredManager.getSession()
       enhancedRecord.setAttribute(

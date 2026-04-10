@@ -10,7 +10,7 @@ import OpenTelemetryApi
 internal class NetworkAttributesSpanProcessor: SpanProcessor {
     var isStartRequired: Bool = true
     var isEndRequired: Bool = false
-    
+
     #if os(iOS) && !targetEnvironment(macCatalyst)
     private var netstatInjector: NetworkStatusInjector?
     #endif
@@ -25,7 +25,7 @@ internal class NetworkAttributesSpanProcessor: SpanProcessor {
         }
         #endif
     }
-    
+
     func onStart(parentContext: SpanContext?, span: ReadableSpan) {
         #if os(iOS) && !targetEnvironment(macCatalyst)
         if let injector = netstatInjector {
@@ -33,14 +33,13 @@ internal class NetworkAttributesSpanProcessor: SpanProcessor {
         }
         #endif
     }
-    
+
     func onEnd(span: any OpenTelemetrySdk.ReadableSpan) {
     }
-    
+
     func shutdown(explicitTimeout: TimeInterval?) {
     }
-    
+
     func forceFlush(timeout: TimeInterval?) {
     }
 }
-

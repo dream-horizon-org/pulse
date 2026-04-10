@@ -24,14 +24,14 @@ public class ApplicationResourceProvider: ResourceProvider {
     if let version = applicationVersion() {
       attributes[ResourceAttributes.serviceVersion.rawValue] = AttributeValue.string(version)
     }
-    
+
     // Pulse-specific: app.build_id (CFBundleVersion from Bundle.main)
     // Standard iOS: Bundle.main.infoDictionary[kCFBundleVersionKey]
     // https://developer.apple.com/documentation/bundleresources/information_property_list/cfbundleversion
     if let buildId = applicationDataSource.build {
       attributes["app.build_id"] = AttributeValue.string(buildId)
     }
-    
+
     // Pulse-specific: app.build_name ("version_build" format)
     // iOS provides: CFBundleShortVersionString (version) and CFBundleVersion (build) separately
     // This combines them to match "${versionName}_${versionCode}" format

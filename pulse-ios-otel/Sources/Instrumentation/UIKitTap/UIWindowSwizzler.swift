@@ -16,11 +16,11 @@ internal class UIWindowSwizzler {
     private static var logger: OpenTelemetryApi.Logger?
     private static var captureContext: Bool = true
     private static var rageConfig: RageConfig = RageConfig()
-    
+
     private static var buffer: ClickEventBuffer?
     private static var emitter: ClickEventEmitter?
     private static var appLifecycleObserver: NSObjectProtocol?
-    
+
     // Label extraction constants 
     private static let maxLabelSegments = 5
     private static let maxLabelLength = 200
@@ -124,7 +124,7 @@ internal class UIWindowSwizzler {
         let swizzledIMP = imp_implementationWithBlock(unsafeBitCast(block, to: AnyObject.self))
         originalIMP = method_setImplementation(method, swizzledIMP)
     }
-    
+
     private static func registerForAppLifecycle() {
         appLifecycleObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.willResignActiveNotification,
@@ -140,10 +140,10 @@ internal class UIWindowSwizzler {
     private static func emitClickEvent(target: UIView?, at point: CGPoint, in window: UIWindow) {
         let widgetName = target.map { String(describing: type(of: $0)) } ?? ""
         let widgetId = target?.accessibilityIdentifier ?? ""
-        
+
         let label: String? = captureContext && target != nil ? extractLabel(from: target!) : nil
         let context = label.flatMap(PulseAttributes.AppClickContext.buildContext)
-        
+
         let pending = PendingClick(
             x: Float(point.x),
             y: Float(point.y),
@@ -156,7 +156,7 @@ internal class UIWindowSwizzler {
             viewportWidthPt: Int(window.bounds.width),
             viewportHeightPt: Int(window.bounds.height)
         )
-        
+
         buffer?.record(pending)
     }
 

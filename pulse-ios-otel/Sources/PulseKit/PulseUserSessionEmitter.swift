@@ -16,15 +16,15 @@ internal class PulseUserSessionEmitter {
     private let loggerProvider: () -> Logger
     private let userDefaults: UserDefaults
     private let userPropertiesQueue: DispatchQueue
-    
+
     private static let userIdKey = "user_id"
-    
+
     private var _userId: String?
     private var isUserIdFetched: Bool = false
-    
+
     // In-memory user properties
     private var _userProperties: [String: AttributeValue] = [:]
-    
+
     var userId: String? {
         get {
             return userPropertiesQueue.sync {
@@ -41,48 +41,46 @@ internal class PulseUserSessionEmitter {
         set {
             var oldUserId: String?
             var shouldUpdate = false
-            
+
             // Capture old userId and check if update is needed within sync block
             userPropertiesQueue.sync {
                 oldUserId = isUserIdFetched ? _userId : userDefaults.string(forKey: PulseUserSessionEmitter.userIdKey)
                 shouldUpdate = newValue != oldUserId
-                
+
                 if !shouldUpdate {
                     return
                 }
-                
+
                 // Save to UserDefaults
                 if let newValue = newValue {
                     userDefaults.set(newValue, forKey: PulseUserSessionEmitter.userIdKey)
                 } else {
                     userDefaults.removeObject(forKey: PulseUserSessionEmitter.userIdKey)
                 }
-                
+
                 isUserIdFetched = true
                 _userId = newValue
             }
-            
+
             // Emit session events outside sync block to avoid potential deadlocks
             if shouldUpdate {
                 updateUserId(newUserId: newValue, oldUserId: oldUserId)
             }
         }
     }
-    
+
     var userProperties: [String: AttributeValue] {
-        get {
-            userPropertiesQueue.sync {
-                return _userProperties
-            }
+        userPropertiesQueue.sync {
+            _userProperties
         }
     }
-    
+
     init(loggerProvider: @escaping () -> Logger, userDefaults: UserDefaults = UserDefaults.standard) {
         self.loggerProvider = loggerProvider
         self.userDefaults = userDefaults
         self.userPropertiesQueue = DispatchQueue(label: "com.pulse.ios.sdk.userProperties")
     }
-    
+
     /// Set user property
     func setUserProperty(name: String, value: AttributeValue?) {
         userPropertiesQueue.sync {
@@ -93,7 +91,7 @@ internal class PulseUserSessionEmitter {
             }
         }
     }
-    
+
     /// Set multiple user properties
     func setUserProperties(_ properties: [String: AttributeValue?]) {
         userPropertiesQueue.sync {
@@ -106,10 +104,10 @@ internal class PulseUserSessionEmitter {
             }
         }
     }
-    
+
     private func updateUserId(newUserId: String?, oldUserId: String?) {
         let logger = loggerProvider()
-        
+
         // Emit session.end event if old userId existed
         if let oldUserId = oldUserId {
             let attributes: [String: AttributeValue] = [
@@ -121,19 +119,19 @@ internal class PulseUserSessionEmitter {
                 .setEventName(PulseAttributes.pulseUserSessionEndEventName)
                 .emit()
         }
-        
+
         // Emit session.start event if new userId exists
         if let newUserId = newUserId {
             var attributes: [String: AttributeValue] = [
                 PulseAttributes.userId: AttributeValue.string(newUserId),
                 PulseAttributes.pulseType: AttributeValue.string(PulseAttributes.pulseUserSessionStartEventName)
             ]
-            
+
             // Add previous user ID if it existed
             if let oldUserId = oldUserId {
                 attributes[PulseAttributes.pulseUserPreviousId] = AttributeValue.string(oldUserId)
             }
-            
+
             logger.logRecordBuilder()
                 .setAttributes(attributes)
                 .setEventName(PulseAttributes.pulseUserSessionStartEventName)
@@ -141,4 +139,3 @@ internal class PulseUserSessionEmitter {
         }
     }
 }
-

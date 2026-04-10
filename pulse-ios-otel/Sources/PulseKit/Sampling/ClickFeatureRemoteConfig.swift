@@ -11,13 +11,13 @@ import Foundation
 /// Remote config structure for click instrumentation, parsed from backend feature config JSON.
 internal struct ClickFeatureRemoteConfig: Decodable {
     let rage: RageConfig?
-    
+
     struct RageConfig: Decodable {
         let timeWindowMs: Int?
         let threshold: Int?
         let radius: Float?
     }
-    
+
     /// Creates ClickFeatureRemoteConfig from PulseFeatureConfig's config dictionary.
     /// Returns nil if config is absent or parsing fails.
     /// 
@@ -28,7 +28,7 @@ internal struct ClickFeatureRemoteConfig: Decodable {
         guard let configDict = featureConfig.config else {
             return nil
         }
-        
+
         // Convert [String: AnyCodable] to [String: Any] for JSON encoding
         // Handle NSNull values properly (match SessionReplayRemoteConfig pattern)
         let anyDict = configDict.mapValues { codable -> Any in
@@ -38,7 +38,7 @@ internal struct ClickFeatureRemoteConfig: Decodable {
             }
             return value
         }
-        
+
         // Encode to JSON data, then decode as ClickFeatureRemoteConfig
         guard JSONSerialization.isValidJSONObject(anyDict),
               let jsonData = try? JSONSerialization.data(withJSONObject: anyDict),
@@ -47,7 +47,7 @@ internal struct ClickFeatureRemoteConfig: Decodable {
             PulseLogger.log("Failed to parse click feature config from backend; using SDK defaults")
             return nil
         }
-        
+
         return decoded
     }
 }

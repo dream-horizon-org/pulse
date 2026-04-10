@@ -27,13 +27,13 @@ public class DeviceResourceProvider: ResourceProvider {
     if let deviceId = deviceSource.identifier {
       attributes[ResourceAttributes.deviceId.rawValue] = AttributeValue.string(deviceId)
     }
-    
+
     // device.manufacturer (official ResourceAttributes - iOS/macOS apps SHOULD hardcode "Apple")
     // OpenTelemetry spec: https://opentelemetry.io/docs/specs/semconv/resource/device/#manufacturer
     #if os(iOS) || os(macOS)
     attributes[ResourceAttributes.deviceManufacturer.rawValue] = AttributeValue.string("Apple")
     #endif
-    
+
     // OpenTelemetry spec: https://opentelemetry.io/docs/specs/semconv/resource/device/#model
     #if os(iOS)
     // iOS: Use UIDevice for user-friendly names (required by OpenTelemetry spec)

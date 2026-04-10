@@ -41,7 +41,7 @@ public struct SessionReplayInstrumentationConfig {
 extension SessionReplayInstrumentationConfig: InstrumentationLifecycle {
     internal func initialize(ctx: InstallationContext) {
         guard self.enabled else { return }
-        
+
         let replayEndpoint = self.config.replayEndpointBaseUrl ?? ctx.endpointBaseUrl
         guard let exporter = SessionReplayExporter(
             endpointBaseUrl: replayEndpoint,

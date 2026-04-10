@@ -110,7 +110,6 @@ internal final class SessionReplayPersistingEmitter {
         }
     }
 
-
     /// Stops the periodic flush timer without shutting down; `emit` and explicit `flush()` still work.
     func pauseFlushTimer() {
         queue.async { [weak self] in
@@ -149,7 +148,7 @@ internal final class SessionReplayPersistingEmitter {
             return
         }
         shutdownLock.unlock()
-        
+
         queue.async { [weak self] in
             guard let self = self else {
                 return
@@ -172,10 +171,10 @@ internal final class SessionReplayPersistingEmitter {
 
                 self.dequeLock.lock()
                 self.deque.append(fileURL)
-                
+
                 // Apply eviction if total files exceed maxBatchSize
                 self.evictOldestFilesIfNeeded()
-                
+
                 let currentCount = self.deque.count
                 self.dequeLock.unlock()
                 if currentCount >= self.flushAt {
@@ -200,7 +199,7 @@ internal final class SessionReplayPersistingEmitter {
                     }
 
                 guard !files.isEmpty else { return }
-                
+
                 // Sync deque with disk files and apply eviction
                 self.dequeLock.lock()
                 self.deque = files
@@ -209,15 +208,15 @@ internal final class SessionReplayPersistingEmitter {
 
                 let maxUncompressedSizeBytes = 1 * 1024 * 1024
                 let maxBatchesPerChunk = self.flushAt
-                
+
                 var remainingFiles = files
                 var chunkNumber = 0
-                
+
                 while !remainingFiles.isEmpty {
                     chunkNumber += 1
                     var fileToContent: [(URL, String)] = []
                     var filesToRemove: [URL] = []
-                    
+
                     for file in remainingFiles {
                         do {
                             let content = try self.readFileContent(file)
@@ -242,7 +241,7 @@ internal final class SessionReplayPersistingEmitter {
                             filesToRemove.append(file)
                         }
                     }
-                    
+
                     for file in filesToRemove {
                         if let index = remainingFiles.firstIndex(of: file) {
                             remainingFiles.remove(at: index)
@@ -261,18 +260,18 @@ internal final class SessionReplayPersistingEmitter {
 
                     let semaphore = DispatchSemaphore(value: 0)
                     var sendSuccess = false
-                    
+
                     self.transport.sendRaw(jsonString: payload) { success in
                         sendSuccess = success
                         semaphore.signal()
                     }
-                    
+
                     let timeout = semaphore.wait(timeout: .now() + 30)
-                    
+
                     if timeout == .timedOut {
                         break
                     }
-                    
+
                     if sendSuccess {
                         self.dequeLock.lock()
                         for (file, _) in fileToContent {
@@ -303,7 +302,7 @@ internal final class SessionReplayPersistingEmitter {
             }
             shutdownLock.unlock()
         }
-        
+
         flushLock.lock()
         guard !isFlushing else {
             flushLock.unlock()
@@ -318,12 +317,12 @@ internal final class SessionReplayPersistingEmitter {
         deque.removeFirst(n)
         dequeLock.unlock()
 
-        guard !toSend.isEmpty else { 
+        guard !toSend.isEmpty else {
             // If no files to send, mark flush as complete
             flushLock.lock()
             isFlushing = false
             flushLock.unlock()
-            return 
+            return
         }
 
         var fileToContent: [(URL, String)] = []
@@ -338,12 +337,12 @@ internal final class SessionReplayPersistingEmitter {
             }
         }
 
-        guard !fileToContent.isEmpty else { 
+        guard !fileToContent.isEmpty else {
             // If no content to send, mark flush as complete
             flushLock.lock()
             isFlushing = false
             flushLock.unlock()
-            return 
+            return
         }
 
         let contents = fileToContent.map { $0.1 }
@@ -370,7 +369,7 @@ internal final class SessionReplayPersistingEmitter {
                 }
                 self.dequeLock.unlock()
             }
-            
+
             // Mark flush as complete only after send completes
             self.flushLock.lock()
             self.isFlushing = false
@@ -421,7 +420,7 @@ internal final class SessionReplayPersistingEmitter {
             userInfo: [NSLocalizedDescriptionKey: "Failed to read replay file: \(file.lastPathComponent)"]
         )
     }
-    
+
     private func trimDiskFiles() {
         queue.async { [weak self] in
             guard let self: SessionReplayPersistingEmitter = self else { return }
@@ -434,29 +433,29 @@ internal final class SessionReplayPersistingEmitter {
                         let date2: Date = (try? url2.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
                         return date1 < date2
                     }
-                
+
                 self.dequeLock.lock()
                 self.deque = files
                 self.dequeLock.unlock()
-                
+
                 self.evictOldestFilesIfNeeded()
             } catch {
             }
         }
     }
-    
+
     private func evictOldestFilesIfNeeded() {
         let totalFiles: Int = deque.count
         if totalFiles > maxBatchSize {
             let filesToEvict: Int = totalFiles - maxBatchSize
             let filesToRemove: [URL] = Array(deque.prefix(filesToEvict))
             deque.removeFirst(filesToEvict)
-            
+
             let fm: FileManager = FileManager.default
             for file: URL in filesToRemove {
                 try? fm.removeItem(at: file)
             }
         }
     }
-    
+
 }

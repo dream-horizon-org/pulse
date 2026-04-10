@@ -76,8 +76,8 @@ public final class PulseSignalSelectExporter {
 
         public func forceFlush(explicitTimeout: TimeInterval?) -> ExportResult {
             var result: ExportResult = .success
-            for (_, exporter) in logMap {
-                if exporter.forceFlush(explicitTimeout: explicitTimeout) == .failure { result = .failure }
+            for (_, exporter) in logMap where exporter.forceFlush(explicitTimeout: explicitTimeout) == .failure {
+                result = .failure
             }
             return result
         }
@@ -123,16 +123,17 @@ public final class PulseSignalSelectExporter {
                 }
             }
             var result: SpanExporterResultCode = .success
-            for (_, (exporter, batch)) in batches {
-                if exporter.export(spans: batch, explicitTimeout: explicitTimeout) == .failure { result = .failure }
+            for (_, (exporter, batch)) in batches
+                where exporter.export(spans: batch, explicitTimeout: explicitTimeout) == .failure {
+                result = .failure
             }
             return result
         }
 
         public func flush(explicitTimeout: TimeInterval?) -> SpanExporterResultCode {
             var result: SpanExporterResultCode = .success
-            for (_, exporter) in spanMap {
-                if exporter.flush(explicitTimeout: explicitTimeout) == .failure { result = .failure }
+            for (_, exporter) in spanMap where exporter.flush(explicitTimeout: explicitTimeout) == .failure {
+                result = .failure
             }
             return result
         }

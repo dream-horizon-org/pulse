@@ -19,13 +19,13 @@ internal class ClickEventBuffer {
     private let onRage: (RageEvent) -> Void
     private let onEmit: (PendingClick) -> Void
     private let clock: () -> Int64
-    
+
     private var buffer: [PendingClick] = []
     private var activeClusters: [ActiveRageCluster] = []
     private var emitTimer: DispatchSourceTimer?
-    
+
     private let radiusPxSquared: Float
-    
+
     init(
         rageConfig: RageConfig,
         onRage: @escaping (RageEvent) -> Void,
@@ -38,7 +38,7 @@ internal class ClickEventBuffer {
         self.clock = clock
         self.radiusPxSquared = rageConfig.radiusPt * rageConfig.radiusPt
     }
-    
+
     func record(_ click: PendingClick) {
         dispatchPrecondition(condition: .onQueue(.main))
 
@@ -53,7 +53,7 @@ internal class ClickEventBuffer {
 
         processNormal(click)
     }
-    
+
     func flush() {
         dispatchPrecondition(condition: .onQueue(.main))
 
@@ -70,7 +70,7 @@ internal class ClickEventBuffer {
             onEmit(buffer.removeFirst())
         }
     }
-    
+
     private func processNormal(_ click: PendingClick) {
         dispatchPrecondition(condition: .onQueue(.main))
 
@@ -113,16 +113,16 @@ internal class ClickEventBuffer {
             buffer.append(click)
         }
     }
-    
+
     private func evictStale(_ nowMs: Int64) {
         dispatchPrecondition(condition: .onQueue(.main))
-        
+
         let cutoff = nowMs - Int64(rageConfig.timeWindowMs)
         while !buffer.isEmpty && buffer.first!.timestampMs < cutoff {
             onEmit(buffer.removeFirst())
         }
     }
-    
+
     private func withinRadius(_ x1: Float, _ y1: Float, _ x2: Float, _ y2: Float) -> Bool {
         let dx = x1 - x2
         let dy = y1 - y2
@@ -199,7 +199,7 @@ internal class ClickEventBuffer {
         onRage(oldest.element.rageEvent)
         activeClusters.remove(at: oldest.offset)
     }
-    
+
     private func scheduleDelayedEmit() {
         dispatchPrecondition(condition: .onQueue(.main))
 
@@ -222,7 +222,7 @@ internal class ClickEventBuffer {
         }
         emitTimer?.resume()
     }
-    
+
     private func cancelDelayedEmit() {
         emitTimer?.cancel()
         emitTimer = nil

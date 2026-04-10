@@ -18,7 +18,7 @@ public struct SessionConfig {
   public let shouldPersist: Bool
   public let startEventName: String?
   public let endEventName: String?
-  
+
   public init(
     backgroundInactivityTimeout: TimeInterval? = SessionConfigDefaults.backgroundInactivityTimeout,
     maxLifetime: TimeInterval? = SessionConfigDefaults.maxLifetime,
@@ -32,7 +32,7 @@ public struct SessionConfig {
     self.startEventName = startEventName
     self.endEventName = endEventName
   }
-  
+
   public static let `default` = SessionConfig()
 }
 
@@ -41,24 +41,24 @@ public class SessionConfigBuilder {
   public private(set) var backgroundInactivityTimeout: TimeInterval? = SessionConfigDefaults.backgroundInactivityTimeout
   public private(set) var maxLifetime: TimeInterval? = SessionConfigDefaults.maxLifetime
   public private(set) var shouldPersist: Bool = SessionConfigDefaults.shouldPersist
-  
+
   public init() {}
-  
+
   public func with(backgroundInactivityTimeout: TimeInterval?) -> Self {
     self.backgroundInactivityTimeout = backgroundInactivityTimeout
     return self
   }
-  
+
   public func with(maxLifetime: TimeInterval?) -> Self {
     self.maxLifetime = maxLifetime
     return self
   }
-  
+
   public func with(shouldPersist: Bool) -> Self {
     self.shouldPersist = shouldPersist
     return self
   }
-  
+
   public func build() -> SessionConfig {
     return SessionConfig(
       backgroundInactivityTimeout: backgroundInactivityTimeout,

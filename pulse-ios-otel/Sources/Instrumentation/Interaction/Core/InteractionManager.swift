@@ -13,28 +13,28 @@ public final class InteractionManager {
     private var interactionConfigs: [InteractionConfig]?
     private var interactionTrackers: [InteractionEventsTracker]?
     private let eventQueue: InteractionEventQueue
-    
+
     /// Current state of all interaction trackers
     private var interactionTrackerStates: [InteractionRunningStatus] = []
-    
+
     /// Get current interaction tracker states (for processors)
     var currentStates: [InteractionRunningStatus] {
         return interactionTrackerStates
     }
-    
+
     /// Continuation for state updates stream
     private var stateContinuation: AsyncStream<[InteractionRunningStatus]>.Continuation?
-    
+
     /// Stream of interaction tracker states
     let interactionTrackerStatesStream: AsyncStream<[InteractionRunningStatus]>
-    
+
     /// Cancellables for Combine subscriptions (event processing and state observation)
     private var cancellables: Set<AnyCancellable> = []
-    
+
     public init(interactionFetcher: InteractionConfigFetcher) {
         self.interactionFetcher = interactionFetcher
         self.eventQueue = InteractionEventQueue()
-        
+
         // Create state stream
         var continuation: AsyncStream<[InteractionRunningStatus]>.Continuation?
         interactionTrackerStatesStream = AsyncStream { cont in
@@ -42,31 +42,31 @@ public final class InteractionManager {
         }
         self.stateContinuation = continuation
     }
-    
+
     func initialize() async {
         do {
             guard let configs = try await interactionFetcher.getConfigs() else {
                 return
             }
-            
+
             self.interactionConfigs = configs
             self.interactionTrackers = configs.map { config in
                 InteractionEventsTracker(interactionConfig: config)
             }
-            
+
             startEventProcessing()
-            
+
             startStateObservation()
         } catch {
             print("[Pulse] Interaction: Failed to initialize - \(error.localizedDescription). Error: \(error)")
         }
     }
-    
+
     private func startEventProcessing() {
         guard let trackers = interactionTrackers else {
             return
         }
-        
+
         // Process local events - one subscription per tracker (parallel processing)
         for tracker in trackers {
             eventQueue.localEventsPublisher
@@ -75,7 +75,7 @@ public final class InteractionManager {
                 }
                 .store(in: &cancellables)
         }
-        
+
         // Process marker events - one subscription per tracker (parallel processing)
         for tracker in trackers {
             eventQueue.markerEventsPublisher
@@ -85,14 +85,14 @@ public final class InteractionManager {
                 .store(in: &cancellables)
         }
     }
-    
+
     /// Start observing state changes from all trackers reactively
     /// Uses Combine to reactively combine all tracker states
     private func startStateObservation() {
         guard let trackers = interactionTrackers, !trackers.isEmpty else {
             return
         }
-        
+
         // Subscribe to each tracker's state publisher and combine them reactively
         for (__, tracker) in trackers.enumerated() {
             tracker.statePublisher
@@ -108,7 +108,7 @@ public final class InteractionManager {
                 .store(in: &cancellables)
         }
     }
-    
+
     /// Add event to track for interaction
     /// - Parameters:
     ///   - eventName: Name of the event
@@ -129,16 +129,16 @@ public final class InteractionManager {
                 return ""
             }
         }
-        
+
         let event = InteractionLocalEvent(
             name: eventName,
             timeInNano: timeInNano,
             props: props.isEmpty ? nil : props
         )
-        
+
         eventQueue.addEvent(event)
     }
-    
+
     /// Add marker event (doesn't contribute to matching, appears in timeline)
     /// - Parameters:
     ///   - eventName: Name of the marker event
@@ -159,16 +159,16 @@ public final class InteractionManager {
                 return ""
             }
         }
-        
+
         let event = InteractionLocalEvent(
             name: eventName,
             timeInNano: timeInNano,
             props: props.isEmpty ? nil : props
         )
-        
+
         eventQueue.addMarkerEvent(event)
     }
-    
+
     /// Cleanup
     deinit {
         eventQueue.finish()
@@ -176,4 +176,3 @@ public final class InteractionManager {
         cancellables.removeAll()  // Cancel all Combine subscriptions
     }
 }
-

@@ -13,7 +13,7 @@ internal enum InteractionUtil {
         let shouldResetList: Bool
         let interactionStatus: InteractionRunningStatus
     }
-    
+
     /**
      * Matches local events against interaction configuration sequence
      * Returns nil when there is event of interest but because of ordering it didn't create any
@@ -30,19 +30,19 @@ internal enum InteractionUtil {
         var stepWiseTimeInNano: [InteractionLocalEvent] = []
         var configEventIndex = 0
         var isMatchOnGoing = false
-        
+
         func resetMatching() {
             stepWiseTimeInNano.removeAll()
             configEventIndex = 0
             isMatchOnGoing = false
         }
-        
-        var newInteractionStatus: MatchResult? = nil
-        
+
+        var newInteractionStatus: MatchResult?
+
         var localEventIndex = 0
         while localEventIndex < localEvents.count {
             let localEvent = localEvents[localEventIndex]
-            
+
             // Check for global blacklisted events during ongoing match
             if isMatchOnGoing && matchesAny(localEvent, interactionConfig.globalBlacklistedEvents) {
                 return MatchResult(
@@ -51,10 +51,10 @@ internal enum InteractionUtil {
                     interactionStatus: .noOngoingMatch(oldOngoingInteractionRunningStatus: nil)
                 )
             }
-            
+
             let configEvent = interactionConfig.events[configEventIndex]
             let isMatch = matches(localEvent, configEvent)
-            
+
             if isMatch {
                 if configEvent.isBlacklisted {
                     newInteractionStatus = MatchResult(
@@ -65,7 +65,7 @@ internal enum InteractionUtil {
                 } else {
                     stepWiseTimeInNano.append(localEvent)
                     configEventIndex += 1
-                    
+
                     if configEventIndex == interactionConfig.eventsSize {
                         isMatchOnGoing = false
                         newInteractionStatus = MatchResult(
@@ -126,54 +126,54 @@ internal enum InteractionUtil {
                 // no match is ongoing
                 // newInteractionStatus remains nil
             }
-            
+
             localEventIndex += 1
         }
-        
+
         if newInteractionStatus?.shouldResetList == true {
             resetMatching()
         }
-        
+
         return newInteractionStatus
     }
-    
+
     /// Check if local event matches interaction event
     static func matches(_ localEvent: InteractionLocalEvent, _ interactionEvent: InteractionEvent) -> Bool {
         if localEvent.name != interactionEvent.name {
             return false
         }
-        
+
         guard let propsInteractionConfig = interactionEvent.props else {
             return true
         }
-        
+
         guard let propsLocalEvent = localEvent.props else {
             return false
         }
-        
+
         return propsInteractionConfig.allSatisfy { prop in
             matchesProperty(prop, in: propsLocalEvent)
         }
     }
-    
+
     /// Check if local event matches any of the interaction events
     static func matchesAny(_ localEvent: InteractionLocalEvent, _ interactionEvents: [InteractionEvent]) -> Bool {
         return interactionEvents.contains { matches(localEvent, $0) }
     }
-    
+
     /// Check if property matches in the local event props
     private static func matchesProperty(_ propInteractionConfig: InteractionAttrsEntry, in propsLocalEvent: [String: String]) -> Bool {
         let propName = propInteractionConfig.name
         let propValue = propInteractionConfig.value
         let operatorValue = propInteractionConfig.operator
-        
+
         guard let actualValue = propsLocalEvent[propName] else {
             return false
         }
-        
+
         return matchPropValue(expectedValue: propValue, operator: operatorValue, actualValue: actualValue)
     }
-    
+
     /// Match property value using operator
     private static func matchPropValue(
         expectedValue: String,
@@ -183,11 +183,11 @@ internal enum InteractionUtil {
         let actualValueLower = actualValue.lowercased()
         let expectedValueLower = expectedValue.lowercased()
         let operatorUpper = `operator`.uppercased()
-        
+
         guard let op = InteractionAttributes.Operators(rawValue: operatorUpper) else {
             return false
         }
-        
+
         switch op {
         case .equals:
             return actualValue == expectedValue
@@ -203,7 +203,7 @@ internal enum InteractionUtil {
             return actualValueLower.hasSuffix(expectedValueLower)
         }
     }
-    
+
     /// Build the final Interaction object
     static func buildPulseInteraction(
         interactionId: String,
@@ -215,9 +215,9 @@ internal enum InteractionUtil {
         let interactionName = interactionConfig.name
         let interactionConfigId = interactionConfig.id
         let lastEventTimeInNano = events.last?.timeInNano ?? 0
-        
+
         let (timeDifferenceInNano, timeCategory, upTimeIndex): (Int64?, InteractionAttributes.TimeCategory?, Double?)
-        
+
         if isSuccessInteraction {
             guard let firstEvent = events.first, let lastEvent = events.last else {
                 return Interaction(
@@ -236,13 +236,13 @@ internal enum InteractionUtil {
                     ]
                 )
             }
-            
+
             let timeDiffInNano = lastEvent.timeInNano - firstEvent.timeInNano
             let timeDifferenceInMs = timeDiffInNano / 1_000_000
             let lowerLimitInMs = interactionConfig.uptimeLowerLimitInMs
             let midLimitInMs = interactionConfig.uptimeMidLimitInMs
             let upperLimitInMs = interactionConfig.uptimeUpperLimitInMs
-            
+
             let (upTimeIdx, timeCat): (Double, InteractionAttributes.TimeCategory)
             if timeDifferenceInMs <= lowerLimitInMs {
                 upTimeIdx = 1.0
@@ -265,12 +265,12 @@ internal enum InteractionUtil {
                 upTimeIdx = 0.0
                 timeCat = .poor
             }
-            
+
             (timeDifferenceInNano, timeCategory, upTimeIndex) = (timeDiffInNano, timeCat, upTimeIdx)
         } else {
             (timeDifferenceInNano, timeCategory, upTimeIndex) = (nil, nil, nil)
         }
-        
+
         let maps: [String: Any?] = [
             InteractionAttributes.name: interactionName,
             InteractionAttributes.configId: interactionConfigId,
@@ -282,14 +282,14 @@ internal enum InteractionUtil {
             InteractionAttributes.timeToCompleteInNano: timeDifferenceInNano,
             InteractionAttributes.isError: !isSuccessInteraction
         ]
-        
+
         return Interaction(
             id: interactionId,
             name: interactionName,
             props: maps
         )
     }
-    
+
     /// Calculate uptime index for APDEX score
     private static func getUpTimeIndex(
         timeDifferenceInMs: Int64,
@@ -302,5 +302,3 @@ internal enum InteractionUtil {
         return 1.0 - (1.0 * Double(timeDifferenceInMs - lowerLimit) / Double(upperLimit - lowerLimit))
     }
 }
-
-

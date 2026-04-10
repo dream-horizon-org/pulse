@@ -19,4 +19,3 @@ public struct ApiResponse<T: Codable>: Codable {
         self.error = error
     }
 }
-

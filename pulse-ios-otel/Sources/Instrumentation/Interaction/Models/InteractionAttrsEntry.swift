@@ -24,4 +24,3 @@ public struct InteractionAttrsEntry: Codable {
         case `operator` = "operator"
     }
 }
-

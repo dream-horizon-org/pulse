@@ -18,4 +18,7 @@ disabled_rules:
   - function_parameter_count
   - cyclomatic_complexity
   - force_try
-  
+  # JSON/API field names from the server (e.g. isBlacklisted, globalBlacklistedEvents).
+  - inclusive_language
+  # Intentional: removeObserver(self) on SDK shutdown, not only deinit.
+  - notification_center_detachment

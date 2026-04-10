@@ -273,14 +273,14 @@ public struct PulseFeatureConfig: Codable, Equatable {
     public let sessionSampleRate: Float
     public let sdks: [PulseSdkName]
     public let config: [String: AnyCodable]?
-    
+
     enum CodingKeys: String, CodingKey {
         case featureName
         case sessionSampleRate
         case sdks
         case config
     }
-    
+
     public init(
         featureName: PulseFeatureName,
         sessionSampleRate: Float,
@@ -292,7 +292,7 @@ public struct PulseFeatureConfig: Codable, Equatable {
         self.sdks = sdks
         self.config = config
     }
-    
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         featureName = try container.decode(PulseFeatureName.self, forKey: .featureName)
@@ -300,7 +300,7 @@ public struct PulseFeatureConfig: Codable, Equatable {
         sdks = try container.decode([PulseSdkName].self, forKey: .sdks)
         config = try? container.decodeIfPresent([String: AnyCodable].self, forKey: .config)
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(featureName, forKey: .featureName)
@@ -321,11 +321,11 @@ public enum PulseSignalScope: String, Codable, CaseIterable {
 }
 
 public enum PulseSdkName: String, Codable, CaseIterable {
-    case pulse_android_java = "pulse_android_java"
-    case pulse_android_rn = "pulse_android_rn"
-    case pulse_ios_swift = "pulse_ios_swift"
-    case pulse_ios_rn = "pulse_ios_rn"
-    case unknown = "unknown"
+    case pulse_android_java
+    case pulse_android_rn
+    case pulse_ios_swift
+    case pulse_ios_rn
+    case unknown
 
     public static func from(telemetrySdkName: String?) -> PulseSdkName {
         switch telemetrySdkName?.lowercased() {
@@ -376,4 +376,3 @@ public enum PulseAttributeType: String, Codable {
     case long_array
     case double_array
 }
-

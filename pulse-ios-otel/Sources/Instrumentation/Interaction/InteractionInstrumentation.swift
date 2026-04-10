@@ -15,7 +15,7 @@ import OpenTelemetrySdk
 public class InteractionInstrumentation {
     // Static storage for instrumentation instance (for processor access)
     private static var sharedInstance: InteractionInstrumentation?
-    
+
     public static func getInstance() -> InteractionInstrumentation? {
         return sharedInstance
     }
@@ -31,20 +31,20 @@ public class InteractionInstrumentation {
 
     private let configurationQueue = DispatchQueue(
         label: "io.opentelemetry.interaction.configuration")
-    
+
     private lazy var interactionManager: InteractionManager = {
         let configFetcher: InteractionConfigFetcher = configuration.useMockFetcher
             ? InteractionConfigMockFetcher(customConfigs: configuration.mockConfigs)
             : InteractionConfigRestFetcher(urlProvider: configuration.configUrlProvider, headers: configuration.headers)
         return InteractionManager(interactionFetcher: configFetcher)
     }()
-    
+
     private var stateObservationTask: Task<Void, Never>?
 
     /// Interaction IDs for which a completion span was already emitted.
     private let handledInteractionIdsLock = NSLock()
     private var handledInteractionIds = Set<String>()
-    
+
     /// Attribute extractors for adding custom attributes to interaction spans
     private var attributeExtractors: [(Interaction) -> [String: AttributeValue]] = []
 
@@ -53,7 +53,7 @@ public class InteractionInstrumentation {
         // Store instance for processor access
         InteractionInstrumentation.sharedInstance = self
     }
-    
+
     // Expose manager for processor access (same instance)
     public var managerInstance: InteractionManager {
         return interactionManager
@@ -71,7 +71,7 @@ public class InteractionInstrumentation {
             }
         }
     }
-    
+
     /// Handle interaction state changes and create spans
     private func handleInteractionStates(_ states: [InteractionRunningStatus]) {
         for state in states {
@@ -88,72 +88,72 @@ public class InteractionInstrumentation {
             }
         }
     }
-    
+
     /// Register SpanProcessor to add interaction attributes to spans
     /// Note: LogRecordProcessor is already registered during SDK initialization
     private func registerSpanProcessor() {
         let openTelemetry = OpenTelemetry.instance
-        
+
         if let tracerProviderSdk = openTelemetry.tracerProvider as? TracerProviderSdk {
             let spanProcessor = InteractionAttributesSpanAppender()
             tracerProviderSdk.addSpanProcessor(spanProcessor)
         }
     }
-    
+
     /// Default attribute extractor
     private func defaultAttributeExtractor(interaction: Interaction) -> [String: AttributeValue] {
         var attributes = putAttributesFrom(interaction.props)
-        
+
         // Add default interaction attributes (overrides props if present)
         attributes[InteractionAttributes.name] = AttributeValue.string(interaction.name)
         attributes[InteractionAttributes.id] = AttributeValue.string(interaction.id)
         attributes[InteractionAttributes.pulseType] = AttributeValue.string(InteractionAttributes.pulseTypeInteraction)
-        
+
         return attributes
     }
-    
+
     /// Create OpenTelemetry span for completed interaction
     private func createInteractionSpan(interaction: Interaction, config: InteractionConfig) {
         guard let timeSpan = interaction.timeSpanInNanos else {
             return
         }
-        
+
         let openTelemetry = OpenTelemetry.instance
         let tracer = openTelemetry.tracerProvider.get(
             instrumentationName: "pulse.otel.interaction",
             instrumentationVersion: nil
         )
-        
+
         // Create span builder
         let spanBuilder = tracer.spanBuilder(spanName: interaction.name)
             .setNoParent()
             .setStartTime(time: Date(timeIntervalSince1970: Double(timeSpan.start) / 1_000_000_000))
-        
+
         // Apply all attribute extractors
         // Default extractor is added in install(), custom extractor from configuration
         // Note: configId is already in interaction.props, so it's included via default extractor
         var attributes: [String: AttributeValue] = [:]
-        
+
         // Apply all extractors (default + custom)
         for extractor in attributeExtractors {
             let extractedAttrs = extractor(interaction)
             attributes.merge(extractedAttrs) { _, new in new }
         }
-        
+
         // Apply custom extractor from configuration (if provided)
         if let attributeExtractor = configuration.attributeExtractor {
             let customAttrs = attributeExtractor(interaction)
             attributes.merge(customAttrs) { _, new in new }
         }
-        
+
         // Start span
         let span = spanBuilder.startSpan()
-        
+
         // Set attributes on the span
         for (key, value) in attributes {
             span.setAttribute(key: key, value: value)
         }
-        
+
         // Add events as span events
         for event in interaction.events {
             let eventAttrs = event.props?.mapValues { AttributeValue.string($0) } ?? [:]
@@ -163,7 +163,7 @@ public class InteractionInstrumentation {
                 timestamp: Date(timeIntervalSince1970: Double(event.timeInNano) / 1_000_000_000)
             )
         }
-        
+
         // Add marker events
         for marker in interaction.markerEvents {
             let markerAttrs = marker.props?.mapValues { AttributeValue.string($0) } ?? [:]
@@ -173,27 +173,27 @@ public class InteractionInstrumentation {
                 timestamp: Date(timeIntervalSince1970: Double(marker.timeInNano) / 1_000_000_000)
             )
         }
-        
+
         // Set span status
         if interaction.isErrored {
             span.status = Status.error(description: "Interaction timed out or was interrupted")
         }
-        
+
         // End span
         span.end(time: Date(timeIntervalSince1970: Double(timeSpan.end) / 1_000_000_000))
     }
-    
+
     /// Convert [String: Any?] to [String: AttributeValue]
     private func putAttributesFrom(_ map: [String: Any?]) -> [String: AttributeValue] {
         var attributes: [String: AttributeValue] = [:]
-        
+
         for (key, value) in map {
             // Skip internal properties that shouldn't be added as attributes
-            if key == InteractionAttributes.localEvents || 
+            if key == InteractionAttributes.localEvents ||
                key == InteractionAttributes.markerEvents {
                 continue
             }
-            
+
             // Convert value to AttributeValue
             if let stringValue = value as? String {
                 attributes[key] = AttributeValue.string(stringValue)
@@ -213,10 +213,10 @@ public class InteractionInstrumentation {
                 attributes[key] = AttributeValue.string(String(describing: value))
             }
         }
-        
+
         return attributes
     }
-    
+
     /// Cancels the observation task and clears the shared instance.
     public func uninstall() {
         stateObservationTask?.cancel()
@@ -232,4 +232,3 @@ public class InteractionInstrumentation {
         stateObservationTask?.cancel()
     }
 }
-

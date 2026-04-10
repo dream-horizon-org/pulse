@@ -23,7 +23,7 @@ extension SessionReplayConfig {
         guard let remote = remote else {
             return local
         }
-        
+
         // Parse enum values from strings
         let textPrivacy: TextAndInputPrivacy? = remote.textAndInputPrivacy.flatMap { value in
             switch value.uppercased() {
@@ -37,7 +37,7 @@ extension SessionReplayConfig {
                 return nil
             }
         }
-        
+
         let imagePrivacy: ImagePrivacy? = remote.imagePrivacy.flatMap { value in
             switch value.uppercased() {
             case "MASK_ALL":
@@ -48,23 +48,23 @@ extension SessionReplayConfig {
                 return nil
             }
         }
-        
+
         // Convert screenshotQuality from Int (0-100) to CGFloat (0.0-1.0)
         let compressionQuality: CGFloat? = remote.screenshotQuality.map { quality in
             // Clamp to valid range and convert to 0.0-1.0
             let clamped = max(0, min(100, quality))
             return CGFloat(clamped) / 100.0
         }
-        
+
         // Convert screenshotScale from Float to CGFloat and clamp to valid range
         let screenshotScale: CGFloat? = remote.screenshotScale.map { scale in
             let clamped = max(0.01, min(1.0, CGFloat(scale)))
             return clamped
         }
-        
+
         // Convert flushIntervalSeconds from Int to TimeInterval
         let flushIntervalSeconds: TimeInterval? = remote.flushIntervalSeconds.map { TimeInterval($0) }
-        
+
         // Build merged config: backend overrides local, local provides defaults
         return SessionReplayConfig(
             captureIntervalMs: remote.throttleDelayMs ?? local.captureIntervalMs,

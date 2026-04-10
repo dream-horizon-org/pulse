@@ -23,17 +23,17 @@ public class SessionManager {
   private var sessionExpiredInBackground: Bool = false
   private var backgroundObserver: NSObjectProtocol?
   private var foregroundObserver: NSObjectProtocol?
-  
+
   public init(configuration: SessionConfig = .default) {
     self.configuration = configuration
     self.sessionStorage = configuration.shouldPersist ? PersistentSessionStorage() : InMemorySessionStorage()
     restoreSessionFromDisk()
-    
+
     if configuration.backgroundInactivityTimeout != nil {
       setupAppLifecycleObservers()
     }
   }
-  
+
   /// Cleans up notification observers when SessionManager is deallocated
   /// This prevents memory leaks by removing observers registered with NotificationCenter
   deinit {
@@ -41,7 +41,7 @@ public class SessionManager {
       NotificationCenter.default.removeObserver($0)
     }
   }
-  
+
   /// Sets up iOS notification observers for app background/foreground transitions
   /// Uses UIApplication.didEnterBackgroundNotification and willEnterForegroundNotification
   private func setupAppLifecycleObservers() {
@@ -53,7 +53,7 @@ public class SessionManager {
     ) { [weak self] _ in
       self?.lock.withLock { self?.backgroundStartTime = Date() }
     }
-    
+
     foregroundObserver = NotificationCenter.default.addObserver(
       forName: UIApplication.willEnterForegroundNotification,
       object: nil,
@@ -67,7 +67,7 @@ public class SessionManager {
         self?.lock.withLock { self?.backgroundStartTime = nil }
         return
       }
-      
+
       // Session expired in background - emit session.end with background start timestamp
       self.lock.withLock {
         if let endEventName = self.configuration.endEventName {
@@ -143,7 +143,7 @@ public class SessionManager {
   private func refreshSession() {
     let expiredByMaxLifetime = session == nil || session!.isExpired()
     let expiredByBackground = sessionExpiredInBackground
-    
+
     if expiredByMaxLifetime || expiredByBackground {
       startSession()
       sessionExpiredInBackground = false

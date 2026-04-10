@@ -59,42 +59,42 @@ public struct SessionReplayConfig {
     public var flushAt: Int = 10
     public var maxBatchSize: Int = 50
     public var replayEndpointBaseUrl: String?
-    
+
     /// Set of view class names (fully-qualified) that should always be masked.
     /// Applies to the registered class and all its subclasses.
     public var maskViewClasses: Set<String> = []
-    
+
     /// Set of view class names (fully-qualified) that should always be unmasked.
     /// Applies to the registered class and all its subclasses.
     public var unmaskViewClasses: Set<String> = []
-    
+
     // MARK: - Effective (Clamped) Properties
-    
+
     /// Capture interval clamped to minimum 100ms to prevent excessive frame capture.
     public var effectiveCaptureIntervalMs: Int {
         max(100, captureIntervalMs)
     }
-    
+
     /// Compression quality clamped to 0.0–1.0 range for valid UIGraphicsImageRenderer output.
     public var effectiveCompressionQuality: CGFloat {
         max(0.0, min(1.0, compressionQuality))
     }
-    
+
     /// Screenshot scale clamped to 0.01–1.0 range for valid capture dimensions.
     public var effectiveScreenshotScale: CGFloat {
         max(0.01, min(1.0, screenshotScale))
     }
-    
+
     /// Flush interval clamped to minimum 1.0 second to prevent excessive flushing.
     public var effectiveFlushIntervalSeconds: TimeInterval {
         max(1.0, flushIntervalSeconds)
     }
-    
+
     /// Flush threshold clamped to minimum 1 to ensure at least one payload per flush.
     public var effectiveFlushAt: Int {
         max(1, flushAt)
     }
-    
+
     /// Batch size clamped to minimum 1 to ensure non-empty batches.
     public var effectiveMaxBatchSize: Int {
         max(1, maxBatchSize)
@@ -125,7 +125,7 @@ public struct SessionReplayConfig {
         self.maskViewClasses = maskViewClasses
         self.unmaskViewClasses = unmaskViewClasses
     }
-    
+
     @available(*, deprecated, message: "Use init with textAndInputPrivacy and imagePrivacy instead")
     public init(
         captureIntervalMs: Int = 1000,
@@ -150,11 +150,11 @@ public struct SessionReplayConfig {
         self.maskViewClasses = []
         self.unmaskViewClasses = []
     }
-    
+
     public mutating func addMaskViewClass(_ className: String) {
         maskViewClasses.insert(className)
     }
-    
+
     public mutating func addUnmaskViewClass(_ className: String) {
         unmaskViewClasses.insert(className)
     }
@@ -198,27 +198,27 @@ extension UIView {
     private static let pulseReplayMaskTagValue = "pulse-mask"
     private static let pulseReplayUnmaskTagValue = "pulse-unmask"
     private static let pulseReplayPrivacyTagKey = 999998
-    
+
     public func pulseReplayMask() {
         self.setTag(Self.pulseReplayPrivacyTagKey, Self.pulseReplayMaskTagValue)
     }
-    
+
     public func pulseReplayUnmask() {
         self.setTag(Self.pulseReplayPrivacyTagKey, Self.pulseReplayUnmaskTagValue)
     }
-    
+
     internal func getPrivacyTagValue() -> String? {
         self.getTag(Self.pulseReplayPrivacyTagKey) as? String
     }
-    
+
     internal var hasPulseReplayMaskTag: Bool {
         getPrivacyTagValue() == Self.pulseReplayMaskTagValue
     }
-    
+
     internal var hasPulseReplayUnmaskTag: Bool {
         getPrivacyTagValue() == Self.pulseReplayUnmaskTagValue
     }
-    
+
     internal var hasInstanceMaskOverride: Bool? {
         if hasPulseReplayUnmaskTag {
             return false
@@ -226,7 +226,7 @@ extension UIView {
         if hasPulseReplayMaskTag {
             return true
         }
-        
+
         let accessibilityLabel = self.accessibilityLabel?.lowercased() ?? ""
         if accessibilityLabel.contains(Self.pulseReplayUnmaskTagValue) {
             return false
@@ -234,7 +234,7 @@ extension UIView {
         if accessibilityLabel.contains(Self.pulseReplayMaskTagValue) {
             return true
         }
-        
+
         if let accessibilityId = self.accessibilityIdentifier {
             let lowerId = accessibilityId.lowercased()
             if lowerId.contains(Self.pulseReplayUnmaskTagValue) {
@@ -244,15 +244,15 @@ extension UIView {
                 return true
             }
         }
-        
+
         return nil
     }
-    
+
     private func setTag(_ key: Int, _ value: String) {
         let keyPointer = UnsafeRawPointer(bitPattern: key)!
         objc_setAssociatedObject(self, keyPointer, value, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
-    
+
     private func getTag(_ key: Int) -> Any? {
         let keyPointer = UnsafeRawPointer(bitPattern: key)!
         return objc_getAssociatedObject(self, keyPointer)
@@ -263,11 +263,11 @@ extension UIView {
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
 public struct PulseReplayMaskModifier: ViewModifier {
     private let shouldMask: Bool
-    
+
     public init(shouldMask: Bool = true) {
         self.shouldMask = shouldMask
     }
-    
+
     public func body(content: Content) -> some View {
         content
             .accessibilityIdentifier(shouldMask ? "pulse-replay-mask" : "pulse-replay-unmask")
@@ -279,11 +279,11 @@ extension View {
     public func pulseReplayMask() -> some View {
         modifier(PulseReplayMaskModifier(shouldMask: true))
     }
-    
+
     public func pulseReplayUnmask() -> some View {
         modifier(PulseReplayMaskModifier(shouldMask: false))
     }
-    
+
     @available(*, deprecated, message: "Use pulseReplayMask() or pulseReplayUnmask() instead")
     public func pulseReplayMask(isEnabled: Bool) -> some View {
         modifier(PulseReplayMaskModifier(shouldMask: isEnabled))

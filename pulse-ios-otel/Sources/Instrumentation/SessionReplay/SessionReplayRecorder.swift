@@ -92,16 +92,16 @@ public class SessionReplayRecorder {
         #endif
         removeLifecycleObservers()
     }
-    
+
     // MARK: - Recording State (Non-blocking Access)
-    
+
     /// Returns recording state without blocking. Uses lock instead of queue.sync to prevent deadlock.
     public var isRecording: Bool {
         recordingStateLock.lock()
         defer { recordingStateLock.unlock() }
         return _isRecording
     }
-    
+
     /// Thread-safe throttler access to prevent data races between main thread and recorder queue.
     private var throttler: SessionReplayThrottler? {
         get {
@@ -115,13 +115,13 @@ public class SessionReplayRecorder {
             _throttler = newValue
         }
     }
-    
+
     // MARK: - User ID Resolution
-    
+
     private func resolvedUserId() -> String {
         userIdProvider?() ?? "anonymous"
     }
-    
+
     public func start(resetState: Bool = true) {
         queue.async { [weak self] in
             guard let self = self else { return }
@@ -136,24 +136,24 @@ public class SessionReplayRecorder {
             }
             self._isRecording = true
             self.recordingStateLock.unlock()
-            
+
             if resetState {
                 self.transformer.reset()
                 self.resetWindowStatuses()
                 self.currentSessionId = nil
             }
-            
+
             // Set throttler safely
             self.throttler = SessionReplayThrottler(throttleDelayMs: self.config.effectiveCaptureIntervalMs, queue: self.queue)
             self.resetDrawOccurredFlag()
             self.startDisplayLink()
         }
     }
-    
+
     public func resume() {
         start(resetState: false)
     }
-    
+
     /// Stops capture and shuts down the persisting emitter (SDK uninstall / consent denied).
     public func tearDown() {
         executeOnRecorderQueueSync { [self] in
@@ -205,7 +205,7 @@ public class SessionReplayRecorder {
         drawOccurredSinceLastCapture = false
         drawOccurredLock.unlock()
     }
-    
+
     /// Schedules capture on the main queue so UIKit/window access never uses `DispatchQueue.main.sync` from the recorder utility queue (avoids deadlock with `Pulse.shutdown()` / `initializationQueue.sync` on the main thread).
     private func captureFrame(completion: @escaping (SessionReplayFrame?) -> Void) {
         #if os(iOS) || os(tvOS)
@@ -352,13 +352,13 @@ public class SessionReplayRecorder {
         }
     }
     #endif
-    
+
     private func getAllVisibleWindows() -> [UIWindow] {
         #if os(iOS) || os(tvOS)
         assert(Thread.isMainThread, "getAllVisibleWindows must run on the main thread")
 
         var visibleWindows: [UIWindow] = []
-        
+
         if #available(iOS 15.0, *) {
             for scene in UIApplication.shared.connectedScenes {
                 if let windowScene = scene as? UIWindowScene {
@@ -370,7 +370,7 @@ public class SessionReplayRecorder {
                            windowClassName.contains("StatusBar") {
                             continue
                         }
-                        
+
                         if window.isHidden == false && window.alpha > 0 && window.windowScene != nil {
                             let isKey = window.isKeyWindow
                             if window.rootViewController != nil || isKey {
@@ -389,7 +389,7 @@ public class SessionReplayRecorder {
                    windowClassName.contains("StatusBar") {
                     continue
                 }
-                
+
                 if window.isHidden == false && window.alpha > 0 {
                     let isKey = window.isKeyWindow
                     if window.rootViewController != nil || isKey {
@@ -398,7 +398,7 @@ public class SessionReplayRecorder {
                 }
             }
         }
-        
+
         visibleWindows.sort { first, second in
             let firstIsKey = first.isKeyWindow
             let secondIsKey = second.isKeyWindow
@@ -410,25 +410,25 @@ public class SessionReplayRecorder {
             }
             return first.windowLevel.rawValue > second.windowLevel.rawValue
         }
-        
+
         return visibleWindows
         #else
         return []
         #endif
     }
-    
+
     private func getWindowStatus(window: UIWindow) -> WindowSnapshotStatus {
         windowStatusLock.lock()
         defer { windowStatusLock.unlock() }
         return windowStatuses[window] ?? WindowSnapshotStatus()
     }
-    
+
     private func updateWindowStatus(window: UIWindow, status: WindowSnapshotStatus) {
         windowStatusLock.lock()
         defer { windowStatusLock.unlock() }
         windowStatuses[window] = status
     }
-    
+
     private func resetWindowStatuses() {
         windowStatusLock.lock()
         defer { windowStatusLock.unlock() }
@@ -436,12 +436,12 @@ public class SessionReplayRecorder {
             windowStatuses[window] = WindowSnapshotStatus()
         }
     }
-    
+
     #if os(iOS) || os(tvOS)
     private func getCurrentScreenName(from window: UIWindow) -> String {
         return VisibleScreenTracker.shared.currentlyVisibleScreen
     }
-    
+
     private func getAppVersion() -> String? {
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
            !version.isEmpty {
@@ -449,7 +449,7 @@ public class SessionReplayRecorder {
         }
         return nil
     }
-    
+
     private func getCurrentAspectRatio() -> String? {
         #if os(iOS) || os(tvOS)
         var aspectRatio: String?
@@ -463,11 +463,11 @@ public class SessionReplayRecorder {
     }
 
     #endif
-    
+
     private func setupLifecycleObservers() {
         #if os(iOS) || os(tvOS)
         let center = NotificationCenter.default
-        
+
         let didBecomeActive = center.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
@@ -512,12 +512,12 @@ public class SessionReplayRecorder {
         lifecycleObservers.append(didEnterBackground)
         #endif
     }
-    
+
     private func removeLifecycleObservers() {
         lifecycleObservers.forEach { NotificationCenter.default.removeObserver($0) }
         lifecycleObservers.removeAll()
     }
-    
+
     private func startDisplayLink() {
         #if os(iOS) || os(tvOS)
         DispatchQueue.main.async { [weak self] in
@@ -544,42 +544,42 @@ public class SessionReplayRecorder {
         }
         #endif
     }
-    
+
     @objc private func displayLinkFired() {
         // Early guard: don't process if we've stopped recording
         // This closes the race window between stop() and display link invalidation
         guard isRecording else { return }
-        
+
         drawFlagLock.lock()
         onDrawFlag = true
         drawFlagLock.unlock()
-        
+
         drawOccurredLock.lock()
         drawOccurredSinceLastCapture = true
         drawOccurredLock.unlock()
-        
+
         throttler?.throttle { [weak self] in
             guard let self = self else { return }
-            
+
             self.drawOccurredLock.lock()
             let shouldCapture = self.drawOccurredSinceLastCapture
             if shouldCapture {
                 self.drawOccurredSinceLastCapture = false
             }
             self.drawOccurredLock.unlock()
-            
+
             if shouldCapture {
                 self.captureFrame { _ in }
             }
         }
     }
-    
+
     private func resetDrawFlag() {
         drawFlagLock.lock()
         onDrawFlag = false
         drawFlagLock.unlock()
     }
-    
+
     private func checkDrawFlag() -> Bool {
         drawFlagLock.lock()
         let flag = onDrawFlag

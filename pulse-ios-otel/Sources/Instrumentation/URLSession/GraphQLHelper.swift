@@ -51,7 +51,7 @@ enum GraphQLHelper {
         if type == nil, let v = json["operation"] as? String, !v.isEmpty {
             type = v.lowercased()
         }
-        if (name == nil || type == nil), let query = json["query"] as? String, !query.isEmpty {
+        if name == nil || type == nil, let query = json["query"] as? String, !query.isEmpty {
             parseQueryString(query, name: &name, type: &type)
         }
     }

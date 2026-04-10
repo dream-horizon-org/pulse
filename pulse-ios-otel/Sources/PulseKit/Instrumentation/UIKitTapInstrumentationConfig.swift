@@ -11,7 +11,7 @@ public struct RageConfig {
     public var timeWindowMs: Int = 2000
     public var rageThreshold: Int = 3
     public var radiusPt: Float = 50.0
-    
+
     public init(timeWindowMs: Int = 2000, rageThreshold: Int = 3, radiusPt: Float = 50.0) {
         self.timeWindowMs = timeWindowMs
         self.rageThreshold = rageThreshold
@@ -30,7 +30,7 @@ public struct UIKitTapInstrumentationConfig {
     /// recursive subview text scan for container views (cards, cells, stacks).
     /// Disable for performance-sensitive apps where view hierarchies are large and deep.
     public private(set) var captureContext: Bool = false
-    
+
     /// Rage-click detection configuration (time window, threshold, radius).
     /// Backend config overrides these defaults if present.
     public private(set) var rage: RageConfig = RageConfig()
@@ -48,7 +48,7 @@ public struct UIKitTapInstrumentationConfig {
     public mutating func captureContext(_ value: Bool) {
         self.captureContext = value
     }
-    
+
     public mutating func rage(_ configure: (inout RageConfig) -> Void) {
         configure(&rage)
     }

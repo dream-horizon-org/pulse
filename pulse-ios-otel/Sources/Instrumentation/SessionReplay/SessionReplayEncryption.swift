@@ -56,7 +56,7 @@ internal final class DefaultSessionReplayEncryption: SessionReplayStorageEncrypt
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: keychainAccount,
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecMatchLimit as String: kSecMatchLimitOne
         ]
 
         var result: AnyObject?
@@ -72,7 +72,7 @@ internal final class DefaultSessionReplayEncryption: SessionReplayStorageEncrypt
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: keychainAccount,
+            kSecAttrAccount as String: keychainAccount
         ]
         SecItemDelete(deleteQuery as CFDictionary)
 
@@ -81,7 +81,7 @@ internal final class DefaultSessionReplayEncryption: SessionReplayStorageEncrypt
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: keychainAccount,
             kSecValueData as String: keyData,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
 
         SecItemAdd(addQuery as CFDictionary, nil)

@@ -10,7 +10,7 @@ internal class PersistentSessionStorage: SessionStorage {
     func get() -> Session? {
         return SessionStore.load()
     }
-    
+
     func save(_ newSession: Session) {
         SessionStore.scheduleSave(session: newSession)
     }

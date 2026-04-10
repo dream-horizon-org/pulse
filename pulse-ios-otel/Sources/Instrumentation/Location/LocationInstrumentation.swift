@@ -138,4 +138,3 @@ public final class LocationInstrumentation {
         #endif
     }
 }
-     

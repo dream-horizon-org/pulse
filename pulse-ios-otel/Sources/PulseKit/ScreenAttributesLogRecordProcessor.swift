@@ -10,7 +10,7 @@ import OpenTelemetryApi
 internal class ScreenAttributesLogRecordProcessor: LogRecordProcessor {
     private let visibleScreenTracker: VisibleScreenTracker
     private let nextProcessor: LogRecordProcessor
-    
+
     init(
         visibleScreenTracker: VisibleScreenTracker = VisibleScreenTracker.shared,
         nextProcessor: LogRecordProcessor
@@ -18,7 +18,7 @@ internal class ScreenAttributesLogRecordProcessor: LogRecordProcessor {
         self.visibleScreenTracker = visibleScreenTracker
         self.nextProcessor = nextProcessor
     }
-    
+
     func onEmit(logRecord: ReadableLogRecord) {
         var enhancedRecord = logRecord
         let screenName = visibleScreenTracker.currentlyVisibleScreen
@@ -28,13 +28,12 @@ internal class ScreenAttributesLogRecordProcessor: LogRecordProcessor {
         }
         nextProcessor.onEmit(logRecord: enhancedRecord)
     }
-    
+
     func shutdown(explicitTimeout: TimeInterval?) -> ExportResult {
         return nextProcessor.shutdown(explicitTimeout: explicitTimeout)
     }
-    
+
     func forceFlush(explicitTimeout: TimeInterval?) -> ExportResult {
         return nextProcessor.forceFlush(explicitTimeout: explicitTimeout)
     }
 }
-

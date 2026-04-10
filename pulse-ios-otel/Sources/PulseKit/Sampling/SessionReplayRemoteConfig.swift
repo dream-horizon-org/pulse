@@ -19,7 +19,7 @@ internal struct SessionReplayRemoteConfig: Codable {
     let flushAt: Int?
     let maxBatchSize: Int?
     let replayApiBaseUrl: String?
-    
+
     enum CodingKeys: String, CodingKey {
         case textAndInputPrivacy
         case imagePrivacy
@@ -31,14 +31,14 @@ internal struct SessionReplayRemoteConfig: Codable {
         case maxBatchSize
         case replayApiBaseUrl
     }
-    
+
     /// Creates SessionReplayRemoteConfig from PulseFeatureConfig's config dictionary.
     /// Returns nil if config is absent or parsing fails.
     static func from(featureConfig: PulseFeatureConfig) -> SessionReplayRemoteConfig? {
         guard let configDict = featureConfig.config else {
             return nil
         }
-        
+
         // Convert [String: AnyCodable] to [String: Any] for JSON encoding
         // Handle NSNull values properly
         let anyDict = configDict.mapValues { codable -> Any in
@@ -48,14 +48,14 @@ internal struct SessionReplayRemoteConfig: Codable {
             }
             return value
         }
-        
+
         // Encode to JSON data, then decode as SessionReplayRemoteConfig
         guard JSONSerialization.isValidJSONObject(anyDict),
               let jsonData = try? JSONSerialization.data(withJSONObject: anyDict),
               let decoded = try? JSONDecoder().decode(SessionReplayRemoteConfig.self, from: jsonData) else {
             return nil
         }
-        
+
         return decoded
     }
 }

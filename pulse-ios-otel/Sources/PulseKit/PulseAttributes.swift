@@ -15,7 +15,7 @@ public enum PulseAttributes {
     public static let pulseUserSessionEndEventName = "pulse.user.session.end"
     public static let startType = "start.type"
     public static let viewControllerName = "view_controller.name"
-    
+
     public static let exceptionMessage = "exception.message"
     public static let exceptionType = "exception.type"
     public static let exceptionStacktrace = "exception.stacktrace"
@@ -27,7 +27,7 @@ public enum PulseAttributes {
     /// Project identifier; used as resource attribute "project.id" and in HTTP header X-API-KEY.
     public static let projectId = "project.id"
     internal static let apiKeyHeaderKey = "X-API-KEY"
-    
+
     // Click instrumentation attributes
     public static let clickType = "click.type"
     public static let clickIsRage = "click.is_rage"
@@ -41,7 +41,7 @@ public enum PulseAttributes {
     public static func pulseUserParameter(_ key: String) -> String {
         return "\(pulseUserPrefix).\(key)"
     }
-    
+
     public enum PulseSdkNames {
         public static let iosSwift = "pulse_ios_swift"
         public static let iosRn = "pulse_ios_rn"
@@ -51,7 +51,7 @@ public enum PulseAttributes {
         public static let good = "good"
         public static let dead = "dead"
     }
-    
+
     public enum AppClickContext {
         public static func buildContext(label: String?) -> String? {
             guard let trimmed = label?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else { return nil }
@@ -63,13 +63,13 @@ public enum PulseAttributes {
         // Custom events
         public static let customEvent = "custom_event"
         public static let nonFatal = "non_fatal"
-        
+
         // Span types
         public static let network = "network"
         public static let screenLoad = "screen_load"
         public static let appStart = "app_start"
         public static let screenSession = "screen_session"
-        
+
         // Log types
         public static let crash = "device.crash"
         public static let anr = "anr"

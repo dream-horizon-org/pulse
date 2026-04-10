@@ -24,7 +24,7 @@ public struct InteractionInstrumentationConfiguration {
     internal var useMockFetcher: Bool = false
 
     /// When using the mock fetcher, optional configs to return (defaults to built-in mock data when nil)
-    internal var mockConfigs: [InteractionConfig]? = nil
+    internal var mockConfigs: [InteractionConfig]?
 
     public init(
         configUrlProvider: @escaping () -> String = {
@@ -38,4 +38,3 @@ public struct InteractionInstrumentationConfiguration {
         self.attributeExtractor = attributeExtractor
     }
 }
-

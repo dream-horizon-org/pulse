@@ -130,9 +130,9 @@ internal class UIViewControllerSwizzler {
         guard let method = class_getInstanceMethod(UIViewController.self, #selector(UIViewController.viewDidAppear(_:))) else {
             return
         }
-        
+
         var originalIMP: IMP?
-        
+
         let block: @convention(block) (UIViewController, Bool) -> Void = { viewController, animated in
             // End AppStart for any VC — not gated by shouldTrack so it works
             // in React Native where the host VC isn't in Bundle.main.
@@ -148,7 +148,7 @@ internal class UIViewControllerSwizzler {
                 castedIMP(viewController, #selector(UIViewController.viewDidAppear(_:)), animated)
             }
         }
-        
+
         let swizzledIMP = imp_implementationWithBlock(unsafeBitCast(block, to: AnyObject.self))
         originalIMP = method_setImplementation(method, swizzledIMP)
     }

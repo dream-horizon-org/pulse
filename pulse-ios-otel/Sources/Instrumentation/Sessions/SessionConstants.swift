@@ -24,7 +24,7 @@ public class SessionConstants {
 
   // MARK: - Internal Constants
   public static let sessionEventNotification = "SessionEventInstrumentation.SessionEvent"
-  
+
   // MARK: - HTTP Headers
   public static let meteredSessionIdHeader = "X-Pulse-Metering-Session-ID"
 }
