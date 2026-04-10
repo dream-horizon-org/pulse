@@ -129,6 +129,7 @@ public class AiProxyServiceImpl implements AiProxyService {
     return url != null && !url.isBlank() ? url : DEFAULT_AI_SERVICE_URL;
   }
 
+  // TODO: Refactor this as it violates the Single Responsibility Principle
   @Override
   public CompletionStage<AiProxyUpstreamResult> proxy(
       String method,

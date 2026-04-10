@@ -121,6 +121,24 @@ export function RootCause({
     };
   }, []);
 
+  const handleRegenerate = useCallback(() => {
+    const isInteractionNameInvalid = !interactionName;
+    if (isInteractionNameInvalid) return;
+
+    if (regenerateDebounceTimerRef.current !== null) {
+      window.clearTimeout(regenerateDebounceTimerRef.current);
+    }
+
+    regenerateDebounceTimerRef.current = window.setTimeout(() => {
+      regenerateRcaReport.mutate({
+        interactionName,
+        date: date ?? null,
+        projectId: trimmedProjectId,
+      });
+      regenerateDebounceTimerRef.current = null;
+    }, REGENERATE_DEBOUNCE_MS);
+  }, [interactionName, date, trimmedProjectId, regenerateRcaReport]);
+
   const isGenerationNoticeModalOpen =
     showLoadingUi &&
     !userDismissedGenerationNotice &&
@@ -175,23 +193,6 @@ export function RootCause({
 
   if (showReport && reportPayload) {
     const cachedAtFormatted = formatRcaReportCachedAt(reportPayload.cachedAt);
-    const handleRegenerate = useCallback(() => {
-      const isInteractionNameInvalid = !interactionName;
-      if (isInteractionNameInvalid) return;
-
-      if (regenerateDebounceTimerRef.current !== null) {
-        window.clearTimeout(regenerateDebounceTimerRef.current);
-      }
-
-      regenerateDebounceTimerRef.current = window.setTimeout(() => {
-        regenerateRcaReport.mutate({
-          interactionName,
-          date: date ?? null,
-          projectId: trimmedProjectId,
-        });
-        regenerateDebounceTimerRef.current = null;
-      }, REGENERATE_DEBOUNCE_MS);
-    }, [interactionName, date, trimmedProjectId, regenerateRcaReport]);
     return (
       <RcaReportView
         report={reportPayload.report ?? {}}
