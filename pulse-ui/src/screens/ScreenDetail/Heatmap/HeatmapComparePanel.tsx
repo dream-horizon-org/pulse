@@ -13,7 +13,6 @@ import { screenshotUrlsFromMetadata } from "./heatmapMetadataUtils";
 import { useResolvedHeatmapScreenshots } from "./useResolvedHeatmapScreenshots";
 import {
   glowLayerForSignal,
-  heatmapFrustrationEmojiMarkers,
   type HeatmapFocusLens,
   type HeatmapSignal,
 } from "./heatmapPanelUtils";
@@ -352,7 +351,6 @@ function CompareColumnVisualization({
   const glow = glowLayerForSignal(data, signal);
   const mockBinControls = isHeatmapMockServerEnabled();
   const binBudget = useHeatmapBinBudget(glow, mockBinControls);
-  const frustrationEmojiMarkers = heatmapFrustrationEmojiMarkers(data, signal);
   const rawScreenshotUrls = useMemo(
     () => screenshotUrlsFromMetadata(data.metadata),
     [data],
@@ -377,7 +375,6 @@ function CompareColumnVisualization({
       interactionRegions={data.layers.interaction_map?.regions ?? []}
       sharedWeightMax={sharedWeightMax}
       showDensityFooter={focusLens === "all" && mockBinControls}
-      frustrationEmojiMarkers={frustrationEmojiMarkers}
       densityBinTooltip={
         showBinTooltip ? { payload: data, signal } : undefined
       }

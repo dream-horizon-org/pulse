@@ -836,6 +836,9 @@
   height: calc(100% - 24px);
   object-fit: cover;
   border-radius: 16px;
+  /* Slight fade so heat layers read over busy screenshots */
+  opacity: 0.60;
+  pointer-events: none;
 }
 
 .heatOverlay {

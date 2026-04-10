@@ -6,12 +6,6 @@ import type {
 export type HeatmapSignal = "tap" | "rage" | "dead";
 export type HeatmapFocusLens = "all" | "key";
 
-/** Emoji overlay on the heat canvas — rage (😡) or dead clicks (👻). */
-export type HeatmapFrustrationEmojiMarkersConfig = {
-  kind: Extract<HeatmapSignal, "rage" | "dead">;
-  points: Array<{ x: number; y: number; weight: number }>;
-};
-
 export const HEATMAP_SIGNALS: { id: HeatmapSignal; label: string }[] = [
   { id: "tap", label: "Tap" },
   { id: "rage", label: "Rage" },
@@ -68,24 +62,6 @@ export function glowLayerForSignal(
     return dead.map((r) => ({ x: r.x, y: r.y, weight: r.weight }));
   }
   return base;
-}
-
-/**
- * Points + kind for per-cluster emoji markers when the density signal is rage or dead.
- */
-export function heatmapFrustrationEmojiMarkers(
-  data: HeatmapDataResponse | null | undefined,
-  signal: HeatmapSignal,
-): HeatmapFrustrationEmojiMarkersConfig | undefined {
-  if (!data || (signal !== "rage" && signal !== "dead")) return undefined;
-  const src =
-    signal === "rage"
-      ? (data.layers.frustration_map?.rage ?? [])
-      : (data.layers.frustration_map?.dead ?? []);
-  return {
-    kind: signal,
-    points: src.map((r) => ({ x: r.x, y: r.y, weight: r.weight })),
-  };
 }
 
 /** Max `weight` in a glow layer — heatmap.js scaling uses this like compare-mode `sharedWeightMax`. */

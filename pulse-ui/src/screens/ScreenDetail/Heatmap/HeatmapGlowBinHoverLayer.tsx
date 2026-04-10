@@ -6,7 +6,8 @@ import type { HeatmapSignal } from "./heatmapPanelUtils";
 import classes from "./HeatmapPanel.module.css";
 
 const GRID = 14;
-const PICK_R_NORM = 0.07;
+/** Normalized pick radius — keep in line with heatmap.js kernel in HeatmapJsCanvas. */
+const PICK_R_NORM = 0.08;
 
 type Bucket = HeatmapGlowPoint[];
 

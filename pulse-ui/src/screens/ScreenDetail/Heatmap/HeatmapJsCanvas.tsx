@@ -3,23 +3,19 @@ import h337 from "heatmap.js";
 import type { HeatmapGlowPoint } from "./heatmap.types";
 import { buildHeatmapJsPayload } from "./heatmapDisplay";
 import { HEATMAP_JS_GRADIENT } from "./heatmapViz.constants";
-import type { HeatmapFrustrationEmojiMarkersConfig } from "./heatmapPanelUtils";
-import { HeatmapFrustrationMarkers } from "./HeatmapFrustrationMarkers";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapJsCanvasProps {
   displayGlow: HeatmapGlowPoint[];
   sharedWeightMax?: number;
-  /** Rage (😡) or dead-click (👻) emoji at each frustration cluster — unset when density is tap-only. */
-  frustrationEmojiMarkers?: HeatmapFrustrationEmojiMarkersConfig;
 }
 
 const LAYOUT_RETRY_FRAMES = 90;
 
 /** Fraction of min(canvas w,h) used as heatmap.js kernel radius — smaller = tighter bins. */
-const RADIUS_FACTOR_FEW = 0.048;
-const RADIUS_FACTOR_MANY = 0.034;
-const RADIUS_MIN_PX = 8;
+const RADIUS_FACTOR_FEW = 0.072;
+const RADIUS_FACTOR_MANY = 0.04;
+const RADIUS_MIN_PX = 10;
 /** `BLUR_FEW`: softer falloff when point count is low. `BLUR_MANY`: slightly tighter for dense maps. */
 const BLUR_FEW = 0.58;
 const BLUR_MANY = 0.64;
@@ -27,7 +23,6 @@ const BLUR_MANY = 0.64;
 export function HeatmapJsCanvas({
   displayGlow,
   sharedWeightMax,
-  frustrationEmojiMarkers,
 }: HeatmapJsCanvasProps) {
   const outerRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
@@ -110,18 +105,8 @@ export function HeatmapJsCanvas({
   }, [displayGlow, sharedWeightMax]);
 
   return (
-    <>
-      <div ref={outerRef} className={classes.heatCanvasHost} aria-hidden>
-        <div ref={innerRef} className={classes.heatCanvasInner} />
-      </div>
-      {frustrationEmojiMarkers != null && (
-        <div className={classes.heatOverlay}>
-          <HeatmapFrustrationMarkers
-            kind={frustrationEmojiMarkers.kind}
-            points={frustrationEmojiMarkers.points}
-          />
-        </div>
-      )}
-    </>
+    <div ref={outerRef} className={classes.heatCanvasHost} aria-hidden>
+      <div ref={innerRef} className={classes.heatCanvasInner} />
+    </div>
   );
 }

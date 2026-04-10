@@ -13,11 +13,7 @@ import { HeatmapPhoneFrame } from "./HeatmapPhoneFrame";
 import { HeatmapScreenshotStage } from "./HeatmapScreenshotStage";
 import { HeatmapScreenUnderlay } from "./HeatmapScreenUnderlay";
 import { HeatmapVizFooter } from "./HeatmapVizFooter";
-import type {
-  HeatmapFocusLens,
-  HeatmapFrustrationEmojiMarkersConfig,
-  HeatmapSignal,
-} from "./heatmapPanelUtils";
+import type { HeatmapFocusLens, HeatmapSignal } from "./heatmapPanelUtils";
 import classes from "./HeatmapPanel.module.css";
 
 export interface HeatmapVisualizationProps {
@@ -35,7 +31,6 @@ export interface HeatmapVisualizationProps {
   glowMap: HeatmapGlowPoint[];
   binBudget: HeatmapBinBudget;
   showDensityFooter?: boolean;
-  frustrationEmojiMarkers?: HeatmapFrustrationEmojiMarkersConfig;
   sharedWeightMax?: number;
   /** All interaction data → density heatmap; Key actions → interaction rectangles. */
   focusLens?: HeatmapFocusLens;
@@ -66,7 +61,6 @@ export function HeatmapVisualization({
   glowMap,
   binBudget,
   showDensityFooter = true,
-  frustrationEmojiMarkers,
   sharedWeightMax,
   focusLens = "all",
   interactionRegions = [],
@@ -129,7 +123,6 @@ export function HeatmapVisualization({
               <HeatmapJsCanvas
                 displayGlow={displayGlow}
                 sharedWeightMax={sharedWeightMax}
-                frustrationEmojiMarkers={frustrationEmojiMarkers}
               />
               <HeatmapGlowBinHoverLayer
                 points={displayGlow}

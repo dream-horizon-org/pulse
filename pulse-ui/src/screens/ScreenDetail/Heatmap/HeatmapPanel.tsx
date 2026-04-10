@@ -20,7 +20,6 @@ import {
   compareSharedWeightMax,
   glowLayerForSignal,
   glowLayerWeightMax,
-  heatmapFrustrationEmojiMarkers,
   heatmapShowsKeyActionsLens,
   type HeatmapFocusLens,
   type HeatmapSignal,
@@ -285,11 +284,6 @@ export function HeatmapPanel({
 
   const binBudget = useHeatmapBinBudget(glowForSignal, mockServer);
 
-  const frustrationEmojiMarkers = useMemo(
-    () => heatmapFrustrationEmojiMarkers(singlePayload ?? null, signal),
-    [singlePayload, signal],
-  );
-
   const rawScreenshotUrls = useMemo(
     () =>
       singlePayload ? screenshotUrlsFromMetadata(singlePayload.metadata) : [],
@@ -527,7 +521,6 @@ export function HeatmapPanel({
                 interactionRegions={
                   singlePayload.layers.interaction_map?.regions ?? []
                 }
-                frustrationEmojiMarkers={frustrationEmojiMarkers}
                 densityBinTooltip={
                   isHeatmapDataEmpty(singlePayload)
                     ? undefined
