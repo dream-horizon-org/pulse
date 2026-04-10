@@ -22,10 +22,9 @@ end
 target 'PulseReactNativeOtelExample' do
   config = use_native_modules!
 
-  # In order to test locally, add path to exact pulse-ios-sdk folder. 
-  # For source code noting else is required.
-  # For pointing any local framework no need to change anything here, follow steps mentioned in PulseIOSExample README.md for change in pulse-ios-sdk folder.
-  pod 'PulseKit', :path => '<absolute-path-to>/pulse-ios-sdk/'
+  # In order to test locally, add path to exact pulse-ios-otel folder. 
+  # By default it picks Published PulseKit as mentioned in PulseReactNativeOtel.podspec
+  # pod 'PulseKit', :path => '<absolute-path-to>/pulse-ios-otel/'
 
   use_react_native!(
     :path => config[:reactNativePath],
@@ -41,14 +40,5 @@ target 'PulseReactNativeOtelExample' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
-
-    pulse_deps = ['OpenTelemetry-Swift-Api', 'OpenTelemetry-Swift-Sdk', 'SwiftProtobuf', 'KSCrash']
-    installer.pods_project.targets.each do |target|
-      if pulse_deps.any? { |dep| target.name.start_with?(dep) }
-        target.build_configurations.each do |bc|
-          bc.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-        end
-      end
-    end
   end
 end
