@@ -6,6 +6,13 @@ import com.pulse.android.remote.models.InteractionEvent
 import com.pulse.utils.PulseOtelUtils
 import java.util.Locale
 
+internal data class InteractionBuildError(
+    val type: InteractionErrorType,
+    val timeoutExpectedEventName: String? = null,
+    val sequenceViolationExpectedEventName: String? = null,
+    val sequenceViolationReceivedEventName: String? = null,
+)
+
 internal object InteractionUtil {
     /**
      * Returns null when there is event of interest but because of ordering it didn't create any
@@ -123,9 +130,12 @@ internal object InteractionUtil {
                                         interactionConfig = interactionConfig,
                                         events = stepWiseTimeInNano,
                                         localMarkers = localMarkers,
-                                        errorType = InteractionErrorType.SEQUENCE_VIOLATION,
-                                        sequenceViolationExpectedEventName = configEvent.name,
-                                        sequenceViolationReceivedEventName = localEvent.name,
+                                        error =
+                                            InteractionBuildError(
+                                                type = InteractionErrorType.SEQUENCE_VIOLATION,
+                                                sequenceViolationExpectedEventName = configEvent.name,
+                                                sequenceViolationReceivedEventName = localEvent.name,
+                                            ),
                                     ),
                                 sequenceViolationExpectedEventName = configEvent.name,
                                 sequenceViolationReceivedEventName = localEvent.name,
@@ -186,22 +196,17 @@ internal object InteractionUtil {
         }
     }
 
-    private fun interactionErrorMessage(
-        errorType: InteractionErrorType,
-        timeoutExpectedEventName: String?,
-        sequenceViolationExpectedEventName: String?,
-        sequenceViolationReceivedEventName: String?,
-    ): String =
-        when (errorType) {
+    private fun interactionErrorMessage(error: InteractionBuildError): String =
+        when (error.type) {
             InteractionErrorType.TIMEOUT ->
-                if (timeoutExpectedEventName != null) {
-                    "Timed out while waiting for event \"$timeoutExpectedEventName\"."
+                if (error.timeoutExpectedEventName != null) {
+                    "Timed out while waiting for event \"${error.timeoutExpectedEventName}\"."
                 } else {
                     "Timed out before the next expected event arrived."
                 }
             InteractionErrorType.SEQUENCE_VIOLATION ->
-                if (sequenceViolationExpectedEventName != null && sequenceViolationReceivedEventName != null) {
-                    "Expected event \"$sequenceViolationExpectedEventName\", received \"$sequenceViolationReceivedEventName\"."
+                if (error.sequenceViolationExpectedEventName != null && error.sequenceViolationReceivedEventName != null) {
+                    "Expected event \"${error.sequenceViolationExpectedEventName}\", received \"${error.sequenceViolationReceivedEventName}\"."
                 } else {
                     "An event did not match the next expected event in this interaction."
                 }
@@ -212,25 +217,15 @@ internal object InteractionUtil {
         interactionConfig: InteractionConfig,
         events: List<InteractionLocalEvent>,
         localMarkers: List<InteractionLocalEvent>,
-        errorType: InteractionErrorType? = null,
-        timeoutExpectedEventName: String? = null,
-        sequenceViolationExpectedEventName: String? = null,
-        sequenceViolationReceivedEventName: String? = null,
+        error: InteractionBuildError? = null,
     ): Interaction {
         require(events.isNotEmpty()) { "buildPulseInteraction requires at least one event" }
         val interactionName = interactionConfig.name
         val interactionConfigId = interactionConfig.id
         val lastEventTimeInNano = events.last().timeInNano
+        val errorType = error?.type
 
-        val errorMessage =
-            errorType?.let {
-                interactionErrorMessage(
-                    it,
-                    timeoutExpectedEventName,
-                    sequenceViolationExpectedEventName,
-                    sequenceViolationReceivedEventName,
-                )
-            }
+        val errorMessage = error?.let { interactionErrorMessage(it) }
 
         val (timeDifferenceInNano, timeCategory, upTimeIndex) =
             if (errorType == null) {
@@ -286,7 +281,7 @@ internal object InteractionUtil {
                 put(InteractionConstant.APDEX_SCORE, upTimeIndex)
                 put(InteractionConstant.USER_CATEGORY, timeCategory?.categoryName)
                 put(InteractionConstant.TIME_TO_COMPLETE_IN_NANO, timeDifferenceInNano)
-                put(InteractionConstant.IS_ERROR, !success)
+                put(InteractionConstant.IS_ERROR, errorType != null)
                 put(InteractionConstant.ERROR_TYPE, errorType?.code)
                 put(InteractionConstant.ERROR_MESSAGE, errorMessage)
             }

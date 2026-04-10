@@ -76,9 +76,6 @@ internal class InteractionEventsTracker(
                                     localEvents,
                                     localMarkers,
                                     InteractionErrorType.SEQUENCE_VIOLATION,
-                                    null,
-                                    interactionStatus.sequenceViolationExpectedEventName,
-                                    interactionStatus.sequenceViolationReceivedEventName,
                                 )
                             clearStates()
                             localEvents.add(lastEvent)
@@ -132,7 +129,6 @@ internal class InteractionEventsTracker(
                                         localEvents,
                                         localMarkers,
                                         InteractionErrorType.TIMEOUT,
-                                        interactionConfig.events.getOrNull(lastValue.index + 1)?.name,
                                     ),
                                 )
                             } else {
@@ -155,23 +151,32 @@ internal class InteractionEventsTracker(
         localEvents: List<InteractionLocalEvent>,
         localMarkers: List<InteractionLocalEvent>,
         errorType: InteractionErrorType,
-        timeoutExpectedEventName: String? = null,
-        sequenceViolationExpectedEventName: String? = null,
-        sequenceViolationReceivedEventName: String? = null,
-    ): InteractionRunningStatus.OngoingMatch =
-        this.copy(
+    ): InteractionRunningStatus.OngoingMatch {
+        val error =
+            when (errorType) {
+                InteractionErrorType.TIMEOUT ->
+                    InteractionBuildError(
+                        type = InteractionErrorType.TIMEOUT,
+                        timeoutExpectedEventName = interactionConfig.events.getOrNull(index + 1)?.name,
+                    )
+                InteractionErrorType.SEQUENCE_VIOLATION ->
+                    InteractionBuildError(
+                        type = InteractionErrorType.SEQUENCE_VIOLATION,
+                        sequenceViolationExpectedEventName = sequenceViolationExpectedEventName,
+                        sequenceViolationReceivedEventName = sequenceViolationReceivedEventName,
+                    )
+            }
+        return copy(
             interaction =
                 InteractionUtil.buildPulseInteraction(
                     interactionId,
                     interactionConfig,
                     localEvents,
                     localMarkers,
-                    errorType,
-                    timeoutExpectedEventName,
-                    sequenceViolationExpectedEventName,
-                    sequenceViolationReceivedEventName
+                    error,
                 ),
         )
+    }
 
     fun addMarker(event: InteractionLocalEvent) {
         localMarkers += event

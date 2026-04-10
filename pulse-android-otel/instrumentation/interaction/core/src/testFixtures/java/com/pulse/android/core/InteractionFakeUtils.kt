@@ -28,10 +28,16 @@ public object InteractionFakeUtils {
             config,
             events,
             markers,
-            if (isSuccess) null else errorType!!,
-            timeoutExpectedEventName,
-            sequenceViolationExpectedEventName,
-            sequenceViolationReceivedEventName,
+            if (isSuccess) {
+                null
+            } else {
+                InteractionBuildError(
+                    type = errorType!!,
+                    timeoutExpectedEventName = timeoutExpectedEventName,
+                    sequenceViolationExpectedEventName = sequenceViolationExpectedEventName,
+                    sequenceViolationReceivedEventName = sequenceViolationReceivedEventName,
+                )
+            },
         )
     }
 
