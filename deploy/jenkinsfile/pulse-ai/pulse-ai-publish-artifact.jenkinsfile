@@ -81,7 +81,7 @@ pipeline {
 
                             # Update version in pyproject.toml if it exists
                             if [ -f pyproject.toml ]; then
-                                sed -i 's/^version = "[0-9]\+.[0-9]\+.[0-9]\+"/version = "${nextVersion}"/' pyproject.toml
+                                sed -i 's/^version = "[0-9]\\+.[0-9]\\+.[0-9]\\+"/version = "${nextVersion}"/' pyproject.toml
 
                                 git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
                                 git config user.name "${GITBOT_USERNAME}"
