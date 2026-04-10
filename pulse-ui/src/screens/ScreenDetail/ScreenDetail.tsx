@@ -57,14 +57,19 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     selectedTimeFilter,
   } = useFilterStore();
 
-  const { isHeatmapEnabled, isLoading: heatmapConfigLoading } =
-    useHeatmapFromActiveConfig({
-      enabled: Boolean(projectId),
-      projectId,
-    });
+  const {
+    isHeatmapEnabled: heatmapEnabledFromActiveConfig,
+    isLoading: heatmapConfigLoading,
+  } = useHeatmapFromActiveConfig({
+    enabled: Boolean(projectId),
+    projectId,
+  });
 
-  console.log("isHeatmapEnabled", isHeatmapEnabled, heatmapConfigLoading);
-  // Tab state (?tab=heatmap deep link). Default engagement until config confirms heatmap is allowed.
+  // Retained for debugging config vs tab (heatmap tab/panel always shown for now).
+  void heatmapEnabledFromActiveConfig;
+  void heatmapConfigLoading;
+
+  // Tab state (?tab=heatmap deep link).
   const [activeTab, setActiveTab] = useState<string | null>("engagement");
 
   // Local filter state (app version, OS version, device)
@@ -193,32 +198,15 @@ export function ScreenDetail(_props: ScreenDetailProps) {
 
   useEffect(() => {
     const t = searchParams.get("tab");
-    if (t === "heatmap" && isHeatmapEnabled && !heatmapConfigLoading) {
+    if (t === "heatmap") {
       setActiveTab("heatmap");
     }
-  }, [searchParams, isHeatmapEnabled, heatmapConfigLoading]);
-
-  useEffect(() => {
-    if (heatmapConfigLoading || isHeatmapEnabled) return;
-    if (activeTab !== "heatmap" && searchParams.get("tab") !== "heatmap") {
-      return;
-    }
-    setActiveTab("engagement");
-    const next = new URLSearchParams(searchParams);
-    next.delete("tab");
-    setSearchParams(next, { replace: true });
-  }, [
-    heatmapConfigLoading,
-    isHeatmapEnabled,
-    activeTab,
-    searchParams,
-    setSearchParams,
-  ]);
+  }, [searchParams]);
 
   const handleTabChange = (value: string | null) => {
     setActiveTab(value);
     const next = new URLSearchParams(searchParams);
-    if (value === "heatmap" && isHeatmapEnabled) {
+    if (value === "heatmap") {
       next.set("tab", "heatmap");
     } else {
       next.delete("tab");
@@ -272,9 +260,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
           <Tabs.Tab value="performance">Performance & Stability</Tabs.Tab>
           <Tabs.Tab value="network">Network</Tabs.Tab>
-          {isHeatmapEnabled && !heatmapConfigLoading && (
-            <Tabs.Tab value="heatmap">Heatmap</Tabs.Tab>
-          )}
+          <Tabs.Tab value="heatmap">Heatmap</Tabs.Tab>
         </Tabs.List>
 
         {/* User Engagement Tab */}
@@ -491,25 +477,23 @@ export function ScreenDetail(_props: ScreenDetailProps) {
         </Tabs.Panel>
 
         {/* Heatmap Tab */}
-        {isHeatmapEnabled && !heatmapConfigLoading && (
-          <Tabs.Panel value="heatmap">
-            <HeatmapPanel
-              key={decodedScreenName}
-              screenName={decodedScreenName}
-              startTime={startTime || ""}
-              endTime={endTime || ""}
-              engagement={
-                engagementData
-                  ? {
-                      avgTimeSpent: engagementData.avgTimeSpent,
-                      totalSessions: engagementData.totalSessions,
-                      totalUsers: engagementData.totalUsers,
-                    }
-                  : null
-              }
-            />
-          </Tabs.Panel>
-        )}
+        <Tabs.Panel value="heatmap">
+          <HeatmapPanel
+            key={decodedScreenName}
+            screenName={decodedScreenName}
+            startTime={startTime || ""}
+            endTime={endTime || ""}
+            engagement={
+              engagementData
+                ? {
+                    avgTimeSpent: engagementData.avgTimeSpent,
+                    totalSessions: engagementData.totalSessions,
+                    totalUsers: engagementData.totalUsers,
+                  }
+                : null
+            }
+          />
+        </Tabs.Panel>
       </div>
     </Tabs>
   );
