@@ -135,6 +135,7 @@ export function buildJourneyFlowData(
   rawData: JourneyResponse,
   expansion: ExpansionState,
   onToggleExpand: (rawName: string) => void,
+  journeyDepth?: number,
 ): JourneyFlowResult {
   const depthMode = isDepthQualified(rawData);
   const data = depthMode
@@ -147,7 +148,7 @@ export function buildJourneyFlowData(
   const nodeDepth = new Map<string, number>();
   if (depthMode) {
     for (const node of data.nodes) {
-      nodeDepth.set(node.name, Math.max(0, parseDepth(node.name)));
+      nodeDepth.set(node.name, parseDepth(node.name));
     }
   } else {
     const bfsAdj = new Map<string, string[]>();
@@ -173,32 +174,62 @@ export function buildJourneyFlowData(
 
   // ── Flow per node ─────────────────────────────────────────────────────
   const inFlow = new Map<string, number>();
+  const outFlow = new Map<string, number>();
   for (const link of data.links) {
     inFlow.set(link.target, (inFlow.get(link.target) || 0) + link.value);
+    outFlow.set(link.source, (outFlow.get(link.source) || 0) + link.value);
   }
-  const rootNode = data.nodes[0]?.name;
-  if (rootNode && !inFlow.has(rootNode)) {
-    let rootOut = 0;
-    for (const link of data.links) {
-      if (link.source === rootNode) rootOut += link.value;
-    }
-    inFlow.set(rootNode, rootOut);
-  }
-  const rootTotal = inFlow.get(rootNode ?? "") || 1;
 
-  // ── Forward adjacency ─────────────────────────────────────────────────
+  // Root node is the anchor event (depth 0). It carries the total journey traffic
+  // regardless of whether the journey is forward (depths 0,1,2…) or backward (depths -5…0).
+  let rootNode: string | undefined;
+  for (const node of data.nodes) {
+    if (nodeDepth.get(node.name) === 0) {
+      rootNode = node.name;
+      break;
+    }
+  }
+  // Fallback: node with the highest total flow
+  if (!rootNode) {
+    let maxFlow = -1;
+    for (const node of data.nodes) {
+      const flow = Math.max(inFlow.get(node.name) || 0, outFlow.get(node.name) || 0);
+      if (flow > maxFlow) {
+        maxFlow = flow;
+        rootNode = node.name;
+      }
+    }
+  }
+
+  // Root total = max of its inFlow and outFlow
+  if (rootNode && !inFlow.has(rootNode)) {
+    inFlow.set(rootNode, outFlow.get(rootNode) || 0);
+  }
+  const rootTotal = Math.max(
+    inFlow.get(rootNode ?? "") || 0,
+    outFlow.get(rootNode ?? "") || 0,
+    1,
+  );
+
+  // ── Bidirectional adjacency (supports forward & backward journeys) ───
   const adj = new Map<string, string[]>();
   for (const link of data.links) {
     if (!adj.has(link.source)) adj.set(link.source, []);
     adj.get(link.source)!.push(link.target);
+    if (!adj.has(link.target)) adj.set(link.target, []);
+    adj.get(link.target)!.push(link.source);
   }
 
   // ── Determine visible nodes ───────────────────────────────────────────
+  // Show the DEPTH_WINDOW depth levels closest to the anchor (depth 0).
+  // Forward journeys: 0,1,2,3,4  |  Backward journeys: 0,-1,-2,-3,-4
   const allDepths = Array.from(new Set(Array.from(nodeDepth.values()))).sort(
     (a, b) => a - b,
   );
-  const minDepth = allDepths[0] || 0;
-  const baseMaxDepth = minDepth + DEPTH_WINDOW - 1;
+  const depthsByDistance = [...allDepths].sort(
+    (a, b) => Math.abs(a) - Math.abs(b),
+  );
+  const baseVisibleDepths = new Set(depthsByDistance.slice(0, DEPTH_WINDOW));
 
   const visibleNodes = new Set<string>();
 
@@ -207,7 +238,7 @@ export function buildJourneyFlowData(
   } else {
     for (const node of data.nodes) {
       const d = nodeDepth.get(node.name) ?? 0;
-      if (d <= baseMaxDepth) visibleNodes.add(node.name);
+      if (baseVisibleDepths.has(d)) visibleNodes.add(node.name);
     }
     if (expansion.expandedNodes.size) {
       const sortedExpanded = Array.from(expansion.expandedNodes)
@@ -299,10 +330,19 @@ export function buildJourneyFlowData(
   });
 
   // ── Boundary detection ────────────────────────────────────────────────
+  // Only show expand buttons when the journey depth exceeds our display
+  // window. E.g. depth 5 with DEPTH_WINDOW 5 → no buttons; depth 14 → buttons.
+  const hasExtraDepth = (journeyDepth ?? DEPTH_WINDOW) > DEPTH_WINDOW;
+
   const hasHiddenChildren = new Set<string>();
-  for (const link of data.links) {
-    if (visibleNodes.has(link.source) && !visibleNodes.has(link.target)) {
-      hasHiddenChildren.add(link.source);
+  if (hasExtraDepth) {
+    for (const link of data.links) {
+      if (visibleNodes.has(link.source) && !visibleNodes.has(link.target)) {
+        hasHiddenChildren.add(link.source);
+      }
+      if (visibleNodes.has(link.target) && !visibleNodes.has(link.source)) {
+        hasHiddenChildren.add(link.target);
+      }
     }
   }
 

@@ -220,8 +220,9 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
       journeyData,
       { expandedNodes, globalExpanded },
       handleToggleExpand,
+      detail.depth,
     );
-  }, [journeyData, expandedNodes, globalExpanded, handleToggleExpand]);
+  }, [journeyData, expandedNodes, globalExpanded, handleToggleExpand, detail.depth]);
 
   useEffect(() => {
     if (

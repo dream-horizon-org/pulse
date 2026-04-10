@@ -2,7 +2,7 @@ import Dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
 
 const NODE_WIDTH = 180;
-const NODE_HEIGHT = 56;
+const NODE_HEIGHT = 90;
 
 /**
  * Apply dagre automatic layout to React Flow nodes/edges.
@@ -16,7 +16,7 @@ export function applyDagreLayout<N extends Record<string, unknown>, E extends Re
 
   g.setGraph({
     rankdir: "LR",
-    nodesep: 14,
+    nodesep: 20,
     ranksep: 120,
     marginx: 16,
     marginy: 16,
