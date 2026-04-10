@@ -94,7 +94,7 @@ class ClickEventEmitter(
         }
     }
 
-    private fun emitClick(
+    private inline fun emitClick(
         hasTarget: Boolean,
         xPx: Float,
         yPx: Float,
@@ -105,7 +105,7 @@ class ClickEventEmitter(
         viewportWidthPx: Int,
         viewportHeightPx: Int,
         rageCount: Int? = null,
-        extraAttrs: (LogRecordBuilder.() -> Unit)? = null,
+        extraAttrs: LogRecordBuilder.() -> Unit = {},
     ) {
         val clickType = if (hasTarget) ClickTypeValues.GOOD else ClickTypeValues.DEAD
         val record =
@@ -120,7 +120,7 @@ class ClickEventEmitter(
         widgetName?.let { record.setAttribute(APP_WIDGET_NAME, it) }
         widgetId?.let { record.setAttribute(APP_WIDGET_ID, it) }
         clickContext?.let { record.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, it) }
-        extraAttrs?.invoke(record)
+        record.extraAttrs()
         record.emit()
         PulseWidgetClickLogHelper.logClick(
             clickType = clickType,

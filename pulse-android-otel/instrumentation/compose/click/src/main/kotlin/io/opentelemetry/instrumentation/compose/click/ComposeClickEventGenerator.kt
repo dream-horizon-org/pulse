@@ -112,8 +112,8 @@ internal class ComposeClickEventGenerator(
         }
     }
 
-    /** Flushes buffered clicks and unwraps the window callback. Call on activity pause. */
     fun stopTracking() {
+        // Flush buffered clicks before unwrapping so no taps are silently dropped on pause.
         clickEmitter.flush()
         windowRef?.get()?.run {
             callback = WindowCallbackUnwrap.fullyUnwrap(callback)
