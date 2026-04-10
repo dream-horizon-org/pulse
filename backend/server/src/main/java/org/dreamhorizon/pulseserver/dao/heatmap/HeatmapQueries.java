@@ -18,7 +18,8 @@ public final class HeatmapQueries {
 
   /**
    * Distinct {@code AppVersion} values in the heatmap slice (same {@code WHERE} as aggregates, with
-   * no {@code AppVersion} predicate). Used to pick the greatest semantic version in Java.
+   * no {@code AppVersion} predicate). Used to pick the latest version string in Java (segment
+   * comparison after normalizing {@code _} to {@code .}).
    */
   public static final String DISTINCT_APP_VERSIONS_IN_SLICE = """
       SELECT DISTINCT AppVersion AS app_version

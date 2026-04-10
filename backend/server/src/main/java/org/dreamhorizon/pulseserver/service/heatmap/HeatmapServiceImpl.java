@@ -244,7 +244,8 @@ public class HeatmapServiceImpl implements HeatmapService {
 
   /**
    * Distinct {@code AppVersion} in the heatmap slice (request filters only; no AppVersion
-   * predicate), then greatest {@code major.minor.patch} via {@link #maxMajorMinorPatchVersion}.
+   * predicate), then greatest by {@link #findLatest(List)} (segment ints after normalizing {@code _}
+   * to {@code .}).
    */
   private Single<Optional<String>> fetchLatestAppVersionInSlice(
       String projectId,
@@ -283,15 +284,11 @@ public class HeatmapServiceImpl implements HeatmapService {
                   r.getRows().stream()
                       .map(HeatmapAppVersionRowDto::getAppVersion)
                       .collect(Collectors.toList());
-              return maxMajorMinorPatchVersion(versions);
+              return pickLatestAppVersion(versions);
             });
   }
 
-  /**
-   * Greatest {@code major.minor.patch} by integer segment comparison; skips strings that do not
-   * parse as three integer segments.
-   */
-  private static Optional<String> maxMajorMinorPatchVersion(List<String> rawVersions) {
+  private static Optional<String> pickLatestAppVersion(List<String> rawVersions) {
     if (rawVersions == null || rawVersions.isEmpty()) {
       return Optional.empty();
     }
@@ -301,37 +298,54 @@ public class HeatmapServiceImpl implements HeatmapService {
             .map(String::trim)
             .filter(s -> !s.isEmpty())
             .collect(Collectors.toList());
-    return Optional.ofNullable(findLatestMajorMinorPatch(list));
+    return Optional.ofNullable(findLatest(list));
   }
 
-  private static String findLatestMajorMinorPatch(List<String> versions) {
+  /**
+   * Parses version into up to four integer segments: major, minor, patch, update. Leading {@code v}
+   * / {@code V} is stripped; underscores are normalized to dots so values like {@code 1.0_1} match
+   * {@code 1.0.1}.
+   */
+  private static int[] parseVersion(String version) {
+    String v =
+        version.startsWith("v") || version.startsWith("V") ? version.substring(1) : version;
+    v = v.replace("_", ".");
+    String[] parts = v.split("\\.");
+    int[] segments = new int[4];
+    for (int i = 0; i < parts.length && i < 4; i++) {
+      segments[i] = Integer.parseInt(parts[i]);
+    }
+    return segments;
+  }
+
+  /**
+   * Greatest version by {@link #parseVersion(String)} segment order (major through optional fourth
+   * segment). Versions that do not parse as integers per segment are ignored; if none parse,
+   * returns {@code null}.
+   */
+  private static String findLatest(List<String> versions) {
     if (versions == null || versions.isEmpty()) {
       return null;
     }
-    return versions.stream()
-        .filter(
-            v -> {
-              try {
-                parseVersionSegment(v, 0);
-                parseVersionSegment(v, 1);
-                parseVersionSegment(v, 2);
-                return true;
-              } catch (NumberFormatException e) {
-                return false;
-              }
-            })
+    List<String> parseable = new ArrayList<>();
+    for (String v : versions) {
+      try {
+        parseVersion(v);
+        parseable.add(v);
+      } catch (NumberFormatException ignored) {
+        // skip unparseable
+      }
+    }
+    if (parseable.isEmpty()) {
+      return null;
+    }
+    return parseable.stream()
         .max(
-            Comparator.comparingInt((String v) -> parseVersionSegment(v, 0))
-                .thenComparingInt(v -> parseVersionSegment(v, 1))
-                .thenComparingInt(v -> parseVersionSegment(v, 2)))
+            Comparator.comparingInt((String v) -> parseVersion(v)[0])
+                .thenComparingInt(v -> parseVersion(v)[1])
+                .thenComparingInt(v -> parseVersion(v)[2])
+                .thenComparingInt(v -> parseVersion(v)[3]))
         .orElse(null);
-  }
-
-  private static int parseVersionSegment(String version, int index) {
-    String v =
-        version.startsWith("v") || version.startsWith("V") ? version.substring(1) : version;
-    String[] parts = v.split("\\.");
-    return index < parts.length ? Integer.parseInt(parts[index]) : 0;
   }
 
   /**
