@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
 import { COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
-import { streamAiRunSse } from "../../../../helpers/makeRequestToServer";
+import { streamAiRunSseWithAuth } from "../../../../helpers/makeRequest";
 import {
   StreamingCallbacks,
   UseGetPulseAiResponseReturn,
@@ -43,7 +43,7 @@ export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
       });
 
       try {
-        const response = await streamAiRunSse({
+        const response = await streamAiRunSseWithAuth({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body,
