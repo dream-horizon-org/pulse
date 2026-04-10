@@ -240,15 +240,18 @@ If no explicit summary exists, write a concise summary based on the analysis (up
 
 ## Extracting Session IDs from Analysis
 
-When extracting segments from the RCA analysis:
-1. Look for session IDs mentioned in the analysis text (format: 32-character hex strings like "d39bace3959ded5a88951399f6b1d8c2")
-2. For each segment being output, extract any session IDs mentioned in that segment's discussion and add them to `affected_sessions` array
-3. Each segment should have 1-2 session IDs in the `affected_sessions` field (or empty array if none mentioned)
-4. **CRITICAL**: Every segment MUST have an `affected_sessions` field — never omit it. Use empty array [] if no sessions are mentioned for that segment.
+**IMPORTANT: Use ONLY `exampleSessionIds` from segments in the payload — do NOT fall back to text extraction.**
+
+When converting segments from the RCA analysis to structured output:
+1. Match each segment in your analysis to the corresponding segment in the RootCausePayload's segments array by title/dimensions
+2. For each matched segment, extract the `exampleSessionIds` array from that segment object
+3. Use those session IDs directly in the output's `affected_sessions` field
+4. Each segment MUST have an `affected_sessions` field — use the value from payload's segment's `exampleSessionIds` (or empty array [] if not present)
+5. **NEVER** extract or mention session IDs from the analysis text — only use what's in the payload
 
 Example:
-- Analysis mentions: "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 show this pattern"
-- Output: `"affected_sessions": ["d39bace3959ded5a88951399f6b1d8c2", "2283880ae7b7ddc5070c66604d31cd69"]`
+- Payload segment: `{ "label": "device_model: 22101316I", "exampleSessionIds": ["980a636df82ba24a14085395a613098d"] }`
+- Output: `"affected_sessions": ["980a636df82ba24a14085395a613098d"]` (directly from payload)
 
 Ground metric values strictly in the original RootCausePayload JSON. Do not invent or omit metrics.
 If no anomalies were found or data is unavailable: use an empty `segments` array and an honest `executive_summary`.

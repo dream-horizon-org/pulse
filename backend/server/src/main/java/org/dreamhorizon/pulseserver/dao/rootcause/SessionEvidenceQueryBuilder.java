@@ -36,6 +36,7 @@ public final class SessionEvidenceQueryBuilder {
    * @param limit max sessions to return
    * @return ClickHouse SQL query string
    */
+  //TODO: Have Standardisation in clickhouse query
   public static String buildSessionEvidenceQuery(
       String projectId,
       String interactionName,
@@ -68,13 +69,13 @@ public final class SessionEvidenceQueryBuilder {
         .append("  SessionId,\n")
         .append("  countIf(is_error = 'true') as error_count,\n")
         .append("  count() as total_interactions,\n")
-        .append("  avg(toFloat32OrNull(apdex_score)) as avg_apdex,\n")
+        .append("  avg(apdex_score) as avg_apdex,\n")
         .append("  (error_count / total_interactions) as error_rate\n")
         .append("FROM (\n")
         .append("  SELECT\n")
         .append("    SessionId,\n")
         .append("    SpanAttributes['pulse.interaction.is_error'] as is_error,\n")
-        .append("    SpanAttributes['pulse.interaction.apdex_score'] as apdex_score\n")
+        .append("    toFloat32OrNull(SpanAttributes['pulse.interaction.apdex_score']) as apdex_score\n")
         .append("  FROM otel.otel_traces\n")
         .append("  WHERE\n")
         .append("    ProjectId = '")

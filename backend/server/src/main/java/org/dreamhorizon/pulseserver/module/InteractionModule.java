@@ -10,6 +10,8 @@ import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.PerformanceMetricService;
 import org.dreamhorizon.pulseserver.service.interaction.impl.InteractionServiceImpl;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceServiceImpl;
 
 public class InteractionModule extends AbstractModule {
 
@@ -23,5 +25,6 @@ public class InteractionModule extends AbstractModule {
         .in(Singleton.class);
     bind(RootCauseCacheDao.class).in(Singleton.class);
     bind(RootCauseService.class).in(Singleton.class);
+    bind(SessionEvidenceService.class).to(SessionEvidenceServiceImpl.class).in(Singleton.class);
   }
 }
