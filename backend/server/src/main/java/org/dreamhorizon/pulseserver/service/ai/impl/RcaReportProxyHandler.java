@@ -256,7 +256,11 @@ final class RcaReportProxyHandler {
     if (!AiProxyUpstreamResult.isSuccessfulBuffered(result)) {
       return CompletableFuture.completedFuture(result);
     }
-    String body = result.getBufferedBody();
+    // Use enriched body if available (contains segment-specific exampleSessionIds),
+    // otherwise fall back to original AI response body
+    String body = enrichment.enrichmentOk() && enrichment.body() != null 
+        ? enrichment.body() 
+        : result.getBufferedBody();
     if (enrichment.enrichmentOk()
         && enrichment.rootCause() != null
         && enrichment.rootCause().getSegments() != null
@@ -354,11 +358,11 @@ final class RcaReportProxyHandler {
                   List<RootCauseSegment> segments = rootCauseResult.getSegments();
                   LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
 
-                  // Collect all sessions from all segments into a single list
-                  List<String> allSessionIds = new java.util.ArrayList<>();
                   java.util.concurrent.atomic.AtomicInteger pendingQueries = new java.util.concurrent.atomic.AtomicInteger(segments.size());
 
-                  for (RootCauseSegment segment : segments) {
+                  for (int i = 0; i < segments.size(); i++) {
+                    RootCauseSegment segment = segments.get(i);
+                    final int segmentIndex = i;
                     Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
 
                     sessionEvidenceService
@@ -378,20 +382,20 @@ final class RcaReportProxyHandler {
                                         .map(s -> s.getSessionId())
                                         .collect(Collectors.toList());
 
-                                synchronized (allSessionIds) {
-                                  allSessionIds.addAll(sessionIds);
+                                // Store sessions directly in the segment
+                                synchronized (segments) {
+                                  RootCauseSegment seg = segments.get(segmentIndex);
+                                  seg.setExampleSessionIds(sessionIds);
+                                  log.info("Attached {} example sessions to segment {}: {}",
+                                      sessionIds.size(), segmentIndex, seg.getLabel());
                                 }
 
                                 if (pendingQueries.decrementAndGet() == 0) {
-                                  // All queries complete - add sessions to payload
-                                  if (!allSessionIds.isEmpty()) {
-                                    JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
-                                    if (rcPayloadNode instanceof ObjectNode) {
-                                      ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
-                                      rcPayload.set(
-                                          "exampleSessionIds",
-                                          objectMapper.valueToTree(allSessionIds));
-                                    }
+                                  // All queries complete - update payload with enriched segments
+                                  JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                  if (rcPayloadNode instanceof ObjectNode) {
+                                    ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                    rcPayload.set("segments", objectMapper.valueToTree(segments));
                                   }
 
                                   String enrichedBody = objectMapper.writeValueAsString(working);
