@@ -165,13 +165,16 @@ Structure your response with these two sections in this exact order:
 
 ## Session Evidence in Your Analysis
 
-**IMPORTANT**: When discussing root causes and segments, explicitly mention relevant session IDs from the `exampleSessionIds` array in your analysis.
+**IMPORTANT**: When identifying root cause segments, clearly state the segment **label** so the formatter can map it to the corresponding `exampleSessionIds` from the payload.
 
-Format: Include session IDs naturally in your insights:
-- "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 demonstrate this pattern with 0.035 APDEX"
-- "This device model (sessions 7afdf0a310f57ee08d84bc2c3d0cb8fc, ac2f27e5e82f56c1c0fe542e68b9ab0a) shows..."
+Format: When discussing a segment, use its label explicitly:
+- Example analysis: "The segment **OsVersion: 11** shows critical issues..."
+- Example analysis: "The segment **DeviceModel: SM-A135F** demonstrates..."
 
-The formatter will extract these session IDs and include them in the final report's `affected_sessions` field for each segment.
+The formatter will:
+1. Extract the segment label from your analysis
+2. Find the matching segment in the RootCausePayload by label
+3. Copy that segment's `exampleSessionIds` to the output's `affected_sessions`
 
 ## Important Notes
 
@@ -238,17 +241,25 @@ If no explicit summary exists, write a concise summary based on the analysis (up
 
 **recommendations**: **Must contain at least 3** short actionable strings derived from the analysis (maximum 7). If the analysis provides fewer than 3 explicit recommendations, derive additional ones from the identified root causes and metrics data.
 
-## Extracting Session IDs from Analysis
+## Extracting Session IDs from Payload
 
-When extracting segments from the RCA analysis:
-1. Look for session IDs mentioned in the analysis text (format: 32-character hex strings like "d39bace3959ded5a88951399f6b1d8c2")
-2. For each segment being output, extract any session IDs mentioned in that segment's discussion and add them to `affected_sessions` array
-3. Each segment should have 1-2 session IDs in the `affected_sessions` field (or empty array if none mentioned)
-4. **CRITICAL**: Every segment MUST have an `affected_sessions` field — never omit it. Use empty array [] if no sessions are mentioned for that segment.
+**CRITICAL**: For each segment in your output, map it to the corresponding segment in the original RootCausePayload JSON and extract its `exampleSessionIds`:
 
-Example:
-- Analysis mentions: "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 show this pattern"
-- Output: `"affected_sessions": ["d39bace3959ded5a88951399f6b1d8c2", "2283880ae7b7ddc5070c66604d31cd69"]`
+**Mapping segments**:
+- Match segment by **label** (e.g., "OsVersion: 11" in output matches "label": "OsVersion: 11" in rootCausePayload.segments)
+- Extract the `exampleSessionIds` array from the matched payload segment
+- Copy those session IDs into the output segment's `affected_sessions` field
+
+**Example**:
+- RootCausePayload has: `{"label": "OsVersion: 11", "exampleSessionIds": ["s_1506", "s_1540"]}`
+- Output segment should have: `"affected_sessions": ["s_1506", "s_1540"]`
+
+**CRITICAL RULES**:
+1. Every output segment MUST have an `affected_sessions` field — never omit it
+2. Extract sessions DIRECTLY from the payload's `exampleSessionIds` for each segment
+3. Do NOT search for sessions in the analysis text
+4. Do NOT invent session IDs
+5. Use empty array [] ONLY if the payload segment has no exampleSessionIds
 
 Ground metric values strictly in the original RootCausePayload JSON. Do not invent or omit metrics.
 If no anomalies were found or data is unavailable: use an empty `segments` array and an honest `executive_summary`.

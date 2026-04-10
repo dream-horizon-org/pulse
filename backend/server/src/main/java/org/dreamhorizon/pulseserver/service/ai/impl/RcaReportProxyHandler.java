@@ -248,19 +248,15 @@ final class RcaReportProxyHandler {
 
   /**
    * On successful buffered RCA JSON, merges per-segment related heatmaps when enrichment
-   * succeeded, sets {@code cached} and {@code cachedAt} (for UI), persists to MySQL, returns
-   * updated result.
+   * succeeded, adds enriched rootCausePayload with exampleSessionIds, sets {@code cached} and 
+   * {@code cachedAt} (for UI), persists to MySQL, returns updated result.
    */
   private CompletionStage<AiProxyUpstreamResult> finalizeSuccessfulRcaProxyResult(
       AiProxyUpstreamResult result, RcaEnrichmentOutcome enrichment, RcaCacheKeyParts keyParts) {
     if (!AiProxyUpstreamResult.isSuccessfulBuffered(result)) {
       return CompletableFuture.completedFuture(result);
     }
-    // Use enriched body if available (contains segment-specific exampleSessionIds),
-    // otherwise fall back to original AI response body
-    String body = enrichment.enrichmentOk() && enrichment.body() != null 
-        ? enrichment.body() 
-        : result.getBufferedBody();
+    String body = result.getBufferedBody();
     if (enrichment.enrichmentOk()
         && enrichment.rootCause() != null
         && enrichment.rootCause().getSegments() != null
@@ -268,6 +264,9 @@ final class RcaReportProxyHandler {
       try {
         JsonNode tree = objectMapper.readTree(body);
         if (tree instanceof ObjectNode root) {
+          // Add enriched rootCausePayload with exampleSessionIds
+          root.set(ROOT_CAUSE_PAYLOAD_FIELD, objectMapper.valueToTree(enrichment.rootCause()));
+          
           RootCauseQueryBuilder.Window window =
               new RootCauseQueryBuilder.Window(
                   enrichment.anchorDate(),
