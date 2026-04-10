@@ -30,8 +30,8 @@ import org.jboss.resteasy.plugins.providers.multipart.MultipartFormDataInput;
 public class MappingFileUpload {
   private static final String FILE_PART_NAME = "fileContent";
   private static final String METADATA_PART_NAME = "metadata";
-  private static final ObjectMapper objectMapper = new ObjectMapper();
 
+  private final ObjectMapper objectMapper;
   private final SymbolFileService symbolFileService;
 
   @POST

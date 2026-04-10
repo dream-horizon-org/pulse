@@ -19,6 +19,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.function.BiFunction;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
@@ -29,6 +30,7 @@ import org.dreamhorizon.pulseserver.model.ClickhouseProjectCredentials;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageStats;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -60,13 +62,16 @@ class ClickhouseQueryServiceTest {
 
   ClickhouseQueryService clickhouseQueryService;
 
+  private final ObjectMapper objectMapper = ObjectMapperFactory.get();
+
   @BeforeEach
   void setUp() {
     clickhouseQueryService = new ClickhouseQueryService(
         clickhouseReadClient,
         clickhouseWriteClient,
         clickhouseProjectConnectionPoolManager,
-        clickhouseProjectCredentialsDao);
+        clickhouseProjectCredentialsDao,
+        objectMapper);
   }
 
   @Nested

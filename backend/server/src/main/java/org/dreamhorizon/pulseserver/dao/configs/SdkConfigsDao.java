@@ -9,9 +9,7 @@ import static org.dreamhorizon.pulseserver.dao.configs.Queries.INSERT_CONFIG;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
-import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.sqlclient.Row;
-import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.ArrayList;
@@ -23,7 +21,7 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.configs.models.SdkConfigData;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
 
 @Slf4j

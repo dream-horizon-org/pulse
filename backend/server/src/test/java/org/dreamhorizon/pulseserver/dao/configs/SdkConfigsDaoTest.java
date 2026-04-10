@@ -14,7 +14,6 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.PropertyKind;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.PreparedQuery;
-import io.vertx.rxjava3.sqlclient.PropertyKind;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowIterator;
 import io.vertx.rxjava3.sqlclient.RowSet;
@@ -34,7 +33,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 import org.dreamhorizon.pulseserver.tenant.Tenant;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -78,7 +78,7 @@ class SdkConfigsDaoTest {
 
   @BeforeEach
   void setUp() {
-    objectMapper = new ObjectMapperUtil();
+    objectMapper = new ObjectMapperUtil(ObjectMapperFactory.get());
     sdkConfigsDao = new SdkConfigsDao(d11MysqlClient, objectMapper);
     TenantContext.setTenant(Tenant.builder()
         .tenantId("test")
