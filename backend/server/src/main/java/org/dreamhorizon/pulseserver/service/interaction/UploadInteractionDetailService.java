@@ -44,13 +44,13 @@ public class UploadInteractionDetailService {
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
       List<InteractionConfig> interactions,
-      String tenantId
+      String projectId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailsS3BucketFilePath());
+    String s3FilePath = getProjectAwarePath(projectId, applicationConfig.getInteractionDetailsS3BucketFilePath());
     String cloudFrontAssetPath = String.format("/%s",
-        getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailCloudFrontAssetPath()));
-    log.info("Uploading to S3 at path: {}", s3FilePath);
+        getProjectAwarePath(projectId, applicationConfig.getInteractionDetailCloudFrontAssetPath()));
+    log.info("Uploading to S3 at path: {} for project: {}", s3FilePath, projectId);
 
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
@@ -60,8 +60,8 @@ public class UploadInteractionDetailService {
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful for tenant: {}, invalidating CloudFront cache for distribution: {}",
-              tenantId, distributionId);
+          log.info("S3 upload successful for project: {}, invalidating CloudFront cache for distribution: {}",
+              projectId, distributionId);
           return cloudFrontClient
               .invalidateCache(
                   distributionId,
@@ -70,18 +70,18 @@ public class UploadInteractionDetailService {
   }
 
   /**
-   * Constructs a tenant-aware path by prefixing the base path with tenant directory.
-   * Format: tenants/{tenantId}/{basePath}
+   * Constructs a pure project-based path.
+   * Format: config/projects/{projectId}/{basePath}
    */
-  private String getTenantAwarePath(String tenantId, String basePath) {
-    return String.format("config/projects/%s/%s", tenantId, basePath);
+  private String getProjectAwarePath(String projectId, String basePath) {
+    return String.format("config/projects/%s/%s", projectId, basePath);
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String projectId) {
     return interactionDao
-        .getAllActiveAndRunningInteractions(tenant)
+        .getAllActiveAndRunningInteractions(projectId)
         .map(this::toInteractionConfigs)
-        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, tenant))
+        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, projectId))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }

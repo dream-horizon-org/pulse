@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions
 import org.assertj.core.api.ThrowingConsumer
@@ -444,6 +445,27 @@ class InteractionManagerTest {
                     emptyMap(),
                 )
                 assertSingleFinalInteraction(id)
+            }
+
+        @Test
+        fun `after completed interaction stray event2 then event1 event2 uses new interaction id`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(interactionConfigWithTwoEvents)
+                addEventWithNanoTimeFromBoot("event1")
+                addEventWithNanoTimeFromBoot("event2")
+                val (firstCompletionId, _) = assertSingleFinalInteraction()
+
+                addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+
+                addEventWithNanoTimeFromBoot("event1")
+                val secondRunOngoingId = assertSingleOngoingInteraction()
+                Assertions.assertThat(secondRunOngoingId).isNotEqualTo(firstCompletionId)
+
+                addEventWithNanoTimeFromBoot("event2")
+                val (secondCompletionId, _) = assertSingleFinalInteraction()
+                Assertions.assertThat(secondCompletionId).isNotEqualTo(firstCompletionId)
+                Assertions.assertThat(secondCompletionId).isEqualTo(secondRunOngoingId)
             }
 
         @Test
@@ -1360,6 +1382,35 @@ class InteractionManagerTest {
                 assertSingleFinalInteraction(skipAdvancing = true)
             }
 
+        @Test
+        fun `after completed interaction stray event2 then event1 event2 uses new interaction id`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            ),
+                    ),
+                )
+                addEventWithNanoTimeFromBoot("event1")
+                addEventWithNanoTimeFromBoot("event2")
+                val (firstCompletionId, _) = assertSingleFinalInteraction()
+
+                val timeEvent2 = addEventWithNanoTimeFromBoot("event2")
+                advanceTimeBy(1.seconds)
+
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = timeEvent2 - 1)
+                val (secondFinalInteractionId, _) = assertSingleFinalInteraction()
+
+                Assertions.assertThat(secondFinalInteractionId).isNotEqualTo(firstCompletionId)
+            }
+
         @Disabled("Out of order processing is not supported")
         @Test
         fun `event1, event2, localBlacklist1, event3 with localBlacklist1 older than event2 timestamp gives ongoing then no interaction`() =
@@ -1453,11 +1504,12 @@ class InteractionManagerTest {
 
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(20.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(1.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
             }
 
         @Test
@@ -1475,11 +1527,12 @@ class InteractionManagerTest {
 
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(20.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(1.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
 
                 addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
@@ -1509,7 +1562,7 @@ class InteractionManagerTest {
 
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(20.seconds)
@@ -1517,6 +1570,7 @@ class InteractionManagerTest {
                 addEventWithNanoTimeFromBoot("event2")
                 advanceTimeBy(1.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
             }
 
         @Test
@@ -1588,7 +1642,7 @@ class InteractionManagerTest {
 
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(18.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 addEventWithNanoTimeFromBoot("eventUnknown")
@@ -1596,6 +1650,7 @@ class InteractionManagerTest {
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(5.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
             }
     }
 
@@ -1632,7 +1687,7 @@ class InteractionManagerTest {
                     )
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
                 val interactionId = assertSingleOngoingInteraction(skipAdvancing = true)
 
@@ -1643,6 +1698,7 @@ class InteractionManagerTest {
                         skipAdvancing = true,
                         isSuccess = false,
                     )
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
                 Assertions.assertThat(interactionId2).isEqualTo(interactionId)
 
                 // terminal state
@@ -1669,13 +1725,14 @@ class InteractionManagerTest {
                     )
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
 
                 addEventWithNanoTimeFromBoot("event3")
                 advanceTimeBy(1.seconds)
 
                 val (failedInteractionId, _) = assertSingleFinalInteraction(isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
 
                 addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
@@ -1685,6 +1742,114 @@ class InteractionManagerTest {
                 advanceTimeBy(1.seconds)
                 val (successInteractionId, _) = assertSingleFinalInteraction()
                 Assertions.assertThat(successInteractionId).isNotEqualTo(failedInteractionId)
+            }
+    }
+
+    @Nested
+    inner class `With marker events` {
+        private val twoEventConfig =
+            InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                eventSequence =
+                    listOf(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                    ),
+            )
+
+        @Test
+        fun `In successful interaction of two events, adding marker events gets reflected`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker1", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, interaction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly("marker1")
+            }
+
+        @Test
+        fun `In failed interaction of two events, adding marker events gets reflected`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_fail", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, interaction) =
+                    assertSingleFinalInteraction(
+                        interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+                        skipAdvancing = true,
+                        isSuccess = false,
+                    )
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly("marker_fail")
+            }
+
+        @Test
+        fun `In two successful interactions of two events, marker events of first interaction doesn't get added to second interaction`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_first", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, firstInteraction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(firstInteraction.markerEvents.map { it.name }).containsExactly("marker_first")
+
+                val t1 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t1)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_second", eventTimeInNano = t1 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t1 + 2)
+                runCurrent()
+                val (_, secondInteraction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(secondInteraction.markerEvents.map { it.name }).containsExactly("marker_second")
+                Assertions.assertThat(secondInteraction.markerEvents.map { it.name }).doesNotContain("marker_first")
+            }
+
+        @Test
+        fun `With timed out and successful interactions, marker events of first interaction doesn't get added to second interaction`() =
+            runTest(standardTestDispatcher) {
+                val interactionConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
+                    )
+                initMockInteractionManager(interactionConfig)
+                val t0 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_timeout", eventTimeInNano = t0 + 1)
+                runCurrent()
+                advanceTimeBy(21.seconds)
+                runCurrent()
+                val (_, timedOutInteraction) = assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                Assertions.assertThat(timedOutInteraction.markerEvents.map { it.name }).containsExactly("marker_timeout")
+
+                val t1 = System.nanoTime()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t1)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_success", eventTimeInNano = t1 + 1)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t1 + 2)
+                runCurrent()
+                val (_, successInteraction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(successInteraction.markerEvents.map { it.name }).containsExactly("marker_success")
+                Assertions.assertThat(successInteraction.markerEvents.map { it.name }).doesNotContain("marker_timeout")
             }
     }
 
@@ -1827,7 +1992,29 @@ class InteractionManagerTest {
             Assertions.assertThat(finalInteractionOngoingStatus.interactionId).isEqualTo(it)
         }
         Assertions.assertThat(listOf(interactionRunningStatus).runningIds).isEmpty()
+        Assertions
+            .assertThat(
+                interaction.getTimeSpanInNanos(interactionRunningStatus),
+            ).isNotNull
         return finalInteractionOngoingStatus.interactionId to interaction
+    }
+
+    private fun assertFinalInteractionTimeRange(
+        startInNs: Long,
+        endInNs: Long,
+    ) {
+        Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value).hasSize(1)
+        val finalInteractionOngoingStatus =
+            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.OngoingMatch
+                ?: throwNotOfOngoingType(
+                    mockInteractionManager.interactionTrackerStatesState.value.first(),
+                )
+        val interaction =
+            finalInteractionOngoingStatus.interaction ?: error("Interaction should not be null")
+        Assertions
+            .assertThat(interaction.getTimeSpanInNanos(finalInteractionOngoingStatus.interactionConfig.thresholdInMs))
+            .isNotNull
+            .isEqualTo(startInNs to endInNs)
     }
 
     /**
@@ -1837,11 +2024,27 @@ class InteractionManagerTest {
         eventName: String,
         params: Map<String, Any?> = emptyMap(),
         eventTimeInNano: Long? = null,
-    ) {
+    ): Long {
+        val time = eventTimeInNano ?: System.nanoTime()
         mockInteractionManager.addEvent(
             eventName = eventName,
-            eventTimeInNano = eventTimeInNano ?: System.nanoTime(),
+            eventTimeInNano = time,
             params = params,
         )
+        return time
+    }
+
+    private fun addMarkerWithNanoTimeFromBoot(
+        eventName: String,
+        params: Map<String, Any?> = emptyMap(),
+        eventTimeInNano: Long? = null,
+    ): Long {
+        val time = eventTimeInNano ?: System.nanoTime()
+        mockInteractionManager.addMarkerEvent(
+            eventName = eventName,
+            params = params,
+            eventTimeInNano = time,
+        )
+        return time
     }
 }

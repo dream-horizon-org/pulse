@@ -5,7 +5,7 @@ import {
   CreateConfigResponse,
   RulesAndFeaturesResponse,
   ScopesAndSdksResponse,
-} from '../../screens/SamplingConfig/SamplingConfig.interface';
+} from "../../screens/SamplingConfig/SamplingConfig.interface";
 
 // ============================================================================
 // Query Parameters
@@ -18,6 +18,7 @@ export interface GetSdkConfigByVersionParams {
 
 export interface GetActiveSdkConfigParams {
   enabled?: boolean;
+  projectId?: string | null;
 }
 
 export interface GetAllSdkConfigsParams {
@@ -53,4 +54,3 @@ export type {
   RulesAndFeaturesResponse,
   ScopesAndSdksResponse,
 };
-

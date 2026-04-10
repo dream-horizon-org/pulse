@@ -4,11 +4,8 @@ import com.google.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -18,14 +15,9 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.resources.tenants.models.AuditListRestResponse;
-import org.dreamhorizon.pulseserver.resources.tenants.models.CreateCredentialsRestRequest;
-import org.dreamhorizon.pulseserver.resources.tenants.models.CreateTenantRestRequest;
-import org.dreamhorizon.pulseserver.resources.tenants.models.CredentialsRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.StatusRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.TenantRestResponse;
-import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateCredentialsRestRequest;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateTenantRestRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
@@ -40,17 +32,6 @@ public class TenantsController {
 
   private final TenantService tenantService;
 
-
-  @POST
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<TenantRestResponse>> createTenant(
-      @NotNull @Valid CreateTenantRestRequest request
-  ) {
-    return tenantService.createTenant(mapper.toCreateTenantRequest(request))
-        .map(mapper::toTenantRestResponse)
-        .to(RestResponse.jaxrsRestHandler());
-  }
 
   @GET
   @Path("/{tenantId}")
@@ -95,20 +76,6 @@ public class TenantsController {
         .to(RestResponse.jaxrsRestHandler());
   }
 
-  @DELETE
-  @Path("/{tenantId}")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<StatusRestResponse>> deleteTenant(
-      @NotNull @PathParam("tenantId") String tenantId
-  ) {
-    return tenantService.deleteTenant(tenantId)
-        .andThen(io.reactivex.rxjava3.core.Single.just(StatusRestResponse.builder()
-            .success(true)
-            .message("Tenant deleted successfully")
-            .build()))
-        .to(RestResponse.jaxrsRestHandler());
-  }
 
   @PUT
   @Path("/{tenantId}/deactivate")
@@ -136,121 +103,6 @@ public class TenantsController {
         .andThen(io.reactivex.rxjava3.core.Single.just(StatusRestResponse.builder()
             .success(true)
             .message("Tenant activated successfully")
-            .build()))
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-
-  @POST
-  @Path("/{tenantId}/credentials")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<CredentialsRestResponse>> createCredentials(
-      @NotNull @PathParam("tenantId") String tenantId,
-      @NotNull @HeaderParam("user-email") String userEmail,
-      @NotNull @Valid CreateCredentialsRestRequest request
-  ) {
-    return tenantService.createClickhouseCredentials(
-            mapper.toCreateCredentialsRequest(tenantId, request), userEmail)
-        .map(mapper::toCredentialsRestResponse)
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-  @GET
-  @Path("/{tenantId}/credentials")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<CredentialsRestResponse>> getCredentials(
-      @NotNull @PathParam("tenantId") String tenantId
-  ) {
-    return tenantService.getClickhouseCredentials(tenantId)
-        .map(mapper::toCredentialsRestResponse)
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-  @PUT
-  @Path("/{tenantId}/credentials")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<CredentialsRestResponse>> updateCredentials(
-      @NotNull @PathParam("tenantId") String tenantId,
-      @NotNull @HeaderParam("user-email") String userEmail,
-      @NotNull @Valid UpdateCredentialsRestRequest request
-  ) {
-    return tenantService.updateClickhouseCredentials(
-            mapper.toUpdateCredentialsRequest(tenantId, request), userEmail)
-        .map(mapper::toCredentialsRestResponse)
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-  @PUT
-  @Path("/{tenantId}/credentials/deactivate")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<StatusRestResponse>> deactivateCredentials(
-      @NotNull @PathParam("tenantId") String tenantId,
-      @NotNull @HeaderParam("user-email") String userEmail
-  ) {
-    return tenantService.deactivateClickhouseCredentials(tenantId, userEmail)
-        .andThen(io.reactivex.rxjava3.core.Single.just(StatusRestResponse.builder()
-            .success(true)
-            .message("ClickHouse credentials deactivated successfully")
-            .build()))
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-  @PUT
-  @Path("/{tenantId}/credentials/reactivate")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<CredentialsRestResponse>> reactivateCredentials(
-      @NotNull @PathParam("tenantId") String tenantId,
-      @NotNull @HeaderParam("user-email") String userEmail
-  ) {
-    return tenantService.reactivateClickhouseCredentials(tenantId, userEmail)
-        .map(mapper::toCredentialsRestResponse)
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-
-  @GET
-  @Path("/{tenantId}/credentials/audit")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<AuditListRestResponse>> getCredentialsAuditHistory(
-      @NotNull @PathParam("tenantId") String tenantId
-  ) {
-    return tenantService.getCredentialsAuditHistory(tenantId)
-        .toList()
-        .map(mapper::toAuditListRestResponse)
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-  @GET
-  @Path("/credentials/audit/recent")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<AuditListRestResponse>> getRecentAuditLogs(
-      @QueryParam("limit") @DefaultValue("50") Integer limit
-  ) {
-    return tenantService.getRecentCredentialsAuditLogs(limit)
-        .toList()
-        .map(mapper::toAuditListRestResponse)
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-
-  @POST
-  @Path("/{tenantId}/credentials/pool/refresh")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<StatusRestResponse>> refreshConnectionPool(
-      @NotNull @PathParam("tenantId") String tenantId
-  ) {
-    return tenantService.refreshConnectionPool(tenantId)
-        .andThen(io.reactivex.rxjava3.core.Single.just(StatusRestResponse.builder()
-            .success(true)
-            .message("Connection pool refreshed successfully")
             .build()))
         .to(RestResponse.jaxrsRestHandler());
   }

@@ -10,6 +10,7 @@ import io.reactivex.rxjava3.observers.TestObserver;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.interaction.InteractionDao;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
@@ -48,8 +49,9 @@ class InteractionServiceImplTest {
 
   @BeforeEach
   void setUp() {
+    ProjectContext.setProjectId("test");
     TenantContext.setTenantId(TEST_TENANT_ID);
-    Mockito.lenient().when(uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()))
+    Mockito.lenient().when(uploadInteractionDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()))
         .thenReturn(Single.just(EmptyResponse.emptyResponse));
     interactionService = new InteractionServiceImpl(interactionDao, uploadInteractionDetailService);
   }
@@ -899,14 +901,14 @@ class InteractionServiceImplTest {
 
     @Test
     void shouldThrowExceptionWhenDaoFailsToGetActiveAndRunningInteractions() {
-      Mockito.when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions(ProjectContext.getProjectId()))
           .thenReturn(Single.error(new RuntimeException("Database error")));
 
       TestObserver<List<InteractionDetails>> actual = interactionService
           .getInteractionConfig().test();
 
       actual.assertError(RuntimeException.class);
-      Mockito.verify(interactionDao, Mockito.times(1)).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+      Mockito.verify(interactionDao, Mockito.times(1)).getAllActiveAndRunningInteractions(ProjectContext.getProjectId());
       verifyNoMoreInteractions(interactionDao);
     }
 
@@ -948,7 +950,7 @@ class InteractionServiceImplTest {
 
       List<InteractionDetails> expectedInteractions = List.of(interaction1, interaction2);
 
-      Mockito.when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
+      Mockito.when(interactionDao.getAllActiveAndRunningInteractions(ProjectContext.getProjectId()))
           .thenReturn(Single.just(expectedInteractions));
 
       TestObserver<List<InteractionDetails>> actual = interactionService
@@ -964,7 +966,7 @@ class InteractionServiceImplTest {
               return false;
             }
           });
-      Mockito.verify(interactionDao, Mockito.times(1)).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+      Mockito.verify(interactionDao, Mockito.times(1)).getAllActiveAndRunningInteractions(ProjectContext.getProjectId());
       verifyNoMoreInteractions(interactionDao);
     }
   }

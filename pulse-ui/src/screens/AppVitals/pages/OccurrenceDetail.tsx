@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Button, SimpleGrid } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import {
@@ -212,11 +212,13 @@ const MOCK_STACK_TRACE = [
 ];
 
 export const OccurrenceDetail: React.FC = () => {
-  const { issueId, occurrenceId } = useParams<{
+  const { issueId, occurrenceId, projectId } = useParams<{
     issueId: string;
     occurrenceId: string;
+    projectId: string;
   }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const occurrenceData = generateOccurrenceData(occurrenceId || "0");
   const performanceData = generatePerformanceData();
@@ -234,7 +236,14 @@ export const OccurrenceDetail: React.FC = () => {
         variant="subtle"
         color="teal"
         leftSection={<IconArrowLeft size={16} />}
-        onClick={() => navigate(`/app-vitals/${issueId}`)}
+        onClick={() => {
+          const qs = searchParams.toString();
+          navigate(
+            qs
+              ? `/projects/${projectId}/app-vitals/${issueId}?${qs}`
+              : `/projects/${projectId}/app-vitals/${issueId}`,
+          );
+        }}
         className={classes.backButton}
       >
         Back to Issue Details

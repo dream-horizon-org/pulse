@@ -15,6 +15,7 @@ import io.vertx.rxjava3.ext.web.client.HttpRequest;
 import io.vertx.rxjava3.ext.web.client.HttpResponse;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.config.SessionReplayS3Config;
 import org.dreamhorizon.pulseserver.resources.alert.models.AddCronDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
 import org.dreamhorizon.pulseserver.resources.alert.models.UpdateCronDto;
@@ -242,7 +243,7 @@ class AlertCronServiceTest {
       assertEquals(1, model.getId());
       assertEquals(60, model.getInterval());
       assertEquals("http://test.url", model.getUrl());
-      assertEquals("tenant1", model.getTenantId());
+      assertEquals("tenant1", model.getProjectId());
     }
 
     @Test
@@ -258,12 +259,12 @@ class AlertCronServiceTest {
       model.setId(2);
       model.setInterval(120);
       model.setUrl("http://new.url");
-      model.setTenantId("tenant2");
+      model.setProjectId("tenant2");
 
       assertEquals(2, model.getId());
       assertEquals(120, model.getInterval());
       assertEquals("http://new.url", model.getUrl());
-      assertEquals("tenant2", model.getTenantId());
+      assertEquals("tenant2", model.getProjectId());
     }
 
     @Test
@@ -274,7 +275,7 @@ class AlertCronServiceTest {
       assertTrue(toString.contains("id=1"));
       assertTrue(toString.contains("interval=60"));
       assertTrue(toString.contains("url=http://test.url"));
-      assertTrue(toString.contains("tenantId=tenant1"));
+      assertTrue(toString.contains("projectId=tenant1"));
     }
 
     @Test
@@ -346,7 +347,7 @@ class AlertCronServiceTest {
       UpdateCronDto model = new UpdateCronDto(1, "tenant1", 120, 60, "http://test.url");
 
       assertEquals(1, model.getId());
-      assertEquals("tenant1", model.getTenantId());
+      assertEquals("tenant1", model.getProjectId());
       assertEquals(120, model.getNewInterval());
       assertEquals(60, model.getOldInterval());
       assertEquals("http://test.url", model.getUrl());
@@ -363,13 +364,13 @@ class AlertCronServiceTest {
     void shouldSetUpdateAlertInCronManagerFields() {
       UpdateCronDto model = new UpdateCronDto();
       model.setId(2);
-      model.setTenantId("tenant2");
+      model.setProjectId("tenant2");
       model.setNewInterval(180);
       model.setOldInterval(120);
       model.setUrl("http://new.url");
 
       assertEquals(2, model.getId());
-      assertEquals("tenant2", model.getTenantId());
+      assertEquals("tenant2", model.getProjectId());
       assertEquals(180, model.getNewInterval());
       assertEquals(120, model.getOldInterval());
       assertEquals("http://new.url", model.getUrl());
@@ -381,7 +382,7 @@ class AlertCronServiceTest {
       String toString = model.toString();
 
       assertTrue(toString.contains("id=1"));
-      assertTrue(toString.contains("tenantId=tenant1"));
+      assertTrue(toString.contains("projectId=tenant1"));
       assertTrue(toString.contains("newInterval=120"));
       assertTrue(toString.contains("oldInterval=60"));
       assertTrue(toString.contains("url=http://test.url"));
@@ -405,6 +406,7 @@ class AlertCronServiceTest {
     @Test
     void shouldCreateApplicationConfigWithAllArgs() {
       ApplicationConfig config = new ApplicationConfig(
+          "dev",
           "http://cron.url",
           "http://service.url",
           30,
@@ -424,9 +426,22 @@ class AlertCronServiceTest {
           "/config/details.json",
           "http://webhook.url",
           "interaction/details.json",
-          "/interaction/details.json"
+          "/interaction/details.json",
+          "encryptionKey",
+          "tnc-bucket",
+          "http://ai:8000",
+          "symbol-files-bucket",
+          "dev-api-key",
+          new SessionReplayS3Config(
+              "session-replay-bucket",
+              "http://minio:9000",
+              "us-east-1",
+              "access-key",
+              "secret-key"),
+              "replayUrl"
       );
 
+      assertEquals("dev", config.getAppEnvironment());
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
       assertEquals("http://service.url", config.getServiceUrl());
       assertEquals(30, config.getShutdownGracePeriod());
@@ -500,6 +515,7 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectToStringForApplicationConfig() {
       ApplicationConfig config = new ApplicationConfig(
+          "dev",
           "http://cron.url",
           "http://service.url",
           30,
@@ -519,7 +535,19 @@ class AlertCronServiceTest {
           "/config/details.json",
           "http://webhook.url",
           "interaction/details.json",
-          "/interaction/details.json"
+          "/interaction/details.json",
+          "key",
+          "tnc-bucket",
+          "http://ai:8000",
+          "symbol-files-bucket",
+          "dev-api-key",
+          new SessionReplayS3Config(
+              "session-replay-bucket",
+              "http://minio:9000",
+              "us-east-1",
+              "access-key",
+              "secret-key"),
+              "replayUrl"
       );
       String toString = config.toString();
 
@@ -530,22 +558,31 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForApplicationConfig() {
       ApplicationConfig config1 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json"
+          "interaction-path.json", "/interaction-path.json",
+          "key", "tnc-bucket", "http://ai:8000", "symbol-files-bucket", "dev-api-key",
+          new SessionReplayS3Config(
+              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl"
       );
       ApplicationConfig config2 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json"
+          "interaction-path.json", "/interaction-path.json",
+          "key", "tnc-bucket", "http://ai:8000","symbol-files-bucket", "dev-api-key",
+          new SessionReplayS3Config(
+              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl"
       );
       ApplicationConfig config3 = new ApplicationConfig(
-          "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json"
+          "interaction-path.json", "/interaction-path.json",
+          "key", "tnc-bucket", "http://ai:8000", "symbol-files-bucket", "dev-api-key",
+          new SessionReplayS3Config(
+              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl"
       );
 
       assertEquals(config1, config2);

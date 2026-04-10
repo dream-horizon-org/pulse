@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
-import {
-  GetInteractionListFiltersResponse,
-} from "./useGetInteractionListFilters.interface";
+import { GetInteractionListFiltersResponse } from "./useGetInteractionListFilters.interface";
 import { makeRequest } from "../../helpers/makeRequest";
+import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 export const useGetInteractionListFilters = () => {
   const getInteractionListFilters = API_ROUTES.GET_INTERACTIONLIST_FILTERS;
+  const enabled = useProjectQueryEnabled();
+
   return useQuery<GetInteractionListFiltersResponse>({
     queryKey: [getInteractionListFilters?.key],
     queryFn: async () => {
@@ -23,7 +24,7 @@ export const useGetInteractionListFilters = () => {
       };
       return transformedData;
     },
+    enabled,
     refetchOnWindowFocus: false,
   });
 };
-

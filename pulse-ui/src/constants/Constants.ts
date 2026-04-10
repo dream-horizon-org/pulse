@@ -5,50 +5,34 @@ import {
   ComboboxItem,
 } from "@mantine/core";
 import {
-  IconBell,
-  IconListDetails,
-  IconHome,
   IconActivityHeartbeat,
   IconDeviceDesktop,
   IconNetwork,
   IconUsers,
   IconDatabaseSearch,
+  IconRobot,
+  IconBell,
+  IconCalendarEvent,
+  IconHome,
+  IconListDetails,
+  IconVideo,
 } from "@tabler/icons-react";
 import {
-  CiritcalInteractionDetails,
   CriticalInteractionDetailsFilterValues,
   TimeFilter,
 } from "../screens/CriticalInteractionDetails";
-import { CriticalInteractionList } from "../screens/CriticalInteractionList";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
 import {
-  CriticalInteractionForm,
   CriticalInteractionFormSteps,
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
   FormSteps,
 } from "../screens/CriticalInteractionForm";
-import { Login } from "../screens/Login";
-import { UniversalEventQuery } from "../screens/UniversalEventQuery/UniversalEventQuery";
-import { Home } from "../screens/Home";
-import { AppVitals, IssueDetail, OccurrenceDetail } from "../screens/AppVitals";
-import { SessionTimeline } from "../screens/SessionTimeline";
-import { ScreenList } from "../screens/ScreenList";
-import { ScreenDetail } from "../screens/ScreenDetail";
-import { NetworkDetail } from "../screens/NetworkDetail";
-import { NetworkList } from "../screens/NetworkList";
-import { UserEngagement } from "../screens/UserEngagement";
-import { ComingSoon } from "../screens/ComingSoon";
-import { SamplingConfig } from "../screens/SamplingConfig";
-import { Settings } from "../screens/Settings";
-import { AlertListingPage } from "../screens/AlertListingPage";
-import { AlertForm } from "../screens/AlertFormWizard";
-import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
-import { RealTimeQuery } from "../screens/RealTimeQuery";
+import { AiChat } from "../screens/AiChat";
 
 export const APP_NAME: string = "Pulse";
 
@@ -73,6 +57,9 @@ export const NAVBAR_CONFIG: AppShellNavbarConfiguration = {
 export const API_BASE_URL: string =
   process.env.REACT_APP_PULSE_SERVER_URL ?? "";
 
+export const ENABLE_AI_CHAT: boolean =
+  process.env.REACT_APP_ENABLE_AI_CHAT === "true";
+
 export const PASCAL_CASE_FORM_REGEX: RegExp = /(^[A-Z])\w+[a-z]$/;
 
 export const FORM_REGEX: RegExp = /^[a-z]*$/;
@@ -89,145 +76,248 @@ export const IS_UAT: boolean =
   process.env.REACT_APP_PULSE_SERVER_URL?.includes("-uat") ?? false;
 
 export const ROUTES: Routes = {
-  HOME: {
-    key: "HOME",
-    basePath: "/",
-    path: "/",
-    element: Home,
+  // Organization-level routes
+  ORGANIZATION_DASHBOARD: {
+    key: "ORGANIZATION_DASHBOARD",
+    basePath: "/organization",
+    path: "/organization",
   },
-  USER_ENGAGEMENT: {
-    key: "USER_ENGAGEMENT",
-    basePath: "/user-engagement",
-    path: "/user-engagement",
-    element: UserEngagement,
+  ORGANIZATION_SETTINGS: {
+    key: "ORGANIZATION_SETTINGS",
+    basePath: "/organization/settings",
+    path: "/organization/settings",
   },
-  CRITICAL_INTERACTIONS: {
-    key: "CRITICAL_INTERACTIONS",
-    basePath: "/interactions",
-    path: "/interactions",
-    element: CriticalInteractionList,
+  ORGANIZATION_MEMBERS: {
+    key: "ORGANIZATION_MEMBERS",
+    basePath: "/:organizationId/members",
+    path: "/:organizationId/members/*",
   },
-  CRITICAL_INTERACTION_FORM: {
-    key: "CRITICAL_INTERACTION_FORM",
-    basePath: "/critical-interaction-form",
-    path: "/critical-interaction-form/*",
-    element: CriticalInteractionForm,
+  ORGANIZATION_PROJECTS: {
+    key: "ORGANIZATION_PROJECTS",
+    basePath: "/:organizationId/projects",
+    path: "/:organizationId/projects",
   },
-  ALL_INTERACTION_DETAILS: {
-    key: "ALL_INTERACTION_DETAILS",
-    basePath: "/user-experience",
-    path: "/user-experience",
-    element: CiritcalInteractionDetails,
+  CREATE_PROJECT: {
+    key: "CREATE_PROJECT",
+    basePath: "/:organizationId/projects/new",
+    path: "/:organizationId/projects/new",
   },
-  CRITICAL_INTERACTION_DETAILS: {
-    key: "CRITICAL_INTERACTION_DETAILS",
-    basePath: "/interaction-details",
-    path: "/interaction-details/*",
-    element: CiritcalInteractionDetails,
+
+  // Project-scoped routes (nested under /projects/:projectId)
+  PROJECT_DASHBOARD: {
+    key: "PROJECT_DASHBOARD",
+    basePath: "/projects/:projectId",
+    path: "/projects/:projectId",
+  },
+  PROJECT_ONBOARDING_SUCCESS: {
+    key: "PROJECT_ONBOARDING_SUCCESS",
+    basePath: "/projects/:projectId/onboarding",
+    path: "/projects/:projectId/onboarding",
+  },
+  PROJECT_USER_ENGAGEMENT: {
+    key: "PROJECT_USER_ENGAGEMENT",
+    basePath: "/projects/:projectId/user-engagement",
+    path: "/projects/:projectId/user-engagement",
+  },
+  PROJECT_INTERACTIONS: {
+    key: "PROJECT_INTERACTIONS",
+    basePath: "/projects/:projectId/interactions",
+    path: "/projects/:projectId/interactions",
+  },
+  PROJECT_INTERACTION_FORM: {
+    key: "PROJECT_INTERACTION_FORM",
+    basePath: "/projects/:projectId/critical-interaction-form",
+    path: "/projects/:projectId/critical-interaction-form/*",
+  },
+  PROJECT_ALL_INTERACTION_DETAILS: {
+    key: "PROJECT_ALL_INTERACTION_DETAILS",
+    basePath: "/projects/:projectId/user-experience",
+    path: "/projects/:projectId/user-experience",
+  },
+  PROJECT_INTERACTION_DETAILS: {
+    key: "PROJECT_INTERACTION_DETAILS",
+    basePath: "/projects/:projectId/interaction-details",
+    path: "/projects/:projectId/interaction-details/*",
+  },
+  PROJECT_UNIVERSAL_QUERYING: {
+    key: "PROJECT_UNIVERSAL_QUERYING",
+    basePath: "/projects/:projectId/universal-querying",
+    path: "/projects/:projectId/universal-querying",
+  },
+  PROJECT_APP_VITALS: {
+    key: "PROJECT_APP_VITALS",
+    basePath: "/projects/:projectId/app-vitals",
+    path: "/projects/:projectId/app-vitals",
+  },
+  PROJECT_APP_VITALS_ISSUE_DETAIL: {
+    key: "PROJECT_APP_VITALS_ISSUE_DETAIL",
+    basePath: "/projects/:projectId/app-vitals/:groupId",
+    path: "/projects/:projectId/app-vitals/:groupId",
+  },
+  PROJECT_APP_VITALS_OCCURRENCE_DETAIL: {
+    key: "PROJECT_APP_VITALS_OCCURRENCE_DETAIL",
+    basePath:
+      "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
+    path: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
+  },
+  PROJECT_SESSION_TIMELINE: {
+    key: "PROJECT_SESSION_TIMELINE",
+    basePath: "/projects/:projectId/session/:id",
+    path: "/projects/:projectId/session/:id",
+  },
+  PROJECT_SCREENS: {
+    key: "PROJECT_SCREENS",
+    basePath: "/projects/:projectId/screens",
+    path: "/projects/:projectId/screens",
+  },
+  PROJECT_SCREEN_DETAILS: {
+    key: "PROJECT_SCREEN_DETAILS",
+    basePath: "/projects/:projectId/screens",
+    path: "/projects/:projectId/screens/:screenName",
+  },
+  PROJECT_NETWORK_LIST: {
+    key: "PROJECT_NETWORK_LIST",
+    basePath: "/projects/:projectId/network-apis",
+    path: "/projects/:projectId/network-apis",
+  },
+  PROJECT_NETWORK_DETAIL: {
+    key: "PROJECT_NETWORK_DETAIL",
+    basePath: "/projects/:projectId/network-apis",
+    path: "/projects/:projectId/network-apis/:apiId",
+  },
+  PROJECT_SDK_CONFIG: {
+    key: "PROJECT_SDK_CONFIG",
+    basePath: "/projects/:projectId/sdk-config",
+    path: "/projects/:projectId/sdk-config",
+  },
+  PROJECT_SETTINGS_ROUTE: {
+    key: "PROJECT_SETTINGS_ROUTE",
+    basePath: "/projects/:projectId/settings",
+    path: "/projects/:projectId/settings/*",
+  },
+  PROJECT_ALERTS: {
+    key: "PROJECT_ALERTS",
+    basePath: "/projects/:projectId/alerts",
+    path: "/projects/:projectId/alerts",
+  },
+  PROJECT_ALERT_DETAIL: {
+    key: "PROJECT_ALERT_DETAIL",
+    basePath: "/projects/:projectId/alerts",
+    path: "/projects/:projectId/alerts/:alertId",
+  },
+  PROJECT_ALERTS_FORM: {
+    key: "PROJECT_ALERTS_FORM",
+    basePath: "/projects/:projectId/configure-alert",
+    path: "/projects/:projectId/configure-alert/*",
+  },
+  PROJECT_QUERY_BUILDER: {
+    key: "PROJECT_QUERY_BUILDER",
+    basePath: "/projects/:projectId/query-builder",
+    path: "/projects/:projectId/query-builder",
+  },
+  // PROJECT_SESSION_REPLAY_INSIGHTS: {
+  //   key: "PROJECT_SESSION_REPLAY_INSIGHTS",
+  //   basePath: "/projects/:projectId/session-replay/insights",
+  //   path: "/projects/:projectId/session-replay/insights",
+  //   element: SessionReplayInsights,
+  // },
+  PROJECT_SESSION_REPLAY_SESSIONS: {
+    key: "PROJECT_SESSION_REPLAY_SESSIONS",
+    basePath: "/projects/:projectId/session-replay/sessions",
+    path: "/projects/:projectId/session-replay/sessions",
+  },
+  PROJECT_SESSION_REPLAY_DETAIL: {
+    key: "PROJECT_SESSION_REPLAY_DETAIL",
+    basePath: "/projects/:projectId/session-replay",
+    path: "/projects/:projectId/session-replay/:sessionId",
+  },
+  PROJECT_SESSION_REPLAY: {
+    key: "PROJECT_SESSION_REPLAY",
+    basePath: "/projects/:projectId/session-replay",
+    path: "/projects/:projectId/session-replay",
+  },
+  PROJECT_EVENT_CATALOG: {
+    key: "PROJECT_EVENT_CATALOG",
+    basePath: "/projects/:projectId/event-catalog",
+    path: "/projects/:projectId/event-catalog",
   },
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
     path: "/login",
-    element: Login,
   },
-  UNIVERSAL_QUERYING: {
-    key: "UNIVERSAL_QUERYING",
-    basePath: "/universal-querying",
-    path: "/universal-querying",
-    element: UniversalEventQuery,
+  ONBOARDING: {
+    key: "ONBOARDING",
+    basePath: "/onboarding",
+    path: "/onboarding",
   },
-  APP_VITALS: {
-    key: "APP_VITALS",
-    basePath: "/app-vitals",
-    path: "/app-vitals",
-    element: AppVitals,
-  },
-  APP_VITALS_ISSUE_DETAIL: {
-    key: "APP_VITALS_ISSUE_DETAIL",
-    basePath: "/app-vitals/:groupId",
-    path: "/app-vitals/:groupId",
-    element: IssueDetail,
-  },
-  APP_VITALS_OCCURRENCE_DETAIL: {
-    key: "APP_VITALS_OCCURRENCE_DETAIL",
-    basePath: "/app-vitals/:issueId/occurrence/:occurrenceId",
-    path: "/app-vitals/:issueId/occurrence/:occurrenceId",
-    element: OccurrenceDetail,
-  },
-  SESSION_TIMELINE: {
-    key: "SESSION_TIMELINE",
-    basePath: "/session/:id",
-    path: "/session/:id",
-    element: SessionTimeline,
-  },
-  SCREENS: {
-    key: "SCREENS",
-    basePath: "/screens",
-    path: "/screens",
-    element: ScreenList,
-  },
-  SCREEN_DETAILS: {
-    key: "SCREEN_DETAILS",
-    basePath: "/screens",
-    path: "/screens/:screenName",
-    element: ScreenDetail,
-  },
-  NETWORK_LIST: {
-    key: "NETWORK_LIST",
-    basePath: "/network-apis",
-    path: "/network-apis",
-    element: NetworkList,
-  },
-  NETWORK_DETAIL: {
-    key: "NETWORK_DETAIL",
-    basePath: "/network-apis",
-    path: "/network-apis/:apiId",
-    element: NetworkDetail,
+  PRICING: {
+    key: "PRICING",
+    basePath: "/:organizationId/pricing",
+    path: "/:organizationId/pricing",
   },
   COMING_SOON: {
     key: "COMING_SOON",
     basePath: "/coming-soon",
     path: "/coming-soon",
-    element: ComingSoon,
   },
-  SDK_CONFIG: {
-    key: "SDK_CONFIG",
-    basePath: "/sdk-config",
-    path: "/sdk-config",
-    element: SamplingConfig,
-  },
-  SETTINGS: {
-    key: "SETTINGS",
+  PROJECT_SETTINGS: {
+    key: "PROJECT_SETTINGS",
     basePath: "/settings",
-    path: "/settings/*",
-    element: Settings,
+    path: "/settings",
   },
-  ALERTS: {
-    key: "ALERTS",
-    basePath: "/alerts",
-    path: "/alerts",
-    element: AlertListingPage,
+  ...(ENABLE_AI_CHAT
+    ? {
+        AI_CHAT: {
+          key: "AI_CHAT",
+          basePath: "/projects/:projectId/ai-chat",
+          path: "/projects/:projectId/ai-chat",
+          element: AiChat,
+        },
+      }
+    : {}),
+  SUPPORT_QUERIES: {
+    key: "SUPPORT_QUERIES",
+    basePath: "/support-queries",
+    path: "/support-queries",
   },
-  ALERT_DETAIL: {
-    key: "ALERT_DETAIL",
-    basePath: "/alerts",
-    path: "/alerts/:alertId",
-    element: AlertDetail,
+  SESSION_REPLAY: {
+    key: "SESSION_REPLAY",
+    basePath: "/session-replay",
+    path: "/session-replay",
   },
-  ALERTS_FORM: {
-    key: "ALERTS_FORM",
-    basePath: "/configure-alert",
-    path: "/configure-alert/*",
-    element: AlertForm,
+  SESSION_REPLAY_INSIGHTS: {
+    key: "SESSION_REPLAY_INSIGHTS",
+    basePath: "/session-replay/insights",
+    path: "/session-replay/insights",
   },
-  QUERY_BUILDER: {
-    key: "QUERY_BUILDER",
-    basePath: "/query-builder",
-    path: "/query-builder",
-    element: RealTimeQuery,
+  SESSION_REPLAY_SESSIONS: {
+    key: "SESSION_REPLAY_SESSIONS",
+    basePath: "/session-replay/sessions",
+    path: "/session-replay/sessions",
+  },
+  SESSION_REPLAY_DETAIL: {
+    key: "SESSION_REPLAY_DETAIL",
+    basePath: "/session-replay",
+    path: "/session-replay/:sessionId",
   },
 };
+
+// Navbar route paths - These are flat routes that Navbar transforms to project-scoped routes
+// The Navbar component (onItemClick) automatically prepends /projects/:projectId to these paths
+export const NAVBAR_ROUTES = {
+  HOME: "/",
+  USER_ENGAGEMENT: "/user-engagement",
+  CRITICAL_INTERACTIONS: "/interactions",
+  APP_VITALS: "/app-vitals",
+  SCREENS: "/screens",
+  NETWORK_LIST: "/network-apis",
+  SESSION_REPLAY: "/session-replay/sessions",
+  QUERY_BUILDER: "/query-builder",
+  ALERTS: "/alerts",
+  AI_CHAT: "/ai-chat",
+  EVENT_CATALOG: "/event-catalog",
+} as const;
 
 // Settings sub-routes (handled internally by Settings component)
 // Use these paths for programmatic navigation
@@ -237,62 +327,94 @@ export const SETTINGS_PATHS = {
   SECURITY: "/settings/security",
 } as const;
 
+// Organization-level path segments (for URL pattern matching)
+export const ORGANIZATION_PATH_SEGMENTS = {
+  PROJECTS: "projects",
+  MEMBERS: "members",
+  PRICING: "pricing",
+} as const;
+
 export const NAVBAR_ITEMS: NavbarItems = [
   {
     tabName: "Home",
     icon: IconHome,
-    routeTo: ROUTES.HOME.basePath,
-    path: ROUTES.HOME.path,
+    routeTo: NAVBAR_ROUTES.HOME,
+    path: NAVBAR_ROUTES.HOME,
     iconSize: 25,
   },
   {
     tabName: "User Engagement",
     icon: IconUsers,
-    routeTo: ROUTES.USER_ENGAGEMENT.basePath,
-    path: ROUTES.USER_ENGAGEMENT.path,
+    routeTo: NAVBAR_ROUTES.USER_ENGAGEMENT,
+    path: NAVBAR_ROUTES.USER_ENGAGEMENT,
     iconSize: 25,
   },
   {
     tabName: "Interactions",
     icon: IconListDetails,
-    routeTo: ROUTES.CRITICAL_INTERACTIONS.basePath,
-    path: ROUTES.CRITICAL_INTERACTIONS.path,
+    routeTo: NAVBAR_ROUTES.CRITICAL_INTERACTIONS,
+    path: NAVBAR_ROUTES.CRITICAL_INTERACTIONS,
     iconSize: 25,
   },
   {
     tabName: "App Vitals",
     icon: IconActivityHeartbeat,
-    routeTo: ROUTES.APP_VITALS.basePath,
-    path: ROUTES.APP_VITALS.path,
+    routeTo: NAVBAR_ROUTES.APP_VITALS,
+    path: NAVBAR_ROUTES.APP_VITALS,
     iconSize: 25,
   },
   {
     tabName: "Screens",
     icon: IconDeviceDesktop,
-    routeTo: ROUTES.SCREENS.basePath,
-    path: ROUTES.SCREENS.path,
+    routeTo: NAVBAR_ROUTES.SCREENS,
+    path: NAVBAR_ROUTES.SCREENS,
     iconSize: 25,
   },
   {
     tabName: "Network APIs",
     icon: IconNetwork,
-    routeTo: ROUTES.NETWORK_LIST.basePath,
-    path: ROUTES.NETWORK_LIST.path,
+    routeTo: NAVBAR_ROUTES.NETWORK_LIST,
+    path: NAVBAR_ROUTES.NETWORK_LIST,
     iconSize: 25,
   },
-  
+  {
+    tabName: "Session Replay",
+    icon: IconVideo,
+    routeTo: NAVBAR_ROUTES.SESSION_REPLAY,
+    path: NAVBAR_ROUTES.SESSION_REPLAY,
+    iconSize: 25,
+  },
+
   {
     tabName: "Query Builder",
     icon: IconDatabaseSearch,
-    routeTo: ROUTES.QUERY_BUILDER.basePath,
-    path: ROUTES.QUERY_BUILDER.path,
+    routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
+    path: NAVBAR_ROUTES.QUERY_BUILDER,
     iconSize: 25,
   },
   {
     tabName: "Alerts",
     icon: IconBell,
-    routeTo: ROUTES.ALERTS.basePath,
-    path: ROUTES.ALERTS.path,
+    routeTo: NAVBAR_ROUTES.ALERTS,
+    path: NAVBAR_ROUTES.ALERTS,
+    iconSize: 25,
+  },
+  ...(ENABLE_AI_CHAT && ROUTES.AI_CHAT
+    ? [
+        {
+          tabName: "AI Chat",
+          icon: IconRobot,
+          routeTo: NAVBAR_ROUTES.AI_CHAT,
+          path: NAVBAR_ROUTES.AI_CHAT,
+          iconSize: 25,
+        },
+      ]
+    : []),
+  {
+    tabName: "Event Catalog",
+    icon: IconCalendarEvent,
+    routeTo: NAVBAR_ROUTES.EVENT_CATALOG,
+    path: NAVBAR_ROUTES.EVENT_CATALOG,
     iconSize: 25,
   },
 ];
@@ -314,6 +436,36 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_SCREEN_NAME_EVENTS_MAPPING: {
     key: "GET_SCREEN_NAME_EVENTS_MAPPING",
     apiPath: `/v1/events`,
+    method: API_METHODS.GET,
+  },
+  GET_EVENT_DEFINITIONS: {
+    key: "GET_EVENT_DEFINITIONS",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.GET,
+  },
+  CREATE_EVENT_DEFINITION: {
+    key: "CREATE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_EVENT_DEFINITION: {
+    key: "UPDATE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.PUT,
+  },
+  BULK_UPLOAD_EVENT_DEFINITIONS: {
+    key: "BULK_UPLOAD_EVENT_DEFINITIONS",
+    apiPath: `/v1/event-definitions/bulk`,
+    method: API_METHODS.POST,
+  },
+  DELETE_EVENT_DEFINITION: {
+    key: "DELETE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.DELETE,
+  },
+  GET_EVENT_CATEGORIES: {
+    key: "GET_EVENT_CATEGORIES",
+    apiPath: `/v1/event-definitions/categories`,
     method: API_METHODS.GET,
   },
   GET_INTERACTIONS: {
@@ -647,6 +799,53 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/alert/notificationChannels/{notificationChannelId}`,
     method: API_METHODS.GET,
   },
+  // New Notification Service API Routes
+  GET_NOTIFICATION_CHANNELS: {
+    key: "GET_NOTIFICATION_CHANNELS",
+    apiPath: `/v1/notifications/channels`,
+    method: API_METHODS.GET,
+  },
+  GET_NOTIFICATION_CHANNEL: {
+    key: "GET_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.GET,
+  },
+  CREATE_NOTIFICATION_CHANNEL_V2: {
+    key: "CREATE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_NOTIFICATION_CHANNEL_V2: {
+    key: "UPDATE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_NOTIFICATION_CHANNEL_V2: {
+    key: "DELETE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.DELETE,
+  },
+  // Slack OAuth Integration
+  SLACK_INSTALL: {
+    key: "SLACK_INSTALL",
+    apiPath: `/v1/notifications/integrations/slack/install`,
+    method: API_METHODS.GET,
+  },
+  SLACK_CALLBACK: {
+    key: "SLACK_CALLBACK",
+    apiPath: `/v1/notifications/integrations/slack/callback`,
+    method: API_METHODS.GET,
+  },
+  SLACK_CHANNELS: {
+    key: "SLACK_CHANNELS",
+    apiPath: `/v1/notifications/integrations/slack/channels`,
+    method: API_METHODS.GET,
+  },
+  CONTACT_US: {
+    key: "CONTACT_US",
+    apiPath: `/v1/notifications/contact-us`,
+    method: API_METHODS.POST,
+  },
   // SDK Configuration API Routes
   GET_ALL_SDK_CONFIGS: {
     key: "GET_ALL_SDK_CONFIGS",
@@ -688,6 +887,113 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
+  GET_TNC_STATUS: {
+    key: "GET_TNC_STATUS",
+    apiPath: `/v1/tnc/status`,
+    method: API_METHODS.GET,
+  },
+  GET_TNC_DOCUMENTS: {
+    key: "GET_TNC_DOCUMENTS",
+    apiPath: `/v1/tnc/documents`,
+    method: API_METHODS.GET,
+  },
+  ACCEPT_TNC: {
+    key: "ACCEPT_TNC",
+    apiPath: `/v1/tnc/accept`,
+    method: API_METHODS.POST,
+  },
+  GET_TNC_HISTORY: {
+    key: "GET_TNC_HISTORY",
+    apiPath: `/v1/tnc/history`,
+    method: API_METHODS.GET,
+  },
+  // User API Routes
+  GET_USER_PROJECTS: {
+    key: "GET_USER_PROJECTS",
+    apiPath: `/v1/users/me/projects`,
+    method: API_METHODS.GET,
+  },
+  // Auth API Routes
+  LOGIN: {
+    key: "LOGIN",
+    apiPath: `/v1/auth/login`,
+    method: API_METHODS.POST,
+  },
+  COMPLETE_ONBOARDING: {
+    key: "COMPLETE_ONBOARDING",
+    apiPath: `/v1/onboarding/complete`,
+    method: API_METHODS.POST,
+  },
+  // Tenant Member Management API Routes
+  GET_TENANT_MEMBERS: {
+    key: "GET_TENANT_MEMBERS",
+    apiPath: `/v1/tenants/:tenantId/members`,
+    method: API_METHODS.GET,
+  },
+  INVITE_TENANT_MEMBER: {
+    key: "INVITE_TENANT_MEMBER",
+    apiPath: `/v1/tenants/:tenantId/members`,
+    method: API_METHODS.POST,
+  },
+  REMOVE_TENANT_MEMBER: {
+    key: "REMOVE_TENANT_MEMBER",
+    apiPath: `/v1/tenants/:tenantId/members/:userId`,
+    method: API_METHODS.DELETE,
+  },
+  UPDATE_TENANT_MEMBER_ROLE: {
+    key: "UPDATE_TENANT_MEMBER_ROLE",
+    apiPath: `/v1/tenants/:tenantId/members/:userId`,
+    method: API_METHODS.PATCH,
+  },
+  // Project Member Management API Routes
+  GET_PROJECT_MEMBERS: {
+    key: "GET_PROJECT_MEMBERS",
+    apiPath: `/v1/projects/:projectId/members`,
+    method: API_METHODS.GET,
+  },
+  INVITE_PROJECT_MEMBER: {
+    key: "INVITE_PROJECT_MEMBER",
+    apiPath: `/v1/projects/:projectId/members`,
+    method: API_METHODS.POST,
+  },
+  REMOVE_PROJECT_MEMBER: {
+    key: "REMOVE_PROJECT_MEMBER",
+    apiPath: `/v1/projects/:projectId/members/:userId`,
+    method: API_METHODS.DELETE,
+  },
+  UPDATE_PROJECT_MEMBER_ROLE: {
+    key: "UPDATE_PROJECT_MEMBER_ROLE",
+    apiPath: `/v1/projects/:projectId/members/:userId`,
+    method: API_METHODS.PATCH,
+  },
+  // Project Creation API Route
+  CREATE_PROJECT: {
+    key: "CREATE_PROJECT",
+    apiPath: `/v1/projects`,
+    method: API_METHODS.POST,
+  },
+  // Get Project Details API Route
+  GET_PROJECT: {
+    key: "GET_PROJECT",
+    apiPath: `/v1/projects/:projectId`,
+    method: API_METHODS.GET,
+  },
+  // Project API Key Management API Routes
+  GET_PROJECT_API_KEYS: {
+    key: "GET_PROJECT_API_KEYS",
+    apiPath: `/v1/projects/:projectId/api-keys`,
+    method: API_METHODS.GET,
+  },
+  CREATE_PROJECT_API_KEY: {
+    key: "CREATE_PROJECT_API_KEY",
+    apiPath: `/v1/projects/:projectId/api-keys`,
+    method: API_METHODS.POST,
+  },
+  REVOKE_PROJECT_API_KEY: {
+    key: "REVOKE_PROJECT_API_KEY",
+    apiPath: `/v1/projects/:projectId/api-keys/:apiKeyId`,
+    method: API_METHODS.DELETE,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {
@@ -716,7 +1022,7 @@ export const CRITICAL_INTERACTION_FORM_CONSTANTS: Record<string, string> = {
   INTERACTION_DESCRIPTION:
     "Enter your user interaction name. This will uniquely identify your interaction. Once interaction is created, it cannot be changed.",
   INTERACTION_ERROR_MESSAGE: "Interaction name should be in PascalCase",
-  INTERACTION_DESCRIPTION_ERROR_MESSAGE: "Desciption is required",
+  INTERACTION_DESCRIPTION_ERROR_MESSAGE: "Description is required",
   INTERACTION_LOWER_THRESHOLD: "Lower Threshold (ms)",
   INTERACTION_LOWER_THRESHOLD_DESCRIPTION:
     "Best case scenario for your interaction to be completed",
@@ -803,14 +1109,18 @@ export const RADIO_LABLES: Record<string, string> = {
 export const COOKIES_KEY: Record<string, string> = {
   ACCESS_TOKEN: "accessToken",
   REFRESH_TOKEN: "refreshToken",
+  USER_ID: "userId",
   USER_NAME: "userName",
   USER_PICTURE: "userPicture",
   USER_EMAIL: "userEmail",
   ID_TOKEN: "idToken",
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
-  TENANT_ID: "tenantId",
-  TENANT_NAME: "tenantName",
+  TENANT_ID: "tenantId", // Keep for initial hydration only
+  TENANT_NAME: "tenantName", // Store tenant name for initial hydration
+  TENANT_ROLE: "tenantRole", // Store tenant role for permissions
+  TIER: "tier", // Store tier for initial hydration
+  // REMOVED: PROJECT_ID, PROJECT_NAME - Now handled by React Context
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {
@@ -889,13 +1199,13 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
   FOOTER_MESSAGE: "Have questions? Join our Discord community",
-  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
+  DISCORD_LINK:
+    "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
-  HELP_LINK:
-    "https://pulse.dreamhorizon.org/docs/intro",
+  HELP_LINK: "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {
@@ -1179,7 +1489,8 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
 };
 
 // Default time filter for the dashboard (Last 24 hours)
-export const DEFAULT_QUICK_TIME_FILTER = CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
+export const DEFAULT_QUICK_TIME_FILTER =
+  CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
 export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {

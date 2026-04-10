@@ -2,9 +2,10 @@ import { useMemo } from "react";
 import { useGetDataQuery } from "../../../../../hooks";
 import {
   getBucketSize,
-  formatTrendDate,
   buildCommonFilters,
+  normalizeTrendBucketTime,
 } from "../helpers/trendDataHelpers";
+import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
 import { useQueryError } from "../../../../../hooks/useQueryError";
 import type {
   FilterField,
@@ -18,6 +19,9 @@ interface UseTrendDataParams {
   appVersion?: string;
   osVersion?: string;
   device?: string;
+  platform?: string;
+  networkProvider?: string;
+  state?: string;
   screenName?: string;
 }
 
@@ -28,6 +32,9 @@ export function useTrendData({
   appVersion = "all",
   osVersion = "all",
   device = "all",
+  platform = "all",
+  networkProvider = "all",
+  state = "all",
   screenName,
 }: UseTrendDataParams) {
   const bucketSize = useMemo(
@@ -53,11 +60,27 @@ export function useTrendData({
       });
     }
 
-    const commonFilters = buildCommonFilters(appVersion, osVersion, device);
+    const commonFilters = buildCommonFilters(
+      appVersion,
+      osVersion,
+      device,
+      platform,
+      networkProvider,
+      state,
+    );
     filterArray.push(...commonFilters);
 
     return filterArray;
-  }, [eventName, appVersion, osVersion, device, screenName]);
+  }, [
+    eventName,
+    appVersion,
+    osVersion,
+    device,
+    platform,
+    networkProvider,
+    state,
+    screenName,
+  ]);
 
   const queryResult = useGetDataQuery({
     requestBody: {
@@ -69,7 +92,7 @@ export function useTrendData({
       select: [
         {
           function: "TIME_BUCKET",
-          param: { bucket: bucketSize, field: "Timestamp" },
+          param: { bucket: bucketSize, field: COLUMN_NAME.TIMESTAMP },
           alias: "t1",
         },
         {
@@ -101,13 +124,14 @@ export function useTrendData({
     return responseData.rows.map((row) => {
       const timestamp = row[timeIndex];
       const count = parseFloat(row[countIndex]) || 0;
+      const bucketTime = normalizeTrendBucketTime(timestamp);
 
       return {
-        date: formatTrendDate(timestamp, bucketSize),
+        bucketTime,
         count,
       };
     });
-  }, [data, bucketSize]);
+  }, [data]);
 
-  return { trendData, queryState };
+  return { trendData, queryState, bucketSize };
 }

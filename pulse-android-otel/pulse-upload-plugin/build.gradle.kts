@@ -1,4 +1,5 @@
 import org.gradle.api.GradleException
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     `kotlin-dsl`
@@ -19,6 +20,12 @@ gradlePlugin {
     }
 }
 
+tasks.withType<KotlinCompile>().configureEach {
+    compilerOptions {
+        allWarningsAsErrors.set(true)
+    }
+}
+
 detekt {
     buildUponDefaultConfig = true
     autoCorrect = true
@@ -31,14 +38,15 @@ detekt {
     }
 }
 
-tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     reports {
         html.required.set(true)
-        xml.required.set(false)
+        checkstyle.required.set(false)
     }
 }
 
 dependencies {
+    detektPlugins(libs.detekt.rules.libraries)
     implementation(libs.android.plugin)
     implementation(libs.gson)
 }

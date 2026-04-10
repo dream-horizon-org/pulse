@@ -23,6 +23,6 @@ public class AddCronDto {
   private Integer interval;
 
   @NotNull
-  @JsonProperty(value = "tenantId")
-  private String tenantId;
+  @JsonProperty(value = "projectId")
+  private String projectId;
 }

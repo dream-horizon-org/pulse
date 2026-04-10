@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
 import { PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
-import type { UseGetAppStatsProps, AppStatsData } from "./useGetAppStats.interface";
+import type {
+  UseGetAppStatsProps,
+  AppStatsData,
+} from "./useGetAppStats.interface";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 
@@ -10,7 +13,7 @@ dayjs.extend(utc);
 /**
  * Hook to get total users and sessions from session.start logs
  * Used to calculate crash-free/ANR-free percentages on App Vitals page
- * 
+ *
  * Note: Uses LOGS table with PulseType = 'session.start' filter
  * MATERIALIZED columns: AppVersion, OsVersion, DeviceModel, UserId, SessionId, PulseType
  * See: backend/ingestion/clickhouse-otel-schema.sql
@@ -21,6 +24,9 @@ export function useGetAppStats({
   appVersion,
   osVersion,
   device,
+  platform,
+  networkProvider,
+  state,
 }: UseGetAppStatsProps): {
   data: AppStatsData | null;
   isLoading: boolean;
@@ -64,8 +70,32 @@ export function useGetAppStats({
       });
     }
 
+    if (platform && platform !== "all") {
+      filterArray.push({
+        field: COLUMN_NAME.PLATFORM,
+        operator: "EQ",
+        value: [platform],
+      });
+    }
+
+    if (networkProvider && networkProvider !== "all") {
+      filterArray.push({
+        field: COLUMN_NAME.NETWORK_PROVIDER,
+        operator: "EQ",
+        value: [networkProvider],
+      });
+    }
+
+    if (state && state !== "all") {
+      filterArray.push({
+        field: COLUMN_NAME.STATE,
+        operator: "EQ",
+        value: [state],
+      });
+    }
+
     return filterArray;
-  }, [appVersion, osVersion, device]);
+  }, [appVersion, osVersion, device, platform, networkProvider, state]);
 
   // Format time strings to ISO if needed
   const formattedStartTime = useMemo(() => {
@@ -97,21 +127,21 @@ export function useGetAppStats({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined(${COLUMN_NAME.USER_ID})`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
           },
           alias: "unique_users",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined(${COLUMN_NAME.SESSION_ID})`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "unique_sessions",
         },
       ],
       filters,
     }),
-    [formattedStartTime, formattedEndTime, filters]
+    [formattedStartTime, formattedEndTime, filters],
   );
 
   const {
@@ -150,4 +180,3 @@ export function useGetAppStats({
     error: queryError as Error | null,
   };
 }
-

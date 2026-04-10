@@ -95,17 +95,21 @@ export function EngagementBreakdown({
           },
           {
             function: "CUSTOM" as const,
-            param: { expression: "uniqCombined(UserId)" },
+            param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
             alias: "user_count",
           },
           {
             function: "CUSTOM" as const,
-            param: { expression: "uniqCombined(SessionId)" },
+            param: { expression: "uniqCombined64(nullIf(SessionId, ''))" },
             alias: "session_count",
           },
         ],
         filters: [
-          { field: "PulseType", operator: "EQ" as const, value: [PulseType.SESSION_START] },
+          {
+            field: "PulseType",
+            operator: "EQ" as const,
+            value: [PulseType.SESSION_START],
+          },
           {
             field: attributeField,
             operator: "IN" as const,
@@ -113,6 +117,7 @@ export function EngagementBreakdown({
           },
         ],
         groupBy: [attributeAlias],
+        limit: 10,
       };
     }
 
@@ -133,19 +138,24 @@ export function EngagementBreakdown({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(UserId)" },
+          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
           alias: "user_count",
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(SessionId)" },
+          param: { expression: "uniqCombined64(nullIf(SessionId, ''))" },
           alias: "session_count",
         },
       ],
       filters: [
-        { field: "PulseType", operator: "EQ" as const, value: [PulseType.SESSION_START] },
+        {
+          field: "PulseType",
+          operator: "EQ" as const,
+          value: [PulseType.SESSION_START],
+        },
       ],
       groupBy: [fieldConfig.alias],
+      limit: 10,
     };
   }, [
     dimension,
@@ -394,7 +404,7 @@ export function EngagementBreakdown({
   const subtitle =
     dimension === "custom"
       ? "Slice engagement metrics by any user-defined attribute."
-      : "Dive deeper into how each cohort contributes to DAU/WAU/MAU and sessions.";
+      : "Dive deeper into how top 10 cohorts contributes to DAU/WAU/MAU and sessions.";
 
   const hasData = chartItems.length > 0;
 

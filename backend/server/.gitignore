@@ -27,6 +27,8 @@ nbdist/
 ### generated ###
 **/generated/*
 **/asciidoc/*
+**/generated_doc_*
+**/.cursor/
 
 logs/*
 .vscode
@@ -37,6 +39,7 @@ creds.json
 .config
 *.env
 local.env
+*.bak
 
 creds.json
 
@@ -47,3 +50,9 @@ execution.log
 test-output/
 TestReport/
 /src/main/resources/symbolicate/
+
+docs/
+postman/
+
+# Local E2E test scripts
+test-scripts/

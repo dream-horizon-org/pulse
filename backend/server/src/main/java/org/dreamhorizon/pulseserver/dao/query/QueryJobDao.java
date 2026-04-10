@@ -7,7 +7,7 @@ import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 
 public interface QueryJobDao {
-  Single<String> createJob(String tenantId, String queryString, String userEmail);
+  Single<String> createJob(String projectId, String queryString, String userEmail);
 
   Single<Boolean> updateJobWithExecutionId(String jobId, String queryExecutionId, QueryJobStatus status, Timestamp submissionDateTime);
 

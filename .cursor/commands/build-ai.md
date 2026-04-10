@@ -1,8 +1,5 @@
 Build the Pulse AI agent Docker image.
 
-1. Change to `pulse_ai/`
-2. Check if `.env` exists, if not copy from `.env.example` and remind user to set `GOOGLE_API_KEY`
-3. Run `./setup.sh` to build and start the Docker container
-4. Verify health: `curl -f http://localhost:8000`
-5. If the build fails, check logs with `./setup.sh logs` and suggest fixes
-6. If it passes, report success
+**Deploy-integrated:** `cd deploy && ./scripts/build.sh ai` (or default `build.sh` builds all including AI). Start with `./scripts/start.sh -d`. Health: `curl -sf http://localhost:8000/health`.
+
+**Standalone:** `cd pulse_ai/` — ensure `.env` exists (from `.env.example`); set `GOOGLE_API_KEY`. Run `./setup.sh` to build and start. Verify with `curl -sf http://localhost:8000/health`. On failure, `./setup.sh logs`.

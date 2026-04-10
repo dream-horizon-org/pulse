@@ -1,4 +1,4 @@
-import io.gitlab.arturbosch.detekt.Detekt
+import dev.detekt.gradle.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
@@ -9,7 +9,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("otel.animalsniffer-conventions")
     id("otel.android-dependency-conventions")
-    id("io.gitlab.arturbosch.detekt")
+    id("dev.detekt")
     id("org.jetbrains.kotlinx.binary-compatibility-validator")
     id("org.jetbrains.kotlinx.kover")
     id("otel.spotless-conventions")
@@ -41,6 +41,7 @@ android {
 
     kotlin {
         compilerOptions {
+            allWarningsAsErrors.set(true)
             jvmTarget.set(targetJvm)
             apiVersion.set(minKotlinVersion)
             languageVersion.set(minKotlinVersion)
@@ -75,7 +76,7 @@ project.tasks.withType(Detekt::class.java).configureEach {
     jvmTarget = targetJvm.target
     reports {
         html.required.set(true)
-        xml.required.set(false)
+        checkstyle.required.set(false)
     }
 }
 
@@ -86,6 +87,7 @@ apiValidation.validationDisabled = ignoredModules.contains(project.name)
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 dependencies {
+    detektPlugins(libs.findLibrary("detekt-rules-libraries").get())
     implementation(libs.findLibrary("androidx-annotation").get())
     implementation(libs.findLibrary("findbugs-jsr305").get())
     implementation(libs.findLibrary("auto-service-annotations").get())

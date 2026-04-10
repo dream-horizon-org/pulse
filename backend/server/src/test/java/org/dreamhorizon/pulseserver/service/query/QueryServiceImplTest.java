@@ -18,12 +18,12 @@ import org.dreamhorizon.pulseserver.client.query.models.QueryExecutionInfo;
 import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
-import org.dreamhorizon.pulseserver.tenant.Tenant;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
@@ -49,9 +49,7 @@ public class QueryServiceImplTest {
 
   @BeforeEach
   void setUp() {
-    TenantContext.setTenant(Tenant.builder()
-        .tenantId("test_tenant")
-        .build());
+    ProjectContext.setProjectId("test_tenant");
     when(athenaConfig.getDatabase()).thenReturn("test_database");
     queryService = new QueryServiceImpl(queryClient, queryJobDao, athenaConfig);
   }
@@ -161,9 +159,8 @@ public class QueryServiceImplTest {
 
     assertThat(result).isNotNull();
     assertThat(result.getJobId()).isEqualTo(jobId);
-    verify(queryJobDao).createJob(anyString(), eq(query + String.format(" AND project_id = '%s';", TenantContext.requireTenantId())),
-        eq("test@example.com"));
-    verify(queryClient).submitQuery(eq(query + String.format(" AND project_id = '%s';", TenantContext.requireTenantId())));
+    verify(queryJobDao).createJob(anyString(), eq(query), eq("test@example.com"));
+    verify(queryClient).submitQuery(eq(query));
   }
 
   @Test
@@ -1579,4 +1576,5 @@ public class QueryServiceImplTest {
     assertThat(result).hasSize(1);
     verify(queryJobDao).getQueryHistory(eq(userEmail), eq(20), eq(0));
   }
+
 }

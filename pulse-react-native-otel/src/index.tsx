@@ -7,9 +7,11 @@ import { setGlobalAttribute } from './globalAttributes';
 import { setUserId, setUserProperty, setUserProperties } from './user';
 import { ErrorBoundary, withErrorBoundary } from './errorBoundary';
 import { useNavigationTracking, markContentReady } from './navigation';
+import { PulseMask, PulseUnmask } from './sessionReplay';
 
 export type { Span } from './trace';
 export type { PulseConfig } from './config';
+export type { NetworkHeaderConfig } from './config';
 export type { PulseAttributes, PulseAttributeValue } from './pulse.interface';
 export type {
   ReactNavigationIntegration,
@@ -40,3 +42,5 @@ export const Pulse = {
   ErrorBoundary,
   withErrorBoundary,
 };
+
+export { PulseMask, PulseUnmask };

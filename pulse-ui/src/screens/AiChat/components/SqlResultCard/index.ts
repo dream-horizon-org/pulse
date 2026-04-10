@@ -1,0 +1,1 @@
+export { SqlResultCard } from "./SqlResultCard";

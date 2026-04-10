@@ -11,8 +11,9 @@ import NetworkInterceptorExample from './examples/NetworkInterceptorExample';
 import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
 import NativeFeaturesExample from './examples/NativeFeaturesExample';
 import InteractionDemo from './examples/InteractionDemo';
-import UserManagementExample from './examples/UserManagementExample';
 import PulseAttributesExample from './examples/PulseAttributesExample';
+import SessionReplayExample from './examples/SessionReplayExample';
+import UserManagementExample from './examples/UserManagementExample';
 
 Pulse.start({
   networkHeaders: {
@@ -30,6 +31,13 @@ type DemoConfig = {
 };
 
 const DEMO_CONFIGS: DemoConfig[] = [
+  {
+    id: 'sessionReplayMask',
+    label: '🔐 Session Replay Masking',
+    title: 'Session Replay Privacy Masking',
+    color: '#E91E63',
+    component: SessionReplayExample,
+  },
   {
     id: 'navigation',
     label: '🚀 Native Stack Navigation',

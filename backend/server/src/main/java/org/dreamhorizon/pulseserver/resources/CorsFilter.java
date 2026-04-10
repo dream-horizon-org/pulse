@@ -14,7 +14,7 @@ public class CorsFilter implements ContainerResponseFilter {
   public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
     MultivaluedMap<String, Object> headers = responseContext.getHeaders();
     headers.add("Access-Control-Allow-Origin", "*"); // If you want to be more restrictive it could be localhost:4200
-    headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD"); // You can add HEAD, DELETE, TRACE, PATCH
+    headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH");
     headers.add("Access-Control-Allow-Headers", "*"); // You can add many more
 
     if (requestContext.getMethod().equals("OPTIONS")) {

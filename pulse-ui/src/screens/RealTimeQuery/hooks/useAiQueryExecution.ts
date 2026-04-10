@@ -139,14 +139,6 @@ export function useAiQueryExecution(
         timeRangeRef.current = data.timeRange;
       }
 
-      console.log("[AiQueryExecution] AI submit response:", {
-        status: data.status,
-        jobId: data.jobId,
-        hasResultData: !!data.resultData,
-        hasGeneratedSql: !!data.generatedSql,
-        hasInsights: !!data.insights,
-      });
-
       // Check if query completed immediately
       if (data.status === "COMPLETED" && data.resultData) {
         const processedResult = processResultData(
@@ -174,10 +166,6 @@ export function useAiQueryExecution(
         onErrorRef.current?.(errorMessage);
       } else {
         // Status is RUNNING or QUEUED - need to poll for results
-        console.log(
-          "[AiQueryExecution] Starting polling for jobId:",
-          data.jobId
-        );
         pollCountRef.current = 0;
         lastProcessedAtRef.current = 0;
         setExecutionState({
@@ -238,13 +226,6 @@ export function useAiQueryExecution(
     pollCountRef.current += 1;
     const currentPollCount = pollCountRef.current;
 
-    console.log("[AiQueryExecution] Poll response:", {
-      status: data.status,
-      pollCount: currentPollCount,
-      hasResultData: !!data.resultData,
-      errorMessage: data.errorMessage,
-    });
-
     setExecutionState((prev) => ({
       ...prev,
       pollCount: currentPollCount,
@@ -252,7 +233,6 @@ export function useAiQueryExecution(
 
     // Check for max poll attempts (timeout)
     if (currentPollCount >= QUERY_POLLING_CONFIG.MAX_POLL_ATTEMPTS) {
-      console.log("[AiQueryExecution] Max poll attempts reached, timing out");
       setShouldPoll(false);
       const errorMessage = REALTIME_QUERY_TEXTS.QUERY_TIMEOUT;
       setExecutionState((prev) => ({
@@ -266,7 +246,6 @@ export function useAiQueryExecution(
     }
 
     if (data.status === "COMPLETED") {
-      console.log("[AiQueryExecution] Query completed");
       setShouldPoll(false);
 
       if (data.resultData) {
@@ -301,7 +280,6 @@ export function useAiQueryExecution(
         onSuccessRef.current?.(emptyResult, insightsRef.current, sourcesRef.current, timeRangeRef.current);
       }
     } else if (data.status === "FAILED") {
-      console.log("[AiQueryExecution] Query failed:", data.errorMessage);
       setShouldPoll(false);
       const errorMessage = data.errorMessage || "Query execution failed";
       setExecutionState((prev) => ({
@@ -312,7 +290,6 @@ export function useAiQueryExecution(
       }));
       onErrorRef.current?.(errorMessage);
     } else if (data.status === "CANCELLED") {
-      console.log("[AiQueryExecution] Query was cancelled");
       setShouldPoll(false);
       setExecutionState((prev) => ({
         ...prev,
@@ -320,11 +297,6 @@ export function useAiQueryExecution(
         errorMessage: "Query was cancelled",
         errorCause: null,
       }));
-    } else {
-      console.log(
-        "[AiQueryExecution] Query still running, poll count:",
-        currentPollCount
-      );
     }
   }, [
     dataUpdatedAt,
@@ -345,11 +317,6 @@ export function useAiQueryExecution(
   const executeAiQuery = useCallback(
     (naturalLanguageQuery: string, context?: string) => {
       if (!naturalLanguageQuery.trim()) return;
-
-      console.log(
-        "[AiQueryExecution] Executing AI query:",
-        naturalLanguageQuery.substring(0, 100)
-      );
 
       // Reset state
       setResult(null);
@@ -384,16 +351,13 @@ export function useAiQueryExecution(
 
   // Cancel query mutation
   const cancelMutation = useCancelQuery({
-    onSuccess: () => {
-      console.log("[AiQueryExecution] Query cancelled successfully via API");
-    },
+    onSuccess: () => {},
     onError: (error) => {
       console.error("[AiQueryExecution] Cancel API error:", error);
     },
   });
 
   const cancelQuery = useCallback(() => {
-    console.log("[AiQueryExecution] Query cancelled by user");
     setShouldPoll(false);
 
     if (executionState.jobId) {
@@ -416,7 +380,6 @@ export function useAiQueryExecution(
       return;
     }
 
-    console.log("[AiQueryExecution] Loading more results with nextToken");
     setIsLoadingMore(true);
 
     try {
@@ -443,7 +406,6 @@ export function useAiQueryExecution(
 
       const data = response.data;
       if (!data || !data.resultData) {
-        console.log("[AiQueryExecution] No more data to load");
         return;
       }
 

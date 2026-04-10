@@ -17,6 +17,16 @@ exclude = [
   "^https://central.sonatype.com/service/rest/repository/browse/maven-snapshots/.*$",
   # TODO validate why not able to resolve below url
   "https://www.npmjs.com/package/@dreamhorizonorg/pulse-react-native",
+  # TODO: Exclude placeholder docs URLs until documentation site is live
+  "^https://pulse.dreamhorizon.org/docs/.*$",
+  # iOS SDK docs: legacy standalone repo URLs (private, renamed, or superseded by monorepo)
+  "^https://github\\.com/dream-horizon-org/pulse-ios(\\.git|-sdk(\\.git)?)?$",
+  # Fragment checks against README anchors are brittle; full page is enough
+  "^https://github\\.com/open-telemetry/community#",
+  # Apple Developer Documentation often rate-limits or returns non-200 to automated clients
+  "^https://developer\\.apple\\.com/documentation/",
+  # OTel semconv registry paths move between doc releases
+  "^https://opentelemetry\\.io/docs/specs/semconv/registry/",
 ]
 
 exclude_path = [

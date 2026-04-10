@@ -56,6 +56,8 @@ export function useIssueDetailData({
       dataType: "EXCEPTIONS" as const,
       timeRange,
       filters,
+      // Same groupBy grain as useExceptionListData (listing); otherwise count() is split
+      // by message and the top row (limit 1) does not match list "Occurrences".
       select: [
         {
           function: "COL" as const,
@@ -65,16 +67,16 @@ export function useIssueDetailData({
           alias: "group_id",
         },
         {
-          function: "COL" as const,
+          function: "CUSTOM" as const,
           param: {
-            field: "PulseType",
+            expression: "anyLast(PulseType)",
           },
           alias: "event_name",
         },
         {
-          function: "COL" as const,
+          function: "CUSTOM" as const,
           param: {
-            field: "ExceptionMessage",
+            expression: "anyLast(ExceptionMessage)",
           },
           alias: "error_message",
         },
@@ -123,12 +125,12 @@ export function useIssueDetailData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "uniqCombined(UserId)",
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
           },
           alias: "affected_users",
         },
       ],
-      groupBy: ["group_id", "event_name", "error_message", "error_type", "title"],
+      groupBy: ["group_id", "title", "error_type"],
       orderBy: [
         {
           field: "occurrences",
@@ -140,7 +142,7 @@ export function useIssueDetailData({
     [timeRange, filters],
   );
 
-  // Fetch top 10 crashes for this GroupId (ordered by occurrence)
+  // Issue summary for this GroupId (same aggregation as exception list)
   const summaryQuery = useGetDataQuery({
     requestBody,
     enabled: !!groupId,
@@ -209,6 +211,7 @@ export function useIssueDetailData({
         occurrences: Math.round(occurrences),
         firstSeen: firstSeen || new Date().toISOString(),
         lastSeen: lastSeen || new Date().toISOString(),
+        pulseEventName: eventName,
         appVersion: appVersions || "Unknown",
         osVersion: "Various",
         device: "Various",
@@ -224,6 +227,7 @@ export function useIssueDetailData({
         occurrences: Math.round(occurrences),
         firstSeen: firstSeen || new Date().toISOString(),
         lastSeen: lastSeen || new Date().toISOString(),
+        pulseEventName: eventName,
         appVersion: appVersions || "Unknown",
         osVersion: "Various",
         device: "Various",
@@ -241,6 +245,7 @@ export function useIssueDetailData({
         occurrences: Math.round(occurrences),
         firstSeen: firstSeen || new Date().toISOString(),
         lastSeen: lastSeen || new Date().toISOString(),
+        pulseEventName: eventName,
         appVersion: appVersions || "Unknown",
         osVersion: "Various",
         device: "Various",

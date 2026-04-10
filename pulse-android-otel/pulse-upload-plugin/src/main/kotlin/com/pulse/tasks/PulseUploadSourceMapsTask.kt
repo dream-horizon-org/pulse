@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // todo replace with Kotlin serialisation
+
 package com.pulse.tasks
 
 import com.google.gson.Gson
@@ -5,7 +7,7 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.MalformedURLException
-import java.net.URL
+import java.net.URI
 import java.util.Locale
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -27,7 +29,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         private const val DEBUG_URL_PREFIX = "   URL: "
         private const val DEBUG_RESPONSE_PREFIX = "   Response: "
         private const val UNKNOWN_ERROR = "Unknown error"
-        private const val X_API_KEY_HEADER = "X-API-KEY"
+        private const val API_KEY_HEADER = "X-API-KEY"
         private const val API_KEY_OPTION = "--api-key=<key>"
     }
 
@@ -64,7 +66,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     @TaskAction
     fun upload() {
         val apiUrlValue = validateRequiredString(apiUrl, "API URL", "--api-url=<url>")
-        val apiKeyValue = validateRequiredString(apiKey, X_API_KEY_HEADER, API_KEY_OPTION)
+        val apiKeyValue = validateRequiredString(apiKey, API_KEY_HEADER, API_KEY_OPTION)
         val mappingFileObj = resolveMappingFile()
         val appVersionValue = validateRequiredString(appVersion, "App version", "--app-version=<version>")
         val versionCodeValue = validateAndGetVersionCode()
@@ -172,15 +174,12 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         val metadata = buildMetadata(type, appVersion, versionCode, platform, fileName)
         val boundary = "----WebKitFormBoundary${System.currentTimeMillis()}"
 
-        val connection = (
-            URL(apiUrl).openConnection()
-                ?: throw GradleException("Failed to open connection to $apiUrl")
-        ) as HttpURLConnection
+        val connection = URI.create(apiUrl).toURL().openConnection() as HttpURLConnection
 
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            connection.setRequestProperty(X_API_KEY_HEADER, apiKey)
+            connection.setRequestProperty(API_KEY_HEADER, apiKey)
             connection.doOutput = true
             connection.connectTimeout = 30000
             connection.readTimeout = 60000

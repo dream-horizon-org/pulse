@@ -95,7 +95,7 @@ pipeline = SequentialAgent(
 ```bash
 cd pulse_ai && ./setup.sh restart   # rebuild Docker container
 ./setup.sh logs                      # check for startup errors
-curl http://localhost:8000            # verify health
+curl -sf http://localhost:8000/health # verify health
 ```
 
 Test via the ADK web UI at `http://localhost:8000`.

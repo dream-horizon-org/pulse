@@ -13,20 +13,35 @@ import {
   NavLink,
   Divider,
   Badge,
-} from '@mantine/core';
+} from "@mantine/core";
 import {
   IconSettings,
   IconAdjustments,
   IconBell,
   IconShield,
   IconChevronRight,
-} from '@tabler/icons-react';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { SamplingConfig } from '../SamplingConfig';
-import { NotificationChannels } from './components/NotificationChannels';
-import classes from './Settings.module.css';
+  IconKey,
+  IconUsers,
+} from "@tabler/icons-react";
+import {
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
+import { SamplingConfig } from "../SamplingConfig";
+import { NotificationChannels } from "./components/NotificationChannels";
+import { ApiKeyManagement } from "../ProjectSettings/components/ApiKeyManagement";
+import { CollaboratorManagement } from "../ProjectSettings/components/CollaboratorManagement";
+import classes from "./Settings.module.css";
 
-type SettingsTab = 'sdk-config' | 'notifications' | 'security';
+type SettingsTab =
+  | "sdk-config"
+  | "notifications"
+  | "api-keys"
+  | "collaborators"
+  | "security";
 
 interface SettingsNavItem {
   id: SettingsTab;
@@ -40,36 +55,58 @@ interface SettingsNavItem {
 
 const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   {
-    id: 'sdk-config',
-    path: 'sdk-config',
-    label: 'SDK Configuration',
-    description: 'Control what data your app sends to Pulse',
+    id: "sdk-config",
+    path: "sdk-config",
+    label: "SDK Configuration",
+    description: "Control what data your app sends to Pulse",
     icon: IconAdjustments,
   },
   {
-    id: 'notifications',
-    path: 'notifications',
-    label: 'Notifications',
-    description: 'Manage notification channels',
+    id: "api-keys",
+    path: "api-keys",
+    label: "API Keys",
+    description: "Manage project API keys",
+    icon: IconKey,
+  },
+  {
+    id: "collaborators",
+    path: "collaborators",
+    label: "Team Members",
+    description: "Project Members",
+    icon: IconUsers,
+  },
+  {
+    id: "notifications",
+    path: "notifications",
+    label: "Notifications",
+    description: "Manage notification channels",
     icon: IconBell,
   },
   {
-    id: 'security',
-    path: 'security',
-    label: 'Security & Access',
-    description: 'API keys and permissions',
+    id: "security",
+    path: "security",
+    label: "Security & Access",
+    description: "Advanced security settings",
     icon: IconShield,
-    badge: 'Coming Soon',
+    badge: "Coming Soon",
     disabled: true,
   },
 ];
 
 // Coming Soon placeholder component
-function ComingSoonSection({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+function ComingSoonSection({
+  icon: Icon,
+  title,
+}: {
+  icon: React.ElementType;
+  title: string;
+}) {
   return (
     <Box className={classes.comingSoon}>
       <Icon size={48} style={{ opacity: 0.3 }} />
-      <Text size="lg" fw={600} mt="md">{title}</Text>
+      <Text size="lg" fw={600} mt="md">
+        {title}
+      </Text>
       <Text c="dimmed">Coming soon...</Text>
     </Box>
   );
@@ -82,16 +119,22 @@ export function Settings() {
   // Determine active tab from current path
   const getActiveTab = (): SettingsTab => {
     const path = location.pathname;
-    if (path.includes('/notifications')) return 'notifications';
-    if (path.includes('/security')) return 'security';
-    return 'sdk-config';
+    if (path.includes("/api-keys")) return "api-keys";
+    if (path.includes("/collaborators")) return "collaborators";
+    if (path.includes("/notifications")) return "notifications";
+    if (path.includes("/security")) return "security";
+    return "sdk-config";
   };
 
   const activeTab = getActiveTab();
 
   const handleNavClick = (item: SettingsNavItem) => {
     if (!item.disabled) {
-      navigate(`/settings/${item.path}`);
+      const projectMatch = location.pathname.match(/\/projects\/([^/]+)/);
+      if (projectMatch) {
+        const projectId = projectMatch[1];
+        navigate(`/projects/${projectId}/settings/${item.path}`);
+      }
     }
   };
 
@@ -100,12 +143,14 @@ export function Settings() {
       {/* Sidebar Navigation */}
       <Paper className={classes.sidebar} withBorder>
         <Group gap="sm" mb="lg" p="md">
-          <IconSettings size={24} style={{ color: '#0ec9c2' }} />
-          <Text fw={700} size="lg">Settings</Text>
+          <IconSettings size={24} style={{ color: "#0ec9c2" }} />
+          <Text fw={700} size="lg">
+            Settings
+          </Text>
         </Group>
-        
+
         <Divider mb="md" />
-        
+
         <Stack gap={4} px="xs">
           {SETTINGS_NAV_ITEMS.map((item) => (
             <NavLink
@@ -113,7 +158,9 @@ export function Settings() {
               active={activeTab === item.id}
               label={
                 <Group justify="space-between" wrap="nowrap">
-                  <Text size="sm" fw={500}>{item.label}</Text>
+                  <Text size="sm" fw={500}>
+                    {item.label}
+                  </Text>
                   {item.badge && (
                     <Badge size="xs" variant="light" color="gray">
                       {item.badge}
@@ -146,8 +193,15 @@ export function Settings() {
         <Routes>
           <Route index element={<Navigate to="sdk-config" replace />} />
           <Route path="sdk-config/*" element={<SamplingConfig />} />
+          <Route path="api-keys" element={<ApiKeyManagement />} />
+          <Route path="collaborators" element={<CollaboratorManagement />} />
           <Route path="notifications" element={<NotificationChannels />} />
-          <Route path="security" element={<ComingSoonSection icon={IconShield} title="Security & Access" />} />
+          <Route
+            path="security"
+            element={
+              <ComingSoonSection icon={IconShield} title="Security & Access" />
+            }
+          />
         </Routes>
       </Box>
     </Box>

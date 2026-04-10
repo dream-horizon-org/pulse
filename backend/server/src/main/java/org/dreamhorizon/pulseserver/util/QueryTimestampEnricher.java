@@ -21,9 +21,16 @@ public class QueryTimestampEnricher {
   private static final Pattern VALID_TIMESTAMP_PATTERN = Pattern.compile("^[0-9\\-\\s:]+$");
   private static final Pattern CONTROL_CHAR_PATTERN = Pattern.compile("[\\x00-\\x1F\\x7F]");
   private static final Pattern WHERE_PATTERN = Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-  private static final Pattern GROUP_BY_PATTERN = Pattern.compile("\\bGROUP\\s+BY\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-  private static final Pattern ORDER_BY_PATTERN = Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-  private static final Pattern LIMIT_PATTERN = Pattern.compile("\\bLIMIT\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+  private static final Pattern[] TRAILING_CLAUSE_PATTERNS = {
+      Pattern.compile("\\bGROUP\\s+BY\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+      Pattern.compile("\\bHAVING\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+      Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+      Pattern.compile("\\bLIMIT\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+      Pattern.compile("\\bOFFSET\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+      Pattern.compile("\\bUNION\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+      Pattern.compile("\\bINTERSECT\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+      Pattern.compile("\\bEXCEPT\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+  };
   private static final Pattern TIMESTAMP_PATTERN = Pattern.compile(
       "TIMESTAMP\\s+['\"](\\d{4}-\\d{2}-\\d{2}\\s+\\d{1,2}:\\d{2}:\\d{2})['\"]",
       Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -149,9 +156,9 @@ public class QueryTimestampEnricher {
   private static String addWhereClause(String query, String filter) {
     int insertPosition = query.length();
 
-    insertPosition = findEarliestPosition(query, insertPosition, GROUP_BY_PATTERN);
-    insertPosition = findEarliestPosition(query, insertPosition, ORDER_BY_PATTERN);
-    insertPosition = findEarliestPosition(query, insertPosition, LIMIT_PATTERN);
+    for (Pattern pattern : TRAILING_CLAUSE_PATTERNS) {
+      insertPosition = findEarliestPosition(query, insertPosition, pattern);
+    }
 
     String before = query.substring(0, insertPosition).trim();
     String after = query.substring(insertPosition).trim();

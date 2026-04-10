@@ -5,7 +5,7 @@ import { useQueryError } from "../../../../hooks/useQueryError";
 import { StatsSkeleton } from "../../../../components/StatsSkeleton";
 import type { DataQueryResponse } from "../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import classes from "./CrashMetricsStats.module.css";
-import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";  
+import { buildCommonFilters } from "../TrendGraphWithData/helpers/trendDataHelpers";
 
 interface CrashMetricsStatsProps {
   startTime: string;
@@ -13,6 +13,9 @@ interface CrashMetricsStatsProps {
   appVersion?: string;
   osVersion?: string;
   device?: string;
+  platform?: string;
+  networkProvider?: string;
+  state?: string;
   screenName?: string;
   /** External total users count (from screen engagement data) - used when users exist but no crashes */
   externalTotalUsers?: number;
@@ -26,6 +29,9 @@ export function CrashMetricsStats({
   appVersion = "all",
   osVersion = "all",
   device = "all",
+  platform = "all",
+  networkProvider = "all",
+  state = "all",
   screenName,
   externalTotalUsers,
   externalTotalSessions,
@@ -43,32 +49,27 @@ export function CrashMetricsStats({
       });
     }
 
-    if (appVersion && appVersion !== "all") {
-      filterArray.push({
-        field: COLUMN_NAME.APP_VERSION,
-        operator: "EQ" as const,
-        value: [appVersion],
-      });
-    }
-
-    if (osVersion && osVersion !== "all") {
-      filterArray.push({
-        field: "OsVersion",
-        operator: "EQ" as const,
-        value: [osVersion],
-      });
-    }
-
-    if (device && device !== "all") {
-      filterArray.push({
-        field: "DeviceModel",
-        operator: "EQ" as const,
-        value: [device],
-      });
-    }
+    filterArray.push(
+      ...buildCommonFilters(
+        appVersion,
+        osVersion,
+        device,
+        platform,
+        networkProvider,
+        state,
+      ),
+    );
 
     return filterArray.length > 0 ? filterArray : undefined;
-  }, [appVersion, osVersion, device, screenName]);
+  }, [
+    appVersion,
+    osVersion,
+    device,
+    platform,
+    networkProvider,
+    state,
+    screenName,
+  ]);
 
   // Query only crash users/sessions from EXCEPTIONS table
   // Total users/sessions come from external source (TRACES via useGetAppStats)
@@ -84,14 +85,16 @@ export function CrashMetricsStats({
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(UserId, PulseType = 'device.crash')",
+            expression:
+              "uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.crash')",
           },
           alias: "crash_users",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(SessionId, PulseType = 'device.crash')",
+            expression:
+              "uniqCombined64If(nullIf(SessionId, ''), PulseType = 'device.crash')",
           },
           alias: "crash_sessions",
         },
@@ -137,11 +140,17 @@ export function CrashMetricsStats({
     const crashFreeUsers =
       totalUsers > 0 ? ((totalUsers - crashUsers) / totalUsers) * 100 : null;
     const crashFreeSessions =
-      totalSessions > 0 ? ((totalSessions - crashSessions) / totalSessions) * 100 : null;
+      totalSessions > 0
+        ? ((totalSessions - crashSessions) / totalSessions) * 100
+        : null;
 
     return {
-      crashFreeUsers: crashFreeUsers !== null ? parseFloat(crashFreeUsers.toFixed(2)) : null,
-      crashFreeSessions: crashFreeSessions !== null ? parseFloat(crashFreeSessions.toFixed(2)) : null,
+      crashFreeUsers:
+        crashFreeUsers !== null ? parseFloat(crashFreeUsers.toFixed(2)) : null,
+      crashFreeSessions:
+        crashFreeSessions !== null
+          ? parseFloat(crashFreeSessions.toFixed(2))
+          : null,
       hasData: true,
     };
   }, [data, externalTotalUsers, externalTotalSessions]);
@@ -172,13 +181,19 @@ export function CrashMetricsStats({
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>Crash-Free Users</Text>
-          <Text className={classes.statValue} c={metrics.crashFreeUsers !== null ? "red" : "dimmed"}>
+          <Text
+            className={classes.statValue}
+            c={metrics.crashFreeUsers !== null ? "red" : "dimmed"}
+          >
             {formatMetricValue(metrics.crashFreeUsers)}
           </Text>
         </Box>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>Crash-Free Sessions</Text>
-          <Text className={classes.statValue} c={metrics.crashFreeSessions !== null ? "red" : "dimmed"}>
+          <Text
+            className={classes.statValue}
+            c={metrics.crashFreeSessions !== null ? "red" : "dimmed"}
+          >
             {formatMetricValue(metrics.crashFreeSessions)}
           </Text>
         </Box>

@@ -37,6 +37,8 @@ class ApplicationConfigTest {
     config.setCloudFrontDistributionId("cfId");
     config.setConfigDetailCloudFrontAssetPath("cfPath");
     config.setWebhookUrl("webhook");
+    config.setTncS3BucketName("tncS3BucketName");
+    config.setSymbolFilesS3BucketName("symbolFilesS3BucketName");
     config.setInteractionDetailsS3BucketFilePath("interactionPath");
     config.setInteractionDetailCloudFrontAssetPath("interactionAsset");
 
@@ -58,6 +60,8 @@ class ApplicationConfigTest {
     assertEquals("cfId", config.getCloudFrontDistributionId());
     assertEquals("cfPath", config.getConfigDetailCloudFrontAssetPath());
     assertEquals("webhook", config.getWebhookUrl());
+    assertEquals("tncS3BucketName", config.getTncS3BucketName());
+    assertEquals("symbolFilesS3BucketName", config.getSymbolFilesS3BucketName());
     assertEquals("interactionPath", config.getInteractionDetailsS3BucketFilePath());
     assertEquals("interactionAsset", config.getInteractionDetailCloudFrontAssetPath());
   }
@@ -65,6 +69,7 @@ class ApplicationConfigTest {
   @Test
   void allArgsConstructor() {
     ApplicationConfig config = new ApplicationConfig(
+        "dev",
         "cronUrl",
         "serviceUrl",
         30,
@@ -84,9 +89,22 @@ class ApplicationConfigTest {
         "cfPath",
         "webhook",
         "interactionPath",
-        "interactionAsset"
+        "interactionAsset",
+        "key",
+        "tncS3Bucket",
+        "http://ai:8000",
+        "symbolFilesS3Bucket",
+        "dev-api-key",
+        new SessionReplayS3Config(
+            "session-replay-bucket",
+            "http://minio:9000",
+            "us-east-1",
+            "access-key",
+            "secret-key"),
+        "replayBaseUrl"
     );
     assertNotNull(config);
+    assertEquals("dev", config.getAppEnvironment());
     assertEquals("cronUrl", config.getCronManagerBaseUrl());
     assertEquals("proj1", config.getFirebaseProjectId());
     assertEquals("interactionAsset", config.getInteractionDetailCloudFrontAssetPath());

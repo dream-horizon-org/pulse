@@ -1,23 +1,9 @@
 import { useMemo } from "react";
-import { UseQueryResult } from "@tanstack/react-query";
 import {
   classifyError,
-  ErrorInfo,
   getErrorMessage,
 } from "../../utils/errorHandling";
-import { ApiResponse } from "../../helpers/makeRequest/makeRequest.interface";
-
-interface UseQueryErrorParams<T> {
-  queryResult: UseQueryResult<ApiResponse<T>, unknown>;
-}
-
-export interface QueryState {
-  isLoading: boolean;
-  isError: boolean;
-  errorInfo: ErrorInfo | null;
-  errorMessage: string;
-  hasData: boolean;
-}
+import { UseQueryErrorParams, QueryState } from "./useQueryError.interface";
 
 /**
  * Hook to extract and classify error states from React Query results

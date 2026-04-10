@@ -1,12 +1,16 @@
 import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
-import { COLUMN_NAME, STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
+import {
+  COLUMN_NAME,
+  STATUS_CODE,
+  PulseType,
+} from "../../constants/PulseOtelSemcov";
 import {
   UseGetScreensHealthDataProps,
   ScreenHealthData,
 } from "./useGetScreensHealthData.interface";
 
-export function  useGetScreensHealthData({
+export function useGetScreensHealthData({
   startTime,
   endTime,
   limit = 5,
@@ -15,7 +19,6 @@ export function  useGetScreensHealthData({
   isLoading: boolean;
   error: Error | null;
 } {
-
   // Fetch top screens data
   const { data, isLoading } = useGetDataQuery({
     requestBody: {
@@ -32,7 +35,7 @@ export function  useGetScreensHealthData({
         },
         {
           function: "CUSTOM",
-            param: {
+          param: {
             expression: `countIf(PulseType = '${PulseType.SCREEN_SESSION}')`,
           },
           alias: "session_count",
@@ -60,7 +63,9 @@ export function  useGetScreensHealthData({
         },
         {
           function: "CUSTOM",
-          param: { expression: `uniqCombined(${COLUMN_NAME.USER_ID})` },
+          param: {
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+          },
           alias: "user_count",
         },
         {
@@ -72,7 +77,10 @@ export function  useGetScreensHealthData({
         },
       ],
       groupBy: ["screen_name"],
-      orderBy: [{field: "load_count", direction: "DESC" }, { field: "session_count", direction: "DESC" }],
+      orderBy: [
+        { field: "load_count", direction: "DESC" },
+        { field: "session_count", direction: "DESC" },
+      ],
       filters: [
         {
           field: "PulseType",
@@ -128,4 +136,3 @@ export function  useGetScreensHealthData({
     error,
   };
 }
-

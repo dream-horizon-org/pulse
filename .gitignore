@@ -10,6 +10,7 @@ lib/
 
 .cursor/.env
 .cursor/hooks/state/
+.cursor/plans/
 .terraform/
 *.tfstate
 *.tfstate.*
@@ -18,3 +19,5 @@ lib/
 .terraformrc
 terraform.rc
 env.json
+
+docs/

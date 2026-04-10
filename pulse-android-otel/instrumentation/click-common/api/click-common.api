@@ -1,0 +1,15 @@
+public final class io/opentelemetry/android/instrumentation/click/common/PulseClickGestureTracker {
+	public fun <init> ()V
+	public final fun onActionCancel ()V
+	public final fun onActionDown (Landroid/view/MotionEvent;)V
+	public final fun onActionUp (Landroid/view/MotionEvent;)Z
+	public final fun setTouchSlopPixels (I)V
+}
+
+public final class io/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper {
+	public static final field DEFAULT_LOG_TAG Ljava/lang/String;
+	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper;
+	public final fun applyContextAndLogDebug (Lio/opentelemetry/api/logs/LogRecordBuilder;Lio/opentelemetry/api/common/Attributes;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V
+	public static synthetic fun applyContextAndLogDebug$default (Lio/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper;Lio/opentelemetry/api/logs/LogRecordBuilder;Lio/opentelemetry/api/common/Attributes;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;ILjava/lang/Object;)V
+}
+

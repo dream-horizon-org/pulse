@@ -28,10 +28,7 @@ import {
 } from "../AppVitals/AppVitals.constants";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
-import {
-  DEFAULT_QUICK_TIME_FILTER,
-  ROUTES,
-} from "../../constants";
+import { DEFAULT_QUICK_TIME_FILTER } from "../../constants";
 import { useFilterStore } from "../../stores/useFilterStore";
 import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
@@ -41,7 +38,10 @@ import { InteractionDetailsFilters } from "../CriticalInteractionDetails/compone
 export function ScreenDetail(_props: ScreenDetailProps) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { screenName } = useParams<{ screenName: string }>();
+  const { screenName, projectId } = useParams<{
+    screenName: string;
+    projectId: string;
+  }>();
   const decodedScreenName = screenName ? decodeURIComponent(screenName) : "";
 
   // Global filter store
@@ -91,7 +91,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
   };
 
   const handleBack = () => {
-    navigate(ROUTES.SCREENS.basePath);
+    navigate(`/projects/${projectId}/screens`);
   };
 
   // Format time for API calls (convert to ISO string)
@@ -179,7 +179,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
 
   useEffect(() => {
     initializeFromUrlParams(searchParams);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   return (
@@ -222,7 +222,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               defaultStartTime={selectedTimeFilter?.startDate || startTime}
             />
           </div>
-        </div> 
+        </div>
 
         <Tabs.List>
           <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
@@ -246,6 +246,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               }
               isLoading={isLoadingEngagement}
               error={engagementError}
+              onTimeFilterChange={handleTimeFilterChange}
             />
             <UserEngagementGraph
               screenName={decodedScreenName}
@@ -262,6 +263,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               device={device !== "all" ? device : undefined}
               startTime={startTime || undefined}
               endTime={endTime || undefined}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           </SimpleGrid>
         </Tabs.Panel>
@@ -307,11 +309,17 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                   <Text className={vitalsClasses.statLabel}>
                     Screen Load Time
                   </Text>
-                  <Text 
-                    className={vitalsClasses.statValue} 
-                    c={engagementData?.avgLoadTime !== null && engagementData?.avgLoadTime !== undefined ? "teal" : "dimmed"}
+                  <Text
+                    className={vitalsClasses.statValue}
+                    c={
+                      engagementData?.avgLoadTime !== null &&
+                      engagementData?.avgLoadTime !== undefined
+                        ? "teal"
+                        : "dimmed"
+                    }
                   >
-                    {engagementData?.avgLoadTime !== null && engagementData?.avgLoadTime !== undefined
+                    {engagementData?.avgLoadTime !== null &&
+                    engagementData?.avgLoadTime !== undefined
                       ? engagementData.avgLoadTime >= 1
                         ? `${engagementData.avgLoadTime.toFixed(1)}s`
                         : `${(engagementData.avgLoadTime * 1000).toFixed(0)}ms`
@@ -333,6 +341,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
           {issueType === ISSUE_TYPES.ANRS && (
@@ -345,6 +354,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
           {issueType === ISSUE_TYPES.NON_FATALS && (
@@ -357,6 +367,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
 

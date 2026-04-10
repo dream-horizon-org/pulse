@@ -14,6 +14,7 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
@@ -21,9 +22,7 @@ import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesRes
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
-import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
-import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.dreamhorizon.pulseserver.service.configs.models.*;
 import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 
@@ -39,7 +38,7 @@ public class ConfigController {
   @Path("/{version}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PulseConfig>> getSdkConfig(@PathParam("version") Integer version) {
-    return configService.getSdkConfig(TenantContext.requireTenantId(), version)
+    return configService.getSdkConfig(ProjectContext.getProjectId(), version)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -47,9 +46,9 @@ public class ConfigController {
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<PulseConfig> getActiveSdkConfig() {
-    String tenantId = TenantContext.requireTenantId();
-    log.info("Fetching active SDK config for tenant: {}", tenantId);
-    return configService.getActiveSdkConfig(tenantId)
+    String projectId = ProjectContext.getProjectId();
+    log.info("Fetching active SDK config for project: {}", projectId);
+    return configService.getActiveSdkConfig(projectId)
         .to(CompletableFutureUtils::fromSingle);
   }
 
@@ -61,7 +60,7 @@ public class ConfigController {
   ) {
     applyConfigDefaults(config);
     ConfigData createConfigServiceRequest = mapper.toServiceCreateConfigRequest(config, user);
-    return configService.createSdkConfig(createConfigServiceRequest)
+    return configService.createSdkConfig(ProjectContext.getProjectId(), createConfigServiceRequest)
         .map(resp -> CreateConfigResponse.builder().version(resp.getVersion()).build())
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -69,6 +68,7 @@ public class ConfigController {
   private void applyConfigDefaults(PulseConfig config) {
     applyInteractionConfigDefaults(config);
     applySignalsConfigDefaults(config);
+    applyFeatureConfigDefaults(config);
   }
 
   private void applyInteractionConfigDefaults(PulseConfig config) {
@@ -78,8 +78,9 @@ public class ConfigController {
         interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
-        String tenantId = TenantContext.requireTenantId();
-        String configUrl = applicationConfig.getInteractionConfigUrl() + "/" + tenantId + "/config/interaction.json";
+        String projectId = ProjectContext.getProjectId();
+        String configUrl = String.format("%s/projects/%s/interaction.json", 
+            applicationConfig.getInteractionConfigUrl(), projectId);
         interaction.setConfigUrl(configUrl);
       }
     }
@@ -101,6 +102,62 @@ public class ConfigController {
         signals.setCustomEventCollectorUrl(applicationConfig.getCustomEventCollectorUrl());
       }
     }
+  }
+
+  private void applyFeatureConfigDefaults(PulseConfig config) {
+    if (config.getFeatures() == null) {
+      return;
+    }
+
+    config.getFeatures().forEach(feature -> {
+      if (feature.getFeatureName() == Features.session_replay) {
+        feature.setConfig(applySessionReplayDefaults(feature.getConfig()));
+      }
+    });
+  }
+
+  private SessionReplayFeatureConfig applySessionReplayDefaults(FeatureConfigProperties config) {
+    SessionReplayFeatureConfig sessionReplayConfig = config != null
+        ? (SessionReplayFeatureConfig) config
+        : SessionReplayFeatureConfig.builder().build();
+
+    if (sessionReplayConfig.getTextAndInputPrivacy() == null) {
+      sessionReplayConfig.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_ALL);
+    }
+
+    if (sessionReplayConfig.getImagePrivacy() == null) {
+      sessionReplayConfig.setImagePrivacy(ImagePrivacy.MASK_ALL);
+    }
+
+    if (sessionReplayConfig.getThrottleDelayMs() == null) {
+      sessionReplayConfig.setThrottleDelayMs(1000L);
+    }
+
+    if (sessionReplayConfig.getScreenshotScale() == null) {
+      sessionReplayConfig.setScreenshotScale(1.0f);
+    }
+
+    if (sessionReplayConfig.getScreenshotQuality() == null) {
+      sessionReplayConfig.setScreenshotQuality(30);
+    }
+
+    if (sessionReplayConfig.getFlushIntervalSeconds() == null) {
+      sessionReplayConfig.setFlushIntervalSeconds(60);
+    }
+
+    if (sessionReplayConfig.getFlushAt() == null) {
+      sessionReplayConfig.setFlushAt(10);
+    }
+
+    if (sessionReplayConfig.getMaxBatchSize() == null) {
+      sessionReplayConfig.setMaxBatchSize(50);
+    }
+
+    if (sessionReplayConfig.getReplayApiBaseUrl() == null
+        || sessionReplayConfig.getReplayApiBaseUrl().isBlank()) {
+      sessionReplayConfig.setReplayApiBaseUrl(applicationConfig.getReplayApiBaseUrl());
+    }
+    return sessionReplayConfig;
   }
 
   @GET

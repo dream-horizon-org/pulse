@@ -22,9 +22,7 @@ internal class InteractionEventsTracker(
     val interactionRunningStatusState: StateFlow<List<InteractionRunningStatus>>
         get() = interactionRunningStatusMutableState.asStateFlow()
 
-    private val localMarkers: ArrayList<InteractionLocalEvent> = ArrayList()
-
-    private var isInteractionClosed: Boolean? = null
+    private var isInteractionClosed: Boolean = true
 
     val name: String = interactionConfig.name
     private var timerJob: Job? = null
@@ -44,8 +42,8 @@ internal class InteractionEventsTracker(
                 val (shouldTakeFirstEvent, shouldResetList, interactionStatus) =
                     InteractionUtil
                         .matchSequence(
-                            if (isInteractionClosed == true) {
-                                isInteractionClosed = null
+                            if (isInteractionClosed) {
+                                isInteractionClosed = false
                                 UUID.randomUUID().toString()
                             } else {
                                 (interactionRunningStatusState.value.lastOrNull() as? InteractionRunningStatus.OngoingMatch)?.interactionId
@@ -54,7 +52,10 @@ internal class InteractionEventsTracker(
                             localEvents,
                             localMarkers,
                             interactionConfig,
-                        ).also { logDebug { "matchSeq result = ${it ?: "null"}" } } ?: return
+                        ).also { logDebug { "matchSeq result = ${it ?: "null"}" } } ?: run {
+                        isInteractionClosed = true
+                        return
+                    }
                 val (oldInteractionStatus, newInteractionStatus) =
                     if (shouldResetList) {
                         logDebug { "resetList called with shouldTakeFirstEvent = $shouldTakeFirstEvent" }
@@ -75,7 +76,7 @@ internal class InteractionEventsTracker(
                                     localEvents,
                                     localMarkers,
                                 )
-                            localEvents.clear()
+                            clearStates()
                             localEvents.add(lastEvent)
 
                             oldInteractionError to
@@ -85,7 +86,7 @@ internal class InteractionEventsTracker(
                                 )
                         } else {
                             isInteractionClosed = true
-                            localEvents.clear()
+                            clearStates()
                             null to interactionStatus
                         }
                     } else {
@@ -130,9 +131,14 @@ internal class InteractionEventsTracker(
                                 interactionRunningStatusMutableState.value
                             }
                         }
-                    localEvents.clear()
+                    clearStates()
                 }
         }
+    }
+
+    private fun clearStates() {
+        localEvents.clear()
+        localMarkers.clear()
     }
 
     private fun InteractionRunningStatus.OngoingMatch.createErrorInteraction(
@@ -155,6 +161,8 @@ internal class InteractionEventsTracker(
     fun addMarker(event: InteractionLocalEvent) {
         localMarkers += event
     }
+
+    private val localMarkers: ArrayList<InteractionLocalEvent> = ArrayList()
 
     private val localEvents: SortedList<InteractionLocalEvent> =
         SortedList { e1, e2 -> e1.timeInNano.compareTo(e2.timeInNano) }

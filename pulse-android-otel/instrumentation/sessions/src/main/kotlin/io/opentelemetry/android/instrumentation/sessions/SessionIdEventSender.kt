@@ -12,6 +12,7 @@ import io.opentelemetry.android.session.SessionObserver
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.semconv.incubating.SessionIncubatingAttributes.SESSION_ID
 import io.opentelemetry.semconv.incubating.SessionIncubatingAttributes.SESSION_PREVIOUS_ID
+import java.util.concurrent.TimeUnit
 
 /**
  * This class is responsible for generating the session related events as
@@ -49,7 +50,7 @@ internal class SessionIdEventSender(
                 .setEventName(EVENT_SESSION_END)
                 .setAttribute(SESSION_ID, session.getId())
         expirationTimestampNanos?.let {
-            eventBuilder.setTimestamp(it, java.util.concurrent.TimeUnit.NANOSECONDS)
+            eventBuilder.setTimestamp(it, TimeUnit.NANOSECONDS)
         }
         eventBuilder.emit()
     }

@@ -8,6 +8,7 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.SignedJWT;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.net.URL;
@@ -17,11 +18,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
+import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
+import org.dreamhorizon.pulseserver.model.LoginStatus;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
+import org.dreamhorizon.pulseserver.resources.v1.auth.models.LoginResponse;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.VerifyAuthTokenResponseDto;
+import org.dreamhorizon.pulseserver.service.tier.TierService;
 import org.dreamhorizon.pulseserver.util.JwtUtils;
 
 @Slf4j
@@ -34,6 +40,10 @@ public class AuthService {
   private final ApplicationConfig applicationConfig;
   private final JwtService jwtService;
   private final TenantDao tenantDao;
+  private final UserService userService;
+  private final OpenFgaService openFgaService;
+  private final ProjectService projectService;
+  private final TierService tierService;
   private volatile String firebaseJwksCache;
   private volatile long firebaseJwksCacheExpiryMillis;
   private static final long JWKS_CACHE_TTL_MS = 3600_000L;
@@ -85,6 +95,417 @@ public class AuthService {
         .tokenType(TOKEN_TYPE_BEARER)
         .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
         .build();
+  }
+
+  /**
+   * Simplified login flow without Firebase tenant claims.
+   * Uses OpenFGA as single source of truth for user-project relationships.
+   * Activates pending users on first login.
+   *
+   * @param firebaseIdToken Firebase ID token from Google sign-in
+   * @return LoginResponse with tokens when user has a tenant (with or without projects),
+   *     or needs onboarding when user has no tenant
+   */
+  public Single<LoginResponse> login(String firebaseIdToken) {
+    // Development mode bypass - allow mock tokens
+    if (!isGoogleSignInEnabled() || isMockToken(firebaseIdToken)) {
+      log.info("Using development mode for login");
+      return createDevelopmentLoginResponse(firebaseIdToken);
+    }
+
+    if (!isFirebaseConfigured()) {
+      return Single.error(new IllegalArgumentException(
+          "Firebase is not configured. Set CONFIG_SERVICE_APPLICATION_FIREBASEPROJECTID."));
+    }
+
+    return verifySimpleFirebaseToken(firebaseIdToken)
+        .flatMap(userInfo -> {
+            // Check if user exists by email
+            return userService.getUserByEmail(userInfo.email)
+                .switchIfEmpty(Single.defer(() -> {
+                    // New user - create with Firebase UID and needs onboarding
+                    return userService.getOrCreateUser(userInfo.email, userInfo.name, userInfo.userId);
+                }))
+                .flatMap(user -> {
+                    // Check if user is pending (added by admin but never logged in)
+                    if ("pending".equals(user.getStatus())) {
+                        log.info("Activating pending user on first login: userId={}, email={}",
+                            user.getUserId(), user.getEmail());
+
+                        // Activate the user and update Firebase UID
+                        return userService.activateUser(
+                            user.getUserId(),
+                            userInfo.userId,  // Firebase UID
+                            userInfo.name
+                        ).andThen(Single.just(user.toBuilder()
+                            .status("active")
+                            .firebaseUid(userInfo.userId)
+                            .name(userInfo.name)
+                            .build()));
+                    } else {
+                        // Already active user - just update last login
+                        userService.updateLastLogin(user.getUserId()).subscribe();
+                        return Single.just(user);
+                    }
+                });
+        })
+        .flatMap(user ->
+            openFgaService.getUserTenants(user.getUserId())
+                .flatMap(tenantIds -> {
+                  if (tenantIds == null || tenantIds.isEmpty()) {
+                    log.info("User has no tenants, requires onboarding: userId={}", user.getUserId());
+                    return Single.just(LoginResponse.builder()
+                        .status(LoginStatus.NEEDS_ONBOARDING)
+                        .userId(user.getUserId())
+                        .email(user.getEmail())
+                        .name(user.getName())
+                        .needsOnboarding(true)
+                        .build());
+                  }
+                  return openFgaService.getUserProjects(user.getUserId())
+                      .flatMap(projectIds -> {
+                        if (projectIds == null || projectIds.isEmpty()) {
+                          log.info("User has tenant(s) but no projects, tenant-only login: userId={}, tenantId={}",
+                              user.getUserId(), tenantIds.get(0));
+                          return buildLoginSuccessWithTenantOnly(
+                              user.getUserId(), user.getEmail(), user.getName(), tenantIds.get(0));
+                        }
+
+                        String firstProjectId = projectIds.get(0);
+                        log.info("User has {} project(s), using first: userId={}, projectId={}",
+                            projectIds.size(), user.getUserId(), firstProjectId);
+
+                        return projectService.getProjectById(firstProjectId)
+                            .flatMap(project -> {
+                              String tenantId = project.getTenantId();
+
+                              return tenantDao.getTenantById(tenantId)
+                                  .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+                                  .flatMap(tenant -> {
+                                    return tierService.getTierNameById(tenant.getTierId())
+                                        .defaultIfEmpty("free")
+                                        .flatMap(tierName ->
+                                            openFgaService.getUserTenantRole(user.getUserId(), tenantId)
+                                                .map(roleOpt -> {
+                                                  String tenantRole = roleOpt.orElse("member");
+
+                                                  String accessToken = jwtService.generateAccessToken(
+                                                      user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                                                  String refreshToken = jwtService.generateRefreshToken(
+                                                      user.getUserId(), user.getEmail(), user.getName(), tenantId);
+
+                                                  log.info("Login successful: userId={}, tenantId={}, tenantRole={}, tier={}",
+                                                      user.getUserId(), tenantId, tenantRole, tierName);
+
+                                                  return LoginResponse.builder()
+                                                      .status(LoginStatus.SUCCESS)
+                                                      .accessToken(accessToken)
+                                                      .refreshToken(refreshToken)
+                                                      .userId(user.getUserId())
+                                                      .email(user.getEmail())
+                                                      .name(user.getName())
+                                                      .tenantId(tenantId)
+                                                      .tenantName(tenant.getName())
+                                                      .tenantRole(tenantRole)
+                                                      .tier(tierName)
+                                                      .needsOnboarding(false)
+                                                      .tokenType(TOKEN_TYPE_BEARER)
+                                                      .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                                                      .build();
+                                                })
+                                        );
+                                  });
+                            });
+                      });
+                })
+        )
+        .doOnError(error ->
+            log.error("Login failed: {}", error.getMessage(), error)
+        );
+  }
+
+  /**
+   * Public method to verify Firebase token for onboarding flow.
+   * This is used during onboarding when the user doesn't yet have a tenant/project.
+   */
+  public Single<UserInfo> verifyFirebaseTokenForOnboarding(String idTokenString) {
+    return verifySimpleFirebaseToken(idTokenString);
+  }
+
+  /**
+   * Simple Firebase token verification without tenant claim checking.
+   * Only verifies signature, issuer, audience, and expiration.
+   */
+  private Single<UserInfo> verifySimpleFirebaseToken(String idTokenString) {
+    String projectId = applicationConfig.getFirebaseProjectId().trim();
+    String expectedIssuer = "https://securetoken.google.com/" + projectId;
+
+    return Single.fromCallable(() -> {
+      try {
+        SignedJWT signedJWT = SignedJWT.parse(idTokenString);
+        String kid = signedJWT.getHeader().getKeyID();
+
+        if (kid == null) {
+          throw new IllegalArgumentException("Invalid Firebase token: missing key ID");
+        }
+
+        // Fetch and verify with Firebase public keys
+        String jwksJson = fetchFirebaseJwks();
+        JWKSet jwkSet = JWKSet.parse(jwksJson);
+        JWK jwk = jwkSet.getKeys().stream()
+            .filter(k -> kid.equals(k.getKeyID()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("No matching key found for token"));
+
+        if (!(jwk instanceof RSAKey rsaKey)) {
+          throw new IllegalArgumentException("Invalid key type");
+        }
+
+        JWSVerifier verifier = new RSASSAVerifier(rsaKey);
+        if (!signedJWT.verify(verifier)) {
+          throw new IllegalArgumentException("Token signature verification failed");
+        }
+
+        var claims = signedJWT.getJWTClaimsSet();
+
+        // Validate issuer
+        if (!expectedIssuer.equals(claims.getIssuer())) {
+          throw new IllegalArgumentException("Invalid token issuer");
+        }
+
+        // Validate audience
+        var audience = claims.getAudience();
+        if (audience == null || !audience.contains(projectId)) {
+          throw new IllegalArgumentException("Invalid token audience");
+        }
+
+        // Validate expiration
+        Date exp = claims.getExpirationTime();
+        if (exp == null || exp.before(new Date())) {
+          throw new IllegalArgumentException("Token has expired");
+        }
+
+        // Extract user info
+        String userId = claims.getSubject();
+        String email = claims.getStringClaim("email");
+        String name = claims.getStringClaim("name");
+        String picture = claims.getStringClaim("picture");
+
+        if (userId == null || userId.isBlank()) {
+          throw new IllegalArgumentException("Token missing user ID");
+        }
+
+        if (email == null || email.isBlank()) {
+          throw new IllegalArgumentException(
+              "Firebase token is missing email claim. Please ensure your authentication includes email permissions.");
+        }
+
+        return new UserInfo(userId, email, name, picture);
+
+      } catch (Exception e) {
+        log.error("Firebase token verification failed: {}", e.getMessage());
+        throw new IllegalArgumentException("Invalid Firebase token: " + e.getMessage(), e);
+      }
+    });
+  }
+
+  /**
+   * Helper class for user information from Firebase token.
+   * Made public for use in onboarding flow.
+   */
+  public static class UserInfo {
+    public final String userId;
+    public final String email;
+    public final String name;
+    public final String profilePicture;
+
+    public UserInfo(String userId, String email, String name, String profilePicture) {
+      this.userId = userId;
+      this.email = email != null ? email : "";
+      this.name = name != null ? name : "";
+      this.profilePicture = profilePicture != null ? profilePicture : "";
+    }
+  }
+
+  /**
+   * Check if token is a mock/development token.
+   */
+  private boolean isMockToken(String token) {
+    if (token == null) {
+      return false;
+    }
+    // Accept various mock token formats for development
+    return token.startsWith("mock-")
+        || token.startsWith("dev-")
+        || token.equals("test-token-user1")
+        || token.equals("test-token-user2")
+        || !token.contains(".");  // Not a JWT format
+  }
+
+  /**
+   * Builds a successful login response using tenant context only (no project).
+   * Used when the user belongs to a tenant but has no project assignments.
+   */
+  private Single<LoginResponse> buildLoginSuccessWithTenantOnly(String userId, String email, String name,
+      String tenantId) {
+    return tenantDao.getTenantById(tenantId)
+        .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+        .flatMap(tenant ->
+            tierService.getTierNameById(tenant.getTierId())
+                .defaultIfEmpty("free")
+                .flatMap(tierName ->
+                    openFgaService.getUserTenantRole(userId, tenantId)
+                        .map(roleOpt -> {
+                          String tenantRole = roleOpt.orElse("member");
+                          String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+                          String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+
+                          log.info("Login successful (tenant-only): userId={}, tenantId={}, tenantRole={}, tier={}",
+                              userId, tenantId, tenantRole, tierName);
+
+                          return LoginResponse.builder()
+                              .status(LoginStatus.SUCCESS)
+                              .accessToken(accessToken)
+                              .refreshToken(refreshToken)
+                              .userId(userId)
+                              .email(email)
+                              .name(name)
+                              .tenantId(tenantId)
+                              .tenantName(tenant.getName())
+                              .tenantRole(tenantRole)
+                              .tier(tierName)
+                              .needsOnboarding(false)
+                              .tokenType(TOKEN_TYPE_BEARER)
+                              .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                              .build();
+                        })
+                )
+        );
+  }
+
+  /**
+   * Dev login after DB user is resolved (or mock userId): tenants first, then projects.
+   */
+  private Single<LoginResponse> devLoginAfterTenantsResolved(String userId, String email, String name) {
+    return openFgaService.getUserTenants(userId)
+        .flatMap(tenantIds -> {
+          if (tenantIds == null || tenantIds.isEmpty()) {
+            log.info("Dev user has no tenants, requires onboarding: userId={}", userId);
+            return Single.just(LoginResponse.builder()
+                .status(LoginStatus.NEEDS_ONBOARDING)
+                .userId(userId)
+                .email(email)
+                .name(name)
+                .needsOnboarding(true)
+                .build());
+          }
+          return openFgaService.getUserProjects(userId)
+              .flatMap(projectIds -> {
+                if (projectIds == null || projectIds.isEmpty()) {
+                  return buildLoginSuccessWithTenantOnly(userId, email, name, tenantIds.get(0));
+                }
+                return proceedWithDevLogin(userId, email, name, projectIds);
+              });
+        });
+  }
+
+  /**
+   * Create development login response with proper user flow.
+   * Extracts user info from mock token and follows normal login flow.
+   * Handles pending user activation.
+   */
+  private Single<LoginResponse> createDevelopmentLoginResponse(String mockToken) {
+    // Extract user info from mock token
+    String userId;
+    String email;
+    String name;
+
+    // Parse mock token to determine which user
+    if (mockToken != null && (mockToken.contains("user2") || mockToken.contains("2"))) {
+      userId = "mock-user-2";
+      email = "user2@example.com";
+      name = "Test User 2";
+    } else {
+      userId = "mock-user-1";
+      email = "user1@example.com";
+      name = "Test User 1";
+    }
+
+    log.info("Development mode login: userId={}, email={}", userId, email);
+
+    // Check if user exists in database
+    return userService.getUserByEmail(email)
+        .flatMapSingle(user -> {
+            if ("pending".equals(user.getStatus())) {
+                log.info("Activating pending dev user on first login: userId={}", user.getUserId());
+                return userService.activateUser(user.getUserId(), user.getUserId() + "-firebase-uid", name)
+                    .andThen(devLoginAfterTenantsResolved(user.getUserId(), email, name));
+            }
+            userService.updateLastLogin(user.getUserId()).subscribe();
+            return devLoginAfterTenantsResolved(user.getUserId(), email, name);
+        })
+        .switchIfEmpty(Single.defer(() -> {
+            log.info("Dev user not found in DB, checking OpenFGA: userId={}", userId);
+            return devLoginAfterTenantsResolved(userId, email, name);
+        }))
+        .doOnError(error ->
+            log.error("Dev login failed: {}", error.getMessage(), error)
+        );
+  }
+
+  /**
+   * Helper to proceed with dev login after activation/verification
+   */
+  private Single<LoginResponse> proceedWithDevLogin(String userId, String email, String name,
+                                                    java.util.List<String> projectIds) {
+    if (projectIds == null || projectIds.isEmpty()) {
+        log.info("Dev user has no projects, requires onboarding: userId={}", userId);
+        return Single.just(LoginResponse.builder()
+            .status(LoginStatus.NEEDS_ONBOARDING)
+            .userId(userId)
+            .email(email)
+            .name(name)
+            .needsOnboarding(true)
+            .build());
+    }
+
+    // User has projects - get first project's tenant
+    String firstProjectId = projectIds.get(0);
+    log.info("Dev user has {} project(s), using first: userId={}, projectId={}",
+        projectIds.size(), userId, firstProjectId);
+
+    return projectService.getProjectById(firstProjectId)
+        .flatMap(project -> {
+          String tenantId = project.getTenantId();
+
+          // Get user's tenant role
+          return openFgaService.getUserTenantRole(userId, tenantId)
+              .map(roleOpt -> {
+                String tenantRole = roleOpt.orElse("member");
+
+                // Generate JWT tokens with tenantId
+                String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+                String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+
+                log.info("Dev login successful: userId={}, tenantId={}, tenantRole={}",
+                    userId, tenantId, tenantRole);
+
+                    return LoginResponse.builder()
+                        .status(LoginStatus.SUCCESS)
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken)
+                        .userId(userId)
+                        .email(email)
+                        .name(name)
+                        .tenantId(tenantId)
+                        .tenantRole(tenantRole)
+                        .tier("free")  // TODO: Query from database
+                        .needsOnboarding(false)
+                        .tokenType(TOKEN_TYPE_BEARER)
+                        .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                        .build();
+                });
+        });
   }
 
 
@@ -250,7 +671,7 @@ public class AuthService {
               .build();
         }
 
-        boolean isValid = jwtService.isAccessToken(token);
+        boolean isValid = jwtService.isAccessToken(token) && !jwtService.isTokenExpired(token);
 
         return VerifyAuthTokenResponseDto.builder()
             .isAuthTokenValid(isValid)
@@ -270,40 +691,41 @@ public class AuthService {
       GetAccessTokenFromRefreshTokenRequestDto request) {
 
     return Single.fromCallable(() -> {
-      try {
-        String refreshToken = request.getRefreshToken();
+      String refreshToken = request.getRefreshToken();
 
-        if (refreshToken == null || refreshToken.trim().isEmpty()) {
-          throw new IllegalArgumentException("Refresh token is required");
-        }
-
-        if (!jwtService.isRefreshToken(refreshToken)) {
-          log.error("Invalid token type. Expected refresh token.");
-          throw new IllegalArgumentException("Invalid token type. Expected refresh token.");
-        }
-
-
-        Claims claims = jwtService.verifyToken(refreshToken);
-        String userId = claims.getSubject();
-        String email = claims.get(CLAIM_EMAIL, String.class);
-        String name = claims.get(CLAIM_NAME, String.class);
-        String tenantId = claims.get(CLAIM_TENANT_ID, String.class);
-
-        String newAccessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
-
-        log.info("Successfully refreshed access token for user: {}", userId);
-
-        return GetAccessTokenFromRefreshTokenResponseDto.builder()
-            .accessToken(newAccessToken)
-            .refreshToken(refreshToken)
-            .tokenType(TOKEN_TYPE_BEARER)
-            .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-            .build();
-
-      } catch (Exception e) {
-        log.error("Error refreshing access token: {}", e.getMessage());
-        throw new RuntimeException("Failed to refresh access token", e);
+      if (refreshToken == null || refreshToken.trim().isEmpty()) {
+        throw ServiceError.AUTHENTICATION_BAD_REQUEST
+            .getCustomException("Refresh token is required");
       }
+
+      if (!jwtService.isRefreshToken(refreshToken)) {
+        log.error("Invalid token type. Expected refresh token.");
+        throw ServiceError.AUTHENTICATION_BAD_REQUEST
+            .getCustomException("Invalid token type. Expected refresh token.");
+      }
+
+      if (jwtService.isTokenExpired(refreshToken)) {
+        log.info("Refresh token has expired");
+        throw ServiceError.UNAUTHORISED
+            .getCustomException("Refresh token has expired. Please log in again.");
+      }
+
+      Claims claims = jwtService.verifyToken(refreshToken);
+      String userId = claims.getSubject();
+      String email = claims.get(CLAIM_EMAIL, String.class);
+      String name = claims.get(CLAIM_NAME, String.class);
+      String tenantId = claims.get(CLAIM_TENANT_ID, String.class);
+
+      String newAccessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+
+      log.info("Successfully refreshed access token for user: {}", userId);
+
+      return GetAccessTokenFromRefreshTokenResponseDto.builder()
+          .accessToken(newAccessToken)
+          .refreshToken(refreshToken)
+          .tokenType(TOKEN_TYPE_BEARER)
+          .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+          .build();
     });
   }
 

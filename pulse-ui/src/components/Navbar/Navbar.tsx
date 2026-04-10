@@ -1,19 +1,19 @@
 import classes from "./Navbar.module.css";
 import {
+  ActionIcon,
   Anchor,
   AppShell,
-  ScrollArea,
-  Text,
-  Tooltip,
+  Avatar,
   Box,
+  Button,
+  Divider,
+  Group,
   Image,
   Popover,
-  Avatar,
-  Button,
+  ScrollArea,
   Stack,
-  Group,
-  Divider,
-  ActionIcon,
+  Text,
+  Tooltip,
 } from "@mantine/core";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -24,23 +24,30 @@ import {
   MULTI_TENANT_CONSTANTS,
   NAVBAR_CONSTANTS,
   NAVBAR_ITEMS,
+  NAVBAR_ROUTES,
   ROUTES,
 } from "../../constants";
+import { TIERS } from "../../constants/Tiers";
 import {
+  IconCreditCard,
+  IconFolder,
   IconHelp,
   IconLogout,
+  IconMail,
   IconMessageCircle,
-  IconUserCircle,
   IconSettings,
+  IconUserCircle,
+  IconUsers,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
-import { useRef } from "react";
-import { googleLogout } from "@react-oauth/google";
-import { getCookies, removeAllCookies } from "../../helpers/cookies";
-import {
-  signOutFirebase,
-  isGcpMultiTenantEnabled,
-} from "../../helpers/gcpAuth";
+import { useMemo, useRef, useState } from "react";
+import { getCookies } from "../../helpers/cookies";
+import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
+import { useProjectContext, useTenantContext } from "../../contexts";
+import { usePermissions } from "../../hooks";
+import { useSessionReplayFromActiveConfig } from "../../hooks/useSessionReplayFromActiveConfig";
+import { performLogout } from "../../helpers/logout";
+import { ConfirmationModal } from "../ConfirmationModal";
 
 export function Navbar({
   toggle,
@@ -54,43 +61,157 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
+  const [popoverOpened, setPopoverOpened] = useState(false);
+  const {
+    projectId: contextProjectId,
+    clearProject,
+    navigateToProject,
+  } = useProjectContext();
+  const { tenantId, tenantName, tier, clearTenant, projects } =
+    useTenantContext();
+  const permissions = usePermissions();
+  const [logoutModalOpened, setLogoutModalOpened] = useState(false);
+
+  const { isSessionReplayEnabled, isLoading: sessionReplayConfigLoading } =
+    useSessionReplayFromActiveConfig({
+      enabled:
+        pathname.startsWith("/projects/") && !pathname.includes("/onboarding"),
+      projectId: contextProjectId,
+    });
+
+  const navbarItemsToShow = useMemo(() => {
+    if (
+      !pathname.startsWith("/projects/") ||
+      pathname.includes("/onboarding")
+    ) {
+      return NAVBAR_ITEMS;
+    }
+    return NAVBAR_ITEMS.filter((item) => {
+      if (item.routeTo === NAVBAR_ROUTES.SESSION_REPLAY) {
+        if (sessionReplayConfigLoading) return false;
+        return isSessionReplayEnabled;
+      }
+      return true;
+    });
+  }, [pathname, isSessionReplayEnabled, sessionReplayConfigLoading]);
+
+  // Show nav items only on project dashboard pages (not on org pages or onboarding)
+  const isProjectDashboard =
+    pathname.startsWith("/projects/") && !pathname.includes("/onboarding");
+
+  const handleAllProjectsClick = () => {
+    clearProject();
+    if (tenantId) {
+      navigate(`/${tenantId}/projects`);
+    }
+    setPopoverOpened(false);
+  };
 
   function onItemClick(routeTo: string) {
-    navigate(routeTo);
+    // Transform flat routes to project-scoped routes
+    if (
+      contextProjectId &&
+      !routeTo.startsWith("/organization") &&
+      !routeTo.startsWith("/projects/")
+    ) {
+      const projectScopedRoute = `${ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", contextProjectId)}${routeTo}`;
+      navigate(projectScopedRoute);
+    } else {
+      navigate(routeTo);
+    }
   }
 
-  const isActive = (path: string) => {
+  const isActive = (navPath: string) => {
     const decodedRouteName = decodeURIComponent(pathname);
-    const base = path.split("/")[1];
+
+    // For project-scoped routes, match the path after /projects/:projectId
+    if (decodedRouteName.startsWith("/projects/")) {
+      const segments = decodedRouteName.split("/").filter(Boolean);
+      if (segments[0] !== "projects" || segments.length < 2) {
+        return false;
+      }
+      const afterProjectId = segments.slice(2);
+      const projectSubPath =
+        afterProjectId.length === 0
+          ? "/"
+          : `/${afterProjectId.join("/")}`;
+
+      // Home is "/": every other path also starts with "/", so only match the project root.
+      if (navPath === NAVBAR_ROUTES.HOME) {
+        return afterProjectId.length === 0;
+      }
+
+      const normalizedNav =
+        navPath.startsWith("/") ? navPath : `/${navPath}`;
+      return (
+        projectSubPath === normalizedNav ||
+        projectSubPath.startsWith(`${normalizedNav}/`)
+      );
+    }
+
+    const base = navPath.split("/")[1];
     const baseMatch = decodedRouteName.split("/")[1];
     return base === baseMatch;
   };
 
   const onLogoClick = () => {
-    navigate("/");
+    if (!tenantId) return;
+
+    // FREE tier: Navigate directly to the single project
+    if (tier === TIERS.FREE && projects.length === 1) {
+      const singleProject = projects[0];
+      navigateToProject(singleProject.projectId);
+    } else {
+      // ENTERPRISE tier: Clear context and show projects listing
+      clearProject();
+      navigate(
+        ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
+          ":organizationId",
+          tenantId,
+        ),
+      );
+    }
   };
 
   const onLogoutClick = async () => {
-    if (isGcpMultiTenantEnabled()) {
-      await signOutFirebase();
-    } else {
-      googleLogout();
-    }
-    removeAllCookies();
+    setLogoutModalOpened(false);
+
+    // Clear all React contexts explicitly
+    clearProject();
+    clearTenant();
+
+    // Perform logout (clears cookies, sessionStorage, and signs out)
+    await performLogout();
+
+    // Navigate to login
     navigate(ROUTES.LOGIN.basePath);
   };
 
   const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
-  const currentTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+  const currentTenantId = tenantId || getCookies(COOKIES_KEY.TENANT_ID);
 
   return (
-    <AppShell.Navbar pt="md" pb="md" className={classes.navbarContainer}>
-      <AppShell.Section className={classes.navbarHeader}>
-        <Box className={classes.logoSection}>
+    <AppShell.Navbar className={classes.navbarContainer}>
+      <AppShell.Section
+        className={classes.navbarHeader}
+        style={{
+          height: 60,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 16px",
+        }}
+      >
+        <Box
+          className={classes.logoSection}
+          style={{
+            width: "100%",
+            justifyContent: opened ? "flex-start" : "center",
+          }}
+        >
           {opened ? (
             <Box className={classes.logoExpanded} onClick={onLogoClick}>
               <Image
-                src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
+                src={(process.env.PUBLIC_URL || "") + "/logo.svg"}
                 radius="md"
                 className={classes.logo}
                 alt=""
@@ -106,7 +227,7 @@ export function Navbar({
               withArrow
             >
               <Image
-                src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
+                src={(process.env.PUBLIC_URL || "") + "/logo.svg"}
                 radius="md"
                 className={classes.logoCollapsed}
                 onClick={onLogoClick}
@@ -114,81 +235,80 @@ export function Navbar({
               />
             </Tooltip>
           )}
-          {/* {opened ? (
-            <Tooltip label={TOOLTIP_LABLES.CLOSE_NAVBAR}>
-              <IconCircleChevronLeft
-                onClick={toggle}
-                className={classes.toggleIcon}
-              />
-            </Tooltip>
-          ) : (
-            <Tooltip label={TOOLTIP_LABLES.OPEN_NAVBAR}>
-              <IconCircleChevronRight
-                onClick={toggle}
-                className={classes.toggleIcon}
-              />
-            </Tooltip>
-          )} */}
         </Box>
       </AppShell.Section>
 
-      <Divider my="sm" />
-      <AppShell.Section
-        grow
-        my="md"
-        component={ScrollArea}
-        style={{
-          width: "100%",
-        }}
-      >
-        {NAVBAR_ITEMS.map((item) => {
-          const NavbarIcon = item.icon;
-          const active = isActive(item.routeTo);
+      {/* Only show navigation items on project dashboard pages */}
+      {isProjectDashboard && (
+        <>
+          <AppShell.Section
+            grow
+            my="xl"
+            component={ScrollArea}
+            style={{
+              width: "100%",
+            }}
+          >
+            {navbarItemsToShow.map((item) => {
+              const NavbarIcon = item.icon;
+              const active = isActive(item.routeTo);
 
-          const navItem = (
-            <Box
-              key={item.tabName}
-              className={`${classes.navbarItem} ${active ? classes.navbarItemActive : ""}`}
-              onClick={() => onItemClick(item.routeTo)}
-              style={{
-                justifyContent: opened ? "flex-start" : "center",
-                padding: opened ? "12px" : "12px 8px",
-              }}
-            >
-              <NavbarIcon
-                size={item.iconSize}
-                className={classes.navbarIcon}
-                style={{ color: active ? "#0ba09a" : "#64748b" }}
-              />
-              {opened && (
-                <Text className={classes.navbarText}>{item.tabName}</Text>
-              )}
-            </Box>
-          );
+              const navItem = (
+                <Box
+                  key={item.tabName}
+                  className={`${classes.navbarItem} ${active ? classes.navbarItemActive : ""}`}
+                  onClick={() => onItemClick(item.routeTo)}
+                  style={{
+                    justifyContent: opened ? "flex-start" : "center",
+                    padding: opened ? "12px" : "12px 8px",
+                  }}
+                >
+                  <NavbarIcon
+                    size={item.iconSize}
+                    className={classes.navbarIcon}
+                    style={{ color: active ? "#0ba09a" : "#64748b" }}
+                  />
+                  {opened && (
+                    <Text className={classes.navbarText}>{item.tabName}</Text>
+                  )}
+                </Box>
+              );
 
-          // Show tooltip only when collapsed
-          if (!opened) {
-            return (
-              <Tooltip
-                key={item.tabName}
-                label={item.tabName}
-                position="right"
-                withArrow
-              >
-                {navItem}
-              </Tooltip>
-            );
-          }
+              // Show tooltip only when collapsed
+              if (!opened) {
+                return (
+                  <Tooltip
+                    key={item.tabName}
+                    label={item.tabName}
+                    position="right"
+                    withArrow
+                  >
+                    {navItem}
+                  </Tooltip>
+                );
+              }
 
-          return navItem;
-        })}
-      </AppShell.Section>
+              return navItem;
+            })}
+          </AppShell.Section>
+        </>
+      )}
 
       {/* Bottom Section: Menu Button */}
-      <AppShell.Section className={classes.menuSectionContainer}>
+      <AppShell.Section
+        className={classes.menuSectionContainer}
+        style={{ paddingBottom: 16 }}
+      >
         <Divider my="sm" />
 
-        <Popover width={280} position="right-end" withArrow shadow="md">
+        <Popover
+          opened={popoverOpened}
+          onChange={setPopoverOpened}
+          width={280}
+          position="right-end"
+          withArrow
+          shadow="md"
+        >
           <Popover.Target>
             {opened ? (
               <Button
@@ -197,6 +317,7 @@ export function Navbar({
                 fullWidth
                 leftSection={<IconUserCircle size={20} />}
                 className={classes.menuButton}
+                onClick={() => setPopoverOpened((o) => !o)}
               >
                 More
               </Button>
@@ -207,6 +328,7 @@ export function Navbar({
                   color="teal"
                   size="lg"
                   className={classes.menuButtonCollapsed}
+                  onClick={() => setPopoverOpened((o) => !o)}
                 >
                   <IconUserCircle size={22} />
                 </ActionIcon>
@@ -235,30 +357,134 @@ export function Navbar({
                       currentTenantId !== "undefined" && (
                         <Text size="xs" c="dimmed" mt={4}>
                           {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
-                          {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
+                          {tenantName || currentTenantId}
                         </Text>
-                    )}
+                      )}
                   </Box>
                 </Group>
               </Box>
 
               <Divider />
 
-              {/* Settings Link */}
+              {/* Organization Section */}
+              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                Organization
+              </Text>
+
+              {tier === TIERS.ENTERPRISE && (
+                <Box
+                  className={classes.menuItem}
+                  onClick={handleAllProjectsClick}
+                  style={{ cursor: "pointer" }}
+                >
+                  <Group gap="sm">
+                    <IconFolder size={20} style={{ color: "#0ba09a" }} />
+                    <Box>
+                      <Text size="sm" fw={500}>
+                        Projects
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        View all projects
+                      </Text>
+                    </Box>
+                  </Group>
+                </Box>
+              )}
+
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.SETTINGS.basePath)}
-                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  navigate(
+                    ROUTES.ORGANIZATION_MEMBERS.basePath.replace(
+                      ":organizationId",
+                      tenantId || "",
+                    ),
+                  );
+                  setPopoverOpened(false);
+                }}
+                style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
-                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                  <IconUsers size={20} style={{ color: "#0ba09a" }} />
                   <Box>
-                    <Text size="sm" fw={500}>Settings</Text>
-                    <Text size="xs" c="dimmed">SDK Configuration & more</Text>
+                    <Text size="sm" fw={500}>
+                      Members
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Team management
+                    </Text>
                   </Box>
                 </Group>
               </Box>
 
+              <Box
+                className={classes.menuItem}
+                onClick={() => {
+                  navigate(
+                    ROUTES.PRICING.basePath.replace(
+                      ":organizationId",
+                      tenantId || "",
+                    ),
+                  );
+                  setPopoverOpened(false);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <Group gap="sm">
+                  <IconCreditCard size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>
+                      Pricing & Plans
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {tier === TIERS.ENTERPRISE
+                        ? "View your plan"
+                        : "Upgrade to Enterprise"}
+                    </Text>
+                  </Box>
+                </Group>
+              </Box>
+
+              <Divider />
+
+              {/* Project Section - Only show if a project is selected */}
+              {contextProjectId && (
+                <>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                    Current Project
+                  </Text>
+
+                  {/* Settings Link */}
+                  {permissions.canManageProjectSettings && (
+                    <Box
+                      className={classes.menuItem}
+                      onClick={() => {
+                        if (contextProjectId) {
+                          navigate(
+                            `${ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", contextProjectId)}${ROUTES.PROJECT_SETTINGS.basePath}`,
+                          );
+                          setPopoverOpened(false);
+                        }
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <Group gap="sm">
+                        <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                        <Box>
+                          <Text size="sm" fw={500}>
+                            Settings
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            API Keys, Team & Configuration
+                          </Text>
+                        </Box>
+                      </Group>
+                    </Box>
+                  )}
+                </>
+              )}
+
+              <Divider />
               {/* Help Link */}
               <Anchor
                 href={NAVBAR_CONSTANTS.HELP_LINK}
@@ -271,6 +497,28 @@ export function Navbar({
                   <Text size="sm">{NAVBAR_CONSTANTS.HELP_BAR_TEXT}</Text>
                 </Group>
               </Anchor>
+
+              {/* Contact Us */}
+              <Box
+                className={classes.menuItem}
+                onClick={() => {
+                  setPopoverOpened(false);
+                  navigate(ROUTES.SUPPORT_QUERIES.basePath);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <Group gap="sm">
+                  <IconMail size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>
+                      Contact Us
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Report an issue or ask a question
+                    </Text>
+                  </Box>
+                </Group>
+              </Box>
 
               {/* Footer Message - Discord Link */}
               <Anchor
@@ -295,7 +543,10 @@ export function Navbar({
               {/* Logout Button */}
               <Button
                 leftSection={<IconLogout size={18} />}
-                onClick={onLogoutClick}
+                onClick={() => {
+                  setPopoverOpened(false);
+                  setLogoutModalOpened(true);
+                }}
                 variant="light"
                 color="red"
                 size="sm"
@@ -307,6 +558,17 @@ export function Navbar({
           </Popover.Dropdown>
         </Popover>
       </AppShell.Section>
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+        opened={logoutModalOpened}
+        onClose={() => setLogoutModalOpened(false)}
+        onConfirm={onLogoutClick}
+        title="Confirm Logout"
+        message="Are you sure you want to log out? You will need to sign in again to access your account."
+        confirmLabel="Logout"
+        confirmColor="red"
+        severity="warning"
+      />
     </AppShell.Navbar>
   );
 }

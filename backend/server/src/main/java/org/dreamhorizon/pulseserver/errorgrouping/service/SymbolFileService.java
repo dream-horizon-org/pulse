@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.errorgrouping.service;
 
 
 import io.reactivex.rxjava3.core.Single;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,22 +19,21 @@ public abstract class SymbolFileService {
   private static final String FILE_PART_NAME = "fileContent";
 
   @SneakyThrows
-  public Single<Boolean> uploadFiles(String tenantId,
+  public Single<Boolean> uploadFiles(String projectId,
                                      List<InputPart> fileParts,
                                      List<UploadMetadata> metadataList) {
     Map<String, UploadMetadata> metadataMap = metadataList.stream()
         .collect(Collectors.toMap(
             UploadMetadata::getFileName,
             m -> {
-              //TODO: Fix this once Project Onboarding is done.
-              m.setProjectId(tenantId);
+              m.setProjectId(projectId);
               return m;
             },
             (existing, replacement) -> existing
         ));
     if (fileParts == null || fileParts.isEmpty()) {
-      log.warn("Multi-file upload failed: Missing file part(s) named '" + FILE_PART_NAME + "'.");
-      return Single.just(false); // 400 Bad Request
+      log.error("Missing file part(s) named '{}'", FILE_PART_NAME);
+      return Single.error(new IllegalArgumentException("Missing file part(s) named '" + FILE_PART_NAME + "'"));
     }
 
     List<Single<Boolean>> uploads = new ArrayList<>();
@@ -41,27 +41,42 @@ public abstract class SymbolFileService {
     for (InputPart inputPart : fileParts) {
       String fileName = getFileNameFromPart(inputPart);
       if (fileName.isEmpty() || fileName.equals("unknown-file")) {
-        log.warn("Skipping file part with unknown filename.");
+        log.warn("Skipping file part with unknown filename. projectId={}", projectId);
         continue;
       }
 
       UploadMetadata metadata = metadataMap.get(fileName);
       if (metadata == null) {
-        log.warn("Skipping file '" + fileName + "': No matching metadata found in JSON payload.");
+        log.warn("Skipping file '{}': No matching metadata found in JSON payload. projectId={}", 
+            fileName, projectId);
         continue;
       }
 
       try (InputStream fileInputStream = inputPart.getBody(InputStream.class, null)) {
-        uploads.add(uploadFile(fileName, fileInputStream, metadata));
+        byte[] fileBytes = fileInputStream.readAllBytes();
+        uploads.add(uploadFile(fileName, new ByteArrayInputStream(fileBytes), metadata));
       } catch (Exception e) {
-        log.error("Failed to save file '" + fileName + "'. Error: " + e.getMessage());
-        return Single.just(false);
+        log.error("Failed to process file '{}': error={}", fileName, e.getMessage(), e);
+        return Single.error(new RuntimeException("Failed to process file '" + fileName + "': " + e.getMessage(), e));
       }
+    }
+
+    if (uploads.isEmpty()) {
+      log.error("No valid files to upload after processing");
+      return Single.error(new IllegalArgumentException("No valid files to upload"));
     }
 
     return Single.merge(uploads)
         .toList()
-        .map(res -> res.stream().allMatch(res1 -> res1 == true));
+        .flatMap(res -> {
+          boolean allSuccess = res.stream().allMatch(result -> result == true);
+          if (!allSuccess) {
+            log.error("One or more file uploads failed: totalFiles={}, successful={}", 
+                res.size(), res.stream().mapToInt(b -> b ? 1 : 0).sum());
+            return Single.error(new RuntimeException("One or more file uploads failed"));
+          }
+          return Single.just(true);
+        });
   }
 
 
