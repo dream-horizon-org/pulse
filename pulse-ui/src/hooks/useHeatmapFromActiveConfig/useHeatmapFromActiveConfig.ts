@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useGetActiveSdkConfig } from "../useSdkConfig";
 import { HEATMAP_FEATURE_NAME } from "../../screens/SamplingConfig/SamplingConfig.constants";
+import type { FeatureConfig } from "../../screens/SamplingConfig/SamplingConfig.interface";
 
 export interface UseHeatmapFromActiveConfigParams {
   enabled?: boolean;
@@ -18,14 +19,13 @@ export function useHeatmapFromActiveConfig({
   const hasProject = Boolean(projectId);
   const { data, isLoading, isFetching, error } = useGetActiveSdkConfig({
     enabled: enabled && hasProject,
-    projectId,
   });
 
   const isHeatmapEnabled = useMemo(() => {
     const features = data?.data?.features;
     if (!features?.length) return false;
     const heatmap = features.find(
-      (f) => f.featureName === HEATMAP_FEATURE_NAME,
+      (f: FeatureConfig) => f.featureName === HEATMAP_FEATURE_NAME,
     );
     return heatmap != null && heatmap.sessionSampleRate === 1;
   }, [data]);
