@@ -1,7 +1,19 @@
 # SignPost Integration
 
-This integration creates `os_signpost` `begin` and `end` calls when spans are started or ended. It allows automatic integration of applications
-instrumented with opentelemetry to show their spans in a profiling app like `Instruments`. It also exports the `OSLog` it uses for posting so the user can add extra signpost events. This functionality is shown in `Simple Exporter` example
+This integration creates `os_signpost` `begin` and `end` calls when spans are started or ended. It allows automatic integration of applications instrumented with OpenTelemetry to show their spans in a profiling app like Instruments. It also exports the `OSLog` it uses for posting so the user can add extra signpost events.
+
+## PulseKit DSL (recommended)
+
+When using PulseKit, enable or disable SignPost via the `instrumentations` closure. It is **enabled by default** and the SDK selects the correct integration for the running OS automatically.
+
+```swift
+Pulse.shared.initialize(
+    endpointBaseUrl: "https://your-backend.com",
+    apiKey: "your-api-key"
+) { config in
+    config.signPost { $0.enabled(true) }   // default: true
+}
+```
 
 ## Version Notice
 

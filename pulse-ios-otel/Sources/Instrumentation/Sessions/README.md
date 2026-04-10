@@ -15,14 +15,14 @@ Automatic session tracking for OpenTelemetry Swift applications. Creates unique 
 
 ## Setup
 
-Session instrumentation is configured via PulseSDK initialization in your app's `AppDelegate.swift`:
+Session instrumentation is configured via the `instrumentations` closure in your app's `AppDelegate.swift`:
 
 ```swift
-import PulseSDK
+import PulseKit
 
-PulseSDK.initialize(
+Pulse.shared.initialize(
     endpointBaseUrl: "https://your-endpoint.com",
-    projectId: "your-project-id",
+    apiKey: "your-api-key",
     instrumentations: { config in
         config.sessions { sessionsConfig in
             sessionsConfig.enabled(true) // true (default)

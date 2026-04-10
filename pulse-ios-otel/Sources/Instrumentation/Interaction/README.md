@@ -45,7 +45,7 @@ Pulse.shared.initialize(
 ### 2. Track Events
 
 ```swift
-PulseKit.shared.trackEvent(
+Pulse.shared.trackEvent(
     name: "cart_viewed",
     observedTimeStampInMs: Int64(Date().timeIntervalSince1970 * 1000),
     params: ["itemCount": 3]
@@ -133,7 +133,7 @@ class CheckoutViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        PulseKit.shared.trackEvent(
+        Pulse.shared.trackEvent(
             name: "cart_viewed",
             observedTimeStampInMs: timestamp
         )
@@ -141,7 +141,7 @@ class CheckoutViewController: UIViewController {
 
     func onPaymentSubmit() {
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        PulseKit.shared.trackEvent(
+        Pulse.shared.trackEvent(
             name: "payment_entered",
             observedTimeStampInMs: timestamp,
             params: ["paymentMethod": "credit_card"]
@@ -150,7 +150,7 @@ class CheckoutViewController: UIViewController {
 
     func onOrderSuccess(orderId: String) {
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        PulseKit.shared.trackEvent(
+        Pulse.shared.trackEvent(
             name: "order_placed",
             observedTimeStampInMs: timestamp,
             params: ["orderId": orderId]

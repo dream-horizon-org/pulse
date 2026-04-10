@@ -141,7 +141,7 @@ Notes:
 ```swift
 Pulse.shared.initialize(
     endpointBaseUrl: "...",
-    projectId: "...",
+    apiKey: "...",
     instrumentations: { config in
         config.uiKitTap { tap in
             tap.enabled(true)          // default: false
