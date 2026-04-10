@@ -10,7 +10,6 @@ PULSE_SERVER_BASE_URL = os.getenv("PULSE_SERVER_BASE_URL", "http://localhost:808
 REPORT_AGENT_NAME = "ReportAgent"
 PIPELINE_AGENT_NAME = "PulseAIPipeline"
 RCA_ANALYZER_AGENT_NAME = "RcaAnalyzerAgent"
-RCA_REPORT_AGENT_NAME = "RcaReportAgent"
 RCA_FORMATTER_AGENT_NAME = "RcaFormatterAgent"
 RCA_PIPELINE_AGENT_NAME = "RcaPipeline"
 

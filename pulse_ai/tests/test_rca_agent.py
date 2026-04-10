@@ -3,8 +3,8 @@
 Tests cover:
 1. RCA agent wiring (model, output_key, no tools, callable instruction)
 2. RCA prompt content (hierarchy analysis, correlation, threshold flags)
-3. RCA pipeline structure (SequentialAgent with rca_agent + report_agent)
-4. Report agent genericization (callable prompt reads from multiple state keys)
+3. RCA pipeline structure (SequentialAgent with rca_agent + rca_formatter_agent)
+4. Report agent genericization (callable prompt reads from EM state key)
 """
 
 import pytest
@@ -44,7 +44,7 @@ class TestRcaAgentWiring:
 
     def test_rca_agent_name(self):
         from pulse_ai.agents.rca import rca_agent
-        assert rca_agent.name == "rca_agent"
+        assert rca_agent.name == "RcaAnalyzerAgent"
 
     def test_rca_agent_output_key(self):
         from pulse_ai.agents.rca import rca_agent
@@ -113,7 +113,7 @@ class TestRcaPromptContent:
 # ──────────────────────────────────────────────────────────────
 
 class TestRcaPipeline:
-    """Verify rca_pipeline is a SequentialAgent with rca_agent + report_agent."""
+    """Verify rca_pipeline is a SequentialAgent with rca_agent + rca_formatter_agent."""
 
     def test_rca_pipeline_exists(self):
         from pulse_ai.agents.rca import rca_pipeline_agent
@@ -126,7 +126,7 @@ class TestRcaPipeline:
 
     def test_rca_pipeline_name(self):
         from pulse_ai.agents.rca import rca_pipeline_agent
-        assert rca_pipeline_agent.name == "rca_pipeline"
+        assert rca_pipeline_agent.name == "RcaPipeline"
 
     def test_rca_pipeline_has_two_sub_agents(self):
         from pulse_ai.agents.rca import rca_pipeline_agent
@@ -136,12 +136,12 @@ class TestRcaPipeline:
     def test_rca_pipeline_first_agent_is_rca(self):
         from pulse_ai.agents.rca import rca_pipeline_agent
         first = rca_pipeline_agent.sub_agents[0]
-        assert first.name == "rca_agent"
+        assert first.name == "RcaAnalyzerAgent"
 
-    def test_rca_pipeline_second_agent_is_report(self):
+    def test_rca_pipeline_second_agent_is_formatter(self):
         from pulse_ai.agents.rca import rca_pipeline_agent
         second = rca_pipeline_agent.sub_agents[1]
-        assert second.name == "ReportAgent"
+        assert second.name == "RcaFormatterAgent"
 
     def test_rca_pipeline_has_description(self):
         from pulse_ai.agents.rca import rca_pipeline_agent
@@ -168,24 +168,6 @@ class TestReportAgentGeneric:
         prompt = build_report_prompt(ctx)
         assert "EM analysis output here" in prompt
 
-    def test_report_prompt_reads_rca_result(self):
-        """When state has rca_analysis_result, the prompt includes it."""
-        from pulse_ai.agents.report.prompts import build_report_prompt
-        ctx = MockReadonlyContext({"rca_analysis_result": "RCA insight output here"})
-        prompt = build_report_prompt(ctx)
-        assert "RCA insight output here" in prompt
-
-    def test_report_prompt_rca_takes_priority(self):
-        """When both keys exist, rca_analysis_result takes priority
-        (it was written last in its pipeline)."""
-        from pulse_ai.agents.report.prompts import build_report_prompt
-        ctx = MockReadonlyContext({
-            "engineering_manager_result": "EM data",
-            "rca_analysis_result": "RCA data",
-        })
-        prompt = build_report_prompt(ctx)
-        assert "RCA data" in prompt
-
     def test_report_prompt_fallback_no_state(self):
         """When no analysis key is present, prompt shows fallback message."""
         from pulse_ai.agents.report.prompts import build_report_prompt
@@ -208,62 +190,7 @@ class TestReportAgentGeneric:
 
 
 # ──────────────────────────────────────────────────────────────
-# 5. RCA-context-aware report prompt output format
-# ──────────────────────────────────────────────────────────────
-
-class TestRcaContextReportPrompt:
-    """Verify that when rca_analysis_result is in state, the report prompt
-    gives RCA-specific output guidance (concise 2-line summary + insights).
-    """
-
-    def _make_ctx(self, state: dict):
-        return MockReadonlyContext(state)
-
-    def test_rca_context_prompt_mentions_executive_summary(self):
-        """When RCA result is in state, prompt must instruct the agent to
-        surface the Executive Summary prominently."""
-        from pulse_ai.agents.report.prompts import build_report_prompt
-        ctx = self._make_ctx({"rca_analysis_result": "RCA output here"})
-        prompt = build_report_prompt(ctx)
-        assert "executive summary" in prompt.lower()
-
-    def test_rca_context_prompt_instructs_concise_output(self):
-        """When RCA result is in state, prompt must instruct the agent to
-        keep its response concise / precise (not a verbose EM-style report)."""
-        from pulse_ai.agents.report.prompts import build_report_prompt
-        ctx = self._make_ctx({"rca_analysis_result": "RCA output here"})
-        prompt = build_report_prompt(ctx)
-        assert "concise" in prompt.lower() or "precise" in prompt.lower()
-
-    def test_rca_context_prompt_asks_for_recommendations(self):
-        """When RCA result is in state, prompt must ask for actionable
-        recommendations / insights."""
-        from pulse_ai.agents.report.prompts import build_report_prompt
-        ctx = self._make_ctx({"rca_analysis_result": "RCA output here"})
-        prompt = build_report_prompt(ctx)
-        assert "recommendation" in prompt.lower() or "actionable" in prompt.lower()
-
-    def test_rca_context_prompt_handles_no_anomalies(self):
-        """When rca_analysis_result says no anomalies, prompt must instruct
-        the agent to skip charts and confirm health."""
-        from pulse_ai.agents.report.prompts import build_report_prompt
-        ctx = self._make_ctx({"rca_analysis_result": "No significant anomalies detected."})
-        prompt = build_report_prompt(ctx)
-        # 'no significant anomalies' text is injected into the prompt
-        assert "no significant anomalies" in prompt.lower()
-
-    def test_em_context_prompt_does_not_mention_executive_summary(self):
-        """When only EM result is in state (no RCA), prompt should NOT inject
-        the RCA-specific executive summary instruction."""
-        from pulse_ai.agents.report.prompts import build_report_prompt
-        ctx = self._make_ctx({"engineering_manager_result": "EM analysis here"})
-        prompt = build_report_prompt(ctx)
-        # executive summary instruction is RCA-specific — should not bleed in
-        assert "executive summary" not in prompt.lower()
-
-
-# ──────────────────────────────────────────────────────────────
-# 6. RCA analyzer prompt must NOT contain "Instructions for Report Agent"
+# 5. RCA analyzer prompt must NOT contain "Instructions for Report Agent"
 # ──────────────────────────────────────────────────────────────
 
 class TestRcaAnalyzerPromptClean:
@@ -295,7 +222,7 @@ class TestRcaAnalyzerPromptClean:
 
 
 # ──────────────────────────────────────────────────────────────
-# 7. root_agent must be the EM pipeline (not rca_pipeline)
+# 6. root_agent must be the EM pipeline (not rca_pipeline)
 # ──────────────────────────────────────────────────────────────
 
 class TestRootAgentIsEmPipeline:

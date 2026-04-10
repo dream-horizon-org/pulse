@@ -108,4 +108,15 @@ async def generate_rca_report(
         raise RcaRunnerError(500, "RCA report missing structured payload")
 
     report_payload = ReportPayloadSchema(structured=structured_report)
-    return RcaReportResponse(report=report_payload, cached=False)
+    response = RcaReportResponse(report=report_payload, cached=False)
+
+    try:
+        await runner.session_service.delete_session(
+            app_name=runner.app_name,
+            user_id=USER_ID_RCA,
+            session_id=session_id,
+        )
+    except Exception:
+        logger.warning("Failed to delete ephemeral RCA session %s", session_id, exc_info=True)
+
+    return response
