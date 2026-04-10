@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.dao.interaction.InteractionDao;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
@@ -31,6 +32,7 @@ class HeatmapServiceImplTest {
 
   @Mock private ConfigService configService;
   @Mock private ClickhouseQueryService clickhouseQueryService;
+  @Mock private InteractionDao interactionDao;
 
   @InjectMocks private HeatmapServiceImpl heatmapService;
 
@@ -117,6 +119,8 @@ class HeatmapServiceImplTest {
               .build();
 
       when(configService.getActiveSdkConfig(PROJECT)).thenReturn(Single.just(cfg));
+      when(interactionDao.getAllActiveAndRunningInteractions(PROJECT))
+          .thenReturn(Single.just(Collections.emptyList()));
       when(clickhouseQueryService.executeQueryOrCreateJob(any(), any()))
           .thenReturn(
               Single.just(QueryResultResponse.builder().rows(Collections.emptyList()).build()));

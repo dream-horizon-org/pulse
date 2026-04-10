@@ -17,6 +17,16 @@ public final class HeatmapQueries {
       """;
 
   /**
+   * Distinct {@code AppVersion} values in the heatmap slice (same {@code WHERE} as aggregates, with
+   * no {@code AppVersion} predicate). Used to pick the greatest semantic version in Java.
+   */
+  public static final String DISTINCT_APP_VERSIONS_IN_SLICE = """
+      SELECT DISTINCT AppVersion AS app_version
+      FROM otel.interaction_heatmaps_daily
+      WHERE %s
+      """;
+
+  /**
    * Distinct span event names observed on a screen via {@code Events.Attributes['screen.name']}
    * (not span-level {@code SpanAttributes['screen.name']}).
    */
