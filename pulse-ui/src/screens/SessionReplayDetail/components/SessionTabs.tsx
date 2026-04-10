@@ -2,9 +2,10 @@ import { Paper, Box, Tabs } from "@mantine/core";
 import {
   IconHandClick,
   IconTerminal,
-  IconNetwork,
-  IconGauge,
+  IconWorld,
+  IconShieldCheck,
   IconRoute2,
+  IconChartLine,
 } from "@tabler/icons-react";
 import { AllTab } from "./AllTab";
 import { InteractionTab } from "./InteractionTab";
@@ -45,25 +46,27 @@ export function SessionTabs({
       <Tabs
         value={activeTab}
         onChange={(value) => onTabChange(value || TABS.ALL)}
-        classNames={{ root: classes.sessionTabsRoot }}
+        classNames={{
+          root: classes.sessionTabsRoot,
+          tabLabel: classes.sessionTabLabel,
+        }}
       >
         <Tabs.List>
-          <Tabs.Tab value={TABS.ALL}>{TAB_LABELS.ALL}</Tabs.Tab>
+          <Tabs.Tab value={TABS.ALL} leftSection={<IconChartLine size={14} />}>
+            {TAB_LABELS.ALL}
+          </Tabs.Tab>
           <Tabs.Tab
             value={TABS.INTERACTION}
             leftSection={<IconHandClick size={14} />}
           >
             {TAB_LABELS.INTERACTION}
           </Tabs.Tab>
-          <Tabs.Tab
-            value={TABS.NETWORK}
-            leftSection={<IconNetwork size={14} />}
-          >
+          <Tabs.Tab value={TABS.NETWORK} leftSection={<IconWorld size={14} />}>
             {TAB_LABELS.NETWORK}
           </Tabs.Tab>
           <Tabs.Tab
             value={TABS.PERFORMANCE}
-            leftSection={<IconGauge size={14} />}
+            leftSection={<IconShieldCheck size={14} />}
           >
             {TAB_LABELS.PERFORMANCE}
           </Tabs.Tab>

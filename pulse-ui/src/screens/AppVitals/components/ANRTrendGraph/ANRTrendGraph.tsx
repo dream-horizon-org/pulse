@@ -9,17 +9,24 @@ export function ANRTrendGraph({
   appVersion = "all",
   osVersion = "all",
   device = "all",
+  platform = "all",
+  networkProvider = "all",
+  state = "all",
   screenName,
   title,
   lineColor,
+  onTimeFilterChange,
 }: ANRTrendGraphProps) {
-  const { trendData, queryState } = useTrendData({
+  const { trendData, queryState, bucketSize } = useTrendData({
     startTime,
     endTime,
     eventName: "device.anr",
     appVersion,
     osVersion,
     device,
+    platform,
+    networkProvider,
+    state,
     screenName,
   });
 
@@ -35,9 +42,13 @@ export function ANRTrendGraph({
     >
       <TrendGraph
         data={trendData}
+        bucketSize={bucketSize}
         title={title}
         dataKey="count"
         lineColor={lineColor}
+        rangeStart={startTime}
+        rangeEnd={endTime}
+        onTimeFilterChange={onTimeFilterChange}
       />
     </QueryState>
   );

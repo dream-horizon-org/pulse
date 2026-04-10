@@ -2,6 +2,19 @@
  * Session List page – copy, config, and magic numbers in one place.
  */
 
+import type { SortField } from "../../../services/sessionReplay";
+
+/** Sort fields wired to clickable column headers on the session list */
+export const SESSION_LIST_SORT_FIELD = {
+  START_TIME: "START_TIME",
+  DURATION: "DURATION",
+  QUALITY_SCORE: "QUALITY_SCORE",
+} as const satisfies {
+  START_TIME: SortField;
+  DURATION: SortField;
+  QUALITY_SCORE: SortField;
+};
+
 export const DEFAULT_DATE_PRESET = "24h";
 
 export const TIME_RANGE_OPTIONS = [
@@ -30,7 +43,7 @@ export const SESSION_LIST_LABELS = {
   backToInsights: "Back to Insights",
   pageTitle: "Session List",
   pageSubtitle:
-    "Watch reconstructed user sessions to understand why interactions failed, conversions dropped, or users got frustrated",
+    "Watch reconstructed user sessions to understand why interactions failed, conversions dropped, or users got frustrated. Click a session to open the replay and see the full journey.",
   emptyStateSubtitleFiltered: "Filtered sessions based on your selection",
   emptyStateTitle: "No Sessions Found",
   emptyStateDescriptionWithFilters:
@@ -46,6 +59,7 @@ export const SESSION_LIST_LABELS = {
   sectionTitle: "Sessions for Investigation",
   sectionDescription:
     "Click on any session to watch the replay and understand the full user journey",
+  sessionsCountSuffix: "SESSIONS",
   quickFiltersLabel: "Quick filters:",
   advancedFilters: "Advanced Filters",
   searchPlaceholder: "Search by userId, sessionId...",
@@ -53,7 +67,6 @@ export const SESSION_LIST_LABELS = {
   previous: "Previous",
   next: "Next",
   loading: "Loading sessions...",
-  moreAvailable: "(more available)",
   anonymousUser: "Anonymous",
   noQuality: "NA",
   noImpactedScreens: "Na",

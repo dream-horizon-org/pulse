@@ -15,6 +15,7 @@ export function useSessionReplayFromActiveConfig({
   const hasProject = Boolean(projectId);
   const { data, isLoading, isFetching, error } = useGetActiveSdkConfig({
     enabled: enabled && hasProject,
+    projectId,
   });
 
   const isSessionReplayEnabled = useMemo(() => {

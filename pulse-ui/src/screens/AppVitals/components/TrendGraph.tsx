@@ -1,20 +1,56 @@
 import { Box, Text, Paper } from "@mantine/core";
+import { useMemo } from "react";
 import { LineChart } from "../../../components/Charts";
 import classes from "./TrendGraph.module.css";
+import {
+  trendRangeSpansMultipleUtcDays,
+  formatTrendDate,
+  trendBrushSelectionToTimeFilter,
+} from "./TrendGraphWithData/helpers/trendDataHelpers";
+import type { TimeBucketSize } from "../../../utils/TimeBucketUtil";
+import type { StartEndDateTimeType } from "../../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
+
+export interface TrendGraphDataPoint {
+  bucketTime: string;
+  count: number;
+}
 
 interface TrendGraphProps {
-  data: Array<{ date: string; count: number }>;
+  data: TrendGraphDataPoint[];
+  bucketSize: TimeBucketSize;
   title: string;
   dataKey?: string;
   lineColor?: string;
+  /** ISO range (same as data query); used for x-axis label density and rotation. */
+  rangeStart?: string;
+  rangeEnd?: string;
+  onTimeFilterChange?: (value: StartEndDateTimeType) => void;
 }
 
 export const TrendGraph: React.FC<TrendGraphProps> = ({
   data = [],
+  bucketSize,
   title = "Trend",
   dataKey = "count",
   lineColor = "#0ec9c2",
+  rangeStart,
+  rangeEnd,
+  onTimeFilterChange,
 }) => {
+  const multiDay =
+    rangeStart &&
+    rangeEnd &&
+    trendRangeSpansMultipleUtcDays(rangeStart, rangeEnd);
+
+  const mapBrushToTimeFilter = useMemo(
+    () =>
+      onTimeFilterChange
+        ? (startIso: string, endIso: string) =>
+            trendBrushSelectionToTimeFilter(startIso, endIso, bucketSize)
+        : undefined,
+    [onTimeFilterChange, bucketSize],
+  );
+
   if (data.length === 0) {
     return (
       <Paper withBorder p="md" mb="lg">
@@ -35,10 +71,22 @@ export const TrendGraph: React.FC<TrendGraphProps> = ({
       <Box style={{ height: 225 }}>
         <LineChart
           height={225}
+          onTimeFilterChange={onTimeFilterChange}
+          mapBrushToTimeFilter={mapBrushToTimeFilter}
           option={{
+            grid: {
+              top: "20",
+              left: "25",
+              right: "25",
+              bottom: multiDay ? 56 : 50,
+              containLabel: true,
+            },
             xAxis: {
               type: "category",
-              data: data.map((d) => d.date),
+              data: data.map((d) => d.bucketTime),
+              axisLabel: {
+                formatter: (value: string) => formatTrendDate(value, bucketSize),
+              },
             },
             yAxis: {
               type: "value",
@@ -47,7 +95,7 @@ export const TrendGraph: React.FC<TrendGraphProps> = ({
               {
                 name: "Occurrences",
                 color: lineColor,
-                data: data.map((d) => d[dataKey as keyof typeof d]),
+                data: data.map((d) => d[dataKey as keyof TrendGraphDataPoint]),
               },
             ],
           }}

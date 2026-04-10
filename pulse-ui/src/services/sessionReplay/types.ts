@@ -672,6 +672,8 @@ export type SessionItem = {
   spanCount: number;
   journey: string[];
   impactedScreens: ImpactedScreens | null;
+
+  impactedInteractionNames?: string[];
 };
 
 export type SessionListingResponse = {

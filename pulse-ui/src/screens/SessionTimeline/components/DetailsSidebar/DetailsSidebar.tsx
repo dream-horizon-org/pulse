@@ -40,6 +40,8 @@ import type { ExceptionDetailsResponse } from "../../../../hooks/useGetSpanDetai
 interface DetailsSidebarProps {
   item: FlameChartNode | null;
   onClose: () => void;
+  sessionStartTime?: string;
+  sessionEndTime?: string;
 }
 
 type TabType = "attributes" | "events" | "links";
@@ -54,7 +56,12 @@ function getStatusClass(statusCode: string): string {
   return classes.statusUnset;
 }
 
-export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
+export function DetailsSidebar({
+  item,
+  onClose,
+  sessionStartTime,
+  sessionEndTime,
+}: DetailsSidebarProps) {
   const [activeTab, setActiveTab] = useState<TabType>("attributes");
 
   const isLog = item?.type === "log" || item?.type === "orphan-log";
@@ -76,6 +83,8 @@ export function DetailsSidebar({ item, onClose }: DetailsSidebarProps) {
     spanId: item?.spanId || "",
     timestamp: getMetadataString(item?.metadata?.timestamp),
     groupId: getMetadataString(item?.metadata?.groupId),
+    sessionStartTime,
+    sessionEndTime,
     enabled: !!item,
   });
 
