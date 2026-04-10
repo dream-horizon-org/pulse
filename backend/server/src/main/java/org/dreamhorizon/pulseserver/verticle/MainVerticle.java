@@ -250,19 +250,28 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private RootCauseConfig buildRootCauseConfig(JsonObject rootCauseJson) {
-    RootCauseConfig from = RootCauseConfig.builder()
-        .similarityThresholdPct(rootCauseJson.getInteger("similarityThresholdPct", 0))
-        .lookbackDays(rootCauseJson.getInteger("lookbackDays", 0))
-        .maxSegments(rootCauseJson.getInteger("maxSegments", 0))
-        .build();
-    if (rootCauseJson.getValue("dimensionOrder") != null) {
-      List<String> dimensionOrder = new java.util.ArrayList<>();
+    final RootCauseConfig.RootCauseConfigBuilder builder = RootCauseConfig.builder()
+        .similarityThresholdPct(rootCauseJson.getInteger("similarityThresholdPct",
+            RootCauseConfig.DEFAULT_SIMILARITY_THRESHOLD_PCT))
+        .lookbackDays(rootCauseJson.getInteger("lookbackDays",
+            RootCauseConfig.DEFAULT_LOOKBACK_DAYS))
+        .maxSegments(rootCauseJson.getInteger("maxSegments",
+            RootCauseConfig.DEFAULT_MAX_SEGMENTS));
+
+    final Object dimensionOrderValue = rootCauseJson.getValue("dimensionOrder");
+    final boolean hasCustomDimensionOrder = dimensionOrderValue != null;
+
+    if (hasCustomDimensionOrder) {
+      final List<String> dimensionOrder = new java.util.ArrayList<>();
       for (Object o : rootCauseJson.getJsonArray("dimensionOrder").getList()) {
         dimensionOrder.add(o == null ? "" : o.toString());
       }
-      from.setDimensionOrder(dimensionOrder);
+      builder.dimensionOrder(dimensionOrder);
+    } else {
+      builder.dimensionOrder(RootCauseConfig.DEFAULT_DIMENSION_ORDER);
     }
-    return RootCauseConfig.withDefaults(from);
+
+    return builder.build();
   }
 
   private WebClientOptions getWebClientOptions(JsonObject config) {

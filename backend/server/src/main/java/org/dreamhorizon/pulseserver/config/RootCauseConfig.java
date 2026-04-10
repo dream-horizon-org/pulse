@@ -1,53 +1,62 @@
 package org.dreamhorizon.pulseserver.config;
 
-import com.google.inject.Singleton;
-import java.util.Collections;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Singleton
 public class RootCauseConfig {
 
-  private static final List<String> DEFAULT_DIMENSION_ORDER = List.of(
+  /** Default similarity threshold (%). Segment must have at least this % of total problematic to be "similar." */
+  public static final int DEFAULT_SIMILARITY_THRESHOLD_PCT = 75;
+  /** Default lookback window in days for querying otel_traces. */
+  public static final int DEFAULT_LOOKBACK_DAYS = 7;
+  /** Default maximum segments in the result (hierarchy + flat combined). */
+  public static final int DEFAULT_MAX_SEGMENTS = 4;
+  /** Default dimension order for tie-breaking and flat segments. */
+  public static final List<String> DEFAULT_DIMENSION_ORDER = List.of(
       "Platform", "OsVersion", "AppVersion", "DeviceModel", "NetworkProvider", "GeoState");
 
-  /** Similarity threshold (%). Segment must have at least this % of total problematic to be "similar." Default 75. */
-  private int similarityThresholdPct = 75;
-  /** Lookback window in days for querying otel_traces. Default 7. */
-  private int lookbackDays = 7;
-  /** Maximum segments in the result (hierarchy + flat combined). Default 4. */
-  private int maxSegments = 4;
-  /** Dimension order for tie-breaking and flat segments. Default: Platform, OsVersion, AppVersion, DeviceModel, NetworkProvider, GeoState. */
+  private int similarityThresholdPct;
+  private int lookbackDays;
+  private int maxSegments;
   private List<String> dimensionOrder;
 
   /**
-   * Returns a config with zero/unset values replaced by defaults.
-   * If {@code from} is null, returns a fully default instance.
+   * Creates a config with defaults applied for any unset (zero or null) values.
+   *
+   * @param from the source config, may have zero/null values
+   * @return a new config with defaults applied
    */
   public static RootCauseConfig withDefaults(RootCauseConfig from) {
-    if (from == null) {
+    final boolean isFromNull = from == null;
+    if (isFromNull) {
       return RootCauseConfig.builder()
-          .similarityThresholdPct(75)
-          .lookbackDays(7)
-          .maxSegments(4)
+          .similarityThresholdPct(DEFAULT_SIMILARITY_THRESHOLD_PCT)
+          .lookbackDays(DEFAULT_LOOKBACK_DAYS)
+          .maxSegments(DEFAULT_MAX_SEGMENTS)
           .dimensionOrder(DEFAULT_DIMENSION_ORDER)
           .build();
     }
-    int similarityThresholdPct = from.similarityThresholdPct <= 0 ? 75 : from.similarityThresholdPct;
-    int lookbackDays = from.lookbackDays <= 0 ? 7 : from.lookbackDays;
-    int maxSegments = from.maxSegments <= 0 ? 4 : from.maxSegments;
-    List<String> dimensionOrder = (from.dimensionOrder == null || from.dimensionOrder.isEmpty())
+
+    final int similarityThresholdPct = from.similarityThresholdPct <= 0
+        ? DEFAULT_SIMILARITY_THRESHOLD_PCT
+        : from.similarityThresholdPct;
+    final int lookbackDays = from.lookbackDays <= 0
+        ? DEFAULT_LOOKBACK_DAYS
+        : from.lookbackDays;
+    final int maxSegments = from.maxSegments <= 0
+        ? DEFAULT_MAX_SEGMENTS
+        : from.maxSegments;
+    final List<String> dimensionOrder = (from.dimensionOrder == null || from.dimensionOrder.isEmpty())
         ? DEFAULT_DIMENSION_ORDER
         : from.dimensionOrder;
+
     return RootCauseConfig.builder()
         .similarityThresholdPct(similarityThresholdPct)
         .lookbackDays(lookbackDays)
