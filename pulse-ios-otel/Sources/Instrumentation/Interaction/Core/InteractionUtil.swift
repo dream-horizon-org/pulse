@@ -9,9 +9,9 @@ import Foundation
 internal enum InteractionUtil {
     internal struct InteractionBuildError {
         let type: InteractionErrorType
-        var timeoutExpectedEventName: String? = nil
-        var sequenceViolationExpectedEventName: String? = nil
-        var sequenceViolationReceivedEventName: String? = nil
+        var timeoutExpectedEventName: String?
+        var sequenceViolationExpectedEventName: String?
+        var sequenceViolationReceivedEventName: String?
     }
 
     private static func interactionErrorMessage(_ error: InteractionBuildError) -> String {
@@ -60,7 +60,7 @@ internal enum InteractionUtil {
             isMatchOnGoing = false
         }
 
-        var newInteractionStatus: MatchResult? = nil
+        var newInteractionStatus: MatchResult?
 
         var localEventIndex = 0
         while localEventIndex < localEvents.count {
@@ -294,7 +294,7 @@ internal enum InteractionUtil {
                 InteractionAttributes.apdexScore: upTimeIndex,
                 InteractionAttributes.userCategory: timeCategory?.rawValue,
                 InteractionAttributes.timeToCompleteInNano: timeDifferenceInNano,
-                InteractionAttributes.isError: error != nil,
+                InteractionAttributes.isError: error != nil
             ]
             if let error = error {
                 m[InteractionAttributes.errorType] = error.type.code
