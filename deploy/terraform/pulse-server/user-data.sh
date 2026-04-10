@@ -158,7 +158,7 @@ set +a
 
 nohup java \
     -Dlogback.configurationFile=$APPLICATION_NAME/logback/logback.xml \
-    -jar "$APPLICATION_NAME/$APPLICATION_NAME.jar" \
+    -jar "$APPLICATION_NAME/$APPLICATION_NAME".jar \
     run org.dreamhorizon.pulseserver.verticle.MainVerticle \
     > "$APPLICATION_NAME".log 2>&1 &
 
