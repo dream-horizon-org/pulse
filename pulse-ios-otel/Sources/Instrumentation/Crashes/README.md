@@ -19,13 +19,13 @@ For detailed functionality and behavior, see [KSCrash](https://github.com/kstene
 
 When a crash is detected and the app relaunches, the following attributes are emitted on the `device.crash` log event:
 
-| Attribute | Description |
-|-----------|-------------|
-| `exception.type` | Exception or signal name (e.g. `NSRangeException`, `SIGABRT`, `EXC_BAD_ACCESS`) |
-| `exception.message` | Exception reason or crash diagnosis |
-| `exception.stacktrace` | Full Apple-format crash report |
-| `thread.id` | Index of the crashed thread |
-| `thread.name` | Thread name or dispatch queue label |
+| Attribute              | Description                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| `exception.type`       | Exception or signal name (e.g. `NSRangeException`, `SIGABRT`, `EXC_BAD_ACCESS`) |
+| `exception.message`    | Exception reason or crash diagnosis                                             |
+| `exception.stacktrace` | Full Apple-format crash report                                                  |
+| `thread.id`            | Index of the crashed thread                                                     |
+| `thread.name`          | Thread name or dispatch queue label                                             |
 
 These follow the [OpenTelemetry Exception semantic conventions](https://opentelemetry.io/docs/specs/semconv/registry/attributes/exception/) and [Thread semantic conventions](https://opentelemetry.io/docs/specs/semconv/registry/attributes/thread/).
 
@@ -45,4 +45,4 @@ KSCrash's signal and Mach handlers are intercepted by LLDB, so crashes must be t
    - NSException (Obj-C)
    - Fatal Error (Swift)
 4. Tap the app icon again — the crash report will be processed and emitted as a `device.crash` log event
-6. Check your backend for the emitted crash attributes
+5. Check your backend for the emitted crash attributes

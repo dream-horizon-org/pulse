@@ -6,7 +6,7 @@ Automatic screen recording for iOS applications. Captures screenshots at configu
 
 ## Consent and `Pulse.initialize`
 
-Replay respects `dataCollectionState` on `Pulse.initialize` and `Pulse.setDataCollectionState`:
+Replay respects `dataCollectionState` on `Pulse.shared.initialize` and `Pulse.shared.setDataCollectionState`:
 
 - **`.allowed`:** install + start capturing when the app is active; disk cache may upload.
 - **`.pending`:** install only — no screenshots, no cached replay upload until consent becomes `.allowed` (then resume without resetting snapshot state).
@@ -14,7 +14,7 @@ Replay respects `dataCollectionState` on `Pulse.initialize` and `Pulse.setDataCo
 - **`.allowed` → `.pending`:** pause capture and periodic upload; on-disk batches in `pulse-replay/` are retained.
 - **`.pending` → `.allowed`:** consent buffers flush for OTLP; replay resumes with `resumeAfterConsent()` (same session semantics as `resumeCurrent=true` on other platforms).
 
-See also [Consent README](../../PulseKit/Consent/README.md). For a short logical overview (including consent), see [WORKFLOW.md](./WORKFLOW.md).
+See also [Consent README](../../PulseKit/Consent/README.md).
 
 ## Features
 
@@ -29,12 +29,12 @@ See also [Consent README](../../PulseKit/Consent/README.md). For a short logical
 
 ## Setup
 
-Session Replay instrumentation is configured via PulseSDK initialization in your app's `AppDelegate.swift`:
+Session Replay instrumentation is configured when initializing Pulse in your app's `AppDelegate.swift` (or `@main` app entry):
 
 ```swift
-import PulseSDK
+import PulseKit
 
-PulseSDK.initialize(
+Pulse.shared.initialize(
     endpointBaseUrl: "https://your-endpoint.com",
     apiKey: "your-project-id",
     instrumentations: { config in
@@ -60,36 +60,36 @@ PulseSDK.initialize(
 
 Session Replay configuration options:
 
-| Field                        | Type                    | Description                                                          | Default              |
-| ---------------------------- | ----------------------- | -------------------------------------------------------------------- | -------------------- |
-| `captureIntervalMs`         | `Int`                   | Interval between frame captures in milliseconds                      | `1000` (1 second)   |
-| `compressionQuality`        | `CGFloat`               | Image compression quality (0.0-1.0)                                 | `0.3`                |
-| `textAndInputPrivacy`       | `TextAndInputPrivacy`   | Privacy level for text and input fields                              | `.maskAll`           |
-| `imagePrivacy`              | `ImagePrivacy`          | Privacy level for images                                             | `.maskAll`           |
-| `screenshotScale`           | `CGFloat`               | Scale factor for screenshots (0.0-1.0)                               | `1.0`                |
-| `flushIntervalSeconds`      | `TimeInterval`          | Time-based flush interval in seconds                                 | `60`                 |
-| `flushAt`                   | `Int`                   | Number of batches to queue before triggering flush                   | `10`                 |
-| `maxBatchSize`              | `Int`                   | Maximum number of batches to send per flush                          | `50`                 |
-| `replayEndpointBaseUrl`     | `String?`               | Custom endpoint URL for replay data (overrides main endpoint)        | `nil`                |
-| `maskViewClasses`           | `Set<String>`           | View class names to always mask                                      | `[]`                 |
-| `unmaskViewClasses`         | `Set<String>`           | View class names to always unmask                                    | `[]`                 |
+| Field                   | Type                  | Description                                                   | Default           |
+| ----------------------- | --------------------- | ------------------------------------------------------------- | ----------------- |
+| `captureIntervalMs`     | `Int`                 | Interval between frame captures in milliseconds               | `1000` (1 second) |
+| `compressionQuality`    | `CGFloat`             | Image compression quality (0.0-1.0)                           | `0.3`             |
+| `textAndInputPrivacy`   | `TextAndInputPrivacy` | Privacy level for text and input fields                       | `.maskAll`        |
+| `imagePrivacy`          | `ImagePrivacy`        | Privacy level for images                                      | `.maskAll`        |
+| `screenshotScale`       | `CGFloat`             | Scale factor for screenshots (0.0-1.0)                        | `1.0`             |
+| `flushIntervalSeconds`  | `TimeInterval`        | Time-based flush interval in seconds                          | `60`              |
+| `flushAt`               | `Int`                 | Number of batches to queue before triggering flush            | `10`              |
+| `maxBatchSize`          | `Int`                 | Maximum number of batches to send per flush                   | `50`              |
+| `replayEndpointBaseUrl` | `String?`             | Custom endpoint URL for replay data (overrides main endpoint) | `nil`             |
+| `maskViewClasses`       | `Set<String>`         | View class names to always mask                               | `[]`              |
+| `unmaskViewClasses`     | `Set<String>`         | View class names to always unmask                             | `[]`              |
 
 ## Privacy Levels
 
 ### Text and Input Privacy
 
-| Level                  | Description                                                          |
-| ---------------------- | -------------------------------------------------------------------- |
-| `.maskAll`             | Mask ALL text content — static labels, input fields, hints (default) |
-| `.maskAllInputs`       | Mask only user-editable inputs (UITextField, UITextView). Static UILabel content is shown |
+| Level                  | Description                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| `.maskAll`             | Mask ALL text content — static labels, input fields, hints (default)                         |
+| `.maskAllInputs`       | Mask only user-editable inputs (UITextField, UITextView). Static UILabel content is shown    |
 | `.maskSensitiveInputs` | Mask only sensitive input types: password, email, phone. All other text and inputs are shown |
 
 ### Image Privacy
 
-| Level        | Description                                    |
-| ------------ | ---------------------------------------------- |
-| `.maskAll`   | Replace all images with a solid black mask (default) |
-| `.maskNone`  | Show all images without masking                |
+| Level       | Description                                          |
+| ----------- | ---------------------------------------------------- |
+| `.maskAll`  | Replace all images with a solid black mask (default) |
+| `.maskNone` | Show all images without masking                      |
 
 ## Class-Level Masking
 
@@ -129,31 +129,31 @@ Session Replay emits snapshot events in the following format:
 
 Emitted once per window when recording starts.
 
-| Field      | Type   | Description                    |
-| ---------- | ------ | ------------------------------ |
-| `type`     | int    | Event type (4)                 |
-| `timestamp`| int64  | Timestamp in milliseconds      |
-| `data`     | object | Contains `href` (screen name), `width`, `height` |
+| Field       | Type   | Description                                      |
+| ----------- | ------ | ------------------------------------------------ |
+| `type`      | int    | Event type (4)                                   |
+| `timestamp` | int64  | Timestamp in milliseconds                        |
+| `data`      | object | Contains `href` (screen name), `width`, `height` |
 
 ### Full Snapshot Event (Type 2)
 
 Emitted once per window for the first frame.
 
-| Field      | Type   | Description                    |
-| ---------- | ------ | ------------------------------ |
-| `type`     | int    | Event type (2)                 |
-| `timestamp`| int64  | Timestamp in milliseconds      |
-| `data`     | object | Contains `wireframes` array with screenshot data |
+| Field       | Type   | Description                                      |
+| ----------- | ------ | ------------------------------------------------ |
+| `type`      | int    | Event type (2)                                   |
+| `timestamp` | int64  | Timestamp in milliseconds                        |
+| `data`      | object | Contains `wireframes` array with screenshot data |
 
 ### Incremental Snapshot Event (Type 3)
 
 Emitted for subsequent frames when content changes.
 
-| Field      | Type   | Description                    |
-| ---------- | ------ | ------------------------------ |
-| `type`     | int    | Event type (3)                 |
-| `timestamp`| int64  | Timestamp in milliseconds      |
-| `data`     | object | Contains `source` and `updates` array with wireframe changes |
+| Field       | Type   | Description                                                  |
+| ----------- | ------ | ------------------------------------------------------------ |
+| `type`      | int    | Event type (3)                                               |
+| `timestamp` | int64  | Timestamp in milliseconds                                    |
+| `data`      | object | Contains `source` and `updates` array with wireframe changes |
 
 ## Batching and Flushing
 
@@ -174,6 +174,7 @@ Replay events are automatically batched and sent to the backend:
 ## Thread Safety
 
 All Session Replay components are thread-safe:
+
 - Frame capture uses main thread for UI operations
 - Batching and network operations use background queues
 - Thread-safe locks protect shared state

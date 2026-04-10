@@ -23,93 +23,32 @@ These follow the [OpenTelemetry Geo semantic conventions](https://opentelemetry.
 - Location is cached (default: 1 hour) to limit geocoder and location requests.
 - When the app is in the foreground a periodic refresh updates the cache; when the app goes to the background, refresh is paused to save battery. Span and log processors read from this cache.
 
-## Setup
+## Configuration
 
-Location is an **optional** dependency — PulseKit builds and runs without it. You can add it if you want geo attributes.
-
-### 1. Add the Location dependency
-
-#### Swift Package Manager (SPM)
-
-Add **Location** to your target:
+It is **off** by default. Turn it on (or leave it off) in the `instrumentations` closure when you call **`Pulse.shared.initialize`**:
 
 ```swift
-dependencies: [
-    .package(path: "../../../pulse-ios-otel") // use path from monorepo; or CocoaPods PulseKit for releases
-],
-targets: [
-    .target(
-        name: "YourApp",
-        dependencies: [
-            .product(name: "PulseKit", package: "pulse-ios-sdk"),
-            .product(name: "Location", package: "pulse-ios-sdk")  // optional: only if you want location
-        ]
-    )
-]
-```
-
-To use the Location module alone (e.g. custom pipeline without PulseKit):
-
-```swift
-.product(name: "Location", package: "pulse-ios-sdk")
-```
-
-#### CocoaPods
-
-```ruby
-pod 'PulseKit', '~> 0.0.1'
-# Optional: if you want location attributes
-pod 'Pulse-Swift-Instrumentation-Location', '~> 0.0.1'
-```
-
-Then run:
-
-```bash
-pod install
-```
-
-### 2. Add Info.plist location permission keys
-
-Your app must declare a location usage description in its `Info.plist`, otherwise iOS will silently deny location access (or crash on older versions). Add the key that matches the authorization level you request:
-
-#### When In Use (recommended)
-
-```xml
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>This app uses your location to attach geo attributes to telemetry data.</string>
-```
-
-#### Always (only if your app needs background location)
-
-If your app also needs location updates while in the background, add both keys:
-
-```xml
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>This app uses your location to attach geo attributes to telemetry data.</string>
-<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>This app uses your location in the background to keep telemetry geo attributes up to date.</string>
-```
-
-> **Note:** The Location instrumentation uses `requestWhenInUseAuthorization()` by default, so `NSLocationWhenInUseUsageDescription` is sufficient for most apps. The string value is shown to the user in the system permission dialog — customize it to explain why your app needs location.
-
-### 3. Enable in PulseKit
-
-Location is **off** by default. Enable it during initialization:
-
-```swift
-PulseKit.shared.initialize(
+Pulse.shared.initialize(
     endpointBaseUrl: "https://your-backend.com",
-    tenantId: "your-tenant-id",
+    apiKey: "your-api-key",
     instrumentations: { config in
-        config.location { location in
-            location.enabled(true)
-        }
+        config.location { $0.enabled(true) }   // omit or use enabled(false) to keep geo attributes disabled
     }
 )
 ```
 
-- **Without** the `Location` product linked: this block has no effect and PulseKit runs without location attributes.
-- **With** the `Location` product linked: geo attributes are added to all spans and log records.
+When disabled or omitted, no location provider runs and no geo attributes are attached.
+
+## Location permission (`Info.plist`)
+
+If you enable location instrumentation, iOS still requires a usage description in **`Info.plist`** or the system will not show a permission prompt (and fixes may be unavailable). **`NSLocationWhenInUseUsageDescription`** is enough for the default **`requestWhenInUseAuthorization()`** flow:
+
+```xml
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app uses your location to attach geo attributes to telemetry.</string>
+```
+
+For background location, add **`NSLocationAlwaysAndWhenInUseUsageDescription`** (and only if your product actually needs always-on location). Customize the strings for your app.
 
 ## Advanced Guide
 

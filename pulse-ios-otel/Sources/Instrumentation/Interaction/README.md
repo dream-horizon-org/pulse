@@ -24,8 +24,9 @@ Interactions are **server-configured event sequences** that the SDK tracks autom
 ### 1. Enable in SDK Initialization
 
 ```swift
-PulseKit.shared.initialize(
-    endpointBaseUrl: "https://your-backend.com"
+Pulse.shared.initialize(
+    endpointBaseUrl: "https://your-backend.com",
+    apiKey: "your-project-id"
 ) { config in
     config.interaction { interactionConfig in
         interactionConfig.enabled(true)
@@ -37,6 +38,7 @@ PulseKit.shared.initialize(
 ```
 
 **Network Configuration:**
+
 - Simulator: `http://10.0.2.2:8080/` (default)
 - Production: `https://api.yourservice.com/`
 
@@ -51,6 +53,7 @@ PulseKit.shared.trackEvent(
 ```
 
 The Interaction instrumentation automatically:
+
 1. Listens to tracked events
 2. Matches them against API-configured sequences
 3. Creates spans when sequences complete
@@ -60,6 +63,7 @@ The Interaction instrumentation automatically:
 ## API Configuration
 
 The SDK fetches configurations from:
+
 ```
 GET {configUrl}/v1/interactions/all-active-interactions
 ```
@@ -90,15 +94,15 @@ GET {configUrl}/v1/interactions/all-active-interactions
 
 ### Configuration Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | String | Interaction name (used as span name) |
-| `events` | Array | Ordered sequence of events to match |
-| `globalBlacklistedEvents` | Array | Events to ignore during matching |
-| `uptimeLowerLimitInMs` | Long | Fast interaction threshold |
-| `uptimeMidLimitInMs` | Long | Normal interaction threshold |
-| `uptimeUpperLimitInMs` | Long | Slow interaction threshold |
-| `thresholdInMs` | Long | Max time between events (timeout) |
+| Field                     | Type   | Description                          |
+| ------------------------- | ------ | ------------------------------------ |
+| `name`                    | String | Interaction name (used as span name) |
+| `events`                  | Array  | Ordered sequence of events to match  |
+| `globalBlacklistedEvents` | Array  | Events to ignore during matching     |
+| `uptimeLowerLimitInMs`    | Long   | Fast interaction threshold           |
+| `uptimeMidLimitInMs`      | Long   | Normal interaction threshold         |
+| `uptimeUpperLimitInMs`    | Long   | Slow interaction threshold           |
+| `thresholdInMs`           | Long   | Max time between events (timeout)    |
 
 ---
 
@@ -125,7 +129,7 @@ GET {configUrl}/v1/interactions/all-active-interactions
 
 ```swift
 class CheckoutViewController: UIViewController {
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
@@ -134,7 +138,7 @@ class CheckoutViewController: UIViewController {
             observedTimeStampInMs: timestamp
         )
     }
-    
+
     func onPaymentSubmit() {
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         PulseKit.shared.trackEvent(
@@ -143,7 +147,7 @@ class CheckoutViewController: UIViewController {
             params: ["paymentMethod": "credit_card"]
         )
     }
-    
+
     func onOrderSuccess(orderId: String) {
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         PulseKit.shared.trackEvent(
@@ -173,10 +177,10 @@ Category: normal (5s < 12.5s < 15s)
 ### Data Flow
 
 ```
-PulseKit.trackEvent() 
+PulseKit.trackEvent()
   → OpenTelemetry Log
   → InteractionLogListener (LogRecordProcessor)
-  → InteractionManager 
+  → InteractionManager
   → Event matching against API configs
   → Span creation on sequence completion
 ```
@@ -187,9 +191,8 @@ PulseKit.trackEvent()
 
 ### Common Issues
 
-| Problem | Solution |
-|---------|----------|
-| Interactions not loading | Check network connectivity and `configUrl` |
-| Events not matching | Verify event names (case-sensitive), check timeout |
-| Spans not appearing | Verify `endpointBaseUrl`, check network permissions |
-
+| Problem                  | Solution                                            |
+| ------------------------ | --------------------------------------------------- |
+| Interactions not loading | Check network connectivity and `configUrl`          |
+| Events not matching      | Verify event names (case-sensitive), check timeout  |
+| Spans not appearing      | Verify `endpointBaseUrl`, check network permissions |

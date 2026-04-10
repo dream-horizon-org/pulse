@@ -1,27 +1,36 @@
 # PulseSPMExample
 
-Minimal SPM based example app to test Pulse source code and framework with SPM as package manager. This doesn't consists exhaustive list of all features to test.
+Minimal Xcode + SwiftPM example to run **PulseKit from source** (same layout as the CocoaPods example, but through SPM). It does not exhaust every SDK feature—use **PulseIOSExample** for broader coverage.
 
-## How to build
+## Option 1: Source (default)
 
-### Option 1: Source code (default)
-
-The checked-in **`Package.swift`** depends on the **repository root** (`../..`) and the **`PulseKit`** product from **`pulse-ios-sdk`**. No xcframeworks are required.
+The checked-in **`Package.swift`** points at **`../../`** (the **`pulse-ios-otel/`** root) and depends on the **`PulseKit`** product from package **`pulse-ios-sdk`**.
 
 1. Open **`PulseSPMExample.xcodeproj`** in Xcode.
-2. Select scheme **PulseSPMExample**, a simulator, then **Run** (⌘R).
+2. Select scheme **PulseSPMExample**, an iOS Simulator, then **Run** (⌘R).
 
-### Option 2: xcframeworks
+## Option 2: Local XCFrameworks
 
-**Step 1: Create xcframeworks and verify outputs**
+Use this to validate linking against **`build/*.xcframework`** (same set as **`PulseKit.podspec`** peers).
 
-1. From **`Examples/PulseIOSExample/`**, run **`pod install`** (needed for the workspace the script archives).
-2. From the **repository root**, run **`./Scripts/build-xcframework.sh`**.
-3. Confirm all the necassary frameworks are build as per depdencies added in PulseKit.podspec.
+### Step 1: Build XCFrameworks
 
-**Step 2: Point the package at frameworks instead of the repo root**
+From the **`pulse-ios-otel`** root (in a full monorepo clone that is **`pulse/pulse-ios-otel/`**):
 
-Replace **`Package.swift`** with:
+```bash
+cd Examples/PulseIOSExample
+pod install
+cd ../..
+./Scripts/build-xcframework.sh
+```
+
+The second **`cd`** leaves you in **`pulse-ios-otel/`**, where **`./Scripts/build-xcframework.sh`** must run.
+
+Confirm **`build/`** contains every peer listed in **`PulseKit.podspec`** (PulseKit, KSCrash, OpenTelemetryApi, OpenTelemetrySdk, SwiftProtobuf, libwebp, etc.).
+
+### Step 2: Point SPM at `build/`
+
+Replace **`Package.swift`** with a manifest that uses **`.binaryTarget`** entries. Paths below are relative to **`Examples/PulseSPMExample/`**; **`../../build/`** is **`pulse-ios-otel/build/`**.
 
 ```swift
 // swift-tools-version: 5.9
@@ -73,10 +82,14 @@ let package = Package(
 )
 ```
 
-**Step 3: Clean the build folder in Xcode**
+Add additional **`.binaryTarget`** lines if **`print-peer-xcframework-entries.rb`** / **`build/`** includes more frameworks (e.g. **libwebp**).
 
-**Product → Clean Build Folder** (⇧⌘K).
+### Step 3: Clean and run
 
-**Step 4: Build the app from Xcode**
+**Product → Clean Build Folder** (⇧⌘K), then **Run** (⌘R) on **PulseSPMExample**.
 
-Open **`PulseSPMExample.xcodeproj`**, choose scheme **PulseSPMExample**, then **Run** (⌘R).
+---
+
+## Production apps
+
+Ship with **[dream-horizon-org/pulse-ios](https://github.com/dream-horizon-org/pulse-ios)** (CocoaPods or that repo’s **`Package.swift`**).

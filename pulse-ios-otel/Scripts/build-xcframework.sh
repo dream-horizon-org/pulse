@@ -11,8 +11,8 @@ set -euo pipefail
 #   - PulseKit.xcframework
 #   - Peer xcframeworks: from PulseKit.podspec via Scripts/print-peer-xcframework-entries.rb (see script header for prerequisites)
 #
-# Usage (from repo root):
-#   ./Scripts/build-xcframework.sh
+# Usage (cwd must be pulse-ios-otel/, i.e. the directory that contains this Scripts/ folder):
+#   cd /path/to/pulse/pulse-ios-otel && ./Scripts/build-xcframework.sh
 # Requires bash (do not run with `sh` — process substitution on the peer list needs bash).
 # ------------------------------------------------------------------
 

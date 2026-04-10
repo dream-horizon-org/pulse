@@ -1,6 +1,6 @@
 # SignPost Integration
 
-This package creates `os_signpost` `begin` and `end` calls when spans are started or ended. It allows automatic integration of applications
+This integration creates `os_signpost` `begin` and `end` calls when spans are started or ended. It allows automatic integration of applications
 instrumented with opentelemetry to show their spans in a profiling app like `Instruments`. It also exports the `OSLog` it uses for posting so the user can add extra signpost events. This functionality is shown in `Simple Exporter` example
 
 ## Version Notice
@@ -10,7 +10,7 @@ instrumented with opentelemetry to show their spans in a profiling app like `Ins
 - **Older systems**:  
   Use **`SignPostIntegration`**, which relies on the traditional `os_signpost` API.
 
-## Usage 
+## Usage
 
 Add the appropriate span processor based on your deployment target:
 

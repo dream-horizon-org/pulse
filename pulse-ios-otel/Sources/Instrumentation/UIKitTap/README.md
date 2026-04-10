@@ -24,13 +24,13 @@ After `hitTest`, the SDK walks **up the superview chain** (hit view → `supervi
 4. Accept if the view’s **`gestureRecognizers`** include tap, long-press, or swipe (**not** pan).
 5. Accept **`.button`** or **`.link`** accessibility traits.
 
-| Condition | Examples / notes |
-|---|---|
-| **Not** a `UIScrollView` | Scroll views never become the emitted widget; empty table/scroll chrome does not collapse to `UITableView`. Taps still resolve to **cells**, **controls**, or a subview whose **ancestor** (walking up) owns a discrete gesture. |
-| `UIControl` | Standard controls; text fields count as controls (labels are PII-safe — see below). |
-| `UITableViewCell` / `UICollectionViewCell` | Selection is often delivered via the scroll view; the cell is still the meaningful target. |
-| Discrete gesture **on that view** | Only `gestureRecognizers` attached to the **candidate** are inspected. A tap recognizer on a **parent** is found when the walk reaches that parent. **`UIPanGestureRecognizer`** is ignored so scrolling and drag surfaces are not logged as taps. |
-| Accessibility `.button` / `.link` | Custom tappable views that are not `UIControl`. |
+| Condition                                  | Examples / notes                                                                                                                                                                                                                                   |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Not** a `UIScrollView`                   | Scroll views never become the emitted widget; empty table/scroll chrome does not collapse to `UITableView`. Taps still resolve to **cells**, **controls**, or a subview whose **ancestor** (walking up) owns a discrete gesture.                   |
+| `UIControl`                                | Standard controls; text fields count as controls (labels are PII-safe — see below).                                                                                                                                                                |
+| `UITableViewCell` / `UICollectionViewCell` | Selection is often delivered via the scroll view; the cell is still the meaningful target.                                                                                                                                                         |
+| Discrete gesture **on that view**          | Only `gestureRecognizers` attached to the **candidate** are inspected. A tap recognizer on a **parent** is found when the walk reaches that parent. **`UIPanGestureRecognizer`** is ignored so scrolling and drag surfaces are not logged as taps. |
+| Accessibility `.button` / `.link`          | Custom tappable views that are not `UIControl`.                                                                                                                                                                                                    |
 
 ### Limitations (by design)
 
@@ -98,42 +98,43 @@ Text input controls (`UITextField`, `UITextView`, `UISearchBar`) never have thei
 
 ### Event name: `app.widget.click`
 
-| Attribute | Type | Example | Notes |
-|---|---|---|---|
-| `click.type` | String | `"good"` / `"dead"` | Good when a target is resolved, dead when no interactive target is found |
-| `click.is_rage` | Bool | `true` | Present for rage events |
-| `click.rageCount` | Int | `5` | Present for rage events, total taps in the rage cluster |
-| `app.widget.name` | String | `"UIButton"` | Runtime class name — consistent type identifier |
-| `app.widget.id` | String | `"checkout_button"` | From `accessibilityIdentifier` when set |
-| `app.click.context` | String | `"label=Add to Cart"` | Present only when a label is found and `captureContext` is true |
-| `app.screen.coordinate.x` | Int | `142` | Touch X in window coordinates |
-| `app.screen.coordinate.y` | Int | `380` | Touch Y in window coordinates |
-| `device.screen.width` | Int | `375` | Viewport width in points |
-| `device.screen.height` | Int | `812` | Viewport height in points |
-| `app.screen.coordinate.nx` | Double | `0.378` | Normalized X (`x / width`) |
-| `app.screen.coordinate.ny` | Double | `0.468` | Normalized Y (`y / height`) |
+| Attribute                  | Type   | Example               | Notes                                                                    |
+| -------------------------- | ------ | --------------------- | ------------------------------------------------------------------------ |
+| `click.type`               | String | `"good"` / `"dead"`   | Good when a target is resolved, dead when no interactive target is found |
+| `click.is_rage`            | Bool   | `true`                | Present for rage events                                                  |
+| `click.rageCount`          | Int    | `5`                   | Present for rage events, total taps in the rage cluster                  |
+| `app.widget.name`          | String | `"UIButton"`          | Runtime class name — consistent type identifier                          |
+| `app.widget.id`            | String | `"checkout_button"`   | From `accessibilityIdentifier` when set                                  |
+| `app.click.context`        | String | `"label=Add to Cart"` | Present only when a label is found and `captureContext` is true          |
+| `app.screen.coordinate.x`  | Int    | `142`                 | Touch X in window coordinates                                            |
+| `app.screen.coordinate.y`  | Int    | `380`                 | Touch Y in window coordinates                                            |
+| `device.screen.width`      | Int    | `375`                 | Viewport width in points                                                 |
+| `device.screen.height`     | Int    | `812`                 | Viewport height in points                                                |
+| `app.screen.coordinate.nx` | Double | `0.378`               | Normalized X (`x / width`)                                               |
+| `app.screen.coordinate.ny` | Double | `0.468`               | Normalized Y (`y / height`)                                              |
 
 Additional attributes are automatically enriched by the processor chain: `screen.name`, `session.id`, network status, aspect ratio, etc.
 
 Notes:
+
 - Dead clicks intentionally omit widget fields because no target view was resolved.
 - Rage clicks use the same `app.widget.click` event and include `click.is_rage = true`.
 
 ## Coverage (UIKit)
 
-| Scenario | Captured | Label source |
-|---|---|---|
-| `UIButton` with title | ✅ | `titleLabel.text` |
-| `UIButton` icon-only | ✅ | `accessibilityLabel` if set, else class name |
-| `UISegmentedControl` | ✅ | Selected segment title only |
-| `UISwitch`, `UIStepper`, `UISlider` | ✅ | `accessibilityLabel` if set |
-| `UIView` + `UITapGestureRecognizer` | ✅ | Recursive label scan |
-| `UIView` + `UILongPressGestureRecognizer` / `UISwipeGestureRecognizer` | ✅ | Same as tap (discrete gesture) |
-| `UITableViewCell` | ✅ | Recursive label scan of cell subviews |
-| `UICollectionViewCell` | ✅ | Recursive label scan of cell subviews |
-| `UITextField` tap | ✅ | `accessibilityLabel` only — typed text never captured |
-| Blank `UIScrollView` / table background | ❌ (by design) | — |
-| SwiftUI-only screens (`UIHostingController`, etc.) | ⚠️ **Best effort** | Same UIKit rules on whatever `UIView` tree SwiftUI builds; **not** full SwiftUI auto-instrumentation (see above). |
+| Scenario                                                               | Captured           | Label source                                                                                                      |
+| ---------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `UIButton` with title                                                  | ✅                 | `titleLabel.text`                                                                                                 |
+| `UIButton` icon-only                                                   | ✅                 | `accessibilityLabel` if set, else class name                                                                      |
+| `UISegmentedControl`                                                   | ✅                 | Selected segment title only                                                                                       |
+| `UISwitch`, `UIStepper`, `UISlider`                                    | ✅                 | `accessibilityLabel` if set                                                                                       |
+| `UIView` + `UITapGestureRecognizer`                                    | ✅                 | Recursive label scan                                                                                              |
+| `UIView` + `UILongPressGestureRecognizer` / `UISwipeGestureRecognizer` | ✅                 | Same as tap (discrete gesture)                                                                                    |
+| `UITableViewCell`                                                      | ✅                 | Recursive label scan of cell subviews                                                                             |
+| `UICollectionViewCell`                                                 | ✅                 | Recursive label scan of cell subviews                                                                             |
+| `UITextField` tap                                                      | ✅                 | `accessibilityLabel` only — typed text never captured                                                             |
+| Blank `UIScrollView` / table background                                | ❌ (by design)     | —                                                                                                                 |
+| SwiftUI-only screens (`UIHostingController`, etc.)                     | ⚠️ **Best effort** | Same UIKit rules on whatever `UIView` tree SwiftUI builds; **not** full SwiftUI auto-instrumentation (see above). |
 
 ## Configuration
 

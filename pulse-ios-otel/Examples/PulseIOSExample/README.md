@@ -35,20 +35,22 @@ Use this to validate the **binary** layout: PulseKit **and** its peer frameworks
 
 The archive script expects the Example workspace to exist first:
 
+From the **`pulse-ios-otel`** root (in a full monorepo clone that is **`pulse/pulse-ios-otel/`**):
+
 ```bash
 cd Examples/PulseIOSExample
 pod install
 cd ../..
-
-# From pulse-ios-sdk repo root
 ./Scripts/build-xcframework.sh
 ```
 
-Outputs land under **`build/`** (for example `PulseKit.xcframework`, `KSCrash.xcframework`, `OpenTelemetryApi.xcframework`, `OpenTelemetrySdk.xcframework`, `SwiftProtobuf.xcframework`, `libwebp.xcframework`).
+The second **`cd`** lands in **`pulse-ios-otel/`** (folder with **Package.swift** and **Scripts/**).
+
+Outputs land under **`build/`** at the **SDK root** (e.g. `PulseKit.xcframework`, `KSCrash.xcframework`, `OpenTelemetryApi.xcframework`, `OpenTelemetrySdk.xcframework`, `SwiftProtobuf.xcframework`, `libwebp.xcframework`).
 
 ### Step 2: Switch podspec to use the frameworks
 
-Edit **`PulseKit.podspec`** at the **repo root** (`pulse-ios-sdk/PulseKit.podspec`):
+Edit **`PulseKit.podspec`** at the **SDK root** (`pulse-ios-otel/PulseKit.podspec`):
 
 1. **Comment out** `spec.source_files`, `spec.exclude_files`, and `spec.pod_target_xcconfig`.
 2. **Comment out** every **`spec.dependency`** line (OpenTelemetry-Swift-Api, OpenTelemetry-Swift-Sdk, SwiftProtobuf, KSCrash, libwebp). Those libraries are already inside the xcframeworks; leaving the dependencies in place would pull duplicate trunk pods.

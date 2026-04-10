@@ -8,11 +8,11 @@ Automatically emits OpenTelemetry log events when the app transitions between li
 
 ### Tracked transitions
 
-| UIKit Notification | `ios.app.state` |
-|--------------------|-----------------|
-| `didFinishLaunching` | `created` |
-| `willEnterForeground` | `foreground` |
-| `didEnterBackground` | `background` |
+| UIKit Notification    | `ios.app.state` |
+| --------------------- | --------------- |
+| `didFinishLaunching`  | `created`       |
+| `willEnterForeground` | `foreground`    |
+| `didEnterBackground`  | `background`    |
 
 The `created` state is emitted at most once per app launch. If the app is already active when the SDK initializes, it fires immediately.
 
@@ -20,7 +20,7 @@ The `created` state is emitted at most once per app launch. If the app is alread
 
 Each log event has the following shape:
 
-| Field | Value |
-|-------|-------|
-| Event name | `device.app.lifecycle` |
+| Field           | Value                                           |
+| --------------- | ----------------------------------------------- |
+| Event name      | `device.app.lifecycle`                          |
 | `ios.app.state` | `"created"` \| `"foreground"` \| `"background"` |

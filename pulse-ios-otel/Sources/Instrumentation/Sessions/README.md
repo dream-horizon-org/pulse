@@ -38,11 +38,11 @@ PulseSDK.initialize(
 
 Session configuration options:
 
-| Field                        | Type            | Description                                                          | Default              |
-| ---------------------------- | --------------- | -------------------------------------------------------------------- | -------------------- |
-| `maxLifetime`                | `TimeInterval?` | Fixed duration in seconds after which session expires from start time | `14400` (4 hours)   |
-| `backgroundInactivityTimeout` | `TimeInterval?` | Duration in seconds after which session expires when app is in background | `900` (15 min) |
-| `shouldPersist`              | `Bool`          | Whether session should persist across app restarts                    | `false` (in-memory)  |
+| Field                         | Type            | Description                                                               | Default             |
+| ----------------------------- | --------------- | ------------------------------------------------------------------------- | ------------------- |
+| `maxLifetime`                 | `TimeInterval?` | Fixed duration in seconds after which session expires from start time     | `14400` (4 hours)   |
+| `backgroundInactivityTimeout` | `TimeInterval?` | Duration in seconds after which session expires when app is in background | `900` (15 min)      |
+| `shouldPersist`               | `Bool`          | Whether session should persist across app restarts                        | `false` (in-memory) |
 
 ## Session Events
 
@@ -70,7 +70,8 @@ Emitted when a session expires.
 | `session.duration`    | double | Session duration in nanoseconds               |
 | `session.previous_id` | string | Identifier of the previous session (if any)   |
 
-**Timestamp Behavior**: 
+**Timestamp Behavior**:
+
 - For normal expiration: `session.end_time` is set to the session's expiration time (start time + maxLifetime)
 - For background expiration: `session.end_time` is set to the time when the app went to background.
 
@@ -94,13 +95,14 @@ Sessions are created when the first span or log is emitted after SDK initializat
 ### Expiration
 
 Sessions expire when either condition is met:
+
 - **Fixed Lifetime**: Current time exceeds the session's `expireTime` (start time + maxLifetime). The expiration time is fixed at session creation and does not extend with activity.
 - **Background Inactivity**: App is in background longer than `backgroundInactivityTimeout`. The session expires when the app returns to foreground after exceeding the timeout.
 
 ### App Kill Scenarios
 
 - **App Killed (shouldPersist: false)**: Session is lost. On next launch, a new session is created when the first span/log is emitted.
-- **App Killed (shouldPersist: true)**: 
+- **App Killed (shouldPersist: true)**:
   - If the persisted session is **not expired**: Session is restored and continues with the same ID. No events are emitted.
   - If the persisted session is **expired**: Session is not restored. A new session is created with `session.end` event for the old session (if expired by maxLifetime) and `session.start` for the new session.
 

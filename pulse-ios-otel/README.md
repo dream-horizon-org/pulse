@@ -1,114 +1,85 @@
-# Pulse iOS SDK
+# Pulse iOS SDK (PulseKit)
 
-**Monorepo:** this package is maintained at [`pulse-ios-otel/`](https://github.com/dream-horizon-org/pulse/tree/main/pulse-ios-otel) inside [dream-horizon-org/pulse](https://github.com/dream-horizon-org/pulse). CI: `.github/workflows/ios-sdk-checks.yml` on the monorepo.
+Production iOS instrumentation built on [OpenTelemetry-Swift](https://github.com/open-telemetry/opentelemetry-swift). **`PulseKit`** is the SDK surface apps integrate; this directory is the source and test tree.
 
-## About
+---
 
-Pulse iOS SDK is a simplified, production-ready SDK for instrumenting iOS applications with OpenTelemetry. Built on top of [OpenTelemetry-Swift](https://github.com/open-telemetry/opentelemetry-swift), Pulse provides a unified API with sensible defaults for easy integration.
+## Use released binaries (recommended for apps)
 
-> **Note:** This repository is a fork of [OpenTelemetry-Swift](https://github.com/open-telemetry/opentelemetry-swift). We maintain this fork to build custom features like PulseKit while staying in sync with upstream OpenTelemetry improvements.
+**Distribution repo:** **[github.com/dream-horizon-org/pulse-ios](https://github.com/dream-horizon-org/pulse-ios)**
 
-## Getting Started
+That repository holds **XCFrameworks**, the consumer **`PulseKit.podspec`**, and SPM **binary targets** for published versions. Integrate your app the same way you would any closed-source binary SDK: CocoaPods or the release repo’s `Package.swift`, following instructions there.
 
-### Using PulseKit (Recommended)
+The monorepo does **not** replace that flow for production apps; it is where we **build and verify** the SDK before opening release PRs into `pulse-ios`.
 
-PulseKit is the recommended way to use Pulse iOS SDK. It provides a simple, unified API with automatic instrumentation and production-ready defaults.
+---
 
-#### Swift Package Manager
+## This directory (`pulse-ios-otel/`)
 
-From the Pulse monorepo (or a checkout that contains `pulse-ios-otel/`), add a **path** dependency:
+Source of truth for Swift code lives in the **Pulse monorepo** under **`pulse-ios-otel/`** ([tree on GitHub](https://github.com/dream-horizon-org/pulse/tree/main/pulse-ios-otel)).
 
-```swift
-dependencies: [
-    .package(path: "../pulse-ios-otel") // adjust relative path from your app package
-]
-```
+| What                            | Where                                                                                                                                  |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| PulseKit + all instrumentations | `Sources/`                                                                                                                             |
+| Development podspec             | `PulseKit.podspec`                                                                                                                     |
+| Unit / integration tests        | `Tests/`                                                                                                                               |
+| XCFramework build script        | `Scripts/build-xcframework.sh` (cwd = **`pulse/pulse-ios-otel/`** — folder with **Package.swift**, **Scripts/**, **PulseKit.podspec**) |
+| CI                              | Monorepo `.github/workflows/ios-sdk-checks.yml`                                                                                        |
 
-Then add PulseKit to your target (the package name in `Package.swift` is `pulse-ios-sdk`):
+---
 
-```swift
-.target(
-    name: "YourApp",
-    dependencies: [
-        .product(name: "PulseKit", package: "pulse-ios-sdk")
-    ]
-)
-```
+## Run and debug from source
 
-For releases, consume **CocoaPods** (`PulseKit`) from the public release repo, or copy the binary XCFramework workflow described in the monorepo’s **iOS SDK — XCFramework & release PR** action.
+Use the example apps—each has its own setup steps:
 
-#### Basic Usage
+1. **[Examples/PulseIOSExample](Examples/PulseIOSExample/README.md)** — CocoaPods, `pod 'PulseKit', path: '../../'`. Best default for SDK development (matches how `build-xcframework.sh` is exercised).
+2. **[Examples/PulseSPMExample](Examples/PulseSPMExample/README.md)** — minimal Xcode + SPM against the same sources (or local XCFrameworks).
 
-```swift
-import PulseKit
+Contributors should start there to see telemetry end-to-end before changing core code. See also [CONTRIBUTING.md](CONTRIBUTING.md).
 
-// Initialize Pulse in your AppDelegate
-Pulse.shared.initialize(
-    endpointBaseUrl: "https://your-backend.com/otlp",
-    apiKey: "your-api-key"
-)
-```
+---
 
-That's it! PulseKit automatically instruments your network requests, tracks sessions, and sends telemetry data to your backend.
+## Features (PulseKit)
 
-For more details, see the [PulseKit README](Sources/PulseKit/README.md).
+Everything below is configured through **`Pulse.shared.initialize`** and **`InstrumentationConfiguration`** (or remote config where noted).
 
-### Using OpenTelemetry APIs Directly
+| Area               | What you get                                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core**           | One-line init, OTLP HTTP export, project/api key headers, optional remote **Pulse SDK config** (sampling, metrics-to-add, signal routing) |
+| **Network**        | `URLSession` auto-instrumentation, GraphQL helpers                                                                                        |
+| **Sessions**       | Session lifecycle, meters, persistence-friendly session store                                                                             |
+| **Screen / UI**    | Screen lifecycle, **UIKit** tap / interaction capture (see UIKitTap README for SwiftUI limits)                                            |
+| **Interactions**   | Server-driven multi-step flows (interaction config API)                                                                                   |
+| **Crashes**        | KSCrash-backed crash reporting aligned with OTel exception conventions                                                                    |
+| **MetricKit**      | CPU, disk, hangs, launches, etc., mapped to logs/metrics                                                                                  |
+| **Session replay** | UIKit-first screenshot pipeline, privacy levels, batched upload (opt-in; feature-flagged via config)                                      |
+| **Location**       | Optional location attributes (privacy-sensitive; configure explicitly)                                                                    |
+| **App lifecycle**  | Foreground / background / launch signals                                                                                                  |
+| **Resource**       | Device, app, OS resource attributes                                                                                                       |
+| **Signpost**       | Integration with OSSignposter / points of interest                                                                                        |
+| **Consent**        | `PulseDataCollectionConsent` gates init, replay, and exporters                                                                            |
+| **OpenTelemetry**  | Full upstream exporters (OTLP gRPC/HTTP, Jaeger, Zipkin, Prometheus, persistence, etc.) available if you need lower-level APIs            |
 
-If you need direct access to OpenTelemetry APIs, you can use the underlying OpenTelemetry-Swift components:
+For API details and DSL examples, see **[Sources/PulseKit/README.md](Sources/PulseKit/README.md)**. Per-instrumentation notes live under **`Sources/Instrumentation/*/README.md`**.
 
-```swift
-dependencies: [
-    .package(path: "../pulse-ios-otel")
-]
+---
 
-.target(
-    name: "YourApp",
-    dependencies: [
-        .product(name: "OpenTelemetrySdk", package: "pulse-ios-sdk")
-    ]
-)
-```
+## Docs & links
 
-> **Note:** This package includes the full OpenTelemetry-Swift implementation. All OpenTelemetry APIs are available if you need lower-level control.
+- [PulseKit README](Sources/PulseKit/README.md) — initialization, configuration, persistence
+- [Contributing](CONTRIBUTING.md) — fork monorepo, build, test, examples
+- [Release pipeline (internal)](internal-docs/RELEASE_PIPELINE.md) — how versions reach `pulse-ios`
+- [OpenTelemetry Swift docs](https://opentelemetry.io/docs/languages/swift/)
+- [OpenTelemetry spec](https://opentelemetry.io/docs/specs/otel/)
 
-## Documentation
-
-- **[PulseKit Documentation](Sources/PulseKit/README.md)** - Complete guide to using PulseKit
-- **[OpenTelemetry Swift Documentation](https://opentelemetry.io/docs/instrumentation/swift/)** - Official OpenTelemetry documentation
-- **[OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/)** - OpenTelemetry specification reference
-
-## Features
-
-This package provides all [OpenTelemetry-Swift](https://github.com/open-telemetry/opentelemetry-swift) features plus PulseKit:
-
-- **PulseKit**: Simplified API wrapper with one-line initialization, automatic instrumentation, and DSL configuration
-- **Available Instrumentations**:
-  - `URLSessionInstrumentation` - Automatic network request tracing
-  - `Sessions` - Session tracking and lifecycle management
-  - `SignPostIntegration` - System performance metrics via SignPost
-  - `NetworkStatus` - Network connectivity monitoring
-  - `MetricKitInstrumentation` - System metrics collection
-  - `SDKResourceExtension` - Resource attribute enrichment
-- **OpenTelemetry APIs**: Full access to OpenTelemetry-Swift APIs including Tracing (stable), Logs (beta), Metrics, and all exporters (OTLP HTTP/GRPC, Jaeger, Zipkin, Datadog, Prometheus, Stdout)
-- **Future**: Direct OpenTelemetry initializer for advanced instrumentation configuration
-
-> **Note:** PulseKit uses OTLP HTTP exporter which is production-ready. All OpenTelemetry features are available for direct use if needed.
-
-## How to try this out?
-
-- **PulseIOSExample** - Complete iOS app example showing PulseKit integration with all instrumentation available.
-
-For more information about OpenTelemetry-Swift, visit:
-
-- [OpenTelemetry-Swift Repository](https://github.com/open-telemetry/opentelemetry-swift)
-- [OpenTelemetry Documentation](https://opentelemetry.io/docs/instrumentation/swift/)
-- [OpenTelemetry Community](https://github.com/open-telemetry/community)
+---
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md). PRs go to **[dream-horizon-org/pulse](https://github.com/dream-horizon-org/pulse)** with changes under `pulse-ios-otel/`.
+
+---
 
 ## License
 
-This project is licensed under the Apache 2.0 License, same as OpenTelemetry-Swift.
+Apache 2.0 — see [LICENSE](LICENSE).

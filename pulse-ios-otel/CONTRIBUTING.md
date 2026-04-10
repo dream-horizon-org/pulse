@@ -54,9 +54,16 @@ This allows you to:
 - Sync upstream OpenTelemetry-Swift changes: `git fetch opentelemetry`
 - Track your contributions: `git push origin`
 
+### See it running (source)
+
+Before large changes, run an example app so you can exercise real instrumentation:
+
+- **[Examples/PulseIOSExample/README.md](Examples/PulseIOSExample/README.md)** — CocoaPods, full PulseKit from source (`pod install`, workspace). **Start here** for day-to-day SDK work.
+- **[Examples/PulseSPMExample/README.md](Examples/PulseSPMExample/README.md)** — smaller SPM-based app against the same tree (optional).
+
 ### Build
 
-Open `Package.swift` in Xcode and follow normal development process.
+From **`pulse-ios-otel/`**:
 
 ```sh
 swift build
@@ -68,25 +75,23 @@ To build specific targets:
 # Build PulseKit only
 swift build --target PulseKit
 
-# Build for iOS
+# Build for iOS Simulator (SwiftPM package schemes)
 make build-for-testing-ios
 ```
 
 ### Test
 
-Open `Package.swift` in Xcode and follow normal testing process.
-
-To test from the command line:
-
 ```sh
 swift test
 ```
 
-To test for iOS:
+iOS Simulator tests via Makefile:
 
 ```sh
 make test-without-building-ios
 ```
+
+Open **`Package.swift`** in Xcode if you prefer the IDE for breakpoints across targets.
 
 ### Linting
 
