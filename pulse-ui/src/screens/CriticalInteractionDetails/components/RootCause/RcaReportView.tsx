@@ -4,13 +4,11 @@ import {
   Button,
   Card,
   Group,
-  SimpleGrid,
   Stack,
   Table,
   Text,
 } from "@mantine/core";
 import { IconRefresh, IconSparkles } from "@tabler/icons-react";
-import { SessionCard } from "../../../../components/SessionCard/SessionCard";
 import type {
   RcaStructuredMetricRowV1,
   RcaStructuredReportV1,
