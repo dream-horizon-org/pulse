@@ -22,6 +22,4 @@ public class RootCauseSegment {
   private Map<String, Object> metrics;
   /** Metric name -> delta % (e.g. +15.5 for 15.5% worse than baseline). */
   private Map<String, Double> deltas;
-  /** Example session IDs demonstrating this segment's issues (2 most relevant). */
-  private java.util.List<String> exampleSessionIds;
 }

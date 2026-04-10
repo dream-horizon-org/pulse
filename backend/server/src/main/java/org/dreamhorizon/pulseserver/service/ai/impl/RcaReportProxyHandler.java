@@ -248,8 +248,8 @@ final class RcaReportProxyHandler {
 
   /**
    * On successful buffered RCA JSON, merges per-segment related heatmaps when enrichment
-   * succeeded, adds enriched rootCausePayload with exampleSessionIds, sets {@code cached} and 
-   * {@code cachedAt} (for UI), persists to MySQL, returns updated result.
+   * succeeded, sets {@code cached} and {@code cachedAt} (for UI), persists to MySQL, returns
+   * updated result.
    */
   private CompletionStage<AiProxyUpstreamResult> finalizeSuccessfulRcaProxyResult(
       AiProxyUpstreamResult result, RcaEnrichmentOutcome enrichment, RcaCacheKeyParts keyParts) {
@@ -264,9 +264,6 @@ final class RcaReportProxyHandler {
       try {
         JsonNode tree = objectMapper.readTree(body);
         if (tree instanceof ObjectNode root) {
-          // Add enriched rootCausePayload with exampleSessionIds
-          root.set(ROOT_CAUSE_PAYLOAD_FIELD, objectMapper.valueToTree(enrichment.rootCause()));
-          
           RootCauseQueryBuilder.Window window =
               new RootCauseQueryBuilder.Window(
                   enrichment.anchorDate(),
@@ -357,11 +354,11 @@ final class RcaReportProxyHandler {
                   List<RootCauseSegment> segments = rootCauseResult.getSegments();
                   LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
 
+                  // Collect all sessions from all segments into a single list
+                  List<String> allSessionIds = new java.util.ArrayList<>();
                   java.util.concurrent.atomic.AtomicInteger pendingQueries = new java.util.concurrent.atomic.AtomicInteger(segments.size());
 
-                  for (int i = 0; i < segments.size(); i++) {
-                    RootCauseSegment segment = segments.get(i);
-                    final int segmentIndex = i;
+                  for (RootCauseSegment segment : segments) {
                     Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
 
                     sessionEvidenceService
@@ -381,20 +378,20 @@ final class RcaReportProxyHandler {
                                         .map(s -> s.getSessionId())
                                         .collect(Collectors.toList());
 
-                                // Store sessions directly in the segment
-                                synchronized (segments) {
-                                  RootCauseSegment seg = segments.get(segmentIndex);
-                                  seg.setExampleSessionIds(sessionIds);
-                                  log.info("Attached {} example sessions to segment {}: {}",
-                                      sessionIds.size(), segmentIndex, seg.getLabel());
+                                synchronized (allSessionIds) {
+                                  allSessionIds.addAll(sessionIds);
                                 }
 
                                 if (pendingQueries.decrementAndGet() == 0) {
-                                  // All queries complete - update payload with enriched segments
-                                  JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
-                                  if (rcPayloadNode instanceof ObjectNode) {
-                                    ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
-                                    rcPayload.set("segments", objectMapper.valueToTree(segments));
+                                  // All queries complete - add sessions to payload
+                                  if (!allSessionIds.isEmpty()) {
+                                    JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                    if (rcPayloadNode instanceof ObjectNode) {
+                                      ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                      rcPayload.set(
+                                          "exampleSessionIds",
+                                          objectMapper.valueToTree(allSessionIds));
+                                    }
                                   }
 
                                   String enrichedBody = objectMapper.writeValueAsString(working);
