@@ -278,21 +278,21 @@ If no explicit summary exists, write a concise summary based on the analysis (up
 **Example from payload**:
 ```json
 "segments": [
-  {"label": "OsVersion: 11", "exampleSessionIds": ["s_1506", "s_1540"]},
-  {"label": "Platform: android", "exampleSessionIds": ["s_1052", "s_243"]}
+  {{"label": "OsVersion: 11", "exampleSessionIds": ["s_1506", "s_1540"]}},
+  {{"label": "Platform: android", "exampleSessionIds": ["s_1052", "s_243"]}}
 ]
 ```
 
 Your output segments should have:
 ```json
-{
+{{
   "title": "OsVersion: 11",
   "affected_sessions": ["s_1506", "s_1540"]
-},
-{
+}},
+{{
   "title": "Platform: android", 
   "affected_sessions": ["s_1052", "s_243"]
-}
+}}
 ```
 
 **CRITICAL RULES**:
