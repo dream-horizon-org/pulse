@@ -299,7 +299,8 @@ const RcaStructuredReportV1View = ({
                           </Text>
                         </div>
                       )}
-                      {segment.affected_sessions &&
+                      {/* TODO: Fix session evidence mapping - temporarily disabled pending backend verification */}
+                      {/* {segment.affected_sessions &&
                         segment.affected_sessions.length > 0 && (
                           <Box
                             mt="md"
@@ -334,7 +335,7 @@ const RcaStructuredReportV1View = ({
                               ))}
                             </SimpleGrid>
                           </Box>
-                        )}
+                        )} */}
                     </Card>
                   );
                 })}
