@@ -103,7 +103,10 @@ internal object PulseFeatureConfigSerializer : KSerializer<PulseFeatureConfig> {
             value.config?.let { config ->
                 when (config) {
                     is PulseFeatureConfigData.SessionReplay -> {
-                        json.encodeToJsonElement(PulseFeatureConfigData.SessionReplay.serializer(), config)
+                        json.encodeToJsonElement(
+                            PulseFeatureConfigData.SessionReplay.serializer(),
+                            config,
+                        )
                     }
                     is PulseFeatureConfigData.ClickInstrumentation -> {
                         json.encodeToJsonElement(PulseFeatureConfigData.ClickInstrumentation.serializer(), config)
