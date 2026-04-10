@@ -2,7 +2,7 @@ import type { HeatmapDataResponse, HeatmapGlowPoint } from "./heatmap.types";
 import { HEATMAP_SIGNALS, type HeatmapSignal } from "./heatmapPanelUtils";
 
 /** Max squared distance in normalized 0–1 space to treat a bin as “at this spot”. */
-const NEIGHBOR_MAX = 0.063;
+const NEIGHBOR_MAX = 0.072;
 const NEIGHBOR_MAX_D2 = NEIGHBOR_MAX * NEIGHBOR_MAX;
 
 /** Relative to the strongest bin on the active layer (for this screen). */

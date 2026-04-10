@@ -91,6 +91,15 @@ export function HeatmapVisualization({
   const safeIndex = count > 0 ? Math.min(shotIndex, count - 1) : 0;
   const activeScreenshotUrl = count > 0 ? screenshotUrls[safeIndex] : undefined;
 
+  const [frameLayoutPx, setFrameLayoutPx] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const onFrameInnerLayout = useCallback((width: number, height: number) => {
+    setFrameLayoutPx({ width, height });
+  }, []);
+
   const goPrev = useCallback(() => {
     if (count <= 1) return;
     setShotIndex((i) => (i - 1 + count) % count);
@@ -108,8 +117,12 @@ export function HeatmapVisualization({
       onPrev={goPrev}
       onNext={goNext}
       densityGradientVariant={densityGradientVariant}
+      frameDimensions={frameLayoutPx}
       frame={
-        <HeatmapPhoneFrame breakpoint={breakpoint}>
+        <HeatmapPhoneFrame
+          breakpoint={breakpoint}
+          onInnerLayout={onFrameInnerLayout}
+        >
           <HeatmapScreenUnderlay
             screenshotUrl={activeScreenshotUrl}
             loading={

@@ -25,6 +25,7 @@ export function HeatmapAudienceFilterForm({
         className={filterClasses.filterInput}
         data={platformSuggestions}
         value={value.platform}
+        comboboxProps={{ withinPortal: false }}
         onChange={(v) => onChange({ ...value, platform: v ?? "" })}
         placeholder="All"
       />
@@ -34,6 +35,7 @@ export function HeatmapAudienceFilterForm({
         className={filterClasses.filterInput}
         data={appVersionSuggestions}
         value={value.appVersion}
+        comboboxProps={{ withinPortal: false }}
         onChange={(v) => onChange({ ...value, appVersion: v ?? "" })}
         placeholder="All"
       />
@@ -43,6 +45,7 @@ export function HeatmapAudienceFilterForm({
         className={filterClasses.filterInput}
         data={regionSuggestions}
         value={value.region}
+        comboboxProps={{ withinPortal: false }}
         onChange={(v) => onChange({ ...value, region: v ?? "" })}
         placeholder="All"
       />
@@ -52,6 +55,7 @@ export function HeatmapAudienceFilterForm({
         className={filterClasses.filterInput}
         clearable
         placeholder="All"
+        comboboxProps={{ withinPortal: false }}
         data={HEATMAP_BREAKPOINT_VALUES.map((v) => ({
           value: v,
           label: HEATMAP_BREAKPOINT_NAMES[v],

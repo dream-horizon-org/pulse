@@ -728,6 +728,7 @@
 .heatShotCarouselCounter {
   margin: 0;
   padding: 0 8px;
+  line-height: 1.35;
 }
 
 .heatShotNavBtn {

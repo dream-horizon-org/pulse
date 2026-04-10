@@ -27,6 +27,30 @@ function clamp01(n: number): number {
 }
 
 /**
+ * Bin center in overlay pixel space — same normalization and mapping as {@link buildHeatmapJsPayload}
+ * (0-based x,y within width × height). `layerPoints` must be the same array passed to the heatmap
+ * (shared max-X / max-Y scaling).
+ */
+export function glowBinCenterInOverlayPixels(
+  point: HeatmapGlowPoint,
+  overlayWidth: number,
+  overlayHeight: number,
+  layerPoints: HeatmapGlowPoint[],
+): { x: number; y: number } {
+  const w = Math.max(0, overlayWidth);
+  const h = Math.max(0, overlayHeight);
+  if (w < 1 || h < 1) return { x: 0, y: 0 };
+  const src = layerPoints.length > 0 ? layerPoints : [point];
+  const norms = normalizedGlowXY(src);
+  const idx = layerPoints.indexOf(point);
+  const norm = idx >= 0 ? norms[idx]! : normalizedGlowXY([point])[0];
+  return {
+    x: Math.round(clamp01(norm.x) * Math.max(0, w - 1)),
+    y: Math.round(clamp01(norm.y) * Math.max(0, h - 1)),
+  };
+}
+
+/**
  * Map API coordinates onto 0–1. Supports:
  * - Already normalized 0–1
  * - Percentage 0–100 or pixel ranges (any max > 1 → divide by per-axis max)

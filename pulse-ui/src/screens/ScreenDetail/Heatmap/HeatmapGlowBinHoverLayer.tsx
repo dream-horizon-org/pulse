@@ -1,6 +1,7 @@
 import { Box, Group, Stack, Text, Tooltip } from "@mantine/core";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { HeatmapDataResponse, HeatmapGlowPoint } from "./heatmap.types";
+import { glowBinCenterInOverlayPixels } from "./heatmapDisplay";
 import { buildGlowBinTooltipModel } from "./heatmapGlowBinTooltip";
 import type { HeatmapSignal } from "./heatmapPanelUtils";
 import classes from "./HeatmapPanel.module.css";
@@ -106,13 +107,42 @@ export function HeatmapGlowBinHoverLayer({
     return null;
   }
 
+  const overlayEl = wrapRef.current;
+  const overlayPx =
+    overlayEl && overlayEl.clientWidth > 0 && overlayEl.clientHeight > 0
+      ? { width: overlayEl.clientWidth, height: overlayEl.clientHeight }
+      : null;
+
   const tooltipModel =
     tip && binTooltip
       ? buildGlowBinTooltipModel(binTooltip.payload, binTooltip.signal, tip.point)
       : null;
 
+  const tipPx =
+    tip && overlayPx
+      ? glowBinCenterInOverlayPixels(
+          tip.point,
+          overlayPx.width,
+          overlayPx.height,
+          points,
+        )
+      : null;
+
+  const pixelRow =
+    tipPx != null ? (
+      <Group justify="space-between" gap="xl" wrap="nowrap" align="flex-start">
+        <Text size="xs" c="gray.3" style={{ flexShrink: 0 }}>
+        Center (x,y)
+        </Text>
+        <Text size="sm" fw={600} c="white" ta="right" style={{ lineHeight: 1.3 }}>
+        [{tipPx.x}, {tipPx.y}]
+        </Text>
+      </Group>
+    ) : null;
+
   const tooltipLabel = tooltipModel ? (
     <Stack gap="sm" className={classes.glowBinTooltipStack}>
+      {pixelRow}
       <Group justify="space-between" gap="xl" wrap="nowrap" align="flex-start">
         <Text size="xs" c="gray.3" style={{ flexShrink: 0 }}>
           Total clicks
@@ -140,6 +170,7 @@ export function HeatmapGlowBinHoverLayer({
     </Stack>
   ) : tip ? (
     <Stack gap="sm" className={classes.glowBinTooltipStack}>
+      {pixelRow}
       <Group justify="space-between" gap="xl" wrap="nowrap" align="flex-start">
         <Text size="xs" c="gray.3">
           This bin
@@ -172,6 +203,10 @@ export function HeatmapGlowBinHoverLayer({
             tip.point.weight,
             tip.point.x,
             tip.point.y,
+            overlayPx?.width,
+            overlayPx?.height,
+            tipPx?.x,
+            tipPx?.y,
             binTooltip?.signal,
             tooltipModel?.totalClicks,
             tooltipModel?.layerValue,
