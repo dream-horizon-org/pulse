@@ -16,7 +16,7 @@ pipeline {
         TF_IN_AUTOMATION = 'true'
         TF_VAR_artifact_version = "${params.ARTIFACT_VERSION}"
         DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
-        PULSE_AI_VERSION = "${params.PULSE_AI_VERSION}"
+        TF_VAR_pulse_ai_version = "${params.PULSE_AI_VERSION}"
     }
 
     stages {
@@ -65,7 +65,7 @@ pipeline {
                 sh '''
                     echo "Running Terraform Plan..."
                     cd deploy/terraform/pulse-server
-                    terraform plan -out=tfplan"
+                    terraform plan -out=tfplan
                 '''
             }
         }
