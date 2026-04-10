@@ -40,31 +40,37 @@ export function SessionPlayerSection({
   onSpeedChange,
 }: SessionPlayerSectionProps) {
   return (
-    <Paper className={classes.playerContainer}>
+    <Paper
+      className={`${classes.playerContainer} ${classes.playerSectionStretch}`}
+    >
       <Box className={classes.playerHeader}>
         <PlayerHeader sessionData={sessionData} />
       </Box>
-      <PlayerViewport
-        images={images}
-        imagesLoading={imagesLoading}
-        currentTime={currentTime}
-        isPlaying={isPlaying}
-        playbackSpeed={playbackSpeed}
-        sessionData={sessionData}
-        selectedSpan={selectedSpan}
-        compact={compact}
-        onTimeUpdate={onTimeUpdate}
-      />
-      <PlayerControls
-        currentTime={currentTime}
-        duration={duration ?? sessionData.duration}
-        isPlaying={isPlaying}
-        playbackSpeed={playbackSpeed}
-        criticalInteractions={sessionData.criticalInteractions}
-        onTimelineChange={onTimelineChange}
-        onPlayPause={onPlayPause}
-        onSpeedChange={onSpeedChange}
-      />
+      <Box className={classes.playerViewportGrow}>
+        <PlayerViewport
+          images={images}
+          imagesLoading={imagesLoading}
+          currentTime={currentTime}
+          isPlaying={isPlaying}
+          playbackSpeed={playbackSpeed}
+          sessionData={sessionData}
+          selectedSpan={selectedSpan}
+          compact={compact}
+          onTimeUpdate={onTimeUpdate}
+        />
+      </Box>
+      <Box className={classes.playerControlsSlot}>
+        <PlayerControls
+          currentTime={currentTime}
+          duration={duration ?? sessionData.duration}
+          isPlaying={isPlaying}
+          playbackSpeed={playbackSpeed}
+          criticalInteractions={sessionData.criticalInteractions}
+          onTimelineChange={onTimelineChange}
+          onPlayPause={onPlayPause}
+          onSpeedChange={onSpeedChange}
+        />
+      </Box>
     </Paper>
   );
 }

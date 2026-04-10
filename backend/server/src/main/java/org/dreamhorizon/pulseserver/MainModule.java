@@ -28,7 +28,9 @@ import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseP
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
+import org.dreamhorizon.pulseserver.errorgrouping.IosLlvmSymbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
+import org.dreamhorizon.pulseserver.errorgrouping.service.DsymCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.S3SymbolFileService;
@@ -110,6 +112,8 @@ public class MainModule extends VertxAbstractModule {
     bind(S3SymbolFileService.class).in(Singleton.class);
     bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
     bind(SourceMapCache.class).in(Singleton.class);
+    bind(DsymCache.class).in(Singleton.class);
+    bind(IosLlvmSymbolicator.class).in(Singleton.class);
     bind(ErrorGroupingService.class).in(Singleton.class);
     bind(Symbolicator.class).in(Singleton.class);
     bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);

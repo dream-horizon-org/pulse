@@ -94,8 +94,8 @@ transforms:
       - add_counter
     group_by:
       - project_id
-    expire_after_ms: 1000
-    flush_period_ms: 1000
+    expire_after_ms: 60000
+    flush_period_ms: 60000
     merge_strategies:
       event_count: sum
     ends_when: |

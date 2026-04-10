@@ -1,3 +1,10 @@
+
+.viewportRoot {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
 .playerViewport {
   position: relative;
   min-height: 500px;
@@ -23,11 +30,13 @@
   align-items: center;
   justify-content: center;
   background: var(--mantine-color-gray-0);
-  border-radius: var(--mantine-radius-md);
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  overflow: hidden;
 }
 
 .playerPlaceholderCompact {
   min-height: 320px;
+  padding: var(--mantine-spacing-sm);
 }
 
 .loadingSpinner {

@@ -22,12 +22,6 @@ import type {
 import { makeRequestToServer } from "../../helpers/makeRequestToServer";
 import { getCookies } from "../../helpers/cookies";
 import { COOKIES_KEY } from "../../constants";
-import {
-  getMockSessionListingResponse,
-  getMockSessionDetailApiResponse,
-  getMockSnapshotsData,
-  getMockSessionsFiltersResponse,
-} from "../../screens/SessionReplayDetail/mock/sessionReplayMock";
 
 export class SessionReplayService {
   private baseURL: string;
@@ -100,9 +94,6 @@ export class SessionReplayService {
   async getSessionDetail(
     request: GetSessionDetailRequest,
   ): Promise<SessionDetailApiResponse> {
-    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return getMockSessionDetailApiResponse(request.sessionId);
-    }
     const path = `/v1/sessions/${encodeURIComponent(request.sessionId)}`;
     const includeParam = request.include?.length
       ? request.include.join(",")
@@ -228,27 +219,6 @@ export class SessionReplayService {
   async getSnapshotsSource(
     sessionId: string,
   ): Promise<SnapshotsSourceResponse["data"]> {
-    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return {
-        sessionId: sessionId,
-        snapshotSource: "android",
-        sources: [
-          {
-            source: "blob",
-            blobKey: "0",
-            startTimestamp: "2026-03-13 12:17:28.354000",
-            endTimestamp: "2026-03-13 12:17:36.197000",
-          },
-          {
-            source: "blob",
-            blobKey: "1",
-            startTimestamp: "2026-03-13 12:17:37.197000",
-            endTimestamp: "2026-03-13 12:17:46.219000",
-          },
-        ],
-      };
-    }
-
     const url = `${this.baseURL}/v1/sessions/${encodeURIComponent(sessionId)}/snapshots-source`;
 
     const response = await makeRequestToServer({
@@ -277,10 +247,6 @@ export class SessionReplayService {
     startBlobKey: string,
     endBlobKey: string,
   ): Promise<SnapshotsDataResponse["data"]> {
-    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return getMockSnapshotsData(startBlobKey);
-    }
-
     const url = new URL(
       `${this.baseURL}/v1/sessions/${encodeURIComponent(sessionId)}/snapshots-data`,
     );
@@ -418,9 +384,6 @@ export class SessionReplayService {
   async postSessionsListing(
     request: SessionListingRequest,
   ): Promise<SessionListingResponse> {
-    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return getMockSessionListingResponse(request);
-    }
     const url = `${this.baseURL}/v1/sessions/listing`;
 
     try {
@@ -453,9 +416,6 @@ export class SessionReplayService {
    * GET /v1/sessions/filters
    */
   async getSessionsFilters(): Promise<FilterConfigResponse> {
-    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return getMockSessionsFiltersResponse();
-    }
     const url = `${this.baseURL}/v1/sessions/filters`;
 
     try {

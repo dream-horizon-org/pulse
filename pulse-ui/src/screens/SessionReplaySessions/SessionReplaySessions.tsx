@@ -23,8 +23,7 @@ import { SessionListLoadingState } from "./components/SessionListLoadingState";
 import { SessionListEmptyState } from "./components/SessionListEmptyState";
 import { AdvancedFilterBuilder } from "./components/AdvancedFilterBuilder";
 import { SessionsTableToolbar } from "./components/SessionsTableToolbar";
-import { SessionsTable } from "./components/SessionsTable";
-import { SessionListPagination } from "./components/SessionListPagination";
+import { SessionsVirtualList } from "./components/SessionsVirtualList";
 
 export function SessionReplaySessions() {
   const { trackClick } = useAnalytics("SessionReplaySessions");
@@ -38,10 +37,9 @@ export function SessionReplaySessions() {
   const [sortBy, setSortBy] = useState<SortField>("START_TIME");
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
 
-  const { loading, sessionsData, sessions, hasMorePages, maxPage } =
+  const { sessions, isLoading, isFetching, hasMore, error, loadMore } =
     useSessionListData({
       filterState,
-      filterActions,
       sortBy,
       sortDirection,
     });
@@ -90,7 +88,7 @@ export function SessionReplaySessions() {
     filterState.drillDown.value,
     filterState.advancedFilters?.conditions,
     filterActions,
-    interactionField
+    interactionField,
   ]);
 
   const handleSort = (field: SortField) => {
@@ -207,28 +205,18 @@ export function SessionReplaySessions() {
     navigate(`${sessionReplayBase}/${sessionId}`);
   };
 
-  const handleOpenInNewTab = (sessionId: string) => {
-    trackClick(`OpenSession_${sessionId}`);
-    window.open(`${sessionReplayBase}/${sessionId}`, "_blank");
-  };
-
-  if (loading && !sessionsData) {
-    return <SessionListLoadingState />;
-  }
-
-  if (!loading && sessionsData && sessions.length === 0) {
-    return (
-      <SessionListEmptyState
-        hasActiveFilters={activeFiltersCount > 0}
-        onClearFilters={clearAllFilters}
-        onRemoveLastFilter={removeLastFilter}
-      />
-    );
-  }
+  const isInitialLoading = isLoading && sessions.length === 0;
+  const showEmptyState = !isLoading && sessions.length === 0;
 
   return (
     <div className={classes.container}>
-      <SessionListHeader />
+      <SessionListHeader
+        subtitle={
+          showEmptyState
+            ? SESSION_LIST_LABELS.emptyStateSubtitleFiltered
+            : undefined
+        }
+      />
 
       {filterState.drillDown.type &&
         filterState.drillDown.label &&
@@ -265,9 +253,8 @@ export function SessionReplaySessions() {
           onDateCustomChange={(from, to) => {
             filterActions.setDateRange("custom", from, to);
           }}
-          onPageReset={() => filterActions.setPage(1)}
           sessionCount={sessions.length}
-          hasMore={sessionsData?.page?.hasMore ?? false}
+          hasMore={hasMore}
           filtersConfig={filtersConfig}
           quickFiltersLoading={quickFiltersLoading}
           quickFiltersState={
@@ -284,24 +271,29 @@ export function SessionReplaySessions() {
           onRemoveAdvancedFilter={removeAdvancedFilter}
         />
 
-        <SessionsTable
-          sortBy={sortBy}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-          sessions={sessions}
-          onWatchSession={handleWatchSession}
-          onOpenSessionInNewTab={handleOpenInNewTab}
-        />
+        {isInitialLoading ? (
+          <SessionListLoadingState embedded />
+        ) : showEmptyState ? (
+          <SessionListEmptyState
+            hasActiveFilters={activeFiltersCount > 0}
+            onClearFilters={clearAllFilters}
+            onRemoveLastFilter={removeLastFilter}
+          />
+        ) : (
+          <SessionsVirtualList
+            sessions={sessions}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+            onSessionClick={handleWatchSession}
+            onLoadMore={loadMore}
+            isLoading={isLoading}
+            isFetching={isFetching}
+            hasMore={hasMore}
+            error={error}
+          />
+        )}
       </Paper>
-
-      <SessionListPagination
-        currentPage={filterState.currentPage}
-        hasMorePages={hasMorePages}
-        maxPage={maxPage}
-        onPrevious={() => filterActions.setPage(filterState.currentPage - 1)}
-        onNext={() => filterActions.setPage(filterState.currentPage + 1)}
-        onGoToPage={(page) => filterActions.setPage(page)}
-      />
     </div>
   );
 }

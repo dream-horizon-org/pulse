@@ -1,14 +1,24 @@
-import { Paper, Box, Text, Badge, Group, RingProgress } from "@mantine/core";
+import {
+  Paper,
+  Box,
+  Text,
+  Badge,
+  Group,
+  Stack,
+  SimpleGrid,
+} from "@mantine/core";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
-import { UserJourney } from "./all/UserJourney";
-import { STATUS_LABELS_EXTENDED as STATUS_LABELS } from "../constants/strings";
+import {
+  LABELS,
+  STATUS_LABELS_EXTENDED as STATUS_LABELS,
+} from "../constants/strings";
+import {
+  formatTimestamp,
+  getQualityColor,
+  getPlatformColor,
+} from "../../SessionReplaySessions/utils/sessionListUtils";
+import { formatDuration } from "../utils/sessionUtils";
 import classes from "./SessionSummary.module.css";
-
-function getQualityColor(score: number): string {
-  if (score >= 8) return "var(--mantine-color-teal-6)";
-  if (score >= 6) return "var(--mantine-color-yellow-6)";
-  return "var(--mantine-color-red-6)";
-}
 
 interface SessionSummaryProps {
   sessionData: SessionDetailData;
@@ -18,92 +28,108 @@ export function SessionSummary({ sessionData }: SessionSummaryProps) {
   const quality = sessionData.interactionQuality;
   const hasQuality = quality != null && Number.isFinite(quality);
 
-  const formattedTime = new Date(sessionData.startTime).toLocaleString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-  );
+  const formattedStart = formatTimestamp(sessionData.startTime);
+
+  const qualityColor = hasQuality
+    ? getQualityColor(quality as number)
+    : undefined;
 
   return (
     <Paper className={classes.summary} withBorder p={0}>
-      {/* Single info row: most important first */}
-      <Box className={classes.infoRow}>
-        {/* 1. Session ID */}
-        <Box className={classes.infoItem}>
-          <Text size="sm" ff="monospace" c="dimmed">
+      <Stack gap="md" p="md" className={classes.summaryStack}>
+        <Box className={classes.headerSection}>
+          <Text size="xs" c="dimmed" fw={500} mb={4}>
+            {LABELS.SESSION_TIME}
+          </Text>
+          <Text
+            fw={700}
+            size="lg"
+            ff="monospace"
+            style={{ wordBreak: "break-all" }}
+          >
             {sessionData.sessionId}
           </Text>
         </Box>
 
-        <Box className={classes.dot} />
-
-        {/* 2. User */}
-        <Box className={classes.infoItem}>
-          <Text size="md" fw={600}>
-            {sessionData.userId || "Anonymous"}
-          </Text>
-          <Badge
-            size="sm"
-            variant="light"
-            color={sessionData.isAnonymous ? "gray" : "blue"}
-          >
-            {sessionData.isAnonymous
-              ? STATUS_LABELS.ANONYMOUS
-              : STATUS_LABELS.IDENTIFIED_UPPERCASE}
-          </Badge>
-        </Box>
-
-        <Box className={classes.dot} />
-
-        {/* 3. Quality */}
-        <Box className={classes.infoItem}>
-          {hasQuality ? (
-            <Group gap={6} align="center">
-              <RingProgress
-                size={28}
-                thickness={3}
-                roundCaps
-                sections={[
-                  {
-                    value: (quality / 10) * 100,
-                    color: getQualityColor(quality),
-                  },
-                ]}
-              />
-              <Text
-                size="sm"
-                fw={600}
-                style={{ color: getQualityColor(quality) }}
-              >
-                {quality.toFixed(1)}
-              </Text>
-            </Group>
-          ) : (
-            <Text size="sm" fw={500} c="dimmed">
-              Quality: NA
+        <SimpleGrid
+          cols={{ base: 1, xs: 2, sm: 3, md: 5 }}
+          spacing={{ base: "md", md: "lg" }}
+          verticalSpacing="md"
+        >
+          <Stack gap={4}>
+            <Text size="xs" c="dimmed" fw={500}>
+              {LABELS.USER_ID}
             </Text>
-          )}
-        </Box>
+            <Group gap="xs" align="center" wrap="wrap">
+              <Text fw={600} size="sm">
+                {sessionData.userId || "Anonymous"}
+              </Text>
+              <Badge
+                size="sm"
+                variant="light"
+                color={sessionData.isAnonymous ? "gray" : "blue"}
+              >
+                {sessionData.isAnonymous
+                  ? STATUS_LABELS.ANONYMOUS
+                  : STATUS_LABELS.IDENTIFIED_UPPERCASE}
+              </Badge>
+            </Group>
+          </Stack>
 
-        <Box className={classes.dot} />
+          <Stack gap={4}>
+            <Text size="xs" c="dimmed" fw={500}>
+              {LABELS.START_TIME}
+            </Text>
+            <Text fw={600} size="sm">
+              {formattedStart}
+            </Text>
+          </Stack>
 
-        {/* 4. Timestamp */}
-        <Box className={classes.infoItem}>
-          <Text size="sm" c="dimmed">
-            {formattedTime}
-          </Text>
-        </Box>
-      </Box>
+          <Stack gap={4}>
+            <Text size="xs" c="dimmed" fw={500}>
+              {LABELS.DURATION}
+            </Text>
+            <Text fw={600} size="sm">
+              {formatDuration(sessionData.duration)}
+            </Text>
+          </Stack>
 
-      {/* Journey */}
-      <Box className={classes.journeyBlock}>
-        <UserJourney journey={sessionData.journey} />
-      </Box>
+          <Stack gap={4}>
+            <Text size="xs" c="dimmed" fw={500}>
+              {LABELS.QUALITY}
+            </Text>
+            {hasQuality ? (
+              <Group gap={4} align="baseline" wrap="wrap">
+                <Text size="sm" fw={700} c={qualityColor}>
+                  {(quality as number).toFixed(2)}
+                </Text>
+                <Text size="xs" c="dimmed" component="span">
+                  {LABELS.QUALITY_RANGE_HINT}
+                </Text>
+              </Group>
+            ) : (
+              <Text size="sm" fw={600} c="dimmed">
+                NA
+              </Text>
+            )}
+          </Stack>
+
+          <Stack gap={4}>
+            <Text size="xs" c="dimmed" fw={500}>
+              {LABELS.PLATFORM}
+            </Text>
+            <Badge
+              size="sm"
+              variant="light"
+              color={getPlatformColor(sessionData.platform)}
+              tt="uppercase"
+              w="fit-content"
+            >
+              {sessionData.platform}
+            </Badge>
+          </Stack>
+        </SimpleGrid>
+      </Stack>
     </Paper>
   );
 }

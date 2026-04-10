@@ -22,7 +22,6 @@ export interface SessionsTableToolbarProps {
   dateTo: string | null;
   onDatePresetChange: (preset: string) => void;
   onDateCustomChange: (from: string | null, to: string | null) => void;
-  onPageReset: () => void;
   // Table summary
   sessionCount: number;
   hasMore: boolean;
@@ -55,7 +54,6 @@ export function SessionsTableToolbar({
   dateTo,
   onDatePresetChange,
   onDateCustomChange,
-  onPageReset,
   sessionCount,
   hasMore,
   filtersConfig,
@@ -86,26 +84,14 @@ export function SessionsTableToolbar({
           to={dateTo}
           onPresetChange={onDatePresetChange}
           onCustomRangeChange={onDateCustomChange}
-          onPageReset={onPageReset}
         />
 
-        <Group justify="space-between">
-          <div>
-            <Text size="md" fw={600}>
-              {SESSION_LIST_LABELS.sectionTitle}
-            </Text>
-            <Text size="xs" c="dimmed">
-              {SESSION_LIST_LABELS.sectionDescription}
-            </Text>
-          </div>
-          <Badge size="lg" variant="light" color="gray">
-            {sessionCount} sessions
-            {hasMore ? ` ${SESSION_LIST_LABELS.moreAvailable}` : ""}
-          </Badge>
-        </Group>
-
-        <Group justify="space-between" align="center">
-          <Group gap="xs" style={{ flexWrap: "wrap", flex: 1 }}>
+        <Group justify="space-between" align="flex-start" wrap="nowrap">
+          <Group
+            gap="xs"
+            style={{ flexWrap: "wrap", flex: 1 }}
+            align="flex-start"
+          >
             <Text size="sm" fw={500} c="dimmed">
               {SESSION_LIST_LABELS.quickFiltersLabel}
             </Text>
@@ -153,13 +139,16 @@ export function SessionsTableToolbar({
               </>
             )}
           </Group>
-          <TextInput
-            leftSection={<IconSearch size={16} />}
-            placeholder={SESSION_LIST_LABELS.searchPlaceholder}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            style={{ minWidth: 300, maxWidth: 400 }}
-          />
+          <Stack gap="xs" align="flex-end" style={{ flexShrink: 0 }}>
+           
+            <TextInput
+              leftSection={<IconSearch size={16} />}
+              placeholder={SESSION_LIST_LABELS.searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              style={{ minWidth: 300, maxWidth: 400 }}
+            />
+          </Stack>
         </Group>
 
         <ActiveFilterChips

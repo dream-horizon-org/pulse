@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -53,6 +54,12 @@ class ErrorGroupingServiceTest {
   @BeforeEach
   void setUp() {
     errorGroupingService = new ErrorGroupingService(clickhouseQueryService, symbolicator);
+    lenient().when(symbolicator.symbolicateIosNative(anyList(), any(EventMeta.class), any(), anyBoolean()))
+        .thenAnswer(invocation -> {
+          @SuppressWarnings("unchecked")
+          List<Frame> frames = invocation.getArgument(0);
+          return Single.just(frames.stream().map(Frame::getToken).toList());
+        });
   }
 
   // Helper methods to create test data
@@ -93,6 +100,18 @@ class ErrorGroupingServiceTest {
         .ndkPc("0x1234")
         .ndkSymbol("nativeFunc")
         .rawLine("libnative.so+0x1234")
+        .originalPosition(position)
+        .build();
+  }
+
+  private NdkFrame createIosNativeFrame(int position) {
+    return NdkFrame.builder()
+        .lane(Lane.IOS_NATIVE)
+        .iosAppBinaryName("PulseIOSExample")
+        .ndkLib("PulseIOSExample")
+        .ndkPc("0x102944318")
+        .ndkSymbol("mangledSym")
+        .rawLine("4   PulseIOSExample 0x0000000102944318 sym + 1")
         .originalPosition(position)
         .build();
   }
@@ -316,6 +335,46 @@ class ErrorGroupingServiceTest {
 
       assertEquals(Lane.NDK, result);
     }
+
+    @Test
+    void shouldPrioritizeIosNativeWhenPrimaryLaneMatches() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(Lane.IOS_NATIVE)
+          .iosNativeFrames(List.of(createIosNativeFrame(0)))
+          .jsFrames(Collections.emptyList())
+          .javaFrames(Collections.emptyList())
+          .ndkFrames(Collections.emptyList())
+          .build();
+
+      assertEquals(Lane.IOS_NATIVE, ErrorGroupingService.choosePrimary(parsed));
+    }
+
+    @Test
+    void shouldPreferJavaOverIosWhenSameFrameCount() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(null)
+          .iosNativeFrames(List.of(createIosNativeFrame(0), createIosNativeFrame(1)))
+          .javaFrames(List.of(createJavaFrame(2), createJavaFrame(3)))
+          .jsFrames(Collections.emptyList())
+          .ndkFrames(Collections.emptyList())
+          .build();
+
+      assertEquals(Lane.JAVA, ErrorGroupingService.choosePrimary(parsed));
+    }
+
+    @Test
+    void shouldReturnIosNativeWhenItHasMostFrames() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(null)
+          .iosNativeFrames(List.of(
+              createIosNativeFrame(0), createIosNativeFrame(1), createIosNativeFrame(2)))
+          .javaFrames(List.of(createJavaFrame(3)))
+          .jsFrames(Collections.emptyList())
+          .ndkFrames(Collections.emptyList())
+          .build();
+
+      assertEquals(Lane.IOS_NATIVE, ErrorGroupingService.choosePrimary(parsed));
+    }
   }
 
   @Nested
@@ -417,6 +476,47 @@ class ErrorGroupingServiceTest {
       List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.JS);
 
       assertEquals(ndkTypes, result);
+    }
+
+    @Test
+    void shouldReturnIosNativeTypesForIosLane() {
+      List<String> iosTypes = List.of("EXC_CRASH");
+      ParsedFrames parsed = ParsedFrames.builder()
+          .iosNativeTypes(iosTypes)
+          .build();
+
+      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.IOS_NATIVE);
+
+      assertEquals(iosTypes, result);
+    }
+
+    @Test
+    void shouldFallbackToJsTypesWhenIosNativeTypesEmpty() {
+      List<String> jsTypes = List.of("CustomError");
+      ParsedFrames parsed = ParsedFrames.builder()
+          .jsTypes(jsTypes)
+          .iosNativeTypes(Collections.emptyList())
+          .iosNativeFrames(List.of(createIosNativeFrame(0)))
+          .build();
+
+      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.IOS_NATIVE);
+
+      assertEquals(jsTypes, result);
+    }
+
+    @Test
+    void shouldFallbackToJavaTypesWhenIosNativeTypesEmptyAndJsEmpty() {
+      List<String> javaTypes = List.of("IllegalStateException");
+      ParsedFrames parsed = ParsedFrames.builder()
+          .jsTypes(Collections.emptyList())
+          .javaTypes(javaTypes)
+          .iosNativeTypes(Collections.emptyList())
+          .iosNativeFrames(List.of(createIosNativeFrame(0)))
+          .build();
+
+      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.IOS_NATIVE);
+
+      assertEquals(javaTypes, result);
     }
   }
 
@@ -536,6 +636,17 @@ class ErrorGroupingServiceTest {
 
       assertTrue(result.isEmpty());
     }
+
+    @Test
+    void shouldSelectIosNativeFrames() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .iosNativeFrames(List.of(createIosNativeFrame(0), createIosNativeFrame(1)))
+          .build();
+
+      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.IOS_NATIVE, 2);
+
+      assertEquals(2, result.size());
+    }
   }
 
   @Nested
@@ -645,6 +756,34 @@ class ErrorGroupingServiceTest {
       String result = ErrorGroupingService.buildDisplayName(Lane.JAVA, excTypes, frames, "EXC-111222");
 
       assertEquals("Error at method(File.java:10) [EXC-111222]", result);
+    }
+
+    @Test
+    void shouldBuildDisplayNameForIosNativeWithoutExceptionType() {
+      String result = ErrorGroupingService.buildDisplayName(
+          Lane.IOS_NATIVE, List.of(), List.of("0  App  0x1 main"), "EXC-IOS1");
+      assertEquals("NativeError at 0  App  0x1 main [EXC-IOS1]", result);
+    }
+  }
+
+  @Nested
+  class IosPlatformAndTypesTests {
+    @Test
+    void isIosPlatform_detectsAppleOsNames() {
+      assertTrue(ErrorGroupingService.isIosPlatform(EventMeta.builder().platform("iOS").build()));
+      assertTrue(ErrorGroupingService.isIosPlatform(EventMeta.builder().platform("iPhone").build()));
+      assertTrue(ErrorGroupingService.isIosPlatform(EventMeta.builder().platform("iPadOS").build()));
+      assertFalse(ErrorGroupingService.isIosPlatform(EventMeta.builder().platform("android").build()));
+      assertFalse(ErrorGroupingService.isIosPlatform(null));
+      assertFalse(ErrorGroupingService.isIosPlatform(EventMeta.builder().build()));
+    }
+
+    @Test
+    void typesForPrimary_fallsBackWhenNdkTypesEmptyButJsPresent() {
+      ParsedFrames pf = new ParsedFrames();
+      pf.getJsTypes().add("ReferenceError");
+      pf.getNdkFrames().add(createNdkFrame(0));
+      assertEquals(List.of("ReferenceError"), ErrorGroupingService.typesForPrimary(pf, Lane.NDK));
     }
   }
 
@@ -941,6 +1080,33 @@ class ErrorGroupingServiceTest {
       assertNotNull(processingResult);
       assertNotNull(processingResult.completeSymbolication());
       // NDK frames don't get symbolicated, just returned as-is
+    }
+
+    @Test
+    void shouldProcessIosNativeCrash() {
+      String stackTrace = """
+          Process:             PulseIOSExample [1]
+          Exception Type:  EXC_CRASH (SIGABRT)
+          Thread 0 Crashed:
+          0   PulseIOSExample                0x0000000102944318 main + 12
+          Thread 1:
+          """;
+      EventMeta meta = EventMeta.builder()
+          .appVersion("1.0.0")
+          .platform("iOS")
+          .projectId("proj")
+          .build();
+      when(symbolicator.symbolicateIosNative(anyList(), eq(meta), any(), anyBoolean()))
+          .thenReturn(Single.just(List.of("PulseIOSExample#main")));
+      lenient().when(symbolicator.symbolicateJsInPlace(anyList(), eq(meta)))
+          .thenReturn(Single.just(Collections.emptyList()));
+      lenient().when(symbolicator.retrace(anyList(), eq(meta)))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      ErrorGroupingService.ProcessingResult pr =
+          errorGroupingService.processWithCompleteSymbolication(stackTrace, meta).blockingGet();
+      assertEquals("ios-native", pr.group().getPlatform());
+      assertTrue(pr.completeSymbolication().getSymbolicatedIosNativeFrames().stream().anyMatch(s -> s.contains("main")));
     }
   }
 }

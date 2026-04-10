@@ -78,6 +78,11 @@ interface RawTraceRow {
   statusCode: string;
   spanType: string;
   pulseType: string;
+  graphqlOperationName: string;
+  graphqlOperationMethod: string;
+  graphqlOperationType: string;
+  httpUrl: string;
+  screenNameAttr: string;
 }
 
 interface RawLogRow {
@@ -132,7 +137,88 @@ function parseTraceRow(
     statusCode: String(getField("statuscode") || ""),
     spanType: String(getField("spantype") || ""),
     pulseType: String(getField("pulsetype") || ""),
+    graphqlOperationName: String(getField("graphqloperationname") || ""),
+    graphqlOperationMethod: String(getField("graphqloperationmethod") || ""),
+    graphqlOperationType: String(getField("graphqloperationtype") || ""),
+    httpUrl: String(getField("httpurl") || ""),
+    screenNameAttr: String(
+      getField("screennameattr") || getField("screen_name_attr") || "",
+    ),
   };
+}
+
+/** Pulse / span kinds where appending SpanAttributes['screen.name'] helps the flame graph. */
+const SCREEN_CONTEXT_PULSE_SUBSTRINGS = [
+  "screen_session",
+  "screen_load",
+  "screen_interactive"
+];
+
+function shouldAppendScreenContextName(pulseType: string, spanName: string): boolean {
+  const pt = (pulseType || "").toLowerCase();
+  if (
+    SCREEN_CONTEXT_PULSE_SUBSTRINGS.some((frag) => pt.includes(frag))
+  ) {
+    return true;
+  }
+  const sn = (spanName || "").toLowerCase();
+  return (
+    sn.includes("screen session") ||
+    sn.includes("screen load") ||
+    sn.includes("session interactive") ||
+    sn.includes("screen interactive")
+  );
+}
+
+/**
+ * Prefer GraphQL operation kind + name when present; otherwise keep HTTP-style span name
+ * and append http.url when useful (matches Network list / OTEL GraphQL conventions).
+ * For screen session / load / interactive spans, appends screen.name when present.
+ */
+export function buildSpanDisplayName(parsed: Pick<
+  RawTraceRow,
+  | "spanName"
+  | "pulseType"
+  | "graphqlOperationName"
+  | "graphqlOperationMethod"
+  | "graphqlOperationType"
+  | "httpUrl"
+  | "screenNameAttr"
+>): string {
+  const opName = (parsed.graphqlOperationName || "").trim();
+  const opMethod = (parsed.graphqlOperationMethod || "").trim();
+  const opType = (parsed.graphqlOperationType || "").trim();
+  const opKind = opMethod || opType;
+
+  let label: string;
+
+  if (opName || opKind) {
+    const parts = [opKind, opName].filter(Boolean);
+    label = parts.length ? parts.join(" ") : "";
+  } else {
+    label = "";
+  }
+
+  if (!label) {
+    const base = (parsed.spanName || "").trim() || "Unknown Span";
+    const url = (parsed.httpUrl || "").trim();
+    if (url && !base.includes(url)) {
+      label = `${base} · ${url}`;
+    } else {
+      label = base;
+    }
+  }
+
+  if (
+    shouldAppendScreenContextName(parsed.pulseType, parsed.spanName)
+  ) {
+    const screen = (parsed.screenNameAttr || "").trim();
+    if (screen && !label.includes(screen)) {
+      label = `${label} · ${screen}`;
+    }
+  }
+
+  return label;
 }
 
 function parseLogRow(
@@ -324,7 +410,7 @@ export function transformToFlameChart(
       
       const item: FlameChartItem = {
         id: `span-${parsed.traceId}-${parsed.spanId}`,
-        name: parsed.spanName || "Unknown Span",
+        name: buildSpanDisplayName(parsed),
         start: ts.valueOf(),
         duration: parsed.duration / 1_000_000, // Convert nanoseconds to ms
         type: "span",
@@ -339,6 +425,11 @@ export function transformToFlameChart(
           spanType: parsed.spanType,
           pulseType: parsed.pulseType,
           timestamp: parsed.timestamp,
+          graphqlOperationName: parsed.graphqlOperationName,
+          graphqlOperationMethod: parsed.graphqlOperationMethod,
+          graphqlOperationType: parsed.graphqlOperationType,
+          httpUrl: parsed.httpUrl,
+          screenNameAttr: parsed.screenNameAttr,
         },
       };
 
