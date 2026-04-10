@@ -14,16 +14,17 @@ internal class PulseUtils {
     /// Cache for computed GCD values using string keys.
     private static var gcdCache: [String: Int] = [:]
     private static let gcdCacheLock = NSLock()
-
+    
     /// Computes current viewport aspect ratio from active key UIWindow as "w:h".
     /// Uses window bounds in points to match click viewport width/height semantics.
     static func currentViewportAspectRatio() -> String? {
         #if os(iOS) || os(tvOS)
-        var aspectRatio: String?
-        DispatchQueue.main.async {
-            aspectRatio = currentViewportAspectRatioOnMainThread()
+        if Thread.isMainThread {
+            return currentViewportAspectRatioOnMainThread()
         }
-        return aspectRatio
+        return DispatchQueue.main.sync {
+            currentViewportAspectRatioOnMainThread()
+        }
         #else
         return nil
         #endif
@@ -37,15 +38,21 @@ internal class PulseUtils {
                 .first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }),
             let window = scene.windows.first(where: { $0.isKeyWindow })
         else {
+            PulseLogger.log("[Aspect Ratio] Could not find active key window")
             return nil
         }
 
         let width = Int(window.bounds.width)
         let height = Int(window.bounds.height)
-        guard width > 0, height > 0 else { return nil }
+        guard width > 0, height > 0 else {
+            PulseLogger.log("[Aspect Ratio] Invalid dimensions: width=\(width), height=\(height)")
+            return nil
+        }
 
         let divisor = gcd(width, height)
-        return "\(width / divisor):\(height / divisor)"
+        let aspectRatio = "\(width / divisor):\(height / divisor)"
+        PulseLogger.log("[Aspect Ratio] Computed: \(aspectRatio) from bounds width=\(width), height=\(height)")
+        return aspectRatio
     }
     #endif
 
