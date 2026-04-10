@@ -11,7 +11,7 @@ import {
   NOT_FOUND_TITLE,
 } from "./FunnelJourneyDetail.constants";
 import classes from "./FunnelJourneyDetail.module.css";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useGetAllFilterValues,
   useGetFunnelEvents,
@@ -22,8 +22,11 @@ import { useUpdateJourney } from "../../hooks/useUpdateJourney";
 import { GlobalFilterBar } from "../FunnelJourneyCreate/components/GlobalFilterBar";
 import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { JourneyExplorer } from "../FunnelJourneyCreate/components/JourneyExplorer";
-import ReactECharts from "echarts-for-react";
-import { buildJourneySankeyOption } from "../FunnelJourneyCreate/utils/buildJourneySankeyOption";
+import { ReactFlowProvider } from "@xyflow/react";
+import {
+  JourneyFlowGraph,
+  buildJourneyFlowData,
+} from "../FunnelJourneyCreate/components/JourneyGraph";
 
 function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditing: boolean; onEdit: () => void }) {
   const navigate = useNavigate();
@@ -80,6 +83,30 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
       value: values,
     }));
   }, [filters]);
+
+  // ── Expansion state for progressive depth reveal ──
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [globalExpanded, setGlobalExpanded] = useState(false);
+
+  const handleGlobalExpand = useCallback(() => {
+    setGlobalExpanded(true);
+    setExpandedNodes(new Set());
+  }, []);
+  const handleGlobalCollapse = useCallback(() => {
+    setGlobalExpanded(false);
+    setExpandedNodes(new Set());
+  }, []);
+  const handleToggleExpand = useCallback((nodeName: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeName)) {
+        next.delete(nodeName);
+      } else {
+        next.add(nodeName);
+      }
+      return next;
+    });
+  }, []);
 
   const [anchorEvent, setAnchorEvent] = useState(detail.anchorEvent || "");
   const [direction, setDirection] = useState<"START" | "END">(
@@ -187,6 +214,15 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
     | { nodes: any[]; links: any[] }
     | undefined;
 
+  const flowResult = useMemo(() => {
+    if (!journeyData?.nodes?.length) return null;
+    return buildJourneyFlowData(
+      journeyData,
+      { expandedNodes, globalExpanded },
+      handleToggleExpand,
+    );
+  }, [journeyData, expandedNodes, globalExpanded, handleToggleExpand]);
+
   useEffect(() => {
     if (
       (detail.journeyType || FunnelType.AUTO) === FunnelType.ONCE &&
@@ -268,16 +304,26 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
         <Box
           className={funnelClasses.mainCanvas}
           style={{
-            minHeight: 560,
             padding: 0,
-            overflowY: "auto",
-            height: "100%",
+            overflow: "hidden",
             flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
           }}
         >
-          <Box className={funnelClasses.journeyCanvas} style={{ padding: 0 }}>
-            <Box className={funnelClasses.sankeyContainer}>
-              <Text size="sm" fw={600} c="dark.7" mb="md">
+          <Box
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+              padding: 16,
+            }}
+          >
+            {/* ── Header row: title + expand/collapse controls ── */}
+            <Group justify="space-between" align="center" mb="sm" style={{ flexShrink: 0 }}>
+              <Text size="sm" fw={600} c="dark.7">
                 {(detail.direction || "START") === "START"
                   ? "Start Point"
                   : "End Point"}{" "}
@@ -288,31 +334,68 @@ function JourneyDetailView({ detail, isEditing, onEdit }: { detail: any; isEditi
                 (saved · depth {detail.depth ?? 5})
               </Text>
 
-              {detail.status === "IN_PROGRESS" ? (
-                <Box className={funnelClasses.emptyState} py={60}>
-                  <Loader color="blue" size="lg" />
-                  <Text size="lg" fw={700} c="dark.6" mt="md">
-                    Computing Journey Data
-                  </Text>
-                  <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
-                    Your journey is currently being computed on the server. This
-                    might take a few moments. Please check back later.
-                  </Text>
-                </Box>
-              ) : journeyData?.nodes?.length ? (
-                <ReactECharts
-                  option={buildJourneySankeyOption(journeyData)}
-                  style={{ height: "520px", width: "100%" }}
-                  notMerge
-                />
-              ) : (
-                <Box className={funnelClasses.emptyState}>
-                  <Text size="sm" c="dimmed">
-                    Journey data could not be loaded.
-                  </Text>
-                </Box>
-              )}
-            </Box>
+              {flowResult ? (
+                <Group gap={8}>
+                  {flowResult.hasHiddenPaths && !globalExpanded && (
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      color="blue"
+                      onClick={handleGlobalExpand}
+                    >
+                      Expand All
+                    </Button>
+                  )}
+                  {(globalExpanded || expandedNodes.size > 0) && (
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      color="gray"
+                      onClick={handleGlobalCollapse}
+                    >
+                      Collapse All
+                    </Button>
+                  )}
+                </Group>
+              ) : null}
+            </Group>
+
+            {/* ── Chart area — fills remaining height ── */}
+            {detail.status === "IN_PROGRESS" ? (
+              <Box className={funnelClasses.emptyState} py={60}>
+                <Loader color="blue" size="lg" />
+                <Text size="lg" fw={700} c="dark.6" mt="md">
+                  Computing Journey Data
+                </Text>
+                <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
+                  Your journey is currently being computed on the server. This
+                  might take a few moments. Please check back later.
+                </Text>
+              </Box>
+            ) : flowResult ? (
+              <Box
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  border: "1px solid #e9ecef",
+                  borderRadius: 8,
+                  background: "#fff",
+                }}
+              >
+                <ReactFlowProvider>
+                  <JourneyFlowGraph
+                    nodes={flowResult.nodes}
+                    edges={flowResult.edges}
+                  />
+                </ReactFlowProvider>
+              </Box>
+            ) : (
+              <Box className={funnelClasses.emptyState}>
+                <Text size="sm" c="dimmed">
+                  Journey data could not be loaded.
+                </Text>
+              </Box>
+            )}
           </Box>
         </Box>
       </Box>
