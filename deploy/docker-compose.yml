@@ -488,11 +488,13 @@ services:
       # Heatmap screenshots (dedicated bucket; falls back to session replay bucket if HEATMAP_S3_BUCKET unset)
       - HEATMAP_S3_BUCKET=${HEATMAP_S3_BUCKET:-heatmap-assets}
       - HEATMAP_S3_ENDPOINT=${HEATMAP_S3_ENDPOINT:-http://minio:9000}
+      # Browser-facing MinIO S3 port on host is 9100 (9000 on host is ClickHouse). Omit in AWS.
+      - HEATMAP_S3_PRESIGN_ENDPOINT=${HEATMAP_S3_PRESIGN_ENDPOINT:-}
       - HEATMAP_S3_REGION=${HEATMAP_S3_REGION:-us-east-1}
       - HEATMAP_S3_ACCESS_KEY_ID=${HEATMAP_S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-pulse_minio}}
       - HEATMAP_S3_SECRET_ACCESS_KEY=${HEATMAP_S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-pulse_minio_secret}}
       - HEATMAP_SCREENSHOTS_S3_PREFIX=${HEATMAP_SCREENSHOTS_S3_PREFIX:-heatmap-screenshots}
-      # Optional host-reachable base for UI (path-style): e.g. http://localhost:9000/heatmap-assets
+      # Optional unsigned URLs (path-style): e.g. http://localhost:9100/heatmap-assets (needs bucket read policy)
       - HEATMAP_SCREENSHOTS_PUBLIC_BASE_URL=${HEATMAP_SCREENSHOTS_PUBLIC_BASE_URL:-}
 
       # CloudFront Configuration

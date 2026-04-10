@@ -238,7 +238,7 @@ docker run -d \
     --restart unless-stopped \
     -p 9100:9000 \
     -p 9101:9001 \
-    -e "MINIO_ROOT_USER=${MINIO_ROOT_USER}" \
+    -e "MINIO_ROOT_USER=${g}" \
     -e "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}" \
     -v "${VOLUME_MINIO}:/data" \
     --health-cmd "mc ready local" \
@@ -435,6 +435,7 @@ docker run -d \
     \
     -e "HEATMAP_S3_BUCKET=${HEATMAP_S3_BUCKET}" \
     -e "HEATMAP_S3_ENDPOINT=${HEATMAP_S3_ENDPOINT}" \
+    -e "HEATMAP_S3_PRESIGN_ENDPOINT=${HEATMAP_S3_PRESIGN_ENDPOINT:-}" \
     -e "HEATMAP_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}" \
     -e "HEATMAP_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}" \
     -e "HEATMAP_S3_REGION=${HEATMAP_S3_REGION}" \

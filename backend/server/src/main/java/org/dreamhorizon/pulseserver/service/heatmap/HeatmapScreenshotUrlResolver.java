@@ -284,13 +284,14 @@ public class HeatmapScreenshotUrlResolver {
 
   private S3Presigner buildPresigner() {
     SessionReplayS3Config conn = resolvedPresignConnection();
-    if (conn != null && StringUtils.isNotBlank(conn.getEndpoint())) {
+    String presignEndpoint = resolvePresignEndpointForSigning(conn);
+    if (conn != null && StringUtils.isNotBlank(presignEndpoint)) {
       String region = StringUtils.defaultIfBlank(conn.getRegion(), "ap-south-1");
       String accessKey = StringUtils.defaultString(conn.getAccessKeyId());
       String secretKey = StringUtils.defaultString(conn.getSecretAccessKey());
       return S3Presigner.builder()
           .region(Region.of(region))
-          .endpointOverride(URI.create(conn.getEndpoint().trim()))
+          .endpointOverride(URI.create(presignEndpoint.trim()))
           .credentialsProvider(
               StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
           .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
@@ -309,5 +310,20 @@ public class HeatmapScreenshotUrlResolver {
       return mergedHeatmapConnection(hm, sr);
     }
     return sr;
+  }
+
+  /**
+   * Host in presigned URLs must match what the browser calls. {@link HeatmapS3Config#getPresignEndpoint()}
+   * overrides the merged listing endpoint for signing only.
+   */
+  private String resolvePresignEndpointForSigning(SessionReplayS3Config conn) {
+    if (conn == null) {
+      return null;
+    }
+    HeatmapS3Config hm = applicationConfig.getHeatmapS3();
+    if (hm != null && StringUtils.isNotBlank(hm.getPresignEndpoint())) {
+      return hm.getPresignEndpoint().trim();
+    }
+    return conn.getEndpoint();
   }
 }

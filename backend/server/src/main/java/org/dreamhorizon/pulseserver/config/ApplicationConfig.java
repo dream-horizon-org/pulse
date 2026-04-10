@@ -49,7 +49,9 @@ public class ApplicationConfig {
   public String heatmapScreenshotsPublicBaseUrl;
   /**
    * When {@code bucket} is set, heatmap screenshot list/presign uses this bucket; otherwise session
-   * replay S3 bucket. Endpoint/keys fall back to session replay when omitted (same MinIO).
+   * replay S3 bucket. Endpoint/keys fall back to session replay when omitted (same MinIO). Optional
+   * {@code presignEndpoint} sets browser-facing hosts in presigned URLs only (see {@code
+   * HEATMAP_S3_PRESIGN_ENDPOINT}).
    */
   public HeatmapS3Config heatmapS3;
 

@@ -60,7 +60,7 @@ class HeatmapScreenshotUrlResolverTest {
   @Test
   void usesPublicBaseUrlWhenSet() {
     ApplicationConfig cfg = new ApplicationConfig();
-    cfg.setHeatmapS3(new HeatmapS3Config("heatmap-assets", null, null, null, null));
+    cfg.setHeatmapS3(new HeatmapS3Config("heatmap-assets", null, null, null, null, null));
     cfg.setSessionReplayS3(
         new SessionReplayS3Config("session-recordings", "http://minio:9000", "us-east-1", "k", "s"));
     cfg.setHeatmapScreenshotsPublicBaseUrl("https://cdn.example/bucket");
