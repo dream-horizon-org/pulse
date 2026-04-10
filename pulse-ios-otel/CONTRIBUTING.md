@@ -9,6 +9,7 @@ This repository is a fork of [OpenTelemetry-Swift](https://github.com/open-telem
 ### Project Context
 
 Pulse iOS SDK is built on top of OpenTelemetry-Swift and follows the [OpenTelemetry specification][otel-specification]. We maintain this fork to:
+
 - Add custom features like PulseKit
 - Provide simplified APIs for iOS developers
 - Stay in sync with upstream OpenTelemetry improvements
@@ -16,6 +17,7 @@ Pulse iOS SDK is built on top of OpenTelemetry-Swift and follows the [OpenTeleme
 ### Code Style
 
 Contributions should:
+
 - Follow Swift idioms and best practices
 - Maintain compatibility with OpenTelemetry specifications
 - Focus on simplicity and ease of use for iOS developers
@@ -27,38 +29,34 @@ Everyone is welcome to contribute code via GitHub Pull Requests (PRs).
 
 ### Fork the repo
 
-Fork the project on GitHub by clicking the `Fork` button at the top of the
-repository and clone your fork locally:
+Pulse iOS SDK lives in the **Pulse monorepo** under `pulse-ios-otel/`. Fork
+[dream-horizon-org/pulse](https://github.com/dream-horizon-org/pulse) and clone your fork:
 
 ```sh
-git clone git@github.com:YOUR_GITHUB_NAME/pulse-ios-sdk.git
-```
-
-or
-```sh
-git clone https://github.com/YOUR_GITHUB_NAME/pulse-ios-sdk.git
+git clone https://github.com/YOUR_GITHUB_NAME/pulse.git
+cd pulse/pulse-ios-otel
 ```
 
 ### Set up remotes
 
-It's helpful to add both the upstream OpenTelemetry-Swift repo and this repo as remotes:
+Add the upstream OpenTelemetry-Swift repo (for syncing fork-related sources) and point `origin` at your monorepo fork:
 
 ```sh
 # Add the original OpenTelemetry-Swift repo (for syncing upstream changes)
 git remote add opentelemetry https://github.com/open-telemetry/opentelemetry-swift.git
 
-# Add this repo as origin (if not already set)
-git remote set-url origin https://github.com/dream-horizon-org/pulse-ios-sdk.git
+# Origin should point at your fork of the Pulse monorepo
+git remote set-url origin https://github.com/YOUR_GITHUB_NAME/pulse.git
 ```
 
 This allows you to:
+
 - Sync upstream OpenTelemetry-Swift changes: `git fetch opentelemetry`
 - Track your contributions: `git push origin`
 
 ### Build
 
 Open `Package.swift` in Xcode and follow normal development process.
-
 
 ```sh
 swift build
@@ -89,17 +87,23 @@ To test for iOS:
 ```sh
 make test-without-building-ios
 ```
+
 ### Linting
+
 #### SwiftLint
-The SwiftLint Xcode plugin can be optionally enabled during development by using an environmental variable when opening the project from the commandline. 
+
+The SwiftLint Xcode plugin can be optionally enabled during development by using an environmental variable when opening the project from the commandline.
+
 ```
 OTEL_ENABLE_SWIFTLINT=1 open Package.swift
 ```
-Note: Xcode must be completely closed before running the above command, close Xcode using `⌘Q` or running `killall xcode` in the commandline.  
+
+Note: Xcode must be completely closed before running the above command, close Xcode using `⌘Q` or running `killall xcode` in the commandline.
 
 #### SwiftFormat
+
 SwiftFormat is also used to enforce formatting rules where Swiftlint isn't able.
-It will also run in the optionally enabled pre-commit hook if installed via `brew install swiftformat`. 
+It will also run in the optionally enabled pre-commit hook if installed via `brew install swiftformat`.
 
 ### Make your modifications
 
@@ -113,7 +117,7 @@ git checkout -b my-feature-branch
 
 You'll need to create a Pull Request once you've finished your work.
 
-Open the PR against the `dream-horizon-org/pulse-ios-sdk` repository.
+Open the PR against the [`dream-horizon-org/pulse`](https://github.com/dream-horizon-org/pulse) monorepo (changes under `pulse-ios-otel/`).
 
 Please put `[WIP]` in the title, or create it as a [`Draft`][github-draft] PR
 if the PR is not ready for review.
@@ -144,26 +148,30 @@ git merge opentelemetry/main --allow-unrelated-histories
 # Resolve any conflicts and commit
 ```
 
-See our [issue tracking template](.github/ISSUE_TEMPLATE/) for monitoring upstream Swift 6.x migration progress.
+See the Pulse monorepo [issue templates](https://github.com/dream-horizon-org/pulse/tree/main/.github/ISSUE_TEMPLATE) for filing bugs and features (this subtree has no local `.github/`).
 
 ## Generating OTLP Protobuf Files
 
 Occasionally, the OpenTelemetry protocol's protobuf definitions are updated and need to be regenerated for the OTLP exporters. This section documents how to regenerate them for Pulse iOS SDK.
 
 #### Requirements
+
 - [protoc]
 - [grpc-swift]
 - [opentelemetry-proto]
 
 ##### Install protoc
+
 ```asciidoc
 $ brew install protobuf
 $ protoc --version  # Ensure compiler version is 3+
 ```
+
 ##### Installing grpc-swift
+
 ```
  brew install swift-protobuf grpc-swift
- ```
+```
 
 ##### Generating otlp protobuf files
 
@@ -187,12 +195,15 @@ protoc --swift_opt=Visibility=Public --grpc-swift_opt=Visibility=Public --swift_
 ```
 
 Replace the generated files in `Sources/Exporters/OpenTelemetryProtocolCommon/proto` & `Sources/Exporters/OpenTelemetryGrpc/proto`:
+
 ###### `OpenTelemetryProtocolGrpc/proto` file list
+
 `logs_service.grpc.swift`
 `metrics_serivce.grpc.swift`
 `trace_service.grpc.swift`
 
 ###### `OpenTelemetryProtocolCommon/proto`
+
 `common.pb.swift`
 `logs.pb.swift`
 `logs_service.pb.swift`
@@ -204,7 +215,7 @@ Replace the generated files in `Sources/Exporters/OpenTelemetryProtocolCommon/pr
 
 ## Resources
 
-- [Pulse iOS SDK Repository](https://github.com/dream-horizon-org/pulse-ios-sdk)
+- [Pulse monorepo (iOS SDK in `pulse-ios-otel/`)](https://github.com/dream-horizon-org/pulse)
 - [OpenTelemetry-Swift Repository](https://github.com/open-telemetry/opentelemetry-swift) - Upstream repository
 - [OpenTelemetry Specification][otel-specification]
 - [OpenTelemetry Community](https://github.com/open-telemetry/community)

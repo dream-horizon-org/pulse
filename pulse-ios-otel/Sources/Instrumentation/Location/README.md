@@ -6,14 +6,14 @@ The Location instrumentation adds geo attributes to spans and log records using 
 
 When location is available and permission is granted, the following attributes are added to spans and log records:
 
-| Attribute | Description |
-|-----------|-------------|
-| `geo.location.lat` | Latitude (WGS84) |
-| `geo.location.lon` | Longitude (WGS84) |
+| Attribute              | Description                     |
+| ---------------------- | ------------------------------- |
+| `geo.location.lat`     | Latitude (WGS84)                |
+| `geo.location.lon`     | Longitude (WGS84)               |
 | `geo.country.iso_code` | ISO 3166-1 alpha-2 country code |
-| `geo.region.iso_code` | ISO 3166-2 region code |
-| `geo.locality.name` | Locality (e.g. city, town) |
-| `geo.postal_code` | Postal code |
+| `geo.region.iso_code`  | ISO 3166-2 region code          |
+| `geo.locality.name`    | Locality (e.g. city, town)      |
+| `geo.postal_code`      | Postal code                     |
 
 These follow the [OpenTelemetry Geo semantic conventions](https://opentelemetry.io/docs/specs/semconv/registry/attributes/geo/).
 
@@ -35,7 +35,7 @@ Add **Location** to your target:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dream-horizon-org/pulse-ios-sdk.git", from: "0.0.1")
+    .package(path: "../../../pulse-ios-otel") // use path from monorepo; or CocoaPods PulseKit for releases
 ],
 targets: [
     .target(
@@ -110,7 +110,6 @@ PulseKit.shared.initialize(
 
 - **Without** the `Location` product linked: this block has no effect and PulseKit runs without location attributes.
 - **With** the `Location` product linked: geo attributes are added to all spans and log records.
-
 
 ## Advanced Guide
 

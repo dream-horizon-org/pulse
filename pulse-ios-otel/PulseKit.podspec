@@ -8,7 +8,7 @@ Pod::Spec.new do |spec|
     Pulse provides a unified API with sensible defaults for easy integration.
   DESC
   
-  spec.homepage = "https://github.com/dream-horizon-org/pulse-ios-sdk"
+  spec.homepage = "https://github.com/dream-horizon-org/pulse/tree/main/pulse-ios-otel"
   spec.documentation_url = "https://pulse.dreamhorizon.org/docs/sdk/ios"
   spec.license = { :type => "Apache 2.0", :file => "LICENSE" }
   spec.authors = { "Pulse iOS SDK" => "support@dream-horizon.org" }

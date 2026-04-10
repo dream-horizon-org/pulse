@@ -1,4 +1,7 @@
 # Pulse iOS SDK
+
+**Monorepo:** this package is maintained at [`pulse-ios-otel/`](https://github.com/dream-horizon-org/pulse/tree/main/pulse-ios-otel) inside [dream-horizon-org/pulse](https://github.com/dream-horizon-org/pulse). CI: `.github/workflows/ios-sdk-checks.yml` on the monorepo.
+
 ## About
 
 Pulse iOS SDK is a simplified, production-ready SDK for instrumenting iOS applications with OpenTelemetry. Built on top of [OpenTelemetry-Swift](https://github.com/open-telemetry/opentelemetry-swift), Pulse provides a unified API with sensible defaults for easy integration.
@@ -13,15 +16,15 @@ PulseKit is the recommended way to use Pulse iOS SDK. It provides a simple, unif
 
 #### Swift Package Manager
 
-Add Pulse iOS SDK to your `Package.swift`:
+From the Pulse monorepo (or a checkout that contains `pulse-ios-otel/`), add a **path** dependency:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dream-horizon-org/pulse-ios.git", from: "1.0.0")
+    .package(path: "../pulse-ios-otel") // adjust relative path from your app package
 ]
 ```
 
-Then add PulseKit to your target:
+Then add PulseKit to your target (the package name in `Package.swift` is `pulse-ios-sdk`):
 
 ```swift
 .target(
@@ -31,6 +34,8 @@ Then add PulseKit to your target:
     ]
 )
 ```
+
+For releases, consume **CocoaPods** (`PulseKit`) from the public release repo, or copy the binary XCFramework workflow described in the monorepo’s **iOS SDK — XCFramework & release PR** action.
 
 #### Basic Usage
 
@@ -54,7 +59,7 @@ If you need direct access to OpenTelemetry APIs, you can use the underlying Open
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dream-horizon-org/pulse-ios-sdk.git", from: "1.0.0")
+    .package(path: "../pulse-ios-otel")
 ]
 
 .target(
@@ -98,7 +103,7 @@ For more information about OpenTelemetry-Swift, visit:
 
 - [OpenTelemetry-Swift Repository](https://github.com/open-telemetry/opentelemetry-swift)
 - [OpenTelemetry Documentation](https://opentelemetry.io/docs/instrumentation/swift/)
-- [OpenTelemetry Community](https://github.com/open-telemetry/community#swift-sdk)
+- [OpenTelemetry Community](https://github.com/open-telemetry/community)
 
 ## Contributing
 

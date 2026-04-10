@@ -1,3 +1,12 @@
+# Validates pulse-ios-otel (SwiftPM + CocoaPods example + XCFramework).
+#
+# Jobs:
+# - SwiftLint: style on Sources/ (see pulse-ios-otel/.swiftlint.yml).
+# - UnitTests: SwiftPM `swift test` — all test targets under pulse-ios-otel/Tests/ (PulseKit,
+#   Instrumentation, Exporters, etc.) on the macOS host (Xcode toolchain).
+# - iOS: build-for-testing + test-without-building for the Swift package on the iOS Simulator (Makefile).
+# - ExampleApp: CocoaPods workspace build for Examples/PulseIOSExample.
+# - XCFramework: build-xcframework.sh + sanity build example against vendored frameworks.
 name: iOS SDK - Checks
 
 on:
@@ -37,8 +46,8 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
         with:
           xcode-version: 16.4
-      - name: Run unit tests
-        run: swift test
+      - name: Run unit tests (SwiftPM)
+        run: swift test --no-parallel
 
   iOS:
     runs-on: macos-15
