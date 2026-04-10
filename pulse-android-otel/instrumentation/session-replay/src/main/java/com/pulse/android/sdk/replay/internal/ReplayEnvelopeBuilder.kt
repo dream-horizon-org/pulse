@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // todo Anirudh will create typed models
+
 package com.pulse.android.sdk.replay.internal
 
 import com.pulse.android.sdk.replay.encoding.ReplayEventPayloadEncoder
@@ -5,7 +7,7 @@ import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayEventType
 import com.pulse.android.sdk.replay.models.PulseReplayEnvelope
 import com.pulse.android.sdk.replay.models.PulseReplayEnvelopeProperties
-import com.pulse.android.sdk.replay.models.PulseReplayJson
+import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -37,7 +39,7 @@ internal object ReplayEnvelopeBuilder {
                         snapshotSource = SNAPSHOT_SOURCE,
                     ),
             )
-        return PulseReplayJson.instance.encodeToString(envelope)
+        return PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(envelope)
     }
 
     fun getSessionIdsForLog(payload: String): String? =

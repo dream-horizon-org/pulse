@@ -117,6 +117,7 @@ export function EngagementBreakdown({
           },
         ],
         groupBy: [attributeAlias],
+        limit: 10,
       };
     }
 
@@ -154,6 +155,7 @@ export function EngagementBreakdown({
         },
       ],
       groupBy: [fieldConfig.alias],
+      limit: 10,
     };
   }, [
     dimension,
@@ -402,7 +404,7 @@ export function EngagementBreakdown({
   const subtitle =
     dimension === "custom"
       ? "Slice engagement metrics by any user-defined attribute."
-      : "Dive deeper into how each cohort contributes to DAU/WAU/MAU and sessions.";
+      : "Dive deeper into how top 10 cohorts contributes to DAU/WAU/MAU and sessions.";
 
   const hasData = chartItems.length > 0;
 
