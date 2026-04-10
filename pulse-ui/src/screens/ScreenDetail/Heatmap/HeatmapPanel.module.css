@@ -46,7 +46,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-width: 0;
+  min-width: min(280px, 100%);
 }
 
 .mapBlockLabel {
@@ -112,28 +112,24 @@
 .heatmapSplit {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: flex-start;
   gap: var(--mantine-spacing-lg);
   margin-top: var(--mantine-spacing-md);
   flex-wrap: wrap;
   width: 100%;
 }
 
+/* Left rail follows content width (phone). Avoid min-width: 0 — it can collapse the screenshot to 0px */
 .heatmapSplitLeft {
-  flex: 0 1 440px;
+  flex: 0 0 auto;
+  width: auto;
   max-width: 100%;
-  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
 .heatmapSplitLeft .phoneFrame {
   min-height: min(260px, 36vh);
-}
-
-.heatmapSplitLeft .phoneInner {
-  width: min(400px, 100%);
-  max-height: min(82vh, 920px);
 }
 
 .heatmapSplitRight {
@@ -271,25 +267,20 @@
 @media (max-width: 900px) {
   .heatmapSplit {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .heatmapSplitLeft,
   .heatmapSplitRight {
     flex: 1 1 auto;
     width: 100%;
-  }
-}
-
-/* Side-by-side split: map column never wider than half the row; frame scale unchanged */
-@media (min-width: 992px) {
-  .heatmapSplitLeft {
-    flex: 0 1 440px;
-    max-width: 50%;
+    max-width: 100%;
   }
 
-  .heatmapSplitRight {
-    flex: 1 1 320px;
+  .heatmapSplitLeft .mapBlock {
+    width: 100%;
   }
+
 }
 
 .aggregatesKvGrid {
@@ -757,7 +748,7 @@
   height: 42px;
 }
 
-/* Center column must not shrink to 0 beside nav buttons; phoneInner uses % width */
+/* Center column beside nav chevrons; shares remaining rail width */
 .heatFrameCenter {
   flex: 1 1 auto;
   display: flex;
@@ -784,7 +775,7 @@
   line-height: 1.35;
 }
 
-/* Device frame — demo gradient bezel + width cap inside split */
+/* Device frame — use pixel widths + max-width (not min(x, 100%)) so width never collapses in shrink-to-fit ancestors */
 .phoneFrame {
   position: relative;
   border-radius: var(--mantine-radius-md);
@@ -803,45 +794,60 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  box-sizing: border-box;
 }
 
+/* Widths scaled down vs legacy 420px; aspect-ratio unchanged per breakpoint */
 .phoneInner {
   position: relative;
-  width: min(420px, 100%);
+  width: 360px;
+  max-width: 100%;
   aspect-ratio: 390 / 844;
-  max-height: min(82vh, 920px);
+  max-height: min(76vh, 780px);
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
 }
 
 .phoneInnerSmallMobile {
-  width: min(340px, 100%);
+  width: 300px;
+  max-width: 100%;
   aspect-ratio: 360 / 780;
+  max-height: min(70vh, 680px);
 }
 
 .phoneInnerMediumFolding {
-  width: min(400px, 100%);
+  width: 360px;
+  max-width: 100%;
   aspect-ratio: 22 / 9;
 }
 
 .phoneInnerMediumMobile {
-  width: min(420px, 100%);
+  width: 360px;
+  max-width: 100%;
   aspect-ratio: 390 / 844;
+  max-height: min(76vh, 780px);
 }
 
 .phoneInnerMediumWide {
-  width: min(460px, 100%);
+  width: 400px;
+  max-width: 100%;
   aspect-ratio: 430 / 932;
+  max-height: min(78vh, 820px);
 }
 
 .phoneInnerLargeTablet {
-  width: min(520px, 100%);
+  width: 560px;
+  max-width: 100%;
   aspect-ratio: 834 / 1194;
+  max-height: min(85vh, 960px);
 }
 
 .phoneInnerExtraLargeWeb {
-  width: min(600px, 100%);
+  width: 680px;
+  max-width: 100%;
   aspect-ratio: 16 / 10;
+  max-height: min(85vh, 960px);
 }
 
 .screenImg {
@@ -852,9 +858,8 @@
   height: calc(100% - 24px);
   object-fit: cover;
   border-radius: 16px;
-  /* Subdue busy UI chrome so density / glow layers read clearly */
-  opacity: 0.68;
-  filter: brightness(0.68) saturate(0.78) contrast(0.96);
+  /* Slight fade so heat layers read over busy screenshots */
+  opacity: 0.6;
   pointer-events: none;
 }
 
