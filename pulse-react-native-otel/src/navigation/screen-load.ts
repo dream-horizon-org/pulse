@@ -1,4 +1,4 @@
-import { Pulse, type Span } from '../index';
+import { startSpan, type Span } from '../trace';
 import { Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import type { NavigationRoute } from './navigation.interface';
@@ -26,7 +26,7 @@ export function createScreenLoadTracker(
       return;
     }
 
-    state.navigationSpan = Pulse.startSpan(SPAN_NAMES.NAVIGATED, {
+    state.navigationSpan = startSpan(SPAN_NAMES.NAVIGATED, {
       attributes: {
         [ATTRIBUTE_KEYS.PULSE_TYPE]: PULSE_TYPES.SCREEN_LOAD,
         [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS as 'android' | 'ios',

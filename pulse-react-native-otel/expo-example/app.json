@@ -20,37 +20,99 @@
       "package": "com.example.expoexample"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
+      ],
+      "./plugins/withPulseKitLocalPod",
       "./plugins/withMavenLocal",
       [
         "@dreamhorizonorg/pulse-react-native",
         {
-          "endpointBaseUrl": "http://10.0.2.2:4318",
-          "apiKey": "project-123",
+          "endpointBaseUrl": "http://127.0.0.1:4318",
+          "apiKey": "default-project_devkey01",
+          "dataCollectionState": "ALLOWED",
           "endpointHeaders": {
             "Header": "Value"
           },
-          "globalAttributes": {
-            "string": "value",
-            "numberFloatNegative": -9.05,
-            "boolean": true,
-            "emptyString": "",
-            "emptyArray": [],
-            "stringArray": ["a", "b", "c"],
-            "numberArrayMixed": [1, 2.5, 3],
-            "booleanArray": [true, false, true],
-            "null": null
-          },
-          "instrumentation": {
-            "interaction": {
-              "url": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
-              "enabled": true
+          "android": {
+            "endpointBaseUrl": "http://10.0.2.2:4318",
+            "configEndpointUrl": "http://10.0.2.2:8080/v1/configs/active/",
+            "customEventCollectorUrl": "http://10.0.2.2:4318/v1/logs",
+            "globalAttributes": {
+              "string": "value",
+              "numberFloatNegative": -9.05,
+              "boolean": true,
+              "emptyString": "",
+              "emptyArray": [],
+              "stringArray": ["a", "b", "c"],
+              "numberArrayMixed": [1, 2.5, 3],
+              "booleanArray": [true, false, true],
+              "null": null,
+              "platform": "android"
             },
-            "activity": true,
-            "network": true,
-            "anr": false,
-            "crash": true,
-            "slowRendering": false,
-            "fragment": true
+            "instrumentation": {
+              "interaction": {
+                "url": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
+                "enabled": true
+              },
+              "activity": {
+                "enabled": true
+              },
+              "network": {
+                "enabled": true
+              },
+              "anr": {
+                "enabled": false
+              },
+              "crash": {
+                "enabled": true
+              },
+              "slowRendering": {
+                "enabled": false
+              },
+              "fragment": {
+                "enabled": true
+              }
+            }
+          },
+          "ios": {
+            "endpointBaseUrl": "http://127.0.0.1:4318",
+            "configEndpointUrl": "http://127.0.0.1:8080/v1/configs/active/",
+            "customEventCollectorUrl": "http://127.0.0.1:4318/v1/logs",
+            "instrumentation": {
+              "screenLifecycle": {
+                "enabled": true
+              },
+              "crash": {
+                "enabled": true
+              },
+              "interaction": {
+                "enabled": true,
+                "configUrl": "http://127.0.0.1:8080/v1/interactions/all-active-interactions/"
+              }
+            },
+            "configuration": {
+              "includeScreenAttributes": true,
+              "includeNetworkAttributes": true,
+              "includeGlobalAttributes": true
+            },
+            "globalAttributes": {
+              "string": "value",
+              "numberFloatNegative": -9.05,
+              "boolean": true,
+              "emptyString": "",
+              "emptyArray": [],
+              "stringArray": ["a", "b", "c"],
+              "numberArrayMixed": [1, 2.5, 3],
+              "booleanArray": [true, false, true],
+              "null": null,
+              "platform": "ios"
+            }
           }
         }
       ]

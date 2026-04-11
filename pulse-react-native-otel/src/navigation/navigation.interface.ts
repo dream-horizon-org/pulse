@@ -24,3 +24,10 @@ export const DEFAULT_NAVIGATION_OPTIONS: Required<NavigationIntegrationOptions> 
     screenNavigationTracking: true,
     screenInteractiveTracking: false,
   };
+
+export interface ReactNavigationIntegration {
+  registerNavigationContainer: (
+    maybeNavigationContainer: unknown
+  ) => () => void;
+  markContentReady: () => void;
+}

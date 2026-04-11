@@ -1,9 +1,8 @@
 import { AppState, type AppStateStatus } from 'react-native';
-import type { RefObject } from 'react';
 import type {
   NavigationContainer,
   NavigationIntegrationOptions,
-  NavigationRoute,
+  ReactNavigationIntegration,
 } from './navigation.interface';
 import { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
 import { pushRecentRouteKey, LOG_TAGS } from './utils';
@@ -25,16 +24,19 @@ import {
   type ScreenSessionState,
   INITIAL_SCREEN_SESSION_STATE,
 } from './screen-session';
-import { useNavigationTracking as useNavigationTrackingBase } from './useNavigationTracking';
 import { isSupportedPlatform } from '../initialization';
 import PulseReactNativeOtel from '../NativePulseReactNativeOtel';
-import { getFeaturesFromRemoteConfig } from '../config';
+import { getFeaturesFromRemoteConfig } from '../remoteFeatures';
 import {
   PULSE_FEATURE_NAMES,
   type NavigationFeatureName,
 } from '../pulse.constants';
 
-export type { NavigationRoute, NavigationIntegrationOptions };
+export type {
+  NavigationRoute,
+  NavigationIntegrationOptions,
+  ReactNavigationIntegration,
+} from './navigation.interface';
 export { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
 
 let currentNavigationUnregister: (() => void) | null = null;
@@ -44,13 +46,6 @@ export function uninstallNavigationIntegration(): void {
     currentNavigationUnregister();
     currentNavigationUnregister = null;
   }
-}
-
-export interface ReactNavigationIntegration {
-  registerNavigationContainer: (
-    maybeNavigationContainer: unknown
-  ) => () => void;
-  markContentReady: () => void;
 }
 
 function resolveNavigationFeatureState(
@@ -334,15 +329,3 @@ export function createReactNavigationIntegration(
 }
 
 export { markContentReady };
-
-export function useNavigationTracking(
-  navigationRef: RefObject<any>,
-  options?: NavigationIntegrationOptions
-): () => void {
-  const { createNavigationIntegrationWithConfig } = require('../config');
-  return useNavigationTrackingBase(
-    navigationRef,
-    options,
-    createNavigationIntegrationWithConfig
-  );
-}

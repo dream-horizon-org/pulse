@@ -2,8 +2,8 @@ import { useRef, useCallback, useEffect, useMemo, type RefObject } from 'react';
 import {
   DEFAULT_NAVIGATION_OPTIONS,
   type NavigationIntegrationOptions,
+  type ReactNavigationIntegration,
 } from './navigation.interface';
-import type { ReactNavigationIntegration } from './index';
 
 export function useNavigationTracking(
   navigationRef: RefObject<any>,

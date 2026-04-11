@@ -1,4 +1,4 @@
-import { Pulse, type Span } from '../index';
+import { startSpan, type Span } from '../trace';
 import { type AppStateStatus, Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import type {
@@ -22,7 +22,7 @@ export function createScreenSessionTracker(
   state: ScreenSessionState
 ) {
   const startScreenSession = (route: NavigationRoute): void => {
-    state.screenSessionSpan = Pulse.startSpan(SPAN_NAMES.SCREEN_SESSION, {
+    state.screenSessionSpan = startSpan(SPAN_NAMES.SCREEN_SESSION, {
       attributes: {
         [ATTRIBUTE_KEYS.PULSE_TYPE]: PULSE_TYPES.SCREEN_SESSION,
         [ATTRIBUTE_KEYS.SCREEN_NAME]: route.name,
