@@ -19,5 +19,6 @@ dependencies {
 
     implementation(projects.pulseSemconv)
     implementation(projects.pulseUtils)
+    implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.semconv.incubating)
 }
