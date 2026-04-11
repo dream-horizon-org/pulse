@@ -74,29 +74,6 @@ jobs:
         working-directory: pulse-react-native-otel/expo-example
         run: npx expo prebuild --platform ios --clean
 
-      # Prebuild regenerates ios/; append post_install so Swift pods are not x86_64-only on Apple Silicon simulators.
-      - name: Patch Podfile (simulator arm64 for CocoaPods targets)
-        working-directory: pulse-react-native-otel/expo-example/ios
-        run: |
-          if grep -q '\[pulse ci\] simulator arm64 pods' Podfile; then
-            echo "Podfile already patched"
-            exit 0
-          fi
-          cat >> Podfile <<'EOF'
-
-          post_install do |installer|
-            # [pulse ci] simulator arm64 pods — align with arm64 iOS Simulator on Apple Silicon
-            installer.pods_project.targets.each do |target|
-              target.build_configurations.each do |cfg|
-                key = 'EXCLUDED_ARCHS[sdk=iphonesimulator*]'
-                val = cfg.build_settings[key]
-                next if val.nil? || val == ''
-                cfg.build_settings[key] = val.to_s.split(' ').reject { |a| a == 'arm64' }.join(' ')
-              end
-            end
-          end
-          EOF
-
       - name: CocoaPods install
         working-directory: pulse-react-native-otel/expo-example/ios
         run: |
