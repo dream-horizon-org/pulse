@@ -7,20 +7,26 @@ on:
     paths:
       - 'pulse-react-native-otel/**'
       - 'pulse-android-otel/**'
+      - 'pulse-ios-otel/**'
       - '.github/workflows/ci-react-native.yml'
       - '.github/workflows/rn-android-lint.yml'
       - '.github/workflows/rn-android-build.yml'
       - '.github/workflows/rn-expo-android.yml'
+      - '.github/workflows/rn-expo-ios.yml'
+      - '.github/workflows/rn-example-ios.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'pulse-react-native-otel/**'
       - 'pulse-android-otel/**'
+      - 'pulse-ios-otel/**'
       - '.github/workflows/ci-react-native.yml'
       - '.github/workflows/rn-android-lint.yml'
       - '.github/workflows/rn-android-build.yml'
       - '.github/workflows/rn-expo-android.yml'
+      - '.github/workflows/rn-expo-ios.yml'
+      - '.github/workflows/rn-example-ios.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -36,6 +42,8 @@ jobs:
     outputs:
       react-native-changed: ${{ steps.filter.outputs.pulse-react-native-otel }}
       android-sdk-changed: ${{ steps.filter.outputs.pulse-android-otel }}
+      ios-sdk-changed: ${{ steps.filter.outputs.pulse-ios-otel }}
+      rn-expo-ios-config-changed: ${{ steps.filter.outputs.rn-expo-ios-config }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
@@ -49,6 +57,12 @@ jobs:
               - 'pulse-react-native-otel/**'
             pulse-android-otel:
               - 'pulse-android-otel/**'
+            pulse-ios-otel:
+              - 'pulse-ios-otel/**'
+            rn-expo-ios-config:
+              - '.github/workflows/ci-react-native.yml'
+              - '.github/workflows/rn-expo-ios.yml'
+              - '.github/workflows/rn-example-ios.yml'
 
   lint:
     needs: check-changes
@@ -284,91 +298,8 @@ jobs:
     if: needs.check-changes.outputs.android-sdk-changed == 'true'
     uses: ./.github/workflows/rn-android-build.yml
 
-  # Disabled until iOS SDK is published (Podfile uses Git fallback; re-enable when ready)
-  # build-ios:
-  #   needs: check-changes
-  #   if: needs.check-changes.outputs.react-native-changed == 'true'
-  #   runs-on: macos-latest
-  #   permissions:
-  #     contents: read
-  #
-  #   env:
-  #     XCODE_VERSION: 16.3
-  #     TURBO_CACHE_DIR: .turbo/ios
-  #     RCT_USE_RN_DEP: 1
-  #     RCT_USE_PREBUILT_RNCORE: 1
-  #
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
-  #       with:
-  #         node-version-file: pulse-react-native-otel/.nvmrc
-  #
-  #     - name: Restore dependencies
-  #       id: yarn-cache
-  #       uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-  #       with:
-  #         path: |
-  #           pulse-react-native-otel/**/node_modules
-  #           pulse-react-native-otel/.yarn/install-state.gz
-  #         key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
-  #           ${{ runner.os }}-yarn-rn-
-  #
-  #     - name: Install dependencies
-  #       if: steps.yarn-cache.outputs.cache-hit != 'true'
-  #       working-directory: pulse-react-native-otel
-  #       run: yarn install --immutable
-  #
-  #     - name: Cache dependencies
-  #       if: steps.yarn-cache.outputs.cache-hit != 'true'
-  #       uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-  #       with:
-  #         path: |
-  #           pulse-react-native-otel/**/node_modules
-  #           pulse-react-native-otel/.yarn/install-state.gz
-  #         key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
-  #
-  #     - name: Cache turborepo for iOS
-  #       uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
-  #       with:
-  #         path: pulse-react-native-otel/${{ env.TURBO_CACHE_DIR }}
-  #         key: ${{ runner.os }}-turborepo-ios-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-turborepo-ios-
-  #
-  #     - name: Check turborepo cache for iOS
-  #       working-directory: pulse-react-native-otel
-  #       run: |
-  #         TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:ios --cache-dir=".turbo/ios" --dry=json)).tasks.find(t => t.task === 'build:ios').cache.status")
-  #
-  #         if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
-  #           echo "turbo_cache_hit=1" >> $GITHUB_ENV
-  #         fi
-  #
-  #     - name: Use appropriate Xcode version
-  #       if: env.turbo_cache_hit != 1
-  #       uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd  # v1.6.0
-  #       with:
-  #         xcode-version: ${{ env.XCODE_VERSION }}
-  #
-  #     - name: Install cocoapods
-  #       if: env.turbo_cache_hit != 1
-  #       working-directory: pulse-react-native-otel/example
-  #       run: |
-  #         bundle install
-  #         bundle exec pod repo update --verbose
-  #         bundle exec pod install --project-directory=ios
-  #
-  #     - name: Build example for iOS
-  #       working-directory: pulse-react-native-otel
-  #       run: |
-  #         yarn turbo run build:ios --cache-dir=".turbo/ios"
-
+  # example/: Android — rn-build (rn-android-build.yml). iOS — rn-example-ios (rn-example-ios.yml).
+  # expo-example: rn-expo / rn-expo-sdk + rn-expo-ios.yml.
   rn-expo:
     needs: check-changes
     if: |
@@ -382,3 +313,21 @@ jobs:
       - m2-publish
     if: needs.check-changes.outputs.android-sdk-changed == 'true'
     uses: ./.github/workflows/rn-expo-android.yml
+
+  rn-expo-ios:
+    needs: check-changes
+    if: |
+      needs.check-changes.outputs.react-native-changed == 'true' ||
+      needs.check-changes.outputs.android-sdk-changed == 'true' ||
+      needs.check-changes.outputs.ios-sdk-changed == 'true' ||
+      needs.check-changes.outputs.rn-expo-ios-config-changed == 'true'
+    uses: ./.github/workflows/rn-expo-ios.yml
+
+  rn-example-ios:
+    needs: check-changes
+    if: |
+      needs.check-changes.outputs.react-native-changed == 'true' ||
+      needs.check-changes.outputs.android-sdk-changed == 'true' ||
+      needs.check-changes.outputs.ios-sdk-changed == 'true' ||
+      needs.check-changes.outputs.rn-expo-ios-config-changed == 'true'
+    uses: ./.github/workflows/rn-example-ios.yml

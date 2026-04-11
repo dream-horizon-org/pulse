@@ -22,9 +22,12 @@ end
 target 'PulseReactNativeOtelExample' do
   config = use_native_modules!
 
-  # In order to test locally, add path to exact pulse-ios-otel folder. 
-  # By default it picks Published PulseKit as mentioned in PulseReactNativeOtel.podspec
-  # pod 'PulseKit', :path => '<absolute-path-to>/pulse-ios-otel/'
+  # Monorepo (and CI): sibling `pulse-ios-otel` next to `pulse-react-native-otel`. Otherwise CocoaPods
+  # resolves PulseKit from PulseReactNativeOtel.podspec (published tag).
+  pulsekit_sdk_root = File.expand_path('../../../pulse-ios-otel', __dir__)
+  if File.exist?(File.join(pulsekit_sdk_root, 'PulseKit.podspec'))
+    pod 'PulseKit', :path => pulsekit_sdk_root
+  end
 
   use_react_native!(
     :path => config[:reactNativePath],
@@ -40,5 +43,15 @@ target 'PulseReactNativeOtelExample' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Apple Silicon simulators: drop legacy arm64 exclusion on pods (e.g. OpenTelemetry Swift) so swiftmodules match arm64 sim.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |cfg|
+        key = 'EXCLUDED_ARCHS[sdk=iphonesimulator*]'
+        val = cfg.build_settings[key]
+        next if val.nil? || val == ''
+        cfg.build_settings[key] = val.to_s.split(' ').reject { |a| a == 'arm64' }.join(' ')
+      end
+    end
   end
 end
