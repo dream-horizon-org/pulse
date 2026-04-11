@@ -86,7 +86,9 @@ export default function UserManagementExample() {
         ]}
         onPress={handleSetDataCollectionStateToDenied}
       >
-        <Text style={styles.buttonText}>Set Data Collection State to Denied</Text>
+        <Text style={styles.buttonText}>
+          Set Data Collection State to Denied
+        </Text>
       </Pressable>
       <Pressable
         style={({ pressed }) => [
@@ -96,7 +98,9 @@ export default function UserManagementExample() {
         ]}
         onPress={handleSetDataCollectionStateToAllowed}
       >
-        <Text style={styles.buttonText}>Set Data Collection State to Allowed</Text>
+        <Text style={styles.buttonText}>
+          Set Data Collection State to Allowed
+        </Text>
       </Pressable>
       <Pressable
         style={({ pressed }) => [
@@ -106,7 +110,9 @@ export default function UserManagementExample() {
         ]}
         onPress={handleSetDataCollectionStateToPending}
       >
-        <Text style={styles.buttonText}>Set Data Collection State to Pending</Text>
+        <Text style={styles.buttonText}>
+          Set Data Collection State to Pending
+        </Text>
       </Pressable>
     </View>
   );
