@@ -8,6 +8,7 @@ import json
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
+from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
 from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC
 from pulse_ai.agents.em.templates.interaction_templates import build_breakdown_query
 from pulse_ai.agents.em.transformers.response_transformer import (
@@ -42,7 +43,18 @@ async def breakdown_interaction(
         time_range: One of: """ + TIME_RANGE_DOC + """
         start_time: ISO 8601 start (only when time_range="custom")
         end_time: ISO 8601 end (only when time_range="custom")
-        filters: Optional dimension filters as JSON string to narrow within another dimension, e.g. '{"platform": "Android"}' when dimension is "device"
+        filters: Optional dimension filters as a JSON string to narrow within another dimension.
+            Valid keys:
+            "platform"    → e.g. '{"platform": "Android"}' or '{"platform": "iOS"}'
+            "app_version" → e.g. '{"app_version": "5.29.1"}' or '{"app_version": ["5.29.0", "5.29.1"]}'
+            "device"      → e.g. '{"device": "Samsung Galaxy S21"}'
+            "os_version"  → e.g. '{"os_version": "14.0"}'
+            "network"     → e.g. '{"network": "WiFi"}' or '{"network": "4G"}'
+            "region"      → currently state names e.g. '"region": "Maharashtra"' or '"region": "Karnataka"';
+                            in future may also accept country names e.g. '"region": "India"' or '"region": "Canada"'
+            Multiple:       '{"platform": "Android", "app_version": "5.29.1"}'
+            Example: dimension="device" + filters='{"platform":"Android"}' → Android devices only.
+            Values can be a single string or a list of strings for multi-value filtering.
     """
     # Parse filters JSON string → dict
     parsed_filters = None
@@ -64,20 +76,27 @@ async def breakdown_interaction(
     except ValueError as e:
         return {"status": "error", "message": str(e)}
 
-    bearer_token = tool_context.state.get("bearer_token") if tool_context else None
-    project_id = tool_context.state.get("project_id") if tool_context else None
-    client = PulseClient(authorization_header=bearer_token, project_id=project_id)
-    response = await client.request("POST", DATA_QUERY_PATH, json=query_request)
+    session_error = pulse_tool_session_auth_error(tool_context)
+    if session_error is not None:
+        return session_error
 
-    # Handle network errors
-    if isinstance(response, dict):
-        return response
+    bearer_token = tool_context.state.get("bearer_token")
+    project_id = tool_context.state.get("project_id")
+    async with PulseClient(
+        authorization_header=bearer_token,
+        project_id=project_id,
+    ) as client:
+        response = await client.request("POST", DATA_QUERY_PATH, json=query_request)
 
-    # Handle HTTP errors
-    if response.status_code >= 400:
-        return parse_error_response(response)
+        # Handle network errors
+        if isinstance(response, dict):
+            return response
 
-    # Transform columnar response
-    body = response.json()
-    data = body.get("data", {})
-    return {"status": "success", "data": transform_columnar(data)}
+        # Handle HTTP errors
+        if response.status_code >= 400:
+            return parse_error_response(response)
+
+        # Transform columnar response
+        body = response.json()
+        data = body.get("data", {})
+        return {"status": "success", "data": transform_columnar(data)}
