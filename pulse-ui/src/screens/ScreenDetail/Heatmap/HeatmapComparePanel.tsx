@@ -25,6 +25,7 @@ import type { HeatmapQualityMetrics } from "./heatmapQuality";
 import { HeatmapMapViewControls } from "./HeatmapMapViewControls";
 import { HeatmapMapPlaceholder } from "./HeatmapMapPlaceholder";
 import { HeatmapDataEmptyAside } from "./HeatmapDataEmptyAside";
+import { HeatmapInvalidTimeRangeAside } from "./HeatmapInvalidTimeRangeAside";
 import { HeatmapFetchErrorPanel } from "./HeatmapFetchErrorPanel";
 import {
   HEATMAP_COPY_COMPARE_MODE_TITLE,
@@ -70,6 +71,9 @@ export interface HeatmapComparePanelProps {
   showInteractionMapOption?: boolean;
   compareLeftBreakpoint?: string;
   compareRightBreakpoint?: string;
+  /** Heatmap column A: From/To missing or invalid in its time filter. */
+  compareLeftTimeInvalid?: boolean;
+  compareRightTimeInvalid?: boolean;
 }
 
 export function HeatmapComparePanel({
@@ -100,6 +104,8 @@ export function HeatmapComparePanel({
   showInteractionMapOption = true,
   compareLeftBreakpoint = "",
   compareRightBreakpoint = "",
+  compareLeftTimeInvalid = false,
+  compareRightTimeInvalid = false,
 }: HeatmapComparePanelProps) {
   const anyLoading = compareLeftLoading || compareRightLoading;
 
@@ -153,6 +159,7 @@ export function HeatmapComparePanel({
               disabled
             />
           }
+          timeInvalid={compareLeftTimeInvalid}
           loading={compareLeftLoading}
           fetchFailed={compareLeftFetchFailed}
           onRetry={onRetryCompareLeft}
@@ -176,6 +183,7 @@ export function HeatmapComparePanel({
               onChange={(v) => onCompareScreenNameChange(v ?? "")}
             />
           }
+          timeInvalid={compareRightTimeInvalid}
           loading={compareRightLoading}
           fetchFailed={compareRightFetchFailed}
           onRetry={onRetryCompareRight}
@@ -192,6 +200,7 @@ export function HeatmapComparePanel({
       <div className={classes.compareAggregatesGrid}>
         <CompareAggregatesCell
           title={screenAName}
+          timeInvalid={compareLeftTimeInvalid}
           loading={compareLeftLoading}
           fetchFailed={compareLeftFetchFailed}
           payload={compareLeftPayload}
@@ -205,6 +214,7 @@ export function HeatmapComparePanel({
             compareRightPayload?.metadata.screenName ??
             (compareScreenName.trim() || HEATMAP_COPY_SCREEN_B_FALLBACK)
           }
+          timeInvalid={compareRightTimeInvalid}
           loading={compareRightLoading}
           fetchFailed={compareRightFetchFailed}
           payload={compareRightPayload}
@@ -222,6 +232,7 @@ export function HeatmapComparePanel({
 
 function CompareAggregatesCell({
   title,
+  timeInvalid = false,
   loading,
   fetchFailed,
   payload,
@@ -231,6 +242,7 @@ function CompareAggregatesCell({
   focusLens,
 }: {
   title: string;
+  timeInvalid?: boolean;
   loading: boolean;
   fetchFailed: boolean;
   payload: HeatmapDataResponse | null | undefined;
@@ -244,7 +256,12 @@ function CompareAggregatesCell({
       <Text fw={700} mb="sm" size="sm">
         {title}
       </Text>
-      {fetchFailed && (
+      {timeInvalid && (
+        <Box py="sm">
+          <HeatmapInvalidTimeRangeAside />
+        </Box>
+      )}
+      {!timeInvalid && fetchFailed && (
         <Text size="sm" c="dimmed" py="md" lh={1.5}>
           {HEATMAP_COPY_METRICS_BLOCKED_BEFORE}
           <Text span fw={600} c="dimmed">
@@ -253,7 +270,7 @@ function CompareAggregatesCell({
           {HEATMAP_COPY_METRICS_BLOCKED_AFTER}
         </Text>
       )}
-      {!fetchFailed && loading && !payload && (
+      {!timeInvalid && !fetchFailed && loading && !payload && (
         <Group gap="sm" py="md" justify="center" w="100%" wrap="nowrap">
           <Loader size="sm" color="teal" />
           <Text size="sm" c="dimmed">
@@ -261,7 +278,7 @@ function CompareAggregatesCell({
           </Text>
         </Group>
       )}
-      {!fetchFailed && payload && !isHeatmapDataEmpty(payload) && (
+      {!timeInvalid && !fetchFailed && payload && !isHeatmapDataEmpty(payload) && (
         <HeatmapAggregatesPanel
           payload={payload}
           signal={signal}
@@ -269,7 +286,7 @@ function CompareAggregatesCell({
           focusLens={focusLens}
         />
       )}
-      {!fetchFailed && payload && isHeatmapDataEmpty(payload) && (
+      {!timeInvalid && !fetchFailed && payload && isHeatmapDataEmpty(payload) && (
         <HeatmapDataEmptyAside
           screenName={payload.metadata.screenName}
           contextScreenName={contextScreenName}
@@ -281,6 +298,7 @@ function CompareAggregatesCell({
 
 function CompareMapColumn({
   headerSlot,
+  timeInvalid = false,
   loading,
   fetchFailed,
   onRetry,
@@ -293,6 +311,7 @@ function CompareMapColumn({
   breakpoint,
 }: {
   headerSlot: ReactNode;
+  timeInvalid?: boolean;
   loading: boolean;
   fetchFailed: boolean;
   onRetry?: () => void;
@@ -315,10 +334,13 @@ function CompareMapColumn({
             retryLoading={retryLoading}
           />
         )}
-        {!fetchFailed && loading && !payload && (
+        {!fetchFailed && timeInvalid && (
+          <HeatmapInvalidTimeRangeAside />
+        )}
+        {!fetchFailed && !timeInvalid && loading && !payload && (
           <HeatmapMapPlaceholder />
         )}
-        {!fetchFailed && !loading && payload && (
+        {!fetchFailed && !timeInvalid && !loading && payload && (
           <CompareColumnVisualization
             data={payload}
             signal={signal}

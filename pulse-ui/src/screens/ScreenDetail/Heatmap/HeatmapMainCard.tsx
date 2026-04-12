@@ -4,6 +4,7 @@ import graphClasses from "../components/EngagementGraph.module.css";
 import type { HeatmapDataResponse } from "./heatmap.types";
 import { HeatmapAggregatesPanel } from "./HeatmapAggregatesPanel";
 import { HeatmapDataEmptyAside } from "./HeatmapDataEmptyAside";
+import { HeatmapInvalidTimeRangeAside } from "./HeatmapInvalidTimeRangeAside";
 import { HeatmapFetchErrorPanel } from "./HeatmapFetchErrorPanel";
 import { isHeatmapDataEmpty } from "./heatmapEmptyState";
 import classes from "./HeatmapPanel.module.css";
@@ -40,6 +41,8 @@ export interface HeatmapMainCardProps {
   /** Time + filters + view popovers, plus Compare control — built in parent. */
   mapToolbar: ReactNode;
   mapColumn: ReactNode;
+  /** True when heatmap From/To are missing or invalid — show empty state instead of hiding the split. */
+  invalidTimeRange?: boolean;
 }
 
 export function HeatmapMainCard({
@@ -55,6 +58,7 @@ export function HeatmapMainCard({
   qualityMetrics,
   mapToolbar,
   mapColumn,
+  invalidTimeRange = false,
 }: HeatmapMainCardProps) {
   const eventCount =
     singlePayload?.metadata.total_events != null
@@ -115,7 +119,20 @@ export function HeatmapMainCard({
           />
         )}
 
-        {!heatmapFetchError && isLoading && (
+        {!heatmapFetchError && invalidTimeRange && (
+          <div className={classes.heatmapSplit}>
+            <div className={classes.heatmapSplitLeft}>
+              <div className={classes.mapBlock}>
+                <HeatmapInvalidTimeRangeAside />
+              </div>
+            </div>
+            <div className={classes.heatmapSplitRight}>
+              <HeatmapInvalidTimeRangeAside />
+            </div>
+          </div>
+        )}
+
+        {!heatmapFetchError && !invalidTimeRange && isLoading && (
           <div className={classes.heatmapMainLoading}>
             <Group gap="sm" py="md" justify="center" wrap="nowrap" w="100%">
               <Loader size="sm" color="teal" />
@@ -127,7 +144,7 @@ export function HeatmapMainCard({
           </div>
         )}
 
-        {!isLoading && !heatmapFetchError && singlePayload && (
+        {!isLoading && !heatmapFetchError && !invalidTimeRange && singlePayload && (
           <div className={classes.heatmapSplit}>
             <div className={classes.heatmapSplitLeft}>
               <div className={classes.mapBlock}>{mapColumn}</div>

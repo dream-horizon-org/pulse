@@ -59,11 +59,16 @@ export interface UseHeatmapDataParams {
 }
 
 const formatTime = (time: string): string => {
-  if (!time) return "";
-  if (time.includes("T") || time.includes("Z")) {
-    return dayjs.utc(time).toISOString();
+  const trimmed = typeof time === "string" ? time.trim() : "";
+  if (!trimmed) return "";
+  if (trimmed.includes("T") || trimmed.includes("Z")) {
+    const d = dayjs.utc(trimmed);
+    return d.isValid() ? d.toISOString() : "";
   }
-  return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
+  const withFormat = dayjs.utc(trimmed, "YYYY-MM-DD HH:mm:ss");
+  if (withFormat.isValid()) return withFormat.toISOString();
+  const loose = dayjs.utc(trimmed);
+  return loose.isValid() ? loose.toISOString() : "";
 };
 
 /**

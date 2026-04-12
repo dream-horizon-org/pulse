@@ -65,10 +65,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     projectId,
   });
 
-  // Retained for debugging config vs tab (heatmap tab/panel always shown for now).
-  void heatmapEnabledFromActiveConfig;
-  void heatmapConfigLoading;
-
   // Tab state (?tab=heatmap deep link).
   const [activeTab, setActiveTab] = useState<string | null>("engagement");
 
@@ -198,10 +194,10 @@ export function ScreenDetail(_props: ScreenDetailProps) {
 
   useEffect(() => {
     const t = searchParams.get("tab");
-    if (t === "heatmap") {
+    if (t === "heatmap" && heatmapEnabledFromActiveConfig) {
       setActiveTab("heatmap");
     }
-  }, [searchParams]);
+  }, [searchParams, heatmapEnabledFromActiveConfig]);
 
   const handleTabChange = (value: string | null) => {
     setActiveTab(value);
@@ -260,7 +256,9 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
           <Tabs.Tab value="performance">Performance & Stability</Tabs.Tab>
           <Tabs.Tab value="network">Network</Tabs.Tab>
-          <Tabs.Tab value="heatmap">Heatmap</Tabs.Tab>
+          {!heatmapConfigLoading && heatmapEnabledFromActiveConfig && (
+            <Tabs.Tab value="heatmap">Heatmap</Tabs.Tab>
+          )}
         </Tabs.List>
 
         {/* User Engagement Tab */}
@@ -477,23 +475,25 @@ export function ScreenDetail(_props: ScreenDetailProps) {
         </Tabs.Panel>
 
         {/* Heatmap Tab */}
-        <Tabs.Panel value="heatmap">
-          <HeatmapPanel
-            key={decodedScreenName}
-            screenName={decodedScreenName}
-            startTime={startTime || ""}
-            endTime={endTime || ""}
-            engagement={
-              engagementData
-                ? {
-                    avgTimeSpent: engagementData.avgTimeSpent,
-                    totalSessions: engagementData.totalSessions,
-                    totalUsers: engagementData.totalUsers,
-                  }
-                : null
-            }
-          />
-        </Tabs.Panel>
+        {!heatmapConfigLoading && heatmapEnabledFromActiveConfig && (
+          <Tabs.Panel value="heatmap">
+            <HeatmapPanel
+              key={decodedScreenName}
+              screenName={decodedScreenName}
+              startTime={startTime || ""}
+              endTime={endTime || ""}
+              engagement={
+                engagementData
+                  ? {
+                      avgTimeSpent: engagementData.avgTimeSpent,
+                      totalSessions: engagementData.totalSessions,
+                      totalUsers: engagementData.totalUsers,
+                    }
+                  : null
+              }
+            />
+          </Tabs.Panel>
+        )}
       </div>
     </Tabs>
   );

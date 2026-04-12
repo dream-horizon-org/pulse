@@ -56,6 +56,7 @@ import { InfraConfig } from './components/InfraConfig';
 import { AttributesToDropConfig } from './components/AttributesToDropConfig';
 import { AttributesToAddConfig } from './components/AttributesToAddConfig';
 import { useCreateSdkConfig, useGetActiveSdkConfig } from '../../hooks/useSdkConfig';
+import { useProjectContext } from '../../contexts';
 import { showNotification } from '../../helpers/showNotification';
 import classes from './SamplingConfig.module.css';
 
@@ -68,14 +69,24 @@ export function ConfigEditor({
   viewingVersion,
 }: ConfigEditorProps) {
   const theme = useMantineTheme();
-  
-  // Use hook to get active config if no initial config provided
+  const { projectId, isInitializing } = useProjectContext();
+
+  const needsActiveFetch = !initialConfig && mode === 'create';
+  const hasProject = Boolean(projectId);
+
+  // Per-project React Query cache; API project scope still comes from X-Project-ID (session)
   const { data: activeConfigData, isLoading: isLoadingActive } = useGetActiveSdkConfig({
-    enabled: !initialConfig && mode === 'create',
+    enabled: needsActiveFetch && hasProject,
+    projectId,
   });
-  
+
   // Check if this is a "no config exists" scenario (first time setup)
-  const isFirstTimeSetup = mode === 'create' && !initialConfig && !isLoadingActive && !activeConfigData?.data;
+  const isFirstTimeSetup =
+    mode === 'create' &&
+    !initialConfig &&
+    hasProject &&
+    !isLoadingActive &&
+    !activeConfigData?.data;
 
   // Create config mutation
   const createConfigMutation = useCreateSdkConfig((data, error) => {
@@ -108,7 +119,8 @@ export function ConfigEditor({
   const [description, setDescription] = useState('');
 
   const isViewMode = mode === 'view';
-  const isLoading = !initialConfig && isLoadingActive;
+  const isLoading =
+    needsActiveFetch && (isInitializing || !hasProject || isLoadingActive);
   const isSaving = createConfigMutation.isPending;
 
   // Initialize config from active config when loaded

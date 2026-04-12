@@ -29,6 +29,7 @@ import {
   heatmapFiltersToRequestArgs,
   heatmapLocalFiltersMatchPage,
 } from "./heatmapLocalFilters";
+import { isHeatmapTimeRangeQueryReady } from "./heatmapFilterPanelUtils";
 import {
   HEATMAP_COPY_COMPARE_SCREENS,
   HEATMAP_COPY_SECTION_SCREEN_A,
@@ -139,7 +140,16 @@ export function HeatmapPanel({
     return rows;
   }, [compareScreenNameOptions, compareScreenName]);
 
-  const compareSliceReady = compareEnabled && !!compareScreenName.trim();
+  const compareScreenChosen = compareEnabled && !!compareScreenName.trim();
+  const compareLeftQueryEnabled =
+    compareScreenChosen && isHeatmapTimeRangeQueryReady(effectiveCompareA);
+  const compareRightQueryEnabled =
+    compareScreenChosen && isHeatmapTimeRangeQueryReady(effectiveCompareB);
+  const compareLeftTimeInvalid =
+    compareEnabled && !isHeatmapTimeRangeQueryReady(effectiveCompareA);
+  const compareRightTimeInvalid =
+    compareEnabled && !isHeatmapTimeRangeQueryReady(effectiveCompareB);
+  const singleTimeRangeReady = isHeatmapTimeRangeQueryReady(effectiveSingle);
 
   const effectiveApiScreenMain = useMemo(
     () =>
@@ -200,19 +210,19 @@ export function HeatmapPanel({
   const heatmapQuery = useHeatmapData({
     screenName: effectiveApiScreenMain,
     ...singleRequest,
-    enabled: !compareEnabled,
+    enabled: !compareEnabled && singleTimeRangeReady,
   });
 
   const compareLeftQuery = useHeatmapData({
     screenName: effectiveApiScreenMain,
     ...compareARequest,
-    enabled: compareSliceReady,
+    enabled: compareLeftQueryEnabled,
   });
 
   const compareRightQuery = useHeatmapData({
     screenName: effectiveApiScreenCompareB,
     ...compareBRequest,
-    enabled: compareSliceReady,
+    enabled: compareRightQueryEnabled,
   });
 
   const singlePayload = heatmapQuery.data?.data;
@@ -450,6 +460,8 @@ export function HeatmapPanel({
           showInteractionMapOption={compareShowInteractionMap}
           compareLeftBreakpoint={effectiveCompareA.breakpoint}
           compareRightBreakpoint={effectiveCompareB.breakpoint}
+          compareLeftTimeInvalid={compareLeftTimeInvalid}
+          compareRightTimeInvalid={compareRightTimeInvalid}
         />
       </>
     );
@@ -473,6 +485,7 @@ export function HeatmapPanel({
         singlePayload={singlePayload}
         contextScreenName={screenName}
         qualityMetrics={qualityMetrics}
+        invalidTimeRange={!singleTimeRangeReady}
         mapToolbar={
           <HeatmapFilterPanel
             variant="full"

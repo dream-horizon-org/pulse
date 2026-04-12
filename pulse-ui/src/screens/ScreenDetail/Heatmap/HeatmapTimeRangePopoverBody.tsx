@@ -73,6 +73,14 @@ export function HeatmapTimeRangePopoverBody({
     endDate = getDateFromUTCTimeString(value.endTime);
   }
 
+  const customMode = timePreset === HEATMAP_TIME_PRESET_CUSTOM;
+  const fromError =
+    customMode &&
+    (!value.startTime?.trim() || !isValidUtcWallClockString(value.startTime));
+  const toError =
+    customMode &&
+    (!value.endTime?.trim() || !isValidUtcWallClockString(value.endTime));
+
   return (
     <Stack gap="sm">
       <Text size="xs" fw={700} c="dark">
@@ -123,6 +131,7 @@ export function HeatmapTimeRangePopoverBody({
               valueFormat="MMM D, YYYY HH:mm"
               maxDate={endDate ?? undefined}
               popoverProps={{ withinPortal: false }}
+              error={fromError ? "Set a start date and time" : undefined}
             />
           </Stack>
           <Stack gap={4} style={{ minWidth: 180 }}>
@@ -144,6 +153,7 @@ export function HeatmapTimeRangePopoverBody({
               valueFormat="MMM D, YYYY HH:mm"
               minDate={startDate ?? undefined}
               popoverProps={{ withinPortal: false }}
+              error={toError ? "Set an end date and time" : undefined}
             />
           </Stack>
         </Group>

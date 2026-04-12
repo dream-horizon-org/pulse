@@ -4,6 +4,11 @@
 
 export const HEATMAP_COPY_LOADING_HEATMAP = "Loading heatmap…";
 
+export const HEATMAP_COPY_INVALID_TIME_TITLE = "Time range incomplete";
+
+export const HEATMAP_COPY_INVALID_TIME_BODY =
+  "Set both From and To in the heatmap time filter, or choose a quick range. Metrics and the map load once the range is valid.";
+
 export const HEATMAP_COPY_LOADING_COMPARISON = "Loading comparison…";
 
 export const HEATMAP_COPY_LOADING_METRICS = "Loading metrics…";

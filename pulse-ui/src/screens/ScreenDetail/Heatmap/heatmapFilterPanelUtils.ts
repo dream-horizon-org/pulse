@@ -15,6 +15,19 @@ import {
 
 dayjs.extend(utc);
 
+/** Both bounds set and parse as UTC wall-clock — required before heatmap API calls. */
+export function isHeatmapTimeRangeQueryReady(
+  value: Pick<HeatmapLocalFilters, "startTime" | "endTime">,
+): boolean {
+  const { startTime, endTime } = value;
+  return (
+    !!startTime?.trim() &&
+    !!endTime?.trim() &&
+    isValidUtcWallClockString(startTime) &&
+    isValidUtcWallClockString(endTime)
+  );
+}
+
 /** UTC wall-clock span for custom (non–quick-preset) ranges — empty if invalid. */
 export function formatHeatmapCustomDateRangeLabel(
   value: Pick<HeatmapLocalFilters, "startTime" | "endTime">,
