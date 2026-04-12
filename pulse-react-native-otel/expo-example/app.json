@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "expo-example",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -20,6 +21,7 @@
       "package": "com.example.expoexample"
     },
     "plugins": [
+      "expo-router",
       [
         "expo-build-properties",
         {
@@ -85,16 +87,18 @@
             "configEndpointUrl": "http://127.0.0.1:8080/v1/configs/active/",
             "customEventCollectorUrl": "http://127.0.0.1:4318/v1/logs",
             "instrumentation": {
-              "screenLifecycle": {
-                "enabled": true
-              },
-              "crash": {
-                "enabled": true
-              },
+              "urlSession": { "enabled": true, "excludeOtlpEndpoints": true },
+              "sessions": { "enabled": true },
               "interaction": {
                 "enabled": true,
                 "configUrl": "http://127.0.0.1:8080/v1/interactions/all-active-interactions/"
-              }
+              },
+              "location": { "enabled": true },
+              "crash": { "enabled": true },
+              "appLifecycle": { "enabled": true },
+              "screenLifecycle": { "enabled": true },
+              "appStartup": { "enabled": true },
+              "uiKitTap": { "enabled": true, "captureContext": true }
             },
             "configuration": {
               "includeScreenAttributes": true,
