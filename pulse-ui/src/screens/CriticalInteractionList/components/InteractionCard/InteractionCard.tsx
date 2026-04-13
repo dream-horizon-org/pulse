@@ -64,6 +64,13 @@ export function InteractionCard({
     return `${(errorRate).toFixed(2)}%`;
   };
 
+  const getErrorRateColor = (errorRate: number) => {
+    if (errorRate === 0) return "#10b981"; 
+    if (errorRate <= 1) return "#f59e0b";  
+    if (errorRate <= 5) return "#f97316";
+    return "#ef4444";
+  };
+
   const formattedPoorUserPercentage = (poorUserPercentage: number) => {
     return `${poorUserPercentage.toFixed(2)}%`;
   };
@@ -109,7 +116,7 @@ export function InteractionCard({
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Error Rate</Text>
-          <Text className={classes.metricValue}>
+          <Text className={classes.metricValue} style={{ color: getErrorRateColor(errorRateValue) }}>
             {errorRateValue >= 0 ? formattedErrorRate(errorRateValue) : "N/A"}
           </Text>
         </div>

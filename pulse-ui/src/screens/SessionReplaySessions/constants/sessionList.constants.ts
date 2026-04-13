@@ -68,7 +68,7 @@ export const SESSION_LIST_LABELS = {
   next: "Next",
   loading: "Loading sessions...",
   anonymousUser: "Anonymous",
-  noQuality: "NA",
+  noQuality: "Na",
   noImpactedScreens: "Na",
   watchSession: "Watch session",
   openInNewTab: "Open in new tab",
