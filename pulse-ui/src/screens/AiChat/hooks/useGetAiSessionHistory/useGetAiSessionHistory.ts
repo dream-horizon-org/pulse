@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
-import { makeRequestToServer } from "../../../../helpers/makeRequestToServer";
+import { makeRequest } from "../../../../helpers/makeRequest";
 import { AiSessionDetail } from "./useGetAiSessionHistory.interface";
 import { AI_API_PATHS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 
@@ -12,15 +12,23 @@ async function fetchAiSessionHistory(
   signal: AbortSignal | undefined,
 ): Promise<AiSessionDetail> {
   const url = `${API_BASE_URL}${AI_API_PATHS.SESSIONS}/${encodeURIComponent(userId)}/${encodeURIComponent(sessionId)}`;
-  const response = await makeRequestToServer({
+  const result = await makeRequest<AiSessionDetail>({
     url,
     init: { method: "GET", signal },
     unwrapped: true,
   });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch session: ${response.status}`);
+  const hasError = result.error != null;
+  if (hasError) {
+    const message =
+      result.error?.message ?? `Failed to fetch session: ${result.status}`;
+    throw new Error(message);
   }
-  return response.json();
+  const detail = result.data;
+  const detailMissing = detail == null;
+  if (detailMissing) {
+    throw new Error(`Failed to fetch session: ${result.status}`);
+  }
+  return detail;
 }
 
 export const useGetAiSessionHistory = (sessionId: string | null) => {

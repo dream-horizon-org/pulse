@@ -33,7 +33,7 @@ pipeline {
         stage('Read Version') {
             steps {
                 script {
-                    // Get version from pyproject.toml or use git-based versioning
+                    // Get version from pyproject.toml
                     def version = sh(
                         script: """
                             cd pulse_ai
@@ -46,13 +46,7 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    // Append git short sha for uniqueness
-                    def gitSha = sh(
-                        script: 'git rev-parse --short HEAD',
-                        returnStdout: true
-                    ).trim()
-
-                    ARTIFACT_VERSION = "${version}-${gitSha}"
+                    ARTIFACT_VERSION = "${version}"
                     echo "Version to be published: ${ARTIFACT_VERSION}"
                 }
             }
@@ -81,7 +75,7 @@ pipeline {
 
                             # Update version in pyproject.toml if it exists
                             if [ -f pyproject.toml ]; then
-                                sed -i 's/^version = "[0-9]\+.[0-9]\+.[0-9]\+"/version = "${nextVersion}"/' pyproject.toml
+                                sed -i 's/^version = "[0-9]\\+.[0-9]\\+.[0-9]\\+"/version = "${nextVersion}"/' pyproject.toml
 
                                 git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
                                 git config user.name "${GITBOT_USERNAME}"
@@ -102,7 +96,7 @@ pipeline {
     post {
         success {
             script {
-                def message = "<!channel> Pulse AI version *${ARTIFACT_VERSION}* published to CodeArtifact\\n" +
+                def message = "<!channel> Pulse AI version *${ARTIFACT_VERSION}* published to CodeArtifact\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
                 slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
@@ -110,7 +104,7 @@ pipeline {
         }
         failure {
             script {
-                def message = "<!channel> Pulse AI version *${ARTIFACT_VERSION}* publish failed\\n" +
+                def message = "<!channel> Pulse AI version *${ARTIFACT_VERSION}* publish failed\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
                 slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
@@ -121,11 +115,8 @@ pipeline {
 
 // Helper functions for version management
 def bumpMinorVersion(String version) {
-    // Extract base version (remove git sha suffix)
-    def baseVersion = version.replaceAll(/-[a-f0-9]+$/, '')
-    def parts = baseVersion.tokenize('.')
+    def parts = version.tokenize('.')
     def major = parts[0] as int
     def minor = parts.size() > 1 ? parts[1] as int : 0
-    def patch = parts.size() > 2 ? parts[2] as int : 0
     return "${major}.${minor + 1}.0"
 }

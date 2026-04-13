@@ -8,6 +8,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
+import org.dreamhorizon.pulseserver.service.configs.models.ClickFeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.RageConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.junit.jupiter.api.Nested;
@@ -83,7 +85,8 @@ class DefaultSdkConfigTemplateTest {
               Features.custom_events,
               Features.rn_screen_load,
               Features.rn_screen_interactive,
-              Features.session_replay
+              Features.session_replay,
+              Features.click
           );
     }
 
@@ -115,6 +118,24 @@ class DefaultSdkConfigTemplateTest {
       assertThat(replayConfig.getFlushAt()).isEqualTo(10);
       assertThat(replayConfig.getMaxBatchSize()).isEqualTo(50);
       assertThat(replayConfig.getReplayApiBaseUrl()).isNotBlank();
+    }
+
+    @Test
+    void shouldIncludeClickFeatureWithExpectedDefaults() {
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      FeatureConfig clickFeature = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.click)
+          .findFirst()
+          .orElse(null);
+      assertThat(clickFeature).isNotNull();
+      assertThat(clickFeature.getSessionSampleRate()).isEqualTo(1.0);
+      assertThat(clickFeature.getConfig()).isInstanceOf(ClickFeatureConfig.class);
+      ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+      assertThat(clickConfig.getRage()).isNotNull();
+      RageConfig rage = clickConfig.getRage();
+      assertThat(rage.getTimeWindowMs()).isEqualTo(1000L);
+      assertThat(rage.getThreshold()).isEqualTo(3);
+      assertThat(rage.getRadius()).isEqualTo(50);
     }
 
     @Test

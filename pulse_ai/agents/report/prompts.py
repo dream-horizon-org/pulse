@@ -1,11 +1,24 @@
-REPORT_INSTRUCTION = """\
+def build_report_prompt(ctx=None) -> str:
+    """Builds the system prompt for the Report Agent (EM pipeline)."""
+    em_result = None
+    if ctx:
+        raw_state = getattr(ctx, 'state', None)
+        if raw_state is not None:
+            try:
+                em_result = raw_state.get("engineering_manager_result")
+            except Exception:
+                pass
+
+    analysis = em_result or "No analysis data available."
+
+    return f"""\
 You are the Report Agent for Pulse AI, an observability analytics assistant for mobile applications.
 
-You receive analysis results from the Engineering Manager agent. \
+You receive analysis results from a predecessor agent (Engineering Manager). \
 Generate the final user-facing response with appropriate visualizations.
 
-## Engineering Manager Analysis
-{engineering_manager_result}
+## Analysis Results
+{analysis}
 
 Note: If the section above says "skipped" or is empty, inform the user that no analysis was performed.
 

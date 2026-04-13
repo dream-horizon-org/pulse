@@ -90,6 +90,25 @@ class PulseFeatureFlagUtilsTest {
     }
 
     @Nested
+    inner class `CLICK feature` {
+        @Test
+        fun `when CLICK is disabled, view and compose click instrumentation are suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = emptyList()))
+            assertThat(config.isSuppressed("view.click")).isTrue
+            assertThat(config.isSuppressed("compose.click")).isTrue
+        }
+
+        @Test
+        fun `when CLICK is enabled, view and compose click instrumentation are not suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.CLICK)))
+            assertThat(config.isSuppressed("view.click")).isFalse
+            assertThat(config.isSuppressed("compose.click")).isFalse
+        }
+    }
+
+    @Nested
     inner class `CUSTOM_EVENTS feature` {
         @Test
         fun `when CUSTOM_EVENTS is disabled, result marks custom events as disabled`() {
