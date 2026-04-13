@@ -24,7 +24,13 @@ Key columns: `TraceId`, `Body`, `SeverityText`, `SeverityNumber`, `Timestamp`, `
 Key columns: `MetricName`, `Value`, `TimeUnix`, `Attributes` (Map), `ResourceAttributes` (Map)
 
 ### `stack_trace_events` — symbolicated crashes/ANRs
-Key columns: `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `GroupId`, `Fingerprint`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`
+Key columns: `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `GroupId`, `Fingerprint`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`, `ProjectId`, `PulseType`, `MeteringSessionId`
+
+### `root_cause_cache` — server-side RCA result cache (ReplacingMergeTree)
+Key columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc` (exclusive window end, UTC), `mode` (`hierarchical` \| `flat`), `baseline` (JSON), `segments` (JSON), `cached_at`. Filter by `ProjectId` like other `otel.*` tables.
+
+### `project_monthly_usage` + materialized views
+Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from logs, traces, metrics, and `stack_trace_events`.
 
 ### Heatmap tables (`backend/ingestion/clickhouse-otel-schema.sql`)
 
@@ -47,9 +53,10 @@ These columns are extracted from Map attributes at insert time. **Always use the
 | `GeoCountry` | `geo.country.iso_code` | all |
 | `DeviceModel` | `device.model.name` | all |
 | `NetworkProvider` | `network.carrier.name` | all |
-| `UserId` | `user.id` | all |
+| `UserId` | `user.id` with fallback to `app.installation.id` | traces, logs, metrics |
+| `MeteringSessionId` | `pulse.metering.session.id` | traces, logs, metrics, `stack_trace_events` |
 
-All tables have ORDER BY starting with `ProjectId` for multi-tenant isolation (e.g., `otel_traces`: `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`).
+Core telemetry tables have ORDER BY starting with `ProjectId` for isolation (e.g., `otel_traces`: `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`). `project_monthly_usage` orders by `project_id`; `root_cause_cache` orders by `(ProjectId, interaction_name, date, window_end_utc)`.
 
 ## Pulse-Specific Attributes
 
@@ -141,4 +148,4 @@ Four scopes exist for alerting:
 - **Always time-range filter** — prevent full table scans
 - **Use column pruning** — don't SELECT * on wide tables
 - **Use materialized columns** — always prefer `AppVersion`, `Platform`, etc. over `ResourceAttributes['...']`
-- **Use tenant credentials** — each tenant has dedicated ClickHouse credentials (stored in MySQL, resolved via `TenantContext`). The backend uses `ClickhouseTenantConnectionPoolManager` to route queries through per-tenant connection pools, ensuring project-scoped data isolation. For local CLI queries, use credentials from `deploy/.env` (`OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD`).
+- **Use project credentials** — each project has dedicated ClickHouse credentials (stored in MySQL, resolved via `ProjectContext`). The backend uses `ClickhouseProjectConnectionPoolManager` to route queries through per-project pools. For local CLI queries, use admin credentials from `deploy/.env` (`OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD`).

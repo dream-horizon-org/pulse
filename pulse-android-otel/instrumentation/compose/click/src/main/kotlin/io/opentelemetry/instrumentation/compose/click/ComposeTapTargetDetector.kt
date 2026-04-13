@@ -32,13 +32,13 @@ internal data class TapTarget(
 /**
  * Result of [ComposeTapTargetDetector.findTapResult] — one view-tree traversal instead of two.
  *
- * - [NoCompose] — no ComposeView (Owner) contains the tap point; belongs to ViewClickEventGenerator.
+ * - [NotFound] — no ComposeView (Owner) contains the tap point; belongs to ViewClickEventGenerator.
  * - [Found]     — tap landed inside a ComposeView; [target] is the hit node or null (dead click).
  */
 internal sealed class ComposeFindResult {
-    object NoCompose : ComposeFindResult()
+    object NotFound : ComposeFindResult()
 
-    data class Found(
+    class Found(
         val target: TapTarget?,
     ) : ComposeFindResult()
 }
@@ -67,14 +67,12 @@ internal class ComposeTapTargetDetector(
             null
         }
 
-    // Reused across viewContainsPoint calls to avoid IntArray allocation per hit-test.
-    // Safe: all methods run on the UI thread.
     private val tempLocation = IntArray(2)
 
     /**
      * Single view-tree traversal that both checks ownership and finds the tap target.
      *
-     * Returns [ComposeFindResult.NoCompose] when no ComposeView (Owner) contains [x, y] — the tap
+     * Returns [ComposeFindResult.NotFound] when no ComposeView (Owner) contains [x, y] — the tap
      * belongs to ViewClickEventGenerator. Returns [ComposeFindResult.Found] otherwise, with a
      * non-null [TapTarget] for good clicks and null for dead clicks inside Compose.
      */
@@ -106,7 +104,7 @@ internal class ComposeTapTargetDetector(
                 }
             }
         }
-        return if (isTapInCompose) ComposeFindResult.Found(target) else ComposeFindResult.NoCompose
+        return if (isTapInCompose) ComposeFindResult.Found(target) else ComposeFindResult.NotFound
     }
 
     private fun viewContainsPoint(
@@ -193,7 +191,9 @@ internal class ComposeTapTargetDetector(
                 if (
                     className == CLASS_NAME_CLICKABLE_ELEMENT ||
                     className == CLASS_NAME_COMBINED_CLICKABLE_ELEMENT ||
-                    className == CLASS_NAME_TOGGLEABLE_ELEMENT
+                    className == CLASS_NAME_TOGGLEABLE_ELEMENT ||
+                    className == CLASS_NAME_SELECTABLE_ELEMENT ||
+                    className == CLASS_NAME_TRI_STATE_TOGGLEABLE_ELEMENT
                 ) {
                     return true
                 }
@@ -288,5 +288,9 @@ internal class ComposeTapTargetDetector(
             "androidx.compose.foundation.CombinedClickableElement"
         private const val CLASS_NAME_TOGGLEABLE_ELEMENT =
             "androidx.compose.foundation.selection.ToggleableElement"
+        private const val CLASS_NAME_SELECTABLE_ELEMENT =
+            "androidx.compose.foundation.selection.SelectableElement"
+        private const val CLASS_NAME_TRI_STATE_TOGGLEABLE_ELEMENT =
+            "androidx.compose.foundation.selection.TriStateToggleableElement"
     }
 }

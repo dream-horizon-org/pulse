@@ -244,6 +244,41 @@ export function buildTracesQuery(params: QueryParams): DataQueryRequestBody {
         },
         alias: "error_message",
       },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['graphql.operation.name']",
+        },
+        alias: "graphql_operation_name",
+      },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['graphql.operation.method']",
+        },
+        alias: "graphql_operation_method",
+      },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['graphql.operation.type']",
+        },
+        alias: "graphql_operation_type",
+      },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['http.url']",
+        },
+        alias: "http_url",
+      },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['screen.name']",
+        },
+        alias: "screen_name_attr",
+      },
     ],
     filters,
     orderBy: [

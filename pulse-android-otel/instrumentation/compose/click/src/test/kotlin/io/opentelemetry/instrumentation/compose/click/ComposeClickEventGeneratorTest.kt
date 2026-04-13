@@ -35,6 +35,7 @@ import io.mockk.mockkClass
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.equalTo
 import io.opentelemetry.sdk.testing.junit4.OpenTelemetryRule
+import io.opentelemetry.sdk.testing.time.TestClock
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_X
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
@@ -43,6 +44,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 internal class ComposeClickEventGeneratorTest {
@@ -101,7 +103,6 @@ internal class ComposeClickEventGeneratorTest {
         val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
         motionEvent.recycle()
 
-        // Flush buffered click via stopTracking.
         composeClickEventGenerator.stopTracking()
 
         val events = openTelemetryRule.logRecords
@@ -236,7 +237,7 @@ internal class ComposeClickEventGeneratorTest {
 
     @Test
     fun `rage click emits single rage event and suppresses individual clicks`() {
-        val fakeClock = FakeClock()
+        val testClock = TestClock.create()
         val generator =
             ComposeClickEventGenerator(
                 openTelemetryRule.openTelemetry.logsBridge
@@ -244,7 +245,7 @@ internal class ComposeClickEventGeneratorTest {
                     .build(),
                 isContextEnrichmentEnabled = false,
                 composeLayoutNodeUtil = composeLayoutNodeUtil,
-                clock = fakeClock::now,
+                clock = testClock,
             )
         every { window.callback } returns callback
         every { window.callback = any() } returns Unit
@@ -258,14 +259,14 @@ internal class ComposeClickEventGeneratorTest {
 
         // 3 taps → rage threshold crossed, window still open, nothing emitted yet.
         repeat(3) {
-            fakeClock.advanceMs(50)
+            testClock.advance(50, TimeUnit.MILLISECONDS)
             dispatchDownThenUpOnGenerator(generator, x, y)
         }
         assertThat(openTelemetryRule.logRecords).hasSize(0)
 
         // Clicks 4-6 are suppressed, count accumulates to 6.
         repeat(3) {
-            fakeClock.advanceMs(50)
+            testClock.advance(50, TimeUnit.MILLISECONDS)
             dispatchDownThenUpOnGenerator(generator, x, y)
         }
         assertThat(openTelemetryRule.logRecords).hasSize(0)
@@ -282,8 +283,7 @@ internal class ComposeClickEventGeneratorTest {
             )
     }
 
-    // region Helpers
-
+    /** Real taps send ACTION_DOWN then ACTION_UP; the generator requires both for click detection. */
     private fun dispatchDownThenUpOnGenerator(
         generator: ComposeClickEventGenerator,
         x: Float,

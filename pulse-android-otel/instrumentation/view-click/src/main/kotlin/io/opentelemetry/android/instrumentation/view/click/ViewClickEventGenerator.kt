@@ -17,8 +17,11 @@ import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
+import io.opentelemetry.android.instrumentation.click.common.ClickEventEmitter
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
+import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
 import io.opentelemetry.api.logs.Logger
+import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
 import java.util.LinkedList
 
@@ -27,10 +30,9 @@ internal class ViewClickEventGenerator(
     private val isContextEnrichmentEnabled: Boolean = true,
     densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
-    clock: () -> Long = SystemClock::elapsedRealtime,
+    clock: Clock = Clock.getDefault(),
 ) {
-    // All buffering, rage detection, and event emission is handled here.
-    internal val clickEmitter = ViewClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
+    internal val clickEmitter = ClickEventEmitter(eventLogger, VIEW_CLICK_EVENT_NAME, densityScale, rageConfig, clock)
 
     private var windowRef: WeakReference<Window>? = null
     private val gestureTracker = PulseClickGestureTracker()
@@ -40,8 +42,8 @@ internal class ViewClickEventGenerator(
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
         gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
-        val currentCallback: Window.Callback? = window.callback
-        window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
+        val currentCallback = window.callback ?: return
+        window.callback = WindowCallbackWrapper(currentCallback, this)
     }
 
     fun generateClick(motionEvent: MotionEvent) {
@@ -54,9 +56,9 @@ internal class ViewClickEventGenerator(
 
                 val tapX = motionEvent.x
                 val tapY = motionEvent.y
-                val hitResult =
-                    windowRef?.get()?.let { findTargetForTap(it.decorView, tapX, tapY) }
-                        ?: return
+                val window = windowRef?.get() ?: return
+                val decorView = window.decorView
+                val hitResult = findTargetForTap(decorView, tapX, tapY)
 
                 // ComposeView found during traversal — let ComposeClickEventGenerator handle it.
                 if (hitResult === HitResult.DeferToCompose) return
@@ -70,19 +72,18 @@ internal class ViewClickEventGenerator(
                         null
                     }
 
-                val decorView = windowRef?.get()?.decorView
                 clickEmitter.process(
                     PendingClick(
-                        x = tapX,
-                        y = tapY,
-                        timestampMs = clickEmitter.currentTimeMs(),
+                        xPx = tapX,
+                        yPx = tapY,
+                        timestampMs = clickEmitter.currentMonotonicTimeMs(),
                         tapEpochMs = System.currentTimeMillis(),
                         hasTarget = target != null,
                         widgetName = target?.let { viewToName(it) },
                         widgetId = target?.run { id.toString() },
                         clickContext = clickContext,
-                        viewportWidthPx = decorView?.width ?: 0,
-                        viewportHeightPx = decorView?.height ?: 0,
+                        viewportWidthPx = decorView.width,
+                        viewportHeightPx = decorView.height,
                     ),
                 )
             }
@@ -101,12 +102,13 @@ internal class ViewClickEventGenerator(
         windowRef = null
     }
 
-    // region View traversal & label extraction
-
     private sealed class HitResult {
-        data class Hit(
+        /**
+         * [view] == null means dead click (miss).
+         */
+        class Hit(
             val view: View?,
-        ) : HitResult() // view == null means dead click (miss)
+        ) : HitResult()
 
         object DeferToCompose : HitResult()
     }
@@ -130,7 +132,7 @@ internal class ViewClickEventGenerator(
         return HitResult.Hit(target)
     }
 
-    private fun isValidClickTarget(view: View): Boolean = view.isClickable && view.isVisible
+    private fun isValidClickTarget(view: View): Boolean = (view.isClickable || view.isLongClickable) && view.isVisible
 
     /**
      * Adds hit-tested children to the queue. Returns true if a ComposeView child was hit,
@@ -263,8 +265,6 @@ internal class ViewClickEventGenerator(
     private fun isJetpackComposeView(view: View): Boolean = view::class.java.name.startsWith("androidx.compose.ui.platform.ComposeView")
 
     private val View.isVisible: Boolean get() = visibility == View.VISIBLE
-
-    // endregion
 
     private companion object {
         private const val MAX_CARD_LABEL_SEGMENTS = 5

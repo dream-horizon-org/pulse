@@ -48,7 +48,6 @@ export * from "./useGetProject";
 export * from "./useGetNotificationChannelById";
 export * from "./useGetProblematicInteractions";
 export * from "./useGetProblematicInteractionsStats";
-export * from "./useGetPulseAiResponse";
 export * from "./useGetQueryHistory";
 export * from "./useGetRequestIdFromTime";
 export * from "./useGetScreenDetails";

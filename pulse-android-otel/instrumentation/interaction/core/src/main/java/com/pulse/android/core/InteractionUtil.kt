@@ -295,7 +295,7 @@ internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>
     if (steps.size == 1) {
         return steps[0].timeInNano to steps[0].timeInNano + timeOutInMs * 1000000
     }
-    return steps[0].timeInNano to steps[1].timeInNano
+    return steps.first().timeInNano to steps.last().timeInNano
 }
 
 public fun Interaction.getTimeSpanInNanos(interactionStatus: InteractionRunningStatus.OngoingMatch): Pair<Long, Long>? =

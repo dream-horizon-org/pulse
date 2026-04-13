@@ -33,6 +33,7 @@ import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.equalTo
 import io.opentelemetry.sdk.testing.junit4.OpenTelemetryRule
+import io.opentelemetry.sdk.testing.time.TestClock
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_X
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
@@ -43,6 +44,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.runner.RunWith
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 @ExtendWith(MockKExtension::class)
@@ -77,14 +79,14 @@ class ViewClickInstrumentationTest {
     fun capture_view_click() {
         val (viewClickActivityCallback, wrapperCapturingSlot) = setupInstrumentation()
 
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         val mockView = mockView<View>(10012, motionEvent)
         every { window.decorView } returns mockView
 
         val upEvent = dispatchDownThenUp(wrapperCapturingSlot.captured, motionEvent.x, motionEvent.y)
         motionEvent.recycle()
 
-        // Flush buffered click by simulating activity pause.
         viewClickActivityCallback.onActivityPaused(activity)
 
         val events = openTelemetryRule.logRecords
@@ -108,7 +110,8 @@ class ViewClickInstrumentationTest {
 
         val (viewClickActivityCallback, wrapperCapturingSlot) = setupInstrumentation()
 
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         val mockView = mockView<View>(10012, motionEvent)
         every { window.decorView } returns mockView
 
@@ -136,7 +139,8 @@ class ViewClickInstrumentationTest {
     fun capture_view_click_in_viewGroup() {
         val (viewClickActivityCallback, wrapperCapturingSlot) = setupInstrumentation()
 
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         val mockView = mockView<View>(10012, motionEvent)
         val mockViewGroup =
             mockView<ViewGroup>(10013, motionEvent, clickable = false) {
@@ -169,8 +173,8 @@ class ViewClickInstrumentationTest {
     fun dead_click_emits_screen_click_event_with_dead_type() {
         val (viewClickActivityCallback, wrapperCapturingSlot) = setupInstrumentation()
 
-        // hitOffset moves the view's bounds away from the tap so the tap misses all clickable views.
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
+        val motionEvent =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         val mockView = mockView<View>(10012, motionEvent, hitOffset = intArrayOf(50, 30))
         val mockViewGroup =
             mockView<ViewGroup>(10013, motionEvent, clickable = false) {
@@ -198,7 +202,7 @@ class ViewClickInstrumentationTest {
 
     @Test
     fun rage_click_emits_single_rage_event_and_suppresses_individuals() {
-        val fakeClock = FakeClock()
+        val testClock = TestClock.create()
         val generator =
             ViewClickEventGenerator(
                 eventLogger =
@@ -206,7 +210,7 @@ class ViewClickInstrumentationTest {
                         .loggerBuilder("test")
                         .build(),
                 isContextEnrichmentEnabled = false,
-                clock = fakeClock::now,
+                clock = testClock,
             )
 
         every { window.callback } returns callback
@@ -218,17 +222,14 @@ class ViewClickInstrumentationTest {
                 MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 100f, 100f, 0),
             )
 
-        // 3 taps within 500 ms at the same spot → rage threshold crossed, window still open.
         repeat(3) {
-            fakeClock.advanceMs(50)
+            testClock.advance(50, TimeUnit.MILLISECONDS)
             dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         }
-        // Rage is pending — window hasn't closed yet, so nothing emitted.
         assertThat(openTelemetryRule.logRecords).hasSize(0)
 
-        // Taps 4-6 within suppression window → suppressed, count accumulates to 6.
         repeat(3) {
-            fakeClock.advanceMs(50)
+            testClock.advance(50, TimeUnit.MILLISECONDS)
             dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         }
         assertThat(openTelemetryRule.logRecords).hasSize(0)
@@ -249,7 +250,7 @@ class ViewClickInstrumentationTest {
 
     @Test
     fun rage_suppression_resets_after_window_expires() {
-        val fakeClock = FakeClock()
+        val testClock = TestClock.create()
         val generator =
             ViewClickEventGenerator(
                 eventLogger =
@@ -257,7 +258,7 @@ class ViewClickInstrumentationTest {
                         .loggerBuilder("test")
                         .build(),
                 isContextEnrichmentEnabled = false,
-                clock = fakeClock::now,
+                clock = testClock,
             )
 
         every { window.callback } returns callback
@@ -269,20 +270,17 @@ class ViewClickInstrumentationTest {
                 MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 100f, 100f, 0),
             )
 
-        // Trigger rage (pending, not emitted yet).
         repeat(3) {
-            fakeClock.advanceMs(50)
+            testClock.advance(50, TimeUnit.MILLISECONDS)
             dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         }
         assertThat(openTelemetryRule.logRecords).hasSize(0)
 
-        // Advance past suppression window, then tap again → rage emitted, new tap buffered.
-        fakeClock.advanceMs(2100)
+        testClock.advance(2100, TimeUnit.MILLISECONDS)
         dispatchDownThenUpOnGenerator(generator, 100f, 100f)
         assertThat(openTelemetryRule.logRecords).hasSize(1) // rage event emitted on window expiry
         generator.stopTracking()
 
-        // 1 rage + 1 individual (buffered tap flushed on stopTracking) = 2 total
         assertThat(openTelemetryRule.logRecords).hasSize(2)
     }
 
@@ -293,12 +291,9 @@ class ViewClickInstrumentationTest {
         val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, 250f, 50f, 0)
         wrapperCapturingSlot.captured.dispatchTouchEvent(motionEvent)
 
-        // No UP event → nothing buffered → nothing emitted even after flush.
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(0)
     }
-
-    // region Helpers
 
     /**
      * Installs [ViewClickInstrumentation], captures the activity callback and window wrapper,
@@ -370,6 +365,7 @@ class ViewClickInstrumentationTest {
         val mockView = mockkClass(T::class)
         every { mockView.visibility } returns visibility
         every { mockView.isClickable } returns clickable
+        every { mockView.isLongClickable } returns false
         every { mockView.id } returns id
 
         val location = IntArray(2)

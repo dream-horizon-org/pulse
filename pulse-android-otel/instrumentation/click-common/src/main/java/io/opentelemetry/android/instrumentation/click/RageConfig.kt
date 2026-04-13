@@ -6,20 +6,26 @@
 package io.opentelemetry.android.instrumentation.click
 
 /**
- * Resolved, immutable rage-detection parameters used by [ClickEventBuffer].
+ * Resolved, immutable rage-detection parameters.
  *
- * All fields default to [ClickEventBuffer] compile-time constants so that a zero-argument
- * constructor gives identical behaviour to the previous hard-coded implementation.
- * Backend or DSL overrides are applied field-by-field before this object is constructed.
+ * All fields default to the compile-time constants so that a zero-argument constructor gives
+ * identical behaviour to the previous hard-coded implementation. Backend or DSL overrides are
+ * applied field-by-field before this object is constructed.
  *
- * @param timeWindowMs   Sliding window in ms. Taps outside this window are evicted from the
- *                       cluster and emitted individually.
- * @param rageThreshold  Minimum tap count within [timeWindowMs] and [radiusDp] to trigger rage.
- *                       Rage fires when the cluster count **>= rageThreshold**.
- * @param radiusDp       Radius in dp within which taps are considered the same location.
+ * @property timeWindowMs   Sliding window in ms. Taps outside this window are evicted from the
+ *                          cluster and emitted individually.
+ * @property threshold  Minimum tap count within [timeWindowMs] and [radiusDp] to trigger rage.
+ *                          Rage fires when the cluster count **>= threshold**.
+ * @property radiusDp       Radius in dp within which taps are considered the same location.
  */
-data class RageConfig(
-    val timeWindowMs: Long = ClickEventBuffer.TIME_WINDOW_MS,
-    val rageThreshold: Int = ClickEventBuffer.RAGE_THRESHOLD,
-    val radiusDp: Float = ClickEventBuffer.RADIUS_DP,
-)
+class RageConfig(
+    val timeWindowMs: Long = TIME_WINDOW_MS,
+    val threshold: Int = RAGE_THRESHOLD,
+    val radiusDp: Float = RADIUS_DP,
+) {
+    companion object {
+        const val TIME_WINDOW_MS: Long = 2000L
+        const val RAGE_THRESHOLD: Int = 3
+        const val RADIUS_DP: Float = 50f
+    }
+}

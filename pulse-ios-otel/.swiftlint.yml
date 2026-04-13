@@ -1,0 +1,24 @@
+included:
+  - "Sources"
+excluded: 
+  - "Sources/Exporters/OpenTelemetryProtocolCommon/proto"
+  - ".build"
+  - "Tests"
+disabled_rules:
+  - todo
+  - nesting
+  - line_length
+  - type_body_length
+  - identifier_name
+  - file_length
+  - force_cast
+  - type_name
+  - large_tuple
+  - function_body_length
+  - function_parameter_count
+  - cyclomatic_complexity
+  - force_try
+  # JSON/API field names from the server (e.g. isBlacklisted, globalBlacklistedEvents).
+  - inclusive_language
+  # Intentional: removeObserver(self) on SDK shutdown, not only deinit.
+  - notification_center_detachment

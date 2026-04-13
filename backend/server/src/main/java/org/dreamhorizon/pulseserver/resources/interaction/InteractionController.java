@@ -14,8 +14,13 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +34,7 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractions
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RestInteractionDetail;
+import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.UpdateInteractionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.validators.CreateInteractionValidations;
@@ -36,8 +42,14 @@ import org.dreamhorizon.pulseserver.resources.interaction.validators.UpdateInter
 import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 
@@ -49,6 +61,8 @@ public class InteractionController {
 
   private final InteractionService interactionService;
   private final Validator validator;
+  private final RootCauseConfig rootCauseConfig;
+  private final RootCauseService rootCauseService;
 
   private static WebApplicationException getWebApplicationException(Set<ConstraintViolation<RestInteractionDetail>> violations) {
     return new WebApplicationException(
@@ -181,5 +195,83 @@ public class InteractionController {
   public CompletionStage<Response<TelemetryFilterOptionsResponse>> getTelemetryFilterOptions() {
     return interactionService.getTelemetryFilterOptions()
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  // This is used as fallback by pulse-ai if tabular data is not present in /rca/report request
+  @GET
+  @Path("/{name}/root-cause")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
+  public CompletionStage<Response<RootCauseRestResponse>> getRootCause(
+      @PathParam("name") String name,
+      @QueryParam("date") String dateParam,
+      @QueryParam("asOf") String asOfParam
+  ) {
+    String projectId = ProjectContext.requireProjectId();
+    final LocalDate date;
+    final Instant windowEndExclusiveUtc;
+    try {
+      date = parseRootCauseQueryDate(dateParam);
+      windowEndExclusiveUtc = parseRootCauseAsOf(asOfParam);
+    } catch (WebApplicationException e) {
+      return CompletableFuture.failedFuture(e);
+    }
+
+    return rootCauseService.getRootCause(projectId, name, date, windowEndExclusiveUtc)
+        .map(this::toRootCauseRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private static LocalDate parseRootCauseQueryDate(String dateParam) {
+    if (dateParam == null || dateParam.isBlank()) {
+      return LocalDate.now(ZoneOffset.UTC);
+    }
+    try {
+      return LocalDate.parse(dateParam);
+    } catch (DateTimeParseException e) {
+      throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+          "Query parameter 'date' must be a valid ISO-8601 date (yyyy-MM-dd).",
+          e.getMessage());
+    }
+  }
+
+  /** Exclusive upper bound on span timestamps; ISO-8601 instant (e.g. {@code 2026-04-07T14:00:00Z}). */
+  private static Instant parseRootCauseAsOf(String asOfParam) {
+    if (asOfParam == null || asOfParam.isBlank()) {
+      return Instant.now();
+    }
+    try {
+      return Instant.parse(asOfParam);
+    } catch (DateTimeParseException e) {
+      throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+          "Query parameter 'asOf' must be a valid ISO-8601 instant (e.g. 2026-04-07T14:00:00Z).",
+          e.getMessage());
+    }
+  }
+
+  private RootCauseRestResponse toRootCauseRestResponse(RootCauseResult result) {
+    List<RootCauseRestResponse.RootCauseSegmentRest> segments = result.getSegments() == null
+        ? List.of()
+        : result.getSegments().stream()
+            .map(this::toRootCauseSegmentRest)
+            .collect(Collectors.toList());
+    return RootCauseRestResponse.builder()
+        .baseline(result.getBaseline())
+        .segments(segments)
+        .mode(result.getMode())
+        .cachedAt(result.getCachedAt())
+        .everythingGood(result.getEverythingGood())
+        .noDataAvailable(result.getNoDataAvailable())
+        .message(result.getMessage())
+        .build();
+  }
+
+  private RootCauseRestResponse.RootCauseSegmentRest toRootCauseSegmentRest(RootCauseSegment seg) {
+    return RootCauseRestResponse.RootCauseSegmentRest.builder()
+        .label(seg.getLabel())
+        .dimensions(seg.getDimensions())
+        .metrics(seg.getMetrics())
+        .deltas(seg.getDeltas())
+        .build();
   }
 }

@@ -1,0 +1,7 @@
+platform :ios, '13.0'
+
+target 'PulseIOSExample' do
+  use_frameworks!
+
+  pod 'PulseKit', :path => '../../'
+end

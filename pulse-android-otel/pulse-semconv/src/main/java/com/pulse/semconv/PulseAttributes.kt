@@ -67,7 +67,7 @@ public object PulseAttributes {
 
     /** Number of taps in the rage-click cluster. Set when [CLICK_IS_RAGE] is true. */
     @JvmField
-    public val CLICK_RAGE_COUNT: AttributeKey<Long> = AttributeKey.longKey("click.rageCount")
+    public val CLICK_RAGE_COUNT: AttributeKey<Long> = AttributeKey.longKey("click.rage_count")
 
     /**
      * Normalised tap X coordinate: [APP_SCREEN_COORDINATE_X] / [VIEWPORT_WIDTH].

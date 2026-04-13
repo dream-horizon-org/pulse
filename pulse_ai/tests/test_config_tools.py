@@ -16,7 +16,7 @@ import respx
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_interactions_list_default():
+async def test_query_interactions_list_default(pulse_tool_context):
     """scope=list with defaults returns paginated interactions."""
     from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
@@ -30,7 +30,7 @@ async def test_query_interactions_list_default():
         })
     )
 
-    result = await query_interactions(scope="list")
+    result = await query_interactions(scope="list", tool_context=pulse_tool_context)
 
     assert result["status"] == "success"
     assert len(result["data"]) == 2
@@ -39,7 +39,7 @@ async def test_query_interactions_list_default():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_interactions_list_sends_query_params():
+async def test_query_interactions_list_sends_query_params(pulse_tool_context):
     """scope=list sends page, size, status as query params."""
     from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
@@ -47,7 +47,14 @@ async def test_query_interactions_list_sends_query_params():
         return_value=httpx.Response(200, json={"data": [], "error": None})
     )
 
-    await query_interactions(scope="list", page=2, size=5, status="STOPPED", name="Contest")
+    await query_interactions(
+        scope="list",
+        page=2,
+        size=5,
+        status="STOPPED",
+        name="Contest",
+        tool_context=pulse_tool_context,
+    )
 
     assert route.called
     request = route.calls[0].request
@@ -64,7 +71,7 @@ async def test_query_interactions_list_sends_query_params():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_interactions_detail():
+async def test_query_interactions_detail(pulse_tool_context):
     """scope=detail fetches a single interaction by name."""
     from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
@@ -83,7 +90,11 @@ async def test_query_interactions_detail():
         })
     )
 
-    result = await query_interactions(scope="detail", interaction_name="ContestJoin")
+    result = await query_interactions(
+        scope="detail",
+        interaction_name="ContestJoin",
+        tool_context=pulse_tool_context,
+    )
 
     assert result["status"] == "success"
     assert result["data"]["name"] == "ContestJoin"
@@ -109,7 +120,7 @@ async def test_query_interactions_detail_missing_name():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_interactions_filters():
+async def test_query_interactions_filters(pulse_tool_context):
     """scope=filters hits /v1/interactions/filter-options."""
     from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
@@ -120,7 +131,7 @@ async def test_query_interactions_filters():
         })
     )
 
-    result = await query_interactions(scope="filters")
+    result = await query_interactions(scope="filters", tool_context=pulse_tool_context)
 
     assert result["status"] == "success"
     assert "platforms" in result["data"]
@@ -128,7 +139,7 @@ async def test_query_interactions_filters():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_interactions_telemetry_filters():
+async def test_query_interactions_telemetry_filters(pulse_tool_context):
     """scope=telemetry_filters hits /v1/interactions/telemetry-filters."""
     from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
@@ -139,7 +150,10 @@ async def test_query_interactions_telemetry_filters():
         })
     )
 
-    result = await query_interactions(scope="telemetry_filters")
+    result = await query_interactions(
+        scope="telemetry_filters",
+        tool_context=pulse_tool_context,
+    )
 
     assert result["status"] == "success"
 
@@ -163,7 +177,7 @@ async def test_query_interactions_invalid_scope():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_interactions_backend_error():
+async def test_query_interactions_backend_error(pulse_tool_context):
     """Backend 500 returns structured error."""
     from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
@@ -174,7 +188,7 @@ async def test_query_interactions_backend_error():
         })
     )
 
-    result = await query_interactions(scope="list")
+    result = await query_interactions(scope="list", tool_context=pulse_tool_context)
 
     assert result["status"] == "error"
     assert "Database unavailable" in result["message"]
@@ -187,7 +201,7 @@ async def test_query_interactions_backend_error():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_alerts_list_default():
+async def test_query_alerts_list_default(pulse_tool_context):
     """scope=list with defaults returns paginated alerts."""
     from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
@@ -201,7 +215,7 @@ async def test_query_alerts_list_default():
         })
     )
 
-    result = await query_alerts(scope="list")
+    result = await query_alerts(scope="list", tool_context=pulse_tool_context)
 
     assert result["status"] == "success"
     assert len(result["data"]) == 2
@@ -209,7 +223,7 @@ async def test_query_alerts_list_default():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_alerts_list_sends_query_params():
+async def test_query_alerts_list_sends_query_params(pulse_tool_context):
     """scope=list sends name, scope, state, limit, offset as query params."""
     from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
@@ -217,7 +231,15 @@ async def test_query_alerts_list_sends_query_params():
         return_value=httpx.Response(200, json={"data": [], "error": None})
     )
 
-    await query_alerts(scope="list", name="Error", alert_scope="interaction", state="FIRING", limit=5, offset=10)
+    await query_alerts(
+        scope="list",
+        name="Error",
+        alert_scope="interaction",
+        state="FIRING",
+        limit=5,
+        offset=10,
+        tool_context=pulse_tool_context,
+    )
 
     assert route.called
     request = route.calls[0].request
@@ -235,7 +257,7 @@ async def test_query_alerts_list_sends_query_params():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_alerts_detail():
+async def test_query_alerts_detail(pulse_tool_context):
     """scope=detail fetches a single alert by ID."""
     from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
@@ -246,7 +268,11 @@ async def test_query_alerts_detail():
         })
     )
 
-    result = await query_alerts(scope="detail", alert_id="42")
+    result = await query_alerts(
+        scope="detail",
+        alert_id="42",
+        tool_context=pulse_tool_context,
+    )
 
     assert result["status"] == "success"
     assert result["data"]["id"] == 42
@@ -271,7 +297,7 @@ async def test_query_alerts_detail_missing_id():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_alerts_evaluation_history():
+async def test_query_alerts_evaluation_history(pulse_tool_context):
     """scope=evaluation_history hits /v1/alert/{id}/evaluationHistory."""
     from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
@@ -282,7 +308,11 @@ async def test_query_alerts_evaluation_history():
         })
     )
 
-    result = await query_alerts(scope="evaluation_history", alert_id="42")
+    result = await query_alerts(
+        scope="evaluation_history",
+        alert_id="42",
+        tool_context=pulse_tool_context,
+    )
 
     assert result["status"] == "success"
 
@@ -306,7 +336,7 @@ async def test_query_alerts_evaluation_history_missing_id():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_alerts_available_scopes():
+async def test_query_alerts_available_scopes(pulse_tool_context):
     """scope=available_scopes hits /v1/alert/scopes."""
     from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
@@ -317,7 +347,10 @@ async def test_query_alerts_available_scopes():
         })
     )
 
-    result = await query_alerts(scope="available_scopes")
+    result = await query_alerts(
+        scope="available_scopes",
+        tool_context=pulse_tool_context,
+    )
 
     assert result["status"] == "success"
 
@@ -341,7 +374,7 @@ async def test_query_alerts_invalid_scope():
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_query_alerts_backend_error():
+async def test_query_alerts_backend_error(pulse_tool_context):
     """Backend error returns structured error."""
     from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
@@ -352,7 +385,7 @@ async def test_query_alerts_backend_error():
         })
     )
 
-    result = await query_alerts(scope="list")
+    result = await query_alerts(scope="list", tool_context=pulse_tool_context)
 
     assert result["status"] == "error"
     assert "Service down" in result["message"]

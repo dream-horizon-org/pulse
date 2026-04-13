@@ -17,10 +17,11 @@ export function EditAction({ iconColor, name, isLoading }: ActionProps) {
       return;
     }
 
+    // Use `path` (ends with `/*`); `basePath` has no `/*`, so `.replace("/*", …)` was a no-op and edit always opened create flow.
     navigate(
-      ROUTES.PROJECT_INTERACTION_FORM.basePath
+      ROUTES.PROJECT_INTERACTION_FORM.path
         .replace(":projectId", projectId)
-        .replace("/*", `/${name}`),
+        .replace("/*", `/${encodeURIComponent(name ?? "")}`),
     );
   };
 

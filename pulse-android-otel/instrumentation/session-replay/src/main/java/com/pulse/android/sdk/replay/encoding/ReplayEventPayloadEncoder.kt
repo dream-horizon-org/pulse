@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // todo Anirudh will create typed models
+
 package com.pulse.android.sdk.replay.encoding
 
 import com.pulse.android.sdk.replay.events.ReplayCustomEventData
@@ -13,7 +15,6 @@ import com.pulse.android.sdk.replay.models.PulseReplayCustomEventData
 import com.pulse.android.sdk.replay.models.PulseReplayEventData
 import com.pulse.android.sdk.replay.models.PulseReplayFullSnapshotData
 import com.pulse.android.sdk.replay.models.PulseReplayIncrementalMutationData
-import com.pulse.android.sdk.replay.models.PulseReplayJson
 import com.pulse.android.sdk.replay.models.PulseReplayMetaData
 import com.pulse.android.sdk.replay.models.PulseReplayMouseInteractionData
 import com.pulse.android.sdk.replay.models.PulseReplayMousePosition
@@ -23,6 +24,8 @@ import com.pulse.android.sdk.replay.models.PulseReplayRemovedNode
 import com.pulse.android.sdk.replay.models.PulseReplaySnapshotEvent
 import com.pulse.android.sdk.replay.models.PulseReplayStyle
 import com.pulse.android.sdk.replay.models.PulseReplayWireframe
+import com.pulse.utils.PulseMathUtils
+import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -30,7 +33,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
 internal object ReplayEventPayloadEncoder {
-    fun encodeToJson(events: List<ReplayEvent>): String = PulseReplayJson.instance.encodeToString(toPulseReplayWireEvents(events))
+    fun encodeToJson(events: List<ReplayEvent>): String =
+        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(toPulseReplayWireEvents(events))
 
     internal fun toPulseReplayWireEvents(events: List<ReplayEvent>): List<PulseReplaySnapshotEvent> = events.map { it.toPulseReplayWire() }
 
@@ -44,7 +48,7 @@ internal object ReplayEventPayloadEncoder {
     private fun ReplayEventData.toPulseReplayWire(): PulseReplayEventData =
         when (this) {
             is ReplayMetaData -> {
-                val g = gcd(width, height)
+                val g = PulseMathUtils.gcd(width, height)
                 PulseReplayMetaData(
                     href = href,
                     width = width,

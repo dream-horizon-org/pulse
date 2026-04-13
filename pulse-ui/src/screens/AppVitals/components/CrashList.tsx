@@ -1,5 +1,5 @@
 import { IconBug } from "@tabler/icons-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useExceptionListData } from "./ExceptionTable/hooks";
 import { ExceptionTable } from "./ExceptionTable";
 import type { ExceptionRow } from "./ExceptionTable/ExceptionTable.interface";
@@ -11,6 +11,9 @@ interface CrashListProps {
   appVersion?: string;
   osVersion?: string;
   device?: string;
+  platform?: string;
+  networkProvider?: string;
+  state?: string;
   screenName?: string;
 }
 
@@ -20,9 +23,13 @@ export const CrashList: React.FC<CrashListProps> = ({
   appVersion = "all",
   osVersion = "all",
   device = "all",
+  platform = "all",
+  networkProvider = "all",
+  state = "all",
   screenName,
 }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { projectId } = useParams<{ projectId: string }>();
   const { exceptions, queryState } = useExceptionListData({
     startTime,
@@ -30,12 +37,20 @@ export const CrashList: React.FC<CrashListProps> = ({
     appVersion,
     osVersion,
     device,
+    platform,
+    networkProvider,
+    state,
     screenName,
     exceptionType: "crash",
   });
 
   const handleRowClick = (groupId: string) => {
-    navigate(`/projects/${projectId}/app-vitals/${groupId}`);
+    const qs = searchParams.toString();
+    navigate(
+      qs
+        ? `/projects/${projectId}/app-vitals/${groupId}?${qs}`
+        : `/projects/${projectId}/app-vitals/${groupId}`,
+    );
   };
 
   // Transform exceptions to ExceptionRow format
