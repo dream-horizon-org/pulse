@@ -45,6 +45,7 @@ public final class io/opentelemetry/android/instrumentation/click/ClickContextEn
 	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/click/ClickContextEnrichmentConfig;
 	public static field isComposeClickContextEnrichmentEnabled Z
 	public static field isViewClickContextEnrichmentEnabled Z
+	public static field rageConfig Lio/opentelemetry/android/instrumentation/click/RageConfig;
 }
 
 public final class io/opentelemetry/android/instrumentation/internal/AndroidInstrumentationLoaderImpl : io/opentelemetry/android/instrumentation/AndroidInstrumentationLoader {

@@ -2,7 +2,7 @@
 
 declare namespace NodeJS {
   interface ProcessEnv {
-    readonly NODE_ENV: 'development' | 'production' | 'test';
+    readonly NODE_ENV: "development" | "production" | "test";
     readonly PUBLIC_URL: string;
     readonly REACT_APP_FIREBASE_API_KEY?: string;
     readonly REACT_APP_FIREBASE_AUTH_DOMAIN?: string;
@@ -14,20 +14,24 @@ declare namespace NodeJS {
     readonly REACT_APP_GOOGLE_CLIENT_ID?: string;
     readonly REACT_APP_PULSE_SERVER_URL?: string;
     readonly REACT_APP_GOOGLE_OAUTH_ENABLED?: string;
+    /** Comma-separated path substrings that always use real API when mock is on (default: /v1/interactions) */
+    readonly REACT_APP_USE_REAL_API_PATHS?: string;
+    /** When "true", show Root Cause tab under Critical Interaction Details */
+    readonly REACT_APP_ROOT_CAUSE_ENABLED?: string;
   }
 }
 
-declare module '*.module.css' {
+declare module "*.module.css" {
   const classes: { readonly [key: string]: string };
   export default classes;
 }
 
-declare module '*.module.scss' {
+declare module "*.module.scss" {
   const classes: { readonly [key: string]: string };
   export default classes;
 }
 
-declare module '*.module.sass' {
+declare module "*.module.sass" {
   const classes: { readonly [key: string]: string };
   export default classes;
 }

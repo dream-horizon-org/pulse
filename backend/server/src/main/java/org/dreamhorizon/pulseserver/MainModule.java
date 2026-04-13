@@ -24,6 +24,7 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.SessionReplayS3Config;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
@@ -135,6 +136,11 @@ public class MainModule extends VertxAbstractModule {
           .build();
       }
       return config;
+    }).in(Singleton.class);
+
+    bind(RootCauseConfig.class).toProvider(() -> {
+      RootCauseConfig config = SharedDataUtils.get(vertx, RootCauseConfig.class);
+      return RootCauseConfig.withDefaults(config);
     }).in(Singleton.class);
 
     bind(OpenFgaService.class).toProvider(() -> {

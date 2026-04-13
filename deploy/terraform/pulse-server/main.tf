@@ -86,7 +86,8 @@ resource "aws_launch_template" "pulse_server" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user-data.sh", {
-    artifact_version = var.artifact_version
+    artifact_version          = var.artifact_version
+    pulse_ai_artifact_version = var.pulse_ai_artifact_version
   }))
 }
 

@@ -12,24 +12,27 @@ import android.view.ViewGroup
 import android.view.Window
 import android.widget.EditText
 import android.widget.TextView
+import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
+import io.opentelemetry.android.instrumentation.click.PendingClick
+import io.opentelemetry.android.instrumentation.click.RageConfig
+import io.opentelemetry.android.instrumentation.click.common.ClickEventEmitter
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
-import io.opentelemetry.android.instrumentation.click.common.PulseWidgetClickLogHelper
 import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
-import io.opentelemetry.api.common.Attributes
-import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_X
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_NAME
+import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
 import java.util.LinkedList
 
-class ViewClickEventGenerator(
-    private val eventLogger: Logger,
+internal class ViewClickEventGenerator(
+    eventLogger: Logger,
     private val isContextEnrichmentEnabled: Boolean = true,
+    densityScale: Float = 1f,
+    rageConfig: RageConfig = RageConfig(),
+    clock: Clock = Clock.getDefault(),
 ) {
+    internal val clickEmitter = ClickEventEmitter(eventLogger, VIEW_CLICK_EVENT_NAME, densityScale, rageConfig, clock)
+
     private var windowRef: WeakReference<Window>? = null
     private val gestureTracker = PulseClickGestureTracker()
 
@@ -38,8 +41,8 @@ class ViewClickEventGenerator(
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
         gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
-        val currentCallback: Window.Callback? = window.callback
-        window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
+        val currentCallback = window.callback ?: return
+        window.callback = WindowCallbackWrapper(currentCallback, this)
     }
 
     fun generateClick(motionEvent: MotionEvent) {
@@ -49,32 +52,39 @@ class ViewClickEventGenerator(
             }
             MotionEvent.ACTION_UP -> {
                 if (!gestureTracker.onActionUp(motionEvent)) return
-                windowRef?.get()?.let { window ->
-                    findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
-                        val tapX = motionEvent.x.toLong()
-                        val tapY = motionEvent.y.toLong()
-                        val attributes = createViewAttributes(view, tapX, tapY)
-                        val widgetClickRecord =
-                            createEvent(VIEW_CLICK_EVENT_NAME)
-                                .setAllAttributes(attributes)
-                        val label =
-                            if (isContextEnrichmentEnabled) {
-                                getViewContextLabel(view)
-                            } else {
-                                null
-                            }
-                        PulseWidgetClickLogHelper.applyContextAndLogDebug(
-                            record = widgetClickRecord,
-                            attributes = attributes,
-                            logCoordX = tapX.toString(),
-                            logCoordY = tapY.toString(),
-                            isContextEnrichmentEnabled = isContextEnrichmentEnabled,
-                            label = label,
-                            logTag = CLICK_LOG_TAG,
-                        )
-                        widgetClickRecord.emit()
+
+                val tapX = motionEvent.x
+                val tapY = motionEvent.y
+                val window = windowRef?.get() ?: return
+                val decorView = window.decorView
+                val hitResult = findTargetForTap(decorView, tapX, tapY)
+
+                // ComposeView found during traversal — let ComposeClickEventGenerator handle it.
+                if (hitResult === HitResult.DeferToCompose) return
+
+                val target = (hitResult as? HitResult.Hit)?.view
+
+                val clickContext =
+                    if (isContextEnrichmentEnabled && target != null) {
+                        PulseAttributes.AppClickContext.buildContext(getViewContextLabel(target))
+                    } else {
+                        null
                     }
-                }
+
+                clickEmitter.process(
+                    PendingClick(
+                        xPx = tapX,
+                        yPx = tapY,
+                        timestampMs = clickEmitter.currentMonotonicTimeMs(),
+                        tapEpochMs = System.currentTimeMillis(),
+                        hasTarget = target != null,
+                        widgetName = target?.let { viewToName(it) },
+                        widgetId = target?.run { id.toString() },
+                        clickContext = clickContext,
+                        viewportWidthPx = decorView.width,
+                        viewportHeightPx = decorView.height,
+                    ),
+                )
             }
             MotionEvent.ACTION_CANCEL -> {
                 gestureTracker.onActionCancel()
@@ -83,28 +93,75 @@ class ViewClickEventGenerator(
     }
 
     fun stopTracking() {
+        // Flush buffered clicks before unwrapping so no taps are silently dropped on pause.
+        clickEmitter.flush()
         windowRef?.get()?.run {
             callback = WindowCallbackUnwrap.fullyUnwrap(callback)
         }
         windowRef = null
     }
 
-    private fun createEvent(name: String): LogRecordBuilder =
-        eventLogger
-            .logRecordBuilder()
-            .setEventName(name)
+    private sealed class HitResult {
+        /**
+         * [view] == null means dead click (miss).
+         */
+        class Hit(
+            val view: View?,
+        ) : HitResult()
 
-    private fun createViewAttributes(
+        object DeferToCompose : HitResult()
+    }
+
+    private fun findTargetForTap(
+        decorView: View,
+        x: Float,
+        y: Float,
+    ): HitResult {
+        val queue = LinkedList<View>()
+        queue.addFirst(decorView)
+        var target: View? = null
+
+        while (queue.isNotEmpty()) {
+            val view = queue.removeFirst()
+            // ComposeView found — Compose instrumentation owns this tap.
+            if (isJetpackComposeView(view)) return HitResult.DeferToCompose
+            if (isValidClickTarget(view)) target = view
+            if (view is ViewGroup && addChildrenToQueue(view, x, y, queue)) return HitResult.DeferToCompose
+        }
+        return HitResult.Hit(target)
+    }
+
+    private fun isValidClickTarget(view: View): Boolean = (view.isClickable || view.isLongClickable) && view.isVisible
+
+    /**
+     * Adds hit-tested children to the queue. Returns true if a ComposeView child was hit,
+     * meaning the tap belongs to Compose instrumentation and traversal should stop.
+     */
+    private fun addChildrenToQueue(
+        view: ViewGroup,
+        x: Float,
+        y: Float,
+        stack: LinkedList<View>,
+    ): Boolean {
+        if (!view.isVisible) return false
+        for (i in 0 until view.childCount) {
+            val child = view.getChildAt(i)
+            if (!hitTest(child, x, y)) continue
+            if (isJetpackComposeView(child)) return true // tap lands inside ComposeView → defer
+            stack.add(child)
+        }
+        return false
+    }
+
+    private fun hitTest(
         view: View,
-        tapX: Long,
-        tapY: Long,
-    ): Attributes {
-        val builder = Attributes.builder()
-        builder.put(APP_WIDGET_NAME, viewToName(view))
-        builder.put(APP_WIDGET_ID, view.id.toString())
-        builder.put(APP_SCREEN_COORDINATE_X, tapX)
-        builder.put(APP_SCREEN_COORDINATE_Y, tapY)
-        return builder.build()
+        x: Float,
+        y: Float,
+    ): Boolean {
+        view.getLocationInWindow(viewCoordinates)
+        val vx = viewCoordinates[0]
+        val vy = viewCoordinates[1]
+        return !(x < vx || x > vx + view.width || y < vy || y > vy + view.height)
     }
 
     private fun viewToName(view: View): String =
@@ -166,26 +223,6 @@ class ViewClickEventGenerator(
             ?.takeIf { it.isNotBlank() }
     }
 
-    /**
-     * Truncates by dropping whole segments from the end until under maxLength.
-     * Avoids cutting mid-word or mid-segment (e.g. "Match: Ayodhya... | Ayodhya Pr").
-     */
-    private fun trimSegmentsToMaxLength(
-        segments: List<String>,
-        maxLength: Int,
-    ): String? {
-        if (segments.isEmpty()) return null
-        val result = segments.joinToString(CARD_LABEL_DELIMITER)
-        if (result.length <= maxLength) return result
-        var dropFrom = segments.size
-        while (dropFrom > 1) {
-            val trimmed = segments.take(dropFrom - 1).joinToString(CARD_LABEL_DELIMITER)
-            if (trimmed.length <= maxLength) return trimmed
-            dropFrom--
-        }
-        return segments.first().take(maxLength)
-    }
-
     private fun collectLabelsFromDescendants(
         group: ViewGroup,
         out: MutableList<String>,
@@ -214,73 +251,32 @@ class ViewClickEventGenerator(
             view.width > 0 &&
             view.height > 0
 
-    private companion object {
-        private const val CLICK_LOG_TAG = "PulseClick"
-        private const val MAX_CARD_LABEL_SEGMENTS = 5
-        private const val MAX_CARD_LABEL_CHAR_LENGTH = 200
-        private const val CARD_LABEL_DELIMITER = " | "
-    }
-
-    private fun findTargetForTap(
-        decorView: View,
-        x: Float,
-        y: Float,
-    ): View? {
-        val queue = LinkedList<View>()
-        queue.addFirst(decorView)
-        var target: View? = null
-
-        while (queue.isNotEmpty()) {
-            val view = queue.removeFirst()
-            if (isJetpackComposeView(view)) {
-                return null
-            }
-
-            if (isValidClickTarget(view)) {
-                target = view
-            }
-
-            if (view is ViewGroup) {
-                handleViewGroup(view, x, y, queue)
-            }
+    /**
+     * Truncates by dropping whole segments from the end until under maxLength.
+     */
+    private fun trimSegmentsToMaxLength(
+        segments: List<String>,
+        maxLength: Int,
+    ): String? {
+        if (segments.isEmpty()) return null
+        val result = segments.joinToString(CARD_LABEL_DELIMITER)
+        if (result.length <= maxLength) return result
+        var dropFrom = segments.size
+        while (dropFrom > 1) {
+            val trimmed = segments.take(dropFrom - 1).joinToString(CARD_LABEL_DELIMITER)
+            if (trimmed.length <= maxLength) return trimmed
+            dropFrom--
         }
-        return target
-    }
-
-    private fun isValidClickTarget(view: View): Boolean = view.isClickable && view.isVisible
-
-    private fun handleViewGroup(
-        view: ViewGroup,
-        x: Float,
-        y: Float,
-        stack: LinkedList<View>,
-    ) {
-        if (!view.isVisible) return
-
-        for (i in 0 until view.childCount) {
-            val child = view.getChildAt(i)
-            if (hitTest(child, x, y) && !isJetpackComposeView(child)) {
-                stack.add(child)
-            }
-        }
-    }
-
-    private fun hitTest(
-        view: View,
-        x: Float,
-        y: Float,
-    ): Boolean {
-        view.getLocationInWindow(viewCoordinates)
-        val vx = viewCoordinates[0]
-        val vy = viewCoordinates[1]
-
-        val w = view.width
-        val h = view.height
-        return !(x < vx || x > vx + w || y < vy || y > vy + h)
+        return segments.first().take(maxLength)
     }
 
     private fun isJetpackComposeView(view: View): Boolean = view::class.java.name.startsWith("androidx.compose.ui.platform.ComposeView")
 
-    private val View.isVisible: Boolean
-        get() = visibility == View.VISIBLE
+    private val View.isVisible: Boolean get() = visibility == View.VISIBLE
+
+    private companion object {
+        private const val MAX_CARD_LABEL_SEGMENTS = 5
+        private const val MAX_CARD_LABEL_CHAR_LENGTH = 200
+        private const val CARD_LABEL_DELIMITER = " | "
+    }
 }

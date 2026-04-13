@@ -23,7 +23,7 @@ cd deploy
 ./scripts/build.sh capture     # pulse-session-capture only
 ./scripts/build.sh ingestion   # pulse-session-replay-ingestion only
 ./scripts/build.sh ai          # pulse-ai-agent only
-./scripts/build.sh all         # ui + server + cron + pulse-ai-agent (same as default no-args build)
+./scripts/build.sh all         # same as omitting args: ui + server + cron + capture + ingestion + ai
 ```
 
 ## Start/Stop
@@ -46,7 +46,8 @@ cd deploy
 
 ## Pulse AI
 
-**Integrated (deploy stack):** `pulse-ai-agent` starts with `./scripts/start.sh -d`. Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini. Health: `curl -sf http://localhost:8000/health`.
+**Integrated (deploy stack):** `pulse-ai-agent` starts with `./scripts/start.sh -d`. Set `GOOGLE_API_KEY` in
+`deploy/.env` for Gemini. Health: `curl -sf http://localhost:8000/health`.
 
 **Standalone (AI-only dev):**
 
@@ -64,19 +65,19 @@ curl -sf http://localhost:8000/health
 
 ## Health Checks
 
-Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover actual ports, then use them in health checks:
+Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover actual ports, then use them in health
+checks:
 
-| Service | Health Check | Default Port |
-|---------|-------------|--------------|
-| pulse-server | `curl http://localhost:<port>/healthcheck` | 8080 |
-| pulse-ui | `curl http://localhost:<port>/healthcheck.txt` | 3000 |
-| pulse-alerts-cron | `curl http://localhost:<port>/healthcheck` | 4000 |
-| OpenFGA | `curl http://localhost:8180/healthz` | 8180 |
-| OTEL Collector | `curl http://localhost:<port>/` | 13133 |
-| pulse-ai-agent | `curl -sf http://localhost:8000/health` | 8000 |
-| Kafka | `kafka-topics --bootstrap-server localhost:9092 --list` (in container) | 9092 |
-| MinIO | `mc ready local` (in container) | 9100 (API), 9101 (console) |
-| pulse-session-capture | `curl http://localhost:3400/healthcheck` | 3400 |
+| Service               | Health Check                                   | Default Port |
+|-----------------------|------------------------------------------------|--------------|
+| pulse-server          | `curl http://localhost:<port>/healthcheck`     | 8080         |
+| pulse-ui              | `curl http://localhost:<port>/healthcheck.txt` | 3000         |
+| pulse-alerts-cron     | `curl http://localhost:<port>/healthcheck`     | 4000         |
+| OpenFGA               | `curl http://localhost:8180/healthz`           | 8180         |
+| OTEL Collector        | `curl http://localhost:<port>/`                | 13133        |
+| pulse-ai-agent        | `curl -sf http://localhost:8000/health`        | 8000         |
+| pulse-session-capture | `curl http://localhost:3400/healthcheck`       | 3400         |
+| MinIO (dev)           | S3 API on host `9100`, console `9101`          | 9100 / 9101  |
 
 ## Troubleshooting
 

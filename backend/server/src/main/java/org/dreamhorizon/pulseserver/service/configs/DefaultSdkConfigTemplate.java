@@ -75,6 +75,7 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.rn_screen_load, 1.0, allSdks));
         features.add(createFeature(Features.rn_screen_interactive, 1.0, allSdks));
         features.add(createSessionReplayFeature(1.0, allSdks));
+        features.add(createClickFeature(1.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()
@@ -111,6 +112,23 @@ public class DefaultSdkConfigTemplate {
 
         return FeatureConfig.builder()
             .featureName(Features.session_replay)
+            .sessionSampleRate(sampleRate)
+            .sdks(sdks)
+            .config((FeatureConfigProperties) config)
+            .build();
+    }
+
+    private static FeatureConfig createClickFeature(Double sampleRate, List<Sdk> sdks) {
+        ClickFeatureConfig config = ClickFeatureConfig.builder()
+            .rage(RageConfig.builder()
+                .timeWindowMs(1000L)
+                .threshold(3)
+                .radius(50)
+                .build())
+            .build();
+
+        return FeatureConfig.builder()
+            .featureName(Features.click)
             .sessionSampleRate(sampleRate)
             .sdks(sdks)
             .config((FeatureConfigProperties) config)
