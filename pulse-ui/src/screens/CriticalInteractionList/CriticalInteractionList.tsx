@@ -249,7 +249,7 @@ export function CriticalInteractionList() {
     setRows({ totalInteractions: 0, interactions: [] });
   };
 
-  const { data: suggestionsResponse } = useGetSuggestedInteractions();
+  const { data: suggestionsResponse, isLoading: isLoadingSuggestions } = useGetSuggestedInteractions();
   const dismissMutation = useDismissSuggestion();
   const activateMutation = useActivateSuggestion();
   const suggestions = suggestionsResponse?.data?.suggestions ?? [];
@@ -426,7 +426,19 @@ export function CriticalInteractionList() {
         viewportRef={scrollContainerRef}
         className={classes.scrollArea}
       >
-        {suggestions.length > 0 && (
+        {isLoadingSuggestions && (
+          <Box className={classes.suggestionsSection}>
+            <Box className={classes.suggestionsHeader}>
+              <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>
+            </Box>
+            <Box className={classes.suggestionsGrid}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <CardSkeleton key={index} height={180} showHeader contentRows={3} />
+              ))}
+            </Box>
+          </Box>
+        )}
+        {!isLoadingSuggestions && suggestions.length > 0 && (
           <Box className={classes.suggestionsSection}>
             <Box className={classes.suggestionsHeader}>
               <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>

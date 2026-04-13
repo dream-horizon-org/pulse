@@ -1,4 +1,4 @@
-import { Text } from "@mantine/core";
+import { Button, Text } from "@mantine/core";
 import { SuggestedInteraction } from "../../../../hooks/useGetSuggestedInteractions/useGetSuggestedInteractions.interface";
 import classes from "./SuggestedInteractionCard.module.css";
 
@@ -29,7 +29,7 @@ export function SuggestedInteractionCard({
   isActivating = false,
 }: SuggestedInteractionCardProps) {
   const eventNames = suggestion.events.map((e) => e.name);
-  const patternLabel = eventNames.join(" → ");
+  const patternLabel = eventNames.join(" \u2192 ");
 
   return (
     <div className={classes.suggestedCard}>
@@ -43,7 +43,7 @@ export function SuggestedInteractionCard({
               <span key={idx}>
                 <span className={classes.eventPill}>{event}</span>
                 {idx < eventNames.length - 1 && (
-                  <span className={classes.arrow}> → </span>
+                  <span className={classes.arrow}> \u2192 </span>
                 )}
               </span>
             ))}
@@ -79,26 +79,32 @@ export function SuggestedInteractionCard({
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Consistency</Text>
           <Text className={classes.metricValue}>
-            {((1 - suggestion.cv) * 100).toFixed(0)}%
+            {Math.max(0, (1 - suggestion.cv) * 100).toFixed(0)}%
           </Text>
         </div>
       </div>
 
       <div className={classes.cardActions}>
-        <button
+        <Button
           className={classes.dismissBtn}
           onClick={() => onDismiss(suggestion.id)}
           disabled={isDismissing}
+          loading={isDismissing}
+          variant="outline"
+          size="sm"
         >
-          {isDismissing ? "Dismissing..." : "Dismiss"}
-        </button>
-        <button
+          Dismiss
+        </Button>
+        <Button
           className={classes.activateBtn}
           onClick={() => onActivate(suggestion)}
           disabled={isActivating}
+          loading={isActivating}
+          variant="filled"
+          size="sm"
         >
-          {isActivating ? "Creating..." : "Track this"}
-        </button>
+          Track this
+        </Button>
       </div>
     </div>
   );

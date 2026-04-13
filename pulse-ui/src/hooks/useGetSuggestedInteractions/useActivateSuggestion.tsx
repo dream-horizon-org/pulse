@@ -45,17 +45,13 @@ export const useActivateSuggestion = () => {
         queryKey: [API_ROUTES.GET_INTERACTIONS.key],
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       showNotification(
         "Duplicate Interaction",
-        "An interaction with the same event sequence already exists.",
+        error.message || "An interaction with the same event sequence already exists.",
         <IconSquareRoundedX size={16} />,
         "red",
       );
-      // Suggestion is auto-dismissed on duplicate, refresh the list
-      queryClient.invalidateQueries({
-        queryKey: [API_ROUTES.GET_SUGGESTED_INTERACTIONS.key],
-      });
     },
   });
 };

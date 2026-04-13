@@ -1,6 +1,9 @@
 package org.dreamhorizon.pulseserver.dao.suggestedinteraction;
 
-public class Queries {
+public final class Queries {
+
+  private Queries() {}
+
   public static final String GET_SUGGESTIONS_BY_PROJECT =
       "SELECT id, project_id, events_json, total_occurrences, unique_sessions, "
           + "session_pct, mean_span_s, median_span_s, p95_span_s, cv, edges_json, "
@@ -18,6 +21,6 @@ public class Queries {
 
   public static final String UPDATE_STATUS =
       "UPDATE suggested_interaction "
-          + "SET status = ?, dismissed_by = ?, dismissed_at = NOW() "
+          + "SET status = ?, decided_by = ?, decided_at = NOW() "
           + "WHERE id = ? AND project_id = ?";
 }

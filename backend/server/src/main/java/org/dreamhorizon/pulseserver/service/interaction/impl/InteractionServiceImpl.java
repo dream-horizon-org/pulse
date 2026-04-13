@@ -4,12 +4,10 @@ import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.MediaType;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -197,34 +195,31 @@ public class InteractionServiceImpl implements InteractionService {
   public Single<EmptyResponse> activateSuggestion(Long suggestionId, String userEmail) {
     String projectId = ProjectContext.getProjectId();
     return suggestedInteractionDao.getSuggestionById(suggestionId)
-        .flatMap(suggestion ->
-            interactionDao.getAllActiveAndRunningInteractions(projectId)
-                .flatMap(existingInteractions -> {
-                  // Check for duplicate: same events in same order with same props
-                  for (InteractionDetails existing : existingInteractions) {
-                    if (isSuggestionDuplicate(suggestion, existing)) {
-                      // Auto-dismiss the duplicate suggestion and return 400
-                      return suggestedInteractionDao.updateStatus(suggestionId, "DISMISSED", userEmail)
-                          .flatMap(dismissed -> Single.error(new WebApplicationException(
-                              jakarta.ws.rs.core.Response.status(400)
-                                  .entity(Map.of("error", Map.of(
-                                      "code", "DUPLICATE_INTERACTION",
-                                      "message", "An interaction with the same event sequence already exists ('"
-                                          + existing.getName() + "')")))
-                                  .type(MediaType.APPLICATION_JSON)
-                                  .build())));
-                    }
+        .flatMap(suggestion -> {
+          // Idempotent: if already activated, return success
+          if ("ACTIVATED".equals(suggestion.getStatus())) {
+            return Single.just(new EmptyResponse());
+          }
+          return interactionDao.getAllActiveAndRunningInteractions(projectId)
+              .flatMap(existingInteractions -> {
+                // Check for duplicate: same events in same order with same props
+                for (InteractionDetails existing : existingInteractions) {
+                  if (isSuggestionDuplicate(suggestion, existing)) {
+                    return Single.error(ServiceError.DUPLICATE_SUGGESTED_INTERACTION
+                        .getCustomException("An interaction with the same event sequence already exists ('"
+                            + existing.getName() + "')"));
                   }
-                  // No duplicate found — generate a unique name and create
-                  String baseName = String.join(" -> ", suggestion.getPattern());
-                  return generateUniqueName(baseName)
-                      .flatMap(uniqueName -> {
-                        CreateInteractionRequest request = buildCreateRequestFromSuggestion(suggestion, userEmail, uniqueName);
-                        return createInteractionInternal(request)
-                            .flatMap(created -> suggestedInteractionDao.updateStatus(suggestionId, "ACTIVATED", userEmail));
-                      });
-                })
-        )
+                }
+                // No duplicate found — generate a unique name and create
+                String baseName = String.join(" -> ", suggestion.getPattern());
+                return generateUniqueName(baseName)
+                    .flatMap(uniqueName -> {
+                      CreateInteractionRequest request = buildCreateRequestFromSuggestion(suggestion, userEmail, uniqueName);
+                      return createInteractionInternal(request)
+                          .flatMap(created -> suggestedInteractionDao.updateStatus(suggestionId, "ACTIVATED", userEmail));
+                    });
+              });
+        })
         .doOnError(err -> log.error("error while activating suggestion", err));
   }
 
@@ -257,10 +252,10 @@ public class InteractionServiceImpl implements InteractionService {
 
     List<Event> events = suggestion.getEvents();
 
-    int lowerLimit = Math.max(1, (int) (suggestion.getMedianSpanS() * 1000));
-    int midLimit = Math.max(lowerLimit + 1, (int) (suggestion.getMeanSpanS() * 1000));
-    int upperLimit = Math.max(midLimit + 1, (int) (suggestion.getP95SpanS() * 1000));
-    int threshold = Math.max(upperLimit + 1, (int) (suggestion.getP95SpanS() * 2 * 1000));
+    int lowerLimit = Math.max(1, (int) Math.min(suggestion.getMedianSpanS() * 1000, Integer.MAX_VALUE));
+    int midLimit = Math.max(lowerLimit + 1, (int) Math.min(suggestion.getMeanSpanS() * 1000, Integer.MAX_VALUE));
+    int upperLimit = Math.max(midLimit + 1, (int) Math.min(suggestion.getP95SpanS() * 1000, Integer.MAX_VALUE));
+    int threshold = Math.max(upperLimit + 1, (int) Math.min(suggestion.getP95SpanS() * 2 * 1000, Integer.MAX_VALUE));
 
     return CreateInteractionRequest.builder()
         .name(name)

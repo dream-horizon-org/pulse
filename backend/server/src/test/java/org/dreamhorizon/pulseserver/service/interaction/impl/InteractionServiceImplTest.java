@@ -1510,7 +1510,7 @@ class InteractionServiceImplTest {
     }
 
     @Test
-    void shouldAutoDismissAndThrow400WhenDuplicate() {
+    void shouldReturn409WhenDuplicateWithoutDismissing() {
       SuggestedInteractionDetails suggestion = buildSuggestedInteraction(1L, eventsFromNames("EventA", "EventB"));
 
       InteractionDetails existingInteraction = InteractionDetails.builder()
@@ -1527,18 +1527,17 @@ class InteractionServiceImplTest {
           .thenReturn(Single.just(suggestion));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of(existingInteraction)));
-      Mockito.when(suggestedInteractionDao.updateStatus(1L, "DISMISSED", userEmail))
-          .thenReturn(Single.just(new EmptyResponse()));
 
       TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
       actual.assertError(throwable -> {
         assertThat(throwable).isInstanceOf(WebApplicationException.class);
         WebApplicationException wae = (WebApplicationException) throwable;
-        assertThat(wae.getResponse().getStatus()).isEqualTo(400);
+        assertThat(wae.getResponse().getStatus()).isEqualTo(409);
         return true;
       });
 
-      Mockito.verify(suggestedInteractionDao).updateStatus(1L, "DISMISSED", userEmail);
+      // Should NOT dismiss the suggestion
+      Mockito.verify(suggestedInteractionDao, Mockito.never()).updateStatus(any(), any(), any());
       Mockito.verify(interactionDao, Mockito.never()).createInteractionAndUploadMetadata(any());
     }
 
@@ -1699,6 +1698,28 @@ class InteractionServiceImplTest {
 
       InteractionDetails captured = captor.getValue();
       assertThat(captured.getName()).isEqualTo("EventA -> EventB (3)");
+    }
+
+    @Test
+    void shouldReturnSuccessWhenSuggestionAlreadyActivated() {
+      SuggestedInteractionDetails suggestion = SuggestedInteractionDetails.builder()
+          .id(1L).projectId("test").events(eventsFromNames("EventA", "EventB"))
+          .totalOccurrences(8420).uniqueSessions(6120).sessionPct(72.5)
+          .meanSpanS(0.72).medianSpanS(0.68).p95SpanS(2.1).cv(0.12)
+          .edges(List.of()).status("ACTIVATED")
+          .createdAt(Timestamp.valueOf(LocalDateTime.now()))
+          .build();
+
+      Mockito.when(suggestedInteractionDao.getSuggestionById(1L))
+          .thenReturn(Single.just(suggestion));
+
+      TestObserver<EmptyResponse> actual = interactionService.activateSuggestion(1L, userEmail).test();
+      actual.assertNoErrors();
+
+      // Should not attempt to create or check duplicates
+      Mockito.verify(interactionDao, Mockito.never()).getAllActiveAndRunningInteractions(any());
+      Mockito.verify(interactionDao, Mockito.never()).createInteractionAndUploadMetadata(any());
+      Mockito.verify(suggestedInteractionDao, Mockito.never()).updateStatus(any(), any(), any());
     }
   }
 

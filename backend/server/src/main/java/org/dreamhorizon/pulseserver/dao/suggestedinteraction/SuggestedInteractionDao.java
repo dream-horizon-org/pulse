@@ -20,6 +20,7 @@ import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionEdge;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 @Slf4j
@@ -56,7 +57,8 @@ public class SuggestedInteractionDao {
           for (Row row : rows) {
             return mapRow(row);
           }
-          throw new IllegalArgumentException("Suggested interaction not found with id: " + id);
+          throw ServiceError.NOT_FOUND
+              .getCustomException("Suggested interaction not found with id: " + id);
         })
         .doOnError(error -> log.error("Error fetching suggested interaction by id: ", error));
   }
@@ -66,15 +68,22 @@ public class SuggestedInteractionDao {
     return mysqlClient.getWriterPool()
         .preparedQuery(UPDATE_STATUS)
         .rxExecute(tuple)
-        .map(rows -> new EmptyResponse())
+        .flatMap(rows -> {
+          if (rows.rowCount() == 0) {
+            return Single.error(ServiceError.NOT_FOUND
+                .getCustomException("Suggested interaction not found with id: " + id));
+          }
+          return Single.just(new EmptyResponse());
+        })
         .doOnError(error -> log.error("Error updating suggestion status: ", error));
   }
 
   private SuggestedInteractionDetails mapRow(Row row) {
     List<Event> events = List.of();
     Object eventsRaw = row.getValue("events_json");
-    if (eventsRaw != null) {
-      Object parsed = objectMapper.readValue(eventsRaw.toString(), Object.class);
+    String eventsJson = eventsRaw != null ? eventsRaw.toString() : null;
+    if (eventsJson != null) {
+      Object parsed = objectMapper.readValue(eventsJson, Object.class);
       events = objectMapper.convertValue(
           parsed,
           objectMapper.constructCollectionType(List.class, Event.class)
@@ -83,8 +92,9 @@ public class SuggestedInteractionDao {
 
     List<SuggestedInteractionEdge> edges = List.of();
     Object edgesRaw = row.getValue("edges_json");
-    if (edgesRaw != null) {
-      Object parsed = objectMapper.readValue(edgesRaw.toString(), Object.class);
+    String edgesJson = edgesRaw != null ? edgesRaw.toString() : null;
+    if (edgesJson != null) {
+      Object parsed = objectMapper.readValue(edgesJson, Object.class);
       edges = objectMapper.convertValue(
           parsed,
           objectMapper.constructCollectionType(List.class, SuggestedInteractionEdge.class)

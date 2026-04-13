@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import jakarta.ws.rs.WebApplicationException;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
@@ -120,6 +121,7 @@ class SuggestedInteractionDaoTest {
   @SuppressWarnings("unchecked")
   private void stubWriterQuery() {
     RowSet<Row> rowSet = mock(RowSet.class);
+    when(rowSet.rowCount()).thenReturn(1);
     PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
     when(mysqlClient.getWriterPool()).thenReturn(writerPool);
     when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
@@ -195,7 +197,7 @@ class SuggestedInteractionDaoTest {
       stubReaderQuery(rowSet);
 
       assertThatThrownBy(() -> dao.getSuggestionById(99L).blockingGet())
-          .isInstanceOf(IllegalArgumentException.class)
+          .isInstanceOf(WebApplicationException.class)
           .hasMessageContaining("99");
     }
   }
@@ -222,9 +224,28 @@ class SuggestedInteractionDaoTest {
     }
 
     @Test
+    void shouldReturn404WhenNoRowsUpdated() {
+      RowSet<Row> rowSet = mock(RowSet.class);
+      when(rowSet.rowCount()).thenReturn(0);
+      PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
+      when(mysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(eq(Queries.UPDATE_STATUS))).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      TestObserver<EmptyResponse> observer = dao.updateStatus(999L, "DISMISSED", "u@x.com").test();
+      observer.assertError(throwable -> {
+        assertThat(throwable).isInstanceOf(WebApplicationException.class);
+        WebApplicationException wae = (WebApplicationException) throwable;
+        assertThat(wae.getResponse().getStatus()).isEqualTo(404);
+        return true;
+      });
+    }
+
+    @Test
     void shouldPassCorrectTupleArguments() {
       ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
       RowSet<Row> rowSet = mock(RowSet.class);
+      when(rowSet.rowCount()).thenReturn(1);
       @SuppressWarnings("unchecked")
       PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
       when(mysqlClient.getWriterPool()).thenReturn(writerPool);

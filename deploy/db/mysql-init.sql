@@ -250,8 +250,8 @@ CREATE TABLE suggested_interaction (
     edges_json JSON COMMENT 'Array of edge objects with timing stats between consecutive events',
     status VARCHAR(25) NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    dismissed_by VARCHAR(255) NULL,
-    dismissed_at TIMESTAMP NULL,
+    decided_by VARCHAR(255) NULL,
+    decided_at TIMESTAMP NULL,
     INDEX idx_suggested_project_status (project_id, status),
     CONSTRAINT fk_suggested_interaction_project FOREIGN KEY (project_id)
         REFERENCES projects(project_id) ON DELETE CASCADE
