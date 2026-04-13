@@ -9,8 +9,11 @@
   padding: var(--mantine-spacing-md);
 }
 
-.backButton {
+.pageToolbar {
   margin-bottom: var(--mantine-spacing-md);
+}
+
+.backButton {
   font-weight: 600;
 }
 
@@ -33,6 +36,30 @@
 }
 
 .notFoundText {
+  font-size: 14px;
+  color: var(--mantine-color-dimmed);
+  line-height: 1.6;
+}
+
+.emptyRangeCard {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 12px;
+  padding: var(--mantine-spacing-xl);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.04);
+  text-align: center;
+  max-width: 520px;
+  margin: var(--mantine-spacing-md) auto 0;
+}
+
+.emptyRangeTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-6);
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.emptyRangeText {
   font-size: 14px;
   color: var(--mantine-color-dimmed);
   line-height: 1.6;

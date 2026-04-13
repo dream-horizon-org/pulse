@@ -5,4 +5,4 @@
 
 package io.opentelemetry.android.instrumentation.view.click.internal
 
-const val VIEW_CLICK_EVENT_NAME = "app.widget.click"
+internal const val VIEW_CLICK_EVENT_NAME = "app.widget.click"

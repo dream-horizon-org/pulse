@@ -2,13 +2,15 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { API_BASE_URL, COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
-import { makeRequestToServer } from "../../../../helpers/makeRequestToServer";
+import { makeRequest } from "../../../../helpers/makeRequest";
 import type {
+  CreateSessionBody,
   CreateSessionInput,
   OnSettled,
   UseCreateUserAiSessionResponse,
 } from "./useCreateUserAiSession.interface";
 import { AI_API_PATHS } from "../../AiChat.constants";
+import { parseCreateSessionBody } from "./parseCreateSessionBody";
 
 async function createUserAiSessionOnServer(
   signal: AbortSignal | undefined,
@@ -16,28 +18,23 @@ async function createUserAiSessionOnServer(
   const userId = getCookies(COOKIES_KEY.USER_EMAIL) || "anonymous";
   const params = new URLSearchParams({ user_id: userId });
   const url = `${API_BASE_URL}${AI_API_PATHS.SESSIONS}?${params.toString()}`;
-  const response = await makeRequestToServer({
+  const result = await makeRequest<CreateSessionBody>({
     url,
     init: { method: "POST", signal },
     unwrapped: true,
   });
-  if (!response.ok) {
-    throw new Error(`Failed to create session: ${response.status}`);
+  const hasError = result.error != null;
+  if (hasError) {
+    const message =
+      result.error?.message ?? `Failed to create session: ${result.status}`;
+    throw new Error(message);
   }
-  const json: unknown = await response.json();
-  if (
-    !json ||
-    typeof json !== "object" ||
-    !("session_id" in json) ||
-    typeof (json as { session_id: unknown }).session_id !== "string" ||
-    !(json as { session_id: string }).session_id.length
-  ) {
-    throw new Error("Invalid create session response: missing session_id");
+  const json: unknown = result.data;
+  const dataMissing = json == null;
+  if (dataMissing) {
+    throw new Error(`Failed to create session: ${result.status}`);
   }
-  const { session_id, user_id } = json as {
-    session_id: string;
-    user_id?: string;
-  };
+  const { session_id, user_id } = parseCreateSessionBody(json);
   return {
     session_id,
     user_id: user_id ?? userId,

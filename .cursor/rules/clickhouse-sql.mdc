@@ -16,6 +16,10 @@ alwaysApply: false
 | `otel_logs` | MergeTree | Logs — TraceId, Body, SeverityText, LogAttributes, ResourceAttributes |
 | `otel_metrics_gauge` | MergeTree | Gauge metrics — MetricName, Value, Attributes, ResourceAttributes |
 | `stack_trace_events` | MergeTree | Symbolicated + grouped stack traces |
+| `project_monthly_usage` | AggregatingMergeTree | Monthly aggregates by `project_id`, `month`, `source` |
+| `root_cause_cache` | ReplacingMergeTree(`cached_at`) | RCA cache: `ProjectId`, keys, JSON `baseline` / `segments` |
+
+Materialized views `project_monthly_*_mv` populate `project_monthly_usage` from traces, logs, metrics, and stack traces.
 
 ## Key Columns in `otel_traces`
 
@@ -38,9 +42,18 @@ These columns are extracted from Map attributes at insert time. **Always use the
 | `GeoCountry` | `geo.country.iso_code` | SpanAttributes/LogAttributes/Attributes | all tables |
 | `DeviceModel` | `device.model.name` | ResourceAttributes | all tables |
 | `NetworkProvider` | `network.carrier.name` | SpanAttributes/LogAttributes/Attributes | all tables |
-| `UserId` | `user.id` | SpanAttributes/LogAttributes/Attributes | all tables |
+| `UserId` | `user.id` / `app.installation.id` | SpanAttributes/LogAttributes/Attributes | traces, logs, metrics |
+| `MeteringSessionId` | `pulse.metering.session.id` | SpanAttributes/LogAttributes/Attributes | traces, logs, metrics, `stack_trace_events` |
 
 `otel_traces` also has a deprecated `SpanType` column (same source as `PulseType`).
+
+## `root_cause_cache`
+
+Columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, `baseline`, `segments`, `cached_at`. Row-level access uses the same `otel.*` policy as other analytics tables (`ProjectId`).
+
+## `project_monthly_usage`
+
+Underlying column is `project_id` (alias of `ProjectId` in MV SELECTs). Query with time filter on `month` and filter `project_id` / `ProjectId` consistently with your context.
 
 ## ORDER BY Keys
 
@@ -68,10 +81,11 @@ Accessed via `SpanAttributes['key']` (for traces) or `LogAttributes['key']` (for
 Each project has dedicated ClickHouse credentials (stored in MySQL `clickhouse_project_credentials` table). During project creation, `ClickhouseProjectService` creates:
 
 1. **ClickHouse user**: `project_{sanitized_project_id}`
-2. **Restrictive row policies**: One per table (`otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`) filtering by `ProjectId`
-3. **SELECT grants**: On `otel.*` database
+2. **Row policy**: One permissive policy on `otel.*`, named `policy_{sanitized_project_id}`, filtering by `ProjectId` (covers `root_cause_cache` and all other `otel` tables)
+3. **SELECT grants**: On `otel.*`
+4. **INSERT grant**: On `otel.root_cause_cache` for cache upserts (project-scoped CH user)
 
-Row policies use `AS RESTRICTIVE` to enforce mandatory filtering — users can ONLY see rows matching their `ProjectId`.
+The policy uses `AS PERMISSIVE` on the whole database; with a single policy per user, effective access is still rows where `ProjectId` matches that project. (Other policies on the same user combine per ClickHouse permissive/restrictive rules.)
 
 **Cluster support**: For clustered ClickHouse deployments (production), set `CLICKHOUSE_CLUSTER_NAME=pulse-clickhouse`. All DDL statements (`CREATE USER`, `CREATE ROW POLICY`, `GRANT`, `DROP`, `ALTER`) will include `ON CLUSTER` to replicate across all shards/replicas.
 
@@ -93,4 +107,4 @@ For local CLI queries, use the admin credentials from `deploy/.env`:
 - Use `LIMIT` on all queries
 - Prefer `toDateTime64()` for timestamp comparisons
 - Use materialized columns (e.g., `Platform`, `AppVersion`) over Map access
-- Use the tenant user for all queries to enforce project isolation
+- Use the project-scoped ClickHouse user for app queries to enforce `ProjectId` isolation

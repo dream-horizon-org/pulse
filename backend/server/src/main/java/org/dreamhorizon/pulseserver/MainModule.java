@@ -23,11 +23,14 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.SessionReplayS3Config;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
+import org.dreamhorizon.pulseserver.errorgrouping.IosLlvmSymbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
+import org.dreamhorizon.pulseserver.errorgrouping.service.DsymCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.S3SymbolFileService;
@@ -106,6 +109,8 @@ public class MainModule extends VertxAbstractModule {
     bind(S3SymbolFileService.class).in(Singleton.class);
     bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
     bind(SourceMapCache.class).in(Singleton.class);
+    bind(DsymCache.class).in(Singleton.class);
+    bind(IosLlvmSymbolicator.class).in(Singleton.class);
     bind(ErrorGroupingService.class).in(Singleton.class);
     bind(Symbolicator.class).in(Singleton.class);
     bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);
@@ -125,6 +130,11 @@ public class MainModule extends VertxAbstractModule {
             .build();
       }
       return config;
+    }).in(Singleton.class);
+
+    bind(RootCauseConfig.class).toProvider(() -> {
+      RootCauseConfig config = SharedDataUtils.get(vertx, RootCauseConfig.class);
+      return RootCauseConfig.withDefaults(config);
     }).in(Singleton.class);
 
     bind(OpenFgaService.class).toProvider(() -> {

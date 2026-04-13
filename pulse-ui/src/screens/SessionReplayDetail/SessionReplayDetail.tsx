@@ -2,7 +2,6 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Box, Stack, Loader, Text, Center } from "@mantine/core";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import { FlameChartNode } from "../SessionTimeline/utils/flameChartTransform";
-import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
 import { getEmptySessionDetail } from "./adapters/sessionDetailApiToData";
 
 import { SessionHeader } from "./components/SessionHeader";
@@ -43,9 +42,6 @@ export const SessionReplayDetail: React.FC = () => {
   const sessionData = useMemo(() => {
     if (apiSessionData) return apiSessionData;
     const id = sessionId || DEFAULTS.SESSION_ID_UNKNOWN;
-    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return getMockSessionDetail(id);
-    }
     return getEmptySessionDetail(id);
   }, [apiSessionData, sessionId]);
 
@@ -189,7 +185,12 @@ export const SessionReplayDetail: React.FC = () => {
         onItemClick={handleSpanClick}
       />
       */}
-      <DetailsSidebar item={selectedSpan} onClose={handleCloseSidebar} />
+      <DetailsSidebar
+        item={selectedSpan}
+        onClose={handleCloseSidebar}
+        sessionStartTime={sessionData.startTime}
+        sessionEndTime={sessionData.endTime}
+      />
     </Box>
   );
 };

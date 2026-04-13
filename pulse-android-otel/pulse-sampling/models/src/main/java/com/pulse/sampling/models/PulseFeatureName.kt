@@ -47,6 +47,9 @@ public enum class PulseFeatureName {
     @SerialName("session_replay")
     SESSION_REPLAY,
 
+    @SerialName("click")
+    CLICK,
+
     @SerialName(PulseFallbackToUnknownEnumSerializer.UNKNOWN_KEY_NAME)
     UNKNOWN,
 }

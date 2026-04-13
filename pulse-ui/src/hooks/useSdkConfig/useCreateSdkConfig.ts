@@ -1,8 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_BASE_URL, API_ROUTES } from '../../constants';
-import { ApiResponse, makeRequest } from '../../helpers/makeRequest';
-import { CreateConfigResponse, CreateSdkConfigInput, OnCreateSettled } from './useSdkConfig.interface';
-import { stripUIFields } from '../../screens/SamplingConfig/SamplingConfig.constants';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { API_BASE_URL, API_ROUTES } from "../../constants";
+import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
+import {
+  CreateConfigResponse,
+  CreateSdkConfigInput,
+  OnCreateSettled,
+} from "./useSdkConfig.interface";
+import { stripUIFields } from "../../screens/SamplingConfig/SamplingConfig.constants";
 
 /**
  * Hook to create a new SDK configuration version
@@ -20,7 +24,7 @@ export const useCreateSdkConfig = (onSettled?: OnCreateSettled) => {
     mutationFn: async ({ config }: CreateSdkConfigInput) => {
       // Strip UI-only fields before sending to API
       const cleanConfig = stripUIFields(config);
-      
+
       return makeRequest<CreateConfigResponse>({
         url: `${API_BASE_URL}${route.apiPath}`,
         init: {
@@ -29,14 +33,20 @@ export const useCreateSdkConfig = (onSettled?: OnCreateSettled) => {
         },
       });
     },
-    onSuccess: () => {
-      // Invalidate config queries to refetch fresh data
-      queryClient.invalidateQueries({ queryKey: [API_ROUTES.GET_ALL_SDK_CONFIGS.key] });
-      queryClient.invalidateQueries({ queryKey: [API_ROUTES.GET_ACTIVE_SDK_CONFIG.key] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [API_ROUTES.GET_ALL_SDK_CONFIGS.key],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: [API_ROUTES.GET_ACTIVE_SDK_CONFIG.key],
+      });
+      await queryClient.refetchQueries({
+        queryKey: [API_ROUTES.GET_ACTIVE_SDK_CONFIG.key],
+        type: "active",
+      });
     },
     onSettled: (data, error) => {
       onSettled?.(data?.data ?? undefined, error);
     },
   });
 };
-

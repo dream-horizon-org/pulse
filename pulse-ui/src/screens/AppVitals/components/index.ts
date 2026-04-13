@@ -4,6 +4,7 @@ export * from "./ANRTrendGraph";
 export * from "./NonFatalTrendGraph";
 export * from "./VitalsFilters";
 export * from "./VitalsHeaderFilters";
+export * from "./AppVitalsFilters";
 export * from "./CrashList";
 export * from "./ANRList";
 export * from "./NonFatalList";

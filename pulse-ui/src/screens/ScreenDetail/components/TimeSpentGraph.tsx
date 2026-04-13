@@ -6,6 +6,7 @@ import { formatDuration, formatDurationCompact } from "../../../utils";
 import classes from "./EngagementGraph.module.css";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import type { StartEndDateTimeType } from "../../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 
 dayjs.extend(utc);
 
@@ -21,6 +22,7 @@ interface TimeSpentGraphProps {
   trendData: TimeSpentTrendData[];
   isLoading?: boolean;
   error?: Error | null;
+  onTimeFilterChange?: (value: StartEndDateTimeType) => void;
 }
 
 export function TimeSpentGraph({
@@ -29,6 +31,7 @@ export function TimeSpentGraph({
   trendData,
   isLoading = false,
   error = null,
+  onTimeFilterChange,
 }: TimeSpentGraphProps) {
   if (isLoading) {
     return <GraphCardSkeleton title="Average Time Spent" chartHeight={240} metricsCount={2} />;
@@ -77,6 +80,8 @@ export function TimeSpentGraph({
         <LineChart
           height={240}
           withLegend={true}
+          onTimeFilterChange={onTimeFilterChange}
+          syncDataZoomToTimeFilter={Boolean(onTimeFilterChange)}
           option={{
             grid: { left: 60, right: 24, top: 24, bottom: 45 },
             tooltip: {
