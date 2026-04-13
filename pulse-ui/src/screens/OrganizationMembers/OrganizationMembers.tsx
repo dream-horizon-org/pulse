@@ -364,6 +364,7 @@ export function OrganizationMembers() {
                               ]}
                               style={{ width: 120 }}
                               disabled={updatingRole || isCurrentUser}
+                              comboboxProps={{ withinPortal: false }}
                             />
                             <ActionIcon
                               size="sm"
@@ -406,10 +407,12 @@ export function OrganizationMembers() {
                               <ActionIcon
                                 size="xs"
                                 variant="subtle"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setEditingRoleUserId(member.userId);
                                   setNewRole(member.role as TenantRole);
                                 }}
+                                aria-label="Change role"
                               >
                                 <IconEdit size={12} />
                               </ActionIcon>

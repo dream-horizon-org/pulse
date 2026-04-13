@@ -42,7 +42,9 @@ export function SupportQueries() {
     useDisclosure(false);
   const [selectedQuery, setSelectedQuery] = useState<IncidentItem | null>(null);
 
-  const incidents: IncidentItem[] = response?.data ?? [];
+  // Guard: API may return an object wrapper instead of a bare array on certain error
+  // shapes; `?? []` only catches null/undefined but not `{}` — use Array.isArray instead.
+  const incidents: IncidentItem[] = Array.isArray(response?.data) ? response.data : [];
 
   const handleModalClose = () => {
     closeModal();
