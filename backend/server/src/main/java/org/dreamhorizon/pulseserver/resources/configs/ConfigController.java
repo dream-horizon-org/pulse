@@ -113,6 +113,9 @@ public class ConfigController {
       if (feature.getFeatureName() == Features.session_replay) {
         feature.setConfig(applySessionReplayDefaults(feature.getConfig()));
       }
+      if (feature.getFeatureName() == Features.click) {
+        feature.setConfig(applyClickDefaults(feature.getConfig()));
+      }
     });
   }
 
@@ -158,6 +161,28 @@ public class ConfigController {
       sessionReplayConfig.setReplayApiBaseUrl(applicationConfig.getReplayApiBaseUrl());
     }
     return sessionReplayConfig;
+  }
+
+  private ClickFeatureConfig applyClickDefaults(FeatureConfigProperties config) {
+    ClickFeatureConfig clickConfig = config != null
+        ? (ClickFeatureConfig) config
+        : ClickFeatureConfig.builder().build();
+
+    RageConfig rage = clickConfig.getRage();
+    if (rage == null) {
+      rage = RageConfig.builder().build();
+      clickConfig.setRage(rage);
+    }
+    if (rage.getTimeWindowMs() == null) {
+      rage.setTimeWindowMs(2000L);
+    }
+    if (rage.getThreshold() == null) {
+      rage.setThreshold(3);
+    }
+    if (rage.getRadius() == null) {
+      rage.setRadius(50);
+    }
+    return clickConfig;
   }
 
   @GET
