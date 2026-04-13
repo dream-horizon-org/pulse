@@ -7,7 +7,6 @@
 
 package io.opentelemetry.instrumentation.compose.click
 
-import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.Window

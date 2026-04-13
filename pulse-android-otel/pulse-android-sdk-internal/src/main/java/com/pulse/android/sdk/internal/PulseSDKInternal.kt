@@ -825,11 +825,6 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
 
-        private fun gcd(
-            a: Long,
-            b: Long,
-        ): Long = if (b == 0L) kotlin.math.abs(a) else gcd(b, a % b)
-
         internal fun extractProjectID(apiKey: String): String {
             val lastUnderscoreIndex = apiKey.lastIndexOf('_')
             return if (lastUnderscoreIndex > 0) {

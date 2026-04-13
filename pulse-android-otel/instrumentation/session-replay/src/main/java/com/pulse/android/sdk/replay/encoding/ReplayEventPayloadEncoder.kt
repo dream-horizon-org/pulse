@@ -162,11 +162,6 @@ internal object ReplayEventPayloadEncoder {
             iconRight = iconRight,
         )
 
-    private fun gcd(
-        a: Int,
-        b: Int,
-    ): Int = if (b == 0) kotlin.math.abs(a) else gcd(b, a % b)
-
     private fun Map<String, Any>.toJsonObject(): JsonObject =
         buildJsonObject {
             for ((key, value) in this@toJsonObject) {
