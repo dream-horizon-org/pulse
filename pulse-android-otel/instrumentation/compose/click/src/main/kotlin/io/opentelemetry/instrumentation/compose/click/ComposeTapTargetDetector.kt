@@ -98,8 +98,8 @@ internal class ComposeTapTargetDetector(
                             target = TapTarget(node, view)
                         }
                     } catch (_: Throwable) {
-                        // Relies on visibility suppression to access internal fields/classes;
-                        // any runtime exception must be caught here.
+                        // We rely on visibility suppression to access internal fields and
+                        // classes any runtime exception must be caught here.
                     }
                 }
             }

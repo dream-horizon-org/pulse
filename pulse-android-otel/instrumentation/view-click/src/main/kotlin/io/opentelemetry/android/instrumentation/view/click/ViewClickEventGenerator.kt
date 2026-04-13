@@ -5,7 +5,6 @@
 
 package io.opentelemetry.android.instrumentation.view.click
 
-import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -179,7 +178,11 @@ internal class ViewClickEventGenerator(
      */
     private fun getViewContextLabel(view: View): String? =
         try {
-            if (view is ViewGroup) getLabelFromCard(view) else getLabelFromView(view)
+            if (view is ViewGroup) {
+                getLabelFromCard(view)
+            } else {
+                getLabelFromView(view)
+            }
         } catch (_: Throwable) {
             null
         }
@@ -190,12 +193,17 @@ internal class ViewClickEventGenerator(
      */
     private fun getLabelFromView(view: View): String? =
         if (view is EditText) {
-            view.contentDescription.nonBlankOrNull() ?: view.hint.nonBlankOrNull()
+            view.contentDescription.nonBlankOrNull()
+                ?: view.hint.nonBlankOrNull()
         } else {
-            (view as? TextView)?.text.nonBlankOrNull() ?: view.contentDescription.nonBlankOrNull()
+            (view as? TextView)?.text.nonBlankOrNull()
+                ?: view.contentDescription.nonBlankOrNull()
         }
 
-    private fun CharSequence?.nonBlankOrNull(): String? = this?.run { toString().takeIf { it.isNotBlank() } }
+    private fun CharSequence?.nonBlankOrNull(): String? {
+        val s = this?.toString() ?: return null
+        return s.takeIf { it.isNotBlank() }
+    }
 
     /**
      * For cards (ViewGroups): collects and merges up to [MAX_CARD_LABEL_SEGMENTS] text segments.
