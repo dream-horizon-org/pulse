@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Group,
+  SimpleGrid,
   Stack,
   Table,
   Text,
@@ -16,6 +17,7 @@ import type {
 import type { RcaReportViewProps } from "./RcaReportView.interface";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import { getMetricValueTone } from "./rcaMetricTone";
+import { SessionCard } from "../../../../components/SessionCard/SessionCard";
 import rcaClasses from "./RcaReportView.module.css";
 import rootCauseClasses from "./RootCause.module.css";
 
@@ -297,8 +299,7 @@ const RcaStructuredReportV1View = ({
                           </Text>
                         </div>
                       )}
-                      {/* TODO: Fix session evidence mapping - temporarily disabled pending backend verification */}
-                      {/* {segment.affected_sessions &&
+                      {segment.affected_sessions &&
                         segment.affected_sessions.length > 0 && (
                           <Box
                             mt="md"
@@ -333,7 +334,7 @@ const RcaStructuredReportV1View = ({
                               ))}
                             </SimpleGrid>
                           </Box>
-                        )} */}
+                        )}
                     </Card>
                   );
                 })}
