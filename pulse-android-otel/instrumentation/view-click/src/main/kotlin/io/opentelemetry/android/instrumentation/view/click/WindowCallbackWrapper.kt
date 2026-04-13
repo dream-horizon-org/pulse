@@ -13,7 +13,7 @@ import android.view.Window.Callback
 import androidx.annotation.RequiresApi
 import io.opentelemetry.android.instrumentation.UnwrappableWindowCallback
 
-class WindowCallbackWrapper(
+internal class WindowCallbackWrapper(
     private val callback: Callback,
     private val viewClickEventGenerator: ViewClickEventGenerator,
 ) : UnwrappableWindowCallback,

@@ -48,6 +48,17 @@ def mock_tool_context():
     return ctx
 
 
+@pytest.fixture
+def pulse_tool_context():
+    """Mock ADK ToolContext with bearer_token + project_id for EM tools."""
+    ctx = MagicMock()
+    ctx.state = {
+        "bearer_token": "Bearer test-access-token",
+        "project_id": "test-project-id",
+    }
+    return ctx
+
+
 # ---------------------------------------------------------------------------
 # Mock httpx responses
 # ---------------------------------------------------------------------------

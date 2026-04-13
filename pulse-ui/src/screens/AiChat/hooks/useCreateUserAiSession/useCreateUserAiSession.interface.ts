@@ -1,3 +1,8 @@
+export type CreateSessionBody = {
+  session_id: string;
+  user_id?: string;
+};
+
 export interface UseCreateUserAiSessionResponse {
   session_id: string;
   user_id: string;
