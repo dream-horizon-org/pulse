@@ -17,10 +17,10 @@ import {
 } from 'react-native';
 import { useNavigation, useLocalSearchParams, useRouter } from 'expo-router';
 import { ProductImage } from '../../components/ProductImage';
-import { ApiError, getProductsByCategory } from '../../lib/api';
-import { labelFromCategorySlug } from '../../lib/formatCategory';
-import { theme } from '../../lib/theme';
-import type { Product, SortKey } from '../../lib/types';
+import { ApiError, getProductsByCategory } from '../../shared/api';
+import { labelFromCategorySlug } from '../../shared/formatCategory';
+import { theme } from '../../shared/theme';
+import type { Product, SortKey } from '../../shared/types';
 
 function sortProducts(list: Product[], sort: SortKey): Product[] {
   const copy = [...list];

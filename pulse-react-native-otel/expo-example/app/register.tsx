@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ApiError, registerUser } from '../lib/api';
+import { ApiError, registerUser } from '../shared/api';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();

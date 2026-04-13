@@ -44,6 +44,8 @@ npx expo run:ios   # or run:android
 
 For EAS Build, trigger a new build after any config change.
 
+**Expo Router + navigation:** You supply the root ref from **`useNavigationContainerRef()`** (from **`expo-router`**). Pulse does not depend on **`expo-router`** — pass that ref into **`Pulse.useNavigationTracking(ref, { registerWhenContainerReady: true, … })`** so registration runs when the container is ready (same as `NavigationContainer` `onReady`, without Pulse importing Expo). To defer until e.g. splash or persisted state loads, mount your **`Stack`** (or navigator) only after that gate (see **`pulse-react-native-otel/expo-example/app/_layout.tsx`**). Keep **`autoDetectNavigation: true`** in **`Pulse.start`**.
+
 ---
 
 ## Platform overrides
@@ -87,7 +89,10 @@ Top-level values apply to both platforms. Use `android` / `ios` blocks to overri
         "crash": { "enabled": true },
         "network": { "enabled": true },
         "activity": { "enabled": true },
-        "interaction": { "enabled": true, "url": "https://api.example.com/v1/interactions" }
+        "interaction": {
+          "enabled": true,
+          "url": "https://api.example.com/v1/interactions"
+        }
       }
     },
 
@@ -101,7 +106,10 @@ Top-level values apply to both platforms. Use `android` / `ios` blocks to overri
       "instrumentation": {
         "crash": { "enabled": true },
         "screenLifecycle": { "enabled": true },
-        "interaction": { "enabled": true, "configUrl": "https://api.example.com/v1/interactions" }
+        "interaction": {
+          "enabled": true,
+          "configUrl": "https://api.example.com/v1/interactions"
+        }
       }
     }
   }
@@ -114,18 +122,16 @@ Top-level values apply to both platforms. Use `android` / `ios` blocks to overri
 
 ### Top level
 
-
-| Option                    | Required | Type                                   | Description                          |
-| ------------------------- | -------- | -------------------------------------- | ------------------------------------ |
-| `endpointBaseUrl`         | **Yes**  | string                                 | Pulse backend URL                    |
-| `apiKey`                  | **Yes**  | string                                 | Project API key                      |
-| `dataCollectionState`     | No       | `"PENDING"` | `"ALLOWED"` | `"DENIED"` | Initial consent state                |
-| `endpointHeaders`         | No       | `{ [key: string]: string }`            | Extra HTTP headers for all traffic   |
-| `configEndpointUrl`       | No       | string                                 | Remote SDK config URL                |
-| `customEventCollectorUrl` | No       | string                                 | Full URL for custom event collection |
-| `android`                 | No       | object                                 | Android overrides (see below)        |
-| `ios`                     | No       | object                                 | iOS overrides (see below)            |
-
+| Option                    | Required | Type                        | Description                          |
+| ------------------------- | -------- | --------------------------- | ------------------------------------ | ---------- | --------------------- |
+| `endpointBaseUrl`         | **Yes**  | string                      | Pulse backend URL                    |
+| `apiKey`                  | **Yes**  | string                      | Project API key                      |
+| `dataCollectionState`     | No       | `"PENDING"`                 | `"ALLOWED"`                          | `"DENIED"` | Initial consent state |
+| `endpointHeaders`         | No       | `{ [key: string]: string }` | Extra HTTP headers for all traffic   |
+| `configEndpointUrl`       | No       | string                      | Remote SDK config URL                |
+| `customEventCollectorUrl` | No       | string                      | Full URL for custom event collection |
+| `android`                 | No       | object                      | Android overrides (see below)        |
+| `ios`                     | No       | object                      | iOS overrides (see below)            |
 
 ---
 
@@ -134,7 +140,6 @@ Top-level values apply to both platforms. Use `android` / `ios` blocks to overri
 Any top-level field can be overridden here. Additionally:
 
 #### `android.instrumentation`
-
 
 | Key             | Shape                                    | Description                                   |
 | --------------- | ---------------------------------------- | --------------------------------------------- |
@@ -145,7 +150,6 @@ Any top-level field can be overridden here. Additionally:
 | `anr`           | `{ "enabled": boolean }`                 | ANR detection                                 |
 | `slowRendering` | `{ "enabled": boolean }`                 | Slow frame detection                          |
 | `interaction`   | `{ "enabled": boolean, "url"?: string }` | Interaction tracking; `url` for remote config |
-
 
 #### `android.globalAttributes`
 
@@ -159,18 +163,15 @@ Any top-level field can be overridden here. Additionally:
 
 #### `ios.configuration`
 
-
 | Key                        | Type    | Description                     |
 | -------------------------- | ------- | ------------------------------- |
 | `includeScreenAttributes`  | boolean | Attach screen info to telemetry |
 | `includeNetworkAttributes` | boolean | Attach network info             |
 | `includeGlobalAttributes`  | boolean | Attach global attributes        |
 
-
 #### `ios.instrumentation`
 
 **Simple on/off** — all accept `{ "enabled": boolean }`:
-
 
 | Key               | Description                |
 | ----------------- | -------------------------- |
@@ -181,18 +182,14 @@ Any top-level field can be overridden here. Additionally:
 | `location`        | Location events            |
 | `signPost`        | OS signpost integration    |
 
-
-`**urlSession`**
-
+`**urlSession`\*\*
 
 | Field                  | Type    | Description                                         |
 | ---------------------- | ------- | --------------------------------------------------- |
 | `enabled`              | boolean | URLSession instrumentation                          |
 | `excludeOtlpEndpoints` | boolean | Exclude your `endpointBaseUrl` from instrumentation |
 
-
 `**sessions**`
-
 
 | Field                                | Type    | Description                          |
 | ------------------------------------ | ------- | ------------------------------------ |
@@ -201,18 +198,14 @@ Any top-level field can be overridden here. Additionally:
 | `backgroundInactivityTimeoutSeconds` | number  | Inactivity timeout when backgrounded |
 | `shouldPersist`                      | boolean | Persist sessions across launches     |
 
-
 `**interaction**`
-
 
 | Field       | Type    | Description                       |
 | ----------- | ------- | --------------------------------- |
 | `enabled`   | boolean | Interaction tracking              |
 | `configUrl` | string  | URL for remote interaction config |
 
-
 `**uiKitTap**`
-
 
 | Field            | Type    | Description                                 |
 | ---------------- | ------- | ------------------------------------------- |
@@ -220,25 +213,22 @@ Any top-level field can be overridden here. Additionally:
 | `captureContext` | boolean | Extract label from view hierarchy           |
 | `rage`           | object  | `{ timeWindowMs, rageThreshold, radiusPt }` |
 
-
 `**sessionReplay**`
 
-
-| Field                   | Type                                                      | Description                |
-| ----------------------- | --------------------------------------------------------- | -------------------------- |
-| `enabled`               | boolean                                                   | Session replay             |
-| `replayEndpointBaseUrl` | string                                                    | Replay upload URL          |
-| `textAndInputPrivacy`   | `"maskAll"` | `"maskAllInputs"` | `"maskSensitiveInputs"` | Text masking level         |
-| `imagePrivacy`          | `"maskAll"` | `"maskNone"`                                | Image masking              |
-| `maskViewClasses`       | string[]                                                  | Class names to always mask |
-| `unmaskViewClasses`     | string[]                                                  | Class names to never mask  |
-| `captureIntervalMs`     | number                                                    | Screenshot interval        |
-| `compressionQuality`    | number                                                    | Image quality (0–1)        |
-| `screenshotScale`       | number                                                    | Screenshot scale factor    |
-| `flushIntervalSeconds`  | number                                                    | Upload interval            |
-| `flushAt`               | number                                                    | Batch flush size           |
-| `maxBatchSize`          | number                                                    | Max events per batch       |
-
+| Field                   | Type        | Description                |
+| ----------------------- | ----------- | -------------------------- | ----------------------- | ------------------ |
+| `enabled`               | boolean     | Session replay             |
+| `replayEndpointBaseUrl` | string      | Replay upload URL          |
+| `textAndInputPrivacy`   | `"maskAll"` | `"maskAllInputs"`          | `"maskSensitiveInputs"` | Text masking level |
+| `imagePrivacy`          | `"maskAll"` | `"maskNone"`               | Image masking           |
+| `maskViewClasses`       | string[]    | Class names to always mask |
+| `unmaskViewClasses`     | string[]    | Class names to never mask  |
+| `captureIntervalMs`     | number      | Screenshot interval        |
+| `compressionQuality`    | number      | Image quality (0–1)        |
+| `screenshotScale`       | number      | Screenshot scale factor    |
+| `flushIntervalSeconds`  | number      | Upload interval            |
+| `flushAt`               | number      | Batch flush size           |
+| `maxBatchSize`          | number      | Max events per batch       |
 
 ---
 

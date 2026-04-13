@@ -17,9 +17,9 @@ import {
   getProduct,
   getProductCategories,
   type ProductCategory,
-} from '../../lib/api';
-import { theme } from '../../lib/theme';
-import type { Product } from '../../lib/types';
+} from '../../shared/api';
+import { theme } from '../../shared/theme';
+import type { Product } from '../../shared/types';
 
 export default function HomeScreen() {
   const router = useRouter();
