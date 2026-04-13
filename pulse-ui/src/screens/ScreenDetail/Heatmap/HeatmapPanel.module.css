@@ -836,17 +836,22 @@
   max-height: min(78vh, 820px);
 }
 
+/*
+ * Tablet / XL breakpoints: keep the same portrait aspect as phone captures (390/844).
+ * Wider frame aspects (e.g. 834/1194, 16/10) forced object-fit: cover to crop heavily
+ * on real mobile screenshots at larger widths.
+ */
 .phoneInnerLargeTablet {
-  width: 560px;
+  width: min(520px, 100%);
   max-width: 100%;
-  aspect-ratio: 834 / 1194;
+  aspect-ratio: 390 / 844;
   max-height: min(85vh, 960px);
 }
 
 .phoneInnerExtraLargeWeb {
-  width: 680px;
+  width: min(560px, 100%);
   max-width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 390 / 844;
   max-height: min(85vh, 960px);
 }
 
