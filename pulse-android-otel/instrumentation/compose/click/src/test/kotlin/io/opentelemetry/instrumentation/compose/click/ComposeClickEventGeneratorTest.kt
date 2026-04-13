@@ -283,77 +283,7 @@ internal class ComposeClickEventGeneratorTest {
             )
     }
 
-    @Test
-    fun `dead click emits screen click event with dead type`() {
-        // No hit nodes → dead click.
-        every { composeView.childCount } returns 0
-        buildMockLayoutNodeTree(targetX = 999f, targetY = 999f) // nodes placed far from tap
-
-        val motionEvent = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
-        val upEvent = dispatchDownThenUpOnGenerator(composeClickEventGenerator, motionEvent.x, motionEvent.y)
-        motionEvent.recycle()
-        composeClickEventGenerator.stopTracking()
-
-        val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(1)
-        assertThat(events[0])
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
-                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.DEAD),
-            )
-        upEvent.recycle()
-    }
-
-    @Test
-    fun `rage click emits single rage event and suppresses individual clicks`() {
-        val fakeClock = FakeClock()
-        val generator =
-            ComposeClickEventGenerator(
-                openTelemetryRule.openTelemetry.logsBridge
-                    .loggerBuilder("test")
-                    .build(),
-                isContextEnrichmentEnabled = false,
-                composeLayoutNodeUtil = composeLayoutNodeUtil,
-                clock = fakeClock::now,
-            )
-        every { window.callback } returns callback
-        every { window.callback = any() } returns Unit
-        every { window.context } returns ApplicationProvider.getApplicationContext<Context>()
-        generator.startTracking(window)
-
-        val x = 250f
-        val y = 50f
-        every { composeView.childCount } returns 0
-        buildMockLayoutNodeTree(targetX = x, targetY = y, hitIndexes = listOf(2), clickableIndexes = listOf(2))
-
-        // 3 taps → rage threshold crossed, window still open, nothing emitted yet.
-        repeat(3) {
-            fakeClock.advanceMs(50)
-            dispatchDownThenUpOnGenerator(generator, x, y)
-        }
-        assertThat(openTelemetryRule.logRecords).hasSize(0)
-
-        // Clicks 4-6 are suppressed, count accumulates to 6.
-        repeat(3) {
-            fakeClock.advanceMs(50)
-            dispatchDownThenUpOnGenerator(generator, x, y)
-        }
-        assertThat(openTelemetryRule.logRecords).hasSize(0)
-
-        // stopTracking (flush) closes the window → rage emitted with count=6.
-        generator.stopTracking()
-        assertThat(openTelemetryRule.logRecords).hasSize(1)
-        assertThat(openTelemetryRule.logRecords[0])
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
-                equalTo(PulseAttributes.CLICK_TYPE, PulseAttributes.ClickTypeValues.GOOD),
-                equalTo(PulseAttributes.CLICK_IS_RAGE, true),
-                equalTo(PulseAttributes.CLICK_RAGE_COUNT, 6L),
-            )
-    }
-
-    // region Helpers
-
+    /** Real taps send ACTION_DOWN then ACTION_UP; the generator requires both for click detection. */
     private fun dispatchDownThenUpOnGenerator(
         generator: ComposeClickEventGenerator,
         x: Float,

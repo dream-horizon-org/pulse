@@ -111,6 +111,9 @@ internal object PulseFeatureConfigSerializer : KSerializer<PulseFeatureConfig> {
                     is PulseFeatureConfigData.ClickInstrumentation -> {
                         json.encodeToJsonElement(PulseFeatureConfigData.ClickInstrumentation.serializer(), config)
                     }
+                    is PulseFeatureConfigData.ClickInstrumentation -> {
+                        json.encodeToJsonElement(PulseFeatureConfigData.ClickInstrumentation.serializer(), config)
+                    }
                     is PulseFeatureConfigData.Unknown -> {
                         null
                     }

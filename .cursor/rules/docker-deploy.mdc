@@ -23,6 +23,15 @@ alwaysApply: false
 | vector | Build `../vector/` | 8686, 14317, 14318 | — | *(optional: profile `vector`; `VECTOR_ENABLED=true` in .env)* |
 | pulse-session-capture | Build `backend/session-capture-service/` | 3400 | kafka |
 | pulse-session-replay-ingestion | Build `backend/session-replay-ingestion/` | — (no host ports) | kafka, minio-init |
+| clickhouse | clickhouse/clickhouse-server:24.8 | 8123, 9000 | — |
+| clickhouse-init | clickhouse/clickhouse-server:24.8 | — | clickhouse, kafka |
+| kafka | confluentinc/cp-kafka:7.6.0 | 9092 | — |
+| minio | minio/minio:latest | 9100→9000 (S3 API), 9101→9001 (console) | — |
+| minio-init | minio/mc:latest | — | minio |
+| otel-collector | otel/opentelemetry-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
+| vector | Build `../vector/` | 8686, 14317, 14318 | — | *(optional: profile `vector`; `VECTOR_ENABLED=true` in .env)* |
+| pulse-session-capture | Build `backend/session-capture-service/` | 3400 | kafka |
+| pulse-session-replay-ingestion | Build `backend/session-replay-ingestion/` | — (no host ports) | kafka, minio-init |
 | pulse-ai-agent | Build `pulse_ai/` | 8000 | — |
 | pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse, openfga-init, pulse-ai-agent |
 | pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse, minio-init |
