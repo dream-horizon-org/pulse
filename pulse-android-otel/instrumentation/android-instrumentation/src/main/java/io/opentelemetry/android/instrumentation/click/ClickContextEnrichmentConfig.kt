@@ -6,12 +6,15 @@
 package io.opentelemetry.android.instrumentation.click
 
 /**
- * Configuration for click context enrichment (label, element hint in app.click.context).
- * Set via SDK InstrumentationConfiguration viewClick / composeClick blocks. Default: true.
+ * Shared configuration for click instrumentation, applied before instrumentation installs.
  *
- * When disabled, click events are still emitted with tap coordinates and widget identity
- * attributes, but **app.click.context is omitted** (no label/element, no type/source string),
- * avoiding the tree traversal and label extraction that can impact performance.
+ * Set via the SDK DSL (`viewClick { }` / `composeClick { }` blocks) and optionally overridden
+ * by backend feature config resolved in `PulseSDKInternal`.
+ *
+ * - Context enrichment (label extraction for `app.click.context`) can be disabled per
+ *   instrumentation type to avoid the extra view-tree traversal.
+ * - [rageConfig] is resolved from the backend `click` feature config (field-level override on top
+ *   of DSL or hard-coded defaults) and shared across View and Compose click instrumentation.
  */
 object ClickContextEnrichmentConfig {
     @Volatile
@@ -21,4 +24,8 @@ object ClickContextEnrichmentConfig {
     @Volatile
     @JvmField
     var isComposeClickContextEnrichmentEnabled: Boolean = true
+
+    @Volatile
+    @JvmField
+    var rageConfig: RageConfig = RageConfig()
 }

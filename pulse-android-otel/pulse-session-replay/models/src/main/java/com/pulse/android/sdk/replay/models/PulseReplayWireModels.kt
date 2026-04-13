@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // todo Anirudh will create typed models
+
 package com.pulse.android.sdk.replay.models
 
 import kotlinx.serialization.KSerializer
@@ -7,18 +9,8 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-
-/** kotlinx.serialization Json instance for serializing [PulseReplayEnvelope] and nested wire types. */
-public object PulseReplayJson {
-    public val instance: Json =
-        Json {
-            encodeDefaults = false
-            explicitNulls = false
-        }
-}
 
 @Serializable
 public class PulseReplaySnapshotEvent(
@@ -55,6 +47,7 @@ public class PulseReplayMetaData(
     public val href: String,
     public val width: Int,
     public val height: Int,
+    public val aspectRatio: String,
 ) : PulseReplayEventData()
 
 @Serializable
@@ -170,4 +163,5 @@ public class PulseReplayEnvelopeProperties(
     @SerialName("session_id") public val sessionId: String,
     @SerialName("snapshot_data") public val snapshotData: List<PulseReplaySnapshotEvent>,
     @SerialName("snapshot_source") public val snapshotSource: String,
+    @SerialName("app_version") public val appVersion: String? = null,
 )

@@ -174,7 +174,7 @@ ON DUPLICATE KEY UPDATE name = name;
 -- OpenFGA relationships are set up in deploy/openfga/init-openfga.sh
 -- ============================================================================
 INSERT INTO users (user_id, email, name, firebase_uid, status, created_at, last_login_at)
-VALUES 
+VALUES
   ('mock-user-1', 'user1@example.com', 'Test User 1', 'mock-user-1-firebase-uid', 'active', NOW(), NOW()),
   ('mock-user-2', 'user2@example.com', 'Test User 2', 'mock-user-2-firebase-uid', 'active', NOW(), NOW())
 ON DUPLICATE KEY UPDATE user_id = user_id;
@@ -918,6 +918,19 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
     CONSTRAINT fk_suppression_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     UNIQUE KEY unique_project_email_suppression (project_id, email),
     INDEX idx_suppression_email (email)
+);
+
+-- ============================================================================
+-- RCA REPORT CACHE (AI-generated report per project / interaction / date)
+-- Staleness: user-driven regenerate in app; table stores latest report per key.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS rca_report_cache (
+    project_id VARCHAR(64) NOT NULL,
+    interaction_name VARCHAR(255) NOT NULL,
+    date DATE NOT NULL,
+    report_body LONGTEXT NOT NULL,
+    cached_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (project_id, interaction_name, date)
 );
 
 -- Event Definitions catalog (project-scoped)

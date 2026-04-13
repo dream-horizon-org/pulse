@@ -12,6 +12,7 @@ Component-specific documentation is available in each service directory:
 - **Alerts Cron:** [`backend/pulse-alerts-cron/README.md`](backend/pulse-alerts-cron/README.md)
 - **Frontend UI:** [`pulse-ui/README.md`](pulse-ui/README.md)
 - **Android SDK:** [`pulse-android-otel/README.md`](pulse-android-otel/README.md)
+- **iOS SDK:** [`pulse-ios-otel/README.md`](pulse-ios-otel/README.md)
 - **React Native SDK:** [`pulse-react-native-otel/README.md`](pulse-react-native-otel/README.md)
 - **Deployment:** [`deploy/README.md`](deploy/README.md)
 
@@ -24,7 +25,7 @@ Component-specific documentation is available in each service directory:
 - ✅ OpenFGA-based authorization (RBAC)
 - ✅ Per-project ClickHouse data isolation
 - ✅ Real-time observability dashboards
-- ✅ Mobile SDK instrumentation (Android & React Native)
+- ✅ Mobile SDK instrumentation (Android, iOS & React Native)
 - ✅ 7 new REST API endpoints
 - ✅ Comprehensive documentation
 
@@ -42,6 +43,7 @@ pulse/
 │   └── ingestion/           # OTEL collector & ClickHouse schema
 ├── pulse-ui/                # React dashboard
 ├── pulse-android-otel/      # Android SDK
+|── pulse-ios-otel/          # iOS SDK
 ├── pulse-react-native-otel/ # React Native SDK
 ├── pulse_ai/                # AI agent (Google ADK)
 ├── deploy/                  # Docker Compose & scripts

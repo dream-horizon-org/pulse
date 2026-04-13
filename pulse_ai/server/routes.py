@@ -4,16 +4,19 @@ API route handlers for the Pulse AI server.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from typing import Any
 
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Header, Request, Response
 from fastapi.responses import StreamingResponse
+from google.genai.types import Content, Part
 
 from pulse_ai.constants import APP_NAME
 
-from .app import RunSSERequest, app, runner, session_scope_store, session_service
+from .app import RunSSERequest, app, rca_runner, runner, session_service, session_scope_store
+from .serializers import DeltaTracker, events_to_messages, extract_content_blocks, extract_title
 from .project_headers import require_x_project_id
 from .run_sse_utils import (
     ensure_session_for_run,
@@ -21,9 +24,14 @@ from .run_sse_utils import (
     stream_adk_run_as_sse,
     user_content_from_parts,
 )
-from .serializers import events_to_messages, extract_title
+from pulse_ai.schemas import RootCausePayloadSchema
+from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
+from .rca_runner import RcaRunnerError, generate_rca_report
+from .schemas import RcaReportRequest, RcaReportResponse
 
 logger = logging.getLogger(__name__)
+
+RCA_CALLBACK_BEARER_PREFIX = "Bearer "
 
 
 # TODO: Add authentication middleware to validate Bearer tokens before production deployment
@@ -190,3 +198,77 @@ async def delete_session_endpoint(
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _require_headers_for_rca_callback(
+    authorization: str | None,
+    project_id: str | None,
+) -> tuple[str, str]:
+    """
+    Pulse-server requires the user's JWT and project id for OpenFGA; callback path must
+    forward the same headers the client sent to this endpoint (via pulse-server proxy).
+    """
+    if authorization is None or not authorization.strip():
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header is required when rootCausePayload is omitted",
+        )
+    auth_stripped = authorization.strip()
+    bearer_prefix_len = len(RCA_CALLBACK_BEARER_PREFIX)
+    token_part = auth_stripped[bearer_prefix_len:].strip()
+    is_missing_bearer = not auth_stripped.startswith(RCA_CALLBACK_BEARER_PREFIX)
+    is_empty_token = not token_part
+    if is_missing_bearer or is_empty_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Valid Bearer token is required when rootCausePayload is omitted",
+        )
+    if project_id is None or not project_id.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="X-Project-ID header is required when rootCausePayload is omitted",
+        )
+    return auth_stripped, project_id.strip()
+
+
+@app.post("/rca/report")
+async def generate_root_cause_report(
+    request: RcaReportRequest,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    project_id: str | None = Header(default=None, alias="X-Project-ID"),
+) -> RcaReportResponse:
+    """Generate a non-conversational RCA report for an interaction.
+
+    Accepts root-cause data two ways (in priority order):
+    1. **Embedded** – ``rootCausePayload`` in the request body (preferred; avoids callback auth).
+    2. **Callback** – omit ``rootCausePayload``; pulse_ai calls pulse-server to fetch it.
+       Requires ``Authorization: Bearer <jwt>`` and ``X-Project-ID`` (forwarded by the proxy).
+    """
+    try:
+        if request.rootCausePayload is not None:
+            example_sessions = None
+            if isinstance(request.rootCausePayload, dict):
+                example_sessions = request.rootCausePayload.get("exampleSessionIds")
+            payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
+        else:
+            auth_value, project_value = _require_headers_for_rca_callback(
+                authorization,
+                project_id,
+            )
+            payload = await fetch_root_cause_payload(
+                interaction_name=request.interactionName,
+                date_value=request.date,
+                authorization=auth_value,
+                project_id=project_value,
+            )
+            example_sessions = None
+        return await generate_rca_report(
+            runner=rca_runner,
+            payload=payload,
+            interaction_name=request.interactionName,
+            example_session_ids=example_sessions,
+        )
+    except RootCauseFetchError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.message) from error
+    except RcaRunnerError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.message) from error
