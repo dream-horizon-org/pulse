@@ -62,6 +62,19 @@ class HeatmapScreenshotUrlResolverTest {
   }
 
   @Test
+  void returnsEmptyWhenDateRangeUnparseable() {
+    ApplicationConfig cfg = new ApplicationConfig();
+    cfg.setSessionReplayS3(new SessionReplayS3Config("b", "http://minio:9000", "us-east-1", "k", "s"));
+    HeatmapScreenshotUrlResolver resolver = new HeatmapScreenshotUrlResolver(s3Client, cfg);
+
+    assertThat(
+            resolver.resolveForScreen(
+                "p", "s", "not-a-date", "2026-04-08",
+                List.of("1.0"), "Android", "Mobile_Small"))
+        .isEmpty();
+  }
+
+  @Test
   void returnsEmptyWhenAppVersionListNull() {
     ApplicationConfig cfg = new ApplicationConfig();
     cfg.setSessionReplayS3(new SessionReplayS3Config("b", "http://minio:9000", "us-east-1", "k", "s"));

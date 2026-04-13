@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.service.heatmap;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.interaction.InteractionDao;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
+import org.dreamhorizon.pulseserver.resources.heatmap.models.HeatmapClickHouseRowDto;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
@@ -140,6 +142,213 @@ class HeatmapServiceImplTest {
               resp ->
                   resp.getMetadata() != null
                       && screen.equals(resp.getMetadata().getScreenName()));
+    }
+
+    @Test
+    void shouldRejectWhenScreenNameBlank() {
+      heatmapService
+          .getHeatmapData("  ", from, to, null, null, null, null)
+          .test()
+          .assertError(
+              t -> {
+                assertThat(t).isInstanceOf(WebApplicationException.class);
+                assertThat(((WebApplicationException) t).getResponse().getStatus()).isEqualTo(400);
+                return true;
+              });
+    }
+
+    @Test
+    void shouldRejectWhenFromOrToMissing() {
+      heatmapService
+          .getHeatmapData(screen, null, to, null, null, null, null)
+          .test()
+          .assertError(WebApplicationException.class);
+
+      heatmapService
+          .getHeatmapData(screen, from, null, null, null, null, null)
+          .test()
+          .assertError(WebApplicationException.class);
+    }
+
+    @Test
+    void shouldRejectWhenFromToNotIso8601() {
+      heatmapService
+          .getHeatmapData(screen, "not-a-date", to, null, null, null, null)
+          .test()
+          .assertError(
+              t -> {
+                assertThat(t).isInstanceOf(WebApplicationException.class);
+                assertThat(((WebApplicationException) t).getResponse().getStatus()).isEqualTo(400);
+                return true;
+              });
+    }
+
+    @Test
+    void shouldRejectWhenFeatureListEmpty() {
+      PulseConfig cfg =
+          PulseConfig.builder().description("d").features(Collections.emptyList()).build();
+
+      when(configService.getActiveSdkConfig(PROJECT)).thenReturn(Single.just(cfg));
+
+      heatmapService
+          .getHeatmapData(screen, from, to, null, null, null, null)
+          .test()
+          .assertError(
+              t -> {
+                assertThat(t).isInstanceOf(WebApplicationException.class);
+                assertThat(((WebApplicationException) t).getResponse().getStatus()).isEqualTo(403);
+                return true;
+              });
+    }
+
+    @Test
+    void shouldMapHeatmapRowsIntoGlowAndFrustrationLayers() {
+      PulseConfig cfg =
+          PulseConfig.builder()
+              .description("d")
+              .features(
+                  List.of(
+                      PulseConfig.FeatureConfig.builder()
+                          .featureName(Features.heatmap)
+                          .sessionSampleRate(1.0)
+                          .sdks(List.of(Sdk.pulse_android_java))
+                          .build()))
+              .build();
+
+      when(configService.getActiveSdkConfig(PROJECT)).thenReturn(Single.just(cfg));
+      when(interactionDao.getAllActiveAndRunningInteractions(PROJECT))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      HeatmapClickHouseRowDto row =
+          HeatmapClickHouseRowDto.builder()
+              .xBin(0.25)
+              .yBin(0.75)
+              .weightNormal(10L)
+              .weightRage(2L)
+              .weightDead(1L)
+              .build();
+
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                Class<?> rowClass = invocation.getArgument(1);
+                if (rowClass == HeatmapClickHouseRowDto.class) {
+                  return Single.just(
+                      QueryResultResponse.<HeatmapClickHouseRowDto>builder()
+                          .rows(List.of(row))
+                          .build());
+                }
+                return Single.just(QueryResultResponse.builder().rows(Collections.emptyList()).build());
+              });
+
+      heatmapService
+          .getHeatmapData(screen, from, to, "1.0", null, null, null)
+          .test()
+          .assertComplete()
+          .assertValue(
+              resp -> {
+                assertThat(resp.getMetadata().getTotalEvents()).isEqualTo(10L);
+                assertThat(resp.getLayers().getGlowMap()).hasSize(1);
+                assertThat(resp.getLayers().getGlowMap().get(0).getX()).isEqualTo(0.25);
+                assertThat(resp.getLayers().getGlowMap().get(0).getWeight()).isEqualTo(10L);
+                assertThat(resp.getLayers().getFrustrationMap().getRageTaps()).hasSize(1);
+                assertThat(resp.getLayers().getFrustrationMap().getDeadTaps()).hasSize(1);
+                return true;
+              });
+    }
+
+    @Test
+    void shouldSkipBinsWithNullCoordinates() {
+      PulseConfig cfg =
+          PulseConfig.builder()
+              .description("d")
+              .features(
+                  List.of(
+                      PulseConfig.FeatureConfig.builder()
+                          .featureName(Features.heatmap)
+                          .sessionSampleRate(1.0)
+                          .sdks(List.of(Sdk.pulse_android_java))
+                          .build()))
+              .build();
+
+      when(configService.getActiveSdkConfig(PROJECT)).thenReturn(Single.just(cfg));
+      when(interactionDao.getAllActiveAndRunningInteractions(PROJECT))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      HeatmapClickHouseRowDto skip =
+          HeatmapClickHouseRowDto.builder()
+              .xBin(null)
+              .yBin(0.5)
+              .weightNormal(99L)
+              .build();
+
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                Class<?> rowClass = invocation.getArgument(1);
+                if (rowClass == HeatmapClickHouseRowDto.class) {
+                  return Single.just(
+                      QueryResultResponse.<HeatmapClickHouseRowDto>builder()
+                          .rows(List.of(skip))
+                          .build());
+                }
+                return Single.just(QueryResultResponse.builder().rows(Collections.emptyList()).build());
+              });
+
+      heatmapService
+          .getHeatmapData(screen, from, to, "1.0", null, null, null)
+          .test()
+          .assertComplete()
+          .assertValue(
+              resp ->
+                  resp.getLayers().getGlowMap().isEmpty()
+                      && resp.getLayers().getFrustrationMap().getRageTaps().isEmpty()
+                      && resp.getLayers().getFrustrationMap().getDeadTaps().isEmpty()
+                      && resp.getMetadata().getTotalEvents() == 99L);
+    }
+  }
+
+  @Nested
+  class WithoutProjectContext {
+
+    @BeforeEach
+    void clearProjectOnly() {
+      ProjectContext.clear();
+    }
+
+    @Test
+    void shouldThrowWhenProjectIdMissing() {
+      assertThatThrownBy(
+              () ->
+                  heatmapService
+                      .getHeatmapData(
+                          "HomeScreen", "2026-03-01T00:00:00Z", "2026-03-02T00:00:00Z",
+                          null, null, null, null)
+                      .blockingGet())
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("Project context");
+    }
+  }
+
+  @Nested
+  class SortVersionsLatestFirst {
+
+    @Test
+    void shouldReturnEmptyForNullOrEmptyInput() {
+      assertThat(HeatmapServiceImpl.sortVersionsLatestFirst(null)).isEmpty();
+      assertThat(HeatmapServiceImpl.sortVersionsLatestFirst(Collections.emptyList())).isEmpty();
+    }
+
+    @Test
+    void shouldOrderSemverLatestFirst() {
+      assertThat(HeatmapServiceImpl.sortVersionsLatestFirst(List.of("1.0.0", "2.0.0", "1.5.0")))
+          .containsExactly("2.0.0", "1.5.0", "1.0.0");
+    }
+
+    @Test
+    void shouldStripVPrefixAndAppendUnparseableLast() {
+      assertThat(HeatmapServiceImpl.sortVersionsLatestFirst(List.of("v1.0.0", "not semver", "2.0.0")))
+          .containsExactly("2.0.0", "v1.0.0", "not semver");
     }
   }
 }
