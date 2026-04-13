@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.heatmap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
@@ -40,8 +41,10 @@ class HeatmapServiceImplTest {
   @BeforeEach
   void setProject() {
     ProjectContext.setProjectId(PROJECT);
-    when(heatmapScreenshotUrlResolver.resolveForScreen(
-            any(), any(), any(), any(), any(), any(), any()))
+    lenient()
+        .when(
+            heatmapScreenshotUrlResolver.resolveForScreen(
+                any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Collections.emptyList());
   }
 

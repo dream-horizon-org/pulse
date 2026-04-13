@@ -18,7 +18,7 @@ public class HeatmapMetadataRestDto {
   @JsonProperty("screen_name")
   private String screenName;
 
-  /** Presigned or public URLs for screen reference images; order is significant for the UI. */
+  /** Presigned GET URLs for screen reference images; order is significant for the UI. */
   @JsonProperty("screenshot_urls")
   private List<String> screenshotUrls;
 

@@ -43,11 +43,6 @@ public class ApplicationConfig {
   /** S3 key prefix for heatmap screenshot JSON (ingestion default: heatmap-screenshots). */
   public String heatmapScreenshotsS3Prefix;
   /**
-   * Optional public or CDN base URL for heatmap screenshot objects (no trailing slash). When set,
-   * API returns {@code base + "/" + objectKey}. When unset, presigned GET URLs are used.
-   */
-  public String heatmapScreenshotsPublicBaseUrl;
-  /**
    * When {@code bucket} is set, heatmap screenshot list/presign uses this bucket; otherwise session
    * replay S3 bucket. Endpoint/keys fall back to session replay when omitted (same MinIO). Optional
    * {@code presignEndpoint} sets browser-facing hosts in presigned URLs only (see {@code

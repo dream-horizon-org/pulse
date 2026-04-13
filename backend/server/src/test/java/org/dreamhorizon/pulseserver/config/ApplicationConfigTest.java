@@ -103,7 +103,6 @@ class ApplicationConfigTest {
             "secret-key"),
         "replayBaseUrl",
         null,
-        null,
         null
     );
     assertNotNull(config);

@@ -75,16 +75,16 @@ class HeatmapScreenshotUrlResolverTest {
   }
 
   @Test
-  void usesPublicBaseUrlWhenSet() {
+  void returnsPresignedUrlWhenObjectPresent() {
     ApplicationConfig cfg = new ApplicationConfig();
     cfg.setHeatmapS3(new HeatmapS3Config("heatmap-assets", null, null, null, null, null));
     cfg.setSessionReplayS3(
         new SessionReplayS3Config("session-recordings", "http://minio:9000", "us-east-1", "k", "s"));
-    cfg.setHeatmapScreenshotsPublicBaseUrl("https://cdn.example/bucket");
 
+    String objectKey = "heatmap-screenshots/p/20260408/s/Android/1.0/Mobile_Small/capture-1.json";
     S3Object o1 =
         S3Object.builder()
-            .key("heatmap-screenshots/p/20260408/s/Android/1.0/Mobile_Small/capture-1.json")
+            .key(objectKey)
             .lastModified(Instant.parse("2026-04-08T12:00:00Z"))
             .build();
     when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
@@ -98,9 +98,9 @@ class HeatmapScreenshotUrlResolverTest {
             "p", "s", "2026-04-08", "2026-04-08",
             List.of("1.0"), "Android", "Mobile_Small");
 
-    assertThat(urls)
-        .containsExactly(
-            "https://cdn.example/bucket/heatmap-screenshots/p/20260408/s/Android/1.0/Mobile_Small/capture-1.json");
+    assertThat(urls).hasSize(1);
+    assertThat(urls.get(0)).contains(objectKey);
+    assertThat(urls.get(0)).contains("X-Amz-Algorithm=");
   }
 
   @Test
@@ -109,7 +109,6 @@ class HeatmapScreenshotUrlResolverTest {
     cfg.setHeatmapS3(new HeatmapS3Config("heatmap-assets", null, null, null, null, null));
     cfg.setSessionReplayS3(
         new SessionReplayS3Config("session-recordings", "http://minio:9000", "us-east-1", "k", "s"));
-    cfg.setHeatmapScreenshotsPublicBaseUrl("https://cdn.example/bucket");
 
     ListObjectsV2Response emptyResponse =
         ListObjectsV2Response.builder().contents(Collections.emptyList())
@@ -135,8 +134,9 @@ class HeatmapScreenshotUrlResolverTest {
             "p", "s", "2026-04-08", "2026-04-08",
             List.of("2.0", "1.0"), "Android", "Mobile_Small");
 
-    assertThat(urls)
-        .containsExactly(
-            "https://cdn.example/bucket/heatmap-screenshots/p/20260408/s/Android/1.0/Mobile_Small/capture-1.json");
+    String objectKey = "heatmap-screenshots/p/20260408/s/Android/1.0/Mobile_Small/capture-1.json";
+    assertThat(urls).hasSize(1);
+    assertThat(urls.get(0)).contains(objectKey);
+    assertThat(urls.get(0)).contains("X-Amz-Algorithm=");
   }
 }

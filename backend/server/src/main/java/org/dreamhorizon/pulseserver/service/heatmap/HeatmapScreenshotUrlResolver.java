@@ -34,7 +34,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 
 /**
  * Lists heatmap screenshot objects in S3 (same key layout as heatmap-screenshot-ingestion) and
- * returns browser-ready URLs (public base URL or presigned GET).
+ * returns browser-ready presigned GET URLs.
  */
 @Slf4j
 @Singleton
@@ -276,10 +276,6 @@ public class HeatmapScreenshotUrlResolver {
   }
 
   private String toUrl(String bucket, String key) {
-    String pub = applicationConfig.getHeatmapScreenshotsPublicBaseUrl();
-    if (StringUtils.isNotBlank(pub)) {
-      return StringUtils.stripEnd(pub.trim(), "/") + "/" + key;
-    }
     GetObjectPresignRequest presignRequest =
         GetObjectPresignRequest.builder()
             .signatureDuration(PRESIGN_TTL)

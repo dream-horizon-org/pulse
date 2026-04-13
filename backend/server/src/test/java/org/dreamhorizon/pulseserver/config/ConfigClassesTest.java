@@ -296,7 +296,6 @@ class ConfigClassesTest {
           new SessionReplayS3Config(
               "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayBaseUrl",
           null,
-          null,
           null);
 
       assertThat(config.getAppEnvironment()).isEqualTo("dev");
