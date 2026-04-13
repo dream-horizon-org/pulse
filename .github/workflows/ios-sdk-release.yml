@@ -1,0 +1,140 @@
+name: iOS SDK — XCFramework & release PR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_REPO: dream-horizon-org/pulse-ios
+  IOS_SDK_ROOT: pulse-ios-otel
+
+jobs:
+  build-and-release:
+    name: Build XCFramework & create release PR
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout monorepo
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Read version from PulseKit.podspec
+        working-directory: ${{ env.IOS_SDK_ROOT }}
+        run: |
+          VERSION=$(grep "spec.version" PulseKit.podspec | head -1 | sed "s/.*\"\(.*\)\"/\1/")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "::notice::Release version (from source podspec): $VERSION"
+
+      - name: Check version does not already exist in release repo
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+        run: |
+          if gh api "repos/${{ env.RELEASE_REPO }}/git/refs/tags/${VERSION}" 2>/dev/null; then
+            echo "::error::Version ${VERSION} already exists in release repo. Bump spec.version in ${{ env.IOS_SDK_ROOT }}/PulseKit.podspec first."
+            exit 1
+          fi
+          echo "::notice::Version ${VERSION} is available in release repo."
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      - name: Pod install (example app)
+        working-directory: ${{ env.IOS_SDK_ROOT }}/Examples/PulseIOSExample
+        run: |
+          pod install
+          echo "::notice::Pod install completed"
+
+      - name: Build XCFramework
+        working-directory: ${{ env.IOS_SDK_ROOT }}
+        run: |
+          chmod +x Scripts/build-xcframework.sh
+          ./Scripts/build-xcframework.sh
+          echo "::notice::XCFramework built successfully"
+
+      - name: Checkout release repo
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: ${{ env.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
+          path: release-repo
+
+      - name: Prepare release branch
+        run: |
+          set -euo pipefail
+          WS="${GITHUB_WORKSPACE}"
+          SRC="${WS}/${IOS_SDK_ROOT}"
+          cd "${WS}/release-repo"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="release/${VERSION}"
+          git checkout -b "$BRANCH"
+
+          rm -rf PulseKit.xcframework
+          cp -R "${SRC}/build/PulseKit.xcframework" .
+
+          while IFS= read -r entry || [[ -n "${entry}" ]]; do
+            [[ -z "${entry}" ]] && continue
+            name="${entry#*:}"
+            rm -rf "${name}.xcframework"
+            cp -R "${SRC}/build/${name}.xcframework" .
+          done < <(ruby "${SRC}/Scripts/print-peer-xcframework-entries.rb" "${SRC}")
+          echo "::notice::Copied PulseKit + all peer xcframeworks from ${IOS_SDK_ROOT}/build/"
+
+          sed -i '' "s/spec.version.*=.*/spec.version      = \"${VERSION}\"/" PulseKit.podspec
+
+          PODSPEC_VER=$(grep "spec.version" PulseKit.podspec | head -1 | sed "s/.*\"\(.*\)\"/\1/")
+          if [ "${PODSPEC_VER}" != "${VERSION}" ]; then
+            echo "::error::PulseKit.podspec spec.version after sed is '${PODSPEC_VER}', expected '${VERSION}'"
+            exit 1
+          fi
+          echo "::notice::Verified release repo PulseKit.podspec spec.version=${VERSION}"
+
+          git add -A
+          git commit -m "Release PulseKit v${VERSION}"
+          git push origin "$BRANCH"
+          echo "::notice::Pushed branch $BRANCH to release repo"
+
+      - name: Create PR in release repo
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+        run: |
+          gh pr create \
+            --repo ${{ env.RELEASE_REPO }} \
+            --base main \
+            --head "release/${VERSION}" \
+            --title "Release PulseKit v${VERSION}" \
+            --body "$(cat <<EOF
+          ## Release PulseKit v${VERSION}
+
+          ### Source
+          Built from monorepo path \`${{ env.IOS_SDK_ROOT }}/\` on [\`${{ github.repository }}\`](https://github.com/${{ github.repository }}) (workflow run [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})).
+
+          ### What this PR contains
+          - Copies **\`PulseKit.xcframework\`** and peer **\`*.xcframework\`** from the source tree.
+          - Sets **\`PulseKit.podspec\` → \`spec.version\`** to \`${VERSION}\`
+
+          ### Reviewer checklist
+          - [ ] **\`PulseKit.podspec\` → \`spec.vendored_frameworks\`** matches every **\`*.xcframework\`** in this PR (add/remove/update paths if a dependency was added, removed, or renamed)
+          - [ ] **\`Package.swift\` → \`.binaryTarget\`** list and **\`PulseKitWrapper\`** dependencies match the same set (add/remove/update if a dependency was added, removed, or renamed)
+
+          ### On merge, the publish workflow will:
+          1. Create git tag \`${VERSION}\`
+          2. Create GitHub Release (notes only — artifacts live in the repo at the tag)
+          3. Publish to CocoaPods trunk
+          EOF
+          )"
+          echo "::notice::Created PR in release repo"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Release summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Detail | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Version | \`${VERSION}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Source | \`${{ env.IOS_SDK_ROOT }}/\` in \`${{ github.repository }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Release repo | [${{ env.RELEASE_REPO }}](https://github.com/${{ env.RELEASE_REPO }}) |" >> "$GITHUB_STEP_SUMMARY"

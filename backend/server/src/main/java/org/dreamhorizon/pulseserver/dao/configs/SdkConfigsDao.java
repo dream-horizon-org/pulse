@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.configs.models.SdkConfigData;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
@@ -79,7 +80,7 @@ public class SdkConfigsDao {
             return pulseConfig;
           } else {
             log.error("No config found for version: {}", version);
-            throw new RuntimeException("No config found for version: " + version);
+            throw ServiceError.NOT_FOUND.getCustomException("No config found for version: " + version);
           }
 
         })
@@ -96,7 +97,7 @@ public class SdkConfigsDao {
         .flatMap(rows -> {
           if (rows.size() == 0) {
             log.warn("No active configuration found in database");
-            return Single.error(new RuntimeException("No active configuration found. Please create a configuration first."));
+            return Single.error(ServiceError.NOT_FOUND.getCustomException("No active configuration found. Please create a configuration first."));
           }
           Row row = rows.iterator().next();
           return getConfig(projectId, Long.parseLong(row.getValue("version").toString()));

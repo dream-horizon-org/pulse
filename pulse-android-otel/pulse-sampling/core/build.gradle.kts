@@ -23,6 +23,7 @@ dependencies {
     implementation(libs.opentelemetry.sdk)
     implementation(projects.pulseSamplingRemote)
     implementation(projects.pulseSamplingModels)
+    implementation(projects.pulseUtils)
     implementation(libs.kotlin.coroutines)
     testImplementation(testFixtures(projects.pulseSamplingModels))
     testImplementation(testFixtures(projects.pulseUtils))

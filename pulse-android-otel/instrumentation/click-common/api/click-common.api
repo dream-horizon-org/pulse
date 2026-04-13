@@ -1,3 +1,42 @@
+public final class io/opentelemetry/android/instrumentation/click/PendingClick {
+	public fun <init> (FFJJZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;II)V
+	public synthetic fun <init> (FFJJZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;IIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getClickContext ()Ljava/lang/String;
+	public final fun getHasTarget ()Z
+	public final fun getTapEpochMs ()J
+	public final fun getTimestampMs ()J
+	public final fun getViewportHeightPx ()I
+	public final fun getViewportWidthPx ()I
+	public final fun getWidgetId ()Ljava/lang/String;
+	public final fun getWidgetName ()Ljava/lang/String;
+	public final fun getXPx ()F
+	public final fun getYPx ()F
+}
+
+public final class io/opentelemetry/android/instrumentation/click/RageConfig {
+	public static final field Companion Lio/opentelemetry/android/instrumentation/click/RageConfig$Companion;
+	public static final field RADIUS_DP F
+	public static final field RAGE_THRESHOLD I
+	public static final field TIME_WINDOW_MS J
+	public fun <init> ()V
+	public fun <init> (JIF)V
+	public synthetic fun <init> (JIFILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getRadiusDp ()F
+	public final fun getThreshold ()I
+	public final fun getTimeWindowMs ()J
+}
+
+public final class io/opentelemetry/android/instrumentation/click/RageConfig$Companion {
+}
+
+public final class io/opentelemetry/android/instrumentation/click/common/ClickEventEmitter {
+	public fun <init> (Lio/opentelemetry/api/logs/Logger;Ljava/lang/String;FLio/opentelemetry/android/instrumentation/click/RageConfig;Lio/opentelemetry/sdk/common/Clock;)V
+	public synthetic fun <init> (Lio/opentelemetry/api/logs/Logger;Ljava/lang/String;FLio/opentelemetry/android/instrumentation/click/RageConfig;Lio/opentelemetry/sdk/common/Clock;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun currentMonotonicTimeMs ()J
+	public final fun flush ()V
+	public final fun process (Lio/opentelemetry/android/instrumentation/click/PendingClick;)V
+}
+
 public final class io/opentelemetry/android/instrumentation/click/common/PulseClickGestureTracker {
 	public fun <init> ()V
 	public final fun onActionCancel ()V
@@ -9,7 +48,7 @@ public final class io/opentelemetry/android/instrumentation/click/common/PulseCl
 public final class io/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper {
 	public static final field DEFAULT_LOG_TAG Ljava/lang/String;
 	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper;
-	public final fun applyContextAndLogDebug (Lio/opentelemetry/api/logs/LogRecordBuilder;Lio/opentelemetry/api/common/Attributes;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V
-	public static synthetic fun applyContextAndLogDebug$default (Lio/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper;Lio/opentelemetry/api/logs/LogRecordBuilder;Lio/opentelemetry/api/common/Attributes;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;ILjava/lang/Object;)V
+	public final fun logClick (Ljava/lang/String;FFLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;)V
+	public static synthetic fun logClick$default (Lio/opentelemetry/android/instrumentation/click/common/PulseWidgetClickLogHelper;Ljava/lang/String;FFLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;ILjava/lang/Object;)V
 }
 

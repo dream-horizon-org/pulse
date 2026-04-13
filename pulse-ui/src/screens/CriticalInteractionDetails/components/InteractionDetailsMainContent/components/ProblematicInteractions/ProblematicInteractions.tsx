@@ -144,7 +144,7 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
 
   if (isLoading) {
     return (
-      <Box>
+      <Box p={"md"}>
         {/* Stats skeleton */}
         <Flex mt="lg" mb="lg" wrap="wrap" gap="md">
           <MetricsGridSkeleton count={5} />
@@ -200,7 +200,7 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
   };
 
   return (
-    <Box>
+    <Box p={"md"}>
       <Flex mt="lg" mb="lg" wrap="wrap" gap="md">
         {[
           { label: "Total Interactions", value: stats.total, color: "black" },

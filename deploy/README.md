@@ -78,6 +78,18 @@ docker ps --filter network=pulse-network
 curl http://localhost:8080/healthcheck
 ```
 
+6. **Seed e-commerce demo data (optional)**
+
+To populate the Interactions dashboard and Root Cause with realistic data (12 critical interactions, device/network/geo distributions, and bad segments):
+
+```bash
+cd deploy
+./scripts/seed-ecommerce.sh         # Seed (idempotent; adds data)
+./scripts/seed-ecommerce.sh --clear  # Wipe existing data and re-seed
+```
+
+Requires Python 3, and MySQL + ClickHouse running (e.g. after `./scripts/start.sh -d`). Uses `deploy/.env` for credentials; MySQL is accessed via `docker exec pulse-mysql` by default so no local MySQL client is needed.
+
 ## 🛠️ Development Commands
 
 ### Frontend Development
@@ -137,8 +149,11 @@ fall back to pure Docker CLI when Compose is not available.
 | `stop.sh` | Stop and remove containers |
 | `logs.sh` | View container logs |
 | `reset-databases.sh` | Wipe database data and restart from scratch |
+| `seed-ecommerce.sh` | Seed e-commerce demo data (12 interactions, ClickHouse + MySQL); use `--clear` to wipe and re-seed |
+| `create-users-table.sh` | Create `pulse_db.users` table if missing (fixes login "Table 'pulse_db.users' doesn't exist") |
 | `common.sh` | Shared library (not run directly) |
 | `init-clickhouse.sh` | ClickHouse table initialiser (runs inside a container, not run directly) |
+| `sync-default-tenant-ch-credentials.py` | One-time: sync default tenant’s ClickHouse password in MySQL to match `.env` (fixes AI Root Cause auth errors) |
 
 ---
 
@@ -336,6 +351,27 @@ Runs inside a ClickHouse container as a one-shot job. Waits for ClickHouse to
 accept connections, then applies `backend/ingestion/clickhouse-otel-schema.sql`
 to create the OTEL tables. Called automatically by `start.sh` and
 `docker-compose.yml`; you should never need to run it manually.
+
+---
+
+### Fix default tenant ClickHouse credentials
+
+If AI Root Cause Analysis fails with "Failed to execute tenant query" or ClickHouse
+"Authentication failed", the password stored in MySQL for the `default` tenant
+likely does not match the ClickHouse container password (from `OTEL_CLICKHOUSE_PASSWORD`).
+
+Run this **after** the stack is up (MySQL and `.env` available):
+
+```bash
+cd deploy
+# Load .env and run script (requires: pip install pymysql cryptography)
+export $(grep -v '^#' .env | xargs)
+python3 scripts/sync-default-tenant-ch-credentials.py
+```
+
+From host, MySQL is usually on port 3307. If you use defaults in `.env`
+(`MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3307`, etc.), the script reads them.
+Then restart or refresh the backend so it picks up the updated credentials.
 
 ## 📊 Monitoring & Observability
 

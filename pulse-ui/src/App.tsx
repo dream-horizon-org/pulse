@@ -18,6 +18,7 @@ import { Suspense, useEffect } from "react";
 import { initGA, logPageView } from "./helpers/googleAnalytics";
 import { SessionReplayFilterProvider } from "./contexts/SessionReplayFilterContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ScrollToTop } from "./components/ScrollToTop/ScrollToTop";
 
 export default function App() {
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function App() {
     <MantineProvider theme={theme}>
       <Notifications position="top-center" />
       <Router basename={process.env.PUBLIC_URL || "/"}>
+        <ScrollToTop />
         <PageTracker />
         <QueryClientProvider client={queryClient}>
           <SessionReplayFilterProvider>
