@@ -35,6 +35,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.ClickFeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.RageConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
@@ -552,6 +554,92 @@ class ConfigControllerTest {
             assertEquals(10, replayConfig.getFlushAt());
             assertEquals(50, replayConfig.getMaxBatchSize());
             assertEquals("https://replay-api.example.com", replayConfig.getReplayApiBaseUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyClickDefaultsWhenConfigIsNull(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.click)
+                .sessionSampleRate(1.0)
+                .sdks(List.of(Sdk.pulse_android_java))
+                .config(null)
+                .build()
+        ));
+
+        ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
+        when(configService.createSdkConfig(anyString(), configDataCaptor.capture()))
+            .thenReturn(Single.just(createPulseConfigWithVersion(pulseConfig, 19L)));
+
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            ConfigData captured = configDataCaptor.getValue();
+            FeatureConfig clickFeature = captured.getFeatures().stream()
+                .filter(f -> f.getFeatureName() == Features.click)
+                .findFirst()
+                .orElse(null);
+            assertNotNull(clickFeature);
+            assertInstanceOf(ClickFeatureConfig.class, clickFeature.getConfig());
+            ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+            assertNotNull(clickConfig.getRage());
+            assertEquals(2000L, clickConfig.getRage().getTimeWindowMs());
+            assertEquals(3, clickConfig.getRage().getThreshold());
+            assertEquals(50, clickConfig.getRage().getRadius());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyClickDefaultsWhenRagePartial(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test");
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.click)
+                .sessionSampleRate(0.5)
+                .sdks(List.of(Sdk.pulse_android_java))
+                .config(ClickFeatureConfig.builder()
+                    .rage(RageConfig.builder()
+                        .threshold(7)
+                        .build())
+                    .build())
+                .build()
+        ));
+
+        ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
+        when(configService.createSdkConfig(anyString(), configDataCaptor.capture()))
+            .thenReturn(Single.just(createPulseConfigWithVersion(pulseConfig, 20L)));
+
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            ConfigData captured = configDataCaptor.getValue();
+            FeatureConfig clickFeature = captured.getFeatures().stream()
+                .filter(f -> f.getFeatureName() == Features.click)
+                .findFirst()
+                .orElse(null);
+            assertNotNull(clickFeature);
+            ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+            assertEquals(7, clickConfig.getRage().getThreshold());
+            assertEquals(2000L, clickConfig.getRage().getTimeWindowMs());
+            assertEquals(50, clickConfig.getRage().getRadius());
           });
           testContext.completeNow();
         });
