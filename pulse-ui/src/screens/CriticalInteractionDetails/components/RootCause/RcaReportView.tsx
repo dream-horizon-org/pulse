@@ -310,13 +310,13 @@ const RcaStructuredReportV1View = ({
                             }}
                           >
                             <Text size="xs" fw={600} c="dimmed" mb="md">
-                              Related Session Replays
+                              Evidence
                             </Text>
                             <SimpleGrid
                               cols={{
                                 base: 1,
-                                sm: 2,
-                                md: 2,
+                                sm: 3,
+                                md: 4,
                               }}
                               spacing="sm"
                             >
