@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // utils around serialisation
+
 package com.pulse.sampling.models
 
 import kotlinx.serialization.KSerializer
@@ -102,6 +104,9 @@ internal object PulseFeatureConfigSerializer : KSerializer<PulseFeatureConfig> {
                 when (config) {
                     is PulseFeatureConfigData.SessionReplay -> {
                         json.encodeToJsonElement(PulseFeatureConfigData.SessionReplay.serializer(), config)
+                    }
+                    is PulseFeatureConfigData.ClickInstrumentation -> {
+                        json.encodeToJsonElement(PulseFeatureConfigData.ClickInstrumentation.serializer(), config)
                     }
                     is PulseFeatureConfigData.ClickInstrumentation -> {
                         json.encodeToJsonElement(PulseFeatureConfigData.ClickInstrumentation.serializer(), config)

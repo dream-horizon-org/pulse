@@ -367,6 +367,7 @@ services:
         REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID}
         REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL:-http://localhost:8080}
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
+        REACT_APP_ROOT_CAUSE_ENABLED: ${REACT_APP_ROOT_CAUSE_ENABLED:-false}
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
         REACT_APP_FIREBASE_PROJECT_ID: ${REACT_APP_FIREBASE_PROJECT_ID}
@@ -527,6 +528,8 @@ services:
 
       # pulse-server → pulse-ai-agent on pulse-network; override for host/standalone AI (e.g. host.docker.internal:8000)
       - AI_SERVICE_URL=${AI_SERVICE_URL:-http://pulse-ai-agent:8000}
+      # Root Cause Analysis (local dev: set ROOT_CAUSE_ENABLED=true to enable)
+      - ROOT_CAUSE_ENABLED=${ROOT_CAUSE_ENABLED:-false}
       # Incident Configuration
       - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
 

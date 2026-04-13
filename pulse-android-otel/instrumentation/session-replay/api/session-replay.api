@@ -51,13 +51,6 @@ public abstract interface class com/pulse/android/sdk/replay/ReplayStorageEncryp
 public final class com/pulse/android/sdk/replay/SessionReplayBootstrap {
 	public fun <init> (Lcom/pulse/android/sdk/replay/SessionReplayConfig;Ljava/lang/String;Lkotlin/jvm/functions/Function0;ZLkotlin/jvm/functions/Function0;)V
 	public synthetic fun <init> (Lcom/pulse/android/sdk/replay/SessionReplayConfig;Ljava/lang/String;Lkotlin/jvm/functions/Function0;ZLkotlin/jvm/functions/Function0;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Lcom/pulse/android/sdk/replay/SessionReplayConfig;
-	public final fun component2 ()Ljava/lang/String;
-	public final fun component3 ()Lkotlin/jvm/functions/Function0;
-	public final fun component4 ()Z
-	public final fun component5 ()Lkotlin/jvm/functions/Function0;
-	public final fun copy (Lcom/pulse/android/sdk/replay/SessionReplayConfig;Ljava/lang/String;Lkotlin/jvm/functions/Function0;ZLkotlin/jvm/functions/Function0;)Lcom/pulse/android/sdk/replay/SessionReplayBootstrap;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/SessionReplayBootstrap;Lcom/pulse/android/sdk/replay/SessionReplayConfig;Ljava/lang/String;Lkotlin/jvm/functions/Function0;ZLkotlin/jvm/functions/Function0;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/SessionReplayBootstrap;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getConfig ()Lcom/pulse/android/sdk/replay/SessionReplayConfig;
 	public final fun getProjectId ()Ljava/lang/String;
@@ -65,7 +58,6 @@ public final class com/pulse/android/sdk/replay/SessionReplayBootstrap {
 	public final fun getUserIdProvider ()Lkotlin/jvm/functions/Function0;
 	public fun hashCode ()I
 	public final fun isStartActive ()Z
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/SessionReplayConfig {
@@ -165,15 +157,10 @@ public final class com/pulse/android/sdk/replay/events/ReplayCustomEvent : com/p
 
 public final class com/pulse/android/sdk/replay/events/ReplayCustomEventData : com/pulse/android/sdk/replay/events/ReplayEventData {
 	public fun <init> (Ljava/lang/String;Ljava/util/Map;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Ljava/util/Map;
-	public final fun copy (Ljava/lang/String;Ljava/util/Map;)Lcom/pulse/android/sdk/replay/events/ReplayCustomEventData;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayCustomEventData;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayCustomEventData;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getPayload ()Ljava/util/Map;
 	public final fun getTag ()Ljava/lang/String;
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public class com/pulse/android/sdk/replay/events/ReplayEvent {
@@ -207,17 +194,11 @@ public final class com/pulse/android/sdk/replay/events/ReplayEventType$Companion
 
 public final class com/pulse/android/sdk/replay/events/ReplayFullSnapshotData : com/pulse/android/sdk/replay/events/ReplayEventData {
 	public fun <init> (Ljava/util/List;II)V
-	public final fun component1 ()Ljava/util/List;
-	public final fun component2 ()I
-	public final fun component3 ()I
-	public final fun copy (Ljava/util/List;II)Lcom/pulse/android/sdk/replay/events/ReplayFullSnapshotData;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayFullSnapshotData;Ljava/util/List;IIILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayFullSnapshotData;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getInitialOffsetLeft ()I
 	public final fun getInitialOffsetTop ()I
 	public final fun getWireframes ()Ljava/util/List;
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayFullSnapshotEvent : com/pulse/android/sdk/replay/events/ReplayEvent {
@@ -227,15 +208,6 @@ public final class com/pulse/android/sdk/replay/events/ReplayFullSnapshotEvent :
 public final class com/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData : com/pulse/android/sdk/replay/events/ReplayEventData {
 	public fun <init> (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;Lcom/pulse/android/sdk/replay/events/PointerType;Ljava/util/List;)V
 	public synthetic fun <init> (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;Lcom/pulse/android/sdk/replay/events/PointerType;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()I
-	public final fun component2 ()Lcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;
-	public final fun component3 ()I
-	public final fun component4 ()I
-	public final fun component5 ()Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;
-	public final fun component6 ()Lcom/pulse/android/sdk/replay/events/PointerType;
-	public final fun component7 ()Ljava/util/List;
-	public final fun copy (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;Lcom/pulse/android/sdk/replay/events/PointerType;Ljava/util/List;)Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;Lcom/pulse/android/sdk/replay/events/PointerType;Ljava/util/List;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getId ()I
 	public final fun getPointerType ()Lcom/pulse/android/sdk/replay/events/PointerType;
@@ -245,7 +217,6 @@ public final class com/pulse/android/sdk/replay/events/ReplayIncrementalMouseInt
 	public final fun getX ()I
 	public final fun getY ()I
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionEvent : com/pulse/android/sdk/replay/events/ReplayEvent {
@@ -256,19 +227,12 @@ public final class com/pulse/android/sdk/replay/events/ReplayIncrementalMutation
 	public fun <init> ()V
 	public fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;)V
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Ljava/util/List;
-	public final fun component2 ()Ljava/util/List;
-	public final fun component3 ()Ljava/util/List;
-	public final fun component4 ()Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;
-	public final fun copy (Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;)Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMutationData;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMutationData;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMutationData;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAdds ()Ljava/util/List;
 	public final fun getRemoves ()Ljava/util/List;
 	public final fun getSource ()Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;
 	public final fun getUpdates ()Ljava/util/List;
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayIncrementalSnapshotEvent : com/pulse/android/sdk/replay/events/ReplayEvent {
@@ -305,17 +269,11 @@ public final class com/pulse/android/sdk/replay/events/ReplayIncrementalSource$C
 
 public final class com/pulse/android/sdk/replay/events/ReplayMetaData : com/pulse/android/sdk/replay/events/ReplayEventData {
 	public fun <init> (Ljava/lang/String;II)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()I
-	public final fun component3 ()I
-	public final fun copy (Ljava/lang/String;II)Lcom/pulse/android/sdk/replay/events/ReplayMetaData;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayMetaData;Ljava/lang/String;IIILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayMetaData;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getHeight ()I
 	public final fun getHref ()Ljava/lang/String;
 	public final fun getWidth ()I
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayMetaEvent : com/pulse/android/sdk/replay/events/ReplayEvent {
@@ -347,72 +305,34 @@ public final class com/pulse/android/sdk/replay/events/ReplayMouseInteraction$Co
 public final class com/pulse/android/sdk/replay/events/ReplayMousePosition {
 	public fun <init> (IIILjava/lang/Long;)V
 	public synthetic fun <init> (IIILjava/lang/Long;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()I
-	public final fun component2 ()I
-	public final fun component3 ()I
-	public final fun component4 ()Ljava/lang/Long;
-	public final fun copy (IIILjava/lang/Long;)Lcom/pulse/android/sdk/replay/events/ReplayMousePosition;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayMousePosition;IIILjava/lang/Long;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayMousePosition;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getId ()I
 	public final fun getTimeOffset ()Ljava/lang/Long;
 	public final fun getX ()I
 	public final fun getY ()I
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayMutatedNode {
 	public fun <init> (Lcom/pulse/android/sdk/replay/events/ReplayWireframe;Ljava/lang/Integer;)V
 	public synthetic fun <init> (Lcom/pulse/android/sdk/replay/events/ReplayWireframe;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Lcom/pulse/android/sdk/replay/events/ReplayWireframe;
-	public final fun component2 ()Ljava/lang/Integer;
-	public final fun copy (Lcom/pulse/android/sdk/replay/events/ReplayWireframe;Ljava/lang/Integer;)Lcom/pulse/android/sdk/replay/events/ReplayMutatedNode;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayMutatedNode;Lcom/pulse/android/sdk/replay/events/ReplayWireframe;Ljava/lang/Integer;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayMutatedNode;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getParentId ()Ljava/lang/Integer;
 	public final fun getWireframe ()Lcom/pulse/android/sdk/replay/events/ReplayWireframe;
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayRemovedNode {
 	public fun <init> (ILjava/lang/Integer;)V
 	public synthetic fun <init> (ILjava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()I
-	public final fun component2 ()Ljava/lang/Integer;
-	public final fun copy (ILjava/lang/Integer;)Lcom/pulse/android/sdk/replay/events/ReplayRemovedNode;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayRemovedNode;ILjava/lang/Integer;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayRemovedNode;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getId ()I
 	public final fun getParentId ()Ljava/lang/Integer;
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayStyle {
 	public fun <init> ()V
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun component10 ()Ljava/lang/String;
-	public final fun component11 ()Ljava/lang/Integer;
-	public final fun component12 ()Ljava/lang/Integer;
-	public final fun component13 ()Ljava/lang/Integer;
-	public final fun component14 ()Ljava/lang/Integer;
-	public final fun component15 ()Ljava/lang/String;
-	public final fun component16 ()Ljava/lang/String;
-	public final fun component17 ()Ljava/lang/String;
-	public final fun component2 ()Ljava/lang/String;
-	public final fun component3 ()Ljava/lang/String;
-	public final fun component4 ()Ljava/lang/Integer;
-	public final fun component5 ()Ljava/lang/Integer;
-	public final fun component6 ()Ljava/lang/String;
-	public final fun component7 ()Ljava/lang/Integer;
-	public final fun component8 ()Ljava/lang/String;
-	public final fun component9 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/pulse/android/sdk/replay/events/ReplayStyle;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayStyle;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayStyle;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBackgroundColor ()Ljava/lang/String;
 	public final fun getBackgroundImage ()Ljava/lang/String;
@@ -432,32 +352,11 @@ public final class com/pulse/android/sdk/replay/events/ReplayStyle {
 	public final fun getPaddingTop ()Ljava/lang/Integer;
 	public final fun getVerticalAlign ()Ljava/lang/String;
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayWireframe {
 	public fun <init> (IIIIILjava/util/List;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Ljava/lang/String;Lcom/pulse/android/sdk/replay/events/ReplayStyle;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Integer;)V
 	public synthetic fun <init> (IIIIILjava/util/List;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Ljava/lang/String;Lcom/pulse/android/sdk/replay/events/ReplayStyle;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()I
-	public final fun component10 ()Ljava/lang/String;
-	public final fun component11 ()Ljava/lang/Object;
-	public final fun component12 ()Ljava/lang/String;
-	public final fun component13 ()Lcom/pulse/android/sdk/replay/events/ReplayStyle;
-	public final fun component14 ()Ljava/lang/Boolean;
-	public final fun component15 ()Ljava/lang/Boolean;
-	public final fun component16 ()Ljava/util/List;
-	public final fun component17 ()Ljava/lang/Integer;
-	public final fun component18 ()Ljava/lang/Integer;
-	public final fun component2 ()I
-	public final fun component3 ()I
-	public final fun component4 ()I
-	public final fun component5 ()I
-	public final fun component6 ()Ljava/util/List;
-	public final fun component7 ()Ljava/lang/String;
-	public final fun component8 ()Ljava/lang/String;
-	public final fun component9 ()Ljava/lang/String;
-	public final fun copy (IIIIILjava/util/List;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Ljava/lang/String;Lcom/pulse/android/sdk/replay/events/ReplayStyle;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Integer;)Lcom/pulse/android/sdk/replay/events/ReplayWireframe;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayWireframe;IIIIILjava/util/List;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;Ljava/lang/String;Lcom/pulse/android/sdk/replay/events/ReplayStyle;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Integer;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayWireframe;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBase64 ()Ljava/lang/String;
 	public final fun getChildWireframes ()Ljava/util/List;
@@ -478,22 +377,15 @@ public final class com/pulse/android/sdk/replay/events/ReplayWireframe {
 	public fun hashCode ()I
 	public final fun isChecked ()Ljava/lang/Boolean;
 	public final fun isDisabled ()Ljava/lang/Boolean;
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/events/ScreenSizeInfo {
 	public fun <init> (IIF)V
-	public final fun component1 ()I
-	public final fun component2 ()I
-	public final fun component3 ()F
-	public final fun copy (IIF)Lcom/pulse/android/sdk/replay/events/ScreenSizeInfo;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ScreenSizeInfo;IIFILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ScreenSizeInfo;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDensity ()F
 	public final fun getHeight ()I
 	public final fun getWidth ()I
 	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/sdk/replay/ui/PulseReplayMaskKt {

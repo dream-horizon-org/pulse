@@ -277,6 +277,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               }
               isLoading={isLoadingEngagement}
               error={engagementError}
+              onTimeFilterChange={handleTimeFilterChange}
             />
             <UserEngagementGraph
               screenName={decodedScreenName}
@@ -293,6 +294,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               device={device !== "all" ? device : undefined}
               startTime={startTime || undefined}
               endTime={endTime || undefined}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           </SimpleGrid>
         </Tabs.Panel>
@@ -370,6 +372,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
           {issueType === ISSUE_TYPES.ANRS && (
@@ -382,6 +385,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
           {issueType === ISSUE_TYPES.NON_FATALS && (
@@ -394,6 +398,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               screenName={decodedScreenName}
               title={graphConfig.title}
               lineColor={graphConfig.color}
+              onTimeFilterChange={handleTimeFilterChange}
             />
           )}
 

@@ -25,8 +25,10 @@ import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
+import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
+import com.pulse.utils.PulseMathUtils
 import com.pulse.utils.PulseOtelUtils
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
@@ -320,13 +322,13 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 ?.config
                 ?.let { it as? PulseFeatureConfigData.ClickInstrumentation }
                 ?.rage
-                ?.let { backendRage ->
+                ?.let { remoteRage ->
                     val local = ClickContextEnrichmentConfig.rageConfig
                     ClickContextEnrichmentConfig.rageConfig =
                         RageConfig(
-                            timeWindowMs = backendRage.timeWindowMs ?: local.timeWindowMs,
-                            rageThreshold = backendRage.rageThreshold ?: local.rageThreshold,
-                            radiusDp = backendRage.radius ?: local.radiusDp,
+                            timeWindowMs = remoteRage.timeWindowMs ?: local.timeWindowMs,
+                            threshold = remoteRage.threshold ?: local.threshold,
+                            radiusDp = remoteRage.radiusDp ?: local.radiusDp,
                         )
                 }
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
@@ -335,6 +337,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
                 val flagResult = PulseFeatureFlagUtils.apply(config, this)
                 isCustomEventEnabled = flagResult.isCustomEventEnabled
+            } ?: run {
+                config.suppressInstrumentation("view.click")
+                config.suppressInstrumentation("compose.click")
             }
         }
 
@@ -383,8 +388,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         application.resources.displayMetrics.let { dm ->
                             val w = (dm.widthPixels / dm.density).toLong()
                             val h = (dm.heightPixels / dm.density).toLong()
-                            val g = gcd(w, h)
-                            attributesBuilder.put(PulseAttributes.DEVICE_SCREEN_ASPECT_RATIO, "${w / g}:${h / g}")
+                            val g = PulseMathUtils.gcd(w, h)
+                            attributesBuilder.put(PulseDeviceAttributes.DEVICE_SCREEN_ASPECT_RATIO, "${w / g}:${h / g}")
                         }
                         if (globalAttributes != null) {
                             attributesBuilder.putAll(globalAttributes.invoke())

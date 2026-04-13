@@ -8,6 +8,8 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      PULSE_BASE_URL: ${PULSE_BASE_URL:-http://pulse-server:8080}
     volumes:
       - ./__init__.py:/app/pulse_ai/__init__.py:ro
       - ./agent.py:/app/pulse_ai/agent.py:ro

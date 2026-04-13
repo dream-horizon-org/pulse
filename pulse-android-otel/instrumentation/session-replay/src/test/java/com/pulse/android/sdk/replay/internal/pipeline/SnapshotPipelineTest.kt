@@ -8,7 +8,6 @@ import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.internal.capture.MaskRectCache
 import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener
 import com.pulse.android.sdk.replay.internal.scheduling.ViewTreeSnapshotStatus
-import io.mockk.every
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach

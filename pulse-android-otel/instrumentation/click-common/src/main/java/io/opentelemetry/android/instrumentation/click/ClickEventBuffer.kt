@@ -7,8 +7,8 @@ package io.opentelemetry.android.instrumentation.click
 
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import androidx.annotation.UiThread
+import com.pulse.utils.PulseOtelUtils
 
 /**
  * Data captured at tap time, held in the buffer until it is safe to emit individually
@@ -16,17 +16,28 @@ import androidx.annotation.UiThread
  *
  * Widget fields are non-null only when the tap landed on a clickable target ([hasTarget] = true).
  * [clickContext] is the pre-computed `app.click.context` label string (avoids re-traversal on flush).
+ *
+ * @property xPx tap x coordinate in pixels
+ * @property yPx tap y coordinate in pixels
+ * @property timestampMs monotonic (elapsedRealtime) — used for rage detection timing only
+ * @property tapEpochMs used as the OTel event timestamp
+ * @property hasTarget true when the tap landed on a clickable target; false for a dead click
+ * @property widgetName accessibility/semantic name of the hit target, or null for a dead click
+ * @property widgetId view/node id of the hit target, or null for a dead click
+ * @property clickContext pre-computed `app.click.context` label, or null when enrichment is disabled
+ * @property viewportWidthPx decorView.width at tap time — app window, not device screen
+ * @property viewportHeightPx decorView.height at tap time — app window, not device screen
  */
-data class PendingClick(
-    val x: Float,
-    val y: Float,
-    val timestampMs: Long, // monotonic (elapsedRealtime) — used for rage detection timing only
-    val tapEpochMs: Long, // wall-clock ms at tap time — used as the OTel event timestamp
+class PendingClick(
+    val xPx: Float,
+    val yPx: Float,
+    val timestampMs: Long,
+    val tapEpochMs: Long,
     val hasTarget: Boolean,
     val widgetName: String? = null,
     val widgetId: String? = null,
     val clickContext: String? = null,
-    val viewportWidthPx: Int = 0, // decorView.width at tap time — app window, not device screen
+    val viewportWidthPx: Int = 0,
     val viewportHeightPx: Int = 0,
 )
 
@@ -38,18 +49,34 @@ data class PendingClick(
  * [hasTarget] mirrors the triggering [PendingClick.hasTarget] — reliable because the rage radius
  * constraint means all buffered taps are near the same point, so they share the same target state.
  */
-data class RageEvent(
+internal class RageEvent(
     val count: Int,
     val hasTarget: Boolean,
-    val x: Float,
-    val y: Float,
+    val xPx: Float,
+    val yPx: Float,
     val tapEpochMs: Long,
     val widgetName: String? = null,
     val widgetId: String? = null,
     val clickContext: String? = null,
     val viewportWidthPx: Int = 0,
     val viewportHeightPx: Int = 0,
-)
+) {
+    internal fun copy(
+        count: Int = this.count,
+        tapEpochMs: Long = this.tapEpochMs,
+    ) = RageEvent(
+        count = count,
+        hasTarget = hasTarget,
+        xPx = xPx,
+        yPx = yPx,
+        tapEpochMs = tapEpochMs,
+        widgetName = widgetName,
+        widgetId = widgetId,
+        clickContext = clickContext,
+        viewportWidthPx = viewportWidthPx,
+        viewportHeightPx = viewportHeightPx,
+    )
+}
 
 /**
  * Detects rage-click clusters on the UI thread with zero background threads.
@@ -63,7 +90,7 @@ data class RageEvent(
  *    a. Evict buffer entries older than [RageConfig.timeWindowMs] via [onEmit].
  *    b. Add the tap to the buffer.
  *    c. Count how many buffered taps are within [RageConfig.radiusDp] of this tap.
- *    d. If count >= [RageConfig.rageThreshold], form a new cluster:
+ *    d. If count >= [RageConfig.threshold], form a new cluster:
  *       - Remove only the nearby taps from the buffer (taps at other locations stay).
  *       - Schedule the cluster's delayed emission after [RageConfig.timeWindowMs] of inactivity.
  * 4. Each cluster emits independently via [onRage] when its window closes — whichever comes first:
@@ -92,33 +119,26 @@ data class RageEvent(
  * @param rageConfig    Runtime rage-detection parameters.
  * @param onRage        Called on the UI thread when a rage cluster window closes.
  * @param onEmit        Called synchronously for each buffered click evicted or flushed.
- * @param clock         Monotonic clock in ms (injectable for tests).
  * @param postDelayed   Schedules a delayed UI-thread action (injectable for tests).
  * @param cancelDelayed Cancels a previously scheduled action (injectable for tests).
  */
-class ClickEventBuffer(
+internal class ClickEventBuffer(
     densityScale: Float,
     private val rageConfig: RageConfig = RageConfig(),
     private val onRage: (RageEvent) -> Unit = {},
     private val onEmit: (PendingClick) -> Unit = {},
-    private val clock: () -> Long = SystemClock::elapsedRealtime,
     private val postDelayed: (Runnable, Long) -> Unit = { r, ms -> mainHandler.postDelayed(r, ms) },
     private val cancelDelayed: (Runnable) -> Unit = { r -> mainHandler.removeCallbacks(r) },
 ) {
     companion object {
-        const val TIME_WINDOW_MS: Long = 2000L
-        const val RAGE_THRESHOLD: Int = 3
-        const val RADIUS_DP: Float = 50f
-
         /** Maximum number of simultaneously active rage clusters. Oldest is emitted when exceeded. */
         const val MAX_ACTIVE_CLUSTERS: Int = 5
 
-        // Shared Handler — avoids allocating one per ClickEventBuffer instance.
         internal val mainHandler: Handler by lazy { Handler(Looper.getMainLooper()) }
     }
 
     init {
-        require(rageConfig.rageThreshold > 0) { "rageThreshold must be > 0, got ${rageConfig.rageThreshold}" }
+        require(rageConfig.threshold > 0) { "rageThreshold must be > 0, got ${rageConfig.threshold}" }
         require(rageConfig.timeWindowMs > 0) { "timeWindowMs must be > 0, got ${rageConfig.timeWindowMs}" }
     }
 
@@ -127,7 +147,6 @@ class ClickEventBuffer(
 
     private val buffer = ArrayDeque<PendingClick>()
 
-    // Each active rage cluster owns its event, last-tap time, and emission Runnable.
     private val activeRageClusters = mutableListOf<RageCluster>()
 
     private inner class RageCluster(
@@ -145,29 +164,24 @@ class ClickEventBuffer(
 
         fun extend(click: PendingClick) {
             lastTapTimeMs = click.timestampMs
-            rage = rage.copy(count = rage.count + 1)
+            rage = rage.copy(count = rage.count + 1, tapEpochMs = click.tapEpochMs)
         }
     }
 
     /**
-     * Returns the current monotonic timestamp in ms. Generators use this to stamp [PendingClick]
-     * so that buffer timing tests work with an injected [clock].
-     */
-    internal fun currentTimeMs(): Long = clock()
-
-    /**
      * Records a tap. Expired clusters are emitted, active clusters extended if the tap is nearby,
-     * otherwise the tap is buffered and may form a new cluster. Returns Unit.
+     * otherwise the tap is buffered and may form a new cluster.
      */
     @UiThread
     fun record(click: PendingClick) {
+        if (PulseOtelUtils.isDebug()) check(Looper.myLooper() == Looper.getMainLooper()) { "record() must be called on the main thread" }
         emitExpiredClusters(click.timestampMs)
 
         // Find the nearest active cluster within radius — nearest wins when clusters overlap.
         val matchingCluster =
             activeRageClusters
-                .filter { withinRadius(click.x, click.y, it.rage.x, it.rage.y) }
-                .minByOrNull { distanceSquared(click.x, click.y, it.rage.x, it.rage.y) }
+                .filter { withinRadius(click.xPx, click.yPx, it.rage.xPx, it.rage.yPx) }
+                .minByOrNull { distanceSquared(click.xPx, click.yPx, it.rage.xPx, it.rage.yPx) }
 
         if (matchingCluster != null) {
             matchingCluster.extend(click)
@@ -185,6 +199,7 @@ class ClickEventBuffer(
      */
     @UiThread
     fun flush() {
+        if (PulseOtelUtils.isDebug()) check(Looper.myLooper() == Looper.getMainLooper()) { "flush() must be called on the main thread" }
         activeRageClusters.forEach { cluster ->
             cancelDelayed(cluster.emitRunnable)
             onRage(cluster.rage)
@@ -197,16 +212,16 @@ class ClickEventBuffer(
         evictStale(click.timestampMs)
         buffer.addLast(click)
 
-        val nearbyCount = buffer.count { withinRadius(it.x, it.y, click.x, click.y) }
-        if (nearbyCount >= rageConfig.rageThreshold) {
+        val nearbyCount = buffer.count { withinRadius(it.xPx, it.yPx, click.xPx, click.yPx) }
+        if (nearbyCount >= rageConfig.threshold) {
             val cluster =
                 RageCluster(
                     initialRage =
                         RageEvent(
                             count = nearbyCount,
                             hasTarget = click.hasTarget,
-                            x = click.x,
-                            y = click.y,
+                            xPx = click.xPx,
+                            yPx = click.yPx,
                             tapEpochMs = click.tapEpochMs,
                             widgetName = click.widgetName,
                             widgetId = click.widgetId,
@@ -217,10 +232,10 @@ class ClickEventBuffer(
                     tapTimeMs = click.timestampMs,
                 )
             // Remove only the taps that belong to this cluster — taps at other locations stay.
-            buffer.removeAll { withinRadius(it.x, it.y, click.x, click.y) }
+            buffer.removeAll { withinRadius(it.xPx, it.yPx, click.xPx, click.yPx) }
             // Enforce cluster cap: emit the oldest cluster immediately if limit is reached.
             if (activeRageClusters.size >= MAX_ACTIVE_CLUSTERS) {
-                val oldest = activeRageClusters.minByOrNull { it.lastTapTimeMs }!!
+                val oldest = activeRageClusters.minByOrNull { it.lastTapTimeMs } ?: return
                 cancelDelayed(oldest.emitRunnable)
                 activeRageClusters.remove(oldest)
                 onRage(oldest.rage)
@@ -230,15 +245,15 @@ class ClickEventBuffer(
         }
     }
 
-    // Emit clusters whose window expired before the current tap arrived.
+    /** Emits clusters whose window expired before the current tap arrived. */
     private fun emitExpiredClusters(nowMs: Long) {
         activeRageClusters.removeAll { cluster ->
-            val expired = nowMs - cluster.lastTapTimeMs > rageConfig.timeWindowMs
-            if (expired) {
+            val isExpired = nowMs - cluster.lastTapTimeMs > rageConfig.timeWindowMs
+            if (isExpired) {
                 cancelDelayed(cluster.emitRunnable)
                 onRage(cluster.rage)
             }
-            expired
+            isExpired
         }
     }
 

@@ -14,25 +14,29 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 | `backend/server/` | REST API | Java 17, Vert.x 4.5, Guice, Maven | 8080 |
 | `backend/pulse-alerts-cron/` | Alert evaluation cron | Java/Vert.x | 4000 |
 | `backend/ingestion/` | OTEL Collector configs + ClickHouse schema | YAML/SQL | — |
+| `backend/session-capture-service/` | Session replay HTTP ingest (Rust) | Rust | 3400 |
+| `backend/session-replay-ingestion/` | Kafka → S3 + ClickHouse consumer | Node.js | — |
 | `backend/heatmap-screenshot-ingestion/` | Heatmap screenshots (Kafka → S3); optional external Redis quota/dedupe | Node.js | — |
 | `pulse-ui/` | Dashboard | React 18, TypeScript, Mantine v7 | 3000 |
 | `pulse_ai/` | AI agent (`deploy` service `pulse-ai-agent` by default; standalone compose for AI-only dev) | Python, Google ADK + Gemini | 8000 |
 | `pulse-android-otel/` | Android SDK | Kotlin, OpenTelemetry | — |
+| `pulse-ios-otel/` | iOS SDK (PulseKit) | Swift, OpenTelemetry | — |
 | `pulse-react-native-otel/` | React Native SDK | TypeScript | — |
 | `deploy/` | Docker Compose, scripts, Terraform | — | — |
 
 ## Data Flow
 
 ```
-Mobile SDKs → OTEL Collector (port 4317/4318) → ClickHouse (otel DB)
-Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQuery  [Vector optional: service is commented out in `deploy/docker-compose.yml` by default; uncomment + set VECTOR_ENABLED=true in .env]
+Mobile SDKs → OTEL Collector (4317/4318) → ClickHouse (otel DB)
+Mobile SDKs → Session capture API (:3400) → Kafka → Session replay ingestion → MinIO (S3) + ClickHouse
+Custom Events → Vector (14317/14318) → S3 (Parquet) → Athena / BigQuery  [Vector optional: service is commented out in `deploy/docker-compose.yml` by default; uncomment + VECTOR_ENABLED=true]
 Session replay / heatmap → Kafka → pulse-heatmap-screenshot-ingestion → S3 bucket `heatmap-assets` (keys under `heatmap-screenshots/`); optional external Redis for quota / dedupe
 ```
 
 ## Databases
 
 - **MySQL 8** (`pulse_db`): metadata — interactions, alerts, configs, symbol files, athena jobs
-- **ClickHouse 24.8** (`otel`): analytics — `otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`, `interaction_heatmaps_daily` (heatmap table + MV defined in `clickhouse-otel-schema.sql`)
+- **ClickHouse 24.8** (`otel`): analytics — `otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`, `project_monthly_usage` (+ MVs), `root_cause_cache` (RCA cache; column `ProjectId`), `interaction_heatmaps_daily` (heatmap table + MV defined in `clickhouse-otel-schema.sql`)
 
 ## Auth
 

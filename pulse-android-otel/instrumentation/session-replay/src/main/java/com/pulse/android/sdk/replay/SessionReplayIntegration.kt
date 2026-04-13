@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicLong
  * @param eventEmitter [ReplayEventEmitter] to emit the event
  * @param sessionIdProvider Supplies the session ID for each batch (e.g. from RUM [io.opentelemetry.android.session.SessionProvider]).
  * Replay batches use this ID so they align with the same session as other telemetry.
+ * @param screenNameProvider Supplies the current screen name for replay Meta events.
  */
 public class SessionReplayIntegration(
     private val context: Context,

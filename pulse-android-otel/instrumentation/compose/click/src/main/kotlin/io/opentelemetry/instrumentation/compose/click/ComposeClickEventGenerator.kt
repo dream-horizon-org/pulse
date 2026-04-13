@@ -15,8 +15,10 @@ import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.android.instrumentation.click.PendingClick
 import io.opentelemetry.android.instrumentation.click.RageConfig
+import io.opentelemetry.android.instrumentation.click.common.ClickEventEmitter
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
 import io.opentelemetry.api.logs.Logger
+import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
 
 internal class ComposeClickEventGenerator(
@@ -26,10 +28,9 @@ internal class ComposeClickEventGenerator(
     private val composeTapTargetDetector: ComposeTapTargetDetector = ComposeTapTargetDetector(composeLayoutNodeUtil),
     densityScale: Float = 1f,
     rageConfig: RageConfig = RageConfig(),
-    clock: () -> Long = SystemClock::elapsedRealtime,
+    clock: Clock = Clock.getDefault(),
 ) {
-    // All buffering, rage detection, and event emission is handled here.
-    internal val clickEmitter = ComposeClickEventEmitter(eventLogger, densityScale, rageConfig, clock)
+    internal val clickEmitter = ClickEventEmitter(eventLogger, VIEW_CLICK_EVENT_NAME, densityScale, rageConfig, clock)
 
     private var windowRef: WeakReference<Window>? = null
     private val gestureTracker = PulseClickGestureTracker()
@@ -37,8 +38,8 @@ internal class ComposeClickEventGenerator(
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
         gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
-        val currentCallback: Window.Callback? = window.callback
-        window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
+        val currentCallback = window.callback ?: return
+        window.callback = WindowCallbackWrapper(currentCallback, this)
     }
 
     fun generateClick(motionEvent: MotionEvent) {
@@ -56,10 +57,10 @@ internal class ComposeClickEventGenerator(
                 val windowY = motionEvent.y
 
                 // Single traversal: owns the tap only when it lands inside a ComposeView.
-                // Returns NoCompose for taps outside Compose — ViewClickEventGenerator handles those.
+                // Returns NotFound for taps outside Compose — ViewClickEventGenerator handles those.
                 val findResult = composeTapTargetDetector.findTapResult(decorView, windowX, windowY)
-                if (findResult is ComposeFindResult.NoCompose) return
-                val tapTarget = (findResult as ComposeFindResult.Found).target
+                if (findResult !is ComposeFindResult.Found) return
+                val tapTarget = findResult.target
 
                 // Capture wall-clock time once at tap time so all PendingClick paths share it.
                 val tapEpochMs = System.currentTimeMillis()
@@ -83,9 +84,9 @@ internal class ComposeClickEventGenerator(
                                 null
                             }
                         PendingClick(
-                            x = windowX,
-                            y = windowY,
-                            timestampMs = clickEmitter.currentTimeMs(),
+                            xPx = windowX,
+                            yPx = windowY,
+                            timestampMs = clickEmitter.currentMonotonicTimeMs(),
                             tapEpochMs = tapEpochMs,
                             hasTarget = true,
                             widgetName = composeTapTargetDetector.nodeToName(node),
@@ -95,9 +96,9 @@ internal class ComposeClickEventGenerator(
                             viewportHeightPx = vpHeightPx,
                         )
                     } ?: PendingClick(
-                        x = windowX,
-                        y = windowY,
-                        timestampMs = clickEmitter.currentTimeMs(),
+                        xPx = windowX,
+                        yPx = windowY,
+                        timestampMs = clickEmitter.currentMonotonicTimeMs(),
                         tapEpochMs = tapEpochMs,
                         hasTarget = false,
                         viewportWidthPx = vpWidthPx,

@@ -102,3 +102,7 @@
   color: var(--mantine-color-dimmed);
   font-weight: 500;
 }
+
+.errorState {
+  grid-column: 1 / -1;
+}

@@ -25,12 +25,19 @@ public class com/pulse/utils/PulseFallbackToUnknownEnumSerializer : kotlinx/seri
 public final class com/pulse/utils/PulseFallbackToUnknownEnumSerializer$Companion {
 }
 
+public final class com/pulse/utils/PulseMathUtils {
+	public static final field INSTANCE Lcom/pulse/utils/PulseMathUtils;
+	public final fun gcd (II)I
+	public final fun gcd (JJ)J
+}
+
 public final class com/pulse/utils/PulseNetworkingUtils {
 	public static final field INSTANCE Lcom/pulse/utils/PulseNetworkingUtils;
 	public final fun endWithSlash (Ljava/lang/String;)Ljava/lang/String;
 	public final fun extractBaseUrlWithSlash (Ljava/lang/String;)Ljava/lang/String;
 	public final fun getOkHttpClient ()Lokhttp3/OkHttpClient;
 	public final fun redactUrl (Ljava/lang/String;)Ljava/lang/String;
+	public final fun runNetworkCatching-hUnOzRk (Ljava/lang/String;Ljava/lang/String;Lokhttp3/OkHttpClient;ZLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
 public final class com/pulse/utils/PulseOtelUtils {

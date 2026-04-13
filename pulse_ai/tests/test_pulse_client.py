@@ -1,38 +1,41 @@
-"""Tests for PulseClient — HTTP client with auth headers."""
+"""Tests for PulseClient — forwarded JWT + project to pulse-server."""
 
 import httpx
 import pytest
 import respx
 
-_TEST_ACCESS = "test-access-token"
+from pulse_ai.constants import (
+    PULSE_TOOL_SESSION_MISSING_BEARER,
+    PULSE_TOOL_SESSION_MISSING_PROJECT,
+)
+
+_AUTH = "Bearer test-access-token"
+_PROJECT = "test-project-id"
 
 
 # ---------------------------------------------------------------------------
-# Test 1: Client sends Authorization header
+# Request shape
 # ---------------------------------------------------------------------------
+
 
 @respx.mock
 @pytest.mark.asyncio
-async def test_client_sends_auth_header():
-    """GET request includes Authorization: Bearer <token>."""
+async def test_client_sends_auth_and_project_headers():
+    """GET includes Authorization and X-Project-ID."""
     from pulse_ai.client.pulse_client import PulseClient
 
     route = respx.get("http://localhost:8080/v1/interactions").mock(
         return_value=httpx.Response(200, json={"data": [], "error": None})
     )
 
-    client = PulseClient(access_token=_TEST_ACCESS)
-    await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        await client.request("GET", "/v1/interactions")
 
     assert route.called
     sent_headers = route.calls[0].request.headers
-    assert "authorization" in sent_headers
-    assert sent_headers["authorization"] == f"Bearer {_TEST_ACCESS}"
+    assert sent_headers["authorization"] == _AUTH
+    assert sent_headers.get("x-project-id") == _PROJECT
 
-
-# ---------------------------------------------------------------------------
-# Test 2: Client sends Content-Type on POST
-# ---------------------------------------------------------------------------
 
 @respx.mock
 @pytest.mark.asyncio
@@ -44,54 +47,90 @@ async def test_client_sends_content_type_on_post():
         return_value=httpx.Response(200, json={"data": {}, "error": None})
     )
 
-    client = PulseClient(access_token=_TEST_ACCESS)
-    await client.request("POST", "/v1/interactions/performance-metric/distribution", json={"test": True})
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        await client.request("POST", "/v1/interactions/performance-metric/distribution", json={"test": True})
 
     assert route.called
     sent_headers = route.calls[0].request.headers
-    assert "content-type" in sent_headers
     assert "application/json" in sent_headers["content-type"]
 
 
 # ---------------------------------------------------------------------------
-# Test 3: Handles network error gracefully
+# Validation (defense in depth after pulse_tool_session_auth_error)
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_returns_error_when_authorization_empty():
+    from pulse_ai.client.pulse_client import PulseClient
+
+    async with PulseClient(authorization_header="", project_id=_PROJECT) as client:
+        response = await client.request("GET", "/v1/interactions")
+
+    assert response == {"status": "error", "message": PULSE_TOOL_SESSION_MISSING_BEARER}
+
+
+@pytest.mark.asyncio
+async def test_returns_error_when_project_empty():
+    from pulse_ai.client.pulse_client import PulseClient
+
+    async with PulseClient(authorization_header=_AUTH, project_id="") as client:
+        response = await client.request("GET", "/v1/interactions")
+
+    assert response == {"status": "error", "message": PULSE_TOOL_SESSION_MISSING_PROJECT}
+
+
+# ---------------------------------------------------------------------------
+# Errors
+# ---------------------------------------------------------------------------
+
 
 @respx.mock
 @pytest.mark.asyncio
 async def test_client_handles_network_error():
-    """Connection error returns structured error, no exception raised."""
     from pulse_ai.client.pulse_client import PulseClient
 
     respx.get("http://localhost:8080/v1/interactions").mock(
         side_effect=httpx.ConnectError("Connection refused")
     )
 
-    client = PulseClient()
-    response = await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        response = await client.request("GET", "/v1/interactions")
 
-    assert response is not None
+    assert isinstance(response, dict)
     assert response["status"] == "error"
     assert "Connection refused" in response["message"] or "connect" in response["message"].lower()
 
 
-# ---------------------------------------------------------------------------
-# Test 4: Handles timeout gracefully
-# ---------------------------------------------------------------------------
-
 @respx.mock
 @pytest.mark.asyncio
 async def test_client_handles_timeout():
-    """Timeout returns structured error, no exception raised."""
     from pulse_ai.client.pulse_client import PulseClient
 
     respx.get("http://localhost:8080/v1/interactions").mock(
         side_effect=httpx.ReadTimeout("Read timed out")
     )
 
-    client = PulseClient()
-    response = await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        response = await client.request("GET", "/v1/interactions")
 
-    assert response is not None
+    assert isinstance(response, dict)
     assert response["status"] == "error"
     assert "timeout" in response["message"].lower() or "timed out" in response["message"].lower()
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_client_returns_http_response_on_401():
+    """401 is returned as-is; no refresh in this client."""
+    from pulse_ai.client.pulse_client import PulseClient
+
+    respx.get("http://localhost:8080/v1/interactions").mock(
+        return_value=httpx.Response(401, json={"error": {"code": "UNAUTHORIZED"}})
+    )
+
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        response = await client.request("GET", "/v1/interactions")
+
+    assert isinstance(response, httpx.Response)
+    assert response.status_code == 401

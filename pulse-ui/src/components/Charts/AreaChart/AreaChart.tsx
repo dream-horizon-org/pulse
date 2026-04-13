@@ -35,6 +35,9 @@ export function AreaChart({
   tooltipValueFormatter,
   syncTooltips = true,
   group = "defaultChartGroup",
+  onTimeFilterChange,
+  mapBrushToTimeFilter,
+  syncDataZoomToTimeFilter = false,
   ...props
 }: AreaChartProps) {
   const chartRef = useRef<ReactECharts>(null);
@@ -43,6 +46,9 @@ export function AreaChart({
     syncTooltips,
     group,
     enableBrushSelection: true,
+    onTimeFilterChange,
+    mapBrushToTimeFilter,
+    syncDataZoomToTimeFilter,
   });
 
   const tooltip = useTooltip({ tooltipValueFormatter });

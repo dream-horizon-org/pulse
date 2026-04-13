@@ -30,11 +30,25 @@ internal object PulseFeatureFlagUtils {
         enumValues<PulseFeatureName>().forEach { feature ->
             if (feature !in enabledFeatures) {
                 when (feature) {
-                    PulseFeatureName.JAVA_CRASH -> config.suppressInstrumentation("crash")
-                    PulseFeatureName.JAVA_ANR -> config.suppressInstrumentation("anr")
-                    PulseFeatureName.NETWORK_CHANGE -> config.disableNetworkAttributes()
-                    PulseFeatureName.INTERACTION -> config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                    PulseFeatureName.CUSTOM_EVENTS -> isCustomEventEnabled = false
+                    PulseFeatureName.JAVA_CRASH -> {
+                        config.suppressInstrumentation("crash")
+                    }
+                    PulseFeatureName.JAVA_ANR -> {
+                        config.suppressInstrumentation("anr")
+                    }
+                    PulseFeatureName.NETWORK_CHANGE -> {
+                        config.disableNetworkAttributes()
+                    }
+                    PulseFeatureName.INTERACTION -> {
+                        config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                    }
+                    PulseFeatureName.CUSTOM_EVENTS -> {
+                        isCustomEventEnabled = false
+                    }
+                    PulseFeatureName.CLICK -> {
+                        config.suppressInstrumentation("view.click")
+                        config.suppressInstrumentation("compose.click")
+                    }
                     PulseFeatureName.JS_CRASH,
                     PulseFeatureName.CPP_CRASH,
                     PulseFeatureName.CPP_ANR,
@@ -48,7 +62,9 @@ internal object PulseFeatureFlagUtils {
                     // sessionSampleRate = 0.0 or feature absence can disable click instrumentation.
                     PulseFeatureName.CLICK,
                     PulseFeatureName.UNKNOWN,
-                    -> Unit
+                    -> {
+                        Unit
+                    }
                 }
             }
         }
