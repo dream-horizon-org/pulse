@@ -223,7 +223,8 @@ export function ConfigEditor({
               </Group>
               <Text className={classes.pageSubtitle}>
                 {isViewMode ? (
-                  <>Viewing saved configuration. Click <Text span fw={600} c="blue.6">"Edit"</Text> to create a new version.</>
+                  <>Viewing saved configuration. Click <Text span fw={600} c="blue.6">"Create from this"</Text> to create a new version.</>
+
                 ) : (
                   <>Configure SDK behavior and <Text span fw={600} c="teal.6">save</Text> to create a new version.</>
                 )}
@@ -251,11 +252,11 @@ export function ConfigEditor({
               
               {isViewMode ? (
                 <Button
-                  leftSection={<IconEdit size={16} />}
+                  leftSection={<IconCopy size={16} />}
                   onClick={onEdit}
                   size="sm"
                 >
-                  Edit
+                  Create from this
                 </Button>
               ) : (
                 <>

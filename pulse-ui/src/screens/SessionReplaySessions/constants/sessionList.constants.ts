@@ -62,7 +62,7 @@ export const SESSION_LIST_LABELS = {
   sessionsCountSuffix: "SESSIONS",
   quickFiltersLabel: "Quick filters:",
   advancedFilters: "Advanced Filters",
-  searchPlaceholder: "Search by userId, sessionId...",
+  searchPlaceholder: "Search by User ID or Session ID",
   activeFiltersCount: "active",
   previous: "Previous",
   next: "Next",

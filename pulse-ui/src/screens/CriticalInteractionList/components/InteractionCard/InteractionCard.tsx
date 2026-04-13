@@ -1,4 +1,4 @@
-import { Text } from "@mantine/core";
+import { Text, Tooltip } from "@mantine/core";
 import classes from "./InteractionCard.module.css";
 
 interface InteractionCardProps {
@@ -10,6 +10,7 @@ interface InteractionCardProps {
   errorRateValue?: number;
   p50Latency?: number;
   poorUserPercentage?: number;
+  totalUsers?: number;
 }
 
 export function InteractionCard({
@@ -20,6 +21,7 @@ export function InteractionCard({
   errorRateValue = 0,
   p50Latency = 0,
   poorUserPercentage = 0,
+  totalUsers = 0,
 }: InteractionCardProps) {
   // Use provided metric values or defaults
 
@@ -79,9 +81,11 @@ export function InteractionCard({
         <div className={classes.interactionInfo}>
           <Text className={classes.interactionName}>{interactionName}</Text>
           {description && (
-            <Text className={classes.interactionDescription}>
-              {description}
-            </Text>
+            <Tooltip label={description} withArrow multiline maw={300} openDelay={300}>
+              <Text className={classes.interactionDescription}>
+                {description}
+              </Text>
+            </Tooltip>
           )}
         </div>
         <div
@@ -117,20 +121,28 @@ export function InteractionCard({
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Poor Users</Text>
-          <Text className={classes.metricValue}>
-            {poorUserPercentage >= 0
-              ? formattedPoorUserPercentage(poorUserPercentage)
-              : "N/A"}
-          </Text>
+          <Tooltip
+            label={totalUsers > 0 ? `${Math.round((poorUserPercentage / 100) * totalUsers).toLocaleString()} of ${totalUsers.toLocaleString()} users` : "Total user count unavailable"}
+            withArrow
+            openDelay={200}
+          >
+            <Text className={classes.metricValue}>
+              {poorUserPercentage >= 0
+                ? formattedPoorUserPercentage(poorUserPercentage)
+                : "N/A"}
+            </Text>
+          </Tooltip>
         </div>
       </div>
 
-      <div
-        className={classes.healthBar}
-        style={{
-          background: `linear-gradient(to right, ${healthColor} ${apdexScore * 100}%, var(--mantine-color-gray-2) ${apdexScore * 100}%)`,
-        }}
-      />
+      <Tooltip label={`Apdex score: ${apdexScore.toFixed(2)} — ${healthStatus}`} withArrow openDelay={200}>
+        <div
+          className={classes.healthBar}
+          style={{
+            background: `linear-gradient(to right, ${healthColor} ${apdexScore * 100}%, var(--mantine-color-gray-2) ${apdexScore * 100}%)`,
+          }}
+        />
+      </Tooltip>
     </div>
   );
 }
