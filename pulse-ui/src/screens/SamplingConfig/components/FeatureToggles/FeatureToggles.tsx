@@ -42,6 +42,7 @@ import {
   IconPlayerPlay,
   IconFlame,
   IconGridDots,
+  IconMapPin,
 } from "@tabler/icons-react";
 import {
   FeatureConfig,
@@ -77,7 +78,6 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   js_crash: <IconBug size={22} />,
   java_anr: <IconAlertTriangle size={22} />,
   network_change: <IconWifi size={22} />,
-  network_instrumentation: <IconNetwork size={22} />,
   screen_session: <IconDeviceMobile size={22} />,
   custom_events: <IconTag size={22} />,
   rn_screen_load: <IconDeviceMobile size={22} />,
@@ -85,6 +85,15 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   session_replay: <IconPlayerPlay size={22} />,
   click: <IconFlame size={22} />,
   [HEATMAP_FEATURE_NAME]: <IconGridDots size={22} />,
+  android_network: <IconNetwork size={22} />,
+  ios_network: <IconNetwork size={22} />,
+  rn_network: <IconNetwork size={22} />,
+  ios_crash: <IconBug size={22} />,
+  ios_lifecycle: <IconPlayerPlay size={22} />,
+  android_activity: <IconPlayerPlay size={22} />,
+  android_fragment: <IconPlayerPlay size={22} />,
+  android_slowrendering: <IconAlertTriangle size={22} />,
+  location: <IconMapPin size={22} />,
 };
 
 const FEATURE_COLORS: Record<string, string> = {
@@ -93,7 +102,6 @@ const FEATURE_COLORS: Record<string, string> = {
   js_crash: "#ef4444",
   java_anr: "#dc2626",
   network_change: "#06b6d4",
-  network_instrumentation: "#3b82f6",
   screen_session: "#8b5cf6",
   custom_events: "#10b981",
   rn_screen_load: "#f59e0b",
@@ -101,6 +109,15 @@ const FEATURE_COLORS: Record<string, string> = {
   session_replay: "#6366f1",
   click: "#f97316",
   [HEATMAP_FEATURE_NAME]: "#ec4899",
+  android_network: "#3b82f6",
+  ios_network: "#3b82f6",
+  rn_network: "#3b82f6",
+  ios_crash: "#ef4444",
+  ios_lifecycle: "#8b5cf6",
+  android_activity: "#8b5cf6",
+  android_fragment: "#8b5cf6",
+  android_slowrendering: "#dc2626",
+  location: "#14b8a6",
 };
 
 const TEXT_AND_INPUT_PRIVACY_OPTIONS: {
@@ -147,7 +164,9 @@ export function FeatureToggles({
   const [rageThreshold, setRageThreshold] = useState<number>(
     DEFAULT_RAGE_CONFIG.threshold,
   );
-  const [rageRadius, setRageRadius] = useState<number>(DEFAULT_RAGE_CONFIG.radius);
+  const [rageRadius, setRageRadius] = useState<number>(
+    DEFAULT_RAGE_CONFIG.radius,
+  );
 
   // Helper to check if feature is enabled based on sessionSampleRate
   const isFeatureEnabled = (feature: FeatureConfig) =>
@@ -219,7 +238,10 @@ export function FeatureToggles({
     setFeatureEnabled(isFeatureEnabled(feature)); // Convert sessionSampleRate to boolean
     setFeatureSdks(feature.sdks);
     if (feature.featureName === SESSION_REPLAY_FEATURE_NAME) {
-      const sr = feature.config as SessionReplayFeatureConfig | null | undefined;
+      const sr = feature.config as
+        | SessionReplayFeatureConfig
+        | null
+        | undefined;
       setTextAndInputPrivacy(sr?.textAndInputPrivacy ?? "MASK_ALL");
       setImagePrivacy(sr?.imagePrivacy ?? "MASK_ALL");
     } else {

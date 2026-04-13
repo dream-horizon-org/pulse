@@ -34,14 +34,22 @@ export type FeatureName =
   | "js_crash"
   | "java_anr"
   | "network_change"
-  | "network_instrumentation"
   | "screen_session"
   | "custom_events"
   | "rn_screen_load"
   | "rn_screen_interactive"
   | "session_replay"
   | "click"
-  | "heatmap";
+  | "heatmap"
+  | "android_network"
+  | "ios_network"
+  | "rn_network"
+  | "ios_crash"
+  | "ios_lifecycle"
+  | "android_activity"
+  | "android_fragment"
+  | "android_slowrendering"
+  | "location";
 
 export type TextAndInputPrivacy =
   | "MASK_ALL"

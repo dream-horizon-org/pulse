@@ -25,6 +25,18 @@ public class DefaultSdkConfigTemplate {
             Sdk.pulse_ios_swift,
             Sdk.pulse_ios_rn
         );
+        List<Sdk> iosSdk = Arrays.asList(
+            Sdk.pulse_ios_swift,
+            Sdk.pulse_ios_rn
+        );
+        List<Sdk> androidSdk = Arrays.asList(
+            Sdk.pulse_android_java,
+            Sdk.pulse_android_rn
+        );
+        List<Sdk> rnSdk = Arrays.asList(
+            Sdk.pulse_android_rn,
+            Sdk.pulse_ios_rn
+        );
 
         // Sampling configuration
         SamplingConfig sampling = SamplingConfig.builder()
@@ -60,18 +72,26 @@ public class DefaultSdkConfigTemplate {
         // Feature configurations - enable all features with full sampling (except network_instrumentation)
         List<FeatureConfig> features = new ArrayList<>();
         features.add(createFeature(Features.interaction, 1.0, allSdks));
-        features.add(createFeature(Features.java_crash, 1.0, allSdks));
-        features.add(createFeature(Features.js_crash, 1.0, allSdks));
-        features.add(createFeature(Features.java_anr, 1.0, allSdks));
+        features.add(createFeature(Features.java_crash, 1.0, androidSdk));
+        features.add(createFeature(Features.js_crash, 1.0, androidSdk));
+        features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
-        features.add(createFeature(Features.network_instrumentation, 0.0, allSdks)); // Disabled by default
         features.add(createFeature(Features.screen_session, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
-        features.add(createFeature(Features.rn_screen_load, 1.0, allSdks));
-        features.add(createFeature(Features.rn_screen_interactive, 1.0, allSdks));
+        features.add(createFeature(Features.rn_screen_load, 1.0, rnSdk));
+        features.add(createFeature(Features.rn_screen_interactive, 1.0, rnSdk));
         features.add(createSessionReplayFeature(1.0, allSdks));
         features.add(createClickFeature(1.0, allSdks));
         features.add(createFeature(Features.heatmap, 1.0, allSdks));
+        features.add(createFeature(Features.ios_crash, 1.0, iosSdk));
+        features.add(createFeature(Features.android_slowrendering, 1.0, androidSdk));
+        features.add(createFeature(Features.android_network, 0.0, androidSdk));
+        features.add(createFeature(Features.ios_network, 1.0, iosSdk));
+        features.add(createFeature(Features.rn_network, 1.0, rnSdk));
+        features.add(createFeature(Features.ios_lifecycle, 0.0, iosSdk));
+        features.add(createFeature(Features.android_activity, 1.0, androidSdk));
+        features.add(createFeature(Features.android_fragment, 0.0, androidSdk));
+        features.add(createFeature(Features.location, 0.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()
