@@ -33,6 +33,12 @@ internal class UIWindowSwizzler {
     // Touch start positions keyed by UITouch identity — always accessed on main thread.
     private static var touchStartLocations: [ObjectIdentifier: CGPoint] = [:]
 
+    /// One line per view while walking superviews: `isClickTarget` result (grep Xcode console for `Pulse/UIKitTap`).
+    private static func logIsClickTarget(depth: Int, view: UIView, result: Bool) {
+        let cls = NSStringFromClass(type(of: view))
+        print("[Pulse UIKitTap] isClickTarget depth=\(depth) class=\(cls) -> \(result)")
+    }
+
     static func swizzle(logger: OpenTelemetryApi.Logger, captureContext: Bool, rageConfig: RageConfig) {
         swizzleLock.lock()
         defer { swizzleLock.unlock() }
@@ -47,8 +53,10 @@ internal class UIWindowSwizzler {
             onRage: { emitter?.emitRageClick($0) },
             onEmit: { [weak emitter] click in
                 if click.hasTarget {
+                    print("[Pulse UIKitTap] emit good click (buffer delivered) x=\(click.x) y=\(click.y)")
                     emitter?.emitGoodClick(click)
                 } else {
+                    print("[Pulse UIKitTap] emit dead click (buffer delivered, no click target) x=\(click.x) y=\(click.y)")
                     emitter?.emitDeadClick(click)
                 }
             }
@@ -79,11 +87,9 @@ internal class UIWindowSwizzler {
                 return
             }
 
-            // Track touch start positions for scroll vs tap detection.
             for touch in touches where touch.phase == .began {
                 touchStartLocations[ObjectIdentifier(touch)] = touch.location(in: window)
             }
-            // Clean up cancelled touches (system interruption, incoming call, etc.)
             for touch in touches where touch.phase == .cancelled {
                 touchStartLocations.removeValue(forKey: ObjectIdentifier(touch))
             }
@@ -94,28 +100,25 @@ internal class UIWindowSwizzler {
                 let key = ObjectIdentifier(touch)
                 defer { touchStartLocations.removeValue(forKey: key) }
 
-                // Scroll vs tap guard
                 if let startLocation = touchStartLocations[key] {
                     let dx = endLocation.x - startLocation.x
                     let dy = endLocation.y - startLocation.y
                     let distSq = dx * dx + dy * dy
-                    guard distSq <= tapSlopDistance * tapSlopDistance else {
+                    let slopSq = tapSlopDistance * tapSlopDistance
+                    guard distSq <= slopSq else {
                         return nil
                     }
                 }
 
                 let target = findClickTarget(in: window, at: endLocation)
-
                 return (target, endLocation)
             }()
 
-            // Dispatch the original touch event
             if let imp = originalIMP {
                 let fn = unsafeBitCast(imp, to: (@convention(c) (UIWindow, Selector, UIEvent) -> Void).self)
                 fn(window, #selector(UIWindow.sendEvent(_:)), event)
             }
 
-            // Emit after dispatch so touch responsiveness is not affected
             if let (target, location) = clickTarget {
                 emitClickEvent(target: target, at: location, in: window)
             }
@@ -157,6 +160,10 @@ internal class UIWindowSwizzler {
             viewportHeightPt: Int(window.bounds.height)
         )
 
+        // `onEmit` (good/dead otel) runs later when the buffer evicts or flushes — log now so Xcode console matches this touch.
+        let kind = pending.hasTarget ? "good" : "dead"
+        print("[Pulse UIKitTap] record click (will emit \(kind)) x=\(pending.x) y=\(pending.y) hasTarget=\(pending.hasTarget)")
+
         buffer?.record(pending)
     }
 
@@ -164,11 +171,14 @@ internal class UIWindowSwizzler {
 
     private static func findClickTarget(in window: UIWindow, at point: CGPoint) -> UIView? {
         guard let hitView = window.hitTest(point, with: nil) else { return nil }
-        // Walk up to find the most meaningful interactable ancestor (same pipeline for UIKit and SwiftUI-backed UI).
         var candidate: UIView? = hitView
+        var depth = 0
         while let view = candidate {
-            if isClickTarget(view) { return view }
+            let ok = isClickTarget(view)
+            logIsClickTarget(depth: depth, view: view, result: ok)
+            if ok { return view }
             candidate = view.superview
+            depth += 1
         }
         return nil
     }
