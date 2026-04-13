@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `ScreenName` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['screen.name'], ''),
     `ClickType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['click.type'], ''),
     `Rage` Bool MATERIALIZED (LogAttributes['click.is_rage'] = 'true'),
-    `RageCount` UInt8 MATERIALIZED toUInt8OrZero(LogAttributes['click.rageCount']),
+    `RageCount` UInt8 MATERIALIZED toUInt8OrZero(LogAttributes['click.rage_count']),
     `XPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.x']),
     `YPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.y']),
     `NormXPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.nx']),
