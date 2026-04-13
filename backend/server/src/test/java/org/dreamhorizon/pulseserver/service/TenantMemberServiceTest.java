@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.model.User;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.FailureReason;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -60,6 +61,8 @@ class TenantMemberServiceTest {
         emailService);
     // Stub so add-user flow can call getUserByEmail(email).isEmpty() without NPE
     when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
+    // Default: user has no existing tenants (happy-path baseline; cross-tenant tests override this)
+    when(openFgaService.getUserTenants(any())).thenReturn(Single.just(List.of()));
   }
 
   private User createUser(String userId, String email, String name) {
@@ -431,6 +434,36 @@ class TenantMemberServiceTest {
       assertThat(result.getFailedEmails()).hasSize(1);
       assertThat(result.getFailedEmails().get(0)).contains("invalid@test.com").contains("Invalid email");
     }
+
+    @Test
+    void shouldPopulateStructuredFailuresWithTypedReasons() {
+      User admin = createUser(ADMIN_ID, "admin@example.com", "Admin User");
+      User user1 = createUser("user-1", "ok@test.com", "ok@test.com");
+      User crossTenantUser = createUser("user-2", "cross@test.com", "cross@test.com");
+      Tenant tenant = createTenant(TENANT_ID, TENANT_NAME);
+
+      List<String> emails = List.of("ok@test.com", "cross@test.com");
+
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isTenantAdmin(ADMIN_ID, TENANT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("ok@test.com", "ok@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("cross@test.com", "cross@test.com")).thenReturn(Single.just(crossTenantUser));
+      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID))).thenReturn(Single.just(Optional.empty()));
+      // ok@test.com has no tenant; cross@test.com is already in another tenant
+      when(openFgaService.getUserTenants("user-1")).thenReturn(Single.just(List.of()));
+      when(openFgaService.getUserTenants("user-2")).thenReturn(Single.just(List.of("other-tenant")));
+      when(openFgaService.assignTenantRole("user-1", TENANT_ID, "member")).thenReturn(Completable.complete());
+
+      var result = tenantMemberService.addUsersToTenant(TENANT_ID, emails, "member", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getFailureCount()).isEqualTo(1);
+      assertThat(result.getStructuredFailures()).hasSize(1);
+      assertThat(result.getStructuredFailures().get(0).getEmail()).isEqualTo("cross@test.com");
+      assertThat(result.getStructuredFailures().get(0).getReason()).isEqualTo(FailureReason.CROSS_TENANT_VIOLATION);
+      assertThat(result.getStructuredFailures().get(0).getMessage()).contains("different organization");
+    }
   }
 
   @Nested
@@ -445,8 +478,7 @@ class TenantMemberServiceTest {
 
       when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(newUser));
-      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
-          .thenReturn(Single.just(Optional.empty()));
+      // Default @BeforeEach stub: getUserTenants(any()) → [] (no existing tenants)
       when(openFgaService.assignTenantRole(USER_ID, TENANT_ID, "member")).thenReturn(Completable.complete());
 
       User result = tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet();
@@ -455,10 +487,11 @@ class TenantMemberServiceTest {
       assertThat(result.getUserId()).isEqualTo(USER_ID);
       verify(openFgaService).assignTenantRole(USER_ID, TENANT_ID, "member");
       verify(openFgaService, never()).isTenantAdmin(any(), any());
+      verify(openFgaService, never()).getUserTenantRole(any(), any());
     }
 
     @Test
-    void shouldSkipIfUserAlreadyHasTenantRole() {
+    void shouldSkipIfUserAlreadyInTenant() {
       Tenant tenant = new Tenant();
       tenant.setTenantId(TENANT_ID);
       tenant.setName(TENANT_NAME);
@@ -466,13 +499,32 @@ class TenantMemberServiceTest {
 
       when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
       when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(existingUser));
-      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
-          .thenReturn(Single.just(Optional.of("admin")));
+      // User is already in this tenant
+      when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(List.of(TENANT_ID)));
 
       User result = tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet();
 
       assertThat(result).isNotNull();
       assertThat(result.getUserId()).isEqualTo(USER_ID);
+      verify(openFgaService, never()).assignTenantRole(any(), any(), any());
+      verify(openFgaService, never()).getUserTenantRole(any(), any());
+    }
+
+    @Test
+    void shouldBlockIfUserAlreadyInDifferentTenant() {
+      Tenant tenant = new Tenant();
+      tenant.setTenantId(TENANT_ID);
+      tenant.setName(TENANT_NAME);
+      User existingUser = createUser(USER_ID, EMAIL, "Existing User");
+
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
+      when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(existingUser));
+      when(openFgaService.getUserTenants(USER_ID)).thenReturn(Single.just(List.of("other-tenant")));
+
+      IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+          tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet());
+
+      assertThat(ex.getMessage()).contains("different organization");
       verify(openFgaService, never()).assignTenantRole(any(), any(), any());
     }
 
@@ -484,6 +536,56 @@ class TenantMemberServiceTest {
           tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet());
 
       assertThat(ex.getMessage()).contains("Tenant not found");
+    }
+  }
+
+  @Nested
+  class CrossTenantValidation {
+
+    @Test
+    void addUserToTenant_blockedWhenUserAlreadyInDifferentTenant() {
+      User admin = createUser(ADMIN_ID, "admin@example.com", "Admin User");
+      User newUser = createUser(USER_ID, EMAIL, EMAIL);
+      Tenant tenant = createTenant(TENANT_ID, TENANT_NAME);
+
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isTenantAdmin(ADMIN_ID, TENANT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(newUser));
+      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User already belongs to a different tenant
+      when(openFgaService.getUserTenants(USER_ID))
+          .thenReturn(Single.just(List.of("other-tenant-id")));
+
+      IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+          tenantMemberService.addUserToTenant(TENANT_ID, EMAIL, "member", ADMIN_ID).blockingGet());
+
+      assertThat(ex.getMessage()).contains("different organization");
+      verify(openFgaService, never()).assignTenantRole(any(), any(), any());
+    }
+
+    @Test
+    void addUserToTenant_allowedWhenUserHasNoTenant() {
+      User admin = createUser(ADMIN_ID, "admin@example.com", "Admin User");
+      User newUser = createUser(USER_ID, EMAIL, EMAIL);
+      Tenant tenant = createTenant(TENANT_ID, TENANT_NAME);
+
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isTenantAdmin(ADMIN_ID, TENANT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(newUser));
+      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User has no existing tenants — getUserTenants default stub returns [] (set in @BeforeEach)
+      when(openFgaService.assignTenantRole(USER_ID, TENANT_ID, "member"))
+          .thenReturn(Completable.complete());
+
+      User result = tenantMemberService.addUserToTenant(TENANT_ID, EMAIL, "member", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getUserId()).isEqualTo(USER_ID);
+      verify(openFgaService).assignTenantRole(USER_ID, TENANT_ID, "member");
     }
   }
 }

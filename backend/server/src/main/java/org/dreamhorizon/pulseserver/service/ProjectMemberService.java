@@ -23,6 +23,8 @@ import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.FailedInvite;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.FailureReason;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 
@@ -193,10 +195,11 @@ public class ProjectMemberService {
         List<String> successEmails = new ArrayList<>();
         List<String> failedEmails = new ArrayList<>();
         List<String> skippedEmails = new ArrayList<>();
-        
+        List<FailedInvite> structuredFailures = new ArrayList<>();
+
         // Process each email sequentially
         List<Completable> inviteOperations = new ArrayList<>();
-        
+
         for (String email : uniqueEmails) {
             Completable operation = addMemberToProject(projectId, email, role, addedBy)
                 .doOnSuccess(user -> {
@@ -206,20 +209,25 @@ public class ProjectMemberService {
                 })
                 .ignoreElement() // Convert Single to Completable
                 .onErrorComplete(error -> {
-                    // Log and record error, then complete successfully to continue with other emails
-                    log.warn("Failed to add member to project: email={}, error={}", email, error.getMessage());
+                    log.warn("Failed to add member to project: email={}, reason={}, error={}",
+                        email, FailureReason.from(error), error.getMessage());
                     synchronized (failedEmails) {
                         failedEmails.add(email + " (" + error.getMessage() + ")");
+                        structuredFailures.add(FailedInvite.builder()
+                            .email(email)
+                            .reason(FailureReason.from(error))
+                            .message(error.getMessage())
+                            .build());
                     }
                     return true; // Complete successfully to continue processing
                 });
-            
+
             inviteOperations.add(operation);
         }
-        
+
         // Execute all operations and collect results
         return Completable.merge(inviteOperations)
-            .andThen(Single.fromCallable(() -> 
+            .andThen(Single.fromCallable(() ->
                 BulkInviteResult.builder()
                     .successCount(successEmails.size())
                     .failureCount(failedEmails.size())
@@ -227,6 +235,7 @@ public class ProjectMemberService {
                     .successEmails(successEmails)
                     .failedEmails(failedEmails)
                     .skippedEmails(skippedEmails)
+                    .structuredFailures(structuredFailures)
                     .build()
             ))
             .doOnSuccess(bulkResult -> {
@@ -459,25 +468,31 @@ public class ProjectMemberService {
     
     /**
      * Ensure user is in the parent tenant.
-     * If not, add them as a member automatically using the internal bypass method.
+     * Blocks if user already belongs to a different tenant (cross-tenant enforcement).
+     * If the user has no tenant, adds them as a member automatically using the internal bypass method.
      * This allows project admins to add users to projects without needing tenant admin permissions.
      */
     private Completable ensureUserInTenant(User user, String tenantId, String addedBy) {
-        return openFgaService.getUserTenantRole(user.getUserId(), tenantId)
-            .flatMapCompletable(roleOpt -> {
-                if (roleOpt.isPresent()) {
-                    // User already in tenant
-                    log.debug("User already in tenant: user={}, tenant={}, role={}", 
-                        user.getUserId(), tenantId, roleOpt.get());
-                    return Completable.complete();
-                } else {
-                    // Add user to tenant as member using internal method (bypasses auth check)
-                    log.info("Auto-adding user to tenant as member: user={}, tenant={}, triggeredBy={}", 
-                        user.getUserId(), tenantId, addedBy);
-                    return tenantMemberService.addUserToTenantInternal(
-                        tenantId, user.getEmail()
-                    ).ignoreElement();
+        return openFgaService.getUserTenants(user.getUserId())
+            .flatMapCompletable(existingTenants -> {
+                if (existingTenants != null && !existingTenants.isEmpty()
+                        && !existingTenants.contains(tenantId)) {
+                    log.warn("Cross-tenant membership blocked in project add: user={} already in tenants={}, target tenant={}",
+                        user.getUserId(), existingTenants, tenantId);
+                    return Completable.error(new IllegalStateException(
+                        "User belongs to a different organization and cannot be added to this project."));
                 }
+                if (existingTenants != null && existingTenants.contains(tenantId)) {
+                    // User already in this tenant
+                    log.debug("User already in tenant: user={}, tenant={}", user.getUserId(), tenantId);
+                    return Completable.complete();
+                }
+                // Not in any tenant — auto-add as member
+                log.info("Auto-adding user to tenant as member: user={}, tenant={}, triggeredBy={}",
+                    user.getUserId(), tenantId, addedBy);
+                return tenantMemberService.addUserToTenantInternal(
+                    tenantId, user.getEmail()
+                ).ignoreElement();
             });
     }
     

@@ -20,6 +20,7 @@ import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.FailureReason;
 import org.dreamhorizon.pulseserver.service.TenantMemberService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,6 +71,8 @@ class ProjectMemberServiceTest {
         .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
     // Stub so add-member flow can call getUserByEmail(email).isEmpty() without NPE
     when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
+    // Default: user has no existing tenants (happy-path baseline; cross-tenant tests override this)
+    when(openFgaService.getUserTenants(any())).thenReturn(Single.just(List.of()));
   }
 
   private Project createProject(String projectId, String tenantId, String name) {
@@ -145,8 +148,9 @@ class ProjectMemberServiceTest {
           .thenReturn(Single.just(newUser));
       when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
           .thenReturn(Single.just(Optional.empty()));
-      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
-          .thenReturn(Single.just(Optional.of("member")));
+      // User already in this tenant — ensureUserInTenant should short-circuit
+      when(openFgaService.getUserTenants(USER_ID))
+          .thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
           .thenReturn(Completable.complete());
 
@@ -188,8 +192,7 @@ class ProjectMemberServiceTest {
           .thenReturn(Single.just(newUser));
       when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
           .thenReturn(Single.just(Optional.empty()));
-      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
-          .thenReturn(Single.just(Optional.empty()));
+      // User not in any tenant — ensureUserInTenant should auto-add; default @BeforeEach stub returns []
       when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "newuser@test.com"))
           .thenReturn(Single.just(newUser));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "editor"))
@@ -575,8 +578,8 @@ class ProjectMemberServiceTest {
       when(userService.getOrCreateUser("user2@test.com", "user2@test.com")).thenReturn(Single.just(user2));
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
-      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
-          .thenReturn(Single.just(Optional.of("member")));
+      // Users already in this tenant — ensureUserInTenant should short-circuit
+      when(openFgaService.getUserTenants(any())).thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
           .thenReturn(Completable.complete());
 
@@ -602,8 +605,8 @@ class ProjectMemberServiceTest {
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
-      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
-          .thenReturn(Single.just(Optional.of("member")));
+      // User already in this tenant
+      when(openFgaService.getUserTenants(any())).thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
           .thenReturn(Completable.complete());
 
@@ -629,8 +632,8 @@ class ProjectMemberServiceTest {
           .thenReturn(Single.error(new RuntimeException("User creation failed")));
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
-      when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
-          .thenReturn(Single.just(Optional.of("member")));
+      // user-1 already in this tenant; default @BeforeEach stub covers user-2 (fails before ensureUserInTenant)
+      when(openFgaService.getUserTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "editor"))
           .thenReturn(Completable.complete());
 
@@ -657,8 +660,7 @@ class ProjectMemberServiceTest {
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
-      when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
-          .thenReturn(Single.just(Optional.empty()));
+      // User not in any tenant — default @BeforeEach stub returns [] so auto-add kicks in
       when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "user1@test.com"))
           .thenReturn(Single.just(user1));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
@@ -686,8 +688,8 @@ class ProjectMemberServiceTest {
           .thenReturn(Single.error(new IllegalArgumentException("Invalid email")));
       when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
           .thenReturn(Single.just(Optional.empty()));
-      when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
-          .thenReturn(Single.just(Optional.of("member")));
+      // user-1 already in this tenant
+      when(openFgaService.getUserTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
           .thenReturn(Completable.complete());
 
@@ -700,6 +702,124 @@ class ProjectMemberServiceTest {
       assertThat(result.getSuccessEmails()).containsExactly("user1@test.com");
       assertThat(result.getFailedEmails()).hasSize(1);
       assertThat(result.getFailedEmails().get(0)).contains("invalid@test.com").contains("Invalid email");
+    }
+
+    @Test
+    void shouldPopulateStructuredFailuresWithTypedReasons() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "ok@test.com", "User 1");
+      User crossTenantUser = createUser("user-2", "cross@test.com", "Cross User");
+
+      List<String> emails = List.of("ok@test.com", "cross@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("ok@test.com", "ok@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("cross@test.com", "cross@test.com")).thenReturn(Single.just(crossTenantUser));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      // user-1 already in this tenant — short-circuit
+      when(openFgaService.getUserTenants("user-1")).thenReturn(Single.just(List.of(TENANT_ID)));
+      // user-2 belongs to a different tenant — cross-tenant violation
+      when(openFgaService.getUserTenants("user-2")).thenReturn(Single.just(List.of("other-tenant-id")));
+      when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getFailureCount()).isEqualTo(1);
+      assertThat(result.getStructuredFailures()).hasSize(1);
+      assertThat(result.getStructuredFailures().get(0).getEmail()).isEqualTo("cross@test.com");
+      assertThat(result.getStructuredFailures().get(0).getReason()).isEqualTo(FailureReason.CROSS_TENANT_VIOLATION);
+      assertThat(result.getStructuredFailures().get(0).getMessage()).contains("different organization");
+    }
+  }
+
+  @Nested
+  class CrossTenantValidation {
+
+    @Test
+    void addMemberToProject_blockedWhenUserAlreadyInDifferentTenant() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User newUser = createUser(USER_ID, "newuser@test.com", "New User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User already belongs to a different tenant
+      when(openFgaService.getUserTenants(USER_ID))
+          .thenReturn(Single.just(List.of("other-tenant-id")));
+
+      Exception ex = assertThrows(IllegalStateException.class, () ->
+          projectMemberService.addMemberToProject(PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID)
+              .blockingGet());
+
+      assertThat(ex.getMessage()).contains("different organization");
+      verify(openFgaService, never()).assignProjectRole(any(), any(), any());
+      verify(tenantMemberService, never()).addUserToTenantInternal(any(), any());
+    }
+
+    @Test
+    void addMemberToProject_completesWhenUserAlreadyInTargetTenant() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User newUser = createUser(USER_ID, "newuser@test.com", "New User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User already in this tenant — short-circuit without calling addUserToTenantInternal
+      when(openFgaService.getUserTenants(USER_ID))
+          .thenReturn(Single.just(List.of(TENANT_ID)));
+      when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      User result = projectMemberService.addMemberToProject(
+          PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getUserId()).isEqualTo(USER_ID);
+      verify(tenantMemberService, never()).addUserToTenantInternal(any(), any());
+      verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "viewer");
+    }
+
+    @Test
+    void addMemberToProject_autoAddsToTenantWhenUserHasNoTenant() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User newUser = createUser(USER_ID, "newuser@test.com", "New User");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      // User has no tenant — default @BeforeEach stub returns [] so auto-add kicks in
+      when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "newuser@test.com"))
+          .thenReturn(Single.just(newUser));
+      when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "editor"))
+          .thenReturn(Completable.complete());
+
+      User result = projectMemberService.addMemberToProject(
+          PROJECT_ID, "newuser@test.com", "editor", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      verify(tenantMemberService).addUserToTenantInternal(TENANT_ID, "newuser@test.com");
+      verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "editor");
     }
   }
 }

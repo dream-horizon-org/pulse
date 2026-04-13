@@ -11,6 +11,8 @@ import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.FailedInvite;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.FailureReason;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 
 import java.util.ArrayList;
@@ -95,6 +97,18 @@ public class TenantMemberService {
                     }
                     return Single.just(ctx);
                 }))
+            // Cross-tenant validation: block if user already belongs to a different tenant
+            .flatMap(ctx -> openFgaService.getUserTenants(ctx.newUser.getUserId())
+                .flatMap(existingTenants -> {
+                    if (existingTenants != null && !existingTenants.isEmpty()
+                            && !existingTenants.contains(tenantId)) {
+                        log.warn("Cross-tenant membership blocked: user={} already in tenants={}, target tenant={}",
+                            ctx.newUser.getUserId(), existingTenants, tenantId);
+                        return Single.error(new IllegalStateException(
+                            "User already belongs to a different organization and cannot be added to this one."));
+                    }
+                    return Single.just(ctx);
+                }))
             // 4. Assign role in OpenFGA with rollback on failure
             .flatMap(ctx -> {
                 return userService.getUserByEmail(email)
@@ -171,10 +185,11 @@ public class TenantMemberService {
         List<String> successEmails = new ArrayList<>();
         List<String> failedEmails = new ArrayList<>();
         List<String> skippedEmails = new ArrayList<>();
-        
+        List<FailedInvite> structuredFailures = new ArrayList<>();
+
         // Process each email sequentially
         List<Completable> inviteOperations = new ArrayList<>();
-        
+
         for (String email : uniqueEmails) {
             Completable operation = addUserToTenant(tenantId, email, role, addedBy)
                 .doOnSuccess(user -> {
@@ -184,20 +199,25 @@ public class TenantMemberService {
                 })
                 .ignoreElement() // Convert Single to Completable
                 .onErrorComplete(error -> {
-                    // Log and record error, then complete successfully to continue with other emails
-                    log.warn("Failed to add user to tenant: email={}, error={}", email, error.getMessage());
+                    log.warn("Failed to add user to tenant: email={}, reason={}, error={}",
+                        email, FailureReason.from(error), error.getMessage());
                     synchronized (failedEmails) {
                         failedEmails.add(email + " (" + error.getMessage() + ")");
+                        structuredFailures.add(FailedInvite.builder()
+                            .email(email)
+                            .reason(FailureReason.from(error))
+                            .message(error.getMessage())
+                            .build());
                     }
                     return true; // Complete successfully to continue processing
                 });
-            
+
             inviteOperations.add(operation);
         }
-        
+
         // Execute all operations and collect results
         return Completable.merge(inviteOperations)
-            .andThen(Single.fromCallable(() -> 
+            .andThen(Single.fromCallable(() ->
                 BulkInviteResult.builder()
                     .successCount(successEmails.size())
                     .failureCount(failedEmails.size())
@@ -205,6 +225,7 @@ public class TenantMemberService {
                     .successEmails(successEmails)
                     .failedEmails(failedEmails)
                     .skippedEmails(skippedEmails)
+                    .structuredFailures(structuredFailures)
                     .build()
             ))
             .doOnSuccess(bulkResult -> {
@@ -398,28 +419,36 @@ public class TenantMemberService {
      */
     Single<User> addUserToTenantInternal(String tenantId, String email) {
         log.info("Internal: Auto-adding user to tenant as member: email={}, tenant={}", email, tenantId);
-        
+
         // Fetch tenant and get or create user
         return tenantService.getTenant(tenantId)
             .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
             .flatMap(tenant -> userService.getOrCreateUser(email, email)
                 .map(user -> new InternalAddContext(tenant, user)))
-            // Check if user already has a tenant role
-            .flatMap(ctx -> openFgaService.getUserTenantRole(ctx.user.getUserId(), tenantId)
-                .flatMap(existingRole -> {
-                    if (existingRole.isPresent()) {
-                        log.debug("User already has tenant role '{}', skipping auto-add", existingRole.get());
+            // Cross-tenant validation + same-tenant short-circuit (replaces getUserTenantRole)
+            .flatMap(ctx -> openFgaService.getUserTenants(ctx.user.getUserId())
+                .flatMap(existingTenants -> {
+                    if (existingTenants != null && !existingTenants.isEmpty()
+                            && !existingTenants.contains(tenantId)) {
+                        log.warn("Cross-tenant membership blocked in internal add: user={} already in tenants={}, target tenant={}",
+                            ctx.user.getUserId(), existingTenants, tenantId);
+                        return Single.error(new IllegalStateException(
+                            "User already belongs to a different organization and cannot be added to this one."));
+                    }
+                    if (existingTenants != null && existingTenants.contains(tenantId)) {
+                        log.debug("User already in tenant, skipping auto-add: user={}, tenant={}",
+                            ctx.user.getUserId(), tenantId);
                         return Single.just(ctx.user);
                     }
                     // Assign member role in OpenFGA
                     return openFgaService.assignTenantRole(ctx.user.getUserId(), tenantId, "member")
                         .andThen(Single.just(ctx.user))
                         .doOnSuccess(user -> {
-                            log.info("User auto-added to tenant successfully: userId={}, tenant={}, role=member", 
+                            log.info("User auto-added to tenant successfully: userId={}, tenant={}, role=member",
                                 user.getUserId(), tenantId);
                         });
                 }))
-            .doOnError(error -> 
+            .doOnError(error ->
                 log.error("Failed to auto-add user to tenant: email={}, tenant={}", email, tenantId, error)
             );
     }
