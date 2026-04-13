@@ -74,7 +74,7 @@ export const FEATURE_DISPLAY_INFO: Record<
 > = {
   interaction: {
     label: "User Interactions",
-    description: "Track taps, scrolls, and navigation patterns",
+    description: "Capture user journeys",
     icon: "click",
   },
   java_crash: {
@@ -97,11 +97,6 @@ export const FEATURE_DISPLAY_INFO: Record<
     description: "Track network state changes",
     icon: "wifi",
   },
-  network_instrumentation: {
-    label: "Network Instrumentation",
-    description: "Track API calls and network performance",
-    icon: "network",
-  },
   screen_session: {
     label: "Screen Session",
     description: "Track screen views and sessions",
@@ -119,7 +114,7 @@ export const FEATURE_DISPLAY_INFO: Record<
   },
   rn_screen_interactive: {
     label: "React Native Screen Interactive",
-    description: "Track React Native Screen Interaactive Events",
+    description: "Track React Native Screen Interactive Events",
     icon: "navigation",
   },
   session_replay: {
@@ -127,6 +122,51 @@ export const FEATURE_DISPLAY_INFO: Record<
     description:
       "Record and replay user sessions with configurable PII masking",
     icon: "replay",
+  },
+  android_network: {
+    label: "Android Network",
+    description: "Track Android network requests and performance",
+    icon: "network",
+  },
+  ios_network: {
+    label: "iOS Network",
+    description: "Track iOS network requests and performance",
+    icon: "network",
+  },
+  rn_network: {
+    label: "React Native Network",
+    description: "Track React Native network requests and performance",
+    icon: "network",
+  },
+  ios_crash: {
+    label: "iOS Crash",
+    description: "Capture iOS/Swift crashes and exceptions",
+    icon: "bug",
+  },
+  ios_lifecycle: {
+    label: "iOS Lifecycle",
+    description: "Track iOS app lifecycle events and view controllers",
+    icon: "navigation",
+  },
+  android_activity: {
+    label: "Android Activity",
+    description: "Track Android activity lifecycle events",
+    icon: "navigation",
+  },
+  android_fragment: {
+    label: "Android Fragment",
+    description: "Track Android fragment lifecycle events",
+    icon: "navigation",
+  },
+  android_slowrendering: {
+    label: "Android Slow Rendering",
+    description: "Detect and report slow rendering and jank events",
+    icon: "alert",
+  },
+  location: {
+    label: "Location",
+    description: "Track user location data",
+    icon: "navigation",
   },
 };
 

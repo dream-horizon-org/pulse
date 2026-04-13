@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
@@ -1332,7 +1333,12 @@ class ConfigControllerTest {
         // Given
         RulesAndFeaturesResponse mockResponse = RulesAndFeaturesResponse.builder()
             .rules(Arrays.asList("os_version", "app_version", "country"))
-            .features(Arrays.asList("java_crash", "native_crash", "anr"))
+            .features(Arrays.asList(
+                "java_crash", "native_crash", "anr",
+                "android_network", "ios_network", "rn_network",
+                "ios_crash", "ios_lifecycle", "android_activity",
+                "android_fragment", "android_slowrendering", "location"
+            ))
             .build();
 
         when(configService.getRulesandFeatures()).thenReturn(Single.just(mockResponse));
@@ -1348,7 +1354,12 @@ class ConfigControllerTest {
             assertNotNull(resp.getData().getRules());
             assertNotNull(resp.getData().getFeatures());
             assertEquals(3, resp.getData().getRules().size());
-            assertEquals(3, resp.getData().getFeatures().size());
+            assertEquals(12, resp.getData().getFeatures().size());
+            assertTrue(resp.getData().getFeatures().contains("android_network"));
+            assertTrue(resp.getData().getFeatures().contains("ios_network"));
+            assertTrue(resp.getData().getFeatures().contains("rn_network"));
+            assertTrue(resp.getData().getFeatures().contains("ios_crash"));
+            assertTrue(resp.getData().getFeatures().contains("location"));
             verify(configService, times(1)).getRulesandFeatures();
           });
           testContext.completeNow();

@@ -39,6 +39,7 @@ import {
   IconDeviceMobile,
   IconTag,
   IconPlayerPlay,
+  IconMapPin,
 } from "@tabler/icons-react";
 import {
   FeatureConfig,
@@ -69,12 +70,20 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   js_crash: <IconBug size={22} />,
   java_anr: <IconAlertTriangle size={22} />,
   network_change: <IconWifi size={22} />,
-  network_instrumentation: <IconNetwork size={22} />,
   screen_session: <IconDeviceMobile size={22} />,
   custom_events: <IconTag size={22} />,
   rn_screen_load: <IconDeviceMobile size={22} />,
   rn_screen_interactive: <IconDeviceMobile size={22} />,
   session_replay: <IconPlayerPlay size={22} />,
+  android_network: <IconNetwork size={22} />,
+  ios_network: <IconNetwork size={22} />,
+  rn_network: <IconNetwork size={22} />,
+  ios_crash: <IconBug size={22} />,
+  ios_lifecycle: <IconPlayerPlay size={22} />,
+  android_activity: <IconPlayerPlay size={22} />,
+  android_fragment: <IconPlayerPlay size={22} />,
+  android_slowrendering: <IconAlertTriangle size={22} />,
+  location: <IconMapPin size={22} />,
 };
 
 const FEATURE_COLORS: Record<string, string> = {
@@ -83,12 +92,20 @@ const FEATURE_COLORS: Record<string, string> = {
   js_crash: "#ef4444",
   java_anr: "#dc2626",
   network_change: "#06b6d4",
-  network_instrumentation: "#3b82f6",
   screen_session: "#8b5cf6",
   custom_events: "#10b981",
   rn_screen_load: "#f59e0b",
   rn_screen_interactive: "#10b981",
   session_replay: "#6366f1",
+  android_network: "#3b82f6",
+  ios_network: "#3b82f6",
+  rn_network: "#3b82f6",
+  ios_crash: "#ef4444",
+  ios_lifecycle: "#8b5cf6",
+  android_activity: "#8b5cf6",
+  android_fragment: "#8b5cf6",
+  android_slowrendering: "#dc2626",
+  location: "#14b8a6",
 };
 
 const TEXT_AND_INPUT_PRIVACY_OPTIONS: {
