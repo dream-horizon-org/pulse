@@ -223,9 +223,10 @@ class TestReportAgentWiring:
         assert report_agent.tools is not None
         assert len(report_agent.tools) == 2
 
-    def test_report_agent_has_instruction(self):
+    def test_report_agent_has_callable_instruction(self):
         from pulse_ai.agents.report import report_agent
-        assert report_agent.instruction is not None
+        # instruction should be a callable (function), not a static string
+        assert callable(report_agent.instruction)
 
 
 # ──────────────────────────────────────────────────────────────

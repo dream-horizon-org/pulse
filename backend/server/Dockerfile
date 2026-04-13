@@ -20,12 +20,24 @@ RUN mvn clean package -DskipTests -Dcheckstyle.skip=true
 # Using full JRE image instead of alpine for better compatibility
 FROM eclipse-temurin:17-jre
 
-# Install curl for healthcheck
+# Install runtime OS tools:
+# - curl for healthcheck
+# - llvm for llvm-symbolizer / llvm-objdump used by iOS native symbolication
+# Note: LLVM is installed via apt in this runtime image (not downloaded by Maven).
 RUN set -eux; \
     apt-get update; \
     curl_ver="$(apt-cache policy curl | awk '/Candidate:/ {print $2}')"; \
-    apt-get install --no-install-recommends -y "curl=${curl_ver}"; \
+    apt-get install --no-install-recommends -y \
+      "curl=${curl_ver}" \
+      llvm; \
     rm -rf /var/lib/apt/lists/*
+
+# Runtime overrides for native symbolication tools.
+# Defaults resolve from PATH after installing the llvm apt package.
+# - LLVM_SYMBOLIZER_PATH: full path to llvm-symbolizer executable
+# - LLVM_OBJDUMP_PATH: full path to llvm-objdump executable
+ENV LLVM_SYMBOLIZER_PATH=llvm-symbolizer \
+    LLVM_OBJDUMP_PATH=llvm-objdump
 
 # Set working directory
 WORKDIR /app

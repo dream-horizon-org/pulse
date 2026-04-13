@@ -38,6 +38,39 @@ import { SessionReplayDetail } from "../screens/SessionReplayDetail";
 import { CreateFunnel, CreateJourney } from "../screens/FunnelJourneyCreate";
 import { FunnelsList, JourneysList } from "../screens/FunnelJourneyListing";
 import { FunnelDetail, JourneyDetail } from "../screens/FunnelJourneyDetail";
+import { SessionReplayRouteGuard } from "../components/SessionReplayRouteGuard";
+
+function SessionReplaySessionsGuarded() {
+  return (
+    <SessionReplayRouteGuard>
+      <SessionReplaySessions />
+    </SessionReplayRouteGuard>
+  );
+}
+
+function SessionReplayDetailGuarded() {
+  return (
+    <SessionReplayRouteGuard>
+      <SessionReplayDetail />
+    </SessionReplayRouteGuard>
+  );
+}
+
+function SessionReplayLandingGuarded() {
+  return (
+    <SessionReplayRouteGuard>
+      <SessionReplay />
+    </SessionReplayRouteGuard>
+  );
+}
+
+function SessionReplayInsightsGuarded() {
+  return (
+    <SessionReplayRouteGuard>
+      <SessionReplayInsights />
+    </SessionReplayRouteGuard>
+  );
+}
 
 export const ROUTES = {
   // Organization-level routes
@@ -180,32 +213,32 @@ export const ROUTES = {
 
   PROJECT_SESSION_REPLAY_SESSIONS: {
     ...ROUTE_PATHS.PROJECT_SESSION_REPLAY_SESSIONS,
-    element: SessionReplaySessions,
+    element: SessionReplaySessionsGuarded,
   },
   PROJECT_SESSION_REPLAY_DETAIL: {
     ...ROUTE_PATHS.PROJECT_SESSION_REPLAY_DETAIL,
-    element: SessionReplayDetail,
+    element: SessionReplayDetailGuarded,
   },
   PROJECT_SESSION_REPLAY: {
     ...ROUTE_PATHS.PROJECT_SESSION_REPLAY,
-    element: SessionReplay,
+    element: SessionReplayLandingGuarded,
   },
 
   SESSION_REPLAY: {
     ...ROUTE_PATHS.SESSION_REPLAY,
-    element: SessionReplay,
+    element: SessionReplayLandingGuarded,
   },
   SESSION_REPLAY_INSIGHTS: {
     ...ROUTE_PATHS.SESSION_REPLAY_INSIGHTS,
-    element: SessionReplayInsights,
+    element: SessionReplayInsightsGuarded,
   },
   SESSION_REPLAY_SESSIONS: {
     ...ROUTE_PATHS.SESSION_REPLAY_SESSIONS,
-    element: SessionReplaySessions,
+    element: SessionReplaySessionsGuarded,
   },
   SESSION_REPLAY_DETAIL: {
     ...ROUTE_PATHS.SESSION_REPLAY_DETAIL,
-    element: SessionReplayDetail,
+    element: SessionReplayDetailGuarded,
   },
 
   // AI Chat (only when REACT_APP_ENABLE_AI_CHAT=true)

@@ -29,6 +29,20 @@ internal data class TapTarget(
     val ownerView: View,
 )
 
+/**
+ * Result of [ComposeTapTargetDetector.findTapResult] — one view-tree traversal instead of two.
+ *
+ * - [NotFound] — no ComposeView (Owner) contains the tap point; belongs to ViewClickEventGenerator.
+ * - [Found]     — tap landed inside a ComposeView; [target] is the hit node or null (dead click).
+ */
+internal sealed class ComposeFindResult {
+    object NotFound : ComposeFindResult()
+
+    class Found(
+        val target: TapTarget?,
+    ) : ComposeFindResult()
+}
+
 internal class ComposeTapTargetDetector(
     private val composeLayoutNodeUtil: ComposeLayoutNodeUtil,
 ) {
@@ -53,14 +67,23 @@ internal class ComposeTapTargetDetector(
             null
         }
 
-    fun findTapTarget(
+    private val tempLocation = IntArray(2)
+
+    /**
+     * Single view-tree traversal that both checks ownership and finds the tap target.
+     *
+     * Returns [ComposeFindResult.NotFound] when no ComposeView (Owner) contains [x, y] — the tap
+     * belongs to ViewClickEventGenerator. Returns [ComposeFindResult.Found] otherwise, with a
+     * non-null [TapTarget] for good clicks and null for dead clicks inside Compose.
+     */
+    fun findTapResult(
         decorView: View,
         x: Float,
         y: Float,
-    ): TapTarget? {
+    ): ComposeFindResult {
         val queue = LinkedList<View>()
         queue.addFirst(decorView)
-
+        var isTapInCompose = false
         var target: TapTarget? = null
         while (queue.isNotEmpty()) {
             val view = queue.removeFirst()
@@ -68,7 +91,8 @@ internal class ComposeTapTargetDetector(
                 for (index in 0 until view.childCount) {
                     queue.add(view.getChildAt(index))
                 }
-                if (view is Owner) {
+                if (view is Owner && viewContainsPoint(view, x, y)) {
+                    isTapInCompose = true
                     try {
                         findTapTargetNode(view as Owner, x, y)?.let { node ->
                             target = TapTarget(node, view)
@@ -80,7 +104,17 @@ internal class ComposeTapTargetDetector(
                 }
             }
         }
-        return target
+        return if (isTapInCompose) ComposeFindResult.Found(target) else ComposeFindResult.NotFound
+    }
+
+    private fun viewContainsPoint(
+        view: View,
+        x: Float,
+        y: Float,
+    ): Boolean {
+        view.getLocationInWindow(tempLocation)
+        return x >= tempLocation[0] && x <= tempLocation[0] + view.width &&
+            y >= tempLocation[1] && y <= tempLocation[1] + view.height
     }
 
     private fun findTapTargetNode(
@@ -157,7 +191,9 @@ internal class ComposeTapTargetDetector(
                 if (
                     className == CLASS_NAME_CLICKABLE_ELEMENT ||
                     className == CLASS_NAME_COMBINED_CLICKABLE_ELEMENT ||
-                    className == CLASS_NAME_TOGGLEABLE_ELEMENT
+                    className == CLASS_NAME_TOGGLEABLE_ELEMENT ||
+                    className == CLASS_NAME_SELECTABLE_ELEMENT ||
+                    className == CLASS_NAME_TRI_STATE_TOGGLEABLE_ELEMENT
                 ) {
                     return true
                 }
@@ -252,5 +288,9 @@ internal class ComposeTapTargetDetector(
             "androidx.compose.foundation.CombinedClickableElement"
         private const val CLASS_NAME_TOGGLEABLE_ELEMENT =
             "androidx.compose.foundation.selection.ToggleableElement"
+        private const val CLASS_NAME_SELECTABLE_ELEMENT =
+            "androidx.compose.foundation.selection.SelectableElement"
+        private const val CLASS_NAME_TRI_STATE_TOGGLEABLE_ELEMENT =
+            "androidx.compose.foundation.selection.TriStateToggleableElement"
     }
 }

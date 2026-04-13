@@ -13,7 +13,7 @@ import io.opentelemetry.android.instrumentation.internal.AndroidInstrumentationL
 interface AndroidInstrumentationLoader {
     /**
      * Provides a single instrumentation if available.
-     *
+     * @param T subclass of [AndroidInstrumentation]
      * @param type The type of the instrumentation to retrieve.
      * @return The instrumentation instance if available, null otherwise.
      */
@@ -21,7 +21,7 @@ interface AndroidInstrumentationLoader {
 
     /**
      * Provides a single instrumentation if available.
-     *
+     * @param T subclass of [AndroidInstrumentation]
      * @param name The name of the instrumentation to retrieve.
      * @return The instrumentation instance if available, null otherwise.
      */

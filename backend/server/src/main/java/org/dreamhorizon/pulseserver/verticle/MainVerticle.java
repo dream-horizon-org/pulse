@@ -16,6 +16,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.rxjava3.core.AbstractVerticle;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.config.StartupConfigValidator;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
@@ -120,6 +122,12 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), openfgaConfig);
           log.info("OpenFGA config initialized - enabled: {}, apiUrl: {}, storeId: {}",
               openfgaConfig.isEnabled(), openfgaConfig.getApiUrl(), openfgaConfig.getStoreId());
+
+          // Root Cause Analysis config
+          JsonObject rootCauseJson = config.getJsonObject("rootCause", new JsonObject());
+          RootCauseConfig rootCauseConfig = buildRootCauseConfig(rootCauseJson);
+          SharedDataUtils.put(vertx.getDelegate(), rootCauseConfig);
+          log.info("Root Cause config initialized");
 
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
@@ -252,6 +260,31 @@ public class MainVerticle extends AbstractVerticle {
       log.error("Failed to fetch OpenFGA model ID: {}", e.getMessage());
       return null;
     }
+  }
+
+  private RootCauseConfig buildRootCauseConfig(JsonObject rootCauseJson) {
+    final RootCauseConfig.RootCauseConfigBuilder builder = RootCauseConfig.builder()
+        .similarityThresholdPct(rootCauseJson.getInteger("similarityThresholdPct",
+            RootCauseConfig.DEFAULT_SIMILARITY_THRESHOLD_PCT))
+        .lookbackDays(rootCauseJson.getInteger("lookbackDays",
+            RootCauseConfig.DEFAULT_LOOKBACK_DAYS))
+        .maxSegments(rootCauseJson.getInteger("maxSegments",
+            RootCauseConfig.DEFAULT_MAX_SEGMENTS));
+
+    final Object dimensionOrderValue = rootCauseJson.getValue("dimensionOrder");
+    final boolean hasCustomDimensionOrder = dimensionOrderValue != null;
+
+    if (hasCustomDimensionOrder) {
+      final List<String> dimensionOrder = new java.util.ArrayList<>();
+      for (Object o : rootCauseJson.getJsonArray("dimensionOrder").getList()) {
+        dimensionOrder.add(o == null ? "" : o.toString());
+      }
+      builder.dimensionOrder(dimensionOrder);
+    } else {
+      builder.dimensionOrder(RootCauseConfig.DEFAULT_DIMENSION_ORDER);
+    }
+
+    return builder.build();
   }
 
   private WebClientOptions getWebClientOptions(JsonObject config) {

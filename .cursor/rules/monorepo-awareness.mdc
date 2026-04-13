@@ -1,4 +1,4 @@
----
+--
 description: Monorepo build commands and tool mapping per service
 alwaysApply: true
 ---
@@ -57,8 +57,8 @@ docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
 | MySQL | 3307 | `mysqladmin ping` |
 | OpenFGA | 8180 (HTTP), 8181 (gRPC), 3001 (playground) | `/healthz` |
 | OTEL Collector | 4317/4318, 13133 (health) | — |
-| Kafka | 9092 | broker (check container) |
-| MinIO | 9100 (API), 9101 (console) | container health |
+| Kafka (session replay) | 9092 | broker (no HTTP health in table) |
+| MinIO (dev S3) | 9100 (API), 9101 (console) | — |
 | pulse-session-capture | 3400 | `/healthcheck` |
 
 ## Never commit `.env` files. Use `.env.example` as template.

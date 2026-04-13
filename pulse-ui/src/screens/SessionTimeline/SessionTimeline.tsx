@@ -1,15 +1,26 @@
 import { useState, useMemo, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Button, Paper, Group, Text, Badge, Loader } from "@mantine/core";
-import { IconArrowLeft, IconClock, IconDeviceMobile, IconHash } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconClock,
+  IconDeviceMobile,
+  IconHash,
+} from "@tabler/icons-react";
 import { FlameChart } from "./components/FlameChart";
 import { DetailsSidebar } from "./components/DetailsSidebar";
-import { FlameChartNode, transformToFlameChart } from "./utils/flameChartTransform";
+import {
+  FlameChartNode,
+  transformToFlameChart,
+} from "./utils/flameChartTransform";
 import { useGetSessionData } from "../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { SkeletonLoader, MetricsGridSkeleton } from "../../components/Skeletons";
+import {
+  SkeletonLoader,
+  MetricsGridSkeleton,
+} from "../../components/Skeletons";
 import { ErrorAndEmptyStateWithNotification } from "../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/ErrorAndEmptyStateWithNotification";
 import classes from "./SessionTimeline.module.css";
 
@@ -33,7 +44,7 @@ function formatDuration(ms: number): string {
 
 /**
  * SessionTimeline - Displays a flame chart visualization of all traces and logs for a session
- * 
+ *
  * URL params:
  * - id: Session ID (required)
  * - traceId: Trace ID to highlight (optional)
@@ -71,31 +82,39 @@ export function SessionTimeline() {
   }, [searchParams]);
 
   // Fetch session data (traces and logs)
-  const { data: sessionData, isLoading, error } = useGetSessionData({
+  const {
+    data: sessionData,
+    isLoading,
+    error,
+  } = useGetSessionData({
     sessionId: sessionId || "",
-      timeRange,
+    timeRange,
     enabled: !!sessionId,
   });
 
   // Transform data to flame chart format
-  const {
-    flameChartData,
-    sessionDuration,
-    sessionStartTime,
-    totalDepth,
-  } = useMemo(() => {
-    if (!sessionData?.traces && !sessionData?.logs && !sessionData?.exceptions) {
-      return {
-        flameChartData: [],
-        sessionDuration: 0,
-        sessionStartTime: Date.now(),
-        itemsMap: new Map(),
-        totalDepth: 0,
-      };
-    }
+  const { flameChartData, sessionDuration, sessionStartTime, totalDepth } =
+    useMemo(() => {
+      if (
+        !sessionData?.traces &&
+        !sessionData?.logs &&
+        !sessionData?.exceptions
+      ) {
+        return {
+          flameChartData: [],
+          sessionDuration: 0,
+          sessionStartTime: Date.now(),
+          itemsMap: new Map(),
+          totalDepth: 0,
+        };
+      }
 
-    return transformToFlameChart(sessionData.traces, sessionData.logs, sessionData.exceptions);
-  }, [sessionData]);
+      return transformToFlameChart(
+        sessionData.traces,
+        sessionData.logs,
+        sessionData.exceptions,
+      );
+    }, [sessionData]);
 
   // Session summary stats
   const sessionSummary = useMemo(() => {
@@ -108,8 +127,10 @@ export function SessionTimeline() {
     if (sessionData?.traces?.rows?.[0]) {
       const fields = sessionData.traces.fields;
       const row = sessionData.traces.rows[0];
-      
-      const serviceNameIdx = fields.findIndex((f) => f.toLowerCase() === "servicename");
+
+      const serviceNameIdx = fields.findIndex(
+        (f) => f.toLowerCase() === "servicename",
+      );
       if (serviceNameIdx >= 0) {
         serviceName = String(row[serviceNameIdx] || "");
       }
@@ -135,7 +156,6 @@ export function SessionTimeline() {
   const handleCloseSidebar = () => {
     setSelectedItem(null);
   };
-
 
   // Loading state
   if (isLoading) {
@@ -164,9 +184,16 @@ export function SessionTimeline() {
 
         {/* Timeline Skeleton */}
         <Paper p="md" className={classes.timelinePaper}>
-          <Box style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 400 }}>
+          <Box
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: 400,
+            }}
+          >
             <Loader color="teal" size="lg" />
-              </Box>
+          </Box>
         </Paper>
       </Box>
     );
@@ -232,8 +259,12 @@ export function SessionTimeline() {
             {sessionSummary.serviceName && (
               <Box className={classes.statItem}>
                 <IconDeviceMobile size={14} className={classes.statIcon} />
-                <Text size="xs" c="dimmed">App</Text>
-                <Text size="sm" fw={500}>{sessionSummary.serviceName}</Text>
+                <Text size="xs" c="dimmed">
+                  App
+                </Text>
+                <Text size="sm" fw={500}>
+                  {sessionSummary.serviceName}
+                </Text>
               </Box>
             )}
           </Group>
@@ -242,27 +273,37 @@ export function SessionTimeline() {
         {/* Stats Row */}
         <Group gap="xl" mt="md" className={classes.statsRow}>
           <Box className={classes.statCard}>
-            <Text className={classes.statValue}>{sessionSummary.totalSpans}</Text>
+            <Text className={classes.statValue}>
+              {sessionSummary.totalSpans}
+            </Text>
             <Text className={classes.statLabel}>Spans</Text>
           </Box>
           <Box className={classes.statCard}>
-            <Text className={classes.statValue}>{sessionSummary.totalLogs}</Text>
+            <Text className={classes.statValue}>
+              {sessionSummary.totalLogs}
+            </Text>
             <Text className={classes.statLabel}>Logs</Text>
           </Box>
           {sessionSummary.totalExceptions > 0 && (
             <Box className={classes.statCardError}>
-              <Text className={classes.statValue}>{sessionSummary.totalExceptions}</Text>
+              <Text className={classes.statValue}>
+                {sessionSummary.totalExceptions}
+              </Text>
               <Text className={classes.statLabel}>Exceptions</Text>
             </Box>
           )}
           <Box className={classes.statCard}>
-            <Text className={classes.statValue}>{formatDuration(sessionSummary.duration)}</Text>
+            <Text className={classes.statValue}>
+              {formatDuration(sessionSummary.duration)}
+            </Text>
             <Text className={classes.statLabel}>Duration</Text>
           </Box>
           <Box className={classes.statCard}>
             <Text className={classes.statValue}>
               <IconClock size={14} style={{ marginRight: 4 }} />
-              {sessionSummary.startTime ? dayjs(sessionSummary.startTime).format("MMM D, HH:mm:ss") : "—"}
+              {sessionSummary.startTime
+                ? dayjs(sessionSummary.startTime).format("MMM D, HH:mm:ss")
+                : "—"}
             </Text>
             <Text className={classes.statLabel}>Start Time</Text>
           </Box>
@@ -277,7 +318,10 @@ export function SessionTimeline() {
               🎯 Trace Highlighted
             </Badge>
             <Text size="sm" c="dimmed">
-              Trace ID: <Text component="span" ff="monospace" size="sm">{highlightTraceId}</Text>
+              Trace ID:{" "}
+              <Text component="span" ff="monospace" size="sm">
+                {highlightTraceId}
+              </Text>
             </Text>
           </Group>
         </Paper>
@@ -300,6 +344,8 @@ export function SessionTimeline() {
       <DetailsSidebar
         item={selectedItem}
         onClose={handleCloseSidebar}
+        sessionStartTime={timeRange.start}
+        sessionEndTime={timeRange.end}
       />
     </Box>
   );

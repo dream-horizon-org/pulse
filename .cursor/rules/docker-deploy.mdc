@@ -40,7 +40,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 ## Volumes
 
-`mysql-data`, `clickhouse-data`, `kafka-data`, `minio-data` — persistent. Use `./scripts/reset-databases.sh` to wipe MySQL/ClickHouse volumes. (`vector-data` when Vector profile is enabled.) `pulse-ai-sessions` — SQLite session store for integrated `pulse-ai-agent` (not removed by `reset-databases.sh`; remove volume manually if needed).
+`mysql-data`, `clickhouse-data`, `kafka-data`, `minio-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` when Vector profile is enabled.) `pulse-ai-sessions` — SQLite session store for integrated `pulse-ai-agent` (not removed by `reset-databases.sh`; remove volume manually if needed).
 
 ## Environment Variables
 
@@ -63,8 +63,15 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `SPAN_COLLECTOR_URL`, `LOGS_COLLECTOR_URL`, `METRIC_COLLECTOR_URL`, `CUSTOM_EVENT_COLLECTOR_URL` — OTLP / custom event URLs for pulse-server; **no defaults in compose** — set in `deploy/.env` (see `.env.example`).
 - `INTERACTION_CONFIG_URL` — interaction config URL returned to SDKs; **no default in compose** — set in `deploy/.env`.
 - `VECTOR_ENABLED` — Optional. Set to `true` to enable Vector service (custom events → S3/Athena). Default: `false`.
+<<<<<<< HEAD
 - `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` — MinIO credentials (compose defaults: `pulse_minio` / `pulse_minio_secret`); session replay and `SESSION_REPLAY_S3_*` on pulse-server use these in dev.
 - `CONFIG_SERVICE_APPLICATION_SPARK_JOB_*` — Spark batch entry classes in compose default to `org.dreamhorizon.pulsespark.SparkJobRunner` for funnels, journeys, and events (override via `.env` if needed).
+=======
+- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` — MinIO dev credentials (compose defaults: `pulse_minio` / `pulse_minio_secret`).
+- `SESSION_REPLAY_*` — S3-style endpoint/bucket/keys for session recordings (pulse-server; in compose defaults to MinIO on `minio:9000`).
+- `ROOT_CAUSE_ENABLED` — Backend root-cause API (pulse-server).
+- `REACT_APP_ROOT_CAUSE_ENABLED` — UI build arg for RCA tab (must align with backend when enabling).
+>>>>>>> c234f1f301093ab4f5632a7f1c56d700a027ec4c
 
 **Dev Mode Configuration:**
 - `GOOGLE_OAUTH_ENABLED` — Enable/disable Google OAuth login (default: `false` for dev mode)
@@ -80,7 +87,11 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 | Script | Options |
 |--------|---------|
+<<<<<<< HEAD
 | `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all` — default / `all` includes UI, server, cron, AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion) |
+=======
+| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all` — default (no args) builds `ui`, `server`, `cron`, `capture`, `ingestion`, `ai` |
+>>>>>>> c234f1f301093ab4f5632a7f1c56d700a027ec4c
 | `start.sh` | `[-d` or `--detach] [--build] [--no-cache] [--skip-env-check]` |
 | `stop.sh` | `-v` to remove volumes; service aliases include `ai`, `pulse-ai-agent` |
 | `logs.sh` | service name (e.g., `server`, `ai`, `otel-collector`) |

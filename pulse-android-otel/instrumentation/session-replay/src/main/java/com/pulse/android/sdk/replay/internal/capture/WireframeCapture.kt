@@ -405,7 +405,7 @@ internal object WireframeCapture {
             is RippleDrawable -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     try {
-                        (this as RippleDrawable).getDrawable(0)?.toRGBColor()
+                        this.getDrawable(0)?.toRGBColor()
                     } catch (_: Throwable) {
                         null
                     }

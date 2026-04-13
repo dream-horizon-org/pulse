@@ -1,17 +1,18 @@
 import { Paper, Box, Tabs } from "@mantine/core";
 import {
-  IconList,
   IconHandClick,
   IconTerminal,
-  IconNetwork,
-  IconGauge,
+  IconWorld,
+  IconShieldCheck,
+  IconRoute2,
+  IconChartLine,
 } from "@tabler/icons-react";
 import { AllTab } from "./AllTab";
 import { InteractionTab } from "./InteractionTab";
-import { EventsTab } from "./EventsTab";
 import { ConsoleTab } from "./ConsoleTab";
 import { NetworkTab } from "./NetworkTab";
 import { PerformanceTab } from "./PerformanceTab";
+import { UserJourneyTab } from "./UserJourneyTab";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
 import type { FlameChartNode } from "../../SessionTimeline/utils/flameChartTransform";
 import { TABS, TAB_LABELS } from "../constants/strings";
@@ -45,30 +46,35 @@ export function SessionTabs({
       <Tabs
         value={activeTab}
         onChange={(value) => onTabChange(value || TABS.ALL)}
-        classNames={{ root: classes.sessionTabsRoot }}
+        classNames={{
+          root: classes.sessionTabsRoot,
+          tabLabel: classes.sessionTabLabel,
+        }}
       >
         <Tabs.List>
-          <Tabs.Tab value={TABS.ALL}>{TAB_LABELS.ALL}</Tabs.Tab>
+          <Tabs.Tab value={TABS.ALL} leftSection={<IconChartLine size={14} />}>
+            {TAB_LABELS.ALL}
+          </Tabs.Tab>
           <Tabs.Tab
             value={TABS.INTERACTION}
             leftSection={<IconHandClick size={14} />}
           >
             {TAB_LABELS.INTERACTION}
           </Tabs.Tab>
-          <Tabs.Tab value={TABS.EVENTS} leftSection={<IconList size={14} />}>
-            {TAB_LABELS.EVENTS}
-          </Tabs.Tab>
-          <Tabs.Tab
-            value={TABS.NETWORK}
-            leftSection={<IconNetwork size={14} />}
-          >
+          <Tabs.Tab value={TABS.NETWORK} leftSection={<IconWorld size={14} />}>
             {TAB_LABELS.NETWORK}
           </Tabs.Tab>
           <Tabs.Tab
             value={TABS.PERFORMANCE}
-            leftSection={<IconGauge size={14} />}
+            leftSection={<IconShieldCheck size={14} />}
           >
             {TAB_LABELS.PERFORMANCE}
+          </Tabs.Tab>
+          <Tabs.Tab
+            value={TABS.USER_JOURNEY}
+            leftSection={<IconRoute2 size={14} />}
+          >
+            {TAB_LABELS.USER_JOURNEY}
           </Tabs.Tab>
           <Tabs.Tab
             value={TABS.CONSOLE}
@@ -95,10 +101,6 @@ export function SessionTabs({
             />
           </Tabs.Panel>
 
-          <Tabs.Panel value={TABS.EVENTS}>
-            <EventsTab sessionData={sessionData} />
-          </Tabs.Panel>
-
           <Tabs.Panel value={TABS.NETWORK}>
             <NetworkTab
               sessionData={sessionData}
@@ -109,6 +111,10 @@ export function SessionTabs({
 
           <Tabs.Panel value={TABS.PERFORMANCE}>
             <PerformanceTab sessionData={sessionData} />
+          </Tabs.Panel>
+
+          <Tabs.Panel value={TABS.USER_JOURNEY}>
+            <UserJourneyTab sessionData={sessionData} />
           </Tabs.Panel>
 
           <Tabs.Panel value={TABS.CONSOLE}>
