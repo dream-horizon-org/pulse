@@ -108,12 +108,6 @@ variable "health_check_grace_period_seconds" {
   default     = 300
 }
 
-variable "root_volume_size_gb" {
-  description = "Root EBS volume size (GiB) for capture instances"
-  type        = number
-  default     = 20
-}
-
 # --- App config (user-data) ---
 
 variable "kafka_brokers" {

@@ -71,12 +71,6 @@ variable "health_check_grace_period_seconds" {
   default     = 120
 }
 
-variable "root_volume_size_gb" {
-  description = "Root EBS volume size (GiB)"
-  type        = number
-  default     = 30
-}
-
 # --- App config (written to /etc/pulse/ingestion.env at boot) ---
 
 variable "kafka_brokers" {

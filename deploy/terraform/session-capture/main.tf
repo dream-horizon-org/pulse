@@ -73,16 +73,6 @@ resource "aws_launch_template" "capture" {
     rust_log         = var.rust_log
   }))
 
-  block_device_mappings {
-    device_name = "/dev/xvda"
-
-    ebs {
-      volume_size           = var.root_volume_size_gb
-      volume_type           = "gp3"
-      delete_on_termination = true
-    }
-  }
-
   tag_specifications {
     resource_type = "instance"
 
@@ -203,6 +193,7 @@ resource "aws_autoscaling_group" "capture" {
 
   instance_refresh {
     strategy = "Rolling"
+    triggers = ["launch_template"]
     preferences {
       min_healthy_percentage       = 100
       scale_in_protected_instances = "Refresh"

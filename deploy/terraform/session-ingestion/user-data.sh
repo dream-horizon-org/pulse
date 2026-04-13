@@ -56,14 +56,19 @@ sudo chmod 644 /etc/pulse/ingestion.env
 echo "Starting pulse-session-replay-ingestion service..."
 sudo systemctl restart pulse-session-replay-ingestion
 
+echo "Starting pulse-session-replay-ingestion via pm2..."
+set -a; source /etc/pulse/ingestion.env; set +a
+pm2 start "$INSTALL_DIR/dist/index.js" --name "pulse-session-replay-ingestion"
+pm2 save
+
 sleep 5
 
-if systemctl is-active --quiet pulse-session-replay-ingestion; then
-  echo "Service started successfully"
+if pm2 list | grep -q "pulse-session-replay-ingestion"; then
+  echo "Service started successfully via pm2"
 else
-  echo "WARNING: Service may not have started. Checking logs:"
-  journalctl -u pulse-session-replay-ingestion --no-pager -n 30 || true
+  echo "WARNING: pm2 process may not have started. Checking logs:"
+  pm2 logs pulse-session-replay-ingestion --lines 30 --nostream || true
 fi
 
 echo "User-data complete at $(date)"
-echo "View logs: journalctl -u pulse-session-replay-ingestion -f"
+echo "View logs: pm2 logs pulse-session-replay-ingestion"
