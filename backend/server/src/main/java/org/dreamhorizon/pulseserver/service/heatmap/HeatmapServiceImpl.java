@@ -196,14 +196,7 @@ public class HeatmapServiceImpl implements HeatmapService {
     Single<List<String>> screenshotAppVersionsSingle =
         nonBlankOrNull(appVersion) != null
             ? Single.just(Collections.singletonList(nonBlankOrNull(appVersion)))
-            : fetchAppVersionsSortedLatestFirst(
-                projectId,
-                dateFrom,
-                dateTo,
-                screenName,
-                platform,
-                breakpoint,
-                geographicalRegion);
+            : fetchAppVersionsForProjectSortedLatestFirst(projectId);
 
     return Single.zip(
         heatmapSingle,
@@ -238,29 +231,13 @@ public class HeatmapServiceImpl implements HeatmapService {
   }
 
   /**
-   * Distinct {@code AppVersion} values in the heatmap slice, returned sorted latest-first by
-   * {@link #parseVersion(String)} segment order. Unparseable versions are appended at the end.
+   * Distinct {@code AppVersion} values for the project (from {@code interaction_heatmaps_daily}),
+   * sorted latest-first by {@link #parseVersion(String)} segment order. Unparseable versions are
+   * appended at the end.
    */
-  private Single<List<String>> fetchAppVersionsSortedLatestFirst(
-      String projectId,
-      String dateFrom,
-      String dateTo,
-      String screenName,
-      String platform,
-      String breakpoint,
-      String geographicalRegion) {
-
-    String where =
-        buildHeatmapWhereClause(
-            projectId,
-            dateFrom,
-            dateTo,
-            screenName,
-            null,
-            platform,
-            breakpoint,
-            geographicalRegion);
-    String sql = String.format(HeatmapQueries.DISTINCT_APP_VERSIONS_IN_SLICE, where);
+  private Single<List<String>> fetchAppVersionsForProjectSortedLatestFirst(String projectId) {
+    String sql =
+        String.format(HeatmapQueries.DISTINCT_APP_VERSIONS_FOR_PROJECT, chString(projectId));
     QueryConfiguration config =
         QueryConfiguration.newQuery(sql)
             .timeoutMs(TIMEOUT_MS)

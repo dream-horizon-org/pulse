@@ -7,7 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Row from {@link org.dreamhorizon.pulseserver.dao.heatmap.HeatmapQueries#DISTINCT_APP_VERSIONS_IN_SLICE}. */
+/** Row from {@link org.dreamhorizon.pulseserver.dao.heatmap.HeatmapQueries#DISTINCT_APP_VERSIONS_FOR_PROJECT}. */
 @Data
 @Builder
 @NoArgsConstructor

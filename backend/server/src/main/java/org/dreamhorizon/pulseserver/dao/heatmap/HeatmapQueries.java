@@ -62,4 +62,15 @@ public final class HeatmapQueries {
       HAVING interaction_name != ''
       ORDER BY interaction_name
       """;
+
+  /**
+   * Distinct {@code AppVersion} values for a project (any screen/date/breakpoint). Used for
+   * screenshot URL resolution when the request does not specify {@code app_version}.
+   */
+  public static final String DISTINCT_APP_VERSIONS_FOR_PROJECT = """
+      SELECT DISTINCT AppVersion AS app_version
+      FROM otel.interaction_heatmaps_daily
+      WHERE ProjectId = '%s'
+        AND AppVersion != ''
+      """;
 }
