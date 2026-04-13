@@ -1,10 +1,6 @@
-# Expo Integration
+# Expo integration
 
-Pulse ships a **config plugin** for Expo apps with native code. It wires up the Android and iOS SDKs from `app.json` — no Kotlin or Swift edits needed on each prebuild.
-
-**Requires:** `expo prebuild`, EAS Build, `expo run:android`, or `expo run:ios`.  
-**Not supported:** Expo Go.
-
+Pulse ships an **Expo config plugin** so Android / iOS native SDKs are wired from **`app.json`**.
 ---
 
 ## Quick setup
@@ -15,7 +11,7 @@ Pulse ships a **config plugin** for Expo apps with native code. It wires up the 
 npx expo install @dreamhorizonorg/pulse-react-native
 ```
 
-### 2. Add to `app.json`
+### 2. Add the plugin to `app.json`
 
 ```json
 {
@@ -33,24 +29,34 @@ npx expo install @dreamhorizonorg/pulse-react-native
 }
 ```
 
-Only `endpointBaseUrl` and `apiKey` are required. Everything else is optional.
+`endpointBaseUrl` and `apiKey` are required.
 
-### 3. Rebuild
+### 3. Start Pulse in JavaScript (as early as possible)
+
+Call **`Pulse.start`** once at **module scope** in your root file (e.g. `app/_layout.tsx` or `index.js`) so it runs before the rest of the app:
+
+```tsx
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
+
+Pulse.start();
+```
+
+### 4. Build native apps
 
 ```bash
 npx expo prebuild --clean
-npx expo run:ios   # or run:android
+npx expo run:ios
+# or
+npx expo run:android
 ```
 
-For EAS Build, trigger a new build after any config change.
-
-**Expo Router + navigation:** You supply the root ref from **`useNavigationContainerRef()`** (from **`expo-router`**). Pulse does not depend on **`expo-router`** — pass that ref into **`Pulse.useNavigationTracking(ref, { registerWhenContainerReady: true, … })`** so registration runs when the container is ready (same as `NavigationContainer` `onReady`, without Pulse importing Expo). To defer until e.g. splash or persisted state loads, mount your **`Stack`** (or navigator) only after that gate (see **`pulse-react-native-otel/expo-example/app/_layout.tsx`**). Keep **`autoDetectNavigation: true`** in **`Pulse.start`**.
+Change **`app.json`** → run **`prebuild`** again (or a new EAS build).
 
 ---
 
 ## Platform overrides
 
-Top-level values apply to both platforms. Use `android` / `ios` blocks to override per platform:
+Top-level plugin fields apply to both platforms. Override per OS with **`android`** / **`ios`**:
 
 ```json
 {
@@ -65,11 +71,11 @@ Top-level values apply to both platforms. Use `android` / `ios` blocks to overri
 }
 ```
 
-> `globalAttributes`, `instrumentation`, and `configuration` must be inside `android` or `ios` — not at the root.
+`globalAttributes`, `instrumentation`, and `configuration` belong **inside** `android` or `ios`, not at the root of the plugin block.
 
 ---
 
-## Full example
+## Full `app.json` plugin example
 
 ```json
 [
@@ -81,7 +87,6 @@ Top-level values apply to both platforms. Use `android` / `ios` blocks to overri
     "endpointHeaders": { "X-Custom-Header": "value" },
     "configEndpointUrl": "https://otel.example.com/v1/configs/active/",
     "customEventCollectorUrl": "https://otel.example.com/v1/logs",
-
     "android": {
       "endpointBaseUrl": "http://10.0.2.2:4318",
       "globalAttributes": { "platform": "android" },
@@ -95,7 +100,6 @@ Top-level values apply to both platforms. Use `android` / `ios` blocks to overri
         }
       }
     },
-
     "ios": {
       "globalAttributes": { "platform": "ios" },
       "configuration": {
@@ -118,141 +122,171 @@ Top-level values apply to both platforms. Use `android` / `ios` blocks to overri
 
 ---
 
-## Options reference
+## Plugin options reference
 
 ### Top level
 
-| Option                    | Required | Type                        | Description                          |
-| ------------------------- | -------- | --------------------------- | ------------------------------------ | ---------- | --------------------- |
-| `endpointBaseUrl`         | **Yes**  | string                      | Pulse backend URL                    |
-| `apiKey`                  | **Yes**  | string                      | Project API key                      |
-| `dataCollectionState`     | No       | `"PENDING"`                 | `"ALLOWED"`                          | `"DENIED"` | Initial consent state |
-| `endpointHeaders`         | No       | `{ [key: string]: string }` | Extra HTTP headers for all traffic   |
-| `configEndpointUrl`       | No       | string                      | Remote SDK config URL                |
-| `customEventCollectorUrl` | No       | string                      | Full URL for custom event collection |
-| `android`                 | No       | object                      | Android overrides (see below)        |
-| `ios`                     | No       | object                      | iOS overrides (see below)            |
+| Option                    | Required | Type   | Description                       |
+| ------------------------- | -------- | ------ | --------------------------------- |
+| `endpointBaseUrl`         | **Yes**  | string | OTLP / Pulse backend URL          |
+| `apiKey`                  | **Yes**  | string | Project API key                   |
+| `dataCollectionState`     | No       | string | `PENDING`, `ALLOWED`, or `DENIED` |
+| `endpointHeaders`         | No       | object | Extra HTTP headers                |
+| `configEndpointUrl`       | No       | string | Remote SDK config URL             |
+| `customEventCollectorUrl` | No       | string | Custom events / logs URL          |
+| `android`                 | No       | object | Android overrides                 |
+| `ios`                     | No       | object | iOS overrides                     |
+
+### Android — `android.instrumentation`
+
+| Key             | Shape                                    | Description                        |
+| --------------- | ---------------------------------------- | ---------------------------------- |
+| `crash`         | `{ "enabled": boolean }`                 | Crashes                            |
+| `network`       | `{ "enabled": boolean }`                 | Network                            |
+| `activity`      | `{ "enabled": boolean }`                 | Activity lifecycle                 |
+| `fragment`      | `{ "enabled": boolean }`                 | Fragments                          |
+| `anr`           | `{ "enabled": boolean }`                 | ANR                                |
+| `slowRendering` | `{ "enabled": boolean }`                 | Slow frames                        |
+| `interaction`   | `{ "enabled": boolean, "url"?: string }` | Interactions + optional config URL |
+
+### Android — `android.globalAttributes`
+
+Values: strings, numbers, booleans, or arrays of those types.
+
+### iOS — `ios.configuration`
+
+| Key                        | Type    | Description                  |
+| -------------------------- | ------- | ---------------------------- |
+| `includeScreenAttributes`  | boolean | Screen metadata on telemetry |
+| `includeNetworkAttributes` | boolean | Network metadata             |
+| `includeGlobalAttributes`  | boolean | Global attributes            |
+
+### iOS — `ios.instrumentation` (simple toggles)
+
+`{ "enabled": boolean }` each: `crash`, `appLifecycle`, `screenLifecycle`, `appStartup`, `location`, `signPost`.
+
+#### `urlSession`
+
+| Field                  | Type    | Description           |
+| ---------------------- | ------- | --------------------- |
+| `enabled`              | boolean | Instrument URLSession |
+| `excludeOtlpEndpoints` | boolean | Skip your OTLP host   |
+
+#### `sessions`
+
+| Field                                | Type    | Description             |
+| ------------------------------------ | ------- | ----------------------- |
+| `enabled`                            | boolean | Sessions                |
+| `maxLifetimeSeconds`                 | number  | Max session length      |
+| `backgroundInactivityTimeoutSeconds` | number  | Background timeout      |
+| `shouldPersist`                      | boolean | Persist across launches |
+
+#### `interaction`
+
+| Field       | Type    | Description       |
+| ----------- | ------- | ----------------- |
+| `enabled`   | boolean | Interactions      |
+| `configUrl` | string  | Remote config URL |
+
+#### `uiKitTap`
+
+| Field            | Type    | Description              |
+| ---------------- | ------- | ------------------------ |
+| `enabled`        | boolean | UIKit tap events         |
+| `captureContext` | boolean | Label from hierarchy     |
+| `rage`           | object  | Optional rage-tap config |
+
+#### `sessionReplay`
+
+| Field                   | Type     | Description                           |
+| ----------------------- | -------- | ------------------------------------- |
+| `enabled`               | boolean  | Replay on/off                         |
+| `replayEndpointBaseUrl` | string   | Upload base URL                       |
+| `textAndInputPrivacy`   | string   | e.g. `maskAll`, `maskSensitiveInputs` |
+| `imagePrivacy`          | string   | e.g. `maskAll`, `maskNone`            |
+| `maskViewClasses`       | string[] | Always mask                           |
+| `unmaskViewClasses`     | string[] | Never mask                            |
+| `captureIntervalMs`     | number   | Capture interval                      |
+| `compressionQuality`    | number   | 0–1                                   |
+| `screenshotScale`       | number   | Scale                                 |
+| `flushIntervalSeconds`  | number   | Flush interval                        |
+| `flushAt`               | number   | Batch size hint                       |
+| `maxBatchSize`          | number   | Max batch                             |
 
 ---
 
-### Android (`android`)
+## Not in `app.json`
 
-Any top-level field can be overridden here. Additionally:
-
-#### `android.instrumentation`
-
-| Key             | Shape                                    | Description                                   |
-| --------------- | ---------------------------------------- | --------------------------------------------- |
-| `crash`         | `{ "enabled": boolean }`                 | Crash reporting                               |
-| `network`       | `{ "enabled": boolean }`                 | Network monitoring                            |
-| `activity`      | `{ "enabled": boolean }`                 | Activity lifecycle                            |
-| `fragment`      | `{ "enabled": boolean }`                 | Fragment lifecycle                            |
-| `anr`           | `{ "enabled": boolean }`                 | ANR detection                                 |
-| `slowRendering` | `{ "enabled": boolean }`                 | Slow frame detection                          |
-| `interaction`   | `{ "enabled": boolean, "url"?: string }` | Interaction tracking; `url` for remote config |
-
-#### `android.globalAttributes`
-
-Attach metadata to all Android telemetry. Supported value types: `string`, `number`, `boolean`, and arrays of each.
-
----
-
-### iOS (`ios`)
-
-Any top-level field can be overridden here. Additionally:
-
-#### `ios.configuration`
-
-| Key                        | Type    | Description                     |
-| -------------------------- | ------- | ------------------------------- |
-| `includeScreenAttributes`  | boolean | Attach screen info to telemetry |
-| `includeNetworkAttributes` | boolean | Attach network info             |
-| `includeGlobalAttributes`  | boolean | Attach global attributes        |
-
-#### `ios.instrumentation`
-
-**Simple on/off** — all accept `{ "enabled": boolean }`:
-
-| Key               | Description                |
-| ----------------- | -------------------------- |
-| `crash`           | Crash reporting            |
-| `appLifecycle`    | App lifecycle events       |
-| `screenLifecycle` | UIViewController lifecycle |
-| `appStartup`      | Startup timing             |
-| `location`        | Location events            |
-| `signPost`        | OS signpost integration    |
-
-`**urlSession`\*\*
-
-| Field                  | Type    | Description                                         |
-| ---------------------- | ------- | --------------------------------------------------- |
-| `enabled`              | boolean | URLSession instrumentation                          |
-| `excludeOtlpEndpoints` | boolean | Exclude your `endpointBaseUrl` from instrumentation |
-
-`**sessions**`
-
-| Field                                | Type    | Description                          |
-| ------------------------------------ | ------- | ------------------------------------ |
-| `enabled`                            | boolean | Session tracking                     |
-| `maxLifetimeSeconds`                 | number  | Max session duration                 |
-| `backgroundInactivityTimeoutSeconds` | number  | Inactivity timeout when backgrounded |
-| `shouldPersist`                      | boolean | Persist sessions across launches     |
-
-`**interaction**`
-
-| Field       | Type    | Description                       |
-| ----------- | ------- | --------------------------------- |
-| `enabled`   | boolean | Interaction tracking              |
-| `configUrl` | string  | URL for remote interaction config |
-
-`**uiKitTap**`
-
-| Field            | Type    | Description                                 |
-| ---------------- | ------- | ------------------------------------------- |
-| `enabled`        | boolean | Automatic tap/click logging                 |
-| `captureContext` | boolean | Extract label from view hierarchy           |
-| `rage`           | object  | `{ timeWindowMs, rageThreshold, radiusPt }` |
-
-`**sessionReplay**`
-
-| Field                   | Type        | Description                |
-| ----------------------- | ----------- | -------------------------- | ----------------------- | ------------------ |
-| `enabled`               | boolean     | Session replay             |
-| `replayEndpointBaseUrl` | string      | Replay upload URL          |
-| `textAndInputPrivacy`   | `"maskAll"` | `"maskAllInputs"`          | `"maskSensitiveInputs"` | Text masking level |
-| `imagePrivacy`          | `"maskAll"` | `"maskNone"`               | Image masking           |
-| `maskViewClasses`       | string[]    | Class names to always mask |
-| `unmaskViewClasses`     | string[]    | Class names to never mask  |
-| `captureIntervalMs`     | number      | Screenshot interval        |
-| `compressionQuality`    | number      | Image quality (0–1)        |
-| `screenshotScale`       | number      | Screenshot scale factor    |
-| `flushIntervalSeconds`  | number      | Upload interval            |
-| `flushAt`               | number      | Batch flush size           |
-| `maxBatchSize`          | number      | Max events per batch       |
-
----
-
-## What can't be configured from `app.json`
-
-These require native code and are not generated by the plugin:
-
-- Before-send hooks (spans, logs, metrics)
-- Custom OpenTelemetry resource blocks
-- Custom tracer/logger provider pipelines
-- Per-request URL filtering for iOS URLSession
+Requires native or app code: before-send hooks, custom OTel resources, custom providers, per-request iOS URL filtering.
 
 ---
 
 ## Troubleshooting
 
-**Prebuild fails with a plugin error**  
-Usually means missing `endpointBaseUrl`/`apiKey`, empty strings, or `globalAttributes`/`instrumentation`/`configuration` placed at the root instead of inside `android`/`ios`.
+| Issue                    | Fix                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Plugin error on prebuild | Set `endpointBaseUrl` + `apiKey`; keep `instrumentation` / `configuration` / `globalAttributes` under `android` / `ios`. |
+| iOS: Pulse not starting  | Default Expo `AppDelegate` is patched. Custom entry → call **`PulseSDK.initialize(...)`** before RN boots.               |
+| Android: same            | Default **`MainApplication`**. Custom → **`Pulse.initialize(...)`** manually.                                            |
+| Old JS from monorepo     | From **`pulse-react-native-otel`**: **`npx bob build`**, then **`expo start --clear`**.                                  |
 
-**iOS: Pulse missing in AppDelegate**  
-The plugin targets the default Expo Swift AppDelegate. If you use a custom entry point, call `PulseSDK.initialize(...)` manually before React Native starts.
-
-**Android: Pulse missing in MainApplication**  
-The plugin expects the standard Expo `MainApplication`. If yours is custom, call `Pulse.initialize(...)` manually.
-
-**More help**  
 [React Native overview](https://pulse.dreamhorizon.org/docs/sdk/react-native/overview) · [Installation](https://pulse.dreamhorizon.org/docs/sdk/react-native/installation)
+
+---
+
+## Custom Instrumentations
+
+### Expo Router
+
+Wire Pulse to Expo Router’s root navigation ref and set `registerWhenContainerReady: true` so registration runs when the container is ready, without duplicating `NavigationContainer` `onReady` logic
+
+```tsx
+import { Stack, useNavigationContainerRef } from 'expo-router';
+import { useNavigationTracking } from '@dreamhorizonorg/pulse-react-native';
+
+function Root() {
+  const navigationRef = useNavigationContainerRef();
+  useNavigationTracking(navigationRef, {
+    registerWhenContainerReady: true,
+  });
+  return <Stack />;
+}
+```
+
+### Custom events
+
+In order to emit analytics event we can use `trackEvent` API.
+
+```tsx
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
+
+Pulse.trackEvent('order_placed', { orderId: '42', total: 99.5 });
+```
+
+### Screen interactive — content ready (when you use that API)
+
+```tsx
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
+
+// After first meaningful paint on the current screen
+Pulse.markContentReady();
+```
+
+### Android — click modules (Gradle)
+
+`app.json` enables Pulse wiring; **view clicks** still need OTel artifacts in **`android/app/build.gradle`** (after `prebuild`):
+
+```kotlin
+// XML / classic views (pulse-android-otel/instrumentation/view-click)
+implementation("'org.dreamhorizon.instrumentation:view-click:0.0.8-alpha'")
+
+### iOS — UIKit taps
+
+Only **`app.json`** — under **`ios.instrumentation.uiKitTap`**, for example:
+
+```json
+"uiKitTap": {
+  "enabled": true,
+  "captureContext": true
+}
+```
