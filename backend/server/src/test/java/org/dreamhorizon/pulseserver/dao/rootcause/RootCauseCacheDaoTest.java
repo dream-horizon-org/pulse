@@ -133,7 +133,8 @@ class RootCauseCacheDaoTest {
               "flat",
               "{}",
               "[]",
-              LocalDateTime.of(2025, 4, 1, 12, 0))
+              LocalDateTime.of(2025, 4, 1, 12, 0),
+              null)
           .blockingAwait();
 
       ArgumentCaptor<QueryConfiguration> captor = ArgumentCaptor.forClass(QueryConfiguration.class);
@@ -148,7 +149,7 @@ class RootCauseCacheDaoTest {
           .thenReturn(Single.error(new RuntimeException("clickhouse down")));
 
       io.reactivex.rxjava3.observers.TestObserver<Void> observer = new io.reactivex.rxjava3.observers.TestObserver<>();
-      dao.upsert(PROJECT, INTERACTION, DATE, WINDOW_END, "m", "{}", "[]", LocalDateTime.now())
+      dao.upsert(PROJECT, INTERACTION, DATE, WINDOW_END, "m", "{}", "[]", LocalDateTime.now(), null)
           .subscribe(observer);
       observer.assertError(RuntimeException.class);
     }

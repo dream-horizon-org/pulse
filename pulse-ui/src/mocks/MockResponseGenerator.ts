@@ -1045,7 +1045,6 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
- 
   private handleV1SessionReplayEndpoints(
     pathname: string,
     method: string,
@@ -2574,6 +2573,45 @@ export class MockResponseGenerator {
         pathParts[2]
       ) {
         const interactionName = decodeURIComponent(pathParts[2]);
+
+        // GET /v1/interactions/{name}/error-attribution — Track B diagnostic (mock empty universe)
+        if (
+          method === "GET" &&
+          pathParts.length >= 4 &&
+          pathParts[3] === "error-attribution"
+        ) {
+          const mockRiskRow = (signal: string) => ({
+            signal,
+            nTreated: 0,
+            nControl: 0,
+            nTreatedLow: 0,
+            nControlLow: 0,
+            rrUndefined: true,
+            rrUndefinedReason: "EMPTY_TREATED_ARM" as const,
+          });
+          return {
+            data: {
+              data: {
+                trackBInsufficientData: true,
+                nPoorInU: 0,
+                nU: 0,
+                riskRatios: [
+                  mockRiskRow("crash"),
+                  mockRiskRow("anr"),
+                  mockRiskRow("non_fatal"),
+                  mockRiskRow("api"),
+                ],
+                analysisPhase: "1",
+                track: "B",
+                diagnosticSpecVersion: "1",
+                disclaimer:
+                  "Mock server: observational diagnostic only; not causal evidence.",
+              },
+              error: null,
+            },
+            status: 200,
+          };
+        }
 
         console.log(
           `[Mock Server] Looking for interaction: "${interactionName}"`,

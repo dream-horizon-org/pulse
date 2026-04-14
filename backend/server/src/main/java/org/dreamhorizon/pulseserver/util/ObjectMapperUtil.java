@@ -1,7 +1,10 @@
 package org.dreamhorizon.pulseserver.util;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.inject.Inject;
 import java.util.Collection;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ObjectMapperUtil {
 
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper = new ObjectMapper()
+      .registerModule(new JavaTimeModule())
+      .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   public String writeValueAsString(Object value) {
     try {

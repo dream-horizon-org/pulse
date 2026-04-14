@@ -18,16 +18,17 @@ public final class RootCauseCacheQueries {
    * If duplicates exist, the DAO returns the row with the latest cached_at.
    */
   public static final String SELECT_FROM_ROOT_CAUSE_CACHE =
-      "SELECT ProjectId, interaction_name, date, window_end_utc, mode, baseline, segments, cached_at"
+      "SELECT ProjectId, interaction_name, date, window_end_utc, mode, baseline, segments, "
+          + "error_attribution_json, cached_at"
           + " FROM otel.root_cause_cache";
 
   /**
    * INSERT target columns; VALUES tuple is built by
-   * {@link #buildInsertQuery(String, String, String, String, String, String, LocalDateTime)}.
+   * {@link #buildInsertQuery(String, String, String, Instant, String, String, String, LocalDateTime, String)}.
    */
   public static final String INSERT_INTO_ROOT_CAUSE_CACHE =
       "INSERT INTO otel.root_cause_cache (ProjectId, interaction_name, date, window_end_utc, mode, baseline, "
-          + "segments, cached_at) VALUES ";
+          + "segments, error_attribution_json, cached_at) VALUES ";
 
   /**
    * Builds a SELECT for one cache key (escaped string literals for ClickHouse HTTP query).
@@ -60,6 +61,7 @@ public final class RootCauseCacheQueries {
    * @param baselineJson baseline JSON
    * @param segmentsJson segments JSON
    * @param cachedAt row timestamp (UTC)
+   * @param errorAttributionJson serialized Track B payload, or {@code null} for SQL {@code NULL}
    * @return full SQL
    */
   public static String buildInsertQuery(
@@ -70,9 +72,12 @@ public final class RootCauseCacheQueries {
       final String mode,
       final String baselineJson,
       final String segmentsJson,
-      final LocalDateTime cachedAt) {
+      final LocalDateTime cachedAt,
+      final String errorAttributionJson) {
     DateTimeFormatter datetimeFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     String cachedAtStr = cachedAt.format(datetimeFmt);
+    String attributionFragment =
+        errorAttributionJson == null ? "NULL" : "'" + escapeJson(errorAttributionJson) + "'";
     return INSERT_INTO_ROOT_CAUSE_CACHE
         + "("
         + "'" + escape(projectId) + "',"
@@ -82,6 +87,7 @@ public final class RootCauseCacheQueries {
         + "'" + escape(mode) + "',"
         + "'" + escapeJson(baselineJson) + "',"
         + "'" + escapeJson(segmentsJson) + "',"
+        + attributionFragment + ","
         + "toDateTime64('" + escape(cachedAtStr) + "', 3, 'UTC')"
         + ")";
   }

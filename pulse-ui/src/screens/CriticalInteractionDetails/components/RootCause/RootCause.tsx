@@ -12,6 +12,7 @@ import {
   ROOT_CAUSE_MESSAGES,
 } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
+import { ErrorAttribution } from "../ErrorAttribution";
 import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
 
@@ -194,11 +195,20 @@ export function RootCause({
   if (showReport && reportPayload) {
     const cachedAtFormatted = formatRcaReportCachedAt(reportPayload.cachedAt);
     return (
-      <RcaReportView
-        report={reportPayload.report ?? {}}
-        cachedAt={cachedAtFormatted}
-        onRegenerate={handleRegenerate}
-      />
+      <Stack gap="xl">
+        <RcaReportView
+          report={reportPayload.report ?? {}}
+          cachedAt={cachedAtFormatted}
+          onRegenerate={handleRegenerate}
+        />
+        {interactionName ? (
+          <ErrorAttribution
+            interactionName={interactionName}
+            date={date ?? null}
+            projectId={effectiveProjectId}
+          />
+        ) : null}
+      </Stack>
     );
   }
 

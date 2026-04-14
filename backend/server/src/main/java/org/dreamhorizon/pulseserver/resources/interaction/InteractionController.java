@@ -14,6 +14,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
@@ -34,6 +35,7 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractions
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RestInteractionDetail;
+import org.dreamhorizon.pulseserver.resources.interaction.models.ErrorAttributionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.UpdateInteractionRestResponse;
@@ -47,6 +49,8 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -63,6 +67,7 @@ public class InteractionController {
   private final Validator validator;
   private final RootCauseConfig rootCauseConfig;
   private final RootCauseService rootCauseService;
+  private final ErrorAttributionService errorAttributionService;
 
   private static WebApplicationException getWebApplicationException(Set<ConstraintViolation<RestInteractionDetail>> violations) {
     return new WebApplicationException(
@@ -222,6 +227,48 @@ public class InteractionController {
         .to(RestResponse.jaxrsRestHandler());
   }
 
+  @GET
+  @Path("/{name}/error-attribution")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
+  public CompletionStage<Response<ErrorAttributionRestResponse>> getErrorAttribution(
+      @PathParam("name") String name,
+      @QueryParam("start") String startParam,
+      @QueryParam("end") String endParam,
+      @QueryParam("refresh") @DefaultValue("false") boolean refresh) {
+    String projectId = ProjectContext.requireProjectId();
+    final Instant start;
+    final Instant end;
+    try {
+      start = parseRequiredInstant(startParam, "start");
+      end = parseRequiredInstant(endParam, "end");
+      if (!end.isAfter(start)) {
+        throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+            "'end' must be after 'start'");
+      }
+    } catch (WebApplicationException e) {
+      return CompletableFuture.failedFuture(e);
+    }
+    return errorAttributionService
+        .getErrorAttribution(projectId, name, start, end, refresh)
+        .map(this::toErrorAttributionRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private static Instant parseRequiredInstant(String value, String paramName) {
+    if (value == null || value.isBlank()) {
+      throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+          "Query parameter '" + paramName + "' is required and must be a non-blank ISO-8601 instant.");
+    }
+    try {
+      return Instant.parse(value.trim());
+    } catch (java.time.format.DateTimeParseException e) {
+      throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+          "Query parameter '" + paramName + "' must be a valid ISO-8601 instant (e.g. 2026-04-07T14:00:00Z).",
+          e.getMessage());
+    }
+  }
+
   private static LocalDate parseRootCauseQueryDate(String dateParam) {
     if (dateParam == null || dateParam.isBlank()) {
       return LocalDate.now(ZoneOffset.UTC);
@@ -272,6 +319,40 @@ public class InteractionController {
         .dimensions(seg.getDimensions())
         .metrics(seg.getMetrics())
         .deltas(seg.getDeltas())
+        .build();
+  }
+
+  private ErrorAttributionRestResponse toErrorAttributionRestResponse(ErrorAttributionResult result) {
+    List<ErrorAttributionRestResponse.RiskRatioEntry> risk =
+        result.getRiskRatios() == null
+            ? List.of()
+            : result.getRiskRatios().stream()
+                .map(
+                    r ->
+                        ErrorAttributionRestResponse.RiskRatioEntry.builder()
+                            .signal(r.getSignal())
+                            .nTreated(r.getNTreated())
+                            .nControl(r.getNControl())
+                            .nTreatedLow(r.getNTreatedLow())
+                            .nControlLow(r.getNControlLow())
+                            .p1(r.getP1())
+                            .p2(r.getP2())
+                            .rr(r.getRr())
+                            .rrUndefined(r.getRrUndefined())
+                            .rrUndefinedReason(r.getRrUndefinedReason())
+                            .build())
+                .collect(Collectors.toList());
+    return ErrorAttributionRestResponse.builder()
+        .trackBInsufficientData(result.getTrackBInsufficientData())
+        .nPoorInU(result.getNPoorInU())
+        .nU(result.getNU())
+        .riskRatios(risk)
+        .jointWinners(result.getJointWinners())
+        .analysisPhase(result.getAnalysisPhase())
+        .track(result.getTrack())
+        .diagnosticSpecVersion(result.getDiagnosticSpecVersion())
+        .cachedAt(result.getCachedAt())
+        .disclaimer(result.getDisclaimer())
         .build();
   }
 }

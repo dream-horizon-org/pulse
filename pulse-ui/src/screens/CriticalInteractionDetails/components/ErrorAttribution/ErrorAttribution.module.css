@@ -1,0 +1,31 @@
+.section {
+  padding: var(--mantine-spacing-sm) 0;
+}
+
+.headerRow {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.disclaimer {
+  margin-top: var(--mantine-spacing-md);
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dimmed);
+}
+
+.cachedAt {
+  margin-top: var(--mantine-spacing-xs);
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+}
+
+.skeletonBlock {
+  padding: 0 var(--mantine-spacing-xs);
+}
+
+.undefinedValue {
+  color: var(--mantine-color-dimmed);
+}
+
+.emptyState {
+  padding: var(--mantine-spacing-lg) 0;
+}

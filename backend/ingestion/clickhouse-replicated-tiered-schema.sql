@@ -224,7 +224,7 @@ AS SELECT
 FROM otel.stack_trace_events_local
 GROUP BY project_id, month, source;
 
-CREATE TABLE IF NOT EXISTS otel.root_cause_cache ON CLUSTER 'pulse-clickhouse'
+CREATE TABLE IF NOT EXISTS otel.root_cause_cache ON CLUSTER `pulse-clickhouse`
 (
     `ProjectId`       LowCardinality(String) CODEC(ZSTD(1)),
     `interaction_name` LowCardinality(String) CODEC(ZSTD(1)),
@@ -239,3 +239,8 @@ ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/otel.root_caus
 PARTITION BY toYYYYMM(date)
 ORDER BY (ProjectId, interaction_name, date)
 SETTINGS index_granularity = 8192;
+
+-- Track B error attribution (Phase 1): payload colocated with RCA cache row
+ALTER TABLE otel.root_cause_cache ON CLUSTER `pulse-clickhouse`
+    ADD COLUMN IF NOT EXISTS error_attribution_json Nullable(String)
+        COMMENT 'Serialized Track B error-attribution JSON; null if not computed';

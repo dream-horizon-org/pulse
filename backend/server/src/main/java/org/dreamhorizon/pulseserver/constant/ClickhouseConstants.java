@@ -7,6 +7,8 @@ import lombok.experimental.UtilityClass;
 public class ClickhouseConstants {
 
   public final String OTEL_TRACES_TABLE = "otel.otel_traces";
+  /** Crash / ANR / non-fatal events (session-level flags for diagnostics). */
+  public final String STACK_TRACE_EVENTS_TABLE = "otel.stack_trace_events";
   public final DateTimeFormatter CLICKHOUSE_TIMESTAMP_LITERAL =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 

@@ -206,7 +206,8 @@ public class RootCauseService {
               modeForCache.getWireValue(),
               baselineJson,
               segmentsJson,
-              java.time.LocalDateTime.now(ZoneOffset.UTC)
+              java.time.LocalDateTime.now(ZoneOffset.UTC),
+              null
           ).andThen(Single.just(result.toBuilder().cachedAt(Instant.now()).build()));
         });
   }
