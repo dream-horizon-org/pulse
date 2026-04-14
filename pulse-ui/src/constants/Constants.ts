@@ -478,6 +478,21 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/interactions`,
     method: API_METHODS.GET,
   },
+  GET_SUGGESTED_INTERACTIONS: {
+    key: "GET_SUGGESTED_INTERACTIONS",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.GET,
+  },
+  DISMISS_SUGGESTED_INTERACTION: {
+    key: "DISMISS_SUGGESTED_INTERACTION",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.PUT,
+  },
+  ACTIVATE_SUGGESTED_INTERACTION: {
+    key: "ACTIVATE_SUGGESTED_INTERACTION",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.PUT,
+  },
   GET_SESSION_REPLAYS: {
     key: "GET_SESSION_REPLAYS",
     apiPath: `/v1/session-replays`,

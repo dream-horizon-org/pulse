@@ -9,7 +9,7 @@ lib/
 .env
 
 .cursor/.env
-.cursor/debug.log
+.claude/
 .cursor/hooks/state/
 .cursor/plans/
 .terraform/

@@ -1,12 +1,12 @@
 /**
  * Configuration Editor Component
- * 
+ *
  * Full editor for creating/viewing SDK configurations
  * Supports view mode (read-only) and edit mode (create new)
  * Uses real API via useCreateSdkConfig hook
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Text,
@@ -60,10 +60,10 @@ import { useProjectContext } from '../../contexts';
 import { showNotification } from '../../helpers/showNotification';
 import classes from './SamplingConfig.module.css';
 
-export function ConfigEditor({ 
-  initialConfig, 
-  mode, 
-  onSave, 
+export function ConfigEditor({
+  initialConfig,
+  mode,
+  onSave,
   onCancel,
   onEdit,
   viewingVersion,
@@ -80,6 +80,7 @@ export function ConfigEditor({
     projectId,
   });
 
+
   // Check if this is a "no config exists" scenario (first time setup)
   const isFirstTimeSetup =
     mode === 'create' &&
@@ -92,14 +93,14 @@ export function ConfigEditor({
   const createConfigMutation = useCreateSdkConfig((data, error) => {
     if (error) {
       showNotification(
-        'Error',
+        "Error",
         UI_CONSTANTS.NOTIFICATIONS.SAVE_ERROR,
         <IconSquareRoundedX />,
         theme.colors.red[6],
       );
     } else if (data) {
       showNotification(
-        'Success',
+        "Success",
         `Configuration v${data.version} created successfully`,
         <IconCircleCheckFilled />,
         theme.colors.teal[6],
@@ -113,12 +114,16 @@ export function ConfigEditor({
     }
   });
 
-  const [config, setConfig] = useState<PulseConfig>(initialConfig || DEFAULT_PULSE_CONFIG);
-  const [originalConfig, setOriginalConfig] = useState<PulseConfig>(initialConfig || DEFAULT_PULSE_CONFIG);
+  const [config, setConfig] = useState<PulseConfig>(
+    initialConfig || DEFAULT_PULSE_CONFIG,
+  );
+  const [originalConfig, setOriginalConfig] = useState<PulseConfig>(
+    initialConfig || DEFAULT_PULSE_CONFIG,
+  );
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState("");
 
-  const isViewMode = mode === 'view';
+  const isViewMode = mode === "view";
   const isLoading =
     needsActiveFetch && (isInitializing || !hasProject || isLoadingActive);
   const isSaving = createConfigMutation.isPending;
@@ -144,7 +149,10 @@ export function ConfigEditor({
   const isDirty = useMemo(() => {
     if (isViewMode) return false;
     try {
-      return JSON.stringify(stripUIFields(config)) !== JSON.stringify(stripUIFields(originalConfig));
+      return (
+        JSON.stringify(stripUIFields(config)) !==
+        JSON.stringify(stripUIFields(originalConfig))
+      );
     } catch {
       return false;
     }
@@ -155,7 +163,7 @@ export function ConfigEditor({
     try {
       return JSON.stringify(stripUIFields(config), null, 2);
     } catch {
-      return '{}';
+      return "{}";
     }
   }, [config]);
 
@@ -166,7 +174,7 @@ export function ConfigEditor({
     // Update config with description before saving
     const configToSave: PulseConfig = {
       ...config,
-      description: description || config.description || 'SDK Configuration',
+      description: description || config.description || "SDK Configuration",
     };
 
     createConfigMutation.mutate({ config: configToSave });
@@ -175,10 +183,10 @@ export function ConfigEditor({
   // Reset to original
   const handleReset = useCallback(() => {
     setConfig(originalConfig);
-    setDescription('');
+    setDescription("");
     showNotification(
-      'Reset',
-      'Configuration reset to original',
+      "Reset",
+      "Configuration reset to original",
       <IconRefresh />,
       theme.colors.blue[6],
     );
@@ -187,7 +195,7 @@ export function ConfigEditor({
   return (
     <Box className={classes.pageContainer}>
       <LoadingOverlay visible={isLoading} />
-      
+
       {/* First-time setup notice */}
       {isFirstTimeSetup && (
         <Alert
@@ -197,11 +205,11 @@ export function ConfigEditor({
           mb="md"
           variant="light"
         >
-          No existing configuration found. You're creating the first SDK configuration. 
-          Fill in the settings below and save to activate it.
+          No existing configuration found. You're creating the first SDK
+          configuration. Fill in the settings below and save to activate it.
         </Alert>
       )}
-      
+
       {/* Header */}
       <Box className={classes.header}>
         <Box className={classes.headerTop}>
@@ -216,28 +224,51 @@ export function ConfigEditor({
             >
               Back
             </Button>
-            
+
             <Box className={classes.headerTitleSection}>
               <Group gap="xs" wrap="wrap">
                 <Text className={classes.pageTitle}>
-                  {isViewMode ? 'View Configuration' : 'New Configuration'}
+                  {isViewMode ? "View Configuration" : "New Configuration"}
                 </Text>
                 {viewingVersion && (
-                  <Badge size="md" variant="light" color={isViewMode ? 'blue' : 'teal'}>
-                    {isViewMode ? `v${viewingVersion}` : `Based on v${viewingVersion}`}
+                  <Badge
+                    size="md"
+                    variant="light"
+                    color={isViewMode ? "blue" : "teal"}
+                  >
+                    {isViewMode
+                      ? `v${viewingVersion}`
+                      : `Based on v${viewingVersion}`}
                   </Badge>
                 )}
                 {isViewMode && (
-                  <Badge size="sm" variant="light" color="gray" leftSection={<IconEye size={10} />}>
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color="gray"
+                    leftSection={<IconEye size={10} />}
+                  >
                     Read-only
                   </Badge>
                 )}
               </Group>
               <Text className={classes.pageSubtitle}>
                 {isViewMode ? (
-                  <>Viewing saved configuration. Click <Text span fw={600} c="blue.6">"Edit"</Text> to create a new version.</>
+                  <>
+                    Viewing saved configuration. Click{" "}
+                    <Text span fw={600} c="blue.6">
+                      "Create from this"
+                    </Text>{" "}
+                    to create a new version.
+                  </>
                 ) : (
-                  <>Configure SDK behavior and <Text span fw={600} c="teal.6">save</Text> to create a new version.</>
+                  <>
+                    Configure SDK behavior and{" "}
+                    <Text span fw={600} c="teal.6">
+                      save
+                    </Text>{" "}
+                    to create a new version.
+                  </>
                 )}
               </Text>
             </Box>
@@ -250,7 +281,7 @@ export function ConfigEditor({
                 Unsaved
               </Badge>
             )}
-            
+
             <Group gap="xs" className={classes.headerActionsGroup}>
               <Button
                 variant="subtle"
@@ -260,14 +291,14 @@ export function ConfigEditor({
               >
                 JSON
               </Button>
-              
+
               {isViewMode ? (
                 <Button
-                  leftSection={<IconEdit size={16} />}
+                  leftSection={<IconCopy size={16} />}
                   onClick={onEdit}
                   size="sm"
                 >
-                  Edit
+                  Create from this
                 </Button>
               ) : (
                 <>
@@ -287,7 +318,7 @@ export function ConfigEditor({
                     disabled={!isDirty && !description}
                     size="sm"
                   >
-                    {isSaving ? 'Saving...' : 'Save'}
+                    {isSaving ? "Saving..." : "Save"}
                   </Button>
                 </>
               )}
@@ -298,16 +329,17 @@ export function ConfigEditor({
 
       {/* View Mode Banner */}
       {isViewMode && (
-        <Alert 
-          icon={<IconInfoCircle size={18} />} 
-          color="blue" 
-          variant="light" 
+        <Alert
+          icon={<IconInfoCircle size={18} />}
+          color="blue"
+          variant="light"
           mb="lg"
           title="View Mode"
         >
           <Text size="sm">
-            You are viewing an existing configuration. To make changes, click "Create from this" 
-            to create a new version based on this configuration.
+            You are viewing an existing configuration. To make changes, click
+            "Create from this" to create a new version based on this
+            configuration.
           </Text>
         </Alert>
       )}
@@ -329,7 +361,6 @@ export function ConfigEditor({
 
       {/* Configuration Sections - Organized by functionality */}
       <Box className={classes.configPanel}>
-        
         {/* ═══════════════════════════════════════════════════════════════════
             SECTION 1: FEATURES - What to Collect
             Start by choosing which SDK features are enabled/disabled
@@ -353,10 +384,12 @@ export function ConfigEditor({
         {/* Critical Events - Events that bypass sampling rules */}
         <CriticalEventsConfig
           config={config.sampling.criticalEventPolicies}
-          onChange={(criticalEventPolicies) => setConfig({
-            ...config,
-            sampling: { ...config.sampling, criticalEventPolicies },
-          })}
+          onChange={(criticalEventPolicies) =>
+            setConfig({
+              ...config,
+              sampling: { ...config.sampling, criticalEventPolicies },
+            })
+          }
           disabled={isViewMode}
         />
 
@@ -366,10 +399,12 @@ export function ConfigEditor({
         ═══════════════════════════════════════════════════════════════════ */}
         <FiltersConfig
           config={config.signals.filters}
-          onChange={(filters) => setConfig({ 
-            ...config, 
-            signals: { ...config.signals, filters } 
-          })}
+          onChange={(filters) =>
+            setConfig({
+              ...config,
+              signals: { ...config.signals, filters },
+            })
+          }
           disabled={isViewMode}
         />
 
@@ -379,19 +414,23 @@ export function ConfigEditor({
         ═══════════════════════════════════════════════════════════════════ */}
         <AttributesToDropConfig
           attributes={config.signals.attributesToDrop || []}
-          onChange={(attributesToDrop) => setConfig({
-            ...config,
-            signals: { ...config.signals, attributesToDrop }
-          })}
+          onChange={(attributesToDrop) =>
+            setConfig({
+              ...config,
+              signals: { ...config.signals, attributesToDrop },
+            })
+          }
           disabled={isViewMode}
         />
 
         <AttributesToAddConfig
           attributes={config.signals.attributesToAdd || []}
-          onChange={(attributesToAdd) => setConfig({
-            ...config,
-            signals: { ...config.signals, attributesToAdd }
-          })}
+          onChange={(attributesToAdd) =>
+            setConfig({
+              ...config,
+              signals: { ...config.signals, attributesToAdd },
+            })
+          }
           disabled={isViewMode}
         />
 
@@ -403,7 +442,9 @@ export function ConfigEditor({
           signals={config.signals}
           interaction={config.interaction}
           onSignalsChange={(signals) => setConfig({ ...config, signals })}
-          onInteractionChange={(interaction) => setConfig({ ...config, interaction })}
+          onInteractionChange={(interaction) =>
+            setConfig({ ...config, interaction })
+          }
           disabled={isViewMode}
         />
       </Box>
@@ -417,9 +458,15 @@ export function ConfigEditor({
             <IconCode size={20} />
             <Text fw={600}>Configuration JSON</Text>
             {config.version && (
-              <Badge size="sm" variant="light" color="gray">v{config.version}</Badge>
+              <Badge size="sm" variant="light" color="gray">
+                v{config.version}
+              </Badge>
             )}
-            {isDirty && <Badge color="yellow" size="sm">Unsaved</Badge>}
+            {isDirty && (
+              <Badge color="yellow" size="sm">
+                Unsaved
+              </Badge>
+            )}
           </Group>
         }
         size="xl"
@@ -427,16 +474,16 @@ export function ConfigEditor({
       >
         <Box mb="md">
           <Text size="sm" c="dimmed" mb="sm">
-            {isViewMode 
-              ? 'This is the configuration for the selected version.'
-              : 'This is the configuration that will be saved.'}
+            {isViewMode
+              ? "This is the configuration for the selected version."
+              : "This is the configuration that will be saved."}
           </Text>
           <Group justify="flex-end" mb="sm">
             <CopyButton value={formattedConfig}>
               {({ copied, copy }) => (
-                <Tooltip label={copied ? 'Copied!' : 'Copy JSON'}>
-                  <ActionIcon 
-                    color={copied ? 'teal' : 'gray'} 
+                <Tooltip label={copied ? "Copied!" : "Copy JSON"}>
+                  <ActionIcon
+                    color={copied ? "teal" : "gray"}
                     variant="subtle"
                     onClick={copy}
                   >
@@ -448,14 +495,17 @@ export function ConfigEditor({
           </Group>
         </Box>
         <ScrollArea h={500} type="auto">
-          <Code block style={{ 
-            fontSize: 12, 
-            lineHeight: 1.5,
-            backgroundColor: '#1a1a2e',
-            color: '#e2e8f0',
-            padding: 16,
-            borderRadius: 8,
-          }}>
+          <Code
+            block
+            style={{
+              fontSize: 12,
+              lineHeight: 1.5,
+              backgroundColor: "#1a1a2e",
+              color: "#e2e8f0",
+              padding: 16,
+              borderRadius: 8,
+            }}
+          >
             {formattedConfig}
           </Code>
         </ScrollArea>
@@ -464,7 +514,7 @@ export function ConfigEditor({
             Close
           </Button>
           {isDirty && !isViewMode && (
-            <Button 
+            <Button
               leftSection={<IconDeviceFloppy size={16} />}
               onClick={() => {
                 handleSave();
