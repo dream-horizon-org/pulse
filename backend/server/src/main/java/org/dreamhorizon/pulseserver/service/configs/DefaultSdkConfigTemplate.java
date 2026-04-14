@@ -76,10 +76,10 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.js_crash, 1.0, androidSdk));
         features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
-        features.add(createFeature(Features.screen_session, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
         features.add(createFeature(Features.rn_screen_load, 1.0, rnSdk));
         features.add(createFeature(Features.rn_screen_interactive, 1.0, rnSdk));
+        features.add(createFeature(Features.rn_screen_session, 1.0, rnSdk));
         features.add(createSessionReplayFeature(1.0, allSdks));
         features.add(createClickFeature(1.0, allSdks));
         features.add(createFeature(Features.heatmap, 1.0, allSdks));

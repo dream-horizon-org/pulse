@@ -97,11 +97,6 @@ export const FEATURE_DISPLAY_INFO: Record<
     description: "Track network state changes",
     icon: "wifi",
   },
-  screen_session: {
-    label: "Screen Session",
-    description: "Track screen views and sessions",
-    icon: "screen",
-  },
   custom_events: {
     label: "Custom Events",
     description: "User-defined custom events",
@@ -116,6 +111,11 @@ export const FEATURE_DISPLAY_INFO: Record<
     label: "React Native Screen Interactive",
     description: "Track React Native Screen Interactive Events",
     icon: "navigation",
+  },
+  rn_screen_session: {
+    label: "React Native Screen Session",
+    description: "Track React Native screen views and sessions",
+    icon: "screen",
   },
   session_replay: {
     label: "Session Replay",

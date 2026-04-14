@@ -10,10 +10,10 @@ public enum Features {
   js_crash,
   java_anr,
   network_change,
-  screen_session,
   custom_events,
   rn_screen_load,
   rn_screen_interactive,
+  rn_screen_session,
   session_replay,
   click,
   /** Dashboard screen heatmaps (Pulse UI); client SDKs may ignore. */
