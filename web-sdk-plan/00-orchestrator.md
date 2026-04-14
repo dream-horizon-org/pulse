@@ -8,15 +8,15 @@ This document is the single source of truth for the Web SDK project. It tracks p
 
 | # | Phase | Index Doc | Sub-Docs | Status | Owner | Blocker |
 |---|---|---|---|---|---|---|
-| 1 | Foundation | [01-foundation.md](./01-foundation.md) | — | Not Started | — | — |
-| 1.5 | SDK Config (Remote Config) | [01.5-sdk-config.md](./01.5-sdk-config.md) | — | Not Started | — | Phase 1 |
-| 2 | Auto-Instrumentations | [02-auto-instrumentations.md](./02-auto-instrumentations.md) | [02.1](#) · [02.2](#) · [02.3](#) · [02.4](#) · [02.5](#) · [02.6](#) · [02.7](#) · [02.8](#) · [02.9](#) · [02.10](#) | Not Started | — | Phase 1.5 |
-| 2.5 | Interactions | [03-interactions.md](./03-interactions.md) | [03.1](#) · [03.2](#) · [03.3](#) | Not Started | — | Phase 1 |
-| 3 | Session Replay | [04-session-replay.md](./04-session-replay.md) | [04.1](#) · [04.2](#) · [04.3](#) | Not Started | — | Phase 1 |
-| 4 | Framework Integrations | [05-framework-integrations.md](./05-framework-integrations.md) | [05.1](#) · [05.2](#) · [05.3](#) · [05.4](#) | Not Started | — | Phase 1 |
-| 5 | Build & Distribution | [06-build-distribution.md](./06-build-distribution.md) | — | Not Started | — | Phase 4 |
-| 6 | Testing & Quality | [07-testing-quality.md](./07-testing-quality.md) | — | Not Started | — | Phase 2 |
-| 7 | Backend & UI | [08-backend-ui.md](./08-backend-ui.md) | [08.1](#) | Not Started | — | Phase 2 |
+| 1 | Foundation | [01-foundation.md](./01-foundation.md) | [01.1](./01.1-session-instrumentation.md) | Not Started | — | — |
+| 2 | Framework Integrations | [05-framework-integrations.md](./05-framework-integrations.md) | [05.1](#) · [05.2](#) · [05.3](#) · [05.4](#) | Not Started | — | Phase 1 |
+| 3 | Auto-Instrumentations | [02-auto-instrumentations.md](./02-auto-instrumentations.md) | [02.1](#) · [02.2](#) · [02.3](#) · [02.4](#) · [02.5](#) · [02.6](#) · [02.7](#) · [02.8](#) · [02.9](#) · [02.10](#) | Not Started | — | Phase 1 |
+| 3.5 | Interactions | [03-interactions.md](./03-interactions.md) | [03.1](#) · [03.2](#) · [03.3](#) | Not Started | — | Phase 1 |
+| 4 | Session Replay | [04-session-replay.md](./04-session-replay.md) | [04.1](#) · [04.2](#) · [04.3](#) | Not Started | — | Phase 1 |
+| 5 | SDK Config (Remote Config) | [01.5-sdk-config.md](./01.5-sdk-config.md) | — | Not Started | — | Phase 3 |
+| 6 | Build & Distribution | [06-build-distribution.md](./06-build-distribution.md) | — | Not Started | — | Phases 2–4 |
+| 7 | Testing & Quality | [07-testing-quality.md](./07-testing-quality.md) | — | Not Started | — | Phase 3 |
+| 8 | Backend & UI | [08-backend-ui.md](./08-backend-ui.md) | [08.1](#) · [08.2](#) | Not Started | — | Phase 3 |
 
 **Status values:** `Not Started` → `In Progress` → `In Review` → `Done` → `Blocked`
 
@@ -76,19 +76,20 @@ This document is the single source of truth for the Web SDK project. It tracks p
 ## Phase Dependency Map
 
 ```
-Phase 1 (Foundation)
-  └─→ Phase 1.5 (SDK Config)
-        ├─→ Phase 2 (Auto-Instrumentations)
-  │     └─→ Phase 6 (Testing & Quality)
-  │     └─→ Phase 7 (Backend & UI)
-  ├─→ Phase 2.5 (Interactions)
-  ├─→ Phase 3 (Session Replay)
-  └─→ Phase 4 (Framework Integrations)
-        └─→ Phase 5 (Build & Distribution)
+Phase 1 (Foundation — incl. batching, persistence, compression, shutdown, session instrumentation)
+  ├─→ Phase 2 (Framework Integrations)        ← run early; real app context for testing
+  ├─→ Phase 3 (Auto-Instrumentations)         ┐
+  ├─→ Phase 3.5 (Interactions)               ├─ parallel once Phase 1 done
+  └─→ Phase 4 (Session Replay)               ┘
+        └─→ Phase 5 (SDK Config / Remote Config)  ← after instrumentations are stable
+              ├─→ Phase 6 (Build & Distribution)
+              ├─→ Phase 7 (Testing & Quality)
+              └─→ Phase 8 (Backend & UI)
 ```
 
-Phases 2, 2.5, 3, and 4 can run in parallel once Phase 1 is complete.
-Phase 5 requires all of 2, 2.5, 3, and 4 to be stable.
+Phases 2, 3, 3.5, and 4 run in parallel once Phase 1 is complete.
+Phase 5 (SDK Config) starts after Phase 3 is stable — you need real signals flowing before remote config gating makes sense.
+Phase 6 requires all of 2–4 stable.
 
 ---
 

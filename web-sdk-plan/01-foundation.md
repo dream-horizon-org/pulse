@@ -1,6 +1,6 @@
 # Phase 1 — Foundation
 
-**Goal:** A working SDK skeleton that initialises, manages sessions, and exports a real span to the existing Pulse backend over OTLP HTTP. Every subsequent phase builds on this.
+**Goal:** A working SDK skeleton that initialises, manages sessions, and exports a real span to the existing Pulse backend over OTLP HTTP. Every subsequent phase builds on this. The foundation must be production-grade from the start — batching, persistence, shutdown, configurable instrumentation, and payload compression are all Phase 1 scope, not retrofits.
 
 **Estimated duration:** Week 1–2
 **Prerequisites:** None — this is the starting point.
@@ -16,14 +16,20 @@
 - OTEL Resource builder (browser attributes)
 - OTLP HTTP exporters (traces, logs, metrics)
 - Consent management
-- Remote SDK config fetch (`/v1/configs/active`)
 - `sendBeacon` flush on page hide
+- **Batching** — configurable batch processor for all signal types
+- **Persistence** — IndexedDB-backed signal buffer; drain on next session
+- **Payload format + Compression** — JSON (default) or Protobuf; gzip via `CompressionStream`
+- **Instrumentation registry** — every instrumentation has `install()` / `uninstall()`; all toggleable at init
+- **Session as an instrumentation** — `session.start` / `session.end` signals (see `01.1-session-instrumentation.md`)
+- **Shutdown API** — force flush, uninstall all instrumentations, clear state
 
 **Out:**
 - Any auto-instrumentation (Phase 2)
 - Interactions (Phase 2.5)
 - Session replay (Phase 3)
 - Framework-specific wrappers (Phase 4)
+- Remote SDK config (Phase 5 — added after instrumentations are stable)
 
 ---
 
@@ -345,20 +351,152 @@ export const PulseWeb = PulseWebSDK.getInstance();
 
 ---
 
-### 7. Remote Config Fetch (`remoteConfig.ts`)
+### 7. Batching Configuration
+
+Both Android and iOS flush every **5 seconds**, with a max queue of **2048** and max batch of **512**. The web SDK matches these defaults.
 
 ```typescript
-// Non-blocking: fetch in background after init
-async function fetchRemoteConfig(baseUrl: string, apiKey: string) {
-  const res = await fetch(`${baseUrl}/v1/configs/active`, {
-    headers: { 'X-API-KEY': apiKey },
-  });
-  if (!res.ok) return null;
-  return res.json();
+// Applied to BatchSpanProcessor, BatchLogRecordProcessor, PeriodicExportingMetricReader
+const BATCH_DEFAULTS = {
+  scheduledDelayMillis:  5_000,   // flush every 5s
+  maxQueueSize:          2_048,   // drop oldest when exceeded
+  maxExportBatchSize:    512,     // max signals per export request
+  exportTimeoutMillis:   30_000,  // abort export after 30s
+};
+```
+
+All three signal types (traces, logs, metrics) use the same defaults.
+Configurable via `PulseWebConfig.export.batch` — customers with high-frequency signals can tune flush interval and batch size.
+
+**`pagehide` flush:** `tracerProvider.forceFlush()` + `loggerProvider.forceFlush()` are called synchronously on `pagehide`. Any signals that exceed `sendBeacon`'s 64KB limit are dropped — batching keeps this rare.
+
+---
+
+### 8. Persistence — IndexedDB Signal Buffer
+
+**Why:** Mobile SDKs (Android: file cache; iOS: `PersistenceExporterDecorator`) persist unsent signals to disk so they survive process kill. On next launch, the buffer is drained before normal operation.
+
+On web, `IndexedDB` is the only persistent async storage with sufficient capacity. The pattern is identical:
+
+```
+Signal emitted
+    │
+    ▼
+PersistenceExporterDecorator
+    ├─→ Write to IndexedDB  (pulse_signal_buffer)
+    └─→ Attempt network export
+            ├─ Success → delete from IndexedDB
+            └─ Failure → leave in IndexedDB (retried on next page load)
+
+On SDK init:
+    └─→ DrainBuffer() → export all stored signals → clear buffer
+```
+
+**Store schema:** `{ id, signalType, payload, timestamp }`
+- `signalType`: `'trace' | 'log' | 'metric'`
+- `payload`: serialised OTLP JSON/Protobuf (the same bytes that would be sent over the wire)
+- `timestamp`: used for TTL pruning
+
+**Limits:**
+| Setting | Default | Notes |
+|---|---|---|
+| Max buffer size | 5 MB | Prune oldest entries when exceeded |
+| Max signal age | 24 hours | Stale signals dropped on drain |
+| Session replay | Not persisted | Too large; sendBeacon handles delivery |
+
+**Config:** `PulseWebConfig.diskBuffering: { enabled: boolean, maxSizeBytes: number, maxAgeMs: number }`  
+Disabled by default — opt-in. IndexedDB access is async; the decorator wraps the sync OTel exporter interface with a fire-and-forget write (errors are silently swallowed to not affect signal flow).
+
+---
+
+### 9. Payload Format & Compression
+
+**Format — JSON vs Protobuf:**
+
+| Format | Content-Type | Bundle impact | Notes |
+|---|---|---|---|
+| JSON (default) | `application/json` | Zero — OTel JS ships JSON exporters | Human-readable, easier debugging |
+| Protobuf | `application/x-protobuf` | +~8 KB | Smaller payloads; needs `exporter-*-otlp-proto` packages |
+
+Default is **JSON**. Protobuf is available via `PulseWebConfig.export.format: 'protobuf'` for customers where payload size is a concern. iOS uses Protobuf by default; Android delegates to exporter choice.
+
+**Compression — gzip via `CompressionStream`:**
+
+The browser `CompressionStream` API (Chrome 80+, Firefox 113+, Safari 16.4+) enables gzip with zero bundle cost:
+
+```typescript
+async function gzipBody(body: string): Promise<ArrayBuffer> {
+  const stream = new CompressionStream('gzip');
+  const writer = stream.writable.getWriter();
+  writer.write(new TextEncoder().encode(body));
+  writer.close();
+  return new Response(stream.readable).arrayBuffer();
 }
 ```
 
-Remote config gates features — store result and check before enabling instrumentations.
+Applied to all OTLP export requests when `CompressionStream` is available. Falls back to uncompressed transparently on older browsers.
+
+**Config:** `PulseWebConfig.export.compression: 'gzip' | 'none'` (default: `'gzip'` — uses `CompressionStream` if available, else no-op)
+
+---
+
+### 10. Shutdown API
+
+Android calls `uninstall()` on each instrumentation then `sdk.shutdown()`. iOS additionally clears persistent storage and locks re-initialisation. The web SDK follows the same pattern:
+
+```typescript
+async shutdown(options?: { clearPersisted?: boolean }): Promise<void>
+```
+
+**Steps (in order):**
+1. Set `_isShuttingDown = true` — new `start()` calls are rejected; new signals are silently dropped
+2. `forceFlush()` on TracerProvider, LoggerProvider, MeterProvider — wait for all in-flight batches
+3. Call `uninstall()` on every registered instrumentation (reverse order of install)
+4. If `clearPersisted: true` — clear the IndexedDB signal buffer
+5. Set `_isShutdown = true`, clear internal state
+
+**When to call:**
+- SPAs that tear down and reinitialise on hot reloads (test environments)
+- Explicit user logout — clear session + installation data
+- Framework integrations can call `PulseWeb.shutdown()` in their unmount lifecycle
+
+---
+
+### 11. Instrumentation Registry & Config
+
+Every instrumentation — auto or opt-in — implements a common interface:
+
+```typescript
+interface PulseInstrumentation {
+  readonly name: string;
+  install(sdk: PulseWebSDK): void;
+  uninstall(): void;
+}
+```
+
+The config object at init determines which are installed:
+
+```typescript
+PulseWebConfig.instrumentations = {
+  errors:          { enabled: true },
+  network:         { enabled: true },
+  clicks:          { enabled: true },
+  webVitals:       { enabled: true },
+  navigation:      { enabled: true },
+  longTasks:       { enabled: true },
+  resourceTiming:  { enabled: true },
+  visibility:      { enabled: true },
+  websocket:       { enabled: true },
+  bfcache:         { enabled: true },
+  session:         { enabled: true },   // 01.1-session-instrumentation.md
+  interactions:    { enabled: true },
+  sessionReplay:   { enabled: false },  // opt-in
+}
+```
+
+Each entry may carry instrumentation-specific config alongside `enabled`. SDK iterates the registry at init, checks `enabled`, calls `install(sdk)`. On `shutdown()`, `uninstall()` is called on each in reverse order.
+
+Remote SDK Config (Phase 5) can override `enabled` server-side without an SDK release — the registry is re-evaluated on config update.
 
 ---
 
@@ -407,19 +545,43 @@ Verify this in Phase 1 before proceeding further.
 
 ## Done Criteria
 
+**Core**
 - [ ] `PulseWeb.start({ endpointBaseUrl, apiKey, serviceName })` runs without errors in Chrome, Firefox, Safari
 - [ ] A span appears in ClickHouse with `platform = 'web'`
 - [ ] Resource attributes present on every span: `service.name`, `rum.sdk.name`, `rum.sdk.version`, `project.id`, `installation.id`, `browser.name`, `browser.version`, `os.name`, `os.version`, `device.type`, `device.screen.width`, `device.screen.height`
 - [ ] Dynamic attributes present on every span: `session.id`, `screen.name`, `url.path`, `page.url`, `network.connection.type`
-- [ ] `installation.id` persists across page reloads (same value in localStorage)
-- [ ] `installation.id` falls back to sessionStorage when localStorage is blocked
-- [ ] `installation.id` falls back to in-memory when both storages are blocked (incognito strict mode)
-- [ ] `session.id` rotates after 30 min inactivity
-- [ ] `session.previous_id` set correctly when a new session starts
-- [ ] `screen.name` updates when route changes
-- [ ] OTLP endpoint returns 200 (CORS headers correct)
+- [ ] `installation.id` persists across page reloads; falls back to sessionStorage, then memory
+- [ ] `session.id` rotates after 30 min inactivity; `session.previous_id` set correctly
 - [ ] Double `start()` call does not create duplicate exporters
-- [ ] Unit tests passing
+- [ ] OTLP endpoint returns 200 (CORS headers correct)
+
+**Batching**
+- [ ] Signals batched with 5s flush interval, 2048 queue, 512 batch size
+- [ ] `pagehide` triggers `forceFlush()` before tab closes
+
+**Persistence**
+- [ ] Failed export writes payload to IndexedDB
+- [ ] On next `start()`, IndexedDB buffer is drained before normal operation
+- [ ] Entries older than 24h are pruned on drain
+- [ ] `diskBuffering.enabled: false` (default) skips all IndexedDB writes
+
+**Payload & Compression**
+- [ ] Default export uses `Content-Type: application/json`
+- [ ] `export.format: 'protobuf'` switches to `application/x-protobuf`
+- [ ] `export.compression: 'gzip'` applies `CompressionStream` where available; no-ops on unsupported browsers
+- [ ] `Content-Encoding: gzip` header present when compression applied
+
+**Shutdown**
+- [ ] `await PulseWeb.shutdown()` force-flushes all providers
+- [ ] All instrumentation `uninstall()` methods called
+- [ ] Post-shutdown `start()` call is rejected (does not reinitialise)
+
+**Instrumentation Registry**
+- [ ] `instrumentations.errors.enabled: false` prevents error instrumentation from installing
+- [ ] `instrumentations.sessionReplay.enabled: false` (default) produces no replay data
+- [ ] Session instrumentation emits `session.start` and `session.end` logs
+
+**Unit tests passing for all of the above**
 
 ---
 
