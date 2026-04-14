@@ -1335,9 +1335,9 @@ class ConfigControllerTest {
             .rules(Arrays.asList("os_version", "app_version", "country"))
             .features(Arrays.asList(
                 "java_crash", "native_crash", "anr",
-                "android_network", "ios_network", "rn_network",
+                "ios_network", "rn_network",
                 "ios_crash", "ios_lifecycle", "android_activity",
-                "android_fragment", "android_slowrendering", "location"
+                "android_fragment", "android_slowrendering", "rn_screen_session"
             ))
             .build();
 
@@ -1354,12 +1354,11 @@ class ConfigControllerTest {
             assertNotNull(resp.getData().getRules());
             assertNotNull(resp.getData().getFeatures());
             assertEquals(3, resp.getData().getRules().size());
-            assertEquals(12, resp.getData().getFeatures().size());
-            assertTrue(resp.getData().getFeatures().contains("android_network"));
+            assertEquals(11, resp.getData().getFeatures().size());
             assertTrue(resp.getData().getFeatures().contains("ios_network"));
             assertTrue(resp.getData().getFeatures().contains("rn_network"));
             assertTrue(resp.getData().getFeatures().contains("ios_crash"));
-            assertTrue(resp.getData().getFeatures().contains("location"));
+            assertTrue(resp.getData().getFeatures().contains("rn_screen_session"));
             verify(configService, times(1)).getRulesandFeatures();
           });
           testContext.completeNow();

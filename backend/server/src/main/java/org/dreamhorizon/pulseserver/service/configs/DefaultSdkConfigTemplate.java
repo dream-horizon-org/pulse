@@ -76,20 +76,18 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.js_crash, 1.0, androidSdk));
         features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
-        features.add(createFeature(Features.screen_session, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
         features.add(createFeature(Features.rn_screen_load, 1.0, rnSdk));
         features.add(createFeature(Features.rn_screen_interactive, 1.0, rnSdk));
-        features.add(createSessionReplayFeature(1.0, allSdks));
+        features.add(createFeature(Features.rn_screen_session, 1.0, rnSdk));
+        features.add(createSessionReplayFeature(0.0, allSdks));
         features.add(createFeature(Features.ios_crash, 1.0, iosSdk));
         features.add(createFeature(Features.android_slowrendering, 1.0, androidSdk));
-        features.add(createFeature(Features.android_network, 0.0, androidSdk));
         features.add(createFeature(Features.ios_network, 1.0, iosSdk));
         features.add(createFeature(Features.rn_network, 1.0, rnSdk));
         features.add(createFeature(Features.ios_lifecycle, 0.0, iosSdk));
         features.add(createFeature(Features.android_activity, 1.0, androidSdk));
         features.add(createFeature(Features.android_fragment, 0.0, androidSdk));
-        features.add(createFeature(Features.location, 0.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()

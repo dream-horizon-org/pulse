@@ -34,20 +34,18 @@ export type FeatureName =
   | "js_crash"
   | "java_anr"
   | "network_change"
-  | "screen_session"
   | "custom_events"
   | "rn_screen_load"
   | "rn_screen_interactive"
+  | "rn_screen_session"
   | "session_replay"
-  | "android_network"
   | "ios_network"
   | "rn_network"
   | "ios_crash"
   | "ios_lifecycle"
   | "android_activity"
   | "android_fragment"
-  | "android_slowrendering"
-  | "location";
+  | "android_slowrendering";
 
 export type TextAndInputPrivacy =
   | "MASK_ALL"

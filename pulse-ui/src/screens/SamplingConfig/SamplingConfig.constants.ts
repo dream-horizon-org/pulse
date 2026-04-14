@@ -97,11 +97,6 @@ export const FEATURE_DISPLAY_INFO: Record<
     description: "Track network state changes",
     icon: "wifi",
   },
-  screen_session: {
-    label: "Screen Session",
-    description: "Track screen views and sessions",
-    icon: "screen",
-  },
   custom_events: {
     label: "Custom Events",
     description: "User-defined custom events",
@@ -117,16 +112,16 @@ export const FEATURE_DISPLAY_INFO: Record<
     description: "Track React Native Screen Interactive Events",
     icon: "navigation",
   },
+  rn_screen_session: {
+    label: "React Native Screen Session",
+    description: "Track React Native screen views and sessions",
+    icon: "screen",
+  },
   session_replay: {
     label: "Session Replay",
     description:
       "Record and replay user sessions with configurable PII masking",
     icon: "replay",
-  },
-  android_network: {
-    label: "Android Network",
-    description: "Track Android network requests and performance",
-    icon: "network",
   },
   ios_network: {
     label: "iOS Network",
@@ -162,11 +157,6 @@ export const FEATURE_DISPLAY_INFO: Record<
     label: "Android Slow Rendering",
     description: "Detect and report slow rendering and jank events",
     icon: "alert",
-  },
-  location: {
-    label: "Location",
-    description: "Track user location data",
-    icon: "navigation",
   },
 };
 
