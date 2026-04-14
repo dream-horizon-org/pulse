@@ -13,8 +13,7 @@ export const ROOT_CAUSE_MESSAGES = {
   REQUEST_TIMEOUT:
     "Request timed out. Root cause computation can take up to a minute. Please try again.",
   RCA_WAITING_IN_QUEUE: "Generating your report…",
-  RCA_JOINING_JOB: () =>
-    "Another user is generating this report. Joining existing job.",
+  RCA_JOINING_JOB: "Another user is generating this report. Joining existing job.",
   RCA_STALE_REPORT_BANNER:
     "Report has been regenerated. Refresh to see updates.",
   RCA_STALE_ASYNC_ACTIVITY:

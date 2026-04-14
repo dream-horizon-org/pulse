@@ -103,8 +103,6 @@ class AiProxyServiceImplTest {
         "checkout",
         ANALYSIS_DATE,
         RcaJobStatus.PENDING,
-        0,
-        null,
         null,
         Instant.parse("2025-03-10T10:00:00Z"),
         null,

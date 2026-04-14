@@ -83,10 +83,6 @@ public class RcaReportProcessor {
       jobDao.updateStatus(job.jobId(), RcaJobStatus.PROCESSING).blockingAwait();
 
       RcaParsedReportBody parsed = parseJobRequest(job, requestBody, forceRootCauseRefresh);
-      if (parsed == null) {
-        log.warn("RCA job {} failed at parse step", job.jobId());
-        return;
-      }
 
       RcaEnrichmentOutcome enrichment =
           enrichmentService
@@ -99,7 +95,6 @@ public class RcaReportProcessor {
           Single.fromCompletionStage(
                   upstream.executeProxy(
                       "POST", targetUrl, enrichment.body(), authorization, job.projectId()))
-              .subscribeOn(Schedulers.io())
               .blockingGet();
 
       if (!AiProxyUpstreamResult.isSuccessfulBuffered(proxyResult)) {
@@ -140,46 +135,28 @@ public class RcaReportProcessor {
 
   private RcaParsedReportBody parseJobRequest(
       final RcaReportJob job, final String requestBody, final boolean forceRootCauseRefresh) {
+    JsonNode tree;
     try {
-      JsonNode tree = objectMapper.readTree(requestBody);
-      if (!(tree instanceof ObjectNode objectRoot)) {
-        jobDao
-            .markFailed(
-                job.jobId(),
-                job.projectId(),
-                job.interactionName(),
-                job.date(),
-                "Request body must be a JSON object")
-            .blockingAwait();
-        return null;
-      }
-      return new RcaParsedReportBody(
-          requestBody,
-          objectRoot,
-          job.projectId(),
-          job.interactionName(),
-          job.date(),
-          forceRootCauseRefresh);
+      tree = objectMapper.readTree(requestBody);
     } catch (Exception e) {
-      jobDao
-          .markFailed(
-              job.jobId(),
-              job.projectId(),
-              job.interactionName(),
-              job.date(),
-              truncateMessage(e.getMessage()))
-          .blockingAwait();
-      return null;
+      throw new IllegalArgumentException("Malformed RCA request body: " + e.getMessage(), e);
     }
+    if (!(tree instanceof ObjectNode objectRoot)) {
+      throw new IllegalArgumentException("Request body must be a JSON object");
+    }
+    return new RcaParsedReportBody(
+        requestBody,
+        objectRoot,
+        job.projectId(),
+        job.interactionName(),
+        job.date(),
+        forceRootCauseRefresh);
   }
 
   private CompletionStage<AiProxyUpstreamResult> finalizeSuccessfulRcaProxyResult(
       final AiProxyUpstreamResult result,
       final RcaEnrichmentOutcome enrichment,
       final RcaReportJob job) {
-    if (!AiProxyUpstreamResult.isSuccessfulBuffered(result)) {
-      return CompletableFuture.completedFuture(result);
-    }
     String body = result.getBufferedBody();
     if (enrichment.enrichmentOk()
         && enrichment.rootCause() != null

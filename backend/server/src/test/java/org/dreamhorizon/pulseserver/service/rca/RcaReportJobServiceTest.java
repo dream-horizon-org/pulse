@@ -48,8 +48,6 @@ class RcaReportJobServiceTest {
         "ix",
         DATE,
         RcaJobStatus.PROCESSING,
-        50,
-        "step",
         null,
         Instant.parse("2025-06-01T10:00:00Z"),
         Instant.parse("2025-06-01T10:00:01Z"),

@@ -82,8 +82,15 @@ public final class RcaReportJobQueries {
           + " WHERE project_id = ? AND interaction_name = ? AND date = ?"
           + " AND status = 'FAILED' AND job_id != ?";
 
-  public static final String LIST_STALE_JOBS =
-      "SELECT job_id FROM rca_report_jobs"
+  /**
+   * Marks PENDING/PROCESSING jobs older than {@code ?} minutes as FAILED.
+   * Params: threshold_minutes (INT).
+   */
+  public static final String MARK_STALE_JOBS_FAILED =
+      "UPDATE rca_report_jobs SET status = 'FAILED',"
+          + " error_message = 'Job timed out (stale cleanup)',"
+          + " completed_at = CURRENT_TIMESTAMP(6),"
+          + " version = version + 1"
           + " WHERE status IN ('PENDING', 'PROCESSING')"
-          + " AND created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR)";
+          + " AND created_at < DATE_SUB(NOW(), INTERVAL ? MINUTE)";
 }

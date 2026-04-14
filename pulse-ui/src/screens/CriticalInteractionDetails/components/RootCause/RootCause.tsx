@@ -60,7 +60,6 @@ export function RootCause({
     data: reportResponse,
     isFetching: reportFetching,
     isError: reportError,
-    refetch: refetchReport,
     error: reportErrorDetail,
     isRcaQueuePending,
     isProcessing: isRcaProcessing,
@@ -207,7 +206,7 @@ export function RootCause({
             size="xs"
             pl={0}
             onClick={() => {
-              void refetchReport();
+              void retryRcaJob();
             }}
           >
             {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
@@ -287,7 +286,7 @@ export function RootCause({
         <Stack align="center" gap="md" className={classes.stateMessage}>
           {isJoiningExistingJob ? (
             <Alert color="blue" variant="light" maw={520} w="100%">
-              {ROOT_CAUSE_MESSAGES.RCA_JOINING_JOB()}
+              {ROOT_CAUSE_MESSAGES.RCA_JOINING_JOB}
             </Alert>
           ) : null}
           <LoaderWithMessage
@@ -315,7 +314,7 @@ export function RootCause({
                 size="xs"
                 variant="light"
                 onClick={() => {
-                  void refetchReport();
+                  void retryRcaJob();
                 }}
               >
                 {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
@@ -333,7 +332,7 @@ export function RootCause({
                 size="xs"
                 variant="light"
                 onClick={() => {
-                  void refetchReport();
+                  void retryRcaJob();
                 }}
               >
                 {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
@@ -350,10 +349,6 @@ export function RootCause({
       </Stack>
     );
   }
-
-  const refetch = () => {
-    void refetchReport();
-  };
 
   const is404 = reportStatus === RCA_HTTP_STATUS.NOT_FOUND;
 
@@ -385,7 +380,7 @@ export function RootCause({
             leftSection={<IconRefresh size={16} />}
             variant="light"
             loading={isRetryInFlight}
-            onClick={() => refetch()}
+            onClick={() => void retryRcaJob()}
           >
             Retry
           </Button>

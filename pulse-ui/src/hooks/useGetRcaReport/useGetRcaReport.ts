@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { GET_RCA_JOB_ROUTE, POST_RCA_REPORT_ROUTE } from "../../constants/API";
+import {
+  GET_RCA_JOB_ROUTE,
+  GET_RCA_STATUS_ROUTE,
+  POST_RCA_REPORT_ROUTE,
+} from "../../constants/API";
 import {
   RCA_JOB_POLL_MS,
   RCA_STALE_CACHE_POLL_MS,
@@ -108,6 +112,27 @@ async function requestRcaJobGet(
   return unwrapRcaJobApiBody(raw);
 }
 
+async function requestRcaStatusGet(
+  interactionName: string,
+  date: string | null | undefined,
+  projectId: string,
+): Promise<ApiResponse<RcaJobResponse>> {
+  const apiBaseUrl = getApiBaseUrl();
+  const url = `${apiBaseUrl}${GET_RCA_STATUS_ROUTE.apiPath(interactionName, date)}`;
+  const headers: Record<string, string> = {};
+  const trimmed = String(projectId).trim();
+  if (trimmed !== "") {
+    headers["X-Project-ID"] = trimmed;
+  }
+  return makeRequest<RcaJobResponse>({
+    url,
+    init: {
+      method: GET_RCA_STATUS_ROUTE.method,
+      headers,
+    },
+  });
+}
+
 function toReportApiResponse(
   job: RcaJobResponse,
 ): ApiResponse<RcaReportResponse> | null {
@@ -170,7 +195,6 @@ function normalizeJobPayload(
  *
  * - **`retry`**: Clears the active job poll (if any), resets local job id, and invalidates the
  *   initial POST query so a new RCA flow starts (use after FAILED or to force a fresh POST).
- * - **`refetch`**: Alias of `retry` (not a passive HTTP refetch of the current job GET).
  */
 export function useGetRcaReport({
   interactionName,
@@ -343,16 +367,14 @@ export function useGetRcaReport({
 
   const staleCachePollQuery = useQuery({
     queryKey: [
-      POST_RCA_REPORT_ROUTE.key,
+      GET_RCA_STATUS_ROUTE.key,
       interactionName,
       date ?? null,
       trimmedProjectId,
       "cache-stale-poll",
       requestSession,
     ],
-    queryFn: async (): Promise<
-      ApiResponse<RcaReportResponse | RcaJobResponse>
-    > => {
+    queryFn: async (): Promise<ApiResponse<RcaJobResponse>> => {
       if (!interactionName) {
         return {
           data: null,
@@ -364,11 +386,7 @@ export function useGetRcaReport({
           status: 400,
         };
       }
-      return requestRcaReportPost(
-        interactionName,
-        date ?? null,
-        trimmedProjectId,
-      );
+      return requestRcaStatusGet(interactionName, date ?? null, trimmedProjectId);
     },
     enabled: baseEnabled && !!interactionName && hasDisplayableCompletedReport,
     refetchInterval: RCA_STALE_CACHE_POLL_MS,
@@ -381,15 +399,14 @@ export function useGetRcaReport({
     }
     const displayed = mergedData?.data?.cachedAt;
     const polled = staleCachePollQuery.data;
-    if (
-      !polled ||
-      polled.status !== RCA_HTTP_OK ||
-      !polled.data ||
-      "jobId" in polled.data
-    ) {
+    if (!polled || polled.status !== RCA_HTTP_OK || !polled.data) {
       return false;
     }
-    const polledCachedAt = (polled.data as RcaReportResponse).cachedAt;
+    const job = polled.data as RcaJobResponse;
+    if (normalizeRcaJobStatus(job.status) !== "COMPLETED") {
+      return false;
+    }
+    const polledCachedAt = job.cachedAt;
     if (
       displayed == null ||
       polledCachedAt == null ||
@@ -409,10 +426,12 @@ export function useGetRcaReport({
       return false;
     }
     const polled = staleCachePollQuery.data;
-    if (!polled || polled.status !== RCA_HTTP_ACCEPTED) {
+    if (!polled || polled.status !== RCA_HTTP_OK || !polled.data) {
       return false;
     }
-    return getJobIdFromRcaPostResponse(polled) != null;
+    const job = polled.data as RcaJobResponse;
+    const statusStr = normalizeRcaJobStatus(job.status);
+    return (statusStr === "PENDING" || statusStr === "PROCESSING") && !!job.jobId;
   }, [hasDisplayableCompletedReport, staleCachePollQuery.data]);
 
   const isAsyncBootstrapping = pollJobId === null && postReportQuery.isLoading;
@@ -475,10 +494,6 @@ export function useGetRcaReport({
     requestSession,
   ]);
 
-  const refetch = useCallback(async () => {
-    await retry();
-  }, [retry]);
-
   const beginFollowingJob = useCallback(
     (jobId: string) => {
       const id = String(jobId).trim();
@@ -520,7 +535,6 @@ export function useGetRcaReport({
     isFetching,
     isError,
     error: errorDetail,
-    refetch,
     isRcaQueuePending,
     isProcessing,
     isCompleted,

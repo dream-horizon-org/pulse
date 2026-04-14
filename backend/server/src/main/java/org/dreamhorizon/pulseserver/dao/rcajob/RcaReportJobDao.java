@@ -11,9 +11,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
@@ -23,6 +20,8 @@ import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class RcaReportJobDao {
+
+  private static final int INITIAL_VERSION = 1;
 
   private final MysqlClient mysqlClient;
 
@@ -36,17 +35,16 @@ public class RcaReportJobDao {
         .getWriterPool()
         .preparedQuery(RcaReportJobQueries.INSERT_JOB)
         .rxExecute(
-            Tuple.wrap(
-                Arrays.asList(
-                    jobId,
-                    projectId,
-                    interactionName,
-                    date,
-                    RcaJobStatus.PENDING.name(),
-                    null,
-                    createdBy,
-                    null,
-                    1)))
+            Tuple.of(
+                jobId,
+                projectId,
+                interactionName,
+                date,
+                RcaJobStatus.PENDING.name(),
+                null,
+                createdBy,
+                null,
+                INITIAL_VERSION))
         .ignoreElement()
         .andThen(
             Single.fromCallable(
@@ -63,7 +61,7 @@ public class RcaReportJobDao {
                         null,
                         createdBy,
                         null,
-                        1)))
+                        INITIAL_VERSION)))
         .doOnError(e -> log.warn("RCA report job insert failed: {}", e.getMessage()));
   }
 
@@ -154,20 +152,14 @@ public class RcaReportJobDao {
                 e -> log.warn("RCA report job persist FAILED status failed: {}", e.getMessage())));
   }
 
-  public Single<List<String>> listStaleJobIds() {
+  /** Marks PENDING/PROCESSING jobs older than {@code thresholdMinutes} as FAILED. */
+  public Single<Integer> markStaleJobsFailed(final int thresholdMinutes) {
     return mysqlClient
-        .getReaderPool()
-        .preparedQuery(RcaReportJobQueries.LIST_STALE_JOBS)
-        .rxExecute(Tuple.tuple())
-        .map(
-            rows -> {
-              List<String> ids = new ArrayList<>();
-              for (Row row : rows) {
-                ids.add(row.getString(0));
-              }
-              return ids;
-            })
-        .doOnError(e -> log.warn("RCA report job list stale failed: {}", e.getMessage()));
+        .getWriterPool()
+        .preparedQuery(RcaReportJobQueries.MARK_STALE_JOBS_FAILED)
+        .rxExecute(Tuple.of(thresholdMinutes))
+        .map(result -> result.rowCount())
+        .doOnError(e -> log.warn("RCA stale job cleanup failed: {}", e.getMessage()));
   }
 
   private static RcaReportJob mapRow(Row row) {

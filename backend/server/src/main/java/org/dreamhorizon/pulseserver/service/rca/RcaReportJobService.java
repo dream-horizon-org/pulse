@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import io.vertx.sqlclient.DatabaseException;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,18 @@ public class RcaReportJobService {
   private final ObjectMapper objectMapper;
 
   public Single<RcaJobDispatch> createOrGetJob(final RcaCacheKey key, final String createdBy) {
+    // Regenerate always creates a new job — skip dedup so forceRootCauseRefresh is not lost.
+    if (key.regenerate()) {
+      return insertNewJobWithDedup(key, createdBy)
+          .doOnError(
+              e ->
+                  log.error(
+                      "RCA createOrGetJob (regenerate) failed project={} interaction={} date={}",
+                      key.projectId(),
+                      key.interactionName(),
+                      key.date(),
+                      e));
+    }
     return jobDao
         .getActiveJobByKey(key.projectId(), key.interactionName(), key.date())
         .map(job -> new RcaJobDispatch(job, false, null, false))
@@ -93,6 +106,43 @@ public class RcaReportJobService {
       t = cause;
     }
     return false;
+  }
+
+  /**
+   * Read-only status check without triggering job creation.
+   * Returns a COMPLETED response (with report) when the MySQL cache has a hit,
+   * or the active job info when a PENDING/PROCESSING job exists, or empty when neither.
+   */
+  public Maybe<GetRcaJobResponse> peekStatus(
+      final String projectId, final String interactionName, final LocalDate date) {
+    return cacheDao
+        .get(projectId, interactionName, date)
+        .map(this::buildCacheHitResponse)
+        .switchIfEmpty(
+            Maybe.defer(
+                () ->
+                    jobDao
+                        .getActiveJobByKey(projectId, interactionName, date)
+                        .map(job -> toResponse(job, null))));
+  }
+
+  private GetRcaJobResponse buildCacheHitResponse(final RcaReportCacheHit cacheHit) {
+    JsonNode reportNode = null;
+    Instant cachedAt = null;
+    if (cacheHit.reportBody() != null && !cacheHit.reportBody().isBlank()) {
+      try {
+        reportNode = objectMapper.readTree(cacheHit.reportBody());
+        cachedAt = cacheHit.cachedAt();
+      } catch (Exception e) {
+        log.warn("Failed to parse cached RCA report for peek: {}", e.getMessage());
+      }
+    }
+    return GetRcaJobResponse.builder()
+        .status(RcaJobStatus.COMPLETED.name())
+        .report(reportNode)
+        .cached(reportNode != null ? Boolean.TRUE : null)
+        .cachedAt(cachedAt)
+        .build();
   }
 
   public Single<GetRcaJobResponse> getJobStatus(final String jobId, final String projectIdHeader) {

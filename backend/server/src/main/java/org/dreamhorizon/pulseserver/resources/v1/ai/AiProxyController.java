@@ -44,7 +44,7 @@ public class AiProxyController {
 
   private static final String PROJECT_ID_HEADER = "X-Project-ID";
 
-  private static final String USER_EMAIL_HEADER = "user-email";
+  private static final String USER_EMAIL_HEADER = "X-User-Email";
 
   private final AiProxyService aiProxyService;
 

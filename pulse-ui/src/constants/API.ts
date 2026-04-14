@@ -19,3 +19,16 @@ export const GET_RCA_JOB_ROUTE = {
   apiPath: (jobId: string) => `/v1/ai-rca/job/${encodeURIComponent(jobId)}`,
   method: "GET",
 } as const;
+
+/** Read-only status check: returns cached report or active job without triggering new job creation. */
+export const GET_RCA_STATUS_ROUTE = {
+  key: "GET_RCA_STATUS",
+  apiPath: (interactionName: string, date?: string | null) => {
+    const params = new URLSearchParams({ interactionName });
+    if (date) {
+      params.set("date", date);
+    }
+    return `/v1/ai-rca/report?${params.toString()}`;
+  },
+  method: "GET",
+} as const;
