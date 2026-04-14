@@ -139,6 +139,10 @@ public class FunnelComputeJob {
         }
         df = applyFilters(df, funnel.globalFilters());
 
+        if (funnel.isUnordered()) {
+            return computeUnorderedFunnel(df, funnel, identityCol, runTime);
+        }
+
         // Step 0: keep ALL occurrences of step A — each is a separate attempt.
         // No groupBy+min: best-attempt evaluates every attempt individually.
         Dataset<Row> current = stepEvents(df, steps.get(0), identityCol)
@@ -192,6 +196,66 @@ public class FunnelComputeJob {
                     counts[i],
                     Math.round(pct * 10_000.0) / 10_000.0,
                     i == 0 ? null : (medians[i] >= 0 ? medians[i] : null)
+            ));
+        }
+        return results;
+    }
+
+    /**
+     * Computes an unordered funnel: steps can occur in any temporal order within the window.
+     * Uses a range-based sliding window to find, for each identity, the maximum number of
+     * distinct funnel steps completed within any windowSeconds-wide span.
+     */
+    private static List<FunnelResult> computeUnorderedFunnel(Dataset<Row> df, FunnelDefinition funnel,
+                                                              String identityCol, String runTime) {
+        long windowSecs = funnel.windowSeconds();
+        var steps = funnel.steps();
+        int numSteps = steps.size();
+
+        // Collect all step events: {identity, ts, step_idx}
+        Dataset<Row> allStepEvents = null;
+        for (int i = 0; i < numSteps; i++) {
+            Dataset<Row> stepDf = stepEvents(df, steps.get(i), identityCol)
+                    .withColumn("step_idx", lit(i));
+            allStepEvents = (allStepEvents == null) ? stepDf : allStepEvents.union(stepDf);
+        }
+        allStepEvents = allStepEvents.cache();
+
+        // Sliding window: for each event, collect distinct step indices within [ts, ts + windowSecs].
+        WindowSpec rangeWin = Window.partitionBy("identity")
+                .orderBy(col("ts"))
+                .rangeBetween(0, windowSecs);
+
+        Dataset<Row> withWindowSteps = allStepEvents
+                .withColumn("steps_in_window", size(collect_set(col("step_idx")).over(rangeWin)));
+
+        // Per identity, take the best window (max distinct steps achieved).
+        Dataset<Row> bestPerIdentity = withWindowSteps
+                .groupBy("identity")
+                .agg(max("steps_in_window").alias("max_steps"))
+                .cache();
+
+        // Step i count = identities who completed at least (i+1) distinct steps in their best window.
+        long[] counts = new long[numSteps];
+        for (int i = 0; i < numSteps; i++) {
+            counts[i] = bestPerIdentity.filter(col("max_steps").geq(lit(i + 1))).count();
+            log.info("Funnel {} step {} ({}) -> {} identities (unordered)",
+                    funnel.id(), i, steps.get(i).eventName(), counts[i]);
+        }
+
+        bestPerIdentity.unpersist();
+        allStepEvents.unpersist();
+
+        long step0Count = counts[0];
+        var results = new ArrayList<FunnelResult>(numSteps);
+        for (int i = 0; i < numSteps; i++) {
+            double pct = step0Count > 0 ? (double) counts[i] / step0Count * 100.0 : 0.0;
+            results.add(new FunnelResult(
+                    funnel.id(), funnel.projectId(), runTime,
+                    i, steps.get(i).eventName(),
+                    counts[i],
+                    Math.round(pct * 10_000.0) / 10_000.0,
+                    null // no step-to-step median for unordered funnels
             ));
         }
         return results;

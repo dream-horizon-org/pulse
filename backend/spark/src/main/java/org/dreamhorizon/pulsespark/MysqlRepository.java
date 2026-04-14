@@ -65,6 +65,7 @@ public class MysqlRepository {
             rs.getInt("date_range"),
             filters,
             rs.getString("funnel_type"),
+            rs.getString("step_order_type"),
             rs.getTimestamp("start_time"),
             rs.getTimestamp("end_time")
         ));

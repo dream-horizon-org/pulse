@@ -12,6 +12,11 @@ public record FunnelDefinition(
         int dateRange,
         List<FunnelFilter> globalFilters,
         String funnelType,
+        String stepOrderType,
         Timestamp startTime,
         Timestamp endTime
-) {}
+) {
+  public boolean isUnordered() {
+    return "UNORDERED".equalsIgnoreCase(stepOrderType);
+  }
+}
