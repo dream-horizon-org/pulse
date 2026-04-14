@@ -933,6 +933,29 @@ CREATE TABLE IF NOT EXISTS rca_report_cache (
     PRIMARY KEY (project_id, interaction_name, date)
 );
 
+-- ============================================================================
+-- RCA REPORT JOBS (async report generation; no FK to rca_report_cache)
+-- Deduplication: uk_active_job on (project_id, interaction_name, date, status)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS rca_report_jobs (
+    job_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    interaction_name VARCHAR(255) NOT NULL,
+    date DATE NOT NULL,
+    status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    error_message TEXT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    started_at DATETIME(6) NULL,
+    completed_at DATETIME(6) NULL,
+    created_by VARCHAR(255) NULL,
+    worker_instance_id VARCHAR(64) NULL,
+    version INT NOT NULL DEFAULT 1,
+    PRIMARY KEY (job_id),
+    UNIQUE KEY uk_active_job (project_id, interaction_name, date, status),
+    INDEX idx_cache_key (project_id, interaction_name, date),
+    INDEX idx_status_created (status, created_at)
+);
+
 -- Event Definitions catalog (project-scoped)
 CREATE TABLE IF NOT EXISTS event_definitions (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,

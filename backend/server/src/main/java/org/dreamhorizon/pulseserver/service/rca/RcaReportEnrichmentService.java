@@ -1,0 +1,219 @@
+package org.dreamhorizon.pulseserver.service.rca;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
+
+/**
+ * Builds the RCA POST body with {@code rootCausePayload} and per-segment session evidence (same
+ * pipeline as the legacy synchronous {@code RcaReportProxyHandler} path).
+ */
+@Slf4j
+@Singleton
+@RequiredArgsConstructor(onConstructor = @__({@Inject}))
+public class RcaReportEnrichmentService {
+
+  private static final String REGENERATE_FIELD = "regenerate";
+  private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
+
+  private final ObjectMapper objectMapper;
+  private final RootCauseService rootCauseService;
+  private final SessionEvidenceService sessionEvidenceService;
+
+  /**
+   * Enriches the RCA JSON body with root-cause data and example sessions.
+   *
+   * @param forceRootCauseRefresh forwarded to {@link RootCauseService#getRootCause}
+   */
+  public CompletionStage<RcaEnrichmentOutcome> enrichAsync(
+      RcaParsedReportBody parsed, boolean forceRootCauseRefresh) {
+    ObjectNode working = parsed.bodyRoot().deepCopy();
+    working.remove(REGENERATE_FIELD);
+    String fallbackBody = parsed.rawBody();
+    String projectId = parsed.projectId();
+    String interactionName = parsed.interactionName();
+    LocalDate date = parsed.date();
+    Instant windowEndExclusive = Instant.now();
+
+    CompletableFuture<RcaEnrichmentOutcome> future = new CompletableFuture<>();
+    rootCauseService
+        .getRootCause(projectId, interactionName, date, windowEndExclusive, forceRootCauseRefresh)
+        .subscribe(
+            rootCauseResult -> {
+              if (rootCauseResult.getSegments() != null) {
+                try {
+                  JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
+                  working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
+
+                  if (!rootCauseResult.getSegments().isEmpty()) {
+                    List<RootCauseSegment> segments = rootCauseResult.getSegments();
+
+                    // Skip session evidence queries if root cause was cached (already has exampleSessionIds)
+                    boolean isCachedFromStore = rootCauseResult.getCachedAt() != null;
+                    boolean allSegmentsHaveSessions =
+                        segments.stream()
+                            .allMatch(
+                                s -> s.getExampleSessionIds() != null && !s.getExampleSessionIds().isEmpty());
+                    boolean skipSessionEvidence = isCachedFromStore && allSegmentsHaveSessions;
+
+                    if (skipSessionEvidence) {
+                      String enrichedBody = objectMapper.writeValueAsString(working);
+                      future.complete(
+                          new RcaEnrichmentOutcome(
+                              enrichedBody, rootCauseResult, date, windowEndExclusive, true));
+                    } else {
+                      LocalDate lookbackStart = date.minusDays(6);
+
+                      java.util.concurrent.atomic.AtomicInteger pendingQueries =
+                          new java.util.concurrent.atomic.AtomicInteger(segments.size());
+
+                      for (int i = 0; i < segments.size(); i++) {
+                        RootCauseSegment segment = segments.get(i);
+                        final int segmentIndex = i;
+                        Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
+
+                        sessionEvidenceService
+                            .getSessionEvidence(
+                                projectId,
+                                interactionName,
+                                lookbackStart.atStartOfDay().toInstant(ZoneOffset.UTC),
+                                date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
+                                segment.getDimensions(),
+                                segmentMetrics,
+                                2)
+                            .subscribe(
+                              evidenceResult -> {
+                                try {
+                                  List<String> sessionIds =
+                                      evidenceResult.getSessions().stream()
+                                          .map(s -> s.getSessionId())
+                                          .collect(Collectors.toList());
+
+                                  synchronized (segments) {
+                                    RootCauseSegment seg = segments.get(segmentIndex);
+                                    seg.setExampleSessionIds(sessionIds);
+                                  }
+
+                                  int remaining = pendingQueries.decrementAndGet();
+
+                                  if (remaining == 0) {
+                                    JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                    if (rcPayloadNode instanceof ObjectNode) {
+                                      ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                      rcPayload.set("segments", objectMapper.valueToTree(segments));
+                                    }
+
+                                    String enrichedBody = objectMapper.writeValueAsString(working);
+                                    future.complete(
+                                        new RcaEnrichmentOutcome(
+                                            enrichedBody,
+                                            rootCauseResult,
+                                            date,
+                                            windowEndExclusive,
+                                            true));
+                                  }
+                                } catch (Exception e) {
+                                  log.error("Error processing session evidence for segment", e);
+                                  if (pendingQueries.decrementAndGet() == 0) {
+                                    try {
+                                      String enrichedBody = objectMapper.writeValueAsString(working);
+                                      future.complete(
+                                          new RcaEnrichmentOutcome(
+                                              enrichedBody,
+                                              rootCauseResult,
+                                              date,
+                                              windowEndExclusive,
+                                              true));
+                                    } catch (Exception e2) {
+                                      future.complete(
+                                          new RcaEnrichmentOutcome(
+                                              fallbackBody, null, date, windowEndExclusive, false));
+                                    }
+                                  }
+                                }
+                              },
+                              error -> {
+                                log.error("Session evidence query failed for segment", error);
+                                if (pendingQueries.decrementAndGet() == 0) {
+                                  try {
+                                    String enrichedBody = objectMapper.writeValueAsString(working);
+                                    future.complete(
+                                        new RcaEnrichmentOutcome(
+                                            enrichedBody,
+                                            rootCauseResult,
+                                            date,
+                                            windowEndExclusive,
+                                            true));
+                                  } catch (Exception e) {
+                                    future.complete(
+                                        new RcaEnrichmentOutcome(
+                                            fallbackBody, null, date, windowEndExclusive, false));
+                                  }
+                                }
+                              });
+                      }
+                    }
+                  } else {
+                    String enrichedBody = objectMapper.writeValueAsString(working);
+                    future.complete(
+                        new RcaEnrichmentOutcome(
+                            enrichedBody, rootCauseResult, date, windowEndExclusive, true));
+                  }
+                } catch (Exception e) {
+                  log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
+                  future.complete(
+                      new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
+                }
+              } else {
+                log.warn("Root cause result has no segments");
+                future.complete(
+                    new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
+              }
+            },
+            error -> {
+              log.warn("Failed to fetch root-cause data for enrichment: {}", error.getMessage());
+              future.complete(
+                  new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
+            });
+    return future;
+  }
+
+  private static Map<String, Double> extractSegmentMetrics(Map<String, Object> metrics) {
+    Map<String, Double> result = new HashMap<>();
+    if (metrics != null) {
+      Object errorRateObj = metrics.get("error_rate");
+      if (errorRateObj != null) {
+        try {
+          result.put("error_rate", Double.parseDouble(errorRateObj.toString()));
+        } catch (NumberFormatException e) {
+          log.warn("Failed to parse error_rate metric: {}", errorRateObj);
+        }
+      }
+      Object apdexObj = metrics.get("apdex");
+      if (apdexObj != null) {
+        try {
+          result.put("apdex", Double.parseDouble(apdexObj.toString()));
+        } catch (NumberFormatException e) {
+          log.warn("Failed to parse apdex metric: {}", apdexObj);
+        }
+      }
+    }
+    return result;
+  }
+}

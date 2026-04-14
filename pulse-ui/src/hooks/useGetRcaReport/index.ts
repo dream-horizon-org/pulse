@@ -1,5 +1,8 @@
-export { useGetRcaReport } from "./useGetRcaReport";
+export { normalizeRcaJobStatus, useGetRcaReport } from "./useGetRcaReport";
 export type {
+  RcaJobResponse,
+  RcaJobStatus,
+  RcaNormalizedJobStatus,
   RcaReportPayload,
   RcaReportResponse,
   RcaStructuredMetricRowV1,

@@ -44,6 +44,8 @@ public class AiProxyController {
 
   private static final String PROJECT_ID_HEADER = "X-Project-ID";
 
+  private static final String USER_EMAIL_HEADER = "user-email";
+
   private final AiProxyService aiProxyService;
 
   @GET
@@ -64,11 +66,12 @@ public class AiProxyController {
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
       @HeaderParam(PROJECT_ID_HEADER) String projectId,
+      @HeaderParam(USER_EMAIL_HEADER) String userEmail,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     String body = readBodyUtf8(bodyStream);
     return aiProxyService
-        .proxy("POST", path, rawQuery(uriInfo), body, authorization, projectId)
+        .proxy("POST", path, rawQuery(uriInfo), body, authorization, projectId, userEmail)
         .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
   }
 

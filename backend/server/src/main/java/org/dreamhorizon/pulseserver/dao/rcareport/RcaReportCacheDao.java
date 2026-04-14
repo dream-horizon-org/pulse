@@ -24,7 +24,24 @@ public class RcaReportCacheDao {
 
   /** Returns the cached report body if present for the key (no time-based expiry). */
   public Maybe<RcaReportCacheHit> get(String projectId, String interactionName, LocalDate date) {
-    return mysqlClient.getReaderPool()
+    return getFromPool(mysqlClient.getReaderPool(), projectId, interactionName, date);
+  }
+
+  /**
+   * Like {@link #get} but reads from the writer (primary) pool. Use when the report was just
+   * written and replica replication lag could cause a false cache-miss on the reader pool.
+   */
+  public Maybe<RcaReportCacheHit> getFromWriterPool(
+      String projectId, String interactionName, LocalDate date) {
+    return getFromPool(mysqlClient.getWriterPool(), projectId, interactionName, date);
+  }
+
+  private Maybe<RcaReportCacheHit> getFromPool(
+      io.vertx.rxjava3.sqlclient.Pool pool,
+      String projectId,
+      String interactionName,
+      LocalDate date) {
+    return pool
         .preparedQuery(RcaReportCacheQueries.GET_BY_KEY)
         .rxExecute(Tuple.of(projectId, interactionName, date))
         .flatMapMaybe(rows -> {
