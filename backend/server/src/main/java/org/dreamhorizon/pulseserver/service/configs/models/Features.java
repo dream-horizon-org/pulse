@@ -15,7 +15,8 @@ public enum Features {
   custom_events,
   rn_screen_load,
   rn_screen_interactive,
-  session_replay;
+  session_replay,
+  click;
 
   public static List<String> getFeatures() {
     return Arrays.stream(Features.values()).map(Enum::name).collect(Collectors.toList());

@@ -1,0 +1,31 @@
+.sessionCard {
+  transition: all 0.2s ease;
+  background: linear-gradient(
+    135deg,
+    var(--mantine-color-gray-0),
+    var(--mantine-color-blue-0)
+  );
+
+  &:hover {
+    border-color: var(--mantine-color-blue-5);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+    transform: translateY(-2px);
+  }
+}
+
+.sessionId {
+  font-family: "Courier New", monospace;
+  word-break: break-all;
+  color: var(--mantine-color-blue-7);
+}
+
+.metadataRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--mantine-color-gray-1);
+  }
+}

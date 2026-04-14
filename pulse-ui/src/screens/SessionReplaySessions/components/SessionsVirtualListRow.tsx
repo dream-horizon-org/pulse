@@ -16,9 +16,9 @@ import {
   getQualityColor,
   getPlatformColor,
   getIssueBadgeColor,
-  formatImpactedScreensPreview,
   formatImpactedScreensTooltip,
   formatImpactedInteractionsCellTooltip,
+  listImpactedScreensLines,
 } from "../utils/sessionListUtils";
 import classes from "../SessionReplaySessions.module.css";
 
@@ -28,11 +28,11 @@ export const ESTIMATED_ROW_HEIGHT = 72;
 export const COLUMN_WIDTHS = {
   startTime: "16%",
   duration: "11%",
-  user: "11%",
+  user: "13%",
   quality: "10%",
+  issues: "14%",
   platform: "10%",
-  issues: "12%",
-  impactedScreens: "30%",
+  impactedScreens: "26%",
 } as const;
 
 interface SortIconProps {
@@ -87,8 +87,8 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
   const interactionNames =
     session.impactedInteractionNames?.filter(Boolean) ?? [];
   const hasInteractionPills = interactionNames.length > 0;
-  const pathPreview = formatImpactedScreensPreview(session.impactedScreens);
-  const hasPathSummary = pathPreview !== SESSION_LIST_LABELS.noImpactedScreens;
+  const pathLines = listImpactedScreensLines(session.impactedScreens);
+  const hasPathChips = pathLines.length > 0;
 
   return (
     <div
@@ -128,21 +128,42 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
         <Text size="sm">{formatDuration(session.durationMs)}</Text>
       </div>
 
-      <div style={{ width: COLUMN_WIDTHS.user, flexShrink: 0 }}>
-        <Text size="sm">
-          {session.user ?? SESSION_LIST_LABELS.anonymousUser}
-        </Text>
+      <div
+        style={{ width: COLUMN_WIDTHS.user, flexShrink: 0, overflow: "hidden" }}
+      >
+        <Tooltip
+          label={session.user ?? SESSION_LIST_LABELS.anonymousUser}
+          withArrow
+          openDelay={300}
+          disabled={!session.user}
+        >
+          <Text
+            size="sm"
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {session.user ?? SESSION_LIST_LABELS.anonymousUser}
+          </Text>
+        </Tooltip>
       </div>
 
-      <div style={{ width: COLUMN_WIDTHS.quality, flexShrink: 0 }}>
+      <div
+        style={{
+          width: COLUMN_WIDTHS.quality,
+          flexShrink: 0,
+          paddingLeft: "0.5rem",
+        }}
+      >
         <Text
           size="sm"
           fw={hasQuality ? 600 : undefined}
-          className={!hasQuality ? classes.qualityNa : undefined}
           c={
             hasQuality
               ? getQualityColor(session.qualityScore as number)
-              : undefined
+              : "dimmed"
           }
         >
           {hasQuality
@@ -184,14 +205,12 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
         )}
       </div>
 
-      <div
-        style={{
-          width: COLUMN_WIDTHS.impactedScreens,
-          flexShrink: 0,
-          overflow: "hidden",
-        }}
-      >
-        {hasInteractionPills ? (
+      <div style={{ width: COLUMN_WIDTHS.impactedScreens, flexShrink: 0 }}>
+        {!hasInteractionPills && !hasPathChips ? (
+          <Text size="sm" c="dimmed">
+            {SESSION_LIST_LABELS.noImpactedScreens}
+          </Text>
+        ) : hasInteractionPills ? (
           <Tooltip
             label={formatImpactedInteractionsCellTooltip(
               interactionNames,
@@ -201,15 +220,15 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
             maw={320}
           >
             <Group gap={8} style={{ flexWrap: "wrap" }}>
-              {interactionNames.map((name, idx) => (
+              {interactionNames.map((name, index) => (
                 <Badge
-                  key={`${session.sessionId}-${name}-${idx}`}
+                  key={`${name}-${index}`}
                   size="sm"
                   variant="light"
                   color="teal"
-                  tt="uppercase"
-                  fw={700}
-                  styles={{ label: { fontWeight: 700 } }}
+                  styles={{
+                    label: { textTransform: "uppercase", fontWeight: 600 },
+                  }}
                 >
                   {name}
                 </Badge>
@@ -220,20 +239,20 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
           <Tooltip
             label={formatImpactedScreensTooltip(session.impactedScreens)}
             multiline
-            maw={300}
+            maw={320}
           >
-            <Text
-              size="sm"
-              c={!hasPathSummary ? "dimmed" : undefined}
-              className={classes.journey}
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {pathPreview}
-            </Text>
+            <Group gap={8} style={{ flexWrap: "wrap" }}>
+              {pathLines.map((line, index) => (
+                <Badge
+                  key={`${line}-${index}`}
+                  size="sm"
+                  variant="light"
+                  color="teal"
+                >
+                  {line}
+                </Badge>
+              ))}
+            </Group>
           </Tooltip>
         )}
       </div>

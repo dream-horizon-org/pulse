@@ -571,7 +571,22 @@ style:
       - value: 'java.util.stream.*'
         reason: "Use Kotlin's sequences instead."
       - value: 'org.json.*'
-        reason: 'Forbidden import pattern'
+        reason: 'Use PulseSerialisationUtils'
+      - value: 'kotlinx.serialization.json.JsonElement'
+        reason: 'Use PulseSerialisationUtils'
+      - value: 'kotlinx.serialization.json.JsonObject'
+        reason: 'Use PulseSerialisationUtils'
+      - value: 'kotlinx.serialization.json.JsonObject'
+        reason: 'Use PulseSerialisationUtils'
+      - value: 'kotlinx.serialization.json.JsonNull'
+        reason: 'Use PulseSerialisationUtils'
+      - value: 'kotlinx.serialization.json.JsonPrimitive'
+        reason: 'Use PulseSerialisationUtils'
+      - value: 'kotlinx.serialization.json.JsonDecoder'
+        reason: 'Use PulseSerialisationUtils'
+      - value: 'com.google.gson.Gson'
+        reason: 'Use PulseSerialisationUtils'
+
   ForbiddenNamedParam:
     active: true
   ForbiddenMethodCall:
@@ -588,6 +603,8 @@ style:
         reason: 'Use String.isBlank() which checks for whitespace characters'
       - value: 'kotlin.text.isNullOrEmpty(kotlin.CharSequence)'
         reason: 'Use String.isNullOrBlank() which checks for whitespace characters'
+      - value: 'kotlinx.serialization.json.Json(kotlinx.serialization.json.Json,kotlin.Function1)'
+        reason: 'Use PulseSerialisationUtils'
   ForbiddenOptIn:
     active: true
   ForbiddenSuppress:

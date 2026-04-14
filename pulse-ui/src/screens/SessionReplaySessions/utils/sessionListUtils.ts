@@ -121,6 +121,13 @@ function flattenImpactedScreens(impacted: ImpactedScreens | null): string[] {
   return out;
 }
 
+/** Lines shown in the session list "Impacted Interactions" column when path data is used (no interaction names). */
+export function listImpactedScreensLines(
+  impactedScreens: ImpactedScreens | null | undefined,
+): string[] {
+  return flattenImpactedScreens(impactedScreens ?? null);
+}
+
 export function formatImpactedScreensPreview(
   impactedScreens: ImpactedScreens | null | undefined,
 ): string {

@@ -42,11 +42,16 @@ import { debounce, size, toNumber } from "lodash";
 import { getCookies } from "../../helpers/cookies";
 import { getDateFilterDetails } from "./utils";
 import { InteractionCard } from "./components/InteractionCard";
+import { SuggestedInteractionCard } from "./components/SuggestedInteractionCard/SuggestedInteractionCard";
 import { filtersToQueryString } from "../../helpers/filtersToQueryString";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { CardSkeleton } from "../../components/Skeletons";
 import { useGetDataQuery } from "../../hooks";
+import { useGetSuggestedInteractions } from "../../hooks/useGetSuggestedInteractions";
+import { useDismissSuggestion } from "../../hooks/useGetSuggestedInteractions/useDismissSuggestion";
+import { useActivateSuggestion } from "../../hooks/useGetSuggestedInteractions/useActivateSuggestion";
+import { SuggestedInteraction } from "../../hooks/useGetSuggestedInteractions/useGetSuggestedInteractions.interface";
 import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
@@ -58,6 +63,7 @@ interface InteractionMetrics {
   errorRate: number;
   p50: number;
   poorUserPercentage: number;
+  totalUsers: number;
 }
 
 export function CriticalInteractionList() {
@@ -244,6 +250,27 @@ export function CriticalInteractionList() {
     setRows({ totalInteractions: 0, interactions: [] });
   };
 
+  const { data: suggestionsResponse, isLoading: isLoadingSuggestions } = useGetSuggestedInteractions();
+  const dismissMutation = useDismissSuggestion();
+  const activateMutation = useActivateSuggestion();
+  const suggestions = suggestionsResponse?.data?.suggestions ?? [];
+
+  const handleDismissSuggestion = (id: number) => {
+    dismissMutation.mutate({ id });
+  };
+
+  const handleActivateSuggestion = (suggestion: SuggestedInteraction) => {
+    activateMutation.mutate(
+      { id: suggestion.id },
+      {
+        onSuccess: () => {
+          setRows({ interactions: [], totalInteractions: 0 });
+          setPagination({ page: 0, size: defaultPageSize });
+        },
+      },
+    );
+  };
+
   const data = useMemo(() => rows?.interactions || [], [rows]);
 
   const hasMore = data?.length < totalRecords;
@@ -328,6 +355,7 @@ export function CriticalInteractionList() {
         errorRate,
         p50: Math.round(parseFloat(row[p50Index]) || 0),
         poorUserPercentage,
+        totalUsers,
       };
     });
 
@@ -359,7 +387,7 @@ export function CriticalInteractionList() {
     id: number;
     name: string | undefined;
   }) => {
-    trackClick(`Interaction: ${interaction.name || 'unknown'}`);
+    trackClick(`Interaction: ${interaction.name || "unknown"}`);
     navigate(
       `/projects/${projectId}/interaction-details/${interaction.name || ""}`,
     );
@@ -372,11 +400,11 @@ export function CriticalInteractionList() {
         <ScrollArea className={classes.scrollArea}>
           <Box className={classes.criticalInteractionsTableContainer}>
             {Array.from({ length: 8 }).map((_, index) => (
-              <CardSkeleton 
-                key={index} 
-                height={180} 
-                showHeader 
-                contentRows={3} 
+              <CardSkeleton
+                key={index}
+                height={180}
+                showHeader
+                contentRows={3}
               />
             ))}
           </Box>
@@ -384,7 +412,7 @@ export function CriticalInteractionList() {
       );
     }
 
-    if (data.length === 0) {
+    if (data.length === 0 && suggestions.length === 0) {
       return (
         <ErrorAndEmptyState
           classes={[classes.error]}
@@ -400,6 +428,44 @@ export function CriticalInteractionList() {
         viewportRef={scrollContainerRef}
         className={classes.scrollArea}
       >
+        {isLoadingSuggestions && (
+          <Box className={classes.suggestionsSection}>
+            <Box className={classes.suggestionsHeader}>
+              <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>
+            </Box>
+            <Box className={classes.suggestionsGrid}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <CardSkeleton key={index} height={180} showHeader contentRows={3} />
+              ))}
+            </Box>
+          </Box>
+        )}
+        {!isLoadingSuggestions && suggestions.length > 0 && (
+          <Box className={classes.suggestionsSection}>
+            <Box className={classes.suggestionsHeader}>
+              <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>
+              <span className={classes.suggestionsCount}>{suggestions.length}</span>
+            </Box>
+            <Box className={classes.suggestionsGrid}>
+              {suggestions.map((suggestion) => (
+                <SuggestedInteractionCard
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  onDismiss={handleDismissSuggestion}
+                  onActivate={handleActivateSuggestion}
+                  isDismissing={
+                    dismissMutation.isPending &&
+                    dismissMutation.variables?.id === suggestion.id
+                  }
+                  isActivating={
+                    activateMutation.isPending &&
+                    activateMutation.variables?.id === suggestion.id
+                  }
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
         <Box className={classes.criticalInteractionsTableContainer}>
           {data.map((item) => {
             const interactionName = item?.name || "";
@@ -413,13 +479,14 @@ export function CriticalInteractionList() {
                 onClick={() =>
                   onInteractionClick({
                     id: item?.id,
-                    name: item?.name
+                    name: item?.name,
                   })
                 }
                 apdexScore={metrics?.apdex}
                 errorRateValue={metrics?.errorRate}
                 p50Latency={metrics?.p50}
                 poorUserPercentage={metrics?.poorUserPercentage}
+                totalUsers={metrics?.totalUsers}
               />
             );
           })}
@@ -486,12 +553,19 @@ export function CriticalInteractionList() {
               <Filters
                 defaultFilters={filters}
                 handleFiltersChange={handleFilterChange}
-                defaultFilterValuesFromServer={filterValuesFromServer || { createdBy: [], statuses: [] }}
+                defaultFilterValuesFromServer={
+                  filterValuesFromServer || { createdBy: [], statuses: [] }
+                }
               />
             </Popover.Dropdown>
           </Popover>
 
-          <Link to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(':projectId', projectId || '')}>
+          <Link
+            to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(
+              ":projectId",
+              projectId || "",
+            )}
+          >
             <Button size="sm" variant="light" className={classes.createButton}>
               {
                 CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS.CREATE_USER_EXPERIENCE_BUTTON_TEXT

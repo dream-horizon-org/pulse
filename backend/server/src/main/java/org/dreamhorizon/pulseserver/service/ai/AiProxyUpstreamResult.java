@@ -45,6 +45,20 @@ public final class AiProxyUpstreamResult {
     return buffered(502, "application/json", "{\"error\":\"AI service unavailable\"}");
   }
 
+  /**
+   * Whether {@code result} is non-null, HTTP 2xx, buffered (not streamed), and has a non-blank body.
+   */
+  public static boolean isSuccessfulBuffered(AiProxyUpstreamResult result) {
+    if (result == null) {
+      return false;
+    }
+    int statusCode = result.getStatusCode();
+    boolean statusOk = statusCode >= 200 && statusCode < 300;
+    boolean hasBufferedBody =
+        result.isBuffered() && !result.getBufferedBody().isBlank();
+    return statusOk && hasBufferedBody;
+  }
+
   public int getStatusCode() {
     return statusCode;
   }
