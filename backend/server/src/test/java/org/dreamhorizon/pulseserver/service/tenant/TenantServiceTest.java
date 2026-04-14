@@ -9,12 +9,15 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import jakarta.ws.rs.WebApplicationException;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
 import org.dreamhorizon.pulseserver.service.tenant.models.UpdateTenantRequest;
+import org.dreamhorizon.pulseserver.service.tier.TierService;
+import org.dreamhorizon.pulseserver.service.tier.models.TierInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -35,11 +38,14 @@ class TenantServiceTest {
   @Mock
   OpenFgaService openFgaService;
 
+  @Mock
+  TierService tierService;
+
   TenantService tenantService;
 
   @BeforeEach
   void setUp() {
-    tenantService = new TenantService(tenantDao, poolManager, openFgaService);
+    tenantService = new TenantService(tenantDao, poolManager, openFgaService, tierService);
   }
 
   private Tenant createTenant(String tenantId, String name) {
@@ -291,6 +297,82 @@ class TenantServiceTest {
       tenantService.activateTenant("tenant-1")
           .test()
           .assertError(RuntimeException.class);
+    }
+  }
+
+  @Nested
+  class UpdateTenantTier {
+
+    private TierInfo activeTierInfo() {
+      return TierInfo.builder().tierId(2).name("enterprise").isActive(true).build();
+    }
+
+    @Test
+    void shouldUpdateTenantTierSuccessfully() {
+      Tenant tenant = createTenant("tenant-1", "Test Org");
+      Tenant updated = createTenant("tenant-1", "Test Org");
+      updated.setTierId(2);
+
+      when(tenantDao.getTenantById("tenant-1")).thenReturn(Maybe.just(tenant));
+      when(tierService.getTierById(2)).thenReturn(Maybe.just(activeTierInfo()));
+      when(tenantDao.updateTenantTier(tenant, 2)).thenReturn(Single.just(updated));
+
+      Tenant result = tenantService.updateTenantTier("tenant-1", 2).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getTierId()).isEqualTo(2);
+      verify(tenantDao).updateTenantTier(tenant, 2);
+    }
+
+    @Test
+    void shouldReturn404WhenTenantNotFound() {
+      when(tenantDao.getTenantById("unknown")).thenReturn(Maybe.empty());
+
+      tenantService.updateTenantTier("unknown", 2)
+          .test()
+          .assertError(e -> e instanceof WebApplicationException
+              && ((WebApplicationException) e).getResponse().getStatus() == 404);
+    }
+
+    @Test
+    void shouldReturn404WhenTierNotFound() {
+      Tenant tenant = createTenant("tenant-1", "Test Org");
+      when(tenantDao.getTenantById("tenant-1")).thenReturn(Maybe.just(tenant));
+      when(tierService.getTierById(999)).thenReturn(Maybe.empty());
+
+      tenantService.updateTenantTier("tenant-1", 999)
+          .test()
+          .assertError(e -> e instanceof WebApplicationException
+              && ((WebApplicationException) e).getResponse().getStatus() == 404);
+    }
+
+    @Test
+    void shouldReturn400WhenTierIsInactive() {
+      Tenant tenant = createTenant("tenant-1", "Test Org");
+      TierInfo inactiveTier = TierInfo.builder().tierId(2).name("enterprise").isActive(false).build();
+
+      when(tenantDao.getTenantById("tenant-1")).thenReturn(Maybe.just(tenant));
+      when(tierService.getTierById(2)).thenReturn(Maybe.just(inactiveTier));
+
+      tenantService.updateTenantTier("tenant-1", 2)
+          .test()
+          .assertError(e -> e instanceof WebApplicationException
+              && ((WebApplicationException) e).getResponse().getStatus() == 400);
+    }
+
+    @Test
+    void shouldPropagateErrorFromDao() {
+      Tenant tenant = createTenant("tenant-1", "Test Org");
+
+      when(tenantDao.getTenantById("tenant-1")).thenReturn(Maybe.just(tenant));
+      when(tierService.getTierById(2)).thenReturn(Maybe.just(activeTierInfo()));
+      when(tenantDao.updateTenantTier(tenant, 2))
+          .thenReturn(Single.error(new RuntimeException("DB error")));
+
+      tenantService.updateTenantTier("tenant-1", 2)
+          .test()
+          .assertError(RuntimeException.class)
+          .assertError(e -> e.getMessage().contains("DB error"));
     }
   }
 }

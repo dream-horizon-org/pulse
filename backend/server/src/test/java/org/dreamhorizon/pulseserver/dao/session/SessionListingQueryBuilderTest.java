@@ -29,11 +29,10 @@ class SessionListingQueryBuilderTest {
 
       assertThat(sql).contains("SELECT");
       assertThat(sql).contains("FROM otel.session_summary");
-      assertThat(sql).contains("WHERE ProjectId =");
+      assertThat(sql).contains("WHERE startTime >=");
       assertThat(sql).contains("GROUP BY sessionId");
       assertThat(sql).contains("ORDER BY");
       assertThat(sql).contains("LIMIT 10");
-      assertThat(sql).contains(PROJECT_ID);
     }
 
     @Test

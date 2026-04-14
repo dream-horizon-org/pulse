@@ -6,27 +6,12 @@ simple LLM parameters into the complex QueryRequest JSON the backend expects.
 
 from calendar import monthrange
 from datetime import datetime, timedelta, timezone
+import re
 
 
 # ---------------------------------------------------------------------------
 # Time range enum → ISO 8601
 # ---------------------------------------------------------------------------
-
-# Simple "now minus delta" ranges
-TIME_RANGE_MAP: dict[str, timedelta] = {
-    "last_5m": timedelta(minutes=5),
-    "last_15m": timedelta(minutes=15),
-    "last_30m": timedelta(minutes=30),
-    "last_1h": timedelta(hours=1),
-    "last_3h": timedelta(hours=3),
-    "last_6h": timedelta(hours=6),
-    "last_12h": timedelta(hours=12),
-    "last_24h": timedelta(hours=24),
-    "last_2d": timedelta(days=2),
-    "last_7d": timedelta(days=7),
-    "last_30d": timedelta(days=30),
-    "last_90d": timedelta(days=90),
-}
 
 # Calendar-relative ranges that need special boundary logic
 CALENDAR_RANGES = {
@@ -34,14 +19,66 @@ CALENDAR_RANGES = {
     "today_so_far", "this_week", "this_month_so_far",
 }
 
-ALL_VALID_RANGES = set(TIME_RANGE_MAP.keys()) | CALENDAR_RANGES | {"custom"}
-# Comma-separated list for tool docstrings; single source of truth so new ranges only added here.
-TIME_RANGE_DOC = ", ".join(sorted(ALL_VALID_RANGES))
+ALL_VALID_RANGES = CALENDAR_RANGES | {"custom"}
+# Docstring inserted into every tool for time_range param.
+TIME_RANGE_DOC = (
+    ", ".join(sorted(ALL_VALID_RANGES))
+    + "; or any relative range like last_5m, last_1h, last_7d, last_4d, last_36h"
+)
 
 
 def _to_iso_utc(dt: datetime) -> str:
     """Format datetime as ISO 8601 with Z suffix (never +00:00)."""
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_dynamic_range(time_range: str, now: datetime) -> tuple[str, str] | None:
+    """Parse dynamic relative patterns: last_Nd, last_Nh, last_Nm.
+
+    Handles any reasonable relative range the LLM might pass that isn't
+    in the fixed TIME_RANGE_MAP (e.g. last_4d, last_36h, last_45m).
+    Returns (start, end) ISO strings, or None if pattern doesn't match.
+    """
+    match = re.fullmatch(r"last_(\d+)(m|h|d)", time_range)
+    if not match:
+        return None
+    n, unit = int(match.group(1)), match.group(2)
+    delta = {"m": timedelta(minutes=n), "h": timedelta(hours=n), "d": timedelta(days=n)}[unit]
+    return _to_iso_utc(now - delta), _to_iso_utc(now)
+
+
+def _normalize_to_utc_str(ts: str, param_name: str) -> str:
+    """Parse any ISO 8601 timestamp and return it normalized to UTC with Z suffix.
+
+    Accepts strings with Z suffix, +00:00, or any other UTC-offset designator.
+    Raises ValueError for timezone-naive strings (ambiguous) or unparseable input.
+
+    Args:
+        ts: ISO 8601 timestamp string, e.g. "2026-03-01T00:00:00Z" or
+            "2026-03-01T05:30:00+05:30".
+        param_name: Parameter name used in error messages.
+
+    Returns:
+        UTC ISO 8601 string with Z suffix, e.g. "2026-02-28T18:30:00Z".
+
+    Raises:
+        ValueError: If the string is unparseable or timezone-naive.
+    """
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        raise ValueError(
+            f"Invalid timestamp for '{param_name}': '{ts}'. "
+            "Expected ISO 8601 format with timezone, e.g. '2026-03-01T00:00:00Z'."
+        )
+
+    if dt.tzinfo is None:
+        raise ValueError(
+            f"Timestamp for '{param_name}' is timezone-naive: '{ts}'. "
+            "Include a UTC offset or Z suffix, e.g. '2026-03-01T00:00:00Z'."
+        )
+
+    return _to_iso_utc(dt.astimezone(timezone.utc))
 
 
 def _compute_calendar_range(time_range: str, now: datetime) -> tuple[str, str]:
@@ -121,7 +158,10 @@ def compute_time_range(
             raise ValueError(
                 "start_time and end_time are required when time_range='custom'"
             )
-        return start_time, end_time
+        return (
+            _normalize_to_utc_str(start_time, "start_time"),
+            _normalize_to_utc_str(end_time, "end_time"),
+        )
 
     now = datetime.now(timezone.utc)
 
@@ -129,16 +169,17 @@ def compute_time_range(
     if time_range in CALENDAR_RANGES:
         return _compute_calendar_range(time_range, now)
 
-    # Simple delta ranges
-    delta = TIME_RANGE_MAP.get(time_range)
-    if delta is None:
-        raise ValueError(
-            f"Unknown time_range '{time_range}'. "
-            f"Valid values: {', '.join(sorted(ALL_VALID_RANGES))}"
-        )
+    # Dynamic relative range: last_Nd, last_Nh, last_Nm (e.g. last_7d, last_4d, last_36h)
+    dynamic = _parse_dynamic_range(time_range, now)
+    if dynamic:
+        return dynamic
 
-    start = now - delta
-    return _to_iso_utc(start), _to_iso_utc(now)
+    raise ValueError(
+        f"Unknown time_range '{time_range}'. "
+        f"Calendar ranges: {', '.join(sorted(CALENDAR_RANGES))}. "
+        f"For relative ranges use: last_{{N}}d, last_{{N}}h, or last_{{N}}m (e.g. last_7d, last_24h). "
+        f"For exact dates use: time_range='custom' with start_time and end_time."
+    )
 
 
 # ---------------------------------------------------------------------------

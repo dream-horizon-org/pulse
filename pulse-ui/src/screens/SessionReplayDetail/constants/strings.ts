@@ -6,19 +6,19 @@
 export const TABS = {
   ALL: "all",
   INTERACTION: "interaction",
-  EVENTS: "events",
   CONSOLE: "console",
   NETWORK: "network",
   PERFORMANCE: "performance",
+  USER_JOURNEY: "user-journey",
 } as const;
 
 export const TAB_LABELS = {
   ALL: "All",
   INTERACTION: "Interaction",
-  EVENTS: "Events",
   CONSOLE: "Console",
   NETWORK: "Network",
   PERFORMANCE: "App Vitals",
+  USER_JOURNEY: "User Journey",
 } as const;
 
 // View Modes
@@ -56,6 +56,11 @@ export const HEADERS = {
   REPRODUCIBILITY: "Reproducibility",
   ENVIRONMENT_INFO: "Environment Info",
   RAW_SESSION_EVENTS: "",
+  SESSION_TIMELINE: "Session timeline",
+  SESSION_REPLAY_NETWORK_TITLE: "Network requests",
+  SESSION_REPLAY_APP_VITALS_TITLE: "App vitals",
+  SESSION_REPLAY_USER_JOURNEY_TITLE: "User journey",
+  SESSION_REPLAY_CONSOLE_TITLE: "Console",
   NETWORK_REQUESTS_VISUALIZATION: "Network Requests Visualization",
   CRITICAL_INTERACTIONS: "Interaction",
   USER_JOURNEY: "User Journey",
@@ -79,15 +84,19 @@ export const LABELS = {
   SESSION_TYPE: "Session Type",
   LIFETIME_VALUE: "Lifetime Value",
   USER_STATUS: "User Status",
+  SESSION_ID: "Session ID",
   USER_ID: "User ID",
   SESSION_DURATION: "Session Duration",
   SESSION_QUALITY: "Session Quality",
   ATTEMPTED_TRANSACTION: "Attempted Transaction",
   QUALITY_SCORE: "Quality Score",
+  QUALITY: "Quality",
   SESSION_TIME: "Session Time",
+  START_TIME: "Start Time",
+  PLATFORM: "Platform",
+  QUALITY_RANGE_HINT: " (0-1)",
   DURATION: "Duration",
-  SPEED: "Speed",
-  BACK: "Back",
+  BACK: "Back to Sessions",
   AFFECTED_USERS: "Affected Users",
   STATUS: "Status",
   WORKAROUND_AVAILABLE: "Workaround Available",
@@ -152,6 +161,20 @@ export const MESSAGES = {
     "For web: rrweb DOM replay | For mobile: Wireframe reconstruction",
   INTEGRATION_READY: "Integration Ready",
   SYNCED_TO: "Synced to:",
+  NO_CRITICAL_INTERACTIONS:
+    "No critical interactions were recorded for this session.",
+  SESSION_TIMELINE_DESCRIPTION:
+    "Unified stream of interactions, network, console, and errors aligned to replay time.",
+  CRITICAL_INTERACTIONS_DESCRIPTION:
+    "Tracked interactions with outcome, latency, and Apdex. Select a row to seek the replay to that moment.",
+  SESSION_REPLAY_NETWORK_DESCRIPTION:
+    "HTTP calls made during this session. Switch between List and Graph for timing views.",
+  SESSION_REPLAY_APP_VITALS_DESCRIPTION:
+    "Exceptions and crashes with stack traces and trace identifiers when available.",
+  SESSION_REPLAY_USER_JOURNEY_DESCRIPTION:
+    "Navigation sequence and screens visited during this session. Steps align to replay time.",
+  SESSION_REPLAY_CONSOLE_DESCRIPTION:
+    "Console logs will be available here in a future update.",
 } as const;
 
 // Button Labels
@@ -239,11 +262,12 @@ export const DEFAULTS = {
 
 // Format Strings
 export const FORMAT_STRINGS = {
-  QUALITY_SCORE: "{score}/10",
+  QUALITY_SCORE: "{score}",
   CRITICAL_INTERACTION_FORMAT: "{displayName} CII - {status}",
   API_CALL_FORMAT: "{method} {url}",
   NETWORK_PERFORMANCE_FORMAT: "{duration}ms",
   SUCCESSFUL_COUNT: "{success}/{total} Successful",
+  SUCCESSFUL_COUNT_CAPS: "{success}/{total} SUCCESSFUL",
   USERS_AFFECTED: "{count} Users Affected",
   REPRODUCIBILITY_SCORE: "{score}% Reproducible",
   FEATURE_FLAG_ON: "ON",

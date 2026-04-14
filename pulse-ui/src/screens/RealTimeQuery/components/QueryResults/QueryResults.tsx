@@ -42,6 +42,7 @@ interface QueryResultsProps {
   error: string | null;
   errorCause?: string | null;
   isCancelled?: boolean;
+  mode?: "builder" | "sql" | "ai";
   onRefresh?: () => void;
   onLoadMore?: () => void;
 }
@@ -54,6 +55,7 @@ export function QueryResults({
   error,
   errorCause,
   isCancelled = false,
+  mode = "sql",
   onRefresh,
   onLoadMore,
 }: QueryResultsProps) {
@@ -330,7 +332,9 @@ export function QueryResults({
             <Stack align="center" gap="xs">
               <Text size="sm" fw={500} c="dimmed">No Results Yet</Text>
               <Text size="xs" c="dimmed" ta="center">
-                Write a SQL query and click "Run Query" to see results here.
+                {mode === "builder"
+                  ? `Configure your query above and click "Run Query" to see results here.`
+                  : `Write a SQL query and click "Run Query" to see results here.`}
               </Text>
             </Stack>
           </Stack>
@@ -403,7 +407,7 @@ export function QueryResults({
                   leftSection={<IconDatabase size={12} />}
                   style={{ cursor: 'help' }}
                 >
-                  {formatBytes(data.dataScannedInBytes)}
+                  Scanned: {formatBytes(data.dataScannedInBytes)}
                 </Badge>
               </Tooltip>
             )}

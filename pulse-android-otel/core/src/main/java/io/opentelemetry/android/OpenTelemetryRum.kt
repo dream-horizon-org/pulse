@@ -60,6 +60,7 @@ interface OpenTelemetryRum {
          * two-argument version that takes the SDK as a parameter.
          *
          * @param application The [Application] that is being instrumented.
+         * @param config See [OtelRumConfig] for all the supported config
          */
         @JvmStatic
         @JvmOverloads
@@ -82,6 +83,7 @@ interface OpenTelemetryRum {
          * @param openTelemetrySdk The [OpenTelemetrySdk] that the user has already created.
          * @param config The [OtelRumConfig] instance.
          * @param sessionProvider The [SessionProvider] instance.
+         * @param meteredSessionProvider Implementation of fixed session for metering purpose
          */
         @JvmStatic
         fun builder(

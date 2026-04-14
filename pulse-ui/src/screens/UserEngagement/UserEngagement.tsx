@@ -139,7 +139,7 @@ export function UserEngagement(_props: UserEngagementProps) {
           <h2 className={classes.sectionTitle}>Engagement overview</h2>
           <p className={classes.sectionCaption}>
             Daily, weekly and monthly active users plotted along with session
-            volume to benchmark north-star engagement KPIs.
+            volume to track how users are engaging with your app over time.
           </p>
         </div>
         <div className={classes.overviewGrid}>

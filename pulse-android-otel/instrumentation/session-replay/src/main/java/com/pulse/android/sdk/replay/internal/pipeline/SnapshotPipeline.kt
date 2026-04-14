@@ -1,9 +1,5 @@
 package com.pulse.android.sdk.replay.internal.pipeline
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.view.View
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayFullSnapshotEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
@@ -22,15 +18,14 @@ internal object SnapshotPipeline {
         wireframe: ReplayWireframe,
         status: ViewTreeSnapshotStatus,
         timestamp: Long,
-        view: View,
+        screenName: String,
         screenWidth: Int,
         screenHeight: Int,
     ): List<ReplayEvent> {
         val events = mutableListOf<ReplayEvent>()
 
         if (!status.hasSentMetaEvent) {
-            val title = view.getScreenTitle()
-            events.add(ReplayMetaEvent(screenWidth, screenHeight, timestamp, title))
+            events.add(ReplayMetaEvent(screenWidth, screenHeight, timestamp, screenName))
             status.hasSentMetaEvent = true
         }
 
@@ -68,6 +63,26 @@ internal object SnapshotPipeline {
         return events
     }
 
+    /** Compares wireframe fields except [ReplayWireframe.childWireframes] (used for incremental diff). */
+    private fun ReplayWireframe.equalsIgnoringChildren(other: ReplayWireframe): Boolean =
+        id == other.id &&
+            x == other.x &&
+            y == other.y &&
+            width == other.width &&
+            height == other.height &&
+            type == other.type &&
+            inputType == other.inputType &&
+            text == other.text &&
+            label == other.label &&
+            value == other.value &&
+            base64 == other.base64 &&
+            style == other.style &&
+            isDisabled == other.isDisabled &&
+            isChecked == other.isChecked &&
+            options == other.options &&
+            parentId == other.parentId &&
+            max == other.max
+
     private fun List<ReplayWireframe>.flattenChildren(): List<ReplayWireframe> {
         val result = mutableListOf<ReplayWireframe>()
         for (item in this) {
@@ -91,28 +106,10 @@ internal object SnapshotPipeline {
         for (id in oldIds intersect newIds) {
             val oldRaw = oldMap[id]
             val newRaw = newMap[id]
-            if (oldRaw != null && newRaw != null) {
-                val oldItem = oldRaw.copy(childWireframes = null)
-                val newItem = newRaw.copy(childWireframes = null)
-                if (oldItem != newItem) {
-                    updated.add(newRaw)
-                }
+            if (oldRaw != null && newRaw != null && !oldRaw.equalsIgnoringChildren(newRaw)) {
+                updated.add(newRaw)
             }
         }
         return Triple(added, removed, updated)
     }
-
-    private fun View.getScreenTitle(): String =
-        context
-            .getActivity()
-            ?.run {
-                title?.run { toString().substringAfter("/") }
-            }.orEmpty()
 }
-
-private tailrec fun Context.getActivity(): Activity? =
-    when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.getActivity()
-        else -> null
-    }

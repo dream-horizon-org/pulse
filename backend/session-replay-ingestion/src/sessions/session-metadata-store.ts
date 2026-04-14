@@ -12,7 +12,7 @@ import { KafkaProducer } from "../kafka/producer";
  *
  * Kafka message format matches the ClickHouse Kafka engine table schema:
  *   - JSONEachRow format
- *   - Keyed by session_id
+ *   - Keyed by SessionId
  */
 export class SessionMetadataStore {
   constructor(
@@ -35,18 +35,16 @@ export class SessionMetadataStore {
       key: metadata.sessionId,
       value: JSON.stringify({
         uuid: randomUUID(),
-        session_id: metadata.sessionId,
-        project_id: metadata.projectId,
-        user_id: metadata.userId,
+        SessionId: metadata.sessionId,
+        ProjectId: metadata.projectId,
+        UserId: metadata.userId,
         batch_id: metadata.batchId,
-        first_timestamp: metadata.startDateTime
+        FirstTimestamp: metadata.startDateTime
           .toUTC()
           .toFormat(chTimestampFormat),
-        last_timestamp: metadata.endDateTime
-          .toUTC()
-          .toFormat(chTimestampFormat),
-        block_url: metadata.blockUrl,
-        snapshot_source: metadata.snapshotSource ?? "",
+        LastTimestamp: metadata.endDateTime.toUTC().toFormat(chTimestampFormat),
+        BlockUrl: metadata.blockUrl,
+        SnapshotSource: metadata.snapshotSource ?? "",
       }),
     }));
 

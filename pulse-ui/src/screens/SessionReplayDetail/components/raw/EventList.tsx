@@ -18,17 +18,7 @@ import type { SessionDetailData } from "../../../../services/sessionReplay/mockS
 import { ROUTES } from "../../../../constants";
 import { HEADERS } from "../../constants/strings";
 import { TAB_PANEL_SCROLL_MAX } from "../TabPanelScrollArea";
-
-function formatAbsoluteTime(sessionStartIso: string, offsetMs: number): string {
-  const date = new Date(new Date(sessionStartIso).getTime() + offsetMs);
-  const month = date.toLocaleString("en-US", { month: "short" });
-  const day = date.getDate();
-  const h = date.getHours().toString().padStart(2, "0");
-  const m = date.getMinutes().toString().padStart(2, "0");
-  const s = date.getSeconds().toString().padStart(2, "0");
-  const year = date.getFullYear();
-  return `${month} ${day} ${year}, ${h}:${m}:${s}`;
-}
+import { formatSessionTimeFromStartOffset } from "../../adapters/sessionDetailApiToData";
 
 interface EventListProps {
   unifiedEvents: UnifiedEvent[];
@@ -207,7 +197,7 @@ export function EventList({
                       ff="monospace"
                       style={{ minWidth: "120px", flexShrink: 0 }}
                     >
-                      {formatAbsoluteTime(
+                      {formatSessionTimeFromStartOffset(
                         sessionData.startTime,
                         event.timestamp,
                       )}

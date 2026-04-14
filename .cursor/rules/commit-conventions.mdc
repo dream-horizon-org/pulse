@@ -19,7 +19,7 @@ Use Conventional Commits with a scope prefix.
 
 ## Scopes
 
-`backend`, `ui`, `ai`, `android-sdk`, `rn-sdk`, `deploy`, `alerts-cron`, `ingestion`
+`backend`, `ui`, `ai`, `android-sdk`, `ios-sdk`, `rn-sdk`, `deploy`, `alerts-cron`, `ingestion`
 
 ## Examples
 
