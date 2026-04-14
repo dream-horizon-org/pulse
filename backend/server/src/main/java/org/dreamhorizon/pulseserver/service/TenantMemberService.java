@@ -170,18 +170,21 @@ public class TenantMemberService {
             .map(String::trim)
             .filter(email -> !email.isEmpty())
             .collect(Collectors.toSet());
-        
+
+        // Count emails removed by deduplication (original duplicates in the payload)
+        int duplicateCount = emails.size() - uniqueEmails.size();
+
         if (uniqueEmails.isEmpty()) {
             return Single.just(BulkInviteResult.builder()
                 .successCount(0)
                 .failureCount(0)
-                .skippedCount(0)
+                .skippedCount(duplicateCount)
                 .successEmails(new ArrayList<>())
                 .failedEmails(new ArrayList<>())
                 .skippedEmails(new ArrayList<>())
                 .build());
         }
-        
+
         List<String> successEmails = new ArrayList<>();
         List<String> failedEmails = new ArrayList<>();
         List<String> skippedEmails = new ArrayList<>();
@@ -221,7 +224,7 @@ public class TenantMemberService {
                 BulkInviteResult.builder()
                     .successCount(successEmails.size())
                     .failureCount(failedEmails.size())
-                    .skippedCount(uniqueEmails.size() - (successEmails.size() + failedEmails.size()))
+                    .skippedCount(duplicateCount)
                     .successEmails(successEmails)
                     .failedEmails(failedEmails)
                     .skippedEmails(skippedEmails)
