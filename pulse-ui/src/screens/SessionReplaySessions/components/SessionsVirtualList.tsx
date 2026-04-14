@@ -8,6 +8,7 @@ import type {
 } from "../../../services/sessionReplay";
 import {
   SESSION_LIST_SORT_FIELD,
+  SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
   TABLE_COLUMN_LABELS,
 } from "../constants/sessionList.constants";
 import {
@@ -18,6 +19,8 @@ import {
 } from "./SessionsVirtualListRow";
 
 const HEADER_HEIGHT = 56;
+/** In-scroll strip above the infinite-scroll sentinel while fetching the next page */
+const FETCH_MORE_STRIP_HEIGHT = 52;
 
 export interface SessionsVirtualListProps {
   sessions: SessionItem[];
@@ -71,6 +74,11 @@ export function SessionsVirtualList({
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+  const totalRowHeight = virtualizer.getTotalSize();
+  const showFetchMoreStrip = isFetching && hasMore && sessions.length > 0;
+  const fetchMoreStripHeight = showFetchMoreStrip ? FETCH_MORE_STRIP_HEIGHT : 0;
+  /** Rows + optional fetch-more strip + 1px sentinel */
+  const scrollContentHeight = totalRowHeight + fetchMoreStripHeight + 1;
 
   const handleSentinelRef = useCallback((el: HTMLDivElement | null) => {
     sentinelObserverRef.current?.disconnect();
@@ -189,15 +197,29 @@ export function SessionsVirtualList({
           )}
         </div>
 
-        <div style={{ width: COLUMN_WIDTHS.issues, flexShrink: 0 }}>
-          {TABLE_COLUMN_LABELS.issues}
-        </div>
-
         <div style={{ width: COLUMN_WIDTHS.platform, flexShrink: 0 }}>
           {TABLE_COLUMN_LABELS.platform}
         </div>
 
-        <div style={{ width: COLUMN_WIDTHS.impactedScreens, flexShrink: 0 }}>
+        <div
+          style={{
+            width: COLUMN_WIDTHS.issues,
+            flexShrink: 0,
+            paddingRight: SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
+            boxSizing: "border-box",
+          }}
+        >
+          {TABLE_COLUMN_LABELS.issues}
+        </div>
+
+        <div
+          style={{
+            width: COLUMN_WIDTHS.impactedScreens,
+            flexShrink: 0,
+            paddingLeft: SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
+            boxSizing: "border-box",
+          }}
+        >
           {TABLE_COLUMN_LABELS.impactedScreens}
         </div>
       </div>
@@ -235,7 +257,7 @@ export function SessionsVirtualList({
           >
             <div
               style={{
-                height: `${virtualizer.getTotalSize()}px`,
+                height: `${scrollContentHeight}px`,
                 width: "100%",
                 position: "relative",
               }}
@@ -251,6 +273,7 @@ export function SessionsVirtualList({
                       top: 0,
                       left: 0,
                       width: "100%",
+                      height: ESTIMATED_ROW_HEIGHT,
                       transform: `translateY(${virtualItem.start}px)`,
                     }}
                   >
@@ -262,12 +285,36 @@ export function SessionsVirtualList({
                 );
               })}
 
-              {/* Sentinel element for infinite scroll */}
+              {showFetchMoreStrip && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: `${totalRowHeight}px`,
+                    left: 0,
+                    width: "100%",
+                    height: FETCH_MORE_STRIP_HEIGHT,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    borderTop: "1px solid #e9ecef",
+                    backgroundColor: "#fafafa",
+                  }}
+                  data-test="sessions-fetch-more-indicator"
+                >
+                  <Loader size="sm" color="teal" />
+                  <Text size="sm" c="dimmed">
+                    Loading more...
+                  </Text>
+                </div>
+              )}
+
+              {/* Sentinel sits after rows (+ optional fetch-more strip) */}
               <div
                 ref={handleSentinelRef}
                 style={{
                   position: "absolute",
-                  top: `${virtualizer.getTotalSize()}px`,
+                  top: `${totalRowHeight + fetchMoreStripHeight}px`,
                   left: 0,
                   width: "100%",
                   height: "1px",
@@ -277,20 +324,8 @@ export function SessionsVirtualList({
             </div>
           </div>
 
-          {/* Loading Footer */}
-          {isFetching && (
-            <Center p="lg" style={{ borderTop: "1px solid #e9ecef" }}>
-              <Stack align="center" gap={8}>
-                <Loader size="sm" />
-                <Text size="sm" c="dimmed">
-                  Loading more...
-                </Text>
-              </Stack>
-            </Center>
-          )}
-
           {/* End of List */}
-          {!hasMore && sessions.length > 0 && (
+          {!hasMore && sessions.length > 0 && !isFetching && (
             <Center p="lg" style={{ borderTop: "1px solid #e9ecef" }}>
               <Text size="sm" c="dimmed">
                 End of results
