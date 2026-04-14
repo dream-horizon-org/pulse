@@ -24,7 +24,6 @@ import {
   IconUpload,
   IconSearch,
   IconEdit,
-  IconTrash,
   IconCalendar,
   IconCategory,
 } from "@tabler/icons-react";
