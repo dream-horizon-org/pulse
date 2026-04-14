@@ -1,4 +1,4 @@
-import { Text, Badge, Group, Tooltip } from "@mantine/core";
+import { Text, Badge, Tooltip } from "@mantine/core";
 import {
   IconArrowUp,
   IconArrowDown,
@@ -9,7 +9,11 @@ import type {
   SortField,
   SortDirection,
 } from "../../../services/sessionReplay";
-import { SESSION_LIST_LABELS } from "../constants/sessionList.constants";
+import {
+  SESSION_LIST_LABELS,
+  SESSION_LIST_ROW_HEIGHT_PX,
+  SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
+} from "../constants/sessionList.constants";
 import {
   formatTimestamp,
   formatDuration,
@@ -17,22 +21,23 @@ import {
   getPlatformColor,
   getIssueBadgeColor,
   formatImpactedScreensTooltip,
-  formatImpactedInteractionsCellTooltip,
+  formatImpactedInteractionsNamesTooltip,
   listImpactedScreensLines,
 } from "../utils/sessionListUtils";
 import classes from "../SessionReplaySessions.module.css";
+import { FitMeasuredChipRow } from "./FitMeasuredChipRow";
 
-/** Default row height (estimate); virtualizer measures real height per row when content wraps. */
-export const ESTIMATED_ROW_HEIGHT = 72;
+/** Row height for virtualizer (fixed; no per-row measurement). */
+export const ESTIMATED_ROW_HEIGHT = SESSION_LIST_ROW_HEIGHT_PX;
 
 export const COLUMN_WIDTHS = {
-  startTime: "16%",
+  startTime: "15%",
   duration: "11%",
-  user: "13%",
-  quality: "10%",
-  issues: "14%",
+  user: "12%",
+  quality: "9%",
+  issues: "15%",
   platform: "10%",
-  impactedScreens: "26%",
+  impactedScreens: "28%",
 } as const;
 
 interface SortIconProps {
@@ -80,6 +85,20 @@ interface VirtualRowProps {
   onSessionClick: (sessionId: string) => void;
 }
 
+function issueBadgeLabel(issue: SessionItem["issues"][number]): string {
+  return issue.count > 1 ? `${issue.label} (${issue.count})` : issue.label;
+}
+
+/** Label styles so long chip text ellipsizes inside the badge instead of being cut in half */
+const truncatingBadgeStyles = {
+  root: { maxWidth: "100%" as const },
+  label: {
+    overflow: "hidden" as const,
+    textOverflow: "ellipsis" as const,
+    whiteSpace: "nowrap" as const,
+  },
+};
+
 export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
   const hasIssues = session.issues.length > 0;
   const hasQuality =
@@ -89,6 +108,11 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
   const hasInteractionPills = interactionNames.length > 0;
   const pathLines = listImpactedScreensLines(session.impactedScreens);
   const hasPathChips = pathLines.length > 0;
+
+  const issuesTooltip = session.issues.map(issueBadgeLabel).join(", ");
+  const impactedTooltip =
+    formatImpactedInteractionsNamesTooltip(interactionNames);
+  const pathTooltip = formatImpactedScreensTooltip(session.impactedScreens);
 
   return (
     <div
@@ -109,7 +133,10 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
         backgroundColor: "white",
         cursor: "pointer",
         transition: "background-color 0.15s ease",
-        minHeight: ESTIMATED_ROW_HEIGHT,
+        height: SESSION_LIST_ROW_HEIGHT_PX,
+        minHeight: SESSION_LIST_ROW_HEIGHT_PX,
+        maxHeight: SESSION_LIST_ROW_HEIGHT_PX,
+        overflow: "hidden",
         padding: "10px var(--mantine-spacing-md)",
       }}
       onMouseEnter={(e) => {
@@ -120,16 +147,53 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
       }}
       className={classes.tableRow}
     >
-      <div style={{ width: COLUMN_WIDTHS.startTime, flexShrink: 0 }}>
-        <Text size="sm">{formatTimestamp(session.startTime)}</Text>
-      </div>
-
-      <div style={{ width: COLUMN_WIDTHS.duration, flexShrink: 0 }}>
-        <Text size="sm">{formatDuration(session.durationMs)}</Text>
+      <div
+        style={{
+          width: COLUMN_WIDTHS.startTime,
+          flexShrink: 0,
+          minWidth: 0,
+          overflow: "hidden",
+        }}
+      >
+        <Text
+          size="sm"
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {formatTimestamp(session.startTime)}
+        </Text>
       </div>
 
       <div
-        style={{ width: COLUMN_WIDTHS.user, flexShrink: 0, overflow: "hidden" }}
+        style={{
+          width: COLUMN_WIDTHS.duration,
+          flexShrink: 0,
+          minWidth: 0,
+          overflow: "hidden",
+        }}
+      >
+        <Text
+          size="sm"
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {formatDuration(session.durationMs)}
+        </Text>
+      </div>
+
+      <div
+        style={{
+          width: COLUMN_WIDTHS.user,
+          flexShrink: 0,
+          minWidth: 0,
+          overflow: "hidden",
+        }}
       >
         <Tooltip
           label={session.user ?? SESSION_LIST_LABELS.anonymousUser}
@@ -154,7 +218,9 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
         style={{
           width: COLUMN_WIDTHS.quality,
           flexShrink: 0,
+          minWidth: 0,
           paddingLeft: "0.5rem",
+          overflow: "hidden",
         }}
       >
         <Text
@@ -165,6 +231,11 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
               ? getQualityColor(session.qualityScore as number)
               : "dimmed"
           }
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
         >
           {hasQuality
             ? (session.qualityScore as number).toFixed(2)
@@ -172,7 +243,14 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
         </Text>
       </div>
 
-      <div style={{ width: COLUMN_WIDTHS.platform, flexShrink: 0 }}>
+      <div
+        style={{
+          width: COLUMN_WIDTHS.platform,
+          flexShrink: 0,
+          minWidth: 0,
+          overflow: "hidden",
+        }}
+      >
         <Badge
           size="sm"
           variant="light"
@@ -182,77 +260,103 @@ export function VirtualRow({ session, onSessionClick }: VirtualRowProps) {
         </Badge>
       </div>
 
-      <div style={{ width: COLUMN_WIDTHS.issues, flexShrink: 0 }}>
+      <div
+        style={{
+          width: COLUMN_WIDTHS.issues,
+          flexShrink: 0,
+          minWidth: 0,
+          overflow: "hidden",
+          paddingRight: SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
+          boxSizing: "border-box",
+        }}
+      >
         {!hasIssues ? (
           <Badge color="teal" variant="light" size="sm">
             {SESSION_LIST_LABELS.clean}
           </Badge>
         ) : (
-          <Group gap={8} style={{ flexWrap: "wrap" }}>
-            {session.issues.map((issue) => (
-              <Badge
-                key={issue.type}
-                color={getIssueBadgeColor(issue.type)}
-                variant={issue.type === "CRASH" ? "filled" : "light"}
-                size="sm"
-              >
-                {issue.count > 1
-                  ? `${issue.label} (${issue.count})`
-                  : issue.label}
-              </Badge>
-            ))}
-          </Group>
+          <Tooltip label={issuesTooltip} multiline maw={300}>
+            <div style={{ width: "100%", minWidth: 0 }}>
+              <FitMeasuredChipRow
+                items={session.issues}
+                getKey={(issue, index) => `${issue.type}-${index}`}
+                renderChip={(issue, _index, { lone }) => (
+                  <Badge
+                    color={getIssueBadgeColor(issue.type)}
+                    variant={issue.type === "CRASH" ? "filled" : "light"}
+                    size="sm"
+                    style={lone ? { width: "100%" } : undefined}
+                    styles={truncatingBadgeStyles}
+                  >
+                    {issueBadgeLabel(issue)}
+                  </Badge>
+                )}
+              />
+            </div>
+          </Tooltip>
         )}
       </div>
 
-      <div style={{ width: COLUMN_WIDTHS.impactedScreens, flexShrink: 0 }}>
+      <div
+        style={{
+          width: COLUMN_WIDTHS.impactedScreens,
+          flexShrink: 0,
+          minWidth: 0,
+          overflow: "hidden",
+          paddingLeft: SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
+          boxSizing: "border-box",
+        }}
+      >
         {!hasInteractionPills && !hasPathChips ? (
           <Text size="sm" c="dimmed">
             {SESSION_LIST_LABELS.noImpactedScreens}
           </Text>
         ) : hasInteractionPills ? (
-          <Tooltip
-            label={formatImpactedInteractionsCellTooltip(
-              interactionNames,
-              session.impactedScreens,
-            )}
-            multiline
-            maw={320}
-          >
-            <Group gap={8} style={{ flexWrap: "wrap" }}>
-              {interactionNames.map((name, index) => (
-                <Badge
-                  key={`${name}-${index}`}
-                  size="sm"
-                  variant="light"
-                  color="teal"
-                  styles={{
-                    label: { textTransform: "uppercase", fontWeight: 600 },
-                  }}
-                >
-                  {name}
-                </Badge>
-              ))}
-            </Group>
+          <Tooltip label={impactedTooltip} multiline maw={320}>
+            <div style={{ width: "100%", minWidth: 0 }}>
+              <FitMeasuredChipRow
+                items={interactionNames}
+                getKey={(name, index) => `${name}-${index}`}
+                renderChip={(name, _index, { lone }) => (
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color="teal"
+                    style={lone ? { width: "100%" } : undefined}
+                    styles={{
+                      root: truncatingBadgeStyles.root,
+                      label: {
+                        ...truncatingBadgeStyles.label,
+                        textTransform: "uppercase",
+                        fontWeight: 600,
+                      },
+                    }}
+                  >
+                    {name}
+                  </Badge>
+                )}
+              />
+            </div>
           </Tooltip>
         ) : (
-          <Tooltip
-            label={formatImpactedScreensTooltip(session.impactedScreens)}
-            multiline
-            maw={320}
-          >
-            <Group gap={8} style={{ flexWrap: "wrap" }}>
-              {pathLines.map((line, index) => (
-                <Badge
-                  key={`${line}-${index}`}
-                  size="sm"
-                  variant="light"
-                  color="teal"
-                >
-                  {line}
-                </Badge>
-              ))}
-            </Group>
+          <Tooltip label={pathTooltip} multiline maw={320}>
+            <div style={{ width: "100%", minWidth: 0 }}>
+              <FitMeasuredChipRow
+                items={pathLines}
+                getKey={(line, index) => `${line}-${index}`}
+                renderChip={(line, _index, { lone }) => (
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color="teal"
+                    style={lone ? { width: "100%" } : undefined}
+                    styles={truncatingBadgeStyles}
+                  >
+                    {line}
+                  </Badge>
+                )}
+              />
+            </div>
           </Tooltip>
         )}
       </div>

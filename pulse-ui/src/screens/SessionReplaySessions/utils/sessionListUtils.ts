@@ -146,15 +146,13 @@ export function formatImpactedScreensTooltip(
   return list.join("\n") || SESSION_LIST_LABELS.noImpactedScreens;
 }
 
-export function formatImpactedInteractionsCellTooltip(
-  names: string[] | undefined,
-  impactedScreens: ImpactedScreens | null | undefined,
+/** Tooltip for session list Impacted Interactions when names exist: all names, comma-separated, lowercase. */
+export function formatImpactedInteractionsNamesTooltip(
+  names: string[] | undefined | null,
 ): string {
-  const pathLines = flattenImpactedScreens(impactedScreens ?? null);
-  const nameBlock = names?.length ? names.join("\n") : "";
-  if (nameBlock && pathLines.length) {
-    return `${nameBlock}\n\n${pathLines.join("\n")}`;
+  const list = names?.filter(Boolean) ?? [];
+  if (!list.length) {
+    return SESSION_LIST_LABELS.noImpactedScreens;
   }
-  if (nameBlock) return nameBlock;
-  return pathLines.join("\n") || SESSION_LIST_LABELS.noImpactedScreens;
+  return list.map((n) => n.toLowerCase()).join(", ");
 }

@@ -8,6 +8,7 @@ import type {
 } from "../../../services/sessionReplay";
 import {
   SESSION_LIST_SORT_FIELD,
+  SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
   TABLE_COLUMN_LABELS,
 } from "../constants/sessionList.constants";
 import {
@@ -200,11 +201,25 @@ export function SessionsVirtualList({
           {TABLE_COLUMN_LABELS.platform}
         </div>
 
-        <div style={{ width: COLUMN_WIDTHS.issues, flexShrink: 0 }}>
+        <div
+          style={{
+            width: COLUMN_WIDTHS.issues,
+            flexShrink: 0,
+            paddingRight: SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
+            boxSizing: "border-box",
+          }}
+        >
           {TABLE_COLUMN_LABELS.issues}
         </div>
 
-        <div style={{ width: COLUMN_WIDTHS.impactedScreens, flexShrink: 0 }}>
+        <div
+          style={{
+            width: COLUMN_WIDTHS.impactedScreens,
+            flexShrink: 0,
+            paddingLeft: SESSION_LIST_ISSUES_IMPACTED_GUTTER_PX,
+            boxSizing: "border-box",
+          }}
+        >
           {TABLE_COLUMN_LABELS.impactedScreens}
         </div>
       </div>
@@ -253,13 +268,12 @@ export function SessionsVirtualList({
                 return (
                   <div
                     key={`${session.sessionId}-${virtualItem.index}`}
-                    ref={virtualizer.measureElement}
-                    data-index={virtualItem.index}
                     style={{
                       position: "absolute",
                       top: 0,
                       left: 0,
                       width: "100%",
+                      height: ESTIMATED_ROW_HEIGHT,
                       transform: `translateY(${virtualItem.start}px)`,
                     }}
                   >
