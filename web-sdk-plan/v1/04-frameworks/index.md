@@ -1,9 +1,8 @@
-# Phase 4 — Framework Integrations (Index)
+# Module 5 — Framework Integrations (Index)
 
 **Goal:** Idiomatic one-liner integrations for React, Next.js, Vue 3, and CDN/Vanilla JS. Automatic route tracking in each framework with no manual event wiring.
 
-**Estimated duration:** Week 8
-**Prerequisites:** Phase 1 complete. Phase 2 navigation instrumentation recommended.
+**Prerequisites:** Module 1 complete. Module 2 navigation instrumentation recommended.
 
 ---
 
@@ -33,7 +32,7 @@ Each integration is a separate entry point — unused framework code is fully tr
 
 ---
 
-## Phase 4 Done Criteria
+## Module 5 Done Criteria
 
 All sub-doc criteria must pass, plus:
 - [ ] Each framework integration has a working example app under `examples/`

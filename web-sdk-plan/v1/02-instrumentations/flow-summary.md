@@ -8,7 +8,7 @@ Six auto-instrumentations that activate immediately after `PulseWeb.start()`. Ea
 
 ```mermaid
 flowchart TD
-    SDK["PulseWeb.start()"] -->|"Phase 1 complete"| REG["Instrumentation Registry"]
+    SDK["PulseWeb.start()"] -->|"Module 1 complete"| REG["Instrumentation Registry"]
 
     REG --> ERR["Errors\nerrors.md"]
     REG --> NET["Network\nnetwork.md"]

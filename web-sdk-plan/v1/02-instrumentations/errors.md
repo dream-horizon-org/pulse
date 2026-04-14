@@ -154,7 +154,7 @@ export function patchConsoleError(): void {
 | `error.stack` is undefined (some older browsers) | Use empty string `""`, don't crash |
 | `e.reason` in rejection is a string not an Error | Wrap in `new Error(String(reason))` |
 | `getBattery()` not supported | Skip battery attribute, still emit the record |
-| `reportException()` called before `PulseWeb.start()` | Queue and flush once initialized (same pattern as Phase 1 singleton) |
+| `reportException()` called before `PulseWeb.start()` | Queue and flush once initialized (same pattern as Module 1 singleton) |
 | Same error thrown repeatedly (e.g. in `setInterval`) | No deduplication in v1 — emit every occurrence |
 
 ---

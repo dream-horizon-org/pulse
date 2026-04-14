@@ -1,9 +1,8 @@
-# Phase 2.5 — Interactions (Index)
+# Module 3 — Interactions (Index)
 
 **Goal:** Port the server-driven multi-step journey tracking system from Android/iOS to web. No new public API — hooks into `PulseWeb.trackEvent()`. Existing Interactions dashboard works without changes.
 
-**Estimated duration:** Week 4–5 (parallel with Phase 2)
-**Prerequisites:** Phase 1 complete.
+**Prerequisites:** Module 1 complete.
 
 ---
 
@@ -49,7 +48,7 @@ Config is fetched once at SDK init (03.1) and drives how many trackers are creat
 
 ---
 
-## Phase 2.5 Done Criteria
+## Module 3 Done Criteria
 
 All sub-doc criteria must pass, plus:
 - [ ] Interaction span visible in Pulse Interactions dashboard

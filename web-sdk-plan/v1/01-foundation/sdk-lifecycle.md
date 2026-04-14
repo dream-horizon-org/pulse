@@ -156,7 +156,7 @@ export class InstrumentationRegistry {
 }
 ```
 
-Remote SDK Config (Phase 4) can override `enabled` server-side without an SDK release — the `FeatureGate` reads from the remote config and `installAll()` is called with the updated gate on next page load.
+Remote SDK Config (Module 4) can override `enabled` server-side without an SDK release — the `FeatureGate` reads from the remote config and `installAll()` is called with the updated gate on next page load.
 
 ---
 

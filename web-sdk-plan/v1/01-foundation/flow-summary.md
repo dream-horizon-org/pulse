@@ -29,7 +29,7 @@ flowchart TD
     L --> M["install() on each\nenabled instrumentation"]
 
     M --> N["Session Instrumentation\nsession.md"]
-    M --> O["Phase 2 Instrumentations\n(errors, network, clicks…)"]
+    M --> O["Module 2 Instrumentations\n(errors, network, clicks…)"]
 
     H --> P["IndexedDB Buffer\npipeline.md"]
     P -->|"drain on next load"| H

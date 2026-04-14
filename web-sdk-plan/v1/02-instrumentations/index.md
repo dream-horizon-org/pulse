@@ -1,9 +1,8 @@
-# Phase 2 — Auto-Instrumentations (Index)
+# Module 2 — Auto-Instrumentations (Index)
 
 **Goal:** Automatically capture errors, network requests, UI interactions, web vitals, page navigation, resource loading, connectivity changes, and long tasks — with zero app code required beyond `PulseWeb.start()`.
 
-**Estimated duration:** Week 3–4
-**Prerequisites:** Phase 1 complete and verified (spans reaching ClickHouse).
+**Prerequisites:** Module 1 complete and verified (spans reaching ClickHouse).
 
 ---
 
@@ -52,7 +51,7 @@ Quick reference: which `pulse.type` comes from which doc.
 
 ## Global Attributes on Every Signal
 
-All signals from Phase 2 automatically carry the global attributes set up in Phase 1:
+All signals from Module 2 automatically carry the global attributes set up in Module 1:
 
 ```
 session.id, screen.name, url.path, page.url, page.title,
@@ -92,7 +91,7 @@ Remote config (from `/v1/configs/active`) can also gate each one server-side wit
 
 ---
 
-## Phase 2 Done Criteria
+## Module 2 Done Criteria
 
 All sub-doc done criteria must pass, plus:
 - [ ] All 13 signal types visible in Pulse dashboard under `platform = 'web'`

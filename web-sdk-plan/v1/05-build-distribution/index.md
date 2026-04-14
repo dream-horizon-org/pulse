@@ -1,9 +1,8 @@
-# Phase 5 — Build & Distribution
+# Module 6 — Build & Distribution
 
 **Goal:** Produce production-ready npm packages and CDN artifacts with correct entry points, TypeScript types, and a fully automated publish pipeline.
 
-**Estimated duration:** Week 9
-**Prerequisites:** Phases 1–4 feature-complete and passing tests.
+**Prerequisites:** Modules 1–5 feature-complete and passing tests.
 
 ---
 

@@ -1,8 +1,7 @@
-# Phase 1 — Foundation
+# Module 1 — Foundation
 
-**Goal:** A working SDK skeleton that initialises, manages sessions, and exports a real span to the Pulse backend over OTLP HTTP. Every subsequent phase builds on this. The foundation must be production-grade from day one — batching, persistence, shutdown, and compression are Phase 1 scope, not retrofits.
+**Goal:** A working SDK skeleton that initialises, manages sessions, and exports a real span to the Pulse backend over OTLP HTTP. Every subsequent module builds on this. The foundation must be production-grade from day one — batching, persistence, shutdown, and compression are Module 1 scope, not retrofits.
 
-**Timeline:** Weeks 1–2  
 **Prerequisites:** None — this is the starting point.
 
 ---
@@ -39,11 +38,11 @@
 - Shutdown API — force flush, uninstall all instrumentations, clear state
 
 **Out:**
-- Any auto-instrumentation beyond session (Phase 2)
-- Interactions (Phase 3)
+- Any auto-instrumentation beyond session (Module 2)
+- Interactions (Module 3)
 - Session replay (V2)
-- Framework-specific wrappers (Phase 5)
-- Remote SDK config (Phase 4 — added after instrumentations are stable)
+- Framework-specific wrappers (Module 5)
+- Remote SDK config (Module 4 — added after instrumentations are stable)
 
 ---
 

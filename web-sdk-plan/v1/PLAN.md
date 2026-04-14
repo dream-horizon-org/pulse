@@ -1,7 +1,6 @@
 # Pulse Web SDK — V1 Plan
 
 **Target:** `@dreamhorizon/pulse-web@0.1.0-alpha`
-**Timeline:** ~9 weeks
 **Goal:** A production-grade web SDK that captures the most critical signals, integrates with React and Next.js out of the box, and ships as a usable npm package.
 
 ---
@@ -29,13 +28,13 @@ Everything else — long tasks, resource timing, websocket, session replay, Vue,
 
 ---
 
-## Phase Dependency Diagram
+## Module Dependency Diagram
 
 ```mermaid
 flowchart TD
-    P1(["Phase 1 · Foundation\nWeeks 1–2"])
+    M1(["Module 1 · Foundation"])
 
-    subgraph P2["Phase 2 · Core Instrumentations  ·  Weeks 2–4"]
+    subgraph M2["Module 2 · Core Instrumentations"]
         direction LR
         SI["Session\n01.1"]
         ERR["Errors\n02.1"]
@@ -45,31 +44,31 @@ flowchart TD
         WV["Web Vitals\n02.4"]
     end
 
-    P3["Phase 3 · Interactions\nWeeks 4–5\n03.1 · 03.2 · 03.3"]
-    P4["Phase 4 · SDK Config\nWeeks 5–6\n01.2"]
+    M3["Module 3 · Interactions\n03.1 · 03.2 · 03.3"]
+    M4["Module 4 · SDK Config\n01.2"]
 
-    subgraph P5["Phase 5 · Framework Integrations  ·  Weeks 6–8"]
+    subgraph M5["Module 5 · Framework Integrations"]
         direction LR
         REACT["React\n05.1"]
         NEXTJS["Next.js\n05.2"]
         CDN["CDN · Vanilla JS\n05.4"]
     end
 
-    P6(["Phase 6 · Build & Distribution\nWeek 9"])
+    M6(["Module 6 · Build & Distribution"])
 
-    P1 --> P2
-    P2 --> P3
-    P3 --> P4
-    P4 --> P5
-    P5 --> P6
+    M1 --> M2
+    M2 --> M3
+    M3 --> M4
+    M4 --> M5
+    M5 --> M6
 ```
 
-> All 6 instrumentations in Phase 2 are built in parallel. Interactions (Phase 3) start once navigation is stable — it depends on `screen.name` resolution from the navigation instrumentation.
+> All 6 instrumentations in Module 2 are built in parallel. Interactions (Module 3) start once navigation is stable — it depends on `screen.name` resolution from the navigation instrumentation.
 
 ---
 
-## Phase 1 — Foundation
-**Weeks 1–2 · Doc: `v1/01-foundation/index.md`**
+## Module 1 — Foundation
+**Doc: `v1/01-foundation/index.md`**
 
 Everything that follows builds on this. The foundation must be production-grade from day one — retrofitting batching, persistence, or shutdown later is significantly harder.
 
@@ -80,7 +79,7 @@ Everything that follows builds on this. The foundation must be production-grade 
 | SDK init / shutdown | `PulseWeb.start(config)` → `PulseWeb.shutdown()` singleton lifecycle |
 | Session & identity | Installation ID (3-tier: localStorage → sessionStorage → memory), 30-min session rotation |
 | OTLP export pipeline | HTTP exporters for traces, logs, metrics — same endpoints as mobile |
-| Batching | 5 s flush, 2048 queue, 512 batch — matches Android/iOS defaults |
+| Batching | 5s flush, 2048 queue, 512 batch — matches Android/iOS defaults |
 | Persistence | IndexedDB signal buffer — failed exports survive tab crash, drained on next load |
 | Payload & compression | JSON (default) or Protobuf; gzip via native `CompressionStream` |
 | Instrumentation registry | `install()` / `uninstall()` contract; every instrumentation togglable at init |
@@ -95,8 +94,8 @@ Everything that follows builds on this. The foundation must be production-grade 
 
 ---
 
-## Phase 2 — Core Instrumentations
-**Weeks 2–4 · Docs: `01.1`, `02.1–02.5`**
+## Module 2 — Core Instrumentations
+**Docs: `01.1`, `02.1–02.5`**
 
 Six instrumentations built in parallel. Each implements `install()` / `uninstall()` and is independently togglable via config.
 
@@ -170,9 +169,9 @@ Attributes: `element.tag`, `element.text`, `element.id`, `element.classes`, norm
 | `web_vital` | FCP | First Contentful Paint |
 | `web_vital` | TTFB | Time to First Byte |
 
-Uses `web-vitals` library. Emitted as OTLP metrics. Attribution included (which element caused LCP, which node caused CLS shift).
+Uses `web-vitals` library. Emitted as OTLP Gauge metrics. Attribution included (which element caused LCP, which node caused CLS shift).
 
-### Phase 2 Exit Criteria
+### Module 2 Exit Criteria
 - All 6 signal types visible in Pulse dashboard under `platform = 'web'`
 - No signals emitted when `dataCollectionState: DENIED`
 - Each instrumentation correctly disabled when set to `enabled: false` in config
@@ -180,8 +179,8 @@ Uses `web-vitals` library. Emitted as OTLP metrics. Attribution included (which 
 
 ---
 
-## Phase 3 — Interactions
-**Weeks 4–5 · Docs: `v1/03-interactions/index.md`, `03.1`, `03.2`, `03.3`**
+## Module 3 — Interactions
+**Docs: `v1/03-interactions/index.md`, `03.1`, `03.2`, `03.3`**
 
 Port of the server-driven multi-step journey tracking from Android/iOS. No backend changes needed — the span output is attribute-identical to mobile.
 
@@ -223,8 +222,8 @@ PulseWeb.trackEvent('event_name', props)
 
 ---
 
-## Phase 4 — SDK Config (Remote Config)
-**Weeks 5–6 · Doc: `v1/01-foundation/sdk-config.md`**
+## Module 4 — SDK Config (Remote Config)
+**Doc: `v1/01-foundation/sdk-config.md`**
 
 Server-driven configuration so any SDK behaviour can be changed without an SDK release or customer redeploy.
 
@@ -236,7 +235,7 @@ Server-driven configuration so any SDK behaviour can be changed without an SDK r
 | Feature gates | Disable click tracking for a specific browser version |
 | Attribute manipulation | Strip a PII attribute remotely |
 | Collector URL overrides | Route logs to a different endpoint per project |
-| Batch flush interval | Override the 5 s default remotely |
+| Batch flush interval | Override the 5s default remotely |
 
 ### Config Load Strategy
 
@@ -263,15 +262,14 @@ Config changes apply on the **next session** (not mid-session) to keep sampling 
 
 ---
 
-## Phase 5 — Framework Integrations
-**Weeks 6–8 · Docs: `05.1`, `05.2`, `05.4`**
+## Module 5 — Framework Integrations
+**Docs: `05.1`, `05.2`, `05.4`**
 
 Three idiomatic integrations. Each is a separate package entry point — unused framework code is fully tree-shaken.
 
 ### React (`v1/04-frameworks/react.md`)
 
 ```tsx
-// One-liner setup
 import { PulseProvider } from '@dreamhorizon/pulse-web/react';
 
 function App() {
@@ -296,7 +294,6 @@ function App() {
 ### CDN / Vanilla JS (`v1/04-frameworks/cdn-vanilla.md`)
 
 ```html
-<!-- Async snippet — non-blocking -->
 <script>
   window.PulseWeb=window.PulseWeb||{queue:[]};
   window.PulseWeb.start=function(c){window.PulseWeb.queue.push(['start',c])};
@@ -317,8 +314,8 @@ Calls queued before the script loads are drained automatically when the bundle a
 
 ---
 
-## Phase 6 — Build & Distribution
-**Week 9 · Doc: `v1/05-build-distribution/index.md`**
+## Module 6 — Build & Distribution
+**Doc: `v1/05-build-distribution/index.md`**
 
 Production npm package + CDN artifact. Automated publish on release tag.
 
@@ -350,19 +347,6 @@ Production npm package + CDN artifact. Automated publish on release tag.
 - CDN URL returns 200 with gzip encoding
 - `rum.sdk.version` in spans matches package version
 - Bundle < 30 KB gzip enforced in CI
-
----
-
-## V1 Timeline Summary
-
-| Week | Work |
-|---|---|
-| 1–2 | Foundation — SDK core, session, OTLP, batching, persistence |
-| 2–4 | Core Instrumentations — Session, Errors, Network, Navigation, Clicks, Web Vitals (parallel) |
-| 4–5 | Interactions — config fetch, state machine, APDEX span |
-| 5–6 | SDK Config — remote config, sampling, feature gates |
-| 6–8 | Framework Integrations — React, Next.js, CDN/Vanilla JS |
-| 9   | Build & Distribution — npm, CDN, CI/CD, bundle budget |
 
 ---
 
