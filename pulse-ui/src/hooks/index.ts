@@ -56,6 +56,7 @@ export * from "./useGetScreensHealthData";
 export * from "./useGetSessionData";
 export * from "./useGetSessionReplays";
 export * from "./useGetSpanDetails";
+export * from "./useGetSuggestedInteractions";
 export * from "./useGetSuggestedQueries";
 export * from "./useGetTelemetryFilters";
 export * from "./useGetTopInteractionsHealthData";
