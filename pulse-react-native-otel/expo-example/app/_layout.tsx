@@ -21,7 +21,7 @@ function RootNavigation() {
 
   useNavigationTracking(navigationRef, {
     registerWhenContainerReady: true,
-    screenInteractiveTracking: true
+    screenInteractiveTracking: true,
   });
 
   if (!ready) {
