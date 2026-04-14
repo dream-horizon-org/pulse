@@ -66,7 +66,7 @@ class DefaultSdkConfigTemplateTest {
     @Test
     void shouldIncludeAllExpectedFeatures() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
-      assertThat(config.getFeatures()).isNotEmpty();
+      assertThat(config.getFeatures()).hasSize(17);
 
       assertThat(config.getFeatures()).extracting(FeatureConfig::getFeatureName)
           .contains(
@@ -75,12 +75,18 @@ class DefaultSdkConfigTemplateTest {
               Features.js_crash,
               Features.java_anr,
               Features.network_change,
-              Features.network_instrumentation,
-              Features.screen_session,
               Features.custom_events,
               Features.rn_screen_load,
               Features.rn_screen_interactive,
-              Features.session_replay
+              Features.rn_screen_session,
+              Features.session_replay,
+              Features.ios_network,
+              Features.rn_network,
+              Features.ios_crash,
+              Features.ios_lifecycle,
+              Features.android_activity,
+              Features.android_fragment,
+              Features.android_slowrendering
           );
     }
 
@@ -92,7 +98,7 @@ class DefaultSdkConfigTemplateTest {
           .findFirst()
           .orElse(null);
       assertThat(sessionReplayFeature).isNotNull();
-      assertThat(sessionReplayFeature.getSessionSampleRate()).isEqualTo(1.0);
+      assertThat(sessionReplayFeature.getSessionSampleRate()).isEqualTo(0.0);
       assertThat(sessionReplayFeature.getSdks())
           .containsExactlyInAnyOrder(
               Sdk.pulse_android_java,
@@ -115,38 +121,148 @@ class DefaultSdkConfigTemplateTest {
     }
 
     @Test
-    void shouldSetNetworkInstrumentationToZeroSampleRate() {
+    void shouldSetDisabledFeaturesWithZeroSampleRate() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
-      FeatureConfig networkInstrumentation = config.getFeatures().stream()
-          .filter(f -> f.getFeatureName() == Features.network_instrumentation)
+      
+      FeatureConfig iosLifecycle = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.ios_lifecycle)
           .findFirst()
           .orElse(null);
-      assertThat(networkInstrumentation).isNotNull();
-      assertThat(networkInstrumentation.getSessionSampleRate()).isEqualTo(0.0);
+      assertThat(iosLifecycle).isNotNull();
+      assertThat(iosLifecycle.getSessionSampleRate()).isEqualTo(0.0);
+      assertThat(iosLifecycle.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+
+      FeatureConfig androidFragment = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.android_fragment)
+          .findFirst()
+          .orElse(null);
+      assertThat(androidFragment).isNotNull();
+      assertThat(androidFragment.getSessionSampleRate()).isEqualTo(0.0);
+      assertThat(androidFragment.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
     }
 
     @Test
-    void shouldSetOtherFeaturesToFullSampling() {
+    void shouldSetAndroidSpecificFeatures() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
-      config.getFeatures().stream()
-          .filter(f -> f.getFeatureName() != Features.network_instrumentation)
-          .forEach(f -> assertThat(f.getSessionSampleRate())
-              .as("Feature " + f.getFeatureName() + " should have 1.0 sample rate")
-              .isEqualTo(1.0));
+      
+      FeatureConfig javaCrash = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.java_crash)
+          .findFirst()
+          .orElse(null);
+      assertThat(javaCrash).isNotNull();
+      assertThat(javaCrash.getSessionSampleRate()).isEqualTo(1.0);
+      assertThat(javaCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
+
+      FeatureConfig jsCrash = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.js_crash)
+          .findFirst()
+          .orElse(null);
+      assertThat(jsCrash).isNotNull();
+      assertThat(jsCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
+
+      FeatureConfig javaAnr = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.java_anr)
+          .findFirst()
+          .orElse(null);
+      assertThat(javaAnr).isNotNull();
+      assertThat(javaAnr.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
+
+      FeatureConfig slowRendering = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.android_slowrendering)
+          .findFirst()
+          .orElse(null);
+      assertThat(slowRendering).isNotNull();
+      assertThat(slowRendering.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
+
+      FeatureConfig activity = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.android_activity)
+          .findFirst()
+          .orElse(null);
+      assertThat(activity).isNotNull();
+      assertThat(activity.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
+    }
+
+    @Test
+    void shouldSetIosSpecificFeatures() {
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      
+      FeatureConfig iosCrash = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.ios_crash)
+          .findFirst()
+          .orElse(null);
+      assertThat(iosCrash).isNotNull();
+      assertThat(iosCrash.getSessionSampleRate()).isEqualTo(1.0);
+      assertThat(iosCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+
+      FeatureConfig iosNetwork = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.ios_network)
+          .findFirst()
+          .orElse(null);
+      assertThat(iosNetwork).isNotNull();
+      assertThat(iosNetwork.getSessionSampleRate()).isEqualTo(1.0);
+      assertThat(iosNetwork.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+    }
+
+    @Test
+    void shouldSetReactNativeSpecificFeatures() {
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      
+      FeatureConfig rnScreenLoad = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.rn_screen_load)
+          .findFirst()
+          .orElse(null);
+      assertThat(rnScreenLoad).isNotNull();
+      assertThat(rnScreenLoad.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
+
+      FeatureConfig rnScreenInteractive = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.rn_screen_interactive)
+          .findFirst()
+          .orElse(null);
+      assertThat(rnScreenInteractive).isNotNull();
+      assertThat(rnScreenInteractive.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
+
+      FeatureConfig rnScreenSession = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.rn_screen_session)
+          .findFirst()
+          .orElse(null);
+      assertThat(rnScreenSession).isNotNull();
+      assertThat(rnScreenSession.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
+
+      FeatureConfig rnNetwork = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.rn_network)
+          .findFirst()
+          .orElse(null);
+      assertThat(rnNetwork).isNotNull();
+      assertThat(rnNetwork.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
     }
 
     @Test
     void shouldIncludeAllSdksForEachFeature() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
-      config.getFeatures().forEach(feature -> {
-        assertThat(feature.getSdks())
-            .containsExactlyInAnyOrder(
-                Sdk.pulse_android_java,
-                Sdk.pulse_android_rn,
-                Sdk.pulse_ios_swift,
-                Sdk.pulse_ios_rn
-            );
-      });
+      
+      FeatureConfig interaction = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.interaction)
+          .findFirst()
+          .orElse(null);
+      assertThat(interaction).isNotNull();
+      assertThat(interaction.getSdks())
+          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+
+      FeatureConfig networkChange = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.network_change)
+          .findFirst()
+          .orElse(null);
+      assertThat(networkChange).isNotNull();
+      assertThat(networkChange.getSdks())
+          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+
+      FeatureConfig customEvents = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.custom_events)
+          .findFirst()
+          .orElse(null);
+      assertThat(customEvents).isNotNull();
+      assertThat(customEvents.getSdks())
+          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
     }
   }
 }
