@@ -11,10 +11,10 @@
 
 | # | Doc | What It Covers |
 |---|---|---|
-| 05.1 | [React](./05.1-react.md) | `PulseProvider`, `PulseErrorBoundary`, React Router v6 hook |
-| 05.2 | [Next.js](./05.2-nextjs.md) | App Router + Pages Router providers, SSR guard |
-| 05.3 | [Vue](./05.3-vue.md) | `PulseVuePlugin`, vue-router integration, global error handler |
-| 05.4 | [CDN & Vanilla JS](./05.4-cdn-vanilla.md) | Async snippet loader, `window.PulseWeb` global, queue drain |
+| 05.1 | [React](./react.md) | `PulseProvider`, `PulseErrorBoundary`, React Router v6 hook |
+| 05.2 | [Next.js](./nextjs.md) | App Router + Pages Router providers, SSR guard |
+| 05.3 | [Vue *(V2)*](../../v2/03-frameworks/vue.md) | `PulseVuePlugin`, vue-router integration, global error handler — **ships in V2** |
+| 05.4 | [CDN & Vanilla JS](./cdn-vanilla.md) | Async snippet loader, `window.PulseWeb` global, queue drain |
 
 ---
 

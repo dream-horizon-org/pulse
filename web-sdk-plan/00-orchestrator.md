@@ -8,15 +8,15 @@ This document is the single source of truth for the Web SDK project. It tracks p
 
 | # | Phase | Index Doc | Sub-Docs | Status | Owner | Blocker |
 |---|---|---|---|---|---|---|
-| 1 | Foundation | [01-foundation.md](./01-foundation.md) | [01.1](./01.1-session-instrumentation.md) | Not Started | — | — |
-| 2 | Framework Integrations | [05-framework-integrations.md](./05-framework-integrations.md) | [05.1](#) · [05.2](#) · [05.3](#) · [05.4](#) | Not Started | — | Phase 1 |
-| 3 | Auto-Instrumentations | [02-auto-instrumentations.md](./02-auto-instrumentations.md) | [02.1](#) · [02.2](#) · [02.3](#) · [02.4](#) · [02.5](#) · [02.6](#) · [02.7](#) · [02.8](#) · [02.9](#) · [02.10](#) | Not Started | — | Phase 1 |
-| 3.5 | Interactions | [03-interactions.md](./03-interactions.md) | [03.1](#) · [03.2](#) · [03.3](#) | Not Started | — | Phase 1 |
-| 4 | Session Replay | [04-session-replay.md](./04-session-replay.md) | [04.1](#) · [04.2](#) · [04.3](#) | Not Started | — | Phase 1 |
-| 5 | SDK Config (Remote Config) | [01.5-sdk-config.md](./01.5-sdk-config.md) | — | Not Started | — | Phase 3 |
-| 6 | Build & Distribution | [06-build-distribution.md](./06-build-distribution.md) | — | Not Started | — | Phases 2–4 |
-| 7 | Testing & Quality | [07-testing-quality.md](./07-testing-quality.md) | — | Not Started | — | Phase 3 |
-| 8 | Backend & UI | [08-backend-ui.md](./08-backend-ui.md) | [08.1](#) · [08.2](#) | Not Started | — | Phase 3 |
+| 1 | Foundation | [01-foundation/index.md](./v1/01-foundation/index.md) | [session](./v1/01-foundation/session.md) · [sdk-config](./v1/01-foundation/sdk-config.md) | Not Started | — | — |
+| 2 | Framework Integrations | [05-frameworks/index.md](./v1/04-frameworks/index.md) | [react](./v1/04-frameworks/react.md) · [nextjs](./v1/04-frameworks/nextjs.md) · [vue](./v2/03-frameworks/vue.md) · [cdn](./v1/04-frameworks/cdn-vanilla.md) | Not Started | — | Phase 1 |
+| 3 | Auto-Instrumentations | [02-instrumentations/index.md](./v1/02-instrumentations/index.md) | [errors](./v1/02-instrumentations/errors.md) · [network](./v1/02-instrumentations/network.md) · [clicks](./v1/02-instrumentations/clicks.md) · [web-vitals](./v1/02-instrumentations/web-vitals.md) · [navigation](./v1/02-instrumentations/navigation.md) · [long-tasks](./v2/01-instrumentations/long-tasks.md) · [resource-timing](./v2/01-instrumentations/resource-timing.md) · [visibility](./v2/01-instrumentations/visibility-online.md) · [websocket](./v2/01-instrumentations/websocket.md) · [bfcache](./v2/01-instrumentations/bfcache.md) | Not Started | — | Phase 1 |
+| 3.5 | Interactions | [03-interactions/index.md](./v1/03-interactions/index.md) | [config](./v1/03-interactions/config.md) · [matching](./v1/03-interactions/matching.md) · [span](./v1/03-interactions/span.md) | Not Started | — | Phase 1 |
+| 4 | Session Replay | [04-session-replay/index.md](./v2/02-session-replay/index.md) | [recorder](./v2/02-session-replay/recorder.md) · [privacy](./v2/02-session-replay/privacy.md) · [transport](./v2/02-session-replay/transport.md) | Not Started | — | Phase 1 |
+| 5 | SDK Config (Remote Config) | [01-foundation/sdk-config.md](./v1/01-foundation/sdk-config.md) | — | Not Started | — | Phase 3 |
+| 6 | Build & Distribution | [06-build-distribution/index.md](./v1/05-build-distribution/index.md) | — | Not Started | — | Phases 2–4 |
+| 7 | Testing & Quality | [07-testing/index.md](./v2/05-testing/index.md) | — | Not Started | — | Phase 3 |
+| 8 | Backend & UI | [08-backend-ui/index.md](./v2/04-backend-ui/index.md) | [sdk-config-support](./v2/04-backend-ui/sdk-config-support.md) · [ui-support](./v2/04-backend-ui/ui-support.md) | Not Started | — | Phase 3 |
 
 **Status values:** `Not Started` → `In Progress` → `In Review` → `Done` → `Blocked`
 
@@ -26,50 +26,50 @@ This document is the single source of truth for the Web SDK project. It tracks p
 
 ### Phase 2 — Auto-Instrumentations
 
-| Doc | File | Signal Type | Implementation Complexity |
-|---|---|---|---|
-| [02.1](./02.1-errors.md) | `src/instrumentations/errors.ts` | `device.crash`, `non_fatal` | Low |
-| [02.2](./02.2-network.md) | `src/instrumentations/network.ts` | `http` span | Medium |
-| [02.3](./02.3-clicks.md) | `src/instrumentations/clicks.ts` | `app.click` | Medium |
-| [02.4](./02.4-web-vitals.md) | `src/instrumentations/web-vitals.ts` | `web_vital` metric | Low |
-| [02.5](./02.5-navigation.md) | `src/instrumentations/navigation.ts` | `screen_load`, `screen_interactive`, `screen_session` | Medium |
-| [02.6](./02.6-long-tasks.md) | `src/instrumentations/long-tasks.ts` | `app.jank.slow` | Low |
-| [02.7](./02.7-resource-timing.md) | `src/instrumentations/resource-timing.ts` | `resource_load` | Low |
-| [02.8](./02.8-visibility-online.md) | `src/instrumentations/visibility-online.ts` | `app.visibility`, `network.change` | Low |
-| [02.9](./02.9-websocket.md) | `src/instrumentations/websocket.ts` | `websocket` | Medium |
-| [02.10](./02.10-bfcache.md) | `src/instrumentations/bfcache.ts` | `bfcache.restore` | Low |
+| Doc | File | Signal Type | Version | Complexity |
+|---|---|---|---|---|
+| [errors](./v1/02-instrumentations/errors.md) | `src/instrumentations/errors.ts` | `device.crash`, `non_fatal` | V1 | Low |
+| [network](./v1/02-instrumentations/network.md) | `src/instrumentations/network.ts` | `http` span | V1 | Medium |
+| [clicks](./v1/02-instrumentations/clicks.md) | `src/instrumentations/clicks.ts` | `app.click` | V1 | Medium |
+| [web-vitals](./v1/02-instrumentations/web-vitals.md) | `src/instrumentations/web-vitals.ts` | `web_vital` metric | V1 | Low |
+| [navigation](./v1/02-instrumentations/navigation.md) | `src/instrumentations/navigation.ts` | `screen_load`, `screen_interactive`, `screen_session` | V1 | Medium |
+| [long-tasks](./v2/01-instrumentations/long-tasks.md) | `src/instrumentations/long-tasks.ts` | `app.jank.slow` | V2 | Low |
+| [resource-timing](./v2/01-instrumentations/resource-timing.md) | `src/instrumentations/resource-timing.ts` | `resource_load` | V2 | Low |
+| [visibility-online](./v2/01-instrumentations/visibility-online.md) | `src/instrumentations/visibility-online.ts` | `app.visibility`, `network.change` | V2 | Low |
+| [websocket](./v2/01-instrumentations/websocket.md) | `src/instrumentations/websocket.ts` | `websocket` | V2 | Medium |
+| [bfcache](./v2/01-instrumentations/bfcache.md) | `src/instrumentations/bfcache.ts` | `bfcache.restore` | V2 | Low |
 
 ### Phase 2.5 — Interactions
 
 | Doc | File | Responsibility |
 |---|---|---|
-| [03.1](./03.1-interaction-config.md) | `src/interactions/config-fetcher.ts` | CDN config fetch + cache |
-| [03.2](./03.2-interaction-matching.md) | `src/interactions/interaction-matcher.ts` | State machine, step matching |
-| [03.3](./03.3-interaction-span.md) | `src/interactions/interaction-span.ts` | APDEX scoring, span output |
+| [config](./v1/03-interactions/config.md) | `src/interactions/config-fetcher.ts` | CDN config fetch + cache |
+| [matching](./v1/03-interactions/matching.md) | `src/interactions/interaction-matcher.ts` | State machine, step matching |
+| [span](./v1/03-interactions/span.md) | `src/interactions/interaction-span.ts` | APDEX scoring, span output |
 
 ### Phase 3 — Session Replay
 
 | Doc | File | Responsibility |
 |---|---|---|
-| [04.1](./04.1-replay-recorder.md) | `src/replay/recorder.ts` | rrweb setup, event buffering |
-| [04.2](./04.2-replay-privacy.md) | `src/replay/privacy.ts` | Input masking, CSS blocking |
-| [04.3](./04.3-replay-transport.md) | `src/replay/transport.ts` | gzip compression, OTLP delivery |
+| [recorder](./v2/02-session-replay/recorder.md) | `src/replay/recorder.ts` | rrweb setup, event buffering |
+| [privacy](./v2/02-session-replay/privacy.md) | `src/replay/privacy.ts` | Input masking, CSS blocking |
+| [transport](./v2/02-session-replay/transport.md) | `src/replay/transport.ts` | gzip compression, OTLP delivery |
 
 ### Phase 7 — Backend & UI
 
 | Doc | File | Responsibility |
 |---|---|---|
-| [08.1](./08.1-sdk-config-web-support.md) | backend + pulse-ui | Extend SDK Config to support `pulse_web_js` — enums, DTOs, default template, UI components |
-| [08.2](./08.2-ui-web-support.md) | pulse-ui | All UI changes for web SDK data — attribute mapping, Web Vitals screen, rrweb player, click heatmap |
+| [sdk-config-support](./v2/04-backend-ui/sdk-config-support.md) | backend + pulse-ui | Extend SDK Config to support `pulse_web_js` — enums, DTOs, default template, UI components |
+| [ui-support](./v2/04-backend-ui/ui-support.md) | pulse-ui | All UI changes for web SDK data — attribute mapping, Web Vitals screen, rrweb player, click heatmap |
 
 ### Phase 4 — Framework Integrations
 
-| Doc | File | Framework |
-|---|---|---|
-| [05.1](./05.1-react.md) | `src/integrations/react/` | React + React Router v6 |
-| [05.2](./05.2-nextjs.md) | `src/integrations/nextjs/` | Next.js App + Pages Router |
-| [05.3](./05.3-vue.md) | `src/integrations/vue/` | Vue 3 + Vue Router + Nuxt 3 |
-| [05.4](./05.4-cdn-vanilla.md) | `src/integrations/cdn/` | Async CDN snippet, Vanilla JS |
+| Doc | File | Framework | Version |
+|---|---|---|---|
+| [react](./v1/04-frameworks/react.md) | `src/integrations/react/` | React + React Router v6 | V1 |
+| [nextjs](./v1/04-frameworks/nextjs.md) | `src/integrations/nextjs/` | Next.js App + Pages Router | V1 |
+| [cdn-vanilla](./v1/04-frameworks/cdn-vanilla.md) | `src/integrations/cdn/` | Async CDN snippet, Vanilla JS | V1 |
+| [vue](./v2/03-frameworks/vue.md) | `src/integrations/vue/` | Vue 3 + Vue Router + Nuxt 3 | V2 |
 
 ---
 

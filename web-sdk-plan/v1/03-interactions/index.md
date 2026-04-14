@@ -11,9 +11,9 @@
 
 | # | Doc | What It Does |
 |---|---|---|
-| 03.1 | [Config Fetcher](./03.1-interaction-config.md) | Fetches interaction definitions from CDN, parses JSON |
-| 03.2 | [Matching Algorithm](./03.2-interaction-matching.md) | State machine, sequence matching, timeout, blacklists |
-| 03.3 | [Span Output](./03.3-interaction-span.md) | APDEX calculation, user category, OTel span creation |
+| 03.1 | [Config Fetcher](./config.md) | Fetches interaction definitions from CDN, parses JSON |
+| 03.2 | [Matching Algorithm](./matching.md) | State machine, sequence matching, timeout, blacklists |
+| 03.3 | [Span Output](./span.md) | APDEX calculation, user category, OTel span creation |
 
 ---
 

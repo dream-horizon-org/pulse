@@ -11,18 +11,18 @@
 
 Each instrumentation has its own deep-dive doc with full attribute contract, implementation code, edge cases, and test cases.
 
-| # | Doc | What It Captures | Signals Produced | Priority |
-|---|---|---|---|---|
-| 02.1 | [Errors](./02.1-errors.md) | JS crashes, unhandled rejections, console errors | `device.crash`, `non_fatal` | v1 |
-| 02.2 | [Network](./02.2-network.md) | Fetch, XHR, GraphQL detection | `http` span | v1 |
-| 02.3 | [Clicks](./02.3-clicks.md) | Clicks, rage clicks, dead clicks | `app.click` | v1 |
-| 02.4 | [Web Vitals](./02.4-web-vitals.md) | LCP, CLS, FID, INP, TTFB, FCP + attribution | `web_vital` metric | v1 |
-| 02.5 | [Navigation](./02.5-navigation.md) | Page load, SPA route changes, TTI | `screen_load`, `screen_interactive`, `screen_session` | v1 |
-| 02.6 | [Long Tasks](./02.6-long-tasks.md) | Main thread blocks > 50ms | `app.jank.slow` | v1 |
-| 02.7 | [Resource Timing](./02.7-resource-timing.md) | JS, CSS, image, font, API load times | `resource_load` | v1 |
-| 02.8 | [Visibility & Online](./02.8-visibility-online.md) | Tab hidden/visible, offline/online | `app.visibility`, `network.change` | v1 |
-| 02.9 | [WebSocket](./02.9-websocket.md) | WS open, close, error, message size | `websocket` | v1 |
-| 02.10 | [BFCache](./02.10-bfcache.md) | Back/forward cache restores | `screen_load` (bfcache variant) | v1 |
+| # | Doc | What It Captures | Signals Produced | Kind | Version |
+|---|---|---|---|---|---|
+| 02.1 | [Errors](./errors.md) | JS crashes, unhandled rejections, console errors | `device.crash`, `non_fatal` | Log | V1 |
+| 02.2 | [Network](./network.md) | Fetch, XHR, GraphQL detection | `http` | Span | V1 |
+| 02.3 | [Clicks](./clicks.md) | Clicks, rage clicks, dead clicks | `app.click` | Log | V1 |
+| 02.4 | [Web Vitals](./web-vitals.md) | LCP, CLS, INP, TTFB, FCP + attribution | `web_vital` | **Metric** (OTLP Gauge) | V1 |
+| 02.5 | [Navigation](./navigation.md) | Page load, SPA route changes, TTI | `screen_load`, `screen_interactive`, `screen_session` | Span | V1 |
+| 02.6 | [Long Tasks](../../v2/01-instrumentations/long-tasks.md) | Main thread blocks > 50ms | `app.jank.slow` | Log | V2 |
+| 02.7 | [Resource Timing](../../v2/01-instrumentations/resource-timing.md) | JS, CSS, image, font, API load times | `resource_load` | Span | V2 |
+| 02.8 | [Visibility & Online](../../v2/01-instrumentations/visibility-online.md) | Tab hidden/visible, offline/online | `app.visibility`, `network.change` | Log | V2 |
+| 02.9 | [WebSocket](../../v2/01-instrumentations/websocket.md) | WS open, close, error, message size | `websocket` | Span | V2 |
+| 02.10 | [BFCache](../../v2/01-instrumentations/bfcache.md) | Back/forward cache restores | `screen_load` (bfcache variant) | Span | V2 |
 
 ---
 
@@ -32,19 +32,19 @@ Quick reference: which `pulse.type` comes from which doc.
 
 | `pulse.type` | Kind | Doc |
 |---|---|---|
-| `device.crash` | Log | 02.1 |
-| `non_fatal` | Log | 02.1 |
-| `http` | Span | 02.2 |
-| `app.click` | Log | 02.3 |
-| `web_vital` | Metric | 02.4 |
-| `screen_load` | Span | 02.5, 02.10 |
-| `screen_interactive` | Span | 02.5 |
-| `screen_session` | Span | 02.5 |
-| `app.jank.slow` | Log | 02.6 |
-| `resource_load` | Span | 02.7 |
-| `app.visibility` | Log | 02.8 |
-| `network.change` | Log | 02.8 |
-| `websocket` | Span | 02.9 |
+| `device.crash` | Log | [errors.md](./errors.md) |
+| `non_fatal` | Log | [errors.md](./errors.md) |
+| `http` | Span | [network.md](./network.md) |
+| `app.click` | Log | [clicks.md](./clicks.md) |
+| `web_vital` | **Metric** (OTLP Gauge) | [web-vitals.md](./web-vitals.md) |
+| `screen_load` | Span | [navigation.md](./navigation.md), [bfcache.md](../../v2/01-instrumentations/bfcache.md) |
+| `screen_interactive` | Span | [navigation.md](./navigation.md) |
+| `screen_session` | Span | [navigation.md](./navigation.md) |
+| `app.jank.slow` | Log | [long-tasks.md](../../v2/01-instrumentations/long-tasks.md) |
+| `resource_load` | Span | [resource-timing.md](../../v2/01-instrumentations/resource-timing.md) |
+| `app.visibility` | Log | [visibility-online.md](../../v2/01-instrumentations/visibility-online.md) |
+| `network.change` | Log | [visibility-online.md](../../v2/01-instrumentations/visibility-online.md) |
+| `websocket` | Span | [websocket.md](../../v2/01-instrumentations/websocket.md) |
 
 **13 signal types from 10 instrumentations.**
 

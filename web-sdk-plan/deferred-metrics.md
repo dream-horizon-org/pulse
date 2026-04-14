@@ -67,11 +67,11 @@ Backed by OTel `Meter.createCounter/createGauge/createHistogram`. Low complexity
 
 ---
 
-### Gap 2 — Web Vitals Output as OTEL Metrics (Needs Confirmation)
+### Gap 2 — Web Vitals Output as OTEL Metrics ✅ Resolved
 
-02.4 plans Web Vitals (LCP, CLS, INP, FCP, TTFB) under signal kind "Metric" but this needs to be explicitly confirmed as proper **OTEL gauge observations** flowing into `otel_metrics_gauge` in ClickHouse — the same table iOS MetricKit data goes to. If they land as spans or logs instead, cross-platform metric queries and the Web Vitals dashboard won't work correctly.
+Web Vitals (LCP, CLS, INP, FCP, TTFB) are emitted as **OTLP gauge observations** via `meter.createObservableGauge('pulse.web_vital')` — the same signal kind as iOS MetricKit data. They flow into `otel_metrics_gauge` in ClickHouse, enabling cross-platform metric queries and the Web Vitals dashboard screen.
 
-**Action:** Confirm output kind in 02.4 before implementation starts.
+See `v1/02-instrumentations/web-vitals.md` for the full implementation using `createObservableGauge` from `@opentelemetry/api`.
 
 ---
 
@@ -104,7 +104,7 @@ The `PulseSamplingSignalProcessors` system (configure server-side rules to deriv
 
 | Gap | Complexity | Value | Suggested Call |
 |---|---|---|---|
-| Web Vitals as OTEL metrics (Gap 2) | Low — confirm output format | High — needed for Web Vitals dashboard | Resolve before 02.4 implementation |
+| ~~Web Vitals as OTEL metrics (Gap 2)~~ | — | — | ✅ Resolved — OTLP Gauge via `createObservableGauge` |
 | Custom metric API (Gap 1) | Low–Medium | High — cross-platform parity | Decide v1 vs post-v1 |
 | Derived metrics / SDK Config (Gap 4) | Medium | Medium | Post-v1 candidate |
 | Memory gauge (Gap 3) | Low | Low–Medium | Post-v1, opt-in only |

@@ -10,6 +10,29 @@ Bring Pulse observability to web browsers. A customer adds one line of code; Pul
 
 ---
 
+## V1 vs V2 at a Glance
+
+The full plan is split into two versions to keep scope manageable and ship value early.
+
+| | V1 (`@0.1.0-alpha`) | V2 (`@0.2.0`) |
+|---|---|---|
+| **Timeline** | ~9 weeks | ~6 weeks after V1 |
+| **Foundation** | ✅ | — |
+| **Core signals** (session, errors, network, navigation, clicks, vitals) | ✅ | — |
+| **Additional signals** (long tasks, resource timing, visibility, websocket, bfcache) | — | ✅ |
+| **Interactions + APDEX** | ✅ | refinements |
+| **SDK Config (remote config)** | ✅ | web UI for it |
+| **React + Next.js** | ✅ | — |
+| **CDN / Vanilla JS** | ✅ | — |
+| **Vue + Nuxt** | — | ✅ |
+| **Session Replay** | — | ✅ |
+| **Backend & UI changes** | — | ✅ |
+| **BrowserStack E2E suite** | — | ✅ |
+
+**Detailed plans:** [V1-PLAN.md](./v1/PLAN.md) · [V2-PLAN.md](./v2/PLAN.md)
+
+---
+
 ## What Gets Captured
 
 | Signal | What It Covers |
@@ -31,7 +54,10 @@ Bring Pulse observability to web browsers. A customer adds one line of code; Pul
 
 ## Delivery Plan
 
-### Phase 1 — Foundation `Weeks 1–2`
+> **V1 = Phases 1–6 below · V2 = Phases 7–8 + additional instrumentations.**
+> See [V1-PLAN.md](./v1/PLAN.md) and [V2-PLAN.md](./v2/PLAN.md) for the full breakdown.
+
+### Phase 1 — Foundation `Weeks 1–2` `V1`
 Production-grade SDK core. The foundation is built to support everything that follows without retrofits.
 
 | Area | What's Built |
@@ -48,70 +74,127 @@ Production-grade SDK core. The foundation is built to support everything that fo
 
 ---
 
-### Phase 2 — Framework Integrations `Weeks 2–3`
-Idiomatic one-liner integrations for React, Next.js, Vue 3, and CDN/Vanilla JS. Automatic route tracking and error boundaries per framework. This runs early so all subsequent phases are tested in real app environments.
+### Phase 2 — Core Instrumentations `Weeks 2–4` `V1`
+Six instrumentations built in parallel after Foundation. Each independently togglable at init.
 
-| Framework | Integration |
+| Instrumentation | Signal | Doc |
+|---|---|---|
+| Session | `session.start`, `session.end` | `01.1` |
+| Errors | `device.crash`, `non_fatal` | `02.1` |
+| Network (Fetch + XHR) | `http` span | `02.2` |
+| Navigation | `screen_load`, `screen_interactive`, `screen_session` | `02.5` |
+| Clicks + Rage Clicks | `app.click` | `02.3` |
+| Web Vitals | `web_vital` (LCP, CLS, INP, FCP, TTFB) | `02.4` |
+
+**Exit:** All 6 signal types visible under `platform = 'web'`. No signals emitted when consent is DENIED.
+
+---
+
+### Phase 3 — Interactions `Weeks 4–5` `V1`
+Port the server-driven multi-step journey tracking from Android/iOS to web. No backend or dashboard changes needed — span attributes are identical across platforms.
+
+| Sub-doc | What It Does |
 |---|---|
-| React + React Router v6 | `<PulseProvider>`, `<PulseErrorBoundary>` |
-| Next.js (App + Pages Router) | Provider with SSR guard |
-| Vue 3 / Nuxt 3 | `PulseVuePlugin`, vue-router hook |
-| CDN / Vanilla JS | Async `<script>` snippet |
+| `03.1` | CDN config fetch + in-memory cache |
+| `03.2` | State machine, step matching, timeout handling |
+| `03.3` | APDEX scoring, OTel span creation |
+
+**Exit:** An interaction span with correct APDEX score appears in the existing Pulse Interactions tab.
+
+---
+
+### Phase 4 — SDK Config (Remote Config) `Weeks 5–6` `V1`
+Server-driven config so any SDK behaviour can be changed without an SDK release. Session sampling, feature gates, attribute manipulation, collector URL overrides — all remotely controllable.
+
+**Exit:** Web SDK reads config from `/v1/configs/active`. Disabling a feature via server config is confirmed without an SDK update.
+
+---
+
+### Phase 5 — Framework Integrations `Weeks 6–8` `V1`
+React, Next.js, and CDN/Vanilla JS. Vue + Nuxt are V2.
+
+| Framework | Integration | Doc |
+|---|---|---|
+| React + React Router v6 | `<PulseProvider>`, `<PulseErrorBoundary>` | `05.1` |
+| Next.js (App + Pages Router) | Provider with SSR guard | `05.2` |
+| CDN / Vanilla JS | Async `<script>` snippet, `window.PulseWeb` queue drain | `05.4` |
 
 **Exit:** Each framework has a working example app. Route changes tracked automatically. SDK initialises exactly once.
 
 ---
 
-### Phase 3 — Auto-Instrumentations `Weeks 3–5` *(parallel with Phase 2)*
-All 10 auto-instrumentations. Each independently togglable via remote config without an SDK release. Combined core bundle budget: **< 30 KB gzip**.
+### Phase 6 — Build & Distribution `Week 9` `V1`
+Production npm package (`@dreamhorizon/pulse-web`) + CDN artifact. Automated publish on release tag.
 
-**Exit:** All 13 signal types visible in Pulse dashboard under `Platform = 'web'`. No errors on Firefox or Safari.
-
----
-
-### Phase 4 — Interactions `Weeks 4–5` *(parallel with Phase 3)*
-Port the server-driven multi-step journey tracking from mobile to web. No backend or dashboard changes needed — span attributes are identical across platforms.
-
-**Exit:** An interaction funnel span with correct APDEX score appears in the existing Pulse Interactions tab.
+**Exit:** `npm install @dreamhorizon/pulse-web` works. CDN URL live. CI green. Core bundle < 30 KB gzip enforced.
 
 ---
 
-### Phase 5 — SDK Config (Remote Config) `Weeks 5–6`
-Extend the existing server-driven SDK Config system to recognise `pulse_web_js`. Adds web feature flags, sampling rules (by browser, URL, device type), and per-feature remote config to gate instrumentation behaviour without an SDK release.
+### Phase 7 — Additional Instrumentations `V2 · Weeks 1–2`
+Five remaining auto-instrumentations. Each follows the same `install()` / `uninstall()` contract.
 
-Placed here — after instrumentations are stable — so there are real signals flowing before remote gating is validated end-to-end.
-
-**Exit:** Web SDK reads config from `/v1/configs/active`. Disabling an instrumentation via server config is confirmed without an SDK update.
-
----
-
-### Phase 6 — Session Replay `Weeks 6–7`
-DOM recording via rrweb. Privacy masking on by default (all inputs masked, sensitive blocks redactable by CSS class). Compressed and chunked for delivery. Separate opt-in import — does not affect core bundle size.
-
-**Exit:** Replay chunks land in ClickHouse. Masked values absent from all events. Final chunk delivered on tab close.
+| Instrumentation | Signal | Doc |
+|---|---|---|
+| Long Tasks | `app.jank.slow` | `02.6` |
+| Resource Timing | `resource_load` | `02.7` |
+| Visibility & Online | `app.visibility`, `network.change` | `02.8` |
+| WebSocket | `websocket` | `02.9` |
+| BFCache | `screen_load` (bfcache variant) | `02.10` |
 
 ---
 
-### Phase 7 — Backend & UI `Weeks 7–9` *(parallel with Phase 6)*
-Make web data visible in existing Pulse dashboards. Most screens need no changes — the data schema is the same, the platform filter already exists.
+### Phase 8 — Session Replay + Vue + Backend & UI `V2 · Weeks 1–5`
+Three workstreams run in parallel, then converge:
 
-| Change | Effort |
-|---|---|
-| CORS headers on ingest endpoints | Small — without this, no data flows |
-| `Platform = 'web'` in dashboard filters | Small audit + patches |
-| Remote config: web feature flags + web replay config | Medium |
-| rrweb session replay player in UI | Large |
-| Web Vitals dashboard screen | Large |
-| Conditional browser vs. device attribute display | Medium |
+| Workstream | What Ships | Weeks |
+|---|---|---|
+| Session Replay | rrweb DOM recording, privacy masking, OTLP delivery | 1–3 |
+| Vue + Nuxt | `PulseVuePlugin`, vue-router, Nuxt 3 module | 1–2 |
+| Backend & UI | CORS headers, Web Vitals screen, rrweb player, heatmap, config UI | 3–5 |
 
-**Exit:** Web crashes, sessions, and interactions visible in all existing dashboards. rrweb replay plays back. Web flags configurable from the UI.
+**Exit:** All signals visible in all dashboards. Replay plays back. BrowserStack E2E suite green.
 
 ---
 
-### Phase 8 — Build, Distribution & Testing `Weeks 9–11`
-Production npm package (`@dreamhorizon/pulse-web`) + CDN artifact. Automated publish on release tag. Full test suite: unit (Vitest), E2E (Playwright on Chrome/Firefox/WebKit), BrowserStack on iPhone Safari and Chrome Android.
+## Phase Dependency Diagram
 
-**Exit:** `npm install @dreamhorizon/pulse-web` works. CDN URL live. CI green. Bundle < 30 KB gzip enforced.
+```mermaid
+flowchart TD
+    P1(["Phase 1 · Foundation\nWeeks 1–2"])
+
+    subgraph V1["── V1  ·  @0.1.0-alpha  ·  9 weeks ──"]
+        direction TB
+        P2["Phase 2 · Core Instrumentations\nSession · Errors · Network\nNavigation · Clicks · Web Vitals\nWks 2–4"]
+        P3["Phase 3 · Interactions\nConfig · Matching · APDEX\nWks 4–5"]
+        P4["Phase 4 · SDK Config\nRemote config · Sampling\nWks 5–6"]
+        P5["Phase 5 · Framework Integrations\nReact · Next.js · CDN\nWks 6–8"]
+        P6(["Phase 6 · Build & Distribute\nWk 9"])
+    end
+
+    subgraph V2["── V2  ·  @0.2.0  ·  6 weeks after V1 ──"]
+        direction TB
+        P7["Phase 7 · More Instrumentations\nLong Tasks · Resource Timing\nVisibility · WebSocket · BFCache\nWks 1–2"]
+        P8["Phase 8 · Session Replay\nrrweb · Privacy · Transport\nWks 1–3"]
+        P9["Phase 9 · Vue + Nuxt\nWks 1–2"]
+        P10["Phase 10 · Backend & UI\nCORS · Vitals screen\nReplay player · Heatmap\nWks 3–5"]
+        P11(["Phase 11 · Testing & Quality\nPlaywright · BrowserStack\nWks 5–6"])
+    end
+
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+    P4 --> P5
+    P5 --> P6
+    P6 --> P7
+    P6 --> P8
+    P6 --> P9
+    P7 --> P10
+    P8 --> P10
+    P9 --> P10
+    P10 --> P11
+```
+
+> **V1** is linear — each phase unlocks the next. **V2** fans out in parallel (Instrumentations, Replay, Vue) then converges at Backend & UI, and closes with the cross-browser test suite.
 
 ---
 
@@ -119,25 +202,26 @@ Production npm package (`@dreamhorizon/pulse-web`) + CDN artifact. Automated pub
 
 ### Auto-Instrumentations — 10 modules, 13 signal types
 
-| # | Instrumentation | Signal(s) Produced | Signal Kind |
-|---|---|---|---|
-| 02.1 | Errors | `device.crash`, `non_fatal` | Log |
-| 02.2 | Network (Fetch / XHR) | `http` | Span |
-| 02.3 | Clicks & Rage Clicks | `app.click` | Log |
-| 02.4 | Web Vitals | `web_vital` (LCP, CLS, INP, FCP, TTFB) | Metric |
-| 02.5 | Navigation | `screen_load`, `screen_interactive`, `screen_session` | Span |
-| 02.6 | Long Tasks | `app.jank.slow` | Log |
-| 02.7 | Resource Timing | `resource_load` | Span |
-| 02.8 | Visibility & Online | `app.visibility`, `network.change` | Log |
-| 02.9 | WebSocket | `websocket` | Span |
-| 02.10 | BFCache | `bfcache.restore` | Span |
+| # | Instrumentation | Signal(s) Produced | Signal Kind | Version |
+|---|---|---|---|---|
+| 01.1 | Session | `session.start`, `session.end` | Log | **V1** |
+| 02.1 | Errors | `device.crash`, `non_fatal` | Log | **V1** |
+| 02.2 | Network (Fetch / XHR) | `http` | Span | **V1** |
+| 02.3 | Clicks & Rage Clicks | `app.click` | Log | **V1** |
+| 02.4 | Web Vitals | `web_vital` (LCP, CLS, INP, FCP, TTFB) | Metric | **V1** |
+| 02.5 | Navigation | `screen_load`, `screen_interactive`, `screen_session` | Span | **V1** |
+| 02.6 | Long Tasks | `app.jank.slow` | Log | V2 |
+| 02.7 | Resource Timing | `resource_load` | Span | V2 |
+| 02.8 | Visibility & Online | `app.visibility`, `network.change` | Log | V2 |
+| 02.9 | WebSocket | `websocket` | Span | V2 |
+| 02.10 | BFCache | `bfcache.restore` | Span | V2 |
 
 ### Opt-In Features
 
-| Feature | Signal Produced | Signal Kind |
-|---|---|---|
-| Interactions | `interaction` (with APDEX score) | Span |
-| Session Replay | `session_replay` (compressed DOM chunks) | Log |
+| Feature | Signal Produced | Signal Kind | Version |
+|---|---|---|---|
+| Interactions | `interaction` (with APDEX score) | Span | **V1** |
+| Session Replay | `session_replay` (compressed DOM chunks) | Log | V2 |
 
 ### Global Attributes on Every Signal
 
@@ -176,7 +260,7 @@ Every signal — regardless of instrumentation — automatically carries:
 | # | Question | Options |
 |---|---|---|
 | M1 | Custom metric recording API (`PulseWeb.trackMetric`) — include in v1 or post-v1? | v1 adds cross-platform parity with iOS; post-v1 keeps scope lean |
-| M2 | Web Vitals output format — are they emitted as proper OTEL gauge metrics (→ `otel_metrics_gauge`) or as spans/logs? | Must confirm before 02.4 implementation; wrong format breaks Web Vitals dashboard |
+| ~~M2~~ | ~~Web Vitals output format~~ | ✅ **Resolved** — emitted as OTLP gauge observations (`createObservableGauge`) → `otel_metrics_gauge` in ClickHouse. See `v1/02-instrumentations/web-vitals.md`. |
 | M3 | Memory gauge (`performance.memory.usedJSHeapSize`) — worth capturing given it's Chrome-only and requires COOP/COEP headers? | Opt-in, low priority candidate |
 | M4 | Derived metrics via SDK Config (server-side signal-to-metric rules, same as mobile) — v1 or post-v1? | Post-v1 recommended; unblock after signal pipeline is stable |
 

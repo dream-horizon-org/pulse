@@ -11,9 +11,9 @@
 
 | # | Doc | What It Does |
 |---|---|---|
-| 04.1 | [Recorder](./04.1-replay-recorder.md) | rrweb setup, batching, flush strategy |
-| 04.2 | [Privacy](./04.2-replay-privacy.md) | Masking config, CSS class API, sensitive field defaults |
-| 04.3 | [Transport](./04.3-replay-transport.md) | Compression, OTLP log format, sendBeacon on unload |
+| 04.1 | [Recorder](./recorder.md) | rrweb setup, batching, flush strategy |
+| 04.2 | [Privacy](./privacy.md) | Masking config, CSS class API, sensitive field defaults |
+| 04.3 | [Transport](./transport.md) | Compression, OTLP log format, sendBeacon on unload |
 
 ---
 
