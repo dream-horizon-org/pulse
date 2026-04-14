@@ -36,7 +36,7 @@ export function InviteCollaboratorsInput({
   value,
   onChange,
   label = "Emails",
-  placeholder = "=",
+  placeholder = "Enter email addresses separated by commas (e.g., john@example.com)",
   description,
   error,
   disabled = false,
