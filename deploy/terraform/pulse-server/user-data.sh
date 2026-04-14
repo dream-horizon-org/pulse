@@ -40,9 +40,6 @@ chmod 600 "$ENV_FILE"
 
 echo "Exported $(wc -l < $ENV_FILE) environment variables to $HOME/.pulse-server.env"
 
-# Add AI_SERVICE_URL for pulse-server to connect to pulse-ai
-echo "AI_SERVICE_URL=http://localhost:8000" >> "$ENV_FILE"
-
 # -------------------------------------------------------------------
 # 3a. Handle Pulse AI Environment Variables
 # -------------------------------------------------------------------
@@ -60,6 +57,7 @@ if [ -z "$PULSE_AI_SECRET_JSON" ]; then
   exit 1
 fi
 
+touch "$PULSE_AI_ENV_FILE"
 echo "$PULSE_AI_SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' > "$PULSE_AI_ENV_FILE"
 chmod 600 "$PULSE_AI_ENV_FILE"
 echo "Exported $(wc -l < $PULSE_AI_ENV_FILE) environment variables to $HOME/.pulse-ai.env"
@@ -118,7 +116,8 @@ fi
 echo "Setting up pulse-ai..."
 unzip -q "pulse-ai.zip"
 
-cd pulse-ai
+mv pulse-ai pulse_ai
+cd pulse_ai
 
 # Create virtual environment and install dependencies
 python3 -m venv .venv
@@ -136,13 +135,9 @@ set -a
 source "$PULSE_AI_ENV_FILE"
 set +a
 
-cd pulse-ai
-source .venv/bin/activate
 
-nohup uvicorn pulse_ai.server:app --host 0.0.0.0 --port 8000 > ../pulse-ai.log 2>&1 &
-echo $! > ../pulse-ai.pid
-
-cd $HOME
+nohup uvicorn pulse_ai.server:app --host 0.0.0.0 --port 8000 > ./pulse-ai.log 2>&1 &
+echo $! > ./pulse-ai.pid
 
 sleep 5
 
