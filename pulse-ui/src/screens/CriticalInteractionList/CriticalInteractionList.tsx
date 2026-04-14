@@ -63,6 +63,7 @@ interface InteractionMetrics {
   errorRate: number;
   p50: number;
   poorUserPercentage: number;
+  totalUsers: number;
 }
 
 export function CriticalInteractionList() {
@@ -354,6 +355,7 @@ export function CriticalInteractionList() {
         errorRate,
         p50: Math.round(parseFloat(row[p50Index]) || 0),
         poorUserPercentage,
+        totalUsers,
       };
     });
 
@@ -484,6 +486,7 @@ export function CriticalInteractionList() {
                 errorRateValue={metrics?.errorRate}
                 p50Latency={metrics?.p50}
                 poorUserPercentage={metrics?.poorUserPercentage}
+                totalUsers={metrics?.totalUsers}
               />
             );
           })}
