@@ -61,7 +61,7 @@ cd deploy && ./scripts/stop.sh [-v]           # stop; -v removes volumes
 ## Auth
 
 - **Production:** Google OAuth 2.0 → JWT (access 24h, refresh 30d)
-- **Dev mode** (`GOOGLE_OAUTH_ENABLED=false`): mock users `mock-user-1` / `mock-user-2`, project `default-project`, key `DEV_MODE_API_KEY`
+- **Dev mode** (`GOOGLE_OAUTH_ENABLED=false`): mock users `mock-user-1` / `mock-user-2`, project `default-project`, key `default-project_devkey01`
 
 ---
 

@@ -138,10 +138,12 @@ export class SdkConfigFetcher {
   private config: PulseSdkConfig = { ...DEFAULT_SDK_CONFIG };
   private readonly configUrl: string;
   private readonly projectId: string;
+  private readonly apiKey: string;
 
-  constructor(endpointBaseUrl: string, projectId: string, configEndpointUrl?: string) {
+  constructor(endpointBaseUrl: string, projectId: string, configEndpointUrl?: string, apiKey?: string) {
     this.configUrl = resolveConfigUrl(configEndpointUrl, endpointBaseUrl);
     this.projectId = projectId;
+    this.apiKey = apiKey ?? '';
   }
 
   loadCached(): PulseSdkConfig {
@@ -167,11 +169,9 @@ export class SdkConfigFetcher {
 
     try {
       const url = this.configUrl;
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.apiKey) headers['X-API-KEY'] = this.apiKey;
+      const response = await fetch(url, { headers });
 
       if (!response.ok) return;
 

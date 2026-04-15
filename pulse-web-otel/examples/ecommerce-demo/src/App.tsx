@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { PulseWeb, PulseDataCollectionConsent } from '@dreamhorizon/pulse-web';
+import { PulseDebugPanel } from './components/PulseDebugPanel';
 
 const Home        = lazy(() => import('./routes/Home'));
 const Products    = lazy(() => import('./routes/Products'));
@@ -72,7 +73,8 @@ export default function App() {
           ? PulseDataCollectionConsent.DENIED
           : PulseDataCollectionConsent.ALLOWED,
       export: {
-        compression: (import.meta.env['VITE_PULSE_COMPRESSION'] as 'gzip' | 'none' | undefined) ?? 'gzip',
+        format:      (import.meta.env['VITE_PULSE_FORMAT']      as 'json' | 'protobuf' | undefined) ?? 'protobuf',
+        compression: (import.meta.env['VITE_PULSE_COMPRESSION'] as 'gzip' | 'none'     | undefined) ?? 'gzip',
         batch: {
           scheduledDelayMillis: import.meta.env['VITE_PULSE_BATCH_DELAY_MS']
             ? Number(import.meta.env['VITE_PULSE_BATCH_DELAY_MS'])
@@ -88,6 +90,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
+      <PulseDebugPanel />
     </BrowserRouter>
   );
 }

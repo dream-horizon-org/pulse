@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { PulseWeb } from '@dreamhorizon/pulse-web';
 import type { Product } from '../hooks/useProducts';
 
 interface Props {
@@ -46,7 +47,7 @@ export function ProductCard({ product, onAddToCart }: Props) {
         <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontWeight: 700, fontSize: 18, color: '#4f46e5' }}>${product.price.toFixed(2)}</span>
           <button
-            onClick={() => onAddToCart(product)}
+            onClick={() => { onAddToCart(product); PulseWeb.trackEvent('add_to_cart', { product_id: product.id, product_name: product.name, price: product.price }); }}
             style={{
               background: '#4f46e5',
               color: '#fff',

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { PulseWeb } from '@dreamhorizon/pulse-web';
 
 export default function Home() {
   return (
@@ -12,6 +13,7 @@ export default function Home() {
       </p>
       <Link
         to="/products"
+        onClick={() => PulseWeb.trackEvent('shop_now_click')}
         style={{
           display: 'inline-block',
           background: '#4f46e5',

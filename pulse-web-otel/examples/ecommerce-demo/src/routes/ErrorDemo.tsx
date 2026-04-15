@@ -82,7 +82,7 @@ export default function ErrorDemo() {
             data-testid="throw-uncaught"
             style={btn('#ef4444')}
             onClick={() => {
-              // setTimeout escapes React's error boundary, reaching window.onerror
+              PulseWeb.trackEvent('error_demo_throw_uncaught');
               setTimeout(() => { throw new Error('Demo uncaught error from ErrorDemo'); }, 0);
             }}
           >
@@ -98,6 +98,7 @@ export default function ErrorDemo() {
             data-testid="throw-promise"
             style={btn('#f97316')}
             onClick={() => {
+              PulseWeb.trackEvent('error_demo_throw_promise');
               Promise.reject(new Error('Demo unhandled rejection from ErrorDemo'));
             }}
           >
@@ -112,7 +113,7 @@ export default function ErrorDemo() {
           <button
             data-testid="throw-render-error"
             style={btn('#8b5cf6')}
-            onClick={() => setThrowRender(true)}
+            onClick={() => { PulseWeb.trackEvent('error_demo_throw_render'); setThrowRender(true); }}
           >
             Throw in render
           </button>

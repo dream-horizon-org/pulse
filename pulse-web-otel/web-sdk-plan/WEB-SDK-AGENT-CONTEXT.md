@@ -22,7 +22,7 @@ A browser SDK (`@dreamhorizon/pulse-web`) that brings Pulse observability to web
 | V1 version | `0.1.0-alpha.1` |
 | V2 version | `0.2.0` |
 | OTLP endpoint | `{endpointBaseUrl}/v1/traces` · `/v1/logs` · `/v1/metrics` |
-| Auth header | `x-api-key: {apiKey}` |
+| Auth header | `X-API-KEY: {apiKey}` · `X-Pulse-Metering-Session-ID: {uuid}` (generated per SDK init, mirrors Android) |
 | Platform tag | `platform = 'web'` on every signal |
 
 ---
