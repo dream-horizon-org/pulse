@@ -11,9 +11,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ProductImage } from '../../components/ProductImage';
-import { ApiError, getProducts } from '../../lib/api';
-import { labelFromCategorySlug } from '../../lib/formatCategory';
-import type { Product, SortKey } from '../../lib/types';
+import { ApiError, getProducts } from '../../shared/api';
+import { labelFromCategorySlug } from '../../shared/formatCategory';
+import type { Product, SortKey } from '../../shared/types';
 
 function sortProducts(list: Product[], sort: SortKey): Product[] {
   const copy = [...list];

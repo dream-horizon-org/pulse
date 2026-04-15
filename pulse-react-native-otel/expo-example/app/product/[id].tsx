@@ -14,10 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ProductImage } from '../../components/ProductImage';
 import { useShop } from '../../context/ShopContext';
-import { ApiError, getProduct } from '../../lib/api';
-import { labelFromCategorySlug } from '../../lib/formatCategory';
-import { theme } from '../../lib/theme';
-import type { Product } from '../../lib/types';
+import { ApiError, getProduct } from '../../shared/api';
+import { labelFromCategorySlug } from '../../shared/formatCategory';
+import { theme } from '../../shared/theme';
+import type { Product } from '../../shared/types';
 
 type CartFeedback = { lineQty: number; cartItems: number };
 

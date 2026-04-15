@@ -4,6 +4,7 @@ import {
   type NavigationIntegrationOptions,
   type ReactNavigationIntegration,
 } from './navigation.interface';
+import { subscribeNavigationContainerReady } from './subscribeNavigationContainerReady';
 
 export function useNavigationTracking(
   navigationRef: RefObject<any>,
@@ -21,6 +22,9 @@ export function useNavigationTracking(
   const screenInteractiveTracking =
     options?.screenInteractiveTracking ??
     DEFAULT_NAVIGATION_OPTIONS.screenInteractiveTracking;
+  const registerWhenContainerReady =
+    options?.registerWhenContainerReady ??
+    DEFAULT_NAVIGATION_OPTIONS.registerWhenContainerReady;
 
   const integration = useMemo(() => {
     if (createIntegration) {
@@ -54,6 +58,13 @@ export function useNavigationTracking(
         integration.registerNavigationContainer(navigationRef);
     }
   }, [navigationRef, integration]);
+
+  useEffect(() => {
+    if (!registerWhenContainerReady) {
+      return;
+    }
+    return subscribeNavigationContainerReady(navigationRef, onReady);
+  }, [registerWhenContainerReady, navigationRef, onReady]);
 
   return onReady;
 }
