@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { getOrCreateInstallationId, SessionProvider } from '../session';
 import { validateConfig } from '../config';
 import { buildResource, extractProjectId } from '../resource';
-import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from '../remote-config';
+import { SdkConfigFetcher, DEFAULT_SDK_CONFIG, resolveConfigUrl } from '../remote-config';
 import { FeatureGate } from '../feature-gate';
 import type { PulseWebConfig } from '../config';
 import type { PulseSdkConfig } from '../remote-config';
@@ -352,6 +352,27 @@ describe('M1 — SDK singleton guard', () => {
     // Should be able to re-initialize
     PulseWeb.start(config);
     expect(PulseWeb.isInitialized()).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M1 — resolveConfigUrl
+// ---------------------------------------------------------------------------
+
+describe('M1 — resolveConfigUrl', () => {
+  it('replaces :4318 with :8080 when no explicit configEndpointUrl', () => {
+    expect(resolveConfigUrl(undefined, 'http://localhost:4318'))
+      .toBe('http://localhost:8080/v1/configs/active/');
+  });
+
+  it('uses explicit configEndpointUrl as-is when provided', () => {
+    expect(resolveConfigUrl('https://api.example.com/v1/configs/active/', 'http://localhost:4318'))
+      .toBe('https://api.example.com/v1/configs/active/');
+  });
+
+  it('leaves non-4318 URLs unchanged', () => {
+    expect(resolveConfigUrl(undefined, 'https://ingest.pulse.io'))
+      .toBe('https://ingest.pulse.io/v1/configs/active/');
   });
 });
 

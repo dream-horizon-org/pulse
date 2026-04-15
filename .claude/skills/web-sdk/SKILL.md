@@ -39,6 +39,23 @@ Open the corresponding phase doc and summarise what needs to be built and what t
 ### If no $ARGUMENTS
 Summarise current milestone status from MILESTONES.md: which exit criteria are checked vs unchecked per milestone.
 
+### To spin up the demo app locally
+```bash
+# From pulse-web-otel/:
+yarn demo:install          # first time — installs all workspaces
+yarn demo                  # starts ecommerce demo at http://localhost:3002
+
+# Start ingest stack first (from deploy/):
+./scripts/start.sh -d      # OTEL collector :4318, Pulse server :8080, ClickHouse
+```
+Create `examples/ecommerce-demo/.env.local`:
+```
+VITE_PULSE_ENDPOINT_BASE_URL=http://localhost:4318
+VITE_PULSE_API_KEY=DEV_MODE_API_KEY
+VITE_PULSE_SERVICE_NAME=ecommerce-demo
+```
+SDK config auto-fetches from `:8080` (`:4318` → `:8080` port swap). No separate env var needed unless server URL differs.
+
 ### Always
 - Respect the data contract table in WEB-SDK-AGENT-CONTEXT.md — `pulse.type` values and required attributes are non-negotiable
 - `platform = 'web'` on every signal

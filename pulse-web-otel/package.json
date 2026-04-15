@@ -25,7 +25,9 @@
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "tsc --noEmit",
-    "size-limit": "size-limit"
+    "size-limit": "size-limit",
+    "demo": "yarn workspace ecommerce-demo dev",
+    "demo:install": "yarn install"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",

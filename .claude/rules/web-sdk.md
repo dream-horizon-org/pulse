@@ -102,6 +102,34 @@ Register via `InstrumentationRegistry` — never call `install()` directly from 
 - CDN UMD bundle: < 80 KB gzip
 - Check before adding any new dependency.
 
+## Dev Commands
+
+```bash
+# From pulse-web-otel/ root:
+yarn demo:install                        # install all workspaces (first time)
+yarn demo                                # start ecommerce demo at http://localhost:3002
+yarn build                               # tsup → dist/
+yarn test                                # Vitest watch mode
+yarn test:run                            # Vitest single run
+yarn lint                                # tsc --noEmit
+yarn size-limit                          # bundle size check (core < 30 KB)
+```
+
+Local ingest stack (needed for E2E / ClickHouse verification):
+```bash
+# From deploy/:
+./scripts/start.sh -d                    # start OTEL collector (:4318) + ClickHouse + backend (:8080)
+./scripts/stop.sh                        # stop all services
+```
+
+Demo `.env.local` (create at `examples/ecommerce-demo/.env.local`):
+```
+VITE_PULSE_ENDPOINT_BASE_URL=http://localhost:4318
+VITE_PULSE_API_KEY=DEV_MODE_API_KEY
+VITE_PULSE_SERVICE_NAME=ecommerce-demo
+```
+SDK config is fetched from `:8080` (auto-derived: `:4318` → `:8080`). Override with `VITE_PULSE_CONFIG_ENDPOINT_URL` if needed.
+
 ## Testing
 
 - Vitest + JSDOM
