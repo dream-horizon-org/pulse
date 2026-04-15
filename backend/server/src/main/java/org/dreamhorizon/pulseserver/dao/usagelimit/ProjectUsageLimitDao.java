@@ -270,17 +270,24 @@ public class ProjectUsageLimitDao {
   public Single<NotificationRecord> markThresholdsNotified(String projectId, List<Integer> thresholds) {
     MySQLPool pool = mysqlClient.getWriterPool();
     Instant now = Instant.now();
-    
+    log.info("usage_limit_notifications markThresholdsNotified start — projectId={} thresholds={}", projectId,
+        thresholds);
+
     return pool.preparedQuery(GET_NOTIFICATION_FOR_CURRENT_MONTH)
         .rxExecute(Tuple.of(projectId))
         .flatMap(result -> {
           if (result.size() > 0) {
+            log.info("usage_limit_notifications updating existing row for current month — projectId={}", projectId);
             return updateExistingNotification(pool, result.iterator().next(), thresholds, now);
-          } else {
-            return createNewNotification(pool, projectId, thresholds, now);
           }
+          log.info("usage_limit_notifications inserting new row for current month — projectId={}", projectId);
+          return createNewNotification(pool, projectId, thresholds, now);
         })
-        .doOnError(error -> log.error("Failed to mark thresholds notified for project: {}", projectId, error));
+        .doOnError(error -> log.error(
+            "Failed to mark thresholds notified for project: {} thresholds: {}",
+            projectId,
+            thresholds,
+            error));
   }
 
   private Single<NotificationRecord> updateExistingNotification(
