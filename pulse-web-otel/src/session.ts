@@ -13,6 +13,11 @@ const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 // In-memory fallback
 let _memoryInstallationId: string | null = null;
 
+// Track whether this is a first-ever install (no ID found in any storage tier).
+// Set on first call to getOrCreateInstallationId(). Used to emit app.installation.start.
+let _isNewInstall = false;
+let _installationChecked = false;
+
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -41,10 +46,27 @@ function trySessionStorage(op: () => string | null): string | null {
   }
 }
 
+/**
+ * Returns true if the installation ID was freshly generated on this page load
+ * (i.e. not found in any storage tier). Used to emit the app.installation.start signal.
+ * Only valid after getOrCreateInstallationId() has been called at least once.
+ */
+export function wasNewInstallation(): boolean {
+  return _isNewInstall;
+}
+
+/** Reset installation state — for unit tests only. */
+export function _resetInstallationStateForTesting(): void {
+  _isNewInstall = false;
+  _installationChecked = false;
+  _memoryInstallationId = null;
+}
+
 export function getOrCreateInstallationId(): string {
   if (typeof window === 'undefined') {
     if (!_memoryInstallationId) {
       _memoryInstallationId = generateUUID();
+      if (!_installationChecked) { _isNewInstall = true; _installationChecked = true; }
     }
     return _memoryInstallationId;
   }
@@ -52,9 +74,13 @@ export function getOrCreateInstallationId(): string {
   // Tier 1: localStorage
   const fromLocal = tryLocalStorage(() => {
     const existing = localStorage.getItem(INSTALL_KEY);
-    if (existing) return existing;
+    if (existing) {
+      if (!_installationChecked) { _isNewInstall = false; _installationChecked = true; }
+      return existing;
+    }
     const newId = generateUUID();
     localStorage.setItem(INSTALL_KEY, newId);
+    if (!_installationChecked) { _isNewInstall = true; _installationChecked = true; }
     return newId;
   });
   if (fromLocal) return fromLocal;
@@ -62,9 +88,13 @@ export function getOrCreateInstallationId(): string {
   // Tier 2: sessionStorage
   const fromSession = trySessionStorage(() => {
     const existing = sessionStorage.getItem(INSTALL_KEY);
-    if (existing) return existing;
+    if (existing) {
+      if (!_installationChecked) { _isNewInstall = false; _installationChecked = true; }
+      return existing;
+    }
     const newId = generateUUID();
     sessionStorage.setItem(INSTALL_KEY, newId);
+    if (!_installationChecked) { _isNewInstall = true; _installationChecked = true; }
     return newId;
   });
   if (fromSession) return fromSession;
@@ -72,6 +102,7 @@ export function getOrCreateInstallationId(): string {
   // Tier 3: in-memory
   if (!_memoryInstallationId) {
     _memoryInstallationId = generateUUID();
+    if (!_installationChecked) { _isNewInstall = true; _installationChecked = true; }
   }
   return _memoryInstallationId;
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { PulseWeb } from '@dreamhorizon/pulse-web';
 
 interface ProductDetail {
   id: string;
@@ -40,7 +41,10 @@ export default function ProductDetail() {
           <h1 style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.3 }}>{product.name}</h1>
           <p style={{ color: '#64748b', lineHeight: 1.6 }}>{product.description}</p>
           <div style={{ fontWeight: 800, fontSize: 28, color: '#4f46e5' }}>${product.price.toFixed(2)}</div>
-          <button style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+          <button
+            onClick={() => PulseWeb.trackEvent('add_to_cart', { product_id: product.id, product_name: product.name, price: product.price, source: 'product_detail' })}
+            style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+          >
             Add to Cart
           </button>
         </div>

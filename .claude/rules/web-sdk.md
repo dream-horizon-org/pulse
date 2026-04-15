@@ -11,7 +11,9 @@ paths:
 
 - **npm:** `@dreamhorizon/pulse-web`
 - **Repo:** `pulse-web-otel/` in monorepo root
-- **OTLP:** `{endpointBaseUrl}/v1/traces|logs|metrics` with `x-api-key` header
+- **OTLP:** `{endpointBaseUrl}/v1/traces|logs|metrics`
+- **Wire format:** protobuf (`application/x-protobuf`) by default; set `export.format = 'json'` for dev/DevTools-readable mode
+- **Headers on every request:** `X-API-KEY` + `X-Pulse-Metering-Session-ID` (stable UUID generated at SDK init, mirrors Android)
 - **Platform tag:** `platform = 'web'` on every signal — never omit
 
 ## File Map

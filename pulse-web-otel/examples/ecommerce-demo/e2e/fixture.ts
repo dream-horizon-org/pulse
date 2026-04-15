@@ -97,7 +97,7 @@ export function findAllLogs(captured: CapturedRequest[], pulseType: string): Otl
   return out;
 }
 
-/** Find all spans matching a pulse.type value. */
+/** Find all spans matching a pulse.type value (for SDK-defined signal types). */
 export function findAllSpans(captured: CapturedRequest[], pulseType: string): OtlpSpan[] {
   const out: OtlpSpan[] = [];
   for (const c of captured) {
@@ -106,6 +106,38 @@ export function findAllSpans(captured: CapturedRequest[], pulseType: string): Ot
       for (const ss of rs.scopeSpans) {
         for (const sp of ss.spans) {
           if (getAttr(sp.attributes, 'pulse.type') === pulseType) out.push(sp);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** Find all spans matching a span name (for trackEvent / custom spans that have no pulse.type). */
+export function findAllSpansByName(captured: CapturedRequest[], spanName: string): OtlpSpan[] {
+  const out: OtlpSpan[] = [];
+  for (const c of captured) {
+    if (c.type !== 'traces') continue;
+    for (const rs of c.body.resourceSpans) {
+      for (const ss of rs.scopeSpans) {
+        for (const sp of ss.spans) {
+          if (sp.name === spanName) out.push(sp);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** Find all custom_event logs matching an event body (name). Used for trackEvent assertions. */
+export function findAllLogsByBody(captured: CapturedRequest[], body: string): OtlpLogRecord[] {
+  const out: OtlpLogRecord[] = [];
+  for (const c of captured) {
+    if (c.type !== 'logs') continue;
+    for (const rl of c.body.resourceLogs) {
+      for (const sl of rl.scopeLogs) {
+        for (const lr of sl.logRecords) {
+          if (lr.body?.stringValue === body) out.push(lr);
         }
       }
     }
@@ -177,8 +209,12 @@ export type OtlpFixture = {
   captured: CapturedRequest[];
   /** Wait until a log with the given pulse.type arrives. Throws on timeout. */
   waitForLog(pulseType: string, timeoutMs?: number): Promise<OtlpLogRecord>;
-  /** Wait until a span with the given pulse.type arrives. Throws on timeout. */
+  /** Wait until a span with the given pulse.type arrives (SDK signal types). Throws on timeout. */
   waitForSpan(pulseType: string, timeoutMs?: number): Promise<OtlpSpan>;
+  /** Wait until a span with the given span.name arrives (SDK-internal spans only). Throws on timeout. */
+  waitForSpanByName(spanName: string, timeoutMs?: number): Promise<OtlpSpan>;
+  /** Wait until a log with the given body arrives (custom trackEvent logs). Throws on timeout. */
+  waitForLogByBody(body: string, timeoutMs?: number): Promise<OtlpLogRecord>;
   /** Wait until any metric data point with the given name arrives. */
   waitForMetric(metricName: string, timeoutMs?: number): Promise<OtlpDataPoint>;
   /** Clear the captured array — useful between steps in multi-step tests. */
@@ -209,9 +245,11 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
 
     await use({
       captured,
-      waitForLog:    (t, ms = 8_000) => pollUntil(() => findAllLogs(captured, t)[0],          ms, `log(pulse.type="${t}")`),
-      waitForSpan:   (t, ms = 8_000) => pollUntil(() => findAllSpans(captured, t)[0],         ms, `span(pulse.type="${t}")`),
-      waitForMetric: (n, ms = 15_000) => pollUntil(() => findAllMetricPoints(captured, n)[0], ms, `metric(name="${n}")`),
+      waitForLog:        (t, ms = 8_000)  => pollUntil(() => findAllLogs(captured, t)[0],          ms, `log(pulse.type="${t}")`),
+      waitForSpan:       (t, ms = 8_000)  => pollUntil(() => findAllSpans(captured, t)[0],         ms, `span(pulse.type="${t}")`),
+      waitForSpanByName: (n, ms = 8_000)  => pollUntil(() => findAllSpansByName(captured, n)[0],   ms, `span(name="${n}")`),
+      waitForLogByBody:  (b, ms = 8_000)  => pollUntil(() => findAllLogsByBody(captured, b)[0],    ms, `log(body="${b}")`),
+      waitForMetric:     (n, ms = 15_000) => pollUntil(() => findAllMetricPoints(captured, n)[0],  ms, `metric(name="${n}")`),
       reset: () => { captured.length = 0; },
     });
   },

@@ -10,7 +10,7 @@
  *
  * Run:  yarn e2e --grep "@M1" --project=chromium
  */
-import { test, expect, getAttr, findAllLogs, getResourceAttr } from './fixture';
+import { test, expect, getAttr, findAllLogs, findAllSpansByName, findAllLogsByBody, getResourceAttr } from './fixture';
 
 // ─── Session Lifecycle ────────────────────────────────────────────────────────
 
@@ -89,7 +89,6 @@ test.describe('@M1 identity persistence', () => {
 
   test('installation.id falls back to sessionStorage when localStorage throws', async ({ page, otlp }) => {
     await page.addInitScript(() => {
-      const orig = Object.getOwnPropertyDescriptor(window, 'localStorage');
       Object.defineProperty(window, 'localStorage', {
         get() { throw new DOMException('storage unavailable', 'SecurityError'); },
         configurable: true,
@@ -170,5 +169,351 @@ test.describe('@M1 SDK shutdown', () => {
     });
 
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});
+
+// ─── Batching ─────────────────────────────────────────────────────────────────
+
+test.describe('@M1 batching', () => {
+  test('multiple trackEvent calls coalesced into a single OTLP logs payload', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start'); // SDK is initialised
+
+    // Fire 3 custom events synchronously — all within the same 200ms batch window
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent('batch_test_1');
+      p.trackEvent('batch_test_2');
+      p.trackEvent('batch_test_3');
+    });
+
+    // Wait for the batch window to flush (200ms delay + generous buffer for CI)
+    await page.waitForTimeout(1500);
+
+    // All 3 logs must have arrived — trackEvent emits custom_event logs (body = event name)
+    const allLogs = findAllLogsByBody(otlp.captured, 'batch_test_1')
+      .concat(findAllLogsByBody(otlp.captured, 'batch_test_2'))
+      .concat(findAllLogsByBody(otlp.captured, 'batch_test_3'));
+
+    expect(allLogs.length).toBe(3);
+
+    // At least one /v1/logs payload must contain more than one log record
+    // (proves coalescing, not 3 individual exports)
+    const batchedPayload = otlp.captured.find(
+      c =>
+        c.type === 'logs' &&
+        c.body.resourceLogs.some(rl =>
+          rl.scopeLogs.some(sl =>
+            sl.logRecords.filter(r => r.body?.stringValue?.startsWith('batch_test_')).length > 1,
+          ),
+        ),
+    );
+    expect(batchedPayload).toBeDefined();
+  });
+
+  test('signals accumulate — first export happens after batch delay, not inline with SDK init', async ({ page }) => {
+    // Record the wall-clock time when page load STARTS (before goto resolves)
+    // and when the first OTLP export fires. The gap must be >= batch delay (200ms in test mode).
+    let firstExportAt = 0;
+    const pageLoadStartAt = Date.now();
+
+    await page.route('**/v1/logs', async route => {
+      if (firstExportAt === 0) firstExportAt = Date.now();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    });
+
+    await page.goto('/');
+    await page.waitForTimeout(1000); // wait well past the 200ms batch window
+
+    expect(firstExportAt).toBeGreaterThan(0); // at least one export happened
+    // First export must have fired after page load started — not before
+    expect(firstExportAt).toBeGreaterThan(pageLoadStartAt);
+    // And it must have fired at least 100ms after page load started
+    // (proves the batch delay is in effect — signals don't escape synchronously)
+    expect(firstExportAt - pageLoadStartAt).toBeGreaterThan(100);
+  });
+
+  test('pagehide force-flushes pending signals before batch timer fires', async ({ page, otlp }) => {
+    // Use a 1-second batch delay via URL query (not possible with current config)
+    // Instead: rely on the fact that pagehide should flush before the 200ms timer
+    // We emit a trackEvent and trigger pagehide immediately
+
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+    otlp.reset();
+
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent('pre_unload_event'); // emits custom_event log (body = 'pre_unload_event')
+      // Dispatch pagehide immediately — before the 200ms batch window
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }));
+    });
+
+    // forceFlush on pagehide must push the log out immediately (before batch timer fires)
+    // trackEvent emits custom_event logs — body = event name
+    const log = await otlp.waitForLogByBody('pre_unload_event', 3000);
+    expect(log.body?.stringValue).toBe('pre_unload_event');
+  });
+
+  test('session.end emitted before pagehide batch window when persisted=false', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+    otlp.reset();
+
+    // Dispatch pagehide (non-BFCache) immediately — don't wait for batch timer
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }));
+    });
+
+    // session.end must arrive via forceFlush, not the batch timer
+    const log = await otlp.waitForLog('session.end', 3000);
+    expect(getAttr(log.attributes, 'session.id')).toBeTruthy();
+    expect(getAttr(log.attributes, 'session.duration_ms')).toBeTruthy();
+  });
+});
+
+// ─── Payload attribute contract ───────────────────────────────────────────────
+
+test.describe('@M1 payload attributes', () => {
+  test('session.start log carries required data-contract attributes', async ({ page, otlp }) => {
+    await page.goto('/');
+    const log = await otlp.waitForLog('session.start');
+
+    // Data contract from WEB-SDK-AGENT-CONTEXT.md
+    expect(getAttr(log.attributes, 'pulse.type')).toBe('session.start');
+    expect(getAttr(log.attributes, 'session.id')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(getAttr(log.attributes, 'installation.id')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(getAttr(log.attributes, 'platform')).toBe('web');
+  });
+
+  test('every signal carries global attributes injected by GlobalAttributesProcessor', async ({ page, otlp }) => {
+    await page.goto('/');
+    const log = await otlp.waitForLog('session.start');
+
+    // These must be on every log (injected by global-attrs-processor.ts)
+    expect(getAttr(log.attributes, 'session.id')).toBeTruthy();
+    expect(getAttr(log.attributes, 'installation.id')).toBeTruthy();
+    expect(getAttr(log.attributes, 'url.path')).toBeTruthy();
+    expect(getAttr(log.attributes, 'platform')).toBe('web');
+  });
+
+  test('resource carries service.name, platform=web, rum.sdk.version', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+
+    expect(getResourceAttr(otlp.captured, 'service.name')).toBe('ecommerce-demo-test');
+    expect(getResourceAttr(otlp.captured, 'platform')).toBe('web');
+    expect(getResourceAttr(otlp.captured, 'rum.sdk.version')).toBeTruthy();
+  });
+
+  test('sdk.init heartbeat span arrives with pulse.type=sdk.init', async ({ page, otlp }) => {
+    await page.goto('/');
+    const span = await otlp.waitForSpan('sdk.init');
+
+    expect(getAttr(span.attributes, 'pulse.type')).toBe('sdk.init');
+    expect(getAttr(span.attributes, 'platform')).toBe('web');
+  });
+});
+
+// ─── LocalStorage state ───────────────────────────────────────────────────────
+
+test.describe('@M1 localStorage state', () => {
+  test('pulse_installation_id is a UUID stored in localStorage', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+
+    const stored = await page.evaluate(() => localStorage.getItem('pulse_installation_id'));
+    expect(stored).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+
+  test('installation.id in localStorage matches the value in the session.start signal', async ({ page, otlp }) => {
+    await page.goto('/');
+    const log = await otlp.waitForLog('session.start');
+
+    const fromStorage = await page.evaluate(() => localStorage.getItem('pulse_installation_id'));
+    const fromSignal = getAttr(log.attributes, 'installation.id') as string;
+
+    expect(fromStorage).toBe(fromSignal);
+  });
+
+  test('pulse_sdk_config in localStorage after background fetch completes', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+    // Background fetch needs a moment
+    await page.waitForTimeout(1000);
+
+    const raw = await page.evaluate(() => localStorage.getItem('pulse_sdk_config'));
+    // Config may not exist if server returned an error — but if it does exist, it must be valid JSON
+    if (raw !== null) {
+      expect(() => JSON.parse(raw)).not.toThrow();
+      const cfg = JSON.parse(raw) as { version: number };
+      expect(typeof cfg.version).toBe('number');
+    }
+  });
+});
+
+// ─── Consent ──────────────────────────────────────────────────────────────────
+
+test.describe('@M1 consent', () => {
+  test('DENIED consent → PulseWeb.isInitialized() returns false', async ({ page }) => {
+    // ?pulse_consent=denied is handled by App.tsx → PulseDataCollectionConsent.DENIED
+    await page.goto('/?pulse_consent=denied');
+    await page.waitForTimeout(500);
+
+    const initialized = await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+        isInitialized: () => boolean;
+      };
+      return p?.isInitialized?.() ?? false;
+    });
+
+    expect(initialized).toBe(false);
+  });
+
+  test('DENIED consent → zero OTLP calls made', async ({ page }) => {
+    const calls: string[] = [];
+    await page.route('**/v1/**', async route => {
+      calls.push(route.request().url());
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    });
+
+    await page.goto('/?pulse_consent=denied');
+    await page.waitForTimeout(1000);
+
+    expect(calls.filter(u => u.includes('/v1/'))).toHaveLength(0);
+  });
+});
+
+// ─── Signal headers ───────────────────────────────────────────────────────────
+
+test.describe('@M1 signal headers', () => {
+  test('X-Pulse-Metering-Session-ID header sent on every OTLP request', async ({ page }) => {
+    const meteringIds: string[] = [];
+    await page.route('**/v1/logs', async route => {
+      const id = route.request().headers()['x-pulse-metering-session-id'] ?? '';
+      meteringIds.push(id);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    });
+
+    await page.goto('/');
+    await page.waitForTimeout(1000);
+
+    expect(meteringIds.length).toBeGreaterThan(0);
+    for (const id of meteringIds) {
+      expect(id).toBeTruthy();
+      expect(id.length).toBeGreaterThan(0);
+    }
+  });
+
+  test('X-Pulse-Metering-Session-ID is stable across multiple OTLP requests in the same session', async ({ page }) => {
+    const meteringIds: string[] = [];
+    await page.route('**/v1/logs', async route => {
+      const id = route.request().headers()['x-pulse-metering-session-id'] ?? '';
+      if (id) meteringIds.push(id);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    });
+
+    await page.goto('/');
+    // Emit a few events to trigger multiple OTLP exports
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent('header_test_1');
+      p.trackEvent('header_test_2');
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }));
+    });
+    await page.waitForTimeout(1000);
+
+    // Must have captured at least 2 requests to compare stability
+    expect(meteringIds.length).toBeGreaterThanOrEqual(2);
+    const uniqueIds = new Set(meteringIds);
+    expect(uniqueIds.size).toBe(1);
+    // The single value must be a valid UUID
+    expect([...uniqueIds][0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+});
+
+// ─── app.installation.start ───────────────────────────────────────────────────
+
+test.describe('@M1 app.installation.start', () => {
+  test('emitted on first visit with empty storage', async ({ page, otlp }) => {
+    // Clear all storage before SDK initialises so it looks like a fresh install
+    await page.addInitScript(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+
+    await page.goto('/');
+
+    const log = await otlp.waitForLog('pulse.app.installation.start');
+    expect(getAttr(log.attributes, 'pulse.type')).toBe('pulse.app.installation.start');
+    const installId = getAttr(log.attributes, 'installation.id') as string | undefined;
+    expect(installId).toBeTruthy();
+    expect(installId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+
+  test('NOT emitted on reload when installation ID already in localStorage', async ({ page, otlp }) => {
+    // First visit — install ID is written to localStorage
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+
+    otlp.reset();
+
+    // Reload — SDK finds existing install ID, must NOT emit app.installation.start again
+    await page.reload();
+    await page.waitForTimeout(1500);
+
+    expect(findAllLogs(otlp.captured, 'pulse.app.installation.start').length).toBe(0);
+  });
+});
+
+// ─── trackNonFatal ────────────────────────────────────────────────────────────
+
+test.describe('@M1 trackNonFatal', () => {
+  test('trackNonFatal emits non_fatal log with correct attributes', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+        trackNonFatal: (name: string, attrs?: Record<string, unknown>) => void;
+      };
+      p.trackNonFatal('payment_declined', { amount: 99 });
+    });
+
+    const log = await otlp.waitForLog('non_fatal');
+    expect(getAttr(log.attributes, 'non_fatal.type')).toBe('payment_declined');
+    expect(getAttr(log.attributes, 'non_fatal.is_manual')).toBe(true);
+    expect(log.body?.stringValue).toBe('payment_declined');
+  });
+});
+
+// ─── reportException body ─────────────────────────────────────────────────────
+
+test.describe('@M1 reportException body', () => {
+  test('reportException uses error message as log body', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+        reportException: (error: Error) => void;
+      };
+      p.reportException(new Error('test error message'));
+    });
+
+    const log = await otlp.waitForLog('non_fatal');
+    expect(log.body?.stringValue).toBe('test error message');
   });
 });

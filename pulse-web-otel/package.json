@@ -27,7 +27,8 @@
     "lint": "tsc --noEmit",
     "size-limit": "size-limit",
     "demo": "yarn workspace ecommerce-demo dev",
-    "demo:install": "yarn install"
+    "demo:install": "yarn install",
+    "demo:test": "yarn workspace ecommerce-demo e2e:report"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",

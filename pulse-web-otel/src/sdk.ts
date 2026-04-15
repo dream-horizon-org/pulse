@@ -12,9 +12,9 @@ import type { MeterProvider } from '@opentelemetry/sdk-metrics';
 
 import type { PulseWebConfig } from './config';
 import { validateConfig } from './config';
-import { SessionProvider } from './session';
+import { SessionProvider, getOrCreateInstallationId, wasNewInstallation } from './session';
 import { buildResource } from './resource';
-import { SdkConfigFetcher } from './remote-config';
+import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from './remote-config';
 import { FeatureGate } from './feature-gate';
 import { PulseGlobalAttributesProcessor } from './processors/global-attrs-processor';
 import { PulseSamplingProcessor } from './processors/sampling-processor';
@@ -23,6 +23,7 @@ import { createProviders } from './exporters';
 import { InstrumentationRegistry } from './instrumentation-registry';
 import type { SdkContext } from './instrumentation-registry';
 import { extractProjectId } from './resource';
+import { isDataCollectionAllowed } from './consent';
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -42,6 +43,7 @@ class PulseWebSDK implements SdkContext {
   private meterProvider?: MeterProvider;
   private registry?: InstrumentationRegistry;
   private configFetcher: SdkConfigFetcher = new SdkConfigFetcher('', '');
+  private gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
   private pagehideHandler?: () => void;
 
   static getInstance(): PulseWebSDK {
@@ -56,11 +58,18 @@ class PulseWebSDK implements SdkContext {
 
     // Step 1: Validate config
     validateConfig(config);
+
+    // Consent gate — DENIED or PENDING → no-op, zero signals emitted
+    if (!isDataCollectionAllowed(config.dataCollectionState)) return;
     this.config = config;
 
     // Step 2: SessionProvider
     const sessionInactivityMs = config.instrumentations?.session?.inactivityTimeoutMs;
     this.sessionProvider = new SessionProvider(sessionInactivityMs);
+
+    // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate
+    // before any signal is emitted (global-attrs-processor may call it later).
+    getOrCreateInstallationId();
 
     // Step 3: Build OTEL Resource
     const resource = buildResource(config);
@@ -71,11 +80,13 @@ class PulseWebSDK implements SdkContext {
       config.endpointBaseUrl,
       projectId,
       config.configEndpointUrl,
+      config.apiKey,
     );
     const sdkConfig = this.configFetcher.loadCached();
 
     // Step 5: FeatureGate + SamplingProcessor + FilterProcessor
     const gate = new FeatureGate(sdkConfig);
+    this.gate = gate;
     const samplingProcessor = new PulseSamplingProcessor(sdkConfig, 'pulse_web_js');
     const filterProcessor = new SignalFilterProcessor(sdkConfig.signals);
 
@@ -97,9 +108,16 @@ class PulseWebSDK implements SdkContext {
       filterProcessor,
     ];
 
+    // Generate a stable metering session ID for this SDK lifetime (page load).
+    // Sent as X-Pulse-Metering-Session-ID on every OTLP request — mirrors Android.
+    const meteringSessionId = crypto.randomUUID();
+
     const exporterConfig = {
       endpointBaseUrl: config.endpointBaseUrl,
       apiKey: config.apiKey,
+      meteringSessionId,
+      format: config.export?.format,
+      compression: config.export?.compression,
       batchOptions: config.export?.batch,
     };
 
@@ -132,6 +150,17 @@ class PulseWebSDK implements SdkContext {
     initSpan.setAttribute('pulse.type', 'sdk.init');
     initSpan.setAttribute('platform', 'web');
     initSpan.end();
+
+    // Emit app.installation.start on first-ever install — mirrors Android.
+    if (wasNewInstallation()) {
+      this.logger.emit({
+        body: 'pulse.app.installation.start',
+        attributes: {
+          'pulse.type': 'pulse.app.installation.start',
+          'installation.id': getOrCreateInstallationId(),
+        },
+      });
+    }
 
     this._initialized = true;
   }
@@ -167,25 +196,47 @@ class PulseWebSDK implements SdkContext {
 
   trackEvent(name: string, attrs?: Record<string, unknown>): void {
     if (!this._initialized) return;
-    const span = this.tracer.startSpan(name);
-    if (attrs) {
-      for (const [k, v] of Object.entries(attrs)) {
-        span.setAttribute(k, v as string);
-      }
-    }
-    span.end();
+    // Gated by remote config — mirrors Android's isCustomEventEnabled check.
+    if (!this.gate.isEnabled('custom_events')) return;
+    this.logger.emit({
+      body: name,
+      attributes: {
+        'pulse.type': 'custom_event',
+        'event.name': 'pulse.custom_event',
+        ...(attrs as Record<string, string | number | boolean>),
+      },
+    });
   }
 
   reportException(error: unknown, attrs?: Record<string, unknown>): void {
     if (!this._initialized) return;
     const err = error instanceof Error ? error : new Error(String(error));
+    // body = error message, matching Android's setBody(throwable.message) behaviour.
     this.logger.emit({
-      body: 'non_fatal',
+      body: err.message,
       attributes: {
         'pulse.type': 'non_fatal',
         'exception.type': err.name,
         'exception.message': err.message,
         'exception.stacktrace': err.stack ?? '',
+        'non_fatal.is_manual': true,
+        ...(attrs as Record<string, string | number | boolean>),
+      },
+    });
+  }
+
+  /**
+   * Report a named non-fatal event without an exception — mirrors Android's
+   * trackNonFatal(name, params) overload. Use for custom error-category signals
+   * (e.g. 'network_timeout', 'payment_declined') that don't have a stack trace.
+   */
+  trackNonFatal(name: string, attrs?: Record<string, unknown>): void {
+    if (!this._initialized) return;
+    this.logger.emit({
+      body: name,
+      attributes: {
+        'pulse.type': 'non_fatal',
+        'non_fatal.type': name,
         'non_fatal.is_manual': true,
         ...(attrs as Record<string, string | number | boolean>),
       },

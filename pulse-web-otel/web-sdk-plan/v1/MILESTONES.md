@@ -17,7 +17,7 @@ Milestones ≠ phases. Phases are technical groupings. Milestones are shippable 
 | Scaffold + Config | Repo, package.json, `PulseWebConfig` type |
 | Identity | `installation.id` (3-tier), `session.id` (30-min rotation), Session Provider |
 | Resource Builder | All static browser attributes stamped on every signal |
-| OTLP Pipeline | HTTP exporters (traces/logs/metrics), batch processor (5s/2048/512), gzip compression |
+| OTLP Pipeline | HTTP exporters (traces/logs/metrics), batch processor (5s/2048/512). Wire format: **protobuf** (`application/x-protobuf`) by default; configurable to JSON via `export.format = 'json'` (dev/DevTools mode). Browser gzip via custom `CompressionStream` exporter — TODO. |
 | SDK Lifecycle | `PulseWeb.start()` singleton, `shutdown()`, instrumentation registry |
 | Session Instrumentation | `session.start` / `session.end` log signals |
 | SDK Config (foundation only) | `SdkConfigFetcher` — load from localStorage + fetch in background |
@@ -42,11 +42,12 @@ Milestones ≠ phases. Phases are technical groupings. Milestones are shippable 
 ```
 
 **Exit criteria:**
-- [ ] Heartbeat span in ClickHouse: `platform = 'web'`, correct `project.id`, `session.id`, `rum.sdk.version` — needs live ingest
+- [x] Heartbeat span in ClickHouse: `platform = 'web'`, correct `project.id`, `session.id`, `rum.sdk.version` — verified 2026-04-15
 - [x] `session.start` emitted on init; `session.end` emitted on `pagehide`
 - [x] `installation.id` survives page reload (localStorage)
-- [ ] CORS verified on `/v1/traces`, `/v1/logs`, `/v1/metrics` — needs live ingest
-- [x] Unit tests green: identity, resource, config validation, sdk singleton (23/23 passing)
+- [x] CORS verified on `/v1/traces`, `/v1/logs`, `/v1/metrics` — 204 on all three after adding `cors:` to otel-collector.yaml
+- [x] Unit tests green: identity, resource, config validation, sdk singleton (26/26 passing)
+- [x] E2E tests green: 12/12 Playwright tests passing (session lifecycle, identity, OTLP pipeline, shutdown)
 
 ---
 

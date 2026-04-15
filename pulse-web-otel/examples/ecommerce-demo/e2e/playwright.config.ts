@@ -28,7 +28,7 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never', outputFolder: '../e2e-report' }]],
 
   use: {
-    baseURL: 'http://localhost:3002',
+    baseURL: 'http://localhost:3099',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
@@ -40,10 +40,10 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'yarn dev --mode test',
+    command: 'yarn dev --mode test --port 3099',
     cwd: '..',              // ecommerce-demo root (one level up from e2e/)
-    port: 3002,
-    reuseExistingServer: !process.env.CI,
+    port: 3099,
+    reuseExistingServer: false,  // always start fresh — avoids .env.local contamination
     timeout: 60_000,
   },
 });

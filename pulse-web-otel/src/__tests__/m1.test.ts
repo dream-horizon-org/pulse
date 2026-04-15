@@ -1,24 +1,3 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { getOrCreateInstallationId, SessionProvider } from "../session";
-import { validateConfig } from "../config";
-import {
-  buildResource,
-  extractProjectId,
-  computeAspectRatio,
-} from "../resource";
-import {
-  SdkConfigFetcher,
-  DEFAULT_SDK_CONFIG,
-  resolveConfigUrl,
-} from "../remote-config";
-import { FeatureGate } from "../feature-gate";
-import { PulseGlobalAttributesProcessor } from "../processors/global-attrs-processor";
-import { SessionInstrumentation } from "../instrumentations/session";
-import { logs as otelLogs } from "@opentelemetry/api-logs";
-import type { PulseWebConfig } from "../config";
-import type { PulseSdkConfig } from "../remote-config";
-import type { SdkContext } from "../instrumentation-registry";
-
 // Mock @opentelemetry/api-logs — include ALL methods used by the real SDK so that
 // SDK singleton tests (which call logs.setGlobalLoggerProvider) still work.
 // SessionInstrumentation tests override getLogger per-test via mockReturnValue.
@@ -28,6 +7,31 @@ vi.mock("@opentelemetry/api-logs", () => ({
     setGlobalLoggerProvider: vi.fn(),
   },
 }));
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import {
+  getOrCreateInstallationId,
+  SessionProvider,
+  wasNewInstallation,
+  _resetInstallationStateForTesting,
+} from "../session";
+import { validateConfig } from "../config";
+import {
+  buildResource,
+  computeAspectRatio,
+  extractProjectId,
+} from "../resource";
+import {
+  SdkConfigFetcher,
+  DEFAULT_SDK_CONFIG,
+  resolveConfigUrl,
+} from "../remote-config";
+import { FeatureGate } from "../feature-gate";
+import type { PulseWebConfig } from "../config";
+import type { PulseSdkConfig } from "../remote-config";
+import { PulseGlobalAttributesProcessor } from "../processors/global-attrs-processor";
+import { SessionInstrumentation } from "../instrumentations/session";
+import { SdkContext } from "../instrumentation-registry";
+import { logs } from "@opentelemetry/api-logs";
 
 // Mock the exporters module to avoid real OTLP network calls in tests
 vi.mock("../exporters", () => {
@@ -259,7 +263,9 @@ describe("M1 — Session Provider", () => {
       if (event.type === "end") endEvents.push(event.sessionId ?? "");
     });
 
-    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: true }),
+    );
 
     expect(endEvents).toHaveLength(0);
     expect(sessionId).toBeTruthy();
@@ -743,7 +749,9 @@ describe("M1 — Session Provider (extended)", () => {
       if (e.type === "end") endReasons.push(e.reason);
     });
 
-    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
     expect(endReasons).toHaveLength(1);
     expect(endReasons[0]).toBe("page_unload");
   });
@@ -758,7 +766,9 @@ describe("M1 — Session Provider (extended)", () => {
       if (e.type === "end") endEvents.push(e.reason);
     });
 
-    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: true }),
+    );
     expect(endEvents).toHaveLength(0);
   });
 
@@ -1190,7 +1200,10 @@ describe("M1 — GlobalAttributesProcessor", () => {
     // so create directly and register for cleanup manually
     const rotationProvider = new SessionProvider(timeoutMs);
     createdProviders.push(rotationProvider);
-    const rotationProcessor = new PulseGlobalAttributesProcessor(rotationProvider, makeConfig());
+    const rotationProcessor = new PulseGlobalAttributesProcessor(
+      rotationProvider,
+      makeConfig(),
+    );
 
     const firstSessionId = rotationProvider.getSessionId();
 
@@ -1228,10 +1241,15 @@ describe("M1 — SessionInstrumentation events", () => {
 
   function makeCapture(): CapturedLog[] {
     const captured: CapturedLog[] = [];
-    vi.mocked(otelLogs.getLogger).mockReturnValue({
-      emit: vi.fn((record: { body: unknown; attributes?: Record<string, unknown> }) => {
-        captured.push({ body: record.body, attributes: record.attributes ?? {} });
-      }),
+    vi.mocked(logs.getLogger).mockReturnValue({
+      emit: vi.fn(
+        (record: { body: unknown; attributes?: Record<string, unknown> }) => {
+          captured.push({
+            body: record.body,
+            attributes: record.attributes ?? {},
+          });
+        },
+      ),
     } as never);
     return captured;
   }
@@ -1271,7 +1289,9 @@ describe("M1 — SessionInstrumentation events", () => {
     const instr = new SessionInstrumentation();
     instr.install(makeFakeSdk(sessionProvider));
 
-    const starts = captured.filter((l) => l.attributes["pulse.type"] === "session.start");
+    const starts = captured.filter(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
     expect(starts).toHaveLength(1);
   });
 
@@ -1282,7 +1302,9 @@ describe("M1 — SessionInstrumentation events", () => {
     const instr = new SessionInstrumentation();
     instr.install(makeFakeSdk(sessionProvider));
 
-    const startLog = captured.find((l) => l.attributes["pulse.type"] === "session.start");
+    const startLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
     expect(startLog?.body).toBe("session.start");
   });
 
@@ -1293,7 +1315,9 @@ describe("M1 — SessionInstrumentation events", () => {
     const instr = new SessionInstrumentation();
     instr.install(makeFakeSdk(sessionProvider));
 
-    const startLog = captured.find((l) => l.attributes["pulse.type"] === "session.start");
+    const startLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
     expect(startLog?.attributes["session.id"]).toBeTruthy();
   });
 
@@ -1305,7 +1329,9 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const activeSessionId = sessionProvider.getSessionId();
-    const startLog = captured.find((l) => l.attributes["pulse.type"] === "session.start");
+    const startLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
     expect(startLog?.attributes["session.id"]).toBe(activeSessionId);
   });
 
@@ -1316,7 +1342,9 @@ describe("M1 — SessionInstrumentation events", () => {
     const instr = new SessionInstrumentation();
     instr.install(makeFakeSdk(sessionProvider));
 
-    const startLog = captured.find((l) => l.attributes["pulse.type"] === "session.start");
+    const startLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
     expect(startLog?.attributes["session.start_reason"]).toBe("sdk_init");
   });
 
@@ -1327,7 +1355,9 @@ describe("M1 — SessionInstrumentation events", () => {
     const instr = new SessionInstrumentation();
     instr.install(makeFakeSdk(sessionProvider));
 
-    const startLog = captured.find((l) => l.attributes["pulse.type"] === "session.start");
+    const startLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
     expect(startLog?.attributes["session.previous_id"]).toBe("");
   });
 
@@ -1340,9 +1370,13 @@ describe("M1 — SessionInstrumentation events", () => {
 
     // Clear start log so we can isolate the end log
     captured.length = 0;
-    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
 
-    const endLog = captured.find((l) => l.attributes["pulse.type"] === "session.end");
+    const endLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.end",
+    );
     expect(endLog).toBeDefined();
     expect(endLog?.body).toBe("session.end");
   });
@@ -1356,9 +1390,13 @@ describe("M1 — SessionInstrumentation events", () => {
     captured.length = 0;
 
     vi.advanceTimersByTime(5000);
-    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
 
-    const endLog = captured.find((l) => l.attributes["pulse.type"] === "session.end");
+    const endLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.end",
+    );
     expect(endLog?.attributes["session.duration_ms"]).toBeGreaterThanOrEqual(0);
   });
 
@@ -1372,9 +1410,13 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
     captured.length = 0;
 
-    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
 
-    const endLog = captured.find((l) => l.attributes["pulse.type"] === "session.end");
+    const endLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.end",
+    );
     expect(endLog?.attributes["session.id"]).toBe(activeId);
   });
 
@@ -1386,9 +1428,13 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
     captured.length = 0;
 
-    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: true }),
+    );
 
-    const endLog = captured.find((l) => l.attributes["pulse.type"] === "session.end");
+    const endLog = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.end",
+    );
     expect(endLog).toBeUndefined();
   });
 
@@ -1399,8 +1445,12 @@ describe("M1 — SessionInstrumentation events", () => {
     const instr = new SessionInstrumentation();
     instr.install(makeFakeSdk(sessionProvider));
 
-    const starts = captured.filter((l) => l.attributes["pulse.type"] === "session.start");
-    const ends = captured.filter((l) => l.attributes["pulse.type"] === "session.end");
+    const starts = captured.filter(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
+    const ends = captured.filter(
+      (l) => l.attributes["pulse.type"] === "session.end",
+    );
 
     expect(starts).toHaveLength(1);
     expect(ends).toHaveLength(0);
@@ -1421,7 +1471,9 @@ describe("M1 — SessionInstrumentation events", () => {
     const types = captured.map((l) => l.attributes["pulse.type"]);
     expect(types).toContain("session.end");
     expect(types).toContain("session.start");
-    expect(types.indexOf("session.end")).toBeLessThan(types.indexOf("session.start"));
+    expect(types.indexOf("session.end")).toBeLessThan(
+      types.indexOf("session.start"),
+    );
   });
 
   it("rotation: new session.start carries previous session.id as session.previous_id", () => {
@@ -1438,7 +1490,9 @@ describe("M1 — SessionInstrumentation events", () => {
     vi.advanceTimersByTime(timeoutMs + 100);
     sessionProvider.getSessionId();
 
-    const rotationStart = captured.find((l) => l.attributes["pulse.type"] === "session.start");
+    const rotationStart = captured.find(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
     expect(rotationStart?.attributes["session.previous_id"]).toBe(firstId);
   });
 
@@ -1468,7 +1522,239 @@ describe("M1 — SessionInstrumentation events", () => {
     const instr = new SessionInstrumentation();
     instr.install(makeFakeSdk(sessionProvider));
 
-    const starts = captured.filter((l) => l.attributes["pulse.type"] === "session.start");
+    const starts = captured.filter(
+      (l) => l.attributes["pulse.type"] === "session.start",
+    );
     expect(starts).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M1 — wasNewInstallation
+// ---------------------------------------------------------------------------
+
+describe("M1 — wasNewInstallation", () => {
+  let originalLocalStorage: Storage;
+  let originalSessionStorage: Storage;
+
+  beforeEach(() => {
+    originalLocalStorage = window.localStorage;
+    originalSessionStorage = window.sessionStorage;
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, "localStorage", {
+      value: originalLocalStorage,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(window, "sessionStorage", {
+      value: originalSessionStorage,
+      writable: true,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("returns true when localStorage is empty (fresh install)", () => {
+    _resetInstallationStateForTesting();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+
+    getOrCreateInstallationId();
+
+    expect(wasNewInstallation()).toBe(true);
+  });
+
+  it("returns false when installation ID already in localStorage (returning user)", () => {
+    _resetInstallationStateForTesting();
+    window.localStorage.setItem("pulse_installation_id", "existing-uuid");
+
+    getOrCreateInstallationId();
+
+    expect(wasNewInstallation()).toBe(false);
+  });
+
+  it("returns false when installation ID already in sessionStorage (localStorage unavailable)", () => {
+    _resetInstallationStateForTesting();
+
+    const throwingLocal = {
+      getItem: vi.fn(() => {
+        throw new Error("storage unavailable");
+      }),
+      setItem: vi.fn(() => {
+        throw new Error("storage unavailable");
+      }),
+      removeItem: vi.fn(() => {
+        throw new Error("storage unavailable");
+      }),
+      clear: vi.fn(),
+      length: 0,
+      key: vi.fn(),
+    } as unknown as Storage;
+    Object.defineProperty(window, "localStorage", {
+      value: throwingLocal,
+      writable: true,
+      configurable: true,
+    });
+
+    window.sessionStorage.setItem("pulse_installation_id", "existing-uuid");
+
+    getOrCreateInstallationId();
+
+    expect(wasNewInstallation()).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M1 — SDK public API signals
+// ---------------------------------------------------------------------------
+
+// Helper: build a mock provider bundle with a custom emitSpy for the logger.
+function makeMockBundle(emitSpy: ReturnType<typeof vi.fn>) {
+  return {
+    tracerProvider: {
+      addSpanProcessor: vi.fn(),
+      getTracer: vi.fn().mockReturnValue({
+        startSpan: vi
+          .fn()
+          .mockReturnValue({ setAttribute: vi.fn(), end: vi.fn() }),
+      }),
+      forceFlush: vi.fn().mockResolvedValue(undefined),
+      shutdown: vi.fn().mockResolvedValue(undefined),
+      register: vi.fn(),
+    },
+    loggerProvider: {
+      addLogRecordProcessor: vi.fn(),
+      getLogger: vi.fn().mockReturnValue({ emit: emitSpy }),
+      forceFlush: vi.fn().mockResolvedValue(undefined),
+      shutdown: vi.fn().mockResolvedValue(undefined),
+    },
+    meterProvider: {
+      addMetricReader: vi.fn(),
+      getMeter: vi.fn().mockReturnValue({}),
+      forceFlush: vi.fn().mockResolvedValue(undefined),
+      shutdown: vi.fn().mockResolvedValue(undefined),
+    },
+  };
+}
+
+describe("M1 — SDK public API signals", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({}),
+      }),
+    );
+
+    const mockXHR = {
+      open: vi.fn(),
+      send: vi.fn(),
+      setRequestHeader: vi.fn(),
+      abort: vi.fn(),
+      readyState: 4,
+      status: 200,
+      responseText: "",
+      onreadystatechange: null,
+      onload: null,
+      onerror: null,
+      ontimeout: null,
+      timeout: 0,
+      withCredentials: false,
+      upload: { addEventListener: vi.fn() },
+    };
+    vi.stubGlobal(
+      "XMLHttpRequest",
+      vi.fn(() => mockXHR),
+    );
+
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  afterEach(async () => {
+    const { PulseWeb } = await import("../sdk");
+    if (PulseWeb.isInitialized()) {
+      await PulseWeb.shutdown();
+    }
+    vi.unstubAllGlobals();
+  });
+
+  it("reportException emits log with body = error message", async () => {
+    const emitSpy = vi.fn();
+    // Override the module-level vi.mock for this one call
+    const { createProviders } = await import("../exporters");
+    vi.mocked(createProviders).mockReturnValueOnce(
+      makeMockBundle(emitSpy) as unknown as ReturnType<typeof createProviders>,
+    );
+
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.start(makeConfig());
+
+    // Clear calls from sdk.init and session.start that happen during start()
+    emitSpy.mockClear();
+
+    PulseWeb.reportException(new Error("something broke"));
+
+    expect(emitSpy).toHaveBeenCalled();
+    const call = emitSpy.mock.calls[0]?.[0] as {
+      body: string;
+      attributes: Record<string, unknown>;
+    };
+    expect(call.body).toBe("something broke");
+    expect(call.attributes["pulse.type"]).toBe("non_fatal");
+    expect(call.attributes["exception.type"]).toBe("Error");
+    expect(call.attributes["non_fatal.is_manual"]).toBe(true);
+  });
+
+  it("trackNonFatal emits non_fatal log with name as body", async () => {
+    const emitSpy = vi.fn();
+    const { createProviders } = await import("../exporters");
+    vi.mocked(createProviders).mockReturnValueOnce(
+      makeMockBundle(emitSpy) as unknown as ReturnType<typeof createProviders>,
+    );
+
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.start(makeConfig());
+
+    emitSpy.mockClear();
+
+    PulseWeb.trackNonFatal("payment_declined", { amount: 99 });
+
+    expect(emitSpy).toHaveBeenCalled();
+    const call = emitSpy.mock.calls[0]?.[0] as {
+      body: string;
+      attributes: Record<string, unknown>;
+    };
+    expect(call.body).toBe("payment_declined");
+    expect(call.attributes["pulse.type"]).toBe("non_fatal");
+    expect(call.attributes["non_fatal.type"]).toBe("payment_declined");
+    expect(call.attributes["non_fatal.is_manual"]).toBe(true);
+  });
+
+  it("trackEvent emits custom_event log (not span)", async () => {
+    const emitSpy = vi.fn();
+    const { createProviders } = await import("../exporters");
+    vi.mocked(createProviders).mockReturnValueOnce(
+      makeMockBundle(emitSpy) as unknown as ReturnType<typeof createProviders>,
+    );
+
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.start(makeConfig());
+
+    emitSpy.mockClear();
+
+    PulseWeb.trackEvent("shop_now_click");
+
+    expect(emitSpy).toHaveBeenCalled();
+    const call = emitSpy.mock.calls[0]?.[0] as {
+      body: string;
+      attributes: Record<string, unknown>;
+    };
+    expect(call.attributes["pulse.type"]).toBe("custom_event");
+    expect(call.attributes["event.name"]).toBe("pulse.custom_event");
   });
 });

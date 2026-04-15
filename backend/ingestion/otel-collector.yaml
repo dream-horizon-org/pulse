@@ -3,6 +3,15 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:*"
+            - "http://127.0.0.1:*"
+          allowed_headers:
+            - "x-api-key"
+            - "x-pulse-metering-session-id"
+            - "content-type"
+            - "accept"
 
 extensions:
   health_check:
