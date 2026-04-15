@@ -545,6 +545,11 @@ INTERACTIONS = [
 now = datetime.now(timezone.utc)
 start_time = now - timedelta(hours=24)
 
+# Global cache of session_id -> device_context to ensure consistency across ALL function calls
+# This ensures that when the same session_id is used in multiple interactions or RUM events,
+# it always gets the same platform/device/os_version/app_version combination
+GLOBAL_SESSION_CONTEXTS = {}
+
 
 def pick_device_context():
     platform = wc(PLATFORMS, PLATFORM_WEIGHTS)
@@ -600,7 +605,10 @@ def generate_interaction_rows(interaction, project_id):
         session_id = f"s_{random.randint(1, 2000)}"
         user_id = f"u_{random.randint(1, 800)}"
 
-        platform, os_version, device, network, state, app_version, sdk_version = pick_device_context()
+        # Use GLOBAL cached device context for this session, or generate a new one
+        if session_id not in GLOBAL_SESSION_CONTEXTS:
+            GLOBAL_SESSION_CONTEXTS[session_id] = pick_device_context()
+        platform, os_version, device, network, state, app_version, sdk_version = GLOBAL_SESSION_CONTEXTS[session_id]
 
         dur_mean, dur_std = base_dur_mean, base_dur_std
         error_rate = base_err
@@ -690,7 +698,10 @@ def generate_rum_events(interaction_name, count, project_id):
         session_id = f"s_{random.randint(1, 2000)}"
         user_id = f"u_{random.randint(1, 800)}"
 
-        platform, os_version, device, network, state, app_version, sdk_version = pick_device_context()
+        # Use GLOBAL cached device context for this session, or generate a new one
+        if session_id not in GLOBAL_SESSION_CONTEXTS:
+            GLOBAL_SESSION_CONTEXTS[session_id] = pick_device_context()
+        platform, os_version, device, network, state, app_version, sdk_version = GLOBAL_SESSION_CONTEXTS[session_id]
         pulse_type = wc(["device.crash", "device.anr"], [60, 40])
 
         span_attrs_parts = [
@@ -800,7 +811,10 @@ def generate_stack_trace_events(total_crashes, total_anrs, project_id):
         session_id = f"s_{random.randint(1, 2000)}"
         user_id = f"u_{random.randint(1, 800)}"
 
-        platform, os_version, device, network, state, app_version, sdk_version = pick_device_context()
+        # Use GLOBAL cached device context for this session, or generate a new one
+        if session_id not in GLOBAL_SESSION_CONTEXTS:
+            GLOBAL_SESSION_CONTEXTS[session_id] = pick_device_context()
+        platform, os_version, device, network, state, app_version, sdk_version = GLOBAL_SESSION_CONTEXTS[session_id]
         screen = wc(SCREEN_NAMES, [15, 15, 10, 8, 7, 7, 5, 5, 8, 7, 8, 5])
 
         interactions = wc(
@@ -871,7 +885,10 @@ def generate_session_start_logs(count, project_id):
         session_id = f"s_{random.randint(1, 2000)}"
         user_id = f"u_{random.randint(1, 800)}"
 
-        platform, os_version, device, network, state, app_version, sdk_version = pick_device_context()
+        # Use GLOBAL cached device context for this session, or generate a new one
+        if session_id not in GLOBAL_SESSION_CONTEXTS:
+            GLOBAL_SESSION_CONTEXTS[session_id] = pick_device_context()
+        platform, os_version, device, network, state, app_version, sdk_version = GLOBAL_SESSION_CONTEXTS[session_id]
 
         log_attrs = (
             f"map('pulse.type','session.start',"
@@ -975,6 +992,9 @@ if __name__ == "__main__":
         print(f"\n  Using project_id from env: {project_id}")
     else:
         project_id = resolve_project_id()
+
+    # Clear the global session contexts cache for this seed run
+    GLOBAL_SESSION_CONTEXTS.clear()
 
     project_id_mysql = project_id.replace("\\", "\\\\").replace("'", "''")
     project_id_ch = escape(project_id)

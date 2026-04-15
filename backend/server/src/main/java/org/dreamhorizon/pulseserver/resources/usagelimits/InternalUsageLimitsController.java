@@ -176,6 +176,10 @@ public class InternalUsageLimitsController {
       @NotNull @PathParam("projectId") String projectId,
       @NotNull @Valid MarkNotificationsRestRequest request
   ) {
+    log.info(
+        "Internal API: mark usage-limit notifications received — projectId={} thresholds={}",
+        projectId,
+        request.getThresholds());
     return usageLimitService.markThresholdsNotified(projectId, request.getThresholds())
         .map(mapper::toNotificationStatusRestResponse)
         .to(RestResponse.jaxrsRestHandler());

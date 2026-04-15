@@ -39,7 +39,7 @@ export function SessionSummary({ sessionData }: SessionSummaryProps) {
       <Stack gap="md" p="md" className={classes.summaryStack}>
         <Box className={classes.headerSection}>
           <Text size="xs" c="dimmed" fw={500} mb={4}>
-            {LABELS.SESSION_TIME}
+            {LABELS.SESSION_ID}
           </Text>
           <Text
             fw={700}

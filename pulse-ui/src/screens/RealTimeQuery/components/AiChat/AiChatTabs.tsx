@@ -1,6 +1,7 @@
 import { Box, Group, ActionIcon, Text, Tooltip } from "@mantine/core";
 import { IconPlus, IconX, IconLink } from "@tabler/icons-react";
 import { useState, useCallback } from "react";
+import { showNotification } from "../../../../helpers/showNotification";
 import { AiSessionTab } from "../../hooks/useAiChatSessionManager";
 import classes from "./AiChat.module.css";
 
@@ -27,6 +28,22 @@ export function AiChatTabs({
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // Clipboard permission denied — fall back to execCommand
+      try {
+        const el = document.createElement("textarea");
+        el.value = url;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        showNotification("Copy failed", "Please copy the URL manually from the address bar.", null, "#fa5252");
+      }
     });
   }, [activeSessionId]);
 

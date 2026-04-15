@@ -42,7 +42,9 @@ export type FeatureName =
   | "custom_events"
   | "rn_screen_load"
   | "rn_screen_interactive"
-  | "session_replay";
+  | "session_replay"
+  | "click"
+  | "heatmap";
 
 export type TextAndInputPrivacy =
   | "MASK_ALL"
@@ -61,6 +63,19 @@ export interface SessionReplayFeatureConfig {
   flushAt?: number;
   maxBatchSize?: number;
   replayApiBaseUrl?: string;
+}
+
+/** Rage-tap clustering for heatmaps — matches backend {@code RageConfig}. */
+export interface RageConfig {
+  timeWindowMs?: number;
+  threshold?: number;
+  radius?: number;
+}
+
+/** Click / tap instrumentation — matches backend {@code ClickFeatureConfig}. */
+export interface ClickFeatureConfig {
+  featureName?: "click";
+  rage?: RageConfig;
 }
 
 // ============================================================================
@@ -195,7 +210,7 @@ export interface FeatureConfig {
   featureName: FeatureName;
   sessionSampleRate: number; // 0 = disabled, 1 = enabled (UI shows as on/off toggle)
   sdks: SdkEnum[];
-  config?: SessionReplayFeatureConfig | null;
+  config?: SessionReplayFeatureConfig | ClickFeatureConfig | null;
 }
 
 // ============================================================================
