@@ -200,7 +200,6 @@ final class RcaReportProxyHandler {
                   dispatch.job().jobId(),
                   dispatch.shouldEnqueueWorker(),
                   keyParts.interactionName());
-              done.complete(response);
               if (dispatch.shouldEnqueueWorker()) {
                 rcaReportProcessor.enqueueProcess(
                     dispatch.job(),
@@ -209,6 +208,7 @@ final class RcaReportProxyHandler {
                     authorization,
                     rawQuery);
               }
+              done.complete(response);
             },
             done::completeExceptionally);
     return done;
