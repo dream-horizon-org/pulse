@@ -119,8 +119,6 @@ export function RcaSessionReplayEvidenceCard({
       <Button
         component={Link}
         to={href}
-        target="_blank"
-        rel="noopener noreferrer"
         fullWidth
         size="sm"
         className={classes.viewDetailButton}
