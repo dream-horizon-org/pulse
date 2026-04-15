@@ -113,6 +113,7 @@ internal class ComposeInstrumentationTest {
 
         every { activity.window } returns window
         every { application.registerActivityLifecycleCallbacks(any()) } returns Unit
+        every { application.resources } returns ApplicationProvider.getApplicationContext<Context>().resources
 
         ComposeClickInstrumentation().install(installationContext)
 
@@ -128,6 +129,8 @@ internal class ComposeInstrumentationTest {
             MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, 250f, 50f, 0)
         every { window.decorView } returns composeView
         every { composeView.childCount } returns 0
+        every { composeView.width } returns 1000
+        every { composeView.height } returns 1000
 
         val mockLayoutNode =
             createMockLayoutNode(
@@ -146,6 +149,9 @@ internal class ComposeInstrumentationTest {
 
         val upEvent = dispatchDownThenUp(wrapperCapturingSlot.captured, motionEvent.x, motionEvent.y)
         motionEvent.recycle()
+
+        // Flush buffered click by simulating activity pause.
+        viewClickActivityCallback.onActivityPaused(activity)
 
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(1)

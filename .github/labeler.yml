@@ -14,6 +14,10 @@ rn-sdk:
   - changed-files:
       - any-glob-to-any-file: 'pulse-react-native-otel/**'
 
+ios-sdk:
+  - changed-files:
+      - any-glob-to-any-file: 'pulse-ios-otel/**'
+
 deploy:
   - changed-files:
       - any-glob-to-any-file: 'deploy/**'

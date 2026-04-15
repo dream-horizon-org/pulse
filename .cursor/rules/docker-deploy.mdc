@@ -14,14 +14,19 @@ alwaysApply: false
 | openfga-migrate | alpine:3.19 | — | mysql |
 | openfga | openfga/openfga:v1.5.3 | 8180, 8181, 3001 | mysql, openfga-migrate |
 | openfga-init | alpine:3.19 | — | openfga |
-| clickhouse | clickhouse-server:24.8 | 8123, 9000 | — |
-| clickhouse-init | clickhouse-server:24.8 | — | clickhouse |
-| otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
-| vector | Build `../vector/` | 8686, 14317, 14318 | — | *(optional: set `VECTOR_ENABLED=true` in .env)* |
-| pulse-ui | Build `pulse-ui/` | 3000 | pulse-server |
-| pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse, openfga, pulse-ai-agent |
+| clickhouse | clickhouse/clickhouse-server:24.8 | 8123, 9000 | — |
+| clickhouse-init | clickhouse/clickhouse-server:24.8 | — | clickhouse, kafka |
+| kafka | confluentinc/cp-kafka:7.6.0 | 9092 | — |
+| minio | minio/minio:latest | 9100→9000 (S3 API), 9101→9001 (console) | — |
+| minio-init | minio/mc:latest | — | minio |
+| otel-collector | otel/opentelemetry-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
+| vector | Build `../vector/` | 8686, 14317, 14318 | — | *(optional: profile `vector`; `VECTOR_ENABLED=true` in .env)* |
+| pulse-session-capture | Build `backend/session-capture-service/` | 3400 | kafka |
+| pulse-session-replay-ingestion | Build `backend/session-replay-ingestion/` | — (no host ports) | kafka, minio-init |
 | pulse-ai-agent | Build `pulse_ai/` | 8000 | — |
-| pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse |
+| pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse, openfga-init, pulse-ai-agent |
+| pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse, minio-init |
+| pulse-ui | Build `pulse-ui/` | 3000→8080 in-container | pulse-server |
 
 **Pulse AI:** `pulse-ai-agent` is part of the default deploy stack (`docker compose up`). Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini; the process starts without it but model/API calls fail. **Standalone** AI-only dev: `pulse_ai/docker-compose.yml` + `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
@@ -31,7 +36,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 ## Volumes
 
-`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` when Vector profile is enabled.) `pulse-ai-sessions` — SQLite session store for integrated `pulse-ai-agent` (not removed by `reset-databases.sh`; remove volume manually if needed).
+`mysql-data`, `clickhouse-data`, `kafka-data`, `minio-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` when Vector profile is enabled.) `pulse-ai-sessions` — SQLite session store for integrated `pulse-ai-agent` (not removed by `reset-databases.sh`; remove volume manually if needed).
 
 ## Environment Variables
 
@@ -57,6 +62,10 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `CUSTOM_EVENT_COLLECTOR_URL` — Custom event collector endpoint (default: `http://localhost:4318/v1/logs`)
 - `INTERACTION_CONFIG_URL` — Interaction config URL (default: `http://localhost:4318/v1/traces`)
 - `VECTOR_ENABLED` — Optional. Set to `true` to enable Vector service (custom events → S3/Athena). Default: `false`.
+- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` — MinIO dev credentials (compose defaults: `pulse_minio` / `pulse_minio_secret`).
+- `SESSION_REPLAY_*` — S3-style endpoint/bucket/keys for session recordings (pulse-server; in compose defaults to MinIO on `minio:9000`).
+- `ROOT_CAUSE_ENABLED` — Backend root-cause API (pulse-server).
+- `REACT_APP_ROOT_CAUSE_ENABLED` — UI build arg for RCA tab (must align with backend when enabling).
 
 **Dev Mode Configuration:**
 - `GOOGLE_OAUTH_ENABLED` — Enable/disable Google OAuth login (default: `false` for dev mode)
@@ -72,7 +81,7 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 | Script | Options |
 |--------|---------|
-| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `ai`, `all` — default / `all` includes `pulse-ai-agent` |
+| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all` — default (no args) builds `ui`, `server`, `cron`, `capture`, `ingestion`, `ai` |
 | `start.sh` | `[-d` or `--detach] [--build] [--no-cache] [--skip-env-check]` |
 | `stop.sh` | `-v` to remove volumes; service aliases include `ai`, `pulse-ai-agent` |
 | `logs.sh` | service name (e.g., `server`, `ai`, `otel-collector`) |

@@ -12,7 +12,9 @@ import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionP
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.tenant.models.UpdateTenantRequest;
+import org.dreamhorizon.pulseserver.service.tier.TierService;
 
 @Slf4j
 @Singleton
@@ -22,6 +24,7 @@ public class TenantService {
   private final TenantDao tenantDao;
   private final ClickhouseProjectConnectionPoolManager poolManager;
   private final org.dreamhorizon.pulseserver.service.OpenFgaService openFgaService;
+  private final TierService tierService;
 
   public Single<Tenant> createTenant(CreateTenantRequest request) {
     log.info("Creating tenant: {}", request.getTenantId());
@@ -84,5 +87,24 @@ public class TenantService {
         .doOnComplete(() -> log.info("Tenant activated: {}", tenantId))
         .doOnError(error -> log.error("Failed to activate tenant: {}", tenantId, error));
   }
-  
+
+  public Single<Tenant> updateTenantTier(String tenantId, int tierId) {
+    log.info("Updating tier for tenant {} to {}", tenantId, tierId);
+
+    return tenantDao.getTenantById(tenantId)
+        .switchIfEmpty(Single.error(ServiceError.NOT_FOUND.getCustomException("Tenant not found: " + tenantId)))
+        .flatMap(tenant ->
+            tierService.getTierById(tierId)
+                .switchIfEmpty(Single.error(ServiceError.NOT_FOUND.getCustomException("Tier not found: " + tierId)))
+                .flatMap(tier -> {
+                  if (!tier.getIsActive()) {
+                    return Single.error(ServiceError.INVALID_REQUEST_PARAM.getCustomException("Tier is not active: " + tierId));
+                  }
+                  return tenantDao.updateTenantTier(tenant, tierId);
+                })
+        )
+        .doOnSuccess(t -> log.info("Updated tier for tenant {} to {}", tenantId, tierId))
+        .doOnError(error -> log.error("Failed to update tier for tenant: {}", tenantId, error));
+  }
+
 }

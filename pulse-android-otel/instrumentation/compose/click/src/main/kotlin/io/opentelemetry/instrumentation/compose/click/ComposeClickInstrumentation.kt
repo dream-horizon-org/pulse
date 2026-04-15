@@ -23,6 +23,8 @@ class ComposeClickInstrumentation : AndroidInstrumentation {
                         .loggerBuilder("io.opentelemetry.android.instrumentation.compose.click")
                         .build(),
                     isContextEnrichmentEnabled = ClickContextEnrichmentConfig.isComposeClickContextEnrichmentEnabled,
+                    densityScale = ctx.application.resources.displayMetrics.density,
+                    rageConfig = ClickContextEnrichmentConfig.rageConfig,
                 ),
             ),
         )

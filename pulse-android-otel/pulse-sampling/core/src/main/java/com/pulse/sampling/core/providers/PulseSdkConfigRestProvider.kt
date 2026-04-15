@@ -3,9 +3,7 @@ package com.pulse.sampling.core.providers
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.remote.PulseSdkConfigApiService
 import com.pulse.sampling.remote.PulseSdkConfigRetrofitClient
-import com.pulse.utils.PulseOtelUtils
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import com.pulse.utils.PulseNetworkingUtils
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 import java.io.File
@@ -49,19 +47,17 @@ public class PulseSdkConfigRestProvider(
                     ).apiService
                 }
 
-        @Suppress("SuspendFunSwallowedCancellation")
         val restResponseResult =
-            runCatching {
+            PulseNetworkingUtils.runNetworkCatching(
+                tag = TAG,
+                url = url,
+                okHttpClient = finalOkHttpClient,
+                removeCacheInFailure = true,
+            ) {
                 restClient.getConfig(
                     fullFileUrl = url,
                     headers = headers,
                 )
-            }.onFailure { throwable ->
-                currentCoroutineContext().ensureActive()
-                // removing cache as api has failed
-                val urlIterator = finalOkHttpClient.cache?.urls()
-                urlIterator?.forEach { if (it == url) urlIterator.remove() }
-                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, url = $url error msg = ${throwable.message ?: "no-err-msg"}" }
             }
         return if (restResponseResult.isSuccess) {
             val config = restResponseResult.getOrThrow()
@@ -74,15 +70,6 @@ public class PulseSdkConfigRestProvider(
                 null
             }
         } else {
-            PulseOtelUtils.logDebug(TAG) {
-                "Failed to fetch sdk config: ${
-                    (
-                        restResponseResult.exceptionOrNull() ?: error(
-                            "error is null in getConfigs",
-                        )
-                    ).message ?: "no-err-msg"
-                }"
-            }
             null
         }
     }

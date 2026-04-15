@@ -79,6 +79,7 @@ export {
   type ExtendedFlameChartData as LegacyExtendedFlameChartData,
   // Functions
   transformToFlameChart,
+  buildSpanDisplayName,
   toFlameChartJsFormat,
   findItemByTraceId,
   findAllItemsForTrace,

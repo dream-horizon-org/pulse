@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Box, Text } from "@mantine/core";
 import { IconChartLine, IconTrendingUp } from "@tabler/icons-react";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
 import {
   AreaChart,
@@ -13,6 +14,8 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { StatusCodeTimeSeriesProps } from "./StatusCodeTimeSeries.interface";
 import classes from "./StatusCodeTimeSeries.module.css";
+
+dayjs.extend(utc);
 
 // Color palette for status code categories
 const STATUS_CODE_COLORS: Record<string, string> = {
@@ -192,10 +195,12 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
 
   // Format time for display
   const formatTime = (timestamp: string) => {
-    const date = dayjs(timestamp);
+    const date = dayjs.utc(timestamp);
+    if (!date.isValid()) return String(timestamp);
     if (bucketSize.includes("d")) {
       return date.format("MMM DD");
-    } else if (bucketSize.includes("h")) {
+    }
+    if (bucketSize.includes("h")) {
       return date.format("MMM DD HH:mm");
     }
     return date.format("HH:mm");
@@ -294,7 +299,8 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
               confine: true,
               formatter: createTooltipFormatter({
                 valueFormatter: (value: number) => `${value.toFixed(1)}%`,
-                customHeaderFormatter: (axisValue: any) => axisValue || "",
+                customHeaderFormatter: (axisValue: any) =>
+                  axisValue ? formatTime(String(axisValue)) : "",
               }),
             },
             legend: {
@@ -303,12 +309,14 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
             },
             xAxis: {
               type: "category",
-              data: timePoints.map(formatTime),
+              // Raw bucket keys so brush → global time filter parses (not "Jan 15" labels).
+              data: timePoints,
               axisTick: {
                 alignWithLabel: true,
               },
               axisLabel: {
                 fontSize: 10,
+                formatter: (v: string) => formatTime(v),
               },
             },
             yAxis: {

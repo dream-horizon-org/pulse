@@ -132,6 +132,44 @@ describe("unifiedEvents", () => {
     expect(apiCall?.timestamp).toBe(4000);
   });
 
+  it("normalises api_call events with METHOD URL STATUS description to METHOD URL content + STATUS status", () => {
+    const sessionData: SessionDetailData = {
+      ...mockSessionDataWithTechnical,
+      events: [
+        {
+          timestamp: 5000,
+          type: "api_call",
+          description: "POST https://www.fancode.com/graphql 200",
+          details: {},
+        },
+        {
+          timestamp: 5100,
+          type: "api_call",
+          description: "GET https://api.example.com/users/list",
+          details: {},
+        },
+      ],
+      criticalInteractions: [],
+      networkRequests: [],
+    };
+    const result = createUnifiedEvents(sessionData);
+
+    const withStatus = result.find(
+      (e) => e.type === EVENT_TYPES.API_CALL && e.description.includes("graphql"),
+    );
+    expect(withStatus).toBeDefined();
+    // Status code should be extracted from description, NOT embedded in content
+    expect(withStatus?.description).toContain("POST");
+    expect(withStatus?.description).toMatch(/: 200$/);
+    expect(withStatus?.description).not.toMatch(/200.*:/); // 200 not in middle
+
+    const withoutStatus = result.find(
+      (e) => e.type === EVENT_TYPES.API_CALL && e.description.includes("users"),
+    );
+    expect(withoutStatus).toBeDefined();
+    expect(withoutStatus?.description).toContain("GET");
+  });
+
   it("sorts events by timestamp", () => {
     const sessionData: SessionDetailData = {
       ...mockSessionDataWithTechnical,
