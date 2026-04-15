@@ -10,11 +10,11 @@ allowed-tools: Read Grep Glob
 
 ## Step 1 — Load stable context
 
-!`cat web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md`
+!`cat pulse-web-otel/web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md`
 
 ## Step 2 — Load live milestone state
 
-!`cat web-sdk-plan/v1/MILESTONES.md`
+!`cat pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`
 
 ## Step 3 — Instructions
 
@@ -31,7 +31,7 @@ You now have the full context for most web SDK tasks. Follow these rules:
 2. Open the matching phase doc
 3. Check every item in the phase doc's "Done Criteria" section against the actual code
 4. Report: PASS / FAIL per criterion, with exact line references for failures
-5. If all pass, tick the corresponding exit criteria checkbox in `web-sdk-plan/v1/MILESTONES.md`
+5. If all pass, tick the corresponding exit criteria checkbox in `pulse-web-otel/web-sdk-plan/v1/MILESTONES.md`
 
 ### If $ARGUMENTS is a phase name (e.g. "foundation", "errors", "interactions")
 Open the corresponding phase doc and summarise what needs to be built and what the done criteria are.

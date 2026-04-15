@@ -1,6 +1,7 @@
 # Pulse Web SDK — Agent Context
 
-> **Read this + `tasks.csv` before writing any code.**
+> **Read this + `web-sdk-plan/v1/MILESTONES.md` before writing any code.**
+> For pinned dependency versions, read `web-sdk-plan/v1/00-setup/dependency-versions.md`.
 > Open a phase doc only when actively coding that phase.
 > Do NOT load `pulse-web-sdk-plan.md` or `PLAN-OVERVIEW.md` — they are human planning docs, not agent context.
 

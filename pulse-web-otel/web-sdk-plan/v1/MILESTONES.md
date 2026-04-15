@@ -42,11 +42,11 @@ Milestones ≠ phases. Phases are technical groupings. Milestones are shippable 
 ```
 
 **Exit criteria:**
-- [ ] Heartbeat span in ClickHouse: `platform = 'web'`, correct `project.id`, `session.id`, `rum.sdk.version`
-- [ ] `session.start` emitted on init; `session.end` emitted on `pagehide`
-- [ ] `installation.id` survives page reload (localStorage)
-- [ ] CORS verified on `/v1/traces`, `/v1/logs`, `/v1/metrics`
-- [ ] Unit tests green: identity, resource, config validation, sdk singleton
+- [ ] Heartbeat span in ClickHouse: `platform = 'web'`, correct `project.id`, `session.id`, `rum.sdk.version` — needs live ingest
+- [x] `session.start` emitted on init; `session.end` emitted on `pagehide`
+- [x] `installation.id` survives page reload (localStorage)
+- [ ] CORS verified on `/v1/traces`, `/v1/logs`, `/v1/metrics` — needs live ingest
+- [x] Unit tests green: identity, resource, config validation, sdk singleton (23/23 passing)
 
 ---
 

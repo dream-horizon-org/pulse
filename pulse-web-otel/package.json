@@ -1,0 +1,59 @@
+{
+  "name": "@dreamhorizon/pulse-web",
+  "version": "0.1.0-alpha.1",
+  "description": "Pulse observability SDK for web — OpenTelemetry-based RUM",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "workspaces": [
+    "examples/*"
+  ],
+  "packageManager": "yarn@4.3.1",
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "tsc --noEmit",
+    "size-limit": "size-limit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": "^0.53.0",
+    "@opentelemetry/core": "^1.26.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.53.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.53.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.53.0",
+    "@opentelemetry/instrumentation": "^0.53.0",
+    "@opentelemetry/instrumentation-fetch": "^0.53.0",
+    "@opentelemetry/instrumentation-xml-http-request": "^0.53.0",
+    "@opentelemetry/resources": "^1.26.0",
+    "@opentelemetry/sdk-logs": "^0.53.0",
+    "@opentelemetry/sdk-metrics": "^1.26.0",
+    "@opentelemetry/sdk-trace-web": "^1.26.0",
+    "web-vitals": "^4.2.0"
+  },
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "^11.1.0",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "jsdom": "^25.0.0",
+    "size-limit": "^11.1.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=18.13.0"
+  }
+}

@@ -73,7 +73,7 @@ Format: `<type>(<scope>): <description>` — max 72 chars, imperative mood.
 
 **Types:** `feat` `fix` `refactor` `docs` `test` `chore` `ci` `perf` `build`
 
-**Scopes:** `backend` `ui` `ai` `android-sdk` `rn-sdk` `deploy` `alerts-cron` `ingestion`
+**Scopes:** `backend` `ui` `ai` `android-sdk` `rn-sdk` `web-sdk` `deploy` `alerts-cron` `ingestion`
 
 Examples:
 ```
