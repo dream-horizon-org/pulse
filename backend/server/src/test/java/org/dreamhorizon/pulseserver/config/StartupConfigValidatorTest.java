@@ -25,12 +25,20 @@ class StartupConfigValidatorTest {
   @Mock
   private EmrServerlessConfig emrServerlessConfig;
 
+  @Mock
+  private AnalyticsEngineConfig analyticsEngineConfig;
+
   /** Valid EMR settings so production tests can isolate ClickHouse failures. */
   private void givenProdValidEmrServerless() {
     when(emrServerlessConfig.isEnabled()).thenReturn(true);
     when(emrServerlessConfig.getRegion()).thenReturn("ap-south-1");
     when(emrServerlessConfig.getApplicationId()).thenReturn("00abc123");
     when(emrServerlessConfig.getExecutionRoleArn()).thenReturn("arn:aws:iam::111111111111:role/exec");
+  }
+
+  /** Valid analytics engine config (Spark) so production tests can isolate other failures. */
+  private void givenProdValidAnalyticsEngine() {
+    when(analyticsEngineConfig.getComputeEngine()).thenReturn("spark");
   }
 
   @Nested
@@ -42,7 +50,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn(env);
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).isEmpty();
@@ -54,7 +62,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn(env);
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).hasSize(1);
@@ -66,7 +74,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn(null);
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).hasSize(1);
@@ -78,7 +86,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("   ");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).hasSize(1);
@@ -90,7 +98,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).hasSize(1);
@@ -107,7 +115,7 @@ class StartupConfigValidatorTest {
       when(clickhouseConfig.getClusterName()).thenReturn("pulse-clickhouse");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).isEmpty();
@@ -119,7 +127,7 @@ class StartupConfigValidatorTest {
       when(clickhouseConfig.getClusterName()).thenReturn("");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).hasSize(1);
@@ -132,7 +140,7 @@ class StartupConfigValidatorTest {
       when(clickhouseConfig.getClusterName()).thenReturn(null);
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).hasSize(1);
@@ -145,7 +153,7 @@ class StartupConfigValidatorTest {
       when(clickhouseConfig.getClusterName()).thenReturn("  ");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).hasSize(1);
@@ -158,7 +166,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn(env);
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).isEmpty();
@@ -170,7 +178,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn(env);
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).isEmpty();
@@ -185,7 +193,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("dev");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       assertThat(validator.validateEmrServerlessConfig()).isEmpty();
     }
 
@@ -195,7 +203,7 @@ class StartupConfigValidatorTest {
       givenProdValidEmrServerless();
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       assertThat(validator.validateEmrServerlessConfig()).isEmpty();
     }
 
@@ -205,7 +213,7 @@ class StartupConfigValidatorTest {
       when(emrServerlessConfig.isEnabled()).thenReturn(false);
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateEmrServerlessConfig();
 
       assertThat(errors).anyMatch(msg -> msg.contains("EMR_SERVERLESS_ENABLED"));
@@ -220,7 +228,7 @@ class StartupConfigValidatorTest {
       when(emrServerlessConfig.getExecutionRoleArn()).thenReturn("arn:aws:iam::1:role/exec");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       List<String> errors = validator.validateEmrServerlessConfig();
 
       assertThat(errors).anyMatch(msg -> msg.contains("EMR_SERVERLESS_REGION"));
@@ -235,7 +243,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("dev");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       validator.validate();
 
       assertThat(validator).isNotNull();
@@ -246,7 +254,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("invalid");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
 
       assertThatThrownBy(validator::validate)
           .isInstanceOf(IllegalStateException.class)
@@ -261,7 +269,7 @@ class StartupConfigValidatorTest {
       givenProdValidEmrServerless();
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
 
       assertThatThrownBy(validator::validate)
           .isInstanceOf(IllegalStateException.class)
@@ -276,7 +284,7 @@ class StartupConfigValidatorTest {
       when(emrServerlessConfig.isEnabled()).thenReturn(false);
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
 
       assertThatThrownBy(validator::validate)
           .isInstanceOf(IllegalStateException.class)
@@ -288,9 +296,10 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("prod");
       when(clickhouseConfig.getClusterName()).thenReturn("pulse-clickhouse");
       givenProdValidEmrServerless();
+      givenProdValidAnalyticsEngine();
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
       validator.validate();
     }
 
@@ -299,7 +308,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("invalid-env");
 
       StartupConfigValidator validator =
-          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
+          new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
 
       assertThatThrownBy(validator::validate)
           .isInstanceOf(IllegalStateException.class)
@@ -311,7 +320,7 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("invalid");
 
       assertThatThrownBy(
-              () -> StartupConfigValidator.validate(appConfig, clickhouseConfig, emrServerlessConfig))
+              () -> StartupConfigValidator.validate(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig))
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining("APP_ENVIRONMENT");
     }
@@ -320,7 +329,7 @@ class StartupConfigValidatorTest {
     void staticValidateMethod_passesOnValidConfig() {
       when(appConfig.getAppEnvironment()).thenReturn("dev");
 
-      StartupConfigValidator.validate(appConfig, clickhouseConfig, emrServerlessConfig);
+      StartupConfigValidator.validate(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig);
     }
   }
 }

@@ -31,6 +31,7 @@ public final class ConfigUtils {
         .addStore(hoconFile("conf/emr-serverless-default.conf", false))
         .addStore(hoconFile("conf/notification-default.conf", true))
         .addStore(hoconFile("conf/spark-default.conf", false))
+        .addStore(hoconFile("conf/analytics-engine-default.conf", false))
         .addStore(hoconFile("conf/rootcause-default.conf", true))
         .setScanPeriod(5000));
   }

@@ -99,6 +99,33 @@ public class JourneyDao {
         });
   }
 
+  public Maybe<JourneyRow> findById(long id) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool
+      .preparedQuery(JourneyQueries.SELECT_BY_ID)
+      .rxExecute(Tuple.of(id))
+      .flatMapMaybe(
+        rows -> {
+          var it = rows.iterator();
+          if (!it.hasNext()) {
+            return Maybe.empty();
+          }
+          return Maybe.just(mapRow(it.next()));
+        });
+  }
+
+  public Single<List<JourneyRow>> listAllAuto() {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool
+      .preparedQuery(JourneyQueries.SELECT_ALL_AUTO)
+      .rxExecute()
+      .map(rows -> {
+        List<JourneyRow> out = new ArrayList<>();
+        rows.forEach(row -> out.add(mapRow(row)));
+        return out;
+      });
+  }
+
   public Single<List<JourneyRow>> listByProject(String projectId, JourneyListParams p) {
     StringBuilder sql =
       new StringBuilder(

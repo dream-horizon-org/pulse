@@ -44,9 +44,15 @@ public class InteractionModule extends AbstractModule {
     bind(FunnelService.class).to(FunnelServiceImpl.class).in(Singleton.class);
     bind(JourneyDao.class).in(Singleton.class);
     bind(JourneyService.class).to(JourneyServiceImpl.class).in(Singleton.class);
+    bind(org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl.class)
+        .in(Singleton.class);
+    bind(org.dreamhorizon.pulseserver.service.analytics.ClickHouseBatchServiceImpl.class)
+        .in(Singleton.class);
+    bind(org.dreamhorizon.pulseserver.service.analytics.ClickHouseComputeService.class)
+        .in(Singleton.class);
     bind(org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService.class).to(
-        org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl.class)
-      .in(Singleton.class);
+        org.dreamhorizon.pulseserver.service.analytics.RoutingAnalyticsBatchService.class)
+        .in(Singleton.class);
     bind(RootCauseCacheDao.class).in(Singleton.class);
     bind(RootCauseService.class).in(Singleton.class);
     bind(SessionEvidenceService.class).to(SessionEvidenceServiceImpl.class).in(Singleton.class);

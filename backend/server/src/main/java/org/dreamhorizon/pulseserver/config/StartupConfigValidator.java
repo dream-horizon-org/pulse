@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 
 @Slf4j
 public class StartupConfigValidator {
@@ -14,21 +15,25 @@ public class StartupConfigValidator {
   private final ApplicationConfig appConfig;
   private final ClickhouseConfig clickhouseConfig;
   private final EmrServerlessConfig emrServerlessConfig;
+  private final AnalyticsEngineConfig analyticsEngineConfig;
 
   public StartupConfigValidator(
       ApplicationConfig appConfig,
       ClickhouseConfig clickhouseConfig,
-      EmrServerlessConfig emrServerlessConfig) {
+      EmrServerlessConfig emrServerlessConfig,
+      AnalyticsEngineConfig analyticsEngineConfig) {
     this.appConfig = appConfig;
     this.clickhouseConfig = clickhouseConfig;
     this.emrServerlessConfig = emrServerlessConfig;
+    this.analyticsEngineConfig = analyticsEngineConfig;
   }
 
   public static void validate(
       ApplicationConfig appConfig,
       ClickhouseConfig clickhouseConfig,
-      EmrServerlessConfig emrServerlessConfig) {
-    new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig).validate();
+      EmrServerlessConfig emrServerlessConfig,
+      AnalyticsEngineConfig analyticsEngineConfig) {
+    new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig, analyticsEngineConfig).validate();
   }
 
   public void validate() {
@@ -36,6 +41,7 @@ public class StartupConfigValidator {
     errors.addAll(validateEnvironment());
     errors.addAll(validateClickhouseConfig());
     errors.addAll(validateEmrServerlessConfig());
+    errors.addAll(validateAnalyticsEngineConfig());
     failIfErrors(errors);
   }
 
@@ -83,6 +89,26 @@ public class StartupConfigValidator {
     if (isBlank(emrServerlessConfig.getExecutionRoleArn())) {
       errors.add(
           "CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN is required in production environment");
+    }
+    return errors;
+  }
+
+  List<String> validateAnalyticsEngineConfig() {
+    if (!isProduction()) {
+      return Collections.emptyList();
+    }
+    List<String> errors = new ArrayList<>();
+    String engine = analyticsEngineConfig.getComputeEngine();
+    if (isBlank(engine)) {
+      errors.add("ANALYTICS_COMPUTE_ENGINE is required and cannot be blank");
+    } else if (!Set.of("spark", "clickhouse").contains(engine.toLowerCase())) {
+      errors.add(String.format(
+          "ANALYTICS_COMPUTE_ENGINE '%s' is invalid. Must be one of: spark, clickhouse (case-insensitive)",
+          engine));
+    } else if ("clickhouse".equalsIgnoreCase(engine)
+        && analyticsEngineConfig.getBatchProjectConcurrency() <= 0) {
+      errors.add(
+          "ANALYTICS_BATCH_PROJECT_CONCURRENCY is required and must be a positive integer when ANALYTICS_COMPUTE_ENGINE is clickhouse");
     }
     return errors;
   }
