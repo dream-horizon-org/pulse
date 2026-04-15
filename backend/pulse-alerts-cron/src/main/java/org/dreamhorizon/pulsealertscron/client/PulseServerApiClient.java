@@ -170,16 +170,16 @@ public class PulseServerApiClient {
               int statusCode = response.statusCode();
               
               if (statusCode != 200) {
-                String body = response.bodyAsString();
+                String responseBody = response.bodyAsString();
                 String errorMsg = String.format(
                     "Failed to mark notifications: status %d: %s",
                     statusCode,
-                    body
+                    responseBody
                 );
                 log.error(
                     "❌ Failed to mark notifications: status {} body={}",
                     statusCode,
-                    body);
+                    responseBody);
                 throw new RuntimeException(errorMsg);
               }
               log.info("✅ Marked thresholds {} as notified for project {}", thresholds, projectId);
@@ -252,8 +252,8 @@ public class PulseServerApiClient {
               int statusCode = response.statusCode();
               
               if (statusCode != 200 && statusCode != 201) {
-                String body = response.bodyAsString();
-                log.error("❌ Failed to send notification: status {} body={}", statusCode, body);
+                String responseBody = response.bodyAsString();
+                log.error("❌ Failed to send notification: status {} body={}", statusCode, responseBody);
                 throw new RuntimeException("Failed to send notification");
               }
 
