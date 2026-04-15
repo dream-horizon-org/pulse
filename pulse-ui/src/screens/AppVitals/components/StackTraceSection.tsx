@@ -117,7 +117,7 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
     return (
       <Paper className={classes.sectionContainer}>
         <Box className={classes.header}>
-          <Text className={classes.sectionTitle}>Error Trace</Text>
+          <Text className={classes.sectionTitle}>Stack Trace</Text>
         </Box>
         <Paper className={classes.traceContainer}>
           <Text c="dimmed" ta="center" py="xl">
@@ -131,7 +131,7 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
   return (
     <Paper className={classes.sectionContainer}>
       <Box className={classes.header}>
-        <Text className={classes.sectionTitle}>Error Trace</Text>
+        <Text className={classes.sectionTitle}>Stack Trace</Text>
         <Group gap="sm" align="center" wrap="nowrap">
           <ActionIcon
             variant="light"
