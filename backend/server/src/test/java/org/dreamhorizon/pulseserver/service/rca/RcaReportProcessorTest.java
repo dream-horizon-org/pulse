@@ -71,8 +71,6 @@ class RcaReportProcessorTest {
             "ix",
             LocalDate.of(2025, 1, 1),
             RcaJobStatus.PENDING,
-            0,
-            null,
             null,
             Instant.now(),
             null,

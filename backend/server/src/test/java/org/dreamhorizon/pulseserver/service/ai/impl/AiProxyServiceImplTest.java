@@ -79,11 +79,11 @@ class AiProxyServiceImplTest {
     lenient()
         .when(rcaReportCacheDao.put(any(), any(), any(), any()))
         .thenReturn(Completable.complete());
-    lenient().when(webClient.getAbs(any())).thenReturn(httpRequest);
-    lenient().when(webClient.postAbs(any())).thenReturn(httpRequest);
-    lenient().when(webClient.putAbs(any())).thenReturn(httpRequest);
-    lenient().when(webClient.deleteAbs(any())).thenReturn(httpRequest);
-    lenient().when(httpRequest.putHeader(any(), any())).thenReturn(httpRequest);
+    lenient().when(webClient.getAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.postAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.putAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.deleteAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
     lenient().when(httpRequest.timeout(any(Long.class))).thenReturn(httpRequest);
     lenient()
         .when(rcaReportJobService.createOrGetJob(any(), any()))
@@ -91,8 +91,10 @@ class AiProxyServiceImplTest {
             inv -> {
               RcaCacheKey key = inv.getArgument(0);
               RcaReportJob job = samplePendingJob();
-              return Single.just(
-                  new RcaJobDispatch(job, true, key.requestBody(), key.regenerate()));
+              // key may be null when Mockito captures invocations during re-stubbing
+              String body = key != null ? key.requestBody() : "{}";
+              boolean regenerate = key != null && key.regenerate();
+              return Single.just(new RcaJobDispatch(job, true, body, regenerate));
             });
   }
 
@@ -341,7 +343,7 @@ class AiProxyServiceImplTest {
       JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
       assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1007");
       verify(rcaReportProcessor, never())
-          .enqueueProcess(any(), any(), any(), any(), any());
+          .enqueueProcess(any(), any(), anyBoolean(), any(), any());
     }
 
     @Test

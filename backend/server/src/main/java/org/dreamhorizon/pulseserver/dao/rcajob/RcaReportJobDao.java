@@ -7,6 +7,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import java.util.Arrays;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,16 +36,17 @@ public class RcaReportJobDao {
         .getWriterPool()
         .preparedQuery(RcaReportJobQueries.INSERT_JOB)
         .rxExecute(
-            Tuple.of(
-                jobId,
-                projectId,
-                interactionName,
-                date,
-                RcaJobStatus.PENDING.name(),
-                null,
-                createdBy,
-                null,
-                INITIAL_VERSION))
+            Tuple.wrap(
+                Arrays.asList(
+                    jobId,
+                    projectId,
+                    interactionName,
+                    date,
+                    RcaJobStatus.PENDING.name(),
+                    null,
+                    createdBy,
+                    null,
+                    INITIAL_VERSION)))
         .ignoreElement()
         .andThen(
             Single.fromCallable(

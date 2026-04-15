@@ -16,7 +16,6 @@ import io.vertx.rxjava3.sqlclient.Tuple;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.junit.jupiter.api.BeforeEach;
@@ -221,25 +220,18 @@ class RcaReportJobDaoTest {
   }
 
   @Nested
-  class ListStaleJobIds {
+  class MarkStaleJobsFailed {
 
     @Test
-    void shouldCollectJobIds() {
-      setupReader();
-      Row r1 = org.mockito.Mockito.mock(Row.class);
-      when(r1.getString(0)).thenReturn("a");
-      Row r2 = org.mockito.Mockito.mock(Row.class);
-      when(r2.getString(0)).thenReturn("b");
-      RowIterator<Row> iterator = org.mockito.Mockito.mock(RowIterator.class);
-      when(iterator.hasNext()).thenReturn(true, true, false);
-      when(iterator.next()).thenReturn(r1, r2);
-      when(rowSet.iterator()).thenReturn(iterator);
+    void shouldIssueUpdateOnWriterPool() {
+      setupWriter();
+      when(rowSet.rowCount()).thenReturn(3);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      List<String> ids = dao.listStaleJobIds().blockingGet();
+      int count = dao.markStaleJobsFailed(120).blockingGet();
 
-      assertThat(ids).containsExactly("a", "b");
-      verify(readerPool).preparedQuery(org.mockito.Mockito.contains("INTERVAL 2 HOUR"));
+      assertThat(count).isEqualTo(3);
+      verify(writerPool).preparedQuery(org.mockito.Mockito.contains("INTERVAL ? MINUTE"));
     }
   }
 }
