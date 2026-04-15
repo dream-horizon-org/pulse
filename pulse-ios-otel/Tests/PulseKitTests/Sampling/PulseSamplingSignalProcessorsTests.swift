@@ -17,7 +17,7 @@ final class PulseSamplingSignalProcessorsTests: XCTestCase {
         let config = makeSdkConfig(
             features: [
                 PulseFeatureConfig(featureName: .interaction, sessionSampleRate: 1, sdks: [.pulse_ios_swift]),
-                PulseFeatureConfig(featureName: .network_instrumentation, sessionSampleRate: 0.5, sdks: [.pulse_ios_swift]),
+                PulseFeatureConfig(featureName: .ios_network, sessionSampleRate: 0.5, sdks: [.pulse_ios_swift]),
                 PulseFeatureConfig(featureName: .custom_events, sessionSampleRate: 1, sdks: [.pulse_ios_swift])
             ]
         )
@@ -31,7 +31,7 @@ final class PulseSamplingSignalProcessorsTests: XCTestCase {
         XCTAssertEqual(enabled.count, 2)
         XCTAssertTrue(enabled.contains(.interaction))
         XCTAssertTrue(enabled.contains(.custom_events))
-        XCTAssertFalse(enabled.contains(.network_instrumentation))
+        XCTAssertFalse(enabled.contains(.ios_network))
     }
 
     func testGetEnabledFeaturesExcludesOtherSdks() {
