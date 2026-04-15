@@ -1,25 +1,33 @@
-// M1: IndexedDB signal buffer for offline/retry persistence.
-// Stores OTLP signals when export fails, drains on reconnect.
+// IndexedDB signal buffer — failed OTLP exports (opt-in via diskBuffering).
 
-interface BufferedSignal {
-  id?: number; // autoIncrement
-  signalType: 'trace' | 'log' | 'metric';
-  payload: string;
+export type BufferedSignalType = "trace" | "log" | "metric";
+
+/** Serialized OTLP request body + HTTP metadata for replay. */
+export interface BufferedOtlpEnvelope {
+  bodyB64: string;
+  contentType: string;
+  contentEncoding?: "gzip";
+}
+
+export interface BufferedSignalRow {
+  id?: number;
+  signalType: BufferedSignalType;
+  envelope: BufferedOtlpEnvelope;
   timestamp: number;
   retryCount: number;
 }
 
-const DB_NAME = 'pulse_signal_buffer';
-const DB_VERSION = 1;
-const STORE_NAME = 'signals';
+const DB_NAME = "pulse_signal_buffer";
+const DB_VERSION = 2;
+const STORE_NAME = "signals";
 
-const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
-const DEFAULT_MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-      reject(new Error('IndexedDB is not available'));
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("IndexedDB is not available"));
       return;
     }
 
@@ -27,14 +35,15 @@ function openDatabase(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, {
-          keyPath: 'id',
-          autoIncrement: true,
-        });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-        store.createIndex('signalType', 'signalType', { unique: false });
+      if (db.objectStoreNames.contains(STORE_NAME)) {
+        db.deleteObjectStore(STORE_NAME);
       }
+      const store = db.createObjectStore(STORE_NAME, {
+        keyPath: "id",
+        autoIncrement: true,
+      });
+      store.createIndex("timestamp", "timestamp", { unique: false });
+      store.createIndex("signalType", "signalType", { unique: false });
     };
 
     request.onsuccess = (event) => {
@@ -56,23 +65,24 @@ export class IdbSignalBuffer {
     this.maxSizeBytes = maxSizeBytes ?? DEFAULT_MAX_SIZE_BYTES;
   }
 
-  async write(signalType: BufferedSignal['signalType'], payload: string): Promise<void> {
-    if (typeof indexedDB === 'undefined') return;
+  async write(
+    signalType: BufferedSignalType,
+    envelope: BufferedOtlpEnvelope,
+  ): Promise<void> {
+    if (typeof indexedDB === "undefined") return;
 
     try {
       const db = await openDatabase();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
-
-        const signal: Omit<BufferedSignal, 'id'> = {
+        const row: Omit<BufferedSignalRow, "id"> = {
           signalType,
-          payload,
+          envelope,
           timestamp: Date.now(),
           retryCount: 0,
         };
-
-        const request = store.add(signal);
+        const request = store.add(row);
         request.onsuccess = () => {
           db.close();
           resolve();
@@ -82,24 +92,25 @@ export class IdbSignalBuffer {
           reject(request.error);
         };
       });
+      await this.pruneExpired();
+      await this.enforceMaxSize();
     } catch {
-      // ignore IndexedDB errors — signals are lost but SDK continues
+      // ignore — SDK continues without persistence
     }
   }
 
-  async drain(): Promise<BufferedSignal[]> {
-    if (typeof indexedDB === 'undefined') return [];
+  async readAll(): Promise<BufferedSignalRow[]> {
+    if (typeof indexedDB === "undefined") return [];
 
     try {
       const db = await openDatabase();
       return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
+        const tx = db.transaction(STORE_NAME, "readonly");
         const store = tx.objectStore(STORE_NAME);
         const request = store.getAll();
-
         request.onsuccess = () => {
           db.close();
-          resolve(request.result as BufferedSignal[]);
+          resolve((request.result as BufferedSignalRow[]) ?? []);
         };
         request.onerror = () => {
           db.close();
@@ -112,15 +123,14 @@ export class IdbSignalBuffer {
   }
 
   async delete(id: number): Promise<void> {
-    if (typeof indexedDB === 'undefined') return;
+    if (typeof indexedDB === "undefined") return;
 
     try {
       const db = await openDatabase();
       return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
         const request = store.delete(id);
-
         request.onsuccess = () => {
           db.close();
           resolve();
@@ -131,20 +141,19 @@ export class IdbSignalBuffer {
         };
       });
     } catch {
-      // ignore errors
+      // ignore
     }
   }
 
   async clear(): Promise<void> {
-    if (typeof indexedDB === 'undefined') return;
+    if (typeof indexedDB === "undefined") return;
 
     try {
       const db = await openDatabase();
       return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
         const request = store.clear();
-
         request.onsuccess = () => {
           db.close();
           resolve();
@@ -155,26 +164,24 @@ export class IdbSignalBuffer {
         };
       });
     } catch {
-      // ignore errors
+      // ignore
     }
   }
 
-  async prune(): Promise<void> {
-    if (typeof indexedDB === 'undefined') return;
-
+  private async pruneExpired(): Promise<void> {
+    if (typeof indexedDB === "undefined") return;
+    const cutoff = Date.now() - this.maxAgeMs;
     try {
-      const cutoff = Date.now() - this.maxAgeMs;
       const db = await openDatabase();
-
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
-        const index = store.index('timestamp');
+        const index = store.index("timestamp");
         const range = IDBKeyRange.upperBound(cutoff);
         const request = index.openCursor(range);
-
         request.onsuccess = (event) => {
-          const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
+          const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>)
+            .result;
           if (cursor) {
             cursor.delete();
             cursor.continue();
@@ -183,16 +190,36 @@ export class IdbSignalBuffer {
             resolve();
           }
         };
-
         request.onerror = () => {
           db.close();
           reject(request.error);
         };
       });
     } catch {
-      // ignore errors
+      // ignore
     }
+  }
 
-    void this.maxSizeBytes; // referenced to avoid unused warning
+  /** Drop oldest rows until approximate serialized size is under maxSizeBytes. */
+  private async enforceMaxSize(): Promise<void> {
+    if (typeof indexedDB === "undefined") return;
+    try {
+      const rows = await this.readAll();
+      const estimate = (r: BufferedSignalRow) =>
+        (r.envelope?.bodyB64?.length ?? 0) * 0.75 + 256;
+      let total = rows.reduce((s, r) => s + estimate(r), 0);
+      if (total <= this.maxSizeBytes) return;
+
+      const sorted = [...rows].sort((a, b) => a.timestamp - b.timestamp);
+      for (const r of sorted) {
+        if (total <= this.maxSizeBytes) break;
+        if (r.id != null) {
+          total -= estimate(r);
+          await this.delete(r.id);
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 }
