@@ -162,8 +162,9 @@ public abstract class com/pulse/sampling/models/PulseFeatureConfigData {
 public final class com/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation : com/pulse/sampling/models/PulseFeatureConfigData {
 	public static final field Companion Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Companion;
 	public fun <init> ()V
-	public fun <init> (Ljava/lang/String;Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;)V
-	public synthetic fun <init> (Ljava/lang/String;Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/Boolean;Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Boolean;Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getCaptureContext ()Ljava/lang/Boolean;
 	public final fun getFeatureName ()Ljava/lang/String;
 	public final fun getRage ()Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;
 }
@@ -243,20 +244,26 @@ public final class com/pulse/sampling/models/PulseFeatureConfigData$Unknown : co
 }
 
 public final class com/pulse/sampling/models/PulseFeatureName : java/lang/Enum {
+	public static final field ANDROID_ACTIVITY Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field ANDROID_FRAGMENT Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field ANDROID_SLOWRENDERING Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CLICK Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CPP_ANR Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CPP_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CUSTOM_EVENTS Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field Companion Lcom/pulse/sampling/models/PulseFeatureName$Companion;
 	public static final field INTERACTION Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field IOS_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field IOS_LIFECYCLE Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field IOS_NETWORK Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JAVA_ANR Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JAVA_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JS_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field NETWORK_CHANGE Lcom/pulse/sampling/models/PulseFeatureName;
-	public static final field NETWORK_INSTRUMENTATION Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field RN_NETWORK Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field RN_SCREEN_INTERACTIVE Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field RN_SCREEN_LOAD Lcom/pulse/sampling/models/PulseFeatureName;
-	public static final field SCREEN_SESSION Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field RN_SCREEN_SESSION Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field SESSION_REPLAY Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field UNKNOWN Lcom/pulse/sampling/models/PulseFeatureName;
 	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/sampling/models/PulseFeatureName;
@@ -317,6 +324,7 @@ public final class com/pulse/sampling/models/PulseSamplingConfig {
 	public final fun getCriticalSessionPolicies ()Lcom/pulse/sampling/models/PulseCriticalEventPolicies;
 	public final fun getDefault ()Lcom/pulse/sampling/models/PulseDefaultSamplingConfig;
 	public final fun getRules ()Ljava/util/List;
+	public final fun getSignalsToSample ()Ljava/util/List;
 }
 
 public final class com/pulse/sampling/models/PulseSamplingConfig$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
@@ -408,6 +416,7 @@ public final class com/pulse/sampling/models/PulseSignalConfig {
 	public final fun getFilters ()Lcom/pulse/sampling/models/PulseSignalFilter;
 	public final fun getLogsCollectorUrl ()Ljava/lang/String;
 	public final fun getMetricCollectorUrl ()Ljava/lang/String;
+	public final fun getMetricsToAdd ()Ljava/util/List;
 	public final fun getScheduleDurationMs ()J
 	public final fun getSpanCollectorUrl ()Ljava/lang/String;
 }
