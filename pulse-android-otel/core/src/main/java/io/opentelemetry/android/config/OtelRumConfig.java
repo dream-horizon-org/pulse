@@ -68,8 +68,8 @@ public class OtelRumConfig {
     }
 
     /**
-     * Re-enables the collection of runtime network attributes after a prior
-     * {@link #disableNetworkAttributes()} call. Default = true (no-op if not previously disabled).
+     * Re-enables the collection of runtime network attributes after a prior {@link
+     * #disableNetworkAttributes()} call. Default = true (no-op if not previously disabled).
      *
      * @return this
      */
