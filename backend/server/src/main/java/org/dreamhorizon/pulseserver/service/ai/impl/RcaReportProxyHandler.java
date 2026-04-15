@@ -29,7 +29,6 @@ import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
 @Slf4j
 final class RcaReportProxyHandler {
 
-  private static final String RCA_REPORT_PATH = "rca/report";
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String INTERACTION_NAME_FIELD = "interactionName";
   private static final String DATE_FIELD = "date";

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,8 +81,7 @@ public class RcaReportEnrichmentService {
                     } else {
                       LocalDate lookbackStart = date.minusDays(6);
 
-                      java.util.concurrent.atomic.AtomicInteger pendingQueries =
-                          new java.util.concurrent.atomic.AtomicInteger(segments.size());
+                      AtomicInteger pendingQueries = new AtomicInteger(segments.size());
 
                       for (int i = 0; i < segments.size(); i++) {
                         RootCauseSegment segment = segments.get(i);
@@ -113,10 +113,12 @@ public class RcaReportEnrichmentService {
                                   int remaining = pendingQueries.decrementAndGet();
 
                                   if (remaining == 0) {
-                                    JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
-                                    if (rcPayloadNode instanceof ObjectNode) {
-                                      ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
-                                      rcPayload.set("segments", objectMapper.valueToTree(segments));
+                                    synchronized (segments) {
+                                      JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                      if (rcPayloadNode instanceof ObjectNode) {
+                                        ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                        rcPayload.set("segments", objectMapper.valueToTree(segments));
+                                      }
                                     }
 
                                     String enrichedBody = objectMapper.writeValueAsString(working);
@@ -194,23 +196,18 @@ public class RcaReportEnrichmentService {
     return future;
   }
 
-  private static Map<String, Double> extractSegmentMetrics(Map<String, Object> metrics) {
+  private Map<String, Double> extractSegmentMetrics(Map<String, Object> metrics) {
     Map<String, Double> result = new HashMap<>();
-    if (metrics != null) {
-      Object errorRateObj = metrics.get("error_rate");
-      if (errorRateObj != null) {
+    if (metrics == null) {
+      return result;
+    }
+    for (String key : List.of("error_rate", "apdex")) {
+      Object val = metrics.get(key);
+      if (val != null) {
         try {
-          result.put("error_rate", Double.parseDouble(errorRateObj.toString()));
-        } catch (NumberFormatException e) {
-          log.warn("Failed to parse error_rate metric: {}", errorRateObj);
-        }
-      }
-      Object apdexObj = metrics.get("apdex");
-      if (apdexObj != null) {
-        try {
-          result.put("apdex", Double.parseDouble(apdexObj.toString()));
-        } catch (NumberFormatException e) {
-          log.warn("Failed to parse apdex metric: {}", apdexObj);
+          result.put(key, objectMapper.convertValue(val, Double.class));
+        } catch (IllegalArgumentException e) {
+          log.warn("Failed to parse {} metric: {}", key, val);
         }
       }
     }

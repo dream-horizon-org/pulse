@@ -103,7 +103,7 @@ public class RcaReportJobDao {
     return mysqlClient
         .getWriterPool()
         .preparedQuery(RcaReportJobQueries.UPDATE_STATUS)
-        .rxExecute(Tuple.of(name, name, jobId))
+        .rxExecute(Tuple.of(name, jobId))
         .ignoreElement()
         .doOnError(e -> log.warn("RCA report job update status failed: {}", e.getMessage()));
   }

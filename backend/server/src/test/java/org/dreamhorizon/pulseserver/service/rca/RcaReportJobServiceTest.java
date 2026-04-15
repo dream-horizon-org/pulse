@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.service.rca;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -9,13 +10,15 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.mysqlclient.MySQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaJobStatus;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaReportJobDao;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
-import io.vertx.mysqlclient.MySQLException;
+import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
+import org.dreamhorizon.pulseserver.resources.v1.ai.models.GetRcaJobResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,16 +61,15 @@ class RcaReportJobServiceTest {
   }
 
   @Test
-  void shouldRecognizeMysqlDuplicateKeyMessage() {
-    assertThat(RcaReportJobService.isDuplicateKey(new Exception("Duplicate entry for key")))
-        .isTrue();
-    assertThat(RcaReportJobService.isDuplicateKey(new Exception("errorCode=1062: dup"))).isTrue();
+  void shouldRecognizeMysqlDuplicateKeyException() {
     assertThat(RcaReportJobService.isDuplicateKey(new MySQLException("Duplicate", 1062, "23000")))
         .isTrue();
     assertThat(
             RcaReportJobService.isDuplicateKey(
                 new RuntimeException(new MySQLException("dup", 1062, "23000"))))
         .isTrue();
+    assertThat(RcaReportJobService.isDuplicateKey(new Exception("Duplicate entry for key")))
+        .isFalse();
     assertThat(RcaReportJobService.isDuplicateKey(new Exception("timeout"))).isFalse();
   }
 
@@ -112,8 +114,8 @@ class RcaReportJobServiceTest {
           .thenReturn(Maybe.just(winner));
       when(jobDao.createJob(anyString(), eq("p1"), eq("ix"), eq(DATE), any()))
           .thenReturn(
-              Single.error(
-                  new RuntimeException("errorCode=1062: Duplicate entry for key 'uk_active_job'")));
+              Single.error(new io.vertx.mysqlclient.MySQLException(
+                  "Duplicate entry for key 'uk_active_job'", 1062, "23000")));
 
       RcaJobDispatch dispatch =
           service
@@ -122,6 +124,118 @@ class RcaReportJobServiceTest {
 
       assertThat(dispatch.shouldEnqueueWorker()).isFalse();
       assertThat(dispatch.job().jobId()).isEqualTo("j-winner");
+    }
+  }
+
+  @Nested
+  class PeekStatus {
+
+    @Test
+    void shouldReturnCompletedResponseOnCacheHit() {
+      String reportJson = "{\"structured\":null}";
+      Instant cachedAt = Instant.parse("2025-06-01T10:00:00Z");
+      when(cacheDao.get("p1", "ix", DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit(reportJson, cachedAt)));
+
+      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+
+      assertThat(response).isNotNull();
+      assertThat(response.getStatus()).isEqualTo(RcaJobStatus.COMPLETED.name());
+      assertThat(response.getReport()).isNotNull();
+      assertThat(response.getCached()).isTrue();
+      assertThat(response.getCachedAt()).isEqualTo(cachedAt);
+      assertThat(response.getJobId()).isNull();
+    }
+
+    @Test
+    void shouldReturnActiveJobWhenCacheEmpty() {
+      when(cacheDao.get("p1", "ix", DATE)).thenReturn(Maybe.empty());
+      when(jobDao.getActiveJobByKey("p1", "ix", DATE)).thenReturn(Maybe.just(activeJob("j1")));
+
+      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+
+      assertThat(response).isNotNull();
+      assertThat(response.getJobId()).isEqualTo("j1");
+      assertThat(response.getStatus()).isEqualTo(RcaJobStatus.PROCESSING.name());
+    }
+
+    @Test
+    void shouldReturnEmptyWhenNeitherCacheNorActiveJob() {
+      when(cacheDao.get("p1", "ix", DATE)).thenReturn(Maybe.empty());
+      when(jobDao.getActiveJobByKey("p1", "ix", DATE)).thenReturn(Maybe.empty());
+
+      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+
+      assertThat(response).isNull();
+    }
+
+    @Test
+    void shouldReturnCompletedWithNullReportOnMalformedCachedJson() {
+      when(cacheDao.get("p1", "ix", DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit("{{not-valid-json", Instant.now())));
+
+      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+
+      assertThat(response).isNotNull();
+      assertThat(response.getStatus()).isEqualTo(RcaJobStatus.COMPLETED.name());
+      assertThat(response.getReport()).isNull();
+      assertThat(response.getCached()).isNull();
+    }
+  }
+
+  @Nested
+  class GetJobStatus {
+
+    @Test
+    void shouldReturnNotFoundWhenJobMissing() {
+      when(jobDao.getJobById("unknown")).thenReturn(Maybe.empty());
+
+      assertThatThrownBy(() -> service.getJobStatus("unknown", "p1").blockingGet())
+          .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void shouldReturnNotFoundOnProjectIdMismatch() {
+      when(jobDao.getJobById("j1")).thenReturn(Maybe.just(activeJob("j1")));
+
+      assertThatThrownBy(() -> service.getJobStatus("j1", "wrong-project").blockingGet())
+          .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void shouldReturnJobWithReportWhenCompleted() {
+      RcaReportJob completedJob =
+          new RcaReportJob(
+              "j1", "p1", "ix", DATE, RcaJobStatus.COMPLETED,
+              null,
+              Instant.parse("2025-06-01T10:00:00Z"),
+              Instant.parse("2025-06-01T10:00:01Z"),
+              Instant.parse("2025-06-01T10:05:00Z"),
+              null, null, 2);
+      Instant cachedAt = Instant.parse("2025-06-01T10:05:00Z");
+      when(jobDao.getJobById("j1")).thenReturn(Maybe.just(completedJob));
+      when(cacheDao.getFromWriterPool("p1", "ix", DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit("{\"structured\":null}", cachedAt)));
+
+      GetRcaJobResponse response = service.getJobStatus("j1", "p1").blockingGet();
+
+      assertThat(response.getJobId()).isEqualTo("j1");
+      assertThat(response.getStatus()).isEqualTo("COMPLETED");
+      assertThat(response.getReport()).isNotNull();
+      assertThat(response.getCached()).isTrue();
+      assertThat(response.getCachedAt()).isEqualTo(cachedAt);
+    }
+
+    @Test
+    void shouldReturnJobWithoutReportWhenProcessing() {
+      when(jobDao.getJobById("j1")).thenReturn(Maybe.just(activeJob("j1")));
+
+      GetRcaJobResponse response = service.getJobStatus("j1", "p1").blockingGet();
+
+      assertThat(response.getJobId()).isEqualTo("j1");
+      assertThat(response.getStatus()).isEqualTo("PROCESSING");
+      assertThat(response.getReport()).isNull();
+      assertThat(response.getPollUrl()).contains("/v1/ai-rca/job/j1");
     }
   }
 }

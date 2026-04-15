@@ -35,12 +35,9 @@ const UNEXPECTED_RCA_POST_ERROR = new Error(
   "Unexpected RCA response from server",
 );
 
-const KNOWN_RCA_JOB_STATUSES: ReadonlySet<string> = new Set([
-  "PENDING",
-  "PROCESSING",
-  "COMPLETED",
-  "FAILED",
-]);
+const KNOWN_RCA_JOB_STATUSES = new Set<string>(
+  ["PENDING", "PROCESSING", "COMPLETED", "FAILED"] satisfies RcaJobStatus[],
+);
 
 export function normalizeRcaJobStatus(status: unknown): RcaNormalizedJobStatus {
   if (typeof status !== "string") {
@@ -51,6 +48,15 @@ export function normalizeRcaJobStatus(status: unknown): RcaNormalizedJobStatus {
     return upper as RcaJobStatus;
   }
   return "UNKNOWN";
+}
+
+function buildProjectHeaders(projectId: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const trimmed = String(projectId).trim();
+  if (trimmed !== "") {
+    headers["X-Project-ID"] = trimmed;
+  }
+  return headers;
 }
 
 function buildPostBody(
@@ -73,11 +79,7 @@ async function requestRcaReportPost(
 ): Promise<ApiResponse<RcaReportResponse | RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
-  const headers: Record<string, string> = {};
-  const trimmed = String(projectId).trim();
-  if (trimmed !== "") {
-    headers["X-Project-ID"] = trimmed;
-  }
+  const headers = buildProjectHeaders(projectId);
   const raw = await makeRequest<RcaReportResponse | RcaJobResponse>({
     url,
     init: {
@@ -96,11 +98,7 @@ async function requestRcaJobGet(
 ): Promise<ApiResponse<RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${GET_RCA_JOB_ROUTE.apiPath(jobId)}`;
-  const headers: Record<string, string> = {};
-  const trimmed = String(projectId).trim();
-  if (trimmed !== "") {
-    headers["X-Project-ID"] = trimmed;
-  }
+  const headers = buildProjectHeaders(projectId);
   const raw = await makeRequest<RcaJobResponse>({
     url,
     init: {
@@ -119,11 +117,7 @@ async function requestRcaStatusGet(
 ): Promise<ApiResponse<RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
   const url = `${apiBaseUrl}${GET_RCA_STATUS_ROUTE.apiPath(interactionName, date)}`;
-  const headers: Record<string, string> = {};
-  const trimmed = String(projectId).trim();
-  if (trimmed !== "") {
-    headers["X-Project-ID"] = trimmed;
-  }
+  const headers = buildProjectHeaders(projectId);
   return makeRequest<RcaJobResponse>({
     url,
     init: {

@@ -36,12 +36,13 @@ public final class RcaReportJobQueries {
           + " LIMIT 1";
 
   /**
-   * Params: status, status (for started_at branch), job_id.
+   * Params: status, job_id.
+   * References the updated {@code status} column directly in the IF expression.
    */
   public static final String UPDATE_STATUS =
       "UPDATE rca_report_jobs SET"
           + " status = ?,"
-          + " started_at = IF(? = 'PROCESSING', COALESCE(started_at, CURRENT_TIMESTAMP(6)),"
+          + " started_at = IF(status = 'PROCESSING', COALESCE(started_at, CURRENT_TIMESTAMP(6)),"
           + " started_at),"
           + " version = version + 1"
           + " WHERE job_id = ?";

@@ -95,10 +95,6 @@ public class RcaReportJobService {
       if (t instanceof DatabaseException db && db.getErrorCode() == 1062) {
         return true;
       }
-      String msg = t.getMessage() != null ? t.getMessage() : "";
-      if (msg.contains("Duplicate entry") || msg.contains("errorCode=1062")) {
-        return true;
-      }
       Throwable cause = t.getCause();
       if (cause == t) {
         break;
