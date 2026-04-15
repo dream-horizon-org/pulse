@@ -163,23 +163,34 @@ public class PulseServerApiClient {
             .putHeader("Content-Type", "application/json")
             .timeout(REQUEST_TIMEOUT_MS)
             .rxSendJsonObject(body)
+            .doOnSuccess(response -> log.info(
+                "Mark thresholds HTTP response received: project={} status={} (timeout={}ms)",
+                projectId, response.statusCode(), REQUEST_TIMEOUT_MS))
             .map(response -> {
               int statusCode = response.statusCode();
               
               if (statusCode != 200) {
+                String body = response.bodyAsString();
                 String errorMsg = String.format(
                     "Failed to mark notifications: status %d: %s",
                     statusCode,
-                    response.bodyAsString()
+                    body
                 );
-                log.error("❌ Failed to mark notifications: status {}: {}",statusCode, response.bodyAsString());
+                log.error(
+                    "❌ Failed to mark notifications: status {} body={}",
+                    statusCode,
+                    body);
                 throw new RuntimeException(errorMsg);
               }
-              
               log.info("✅ Marked thresholds {} as notified for project {}", thresholds, projectId);
               return response;
             })
-    ).ignoreElement();
+    ).doOnError(error -> log.error(
+        "Mark thresholds request failed: project={} url={}",
+        projectId,
+        url,
+        error))
+        .ignoreElement();
   }
 
 
@@ -241,16 +252,21 @@ public class PulseServerApiClient {
               int statusCode = response.statusCode();
               
               if (statusCode != 200 && statusCode != 201) {
-                log.error("❌ Failed to send notification: status {}: {}",
-                    statusCode, response.bodyAsString());
+                String body = response.bodyAsString();
+                log.error("❌ Failed to send notification: status {} body={}", statusCode, body);
                 throw new RuntimeException("Failed to send notification");
               }
-              
+
               log.info("✅ Notification sent successfully for project {} - {}% ({}) using template {}",
                   notification.getProjectId(), notification.getThreshold(), notification.getNotifyFor(), notification.getTemplateName());
               return response;
             })
-    ).ignoreElement();
+    ).doOnError(error -> log.error(
+        "Send usage-limit notification request failed: project={} url={}",
+        notification.getProjectId(),
+        apiBaseUrl + SEND_NOTIFICATION_PATH,
+        error))
+        .ignoreElement();
   }
 }
 
