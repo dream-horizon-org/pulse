@@ -1,3 +1,0 @@
-# Optional: bake heatmap composite PNG for Pencil (wireframes/common/assets)
-Pillow>=10.0.0
-numpy>=1.26.0
