@@ -443,11 +443,16 @@ public class SessionReplayRecorder {
     }
 
     private func getAppVersion() -> String? {
-        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-           !version.isEmpty {
+        guard let info = Bundle.main.infoDictionary else { return nil }
+        let version = info["CFBundleShortVersionString"] as? String
+        let build = info["CFBundleVersion"] as? String
+        if let version, let build {
+            return "\(version)_\(build)"
+        } else if let version {
             return version
+        } else {
+            return build
         }
-        return nil
     }
 
     private func getCurrentAspectRatio() -> String? {

@@ -4,7 +4,7 @@ import { Tabs } from 'expo-router';
 import { Platform, StatusBar as RNStatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShop } from '../../context/ShopContext';
-import { theme } from '../../lib/theme';
+import { theme } from '../../shared/theme';
 
 export default function TabsLayout() {
   const { cartCount } = useShop();
