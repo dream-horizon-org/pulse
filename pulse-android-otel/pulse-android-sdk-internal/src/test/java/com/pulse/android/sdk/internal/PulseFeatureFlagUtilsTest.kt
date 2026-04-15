@@ -42,6 +42,14 @@ class PulseFeatureFlagUtilsTest {
     }
 
     @Test
+    fun `when JAVA_CRASH is enabled and was locally suppressed, crash instrumentation is re-allowed`() {
+        val config = OtelRumConfig()
+        config.suppressInstrumentation("crash")
+        PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.JAVA_CRASH)))
+        assertThat(config.isSuppressed("crash")).isFalse
+    }
+
+    @Test
     fun `when JAVA_ANR is disabled, anr instrumentation is suppressed`() {
         val config = OtelRumConfig()
         PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = emptyList()))
@@ -51,6 +59,14 @@ class PulseFeatureFlagUtilsTest {
     @Test
     fun `when JAVA_ANR is enabled, anr instrumentation is not suppressed`() {
         val config = OtelRumConfig()
+        PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.JAVA_ANR)))
+        assertThat(config.isSuppressed("anr")).isFalse
+    }
+
+    @Test
+    fun `when JAVA_ANR is enabled and was locally suppressed, anr instrumentation is re-allowed`() {
+        val config = OtelRumConfig()
+        config.suppressInstrumentation("anr")
         PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.JAVA_ANR)))
         assertThat(config.isSuppressed("anr")).isFalse
     }
@@ -70,6 +86,14 @@ class PulseFeatureFlagUtilsTest {
             PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.NETWORK_CHANGE)))
             assertThat(config.shouldIncludeNetworkAttributes()).isTrue
         }
+
+        @Test
+        fun `when NETWORK_CHANGE is enabled and was locally disabled, network attributes are re-enabled`() {
+            val config = OtelRumConfig()
+            config.disableNetworkAttributes()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.NETWORK_CHANGE)))
+            assertThat(config.shouldIncludeNetworkAttributes()).isTrue
+        }
     }
 
     @Nested
@@ -84,6 +108,14 @@ class PulseFeatureFlagUtilsTest {
         @Test
         fun `when INTERACTION is enabled, interaction instrumentation is not suppressed`() {
             val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.INTERACTION)))
+            assertThat(config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)).isFalse
+        }
+
+        @Test
+        fun `when INTERACTION is enabled and was locally suppressed, interaction instrumentation is re-allowed`() {
+            val config = OtelRumConfig()
+            config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
             PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.INTERACTION)))
             assertThat(config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)).isFalse
         }
@@ -105,6 +137,91 @@ class PulseFeatureFlagUtilsTest {
             PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.CLICK)))
             assertThat(config.isSuppressed("view.click")).isFalse
             assertThat(config.isSuppressed("compose.click")).isFalse
+        }
+
+        @Test
+        fun `when CLICK is enabled and was locally suppressed, view and compose click instrumentation are re-allowed`() {
+            val config = OtelRumConfig()
+            config.suppressInstrumentation("view.click")
+            config.suppressInstrumentation("compose.click")
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.CLICK)))
+            assertThat(config.isSuppressed("view.click")).isFalse
+            assertThat(config.isSuppressed("compose.click")).isFalse
+        }
+    }
+
+    @Nested
+    inner class `ANDROID_ACTIVITY feature` {
+        @Test
+        fun `when ANDROID_ACTIVITY is disabled, activity instrumentation is suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = emptyList()))
+            assertThat(config.isSuppressed("activity")).isTrue
+        }
+
+        @Test
+        fun `when ANDROID_ACTIVITY is enabled, activity instrumentation is not suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.ANDROID_ACTIVITY)))
+            assertThat(config.isSuppressed("activity")).isFalse
+        }
+
+        @Test
+        fun `when ANDROID_ACTIVITY is enabled and was locally suppressed, activity instrumentation is re-allowed`() {
+            val config = OtelRumConfig()
+            config.suppressInstrumentation("activity")
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.ANDROID_ACTIVITY)))
+            assertThat(config.isSuppressed("activity")).isFalse
+        }
+    }
+
+    @Nested
+    inner class `ANDROID_FRAGMENT feature` {
+        @Test
+        fun `when ANDROID_FRAGMENT is disabled, fragment instrumentation is suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = emptyList()))
+            assertThat(config.isSuppressed("fragment")).isTrue
+        }
+
+        @Test
+        fun `when ANDROID_FRAGMENT is enabled, fragment instrumentation is not suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.ANDROID_FRAGMENT)))
+            assertThat(config.isSuppressed("fragment")).isFalse
+        }
+
+        @Test
+        fun `when ANDROID_FRAGMENT is enabled and was locally suppressed, fragment instrumentation is re-allowed`() {
+            val config = OtelRumConfig()
+            config.suppressInstrumentation("fragment")
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.ANDROID_FRAGMENT)))
+            assertThat(config.isSuppressed("fragment")).isFalse
+        }
+    }
+
+    @Nested
+    inner class `ANDROID_SLOWRENDERING feature` {
+        @Test
+        fun `when ANDROID_SLOWRENDERING is disabled, slow rendering instrumentation is suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = emptyList()))
+            assertThat(config.isSuppressed("slowrendering")).isTrue
+        }
+
+        @Test
+        fun `when ANDROID_SLOWRENDERING is enabled, slow rendering instrumentation is not suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.ANDROID_SLOWRENDERING)))
+            assertThat(config.isSuppressed("slowrendering")).isFalse
+        }
+
+        @Test
+        fun `when ANDROID_SLOWRENDERING is enabled and was locally suppressed, slow rendering instrumentation is re-allowed`() {
+            val config = OtelRumConfig()
+            config.suppressInstrumentation("slowrendering")
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.ANDROID_SLOWRENDERING)))
+            assertThat(config.isSuppressed("slowrendering")).isFalse
         }
     }
 
@@ -138,6 +255,11 @@ class PulseFeatureFlagUtilsTest {
         assertThat(config.isSuppressed("crash")).isFalse
         assertThat(config.isSuppressed("anr")).isFalse
         assertThat(config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)).isFalse
+        assertThat(config.isSuppressed("view.click")).isFalse
+        assertThat(config.isSuppressed("compose.click")).isFalse
+        assertThat(config.isSuppressed("activity")).isFalse
+        assertThat(config.isSuppressed("fragment")).isFalse
+        assertThat(config.isSuppressed("slowrendering")).isFalse
         assertThat(config.shouldIncludeNetworkAttributes()).isTrue
         assertThat(result.isCustomEventEnabled).isTrue
     }

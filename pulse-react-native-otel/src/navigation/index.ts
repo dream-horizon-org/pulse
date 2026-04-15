@@ -65,7 +65,7 @@ export function createReactNavigationIntegration(
 
   const screenSessionTracking = resolveNavigationFeatureState(
     features,
-    PULSE_FEATURE_NAMES.SCREEN_SESSION,
+    PULSE_FEATURE_NAMES.RN_SCREEN_SESSION,
     options?.screenSessionTracking ??
       DEFAULT_NAVIGATION_OPTIONS.screenSessionTracking
   );

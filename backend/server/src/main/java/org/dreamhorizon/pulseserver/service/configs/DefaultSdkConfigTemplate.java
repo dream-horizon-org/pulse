@@ -120,8 +120,9 @@ public class DefaultSdkConfigTemplate {
 
     private static FeatureConfig createClickFeature(Double sampleRate, List<Sdk> sdks) {
         ClickFeatureConfig config = ClickFeatureConfig.builder()
+            .captureContext(true)
             .rage(RageConfig.builder()
-                .timeWindowMs(1000L)
+                .timeWindowMs(2000L)
                 .threshold(3)
                 .radius(50)
                 .build())

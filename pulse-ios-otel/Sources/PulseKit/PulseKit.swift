@@ -197,10 +197,8 @@ public class Pulse {
                 let processors = PulseSamplingSignalProcessors(sdkConfig: sdkConfig, currentSdkName: currentSdkName)
                 _samplingSignalProcessors = processors
                 let enabledFeatures = processors.getEnabledFeatures()
+                applyEnabledFeatures(enabledFeatures: enabledFeatures, config: &config)
                 applyDisabledFeatures(enabledFeatures: enabledFeatures, config: &config)
-                if enabledFeatures.contains(.session_replay) {
-                    config.sessionReplay { $0.enabled(true) }
-                }
 
                 // Extract and merge Session Replay config from backend
                 let sessionReplayFeature = sdkConfig.features.first { feature in
@@ -316,21 +314,64 @@ public class Pulse {
                 config.interaction { $0.enabled(false) }
             case .network_change:
                 _configuration.disableNetworkAttributes()
-            case .network_instrumentation:
-                config.urlSession { $0.enabled(false) }
-            case .screen_session:
-                config.screenLifecycle { $0.enabled(false) }
             case .custom_events:
                 _customEventsEnabled = false
             case .rn_screen_load: break
             case .rn_screen_interactive: break
+            case .rn_screen_session: break
             case .ios_crash:
                 config.crash { $0.enabled(false) }
             case .session_replay:
                 config.sessionReplay { $0.enabled(false) }
             case .click:
                 config.uiKitTap { $0.enabled(false) }
+            case .ios_lifecycle:
+                config.screenLifecycle { $0.enabled(false) }
+            case .ios_network:
+                config.urlSession { $0.enabled(false) }
+            case .rn_network: break
+            case .android_activity: break
+            case .android_fragment: break
+            case .android_slowrendering: break
             case .unknown: break
+            }
+        }
+    }
+
+    private func applyEnabledFeatures(enabledFeatures: [PulseFeatureName], config: inout InstrumentationConfiguration) {
+        for feature in enabledFeatures {
+            print("Enabling feature: \(feature)")
+            switch feature {
+            case .custom_events:
+                _customEventsEnabled = true
+            case .network_change:
+                _configuration.includeNetworkAttributes = true
+            case .ios_crash:
+                config.crash { $0.enabled(true) }
+            case .session_replay:
+                config.sessionReplay { $0.enabled(true) }
+            case .click:
+                config.uiKitTap { $0.enabled(true) }
+            case .ios_lifecycle:
+                config.screenLifecycle { $0.enabled(true) }
+            case .ios_network:
+                config.urlSession { $0.enabled(true) }
+            case .interaction:
+                config.interaction { $0.enabled(true) }
+            case .java_crash,
+                 .js_crash,
+                 .cpp_crash,
+                 .java_anr,
+                 .cpp_anr,
+                 .rn_screen_load,
+                 .rn_screen_interactive,
+                 .rn_screen_session,
+                 .rn_network,
+                 .android_activity,
+                 .android_fragment,
+                 .android_slowrendering,
+                 .unknown:
+                break
             }
         }
     }
@@ -345,6 +386,13 @@ public class Pulse {
 
         if let feature = clickFeature {
             let remoteConfig = ClickFeatureRemoteConfig.from(featureConfig: feature)
+            
+            // Apply captureContext if provided
+            if let captureContext = remoteConfig?.captureContext {
+                config.uiKitTap { $0.captureContext(captureContext) }
+            }
+            
+            // Apply rage config if provided
             var resolvedRage = config.uiKitTap.rage
             if let remote = remoteConfig?.rage {
                 resolvedRage.timeWindowMs = remote.timeWindowMs ?? resolvedRage.timeWindowMs

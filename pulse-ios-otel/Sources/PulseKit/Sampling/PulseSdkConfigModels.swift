@@ -346,14 +346,19 @@ public enum PulseFeatureName: String, Codable, CaseIterable {
     case cpp_anr
     case interaction
     case network_change
-    case network_instrumentation
-    case screen_session
     case custom_events
     case rn_screen_load
     case rn_screen_interactive
+    case rn_screen_session
     case ios_crash
     case session_replay
     case click
+    case ios_network
+    case rn_network
+    case ios_lifecycle
+    case android_activity
+    case android_fragment
+    case android_slowrendering
     case unknown
 }
 

@@ -31,12 +31,13 @@ public sealed class PulseFeatureConfigData {
     ) : PulseFeatureConfigData()
 
     /**
-     * Click instrumentation feature config (rage-click detection parameters).
+     * Click instrumentation feature config (rage-click detection parameters and context capture).
      */
     @Keep
     @Serializable
     public class ClickInstrumentation(
         @SerialName("featureName") public val featureName: String? = null,
+        @SerialName("captureContext") public val captureContext: Boolean? = null,
         @SerialName("rage") public val rage: Rage? = null,
     ) : PulseFeatureConfigData() {
         /**
