@@ -143,7 +143,7 @@ public sealed class PulseMetricsToAddTarget protected constructor() {
      */
     @Serializable
     @SerialName("name")
-    public data class Name(
+    public class Name(
         @SerialName("type")
         public val type: String,
     ) : PulseMetricsToAddTarget()
