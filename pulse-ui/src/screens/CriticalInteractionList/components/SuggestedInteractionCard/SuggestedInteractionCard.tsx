@@ -43,7 +43,7 @@ export function SuggestedInteractionCard({
               <span key={idx}>
                 <span className={classes.eventPill}>{event}</span>
                 {idx < eventNames.length - 1 && (
-                  <span className={classes.arrow}> \u2192 </span>
+                  <span className={classes.arrow}> {"\u2192"} </span>
                 )}
               </span>
             ))}

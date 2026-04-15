@@ -121,6 +121,13 @@ function flattenImpactedScreens(impacted: ImpactedScreens | null): string[] {
   return out;
 }
 
+/** Lines shown in the session list "Impacted Interactions" column when path data is used (no interaction names). */
+export function listImpactedScreensLines(
+  impactedScreens: ImpactedScreens | null | undefined,
+): string[] {
+  return flattenImpactedScreens(impactedScreens ?? null);
+}
+
 export function formatImpactedScreensPreview(
   impactedScreens: ImpactedScreens | null | undefined,
 ): string {
@@ -139,15 +146,13 @@ export function formatImpactedScreensTooltip(
   return list.join("\n") || SESSION_LIST_LABELS.noImpactedScreens;
 }
 
-export function formatImpactedInteractionsCellTooltip(
-  names: string[] | undefined,
-  impactedScreens: ImpactedScreens | null | undefined,
+/** Tooltip for session list Impacted Interactions when names exist: all names, comma-separated, lowercase. */
+export function formatImpactedInteractionsNamesTooltip(
+  names: string[] | undefined | null,
 ): string {
-  const pathLines = flattenImpactedScreens(impactedScreens ?? null);
-  const nameBlock = names?.length ? names.join("\n") : "";
-  if (nameBlock && pathLines.length) {
-    return `${nameBlock}\n\n${pathLines.join("\n")}`;
+  const list = names?.filter(Boolean) ?? [];
+  if (!list.length) {
+    return SESSION_LIST_LABELS.noImpactedScreens;
   }
-  if (nameBlock) return nameBlock;
-  return pathLines.join("\n") || SESSION_LIST_LABELS.noImpactedScreens;
+  return list.map((n) => n.toLowerCase()).join(", ");
 }

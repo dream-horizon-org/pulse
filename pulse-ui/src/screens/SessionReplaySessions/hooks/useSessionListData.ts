@@ -147,9 +147,10 @@ export function useSessionListData({
 
         const next = response.page.nextCursor ?? null;
         setCursor(next);
-        // Cursor-based listing cannot continue without nextCursor; if the API
-        // sets hasMore without a cursor, requesting "next" would repeat page 1.
-        setHasMore(next != null && response.page.hasMore);
+        // Drive UI pagination state from the API hasMore flag. nextCursor is still
+        // required for loadMore(); if it is missing while hasMore is true, loadMore
+        // no-ops until the contract is fixed (backend always sends both when hasMore).
+        setHasMore(response.page.hasMore === true);
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         setError(error);
