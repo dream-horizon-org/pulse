@@ -9,7 +9,7 @@ import org.dreamhorizon.pulseserver.dao.rcajob.RcaReportJobDao;
 /**
  * Periodically marks PENDING/PROCESSING RCA jobs that exceed the stale threshold as FAILED.
  * Prevents jobs abandoned after a worker crash from staying stuck indefinitely.
- * Registered as an eager singleton so the timer starts at application startup.
+ * Registered as a singleton; timer starts when first injected.
  */
 @Slf4j
 @Singleton

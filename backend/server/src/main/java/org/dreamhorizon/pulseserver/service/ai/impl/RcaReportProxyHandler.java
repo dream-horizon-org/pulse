@@ -108,7 +108,10 @@ final class RcaReportProxyHandler {
         });
   }
 
-  /** Prefer root cause so logs show the real DB/Rx failure, not only CompletionException. */
+  /**
+   * Prefer root cause so logs show the real DB/Rx failure, not only CompletionException.
+   * Limit of 8 prevents infinite loops from circular exception causes (defensive).
+   */
   private static Throwable unwrapAsyncException(Throwable ex) {
     Throwable t = ex;
     for (int i = 0; i < 8 && t != null; i++) {

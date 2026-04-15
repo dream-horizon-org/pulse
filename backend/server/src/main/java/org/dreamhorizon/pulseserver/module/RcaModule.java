@@ -25,7 +25,7 @@ public class RcaModule extends AbstractModule {
     bind(RcaReportJobService.class).in(Singleton.class);
     bind(RcaReportEnrichmentService.class).in(Singleton.class);
     bind(RcaReportProcessor.class).in(Singleton.class);
-    bind(RcaStaleJobCleanup.class).asEagerSingleton();
+    bind(RcaStaleJobCleanup.class).in(Singleton.class);
   }
 
   @Provides
