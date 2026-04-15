@@ -148,6 +148,22 @@ class RcaReportJobServiceTest {
     }
 
     @Test
+    void shouldExtractInnerReportFieldFromCacheBody() {
+      // Cache body has the full shape: { "report": { "structured": {...} }, "cached": true }
+      String cacheBody = "{\"report\":{\"structured\":null},\"cached\":true,\"cachedAt\":\"2025-06-01T10:00:00Z\"}";
+      Instant cachedAt = Instant.parse("2025-06-01T10:00:00Z");
+      when(cacheDao.get("p1", "ix", DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit(cacheBody, cachedAt)));
+
+      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+
+      assertThat(response.getReport()).isNotNull();
+      // report field must be the inner object { "structured": null }, not the full cache body
+      assertThat(response.getReport().has("structured")).isTrue();
+      assertThat(response.getReport().has("cached")).isFalse();
+    }
+
+    @Test
     void shouldReturnActiveJobWhenCacheEmpty() {
       when(cacheDao.get("p1", "ix", DATE)).thenReturn(Maybe.empty());
       when(jobDao.getActiveJobByKey("p1", "ix", DATE)).thenReturn(Maybe.just(activeJob("j1")));
@@ -224,6 +240,30 @@ class RcaReportJobServiceTest {
       assertThat(response.getReport()).isNotNull();
       assertThat(response.getCached()).isTrue();
       assertThat(response.getCachedAt()).isEqualTo(cachedAt);
+    }
+
+    @Test
+    void shouldExtractInnerReportFieldWhenCompletedCacheBodyHasReportWrapper() {
+      RcaReportJob completedJob =
+          new RcaReportJob(
+              "j1", "p1", "ix", DATE, RcaJobStatus.COMPLETED,
+              null,
+              Instant.parse("2025-06-01T10:00:00Z"),
+              Instant.parse("2025-06-01T10:00:01Z"),
+              Instant.parse("2025-06-01T10:05:00Z"),
+              null, null, 2);
+      // Full cache body shape: { "report": { "structured": {...} }, "cached": true, ... }
+      String cacheBody = "{\"report\":{\"structured\":null},\"cached\":true,\"cachedAt\":\"2025-06-01T10:05:00Z\"}";
+      when(jobDao.getJobById("j1")).thenReturn(Maybe.just(completedJob));
+      when(cacheDao.getFromWriterPool("p1", "ix", DATE))
+          .thenReturn(Maybe.just(new RcaReportCacheHit(cacheBody, Instant.parse("2025-06-01T10:05:00Z"))));
+
+      GetRcaJobResponse response = service.getJobStatus("j1", "p1").blockingGet();
+
+      assertThat(response.getReport()).isNotNull();
+      // report must be the inner object, not the full cache body with cached/cachedAt
+      assertThat(response.getReport().has("structured")).isTrue();
+      assertThat(response.getReport().has("cached")).isFalse();
     }
 
     @Test

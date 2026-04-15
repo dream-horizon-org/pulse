@@ -336,15 +336,19 @@ export function useGetRcaReport({
     if (postReportQuery.data?.status === RCA_HTTP_OK) {
       return postReportQuery.data as ApiResponse<RcaReportResponse>;
     }
-    if (postReportQuery.data?.status === RCA_HTTP_ACCEPTED) {
-      return postReportQuery.data as ApiResponse<RcaJobResponse>;
-    }
+    // Completed job result takes priority over the stale 202 POST response so the
+    // polled report is shown without an extra round-trip.  Falls through to the 202
+    // branch when the job is COMPLETED but has no report yet (replication lag), which
+    // keeps the loading UI visible until the auto-retry fires.
     const completed =
       jobSnapshot?.status === "COMPLETED"
         ? toReportApiResponse(jobSnapshot)
         : null;
     if (completed) {
       return completed;
+    }
+    if (postReportQuery.data?.status === RCA_HTTP_ACCEPTED) {
+      return postReportQuery.data as ApiResponse<RcaJobResponse>;
     }
     return undefined;
   }, [postReportQuery.data, jobSnapshot]);

@@ -127,7 +127,8 @@ public class RcaReportJobService {
     Instant cachedAt = null;
     if (cacheHit.reportBody() != null && !cacheHit.reportBody().isBlank()) {
       try {
-        reportNode = objectMapper.readTree(cacheHit.reportBody());
+        JsonNode fullNode = objectMapper.readTree(cacheHit.reportBody());
+        reportNode = extractReportField(fullNode);
         cachedAt = cacheHit.cachedAt();
       } catch (Exception e) {
         log.warn("Failed to parse cached RCA report for peek: {}", e.getMessage());
@@ -170,7 +171,8 @@ public class RcaReportJobService {
     Instant cachedAt = null;
     if (cacheHit != null && cacheHit.reportBody() != null && !cacheHit.reportBody().isBlank()) {
       try {
-        reportNode = objectMapper.readTree(cacheHit.reportBody());
+        JsonNode fullNode = objectMapper.readTree(cacheHit.reportBody());
+        reportNode = extractReportField(fullNode);
         cachedAt = cacheHit.cachedAt();
       } catch (Exception e) {
         log.warn("Failed to parse cached RCA report for job {}: {}", job.jobId(), e.getMessage());
@@ -190,5 +192,19 @@ public class RcaReportJobService {
         .cached(cached)
         .cachedAt(cachedAt)
         .build();
+  }
+
+  /**
+   * Extracts the inner {@code "report"} field from the stored cache body so the poll API returns
+   * the same payload shape as the direct POST cache-hit response.
+   *
+   * <p>Cache bodies are stored as {@code { "report": { "structured": ... }, "cached": true, ... }}.
+   * Without this extraction {@code GetRcaJobResponse.report} would contain the full cache body,
+   * double-nesting the report under {@code report.report}.
+   * Falls back to the full node when no {@code "report"} field is present.
+   */
+  private static JsonNode extractReportField(final JsonNode fullNode) {
+    JsonNode inner = fullNode.path("report");
+    return inner.isMissingNode() || inner.isNull() ? fullNode : inner;
   }
 }
