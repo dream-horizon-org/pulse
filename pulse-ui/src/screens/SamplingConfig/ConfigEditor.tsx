@@ -33,7 +33,6 @@ import {
   IconCheck,
   IconCopy,
   IconArrowLeft,
-  IconEdit,
   IconInfoCircle,
   IconEye,
   IconCircleCheckFilled,
