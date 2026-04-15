@@ -13,7 +13,6 @@ export type RcaStructuredSegmentV1 = {
   rank: number;
   title: string;
   metrics: RcaStructuredMetricRowV1[];
-  impact?: string | null;
   insights?: string | null;
   affected_sessions?: string[] | null;
 };

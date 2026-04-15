@@ -181,8 +181,6 @@ const RcaStructuredReportV1View = ({
               <Stack gap="md">
                 {segments.map((segment, index) => {
                   const rank = segment.rank ?? index + 1;
-                  const impactText = segment.impact?.trim() ?? "";
-                  const hasImpact = impactText !== "";
                   const insightsText = segment.insights?.trim() ?? "";
                   const hasInsights = insightsText !== "";
                   const metrics = segment.metrics ?? [];
@@ -288,16 +286,6 @@ const RcaStructuredReportV1View = ({
                           </Table.ScrollContainer>
                         </div>
                       ) : null}
-                      {hasImpact && (
-                        <div className={rcaClasses.impactCallout}>
-                          <Text size="xs" fw={600} c="dimmed" mb={6}>
-                            Impact
-                          </Text>
-                          <Text size="sm" lh={1.6}>
-                            {impactText}
-                          </Text>
-                        </div>
-                      )}
                       {hasInsights && (
                         <div className={rcaClasses.insightsCallout}>
                           <Text size="xs" fw={600} c="dimmed" mb={6}>
