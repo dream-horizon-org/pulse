@@ -386,12 +386,12 @@ public class Pulse {
 
         if let feature = clickFeature {
             let remoteConfig = ClickFeatureRemoteConfig.from(featureConfig: feature)
-            
+
             // Apply captureContext if provided
             if let captureContext = remoteConfig?.captureContext {
                 config.uiKitTap { $0.captureContext(captureContext) }
             }
-            
+
             // Apply rage config if provided
             var resolvedRage = config.uiKitTap.rage
             if let remote = remoteConfig?.rage {
