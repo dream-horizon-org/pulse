@@ -324,7 +324,6 @@ public final class com/pulse/sampling/models/PulseSamplingConfig {
 	public final fun getCriticalSessionPolicies ()Lcom/pulse/sampling/models/PulseCriticalEventPolicies;
 	public final fun getDefault ()Lcom/pulse/sampling/models/PulseDefaultSamplingConfig;
 	public final fun getRules ()Ljava/util/List;
-	public final fun getSignalsToSample ()Ljava/util/List;
 }
 
 public final class com/pulse/sampling/models/PulseSamplingConfig$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
@@ -416,7 +415,6 @@ public final class com/pulse/sampling/models/PulseSignalConfig {
 	public final fun getFilters ()Lcom/pulse/sampling/models/PulseSignalFilter;
 	public final fun getLogsCollectorUrl ()Ljava/lang/String;
 	public final fun getMetricCollectorUrl ()Ljava/lang/String;
-	public final fun getMetricsToAdd ()Ljava/util/List;
 	public final fun getScheduleDurationMs ()J
 	public final fun getSpanCollectorUrl ()Ljava/lang/String;
 }
