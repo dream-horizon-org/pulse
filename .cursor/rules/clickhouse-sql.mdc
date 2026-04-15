@@ -95,6 +95,7 @@ For local CLI queries, use the admin credentials from `deploy/.env`:
 
 ## Schema Conventions
 
+- **Project column name**: New `otel` tables must declare the project key as exactly **`ProjectId`** (PascalCase). CI rejects other spellings that normalize to the same intent (`project_id`, `projectId`, `proj_id`, `PROJECT_ID`, etc.) via [`.github/scripts/lint_otel_clickhouse_project_column.py`](.github/scripts/lint_otel_clickhouse_project_column.py). Legacy exception: `project_monthly_usage` uses `project_id` until migrated.
 - Use `MergeTree` engine with `ORDER BY` tuples for efficient range queries
 - Partition by date (or `(ProjectId, date)` in replicated setup) for time-series data
 - `DateTime64(9)` for nanosecond timestamps
