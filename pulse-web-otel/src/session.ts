@@ -126,14 +126,21 @@ export class SessionProvider {
   private handlers: SessionChangeHandler[] = [];
   private pagehideListener?: (e: PageTransitionEvent) => void;
   private pageshowListener?: (e: PageTransitionEvent) => void;
+  private _sessionWasReused = false;
 
   constructor(inactivityTimeoutMs?: number) {
     this.inactivityTimeoutMs = inactivityTimeoutMs ?? DEFAULT_INACTIVITY_TIMEOUT_MS;
 
     if (typeof window !== 'undefined') {
+      // Must run before event listeners — detects reload vs cloned tab
+      this._initializeSession();
+
       this.pagehideListener = (e: PageTransitionEvent) => {
         if (!e.persisted) {
-          this.emitSessionEnd('page_unload');
+          // Emit session.end but preserve sessionStorage:
+          // - Real tab close: browser discards sessionStorage automatically.
+          // - Page reload: _initializeSession() will detect reload and reuse the session.
+          this.emitSessionEnd('page_unload', true /* skipClear */);
         }
       };
 
@@ -147,6 +154,61 @@ export class SessionProvider {
       window.addEventListener('pagehide', this.pagehideListener);
       window.addEventListener('pageshow', this.pageshowListener);
     }
+  }
+
+  /**
+   * Returns true if the current navigation type is a page reload or back/forward.
+   * Uses the Navigation Timing API; returns false when unavailable (e.g. JSDOM).
+   */
+  private isPageReload(): boolean {
+    try {
+      const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      if (entries.length === 0) return false;
+      return entries[0].type === 'reload' || entries[0].type === 'back_forward';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Called once from the constructor. Determines whether an existing session in
+   * sessionStorage should be reused (reload) or discarded (cloned tab).
+   *
+   * When the Navigation API returns no entries (JSDOM / old browsers) this is a
+   * no-op so existing test behaviour is completely unchanged.
+   */
+  private _initializeSession(): void {
+    const existingId = this.readSessionId();
+    if (!existingId) return;
+
+    const lastTs = this.readSessionTs();
+    const now = Date.now();
+    const isActive = lastTs > 0 && now - lastTs <= this.inactivityTimeoutMs;
+    if (!isActive) return; // expired — getSessionId() will rotate normally
+
+    try {
+      const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      if (entries.length === 0) return; // API unavailable — leave sessionStorage untouched
+
+      const navType = entries[0].type;
+      if (navType === 'reload' || navType === 'back_forward') {
+        // Genuine reload or history navigation: reuse the existing session
+        this._sessionWasReused = true;
+        this.updateActivity();
+      } else {
+        // navType === 'navigate': existing session in sessionStorage on a fresh
+        // navigation means this tab was cloned (Cmd+click, Duplicate, window.open).
+        // Discard the inherited session so each tab gets its own.
+        this.clearSession();
+      }
+    } catch {
+      // Navigation API threw — leave sessionStorage untouched
+    }
+  }
+
+  /** Whether the session was reused from a page reload rather than freshly created. */
+  wasSessionReused(): boolean {
+    return this._sessionWasReused;
   }
 
   private readSessionId(): string | null {
@@ -201,7 +263,7 @@ export class SessionProvider {
     }
   }
 
-  private emitSessionEnd(reason: SessionEndReason): void {
+  private emitSessionEnd(reason: SessionEndReason, skipClear = false): void {
     const sessionId = this.readSessionId();
     if (!sessionId) return;
 
@@ -216,7 +278,7 @@ export class SessionProvider {
     };
 
     this.emit(event);
-    this.clearSession();
+    if (!skipClear) this.clearSession();
   }
 
   private emitSessionStart(newSessionId: string, previousSessionId: string, reason: SessionStartReason): void {
@@ -302,6 +364,10 @@ export class SessionProvider {
   emitInitialSession(): void {
     // Called by SessionInstrumentation after install
     // Ensures the initial session.start is emitted
+    if (this._sessionWasReused) {
+      // Session survived a page reload — do not re-emit session.start for the same session
+      return;
+    }
     const sessionId = this.readSessionId();
     const now = Date.now();
     if (!sessionId) {
