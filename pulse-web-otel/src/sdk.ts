@@ -116,8 +116,8 @@ class PulseWebSDK implements SdkContext {
       endpointBaseUrl: config.endpointBaseUrl,
       apiKey: config.apiKey,
       meteringSessionId,
-      format: config.export?.format ?? 'protobuf',
-      compression: config.export?.compression ?? 'gzip',
+      format: config.export?.format,
+      compression: config.export?.compression,
       batchOptions: config.export?.batch,
     };
 

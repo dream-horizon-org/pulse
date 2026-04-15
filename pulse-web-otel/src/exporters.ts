@@ -1,17 +1,16 @@
 // M1: OTLP HTTP exporters (traces/logs/metrics) + BatchSpanProcessor
-// + gzip compression + sendBeacon flush on pagehide.
+// + sendBeacon flush on pagehide.
 //
-// Wire format: protobuf by default (application/x-protobuf).
-// Set config.export.format = 'json' for human-readable JSON (dev/DevTools mode).
+// Wire format: JSON (application/json) — the only format supported by browser-compatible
+// OTLP exporters (@opentelemetry/exporter-*-otlp-http). The -otlp-proto packages use
+// OTLPExporterNodeBase and are Node.js-only; they cannot be bundled by Vite/browser.
+// Native browser protobuf support is tracked as a TODO (requires a custom fetch exporter).
 //
 // See: web-sdk-plan/v1/01-foundation/pipeline.md
 
-import { OTLPTraceExporter as OTLPTraceExporterJSON } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPLogExporter as OTLPLogExporterJSON } from '@opentelemetry/exporter-logs-otlp-http';
-import { OTLPMetricExporter as OTLPMetricExporterJSON } from '@opentelemetry/exporter-metrics-otlp-http';
-import { OTLPTraceExporter as OTLPTraceExporterProto } from '@opentelemetry/exporter-trace-otlp-proto';
-import { OTLPLogExporter as OTLPLogExporterProto } from '@opentelemetry/exporter-logs-otlp-proto';
-import { OTLPMetricExporter as OTLPMetricExporterProto } from '@opentelemetry/exporter-metrics-otlp-proto';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 // Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
 // Browser gzip requires a custom XHR/fetch exporter wrapping CompressionStream — tracked as TODO.
 import { WebTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-web';
@@ -26,9 +25,13 @@ export interface ExporterConfig {
   apiKey: string;
   /** Stable UUID generated at SDK init — sent as X-Pulse-Metering-Session-ID on every request. */
   meteringSessionId: string;
-  /** Wire format. Defaults to 'protobuf'. Use 'json' in dev for readable DevTools payloads. */
+  /**
+   * Wire format. Currently unused — browser OTLP exporters always send JSON
+   * (application/json). Protobuf support requires a custom browser fetch exporter
+   * and is tracked as a TODO.
+   */
   format?: 'json' | 'protobuf';
-  /** Payload compression. Defaults to 'gzip'. Use 'none' in dev for readable DevTools payloads. */
+  /** Payload compression. Defaults to 'gzip'. Browser gzip is tracked as a TODO. */
   compression?: 'gzip' | 'none';
   batchOptions?: {
     scheduledDelayMillis?: number;
@@ -59,8 +62,8 @@ export function createProviders(
   spanProcessors: SpanProcessor[],
   logProcessors: LogRecordProcessor[],
 ): ProviderBundle {
-  const useProto = (config.format ?? 'protobuf') === 'protobuf';
-  // config.compression is stored for future use when browser gzip exporter is implemented.
+  // config.format and config.compression are reserved for future use —
+  // browser-compatible protobuf and gzip require custom fetch exporters (TODO).
 
   // Custom headers on every OTLP request — Content-Type is set by the exporter itself.
   const headers: Record<string, string> = {
@@ -78,9 +81,7 @@ export function createProviders(
   const metricsUrl = config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
 
   // ── Traces ──────────────────────────────────────────────────────────────────
-  const traceExporter = useProto
-    ? new OTLPTraceExporterProto({ url: tracesUrl, headers })
-    : new OTLPTraceExporterJSON({ url: tracesUrl, headers });
+  const traceExporter = new OTLPTraceExporter({ url: tracesUrl, headers });
 
   const batchSpanProcessor = new BatchSpanProcessor(traceExporter, batchOptions);
 
@@ -91,9 +92,7 @@ export function createProviders(
   tracerProvider.addSpanProcessor(batchSpanProcessor);
 
   // ── Logs ────────────────────────────────────────────────────────────────────
-  const logExporter = useProto
-    ? new OTLPLogExporterProto({ url: logsUrl, headers })
-    : new OTLPLogExporterJSON({ url: logsUrl, headers });
+  const logExporter = new OTLPLogExporter({ url: logsUrl, headers });
 
   const batchLogProcessor = new BatchLogRecordProcessor(logExporter, batchOptions);
 
@@ -104,9 +103,7 @@ export function createProviders(
   loggerProvider.addLogRecordProcessor(batchLogProcessor);
 
   // ── Metrics ─────────────────────────────────────────────────────────────────
-  const metricExporter = useProto
-    ? new OTLPMetricExporterProto({ url: metricsUrl, headers })
-    : new OTLPMetricExporterJSON({ url: metricsUrl, headers });
+  const metricExporter = new OTLPMetricExporter({ url: metricsUrl, headers });
 
   const metricReader = new PeriodicExportingMetricReader({
     exporter: metricExporter,
