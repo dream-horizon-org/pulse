@@ -18,5 +18,5 @@ public class PulseSdkConfig internal constructor(
     @SerialName("interaction")
     public val interaction: PulseInteractionConfig = PulseInteractionConfig(),
     @SerialName("features")
-    public val features: List<PulseFeatureConfig> = emptyList(),
+    public val features: Collection<PulseFeatureConfig> = emptySet(),
 )

@@ -27,7 +27,17 @@ exporters:
     create_schema: false
     traces_table_name: otel_traces
     logs_table_name: otel_logs
-    metrics_table_name: otel_metrics_gauge
+    metrics_tables:
+      gauge: 
+        name: "otel_metrics_gauge"
+      sum: 
+        name: "otel_metrics_sum"
+      summary: 
+        name: "otel_metrics_summary"
+      histogram: 
+        name: "otel_metrics_histogram"
+      exponential_histogram: 
+        name: "otel_metrics_exp_histogram"
     async_insert: false
     timeout: 10s
     # sending_queue:
