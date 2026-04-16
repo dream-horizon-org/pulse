@@ -162,10 +162,13 @@ export function FeatureToggles({
 
   const allSdks = useMemo(() => sdkOptions.map((s) => s.value), [sdkOptions]);
 
+  // These are hidden mirror keys — controlled via their parent toggle, not shown as separate rows
+  const HIDDEN_MIRROR_FEATURES: FeatureName[] = ["screen_session", "network_instrumentation"];
+
   const allFeaturesWithConfigs = useMemo(() => {
     if (!featureOptions.length) return [];
 
-    return featureOptions.map((featureOption) => {
+    return featureOptions.filter((f) => !HIDDEN_MIRROR_FEATURES.includes(f.value as FeatureName)).map((featureOption) => {
       const existingConfig = configs.find(
         (c) => c.featureName === featureOption.value,
       );
@@ -185,11 +188,12 @@ export function FeatureToggles({
     });
   }, [featureOptions, configs]);
 
-  // Get features that haven't been configured yet
+  // Get features that haven't been configured yet (excluding hidden mirror keys)
   const availableFeatures = featureOptions.filter(
     (f) =>
-      !configs.some((c) => c.featureName === f.value) ||
-      editingFeature?.featureName === f.value,
+      !HIDDEN_MIRROR_FEATURES.includes(f.value as FeatureName) &&
+      (!configs.some((c) => c.featureName === f.value) ||
+        editingFeature?.featureName === f.value),
   );
 
   const resetForm = () => {
@@ -248,14 +252,44 @@ export function FeatureToggles({
       };
     }
 
+    let updatedConfigs: FeatureConfig[];
     if (existingConfig) {
-      onChange(
-        configs.map((f) => (f.featureName === featureName ? newFeature : f)),
+      updatedConfigs = configs.map((f) =>
+        f.featureName === featureName ? newFeature : f,
       );
     } else {
-      onChange([...configs, newFeature]);
+      updatedConfigs = [...configs, newFeature];
     }
 
+    // Mirror rn_screen_session → screen_session for older SDK versions
+    if (featureName === "rn_screen_session") {
+      const mirror: FeatureConfig = {
+        id: generateId(),
+        featureName: "screen_session",
+        sessionSampleRate: newFeature.sessionSampleRate,
+        sdks: newFeature.sdks,
+      };
+      updatedConfigs = [
+        ...updatedConfigs.filter((f) => f.featureName !== "screen_session"),
+        mirror,
+      ];
+    }
+
+    // Mirror rn_network → network_instrumentation for older SDK versions
+    if (featureName === "rn_network") {
+      const mirror: FeatureConfig = {
+        id: generateId(),
+        featureName: "network_instrumentation",
+        sessionSampleRate: newFeature.sessionSampleRate,
+        sdks: newFeature.sdks,
+      };
+      updatedConfigs = [
+        ...updatedConfigs.filter((f) => f.featureName !== "network_instrumentation"),
+        mirror,
+      ];
+    }
+
+    onChange(updatedConfigs);
     setIsModalOpen(false);
     resetForm();
   };
@@ -265,26 +299,54 @@ export function FeatureToggles({
 
     const existingConfig = configs.find((c) => c.featureName === featureName);
 
+    let updatedConfigs: FeatureConfig[];
     if (existingConfig) {
-      // Update existing config
-      onChange(
-        configs.map((f) =>
-          f.featureName === featureName
-            ? { ...f, sessionSampleRate: enabled ? 1 : 0 }
-            : f,
-        ),
+      updatedConfigs = configs.map((f) =>
+        f.featureName === featureName
+          ? { ...f, sessionSampleRate: enabled ? 1 : 0 }
+          : f,
       );
     } else {
-      // Add new config with default SDKs (all SDKs) when enabling
-      // User can edit to customize SDKs later
-      const newFeature: FeatureConfig = {
-        id: generateId(),
-        featureName: featureName,
-        sessionSampleRate: enabled ? 1 : 0,
-        sdks: enabled ? allSdks : [], // Default to all SDKs when enabling
-      };
-      onChange([...configs, newFeature]);
+      updatedConfigs = [
+        ...configs,
+        {
+          id: generateId(),
+          featureName: featureName,
+          sessionSampleRate: enabled ? 1 : 0,
+          sdks: enabled ? allSdks : [],
+        },
+      ];
     }
+
+    // Mirror rn_screen_session → screen_session for older SDK versions
+    if (featureName === "rn_screen_session") {
+      const mirror: FeatureConfig = {
+        id: generateId(),
+        featureName: "screen_session",
+        sessionSampleRate: enabled ? 1 : 0,
+        sdks: enabled ? allSdks : [],
+      };
+      updatedConfigs = [
+        ...updatedConfigs.filter((f) => f.featureName !== "screen_session"),
+        mirror,
+      ];
+    }
+
+    // Mirror rn_network → network_instrumentation for older SDK versions
+    if (featureName === "rn_network") {
+      const mirror: FeatureConfig = {
+        id: generateId(),
+        featureName: "network_instrumentation",
+        sessionSampleRate: enabled ? 1 : 0,
+        sdks: enabled ? allSdks : [],
+      };
+      updatedConfigs = [
+        ...updatedConfigs.filter((f) => f.featureName !== "network_instrumentation"),
+        mirror,
+      ];
+    }
+
+    onChange(updatedConfigs);
   };
 
   const getFeatureDisplay = (name: FeatureName) => {
@@ -358,7 +420,9 @@ export function FeatureToggles({
             </Box>
           ) : (
             <Stack gap="sm">
-              {allFeaturesWithConfigs.map((feature) => {
+              {allFeaturesWithConfigs
+                .filter((feature) => !["screen_session", "network_instrumentation"].includes(feature.featureName as string))
+                .map((feature) => {
                 const display = getFeatureDisplay(feature.featureName);
                 const icon = FEATURE_ICONS[feature.featureName] || (
                   <IconSettings size={22} />
