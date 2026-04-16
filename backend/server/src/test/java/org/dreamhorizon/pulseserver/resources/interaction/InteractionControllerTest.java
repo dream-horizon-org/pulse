@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
@@ -30,6 +31,7 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionResult;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionWithDrillDown;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
@@ -200,7 +202,7 @@ class InteractionControllerTest {
         ProjectContext.setProjectId("test-project");
         CompletionStage<Response<ErrorAttributionRestResponse>> result =
             interactionController.getErrorAttribution(
-                "my-interaction", "", "2026-01-02T00:00:00Z", false);
+                "my-interaction", "", "2026-01-02T00:00:00Z", false, null);
 
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
@@ -224,7 +226,8 @@ class InteractionControllerTest {
                 "my-interaction",
                 "2026-01-03T12:00:00Z",
                 "2026-01-03T12:00:00Z",
-                false);
+                false,
+                null);
 
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
@@ -254,20 +257,22 @@ class InteractionControllerTest {
                 .diagnosticSpecVersion(ErrorAttributionService.SPEC_VERSION)
                 .disclaimer(ErrorAttributionService.DISCLAIMER)
                 .build();
-        when(errorAttributionService.getErrorAttribution(
+        when(errorAttributionService.getErrorAttributionWithOptionalDrillDown(
                 eq("test-project"),
                 eq("no-such-span"),
                 any(Instant.class),
                 any(Instant.class),
-                eq(false)))
-            .thenReturn(Single.just(body));
+                eq(false),
+                eq(List.of())))
+            .thenReturn(Single.just(new ErrorAttributionWithDrillDown(body, Map.of())));
 
         CompletionStage<Response<ErrorAttributionRestResponse>> result =
             interactionController.getErrorAttribution(
                 "no-such-span",
                 "2026-01-01T00:00:00Z",
                 "2026-01-08T00:00:00Z",
-                false);
+                false,
+                null);
 
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {

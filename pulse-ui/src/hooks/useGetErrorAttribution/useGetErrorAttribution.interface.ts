@@ -20,8 +20,49 @@ export interface ErrorAttributionRiskRatioEntry {
   rrUndefinedReason?: ErrorAttributionRrUndefinedReason | null;
 }
 
+export interface ErrorAttributionDrillDownIssue {
+  groupId: string;
+  title: string;
+  occurrences: number;
+  exceptionType?: string | null;
+  nTreated?: number | null;
+  nControl?: number | null;
+  nTreatedLow?: number | null;
+  nControlLow?: number | null;
+  p1?: number | null;
+  p2?: number | null;
+  rr?: number | null;
+  rrUndefined?: boolean | null;
+  rrUndefinedReason?: ErrorAttributionRrUndefinedReason | null;
+}
+
+export interface ErrorAttributionDrillDownNetworkEndpoint {
+  url: string;
+  graphqlOperationName?: string | null;
+  graphqlOperationType?: string | null;
+  occurrences: number;
+  nTreated?: number | null;
+  nControl?: number | null;
+  nTreatedLow?: number | null;
+  nControlLow?: number | null;
+  p1?: number | null;
+  p2?: number | null;
+  rr?: number | null;
+  rrUndefined?: boolean | null;
+  rrUndefinedReason?: ErrorAttributionRrUndefinedReason | null;
+}
+
+export interface ErrorAttributionDrillDownPayload {
+  signal?: string;
+  eligibility?: string | null;
+  issues?: ErrorAttributionDrillDownIssue[] | null;
+  networkEndpoints?: ErrorAttributionDrillDownNetworkEndpoint[] | null;
+}
+
 export interface ErrorAttributionResponse {
   trackBInsufficientData: boolean;
+  /** Present on fresh compute; older cache rows may omit (UI falls back to 1,000). */
+  minPoorSessionsForErrorAttribution?: number;
   nPoorInU: number;
   nU: number;
   riskRatios: ErrorAttributionRiskRatioEntry[];
@@ -31,6 +72,10 @@ export interface ErrorAttributionResponse {
   diagnosticSpecVersion?: string;
   disclaimer: string;
   cachedAt?: string | null;
+  /** Present when `drillDown=` query param was sent; not in cache JSON. */
+  drillDown?: Partial<
+    Record<ErrorAttributionSignal, ErrorAttributionDrillDownPayload>
+  > | null;
 }
 
 export interface UseGetErrorAttributionParams {
@@ -39,6 +84,8 @@ export interface UseGetErrorAttributionParams {
   start: string;
   end: string;
   projectId: string | null;
+  /** When set, appended as `drillDown=` comma-separated signals on `GET .../error-attribution`. */
+  drillDownSignals?: ErrorAttributionSignal[] | null;
   enabled?: boolean;
 }
 
@@ -47,4 +94,5 @@ export interface ErrorAttributionRequestContext {
   start: string;
   end: string;
   projectId: string;
+  drillDownSignals?: ErrorAttributionSignal[] | null;
 }

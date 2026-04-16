@@ -8,6 +8,9 @@ export {
   getErrorAttributionWindowIso,
 } from "./getErrorAttributionWindow";
 export type {
+  ErrorAttributionDrillDownIssue,
+  ErrorAttributionDrillDownNetworkEndpoint,
+  ErrorAttributionDrillDownPayload,
   ErrorAttributionRequestContext,
   ErrorAttributionResponse,
   ErrorAttributionRiskRatioEntry,

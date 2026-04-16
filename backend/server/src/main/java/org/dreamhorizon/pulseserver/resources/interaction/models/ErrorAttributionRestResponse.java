@@ -4,13 +4,14 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -18,6 +19,7 @@ import lombok.NoArgsConstructor;
 public class ErrorAttributionRestResponse {
 
   private Boolean trackBInsufficientData;
+  private Integer minPoorSessionsForErrorAttribution;
   private Long nPoorInU;
   private Long nU;
   private List<RiskRatioEntry> riskRatios;
@@ -27,6 +29,8 @@ public class ErrorAttributionRestResponse {
   private String diagnosticSpecVersion;
   private Instant cachedAt;
   private String disclaimer;
+  /** Present when {@code drillDown=} query lists signals; not stored in {@code error_attribution_json}. */
+  private Map<String, ErrorAttributionDrillDownRestResponse> drillDown;
 
   @Data
   @Builder

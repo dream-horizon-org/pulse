@@ -8,6 +8,10 @@
 # Usage:
 #   ./deploy/scripts/seed-ecommerce.sh         # Seed (skip if already seeded)
 #   ./deploy/scripts/seed-ecommerce.sh --clear # Wipe and re-seed
+#
+# Track B (error attribution): seed-ecommerce-data.py adds correlated otel_traces +
+# stack_trace_events for interaction `add_to_cart` (session ids prefix `tb_`). Tune
+# counts there if you need different volume-gate or signal mixes.
 # ============================================================================
 
 set -e

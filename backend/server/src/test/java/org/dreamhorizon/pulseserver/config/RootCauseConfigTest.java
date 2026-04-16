@@ -14,6 +14,13 @@ class RootCauseConfigTest {
     assertThat(config.getSimilarityThresholdPct()).isEqualTo(75);
     assertThat(config.getLookbackDays()).isEqualTo(7);
     assertThat(config.getMaxSegments()).isEqualTo(4);
+    assertThat(config.getMinPoorSessionsForErrorAttribution())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION);
+    assertThat(config.getMinTreatedSessionsForIssueAttribution())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION);
+    assertThat(config.getMinControlSessionsForIssueAttribution())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION);
+    assertThat(config.getIssueDrillDownLimit()).isEqualTo(RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT);
     assertThat(config.getDimensionOrder()).contains("Platform");
   }
 

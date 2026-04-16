@@ -5,6 +5,10 @@ Simulates a large Indian e-commerce platform with 12 critical interactions,
 realistic device/network/geo distributions, and intentional bad segments
 per interaction for the AI root cause engine to discover.
 
+Also inserts a Track B block: correlated sessions for interaction `add_to_cart`
+(session ids `tb_*`) with Poor/Good splits, stack events (crash / ANR / non_fatal),
+and `network.http` Error spans — see `generate_track_b_error_attribution_rows`.
+
 Before seeding, the script checks MySQL for tenants and projects. If there are
 multiple tenants, it prompts you to choose which tenant (and project) to insert
 data for. Set PROJECT_ID in the environment to skip the prompt and seed that
@@ -679,6 +683,395 @@ def generate_interaction_rows(interaction, project_id):
     return rows
 
 
+# ─── Track B (error attribution) — correlated otel_traces + stack_trace_events ─
+# GET /v1/interactions/{name}/error-attribution uses universe U = sessions with an
+# interaction span for SpanName; trace_agg joins all spans in U; stack_agg joins
+# stack_trace_events on SessionId. This block adds sessions that share ids across
+# interaction + stack (and optional network.* Error rows) so local QA can exceed
+# the 1,000 Poor-session gate and exercise all four signals.
+TRACK_B_INTERACTION_NAME = "add_to_cart"
+
+
+def _track_b_resource_attrs(project_id, platform, os_version, device, app_version, sdk_version):
+    return (
+        "map("
+        f"'os.name','{escape(platform)}',"
+        f"'os.version','{escape(os_version)}',"
+        f"'app.build_name','{escape(app_version)}',"
+        f"'device.model.name','{escape(device)}',"
+        f"'project.id','{escape(project_id)}',"
+        f"'rum.sdk.version','{escape(sdk_version)}')"
+    )
+
+
+def _track_b_interaction_span_row(
+    ts_str,
+    trace_id,
+    span_id,
+    session_id,
+    user_id,
+    state,
+    network,
+    project_id,
+    platform,
+    os_version,
+    device,
+    app_version,
+    sdk_version,
+    duration_ms,
+    user_category,
+    status_code,
+):
+    """Single interaction pulse span; PulseType materialized from SpanAttributes."""
+    duration_ns = int(max(100, duration_ms) * 1e6)
+    resource_attr_str = _track_b_resource_attrs(
+        project_id, platform, os_version, device, app_version, sdk_version
+    )
+    span_attrs_parts = [
+        "'pulse.type','interaction'",
+        f"'session.id','{escape(session_id)}'",
+        f"'user.id','{escape(user_id)}'",
+        f"'geo.region.iso_code','{escape(state)}'",
+        "'geo.country.iso_code','IN'",
+        f"'network.carrier.name','{escape(network)}'",
+        f"'pulse.interaction.name','{escape(TRACK_B_INTERACTION_NAME)}'",
+    ]
+    if user_category:
+        span_attrs_parts.append(f"'pulse.interaction.user_category','{escape(user_category)}'")
+    span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
+    return (
+        f"('{ts_str}','{trace_id}','{span_id}','','','{TRACK_B_INTERACTION_NAME}',"
+        f"'CLIENT','pulse-sdk',{resource_attr_str},'pulse','1.0',{span_attr_str},"
+        f"{duration_ns},'{status_code}','',[],[],[],[],[],[],[])"
+    )
+
+
+def _track_b_network_error_span_row(
+    ts_str,
+    trace_id,
+    span_id,
+    session_id,
+    user_id,
+    state,
+    network,
+    project_id,
+    platform,
+    os_version,
+    device,
+    app_version,
+    sdk_version,
+):
+    """network.* + StatusCode Error → t_api in error-attribution trace_agg."""
+    resource_attr_str = _track_b_resource_attrs(
+        project_id, platform, os_version, device, app_version, sdk_version
+    )
+    span_attrs_parts = [
+        "'pulse.type','network.http'",
+        f"'session.id','{escape(session_id)}'",
+        f"'user.id','{escape(user_id)}'",
+        f"'geo.region.iso_code','{escape(state)}'",
+        "'geo.country.iso_code','IN'",
+        f"'network.carrier.name','{escape(network)}'",
+    ]
+    span_attr_str = "map(" + ",".join(span_attrs_parts) + ")"
+    return (
+        f"('{ts_str}','{trace_id}','{span_id}','','','HTTP POST /api/checkout',"
+        f"'CLIENT','pulse-sdk',{resource_attr_str},'pulse','1.0',{span_attr_str},"
+        f"1200000000,'Error','timeout',[],[],[],[],[],[],[])"
+    )
+
+
+def _track_b_stack_row(
+    ts_str,
+    session_id,
+    user_id,
+    project_id,
+    platform,
+    os_version,
+    device,
+    app_version,
+    sdk_version,
+    state,
+    network,
+    event_name,
+    pulse_type_log,
+    exc_type,
+    exc_message,
+):
+    import hashlib
+
+    trace_id = uuid.uuid4().hex
+    span_id = uuid.uuid4().hex[:16]
+    screen = "ProductDetailScreen"
+    interactions_str = f"['{escape(TRACK_B_INTERACTION_NAME)}']"
+    sig_input = f"v1|{platform}|{event_name}|{exc_type}|{exc_message[:40]}"
+    fingerprint = hashlib.sha1(sig_input.encode()).hexdigest()
+    group_id = f"TB-{fingerprint[:8].upper()}"
+    title = f"{exc_type}: {exc_message[:80]} [{group_id}]"
+    stack_trace = f"{exc_type}: {exc_message}\n  at com.app.TrackBSeed.seed(TrackB.java:42)"
+    log_attrs = f"map('pulse.type','{escape(pulse_type_log)}')"
+    resource_attrs = _track_b_resource_attrs(
+        project_id, platform, os_version, device, app_version, sdk_version
+    )
+    return (
+        f"('{ts_str}','{escape(event_name)}','{escape(title)}',"
+        f"'{escape(stack_trace)}','{escape(stack_trace)}','{escape(exc_message)}','{escape(exc_type)}',"
+        f"{interactions_str},'{escape(screen)}',"
+        f"'{escape(user_id)}','{escape(session_id)}',"
+        f"'{escape(platform)}','{escape(os_version)}','{escape(device)}',"
+        f"'1','{escape(app_version)}','{escape(sdk_version)}','',"
+        f"'{trace_id}','{span_id}',"
+        f"'{escape(group_id)}','{escape(sig_input)}','{fingerprint}',"
+        f"map(),{log_attrs},{resource_attrs})"
+    )
+
+
+def generate_track_b_error_attribution_rows(project_id):
+    """
+    Correlated sessions for Track B manual / API testing (see docs/causal/plan testing plan).
+
+    - Interaction: TRACK_B_INTERACTION_NAME (add_to_cart) with explicit Poor / Good categories.
+    - Timestamps clustered in the last 6h of the global seed window (start_time .. start_time+24h).
+    - >= 1_100 Poor sessions in U so the nPoorInU >= 1_000 gate can pass.
+    """
+    trace_rows = []
+    stack_rows = []
+
+    window_end = start_time + timedelta(hours=24)
+    window_start = window_end - timedelta(hours=6)
+
+    def pick_ts():
+        delta = (window_end - window_start).total_seconds()
+        return window_start + timedelta(seconds=random.randint(0, max(1, int(delta) - 1)))
+
+    # Fixed android context for stable stack signatures (optional variety later)
+    platform, os_version, device = "android", "13", "Pixel 6"
+    app_version, sdk_version = "4.2.0", "2.3.0"
+    state, network = "IN-MH", "Jio"
+
+    # 1_100 Poor + crash (stack_trace_events device.crash, same SessionId)
+    for i in range(1100):
+        session_id = f"tb_poor_crash_{i:05d}"
+        user_id = f"tb_u_{i:05d}"
+        ts = pick_ts()
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                1500.0,
+                "Poor",
+                "Ok",
+            )
+        )
+        stack_rows.append(
+            _track_b_stack_row(
+                ts_str,
+                session_id,
+                user_id,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                state,
+                network,
+                "device.crash",
+                "device.crash",
+                "java.lang.IllegalStateException",
+                "Track B seed crash",
+            )
+        )
+
+    # 150 Poor + ANR
+    for i in range(150):
+        session_id = f"tb_poor_anr_{i:04d}"
+        user_id = f"tb_ua_{i:04d}"
+        ts = pick_ts()
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                1500.0,
+                "Poor",
+                "Ok",
+            )
+        )
+        stack_rows.append(
+            _track_b_stack_row(
+                ts_str,
+                session_id,
+                user_id,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                state,
+                network,
+                "device.anr",
+                "device.anr",
+                "ANR",
+                "Track B seed ANR",
+            )
+        )
+
+    # 120 Poor + non_fatal stack
+    for i in range(120):
+        session_id = f"tb_poor_nf_{i:04d}"
+        user_id = f"tb_unf_{i:04d}"
+        ts = pick_ts()
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                1500.0,
+                "Poor",
+                "Ok",
+            )
+        )
+        stack_rows.append(
+            _track_b_stack_row(
+                ts_str,
+                session_id,
+                user_id,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                state,
+                network,
+                "non_fatal",
+                "non_fatal",
+                "NonFatalException",
+                "Track B seed non-fatal",
+            )
+        )
+
+    # 130 Poor + API error (network span in otel_traces, no stack requirement)
+    for i in range(130):
+        session_id = f"tb_poor_api_{i:04d}"
+        user_id = f"tb_uapi_{i:04d}"
+        ts = pick_ts()
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        span_n = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                1500.0,
+                "Poor",
+                "Ok",
+            )
+        )
+        trace_rows.append(
+            _track_b_network_error_span_row(
+                ts_str,
+                trace_id,
+                span_n,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+            )
+        )
+
+    # 250 control sessions: Good experience, no stack / network errors (control arms)
+    for i in range(250):
+        session_id = f"tb_good_{i:04d}"
+        user_id = f"tb_ug_{i:04d}"
+        ts = pick_ts()
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
+        trace_id = uuid.uuid4().hex
+        span_i = uuid.uuid4().hex[:16]
+        trace_rows.append(
+            _track_b_interaction_span_row(
+                ts_str,
+                trace_id,
+                span_i,
+                session_id,
+                user_id,
+                state,
+                network,
+                project_id,
+                platform,
+                os_version,
+                device,
+                app_version,
+                sdk_version,
+                450.0,
+                "Good",
+                "Ok",
+            )
+        )
+
+    return trace_rows, stack_rows
+
+
 def generate_rum_events(interaction_name, count, project_id):
     """Generate standalone crash/ANR RUM events in otel_traces."""
     rows = []
@@ -980,7 +1373,7 @@ if __name__ == "__main__":
     project_id_ch = escape(project_id)
 
     if clear:
-        print("\n[0/5] Clearing existing seed data for this project...")
+        print("\n[0/6] Clearing existing seed data for this project...")
         ch_query(f"ALTER TABLE otel_traces DELETE WHERE ProjectId = '{project_id_ch}'")
         ch_query(f"ALTER TABLE otel_logs DELETE WHERE ProjectId = '{project_id_ch}'")
         ch_query(f"ALTER TABLE stack_trace_events DELETE WHERE ProjectId = '{project_id_ch}'")
@@ -989,7 +1382,7 @@ if __name__ == "__main__":
         print("  Cleared MySQL interactions for this project")
 
     # ── Step 1: Insert interactions in MySQL ──────────────────────────────
-    print("\n[1/5] Creating interactions in MySQL...")
+    print("\n[1/6] Creating interactions in MySQL...")
     for ix in INTERACTIONS:
         import json
         details = json.dumps({
@@ -1011,7 +1404,7 @@ if __name__ == "__main__":
         print(f"  + {ix['name']}: lower={ix['lower']}ms mid={ix['mid']}ms upper={ix['upper']}ms")
 
     # ── Step 2: Generate interaction traces ───────────────────────────────
-    print("\n[2/5] Generating interaction traces (otel_traces)...")
+    print("\n[2/6] Generating interaction traces (otel_traces)...")
     total_rows = 0
     for ix in INTERACTIONS:
         print(f"\n  Generating {ix['volume']} spans for '{ix['name']}'...")
@@ -1019,23 +1412,34 @@ if __name__ == "__main__":
         insert_trace_rows(rows, label=ix["name"])
         total_rows += len(rows)
 
-    # ── Step 3: Generate standalone crash/ANR in otel_traces ──────────────
-    print("\n[3/5] Generating standalone crash/ANR RUM events (otel_traces)...")
+    # ── Step 3: Track B error-attribution correlated sessions ─────────────
+    print("\n[3/6] Track B error-attribution seed (correlated sessions, add_to_cart)...")
+    tb_traces, tb_stacks = generate_track_b_error_attribution_rows(project_id)
+    insert_trace_rows(tb_traces, label="track_b otel_traces")
+    insert_stack_trace_rows(tb_stacks, label="track_b stack_trace_events")
+    total_rows += len(tb_traces) + len(tb_stacks)
+    print(
+        f"    + {len(tb_traces)} otel_traces rows, {len(tb_stacks)} stack_trace_events "
+        f"(session prefix tb_* ; interaction '{TRACK_B_INTERACTION_NAME}')"
+    )
+
+    # ── Step 4: Generate standalone crash/ANR in otel_traces ──────────────
+    print("\n[4/6] Generating standalone crash/ANR RUM events (otel_traces)...")
     rum_rows = generate_rum_events("global", 800, project_id)
     insert_trace_rows(rum_rows, label="crash/ANR events")
     total_rows += len(rum_rows)
 
-    # ── Step 4: Generate crash/ANR for Vitals (stack_trace_events) ────────
+    # ── Step 5: Generate crash/ANR for Vitals (stack_trace_events) ────────
     num_crashes = 600
     num_anrs = 350
-    print(f"\n[4/5] Generating {num_crashes} crashes + {num_anrs} ANRs (stack_trace_events for Vitals)...")
+    print(f"\n[5/6] Generating {num_crashes} crashes + {num_anrs} ANRs (stack_trace_events for Vitals)...")
     ste_rows = generate_stack_trace_events(num_crashes, num_anrs, project_id)
     insert_stack_trace_rows(ste_rows, label="stack_trace_events")
     total_rows += len(ste_rows)
 
-    # ── Step 5: Generate session.start logs (otel_logs for total user counts) ─
+    # ── Step 6: Generate session.start logs (otel_logs for total user counts) ─
     num_sessions = 5000
-    print(f"\n[5/5] Generating {num_sessions} session.start logs (otel_logs)...")
+    print(f"\n[6/6] Generating {num_sessions} session.start logs (otel_logs)...")
     log_rows = generate_session_start_logs(num_sessions, project_id)
     insert_log_rows(log_rows, label="session.start logs")
     total_rows += len(log_rows)
@@ -1069,6 +1473,20 @@ if __name__ == "__main__":
     groups = ch_query(f"SELECT uniqExact(GroupId) FROM stack_trace_events{ch_where.replace(' AND ', ' WHERE ', 1)}").strip()
     print(f"  stack_trace_events:    crashes={crash_ste}, ANRs={anr_ste}, unique groups={groups}")
 
+    tb_sessions = ch_query(
+        f"SELECT uniqExact(SessionId) FROM otel_traces WHERE SpanName = '{TRACK_B_INTERACTION_NAME}'"
+        f"{ch_where} AND startsWith(SessionId, 'tb_')"
+    ).strip()
+    tb_poor = ch_query(
+        f"SELECT uniqExact(SessionId) FROM otel_traces WHERE SpanName = '{TRACK_B_INTERACTION_NAME}'"
+        f"{ch_where} AND startsWith(SessionId, 'tb_')"
+        f" AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor'"
+    ).strip()
+    print(
+        f"\n  Track B seed (`{TRACK_B_INTERACTION_NAME}`, session id prefix tb_):"
+        f" distinct_sessions={tb_sessions}, poor_sessions={tb_poor} (expect poor >= 1100 for gate)"
+    )
+
     session_logs = ch_query(f"SELECT count() FROM otel_logs WHERE EventName = 'session.start'{ch_where}").strip()
     unique_users = ch_query(f"SELECT uniqExact(LogAttributes['user.id']) FROM otel_logs WHERE EventName = 'session.start'{ch_where}").strip()
     print(f"  otel_logs:             sessions={session_logs}, unique_users={unique_users}")
@@ -1079,4 +1497,8 @@ if __name__ == "__main__":
     print("\n  Open Pulse UI and you should see:")
     print("    - 12 interactions on the Critical Interactions page")
     print("    - Crashes & ANRs on the App Vitals page")
-    print("    - Each interaction has unique bad segments for the AI to discover\n")
+    print("    - Each interaction has unique bad segments for the AI to discover")
+    print(
+        f"    - Track B: open interaction '{TRACK_B_INTERACTION_NAME}' → Root Cause tab → error attribution;"
+        " data is in the last 24h window (tb_* sessions clustered in the last ~6h)\n"
+    )

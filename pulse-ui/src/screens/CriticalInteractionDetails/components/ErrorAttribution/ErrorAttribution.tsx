@@ -1,27 +1,32 @@
 import {
-  Badge,
   Box,
   Button,
   Group,
   Skeleton,
   Stack,
-  Table,
   Text,
   Title,
 } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import {
   getErrorAttributionWindowIso,
   useGetErrorAttribution,
   useRefreshErrorAttribution,
 } from "../../../../hooks/useGetErrorAttribution";
-import type { ErrorAttributionRiskRatioEntry } from "../../../../hooks/useGetErrorAttribution";
+import type {
+  ErrorAttributionDrillDownPayload,
+  ErrorAttributionSignal,
+} from "../../../../hooks/useGetErrorAttribution";
+import { encodeNetworkId } from "../../../NetworkList/utils/networkIdUtils";
 import {
+  DEFAULT_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION,
   EN_DASH,
   ERROR_ATTRIBUTION_MESSAGES,
+  insufficientPoorSessionsMessage,
 } from "./ErrorAttribution.constants";
 import type { ErrorAttributionProps } from "./ErrorAttribution.interface";
 import classes from "./ErrorAttribution.module.css";
@@ -34,38 +39,24 @@ const SIGNAL_LABEL: Record<string, string> = {
   api: "API failure",
 };
 
-function formatProbability(value: number): string {
-  return value.toFixed(4);
+const ALL_DRILL_SIGNALS: ErrorAttributionSignal[] = [
+  "crash",
+  "anr",
+  "non_fatal",
+  "api",
+];
+
+function formatPoorRate(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return EN_DASH;
+  return `${(value * 100).toFixed(1)}%`;
 }
 
-function UndefinedDash() {
-  return (
-    <Text component="span" className={classes.undefinedValue}>
-      {EN_DASH}
-    </Text>
-  );
-}
-
-function formatP(value: number | null | undefined) {
-  if (value == null || Number.isNaN(value)) return <UndefinedDash />;
-  return formatProbability(value);
-}
-
-function formatRiskRatioCell(row: ErrorAttributionRiskRatioEntry) {
-  if (row.rrUndefinedReason === "INFINITE_RR") {
-    return "∞";
-  }
-  if (
-    row.rrUndefinedReason === "EMPTY_TREATED_ARM" ||
-    row.rrUndefinedReason === "EMPTY_CONTROL_ARM" ||
-    row.rrUndefinedReason === "ZERO_POOR"
-  ) {
-    return <UndefinedDash />;
-  }
-  if (typeof row.rr === "number" && Number.isFinite(row.rr)) {
-    return formatProbability(row.rr);
-  }
-  return <UndefinedDash />;
+function formatRiskRatio(
+  rr: number | null | undefined,
+  rrUndefined: boolean | null | undefined,
+): string {
+  if (rrUndefined === true || rr == null || Number.isNaN(rr)) return EN_DASH;
+  return rr.toFixed(2);
 }
 
 function formatCachedAt(iso: string | null | undefined): string | null {
@@ -74,12 +65,126 @@ function formatCachedAt(iso: string | null | undefined): string | null {
   return parsed.isValid() ? parsed.format("MMM D, YYYY [at] h:mm A") : null;
 }
 
+function SignalIssueList({
+  signal,
+  payload,
+  projectId,
+  linkSuffix,
+}: {
+  signal: ErrorAttributionSignal;
+  payload: ErrorAttributionDrillDownPayload | undefined;
+  projectId: string;
+  linkSuffix: string;
+}) {
+  if (signal === "api") {
+    const endpoints = payload?.networkEndpoints ?? [];
+    if (endpoints.length === 0) {
+      return (
+        <Text size="sm" c="dimmed">
+          {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_EMPTY}
+        </Text>
+      );
+    }
+    return (
+      <Stack gap="xs">
+        {endpoints.map((ep, idx) => {
+          const apiId = encodeNetworkId(
+            ep.url,
+            ep.graphqlOperationName ?? undefined,
+            ep.graphqlOperationType ?? undefined,
+          );
+          const to = `/projects/${encodeURIComponent(projectId)}/network-apis/${encodeURIComponent(apiId)}${linkSuffix}`;
+          return (
+            <Stack key={`${ep.url}-${idx}`} gap={4}>
+              <Group justify="space-between" wrap="nowrap" gap="md">
+                <Text
+                  component={Link}
+                  to={to}
+                  size="sm"
+                  className={classes.drillDownLink}
+                  lineClamp={2}
+                >
+                  {ep.url || "(no URL)"}
+                </Text>
+                <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
+                  {ep.occurrences.toLocaleString()}{" "}
+                  {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_SESSIONS}
+                </Text>
+              </Group>
+              <Text size="xs" c="dimmed">
+                Poor rate (with endpoint): {formatPoorRate(ep.p1)} · Poor rate
+                (without): {formatPoorRate(ep.p2)} · RR:{" "}
+                {formatRiskRatio(ep.rr, ep.rrUndefined ?? null)}
+              </Text>
+            </Stack>
+          );
+        })}
+      </Stack>
+    );
+  }
+
+  const issues = payload?.issues ?? [];
+  if (issues.length === 0) {
+    return (
+      <Text size="sm" c="dimmed">
+        {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_EMPTY}
+      </Text>
+    );
+  }
+
+  return (
+    <Stack gap="xs">
+      {issues.map((issue) => {
+        const to = `/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(issue.groupId)}${linkSuffix}`;
+        const label =
+          issue.title && issue.title.trim() !== ""
+            ? issue.title
+            : issue.groupId || "(issue)";
+        const typeSuffix =
+          signal === "non_fatal" && issue.exceptionType
+            ? ` (${issue.exceptionType})`
+            : "";
+        return (
+          <Stack key={`${issue.groupId}-${issue.exceptionType ?? ""}`} gap={4}>
+            <Group justify="space-between" wrap="nowrap" gap="md">
+              <Text
+                component={Link}
+                to={to}
+                size="sm"
+                className={classes.drillDownLink}
+                lineClamp={2}
+              >
+                {label}
+                {typeSuffix}
+              </Text>
+              <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
+                {issue.occurrences.toLocaleString()}{" "}
+                {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_SESSIONS}
+              </Text>
+            </Group>
+            <Text size="xs" c="dimmed">
+              Poor rate (with issue): {formatPoorRate(issue.p1)} · Poor rate
+              (without): {formatPoorRate(issue.p2)} · RR:{" "}
+              {formatRiskRatio(issue.rr, issue.rrUndefined ?? null)}
+            </Text>
+          </Stack>
+        );
+      })}
+    </Stack>
+  );
+}
+
 export function ErrorAttribution({
   interactionName,
   date,
   projectId,
 }: ErrorAttributionProps) {
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
+  const [searchParams] = useSearchParams();
+  const linkSuffix = useMemo(() => {
+    const qs = searchParams.toString();
+    return qs ? `?${qs}` : "";
+  }, [searchParams]);
 
   const { start, end } = useMemo(
     () => getErrorAttributionWindowIso(date ?? null),
@@ -97,6 +202,7 @@ export function ErrorAttribution({
     start,
     end,
     projectId: trimmedProjectId || null,
+    drillDownSignals: ALL_DRILL_SIGNALS,
     enabled: trimmedProjectId !== "" && !!interactionName,
   });
 
@@ -128,6 +234,7 @@ export function ErrorAttribution({
           start,
           end,
           projectId: trimmedProjectId,
+          drillDownSignals: ALL_DRILL_SIGNALS,
         });
       }}
     >
@@ -189,8 +296,6 @@ export function ErrorAttribution({
     return null;
   }
 
-  const winners = new Set(body.jointWinners ?? []);
-
   const insufficient = body.trackBInsufficientData === true;
   const emptyUniverse = insufficient && body.nU === 0;
 
@@ -219,7 +324,10 @@ export function ErrorAttribution({
             message={
               emptyUniverse
                 ? ERROR_ATTRIBUTION_MESSAGES.NO_DATA_IN_WINDOW
-                : ERROR_ATTRIBUTION_MESSAGES.INSUFFICIENT_POOR
+                : insufficientPoorSessionsMessage(
+                    body.minPoorSessionsForErrorAttribution ??
+                      DEFAULT_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION,
+                  )
             }
             classes={[rootCauseClasses.stateMessage]}
           />
@@ -228,6 +336,8 @@ export function ErrorAttribution({
       </Box>
     );
   }
+
+  const drill = body.drillDown ?? {};
 
   return (
     <Box className={classes.section}>
@@ -249,44 +359,21 @@ export function ErrorAttribution({
         {refreshButton}
       </Group>
 
-      <Table striped highlightOnHover withTableBorder withColumnBorders>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Signal</Table.Th>
-            <Table.Th style={{ textAlign: "right" }}>Exposed p1</Table.Th>
-            <Table.Th style={{ textAlign: "right" }}>Unexposed p2</Table.Th>
-            <Table.Th style={{ textAlign: "right" }}>Risk ratio</Table.Th>
-            <Table.Th style={{ textAlign: "center" }}>Winner</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {(body.riskRatios ?? []).map((row) => (
-            <Table.Tr key={row.signal}>
-              <Table.Td>
-                <Text size="sm">{SIGNAL_LABEL[row.signal] ?? row.signal}</Text>
-              </Table.Td>
-              <Table.Td style={{ textAlign: "right" }}>
-                <Text size="sm">{formatP(row.p1)}</Text>
-              </Table.Td>
-              <Table.Td style={{ textAlign: "right" }}>
-                <Text size="sm">{formatP(row.p2)}</Text>
-              </Table.Td>
-              <Table.Td style={{ textAlign: "right" }}>
-                <Text size="sm" fw={500}>
-                  {formatRiskRatioCell(row)}
-                </Text>
-              </Table.Td>
-              <Table.Td style={{ textAlign: "center" }}>
-                {winners.has(row.signal) ? (
-                  <Badge size="sm" variant="filled">
-                    Winner
-                  </Badge>
-                ) : null}
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+      <Stack gap="lg" mt="md">
+        {ALL_DRILL_SIGNALS.map((signal) => (
+          <Box key={signal} className={classes.drillDownRow} p="md">
+            <Text fw={600} size="sm" mb="sm">
+              {SIGNAL_LABEL[signal] ?? signal}
+            </Text>
+            <SignalIssueList
+              signal={signal}
+              payload={drill[signal]}
+              projectId={trimmedProjectId}
+              linkSuffix={linkSuffix}
+            />
+          </Box>
+        ))}
+      </Stack>
 
       {disclaimerBlock}
     </Box>

@@ -27,6 +27,8 @@ public class ErrorAttributionResult {
   public static final String RR_ZERO_POOR = "ZERO_POOR";
 
   private Boolean trackBInsufficientData;
+  /** Minimum Poor sessions required for full Track B output; mirrors server {@code rootCause} config. */
+  private Integer minPoorSessionsForErrorAttribution;
   private Long nPoorInU;
   private Long nU;
   private List<RiskRatioRow> riskRatios;

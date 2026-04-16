@@ -6,6 +6,7 @@ import { getApiBaseUrl } from "../../utils";
 import type {
   ErrorAttributionRequestContext,
   ErrorAttributionResponse,
+  ErrorAttributionSignal,
   UseGetErrorAttributionParams,
 } from "./useGetErrorAttribution.interface";
 
@@ -14,6 +15,7 @@ export function errorAttributionQueryKey(
   start: string,
   end: string,
   projectId: string,
+  drillDownKey: string,
 ) {
   return [
     GET_ERROR_ATTRIBUTION_ROUTE.key,
@@ -21,7 +23,15 @@ export function errorAttributionQueryKey(
     start,
     end,
     projectId,
+    drillDownKey,
   ] as const;
+}
+
+function drillDownKeyFromSignals(
+  signals: ErrorAttributionSignal[] | null | undefined,
+): string {
+  if (signals == null || signals.length === 0) return "__none__";
+  return [...signals].sort().join(",");
 }
 
 function buildAttributionUrl(
@@ -29,6 +39,7 @@ function buildAttributionUrl(
   start: string,
   end: string,
   refresh: boolean,
+  drillDownSignals: ErrorAttributionSignal[] | null | undefined,
 ): string {
   const apiBaseUrl = getApiBaseUrl();
   const path = GET_ERROR_ATTRIBUTION_ROUTE.getPath(interactionName);
@@ -38,6 +49,9 @@ function buildAttributionUrl(
   });
   if (refresh) {
     params.set("refresh", "true");
+  }
+  if (drillDownSignals != null && drillDownSignals.length > 0) {
+    params.set("drillDown", drillDownSignals.join(","));
   }
   return `${apiBaseUrl}${path}?${params.toString()}`;
 }
@@ -53,9 +67,11 @@ export function useGetErrorAttribution({
   start,
   end,
   projectId,
+  drillDownSignals,
   enabled = true,
 }: UseGetErrorAttributionParams) {
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
+  const ddKey = drillDownKeyFromSignals(drillDownSignals ?? null);
 
   return useQuery({
     queryKey: errorAttributionQueryKey(
@@ -63,6 +79,7 @@ export function useGetErrorAttribution({
       start,
       end,
       trimmedProjectId,
+      ddKey,
     ),
     queryFn: async ({
       signal,
@@ -78,7 +95,13 @@ export function useGetErrorAttribution({
           status: 400,
         };
       }
-      const url = buildAttributionUrl(interactionName, start, end, false);
+      const url = buildAttributionUrl(
+        interactionName,
+        start,
+        end,
+        false,
+        drillDownSignals,
+      );
       return makeRequest<ErrorAttributionResponse>({
         url,
         init: {
@@ -107,9 +130,16 @@ export function useRefreshErrorAttribution() {
       start,
       end,
       projectId,
+      drillDownSignals,
     }: ErrorAttributionRequestContext) => {
       const trimmedProjectId = String(projectId).trim();
-      const url = buildAttributionUrl(interactionName, start, end, true);
+      const url = buildAttributionUrl(
+        interactionName,
+        start,
+        end,
+        true,
+        drillDownSignals,
+      );
       return makeRequest<ErrorAttributionResponse>({
         url,
         init: {
@@ -125,6 +155,7 @@ export function useRefreshErrorAttribution() {
           variables.start,
           variables.end,
           variables.projectId,
+          drillDownKeyFromSignals(variables.drillDownSignals ?? null),
         ),
       });
     },

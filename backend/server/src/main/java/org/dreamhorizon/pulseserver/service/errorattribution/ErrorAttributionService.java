@@ -2,8 +2,6 @@ package org.dreamhorizon.pulseserver.service.errorattribution;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,6 +9,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,7 +33,6 @@ import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 public class ErrorAttributionService {
 
   public static final String SPEC_VERSION = "1";
-  public static final int RR_SCALE = 4;
   public static final String DISCLAIMER =
       "This diagnostic summarizes observational associations only; it does not establish causation.";
 
@@ -42,6 +40,7 @@ public class ErrorAttributionService {
   private final RootCauseCacheDao rootCauseCacheDao;
   private final ObjectMapperUtil objectMapper;
   private final RootCauseConfig rootCauseConfig;
+  private final ErrorAttributionDrillDownService errorAttributionDrillDownService;
 
   public Single<ErrorAttributionResult> getErrorAttribution(
       String projectId, String interactionName, Instant start, Instant end, boolean refresh) {
@@ -61,6 +60,49 @@ public class ErrorAttributionService {
           });
     }
     return computeAndCacheAsync(projectId, interactionName, start, end, anchorDate);
+  }
+
+  /**
+   * Summary (cacheable {@link ErrorAttributionResult}) plus optional drill-down payloads keyed by signal
+   * name. Drill-down queries are skipped when {@code trackBInsufficientData} or when {@code drillSignals}
+   * is empty.
+   */
+  public Single<ErrorAttributionWithDrillDown> getErrorAttributionWithOptionalDrillDown(
+      String projectId,
+      String interactionName,
+      Instant startInclusive,
+      Instant endExclusive,
+      boolean refresh,
+      List<ErrorAttributionDrillDownSignal> drillSignals) {
+    List<ErrorAttributionDrillDownSignal> requested =
+        drillSignals == null || drillSignals.isEmpty()
+            ? List.of()
+            : new ArrayList<>(new LinkedHashSet<>(drillSignals));
+    return getErrorAttribution(projectId, interactionName, startInclusive, endExclusive, refresh)
+        .flatMap(
+            summary -> {
+              if (requested.isEmpty()
+                  || Boolean.TRUE.equals(summary.getTrackBInsufficientData())) {
+                return Single.just(new ErrorAttributionWithDrillDown(summary, Map.of()));
+              }
+              List<Single<ErrorAttributionDrillDownResult>> drillSingles = new ArrayList<>();
+              for (ErrorAttributionDrillDownSignal s : requested) {
+                drillSingles.add(
+                    errorAttributionDrillDownService.getDrillDown(
+                        projectId, interactionName, startInclusive, endExclusive, s));
+              }
+              return Single.zip(
+                  drillSingles,
+                  results -> {
+                    Map<String, ErrorAttributionDrillDownResult> bySignal = new LinkedHashMap<>();
+                    for (int i = 0; i < requested.size(); i++) {
+                      bySignal.put(
+                          requested.get(i).name(),
+                          (ErrorAttributionDrillDownResult) results[i]);
+                    }
+                    return new ErrorAttributionWithDrillDown(summary, bySignal);
+                  });
+            });
   }
 
   private ErrorAttributionResult tryReadThroughCache(Optional<RootCauseCacheRow> opt, Instant requestEndExclusive) {
@@ -158,39 +200,41 @@ public class ErrorAttributionService {
 
     List<RiskRatioRow> riskRows = new ArrayList<>();
     riskRows.add(
-        buildRiskRow(
+        ErrorAttributionRiskMath.buildRiskRow(
             "crash",
             NumberCoercionUtils.toLong(raw.get("n_treated_crash")),
             NumberCoercionUtils.toLong(raw.get("n_control_crash")),
             NumberCoercionUtils.toLong(raw.get("n_treated_low_crash")),
             NumberCoercionUtils.toLong(raw.get("n_control_low_crash"))));
     riskRows.add(
-        buildRiskRow(
+        ErrorAttributionRiskMath.buildRiskRow(
             "anr",
             NumberCoercionUtils.toLong(raw.get("n_treated_anr")),
             NumberCoercionUtils.toLong(raw.get("n_control_anr")),
             NumberCoercionUtils.toLong(raw.get("n_treated_low_anr")),
             NumberCoercionUtils.toLong(raw.get("n_control_low_anr"))));
     riskRows.add(
-        buildRiskRow(
+        ErrorAttributionRiskMath.buildRiskRow(
             "non_fatal",
             NumberCoercionUtils.toLong(raw.get("n_treated_nf")),
             NumberCoercionUtils.toLong(raw.get("n_control_nf")),
             NumberCoercionUtils.toLong(raw.get("n_treated_low_nf")),
             NumberCoercionUtils.toLong(raw.get("n_control_low_nf"))));
     riskRows.add(
-        buildRiskRow(
+        ErrorAttributionRiskMath.buildRiskRow(
             "api",
             NumberCoercionUtils.toLong(raw.get("n_treated_api")),
             NumberCoercionUtils.toLong(raw.get("n_control_api")),
             NumberCoercionUtils.toLong(raw.get("n_treated_low_api")),
             NumberCoercionUtils.toLong(raw.get("n_control_low_api"))));
 
-    boolean insufficient = nPoorU < 1000;
-    List<String> jointWinners = computeJointWinners(riskRows, nPoorU);
+    int minPoor = rootCauseConfig.getMinPoorSessionsForErrorAttribution();
+    boolean insufficient = nPoorU < minPoor;
+    List<String> jointWinners = computeJointWinners(riskRows, nPoorU, minPoor);
 
     return ErrorAttributionResult.builder()
         .trackBInsufficientData(insufficient)
+        .minPoorSessionsForErrorAttribution(minPoor)
         .nPoorInU(nPoorU)
         .nU(nU)
         .riskRatios(riskRows)
@@ -203,51 +247,15 @@ public class ErrorAttributionService {
         .build();
   }
 
-  private static RiskRatioRow buildRiskRow(
-      String signal, long nTreated, long nControl, long nTreatedLow, long nControlLow) {
-    Double p1 = nTreated == 0 ? null : (double) nTreatedLow / nTreated;
-    Double p2 = nControl == 0 ? null : (double) nControlLow / nControl;
-
-    Double rr = null;
-    boolean rrUndefined = true;
-    String rrReason = null;
-
-    if (nTreated == 0) {
-      rrReason = ErrorAttributionResult.RR_EMPTY_TREATED_ARM;
-    } else if (nControl == 0) {
-      rrReason = ErrorAttributionResult.RR_EMPTY_CONTROL_ARM;
-    } else if (p2 != null && p2 > 0) {
-      rr = p1 / p2;
-      rrUndefined = false;
-      rrReason = null;
-    } else if (p1 != null && p1 > 0) {
-      rrReason = ErrorAttributionResult.RR_INFINITE_RR;
-    } else {
-      rrReason = ErrorAttributionResult.RR_ZERO_POOR;
-    }
-
-    return RiskRatioRow.builder()
-        .signal(signal)
-        .nTreated(nTreated)
-        .nControl(nControl)
-        .nTreatedLow(nTreatedLow)
-        .nControlLow(nControlLow)
-        .p1(p1)
-        .p2(p2)
-        .rr(rrUndefined ? null : rr)
-        .rrUndefined(rrUndefined)
-        .rrUndefinedReason(rrReason)
-        .build();
-  }
-
-  private static List<String> computeJointWinners(List<RiskRatioRow> riskRows, long nPoorInU) {
-    if (nPoorInU < 1000) {
+  private static List<String> computeJointWinners(
+      List<RiskRatioRow> riskRows, long nPoorInU, int minPoorSessions) {
+    if (nPoorInU < minPoorSessions) {
       return null;
     }
     double maxKey = Double.NEGATIVE_INFINITY;
     double[] keys = new double[riskRows.size()];
     for (int i = 0; i < riskRows.size(); i++) {
-      double k = winnerComparableKey(riskRows.get(i));
+      double k = ErrorAttributionRiskMath.winnerComparableKey(riskRows.get(i));
       keys[i] = k;
       if (!Double.isNaN(k) && k > maxKey) {
         maxKey = k;
@@ -263,24 +271,6 @@ public class ErrorAttributionService {
       }
     }
     return winners.isEmpty() ? null : winners;
-  }
-
-  /**
-   * Finite RR uses batch-style 4dp rounding; {@code INFINITE_RR} compares as {@link Double#POSITIVE_INFINITY}.
-   */
-  private static double winnerComparableKey(RiskRatioRow row) {
-    if (Boolean.FALSE.equals(row.getRrUndefined()) && row.getRr() != null) {
-      return round4(row.getRr());
-    }
-    if (Boolean.TRUE.equals(row.getRrUndefined())
-        && ErrorAttributionResult.RR_INFINITE_RR.equals(row.getRrUndefinedReason())) {
-      return Double.POSITIVE_INFINITY;
-    }
-    return Double.NaN;
-  }
-
-  private static double round4(double v) {
-    return BigDecimal.valueOf(v).setScale(RR_SCALE, RoundingMode.HALF_UP).doubleValue();
   }
 
   private static Map<String, Object> lowerKeyMap(Map<String, Object> row) {

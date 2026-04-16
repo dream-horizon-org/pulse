@@ -22,6 +22,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +38,7 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractions
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RestInteractionDetail;
+import org.dreamhorizon.pulseserver.resources.interaction.models.ErrorAttributionDrillDownRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.ErrorAttributionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
@@ -49,6 +53,8 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownResult;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownSignal;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
@@ -235,10 +241,12 @@ public class InteractionController {
       @PathParam("name") String name,
       @QueryParam("start") String startParam,
       @QueryParam("end") String endParam,
-      @QueryParam("refresh") @DefaultValue("false") boolean refresh) {
+      @QueryParam("refresh") @DefaultValue("false") boolean refresh,
+      @QueryParam("drillDown") String drillDownParam) {
     String projectId = ProjectContext.requireProjectId();
     final Instant start;
     final Instant end;
+    final List<ErrorAttributionDrillDownSignal> drillSignals;
     try {
       start = parseRequiredInstant(startParam, "start");
       end = parseRequiredInstant(endParam, "end");
@@ -246,13 +254,39 @@ public class InteractionController {
         throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
             "'end' must be after 'start'");
       }
+      drillSignals = parseDrillDownSignals(drillDownParam);
     } catch (WebApplicationException e) {
       return CompletableFuture.failedFuture(e);
+    } catch (IllegalArgumentException e) {
+      WebApplicationException bad =
+          ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(e.getMessage());
+      return CompletableFuture.failedFuture(bad);
     }
     return errorAttributionService
-        .getErrorAttribution(projectId, name, start, end, refresh)
-        .map(this::toErrorAttributionRestResponse)
+        .getErrorAttributionWithOptionalDrillDown(projectId, name, start, end, refresh, drillSignals)
+        .map(
+            bundle ->
+                toErrorAttributionRestResponse(bundle.summary(), bundle.drillDownBySignal()))
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private static List<ErrorAttributionDrillDownSignal> parseDrillDownSignals(String raw) {
+    if (raw == null || raw.isBlank()) {
+      return List.of();
+    }
+    LinkedHashSet<ErrorAttributionDrillDownSignal> set = new LinkedHashSet<>();
+    for (String part : raw.split(",")) {
+      String t = part.trim();
+      if (t.isEmpty()) {
+        continue;
+      }
+      try {
+        set.add(ErrorAttributionDrillDownSignal.fromParam(t));
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(e.getMessage(), e);
+      }
+    }
+    return new ArrayList<>(set);
   }
 
   private static Instant parseRequiredInstant(String value, String paramName) {
@@ -322,7 +356,8 @@ public class InteractionController {
         .build();
   }
 
-  private ErrorAttributionRestResponse toErrorAttributionRestResponse(ErrorAttributionResult result) {
+  private ErrorAttributionRestResponse toErrorAttributionRestResponse(
+      ErrorAttributionResult result, Map<String, ErrorAttributionDrillDownResult> drillDownBySignal) {
     List<ErrorAttributionRestResponse.RiskRatioEntry> risk =
         result.getRiskRatios() == null
             ? List.of()
@@ -342,17 +377,80 @@ public class InteractionController {
                             .rrUndefinedReason(r.getRrUndefinedReason())
                             .build())
                 .collect(Collectors.toList());
-    return ErrorAttributionRestResponse.builder()
-        .trackBInsufficientData(result.getTrackBInsufficientData())
-        .nPoorInU(result.getNPoorInU())
-        .nU(result.getNU())
-        .riskRatios(risk)
-        .jointWinners(result.getJointWinners())
-        .analysisPhase(result.getAnalysisPhase())
-        .track(result.getTrack())
-        .diagnosticSpecVersion(result.getDiagnosticSpecVersion())
-        .cachedAt(result.getCachedAt())
-        .disclaimer(result.getDisclaimer())
+    ErrorAttributionRestResponse.ErrorAttributionRestResponseBuilder builder =
+        ErrorAttributionRestResponse.builder()
+            .trackBInsufficientData(result.getTrackBInsufficientData())
+            .minPoorSessionsForErrorAttribution(result.getMinPoorSessionsForErrorAttribution())
+            .nPoorInU(result.getNPoorInU())
+            .nU(result.getNU())
+            .riskRatios(risk)
+            .jointWinners(result.getJointWinners())
+            .analysisPhase(result.getAnalysisPhase())
+            .track(result.getTrack())
+            .diagnosticSpecVersion(result.getDiagnosticSpecVersion())
+            .cachedAt(result.getCachedAt())
+            .disclaimer(result.getDisclaimer());
+    if (drillDownBySignal != null && !drillDownBySignal.isEmpty()) {
+      Map<String, ErrorAttributionDrillDownRestResponse> restDrill = new LinkedHashMap<>();
+      for (Map.Entry<String, ErrorAttributionDrillDownResult> e : drillDownBySignal.entrySet()) {
+        restDrill.put(e.getKey(), toErrorAttributionDrillDownRestResponse(e.getValue()));
+      }
+      builder.drillDown(restDrill);
+    }
+    return builder.build();
+  }
+
+  private ErrorAttributionDrillDownRestResponse toErrorAttributionDrillDownRestResponse(
+      ErrorAttributionDrillDownResult result) {
+    List<ErrorAttributionDrillDownRestResponse.IssueEntry> issues =
+        result.getIssues() == null
+            ? null
+            : result.getIssues().stream()
+                .map(
+                    i ->
+                        ErrorAttributionDrillDownRestResponse.IssueEntry.builder()
+                            .groupId(i.getGroupId())
+                            .title(i.getTitle())
+                            .occurrences(i.getOccurrences())
+                            .exceptionType(i.getExceptionType())
+                            .nTreated(i.getNTreated())
+                            .nControl(i.getNControl())
+                            .nTreatedLow(i.getNTreatedLow())
+                            .nControlLow(i.getNControlLow())
+                            .p1(i.getP1())
+                            .p2(i.getP2())
+                            .rr(i.getRr())
+                            .rrUndefined(i.getRrUndefined())
+                            .rrUndefinedReason(i.getRrUndefinedReason())
+                            .build())
+                .collect(Collectors.toList());
+    List<ErrorAttributionDrillDownRestResponse.NetworkEndpointEntry> nets =
+        result.getNetworkEndpoints() == null
+            ? null
+            : result.getNetworkEndpoints().stream()
+                .map(
+                    n ->
+                        ErrorAttributionDrillDownRestResponse.NetworkEndpointEntry.builder()
+                            .url(n.getUrl())
+                            .graphqlOperationName(n.getGraphqlOperationName())
+                            .graphqlOperationType(n.getGraphqlOperationType())
+                            .occurrences(n.getOccurrences())
+                            .nTreated(n.getNTreated())
+                            .nControl(n.getNControl())
+                            .nTreatedLow(n.getNTreatedLow())
+                            .nControlLow(n.getNControlLow())
+                            .p1(n.getP1())
+                            .p2(n.getP2())
+                            .rr(n.getRr())
+                            .rrUndefined(n.getRrUndefined())
+                            .rrUndefinedReason(n.getRrUndefinedReason())
+                            .build())
+                .collect(Collectors.toList());
+    return ErrorAttributionDrillDownRestResponse.builder()
+        .signal(result.getSignal())
+        .eligibility(result.getEligibility())
+        .issues(issues)
+        .networkEndpoints(nets)
         .build();
   }
 }

@@ -48,12 +48,16 @@ class ErrorAttributionServiceTest {
   @Mock private RootCauseConfig rootCauseConfig;
   @Mock private ClickhouseQueryService clickhouseQueryService;
   @Mock private RootCauseCacheDao rootCauseCacheDao;
+  @Mock private ErrorAttributionDrillDownService errorAttributionDrillDownService;
 
   private ErrorAttributionService service;
 
   @BeforeEach
   void setUp() {
     lenient().when(rootCauseConfig.getLookbackDays()).thenReturn(8);
+    lenient()
+        .when(rootCauseConfig.getMinPoorSessionsForErrorAttribution())
+        .thenReturn(RootCauseConfig.DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION);
     lenient()
         .when(rootCauseCacheDao.findByKey(anyString(), anyString(), any(LocalDate.class)))
         .thenReturn(Single.just(Optional.empty()));
@@ -62,7 +66,11 @@ class ErrorAttributionServiceTest {
         .thenReturn(Completable.complete());
     service =
         new ErrorAttributionService(
-            clickhouseQueryService, rootCauseCacheDao, new ObjectMapperUtil(), rootCauseConfig);
+            clickhouseQueryService,
+            rootCauseCacheDao,
+            new ObjectMapperUtil(),
+            rootCauseConfig,
+            errorAttributionDrillDownService);
   }
 
   private static Map<String, Object> baseCountsRow() {
@@ -228,6 +236,8 @@ class ErrorAttributionServiceTest {
 
       assertThat(r.getTrackBInsufficientData()).isTrue();
       assertThat(r.getJointWinners()).isNull();
+      assertThat(r.getMinPoorSessionsForErrorAttribution())
+          .isEqualTo(RootCauseConfig.DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION);
     }
   }
 
