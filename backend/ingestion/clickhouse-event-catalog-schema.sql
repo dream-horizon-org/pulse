@@ -17,7 +17,7 @@
 -- ENGINE ReplacingMergeTree deduplicates rows with the same ORDER BY key on merge;
 -- use FINAL in reads when you need a collapsed result set.
 --
--- Incremental S3 windows: Spark reads MAX(started_at) from MySQL spark_jobs for the latest
+-- Incremental S3 windows: Spark reads MAX(started_at) from MySQL analytics_jobs for the latest
 -- SUCCEEDED EVENTS_INCREMENTAL run; if none, scans 7 days of S3.
 --
 -- If you previously created event_catalog_entries with snake_case columns, migrate:

@@ -23,7 +23,7 @@ public final class FunnelDefinitionQueries {
    * Latest job status for FUNNEL runs; subquery must be correlated with alias {@code funnel} (table name).
    */
   public static final String LATEST_FUNNEL_JOB_STATUS =
-    "(SELECT sj.status FROM spark_jobs sj WHERE sj.job_type = 'FUNNEL' AND sj.reference_id = funnel.id "
+    "(SELECT sj.status FROM analytics_jobs sj WHERE sj.job_type = 'FUNNEL' AND sj.reference_id = funnel.id "
       + "ORDER BY sj.id DESC LIMIT 1)";
 
   public static final String SELECT_BY_ID =

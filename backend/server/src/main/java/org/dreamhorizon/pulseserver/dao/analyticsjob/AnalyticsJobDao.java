@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.spark;
+package org.dreamhorizon.pulseserver.dao.analyticsjob;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -14,33 +14,30 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 
 /**
- * DAO for managing Spark job records.
+ * DAO for {@code analytics_jobs} (funnel/journey/batch analytics job lifecycle).
  */
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-public class SparkJobDao {
+public class AnalyticsJobDao {
 
-  /**
-   * MySQL client.
-   */
   private final MysqlClient mysqlClient;
 
   /**
-   * Inserts a new Spark job record.
+   * Inserts a new analytics job record.
    *
    * @param jobType     type of job
    * @param referenceId ID of the reference entity
-   * @param jobId       EMR job run ID
+   * @param jobId       EMR job run ID (optional)
    * @param status      job status
    * @return the ID of the inserted record
    */
   public Single<Long> insertJob(
-      final SparkJobType jobType,
+      final AnalyticsJobType jobType,
       final Long referenceId,
       final String jobId,
-      final SparkJobStatus status) {
-    String query = "INSERT INTO spark_jobs "
+      final AnalyticsJobStatus status) {
+    String query = "INSERT INTO analytics_jobs "
         + "(job_type, reference_id, job_id, status) "
         + "VALUES (?, ?, ?, ?)";
     Tuple params = Tuple.of(jobType.name(), referenceId, jobId, status.name());
@@ -51,7 +48,7 @@ public class SparkJobDao {
   }
 
   /**
-   * Updates the EMR job run ID and status of a Spark job by its database ID.
+   * Updates the EMR job run ID and status by database row id.
    *
    * @param id     database ID
    * @param jobId  EMR job run ID
@@ -61,8 +58,8 @@ public class SparkJobDao {
   public Single<Integer> updateJobIdAndStatus(
       final Long id,
       final String jobId,
-      final SparkJobStatus status) {
-    String query = "UPDATE spark_jobs SET job_id = ?, status = ? WHERE id = ?";
+      final AnalyticsJobStatus status) {
+    String query = "UPDATE analytics_jobs SET job_id = ?, status = ? WHERE id = ?";
     Tuple params = Tuple.of(jobId, status.name(), id);
 
     return mysqlClient.getWriterPool().preparedQuery(query)
@@ -71,7 +68,7 @@ public class SparkJobDao {
   }
 
   /**
-   * Updates the status of a Spark job by its database ID.
+   * Updates status (and timestamps/message) by database row id.
    *
    * @param id           database ID
    * @param status       new status
@@ -82,11 +79,11 @@ public class SparkJobDao {
    */
   public Single<Integer> updateJobStatus(
       final Long id,
-      final SparkJobStatus status,
+      final AnalyticsJobStatus status,
       final String errorMessage,
       final LocalDateTime startedAt,
       final LocalDateTime completedAt) {
-    String query = "UPDATE spark_jobs SET status = ?, "
+    String query = "UPDATE analytics_jobs SET status = ?, "
         + "error_message = ?, started_at = ?, completed_at = ? "
         + "WHERE id = ?";
     Tuple params = Tuple.of(
@@ -98,7 +95,7 @@ public class SparkJobDao {
   }
 
   /**
-   * Updates the status of a Spark job by its EMR job run ID.
+   * Updates status by EMR job run ID.
    *
    * @param jobId        EMR job run ID
    * @param status       new status
@@ -109,11 +106,11 @@ public class SparkJobDao {
    */
   public Single<Integer> updateJobStatusByJobId(
       final String jobId,
-      final SparkJobStatus status,
+      final AnalyticsJobStatus status,
       final String errorMessage,
       final LocalDateTime startedAt,
       final LocalDateTime completedAt) {
-    String query = "UPDATE spark_jobs SET status = ?, "
+    String query = "UPDATE analytics_jobs SET status = ?, "
         + "error_message = ?, started_at = ?, completed_at = ? "
         + "WHERE job_id = ?";
     Tuple params = Tuple.of(
@@ -124,14 +121,8 @@ public class SparkJobDao {
         .map(SqlResult::rowCount);
   }
 
-  /**
-   * Retrieves a Spark job by its database ID.
-   *
-   * @param id database ID
-   * @return the Spark job entity if found
-   */
-  public Maybe<SparkJobEntity> getJobById(final Long id) {
-    String query = "SELECT * FROM spark_jobs WHERE id = ?";
+  public Maybe<AnalyticsJobEntity> getJobById(final Long id) {
+    String query = "SELECT * FROM analytics_jobs WHERE id = ?";
     return mysqlClient.getWriterPool().preparedQuery(query)
         .rxExecute(Tuple.of(id))
         .flatMapMaybe(rows -> {
@@ -142,14 +133,8 @@ public class SparkJobDao {
         });
   }
 
-  /**
-   * Retrieves a Spark job by its EMR job run ID.
-   *
-   * @param jobId EMR job run ID
-   * @return the Spark job entity if found
-   */
-  public Maybe<SparkJobEntity> getJobByJobId(final String jobId) {
-    String query = "SELECT * FROM spark_jobs WHERE job_id = ?";
+  public Maybe<AnalyticsJobEntity> getJobByJobId(final String jobId) {
+    String query = "SELECT * FROM analytics_jobs WHERE job_id = ?";
     return mysqlClient.getWriterPool().preparedQuery(query)
         .rxExecute(Tuple.of(jobId))
         .flatMapMaybe(rows -> {
@@ -160,17 +145,10 @@ public class SparkJobDao {
         });
   }
 
-  /**
-   * Retrieves the latest Spark job for a given reference entity.
-   *
-   * @param jobType     type of job
-   * @param referenceId ID of the reference entity
-   * @return the latest Spark job entity if found
-   */
-  public Maybe<SparkJobEntity> getLatestJobByReference(
-      final SparkJobType jobType,
+  public Maybe<AnalyticsJobEntity> getLatestJobByReference(
+      final AnalyticsJobType jobType,
       final Long referenceId) {
-    String query = "SELECT * FROM spark_jobs WHERE job_type = ? "
+    String query = "SELECT * FROM analytics_jobs WHERE job_type = ? "
         + "AND reference_id = ? "
         + "ORDER BY created_at DESC LIMIT 1";
     return mysqlClient.getWriterPool().preparedQuery(
@@ -184,15 +162,9 @@ public class SparkJobDao {
         });
   }
 
-  /**
-   * Retrieves the latest Spark job for a given job type.
-   *
-   * @param jobType     type of job
-   * @return the latest Spark job entity if found
-   */
-  public Maybe<SparkJobEntity> getLatestJobByType(
-      final SparkJobType jobType) {
-    String query = "SELECT * FROM spark_jobs WHERE job_type = ? "
+  public Maybe<AnalyticsJobEntity> getLatestJobByType(
+      final AnalyticsJobType jobType) {
+    String query = "SELECT * FROM analytics_jobs WHERE job_type = ? "
         + "ORDER BY created_at DESC LIMIT 1";
     return mysqlClient.getWriterPool().preparedQuery(query)
         .rxExecute(Tuple.of(jobType.name()))
@@ -204,13 +176,13 @@ public class SparkJobDao {
         });
   }
 
-  private SparkJobEntity mapRowToEntity(final Row row) {
-    return SparkJobEntity.builder()
+  private AnalyticsJobEntity mapRowToEntity(final Row row) {
+    return AnalyticsJobEntity.builder()
         .id(row.getLong("id"))
-        .jobType(SparkJobType.valueOf(row.getString("job_type")))
+        .jobType(AnalyticsJobType.valueOf(row.getString("job_type")))
         .referenceId(row.getLong("reference_id"))
         .jobId(row.getString("job_id"))
-        .status(SparkJobStatus.valueOf(row.getString("status")))
+        .status(AnalyticsJobStatus.valueOf(row.getString("status")))
         .errorMessage(row.getString("error_message"))
         .startedAt(row.getLocalDateTime("started_at"))
         .completedAt(row.getLocalDateTime("completed_at"))

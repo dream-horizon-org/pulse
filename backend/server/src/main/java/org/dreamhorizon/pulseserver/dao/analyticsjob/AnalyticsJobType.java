@@ -1,14 +1,14 @@
-package org.dreamhorizon.pulseserver.dao.spark;
+package org.dreamhorizon.pulseserver.dao.analyticsjob;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Enum representing the different types of Spark jobs.
+ * Types of analytics jobs stored in {@code analytics_jobs}.
  */
 @Getter
 @RequiredArgsConstructor
-public enum SparkJobType {
+public enum AnalyticsJobType {
   /** Funnels daily batch job. */
   FUNNELS_DAILY("funnels-daily-batch"),
   /** Journeys daily batch job. */

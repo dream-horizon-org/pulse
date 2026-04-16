@@ -5,8 +5,9 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.spark.SparkJobStatus;
-import org.dreamhorizon.pulseserver.dao.spark.SparkJobType;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobDao;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobStatus;
+import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
 import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
 import org.dreamhorizon.pulseserver.service.spark.models.SparkJobRequest;
 
@@ -33,14 +34,14 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   private final SparkJobService sparkJobService;
 
   /**
-   * DAO for Spark job records.
+   * DAO for analytics job records ({@code analytics_jobs}).
    */
-  private final org.dreamhorizon.pulseserver.dao.spark.SparkJobDao sparkJobDao;
+  private final AnalyticsJobDao analyticsJobDao;
 
   @Override
   public Single<Boolean> triggerFunnelsBatch() {
     return triggerDailyBatchJob(
-        SparkJobType.FUNNELS_DAILY,
+        AnalyticsJobType.FUNNELS_DAILY,
         sparkConfig.getFunnelsMainClass()
     );
   }
@@ -48,7 +49,7 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   @Override
   public Single<Boolean> triggerJourneysBatch() {
     return triggerDailyBatchJob(
-        SparkJobType.JOURNEYS_DAILY,
+        AnalyticsJobType.JOURNEYS_DAILY,
         sparkConfig.getJourneysMainClass()
     );
   }
@@ -56,15 +57,15 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   @Override
   public Single<Boolean> triggerEventsBatch() {
     return triggerDailyBatchJob(
-        SparkJobType.EVENTS_INCREMENTAL,
+        AnalyticsJobType.EVENTS_INCREMENTAL,
         sparkConfig.getEventsMainClass()
     );
   }
 
   private Single<Boolean> triggerDailyBatchJob(
-      final SparkJobType jobType,
+      final AnalyticsJobType jobType,
       final String mainClass) {
-    return sparkJobDao.getLatestJobByType(jobType)
+    return analyticsJobDao.getLatestJobByType(jobType)
         .flatMapSingle(latestJob -> {
           java.time.LocalDate today = java.time.LocalDate.now(
               java.time.ZoneOffset.UTC);
@@ -88,8 +89,8 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   @Override
   public Single<Boolean> triggerFunnelOnSaveJob(final Long funnelId) {
     return submitSparkJob(
-        SparkJobType.FUNNEL,
-        SparkJobType.FUNNEL.getJobNamePrefix() + funnelId,
+        AnalyticsJobType.FUNNEL,
+        AnalyticsJobType.FUNNEL.getJobNamePrefix() + funnelId,
         sparkConfig.getJobJarPath(),
         sparkConfig.getFunnelsMainClass(),
         funnelId,
@@ -100,8 +101,8 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   @Override
   public Single<Boolean> triggerJourneyOnSaveJob(final Long journeyId) {
     return submitSparkJob(
-        SparkJobType.JOURNEY,
-        SparkJobType.JOURNEY.getJobNamePrefix() + journeyId,
+        AnalyticsJobType.JOURNEY,
+        AnalyticsJobType.JOURNEY.getJobNamePrefix() + journeyId,
         sparkConfig.getJobJarPath(),
         sparkConfig.getJourneysMainClass(),
         journeyId,
@@ -110,7 +111,7 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
   }
 
   private Single<Boolean> submitSparkJob(
-      final SparkJobType jobType,
+      final AnalyticsJobType jobType,
       final String jobName,
       final String entryPoint,
       final String mainClass,
@@ -119,8 +120,8 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
 
     log.info("Submitting Spark job: {}", jobName);
 
-    return sparkJobDao.insertJob(
-            jobType, referenceId, null, SparkJobStatus.PENDING)
+    return analyticsJobDao.insertJob(
+            jobType, referenceId, null, AnalyticsJobStatus.PENDING)
         .flatMap(dbId -> {
           // Append jobType and jobId to arguments
           java.util.ArrayList<String> fullArgs = new java.util.ArrayList<>(
@@ -152,14 +153,14 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
               .flatMap(response -> {
                 log.info("Successfully submitted job: {}. JobRunId: {}",
                     jobName, response.getJobRunId());
-                return sparkJobDao.updateJobIdAndStatus(
-                        dbId, response.getJobRunId(), SparkJobStatus.SUBMITTED)
+                return analyticsJobDao.updateJobIdAndStatus(
+                        dbId, response.getJobRunId(), AnalyticsJobStatus.SUBMITTED)
                     .map(updated -> true);
               })
               .onErrorResumeNext(error -> {
                 log.error("Failed to submit job: {}", jobName, error);
-                return sparkJobDao.updateJobStatus(
-                        dbId, SparkJobStatus.FAILED, error.getMessage(), null,
+                return analyticsJobDao.updateJobStatus(
+                        dbId, AnalyticsJobStatus.FAILED, error.getMessage(), null,
                         null)
                     .map(updated -> false);
               });

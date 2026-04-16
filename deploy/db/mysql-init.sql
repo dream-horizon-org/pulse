@@ -998,6 +998,26 @@ CREATE TABLE IF NOT EXISTS usage_limit_notifications (
         ON DELETE CASCADE
 );
 
+-- ============================================================================
+-- analytics_jobs (keep DDL in sync with V11__redesign_funnel_journey_spark_jobs.sql)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS analytics_jobs (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    job_type       VARCHAR(32)  NOT NULL COMMENT 'FUNNEL | JOURNEY | BULK_FUNNEL | BULK_JOURNEY | EVENT_CATALOG',
+    reference_id   BIGINT       NULL     COMMENT 'funnel.id or journey.id; NULL for bulk jobs',
+    job_id         VARCHAR(255) NULL     COMMENT 'EMR/Glue job run id',
+    status         VARCHAR(32)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING | RUNNING | SUCCEEDED | FAILED',
+    error_message  TEXT         NULL,
+    started_at     TIMESTAMP    NULL,
+    completed_at   TIMESTAMP    NULL,
+    created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_analysis_job_entity (job_type, reference_id),
+    INDEX idx_analysis_job_status (status),
+    INDEX idx_analysis_job_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Analytics job status (EMR Spark, ClickHouse compute, etc.)';
+
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';

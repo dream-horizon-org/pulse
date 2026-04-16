@@ -26,7 +26,7 @@ public class JourneyRow {
   Instant updatedAt;
   String createdBy;
   /**
-   * Latest spark_jobs.status for JOURNEY, or null if no job.
+   * Latest analytics_jobs.status for JOURNEY, or null if no job.
    */
   String latestJobStatus;
   /**

@@ -20,7 +20,7 @@ public final class JourneyQueries {
   public static final String DELETE = "DELETE FROM journey WHERE project_id = ? AND id = ?";
 
   public static final String LATEST_JOURNEY_JOB_STATUS =
-    "(SELECT sj.status FROM spark_jobs sj WHERE sj.job_type = 'JOURNEY' AND sj.reference_id = journey.id "
+    "(SELECT sj.status FROM analytics_jobs sj WHERE sj.job_type = 'JOURNEY' AND sj.reference_id = journey.id "
       + "ORDER BY sj.id DESC LIMIT 1)";
 
   public static final String SELECT_BY_ID =

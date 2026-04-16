@@ -1,5 +1,5 @@
 -- =============================================================================
--- Redesign: funnel, journey, spark_jobs tables
+-- Redesign: funnel, journey, analytics_jobs tables
 -- Replaces V9 funnel/funnel_job and V10 journey/journey_job
 -- =============================================================================
 SET FOREIGN_KEY_CHECKS = 0;
@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS journey_job;
 DROP TABLE IF EXISTS funnel;
 DROP TABLE IF EXISTS journey;
 DROP TABLE IF EXISTS spark_jobs;
+DROP TABLE IF EXISTS analytics_jobs;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -75,9 +76,9 @@ CREATE TABLE journey (
 COMMENT='Saved journey definitions for event path exploration and dashboard';
 
 -- =============================================================================
--- spark_jobs  (single table for all job types)
+-- analytics_jobs  (single table for all analytics job types)
 -- =============================================================================
-CREATE TABLE spark_jobs (
+CREATE TABLE analytics_jobs (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     job_type       VARCHAR(32)  NOT NULL COMMENT 'FUNNEL | JOURNEY | BULK_FUNNEL | BULK_JOURNEY | EVENT_CATALOG',
     reference_id   BIGINT       NULL     COMMENT 'funnel.id or journey.id; NULL for bulk jobs',
@@ -92,4 +93,4 @@ CREATE TABLE spark_jobs (
     INDEX idx_analysis_job_status (status),
     INDEX idx_analysis_job_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-COMMENT='Spark job status for all analysis types';
+COMMENT='Analytics job status (EMR Spark, ClickHouse compute, etc.)';

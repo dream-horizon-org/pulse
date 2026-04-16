@@ -1,9 +1,9 @@
-package org.dreamhorizon.pulseserver.dao.spark;
+package org.dreamhorizon.pulseserver.dao.analyticsjob;
 
 /**
- * Enum representing the status of a Spark job.
+ * Status of a row in {@code analytics_jobs} (Spark EMR, ClickHouse compute, etc.).
  */
-public enum SparkJobStatus {
+public enum AnalyticsJobStatus {
   /** Job is pending submission. */
   PENDING,
   /** Job has been submitted to EMR. */
