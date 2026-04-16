@@ -345,23 +345,25 @@ final class RcaReportProxyHandler {
         .getRootCause(projectId, interactionName, date, windowEndExclusive, forceRootCauseRefresh)
         .subscribe(
             rootCauseResult -> {
-              try {
-                JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
-                working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
+              if (rootCauseResult.getSegments() != null) {
+                try {
+                  JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
+                  working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
 
-                // Get session evidence for each segment
-                if (rootCauseResult.getSegments() != null && !rootCauseResult.getSegments().isEmpty()) {
-                  List<RootCauseSegment> segments = rootCauseResult.getSegments();
-                  LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
+                  // Get session evidence for each segment
+                  if (!rootCauseResult.getSegments().isEmpty()) {
+                    List<RootCauseSegment> segments = rootCauseResult.getSegments();
+                    LocalDate lookbackStart = date.minusDays(6);  // 7 days including today
 
-                  // Collect all sessions from all segments into a single list
-                  List<String> allSessionIds = new java.util.ArrayList<>();
-                  java.util.concurrent.atomic.AtomicInteger pendingQueries = new java.util.concurrent.atomic.AtomicInteger(segments.size());
+                    java.util.concurrent.atomic.AtomicInteger pendingQueries = 
+                        new java.util.concurrent.atomic.AtomicInteger(segments.size());
 
-                  for (RootCauseSegment segment : segments) {
-                    Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
+                    for (int i = 0; i < segments.size(); i++) {
+                      RootCauseSegment segment = segments.get(i);
+                      final int segmentIndex = i;
+                      Map<String, Double> segmentMetrics = extractSegmentMetrics(segment.getMetrics());
 
-                    sessionEvidenceService
+                      sessionEvidenceService
                         .getSessionEvidence(
                             projectId,
                             interactionName,
@@ -378,20 +380,20 @@ final class RcaReportProxyHandler {
                                         .map(s -> s.getSessionId())
                                         .collect(Collectors.toList());
 
-                                synchronized (allSessionIds) {
-                                  allSessionIds.addAll(sessionIds);
+                                // Attach sessions directly to this segment
+                                synchronized (segments) {
+                                  RootCauseSegment seg = segments.get(segmentIndex);
+                                  seg.setExampleSessionIds(sessionIds);
                                 }
 
-                                if (pendingQueries.decrementAndGet() == 0) {
-                                  // All queries complete - add sessions to payload
-                                  if (!allSessionIds.isEmpty()) {
-                                    JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
-                                    if (rcPayloadNode instanceof ObjectNode) {
-                                      ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
-                                      rcPayload.set(
-                                          "exampleSessionIds",
-                                          objectMapper.valueToTree(allSessionIds));
-                                    }
+                                int remaining = pendingQueries.decrementAndGet();
+                                
+                                if (remaining == 0) {
+                                  // All queries complete - update payload with enriched segments
+                                  JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                                  if (rcPayloadNode instanceof ObjectNode) {
+                                    ObjectNode rcPayload = (ObjectNode) rcPayloadNode;
+                                    rcPayload.set("segments", objectMapper.valueToTree(segments));
                                   }
 
                                   String enrichedBody = objectMapper.writeValueAsString(working);
@@ -400,8 +402,7 @@ final class RcaReportProxyHandler {
                                           enrichedBody, rootCauseResult, date, windowEndExclusive, true));
                                 }
                               } catch (Exception e) {
-                                log.warn("Exception in session evidence callback: {}",
-                                    e.getMessage(), e);
+                                log.error("Error processing session evidence for segment", e);
                                 if (pendingQueries.decrementAndGet() == 0) {
                                   try {
                                     String enrichedBody = objectMapper.writeValueAsString(working);
@@ -417,7 +418,7 @@ final class RcaReportProxyHandler {
                               }
                             },
                             error -> {
-                              log.warn("Session evidence error: {}", error.getMessage());
+                              log.error("Session evidence query failed for segment", error);
                               if (pendingQueries.decrementAndGet() == 0) {
                                 try {
                                   String enrichedBody = objectMapper.writeValueAsString(working);
@@ -431,15 +432,22 @@ final class RcaReportProxyHandler {
                                 }
                               }
                             });
+                    }
+                  } else {
+                    // No segments - return payload as-is
+                    String enrichedBody = objectMapper.writeValueAsString(working);
+                    future.complete(
+                        new RcaEnrichmentOutcome(
+                            enrichedBody, rootCauseResult, date, windowEndExclusive, true));
                   }
-                } else {
-                  String enrichedBody = objectMapper.writeValueAsString(working);
+                } catch (Exception e) {
+                  log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
                   future.complete(
                       new RcaEnrichmentOutcome(
-                          enrichedBody, rootCauseResult, date, windowEndExclusive, true));
+                          fallbackBody, null, date, windowEndExclusive, false));
                 }
-              } catch (Exception e) {
-                log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
+              } else {
+                log.warn("Root cause result has no segments");
                 future.complete(
                     new RcaEnrichmentOutcome(
                         fallbackBody, null, date, windowEndExclusive, false));

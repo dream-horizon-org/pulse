@@ -76,6 +76,7 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.rn_screen_interactive, 1.0, allSdks));
         features.add(createSessionReplayFeature(1.0, allSdks));
         features.add(createClickFeature(1.0, allSdks));
+        features.add(createFeature(Features.heatmap, 1.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()

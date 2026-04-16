@@ -7,4 +7,4 @@ Run a ClickHouse query against the local OTEL database.
 5. Format and display results
 6. If the query fails, explain the error and suggest corrections
 
-Useful reference tables: `otel.otel_traces`, `otel.otel_logs`, `otel.otel_metrics_gauge`, `otel.stack_trace_events`
+Useful reference tables: `otel.otel_traces`, `otel.otel_logs`, `otel.otel_metrics_gauge`, `otel.stack_trace_events`, `otel.interaction_heatmaps_daily` (heatmap DDL: `backend/ingestion/clickhouse-otel-schema.sql`)

@@ -10,6 +10,10 @@ def build_rca_prompt(ctx=None) -> str:
     The RCA agent is a pure reasoning agent — no tools needed.
     It receives structured segment data as the user message and outputs
     explainable insights with severity tags.
+    
+    IMPORTANT: The agent receives segments with exampleSessionIds pre-populated.
+    The agent should reference these sessions in its analysis so the formatter
+    can include them in the final report.
     """
     return """\
 You are the Root Cause Analysis (RCA) Agent for Pulse AI, an observability analytics assistant for mobile applications.
@@ -18,6 +22,16 @@ Your task is to analyze pre-computed segment data and identify:
 1. **Anomalies** — segments with significant performance degradation
 2. **Correlations** — relationships between metrics (e.g., high ANR rate correlating with poor APDEX)
 3. **Root causes** — segments with the most pronounced anomalies that likely explain broader issues
+
+## IMPORTANT - Session Evidence
+
+**Each segment in the input has an `exampleSessionIds` array** - these are the 2 most relevant sessions that demonstrate this segment's performance issues.
+
+When you discuss each segment, include its example sessions explicitly:
+- Instead of: "This segment shows issues..."
+- Write: "This segment (example sessions: s_1506, s_1540) shows issues..."
+
+The formatter will extract these session IDs and include them in the final report's affected_sessions field.
 
 ## Input Data Format
 
@@ -209,6 +223,22 @@ You are the RCA Structured Formatter for Pulse AI.
 
 Your only task is to convert the RCA analysis below into a structured JSON report.
 
+## Session Evidence Handling
+
+CRITICAL: The RootCausePayload in the conversation history contains segments with 
+"exampleSessionIds" arrays pre-populated by the backend.
+
+Also, the RCA analysis may include session IDs mentioned like (example sessions: s_1234, s_5678).
+
+When outputting each segment:
+1. Look for sessions mentioned in the analysis for that segment
+2. Also check the original payload for that segment's exampleSessionIds
+3. Prefer sessions from the original payload if available
+4. Put 1-2 session IDs in the affected_sessions array
+5. Use empty array if no sessions available
+
+**IMPORTANT**: Do not skip the affected_sessions field - it must always be present.
+
 ## RCA Analysis
 {analysis}
 
@@ -238,17 +268,31 @@ If no explicit summary exists, write a concise summary based on the analysis (up
 
 **recommendations**: **Must contain at least 3** short actionable strings derived from the analysis (maximum 7). If the analysis provides fewer than 3 explicit recommendations, derive additional ones from the identified root causes and metrics data.
 
-## Extracting Session IDs from Analysis
+## Extracting Session IDs from Payload
+
+**IMPORTANT**: The `exampleSessionIds` array in each segment of the RootCausePayload contains real session IDs that have been pre-selected by the backend as the most relevant examples for that segment. Use these DIRECTLY.
 
 When extracting segments from the RCA analysis:
-1. Look for session IDs mentioned in the analysis text (format: 32-character hex strings like "d39bace3959ded5a88951399f6b1d8c2")
-2. For each segment being output, extract any session IDs mentioned in that segment's discussion and add them to `affected_sessions` array
-3. Each segment should have 1-2 session IDs in the `affected_sessions` field (or empty array if none mentioned)
-4. **CRITICAL**: Every segment MUST have an `affected_sessions` field — never omit it. Use empty array [] if no sessions are mentioned for that segment.
+1. **DO NOT** try to extract session IDs from the analysis text. The RCA analyzer may mention session IDs in discussion, but these are EXAMPLES only.
+2. **INSTEAD**: For each segment in your output, find the **corresponding segment in the RootCausePayload** (by matching the title/label)
+3. **Copy the `affected_sessions` directly** from the matched payload segment's `exampleSessionIds` array
+4. If a segment appears in the analysis but doesn't have a direct match in the payload, use an empty array `[]`
+5. **CRITICAL**: Every segment MUST have an `affected_sessions` field — never omit it. Use empty array [] if the payload segment has no sessions.
+
+Algorithm:
+```
+For each segment in analysis output:
+  matched_payload_segment = find payload segment with matching label/title
+  if matched_payload_segment exists and has exampleSessionIds:
+    output_segment.affected_sessions = matched_payload_segment.exampleSessionIds
+  else:
+    output_segment.affected_sessions = []
+```
 
 Example:
-- Analysis mentions: "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 show this pattern"
-- Output: `"affected_sessions": ["d39bace3959ded5a88951399f6b1d8c2", "2283880ae7b7ddc5070c66604d31cd69"]`
+- Payload segment: `{{"label": "OsVersion: 11", "exampleSessionIds": ["s_1506", "s_1540"], ...}}`
+- Analysis mentions: "OsVersion: 11 is the most critical"
+- Output: `{{"title": "OsVersion: 11", "affected_sessions": ["s_1506", "s_1540"], ...}}`
 
 Ground metric values strictly in the original RootCausePayload JSON. Do not invent or omit metrics.
 If no anomalies were found or data is unavailable: use an empty `segments` array and an honest `executive_summary`.

@@ -15,6 +15,17 @@ import "mantine-datatable/styles.css";
 // import '@mantine/code-highlight/styles.css';
 // ...
 
+// Fix: Guard hasAttribute for non-Element nodes (text nodes, comment nodes, etc.).
+// Mantine's floating-ui click/focus handlers call .hasAttribute() on event targets
+// that may be TextNode instances (nodeType 3), which don't inherit from Element and
+// therefore don't have the method — causing "target.hasAttribute is not a function".
+// Adding a safe no-op fallback on Node.prototype prevents the crash globally.
+if (typeof Node !== "undefined" && !("hasAttribute" in Node.prototype)) {
+  (Node.prototype as unknown as Record<string, unknown>).hasAttribute = function () {
+    return false;
+  };
+}
+
 // Suppress ResizeObserver loop error - this is a known harmless error
 // that occurs with dynamic layouts and is safe to ignore
 // https://github.com/WICG/resize-observer/issues/38
