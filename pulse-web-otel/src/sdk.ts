@@ -64,8 +64,12 @@ class PulseWebSDK implements SdkContext {
     this.config = config;
 
     // Step 2: SessionProvider
-    const sessionInactivityMs = config.instrumentations?.session?.inactivityTimeoutMs;
-    this.sessionProvider = new SessionProvider(sessionInactivityMs);
+    const sessionCfg = config.instrumentations?.session;
+    this.sessionProvider = new SessionProvider(
+      sessionCfg?.inactivityTimeoutMs,
+      sessionCfg?.maxSessionLifetimeMs,
+      sessionCfg?.pageHiddenTimeoutMs,
+    );
 
     // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate
     // before any signal is emitted (global-attrs-processor may call it later).

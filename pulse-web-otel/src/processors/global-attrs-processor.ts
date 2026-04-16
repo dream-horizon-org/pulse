@@ -88,6 +88,7 @@ export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordP
 
     const attrs: Record<string, string | number | boolean> = {
       'session.id': sessionId,
+      'window.id': this.sessionProvider.getWindowId(),
       'installation.id': getOrCreateInstallationId(),
       'screen.name': screenName,
       'platform': 'web',
