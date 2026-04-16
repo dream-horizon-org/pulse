@@ -28,7 +28,7 @@ export class SessionInstrumentation implements PulseInstrumentation {
           attributes: {
             'pulse.type': 'session.end',
             'session.id': event.sessionId ?? '',
-            'session.duration_ms': event.durationMs ?? 0,
+            'session.duration_ns': event.durationNs ?? 0,
             'session.end_reason': event.reason,
           },
         });

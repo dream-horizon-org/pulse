@@ -81,6 +81,14 @@ export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordP
     return resolveScreenName(this.manualScreenName, this.config);
   }
 
+  /**
+   * Public accessor used by the metric exporter wrapper so metric data points
+   * receive the same global attributes as spans and logs.
+   */
+  getCommonAttrsForMetrics(): Record<string, string | number | boolean> {
+    return this.getCommonAttrs();
+  }
+
   private getCommonAttrs(): Record<string, string | number | boolean> {
     const sessionId = this.sessionProvider.getSessionId();
     const screenName = this.getCurrentScreenName();

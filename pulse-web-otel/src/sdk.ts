@@ -123,6 +123,8 @@ class PulseWebSDK implements SdkContext {
       format: config.export?.format,
       compression: config.export?.compression,
       batchOptions: config.export?.batch,
+      // Inject the same global attributes into metric data points at export time.
+      getMetricGlobalAttrs: () => this.globalAttrsProcessor.getCommonAttrsForMetrics(),
     };
 
     const bundle = createProviders(exporterConfig, resource, spanProcessors, logProcessors);

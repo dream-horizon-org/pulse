@@ -201,6 +201,41 @@ test.describe('@M3 web vitals', () => {
     }
   });
 
+  test('metric data points include global attributes (session.id, installation.id, screen.name, platform)', async ({ page, otlp }) => {
+    await page.goto('/products');
+    await otlp.waitForLog('session.start');
+
+    // window.PulseWeb is exposed by App.tsx for E2E use.
+    // We access the private meterProvider at JS runtime (TypeScript privacy is compile-time only),
+    // record a counter, then forceFlush() inside the evaluate so the HTTP request to /v1/metrics
+    // is made and intercepted by Playwright before the evaluate Promise resolves.
+    await page.evaluate(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sdk = (window as any)['PulseWeb'];
+      if (!sdk) { console.error('[test] PulseWeb not found on window'); return; }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mp = (sdk as any).meterProvider;
+      if (!mp) { console.error('[test] meterProvider not found on PulseWeb'); return; }
+
+      const meter = mp.getMeter('pulse-test');
+      const counter = meter.createCounter('test_global_attrs');
+      counter.add(1, { 'test.marker': 'global_attrs_check' });
+
+      // Flush immediately — the awaited forceFlush ensures the /v1/metrics
+      // HTTP request is sent (and intercepted by the route handler) before
+      // this evaluate() Promise resolves back to the test runner.
+      await mp.forceFlush();
+    });
+
+    const dp = await otlp.waitForMetric('test_global_attrs', 8_000);
+    // GlobalAttributeInjectingMetricExporter must have injected these on every data point
+    expect(getAttr(dp.attributes, 'session.id')).toBeTruthy();
+    expect(getAttr(dp.attributes, 'installation.id')).toBeTruthy();
+    expect(getAttr(dp.attributes, 'screen.name')).toBeTruthy();
+    expect(getAttr(dp.attributes, 'platform')).toBe('web');
+  });
+
   test.skip('INP metric emitted after user interaction', async ({ page, otlp }) => {
     // INP requires user input; tested manually or in M4 real-browser run
     await page.goto('/products');
