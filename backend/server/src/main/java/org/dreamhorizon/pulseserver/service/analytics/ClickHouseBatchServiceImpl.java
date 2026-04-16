@@ -2,10 +2,13 @@ package org.dreamhorizon.pulseserver.service.analytics;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,9 +31,9 @@ import org.dreamhorizon.pulseserver.dao.analyticsjob.AnalyticsJobType;
  * {@link io.reactivex.rxjava3.schedulers.Schedulers#io()}, and returns {@code true} immediately.
  * When compute finishes, status is updated to {@code SUCCEEDED} or {@code FAILED} in the background.
  *
- * <p>Batch cron path ({@code triggerFunnelsBatch}/{@code triggerJourneysBatch}): groups AUTO
- * definitions by project and issues one query per project using
- * {@link ClickHouseComputeService}. No {@code analytics_jobs} tracking on the batch path.
+ * <p>Batch cron path: one {@code analytics_jobs} row per daily run ({@code FUNNELS_DAILY} /
+ * {@code JOURNEYS_DAILY}). Compute may run one query per project, or batch multiple projects in a
+ * single query when configured; that grouping is not stored in MySQL.
  */
 @Slf4j
 @Singleton
@@ -111,40 +114,134 @@ public class ClickHouseBatchServiceImpl implements AnalyticsBatchService {
 
   @Override
   public Single<Boolean> triggerFunnelsBatch() {
-    int concurrency = Math.max(1, analyticsEngineConfig.getBatchProjectConcurrency());
     return funnelDefinitionDao.listAllAuto()
-        .flatMapObservable(all -> {
-          Map<String, List<FunnelDefinitionRow>> byProject = all.stream()
-              .collect(Collectors.groupingBy(FunnelDefinitionRow::getProjectId));
-          return Observable.fromIterable(byProject.entrySet());
-        })
-        .flatMap(
-            e -> computeService.computeFunnelBatch(e.getKey(), e.getValue())
-                .doOnError(err -> log.error(
-                    "Batch funnel compute failed for project={}", e.getKey(), err))
-                .onErrorReturnItem(false)
-                .toObservable(),
-            concurrency)
-        .all(b -> b);
+        .flatMap(all -> {
+          if (all.isEmpty()) {
+            return Single.just(true);
+          }
+          return shouldSkipDailyBatch(AnalyticsJobType.FUNNELS_DAILY)
+              .flatMap(skip -> {
+                if (skip) {
+                  return Single.just(false);
+                }
+                LocalDateTime startedAt = LocalDateTime.now();
+                return analyticsJobDao.insertJob(
+                        AnalyticsJobType.FUNNELS_DAILY, null, null, AnalyticsJobStatus.RUNNING)
+                    .flatMap(dbId -> {
+                      runFunnelsBatchAsync(dbId, all, startedAt);
+                      return Single.just(true);
+                    });
+              });
+        });
   }
 
   @Override
   public Single<Boolean> triggerJourneysBatch() {
-    int concurrency = Math.max(1, analyticsEngineConfig.getBatchProjectConcurrency());
     return journeyDao.listAllAuto()
-        .flatMapObservable(all -> {
-          Map<String, List<JourneyRow>> byProject = all.stream()
-              .collect(Collectors.groupingBy(JourneyRow::getProjectId));
-          return Observable.fromIterable(byProject.entrySet());
-        })
+        .flatMap(all -> {
+          if (all.isEmpty()) {
+            return Single.just(true);
+          }
+          return shouldSkipDailyBatch(AnalyticsJobType.JOURNEYS_DAILY)
+              .flatMap(skip -> {
+                if (skip) {
+                  return Single.just(false);
+                }
+                LocalDateTime startedAt = LocalDateTime.now();
+                return analyticsJobDao.insertJob(
+                        AnalyticsJobType.JOURNEYS_DAILY, null, null, AnalyticsJobStatus.RUNNING)
+                    .flatMap(dbId -> {
+                      runJourneysBatchAsync(dbId, all, startedAt);
+                      return Single.just(true);
+                    });
+              });
+        });
+  }
+
+  private Single<Boolean> shouldSkipDailyBatch(AnalyticsJobType jobType) {
+    return analyticsJobDao.getLatestJobByType(jobType)
+        .map(
+            latest -> {
+              LocalDate today = LocalDate.now(ZoneOffset.UTC);
+              LocalDate latestDate = latest.getCreatedAt().toLocalDate();
+              if (latestDate.isEqual(today)) {
+                log.info(
+                    "Batch job {} already ran today (job id={}). Skipping.",
+                    jobType,
+                    latest.getId());
+                return true;
+              }
+              return false;
+            })
+        .switchIfEmpty(Maybe.just(false))
+        .toSingle();
+  }
+
+  private void runFunnelsBatchAsync(
+      long dbId, List<FunnelDefinitionRow> all, LocalDateTime startedAt) {
+    int concurrency = Math.max(1, analyticsEngineConfig.getBatchProjectConcurrency());
+    Map<String, List<FunnelDefinitionRow>> byProject =
+        all.stream().collect(Collectors.groupingBy(FunnelDefinitionRow::getProjectId));
+    Observable.fromIterable(byProject.entrySet())
         .flatMap(
-            e -> computeService.computeJourneyBatch(e.getKey(), e.getValue())
-                .doOnError(err -> log.error(
-                    "Batch journey compute failed for project={}", e.getKey(), err))
-                .onErrorReturnItem(false)
-                .toObservable(),
+            e ->
+                computeService
+                    .computeFunnelBatch(e.getKey(), e.getValue())
+                    .doOnError(
+                        err ->
+                            log.error(
+                                "Batch funnel compute failed for project={}", e.getKey(), err))
+                    .onErrorReturnItem(false)
+                    .toObservable(),
             concurrency)
-        .all(b -> b);
+        .toList()
+        .flatMap(
+            results -> {
+              boolean allOk = results.stream().allMatch(Boolean::booleanValue);
+              return analyticsJobDao.updateJobStatus(
+                  dbId,
+                  allOk ? AnalyticsJobStatus.SUCCEEDED : AnalyticsJobStatus.FAILED,
+                  allOk ? null : "One or more project batches failed",
+                  startedAt,
+                  LocalDateTime.now());
+            })
+        .subscribeOn(Schedulers.io())
+        .subscribe(
+            unused -> { },
+            err -> log.error("Failed to finalize FUNNELS_DAILY job id={}", dbId, err));
+  }
+
+  private void runJourneysBatchAsync(long dbId, List<JourneyRow> all, LocalDateTime startedAt) {
+    int concurrency = Math.max(1, analyticsEngineConfig.getBatchProjectConcurrency());
+    Map<String, List<JourneyRow>> byProject =
+        all.stream().collect(Collectors.groupingBy(JourneyRow::getProjectId));
+    Observable.fromIterable(byProject.entrySet())
+        .flatMap(
+            e ->
+                computeService
+                    .computeJourneyBatch(e.getKey(), e.getValue())
+                    .doOnError(
+                        err ->
+                            log.error(
+                                "Batch journey compute failed for project={}", e.getKey(), err))
+                    .onErrorReturnItem(false)
+                    .toObservable(),
+            concurrency)
+        .toList()
+        .flatMap(
+            results -> {
+              boolean allOk = results.stream().allMatch(Boolean::booleanValue);
+              return analyticsJobDao.updateJobStatus(
+                  dbId,
+                  allOk ? AnalyticsJobStatus.SUCCEEDED : AnalyticsJobStatus.FAILED,
+                  allOk ? null : "One or more project batches failed",
+                  startedAt,
+                  LocalDateTime.now());
+            })
+        .subscribeOn(Schedulers.io())
+        .subscribe(
+            unused -> { },
+            err -> log.error("Failed to finalize JOURNEYS_DAILY job id={}", dbId, err));
   }
 
   @Override
