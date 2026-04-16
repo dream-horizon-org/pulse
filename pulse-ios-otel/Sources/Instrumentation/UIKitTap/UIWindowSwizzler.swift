@@ -21,7 +21,7 @@ internal class UIWindowSwizzler {
     private static var emitter: ClickEventEmitter?
     private static var appLifecycleObserver: NSObjectProtocol?
 
-    // Label extraction constants 
+    // Label extraction constants
     private static let maxLabelSegments = 5
     private static let maxLabelLength = 200
     private static let labelDelimiter = " | "
@@ -30,7 +30,7 @@ internal class UIWindowSwizzler {
     // Scroll vs tap detection: if a touch moves more than this many points from
     // its start position, it is treated as a scroll/pan and NOT reported as a tap.
     private static let tapSlopDistance: CGFloat = 10
-    
+
     /// One line per view while walking superviews: `isClickTarget` result (grep Xcode console for `Pulse/UIKitTap`).
     private static func logIsClickTarget(depth: Int, view: UIView, result: Bool) {
         let cls = NSStringFromClass(type(of: view))
