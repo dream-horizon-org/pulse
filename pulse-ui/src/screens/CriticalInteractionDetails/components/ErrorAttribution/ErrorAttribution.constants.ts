@@ -10,7 +10,13 @@ export const ERROR_ATTRIBUTION_MESSAGES = {
   DRILL_DOWN_EMPTY:
     "No issues met the minimum session thresholds in this window, or none ranked in the top list.",
   DRILL_DOWN_SESSIONS: "Sessions in U",
+  ISSUE_BEFORE_POOR_FOOTNOTE:
+    "Poor rate (with issue) counts only when that issue occurred before the interaction was classified Poor.",
 } as const;
+
+/** REST `temporalRule` when issue-before-Poor ordering is enabled. */
+export const TEMPORAL_RULE_ISSUE_BEFORE_POOR =
+  "issue_ts_before_poor_interaction_ts" as const;
 
 /** Default gate when API omits threshold (legacy cached payloads). */
 export const DEFAULT_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION = 1000;

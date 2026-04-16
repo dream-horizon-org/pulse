@@ -15,27 +15,51 @@ class ErrorAttributionDrillDownQueryBuilderTest {
   private static final Instant START = Instant.parse("2026-04-01T00:00:00Z");
   private static final Instant END = Instant.parse("2026-04-08T12:00:00Z");
 
-  private static final DrillDownQueryParams PARAMS =
+  private static final DrillDownQueryParams PARAMS_OFF =
       new DrillDownQueryParams(
           RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION,
           RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION,
-          ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_LIMIT);
+          ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_LIMIT,
+          false);
+
+  private static final DrillDownQueryParams PARAMS_TEMPORAL_ON =
+      new DrillDownQueryParams(
+          RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION,
+          RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION,
+          ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_LIMIT,
+          true);
 
   @Test
   void crashUsesModeAStackSessionsAndKeyStats() {
     RootCauseQuerySpec spec =
         ErrorAttributionDrillDownQueryBuilder.build(
-            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.crash, PARAMS);
+            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.crash, PARAMS_OFF);
     String sql = spec.sql();
     assertThat(sql).contains("stack_sessions AS");
     assertThat(sql).contains("key_stats AS");
     assertThat(sql).contains("universe AS");
     assertThat(sql).contains("poor_tot AS");
+    assertThat(sql).contains(" AS poor_ts ");
     assertThat(sql).doesNotContain("eligible_stack_groups");
     assertThat(sql).doesNotContain("poor_sessions AS");
     assertThat(sql).contains("SELECT SessionId, GroupId, Title FROM ");
     assertThat(sql).contains("PulseType = 'device.crash'");
     assertThat(sql).contains("LIMIT toInt64(:");
+    assertThat(sql).doesNotContain("first_issue_ts < ta.poor_ts");
+    assertSharedBinds(spec);
+  }
+
+  @Test
+  void crashWhenIssueMustPrecedePoor_includesFirstIssueTsAndPoorWindowGuard() {
+    RootCauseQuerySpec spec =
+        ErrorAttributionDrillDownQueryBuilder.build(
+            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.crash, PARAMS_TEMPORAL_ON);
+    String sql = spec.sql();
+    assertThat(sql).contains("min(Timestamp) AS first_issue_ts");
+    assertThat(sql).contains("first_issue_ts < ta.poor_ts");
+    assertThat(sql).contains("ta.poor_ts >= toDateTime64(:");
+    assertThat(sql).contains("ta.poor_ts < toDateTime64(:");
+    assertThat(sql).doesNotContain("poor_ts IS NOT NULL");
     assertSharedBinds(spec);
   }
 
@@ -43,7 +67,7 @@ class ErrorAttributionDrillDownQueryBuilderTest {
   void nonFatalUsesTripleInStackSessions() {
     RootCauseQuerySpec spec =
         ErrorAttributionDrillDownQueryBuilder.build(
-            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.non_fatal, PARAMS);
+            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.non_fatal, PARAMS_OFF);
     String sql = spec.sql();
     assertThat(sql).contains("SELECT SessionId, GroupId, Title, ExceptionType FROM ");
     assertThat(sql).contains("PulseType = 'non_fatal'");
@@ -54,12 +78,24 @@ class ErrorAttributionDrillDownQueryBuilderTest {
   void apiUsesNetworkSessionsAndOtelTableOnly() {
     RootCauseQuerySpec spec =
         ErrorAttributionDrillDownQueryBuilder.build(
-            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.api, PARAMS);
+            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.api, PARAMS_OFF);
     String sql = spec.sql();
     assertThat(sql).contains("network_sessions AS");
     assertThat(sql).contains("SpanAttributes['http.url']");
     assertThat(sql).contains(ClickhouseConstants.OTEL_TRACES_TABLE);
     assertThat(sql).doesNotContain(ClickhouseConstants.STACK_TRACE_EVENTS_TABLE);
+    assertThat(sql).contains(" AS poor_ts ");
+    assertSharedBinds(spec);
+  }
+
+  @Test
+  void apiWhenIssueMustPrecedePoor_joinsTraceAggTimestampsForNTreatedLow() {
+    RootCauseQuerySpec spec =
+        ErrorAttributionDrillDownQueryBuilder.build(
+            "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.api, PARAMS_TEMPORAL_ON);
+    String sql = spec.sql();
+    assertThat(sql).contains("first_endpoint_error_ts < ta.poor_ts");
+    assertThat(sql).contains("min(Timestamp) AS first_endpoint_error_ts");
     assertSharedBinds(spec);
   }
 

@@ -21,6 +21,7 @@ class RootCauseConfigTest {
     assertThat(config.getMinControlSessionsForIssueAttribution())
         .isEqualTo(RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION);
     assertThat(config.getIssueDrillDownLimit()).isEqualTo(RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT);
+    assertThat(config.getIssueMustPrecedePoor()).isTrue();
     assertThat(config.getDimensionOrder()).contains("Platform");
   }
 

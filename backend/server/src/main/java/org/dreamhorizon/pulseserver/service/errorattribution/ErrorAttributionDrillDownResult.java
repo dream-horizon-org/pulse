@@ -16,9 +16,16 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorAttributionDrillDownResult {
 
+  public static final String TEMPORAL_RULE_ISSUE_BEFORE_POOR = "issue_ts_before_poor_interaction_ts";
+
   private String signal;
   /** API contract: how rows were filtered (Poor-touch eligibility + U counts). */
   private String eligibility;
+  /**
+   * When set to {@value #TEMPORAL_RULE_ISSUE_BEFORE_POOR}, issue timestamps must precede earliest
+   * Poor interaction in window for {@code n_treated_low}. Omitted / {@code null} when off.
+   */
+  private String temporalRule;
   private List<IssueRow> issues;
   private List<NetworkEndpointRow> networkEndpoints;
 

@@ -35,6 +35,14 @@ public class RootCauseConfig {
   public static final int DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION = 0;
   /** Default cap on drill-down rows per signal (Mode A ranking). */
   public static final int DEFAULT_ISSUE_DRILL_DOWN_LIMIT = 5;
+  /**
+   * When {@code true}, issue drill-down counts a session toward {@code n_treated_low} only if the
+   * first issue (or first network error for {@code api}) occurs strictly before the earliest Poor
+   * interaction span in the analysis window. Use {@link Boolean} wrapper so JSON can explicitly set
+   * {@code false}; omitted / {@code null} in {@link #withDefaults(RootCauseConfig)} uses {@link
+   * #DEFAULT_ISSUE_MUST_PRECEDE_POOR}.
+   */
+  public static final boolean DEFAULT_ISSUE_MUST_PRECEDE_POOR = true;
   /** Default dimension order for tie-breaking and flat segments. */
   public static final List<String> DEFAULT_DIMENSION_ORDER = List.of(
       "Platform", "OsVersion", "AppVersion", "DeviceModel", "NetworkProvider", "GeoState");
@@ -49,6 +57,12 @@ public class RootCauseConfig {
   private int minControlSessionsForIssueAttribution;
   /** Issue / endpoint drill-down: max rows per signal after ranking. */
   private int issueDrillDownLimit;
+  /**
+   * Drill-down temporal guard (Variant A): {@code null} in raw config → {@link
+   * #DEFAULT_ISSUE_MUST_PRECEDE_POOR} after {@link #withDefaults(RootCauseConfig)}; explicit {@code
+   * false} disables; {@code true} enables.
+   */
+  private Boolean issueMustPrecedePoor;
   private List<String> dimensionOrder;
 
   /**
@@ -68,6 +82,7 @@ public class RootCauseConfig {
           .minTreatedSessionsForIssueAttribution(DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION)
           .minControlSessionsForIssueAttribution(DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION)
           .issueDrillDownLimit(DEFAULT_ISSUE_DRILL_DOWN_LIMIT)
+          .issueMustPrecedePoor(DEFAULT_ISSUE_MUST_PRECEDE_POOR)
           .dimensionOrder(DEFAULT_DIMENSION_ORDER)
           .build();
     }
@@ -95,6 +110,10 @@ public class RootCauseConfig {
             : from.minControlSessionsForIssueAttribution;
     final int issueDrillDownLimit =
         from.issueDrillDownLimit <= 0 ? DEFAULT_ISSUE_DRILL_DOWN_LIMIT : from.issueDrillDownLimit;
+    final boolean issueMustPrecedePoor =
+        from.getIssueMustPrecedePoor() == null
+            ? DEFAULT_ISSUE_MUST_PRECEDE_POOR
+            : Boolean.TRUE.equals(from.getIssueMustPrecedePoor());
     final List<String> dimensionOrder = (from.dimensionOrder == null || from.dimensionOrder.isEmpty())
         ? DEFAULT_DIMENSION_ORDER
         : from.dimensionOrder;
@@ -107,6 +126,7 @@ public class RootCauseConfig {
         .minTreatedSessionsForIssueAttribution(minTreatedSessionsForIssueAttribution)
         .minControlSessionsForIssueAttribution(minControlSessionsForIssueAttribution)
         .issueDrillDownLimit(issueDrillDownLimit)
+        .issueMustPrecedePoor(issueMustPrecedePoor)
         .dimensionOrder(dimensionOrder)
         .build();
   }

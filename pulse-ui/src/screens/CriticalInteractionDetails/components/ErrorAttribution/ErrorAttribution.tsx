@@ -27,6 +27,7 @@ import {
   EN_DASH,
   ERROR_ATTRIBUTION_MESSAGES,
   insufficientPoorSessionsMessage,
+  TEMPORAL_RULE_ISSUE_BEFORE_POOR,
 } from "./ErrorAttribution.constants";
 import type { ErrorAttributionProps } from "./ErrorAttribution.interface";
 import classes from "./ErrorAttribution.module.css";
@@ -211,6 +212,14 @@ export function ErrorAttribution({
   const httpOk = apiResponse?.status === 200 && apiResponse.data != null;
   const body = httpOk ? apiResponse.data : null;
 
+  const showIssueBeforePoorFootnote = useMemo(() => {
+    const d = body?.drillDown;
+    if (d == null) return false;
+    return ALL_DRILL_SIGNALS.some(
+      (s) => d[s]?.temporalRule === TEMPORAL_RULE_ISSUE_BEFORE_POOR,
+    );
+  }, [body]);
+
   const showLoading = (isLoading || isFetching) && !httpOk;
 
   const disclaimerBlock =
@@ -374,6 +383,12 @@ export function ErrorAttribution({
           </Box>
         ))}
       </Stack>
+
+      {showIssueBeforePoorFootnote ? (
+        <Text className={classes.disclaimer} size="sm" mt="md">
+          {ERROR_ATTRIBUTION_MESSAGES.ISSUE_BEFORE_POOR_FOOTNOTE}
+        </Text>
+      ) : null}
 
       {disclaimerBlock}
     </Box>

@@ -44,11 +44,18 @@ public class ErrorAttributionDrillDownService {
     return clickhouseQueryService
         .executeRootCauseQuery(projectId, spec.sql(), spec.bindNames(), spec.bindValues())
         .map(this::rowsToMaps)
-        .map(rows -> mapResult(signal, rows));
+        .map(rows -> mapResult(signal, rows, params));
+  }
+
+  /** {@code null} when temporal ordering is off (omitted on REST). */
+  private static String temporalRuleFor(DrillDownQueryParams params) {
+    return params.issueMustPrecedePoor()
+        ? ErrorAttributionDrillDownResult.TEMPORAL_RULE_ISSUE_BEFORE_POOR
+        : null;
   }
 
   private ErrorAttributionDrillDownResult mapResult(
-      ErrorAttributionDrillDownSignal signal, List<Map<String, Object>> rows) {
+      ErrorAttributionDrillDownSignal signal, List<Map<String, Object>> rows, DrillDownQueryParams params) {
     if (signal == ErrorAttributionDrillDownSignal.api) {
       List<NetworkEndpointRow> endpoints = new ArrayList<>();
       for (Map<String, Object> raw : rows) {
@@ -80,6 +87,7 @@ public class ErrorAttributionDrillDownService {
       return ErrorAttributionDrillDownResult.builder()
           .signal(signal.name())
           .eligibility(ELIGIBILITY_MODE_A_FULL_U)
+          .temporalRule(temporalRuleFor(params))
           .issues(null)
           .networkEndpoints(endpoints)
           .build();
@@ -117,6 +125,7 @@ public class ErrorAttributionDrillDownService {
     return ErrorAttributionDrillDownResult.builder()
         .signal(signal.name())
         .eligibility(ELIGIBILITY_MODE_A_FULL_U)
+        .temporalRule(temporalRuleFor(params))
         .issues(issues)
         .networkEndpoints(null)
         .build();

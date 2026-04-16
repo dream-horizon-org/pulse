@@ -18,6 +18,8 @@ public class ErrorAttributionDrillDownRestResponse {
 
   private String signal;
   private String eligibility;
+  /** {@code none} or {@code issue_ts_before_poor_interaction_ts} when temporal ordering applies. */
+  private String temporalRule;
   private List<IssueEntry> issues;
   private List<NetworkEndpointEntry> networkEndpoints;
 

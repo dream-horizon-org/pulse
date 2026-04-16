@@ -18,14 +18,16 @@ public final class ErrorAttributionDrillDownQueryBuilder {
   /** Kept for tests and alignment with {@link RootCauseConfig#DEFAULT_ISSUE_DRILL_DOWN_LIMIT}. */
   static final int DRILL_DOWN_LIMIT = RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT;
 
-  public record DrillDownQueryParams(int minTreatedSessions, int minControlSessions, int rowLimit) {
+  public record DrillDownQueryParams(
+      int minTreatedSessions, int minControlSessions, int rowLimit, boolean issueMustPrecedePoor) {
 
     public static DrillDownQueryParams fromRootCauseConfig(RootCauseConfig rootCauseConfig) {
       RootCauseConfig c = RootCauseConfig.withDefaults(rootCauseConfig);
       return new DrillDownQueryParams(
           c.getMinTreatedSessionsForIssueAttribution(),
           c.getMinControlSessionsForIssueAttribution(),
-          c.getIssueDrillDownLimit());
+          c.getIssueDrillDownLimit(),
+          Boolean.TRUE.equals(c.getIssueMustPrecedePoor()));
     }
   }
 
@@ -108,7 +110,12 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + "'"
             + " AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS is_low "
+            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS is_low, "
+            + "minIf(Timestamp, PulseType = '"
+            + interactionType
+            + "' AND SpanName = :"
+            + p1
+            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_ts "
             + "FROM "
             + traces
             + " WHERE ProjectId = :"
@@ -127,11 +134,24 @@ public final class ErrorAttributionDrillDownQueryBuilder {
 
     String stackSessionsSelect =
         tripleKey
-            ? "SELECT SessionId, GroupId, Title, ExceptionType FROM "
-            : "SELECT SessionId, GroupId, Title FROM ";
+            ? (params.issueMustPrecedePoor()
+                ? "SELECT SessionId, GroupId, Title, ExceptionType, min(Timestamp) AS first_issue_ts FROM "
+                : "SELECT SessionId, GroupId, Title, ExceptionType FROM ")
+            : (params.issueMustPrecedePoor()
+                ? "SELECT SessionId, GroupId, Title, min(Timestamp) AS first_issue_ts FROM "
+                : "SELECT SessionId, GroupId, Title FROM ");
 
     String stackSessionsGroupBy =
         tripleKey ? "GROUP BY SessionId, GroupId, Title, ExceptionType " : "GROUP BY SessionId, GroupId, Title ";
+
+    String nTreatedLowAgg =
+        params.issueMustPrecedePoor()
+            ? ("uniqCombined64If(ss.SessionId, ta.is_low = 1 AND ta.poor_ts >= toDateTime64(:"
+                + p2
+                + ", 9, 'UTC') AND ta.poor_ts < toDateTime64(:"
+                + p3
+                + ", 9, 'UTC') AND ss.first_issue_ts < ta.poor_ts) AS n_treated_low ")
+            : "uniqCombined64If(ss.SessionId, ta.is_low = 1) AS n_treated_low ";
 
     String keyStatsGroupBy =
         tripleKey ? "GROUP BY ss.GroupId, ss.Title, ss.ExceptionType " : "GROUP BY ss.GroupId, ss.Title ";
@@ -181,7 +201,7 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + "SELECT "
             + selectDims
             + "uniqCombined64(ss.SessionId) AS n_treated, "
-            + "uniqCombined64If(ss.SessionId, ta.is_low = 1) AS n_treated_low "
+            + nTreatedLowAgg
             + "FROM stack_sessions ss "
             + "INNER JOIN trace_agg ta ON ss.SessionId = ta.SessionId "
             + keyStatsGroupBy
@@ -288,7 +308,12 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + "'"
             + " AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS is_low "
+            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS is_low, "
+            + "minIf(Timestamp, PulseType = '"
+            + interactionType
+            + "' AND SpanName = :"
+            + p1
+            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_ts "
             + "FROM "
             + traces
             + " WHERE ProjectId = :"
@@ -311,7 +336,8 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + gqlNameExpr
             + " AS drill_gql_name, "
             + gqlTypeExpr
-            + " AS drill_gql_type "
+            + " AS drill_gql_type"
+            + (params.issueMustPrecedePoor() ? ", min(Timestamp) AS first_endpoint_error_ts " : " ")
             + "FROM "
             + traces
             + " WHERE ProjectId = :"
@@ -333,7 +359,13 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + "ns.drill_gql_name AS graphql_operation_name, "
             + "ns.drill_gql_type AS graphql_operation_type, "
             + "uniqCombined64(ns.SessionId) AS n_treated, "
-            + "uniqCombined64If(ns.SessionId, ta.is_low = 1) AS n_treated_low "
+            + (params.issueMustPrecedePoor()
+                ? ("uniqCombined64If(ns.SessionId, ta.is_low = 1 AND ta.poor_ts >= toDateTime64(:"
+                    + p2
+                    + ", 9, 'UTC') AND ta.poor_ts < toDateTime64(:"
+                    + p3
+                    + ", 9, 'UTC') AND ns.first_endpoint_error_ts < ta.poor_ts) AS n_treated_low ")
+                : "uniqCombined64If(ns.SessionId, ta.is_low = 1) AS n_treated_low ")
             + "FROM network_sessions ns "
             + "INNER JOIN trace_agg ta ON ns.SessionId = ta.SessionId "
             + "GROUP BY ns.drill_url, ns.drill_gql_name, ns.drill_gql_type "

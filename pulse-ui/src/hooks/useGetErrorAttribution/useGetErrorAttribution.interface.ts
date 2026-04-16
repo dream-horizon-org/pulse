@@ -52,9 +52,16 @@ export interface ErrorAttributionDrillDownNetworkEndpoint {
   rrUndefinedReason?: ErrorAttributionRrUndefinedReason | null;
 }
 
+export type ErrorAttributionDrillDownTemporalRule =
+  | "none"
+  | "issue_ts_before_poor_interaction_ts"
+  | string;
+
 export interface ErrorAttributionDrillDownPayload {
   signal?: string;
   eligibility?: string | null;
+  /** When set, UI may show temporal-ordering footnote for drill-down rows. */
+  temporalRule?: ErrorAttributionDrillDownTemporalRule | null;
   issues?: ErrorAttributionDrillDownIssue[] | null;
   networkEndpoints?: ErrorAttributionDrillDownNetworkEndpoint[] | null;
 }

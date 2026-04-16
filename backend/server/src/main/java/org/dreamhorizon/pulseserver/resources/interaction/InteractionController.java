@@ -449,6 +449,7 @@ public class InteractionController {
     return ErrorAttributionDrillDownRestResponse.builder()
         .signal(result.getSignal())
         .eligibility(result.getEligibility())
+        .temporalRule(result.getTemporalRule())
         .issues(issues)
         .networkEndpoints(nets)
         .build();

@@ -318,7 +318,11 @@ public class MainVerticle extends AbstractVerticle {
             rootCauseInt(
                 rootCauseJson,
                 "issueDrillDownLimit",
-                RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT));
+                RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT))
+        .issueMustPrecedePoor(
+            rootCauseJson.containsKey("issueMustPrecedePoor")
+                ? rootCauseJson.getBoolean("issueMustPrecedePoor")
+                : null);
 
     final Object dimensionOrderValue = rootCauseJson.getValue("dimensionOrder");
     final boolean hasCustomDimensionOrder = dimensionOrderValue != null;
