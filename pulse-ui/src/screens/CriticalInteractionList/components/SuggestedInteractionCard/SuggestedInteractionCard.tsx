@@ -1,4 +1,5 @@
-import { Button, Text } from "@mantine/core";
+import { Button, Text, Tooltip } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { SuggestedInteraction } from "../../../../hooks/useGetSuggestedInteractions/useGetSuggestedInteractions.interface";
 import classes from "./SuggestedInteractionCard.module.css";
 
@@ -21,16 +22,23 @@ const formatCount = (n: number): string => {
   return n.toString();
 };
 
+const generateDescription = (s: SuggestedInteraction): string => {
+  const pattern = s.events.map((e) => e.name).join(" -> ");
+  return `Auto-created from suggested interaction. Pattern: ${pattern}. Based on ${s.uniqueSessions} sessions (${s.sessionPct.toFixed(1)}% of traffic).`;
+};
+
+const toPascalWord = (name: string): string =>
+  name
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join("");
+
 const toPascalCaseName = (eventNames: string[]): string => {
-  return eventNames
-    .map((name) =>
-      name
-        .split(/[^a-zA-Z0-9]+/)
-        .filter(Boolean)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(""),
-    )
-    .join("To");
+  if (eventNames.length <= 2) {
+    return eventNames.map(toPascalWord).join("To");
+  }
+  return `${toPascalWord(eventNames[0])}To${toPascalWord(eventNames[eventNames.length - 1])}`;
 };
 
 export function SuggestedInteractionCard({
@@ -49,6 +57,9 @@ export function SuggestedInteractionCard({
         <div className={classes.cardInfo}>
           <Text className={classes.patternName} title={pascalName}>
             {pascalName}
+          </Text>
+          <Text className={classes.descriptionText}>
+            {generateDescription(suggestion)}
           </Text>
           <div className={classes.patternFlow}>
             {eventNames.map((event, idx) => (
@@ -89,7 +100,19 @@ export function SuggestedInteractionCard({
           </Text>
         </div>
         <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Consistency</Text>
+          <div className={classes.metricLabelWithInfo}>
+            <Text className={classes.metricLabel}>Consistency</Text>
+            <Tooltip
+              label="How predictable the timing is across sessions. 100% = everyone takes the same time; lower = high variance between users."
+              withArrow
+              multiline
+              styles={{ tooltip: { maxWidth: 240 } }}
+            >
+              <span className={classes.infoIcon}>
+                <IconInfoCircle size={12} stroke={1.5} />
+              </span>
+            </Tooltip>
+          </div>
           <Text className={classes.metricValue}>
             {Math.max(0, (1 - suggestion.cv) * 100).toFixed(0)}%
           </Text>

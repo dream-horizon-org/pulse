@@ -49,7 +49,7 @@ describe("SuggestedInteractionCard", () => {
       ).toBeInTheDocument();
     });
 
-    it("renders PascalCase name with To between three events", () => {
+    it("renders PascalCase name using only first and last event when more than 2 events", () => {
       renderWithProviders(
         <SuggestedInteractionCard
           {...defaultProps}
@@ -57,7 +57,7 @@ describe("SuggestedInteractionCard", () => {
         />,
       );
       expect(
-        screen.getByTitle("AddToCartToGoShoppingToCheckoutCompleted"),
+        screen.getByTitle("AddToCartToCheckoutCompleted"),
       ).toBeInTheDocument();
     });
 
@@ -192,6 +192,56 @@ describe("SuggestedInteractionCard", () => {
       userEvent.click(screen.getByText("Track this"));
       expect(onActivate).toHaveBeenCalledWith(mockSuggestion);
       expect(onActivate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("description", () => {
+    it("renders auto-generated description matching activation format", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(
+        screen.getByText(
+          "Auto-created from suggested interaction. Pattern: Go shopping -> Telescope selected. Based on 6120 sessions (72.5% of traffic).",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("renders description with correct event names for three-event suggestion", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionThreeEvents}
+        />,
+      );
+      expect(
+        screen.getByText(
+          "Auto-created from suggested interaction. Pattern: Add to cart -> Go shopping -> Checkout completed. Based on 6120 sessions (72.5% of traffic).",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("renders description with single event pattern", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionSingleEvent}
+        />,
+      );
+      expect(
+        screen.getByText(
+          "Auto-created from suggested interaction. Pattern: Checkout completed. Based on 6120 sessions (72.5% of traffic).",
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("consistency tooltip", () => {
+    it("renders the info icon next to Consistency label", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("Consistency")).toBeInTheDocument();
+      // The svg icon should be present in the DOM
+      const infoIcon = document
+        .querySelector('[class*="infoIcon"]');
+      expect(infoIcon).toBeInTheDocument();
     });
   });
 
