@@ -164,9 +164,9 @@ public final class com/pulse/sampling/models/PulseFeatureConfigData$ClickInstrum
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/String;Ljava/lang/Boolean;Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Boolean;Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun getShouldCaptureContext ()Ljava/lang/Boolean;
 	public final fun getFeatureName ()Ljava/lang/String;
 	public final fun getRage ()Lcom/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$Rage;
+	public final fun getShouldCaptureContext ()Ljava/lang/Boolean;
 }
 
 public final class com/pulse/sampling/models/PulseFeatureConfigData$ClickInstrumentation$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
