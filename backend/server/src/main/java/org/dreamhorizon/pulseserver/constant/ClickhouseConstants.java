@@ -11,7 +11,7 @@ public class ClickhouseConstants {
   public final String CH_CRASH_SELECT_CLAUSE = "countIf(has(Events.Name, 'device.crash'))";
   public final String CH_FROZEN_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']))";
   public final String CH_ANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count']))";
-  public final String CH_UNANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count ']))";
+  public final String CH_UNANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']))";
   public final String CH_DURATION_P99_SELECT_CLAUSE = "quantileTDigestIf(0.99)(Duration / 1e6, StatusCode != 'Error')";
   public final String CH_DURATION_P95_SELECT_CLAUSE = "quantileTDigestIf(0.95)(Duration / 1e6, StatusCode != 'Error')";
   public final String CH_DURATION_P50_SELECT_CLAUSE = "quantileTDigestIf(0.50)(Duration / 1e6, StatusCode != 'Error')";
@@ -91,4 +91,42 @@ public class ClickhouseConstants {
       "if(uniqCombined64(nullIf(UserId, '')) = 0, NULL, ((uniqCombined64(nullIf(UserId, '')) - uniqCombined64If(nullIf(UserId, ''), PulseType = 'non_fatal')) / uniqCombined64(nullIf(UserId, ''))) * 100)";
   public final String NON_FATAL_FREE_SESSIONS_PERCENTAGE =
       "if(uniqCombined64(nullIf(SessionId, '')) = 0, NULL, ((uniqCombined64(nullIf(SessionId, '')) - uniqCombined64If(nullIf(SessionId, ''), PulseType = 'non_fatal')) / uniqCombined64(nullIf(SessionId, ''))) * 100)";
+
+  // ---------------------------------------------------------------------------
+  // Interaction query constants (columns, table, filters)
+  // ---------------------------------------------------------------------------
+  public final String OTEL_TRACES_TABLE = "otel_traces";
+
+  // Column names
+  public final String COL_SPAN_NAME = "SpanName";
+  public final String COL_PULSE_TYPE = "PulseType";
+  public final String COL_TIMESTAMP = "Timestamp";
+  public final String COL_DURATION = "Duration";
+  public final String COL_TRACE_ID = "TraceId";
+  public final String COL_SPAN_ID = "SpanId";
+  public final String COL_STATUS_CODE = "StatusCode";
+  public final String COL_PLATFORM = "Platform";
+  public final String COL_DEVICE_MODEL = "DeviceModel";
+  public final String COL_OS_VERSION = "OsVersion";
+  public final String COL_APP_VERSION = "AppVersion";
+  public final String COL_NETWORK_PROVIDER = "NetworkProvider";
+  public final String COL_GEO_STATE = "GeoState";
+
+  // Auto-injected interaction filter
+  public final String INTERACTION_PULSE_TYPE_FILTER = " And PulseType In ('interaction')";
+
+  // Event type mappings (user-friendly name → ClickHouse Events.Name value)
+  public final String EVENT_CRASH = "device.crash";
+  public final String EVENT_ANR = "device.anr";
+  public final String EVENT_ERROR = "error";
+  public final String EVENT_NON_FATAL = "non_fatal";
+  public final String EVENT_FROZEN_FRAME = "app.jank.frozen";
+  public final String EVENT_NETWORK_ERROR = "network_error";
+
+  // Query aliases (used in SELECT and ORDER BY; single source of truth)
+  public final String ALIAS_SPAN_FREQ = "spanfreq";
+
+  // Default limits
+  public final int DEFAULT_INTERACTION_LIMIT = 10;
+  public final int DEFAULT_QUERY_TIMEOUT_MS = 2000;
 }

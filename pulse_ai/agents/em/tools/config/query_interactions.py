@@ -3,15 +3,12 @@
 Calls REST endpoints directly (GET requests, no QueryRequest needed).
 Supports: list, detail, filters, telemetry_filters.
 """
-import logging
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
 
 VALID_SCOPES = ("list", "detail", "filters", "telemetry_filters")
 
-logger = logging.getLogger(__name__)
 async def query_interactions(
     scope: str,
     interaction_name: str = None,
@@ -69,7 +66,7 @@ async def query_interactions(
 
     # Handle HTTP errors
     if response.status_code >= 400:
-        return parse_error_response(response)
+        return PulseClient.parse_error(response)
 
     # Success
     body = response.json()

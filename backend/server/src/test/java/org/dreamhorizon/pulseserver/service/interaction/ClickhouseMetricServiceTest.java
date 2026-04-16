@@ -9,12 +9,14 @@ import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.resources.performance.models.Functions;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.resources.performance.models.PerformanceMetricDistributionRes;
 import org.dreamhorizon.pulseserver.resources.performance.models.QueryRequest;
+import org.dreamhorizon.pulseserver.resources.performance.models.interaction.TimeRange;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,12 @@ class ClickhouseMetricServiceTest {
   @BeforeEach
   void setUp() {
     clickhouseMetricService = new ClickhouseMetricService(clickhouseQueryService);
+
+    // Default stub: return an empty valid response for any query
+    GetQueryDataResponseDto<GetRawUserEventsResponseDto> emptyResponse = createMockResponse(
+        List.of(), List.of());
+    when(clickhouseQueryService.executeQueryOrCreateJob(any()))
+        .thenReturn(Single.just(emptyResponse));
   }
 
   private QueryRequest createBasicRequest() {
@@ -494,5 +502,664 @@ class ClickhouseMetricServiceTest {
     orderBy.setField(field);
     orderBy.setDirection(direction);
     return orderBy;
+  }
+
+  @Nested
+  class GetInteractionHealth {
+    @Test
+    void shouldBuildHealthQueryWithTopNAndDefaultOrderBy() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq.builder()
+          .topN(5)
+          .build();
+      clickhouseMetricService.getInteractionHealth(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("SpanName as interaction_name");
+      assertThat(query).contains("COUNT() as spanfreq");
+      assertThat(query).contains("group by interaction_name");
+      assertThat(query).contains("order by spanfreq DESC");
+      assertThat(query).contains("limit 5");
+      assertThat(query).contains("PulseType In ('interaction')");
+    }
+
+    @Test
+    void shouldInjectInteractionNamesFilter() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq.builder()
+          .interactionNames(List.of("ContestJoin", "MatchEntry"))
+          .build();
+      clickhouseMetricService.getInteractionHealth(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("SpanName In ('ContestJoin','MatchEntry')");
+    }
+
+    @Test
+    void shouldMapTimeRangeAndFiltersCorrectly() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq.builder()
+          .timeRange(TimeRange.builder().start("2026-03-01T00:00:00Z").end("2026-03-02T00:00:00Z").build())
+          .filters(Map.of("platform", "Android"))
+          .build();
+      clickhouseMetricService.getInteractionHealth(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("Platform");
+      assertThat(query).contains("Android");
+    }
+
+    @Test
+    void shouldIncludeBothSuccessAndErrorCountsInSelect() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq.builder()
+          .topN(10)
+          .build();
+      clickhouseMetricService.getInteractionHealth(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("success_count");
+      assertThat(query).contains("error_count");
+      assertThat(query).contains("user_excellent");
+      assertThat(query).contains("user_good");
+      assertThat(query).contains("user_avg");
+      assertThat(query).contains("user_poor");
+      assertThat(query).contains("p50");
+    }
+
+    @Test
+    void shouldPropagateProjectId() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionHealthReq.builder()
+          .projectId("proj-456")
+          .build();
+      clickhouseMetricService.getInteractionHealth(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      assertThat(configCaptor.getValue().getProjectId()).isEqualTo("proj-456");
+    }
+  }
+
+  @Nested
+  class GetInteractionMetrics {
+    @Test
+    void shouldBuildMetricsQueryForApdexWithoutTimeseries() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("test").metricType("APDEX").timeseries(false).build();
+      clickhouseMetricService.getInteractionMetrics(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("apdex");
+      assertThat(query).doesNotContain("group by");
+      assertThat(query).contains("SpanName In ('test')");
+    }
+
+    @Test
+    void shouldBuildMetricsQueryForCompositeWithTimeseries() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("test").metricType("COMPOSITE").timeseries(true).build();
+      clickhouseMetricService.getInteractionMetrics(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("toDateTime");
+      assertThat(query).contains("as t1");
+      assertThat(query).contains("group by t1");
+      assertThat(query).contains("order by t1 ASC");
+      assertThat(query).contains("apdex");
+    }
+
+    @Test
+    void shouldBuildMetricsQueryForLatency() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("test").metricType("LATENCY").timeseries(false).build();
+      clickhouseMetricService.getInteractionMetrics(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("p50");
+      assertThat(query).contains("p95");
+      assertThat(query).contains("p99");
+    }
+
+    @Test
+    void shouldBuildMetricsQueryForErrorRate() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("test").metricType("ERROR_RATE").timeseries(false).build();
+      clickhouseMetricService.getInteractionMetrics(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("success_count");
+      assertThat(query).contains("error_count");
+    }
+
+    @Test
+    void shouldBuildMetricsQueryForUserCategories() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("test").metricType("USER_CATEGORIES").timeseries(false).build();
+      clickhouseMetricService.getInteractionMetrics(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("user_excellent");
+      assertThat(query).contains("user_good");
+      assertThat(query).contains("user_poor");
+    }
+
+    @Test
+    void shouldThrowErrorOnInvalidMetricType() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("test").metricType("INVALID_TYPE").timeseries(false).build();
+      
+      clickhouseMetricService.getInteractionMetrics(req).test().assertError(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldBuildCompositeAggregateWithAllMetrics() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("test").metricType("COMPOSITE").timeseries(false).build();
+      clickhouseMetricService.getInteractionMetrics(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      // Core metrics
+      assertThat(query).contains("apdex");
+      assertThat(query).contains("success_count");
+      assertThat(query).contains("error_count");
+      assertThat(query).contains("distinct_error_users");
+      // Latency percentiles
+      assertThat(query).contains("p50");
+      assertThat(query).contains("p95");
+      assertThat(query).contains("p99");
+      // Stability metrics
+      assertThat(query).contains("frozen_frame");
+      assertThat(query).contains("unanalysed_frame");
+      assertThat(query).contains("analysed_frame");
+      assertThat(query).contains("crash");
+      assertThat(query).contains("anr");
+      // Network: all 5 codes + total count
+      assertThat(query).contains("net_0");
+      assertThat(query).contains("net_2xx");
+      assertThat(query).contains("net_3xx");
+      assertThat(query).contains("net_4xx");
+      assertThat(query).contains("net_5xx");
+      assertThat(query).contains("net_count");
+      // User categories (raw counts)
+      assertThat(query).contains("user_excellent");
+      assertThat(query).contains("user_good");
+      assertThat(query).contains("user_avg");
+      assertThat(query).contains("user_poor");
+      // Computed rates (percentages)
+      assertThat(query).contains("error_rate");
+      assertThat(query).contains("crash_rate");
+      assertThat(query).contains("anr_rate");
+      assertThat(query).contains("frozen_frame_rate");
+      assertThat(query).contains("poor_user_rate");
+      assertThat(query).contains("avg_user_rate");
+      assertThat(query).contains("good_user_rate");
+      assertThat(query).contains("excellent_user_rate");
+    }
+
+    @Test
+    void shouldAutoInjectPulseTypeAndSpanNameFilters() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("ContestJoin").metricType("APDEX").timeseries(false).build();
+      clickhouseMetricService.getInteractionMetrics(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("PulseType");
+      assertThat(query).contains("interaction");
+      assertThat(query).contains("SpanName");
+      assertThat(query).contains("ContestJoin");
+    }
+
+    @Test
+    void shouldTranslateUserFiltersToBackendFormat() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionMetricsReq.builder()
+          .interactionName("test").metricType("APDEX").timeseries(false)
+          .filters(Map.of("platform", "Android"))
+          .build();
+      clickhouseMetricService.getInteractionMetrics(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("Platform");
+      assertThat(query).contains("Android");
+    }
+  }
+
+  @Nested
+  class GetInteractionBreakdown {
+    @Test
+    void shouldBuildBreakdownQueryForDeviceDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("device").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("DeviceModel as deviceModel");
+      assertThat(query).contains("frozen_frame");
+      assertThat(query).contains("anr");
+      assertThat(query).contains("crash");
+      assertThat(query).contains("group by deviceModel");
+    }
+
+    @Test
+    void shouldBuildBreakdownQueryForReleaseDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("RELEASE").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("AppVersion as release");
+      assertThat(query).contains("apdex");
+      assertThat(query).contains("crash");
+      assertThat(query).contains("anr");
+      assertThat(query).contains("success_count");
+      assertThat(query).contains("error_count");
+      assertThat(query).contains("group by release");
+    }
+
+    @Test
+    void shouldBuildBreakdownQueryForLatencyByNetworkDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("LATENCY_BY_NETWORK").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("NetworkProvider as network");
+      assertThat(query).contains("p50");
+      assertThat(query).contains("p95");
+      assertThat(query).contains("p99");
+      assertThat(query).contains("group by network");
+    }
+
+    @Test
+    void shouldBuildBreakdownQueryForRegionDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("REGION").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("GeoState as region");
+      assertThat(query).contains("success_count");
+      assertThat(query).contains("error_count");
+      assertThat(query).contains("user_poor");
+      assertThat(query).contains("group by region");
+    }
+
+    @Test
+    void shouldBuildBreakdownQueryForPlatformDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("PLATFORM").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("Platform as platform");
+      assertThat(query).contains("error_count");
+      assertThat(query).contains("user_poor");
+      assertThat(query).contains("group by platform");
+    }
+
+    @Test
+    void shouldBuildBreakdownQueryForOsDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("OS").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("OsVersion as os_version");
+      assertThat(query).contains("error_count");
+      assertThat(query).contains("user_poor");
+      assertThat(query).contains("group by os_version");
+    }
+
+    @Test
+    void shouldRejectUnknownDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req =
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("Custom_Field_123").build();
+
+      clickhouseMetricService.getInteractionBreakdown(req).test()
+          .assertError(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldBuildBreakdownQueryForNetworkDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("network").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("NetworkProvider as network");
+      assertThat(query).contains("success_count");
+      assertThat(query).contains("error_count");
+      assertThat(query).contains("group by network");
+    }
+
+    @Test
+    void shouldBuildBreakdownQueryForLatencyByDeviceDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("latency_by_device").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("DeviceModel as deviceModel");
+      assertThat(query).contains("p50");
+      assertThat(query).contains("p95");
+      assertThat(query).contains("p99");
+      assertThat(query).contains("group by deviceModel");
+    }
+
+    @Test
+    void shouldBuildBreakdownQueryForLatencyByOsDimension() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("latency_by_os").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("OsVersion as os_version");
+      assertThat(query).contains("p50");
+      assertThat(query).contains("p95");
+      assertThat(query).contains("p99");
+      assertThat(query).contains("group by os_version");
+    }
+
+    @Test
+    void shouldAutoInjectPulseTypeAndSpanNameForBreakdown() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("ContestJoin").dimension("device").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("PulseType");
+      assertThat(query).contains("interaction");
+      assertThat(query).contains("SpanName");
+      assertThat(query).contains("ContestJoin");
+    }
+
+    @Test
+    void shouldApplyDefaultLimitOf10() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionBreakdownReq.builder()
+          .interactionName("test").dimension("device").build();
+      clickhouseMetricService.getInteractionBreakdown(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("limit 10");
+    }
+  }
+
+  @Nested
+  class GetInteractionSessions {
+    @Test
+    void shouldBuildSessionsQueryForSessionsScope() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("sessions").build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("Timestamp as timestamp");
+      assertThat(query).contains("Duration as duration");
+      assertThat(query).contains("order by timestamp DESC");
+    }
+
+    @Test
+    void shouldApplyEventTypeFilter() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("sessions").eventType("crash").build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("has(Events.Name, 'device.crash')");
+    }
+
+    @Test
+    void shouldBuildSessionsQueryForStatsScope() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("STATS").build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("COUNT() as total_sessions");
+      assertThat(query).contains("success_count");
+      assertThat(query).contains("error_count");
+      assertThat(query).contains("crash");
+      assertThat(query).contains("anr");
+      assertThat(query).contains("apdex");
+      assertThat(query).contains("p50");
+      assertThat(query).contains("p95");
+      assertThat(query).contains("p99");
+      assertThat(query).contains("distinct_error_users");
+    }
+
+    @Test
+    void shouldApplyCustomLimit() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("SESSIONS").limit(50).build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("limit 50");
+    }
+
+    @Test
+    void shouldThrowErrorOnInvalidScope() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("INVALID_SCOPE").build();
+      
+      clickhouseMetricService.getInteractionSessions(req).test().assertError(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldApplyAnrEventTypeFilter() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("sessions").eventType("anr").build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("has(Events.Name, 'device.anr')");
+    }
+
+    @Test
+    void shouldApplyFrozenFrameEventTypeFilter() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("sessions").eventType("frozen_frame").build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("has(Events.Name, 'app.jank.frozen')");
+    }
+
+    @Test
+    void shouldIncludeAllSessionColumnsInSelect() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("sessions").build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("TraceId as trace_id");
+      assertThat(query).contains("SpanId as span_id");
+      assertThat(query).contains("StatusCode as status_code");
+      assertThat(query).contains("Platform as platform");
+      assertThat(query).contains("DeviceModel as device");
+      assertThat(query).contains("OsVersion as os_version");
+      assertThat(query).contains("AppVersion as app_version");
+    }
+
+    @Test
+    void shouldAutoInjectPulseTypeAndSpanNameForSessions() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("ContestJoin").scope("sessions").build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      String query = configCaptor.getValue().getQuery();
+      
+      assertThat(query).contains("PulseType");
+      assertThat(query).contains("interaction");
+      assertThat(query).contains("SpanName");
+      assertThat(query).contains("ContestJoin");
+    }
+
+    @Test
+    void shouldPropagateProjectIdForSessions() {
+      org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq req = 
+          org.dreamhorizon.pulseserver.resources.performance.models.interaction.InteractionSessionsReq.builder()
+          .interactionName("test").scope("sessions").projectId("proj-789").build();
+      clickhouseMetricService.getInteractionSessions(req).test().assertComplete();
+      
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      assertThat(configCaptor.getValue().getProjectId()).isEqualTo("proj-789");
+    }
   }
 }

@@ -108,6 +108,16 @@ class PulseClient:
         headers = self._build_headers()
         return await self._client.request(method, path, headers=headers, **kwargs)
 
+    @staticmethod
+    def parse_error(response: "httpx.Response") -> dict:
+        """Extract a structured error dict from a non-2xx HTTP response."""
+        try:
+            err = response.json().get("error") or {}
+            msg = err.get("message", response.text)
+        except Exception:
+            msg = response.text
+        return {"status": "error", "message": msg}
+
     async def _refresh_access_token(self) -> bool:
         """Refresh the access token using the refresh token.
 

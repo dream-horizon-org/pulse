@@ -1,21 +1,18 @@
-"""Tool 7: query_interaction_sessions — Session-level data for an interaction.
-
-Uses build_sessions_query template → PulseClient POST → transform response.
-"""
+"""Tool 7: query_interaction_sessions — Session-level data for an interaction."""
 
 import json
 
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC
-from pulse_ai.agents.em.templates.interaction_templates import build_sessions_query
-from pulse_ai.agents.em.transformers.response_transformer import (
-    parse_error_response,
-    transform_columnar,
-)
+from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC, compute_time_range
 
-DATA_QUERY_PATH = "/v1/interactions/performance-metric/distribution"
+SESSIONS_PATH = "/v1/interactions/sessions"
+
+VALID_SCOPES = frozenset(["sessions", "stats"])
+VALID_EVENT_TYPES = frozenset(
+    ["crash", "anr", "error", "non_fatal", "frozen_frame", "network_error"]
+)
 
 
 async def query_interaction_sessions(
@@ -37,11 +34,23 @@ async def query_interaction_sessions(
         time_range: One of: """ + TIME_RANGE_DOC + """
         start_time: ISO 8601 start (only when time_range="custom")
         end_time: ISO 8601 end (only when time_range="custom")
-        event_type: Filter sessions by type: crash, error, completed, or omit for all
+        event_type: Filter sessions by event type. One of: crash, anr, error, non_fatal,
+            frozen_frame, network_error. Omit to return all sessions.
         filters: Optional dimension filters as JSON string, e.g. '{"platform": "Android"}'
         limit: Max sessions to return (scope="sessions", default 10)
     """
-    # Parse filters JSON string → dict
+    if scope not in VALID_SCOPES:
+        return {
+            "status": "error",
+            "message": f"Invalid scope '{scope}'. Valid values: {', '.join(sorted(VALID_SCOPES))}",
+        }
+
+    if event_type is not None and event_type not in VALID_EVENT_TYPES:
+        return {
+            "status": "error",
+            "message": f"Invalid event_type '{event_type}'. Valid values: {', '.join(sorted(VALID_EVENT_TYPES))}",
+        }
+
     parsed_filters = None
     if filters:
         try:
@@ -50,33 +59,30 @@ async def query_interaction_sessions(
             return {"status": "error", "message": f"Invalid JSON in filters: {filters}"}
 
     try:
-        query_request = build_sessions_query(
-            scope=scope,
-            interaction_name=interaction_name,
-            time_range=time_range,
-            start_time=start_time,
-            end_time=end_time,
-            event_type=event_type,
-            user_filters=parsed_filters,
-            limit=limit,
-        )
+        start, end = compute_time_range(time_range, start_time, end_time)
     except ValueError as e:
         return {"status": "error", "message": str(e)}
+
+    body: dict = {
+        "scope": scope,
+        "interactionName": interaction_name,
+        "timeRange": {"start": start, "end": end},
+        "limit": limit,
+    }
+    if event_type is not None:
+        body["eventType"] = event_type
+    if parsed_filters:
+        body["filters"] = parsed_filters
 
     bearer_token = tool_context.state.get("bearer_token") if tool_context else None
     project_id = tool_context.state.get("project_id") if tool_context else None
     client = PulseClient(authorization_header=bearer_token, project_id=project_id)
-    response = await client.request("POST", DATA_QUERY_PATH, json=query_request)
+    response = await client.request("POST", SESSIONS_PATH, json=body)
 
-    # Handle network errors
     if isinstance(response, dict):
         return response
 
-    # Handle HTTP errors
     if response.status_code >= 400:
-        return parse_error_response(response)
+        return PulseClient.parse_error(response)
 
-    # Transform columnar response
-    body = response.json()
-    data = body.get("data", {})
-    return {"status": "success", "data": transform_columnar(data)}
+    return {"status": "success", "data": response.json().get("data", {})}
