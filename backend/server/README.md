@@ -2702,6 +2702,17 @@ CONFIG_SERVICE_APPLICATION_SERVER_PORT=8080
 CONFIG_SERVICE_APPLICATION_SERVER_HOST=0.0.0.0
 ```
 
+**Product analytics batch engine (funnel / journey)**
+
+Mapped from `src/main/resources/conf/analytics-engine-default.conf`. Use `spark` (EMR batch jobs) or `clickhouse` (in-process ClickHouse compute). When `APP_ENVIRONMENT` is `prod` and the engine is `clickhouse`, `ANALYTICS_BATCH_PROJECT_CONCURRENCY` must be a positive integer (`StartupConfigValidator`).
+
+```bash
+ANALYTICS_COMPUTE_ENGINE=spark
+ANALYTICS_BATCH_PROJECT_CONCURRENCY=4
+```
+
+Docker / quickstart defaults: `deploy/docker-compose.yml`, `deploy/.env.example`, and `deploy/scripts/common.sh` (`load_env`).
+
 **Authentication Configuration**
 
 ```bash

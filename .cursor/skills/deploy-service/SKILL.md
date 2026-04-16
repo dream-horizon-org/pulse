@@ -13,6 +13,10 @@ cp .env.example .env    # first time only, then edit values
 ./scripts/quickstart.sh
 ```
 
+## Product analytics batch (pulse-server)
+
+Funnel/journey daily batch uses **`ANALYTICS_COMPUTE_ENGINE`** (`spark` \| `clickhouse`) and **`ANALYTICS_BATCH_PROJECT_CONCURRENCY`** (positive integer; required when engine is `clickhouse` in production). Declared in `deploy/.env.example`; loaded via `backend/server/src/main/resources/conf/analytics-engine-default.conf`. **Docker Compose** sets defaults in `deploy/docker-compose.yml`; **`deploy/scripts/common.sh`** `load_env` applies defaults for script-driven runs (e.g. `start.sh`).
+
 ## Build Specific Service
 
 ```bash

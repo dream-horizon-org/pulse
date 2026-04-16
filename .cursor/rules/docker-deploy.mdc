@@ -63,15 +63,13 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `SPAN_COLLECTOR_URL`, `LOGS_COLLECTOR_URL`, `METRIC_COLLECTOR_URL`, `CUSTOM_EVENT_COLLECTOR_URL` — OTLP / custom event URLs for pulse-server; **no defaults in compose** — set in `deploy/.env` (see `.env.example`).
 - `INTERACTION_CONFIG_URL` — interaction config URL returned to SDKs; **no default in compose** — set in `deploy/.env`.
 - `VECTOR_ENABLED` — Optional. Set to `true` to enable Vector service (custom events → S3/Athena). Default: `false`.
-<<<<<<< HEAD
-- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` — MinIO credentials (compose defaults: `pulse_minio` / `pulse_minio_secret`); session replay and `SESSION_REPLAY_S3_*` on pulse-server use these in dev.
-- `CONFIG_SERVICE_APPLICATION_SPARK_JOB_*` — Spark batch entry classes in compose default to `org.dreamhorizon.pulsespark.SparkJobRunner` for funnels, journeys, and events (override via `.env` if needed).
-=======
-- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` — MinIO dev credentials (compose defaults: `pulse_minio` / `pulse_minio_secret`).
-- `SESSION_REPLAY_*` — S3-style endpoint/bucket/keys for session recordings (pulse-server; in compose defaults to MinIO on `minio:9000`).
+- `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` — MinIO credentials (compose defaults: `pulse_minio` / `pulse_minio_secret`); session replay and pulse-server `SESSION_REPLAY_S3_*` use these in dev.
+- `SESSION_REPLAY_*` — S3-style endpoint/bucket/keys for session recordings (pulse-server; compose defaults to MinIO on `minio:9000`).
 - `ROOT_CAUSE_ENABLED` — Backend root-cause API (pulse-server).
 - `REACT_APP_ROOT_CAUSE_ENABLED` — UI build arg for RCA tab (must align with backend when enabling).
->>>>>>> c234f1f301093ab4f5632a7f1c56d700a027ec4c
+- `CONFIG_SERVICE_APPLICATION_SPARK_JOB_*` — Spark batch JAR path and main classes; defaults use `org.dreamhorizon.pulsespark.SparkJobRunner` for funnels, journeys, and events (override via `.env` if needed).
+- `ANALYTICS_COMPUTE_ENGINE` — Product analytics batch routing: `spark` (EMR) vs `clickhouse` (in-process). Mapped from `backend/server/src/main/resources/conf/analytics-engine-default.conf`. Docker Compose default: `clickhouse` (see `deploy/docker-compose.yml`); `deploy/scripts/common.sh` `load_env` defaults to `spark` for CLI `start.sh` when unset.
+- `ANALYTICS_BATCH_PROJECT_CONCURRENCY` — Max concurrent per-project ClickHouse batch queries when engine is `clickhouse`; required **> 0** in `prod` (`StartupConfigValidator`). Compose default: `1`; `load_env` default: `4`.
 
 **Dev Mode Configuration:**
 - `GOOGLE_OAUTH_ENABLED` — Enable/disable Google OAuth login (default: `false` for dev mode)
@@ -87,11 +85,7 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 | Script | Options |
 |--------|---------|
-<<<<<<< HEAD
-| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all` — default / `all` includes UI, server, cron, AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion) |
-=======
-| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all` — default (no args) builds `ui`, `server`, `cron`, `capture`, `ingestion`, `ai` |
->>>>>>> c234f1f301093ab4f5632a7f1c56d700a027ec4c
+| `build.sh` | `[--no-cache]` and targets `ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all` — default (no args) or `all` builds UI, server, cron, capture, ingestion, and AI (`capture` = pulse-session-capture; `ingestion` = pulse-session-replay-ingestion) |
 | `start.sh` | `[-d` or `--detach] [--build] [--no-cache] [--skip-env-check]` |
 | `stop.sh` | `-v` to remove volumes; service aliases include `ai`, `pulse-ai-agent` |
 | `logs.sh` | service name (e.g., `server`, `ai`, `otel-collector`) |
@@ -103,4 +97,4 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 **Required (no default in compose):** `VAULT_ENCRYPTION_MASTER_KEY`, `REACT_APP_GOOGLE_CLIENT_ID`, `REACT_APP_FIREBASE_*`, `CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID`, `CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID`, `CONFIG_SERVICE_APPLICATION_WEBHOOKURL`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`. Must be set in `.env`. `SLACK_*` are optional (default empty; needed only for Slack API integration).
 
-**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is optional (`VECTOR_ENABLED=true`). `pulse-server` `depends_on` `pulse-ai-agent` with `condition: service_healthy`. Kafka, MinIO, session capture, and session replay ingestion are part of the default stack.
+**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml` and `deploy/.env.example`. When adding pulse-server env vars (e.g. `ANALYTICS_*`), update this rule, `deploy-service` skill, and `audit-cursor-config.md` source-of-truth list. Vector is optional (`VECTOR_ENABLED=true`). `pulse-server` `depends_on` `pulse-ai-agent` with `condition: service_healthy`. Kafka, MinIO, session capture, and session replay ingestion are part of the default stack.

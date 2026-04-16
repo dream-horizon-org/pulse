@@ -21,8 +21,8 @@ class ClickHouseJourneyComputeDaoTest {
         .anchorEvent(ANCHOR)
         .depth(3)
         .direction("START")
-        .journeyType("UNIQUE_USERS")
-        .mode("AUTO")
+        .journeyType("AUTO")
+        .mode("UNIQUE_USERS")
         .dateRangeDays(14)
         .filtersJson(null);
   }
@@ -113,7 +113,8 @@ class ClickHouseJourneyComputeDaoTest {
 
     @Test
     void shouldUseIntervalExprForAutoMode() {
-      String sql = ClickHouseJourneyComputeDao.buildInsertSql(baseRow().mode("AUTO").dateRangeDays(14).build(), "START");
+      String sql = ClickHouseJourneyComputeDao.buildInsertSql(
+          baseRow().journeyType("AUTO").dateRangeDays(14).build(), "START");
       assertThat(sql).contains("INTERVAL 14 DAY");
     }
 
@@ -122,7 +123,7 @@ class ClickHouseJourneyComputeDaoTest {
       Instant start = Instant.parse("2024-05-01T00:00:00Z");
       Instant end   = Instant.parse("2024-05-31T23:59:59Z");
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(
-          baseRow().mode("ONCE").startTime(start).endTime(end).build(), "START");
+          baseRow().journeyType("ONCE").startTime(start).endTime(end).build(), "START");
       assertThat(sql)
           .contains("toDateTime64('2024-05-01 00:00:00', 9)")
           .contains("toDateTime64('2024-05-31 23:59:59', 9)");
@@ -131,14 +132,14 @@ class ClickHouseJourneyComputeDaoTest {
     @Test
     void shouldUseUserIdGroupKeyForUniqueUsers() {
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(
-          baseRow().journeyType("UNIQUE_USERS").build(), "START");
+          baseRow().mode("UNIQUE_USERS").build(), "START");
       assertThat(sql).contains("LogAttributes['user.id']");
     }
 
     @Test
     void shouldUseSessionIdGroupKeyForSessions() {
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(
-          baseRow().journeyType("SESSIONS").build(), "START");
+          baseRow().mode("SESSIONS").build(), "START");
       assertThat(sql).contains("LogAttributes['session.id']");
     }
 
@@ -264,7 +265,7 @@ class ClickHouseJourneyComputeDaoTest {
 
     @Test
     void shouldUseSessionIdInBatchForSessionJourneys() {
-      JourneyRow def = baseRow().journeyType("SESSIONS").build();
+      JourneyRow def = baseRow().mode("SESSIONS").build();
       String sql = ClickHouseJourneyComputeDao.buildBatchInsertSql(List.of(def), "START");
       assertThat(sql).contains("SessionId");
     }

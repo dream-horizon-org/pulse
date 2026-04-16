@@ -6,7 +6,7 @@ Audit `.cursor/` configuration files against the codebase source-of-truth files 
    - `deploy/.env.example` — environment variable names
    - `deploy/scripts/build.sh` — accepted build targets
    - `deploy/scripts/start.sh` — accepted start targets
-   - `deploy/scripts/common.sh` — default exports for compose/script-driven env (including pulse-server `CONFIG_*` and EMR vars)
+   - `deploy/scripts/common.sh` — default exports for compose/script-driven env (including pulse-server `CONFIG_*`, EMR, Spark job vars, and `ANALYTICS_COMPUTE_ENGINE` / `ANALYTICS_BATCH_PROJECT_CONCURRENCY`)
 
 2. Cross-reference against `.cursor/` files for discrepancies:
    - **Service lists**: Compare services in docker-compose.yml against services listed in `.cursor/agents/`, `.cursor/commands/`, `.cursor/rules/`, `.cursor/skills/`

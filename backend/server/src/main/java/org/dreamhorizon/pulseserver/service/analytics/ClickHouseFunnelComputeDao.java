@@ -15,6 +15,9 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
  * Builds ClickHouse INSERT…WITH SQL for funnel computation.
  *
  * <p>Reads from {@code otel.otel_logs} with {@code LogAttributes['pulse.type'] = 'custom_event'}.
+ *
+ * <p>{@code windowFunnel}'s first argument must be {@code DateTime} (not {@code DateTime64}); we use
+ * {@code toDateTime(Timestamp)} in the {@code raw} CTE.
  */
 @Slf4j
 public final class ClickHouseFunnelComputeDao {
@@ -35,10 +38,10 @@ public final class ClickHouseFunnelComputeDao {
         .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
         .collect(Collectors.joining("\n      "));
 
-    String groupKey = ClickhouseAnalyticsQueryUtils.resolveGroupKey(def.getFunnelType());
+    String groupKey = ClickhouseAnalyticsQueryUtils.resolveGroupKey(def.getMode());
     String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
-        def.getMode(), def.getDateRangeDays(), def.getStartTime());
-    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getMode(), def.getEndTime());
+        def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
+    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
 
     String windowFunnelArgs = steps.stream()
         .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
@@ -58,7 +61,7 @@ public final class ClickHouseFunnelComputeDao {
           (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)
         WITH
           raw AS (
-            SELECT %s AS uid, Timestamp, Body AS EventName
+            SELECT %s AS uid, toDateTime(Timestamp) AS FunnelTs, Body AS EventName
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
               AND LogAttributes['pulse.type'] = 'custom_event'
@@ -67,29 +70,34 @@ public final class ClickHouseFunnelComputeDao {
           ),
           levels AS (
             SELECT uid,
-              windowFunnel(%d)(Timestamp,
+              windowFunnel(%d)(FunnelTs,
                 %s
               ) AS lvl
             FROM raw GROUP BY uid
           ),
-          step0_count AS (SELECT countIf(lvl >= 1) AS cnt FROM levels),
-          step_rows AS (
-            SELECT number + 1 AS StepIndex,
-                   %s[number + 1] AS StepName,
-                   countIf(levels.lvl >= number + 1) AS UserCount
+          step_counts AS (
+            SELECT step_num.number AS number,
+              countIf(lvl >= step_num.number + 1) AS UserCount
             FROM levels
-            ARRAY JOIN range(%d) AS number
-            GROUP BY number
+            CROSS JOIN (SELECT arrayJoin(range(%d)) AS number) AS step_num
+            GROUP BY step_num.number
+          ),
+          step_rows AS (
+            SELECT drv.number + 1 AS StepIndex,
+                   %s[drv.number + 1] AS StepName,
+                   ifNull(sc.UserCount, 0) AS UserCount
+            FROM (SELECT arrayJoin(range(%d)) AS number) AS drv
+            LEFT JOIN step_counts sc ON drv.number = sc.number
           )
         SELECT %d, '%s', now(), StepIndex, StepName,
                UserCount,
-               UserCount * 100.0 / (SELECT cnt FROM step0_count),
+               UserCount * 100.0 / greatest((SELECT countIf(lvl >= 1) FROM levels), 1),
                NULL
         FROM step_rows
         """.formatted(
         groupKey, projectId, startExpr, endExpr, globalFilterClauses,
         windowSeconds, windowFunnelArgs,
-        stepNamesArray, stepCount,
+        stepCount, stepNamesArray, stepCount,
         funnelId, projectId);
   }
 
@@ -117,6 +125,7 @@ public final class ClickHouseFunnelComputeDao {
             SELECT LogAttributes['user.id'] AS UserId,
                    LogAttributes['session.id'] AS SessionId,
                    Timestamp,
+                   toDateTime(Timestamp) AS FunnelTs,
                    Body AS EventName
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
@@ -129,7 +138,7 @@ public final class ClickHouseFunnelComputeDao {
     for (int i = 0; i < defs.size(); i++) {
       FunnelDefinitionRow def = defs.get(i);
       List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
-      String groupKey = "SESSIONS".equalsIgnoreCase(def.getFunnelType()) ? "SessionId" : "UserId";
+      String groupKey = "SESSIONS".equalsIgnoreCase(def.getMode()) ? "SessionId" : "UserId";
       String windowFunnelArgs = steps.stream()
           .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
           .collect(Collectors.joining(", "));
@@ -142,7 +151,7 @@ public final class ClickHouseFunnelComputeDao {
 
       sb.append("  ").append(cteName).append(" AS (\n");
       sb.append("    SELECT ").append(groupKey).append(" AS uid,\n");
-      sb.append("      windowFunnel(").append(def.getWindowSeconds()).append(")(Timestamp, ")
+      sb.append("      windowFunnel(").append(def.getWindowSeconds()).append(")(FunnelTs, ")
           .append(windowFunnelArgs).append(") AS lvl\n");
       sb.append("    FROM raw ").append(tighterFilter).append(" GROUP BY uid\n");
       sb.append("  )");
@@ -166,12 +175,20 @@ public final class ClickHouseFunnelComputeDao {
         sb.append("SELECT * FROM (\n");
       }
       sb.append("  SELECT ").append(def.getId()).append(", '").append(projectId)
-          .append("', now(), number + 1, ").append(stepNamesArray)
-          .append("[number + 1], countIf(lvl >= number + 1), ")
-          .append("countIf(lvl >= number + 1) * 100.0 / nullIf(countIf(lvl >= 1), 0), NULL\n");
-      sb.append("  FROM ").append(cteName).append("\n");
-      sb.append("  ARRAY JOIN range(").append(stepCount).append(") AS number\n");
-      sb.append("  GROUP BY number\n");
+          .append("', now(), drv.number + 1, ").append(stepNamesArray)
+          .append("[drv.number + 1], ")
+          .append("ifNull(aggs.UserCount, 0), ")
+          .append("ifNull(aggs.UserCount, 0) * 100.0 / ")
+          .append("greatest((SELECT countIf(lvl >= 1) FROM ").append(cteName).append("), 1), NULL\n");
+      sb.append("  FROM (SELECT arrayJoin(range(").append(stepCount).append(")) AS number) AS drv\n");
+      sb.append("  LEFT JOIN (\n");
+      sb.append("    SELECT step_num.number AS number,\n");
+      sb.append("      countIf(lvl >= step_num.number + 1) AS UserCount\n");
+      sb.append("    FROM ").append(cteName).append("\n");
+      sb.append("    CROSS JOIN (SELECT arrayJoin(range(").append(stepCount)
+          .append(")) AS number) AS step_num\n");
+      sb.append("    GROUP BY step_num.number\n");
+      sb.append("  ) AS aggs ON drv.number = aggs.number\n");
       if (i < defs.size() - 1) {
         sb.append("  UNION ALL\n");
       }

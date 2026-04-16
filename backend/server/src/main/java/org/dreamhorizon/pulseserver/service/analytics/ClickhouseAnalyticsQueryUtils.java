@@ -19,13 +19,13 @@ public final class ClickhouseAnalyticsQueryUtils {
   private ClickhouseAnalyticsQueryUtils() {}
 
   /**
-   * Returns the ClickHouse SQL expression for the group key column based on funnel/journey type.
+   * Returns the ClickHouse SQL expression for the group key column based on analysis mode.
    *
-   * @param funnelType "UNIQUE_USERS" or "SESSIONS" (case-insensitive)
+   * @param mode "UNIQUE_USERS" or "SESSIONS" (case-insensitive)
    * @return {@code LogAttributes['user.id']} or {@code LogAttributes['session.id']}
    */
-  public static String resolveGroupKey(String funnelType) {
-    if ("SESSIONS".equalsIgnoreCase(funnelType)) {
+  public static String resolveGroupKey(String mode) {
+    if ("SESSIONS".equalsIgnoreCase(mode)) {
       return "LogAttributes['session.id']";
     }
     return "LogAttributes['user.id']";
@@ -34,12 +34,12 @@ public final class ClickhouseAnalyticsQueryUtils {
   /**
    * Returns the ClickHouse SQL expression for the time range start.
    *
-   * @param mode          "AUTO" or "ONCE"
+   * @param funnelType    funnel schedule: {@code AUTO} or {@code ONCE} (not UNIQUE_USERS / SESSIONS)
    * @param dateRangeDays days to look back (used in AUTO mode)
    * @param startTime     explicit start time (used in ONCE mode; may be null for AUTO)
    */
-  public static String resolveStartExpr(String mode, int dateRangeDays, java.time.Instant startTime) {
-    if ("ONCE".equalsIgnoreCase(mode) && startTime != null) {
+  public static String resolveStartExpr(String funnelType, int dateRangeDays, java.time.Instant startTime) {
+    if ("ONCE".equalsIgnoreCase(funnelType) && startTime != null) {
       LocalDateTime ldt = LocalDateTime.ofInstant(startTime, ZoneOffset.UTC);
       return "toDateTime64('" + ldt.format(CH_DATETIME) + "', 9)";
     }
@@ -49,11 +49,11 @@ public final class ClickhouseAnalyticsQueryUtils {
   /**
    * Returns the ClickHouse SQL expression for the time range end.
    *
-   * @param mode    "AUTO" or "ONCE"
-   * @param endTime explicit end time (used in ONCE mode; may be null for AUTO)
+   * @param funnelType funnel schedule: {@code AUTO} or {@code ONCE}
+   * @param endTime    explicit end time (used in ONCE mode; may be null for AUTO)
    */
-  public static String resolveEndExpr(String mode, java.time.Instant endTime) {
-    if ("ONCE".equalsIgnoreCase(mode) && endTime != null) {
+  public static String resolveEndExpr(String funnelType, java.time.Instant endTime) {
+    if ("ONCE".equalsIgnoreCase(funnelType) && endTime != null) {
       LocalDateTime ldt = LocalDateTime.ofInstant(endTime, ZoneOffset.UTC);
       return "toDateTime64('" + ldt.format(CH_DATETIME) + "', 9)";
     }

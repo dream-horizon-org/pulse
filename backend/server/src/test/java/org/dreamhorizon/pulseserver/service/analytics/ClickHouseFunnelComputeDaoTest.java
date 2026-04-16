@@ -17,8 +17,8 @@ class ClickHouseFunnelComputeDaoTest {
         .id(42L)
         .projectId(PROJECT_ID)
         .name("Test Funnel")
-        .funnelType("UNIQUE_USERS")
-        .mode("AUTO")
+        .funnelType("AUTO")
+        .mode("UNIQUE_USERS")
         .dateRangeDays(7)
         .windowSeconds(3600L)
         .stepsJson("[{\"eventName\":\"screen_view\"},{\"eventName\":\"add_to_cart\"},{\"eventName\":\"purchase\"}]")
@@ -59,6 +59,14 @@ class ClickHouseFunnelComputeDaoTest {
     }
 
     @Test
+    void shouldCastDateTime64ToDateTimeForWindowFunnel() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().build());
+      assertThat(sql)
+          .contains("toDateTime(Timestamp) AS FunnelTs")
+          .contains("windowFunnel(3600)(FunnelTs,");
+    }
+
+    @Test
     void shouldIncludeAllStepEventNames() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().build());
       assertThat(sql)
@@ -76,20 +84,21 @@ class ClickHouseFunnelComputeDaoTest {
     @Test
     void shouldUseUserIdGroupKeyForUniqueUsers() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(
-          baseRow().funnelType("UNIQUE_USERS").build());
+          baseRow().mode("UNIQUE_USERS").build());
       assertThat(sql).contains("LogAttributes['user.id']");
     }
 
     @Test
     void shouldUseSessionIdGroupKeyForSessions() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(
-          baseRow().funnelType("SESSIONS").build());
+          baseRow().mode("SESSIONS").build());
       assertThat(sql).contains("LogAttributes['session.id']");
     }
 
     @Test
     void shouldUseIntervalForAutoMode() {
-      String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().mode("AUTO").dateRangeDays(14).build());
+      String sql = ClickHouseFunnelComputeDao.buildInsertSql(
+          baseRow().funnelType("AUTO").dateRangeDays(14).build());
       assertThat(sql).contains("INTERVAL 14 DAY");
     }
 
@@ -98,7 +107,7 @@ class ClickHouseFunnelComputeDaoTest {
       Instant start = Instant.parse("2024-03-01T00:00:00Z");
       Instant end   = Instant.parse("2024-03-31T23:59:59Z");
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(
-          baseRow().mode("ONCE").startTime(start).endTime(end).build());
+          baseRow().funnelType("ONCE").startTime(start).endTime(end).build());
       assertThat(sql)
           .contains("toDateTime64('2024-03-01 00:00:00', 9)")
           .contains("toDateTime64('2024-03-31 23:59:59', 9)");
@@ -192,9 +201,37 @@ class ClickHouseFunnelComputeDaoTest {
 
     @Test
     void shouldUseSessionIdForSessionsFunnel() {
-      FunnelDefinitionRow def = baseRow().funnelType("SESSIONS").build();
+      FunnelDefinitionRow def = baseRow().mode("SESSIONS").build();
       String sql = ClickHouseFunnelComputeDao.buildBatchInsertSql(List.of(def));
       assertThat(sql).contains("SessionId");
+    }
+
+    @Test
+    void shouldEmitStepRowsEvenWhenLevelsEmpty() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().build());
+      assertThat(sql)
+          .contains("step_counts AS (")
+          .contains("LEFT JOIN step_counts sc ON drv.number = sc.number")
+          .contains("FROM (SELECT arrayJoin(range(3)) AS number) AS drv")
+          .contains("greatest((SELECT countIf(lvl >= 1) FROM levels), 1)");
+    }
+
+    @Test
+    void shouldCastDateTime64ToDateTimeForWindowFunnelInBatch() {
+      String sql = ClickHouseFunnelComputeDao.buildBatchInsertSql(List.of(baseRow().build()));
+      assertThat(sql)
+          .contains("toDateTime(Timestamp) AS FunnelTs")
+          .contains("windowFunnel(3600)(FunnelTs,");
+    }
+
+    @Test
+    void shouldEmitStepRowsFromArrayJoinEvenWhenLevelCteEmpty() {
+      String sql = ClickHouseFunnelComputeDao.buildBatchInsertSql(List.of(baseRow().build()));
+      assertThat(sql)
+          .contains("FROM (SELECT arrayJoin(range(3)) AS number) AS drv")
+          .contains("LEFT JOIN (")
+          .contains("CROSS JOIN (SELECT arrayJoin(range(3)) AS number) AS step_num")
+          .contains("greatest((SELECT countIf(lvl >= 1) FROM lvl_f0), 1)");
     }
   }
 }
