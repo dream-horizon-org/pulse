@@ -1,0 +1,107 @@
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    environment {
+        TF_IN_AUTOMATION = 'true'
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    cd deploy/terraform/kafka
+                    echo "Fetching variables from AWS Secrets Manager..."
+                    aws secretsmanager get-secret-value \
+                      --region ap-south-1 \
+                      --secret-id prod/kafka/terraform \
+                      --query 'SecretString' \
+                      --output text > secrets.auto.tfvars.json
+                '''
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                sh '''
+                    echo "Initializing Terraform..."
+                    cd deploy/terraform/kafka
+                    terraform init
+                '''
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh '''
+                    echo "Running Terraform Plan..."
+                    cd deploy/terraform/kafka
+                    terraform plan -out=tfplan
+                '''
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                input message: 'Review the Terraform Plan output above. Do you want to apply these changes to AWS?', ok: 'Yes, Deploy!'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh '''
+                    echo "Applying Terraform changes..."
+                    cd deploy/terraform/kafka
+                    terraform apply -input=false tfplan
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning up workspace..."
+            sh 'rm -f deploy/terraform/kafka/tfplan'
+        }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    def message = "<!channel> Kafka infrastructure deployed to production by ${BUILD_USER_EMAIL}\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                }
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> Kafka infrastructure deployment failed\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+    }
+}
