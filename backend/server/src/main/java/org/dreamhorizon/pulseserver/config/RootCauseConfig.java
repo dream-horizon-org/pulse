@@ -36,6 +36,18 @@ public class RootCauseConfig {
   /** Default cap on drill-down rows per signal (Mode A ranking). */
   public static final int DEFAULT_ISSUE_DRILL_DOWN_LIMIT = 5;
   /**
+   * Per-signal ClickHouse row cap before merge / RR threshold filter; should be ≥ {@link
+   * #DEFAULT_ISSUE_DRILL_DOWN_LIMIT}.
+   */
+  public static final int DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT = 30;
+  /**
+   * Minimum finite RR for a drill-down row to appear in the merged “related” list. Values in {@code
+   * [0, 1]} disable the RR floor at runtime. Use {@code < 0} in raw config (e.g. JSON key absent) so
+   * {@link #withDefaults(RootCauseConfig)} applies this default; {@code 0.0} explicitly disables the
+   * floor.
+   */
+  public static final double DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION = 2.0;
+  /**
    * When {@code true}, issue drill-down counts a session toward {@code n_treated_low} only if the
    * first issue (or first network error for {@code api}) occurs strictly before the earliest Poor
    * interaction span in the analysis window. Use {@link Boolean} wrapper so JSON can explicitly set
@@ -57,6 +69,19 @@ public class RootCauseConfig {
   private int minControlSessionsForIssueAttribution;
   /** Issue / endpoint drill-down: max rows per signal after ranking. */
   private int issueDrillDownLimit;
+  /**
+   * Per-signal SQL {@code LIMIT} before merge; {@code <= 0} in raw input → default in {@link
+   * #withDefaults}. Builder default {@code 0} means “unset” before {@link #withDefaults}.
+   */
+  @Builder.Default
+  private int issueDrillDownCandidateLimit = 0;
+  /**
+   * Minimum finite RR for merged related list; {@code < 0} in raw input → default in {@link
+   * #withDefaults}; {@code [0, 1]} = RR floor off at runtime. Builder default {@code -1} = unset
+   * before {@link #withDefaults}.
+   */
+  @Builder.Default
+  private double minRiskRatioForIssueAttribution = -1.0d;
   /**
    * Drill-down temporal guard (Variant A): {@code null} in raw config → {@link
    * #DEFAULT_ISSUE_MUST_PRECEDE_POOR} after {@link #withDefaults(RootCauseConfig)}; explicit {@code
@@ -82,6 +107,8 @@ public class RootCauseConfig {
           .minTreatedSessionsForIssueAttribution(DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION)
           .minControlSessionsForIssueAttribution(DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION)
           .issueDrillDownLimit(DEFAULT_ISSUE_DRILL_DOWN_LIMIT)
+          .issueDrillDownCandidateLimit(DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT)
+          .minRiskRatioForIssueAttribution(DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION)
           .issueMustPrecedePoor(DEFAULT_ISSUE_MUST_PRECEDE_POOR)
           .dimensionOrder(DEFAULT_DIMENSION_ORDER)
           .build();
@@ -110,6 +137,14 @@ public class RootCauseConfig {
             : from.minControlSessionsForIssueAttribution;
     final int issueDrillDownLimit =
         from.issueDrillDownLimit <= 0 ? DEFAULT_ISSUE_DRILL_DOWN_LIMIT : from.issueDrillDownLimit;
+    final int issueDrillDownCandidateLimit =
+        from.issueDrillDownCandidateLimit <= 0
+            ? DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT
+            : from.issueDrillDownCandidateLimit;
+    final double minRiskRatioForIssueAttribution =
+        from.minRiskRatioForIssueAttribution < 0
+            ? DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION
+            : from.minRiskRatioForIssueAttribution;
     final boolean issueMustPrecedePoor =
         from.getIssueMustPrecedePoor() == null
             ? DEFAULT_ISSUE_MUST_PRECEDE_POOR
@@ -126,6 +161,8 @@ public class RootCauseConfig {
         .minTreatedSessionsForIssueAttribution(minTreatedSessionsForIssueAttribution)
         .minControlSessionsForIssueAttribution(minControlSessionsForIssueAttribution)
         .issueDrillDownLimit(issueDrillDownLimit)
+        .issueDrillDownCandidateLimit(issueDrillDownCandidateLimit)
+        .minRiskRatioForIssueAttribution(minRiskRatioForIssueAttribution)
         .issueMustPrecedePoor(issueMustPrecedePoor)
         .dimensionOrder(dimensionOrder)
         .build();

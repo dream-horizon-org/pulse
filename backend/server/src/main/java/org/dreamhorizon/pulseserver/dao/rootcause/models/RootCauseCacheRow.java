@@ -30,9 +30,6 @@ public class RootCauseCacheRow {
   private String baseline;
   private String segments;
 
-  @JsonProperty("error_attribution_json")
-  private String errorAttributionJson;
-
   @JsonProperty("cached_at")
   private LocalDateTime cachedAt;
 }

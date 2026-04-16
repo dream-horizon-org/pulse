@@ -831,18 +831,40 @@ def generate_track_b_error_attribution_rows(project_id):
     Correlated sessions for Track B manual / API testing (see docs/causal/plan testing plan).
 
     - Interaction: TRACK_B_INTERACTION_NAME (add_to_cart) with explicit Poor / Good categories.
-    - Timestamps clustered in the last 6h of the global seed window (start_time .. start_time+24h).
+    - Timestamps uniformly in the same 24h window as bulk otel seed (start_time .. start_time+24h)
+      so they stay inside the RCA 7-day error-attribution window longer than the old "last 6h only"
+      slice (which aged out quickly).
+    - Stack / network error timestamps are strictly before the Poor interaction timestamp so
+      drill-down with issueMustPrecedePoor (first_issue_ts < poor_ts) is not starved.
     - >= 1_100 Poor sessions in U so the nPoorInU >= 1_000 gate can pass.
     """
     trace_rows = []
     stack_rows = []
 
     window_end = start_time + timedelta(hours=24)
-    window_start = window_end - timedelta(hours=6)
+    window_start = start_time
 
     def pick_ts():
         delta = (window_end - window_start).total_seconds()
         return window_start + timedelta(seconds=random.randint(0, max(1, int(delta) - 1)))
+
+    def issue_ts_before_poor_interaction_ts():
+        """
+        Return (issue_ts, interaction_ts) with issue_ts < interaction_ts.
+
+        Error-attribution drill-down with issueMustPrecedePoor requires
+        first_issue_ts < poor_ts (strict). Using the same Timestamp for stack
+        and interaction makes n_treated_low drop to zero.
+        """
+        interaction_ts = pick_ts()
+        issue_ts = interaction_ts - timedelta(seconds=120)
+        if issue_ts < window_start:
+            issue_ts = window_start
+            interaction_ts = min(
+                window_end - timedelta(milliseconds=1),
+                issue_ts + timedelta(seconds=180),
+            )
+        return issue_ts, interaction_ts
 
     # Fixed android context for stable stack signatures (optional variety later)
     platform, os_version, device = "android", "13", "Pixel 6"
@@ -853,7 +875,8 @@ def generate_track_b_error_attribution_rows(project_id):
     for i in range(1100):
         session_id = f"tb_poor_crash_{i:05d}"
         user_id = f"tb_u_{i:05d}"
-        ts = pick_ts()
+        ts_issue, ts = issue_ts_before_poor_interaction_ts()
+        ts_stack_str = ts_issue.strftime("%Y-%m-%d %H:%M:%S.%f000")
         ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
         trace_id = uuid.uuid4().hex
         span_i = uuid.uuid4().hex[:16]
@@ -879,7 +902,7 @@ def generate_track_b_error_attribution_rows(project_id):
         )
         stack_rows.append(
             _track_b_stack_row(
-                ts_str,
+                ts_stack_str,
                 session_id,
                 user_id,
                 project_id,
@@ -901,7 +924,8 @@ def generate_track_b_error_attribution_rows(project_id):
     for i in range(150):
         session_id = f"tb_poor_anr_{i:04d}"
         user_id = f"tb_ua_{i:04d}"
-        ts = pick_ts()
+        ts_issue, ts = issue_ts_before_poor_interaction_ts()
+        ts_stack_str = ts_issue.strftime("%Y-%m-%d %H:%M:%S.%f000")
         ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
         trace_id = uuid.uuid4().hex
         span_i = uuid.uuid4().hex[:16]
@@ -927,7 +951,7 @@ def generate_track_b_error_attribution_rows(project_id):
         )
         stack_rows.append(
             _track_b_stack_row(
-                ts_str,
+                ts_stack_str,
                 session_id,
                 user_id,
                 project_id,
@@ -949,7 +973,8 @@ def generate_track_b_error_attribution_rows(project_id):
     for i in range(120):
         session_id = f"tb_poor_nf_{i:04d}"
         user_id = f"tb_unf_{i:04d}"
-        ts = pick_ts()
+        ts_issue, ts = issue_ts_before_poor_interaction_ts()
+        ts_stack_str = ts_issue.strftime("%Y-%m-%d %H:%M:%S.%f000")
         ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
         trace_id = uuid.uuid4().hex
         span_i = uuid.uuid4().hex[:16]
@@ -975,7 +1000,7 @@ def generate_track_b_error_attribution_rows(project_id):
         )
         stack_rows.append(
             _track_b_stack_row(
-                ts_str,
+                ts_stack_str,
                 session_id,
                 user_id,
                 project_id,
@@ -997,7 +1022,8 @@ def generate_track_b_error_attribution_rows(project_id):
     for i in range(130):
         session_id = f"tb_poor_api_{i:04d}"
         user_id = f"tb_uapi_{i:04d}"
-        ts = pick_ts()
+        ts_issue, ts = issue_ts_before_poor_interaction_ts()
+        ts_net_str = ts_issue.strftime("%Y-%m-%d %H:%M:%S.%f000")
         ts_str = ts.strftime("%Y-%m-%d %H:%M:%S.%f000")
         trace_id = uuid.uuid4().hex
         span_i = uuid.uuid4().hex[:16]
@@ -1024,7 +1050,7 @@ def generate_track_b_error_attribution_rows(project_id):
         )
         trace_rows.append(
             _track_b_network_error_span_row(
-                ts_str,
+                ts_net_str,
                 trace_id,
                 span_n,
                 session_id,
@@ -1069,6 +1095,12 @@ def generate_track_b_error_attribution_rows(project_id):
             )
         )
 
+    print(
+        "    Track B CH Timestamp window (UTC): "
+        f"{window_start.strftime('%Y-%m-%d %H:%M:%S')} .. "
+        f"{window_end.strftime('%Y-%m-%d %H:%M:%S')} — use Root Cause on "
+        f"'{TRACK_B_INTERACTION_NAME}' only; re-seed with --clear if attribution is empty."
+    )
     return trace_rows, stack_rows
 
 
@@ -1500,5 +1532,5 @@ if __name__ == "__main__":
     print("    - Each interaction has unique bad segments for the AI to discover")
     print(
         f"    - Track B: open interaction '{TRACK_B_INTERACTION_NAME}' → Root Cause tab → error attribution;"
-        " data is in the last 24h window (tb_* sessions clustered in the last ~6h)\n"
+        " data is in the last 24h window (tb_* timestamps uniform across that window)\n"
     )

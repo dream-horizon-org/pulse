@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,27 +17,33 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorAttributionRestResponse {
 
-  private Boolean trackBInsufficientData;
-  private Integer minPoorSessionsForErrorAttribution;
-  private Long nPoorInU;
-  private Long nU;
-  private List<RiskRatioEntry> riskRatios;
-  private List<String> jointWinners;
-  private String analysisPhase;
-  private String track;
-  private String diagnosticSpecVersion;
   private Instant cachedAt;
   private String disclaimer;
-  /** Present when {@code drillDown=} query lists signals; not stored in {@code error_attribution_json}. */
-  private Map<String, ErrorAttributionDrillDownRestResponse> drillDown;
+  /**
+   * Resolved {@code rootCause.minRiskRatioForIssueAttribution}; UI may show “RR ≥ …” when {@code > 1};
+   * {@code [0,1]} means no RR floor.
+   */
+  private Double minRiskRatioForIssueAttribution;
+  /** Merged list across signals after RR threshold + global cap. */
+  private List<RelatedAttributionEntry> relatedAttributions;
 
   @Data
   @Builder
   @NoArgsConstructor
   @AllArgsConstructor
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  public static class RiskRatioEntry {
-    private String signal;
+  public static class RelatedAttributionEntry {
+    /** {@code crash}, {@code anr}, {@code non_fatal}, or {@code api}. */
+    private String sourceSignal;
+    /** {@code issue} or {@code api}. */
+    private String rowKind;
+    private String groupId;
+    private String title;
+    private String exceptionType;
+    private String url;
+    private String graphqlOperationName;
+    private String graphqlOperationType;
+    private Long occurrences;
     private Long nTreated;
     private Long nControl;
     private Long nTreatedLow;

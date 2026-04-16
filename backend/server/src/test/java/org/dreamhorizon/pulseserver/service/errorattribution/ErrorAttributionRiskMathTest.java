@@ -29,4 +29,54 @@ class ErrorAttributionRiskMathTest {
     assertThat(row.getRrUndefined()).isTrue();
     assertThat(row.getRrUndefinedReason()).isEqualTo(ErrorAttributionResult.RR_INFINITE_RR);
   }
+
+  @Test
+  void winnerComparableKeyOverloadMatchesRiskRatioRow() {
+    RiskRatioRow row = ErrorAttributionRiskMath.buildRiskRow("crash", 100L, 900L, 10L, 45L);
+    assertThat(
+            ErrorAttributionRiskMath.winnerComparableKey(
+                row.getRrUndefined(), row.getRrUndefinedReason(), row.getRr()))
+        .isEqualTo(ErrorAttributionRiskMath.winnerComparableKey(row));
+  }
+
+  @Test
+  void passesRelatedThreshold_emptyAlwaysFalseEvenWhenFloorDisabled() {
+    assertThat(
+            ErrorAttributionRiskMath.passesRelatedThreshold(
+                true, ErrorAttributionResult.RR_EMPTY_TREATED_ARM, null, 0.5))
+        .isFalse();
+    assertThat(
+            ErrorAttributionRiskMath.passesRelatedThreshold(
+                true, ErrorAttributionResult.RR_ZERO_POOR, null, 0.5))
+        .isFalse();
+  }
+
+  @Test
+  void passesRelatedThreshold_infiniteAlwaysTrue() {
+    assertThat(
+            ErrorAttributionRiskMath.passesRelatedThreshold(
+                true, ErrorAttributionResult.RR_INFINITE_RR, null, 2.0))
+        .isTrue();
+  }
+
+  @Test
+  void passesRelatedThreshold_floorDisabledAcceptsFinite() {
+    assertThat(
+            ErrorAttributionRiskMath.passesRelatedThreshold(false, null, 1.1, 1.0))
+        .isTrue();
+  }
+
+  @Test
+  void passesRelatedThreshold_floorOnRequiresMinRr() {
+    assertThat(ErrorAttributionRiskMath.passesRelatedThreshold(false, null, 1.5, 2.0)).isFalse();
+    assertThat(ErrorAttributionRiskMath.passesRelatedThreshold(false, null, 2.0, 2.0)).isTrue();
+  }
+
+  @Test
+  void compareWinnerKeysDescending_nanLast() {
+    double finite = 2.0;
+    double nan = Double.NaN;
+    assertThat(ErrorAttributionRiskMath.compareWinnerKeysDescending(finite, nan)).isNegative();
+    assertThat(ErrorAttributionRiskMath.compareWinnerKeysDescending(nan, finite)).isPositive();
+  }
 }

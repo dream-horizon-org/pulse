@@ -18,16 +18,14 @@ import {
   useRefreshErrorAttribution,
 } from "../../../../hooks/useGetErrorAttribution";
 import type {
-  ErrorAttributionDrillDownPayload,
   ErrorAttributionSignal,
+  RelatedAttributionEntry,
 } from "../../../../hooks/useGetErrorAttribution";
 import { encodeNetworkId } from "../../../NetworkList/utils/networkIdUtils";
 import {
-  DEFAULT_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION,
   EN_DASH,
   ERROR_ATTRIBUTION_MESSAGES,
-  insufficientPoorSessionsMessage,
-  TEMPORAL_RULE_ISSUE_BEFORE_POOR,
+  relatedAttributionsEmptyMessage,
 } from "./ErrorAttribution.constants";
 import type { ErrorAttributionProps } from "./ErrorAttribution.interface";
 import classes from "./ErrorAttribution.module.css";
@@ -55,7 +53,9 @@ function formatPoorRate(value: number | null | undefined): string {
 function formatRiskRatio(
   rr: number | null | undefined,
   rrUndefined: boolean | null | undefined,
+  rrUndefinedReason?: string | null,
 ): string {
+  if (rrUndefinedReason === "INFINITE_RR") return "∞";
   if (rrUndefined === true || rr == null || Number.isNaN(rr)) return EN_DASH;
   return rr.toFixed(2);
 }
@@ -66,37 +66,28 @@ function formatCachedAt(iso: string | null | undefined): string | null {
   return parsed.isValid() ? parsed.format("MMM D, YYYY [at] h:mm A") : null;
 }
 
-function SignalIssueList({
-  signal,
-  payload,
+function UnifiedRelatedAttributionsList({
+  rows,
   projectId,
   linkSuffix,
 }: {
-  signal: ErrorAttributionSignal;
-  payload: ErrorAttributionDrillDownPayload | undefined;
+  rows: RelatedAttributionEntry[];
   projectId: string;
   linkSuffix: string;
 }) {
-  if (signal === "api") {
-    const endpoints = payload?.networkEndpoints ?? [];
-    if (endpoints.length === 0) {
-      return (
-        <Text size="sm" c="dimmed">
-          {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_EMPTY}
-        </Text>
-      );
-    }
-    return (
-      <Stack gap="xs">
-        {endpoints.map((ep, idx) => {
+  return (
+    <Stack gap="xs">
+      {rows.map((row, idx) => {
+        const signalLabel = SIGNAL_LABEL[row.sourceSignal] ?? row.sourceSignal;
+        if (row.rowKind === "api") {
           const apiId = encodeNetworkId(
-            ep.url,
-            ep.graphqlOperationName ?? undefined,
-            ep.graphqlOperationType ?? undefined,
+            row.url ?? "",
+            row.graphqlOperationName ?? undefined,
+            row.graphqlOperationType ?? undefined,
           );
           const to = `/projects/${encodeURIComponent(projectId)}/network-apis/${encodeURIComponent(apiId)}${linkSuffix}`;
           return (
-            <Stack key={`${ep.url}-${idx}`} gap={4}>
+            <Stack key={`api-${row.url}-${idx}`} gap={4}>
               <Group justify="space-between" wrap="nowrap" gap="md">
                 <Text
                   component={Link}
@@ -105,48 +96,41 @@ function SignalIssueList({
                   className={classes.drillDownLink}
                   lineClamp={2}
                 >
-                  {ep.url || "(no URL)"}
+                  {row.url || "(no URL)"}
                 </Text>
                 <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
-                  {ep.occurrences.toLocaleString()}{" "}
+                  {row.occurrences.toLocaleString()}{" "}
                   {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_SESSIONS}
                 </Text>
               </Group>
               <Text size="xs" c="dimmed">
-                Poor rate (with endpoint): {formatPoorRate(ep.p1)} · Poor rate
-                (without): {formatPoorRate(ep.p2)} · RR:{" "}
-                {formatRiskRatio(ep.rr, ep.rrUndefined ?? null)}
+                {signalLabel} · Poor rate (with endpoint):{" "}
+                {formatPoorRate(row.p1)} · Poor rate (without):{" "}
+                {formatPoorRate(row.p2)} · RR:{" "}
+                {formatRiskRatio(
+                  row.rr,
+                  row.rrUndefined ?? null,
+                  row.rrUndefinedReason,
+                )}
               </Text>
             </Stack>
           );
-        })}
-      </Stack>
-    );
-  }
+        }
 
-  const issues = payload?.issues ?? [];
-  if (issues.length === 0) {
-    return (
-      <Text size="sm" c="dimmed">
-        {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_EMPTY}
-      </Text>
-    );
-  }
-
-  return (
-    <Stack gap="xs">
-      {issues.map((issue) => {
-        const to = `/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(issue.groupId)}${linkSuffix}`;
+        const to = `/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(row.groupId ?? "")}${linkSuffix}`;
         const label =
-          issue.title && issue.title.trim() !== ""
-            ? issue.title
-            : issue.groupId || "(issue)";
+          row.title && row.title.trim() !== ""
+            ? row.title
+            : row.groupId || "(issue)";
         const typeSuffix =
-          signal === "non_fatal" && issue.exceptionType
-            ? ` (${issue.exceptionType})`
+          row.sourceSignal === "non_fatal" && row.exceptionType
+            ? ` (${row.exceptionType})`
             : "";
         return (
-          <Stack key={`${issue.groupId}-${issue.exceptionType ?? ""}`} gap={4}>
+          <Stack
+            key={`issue-${row.groupId}-${row.exceptionType ?? ""}-${idx}`}
+            gap={4}
+          >
             <Group justify="space-between" wrap="nowrap" gap="md">
               <Text
                 component={Link}
@@ -159,14 +143,18 @@ function SignalIssueList({
                 {typeSuffix}
               </Text>
               <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
-                {issue.occurrences.toLocaleString()}{" "}
+                {row.occurrences.toLocaleString()}{" "}
                 {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_SESSIONS}
               </Text>
             </Group>
             <Text size="xs" c="dimmed">
-              Poor rate (with issue): {formatPoorRate(issue.p1)} · Poor rate
-              (without): {formatPoorRate(issue.p2)} · RR:{" "}
-              {formatRiskRatio(issue.rr, issue.rrUndefined ?? null)}
+              {signalLabel} · Poor rate (with issue): {formatPoorRate(row.p1)} ·
+              Poor rate (without): {formatPoorRate(row.p2)} · RR:{" "}
+              {formatRiskRatio(
+                row.rr,
+                row.rrUndefined ?? null,
+                row.rrUndefinedReason,
+              )}
             </Text>
           </Stack>
         );
@@ -211,14 +199,6 @@ export function ErrorAttribution({
 
   const httpOk = apiResponse?.status === 200 && apiResponse.data != null;
   const body = httpOk ? apiResponse.data : null;
-
-  const showIssueBeforePoorFootnote = useMemo(() => {
-    const d = body?.drillDown;
-    if (d == null) return false;
-    return ALL_DRILL_SIGNALS.some(
-      (s) => d[s]?.temporalRule === TEMPORAL_RULE_ISSUE_BEFORE_POOR,
-    );
-  }, [body]);
 
   const showLoading = (isLoading || isFetching) && !httpOk;
 
@@ -305,48 +285,7 @@ export function ErrorAttribution({
     return null;
   }
 
-  const insufficient = body.trackBInsufficientData === true;
-  const emptyUniverse = insufficient && body.nU === 0;
-
-  if (insufficient) {
-    return (
-      <Box className={classes.section}>
-        <Group
-          justify="space-between"
-          align="flex-start"
-          wrap="wrap"
-          gap="sm"
-          className={classes.headerRow}
-        >
-          <div>
-            <Title order={4}>{ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}</Title>
-            {cachedAtLabel ? (
-              <Text className={classes.cachedAt} size="xs">
-                Cached {cachedAtLabel}
-              </Text>
-            ) : null}
-          </div>
-          {refreshButton}
-        </Group>
-        <Stack gap="md" className={classes.emptyState}>
-          <ErrorAndEmptyState
-            message={
-              emptyUniverse
-                ? ERROR_ATTRIBUTION_MESSAGES.NO_DATA_IN_WINDOW
-                : insufficientPoorSessionsMessage(
-                    body.minPoorSessionsForErrorAttribution ??
-                      DEFAULT_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION,
-                  )
-            }
-            classes={[rootCauseClasses.stateMessage]}
-          />
-          {disclaimerBlock}
-        </Stack>
-      </Box>
-    );
-  }
-
-  const drill = body.drillDown ?? {};
+  const related = body.relatedAttributions ?? [];
 
   return (
     <Box className={classes.section}>
@@ -368,27 +307,21 @@ export function ErrorAttribution({
         {refreshButton}
       </Group>
 
-      <Stack gap="lg" mt="md">
-        {ALL_DRILL_SIGNALS.map((signal) => (
-          <Box key={signal} className={classes.drillDownRow} p="md">
-            <Text fw={600} size="sm" mb="sm">
-              {SIGNAL_LABEL[signal] ?? signal}
-            </Text>
-            <SignalIssueList
-              signal={signal}
-              payload={drill[signal]}
-              projectId={trimmedProjectId}
-              linkSuffix={linkSuffix}
-            />
-          </Box>
-        ))}
+      <Stack gap="md" mt="md" className={classes.drillDownRow} p="md">
+        {related.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            {relatedAttributionsEmptyMessage(
+              body.minRiskRatioForIssueAttribution,
+            )}
+          </Text>
+        ) : (
+          <UnifiedRelatedAttributionsList
+            rows={related}
+            projectId={trimmedProjectId}
+            linkSuffix={linkSuffix}
+          />
+        )}
       </Stack>
-
-      {showIssueBeforePoorFootnote ? (
-        <Text className={classes.disclaimer} size="sm" mt="md">
-          {ERROR_ATTRIBUTION_MESSAGES.ISSUE_BEFORE_POOR_FOOTNOTE}
-        </Text>
-      ) : null}
 
       {disclaimerBlock}
     </Box>

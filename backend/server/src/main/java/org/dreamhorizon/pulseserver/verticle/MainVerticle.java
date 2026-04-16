@@ -288,6 +288,41 @@ public class MainVerticle extends AbstractVerticle {
     return defaultValue;
   }
 
+  private static double rootCauseDouble(JsonObject json, String key, double defaultValue) {
+    if (!json.containsKey(key)) {
+      return defaultValue;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return defaultValue;
+    }
+    if (v instanceof Number) {
+      return ((Number) v).doubleValue();
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return defaultValue;
+      }
+      try {
+        return Double.parseDouble(s);
+      } catch (NumberFormatException e) {
+        log.warn(
+            "Invalid double for rootCause.{}: {}, using default {}",
+            key,
+            v,
+            defaultValue);
+        return defaultValue;
+      }
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, using default {}",
+        key,
+        v.getClass().getName(),
+        defaultValue);
+    return defaultValue;
+  }
+
   private RootCauseConfig buildRootCauseConfig(JsonObject rootCauseJson) {
     final RootCauseConfig.RootCauseConfigBuilder builder = RootCauseConfig.builder()
         .similarityThresholdPct(
@@ -319,6 +354,19 @@ public class MainVerticle extends AbstractVerticle {
                 rootCauseJson,
                 "issueDrillDownLimit",
                 RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT))
+        .issueDrillDownCandidateLimit(
+            rootCauseInt(
+                rootCauseJson,
+                "issueDrillDownCandidateLimit",
+                0));
+    if (rootCauseJson.containsKey("minRiskRatioForIssueAttribution")) {
+      builder.minRiskRatioForIssueAttribution(
+          rootCauseDouble(
+              rootCauseJson,
+              "minRiskRatioForIssueAttribution",
+              RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION));
+    }
+    builder
         .issueMustPrecedePoor(
             rootCauseJson.containsKey("issueMustPrecedePoor")
                 ? rootCauseJson.getBoolean("issueMustPrecedePoor")

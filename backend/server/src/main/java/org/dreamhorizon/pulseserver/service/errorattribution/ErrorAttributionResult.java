@@ -10,7 +10,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Internal Track B attribution aggregate; serializes to {@code error_attribution_json} and maps to REST.
+ * Internal Track B summary aggregate shape (risk ratios, joint winners). Used for tests and offline
+ * validation via {@link ErrorAttributionSummaryEngine}; the REST error-attribution endpoint is drill-only
+ * and does not persist this payload on {@code otel.root_cause_cache}.
  */
 @Data
 @Builder(toBuilder = true)

@@ -17,16 +17,21 @@ public final class ErrorAttributionDrillDownQueryBuilder {
 
   /** Kept for tests and alignment with {@link RootCauseConfig#DEFAULT_ISSUE_DRILL_DOWN_LIMIT}. */
   static final int DRILL_DOWN_LIMIT = RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT;
+  /** Per-signal SQL cap; aligns with {@link RootCauseConfig#DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT}. */
+  static final int DRILL_DOWN_CANDIDATE_LIMIT = RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT;
 
   public record DrillDownQueryParams(
-      int minTreatedSessions, int minControlSessions, int rowLimit, boolean issueMustPrecedePoor) {
+      int minTreatedSessions,
+      int minControlSessions,
+      int candidateRowLimit,
+      boolean issueMustPrecedePoor) {
 
     public static DrillDownQueryParams fromRootCauseConfig(RootCauseConfig rootCauseConfig) {
       RootCauseConfig c = RootCauseConfig.withDefaults(rootCauseConfig);
       return new DrillDownQueryParams(
           c.getMinTreatedSessionsForIssueAttribution(),
           c.getMinControlSessionsForIssueAttribution(),
-          c.getIssueDrillDownLimit(),
+          c.getIssueDrillDownCandidateLimit(),
           Boolean.TRUE.equals(c.getIssueMustPrecedePoor()));
     }
   }
@@ -76,7 +81,7 @@ public final class ErrorAttributionDrillDownQueryBuilder {
     acc.add(p3, endStr);
     acc.add(p4, params.minTreatedSessions());
     acc.add(p5, params.minControlSessions());
-    acc.add(p6, params.rowLimit());
+    acc.add(p6, params.candidateRowLimit());
 
     String traces = ClickhouseConstants.OTEL_TRACES_TABLE;
     String stacks = ClickhouseConstants.STACK_TRACE_EVENTS_TABLE;
@@ -259,7 +264,7 @@ public final class ErrorAttributionDrillDownQueryBuilder {
     acc.add(p3, endStr);
     acc.add(p4, params.minTreatedSessions());
     acc.add(p5, params.minControlSessions());
-    acc.add(p6, params.rowLimit());
+    acc.add(p6, params.candidateRowLimit());
 
     String traces = ClickhouseConstants.OTEL_TRACES_TABLE;
     String interactionType = InteractionTelemetryConstants.INTERACTION_PULSE_TYPE;

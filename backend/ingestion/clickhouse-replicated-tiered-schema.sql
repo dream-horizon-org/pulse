@@ -240,7 +240,6 @@ PARTITION BY toYYYYMM(date)
 ORDER BY (ProjectId, interaction_name, date)
 SETTINGS index_granularity = 8192;
 
--- Track B error attribution (Phase 1): payload colocated with RCA cache row
+-- Removed error_attribution_json (drill-only error attribution; no longer stored on RCA cache row)
 ALTER TABLE otel.root_cause_cache ON CLUSTER `pulse-clickhouse`
-    ADD COLUMN IF NOT EXISTS error_attribution_json Nullable(String)
-        COMMENT 'Serialized Track B error-attribution JSON; null if not computed';
+    DROP COLUMN IF EXISTS error_attribution_json;

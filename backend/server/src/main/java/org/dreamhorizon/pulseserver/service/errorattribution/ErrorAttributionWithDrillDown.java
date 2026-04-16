@@ -1,10 +1,12 @@
 package org.dreamhorizon.pulseserver.service.errorattribution;
 
-import java.util.Map;
+import java.util.List;
 
 /**
- * In-memory bundle for one HTTP response: summary aggregate (cacheable shape) plus optional
- * drill-down payloads per signal. Drill-down is not persisted on {@link ErrorAttributionResult}.
+ * In-memory bundle for one HTTP error-attribution response: merged related rows plus resolved RR
+ * floor from config.
  */
 public record ErrorAttributionWithDrillDown(
-    ErrorAttributionResult summary, Map<String, ErrorAttributionDrillDownResult> drillDownBySignal) {}
+    List<ErrorAttributionRelatedAttributionRow> relatedAttributions,
+    /** Resolved minimum RR config; {@code null} if not applicable. */
+    Double minRiskRatioForIssueAttribution) {}

@@ -23,7 +23,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,6 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractions
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RestInteractionDetail;
-import org.dreamhorizon.pulseserver.resources.interaction.models.ErrorAttributionDrillDownRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.ErrorAttributionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
@@ -53,10 +51,9 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownResult;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownSignal;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRelatedAttributionRow;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -255,6 +252,14 @@ public class InteractionController {
             "'end' must be after 'start'");
       }
       drillSignals = parseDrillDownSignals(drillDownParam);
+      if (drillSignals.isEmpty()) {
+        throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+            "Query parameter 'drillDown' is required and must list one or more signals: crash, anr, non_fatal, api.");
+      }
+      log.trace(
+          "error-attribution interaction={} refresh={} (drill path is not server-cached)",
+          name,
+          refresh);
     } catch (WebApplicationException e) {
       return CompletableFuture.failedFuture(e);
     } catch (IllegalArgumentException e) {
@@ -263,10 +268,11 @@ public class InteractionController {
       return CompletableFuture.failedFuture(bad);
     }
     return errorAttributionService
-        .getErrorAttributionWithOptionalDrillDown(projectId, name, start, end, refresh, drillSignals)
+        .getErrorAttributionWithOptionalDrillDown(projectId, name, start, end, drillSignals)
         .map(
             bundle ->
-                toErrorAttributionRestResponse(bundle.summary(), bundle.drillDownBySignal()))
+                toErrorAttributionRestResponse(
+                    bundle.relatedAttributions(), bundle.minRiskRatioForIssueAttribution()))
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -357,101 +363,43 @@ public class InteractionController {
   }
 
   private ErrorAttributionRestResponse toErrorAttributionRestResponse(
-      ErrorAttributionResult result, Map<String, ErrorAttributionDrillDownResult> drillDownBySignal) {
-    List<ErrorAttributionRestResponse.RiskRatioEntry> risk =
-        result.getRiskRatios() == null
+      List<ErrorAttributionRelatedAttributionRow> relatedAttributions,
+      Double minRiskRatioForIssueAttribution) {
+    List<ErrorAttributionRestResponse.RelatedAttributionEntry> related =
+        relatedAttributions == null || relatedAttributions.isEmpty()
             ? List.of()
-            : result.getRiskRatios().stream()
-                .map(
-                    r ->
-                        ErrorAttributionRestResponse.RiskRatioEntry.builder()
-                            .signal(r.getSignal())
-                            .nTreated(r.getNTreated())
-                            .nControl(r.getNControl())
-                            .nTreatedLow(r.getNTreatedLow())
-                            .nControlLow(r.getNControlLow())
-                            .p1(r.getP1())
-                            .p2(r.getP2())
-                            .rr(r.getRr())
-                            .rrUndefined(r.getRrUndefined())
-                            .rrUndefinedReason(r.getRrUndefinedReason())
-                            .build())
+            : relatedAttributions.stream()
+                .map(InteractionController::toRelatedAttributionEntry)
                 .collect(Collectors.toList());
-    ErrorAttributionRestResponse.ErrorAttributionRestResponseBuilder builder =
-        ErrorAttributionRestResponse.builder()
-            .trackBInsufficientData(result.getTrackBInsufficientData())
-            .minPoorSessionsForErrorAttribution(result.getMinPoorSessionsForErrorAttribution())
-            .nPoorInU(result.getNPoorInU())
-            .nU(result.getNU())
-            .riskRatios(risk)
-            .jointWinners(result.getJointWinners())
-            .analysisPhase(result.getAnalysisPhase())
-            .track(result.getTrack())
-            .diagnosticSpecVersion(result.getDiagnosticSpecVersion())
-            .cachedAt(result.getCachedAt())
-            .disclaimer(result.getDisclaimer());
-    if (drillDownBySignal != null && !drillDownBySignal.isEmpty()) {
-      Map<String, ErrorAttributionDrillDownRestResponse> restDrill = new LinkedHashMap<>();
-      for (Map.Entry<String, ErrorAttributionDrillDownResult> e : drillDownBySignal.entrySet()) {
-        restDrill.put(e.getKey(), toErrorAttributionDrillDownRestResponse(e.getValue()));
-      }
-      builder.drillDown(restDrill);
-    }
-    return builder.build();
+    return ErrorAttributionRestResponse.builder()
+        .disclaimer(ErrorAttributionService.DISCLAIMER)
+        .cachedAt(Instant.now())
+        .minRiskRatioForIssueAttribution(minRiskRatioForIssueAttribution)
+        .relatedAttributions(related)
+        .build();
   }
 
-  private ErrorAttributionDrillDownRestResponse toErrorAttributionDrillDownRestResponse(
-      ErrorAttributionDrillDownResult result) {
-    List<ErrorAttributionDrillDownRestResponse.IssueEntry> issues =
-        result.getIssues() == null
-            ? null
-            : result.getIssues().stream()
-                .map(
-                    i ->
-                        ErrorAttributionDrillDownRestResponse.IssueEntry.builder()
-                            .groupId(i.getGroupId())
-                            .title(i.getTitle())
-                            .occurrences(i.getOccurrences())
-                            .exceptionType(i.getExceptionType())
-                            .nTreated(i.getNTreated())
-                            .nControl(i.getNControl())
-                            .nTreatedLow(i.getNTreatedLow())
-                            .nControlLow(i.getNControlLow())
-                            .p1(i.getP1())
-                            .p2(i.getP2())
-                            .rr(i.getRr())
-                            .rrUndefined(i.getRrUndefined())
-                            .rrUndefinedReason(i.getRrUndefinedReason())
-                            .build())
-                .collect(Collectors.toList());
-    List<ErrorAttributionDrillDownRestResponse.NetworkEndpointEntry> nets =
-        result.getNetworkEndpoints() == null
-            ? null
-            : result.getNetworkEndpoints().stream()
-                .map(
-                    n ->
-                        ErrorAttributionDrillDownRestResponse.NetworkEndpointEntry.builder()
-                            .url(n.getUrl())
-                            .graphqlOperationName(n.getGraphqlOperationName())
-                            .graphqlOperationType(n.getGraphqlOperationType())
-                            .occurrences(n.getOccurrences())
-                            .nTreated(n.getNTreated())
-                            .nControl(n.getNControl())
-                            .nTreatedLow(n.getNTreatedLow())
-                            .nControlLow(n.getNControlLow())
-                            .p1(n.getP1())
-                            .p2(n.getP2())
-                            .rr(n.getRr())
-                            .rrUndefined(n.getRrUndefined())
-                            .rrUndefinedReason(n.getRrUndefinedReason())
-                            .build())
-                .collect(Collectors.toList());
-    return ErrorAttributionDrillDownRestResponse.builder()
-        .signal(result.getSignal())
-        .eligibility(result.getEligibility())
-        .temporalRule(result.getTemporalRule())
-        .issues(issues)
-        .networkEndpoints(nets)
+  private static ErrorAttributionRestResponse.RelatedAttributionEntry toRelatedAttributionEntry(
+      ErrorAttributionRelatedAttributionRow r) {
+    return ErrorAttributionRestResponse.RelatedAttributionEntry.builder()
+        .sourceSignal(r.sourceSignal())
+        .rowKind(r.rowKind())
+        .groupId(r.groupId())
+        .title(r.title())
+        .exceptionType(r.exceptionType())
+        .url(r.url())
+        .graphqlOperationName(r.graphqlOperationName())
+        .graphqlOperationType(r.graphqlOperationType())
+        .occurrences(r.occurrences())
+        .nTreated(r.nTreated())
+        .nControl(r.nControl())
+        .nTreatedLow(r.nTreatedLow())
+        .nControlLow(r.nControlLow())
+        .p1(r.p1())
+        .p2(r.p2())
+        .rr(r.rr())
+        .rrUndefined(r.rrUndefined())
+        .rrUndefinedReason(r.rrUndefinedReason())
         .build();
   }
 }

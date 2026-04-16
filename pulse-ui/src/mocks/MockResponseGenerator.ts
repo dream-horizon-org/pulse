@@ -2574,38 +2574,20 @@ export class MockResponseGenerator {
       ) {
         const interactionName = decodeURIComponent(pathParts[2]);
 
-        // GET /v1/interactions/{name}/error-attribution — Track B diagnostic (mock empty universe)
+        // GET /v1/interactions/{name}/error-attribution — drill-only slim payload (matches pulse-server)
         if (
           method === "GET" &&
           pathParts.length >= 4 &&
           pathParts[3] === "error-attribution"
         ) {
-          const mockRiskRow = (signal: string) => ({
-            signal,
-            nTreated: 0,
-            nControl: 0,
-            nTreatedLow: 0,
-            nControlLow: 0,
-            rrUndefined: true,
-            rrUndefinedReason: "EMPTY_TREATED_ARM" as const,
-          });
           return {
             data: {
               data: {
-                trackBInsufficientData: true,
-                nPoorInU: 0,
-                nU: 0,
-                riskRatios: [
-                  mockRiskRow("crash"),
-                  mockRiskRow("anr"),
-                  mockRiskRow("non_fatal"),
-                  mockRiskRow("api"),
-                ],
-                analysisPhase: "1",
-                track: "B",
-                diagnosticSpecVersion: "1",
                 disclaimer:
                   "Mock server: observational diagnostic only; not causal evidence.",
+                cachedAt: new Date().toISOString(),
+                minRiskRatioForIssueAttribution: 1.25,
+                relatedAttributions: [],
               },
               error: null,
             },

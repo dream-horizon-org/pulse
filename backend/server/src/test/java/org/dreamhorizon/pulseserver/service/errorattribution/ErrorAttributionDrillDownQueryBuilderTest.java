@@ -19,14 +19,14 @@ class ErrorAttributionDrillDownQueryBuilderTest {
       new DrillDownQueryParams(
           RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION,
           RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION,
-          ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_LIMIT,
+          ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_CANDIDATE_LIMIT,
           false);
 
   private static final DrillDownQueryParams PARAMS_TEMPORAL_ON =
       new DrillDownQueryParams(
           RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION,
           RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION,
-          ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_LIMIT,
+          ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_CANDIDATE_LIMIT,
           true);
 
   @Test
@@ -110,6 +110,6 @@ class ErrorAttributionDrillDownQueryBuilderTest {
         .isEqualTo(END.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL));
     assertThat(spec.bindValues().get(4)).isEqualTo(RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION);
     assertThat(spec.bindValues().get(5)).isEqualTo(RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION);
-    assertThat(spec.bindValues().get(6)).isEqualTo(ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_LIMIT);
+    assertThat(spec.bindValues().get(6)).isEqualTo(ErrorAttributionDrillDownQueryBuilder.DRILL_DOWN_CANDIDATE_LIMIT);
   }
 }

@@ -65,8 +65,7 @@ class RootCauseCacheQueriesTest {
               "hierarchical",
               "{\"k\":1}",
               "[]",
-              cachedAt,
-              null);
+              cachedAt);
       assertThat(sql).startsWith(RootCauseCacheQueries.INSERT_INTO_ROOT_CAUSE_CACHE + "(");
       assertThat(sql).contains("'proj'");
       assertThat(sql).contains("'checkout'");
@@ -89,8 +88,7 @@ class RootCauseCacheQueriesTest {
               "flat",
               baseline,
               segments,
-              LocalDateTime.of(2025, 1, 1, 0, 0),
-              null);
+              LocalDateTime.of(2025, 1, 1, 0, 0));
       assertThat(sql).contains("'{\"msg\":\"it\\'s\"}'");
       assertThat(sql).contains("'[{\"l\":\"a\\'b\"}]'");
     }
@@ -106,9 +104,7 @@ class RootCauseCacheQueriesTest {
               "flat",
               null,
               null,
-              LocalDateTime.of(2025, 1, 1, 0, 0),
-              null);
-      // escapeJson(null) -> "{}" for both JSON columns
+              LocalDateTime.of(2025, 1, 1, 0, 0));
       assertThat(sql).contains("'{}','{}'");
     }
 
@@ -123,41 +119,8 @@ class RootCauseCacheQueriesTest {
               "flat'x",
               "{}",
               "[]",
-              LocalDateTime.of(2025, 1, 1, 0, 0),
-              null);
+              LocalDateTime.of(2025, 1, 1, 0, 0));
       assertThat(sql).contains("'flat\\'x'");
-    }
-
-    @Test
-    void shouldEmitNullForNullErrorAttributionJson() {
-      String sql =
-          RootCauseCacheQueries.buildInsertQuery(
-              "p",
-              "i",
-              "2025-01-01",
-              WINDOW_END,
-              "flat",
-              "{}",
-              "[]",
-              LocalDateTime.of(2025, 1, 1, 0, 0),
-              null);
-      assertThat(sql).contains(",NULL,");
-    }
-
-    @Test
-    void shouldEscapeNonNullErrorAttributionJson() {
-      String sql =
-          RootCauseCacheQueries.buildInsertQuery(
-              "p",
-              "i",
-              "2025-01-01",
-              WINDOW_END,
-              "flat",
-              "{}",
-              "[]",
-              LocalDateTime.of(2025, 1, 1, 0, 0),
-              "{\"a\":\"b'c\"}");
-      assertThat(sql).contains("'{\"a\":\"b\\'c\"}'");
     }
   }
 
@@ -170,17 +133,20 @@ class RootCauseCacheQueriesTest {
           .contains("ProjectId")
           .contains("interaction_name")
           .contains("window_end_utc")
-          .contains("error_attribution_json")
-          .contains("otel.root_cause_cache");
+          .contains("segments")
+          .contains("cached_at")
+          .contains("otel.root_cause_cache")
+          .doesNotContain("error_attribution_json");
     }
 
     @Test
     void insertConstantShouldListInsertColumns() {
       assertThat(RootCauseCacheQueries.INSERT_INTO_ROOT_CAUSE_CACHE)
           .contains("INSERT INTO otel.root_cause_cache")
-          .contains("error_attribution_json")
+          .contains("segments")
           .contains("cached_at")
-          .contains("VALUES ");
+          .contains("VALUES ")
+          .doesNotContain("error_attribution_json");
     }
   }
 }

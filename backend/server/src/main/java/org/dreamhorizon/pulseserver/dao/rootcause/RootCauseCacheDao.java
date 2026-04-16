@@ -48,11 +48,7 @@ public class RootCauseCacheDao {
         });
   }
 
-  /**
-   * Inserts one cache row. ReplacingMergeTree(cached_at) keeps latest by cached_at.
-   *
-   * @param errorAttributionJson nullable; RCA recompute should pass {@code null} to clear attribution
-   */
+  /** Inserts one cache row. ReplacingMergeTree(cached_at) keeps latest by cached_at. */
   public Completable upsert(
       String projectId,
       String interactionName,
@@ -61,9 +57,7 @@ public class RootCauseCacheDao {
       String mode,
       String baselineJson,
       String segmentsJson,
-      LocalDateTime cachedAt,
-      String errorAttributionJson
-  ) {
+      LocalDateTime cachedAt) {
     String dateStr = date.format(DATE_FMT);
     String query = RootCauseCacheQueries.buildInsertQuery(
         projectId,
@@ -73,8 +67,7 @@ public class RootCauseCacheDao {
         mode,
         baselineJson,
         segmentsJson,
-        cachedAt,
-        errorAttributionJson);
+        cachedAt);
     QueryConfiguration config = QueryConfiguration.newQuery(query)
         .projectId(projectId)
         .build();
@@ -84,27 +77,5 @@ public class RootCauseCacheDao {
           log.error("Root cause cache upsert failed: {}", e.getMessage());
           return Completable.error(e);
         });
-  }
-
-  /**
-   * Read-modify-reinsert: same RCA payload and window as {@code existing}, new {@code error_attribution_json}
-   * and {@code cachedAt}. Used by Track B attribution cache write; skips insert if row is inconsistent.
-   */
-  public Completable upsertPreservingRcaRow(
-      RootCauseCacheRow existing, String errorAttributionJson, LocalDateTime cachedAt) {
-    if (existing.getWindowEndUtc() == null) {
-      return Completable.complete();
-    }
-    Instant windowEnd = existing.getWindowEndUtc().atZone(java.time.ZoneOffset.UTC).toInstant();
-    return upsert(
-        existing.getProjectId(),
-        existing.getInteractionName(),
-        existing.getDate(),
-        windowEnd,
-        existing.getMode(),
-        existing.getBaseline(),
-        existing.getSegments(),
-        cachedAt,
-        errorAttributionJson);
   }
 }
