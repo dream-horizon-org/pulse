@@ -21,7 +21,10 @@ import lombok.experimental.SuperBuilder;
 @JsonSubTypes({
     @JsonSubTypes.Type(
         value = SessionReplayFeatureConfig.class,
-        name = "session_replay")
+        name = "session_replay"),
+    @JsonSubTypes.Type(
+        value = ClickFeatureConfig.class,
+        name = "click")
 })
 @Data
 @SuperBuilder

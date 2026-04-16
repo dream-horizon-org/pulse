@@ -93,12 +93,24 @@ export function createUnifiedEvents(
     } else if (event.type === "api_call") {
       type = EVENT_TYPES.API_CALL;
       category = CAT.NETWORK;
-      const match = descRaw.match(/(?:API|Call)\s+(?:to\s+)?(.+)/i);
-      const rawContent = match ? match[1].trim() : descRaw;
-      content =
-        rawContent.includes("/") || /^https?:\/\//i.test(rawContent)
-          ? sanitizeUrl(rawContent)
-          : sanitizeDisplayText(rawContent);
+      // Pattern: "METHOD URL [STATUS]" e.g. "POST https://api.example.com/graphql 200"
+      const methodUrlMatch = descRaw.match(
+        /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(\S+)\s*(\d{3})?/i,
+      );
+      if (methodUrlMatch) {
+        const method = methodUrlMatch[1].toUpperCase();
+        const rawUrl = methodUrlMatch[2];
+        const statusCode = methodUrlMatch[3] ?? null;
+        content = `${method} ${sanitizeUrl(rawUrl)}`;
+        status = statusCode ?? NA;
+      } else {
+        const match = descRaw.match(/(?:API|Call)\s+(?:to\s+)?(.+)/i);
+        const rawContent = match ? match[1].trim() : descRaw;
+        content =
+          rawContent.includes("/") || /^https?:\/\//i.test(rawContent)
+            ? sanitizeUrl(rawContent)
+            : sanitizeDisplayText(rawContent);
+      }
     } else if (event.type === "error") {
       type = EVENT_TYPES.NETWORK_PERFORMANCE;
       category = CAT.ERROR;

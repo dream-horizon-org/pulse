@@ -14,8 +14,24 @@ alwaysApply: false
 |-------|--------|---------|
 | `otel_traces` | MergeTree | Spans — TraceId, SpanId, SpanName, Duration, SpanAttributes, ResourceAttributes |
 | `otel_logs` | MergeTree | Logs — TraceId, Body, SeverityText, LogAttributes, ResourceAttributes |
-| `otel_metrics_gauge` | MergeTree | Gauge metrics — MetricName, Value, Attributes, ResourceAttributes |
+| `otel_metrics_gauge` | MergeTree | Gauge OTLP metrics — MetricName, Value, TimeUnix, Attributes, ResourceAttributes |
+| `otel_metrics_sum` | MergeTree | Sum/counter OTLP metrics — Value, AggregationTemporality, IsMonotonic, exemplars |
+| `otel_metrics_summary` | MergeTree | Summary OTLP metrics — Count, Sum, ValueAtQuantiles |
+| `otel_metrics_histogram` | MergeTree | Histogram OTLP metrics — buckets, Count, Sum, Min, Max, AggregationTemporality |
+| `otel_metrics_exp_histogram` | MergeTree | Exponential histogram OTLP metrics |
+| `otel_metrics` | View | Union of all five metric tables — Timestamp, Value, Count, Sum, MetricSource |
 | `stack_trace_events` | MergeTree | Symbolicated + grouped stack traces |
+| `project_monthly_usage` | AggregatingMergeTree | Monthly aggregates by `project_id`, `month`, `source` |
+| `root_cause_cache` | ReplacingMergeTree(`cached_at`) | RCA cache: `ProjectId`, keys, JSON `baseline` / `segments` |
+
+Materialized views `project_monthly_*_mv` populate `project_monthly_usage` from traces, logs, metrics, and stack traces.
+
+Heatmap DDL lives in `backend/ingestion/clickhouse-otel-schema.sql`:
+
+| Table / object | Engine | Purpose |
+|----------------|--------|---------|
+| `interaction_heatmaps_daily` | SummingMergeTree | Daily binned aggregates for the heatmap API |
+| `interaction_heatmaps_daily_mv` | Materialized view | Aggregates from `otel_logs` where `PulseType = 'app.click'` |
 
 ## Key Columns in `otel_traces`
 
@@ -38,9 +54,18 @@ These columns are extracted from Map attributes at insert time. **Always use the
 | `GeoCountry` | `geo.country.iso_code` | SpanAttributes/LogAttributes/Attributes | all tables |
 | `DeviceModel` | `device.model.name` | ResourceAttributes | all tables |
 | `NetworkProvider` | `network.carrier.name` | SpanAttributes/LogAttributes/Attributes | all tables |
-| `UserId` | `user.id` | SpanAttributes/LogAttributes/Attributes | all tables |
+| `UserId` | `user.id` | `app.installation.id` | SpanAttributes/LogAttributes/Attributes | traces, logs, metrics |
+| `MeteringSessionId` | `pulse.metering.session.id` | SpanAttributes/LogAttributes/Attributes | traces, logs, metrics, `stack_trace_events` |
 
 `otel_traces` also has a deprecated `SpanType` column (same source as `PulseType`).
+
+## `root_cause_cache`
+
+Columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, `baseline`, `segments`, `cached_at`. Row-level access uses the same `otel.*` policy as other analytics tables (`ProjectId`).
+
+## `project_monthly_usage`
+
+Underlying column is `project_id` (alias of `ProjectId` in MV SELECTs). Query with time filter on `month` and filter `project_id` / `ProjectId` consistently with your context.
 
 ## ORDER BY Keys
 
@@ -51,7 +76,12 @@ All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
 | `otel_traces` | `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)` |
 | `otel_logs` | `(ProjectId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)` |
 | `otel_metrics_gauge` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
+| `otel_metrics_sum` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
+| `otel_metrics_summary` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
+| `otel_metrics_histogram` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
+| `otel_metrics_exp_histogram` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `stack_trace_events` | `(ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))` |
+| `interaction_heatmaps_daily` | `(Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin)` |
 
 ## `stack_trace_events` Key Columns
 
@@ -68,8 +98,9 @@ Accessed via `SpanAttributes['key']` (for traces) or `LogAttributes['key']` (for
 Each project has dedicated ClickHouse credentials (stored in MySQL `clickhouse_project_credentials` table). During project creation, `ClickhouseProjectService` creates:
 
 1. **ClickHouse user**: `project_{sanitized_project_id}`
-2. **Row policy**: One permissive policy on `otel.*` (all tables in the `otel` database), named `policy_{sanitized_project_id}`, filtering by `ProjectId`
+2. **Row policy**: One permissive policy on `otel.*`, named `policy_{sanitized_project_id}`, filtering by `ProjectId` (covers `root_cause_cache` and all other `otel` tables)
 3. **SELECT grants**: On `otel.*`
+4. **INSERT grant**: On `otel.root_cause_cache` for cache upserts (project-scoped CH user)
 
 The policy uses `AS PERMISSIVE` on the whole database; with a single policy per user, effective access is still rows where `ProjectId` matches that project. (Other policies on the same user combine per ClickHouse permissive/restrictive rules.)
 
@@ -89,8 +120,8 @@ For local CLI queries, use the admin credentials from `deploy/.env`:
 
 ## Query Rules
 
-- Always include time-range filter on `Timestamp`
+- Always include a time-range filter on the time column (`Timestamp` on traces/logs/stack traces and on the `otel_metrics` view; `TimeUnix` on physical OTLP metric tables)
 - Use `LIMIT` on all queries
 - Prefer `toDateTime64()` for timestamp comparisons
 - Use materialized columns (e.g., `Platform`, `AppVersion`) over Map access
-- Use the tenant user for all queries to enforce project isolation
+- Use the project-scoped ClickHouse user for app queries to enforce `ProjectId` isolation

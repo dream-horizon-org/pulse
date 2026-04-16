@@ -33,6 +33,7 @@ import {
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
+import { RealTimeQuery } from "../screens/RealTimeQuery";
 
 export const APP_NAME: string = "Pulse";
 
@@ -57,6 +58,9 @@ export const NAVBAR_CONFIG: AppShellNavbarConfiguration = {
 export const API_BASE_URL: string =
   process.env.REACT_APP_PULSE_SERVER_URL ?? "";
 
+export const AI_BASE_URL: string =
+  process.env.REACT_APP_AI_BASE_URL ?? "http://localhost:8000";
+
 export const ENABLE_AI_CHAT: boolean =
   process.env.REACT_APP_ENABLE_AI_CHAT === "true";
 
@@ -64,7 +68,7 @@ export const PASCAL_CASE_FORM_REGEX: RegExp = /(^[A-Z])\w+[a-z]$/;
 
 export const FORM_REGEX: RegExp = /^[a-z]*$/;
 
-export const REQUEST_TIMEOUT: number = 60000;
+export const REQUEST_TIMEOUT: number = 180000;
 
 // Alerts constants
 export const ALERTS_SEARCH_PLACEHOLDER: string = "Search your alert here";
@@ -214,6 +218,7 @@ export const ROUTES: Routes = {
     key: "PROJECT_QUERY_BUILDER",
     basePath: "/projects/:projectId/query-builder",
     path: "/projects/:projectId/query-builder",
+    element: RealTimeQuery,
   },
   // PROJECT_SESSION_REPLAY_INSIGHTS: {
   //   key: "PROJECT_SESSION_REPLAY_INSIGHTS",
@@ -473,6 +478,21 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/interactions`,
     method: API_METHODS.GET,
   },
+  GET_SUGGESTED_INTERACTIONS: {
+    key: "GET_SUGGESTED_INTERACTIONS",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.GET,
+  },
+  DISMISS_SUGGESTED_INTERACTION: {
+    key: "DISMISS_SUGGESTED_INTERACTION",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.PUT,
+  },
+  ACTIVATE_SUGGESTED_INTERACTION: {
+    key: "ACTIVATE_SUGGESTED_INTERACTION",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.PUT,
+  },
   GET_SESSION_REPLAYS: {
     key: "GET_SESSION_REPLAYS",
     apiPath: `/v1/session-replays`,
@@ -481,6 +501,16 @@ export const API_ROUTES: StreamverseRoutes = {
   DATA_QUERY: {
     key: "DATA_QUERY",
     apiPath: `/v1/interactions/performance-metric/distribution`,
+    method: API_METHODS.POST,
+  },
+  GET_HEATMAP_DATA: {
+    key: "GET_HEATMAP_DATA",
+    apiPath: `/v1/heatmap/data`,
+    method: API_METHODS.GET,
+  },
+  POST_HEATMAP_DATA: {
+    key: "POST_HEATMAP_DATA",
+    apiPath: `/api/v1/projects/:projectId/heatmap/data`,
     method: API_METHODS.POST,
   },
   GET_JOB_FILTERS: {

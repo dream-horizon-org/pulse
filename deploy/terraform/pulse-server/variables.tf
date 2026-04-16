@@ -128,3 +128,12 @@ variable "ssl_policy" {
     type        = string
 }
 
+# -----------------------------
+# Pulse AI Configuration
+# -----------------------------
+
+variable "pulse_ai_artifact_version" {
+  description = "Artifact version for pulse-ai (from CodeArtifact)"
+  type        = string
+}
+

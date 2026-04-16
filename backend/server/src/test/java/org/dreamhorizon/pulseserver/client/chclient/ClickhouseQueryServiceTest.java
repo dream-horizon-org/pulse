@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.client.chclient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -19,6 +20,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.function.BiFunction;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
@@ -29,6 +31,7 @@ import org.dreamhorizon.pulseserver.model.ClickhouseProjectCredentials;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageStats;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -60,13 +63,16 @@ class ClickhouseQueryServiceTest {
 
   ClickhouseQueryService clickhouseQueryService;
 
+  private final ObjectMapper objectMapper = ObjectMapperFactory.get();
+
   @BeforeEach
   void setUp() {
     clickhouseQueryService = new ClickhouseQueryService(
         clickhouseReadClient,
         clickhouseWriteClient,
         clickhouseProjectConnectionPoolManager,
-        clickhouseProjectCredentialsDao);
+        clickhouseProjectCredentialsDao,
+        objectMapper);
   }
 
   @Nested
@@ -164,6 +170,53 @@ class ClickhouseQueryServiceTest {
           .extracting(GetRawUserEventsResponseDto.RowField::getValue)
           .containsExactly("val1", "val2");
       assertThat(response.getData().getTotalRows()).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldBindNamedParametersForRootCauseQuery() {
+      ClickhouseProjectCredentials credentials = ClickhouseProjectCredentials.builder()
+          .projectId("proj_bind")
+          .clickhouseUsername("ch_user")
+          .clickhousePasswordEncrypted("encrypted_pass")
+          .build();
+
+      Row mockRow = org.mockito.Mockito.mock(Row.class);
+      when(mockRow.get(0)).thenReturn("val1");
+
+      RowMetadata mockRowMetadata = org.mockito.Mockito.mock(RowMetadata.class);
+      io.r2dbc.spi.ColumnMetadata col1 = org.mockito.Mockito.mock(io.r2dbc.spi.ColumnMetadata.class);
+      when(col1.getName()).thenReturn("col1");
+      doReturn(List.of(col1)).when(mockRowMetadata).getColumnMetadatas();
+
+      Result mockResult = org.mockito.Mockito.mock(Result.class);
+      doAnswer(invocation -> {
+        BiFunction<Row, RowMetadata, ?> mapper = invocation.getArgument(0);
+        Object mapped = mapper.apply(mockRow, mockRowMetadata);
+        return Flux.just(mapped);
+      }).when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
+
+      Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
+      io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
+      when(mockConnection.createStatement("SELECT col1 FROM t WHERE id = :id")).thenReturn(mockStatement);
+      when(mockStatement.bind(org.mockito.ArgumentMatchers.anyString(), any())).thenReturn(mockStatement);
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+
+      when(clickhouseProjectCredentialsDao.getCredentialsByProjectId("proj_bind"))
+          .thenReturn(Maybe.just(credentials));
+      when(clickhouseProjectConnectionPoolManager.getPoolForProject(
+          eq("proj_bind"), eq("ch_user"), eq("encrypted_pass")))
+          .thenReturn(mockPool);
+
+      clickhouseQueryService
+          .executeRootCauseQuery(
+              "proj_bind", "SELECT col1 FROM t WHERE id = :id", List.of("id"), List.of("bound-id"))
+          .blockingGet();
+
+      verify(mockStatement).bind("id", "bound-id");
     }
 
     @Test

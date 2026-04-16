@@ -1,11 +1,35 @@
 import { COMMON_CONSTANTS, ROUTES } from "../../constants";
+import { HTTP_STATUS } from "../../constants/API";
 import { ApiResponse, MakeRequestConfig } from "./makeRequest.interface";
 import { withTimeout } from "../withTimeout";
-import { makeRequestToServer } from "../makeRequestToServer";
+import { makeRequestToServer, streamAiRunSse } from "../makeRequestToServer";
 import { getAndSetAccessTokenFromRefreshToken } from "../getAccessTokenFromRefreshToken";
 import { processServerResponse } from "./processServerResponse";
 import { removeAllCookies } from "../cookies";
 import { dispatchLogoutEvent } from "../logout";
+
+export const streamAiRunSseWithAuth = async (
+  init?: RequestInit,
+): Promise<Response> => {
+  return await withTimeout(async () => {
+    let response = await streamAiRunSse(init);
+
+    if (response.status !== HTTP_STATUS.UNAUTHORIZED) {
+      return response;
+    }
+
+    const isTokenUpdated = await getAndSetAccessTokenFromRefreshToken();
+    if (!isTokenUpdated) {
+      removeAllCookies();
+      sessionStorage.clear();
+      dispatchLogoutEvent();
+      window.location.href = ROUTES.LOGIN.basePath;
+      return response;
+    }
+
+    return await streamAiRunSse(init);
+  });
+};
 
 export const makeRequest = async <D>(
   requestConfig: MakeRequestConfig,
@@ -14,7 +38,7 @@ export const makeRequest = async <D>(
     return await withTimeout(async () => {
       let response = await makeRequestToServer(requestConfig);
 
-      if (response.status === 401) {
+      if (response.status === HTTP_STATUS.UNAUTHORIZED) {
         const isTokenUpdated = await getAndSetAccessTokenFromRefreshToken();
         if (!isTokenUpdated) {
           // Clear all authentication data

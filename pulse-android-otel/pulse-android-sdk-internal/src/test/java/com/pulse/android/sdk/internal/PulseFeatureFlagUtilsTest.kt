@@ -8,6 +8,7 @@ import com.pulse.sampling.models.PulseSdkName
 import io.mockk.mockk
 import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
+import io.opentelemetry.sdk.metrics.SdkMeterProvider
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -22,6 +23,7 @@ class PulseFeatureFlagUtilsTest {
             context = mockedContext,
             sdkConfig = sdkConfig,
             currentSdkName = PulseSdkName.ANDROID_JAVA,
+            meterProviderLazy = lazy { SdkMeterProvider.builder().build() },
         )
     }
 
@@ -86,6 +88,25 @@ class PulseFeatureFlagUtilsTest {
             val config = OtelRumConfig()
             PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.INTERACTION)))
             assertThat(config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)).isFalse
+        }
+    }
+
+    @Nested
+    inner class `CLICK feature` {
+        @Test
+        fun `when CLICK is disabled, view and compose click instrumentation are suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = emptyList()))
+            assertThat(config.isSuppressed("view.click")).isTrue
+            assertThat(config.isSuppressed("compose.click")).isTrue
+        }
+
+        @Test
+        fun `when CLICK is enabled, view and compose click instrumentation are not suppressed`() {
+            val config = OtelRumConfig()
+            PulseFeatureFlagUtils.apply(config, buildProcessors(enabledFeatures = listOf(PulseFeatureName.CLICK)))
+            assertThat(config.isSuppressed("view.click")).isFalse
+            assertThat(config.isSuppressed("compose.click")).isFalse
         }
     }
 

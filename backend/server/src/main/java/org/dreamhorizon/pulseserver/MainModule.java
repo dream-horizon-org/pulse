@@ -1,11 +1,6 @@
 package org.dreamhorizon.pulseserver;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.name.Names;
@@ -23,6 +18,7 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.SessionReplayS3Config;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
@@ -54,6 +50,10 @@ import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandl
 import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
 import org.dreamhorizon.pulseserver.service.session.SessionReplayService;
 import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperNames;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.RxObjectMapper;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -69,7 +69,6 @@ import java.net.URI;
 public class MainModule extends VertxAbstractModule {
 
   private final Vertx vertx;
-  private ObjectMapper objectMapper;
 
   public MainModule(Vertx vertx) {
     super(vertx);
@@ -81,7 +80,15 @@ public class MainModule extends VertxAbstractModule {
     bind(Vertx.class).toInstance(this.vertx);
     bind(io.vertx.rxjava3.core.Vertx.class)
         .toInstance(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
-    bind(ObjectMapper.class).toInstance(getObjectMapper());
+    bind(ObjectMapper.class).toInstance(ObjectMapperFactory.getIgnoringUnknownProperties());
+    bind(ObjectMapper.class)
+        .annotatedWith(Names.named(ObjectMapperNames.NORMAL))
+        .toInstance(ObjectMapperFactory.getNormal());
+    bind(ObjectMapper.class)
+        .annotatedWith(Names.named(ObjectMapperNames.IGNORE_UNKNOWN_PROPERTIES))
+        .toInstance(ObjectMapperFactory.getIgnoringUnknownProperties());
+    bind(ObjectMapperUtil.class).in(Singleton.class);
+    bind(RxObjectMapper.class).in(Singleton.class);
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
     bind(WebClient.class)
         .annotatedWith(Names.named(Constants.WEB_CLIENT_AI_PROXY))
@@ -131,6 +138,11 @@ public class MainModule extends VertxAbstractModule {
       return config;
     }).in(Singleton.class);
 
+    bind(RootCauseConfig.class).toProvider(() -> {
+      RootCauseConfig config = SharedDataUtils.get(vertx, RootCauseConfig.class);
+      return RootCauseConfig.withDefaults(config);
+    }).in(Singleton.class);
+
     bind(OpenFgaService.class).toProvider(() -> {
         OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
         if (config != null && config.isEnabled()) {
@@ -175,19 +187,6 @@ public class MainModule extends VertxAbstractModule {
     bind(SesWebhookHandler.class).in(Singleton.class);
 
     bind(SlackOAuthService.class).in(Singleton.class);
-  }
-
-  protected ObjectMapper getObjectMapper() {
-    if (objectMapper == null) {
-      objectMapper = new ObjectMapper();
-      objectMapper.registerModule(new JavaTimeModule());
-      objectMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
-      objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-      objectMapper.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false);
-      objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-      objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    }
-    return objectMapper;
   }
 
   private S3AsyncClient loadS3Client() {

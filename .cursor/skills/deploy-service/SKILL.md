@@ -17,11 +17,13 @@ cp .env.example .env    # first time only, then edit values
 
 ```bash
 cd deploy
-./scripts/build.sh ui         # pulse-ui only
-./scripts/build.sh server     # pulse-server only
-./scripts/build.sh cron       # pulse-alerts-cron only
-./scripts/build.sh ai         # pulse-ai-agent only
-./scripts/build.sh all        # ui + server + cron + pulse-ai-agent (same as default no-args build)
+./scripts/build.sh ui          # pulse-ui only
+./scripts/build.sh server      # pulse-server only
+./scripts/build.sh cron        # pulse-alerts-cron only
+./scripts/build.sh capture     # pulse-session-capture only
+./scripts/build.sh ingestion   # pulse-session-replay-ingestion only
+./scripts/build.sh ai          # pulse-ai-agent only
+./scripts/build.sh all         # same as omitting args: ui + server + cron + capture + ingestion + ai
 ```
 
 ## Start/Stop
@@ -41,6 +43,10 @@ cd deploy
 ./scripts/logs.sh server         # pulse-server
 ./scripts/logs.sh ai             # pulse-ai-agent
 ```
+
+## Heatmap screenshot ingestion
+
+**Service:** `pulse-heatmap-screenshot-ingestion` (Kafka → S3). Objects go to **`HEATMAP_S3_BUCKET`** (default `heatmap-assets`), prefix `heatmap-screenshots/`. **`pulse-server`** lists via **`HEATMAP_S3_ENDPOINT`** (e.g. `http://minio:9000`); for **presigned** URLs the browser needs a resolvable host — set **`HEATMAP_S3_PRESIGN_ENDPOINT=http://localhost:9100`** locally (MinIO is on host **9100**; **9000** on the host is ClickHouse). Omit **`HEATMAP_S3_PRESIGN_ENDPOINT`** in AWS if the default S3 hostname is fine. **Redis** is not started by deploy compose: set `REDIS_URL` or `REDIS_HOST` + `REDIS_PORT` for quota/dedupe. See `deploy/.env.example`.
 
 ## Pulse AI
 
@@ -72,6 +78,8 @@ Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover
 | OpenFGA | `curl http://localhost:8180/healthz` | 8180 |
 | OTEL Collector | `curl http://localhost:<port>/` | 13133 |
 | pulse-ai-agent | `curl -sf http://localhost:8000/health` | 8000 |
+| pulse-session-capture | `curl http://localhost:3400/healthcheck` | 3400 |
+| MinIO (dev) | S3 API on host `9100`, console `9101` | 9100 / 9101 |
 
 ## Troubleshooting
 
