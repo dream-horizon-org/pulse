@@ -140,6 +140,30 @@
   white-space: nowrap;
 }
 
+.metricLabelWithInfo {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.infoIcon {
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  color: var(--mantine-color-dark-4);
+  opacity: 0.7;
+}
+
+.descriptionText {
+  font-size: 11px !important;
+  color: var(--mantine-color-dark-4);
+  margin-top: 4px;
+  margin-bottom: 8px;
+  font-weight: 400;
+  letter-spacing: 0.1px;
+  line-height: 1.5;
+}
+
 .metricValue {
   font-size: 14px !important;
   font-weight: 600 !important;
