@@ -7,6 +7,9 @@ import {
   mockSuggestionLargeNumbers,
   mockSuggestionLongDurations,
   mockSuggestionSmallNumbers,
+  mockSuggestionSingleEvent,
+  mockSuggestionThreeEvents,
+  mockSuggestionSpecialChars,
 } from "../__mock__/SuggestedInteractionCard.mock";
 
 describe("SuggestedInteractionCard", () => {
@@ -32,6 +35,58 @@ describe("SuggestedInteractionCard", () => {
       renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
       expect(screen.getByText("Go shopping")).toBeInTheDocument();
       expect(screen.getByText("Telescope selected")).toBeInTheDocument();
+    });
+
+    it("renders PascalCase name for a single event without To separator", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionSingleEvent}
+        />,
+      );
+      expect(
+        screen.getByTitle("CheckoutCompleted"),
+      ).toBeInTheDocument();
+    });
+
+    it("renders PascalCase name with To between three events", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionThreeEvents}
+        />,
+      );
+      expect(
+        screen.getByTitle("AddToCartToGoShoppingToCheckoutCompleted"),
+      ).toBeInTheDocument();
+    });
+
+    it("handles special characters in event names for PascalCase conversion", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionSpecialChars}
+        />,
+      );
+      expect(
+        screen.getByTitle("UserLoginSuccessToDashboardView"),
+      ).toBeInTheDocument();
+    });
+
+    it("renders arrow separators between event pills", () => {
+      renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
+      expect(screen.getByText("→", { exact: false })).toBeInTheDocument();
+    });
+
+    it("renders only one event pill when suggestion has single event", () => {
+      renderWithProviders(
+        <SuggestedInteractionCard
+          {...defaultProps}
+          suggestion={mockSuggestionSingleEvent}
+        />,
+      );
+      expect(screen.getByText("Checkout completed")).toBeInTheDocument();
+      expect(screen.queryByText("→", { exact: false })).not.toBeInTheDocument();
     });
 
     it("does not show the Suggested badge", () => {
@@ -141,7 +196,7 @@ describe("SuggestedInteractionCard", () => {
   });
 
   describe("loading states", () => {
-    it("shows Dismissing... and disables button when isDismissing is true", () => {
+    it("disables Dismiss button when isDismissing is true", () => {
       renderWithProviders(
         <SuggestedInteractionCard
           {...defaultProps}
@@ -149,12 +204,11 @@ describe("SuggestedInteractionCard", () => {
         />,
       );
 
-      const button = screen.getByText("Dismissing...");
-      expect(button).toBeInTheDocument();
-      expect(button.closest("button")).toBeDisabled();
+      const button = screen.getByText("Dismiss").closest("button");
+      expect(button).toBeDisabled();
     });
 
-    it("shows Creating... and disables button when isActivating is true", () => {
+    it("disables Track this button when isActivating is true", () => {
       renderWithProviders(
         <SuggestedInteractionCard
           {...defaultProps}
@@ -162,9 +216,8 @@ describe("SuggestedInteractionCard", () => {
         />,
       );
 
-      const button = screen.getByText("Creating...");
-      expect(button).toBeInTheDocument();
-      expect(button.closest("button")).toBeDisabled();
+      const button = screen.getByText("Track this").closest("button");
+      expect(button).toBeDisabled();
     });
   });
 });
