@@ -12,7 +12,7 @@ public class PulseFeatureConfig internal constructor(
     @SerialName("sessionSampleRate")
     public val sessionSampleRate: SamplingRate = 1.0f,
     @SerialName("sdks")
-    public val sdks: Collection<PulseSdkName> = emptyList(),
+    public val sdks: Collection<PulseSdkName> = emptySet(),
     @SerialName("config")
     public val config: PulseFeatureConfigData? = null,
 )

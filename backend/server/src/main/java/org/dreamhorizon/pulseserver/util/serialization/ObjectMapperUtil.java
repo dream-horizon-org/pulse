@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.util;
+package org.dreamhorizon.pulseserver.util.serialization;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ObjectMapperUtil {
 
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper;
 
   public String writeValueAsString(Object value) {
     try {

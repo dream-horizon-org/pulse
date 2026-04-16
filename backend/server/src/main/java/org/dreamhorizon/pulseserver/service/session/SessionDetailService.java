@@ -28,9 +28,9 @@ import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailRespon
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class SessionDetailService {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {};
 
+    private final ObjectMapper objectMapper;
     private final SessionDetailDao sessionDetailDao;
 
     public Single<SessionDetailResponse> getSessionDetail(
@@ -249,7 +249,7 @@ public class SessionDetailService {
             return Collections.emptyList();
         }
         try {
-            return MAPPER.readValue(journeyJson, STRING_LIST_TYPE);
+            return objectMapper.readValue(journeyJson, STRING_LIST_TYPE);
         } catch (Exception e) {
             log.warn("Failed to parse journey JSON: {}", journeyJson, e);
             return Collections.emptyList();
