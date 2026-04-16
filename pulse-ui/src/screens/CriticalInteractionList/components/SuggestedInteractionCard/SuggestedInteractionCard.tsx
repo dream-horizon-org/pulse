@@ -21,6 +21,18 @@ const formatCount = (n: number): string => {
   return n.toString();
 };
 
+const toPascalCaseName = (eventNames: string[]): string => {
+  return eventNames
+    .map((name) =>
+      name
+        .split(/[^a-zA-Z0-9]+/)
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(""),
+    )
+    .join("To");
+};
+
 export function SuggestedInteractionCard({
   suggestion,
   onDismiss,
@@ -29,14 +41,14 @@ export function SuggestedInteractionCard({
   isActivating = false,
 }: SuggestedInteractionCardProps) {
   const eventNames = suggestion.events.map((e) => e.name);
-  const patternLabel = eventNames.join(" \u2192 ");
+  const pascalName = toPascalCaseName(eventNames);
 
   return (
     <div className={classes.suggestedCard}>
       <div className={classes.cardHeader}>
         <div className={classes.cardInfo}>
-          <Text className={classes.patternName} title={patternLabel}>
-            {patternLabel}
+          <Text className={classes.patternName} title={pascalName}>
+            {pascalName}
           </Text>
           <div className={classes.patternFlow}>
             {eventNames.map((event, idx) => (

@@ -21,10 +21,10 @@ describe("SuggestedInteractionCard", () => {
   });
 
   describe("rendering", () => {
-    it("renders the pattern label with arrow separator", () => {
+    it("renders the pattern label in PascalCase with To separator", () => {
       renderWithProviders(<SuggestedInteractionCard {...defaultProps} />);
       expect(
-        screen.getByTitle("Go shopping \u2192 Telescope selected"),
+        screen.getByTitle("GoShoppingToTelescopeSelected"),
       ).toBeInTheDocument();
     });
 

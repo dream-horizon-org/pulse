@@ -211,7 +211,7 @@ public class InteractionServiceImpl implements InteractionService {
                   }
                 }
                 // No duplicate found — generate a unique name and create
-                String baseName = String.join(" -> ", suggestion.getPattern());
+                String baseName = toPascalCaseName(suggestion.getPattern());
                 return generateUniqueName(baseName)
                     .flatMap(uniqueName -> {
                       CreateInteractionRequest request = buildCreateRequestFromSuggestion(suggestion, userEmail, uniqueName);
@@ -242,6 +242,24 @@ public class InteractionServiceImpl implements InteractionService {
           }
           return findAvailableName(baseName, suffix + 1);
         });
+  }
+
+  private String toPascalCaseName(List<String> pattern) {
+    return pattern.stream()
+        .map(eventName -> {
+          String[] words = eventName.split("[^a-zA-Z0-9]+");
+          StringBuilder sb = new StringBuilder();
+          for (String word : words) {
+            if (!word.isEmpty()) {
+              sb.append(Character.toUpperCase(word.charAt(0)));
+              if (word.length() > 1) {
+                sb.append(word.substring(1).toLowerCase());
+              }
+            }
+          }
+          return sb.toString();
+        })
+        .collect(java.util.stream.Collectors.joining("To"));
   }
 
   private CreateInteractionRequest buildCreateRequestFromSuggestion(
