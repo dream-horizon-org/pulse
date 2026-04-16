@@ -149,7 +149,6 @@ internal class UIWindowSwizzler {
     // MARK: - Hit Testing
 
     private static func findClickTarget(in window: UIWindow, at point: CGPoint, for hitView: UIView) -> UIView? {
-        //guard let hitView = window.hitTest(point, with: nil) else { return nil }
         var candidate: UIView? = hitView
         var depth = 0
         while let view = candidate {
