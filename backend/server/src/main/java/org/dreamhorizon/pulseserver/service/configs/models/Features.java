@@ -14,6 +14,7 @@ public enum Features {
   rn_screen_load,
   rn_screen_interactive,
   rn_screen_session,
+  screen_session,
   session_replay,
   click,
   /** Dashboard screen heatmaps (Pulse UI); client SDKs may ignore. */
@@ -21,6 +22,7 @@ public enum Features {
   android_network,
   ios_network,
   rn_network,
+  network_instrumentation,
   ios_crash,
   ios_lifecycle,
   android_activity,

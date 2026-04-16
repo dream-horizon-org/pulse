@@ -68,7 +68,7 @@ class DefaultSdkConfigTemplateTest {
     @Test
     void shouldIncludeAllExpectedFeatures() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
-      assertThat(config.getFeatures()).hasSize(21);
+      assertThat(config.getFeatures()).hasSize(23);
 
       assertThat(config.getFeatures()).extracting(FeatureConfig::getFeatureName)
           .containsExactlyInAnyOrder(
@@ -81,6 +81,7 @@ class DefaultSdkConfigTemplateTest {
               Features.rn_screen_load,
               Features.rn_screen_interactive,
               Features.rn_screen_session,
+              Features.screen_session,
               Features.session_replay,
               Features.click,
               Features.heatmap,
@@ -89,6 +90,7 @@ class DefaultSdkConfigTemplateTest {
               Features.android_network,
               Features.ios_network,
               Features.rn_network,
+              Features.network_instrumentation,
               Features.ios_lifecycle,
               Features.android_activity,
               Features.android_fragment,
@@ -104,7 +106,7 @@ class DefaultSdkConfigTemplateTest {
           .findFirst()
           .orElse(null);
       assertThat(sessionReplayFeature).isNotNull();
-      assertThat(sessionReplayFeature.getSessionSampleRate()).isEqualTo(1.0);
+      assertThat(sessionReplayFeature.getSessionSampleRate()).isEqualTo(0.0);
       assertThat(sessionReplayFeature.getSdks())
           .containsExactlyInAnyOrder(
               Sdk.pulse_android_java,

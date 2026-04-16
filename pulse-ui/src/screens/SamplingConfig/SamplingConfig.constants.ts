@@ -150,6 +150,16 @@ export const FEATURE_DISPLAY_INFO: Record<
     description: "Track React Native network requests and performance",
     icon: "network",
   },
+  screen_session: {
+    label: "Screen session (legacy)",
+    description: "Legacy alias for older React Native SDKs",
+    icon: "screen",
+  },
+  network_instrumentation: {
+    label: "Network instrumentation (legacy)",
+    description: "Legacy alias for older SDKs",
+    icon: "network",
+  },
   ios_crash: {
     label: "iOS Crash",
     description: "Capture iOS/Swift crashes and exceptions",
