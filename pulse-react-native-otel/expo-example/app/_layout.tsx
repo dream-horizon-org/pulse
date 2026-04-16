@@ -1,5 +1,8 @@
-import { Pulse } from '@dreamhorizonorg/pulse-react-native';
-import { Stack } from 'expo-router';
+import {
+  Pulse,
+  useNavigationTracking,
+} from '@dreamhorizonorg/pulse-react-native';
+import { Stack, useNavigationContainerRef } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,6 +17,13 @@ Pulse.start({
 
 function RootNavigation() {
   const { ready } = useShop();
+  const navigationRef = useNavigationContainerRef();
+
+  useNavigationTracking(navigationRef, {
+    registerWhenContainerReady: true,
+    screenInteractiveTracking: true,
+  });
+
   if (!ready) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

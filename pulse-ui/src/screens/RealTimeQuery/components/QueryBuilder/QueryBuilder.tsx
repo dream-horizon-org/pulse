@@ -342,6 +342,7 @@ export function QueryBuilder({
                 value={state.timeRange.preset}
               onChange={handleTimeRangeChange}
               size="sm"
+              comboboxProps={{ withinPortal: false }}
               />
             </Box>
             
@@ -401,6 +402,7 @@ export function QueryBuilder({
                     size="sm"
                     clearable
                     w={120}
+                    comboboxProps={{ withinPortal: false }}
                     styles={{
                       input: {
                         color: col.dataOperation ? undefined : 'var(--mantine-color-gray-5)',
@@ -417,6 +419,7 @@ export function QueryBuilder({
                   size="sm"
                             searchable
                   style={{ flex: 1 }}
+                  comboboxProps={{ withinPortal: false }}
                 />
                 {isColumnJson(col.column) && (
                   <Tooltip
@@ -501,6 +504,7 @@ export function QueryBuilder({
                     size="sm"
                         searchable
                     style={{ flex: 1 }}
+                    comboboxProps={{ withinPortal: false }}
                       />
                   {isColumnJson(filter.column) && (
                             <Tooltip 
@@ -533,6 +537,7 @@ export function QueryBuilder({
                     onChange={(v) => handleFilterChange(filter.id, { operator: (v as FilterOperator) || "=" })}
                     size="sm"
                     w={120}
+                    comboboxProps={{ withinPortal: false }}
                   />
                   {operatorNeedsValue(filter.operator) && (
                         <TextInput
@@ -587,12 +592,13 @@ export function QueryBuilder({
                         searchable
                     w={300}
                     variant="unstyled"
-                    styles={{ 
-                      input: { 
+                    comboboxProps={{ withinPortal: false }}
+                    styles={{
+                      input: {
                         padding: '2px 12px',
                         minHeight: 'auto',
                         height: 'auto',
-                      } 
+                      }
                     }}
                   />
                       <ActionIcon
@@ -637,6 +643,7 @@ export function QueryBuilder({
                   w={200}
                 searchable
                   clearable
+                  comboboxProps={{ withinPortal: false }}
               />
               </Box>
                 <SegmentedControl

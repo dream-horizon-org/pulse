@@ -96,7 +96,7 @@ export const LABELS = {
   PLATFORM: "Platform",
   QUALITY_RANGE_HINT: " (0-1)",
   DURATION: "Duration",
-  BACK: "Back",
+  BACK: "Back to Sessions",
   AFFECTED_USERS: "Affected Users",
   STATUS: "Status",
   WORKAROUND_AVAILABLE: "Workaround Available",

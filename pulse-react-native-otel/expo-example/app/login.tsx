@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ApiError, login } from '../lib/api';
+import { ApiError, login } from '../shared/api';
 import { useShop } from '../context/ShopContext';
 
 export default function LoginScreen() {

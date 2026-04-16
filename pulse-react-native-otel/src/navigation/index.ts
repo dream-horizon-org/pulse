@@ -136,13 +136,8 @@ export function createReactNavigationIntegration(
         );
       }
 
-      if (
-        screenSessionTracking &&
-        screenSessionState.screenSessionSpan &&
-        navigationContainer
-      ) {
-        const currentRoute = navigationContainer.getCurrentRoute();
-        screenSessionTracker.endScreenSession(currentRoute?.name);
+      if (screenSessionTracking && screenSessionState.screenSessionSpan) {
+        screenSessionTracker.endScreenSession();
       }
 
       screenLoadTracker.startNavigationSpan();
@@ -177,11 +172,8 @@ export function createReactNavigationIntegration(
       screenLoadTracker.handleStateChange(currentRoute);
 
       const appState = AppState.currentState as AppStateStatus;
-      if (
-        appState &&
-        screenSessionTracker.shouldStartSession(currentRoute, appState)
-      ) {
-        screenSessionTracker.startScreenSession(currentRoute);
+      if (screenSessionTracking) {
+        screenSessionTracker.syncSessionToCurrentRoute(currentRoute, appState);
       }
 
       if (screenInteractiveTracking) {
@@ -233,8 +225,7 @@ export function createReactNavigationIntegration(
       if (isInitialized && navigationContainer === container) {
         return () => {
           if (screenSessionTracking && screenSessionState.screenSessionSpan) {
-            const currentRoute = container.getCurrentRoute();
-            screenSessionTracker.endScreenSession(currentRoute?.name);
+            screenSessionTracker.endScreenSession();
           }
         };
       }
@@ -255,8 +246,7 @@ export function createReactNavigationIntegration(
 
       const unmountCleanup = (): void => {
         if (screenSessionTracking && screenSessionState.screenSessionSpan) {
-          const currentRoute = container.getCurrentRoute();
-          screenSessionTracker.endScreenSession(currentRoute?.name);
+          screenSessionTracker.endScreenSession();
         }
 
         if (screenInteractiveTracking) {
@@ -293,11 +283,11 @@ export function createReactNavigationIntegration(
         }
 
         const appState = AppState.currentState as AppStateStatus;
-        if (
-          appState &&
-          screenSessionTracker.shouldStartSession(currentRoute, appState)
-        ) {
-          screenSessionTracker.startScreenSession(currentRoute);
+        if (screenSessionTracking) {
+          screenSessionTracker.syncSessionToCurrentRoute(
+            currentRoute,
+            appState
+          );
         }
 
         if (screenInteractiveTracking) {

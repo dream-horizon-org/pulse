@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import type { CartLine, Order, WishlistItem } from '../lib/types';
+import type { CartLine, Order, WishlistItem } from '../shared/types';
 
 const KEYS = {
   cart: '@expo-shop/cart',

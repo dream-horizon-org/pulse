@@ -78,14 +78,18 @@ while [[ $# -gt 0 ]]; do
         ingestion|session-ingestion)
             SERVICES+=("$CONTAINER_SESSION_INGESTION")
             shift
-            ;;        
+            ;;
+        heatmap|heatmap-ingestion|heatmap-screenshot)
+            SERVICES+=("$CONTAINER_HEATMAP_INGESTION")
+            shift
+            ;;
         -h|--help)
-            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|kafka|minio|ai|capture|ingestion]"
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|kafka|minio|ai|capture|ingestion|heatmap]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|kafka|minio|ai|capture|ingestion]"
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|kafka|minio|ai|capture|ingestion|heatmap]"
             exit 1
             ;;
     esac
@@ -122,6 +126,7 @@ if [ ${#SERVICES[@]} -eq 0 ]; then
         "$CONTAINER_AI"
         "$CONTAINER_SERVER"
         "$CONTAINER_SESSION_INGESTION"
+        "$CONTAINER_HEATMAP_INGESTION"
         "$CONTAINER_SESSION_CAPTURE"
         "$CONTAINER_MINIO_INIT"
         "$CONTAINER_MINIO"

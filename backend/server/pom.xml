@@ -5,7 +5,7 @@
 
     <groupId>org.dreamhorizon</groupId>
     <artifactId>pulse-server</artifactId>
-    <version>1.6-SNAPSHOT</version>
+    <version>1.9-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>pulse-server</name>
 
@@ -213,6 +213,13 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
             <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Surefire fork needs the launcher on the test classpath (see LauncherFactory NoClassDefFoundError). -->
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <version>1.10.2</version>
             <scope>test</scope>
         </dependency>
 

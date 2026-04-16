@@ -67,40 +67,35 @@ public final class SessionEvidenceQueryBuilder {
 
     query.append("SELECT \n")
         .append("  SessionId,\n")
-        .append("  countIf(is_error = 'true') as error_count,\n")
+        .append("  countIf(StatusCode = 'Error') as error_count,\n")
         .append("  count() as total_interactions,\n")
-        .append("  avg(toFloat32OrNull(apdex_score)) as avg_apdex,\n")
+        .append("  avg(toFloat32OrNull(SpanAttributes['pulse.interaction.apdex_score'])) as avg_apdex,\n")
         .append("  (error_count / total_interactions) as error_rate\n")
-        .append("FROM (\n")
-        .append("  SELECT\n")
-        .append("    SessionId,\n")
-        .append("    SpanAttributes['pulse.interaction.is_error'] as is_error,\n")
-        .append("    SpanAttributes['pulse.interaction.apdex_score'] as apdex_score\n")
-        .append("  FROM otel.otel_traces\n")
-        .append("  WHERE\n")
-        .append("    ProjectId = '")
+        .append("FROM otel.otel_traces\n")
+        .append("WHERE\n")
+        .append("  ProjectId = '")
         .append(escapeStringLiteral(projectId))
         .append("'\n")
-        .append("    AND SpanName = '")
+        .append("  AND SpanName = '")
         .append(escapeStringLiteral(interactionName))
         .append("'\n")
-        .append("    AND Timestamp >= '")
+        .append("  AND Timestamp >= '")
         .append(formattedStartTime)
         .append("'\n")
-        .append("    AND Timestamp < '")
+        .append("  AND Timestamp < '")
         .append(formattedEndTime)
         .append("'\n")
-        .append("    AND SessionId != ''\n");
+        .append("  AND SessionId != ''\n");
 
     appendDimensionFilters(query, segmentDimensions);
 
-    query.append(")\n")
-        .append("GROUP BY SessionId\n")
+    query.append("GROUP BY SessionId\n")
         .append("HAVING\n")
-        // Filter: Sessions where error_rate >= segment's own error_rate OR avg_apdex <= segment's own apdex
-        // Use >= and <= to include sessions equal to baseline
+        // Filter: Sessions where error_rate >= segment's own error_rate AND avg_apdex <= segment's own apdex
+        // Both conditions must be true to select a session (stricter filtering)
+        // Handle NULL apdex: if apdex is NULL (all errors), treat as 0.0 for comparison
         .append("  (error_rate >= ").append(errorRateThresholdDecimal).append(")\n")
-        .append("  OR (avg_apdex <= ").append(apdexThreshold).append(")\n")
+        .append("  AND (ifNull(avg_apdex, 0.0) <= ").append(apdexThreshold).append(")\n")
         // Sort: By error_count DESC (most errors first), then by avg_apdex ASC (lowest apdex first)
         .append("ORDER BY\n")
         .append("  error_count DESC,\n")

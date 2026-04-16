@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.concurrent.TimeUnit
 import kotlin.error
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 
 @ExtendWith(MockKExtension::class)
@@ -1850,6 +1851,58 @@ class InteractionManagerTest {
                 val (_, successInteraction) = assertSingleFinalInteraction(skipAdvancing = true)
                 Assertions.assertThat(successInteraction.markerEvents.map { it.name }).containsExactly("marker_success")
                 Assertions.assertThat(successInteraction.markerEvents.map { it.name }).doesNotContain("marker_timeout")
+            }
+
+        @Test
+        fun `Successful interaction excludes marker events before start time and after end time`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addMarkerWithNanoTimeFromBoot("marker_before_start", eventTimeInNano = t0 - 100)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_during", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_after_end", eventTimeInNano = t0 + 100)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, interaction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly("marker_during")
+            }
+
+        @Test
+        fun `Timed out interaction excludes marker events before start time and after end time`() =
+            runTest(standardTestDispatcher) {
+                val twoEventConfigWith20SecTimeout =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = 20.seconds.inWholeNanoseconds,
+                    )
+                initMockInteractionManager(twoEventConfigWith20SecTimeout)
+                val t0 = System.nanoTime()
+                addMarkerWithNanoTimeFromBoot("marker_before_start", eventTimeInNano = t0 - 100)
+                advanceTimeBy(100.nanoseconds)
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                advanceTimeBy(1.nanoseconds)
+                addMarkerWithNanoTimeFromBoot("marker_during", eventTimeInNano = t0 + 1)
+                advanceTimeBy(100.nanoseconds)
+                addMarkerWithNanoTimeFromBoot("marker_during_after_100ns", eventTimeInNano = t0 + 101)
+                advanceTimeBy(19.seconds)
+                addMarkerWithNanoTimeFromBoot("marker_during_after_19s", eventTimeInNano = t0 + 101)
+                advanceTimeBy(2.seconds)
+                addMarkerWithNanoTimeFromBoot("marker_after_timeout", eventTimeInNano = t0 + 101 + 20.seconds.inWholeNanoseconds)
+                val (_, interaction) = assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly(
+                    "marker_during",
+                    "marker_during_after_100ns",
+                    "marker_during_after_19s",
+                )
             }
     }
 

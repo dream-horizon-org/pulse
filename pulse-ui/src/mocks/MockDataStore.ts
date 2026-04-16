@@ -2532,6 +2532,26 @@ export class MockDataStore {
             replayApiBaseUrl: "http://10.0.2.2:4317",
           },
         },
+        {
+          id: generateId(),
+          featureName: "click",
+          sessionSampleRate: 1,
+          sdks: ["android_java", "ios_native"],
+          config: {
+            featureName: "click",
+            rage: {
+              timeWindowMs: 2000,
+              threshold: 3,
+              radius: 50,
+            },
+          },
+        },
+        {
+          id: generateId(),
+          featureName: "heatmap",
+          sessionSampleRate: 1,
+          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
+        },
       ],
     };
   }
@@ -2677,7 +2697,9 @@ type FeatureNameV1 =
   | "custom_events"
   | "rn_screen_load"
   | "rn_screen_interactive"
-  | "session_replay";
+  | "session_replay"
+  | "click"
+  | "heatmap";
 
 interface EventPropMatchV1 {
   name: string;
@@ -2767,12 +2789,21 @@ interface SessionReplayFeatureConfigV1 {
   replayApiBaseUrl?: string;
 }
 
+interface ClickFeatureConfigV1 {
+  featureName?: "click";
+  rage?: {
+    timeWindowMs?: number;
+    threshold?: number;
+    radius?: number;
+  };
+}
+
 interface FeatureConfigV1 {
   id?: string;
   featureName: FeatureNameV1;
   sessionSampleRate: number;
   sdks: SdkEnumV1[];
-  config?: SessionReplayFeatureConfigV1 | null;
+  config?: SessionReplayFeatureConfigV1 | ClickFeatureConfigV1 | null;
 }
 
 interface PulseConfigV1 {
