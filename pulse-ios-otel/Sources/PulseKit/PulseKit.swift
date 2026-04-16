@@ -54,7 +54,7 @@ public class Pulse {
     var sdkName: PulseSdkName? {
         initializationQueue.sync { _sdkName }
     }
-    
+
     // User session emitter
     internal lazy var userSessionEmitter: PulseUserSessionEmitter = {
         PulseUserSessionEmitter(
