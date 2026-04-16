@@ -31,12 +31,16 @@ export class SessionInstrumentation implements PulseInstrumentation {
             },
           });
         } else if (event.type === "end") {
+          const durationMs =
+            event.durationNs !== undefined
+              ? Math.floor(event.durationNs / 1_000_000)
+              : 0;
           logger.emit({
             body: B.SESSION_END,
             attributes: {
               [K.PULSE_TYPE]: T.SESSION_END,
               [K.SESSION_ID]: event.sessionId ?? "",
-              [K.SESSION_DURATION_MS]: event.durationMs ?? 0,
+              [K.SESSION_DURATION_MS]: durationMs,
               [K.SESSION_END_REASON]: event.reason,
             },
           });

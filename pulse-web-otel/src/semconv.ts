@@ -28,6 +28,7 @@ export const PulseWebSemconv = {
     PULSE_TYPE: "pulse.type",
     PULSE_SAMPLED: "pulse.sampled",
     SESSION_ID: "session.id",
+    WINDOW_ID: "window.id",
     SESSION_PREVIOUS_ID: "session.previous_id",
     SESSION_START_REASON: "session.start_reason",
     SESSION_DURATION_MS: "session.duration_ms",

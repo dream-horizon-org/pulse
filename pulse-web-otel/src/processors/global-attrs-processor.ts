@@ -100,7 +100,7 @@ export class PulseGlobalAttributesProcessor
       [K.INSTALLATION_ID]: getOrCreateInstallationId(),
       [K.SCREEN_NAME]: screenName,
       [K.PLATFORM]: F.PLATFORM_WEB,
-      'window.id': this.sessionProvider.getWindowId(),
+      [K.WINDOW_ID]: this.sessionProvider.getWindowId(),
     };
 
     if (typeof window !== "undefined") {
