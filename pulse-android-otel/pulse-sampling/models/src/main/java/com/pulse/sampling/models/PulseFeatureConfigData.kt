@@ -37,7 +37,7 @@ public sealed class PulseFeatureConfigData {
     @Serializable
     public class ClickInstrumentation(
         @SerialName("featureName") public val featureName: String? = null,
-        @SerialName("captureContext") public val captureContext: Boolean? = null,
+        @SerialName("captureContext") public val shouldCaptureContext: Boolean? = null,
         @SerialName("rage") public val rage: Rage? = null,
     ) : PulseFeatureConfigData() {
         /**
