@@ -81,22 +81,14 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.rn_screen_interactive, 1.0, rnSdk));
         features.add(createFeature(Features.rn_screen_session, 1.0, rnSdk));
         // Legacy key for backward compatibility with old RN SDK versions
-        features.add(FeatureConfig.builder()
-            .featureName("screen_session")
-            .sessionSampleRate(1.0)
-            .sdks(rnSdk)
-            .build());
+        features.add(createFeature(Features.screen_session, 1.0, rnSdk));
         features.add(createSessionReplayFeature(0.0, allSdks));
         features.add(createFeature(Features.ios_crash, 1.0, iosSdk));
         features.add(createFeature(Features.android_slowrendering, 1.0, androidSdk));
         features.add(createFeature(Features.ios_network, 1.0, iosSdk));
         features.add(createFeature(Features.rn_network, 1.0, rnSdk));
         // Legacy key for backward compatibility with old SDK versions
-        features.add(FeatureConfig.builder()
-            .featureName("network_instrumentation")
-            .sessionSampleRate(0.0)
-            .sdks(allSdks)
-            .build());
+        features.add(createFeature(Features.network_instrumentation, 0.0, allSdks));
         features.add(createFeature(Features.ios_lifecycle, 0.0, iosSdk));
         features.add(createFeature(Features.android_activity, 1.0, androidSdk));
         features.add(createFeature(Features.android_fragment, 0.0, androidSdk));
