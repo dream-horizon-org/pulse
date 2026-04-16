@@ -9,7 +9,12 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@dreamhorizon/pulse-web": ["../../src/index.ts"],
+      "@dreamhorizon/pulse-web/react": ["../../src/integrations/react/index.ts"]
+    }
   },
   "include": ["src", "e2e"],
   "exclude": ["node_modules", "dist"]

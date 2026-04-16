@@ -1,14 +1,20 @@
-import React, { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { PulseWeb, PulseDataCollectionConsent } from '@dreamhorizon/pulse-web';
-import { PulseDebugPanel } from './components/PulseDebugPanel';
+import React, { lazy, Suspense, useEffect } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  useLocation,
+} from "react-router-dom";
+import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
-const Home        = lazy(() => import('./routes/Home'));
-const Products    = lazy(() => import('./routes/Products'));
-const ProductDetail = lazy(() => import('./routes/ProductDetail'));
-const Cart        = lazy(() => import('./routes/Cart'));
-const Checkout    = lazy(() => import('./routes/Checkout'));
-const ErrorDemo   = lazy(() => import('./routes/ErrorDemo'));
+const Home = lazy(() => import("./routes/Home"));
+const Products = lazy(() => import("./routes/Products"));
+const ProductDetail = lazy(() => import("./routes/ProductDetail"));
+const Cart = lazy(() => import("./routes/Cart"));
+const Checkout = lazy(() => import("./routes/Checkout"));
+const ErrorDemo = lazy(() => import("./routes/ErrorDemo"));
 
 function NavBar() {
   const location = useLocation();
@@ -16,24 +22,48 @@ function NavBar() {
     <Link
       to={to}
       style={{
-        color: location.pathname === to ? '#4f46e5' : '#64748b',
-        textDecoration: 'none',
+        color: location.pathname === to ? "#4f46e5" : "#64748b",
+        textDecoration: "none",
         fontWeight: location.pathname === to ? 700 : 400,
-        padding: '4px 0',
+        padding: "4px 0",
       }}
     >
       {label}
     </Link>
   );
   return (
-    <header style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 24px' }}>
-      <nav style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 28, height: 56 }}>
-        <span style={{ fontWeight: 800, fontSize: 18, color: '#4f46e5', marginRight: 8 }}>🛍 PulseStore</span>
-        {link('/', 'Home')}
-        {link('/products', 'Products')}
-        {link('/cart', 'Cart')}
-        {link('/checkout', 'Checkout')}
-        {link('/error-demo', 'Error Demo')}
+    <header
+      style={{
+        background: "#fff",
+        borderBottom: "1px solid #e2e8f0",
+        padding: "0 24px",
+      }}
+    >
+      <nav
+        style={{
+          maxWidth: 1200,
+          margin: "0 auto",
+          display: "flex",
+          alignItems: "center",
+          gap: 28,
+          height: 56,
+        }}
+      >
+        <span
+          style={{
+            fontWeight: 800,
+            fontSize: 18,
+            color: "#4f46e5",
+            marginRight: 8,
+          }}
+        >
+          🛍 PulseStore
+        </span>
+        {link("/", "Home")}
+        {link("/products", "Products")}
+        {link("/cart", "Cart")}
+        {link("/checkout", "Checkout")}
+        {link("/error-demo", "Error Demo")}
       </nav>
     </header>
   );
@@ -43,15 +73,28 @@ function AppRoutes() {
   return (
     <>
       <NavBar />
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px', minHeight: 'calc(100vh - 56px)' }}>
-        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>Loading…</div>}>
+      <main
+        style={{
+          maxWidth: 1200,
+          margin: "0 auto",
+          padding: "32px 24px",
+          minHeight: "calc(100vh - 56px)",
+        }}
+      >
+        <Suspense
+          fallback={
+            <div style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
+              Loading…
+            </div>
+          }
+        >
           <Routes>
-            <Route path="/"            element={<Home />} />
-            <Route path="/products"    element={<Products />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/products" element={<Products />} />
             <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/cart"        element={<Cart />} />
-            <Route path="/checkout"    element={<Checkout />} />
-            <Route path="/error-demo"  element={<ErrorDemo />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/error-demo" element={<ErrorDemo />} />
           </Routes>
         </Suspense>
       </main>
@@ -62,29 +105,42 @@ function AppRoutes() {
 export default function App() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    const consentParam = searchParams.get('pulse_consent');
+    const consentParam = searchParams.get("pulse_consent");
 
     PulseWeb.start({
-      endpointBaseUrl: import.meta.env['VITE_PULSE_ENDPOINT_BASE_URL'] ?? 'http://localhost:4318',
-      apiKey:          import.meta.env['VITE_PULSE_API_KEY']           ?? 'dev-key',
-      serviceName:     import.meta.env['VITE_PULSE_SERVICE_NAME']      ?? 'ecommerce-demo',
+      endpointBaseUrl:
+        import.meta.env["VITE_PULSE_ENDPOINT_BASE_URL"] ??
+        "http://localhost:4318",
+      apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
+      serviceName:
+        import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
       dataCollectionState:
-        consentParam === 'denied'
+        consentParam === "denied"
           ? PulseDataCollectionConsent.DENIED
           : PulseDataCollectionConsent.ALLOWED,
       export: {
-        format:      (import.meta.env['VITE_PULSE_FORMAT']      as 'json' | 'protobuf' | undefined) ?? 'protobuf',
-        compression: (import.meta.env['VITE_PULSE_COMPRESSION'] as 'gzip' | 'none'     | undefined) ?? 'gzip',
+        format:
+          (import.meta.env["VITE_PULSE_FORMAT"] as
+            | "json"
+            | "protobuf"
+            | undefined) ?? "protobuf",
+        compression:
+          (import.meta.env["VITE_PULSE_COMPRESSION"] as
+            | "gzip"
+            | "none"
+            | undefined) ?? "gzip",
         batch: {
-          scheduledDelayMillis: import.meta.env['VITE_PULSE_BATCH_DELAY_MS']
-            ? Number(import.meta.env['VITE_PULSE_BATCH_DELAY_MS'])
+          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
+            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
             : 5000,
         },
       },
+      debugLogRecordLifecycle:
+        import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true",
     });
 
     // Expose for E2E shutdown test (m1.spec.ts)
-    (window as unknown as Record<string, unknown>)['PulseWeb'] = PulseWeb;
+    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
   }, []);
 
   return (

@@ -24,6 +24,7 @@ import {
   PulseBrowserLogExporter,
   createPulseBrowserMetricExporter,
 } from "./exporters/pulse-browser-otlp-exporters";
+import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lifecycle-debug";
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
@@ -45,6 +46,9 @@ export interface ExporterConfig {
     enabled: boolean;
     buffer: IdbSignalBuffer;
   };
+
+  /** Log each log batch at OTLP export (see PulseWebConfig.debugLogRecordLifecycle). */
+  debugLogRecordLifecycle?: boolean;
 }
 
 export interface ProviderBundle {
@@ -103,7 +107,6 @@ export function createProviders(
       signalKind: "trace",
     },
   );
-
   const batchSpanProcessor = new BatchSpanProcessor(
     traceExporter,
     batchOptions,
@@ -115,7 +118,7 @@ export function createProviders(
   }
   tracerProvider.addSpanProcessor(batchSpanProcessor);
 
-  const logExporter = new PulseBrowserLogExporter(
+  const baseLogExporter = new PulseBrowserLogExporter(
     { url: logsUrl, headers },
     {
       useProtobuf,
@@ -124,6 +127,10 @@ export function createProviders(
       signalKind: "log",
     },
   );
+  const logExporter =
+    config.debugLogRecordLifecycle === true
+      ? wrapLogExporterLifecycleDebug(baseLogExporter)
+      : baseLogExporter;
 
   const batchLogProcessor = new BatchLogRecordProcessor(
     logExporter,
@@ -135,6 +142,16 @@ export function createProviders(
     loggerProvider.addLogRecordProcessor(processor);
   }
   loggerProvider.addLogRecordProcessor(batchLogProcessor);
+
+  if (config.debugLogRecordLifecycle === true) {
+    console.log("[PulseWeb:logLifecycle]", {
+      phase: "batch_config",
+      scheduledDelayMillis: batchOptions.scheduledDelayMillis,
+      maxQueueSize: batchOptions.maxQueueSize,
+      maxExportBatchSize: batchOptions.maxExportBatchSize,
+      note: "BatchLogRecordProcessor keeps a private in-memory queue; export runs on the timer, when the queue fills a batch slice, or on forceFlush (e.g. pagehide).",
+    });
+  }
 
   const metricExporter = createPulseBrowserMetricExporter(
     { url: metricsUrl, headers },

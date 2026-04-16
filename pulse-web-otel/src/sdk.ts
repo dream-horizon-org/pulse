@@ -22,6 +22,7 @@ import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
 import { PulseSamplingProcessor } from "./processors/sampling-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
+import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { createProviders } from "./exporters";
 import { InstrumentationRegistry } from "./instrumentation-registry";
 import type { SdkContext } from "./instrumentation-registry";
@@ -134,10 +135,17 @@ class PulseWebSDK implements SdkContext {
       samplingProcessor,
       filterProcessor,
     ];
+    const logLifecycle = config.debugLogRecordLifecycle === true;
     const logProcessors = [
+      ...(logLifecycle
+        ? [new LogRecordLifecycleDebugProcessor("ingress")]
+        : []),
       this.globalAttrsProcessor,
       samplingProcessor,
       filterProcessor,
+      ...(logLifecycle
+        ? [new LogRecordLifecycleDebugProcessor("pre_batch")]
+        : []),
     ];
 
     const diskEnabled = config.diskBuffering?.enabled === true;
@@ -149,6 +157,7 @@ class PulseWebSDK implements SdkContext {
       format: config.export?.format,
       compression: config.export?.compression,
       batchOptions: config.export?.batch,
+      debugLogRecordLifecycle: config.debugLogRecordLifecycle,
       diskBuffer: {
         enabled: diskEnabled,
         buffer: idbBuffer,
@@ -231,6 +240,14 @@ class PulseWebSDK implements SdkContext {
   trackEvent(name: string, attrs?: Record<string, unknown>): void {
     if (!this._initialized) return;
     if (!this.gate.isEnabled("custom_events")) return;
+    if (this.config.debugLogRecordLifecycle === true) {
+      console.log("[PulseWeb:logLifecycle]", {
+        phase: "api",
+        where: "PulseWeb.trackEvent → logger.emit",
+        body: name,
+        attrs,
+      });
+    }
     this.logger.emit({
       body: name,
       attributes: {
