@@ -622,4 +622,9 @@ SELECT
 FROM otel.otel_logs
 WHERE PulseType = 'app.click'
 GROUP BY Date, ProjectId, ScreenName, AppVersion, Platform, GeoState, Breakpoint, XBin, YBin;
- 
+ CREATE TABLE IF NOT EXISTS otel._lint_test_bad
+(
+    project_id String
+)
+ENGINE = MergeTree
+ORDER BY tuple();
