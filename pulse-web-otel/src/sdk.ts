@@ -99,10 +99,13 @@ class PulseWebSDK implements SdkContext {
     meteringSessionId: string,
   ): void {
     if (this._initialized || this._shuttingDown) return;
-
-    const sessionInactivityMs =
-      config.instrumentations?.session?.inactivityTimeoutMs;
-    this.sessionProvider = new SessionProvider(sessionInactivityMs);
+    // Step 2: SessionProvider
+    const sessionCfg = config.instrumentations?.session;
+    this.sessionProvider = new SessionProvider(
+      sessionCfg?.inactivityTimeoutMs,
+      sessionCfg?.maxSessionLifetimeMs,
+      sessionCfg?.pageHiddenTimeoutMs,
+    );
 
     getOrCreateInstallationId();
 

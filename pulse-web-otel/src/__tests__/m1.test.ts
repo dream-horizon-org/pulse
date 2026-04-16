@@ -13,6 +13,7 @@ import {
   SessionProvider,
   wasNewInstallation,
   _resetInstallationStateForTesting,
+  SessionChangeEvent,
 } from "../session";
 import { validateConfig } from "../config";
 import {
@@ -81,6 +82,10 @@ vi.mock("../exporters", () => {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function msToNs(ms: number): number {
+  return ms * 1_000_000;
+}
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   return {
@@ -698,13 +703,13 @@ describe("M1 — Session Provider (extended)", () => {
     expect(id2).toBe(id1);
   });
 
-  it("session ID lives in sessionStorage, not localStorage", () => {
+  it("session ID lives in localStorage (shared across tabs), not sessionStorage", () => {
     const provider = new SessionProvider();
     currentProvider = provider;
     const id = provider.getSessionId();
 
-    expect(window.sessionStorage.getItem("pulse_session_id")).toBe(id);
-    expect(window.localStorage.getItem("pulse_session_id")).toBeNull();
+    expect(window.localStorage.getItem("pulse_session_id")).toBe(id);
+    expect(window.sessionStorage.getItem("pulse_session_id")).toBeNull();
   });
 
   it("updateActivity() resets the inactivity clock — same session ID returned", () => {
@@ -721,14 +726,14 @@ describe("M1 — Session Provider (extended)", () => {
     expect(id2).toBe(id1);
   });
 
-  it("shutdown() clears session from sessionStorage", () => {
+  it("shutdown() clears session from localStorage", () => {
     const provider = new SessionProvider();
     // Don't assign currentProvider here — the test itself calls shutdown()
     provider.getSessionId();
-    expect(window.sessionStorage.getItem("pulse_session_id")).toBeTruthy();
+    expect(window.localStorage.getItem("pulse_session_id")).toBeTruthy();
 
     provider.shutdown();
-    expect(window.sessionStorage.getItem("pulse_session_id")).toBeNull();
+    expect(window.localStorage.getItem("pulse_session_id")).toBeNull();
   });
 
   it("emits session.end with reason shutdown on shutdown()", () => {
@@ -779,15 +784,15 @@ describe("M1 — Session Provider (extended)", () => {
     expect(endEvents).toHaveLength(0);
   });
 
-  it("session.end includes correct session.id and positive durationMs", () => {
+  it("session.end includes correct session.id and positive durationNs", () => {
     const provider = new SessionProvider();
     // Don't assign currentProvider — test calls shutdown() itself
     const sessionId = provider.getSessionId();
 
-    let capturedEnd: { sessionId?: string; durationMs?: number } = {};
+    let capturedEnd: { sessionId?: string; durationNs?: number } = {};
     provider.onSessionChange((e) => {
       if (e.type === "end") {
-        capturedEnd = { sessionId: e.sessionId, durationMs: e.durationMs };
+        capturedEnd = { sessionId: e.sessionId, durationNs: e.durationNs };
       }
     });
 
@@ -795,7 +800,7 @@ describe("M1 — Session Provider (extended)", () => {
     provider.shutdown();
 
     expect(capturedEnd.sessionId).toBe(sessionId);
-    expect(capturedEnd.durationMs).toBeGreaterThanOrEqual(0);
+    expect(capturedEnd.durationNs).toBeGreaterThanOrEqual(0);
   });
 
   it("rotation emits end then start — exactly one of each", () => {
@@ -1533,6 +1538,244 @@ describe("M1 — SessionInstrumentation events", () => {
       (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
     expect(starts).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M1 — Session Provider: reload and clone detection
+// ---------------------------------------------------------------------------
+
+describe("M1 — Session Provider: reload and clone detection (beforeunload flag)", () => {
+  const createdProviders: SessionProvider[] = [];
+
+  function makeProvider(inactivityMs?: number, maxLifetimeMs?: number, pageHiddenMs?: number) {
+    const p = new SessionProvider(inactivityMs, maxLifetimeMs, pageHiddenMs);
+    createdProviders.push(p);
+    return p;
+  }
+
+  afterEach(() => {
+    for (const p of createdProviders) p.shutdown();
+    createdProviders.length = 0;
+    vi.restoreAllMocks();
+    window.sessionStorage.clear();
+    window.localStorage.removeItem("pulse_session_id");
+    window.localStorage.removeItem("pulse_session_ts");
+    window.localStorage.removeItem("pulse_session_start");
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
+
+  // --- Clone detection ---
+  // PostHog model: clone → same session.id (inherited), new window.id (unique per tab).
+
+  it("clone: flag present → inherits session (wasSessionReused=true, same session ID)", () => {
+    const clonedId = "cloned-session-uuid";
+    window.localStorage.setItem("pulse_session_id", clonedId);
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 3000)));
+    window.sessionStorage.setItem("pulse_session_clone_flag", "1");
+
+    const provider = makeProvider();
+
+    expect(provider.wasSessionReused()).toBe(true);
+    expect(provider.getSessionId()).toBe(clonedId);
+  });
+
+  it("clone: session is preserved in localStorage (not cleared)", () => {
+    window.localStorage.setItem("pulse_session_id", "clone-id");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 1000)));
+    window.sessionStorage.setItem("pulse_session_clone_flag", "1");
+
+    makeProvider();
+
+    // The inherited session must be kept (not wiped)
+    expect(window.localStorage.getItem("pulse_session_id")).toBe("clone-id");
+    // The flag is re-set for THIS tab so any future clone of it is also detected
+    expect(window.sessionStorage.getItem("pulse_session_clone_flag")).toBe("1");
+  });
+
+  it("clone: emitInitialSession() is silent (session reused — no duplicate session.start)", () => {
+    window.localStorage.setItem("pulse_session_id", "cloned-session");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 3000)));
+    window.sessionStorage.setItem("pulse_session_clone_flag", "1");
+
+    const provider = makeProvider();
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    provider.emitInitialSession();
+
+    expect(events.filter((e) => e.type === "start")).toHaveLength(0);
+  });
+
+  it("clone: getWindowId() is different from a separate tab instance", () => {
+    // Two tabs initialised in sequence get distinct window IDs
+    window.sessionStorage.setItem("pulse_session_clone_flag", "1");
+    const tabA = makeProvider();
+    window.sessionStorage.clear();
+    const tabB = makeProvider();
+
+    expect(tabA.getWindowId()).not.toBe(tabB.getWindowId());
+  });
+
+  // --- Reload detection ---
+
+  it("reload: no flag + active session → wasSessionReused() true, same ID returned", () => {
+    const priorId = "prior-session-uuid";
+    window.localStorage.setItem("pulse_session_id", priorId);
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 5000)));
+    // No clone flag — beforeunload removed it before reload
+
+    const provider = makeProvider();
+
+    expect(provider.wasSessionReused()).toBe(true);
+    expect(provider.getSessionId()).toBe(priorId);
+  });
+
+  it("reload: emitInitialSession() does NOT emit session.start when session is reused", () => {
+    window.localStorage.setItem("pulse_session_id", "reload-session");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 5000)));
+
+    const provider = makeProvider();
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    provider.emitInitialSession();
+
+    expect(events.filter((e) => e.type === "start")).toHaveLength(0);
+  });
+
+  it("fresh new tab: no flag, no session → creates new session", () => {
+    const provider = makeProvider();
+    expect(provider.wasSessionReused()).toBe(false);
+    const id = provider.getSessionId();
+    expect(id.length).toBeGreaterThan(0);
+  });
+
+  // --- beforeunload flag lifecycle ---
+
+  it("init always writes clone flag to sessionStorage", () => {
+    makeProvider();
+    expect(window.sessionStorage.getItem("pulse_session_clone_flag")).toBe("1");
+  });
+
+  it("beforeunload removes the clone flag (reload won't see it)", () => {
+    makeProvider();
+    expect(window.sessionStorage.getItem("pulse_session_clone_flag")).toBe("1");
+
+    window.dispatchEvent(new Event("beforeunload"));
+
+    expect(window.sessionStorage.getItem("pulse_session_clone_flag")).toBeNull();
+  });
+
+  // --- pagehide behaviour ---
+
+  it("pagehide: emits session.end event", () => {
+    const provider = makeProvider();
+    provider.getSessionId();
+
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+
+    expect(events.filter((e) => e.type === "end" && e.reason === "page_unload")).toHaveLength(1);
+  });
+
+  it("pagehide: does NOT clear localStorage (skipClear=true)", () => {
+    const provider = makeProvider();
+    provider.getSessionId();
+    const before = window.localStorage.getItem("pulse_session_id");
+    expect(before).not.toBeNull();
+
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+
+    expect(window.localStorage.getItem("pulse_session_id")).toBe(before);
+  });
+
+  it("shutdown(): clears localStorage", () => {
+    const provider = makeProvider();
+    provider.getSessionId();
+    expect(window.localStorage.getItem("pulse_session_id")).not.toBeNull();
+    provider.shutdown();
+    expect(window.localStorage.getItem("pulse_session_id")).toBeNull();
+  });
+
+  // --- 4-hour max session lifetime ---
+
+  it("max lifetime: session rotates when age exceeds threshold", () => {
+    const maxMs = 1000;
+    window.localStorage.setItem("pulse_session_id", "old");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - maxMs - 100)));
+
+    const provider = makeProvider(30 * 60 * 1000, maxMs);
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+
+    const newId = provider.getSessionId();
+
+    expect(newId).not.toBe("old");
+    expect(events.find((e) => e.type === "end"   && e.reason === "max_lifetime")).toBeTruthy();
+    expect(events.find((e) => e.type === "start" && e.reason === "max_lifetime")).toBeTruthy();
+  });
+
+  it("max lifetime: session within threshold is NOT rotated", () => {
+    window.localStorage.setItem("pulse_session_id", "fresh");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now()) - 100));
+
+    const provider = makeProvider(30 * 60 * 1000, 5000);
+    expect(provider.getSessionId()).toBe("fresh");
+  });
+
+  // --- 15-minute page-hidden inactivity timeout ---
+
+  it("page-hidden timeout: session rotates when page hidden beyond threshold", () => {
+    const pageHiddenMs = 500;
+    const provider = makeProvider(30 * 60 * 1000, 4 * 60 * 60 * 1000, pageHiddenMs);
+    const oldId = provider.getSessionId();
+
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+
+    // Page goes hidden — provider records hiddenAt = real Date.now()
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // Access the recorded hiddenAt and mock Date.now() to be past the threshold
+    const hiddenAt = (provider as unknown as Record<string, unknown>)["_hiddenAtMs"] as number;
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(hiddenAt + pageHiddenMs + 100);
+
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    nowSpy.mockRestore();
+
+    expect(provider.getSessionId()).not.toBe(oldId);
+    expect(events.find((e) => e.type === "end"   && e.reason === "inactivity_timeout")).toBeTruthy();
+    expect(events.find((e) => e.type === "start" && e.reason === "inactivity_timeout")).toBeTruthy();
+  });
+
+  it("page-hidden timeout: session NOT rotated when hidden duration under threshold", () => {
+    const pageHiddenMs = 60_000;
+    const provider = makeProvider(30 * 60 * 1000, 4 * 60 * 60 * 1000, pageHiddenMs);
+    const existingId = provider.getSessionId();
+
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // Mock Date.now() to be just under the threshold
+    const hiddenAt = (provider as unknown as Record<string, unknown>)["_hiddenAtMs"] as number;
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(hiddenAt + pageHiddenMs - 1000);
+
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    nowSpy.mockRestore();
+
+    expect(provider.getSessionId()).toBe(existingId);
   });
 });
 

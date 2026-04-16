@@ -5,13 +5,21 @@ export enum PulseDataCollectionConsent {
 }
 
 export interface InstrumentationConfig {
-  errors?: { enabled: boolean };
-  network?: { enabled: boolean };
-  clicks?: { enabled: boolean };
-  webVitals?: { enabled: boolean };
-  navigation?: { enabled: boolean };
-  session?: { enabled: boolean; inactivityTimeoutMs?: number };
-  interactions?: { enabled: boolean };
+  errors?:        { enabled: boolean };
+  network?:       { enabled: boolean };
+  clicks?:        { enabled: boolean };
+  webVitals?:     { enabled: boolean };
+  navigation?:    { enabled: boolean };
+  session?:       {
+    enabled: boolean;
+    /** Rotate session after this many ms of inactivity. Default: 30 min. */
+    inactivityTimeoutMs?: number;
+    /** Hard max session lifetime in ms regardless of activity. Default: 4 hours. */
+    maxSessionLifetimeMs?: number;
+    /** Rotate session after page has been hidden for this many ms. Default: 15 min. */
+    pageHiddenTimeoutMs?: number;
+  };
+  interactions?:  { enabled: boolean };
   sessionReplay?: { enabled: boolean };
 }
 
