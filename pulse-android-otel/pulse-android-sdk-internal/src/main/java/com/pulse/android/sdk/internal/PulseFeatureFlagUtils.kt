@@ -82,7 +82,10 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setCrashInstrumentation(config: OtelRumConfig, isEnabled: Boolean) {
+    private fun setCrashInstrumentation(
+        config: OtelRumConfig,
+        isEnabled: Boolean,
+    ) {
         if (isEnabled) {
             config.allowInstrumentation("crash")
         } else {
@@ -90,7 +93,10 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setAnrInstrumentation(config: OtelRumConfig, isEnabled: Boolean) {
+    private fun setAnrInstrumentation(
+        config: OtelRumConfig,
+        isEnabled: Boolean,
+    ) {
         if (isEnabled) {
             config.allowInstrumentation("anr")
         } else {
@@ -98,7 +104,10 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setNetworkAttributes(config: OtelRumConfig, isEnabled: Boolean) {
+    private fun setNetworkAttributes(
+        config: OtelRumConfig,
+        isEnabled: Boolean,
+    ) {
         if (isEnabled) {
             config.enableNetworkAttributes()
         } else {
@@ -106,7 +115,10 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setInteractionInstrumentation(config: OtelRumConfig, isEnabled: Boolean) {
+    private fun setInteractionInstrumentation(
+        config: OtelRumConfig,
+        isEnabled: Boolean,
+    ) {
         val name = InteractionInstrumentation.INSTRUMENTATION_NAME
         if (isEnabled) {
             config.allowInstrumentation(name)
@@ -115,7 +127,10 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setClickInstrumentation(config: OtelRumConfig, isEnabled: Boolean) {
+    private fun setClickInstrumentation(
+        config: OtelRumConfig,
+        isEnabled: Boolean,
+    ) {
         if (isEnabled) {
             config.allowInstrumentation("view.click")
             config.allowInstrumentation("compose.click")
@@ -125,7 +140,10 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setActivityInstrumentation(config: OtelRumConfig, isEnabled: Boolean) {
+    private fun setActivityInstrumentation(
+        config: OtelRumConfig,
+        isEnabled: Boolean,
+    ) {
         if (isEnabled) {
             config.allowInstrumentation("activity")
         } else {
@@ -133,7 +151,10 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setFragmentInstrumentation(config: OtelRumConfig, isEnabled: Boolean) {
+    private fun setFragmentInstrumentation(
+        config: OtelRumConfig,
+        isEnabled: Boolean,
+    ) {
         if (isEnabled) {
             config.allowInstrumentation("fragment")
         } else {
@@ -141,7 +162,10 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setSlowRenderingInstrumentation(config: OtelRumConfig, isEnabled: Boolean) {
+    private fun setSlowRenderingInstrumentation(
+        config: OtelRumConfig,
+        isEnabled: Boolean,
+    ) {
         if (isEnabled) {
             config.allowInstrumentation("slowrendering")
         } else {
