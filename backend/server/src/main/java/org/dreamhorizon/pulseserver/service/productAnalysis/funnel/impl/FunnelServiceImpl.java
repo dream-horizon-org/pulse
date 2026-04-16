@@ -94,10 +94,9 @@ public class FunnelServiceImpl implements FunnelService {
               projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, tagsToStore)
             .toSingleDefault(funnelId))
       .flatMap(funnelId ->
-        analyticsBatchService.triggerFunnelOnSaveJob(funnelId)
-          .onErrorReturnItem(false) // Don't fail funnel creation if job submission fails
-          .map(triggered -> funnelId)
-      )
+        analyticsBatchService
+            .triggerFunnelOnSaveJob(funnelId)
+            .map(__ -> funnelId))
       .onErrorResumeNext(
         err ->
           Single.error(
@@ -159,9 +158,7 @@ public class FunnelServiceImpl implements FunnelService {
               projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
           });
           return tagStep.andThen(
-            analyticsBatchService.triggerFunnelOnSaveJob(id)
-              .onErrorReturnItem(false)
-              .ignoreElement());
+            analyticsBatchService.triggerFunnelOnSaveJob(id).ignoreElement());
         });
   }
 

@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -22,8 +23,10 @@ import org.dreamhorizon.pulseserver.dao.spark.SparkJobType;
 /**
  * ClickHouse-backed implementation of {@link AnalyticsBatchService}.
  *
- * <p>On-save path ({@code triggerFunnelOnSaveJob}/{@code triggerJourneyOnSaveJob}): tracks status
- * in {@code spark_jobs} (RUNNING → SUCCEEDED/FAILED).
+ * <p>On-save path ({@code triggerFunnelOnSaveJob}/{@code triggerJourneyOnSaveJob}): inserts
+ * {@code spark_jobs} as {@code RUNNING}, schedules ClickHouse compute on
+ * {@link io.reactivex.rxjava3.schedulers.Schedulers#io()}, and returns {@code true} immediately.
+ * When compute finishes, status is updated to {@code SUCCEEDED} or {@code FAILED} in the background.
  *
  * <p>Batch cron path ({@code triggerFunnelsBatch}/{@code triggerJourneysBatch}): groups AUTO
  * definitions by project and issues one query per project using
@@ -45,39 +48,63 @@ public class ClickHouseBatchServiceImpl implements AnalyticsBatchService {
   @Override
   public Single<Boolean> triggerFunnelOnSaveJob(Long funnelId) {
     return sparkJobDao.insertJob(SparkJobType.FUNNEL, funnelId, null, SparkJobStatus.RUNNING)
-        .flatMap(dbId ->
-            computeService.computeFunnel(funnelId)
-                .flatMap(success ->
-                    sparkJobDao.updateJobStatus(
-                            dbId, SparkJobStatus.SUCCEEDED, null,
-                            LocalDateTime.now(), LocalDateTime.now())
-                        .map(__ -> true))
-                .onErrorResumeNext(err -> {
-                  log.error("ClickHouse funnel compute failed for funnelId={}", funnelId, err);
-                  return sparkJobDao.updateJobStatus(
-                          dbId, SparkJobStatus.FAILED, err.getMessage(),
-                          null, LocalDateTime.now())
-                      .map(__ -> false);
-                }));
+        .flatMap(dbId -> {
+          runFunnelComputeAsync(dbId, funnelId);
+          return Single.just(true);
+        });
   }
 
   @Override
   public Single<Boolean> triggerJourneyOnSaveJob(Long journeyId) {
     return sparkJobDao.insertJob(SparkJobType.JOURNEY, journeyId, null, SparkJobStatus.RUNNING)
-        .flatMap(dbId ->
-            computeService.computeJourney(journeyId)
-                .flatMap(success ->
-                    sparkJobDao.updateJobStatus(
-                            dbId, SparkJobStatus.SUCCEEDED, null,
-                            LocalDateTime.now(), LocalDateTime.now())
-                        .map(__ -> true))
-                .onErrorResumeNext(err -> {
-                  log.error("ClickHouse journey compute failed for journeyId={}", journeyId, err);
-                  return sparkJobDao.updateJobStatus(
-                          dbId, SparkJobStatus.FAILED, err.getMessage(),
-                          null, LocalDateTime.now())
-                      .map(__ -> false);
-                }));
+        .flatMap(dbId -> {
+          runJourneyComputeAsync(dbId, journeyId);
+          return Single.just(true);
+        });
+  }
+
+  private void runFunnelComputeAsync(long dbId, long funnelId) {
+    computeService.computeFunnel(funnelId)
+        .flatMap(__ ->
+            sparkJobDao.updateJobStatus(
+                    dbId, SparkJobStatus.SUCCEEDED, null,
+                    LocalDateTime.now(), LocalDateTime.now())
+                .map(__ -> true))
+        .onErrorResumeNext(err -> {
+          log.error("ClickHouse funnel compute failed for funnelId={}", funnelId, err);
+          return sparkJobDao.updateJobStatus(
+                  dbId, SparkJobStatus.FAILED, err.getMessage(),
+                  null, LocalDateTime.now())
+              .map(__ -> false);
+        })
+        .subscribeOn(Schedulers.io())
+        .subscribe(
+            __ -> { },
+            e -> log.error(
+                "Failed to finalize spark_jobs row id={} after funnel on-save compute (funnelId={})",
+                dbId, funnelId, e));
+  }
+
+  private void runJourneyComputeAsync(long dbId, long journeyId) {
+    computeService.computeJourney(journeyId)
+        .flatMap(__ ->
+            sparkJobDao.updateJobStatus(
+                    dbId, SparkJobStatus.SUCCEEDED, null,
+                    LocalDateTime.now(), LocalDateTime.now())
+                .map(__ -> true))
+        .onErrorResumeNext(err -> {
+          log.error("ClickHouse journey compute failed for journeyId={}", journeyId, err);
+          return sparkJobDao.updateJobStatus(
+                  dbId, SparkJobStatus.FAILED, err.getMessage(),
+                  null, LocalDateTime.now())
+              .map(__ -> false);
+        })
+        .subscribeOn(Schedulers.io())
+        .subscribe(
+            __ -> { },
+            e -> log.error(
+                "Failed to finalize spark_jobs row id={} after journey on-save compute (journeyId={})",
+                dbId, journeyId, e));
   }
 
   // ── Batch path ────────────────────────────────────────────────────────────────

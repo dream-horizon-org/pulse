@@ -97,10 +97,9 @@ public class JourneyServiceImpl implements JourneyService {
               projectId, FunnelJourneyTagEntityType.JOURNEY, journeyId, tagsToStore)
             .toSingleDefault(journeyId))
       .flatMap(journeyId ->
-        analyticsBatchService.triggerJourneyOnSaveJob(journeyId)
-          .onErrorReturnItem(false) // Don't fail journey creation if job submission fails
-          .map(triggered -> journeyId)
-      )
+        analyticsBatchService
+            .triggerJourneyOnSaveJob(journeyId)
+            .map(__ -> journeyId))
       .onErrorResumeNext(
         err ->
           Single.error(
@@ -160,9 +159,7 @@ public class JourneyServiceImpl implements JourneyService {
               projectId, FunnelJourneyTagEntityType.JOURNEY, id, tagsToStore);
           });
           return tagStep.andThen(
-            analyticsBatchService.triggerJourneyOnSaveJob(id)
-              .onErrorReturnItem(false)
-              .ignoreElement());
+            analyticsBatchService.triggerJourneyOnSaveJob(id).ignoreElement());
         });
   }
 
