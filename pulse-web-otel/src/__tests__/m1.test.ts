@@ -1530,6 +1530,170 @@ describe("M1 — SessionInstrumentation events", () => {
 });
 
 // ---------------------------------------------------------------------------
+// M1 — Session Provider: reload and clone detection
+// ---------------------------------------------------------------------------
+
+describe("M1 — Session Provider: reload and clone detection", () => {
+  const createdProviders: SessionProvider[] = [];
+
+  function makeProvider(inactivityMs?: number) {
+    const p = new SessionProvider(inactivityMs);
+    createdProviders.push(p);
+    return p;
+  }
+
+  function mockNavType(type: "reload" | "navigate" | "back_forward" | null) {
+    if (type === null) {
+      vi.spyOn(performance, "getEntriesByType").mockReturnValue([]);
+    } else {
+      vi.spyOn(performance, "getEntriesByType").mockReturnValue([
+        { type } as PerformanceNavigationTiming,
+      ]);
+    }
+  }
+
+  afterEach(() => {
+    for (const p of createdProviders) p.shutdown();
+    createdProviders.length = 0;
+    vi.restoreAllMocks();
+    window.sessionStorage.clear();
+  });
+
+  // --- Reload: reuse session ---
+
+  it("reload: wasSessionReused() is true and same session ID is returned", () => {
+    // Pre-populate sessionStorage as if a prior page load had created a session
+    const priorId = "prior-session-uuid";
+    window.sessionStorage.setItem("pulse_session_id", priorId);
+    window.sessionStorage.setItem("pulse_session_ts", String(Date.now()));
+    window.sessionStorage.setItem("pulse_session_start", String(Date.now() - 5000));
+
+    mockNavType("reload");
+    const provider = makeProvider();
+
+    expect(provider.wasSessionReused()).toBe(true);
+    expect(provider.getSessionId()).toBe(priorId);
+  });
+
+  it("reload: emitInitialSession() does NOT emit session.start for reused session", () => {
+    window.sessionStorage.setItem("pulse_session_id", "prior-session-uuid");
+    window.sessionStorage.setItem("pulse_session_ts", String(Date.now()));
+    window.sessionStorage.setItem("pulse_session_start", String(Date.now() - 5000));
+
+    mockNavType("reload");
+    const provider = makeProvider();
+
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    provider.emitInitialSession();
+
+    const starts = events.filter((e) => e.type === "start");
+    expect(starts).toHaveLength(0);
+  });
+
+  it("back_forward: reuses session (history navigation treated like reload)", () => {
+    const priorId = "back-fwd-session";
+    window.sessionStorage.setItem("pulse_session_id", priorId);
+    window.sessionStorage.setItem("pulse_session_ts", String(Date.now()));
+    window.sessionStorage.setItem("pulse_session_start", String(Date.now() - 2000));
+
+    mockNavType("back_forward");
+    const provider = makeProvider();
+
+    expect(provider.wasSessionReused()).toBe(true);
+    expect(provider.getSessionId()).toBe(priorId);
+  });
+
+  // --- Clone: new session ---
+
+  it("clone (navigate + existing session): clears inherited session and creates new one", () => {
+    const clonedId = "cloned-session-uuid";
+    window.sessionStorage.setItem("pulse_session_id", clonedId);
+    window.sessionStorage.setItem("pulse_session_ts", String(Date.now()));
+    window.sessionStorage.setItem("pulse_session_start", String(Date.now() - 3000));
+
+    mockNavType("navigate");
+    const provider = makeProvider();
+
+    expect(provider.wasSessionReused()).toBe(false);
+    const newId = provider.getSessionId();
+    expect(newId).not.toBe(clonedId);
+  });
+
+  it("clone: emitInitialSession() DOES emit session.start for new session after clone", () => {
+    window.sessionStorage.setItem("pulse_session_id", "cloned-session");
+    window.sessionStorage.setItem("pulse_session_ts", String(Date.now()));
+    window.sessionStorage.setItem("pulse_session_start", String(Date.now() - 3000));
+
+    mockNavType("navigate");
+    const provider = makeProvider();
+
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    provider.emitInitialSession();
+
+    const starts = events.filter((e) => e.type === "start");
+    expect(starts).toHaveLength(1);
+  });
+
+  // --- Navigation API unavailable (JSDOM default) ---
+
+  it("no Navigation API entries: leaves sessionStorage untouched and wasSessionReused() is false", () => {
+    const existingId = "existing-session";
+    window.sessionStorage.setItem("pulse_session_id", existingId);
+    window.sessionStorage.setItem("pulse_session_ts", String(Date.now()));
+    window.sessionStorage.setItem("pulse_session_start", String(Date.now() - 1000));
+
+    mockNavType(null); // empty entries array
+    const provider = makeProvider();
+
+    expect(provider.wasSessionReused()).toBe(false);
+    // sessionStorage still intact — provider didn't clear it
+    expect(window.sessionStorage.getItem("pulse_session_id")).toBe(existingId);
+  });
+
+  // --- pagehide behaviour ---
+
+  it("pagehide: still emits session.end event", () => {
+    mockNavType(null);
+    const provider = makeProvider();
+    provider.getSessionId(); // ensure session exists
+
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+
+    const ends = events.filter((e) => e.type === "end" && e.reason === "page_unload");
+    expect(ends).toHaveLength(1);
+  });
+
+  it("pagehide: does NOT clear sessionStorage (skipClear=true)", () => {
+    mockNavType(null);
+    const provider = makeProvider();
+    provider.getSessionId();
+
+    const sessionIdBefore = window.sessionStorage.getItem("pulse_session_id");
+    expect(sessionIdBefore).not.toBeNull();
+
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+
+    // sessionStorage must still have the session so reload can detect and reuse it
+    expect(window.sessionStorage.getItem("pulse_session_id")).toBe(sessionIdBefore);
+  });
+
+  it("shutdown(): still clears sessionStorage (skipClear defaults to false)", () => {
+    mockNavType(null);
+    const provider = makeProvider();
+    provider.getSessionId();
+
+    expect(window.sessionStorage.getItem("pulse_session_id")).not.toBeNull();
+    provider.shutdown();
+    expect(window.sessionStorage.getItem("pulse_session_id")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // M1 — wasNewInstallation
 // ---------------------------------------------------------------------------
 
