@@ -22,12 +22,6 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-
-  default_tags {
-    tags = {
-      service = "pulse"
-    }
-  }
 }
 
 # Stable cluster UUID — generated once, never recreated.
@@ -77,10 +71,12 @@ resource "aws_launch_template" "kafka_broker" {
     name = var.iam_instance_profile
   }
 
-  network_interfaces {
-    associate_public_ip_address = false
-    security_groups             = var.vpc_security_group_ids
+  vpc_security_group_ids = var.vpc_security_group_ids
+
+  private_dns_name_options {
+    enable_resource_name_dns_a_record = true
   }
+
 
   metadata_options {
     http_endpoint = "enabled"
