@@ -20,9 +20,9 @@ public class SamplingConfig {
   @JsonProperty("rules")
   private List<SamplingRule> rules;
 
-  @JsonProperty("criticalEventPolicies")
-  private CriticalEventPolicies criticalEventPolicies;
-
   @JsonProperty("criticalSessionPolicies")
   private CriticalSessionPolicies criticalSessionPolicies;
+
+  @JsonProperty("signalsToSample")
+  private List<SignalsToSampleEntry> signalsToSample;
 }
