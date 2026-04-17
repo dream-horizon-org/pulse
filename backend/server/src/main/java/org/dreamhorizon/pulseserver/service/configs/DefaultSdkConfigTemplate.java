@@ -32,20 +32,14 @@ public class DefaultSdkConfigTemplate {
                 .sessionSampleRate(1.0)
                 .build())
             .rules(new ArrayList<>())
-            .criticalEventPolicies(CriticalEventPolicies.builder()
-                .alwaysSend(new ArrayList<>())
-                .build())
             .criticalSessionPolicies(CriticalSessionPolicies.builder()
                 .alwaysSend(new ArrayList<>())
                 .build())
+            .signalsToSample(new ArrayList<>())
             .build();
 
         // Signals configuration
         SignalsConfig signals = SignalsConfig.builder()
-            .filters(FilterConfig.builder()
-                .mode(FilterMode.blacklist)
-                .values(new ArrayList<>())
-                .build())
             .scheduleDurationMs(5000)
             .logsCollectorUrl(System.getenv().getOrDefault("LOGS_COLLECTOR_URL", "http://localhost:4318/v1/logs"))
             .metricCollectorUrl(System.getenv().getOrDefault("METRIC_COLLECTOR_URL", "http://localhost:4318/v1/metrics"))
@@ -53,6 +47,7 @@ public class DefaultSdkConfigTemplate {
             .customEventCollectorUrl(System.getenv().getOrDefault("CUSTOM_EVENT_COLLECTOR_URL", "http://localhost:4318/v1/events"))
             .attributesToDrop(new ArrayList<>())
             .attributesToAdd(new ArrayList<>())
+            .metricsToAdd(new ArrayList<>())
             .build();
 
         // Interaction configuration

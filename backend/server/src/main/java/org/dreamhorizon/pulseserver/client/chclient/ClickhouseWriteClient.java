@@ -24,9 +24,10 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
 
 public class ClickhouseWriteClient {
   private final Client client;
-  private final ObjectMapper mapper = new ObjectMapper();
+  private final ObjectMapper mapper;
 
-  public ClickhouseWriteClient(ClickhouseConfig config) {
+  public ClickhouseWriteClient(ClickhouseConfig config, ObjectMapper objectMapper) {
+    this.mapper = objectMapper.copy();
     mapper.configOverride(String.class)
         .setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY));
     client = new Client.Builder()

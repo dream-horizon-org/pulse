@@ -26,8 +26,6 @@ import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterConfig;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
@@ -215,10 +213,6 @@ class ConfigServiceImplTest {
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
               .attributesToAdd(List.of())
-              .filters(FilterConfig.builder()
-                  .mode(FilterMode.blacklist)
-                  .values(List.of())
-                  .build())
               .build())
           .interaction(InteractionConfig.builder()
               .collectorUrl("http://interaction.example.com")

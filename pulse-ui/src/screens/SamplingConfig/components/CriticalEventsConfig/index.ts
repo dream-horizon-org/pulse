@@ -1,2 +1,0 @@
-export { CriticalEventsConfig } from './CriticalEventsConfig';
-

@@ -8,6 +8,7 @@ import com.pulse.sampling.models.PulseSdkName
 import io.mockk.mockk
 import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
+import io.opentelemetry.sdk.metrics.SdkMeterProvider
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -22,6 +23,7 @@ class PulseFeatureFlagUtilsTest {
             context = mockedContext,
             sdkConfig = sdkConfig,
             currentSdkName = PulseSdkName.ANDROID_JAVA,
+            meterProviderLazy = lazy { SdkMeterProvider.builder().build() },
         )
     }
 

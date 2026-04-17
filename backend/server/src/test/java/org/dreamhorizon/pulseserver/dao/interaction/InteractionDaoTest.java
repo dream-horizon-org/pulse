@@ -44,7 +44,8 @@ import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetail
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -83,7 +84,7 @@ class InteractionDaoTest {
   @Mock
   private RowSet<Row> rowSet;
 
-  final ObjectMapperUtil objectMapper = new ObjectMapperUtil();
+  final ObjectMapperUtil objectMapper = new ObjectMapperUtil(ObjectMapperFactory.get());
 
   @BeforeEach
   void setUp() {
