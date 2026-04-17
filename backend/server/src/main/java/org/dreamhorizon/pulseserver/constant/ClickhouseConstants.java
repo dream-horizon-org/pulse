@@ -7,6 +7,8 @@ import lombok.experimental.UtilityClass;
 public class ClickhouseConstants {
 
   public final String OTEL_TRACES_TABLE = "otel.otel_traces";
+  /** OTLP logs (e.g. {@code app.click}) stored in ClickHouse. */
+  public final String OTEL_LOGS_TABLE = "otel.otel_logs";
   public final DateTimeFormatter CLICKHOUSE_TIMESTAMP_LITERAL =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
