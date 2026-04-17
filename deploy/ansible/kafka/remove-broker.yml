@@ -1,0 +1,153 @@
+---
+# remove-broker.yml
+#
+# Gracefully removes a broker from the KRaft cluster.
+# Run BEFORE Terraform decreases num_brokers or terminates the instance.
+#
+# Steps:
+#   1. Reassign all partitions off the broker being removed
+#   2. Wait for reassignment to complete
+#   3. Remove the node from KRaft quorum voters
+#   4. Stop the kafka service
+#
+# Required extra_vars:
+#   remove_broker_host  – FQDN of the broker to remove, e.g. pulse-kafka-03.pulse.local
+#   remove_node_id      – KRaft node ID of the broker to remove, e.g. 3
+#   num_brokers         – total broker count AFTER removal (for rebalance target)
+#   route53_zone_name   – e.g. pulse.local
+#
+# Example:
+#   ansible-playbook remove-broker.yml \
+#     -i inventory/hosts.ini \
+#     -e remove_broker_host=pulse-kafka-03.pulse.local \
+#     -e remove_node_id=3 \
+#     -e num_brokers=2 \
+#     -e route53_zone_name=pulse.local
+
+# Phase 1 — Drain partitions off the broker being removed (run from a surviving broker)
+- name: Drain partitions from broker being removed
+  hosts: "{{ surviving_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
+  become: true
+  vars:
+    kafka_bin: "{{ kafka_dir | default('/opt/kafka') }}/bin"
+
+  tasks:
+    - name: Get list of remaining broker IDs (after removal)
+      set_fact:
+        remaining_brokers: "{{ range(1, num_brokers | int + 1) | list | map('string') | join(',') }}"
+
+    - name: Generate reassignment plan excluding the broker to remove
+      shell: |
+        "{{ kafka_bin }}/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 --list \
+          | while read t; do echo "{\"topic\": \"$t\"}"; done \
+          | paste -sd ',' > /tmp/broker-topics.tmp
+        cat > /tmp/topics-to-drain.json <<EOF
+        {"topics": [$(cat /tmp/broker-topics.tmp)], "version": 1}
+        EOF
+        "{{ kafka_bin }}/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --broker-list "{{ remaining_brokers }}" \
+          --topics-to-move-json-file /tmp/topics-to-drain.json \
+          --generate \
+          | grep '^{"version"' | tail -1 > /tmp/drain-plan.json
+        echo "Generated reassignment plan:"
+        cat /tmp/drain-plan.json
+      register: drain_plan
+      changed_when: false
+
+    - name: Validate drain plan is non-empty
+      fail:
+        msg: "Failed to generate reassignment plan — check broker connectivity"
+      when: drain_plan.stdout == "" or drain_plan.stdout == "null"
+
+    - name: Execute partition drain
+      shell: |
+        "{{ kafka_bin }}/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --reassignment-json-file /tmp/drain-plan.json \
+          --execute
+      register: drain_execute
+
+    - name: Wait for reassignment to complete (up to 10 minutes)
+      shell: |
+        "{{ kafka_bin }}/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --reassignment-json-file /tmp/drain-plan.json \
+          --verify \
+          | grep -c "Reassignment of partition.*completed successfully"
+      register: verify_result
+      retries: 30
+      delay: 20
+      until: >-
+        verify_result.stdout | int >= (
+          drain_plan.stdout | from_json | json_query('length(partitions)')
+        )
+      changed_when: false
+      ignore_errors: true
+
+    - name: Print reassignment verification result
+      debug:
+        var: verify_result.stdout_lines
+
+# Phase 2 — Remove node from KRaft quorum voters
+- name: Remove node from KRaft quorum
+  hosts: "{{ surviving_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
+  become: true
+  vars:
+    kafka_bin: "{{ kafka_dir | default('/opt/kafka') }}/bin"
+
+  tasks:
+    - name: Show current quorum status before removal
+      shell: "{{ kafka_bin }}/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status"
+      register: pre_removal_status
+      changed_when: false
+
+    - name: Print quorum status
+      debug:
+        var: pre_removal_status.stdout_lines
+
+    - name: Remove voter from KRaft quorum
+      shell: |
+        "{{ kafka_bin }}/kafka-metadata-quorum.sh" \
+          --bootstrap-server localhost:9092 \
+          remove-voter \
+          --voter-id {{ remove_node_id }}
+      register: remove_voter_result
+
+    - name: Verify voter removed from quorum
+      shell: "{{ kafka_bin }}/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status"
+      register: post_removal_status
+      changed_when: false
+
+    - name: Print updated quorum status
+      debug:
+        var: post_removal_status.stdout_lines
+
+# Phase 3 — Stop Kafka on the broker being removed
+- name: Stop Kafka on broker being removed
+  hosts: "{{ remove_broker_host }}"
+  become: true
+
+  tasks:
+    - name: Stop kafka service
+      systemd:
+        name: kafka
+        state: stopped
+        enabled: false
+
+    - name: Confirm kafka is stopped
+      shell: systemctl is-active kafka || true
+      register: kafka_status
+      changed_when: false
+
+    - name: Print kafka service status
+      debug:
+        msg: "Kafka service status: {{ kafka_status.stdout }}"
+
+    - name: Broker removal complete
+      debug:
+        msg: >-
+          Broker {{ remove_node_id }} ({{ remove_broker_host }}) stopped and removed from quorum.
+          You can now run: terraform apply -var num_brokers={{ num_brokers }}
+          to terminate the EC2 instance. The EBS data volume will be preserved.

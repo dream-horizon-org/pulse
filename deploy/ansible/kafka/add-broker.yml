@@ -1,0 +1,119 @@
+---
+# add-broker.yml
+#
+# Adds a new broker to an existing KRaft cluster.
+# Run AFTER Terraform has provisioned the new EC2 instance and attached its EBS volume.
+#
+# Steps:
+#   1. Configure the new broker (mount EBS, write server.properties, start Kafka)
+#   2. Add the new node as a quorum voter (dynamic KRaft voter management, Kafka 3.7+)
+#   3. Trigger partition rebalance so the new broker gets its share of partitions
+#
+# Required extra_vars:
+#   new_broker_host    – FQDN of the new broker, e.g. pulse-kafka-03.pulse.local
+#   new_node_id        – KRaft node ID for the new broker (must be unique, e.g. 3)
+#   kraft_cluster_id   – from SSM /pulse/kafka/production/kraft_cluster_id
+#   num_brokers        – total broker count AFTER adding this one
+#   route53_zone_name  – e.g. pulse.local
+#
+# Example:
+#   ansible-playbook add-broker.yml \
+#     -i inventory/hosts.ini \
+#     -e new_broker_host=pulse-kafka-03.pulse.local \
+#     -e new_node_id=3 \
+#     -e kraft_cluster_id=<id> \
+#     -e num_brokers=3 \
+#     -e route53_zone_name=pulse.local
+
+# Phase 1 — Configure and start the new broker
+- name: Configure new broker
+  hosts: "{{ new_broker_host }}"
+  become: true
+  vars:
+    node_id: "{{ new_node_id }}"
+    process_roles: "broker,controller"
+
+  tasks:
+    - name: Include configure-broker tasks
+      include_tasks: tasks/configure-broker-tasks.yml
+
+# Phase 2 — Add new broker as quorum voter (run from an existing broker)
+- name: Add new node to KRaft quorum
+  hosts: "{{ existing_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
+  become: true
+
+  tasks:
+    - name: Wait for new broker to be reachable on port 9092
+      wait_for:
+        host: "{{ new_broker_host }}"
+        port: 9092
+        delay: 5
+        timeout: 120
+
+    - name: Add new node as quorum voter
+      shell: |
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
+          --bootstrap-server localhost:9092 \
+          add-voter \
+          --voter-id {{ new_node_id }} \
+          --voter-directory-id $(
+            "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
+              --bootstrap-server {{ new_broker_host }}:9092 describe --status \
+              | grep 'DirectoryId' | awk '{print $NF}'
+          ) \
+          --voter-host {{ new_broker_host }} \
+          --voter-port 9093
+      register: add_voter_result
+      changed_when: add_voter_result.rc == 0
+
+    - name: Verify new voter appears in quorum status
+      shell: |
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
+          --bootstrap-server localhost:9092 describe --status
+      register: quorum_status
+      changed_when: false
+
+    - name: Print quorum status
+      debug:
+        var: quorum_status.stdout_lines
+
+# Phase 3 — Rebalance partitions onto new broker
+- name: Trigger partition rebalance
+  hosts: "{{ existing_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
+  become: true
+
+  tasks:
+    - name: Generate reassignment plan
+      shell: |
+        BROKERS=$(seq -s, 1 {{ num_brokers }})
+        TOPICS=$("{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 --list | tr '\n' ',' | sed 's/,$//')
+        cat > /tmp/topics-to-reassign.json <<EOF
+        {"topics": [$(
+          "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-topics.sh" \
+            --bootstrap-server localhost:9092 --list \
+            | while read t; do echo "{\"topic\": \"$t\"}"; done \
+            | paste -sd ','
+        )], "version": 1}
+        EOF
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --broker-list "$BROKERS" \
+          --topics-to-move-json-file /tmp/topics-to-reassign.json \
+          --generate \
+          | tail -n 1 > /tmp/reassignment-plan.json
+        cat /tmp/reassignment-plan.json
+      register: reassignment_plan
+      changed_when: false
+
+    - name: Execute partition reassignment
+      shell: |
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --reassignment-json-file /tmp/reassignment-plan.json \
+          --execute
+      when: reassignment_plan.stdout != ""
+
+    - name: Print reassignment status
+      debug:
+        msg: "Partition rebalance started. Monitor with: kafka-reassign-partitions.sh --verify"

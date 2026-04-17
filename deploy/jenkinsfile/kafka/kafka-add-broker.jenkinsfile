@@ -1,0 +1,157 @@
+// kafka-add-broker.jenkinsfile
+//
+// Adds a new Kafka broker to the production cluster.
+//
+// Jenkins job parameters:
+//   NUM_BROKERS  – Total broker count AFTER adding (e.g. 3)
+//                  The new node ID is derived from this: node ID = NUM_BROKERS
+
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        string(name: 'NUM_BROKERS', defaultValue: '', description: 'Total broker count AFTER adding (e.g. 3). New node ID = this number.')
+    }
+
+    environment {
+        TF_IN_AUTOMATION         = 'true'
+        ROUTE53_ZONE_NAME        = 'pulse.local'
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    if (!params.NUM_BROKERS) {
+                        error("NUM_BROKERS is required.")
+                    }
+                    env.NEW_NODE_ID = params.NUM_BROKERS  // node IDs are sequential: new node ID = new total
+                }
+            }
+        }
+
+        stage('Clear Existing Workspace') {
+            steps { cleanWs() }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    cd deploy/terraform/kafka
+                    aws secretsmanager get-secret-value \
+                      --region ap-south-1 \
+                      --secret-id prod/kafka/terraform \
+                      --query 'SecretString' \
+                      --output text > secrets.auto.tfvars.json
+                '''
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh """
+                    cd deploy/terraform/kafka
+                    terraform init
+                    terraform plan -var num_brokers=${params.NUM_BROKERS} -out=tfplan
+                """
+            }
+        }
+
+        stage('Approve') {
+            steps {
+                input message: "Add broker node ${env.NEW_NODE_ID} (num_brokers → ${params.NUM_BROKERS}). Apply?", ok: 'Yes, Add Broker!'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh "cd deploy/terraform/kafka && terraform apply -input=false tfplan"
+            }
+        }
+
+        stage('Wait for Instance Ready') {
+            steps {
+                sh """
+                    NEW_HOST="pulse-kafka-\$(printf '%02d' ${env.NEW_NODE_ID}).${ROUTE53_ZONE_NAME}"
+                    echo "Waiting for \$NEW_HOST to be SSH-reachable..."
+                    for i in \$(seq 1 30); do
+                        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+                            -i ~/.ssh/pulse-prod.pem ec2-user@\$NEW_HOST echo ok 2>/dev/null && break
+                        echo "Attempt \$i: not ready, retrying in 10s..."
+                        sleep 10
+                    done
+                """
+            }
+        }
+
+        stage('Fetch KRaft Cluster ID') {
+            steps {
+                sh '''
+                    aws ssm get-parameter \
+                        --region ap-south-1 \
+                        --name "/pulse/kafka/production/kraft_cluster_id" \
+                        --with-decryption \
+                        --query 'Parameter.Value' \
+                        --output text > /tmp/kraft_cluster_id.txt
+                '''
+            }
+        }
+
+        stage('Ansible: Add Broker') {
+            steps {
+                sh """
+                    KRAFT_CLUSTER_ID=\$(cat /tmp/kraft_cluster_id.txt)
+                    NEW_HOST="pulse-kafka-\$(printf '%02d' ${env.NEW_NODE_ID}).${ROUTE53_ZONE_NAME}"
+
+                    ansible-playbook deploy/ansible/kafka/add-broker.yml \
+                        -i deploy/ansible/kafka/inventory/hosts.ini \
+                        --private-key ~/.ssh/pulse-prod.pem \
+                        -e "new_broker_host=\$NEW_HOST" \
+                        -e "new_node_id=${env.NEW_NODE_ID}" \
+                        -e "kraft_cluster_id=\$KRAFT_CLUSTER_ID" \
+                        -e "num_brokers=${params.NUM_BROKERS}" \
+                        -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
+                """
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f deploy/terraform/kafka/tfplan deploy/terraform/kafka/secrets.auto.tfvars.json /tmp/kraft_cluster_id.txt'
+        }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                        color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
+                        message: "<!channel> Kafka broker ${env.NEW_NODE_ID} added by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+                }
+            }
+        }
+        failure {
+            script {
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+                    message: "<!channel> Kafka add-broker FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+            }
+        }
+    }
+}

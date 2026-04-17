@@ -1,0 +1,28 @@
+---
+# Kafka configuration — applied by all kafka playbooks
+# These values are baked into server.properties on each broker.
+
+kafka_version: "4.1.2"
+kafka_dir: "/opt/kafka"
+kafka_data_dir: "/var/lib/kafka"
+kafka_log_dir: "/var/lib/kafka/data"
+
+replication_factor: 2
+min_insync_replicas: 1
+retention_ms: 3600000       # 1 hour
+compression_type: "gzip"
+
+# Topics created on first boot by node-01 (idempotent via --if-not-exists).
+# Note: puls.traces was a typo in the original config — corrected to pulse.traces
+kafka_topics:
+  - { name: "session_recording_events",        partitions: 6 }
+  - { name: "clickhouse_session_replay_events", partitions: 6 }
+  - { name: "pulse.logs.anr_crash",             partitions: 6 }
+  - { name: "pulse.traces",                     partitions: 1 }
+  - { name: "pulse.metrics",                    partitions: 1 }
+  - { name: "pulse.logs",                       partitions: 1 }
+
+# --- Runtime variables (pass via Jenkins --extra-vars, NOT hardcoded here) ---
+# kraft_cluster_id:  fetched from SSM /pulse/kafka/production/kraft_cluster_id
+# num_brokers:       total broker count (must match Terraform num_brokers)
+# route53_zone_name: e.g. pulse.local
