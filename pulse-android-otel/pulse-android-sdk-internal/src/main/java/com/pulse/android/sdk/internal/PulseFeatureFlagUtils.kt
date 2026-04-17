@@ -13,6 +13,21 @@ import io.opentelemetry.android.instrumentation.interaction.library.InteractionI
  */
 internal object PulseFeatureFlagUtils {
     /**
+     * Registration names of supported instrumentations
+     */
+    private enum class InstrumentationRegistrationName(
+        val registrationName: String,
+    ) {
+        CRASH("crash"),
+        ANR("anr"),
+        ACTIVITY("activity"),
+        FRAGMENT("fragment"),
+        SLOW_RENDERING("slowrendering"),
+        VIEW_CLICK("view.click"),
+        COMPOSE_CLICK("compose.click"),
+    }
+
+    /**
      * Holds the result of applying feature flags.
      *
      * @property isCustomEventEnabled whether the CUSTOM_EVENTS feature remains enabled
@@ -40,28 +55,61 @@ internal object PulseFeatureFlagUtils {
     ) {
         when (feature) {
             PulseFeatureName.JAVA_CRASH -> {
-                setCrashInstrumentation(config, isEnabled)
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.CRASH.registrationName,
+                )
             }
             PulseFeatureName.JAVA_ANR -> {
-                setAnrInstrumentation(config, isEnabled)
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.ANR.registrationName,
+                )
             }
             PulseFeatureName.NETWORK_CHANGE -> {
                 setNetworkAttributes(config, isEnabled)
             }
             PulseFeatureName.INTERACTION -> {
-                setInteractionInstrumentation(config, isEnabled)
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InteractionInstrumentation.INSTRUMENTATION_NAME,
+                )
             }
             PulseFeatureName.CLICK -> {
-                setClickInstrumentation(config, isEnabled)
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.VIEW_CLICK.registrationName,
+                )
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.COMPOSE_CLICK.registrationName,
+                )
             }
             PulseFeatureName.ANDROID_ACTIVITY -> {
-                setActivityInstrumentation(config, isEnabled)
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.ACTIVITY.registrationName,
+                )
             }
             PulseFeatureName.ANDROID_FRAGMENT -> {
-                setFragmentInstrumentation(config, isEnabled)
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.FRAGMENT.registrationName,
+                )
             }
             PulseFeatureName.ANDROID_SLOWRENDERING -> {
-                setSlowRenderingInstrumentation(config, isEnabled)
+                configureInstrumentation(
+                    config,
+                    isEnabled,
+                    InstrumentationRegistrationName.SLOW_RENDERING.registrationName,
+                )
             }
             PulseFeatureName.CUSTOM_EVENTS,
             PulseFeatureName.JS_CRASH,
@@ -70,6 +118,7 @@ internal object PulseFeatureFlagUtils {
             PulseFeatureName.RN_SCREEN_LOAD,
             PulseFeatureName.RN_SCREEN_INTERACTIVE,
             PulseFeatureName.RN_SCREEN_SESSION,
+            // SESSION_REPLAY is applied elsewhere (SessionReplayBootstrap / replay config), not via OtelRumConfig toggles.
             PulseFeatureName.SESSION_REPLAY,
             PulseFeatureName.IOS_CRASH,
             PulseFeatureName.IOS_NETWORK,
@@ -82,25 +131,15 @@ internal object PulseFeatureFlagUtils {
         }
     }
 
-    private fun setCrashInstrumentation(
+    private fun configureInstrumentation(
         config: OtelRumConfig,
         isEnabled: Boolean,
+        registrationName: String,
     ) {
         if (isEnabled) {
-            config.allowInstrumentation("crash")
+            config.allowInstrumentation(registrationName)
         } else {
-            config.suppressInstrumentation("crash")
-        }
-    }
-
-    private fun setAnrInstrumentation(
-        config: OtelRumConfig,
-        isEnabled: Boolean,
-    ) {
-        if (isEnabled) {
-            config.allowInstrumentation("anr")
-        } else {
-            config.suppressInstrumentation("anr")
+            config.suppressInstrumentation(registrationName)
         }
     }
 
@@ -112,64 +151,6 @@ internal object PulseFeatureFlagUtils {
             config.enableNetworkAttributes()
         } else {
             config.disableNetworkAttributes()
-        }
-    }
-
-    private fun setInteractionInstrumentation(
-        config: OtelRumConfig,
-        isEnabled: Boolean,
-    ) {
-        val name = InteractionInstrumentation.INSTRUMENTATION_NAME
-        if (isEnabled) {
-            config.allowInstrumentation(name)
-        } else {
-            config.suppressInstrumentation(name)
-        }
-    }
-
-    private fun setClickInstrumentation(
-        config: OtelRumConfig,
-        isEnabled: Boolean,
-    ) {
-        if (isEnabled) {
-            config.allowInstrumentation("view.click")
-            config.allowInstrumentation("compose.click")
-        } else {
-            config.suppressInstrumentation("view.click")
-            config.suppressInstrumentation("compose.click")
-        }
-    }
-
-    private fun setActivityInstrumentation(
-        config: OtelRumConfig,
-        isEnabled: Boolean,
-    ) {
-        if (isEnabled) {
-            config.allowInstrumentation("activity")
-        } else {
-            config.suppressInstrumentation("activity")
-        }
-    }
-
-    private fun setFragmentInstrumentation(
-        config: OtelRumConfig,
-        isEnabled: Boolean,
-    ) {
-        if (isEnabled) {
-            config.allowInstrumentation("fragment")
-        } else {
-            config.suppressInstrumentation("fragment")
-        }
-    }
-
-    private fun setSlowRenderingInstrumentation(
-        config: OtelRumConfig,
-        isEnabled: Boolean,
-    ) {
-        if (isEnabled) {
-            config.allowInstrumentation("slowrendering")
-        } else {
-            config.suppressInstrumentation("slowrendering")
         }
     }
 }
