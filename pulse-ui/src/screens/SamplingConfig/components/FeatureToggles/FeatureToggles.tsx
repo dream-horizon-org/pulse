@@ -42,7 +42,6 @@ import {
   IconPlayerPlay,
   IconFlame,
   IconGridDots,
-  IconMapPin,
 } from "@tabler/icons-react";
 import {
   FeatureConfig,
