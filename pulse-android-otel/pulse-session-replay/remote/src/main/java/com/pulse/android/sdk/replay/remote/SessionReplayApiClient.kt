@@ -58,9 +58,9 @@ public class SessionReplayApiClient(
                     "Session replay API error: ${response.code()} $msg. Body: $responseBody"
                 }
                 if (body.length <= MAX_REQUEST_LOG) {
-                    PulseOtelUtils.logError(REPLAY_LOG_TAG) { "Request payload: $body" }
+                    PulseOtelUtils.logVerbose(REPLAY_LOG_TAG) { "Request payload: $body" }
                 } else {
-                    PulseOtelUtils.logError(REPLAY_LOG_TAG) {
+                    PulseOtelUtils.logVerbose(REPLAY_LOG_TAG) {
                         "Request payload (first $MAX_REQUEST_LOG chars): ${body.take(MAX_REQUEST_LOG)}..."
                     }
                 }

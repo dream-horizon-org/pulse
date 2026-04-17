@@ -118,24 +118,24 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
                 sessionIdsLog?.let { add("— $it") }
                 eventTypesSummary?.let { add("— event types: $it") }
             }
-        PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "[Replay flow] Sending to backend: ${parts.joinToString(" ")}" }
+        PulseOtelUtils.logVerbose(ReplayConstants.REPLAY_LOG_TAG) { "[Replay flow] Sending to backend: ${parts.joinToString(" ")}" }
     }
 
     private fun logPayloadNoApiUrl(payload: String) {
         val payloadSizeKb = payload.length / 1024
         val sessionIdsLog = ReplayEnvelopeBuilder.getSessionIdsForLog(payload)
         val sessionSuffix = if (sessionIdsLog != null) " — $sessionIdsLog" else ""
-        PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+        PulseOtelUtils.logVerbose(ReplayConstants.REPLAY_LOG_TAG) {
             "Session replay payload (no API URL): $payloadSizeKb KB (${payload.length} bytes)$sessionSuffix"
         }
         if (payload.length <= MAX_LOG_LEN) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Replay payload: $payload" }
+            PulseOtelUtils.logVerbose(ReplayConstants.REPLAY_LOG_TAG) { "Replay payload: $payload" }
         } else {
             var offset = 0
             var part = 0
             while (offset < payload.length) {
                 val chunk = payload.substring(offset, (offset + MAX_LOG_LEN).coerceAtMost(payload.length))
-                PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Replay payload part ${++part}: $chunk" }
+                PulseOtelUtils.logVerbose(ReplayConstants.REPLAY_LOG_TAG) { "Replay payload part ${++part}: $chunk" }
                 offset += MAX_LOG_LEN
             }
         }

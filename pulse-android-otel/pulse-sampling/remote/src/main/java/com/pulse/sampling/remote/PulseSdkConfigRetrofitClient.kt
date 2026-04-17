@@ -31,7 +31,7 @@ public class PulseSdkConfigRetrofitClient(
     }
 
     private fun buildOkHttpClient(): OkHttpClient =
-        if (okhttpClient.cache != null && PulseOtelUtils.isDebug()) {
+        if (okhttpClient.cache != null) {
             val builder = okhttpClient.newBuilder()
             builder.eventListener(
                 object : EventListener() {
@@ -41,7 +41,7 @@ public class PulseSdkConfigRetrofitClient(
                     ) {
                         super.cacheConditionalHit(call, cachedResponse)
                         PulseOtelUtils.logDebug(TAG) {
-                            "checking cache for url = ${call.request().url}"
+                            "checking cache for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }
 
@@ -51,14 +51,14 @@ public class PulseSdkConfigRetrofitClient(
                     ) {
                         super.cacheHit(call, response)
                         PulseOtelUtils.logDebug(TAG) {
-                            "cacheHit for url = ${call.request().url}"
+                            "cacheHit for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }
 
                     override fun cacheMiss(call: Call) {
                         super.cacheMiss(call)
                         PulseOtelUtils.logDebug(TAG) {
-                            "cacheMiss for url = ${call.request().url}"
+                            "cacheMiss for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }
                 },

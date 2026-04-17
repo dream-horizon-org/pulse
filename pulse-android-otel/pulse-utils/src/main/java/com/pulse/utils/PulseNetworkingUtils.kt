@@ -60,12 +60,6 @@ public object PulseNetworkingUtils {
                 val urlIterator = okHttpClient.cache?.urls()
                 urlIterator?.forEach { if (it == url) urlIterator.remove() }
             }
-            val throwableMsg =
-                if (throwable is retrofit2.HttpException) {
-                    "retrofit2.HttpException ${throwable.response()?.errorBody()?.string() ?: "no-err-msg"}"
-                } else {
-                    throwable.message ?: "no-err-msg"
-                }
-            PulseOtelUtils.logDebug(tag) { "onFailure in runCatching, url = $url error msg = $throwableMsg" }
+            PulseOtelUtils.logWarn(tag) { "onFailure in runCatching, url = ${redactUrl(url)} error = ${RedactionUtils.classifyError(throwable)}" }
         }
 }

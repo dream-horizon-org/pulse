@@ -28,6 +28,7 @@ import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
+import com.pulse.utils.LogLevel
 import com.pulse.utils.PulseMathUtils
 import com.pulse.utils.PulseOtelUtils
 import com.pulse.utils.putAttributesFrom
@@ -110,10 +111,12 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
+        logLevel: LogLevel = LogLevel.NONE,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
+        PulseOtelUtils.logLevel = logLevel
         if (isShutdown) {
-            PulseOtelUtils.logDebug(TAG) { "Initialisation skipped: SDK has been shut down" }
+            PulseOtelUtils.logWarn(TAG) { "Initialisation skipped: SDK has been shut down" }
             return
         }
         if (isInitialized()) {
@@ -145,7 +148,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 beforeSendData = beforeSendData,
             )
         }.also {
-            PulseOtelUtils.logDebug(TAG) { "Initialisation succeeded in $it ns" }
+            PulseOtelUtils.logInfo(TAG) { "sdk.init duration_ms=${it / 1_000_000}" }
         }
         isInitialised = true
     }
@@ -174,7 +177,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     ) {
         if (dataCollectionState == PulseDataCollectionConsent.DENIED) {
             oldState = PulseDataCollectionConsent.DENIED
-            PulseOtelUtils.logDebug(TAG) { "initializeInternal returned early as started with DENIED consent" }
+            PulseOtelUtils.logInfo(TAG) { "initializeInternal returned early as started with DENIED consent" }
             return
         }
         val sharedPrefs =

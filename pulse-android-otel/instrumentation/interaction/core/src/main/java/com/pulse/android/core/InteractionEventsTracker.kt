@@ -37,7 +37,7 @@ internal class InteractionEventsTracker(
                 event matchesAny interactionConfig.events ||
                 event matchesAny interactionConfig.globalBlacklistedEvents
             ) {
-                logDebug { "match for event = ${event.name}, timeInNano = ${event.timeInNano}" }
+                logVerbose { "match for event = ${event.name}, timeInNano = ${event.timeInNano}" }
                 localEvents.add(event)
                 val (shouldTakeFirstEvent, shouldResetList, interactionStatus) =
                     InteractionUtil
@@ -52,13 +52,13 @@ internal class InteractionEventsTracker(
                             localEvents,
                             localMarkers,
                             interactionConfig,
-                        ).also { logDebug { "matchSeq result = ${it ?: "null"}" } } ?: run {
+                        ).also { logVerbose { "matchSeq result = ${it ?: "null"}" } } ?: run {
                         isInteractionClosed = true
                         return
                     }
                 val (oldInteractionStatus, newInteractionStatus) =
                     if (shouldResetList) {
-                        logDebug { "resetList called with shouldTakeFirstEvent = $shouldTakeFirstEvent" }
+                        logVerbose { "resetList called with shouldTakeFirstEvent = $shouldTakeFirstEvent" }
                         if (
                             shouldTakeFirstEvent && localEvents.last() matches interactionConfig.firstEvent
                         ) {
@@ -92,7 +92,7 @@ internal class InteractionEventsTracker(
                     } else {
                         null to interactionStatus
                     }
-                logDebug {
+                logVerbose {
                     "matchSequence newInteractionStatus = $newInteractionStatus, oldInteractionStatus = ${oldInteractionStatus ?: "null"}"
                 }
                 timerScope.launchResetTimer(newInteractionStatus)
@@ -106,14 +106,14 @@ internal class InteractionEventsTracker(
 
     private fun CoroutineScope.launchResetTimer(newValue: InteractionRunningStatus) {
         timerJob?.cancel()
-        logDebug { "launchResetTimer newValue = $newValue" }
+        logVerbose { "launchResetTimer newValue = $newValue" }
         if (newValue is InteractionRunningStatus.OngoingMatch && newValue.interaction == null) {
             timerJob =
                 launch(CoroutineName("timer#${newValue.index}")) {
                     val timeOfDelayInMs = interactionConfig.thresholdInMs + 10
-                    logDebug { "launchResetTimer before delay = $timeOfDelayInMs" }
+                    logVerbose { "launchResetTimer before delay = $timeOfDelayInMs" }
                     delay(timeOfDelayInMs)
-                    logDebug { "launchResetTimer after delay = $timeOfDelayInMs" }
+                    logVerbose { "launchResetTimer after delay = $timeOfDelayInMs" }
                     isInteractionClosed = true
                     interactionRunningStatusMutableState.value =
                         interactionRunningStatusMutableState.updateAndGet {

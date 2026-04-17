@@ -95,7 +95,7 @@ public class SessionReplayIntegration(
                 }
             }
         } catch (e: Throwable) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay OnRootViewsChangedListener failed: $e" }
+            PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay OnRootViewsChangedListener failed: ${e.javaClass.simpleName}" }
         }
     }
 
@@ -141,13 +141,13 @@ public class SessionReplayIntegration(
                                 )
                             }
                         } catch (e: Throwable) {
-                            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay mask collection failed: $e" }
+                            PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay mask collection failed: ${e.javaClass.simpleName}" }
                         }
                     }
                 }
             decorViews[decorView] = ViewTreeSnapshotStatus(listener, viewMaskCache)
         } catch (e: Throwable) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay setupDecorViewCapture failed: $e" }
+            PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay setupDecorViewCapture failed: ${e.javaClass.simpleName}" }
         }
     }
 
@@ -264,7 +264,7 @@ public class SessionReplayIntegration(
         try {
             Curtains.onRootViewsChangedListeners += onRootViewsChangedListener
         } catch (e: Throwable) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay setup failed: $e" }
+            PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay setup failed: ${e.javaClass.simpleName}" }
         }
     }
 
@@ -274,7 +274,7 @@ public class SessionReplayIntegration(
             val snapshot = synchronized(decorViews) { decorViews.entries.toList() }
             snapshot.forEach { (view, status) -> clearViewListeners(view, status) }
         } catch (e: Throwable) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay uninstall failed: $e" }
+            PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay uninstall failed: ${e.javaClass.simpleName}" }
         }
         isSessionReplayActive = false
         drawCounter.incrementAndGet()

@@ -32,13 +32,13 @@ internal object InteractionUtil {
         }
 
         var newInteractionStatus: MatchResult? = null
-        logDebug { "localEvents = ${localEvents.joinToString { it.name }}" }
+        logVerbose { "localEvents = ${localEvents.joinToString { it.name }}" }
         var localEventIndex = 0
         while (localEventIndex < localEvents.size) {
             val localEvent = localEvents[localEventIndex]
 
             if (isMatchOnGoing && localEvent matchesAny interactionConfig.globalBlacklistedEvents) {
-                logDebug { "blacklisted event(${localEvent.name}) found" }
+                logVerbose { "blacklisted event(${localEvent.name}) found" }
                 return MatchResult(
                     shouldTakeFirstEvent = false,
                     shouldResetList = true,
@@ -48,12 +48,12 @@ internal object InteractionUtil {
 
             val configEvent = interactionConfig.events[configEventIndex]
 
-            logDebug { "localEvent:${localEvent.name} from localEventIndex = $localEventIndex," }
+            logVerbose { "localEvent:${localEvent.name} from localEventIndex = $localEventIndex," }
             val isMatch = localEvent matches configEvent
             newInteractionStatus =
                 if (isMatch) {
                     if (configEvent.isBlacklisted) {
-                        logDebug { "localEvent:${localEvent.name} is blacklisted" }
+                        logVerbose { "localEvent:${localEvent.name} is blacklisted" }
                         MatchResult(
                             shouldTakeFirstEvent = false,
                             shouldResetList = true,
@@ -62,14 +62,14 @@ internal object InteractionUtil {
                     } else {
                         stepWiseTimeInNano.add(localEvent)
                         configEventIndex++
-                        logDebug {
+                        logVerbose {
                             "localEvent:${localEvent.name} is match and not a blacklisted match, " +
                                 "matched at index = ${configEventIndex - 1}, " +
                                 "config(w/o blacklisted) = ${interactionConfig.eventsSize}"
                         }
 
                         if (configEventIndex == interactionConfig.eventsSize) {
-                            logDebug { "localEvent:${localEvent.name} is final match" }
+                            logVerbose { "localEvent:${localEvent.name} is final match" }
                             isMatchOnGoing = false
                             MatchResult(
                                 shouldTakeFirstEvent = false,
@@ -270,8 +270,8 @@ internal object InteractionUtil {
     )
 }
 
-internal inline fun logDebug(body: () -> String) {
-    PulseOtelUtils.logDebug(InteractionConstant.LOG_TAG, body)
+internal inline fun logVerbose(body: () -> String) {
+    PulseOtelUtils.logVerbose(InteractionConstant.LOG_TAG, body)
 }
 
 /**
