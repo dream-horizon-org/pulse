@@ -75,7 +75,7 @@ public class InteractionInstrumentation {
     /// Handle interaction state changes and create spans
     private func handleInteractionStates(_ states: [InteractionRunningStatus]) {
         for state in states {
-            if case .ongoingMatch(_, let interactionId, let config, let interaction) = state,
+            if case .ongoingMatch(_, let interactionId, let interactionConfig, let interaction) = state,
                let interaction = interaction {
                 handledInteractionIdsLock.lock()
                 let alreadyHandled = handledInteractionIds.contains(interactionId)
@@ -84,7 +84,7 @@ public class InteractionInstrumentation {
                 }
                 handledInteractionIdsLock.unlock()
                 guard !alreadyHandled else { continue }
-                createInteractionSpan(interaction: interaction, config: config)
+                createInteractionSpan(interaction: interaction, interactionConfig: interactionConfig)
             }
         }
     }
@@ -113,8 +113,8 @@ public class InteractionInstrumentation {
     }
 
     /// Create OpenTelemetry span for completed interaction
-    private func createInteractionSpan(interaction: Interaction, config: InteractionConfig) {
-        guard let timeSpan = interaction.timeSpanInNanos else {
+    private func createInteractionSpan(interaction: Interaction, interactionConfig: InteractionConfig) {
+        guard let timeSpan = interaction.timeSpanInNanos(thresholdMs: interactionConfig.thresholdInMs) else {
             return
         }
 
@@ -176,7 +176,12 @@ public class InteractionInstrumentation {
 
         // Set span status
         if interaction.isErrored {
-            span.status = Status.error(description: "Interaction timed out or was interrupted")
+            let description: String = {
+                guard let t = interaction.errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !t.isEmpty else { return "Interaction error" }
+                return t
+            }()
+            span.status = Status.error(description: description)
         }
 
         // End span

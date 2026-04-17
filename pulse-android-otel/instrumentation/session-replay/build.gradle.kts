@@ -27,6 +27,7 @@ kotlin {
 dependencies {
     api(projects.instrumentation.androidInstrumentation)
     api(projects.pulseSessionReplayRemote)
+    api(platform(libs.opentelemetry.platform.alpha))
     implementation(projects.pulseSessionReplayModels)
     implementation(projects.session)
     implementation(projects.pulseUtils)

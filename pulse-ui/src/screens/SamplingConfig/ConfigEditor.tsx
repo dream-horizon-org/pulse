@@ -24,7 +24,7 @@ import {
   TextInput,
   Paper,
   Alert,
-} from '@mantine/core';
+} from "@mantine/core";
 import {
   IconDeviceFloppy,
   IconRefresh,
@@ -36,28 +36,26 @@ import {
   IconInfoCircle,
   IconEye,
   IconCircleCheckFilled,
-} from '@tabler/icons-react';
-import {
-  PulseConfig,
-  ConfigEditorProps,
-} from './SamplingConfig.interface';
+} from "@tabler/icons-react";
+import { PulseConfig, ConfigEditorProps } from "./SamplingConfig.interface";
 import {
   DEFAULT_PULSE_CONFIG,
   UI_CONSTANTS,
   stripUIFields,
   addUIIds,
-} from './SamplingConfig.constants';
-import { FiltersConfig } from './components/FiltersConfig';
-import { SamplingRulesConfig } from './components/SamplingRulesConfig';
-import { CriticalEventsConfig } from './components/CriticalEventsConfig';
-import { FeatureToggles } from './components/FeatureToggles';
-import { InfraConfig } from './components/InfraConfig';
-import { AttributesToDropConfig } from './components/AttributesToDropConfig';
-import { AttributesToAddConfig } from './components/AttributesToAddConfig';
-import { useCreateSdkConfig, useGetActiveSdkConfig } from '../../hooks/useSdkConfig';
-import { useProjectContext } from '../../contexts';
-import { showNotification } from '../../helpers/showNotification';
-import classes from './SamplingConfig.module.css';
+} from "./SamplingConfig.constants";
+import { SamplingRulesConfig } from "./components/SamplingRulesConfig";
+import { FeatureToggles } from "./components/FeatureToggles";
+import { InfraConfig } from "./components/InfraConfig";
+import { AttributesToDropConfig } from "./components/AttributesToDropConfig";
+import { AttributesToAddConfig } from "./components/AttributesToAddConfig";
+import {
+  useCreateSdkConfig,
+  useGetActiveSdkConfig,
+} from "../../hooks/useSdkConfig";
+import { useProjectContext } from "../../contexts";
+import { showNotification } from "../../helpers/showNotification";
+import classes from "./SamplingConfig.module.css";
 
 export function ConfigEditor({
   initialConfig,
@@ -70,19 +68,19 @@ export function ConfigEditor({
   const theme = useMantineTheme();
   const { projectId, isInitializing } = useProjectContext();
 
-  const needsActiveFetch = !initialConfig && mode === 'create';
+  const needsActiveFetch = !initialConfig && mode === "create";
   const hasProject = Boolean(projectId);
 
   // Per-project React Query cache; API project scope still comes from X-Project-ID (session)
-  const { data: activeConfigData, isLoading: isLoadingActive } = useGetActiveSdkConfig({
-    enabled: needsActiveFetch && hasProject,
-    projectId,
-  });
-
+  const { data: activeConfigData, isLoading: isLoadingActive } =
+    useGetActiveSdkConfig({
+      enabled: needsActiveFetch && hasProject,
+      projectId,
+    });
 
   // Check if this is a "no config exists" scenario (first time setup)
   const isFirstTimeSetup =
-    mode === 'create' &&
+    mode === "create" &&
     !initialConfig &&
     hasProject &&
     !isLoadingActive &&
@@ -349,7 +347,7 @@ export function ConfigEditor({
           <TextInput
             label="Version Description"
             description="Briefly describe what changes you're making in this version"
-            placeholder="e.g., Increased crash reporting sample rate, Added payment_error filter"
+            placeholder="e.g., Increased crash reporting sample rate"
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
             maxLength={200}
@@ -380,35 +378,8 @@ export function ConfigEditor({
           disabled={isViewMode}
         />
 
-        {/* Critical Events - Events that bypass sampling rules */}
-        <CriticalEventsConfig
-          config={config.sampling.criticalEventPolicies}
-          onChange={(criticalEventPolicies) =>
-            setConfig({
-              ...config,
-              sampling: { ...config.sampling, criticalEventPolicies },
-            })
-          }
-          disabled={isViewMode}
-        />
-
         {/* ═══════════════════════════════════════════════════════════════════
-            SECTION 3: FILTERING - What Events to Block/Allow
-            Blacklist or whitelist specific events
-        ═══════════════════════════════════════════════════════════════════ */}
-        <FiltersConfig
-          config={config.signals.filters}
-          onChange={(filters) =>
-            setConfig({
-              ...config,
-              signals: { ...config.signals, filters },
-            })
-          }
-          disabled={isViewMode}
-        />
-
-        {/* ═══════════════════════════════════════════════════════════════════
-            SECTION 4: DATA TRANSFORMATION - Modify Event Data
+            SECTION 3: DATA TRANSFORMATION - Modify Event Data
             Add or remove attributes from events
         ═══════════════════════════════════════════════════════════════════ */}
         <AttributesToDropConfig
@@ -434,7 +405,7 @@ export function ConfigEditor({
         />
 
         {/* ═══════════════════════════════════════════════════════════════════
-            SECTION 5: INFRASTRUCTURE - Where to Send Data
+            SECTION 4: INFRASTRUCTURE - Where to Send Data
             Collector URLs and connection settings
         ═══════════════════════════════════════════════════════════════════ */}
         <InfraConfig

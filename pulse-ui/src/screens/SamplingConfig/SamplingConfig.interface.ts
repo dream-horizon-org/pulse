@@ -17,9 +17,6 @@ export type SdkEnum =
 // Telemetry scopes - matches backend Scope enum
 export type ScopeEnum = "logs" | "traces" | "metrics" | "baggage";
 
-// Filter mode - matches backend FilterMode enum
-export type FilterMode = "blacklist" | "whitelist";
-
 // Sampling rule names - matches backend rules enum
 export type SamplingRuleName =
   | "os_version"
@@ -37,14 +34,22 @@ export type FeatureName =
   | "js_crash"
   | "java_anr"
   | "network_change"
-  | "network_instrumentation"
-  | "screen_session"
   | "custom_events"
   | "rn_screen_load"
   | "rn_screen_interactive"
+  | "rn_screen_session"
+  | "screen_session"
   | "session_replay"
   | "click"
-  | "heatmap";
+  | "heatmap"
+  | "ios_network"
+  | "rn_network"
+  | "network_instrumentation"
+  | "ios_crash"
+  | "ios_lifecycle"
+  | "android_activity"
+  | "android_fragment"
+  | "android_slowrendering";
 
 export type TextAndInputPrivacy =
   | "MASK_ALL"
@@ -75,6 +80,7 @@ export interface RageConfig {
 /** Click / tap instrumentation — matches backend {@code ClickFeatureConfig}. */
 export interface ClickFeatureConfig {
   featureName?: "click";
+  captureContext?: boolean;
   rage?: RageConfig;
 }
 
@@ -82,7 +88,7 @@ export interface ClickFeatureConfig {
 // EVENT FILTER TYPES
 // ============================================================================
 
-// Event property match (for filters and critical events)
+// Event property match (for attribute add/drop conditions)
 export interface EventPropMatch {
   name: string;
   value: string; // Regex pattern
@@ -118,16 +124,6 @@ export interface AttributeToDrop {
 }
 
 // ============================================================================
-// FILTERS CONFIGURATION - Nested under signals
-// ============================================================================
-
-// Filter config - matches backend FilterConfig
-export interface FilterConfig {
-  mode: FilterMode;
-  values: EventFilter[];
-}
-
-// ============================================================================
 // SAMPLING CONFIGURATION
 // ============================================================================
 
@@ -154,11 +150,6 @@ export interface CriticalPolicyRule {
   sdks: SdkEnum[];
 }
 
-// Critical event policies container
-export interface CriticalEventPolicies {
-  alwaysSend: CriticalPolicyRule[];
-}
-
 // Critical session policies container
 export interface CriticalSessionPolicies {
   alwaysSend: CriticalPolicyRule[];
@@ -168,7 +159,6 @@ export interface CriticalSessionPolicies {
 export interface SamplingConfig {
   default: DefaultSampling;
   rules: SamplingRule[];
-  criticalEventPolicies: CriticalEventPolicies;
   criticalSessionPolicies: CriticalSessionPolicies;
 }
 
@@ -178,7 +168,6 @@ export interface SamplingConfig {
 
 // Signals configuration - matches backend SignalsConfig
 export interface SignalsConfig {
-  filters: FilterConfig;
   scheduleDurationMs: number;
   logsCollectorUrl?: string; // Auto-filled by backend if not provided
   metricCollectorUrl?: string; // Auto-filled by backend if not provided
@@ -268,11 +257,9 @@ export interface ScopesAndSdksResponse {
 // Pipeline stats for visualization
 export interface PipelineStats {
   totalEvents: number;
-  afterFilters: number;
   afterSampling: number;
   afterFeatures: number;
   finalSent: number;
-  filterDropRate: number;
   samplingDropRate: number;
   featureDropRate: number;
   totalSentRate: number;
@@ -290,12 +277,6 @@ export interface DataPipelineProps {
   isLoading?: boolean;
 }
 
-export interface FiltersConfigProps {
-  config: FilterConfig;
-  onChange: (config: FilterConfig) => void;
-  disabled?: boolean;
-}
-
 export interface AttributesToDropProps {
   attributes: AttributeToDrop[];
   onChange: (attributes: AttributeToDrop[]) => void;
@@ -305,14 +286,6 @@ export interface AttributesToDropProps {
 export interface SamplingConfigProps {
   config: SamplingConfig;
   onChange: (config: SamplingConfig) => void;
-  disabled?: boolean;
-}
-
-export interface CriticalPoliciesProps {
-  eventPolicies: CriticalEventPolicies;
-  sessionPolicies: CriticalSessionPolicies;
-  onEventPoliciesChange: (policies: CriticalEventPolicies) => void;
-  onSessionPoliciesChange: (policies: CriticalSessionPolicies) => void;
   disabled?: boolean;
 }
 

@@ -26,8 +26,6 @@ import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterConfig;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
@@ -215,10 +213,6 @@ class ConfigServiceImplTest {
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
               .attributesToAdd(List.of())
-              .filters(FilterConfig.builder()
-                  .mode(FilterMode.blacklist)
-                  .values(List.of())
-                  .build())
               .build())
           .interaction(InteractionConfig.builder()
               .collectorUrl("http://interaction.example.com")
@@ -421,8 +415,8 @@ class ConfigServiceImplTest {
       // Verify features contains all enum values
       List<String> expectedFeatures = Features.getFeatures();
       assertThat(result.getFeatures()).containsExactlyInAnyOrderElementsOf(expectedFeatures);
-      assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change", "network_instrumentation",
-          "screen_session");
+      assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change",
+          "rn_screen_session", "session_replay", "ios_crash", "ios_lifecycle", "android_activity", "android_fragment");
     }
   }
 
