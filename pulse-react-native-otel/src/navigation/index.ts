@@ -6,8 +6,9 @@ import type {
   NavigationRoute,
 } from './navigation.interface';
 import { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
-import { pushRecentRouteKey, LOG_TAGS } from './utils';
+import { pushRecentRouteKey } from './utils';
 import { discardSpan } from '../trace';
+import { PulseLogger } from '../PulseLogger';
 import {
   createScreenLoadTracker,
   type ScreenLoadState,
@@ -152,10 +153,7 @@ export function createReactNavigationIntegration(
 
       screenLoadTracker.startNavigationSpan();
     } catch (error) {
-      console.warn(
-        `${LOG_TAGS.NAVIGATION} Error in onNavigationDispatch:`,
-        error
-      );
+      PulseLogger.warn(`Navigation: Error in onNavigationDispatch: ${error}`);
 
       if (screenLoadState.navigationSpan?.spanId) {
         discardSpan(screenLoadState.navigationSpan.spanId);
@@ -193,7 +191,7 @@ export function createReactNavigationIntegration(
         screenInteractiveTracker.startScreenInteractive(currentRoute);
       }
     } catch (error) {
-      console.warn(`${LOG_TAGS.NAVIGATION} Error in onStateChange:`, error);
+      PulseLogger.warn(`Navigation: Error in onStateChange: ${error}`);
       if (screenLoadState.navigationSpan?.spanId) {
         discardSpan(screenLoadState.navigationSpan.spanId);
         screenLoadState.navigationSpan = undefined;
@@ -208,10 +206,7 @@ export function createReactNavigationIntegration(
         navigationContainer
       );
     } catch (error) {
-      console.warn(
-        `${LOG_TAGS.NAVIGATION} Error in handleAppStateChange:`,
-        error
-      );
+      PulseLogger.warn(`Navigation: Error in handleAppStateChange: ${error}`);
     }
   };
 
@@ -231,7 +226,7 @@ export function createReactNavigationIntegration(
       }
 
       if (!container) {
-        console.warn(`${LOG_TAGS.NAVIGATION} Invalid navigation container ref`);
+        PulseLogger.warn('Navigation: Invalid navigation container ref');
         return () => {};
       }
 
@@ -319,10 +314,7 @@ export function createReactNavigationIntegration(
       currentNavigationUnregister = unmountCleanup;
       return unmountCleanup;
     } catch (error) {
-      console.error(
-        `${LOG_TAGS.NAVIGATION} Error registering container:`,
-        error
-      );
+      PulseLogger.error(`Navigation: Error registering container: ${error}`);
       return () => {};
     }
   };

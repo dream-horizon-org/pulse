@@ -133,18 +133,20 @@ public class Pulse {
         beforeSendLog: BeforeSendLogCallback? = nil,
         beforeSendMetric: BeforeSendMetricCallback? = nil,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = nil,
-        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil
+        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil,
+        logLevel: PulseLogLevel = .none
     ) {
         initializationQueue.sync {
+            PulseLogger.currentLevel = logLevel
             guard !_isShutdown else { return }
             guard !_isInitialized else {
-                PulseLogger.log("Already initialized, skipping.")
+                PulseLogger.info("Already initialized, skipping.")
                 return
             }
-            PulseLogger.log("Initializing...")
+            PulseLogger.info("Initializing...")
             if dataCollectionState == .denied {
                 _dataCollectionState = dataCollectionState
-                PulseLogger.log("Initialization skipped: started with DENIED consent.")
+                PulseLogger.info("Initialization skipped: started with DENIED consent.")
                 return
             }
 
@@ -168,9 +170,9 @@ public class Pulse {
                 _currentSdkConfig = configCoordinator.loadCurrentConfig()
             }
             if let v = _currentSdkConfig?.version {
-                PulseLogger.log("Config loaded from persistence (version \(v)).")
+                PulseLogger.info("Config loaded from persistence (version \(v)).")
             } else {
-                PulseLogger.log("No persisted config, using defaults.")
+                PulseLogger.info("No persisted config, using defaults.")
             }
 
             let resolvedConfigEndpointUrl = configEndpointUrl ?? Self.defaultConfigEndpointUrl(from: endpointBaseUrl)
@@ -292,9 +294,9 @@ public class Pulse {
             _isInitialized = true
             let configVersion = configStorageQueue.sync { _currentSdkConfig?.version }
             if let v = configVersion {
-                PulseLogger.log("Initialized with config v\(v).")
+                PulseLogger.info("Initialized with config v\(v).")
             } else {
-                PulseLogger.log("Initialized (using defaults, no config).")
+                PulseLogger.info("Initialized (using defaults, no config).")
             }
         }
     }
@@ -305,7 +307,7 @@ public class Pulse {
     private func applyDisabledFeatures(enabledFeatures: [PulseFeatureName], config: inout InstrumentationConfiguration) {
         for feature in PulseFeatureName.allCases {
             guard !enabledFeatures.contains(feature) else { continue }
-            print("Disabling feature: \(feature)")
+            PulseLogger.debug("Disabling feature: \(feature)")
             switch feature {
             case .java_crash: break
             case .js_crash: break
@@ -981,11 +983,11 @@ internal class PulseLoggingMetricExporter: MetricExporter {
 
     func export(metrics: [MetricData]) -> ExportResult {
         if !metrics.isEmpty {
-            print("┌─── [PulseMetrics] Exporting \(metrics.count) metric(s) ───")
+            PulseLogger.verbose("┌─── [PulseMetrics] Exporting \(metrics.count) metric(s) ───")
             for metric in metrics {
-                print("│ Name: \(metric.name)")
-                print("│ Type: \(metric.type) | Unit: \(metric.unit) | Monotonic: \(metric.isMonotonic)")
-                print("│ Scope: \(metric.instrumentationScopeInfo.name)")
+                PulseLogger.verbose("│ Name: \(metric.name)")
+                PulseLogger.verbose("│ Type: \(metric.type) | Unit: \(metric.unit) | Monotonic: \(metric.isMonotonic)")
+                PulseLogger.verbose("│ Scope: \(metric.instrumentationScopeInfo.name)")
                 for point in metric.data.points {
                     let attrs = point.attributes.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
                     let valueStr: String
@@ -999,11 +1001,11 @@ internal class PulseLoggingMetricExporter: MetricExporter {
                     default:
                         valueStr = "(unknown point type)"
                     }
-                    print("│   Point: value=\(valueStr) | attrs=[\(attrs)]")
+                    PulseLogger.verbose("│   Point: value=\(valueStr) | attrs=[\(attrs)]")
                 }
-                print("│")
+                PulseLogger.verbose("│")
             }
-            print("└─── [PulseMetrics] Exported ───")
+            PulseLogger.verbose("└─── [PulseMetrics] Exported ───")
         }
         return delegate.export(metrics: metrics)
     }

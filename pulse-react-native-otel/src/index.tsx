@@ -23,6 +23,8 @@ export type { ErrorBoundaryProps, FallbackRender } from './errorBoundary';
 
 export { SpanStatusCode } from './trace';
 export { PulseDataCollectionConsent } from './NativePulseReactNativeOtel';
+export { PulseLogLevel } from './PulseLogLevel';
+export { PulseLogger } from './PulseLogger';
 
 export const Pulse = {
   start,

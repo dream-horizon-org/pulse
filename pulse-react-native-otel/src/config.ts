@@ -15,8 +15,11 @@ import PulseReactNativeOtel, {
 } from './NativePulseReactNativeOtel';
 import type { PulseFeatureConfig } from './pulse.interface';
 import { PULSE_FEATURE_NAMES } from './pulse.constants';
+import { PulseLogLevel } from './PulseLogLevel';
+import { PulseLogger } from './PulseLogger';
 
 export { PulseDataCollectionConsent };
+export { PulseLogLevel };
 
 export type NetworkHeaderConfig = {
   requestHeaders?: string[];
@@ -28,6 +31,7 @@ export type PulseConfig = {
   autoDetectNavigation?: boolean;
   autoDetectNetwork?: boolean;
   networkHeaders?: NetworkHeaderConfig;
+  logLevel?: PulseLogLevel;
 };
 
 const defaultConfig: Required<PulseConfig> = {
@@ -38,6 +42,7 @@ const defaultConfig: Required<PulseConfig> = {
     requestHeaders: [],
     responseHeaders: [],
   },
+  logLevel: PulseLogLevel.NONE,
 };
 
 let currentConfig: PulseConfig = { ...defaultConfig };
@@ -117,17 +122,18 @@ function resolveNavigationState(
 export function start(options?: PulseConfig): void {
   if (!isSupportedPlatform()) return;
   if (isShutdown) {
-    console.log(
-      '[Pulse] SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
+    PulseLogger.warn(
+      'SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
     );
     return;
   }
   if (isStarted) {
-    console.log('[Pulse] SDK already started.');
+    PulseLogger.info('SDK already started.');
     return;
   }
 
   isStarted = true;
+  PulseLogger.setLevel(options?.logLevel ?? PulseLogLevel.NONE);
   const features = getFeaturesFromRemoteConfig();
   const config: PulseConfig = {
     autoDetectExceptions: resolveFeatureState(
@@ -155,7 +161,7 @@ export function start(options?: PulseConfig): void {
 
 export function shutdown(): void {
   if (isShutdown) {
-    console.warn('[Pulse] SDK already shut down.');
+    PulseLogger.warn('SDK already shut down.');
     return;
   }
   uninstallErrorHandler();
@@ -197,13 +203,13 @@ export function createNavigationIntegrationWithConfig(
     };
   }
   if (!currentConfig.autoDetectNavigation) {
-    console.warn(
-      '[Pulse Navigation] auto-detection disabled via Pulse.start; createNavigationIntegration() returning no-op.'
+    PulseLogger.warn(
+      'Navigation auto-detection disabled via Pulse.start; createNavigationIntegration() returning no-op.'
     );
     const noop: ReactNavigationIntegration = {
       registerNavigationContainer: (_: unknown) => () => {
-        console.warn(
-          '[Pulse Navigation] auto-detection disabled via Pulse.start; registerNavigationContainer() returning no-op.'
+        PulseLogger.warn(
+          'Navigation auto-detection disabled via Pulse.start; registerNavigationContainer() returning no-op.'
         );
       },
       markContentReady: () => {},

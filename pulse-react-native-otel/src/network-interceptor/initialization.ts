@@ -1,5 +1,6 @@
 import createXmlHttpRequestTracker from './request-tracker-xhr';
 import type { NetworkHeaderConfig } from '../config';
+import { PulseLogger } from '../PulseLogger';
 // Re-export header utilities for convenience (they're in a separate file to avoid dependency issues)
 export { normalizeHeaderName, shouldCaptureHeader } from './header-helper';
 
@@ -18,7 +19,7 @@ export function initializeNetworkInterceptor(
   config?: NetworkHeaderConfig
 ): void {
   if (isInitialized) {
-    console.warn('[Pulse] Network interceptor already initialized');
+    PulseLogger.warn('Network interceptor already initialized');
     return;
   }
 
@@ -30,7 +31,7 @@ export function initializeNetworkInterceptor(
     };
   }
 
-  console.log('[Pulse] 🔄 Starting network interceptor initialization...');
+  PulseLogger.debug('Starting network interceptor initialization...');
 
   try {
     // In react-native, we are intercepting XMLHttpRequest only, since axios and fetch both use it internally.
@@ -39,12 +40,12 @@ export function initializeNetworkInterceptor(
       const result = createXmlHttpRequestTracker(XMLHttpRequest);
       uninstallXmlHttpRequestTracker = result.uninstall;
     } else {
-      console.warn('[Pulse] XMLHttpRequest is not available');
+      PulseLogger.warn('XMLHttpRequest is not available');
     }
 
     isInitialized = true;
   } catch (error) {
-    console.error('[Pulse] Failed to initialize network interceptor:', error);
+    PulseLogger.error(`Failed to initialize network interceptor: ${error}`);
   }
 }
 

@@ -10,6 +10,8 @@ import { extractHttpAttributes } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
 import { ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import { normalizeHeaderName } from './header-helper';
+import { PulseLogger } from '../PulseLogger';
+import { redactUrl } from '../redaction';
 
 export function setNetworkSpanAttributes(
   span: Span,
@@ -100,13 +102,12 @@ export function completeNetworkSpan(
   isError: boolean
 ): void {
   try {
-    const attributes = setNetworkSpanAttributes(span, startContext, endContext);
-    console.log('[Pulse] Network span completed', {
-      spanId: span.spanId,
-      spanAttributes: attributes,
-    });
+    setNetworkSpanAttributes(span, startContext, endContext);
+    PulseLogger.debug(
+      `Network span completed: ${redactUrl(startContext.url)} [${endContext.status ?? 0}]`
+    );
   } catch (e) {
-    console.error('[Pulse] Failed to set span attributes:', e);
+    PulseLogger.error(`Failed to set span attributes: ${e}`);
   }
 
   span.end(isError ? SpanStatusCode.ERROR : SpanStatusCode.UNSET);
