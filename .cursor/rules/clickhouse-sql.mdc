@@ -17,7 +17,7 @@ alwaysApply: false
 | `otel_metrics_gauge` | MergeTree | Gauge metrics — MetricName, Value, Attributes, ResourceAttributes |
 | `stack_trace_events` | MergeTree | Symbolicated + grouped stack traces |
 | `project_monthly_usage` | AggregatingMergeTree | Monthly aggregates by `project_id`, `month`, `source` |
-| `root_cause_cache` | ReplacingMergeTree(`cached_at`) | RCA cache: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, JSON `baseline` / `segments`, **`error_attribution_json`** (nullable Track B payload) |
+| `root_cause_cache` | ReplacingMergeTree(`cached_at`) | RCA cache: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, JSON `baseline` / `segments`, `cached_at` |
 
 Materialized views `project_monthly_*_mv` populate `project_monthly_usage` from traces, logs, metrics, and stack traces.
 
@@ -49,7 +49,7 @@ These columns are extracted from Map attributes at insert time. **Always use the
 
 ## `root_cause_cache`
 
-Columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, `baseline`, `segments`, `cached_at`, **`error_attribution_json`** (`Nullable(String)` — serialized Track B error-attribution JSON; `ALTER` after `CREATE` in `clickhouse-otel-schema.sql`). Row-level access uses the same `otel.*` policy as other analytics tables (`ProjectId`).
+Columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, `baseline`, `segments`, `cached_at`. Row-level access uses the same `otel.*` policy as other analytics tables (`ProjectId`). Schema DDL: `backend/ingestion/clickhouse-otel-schema.sql`.
 
 **ORDER BY:** `(ProjectId, interaction_name, date)` (matches schema file; not `window_end_utc`).
 

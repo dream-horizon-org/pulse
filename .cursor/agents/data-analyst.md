@@ -27,7 +27,7 @@ Key columns: `MetricName`, `Value`, `TimeUnix`, `Attributes` (Map), `ResourceAtt
 Key columns: `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `GroupId`, `Fingerprint`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`, `ProjectId`, `PulseType`, `MeteringSessionId`
 
 ### `root_cause_cache` — server-side RCA result cache (ReplacingMergeTree)
-Key columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc` (exclusive window end, UTC), `mode` (`hierarchical` \| `flat`), `baseline` (JSON), `segments` (JSON), `cached_at`, **`error_attribution_json`** (nullable JSON string — Track B error-attribution payload colocated with RCA; see `docs/causal/`). Filter by `ProjectId` like other `otel.*` tables.
+Key columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc` (exclusive window end, UTC), `mode` (`hierarchical` \| `flat`), `baseline` (JSON), `segments` (JSON), `cached_at`. Filter by `ProjectId` like other `otel.*` tables. (Legacy `error_attribution_json` was removed; error-attribution is drill-only via the API.)
 
 ### `project_monthly_usage` + materialized views
 Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from logs, traces, metrics, and `stack_trace_events`.
