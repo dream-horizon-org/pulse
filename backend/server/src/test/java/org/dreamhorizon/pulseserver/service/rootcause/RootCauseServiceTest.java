@@ -73,7 +73,7 @@ class RootCauseServiceTest {
         .when(rootCauseConfig.getDimensionOrder())
         .thenReturn(List.of("Platform", "OsVersion", "AppVersion"));
     lenient()
-        .when(cacheDao.upsert(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .when(cacheDao.upsert(any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Completable.complete());
     service =
         new RootCauseService(
@@ -307,7 +307,7 @@ class RootCauseServiceTest {
 
       assertThat(result.getBaseline()).containsEntry("volume", 3);
       verify(clickhouseQueryService, never()).executeRootCauseQuery(anyString(), anyString(), anyList(), anyList());
-      verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -331,7 +331,7 @@ class RootCauseServiceTest {
 
       assertThat(result.getEverythingGood()).isTrue();
       verify(cacheDao, never()).findByKey(any(), any(), any());
-      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
   }
 
@@ -349,7 +349,7 @@ class RootCauseServiceTest {
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
 
       assertThat(result.getNoDataAvailable()).isTrue();
-      verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -391,7 +391,7 @@ class RootCauseServiceTest {
           service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
 
       assertThat(result.getNoDataAvailable()).isTrue();
-      verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -417,7 +417,7 @@ class RootCauseServiceTest {
 
       assertThat(result.getEverythingGood()).isTrue();
       assertThat(result.getSegments()).isEmpty();
-      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -443,7 +443,7 @@ class RootCauseServiceTest {
 
       assertThat(result.getSegments()).isEmpty();
       assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.FLAT);
-      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -498,7 +498,7 @@ class RootCauseServiceTest {
       assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
       assertThat(result.getSegments()).hasSize(2);
       assertThat(result.getSegments().get(0).getLabel()).doesNotContain(":");
-      verify(cacheDao, times(1)).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao, times(1)).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -801,7 +801,7 @@ class RootCauseServiceTest {
       assertThat(result.getSegments()).hasSize(2);
       assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
       assertThat(result.getSegments().get(1).getLabel()).isEqualTo("OsVersion: 14");
-      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -860,7 +860,7 @@ class RootCauseServiceTest {
       assertThat(result.getSegments()).hasSize(2);
       assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Android");
       assertThat(result.getSegments().get(1).getLabel()).isEqualTo("OsVersion: 14");
-      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any(), any());
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
