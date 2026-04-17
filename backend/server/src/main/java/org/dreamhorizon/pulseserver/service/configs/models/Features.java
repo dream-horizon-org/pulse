@@ -19,7 +19,6 @@ public enum Features {
   click,
   /** Dashboard screen heatmaps (Pulse UI); client SDKs may ignore. */
   heatmap,
-  android_network,
   ios_network,
   rn_network,
   network_instrumentation,
@@ -27,8 +26,7 @@ public enum Features {
   ios_lifecycle,
   android_activity,
   android_fragment,
-  android_slowrendering,
-  location;
+  android_slowrendering;
 
   public static List<String> getFeatures() {
     return Arrays.stream(Features.values()).map(Enum::name).collect(Collectors.toList());

@@ -85,7 +85,6 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   session_replay: <IconPlayerPlay size={22} />,
   click: <IconFlame size={22} />,
   [HEATMAP_FEATURE_NAME]: <IconGridDots size={22} />,
-  android_network: <IconNetwork size={22} />,
   ios_network: <IconNetwork size={22} />,
   rn_network: <IconNetwork size={22} />,
   screen_session: <IconDeviceMobile size={22} />,
@@ -95,7 +94,6 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   android_activity: <IconPlayerPlay size={22} />,
   android_fragment: <IconPlayerPlay size={22} />,
   android_slowrendering: <IconAlertTriangle size={22} />,
-  location: <IconMapPin size={22} />,
 };
 
 const FEATURE_COLORS: Record<string, string> = {
@@ -111,7 +109,6 @@ const FEATURE_COLORS: Record<string, string> = {
   session_replay: "#6366f1",
   click: "#f97316",
   [HEATMAP_FEATURE_NAME]: "#ec4899",
-  android_network: "#3b82f6",
   ios_network: "#3b82f6",
   rn_network: "#3b82f6",
   screen_session: "#8b5cf6",
@@ -121,7 +118,6 @@ const FEATURE_COLORS: Record<string, string> = {
   android_activity: "#8b5cf6",
   android_fragment: "#8b5cf6",
   android_slowrendering: "#dc2626",
-  location: "#14b8a6",
 };
 
 const TEXT_AND_INPUT_PRIVACY_OPTIONS: {

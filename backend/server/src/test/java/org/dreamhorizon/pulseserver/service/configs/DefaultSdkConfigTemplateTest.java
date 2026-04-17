@@ -87,14 +87,12 @@ class DefaultSdkConfigTemplateTest {
               Features.heatmap,
               Features.ios_crash,
               Features.android_slowrendering,
-              Features.android_network,
               Features.ios_network,
               Features.rn_network,
               Features.network_instrumentation,
               Features.ios_lifecycle,
               Features.android_activity,
               Features.android_fragment,
-              Features.location
           );
     }
 
@@ -165,20 +163,6 @@ class DefaultSdkConfigTemplateTest {
       assertThat(androidFragment).isNotNull();
       assertThat(androidFragment.getSessionSampleRate()).isEqualTo(0.0);
       assertThat(androidFragment.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
-
-      FeatureConfig androidNetwork = config.getFeatures().stream()
-          .filter(f -> f.getFeatureName() == Features.android_network)
-          .findFirst()
-          .orElse(null);
-      assertThat(androidNetwork).isNotNull();
-      assertThat(androidNetwork.getSessionSampleRate()).isEqualTo(0.0);
-
-      FeatureConfig location = config.getFeatures().stream()
-          .filter(f -> f.getFeatureName() == Features.location)
-          .findFirst()
-          .orElse(null);
-      assertThat(location).isNotNull();
-      assertThat(location.getSessionSampleRate()).isEqualTo(0.0);
     }
 
     @Test

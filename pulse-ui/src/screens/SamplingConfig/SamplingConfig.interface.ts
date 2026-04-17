@@ -42,7 +42,6 @@ export type FeatureName =
   | "session_replay"
   | "click"
   | "heatmap"
-  | "android_network"
   | "ios_network"
   | "rn_network"
   | "network_instrumentation"
@@ -50,8 +49,7 @@ export type FeatureName =
   | "ios_lifecycle"
   | "android_activity"
   | "android_fragment"
-  | "android_slowrendering"
-  | "location";
+  | "android_slowrendering";
 
 export type TextAndInputPrivacy =
   | "MASK_ALL"

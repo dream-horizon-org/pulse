@@ -74,7 +74,7 @@ export const FEATURE_DISPLAY_INFO: Record<
 > = {
   interaction: {
     label: "User Interactions",
-    description: "Capture user journeys",
+    description: "Track critical user flows",
     icon: "click",
   },
   java_crash: {
@@ -135,11 +135,6 @@ export const FEATURE_DISPLAY_INFO: Record<
       "Show aggregate tap heatmaps on the Screen detail page in Pulse (dashboard)",
     icon: "heatmap",
   },
-  android_network: {
-    label: "Android Network",
-    description: "Track Android network requests and performance",
-    icon: "network",
-  },
   ios_network: {
     label: "iOS Network",
     description: "Track iOS network requests and performance",
@@ -184,11 +179,6 @@ export const FEATURE_DISPLAY_INFO: Record<
     label: "Android Slow Rendering",
     description: "Detect and report slow rendering and jank events",
     icon: "alert",
-  },
-  location: {
-    label: "Location",
-    description: "Track user location data",
-    icon: "navigation",
   },
 };
 

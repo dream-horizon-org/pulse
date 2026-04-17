@@ -87,15 +87,13 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.heatmap, 1.0, allSdks));
         features.add(createFeature(Features.ios_crash, 1.0, iosSdk));
         features.add(createFeature(Features.android_slowrendering, 1.0, androidSdk));
-        features.add(createFeature(Features.android_network, 0.0, androidSdk));
         features.add(createFeature(Features.ios_network, 1.0, iosSdk));
         features.add(createFeature(Features.rn_network, 1.0, rnSdk));
         // Legacy key for backward compatibility with old SDK versions
-        features.add(createFeature(Features.network_instrumentation, 0.0, allSdks));
+        features.add(createFeature(Features.network_instrumentation, 1.0, allSdks));
         features.add(createFeature(Features.ios_lifecycle, 0.0, iosSdk));
         features.add(createFeature(Features.android_activity, 1.0, androidSdk));
         features.add(createFeature(Features.android_fragment, 0.0, androidSdk));
-        features.add(createFeature(Features.location, 0.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()
