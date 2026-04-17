@@ -99,16 +99,18 @@ pipeline {
 
         stage('Wait for Instance Ready') {
             steps {
-                sh """
-                    TARGET_HOST="pulse-kafka-\$(printf '%02d' ${params.NODE_ID}).${ROUTE53_ZONE_NAME}"
-                    echo "Waiting for \$TARGET_HOST to be SSH-reachable..."
-                    for i in \$(seq 1 30); do
-                        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
-                            -i ~/.ssh/pulse-prod.pem ec2-user@\$TARGET_HOST echo ok 2>/dev/null && break
-                        echo "Attempt \$i: not ready, retrying in 10s..."
-                        sleep 10
-                    done
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        TARGET_HOST="pulse-kafka-\$(printf '%02d' ${params.NODE_ID}).${ROUTE53_ZONE_NAME}"
+                        echo "Waiting for \$TARGET_HOST to be SSH-reachable..."
+                        for i in \$(seq 1 30); do
+                            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+                                -i "\$SSH_KEY" admin@\$TARGET_HOST echo ok 2>/dev/null && break
+                            echo "Attempt \$i: not ready, retrying in 10s..."
+                            sleep 10
+                        done
+                    """
+                }
             }
         }
 
@@ -127,19 +129,21 @@ pipeline {
 
         stage('Ansible: Configure Replacement Broker') {
             steps {
-                sh """
-                    KRAFT_CLUSTER_ID=\$(cat /tmp/kraft_cluster_id.txt)
-                    TARGET_HOST="pulse-kafka-\$(printf '%02d' ${params.NODE_ID}).${ROUTE53_ZONE_NAME}"
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        KRAFT_CLUSTER_ID=\$(cat /tmp/kraft_cluster_id.txt)
+                        TARGET_HOST="pulse-kafka-\$(printf '%02d' ${params.NODE_ID}).${ROUTE53_ZONE_NAME}"
 
-                    ansible-playbook deploy/ansible/kafka/replace-broker.yml \
-                        -i deploy/ansible/kafka/inventory/hosts.ini \
-                        --private-key ~/.ssh/pulse-prod.pem \
-                        -e "target_host=\$TARGET_HOST" \
-                        -e "node_id=${params.NODE_ID}" \
-                        -e "kraft_cluster_id=\$KRAFT_CLUSTER_ID" \
-                        -e "num_brokers=${params.NUM_BROKERS}" \
-                        -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
-                """
+                        ansible-playbook deploy/ansible/kafka/replace-broker.yml \
+                            -i deploy/ansible/kafka/inventory/hosts.ini \
+                            --private-key "\$SSH_KEY" \
+                            -e "target_host=\$TARGET_HOST" \
+                            -e "node_id=${params.NODE_ID}" \
+                            -e "kraft_cluster_id=\$KRAFT_CLUSTER_ID" \
+                            -e "num_brokers=${params.NUM_BROKERS}" \
+                            -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
+                    """
+                }
             }
         }
     }

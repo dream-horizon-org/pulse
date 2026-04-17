@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.5"
+    }
   }
 
   backend "s3" {
@@ -23,6 +27,15 @@ provider "aws" {
     tags = {
       service = "pulse"
     }
+  }
+}
+
+# Stable cluster UUID — generated once, never recreated.
+# Converted to base64 by Ansible (kafka-storage.sh format needs base64, not hyphenated UUID).
+# Stored in SSM by the kafka-prod-deployment Jenkins job so all Ansible jobs can read it.
+resource "random_uuid" "kraft_cluster" {
+  lifecycle {
+    ignore_changes = all   # never regenerate once created
   }
 }
 
@@ -154,6 +167,11 @@ resource "aws_route53_record" "broker_a" {
 # -------------------------------------------------------------------
 # Outputs
 # -------------------------------------------------------------------
+output "kraft_cluster_id" {
+  value       = random_uuid.kraft_cluster.result
+  description = "KRaft cluster UUID — stored in SSM by kafka-prod-deployment job"
+}
+
 output "broker_dns" {
   value       = aws_route53_record.broker_a[*].fqdn
   description = "Broker DNS hostnames — use these in Ansible inventory"

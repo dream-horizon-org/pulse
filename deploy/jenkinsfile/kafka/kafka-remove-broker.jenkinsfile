@@ -56,17 +56,19 @@ pipeline {
 
         stage('Ansible: Drain and Remove Broker') {
             steps {
-                sh """
-                    REMOVE_HOST="pulse-kafka-\$(printf '%02d' ${params.REMOVE_NODE_ID}).${ROUTE53_ZONE_NAME}"
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        REMOVE_HOST="pulse-kafka-\$(printf '%02d' ${params.REMOVE_NODE_ID}).${ROUTE53_ZONE_NAME}"
 
-                    ansible-playbook deploy/ansible/kafka/remove-broker.yml \
-                        -i deploy/ansible/kafka/inventory/hosts.ini \
-                        --private-key ~/.ssh/pulse-prod.pem \
-                        -e "remove_broker_host=\$REMOVE_HOST" \
-                        -e "remove_node_id=${params.REMOVE_NODE_ID}" \
-                        -e "num_brokers=${params.NUM_BROKERS}" \
-                        -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
-                """
+                        ansible-playbook deploy/ansible/kafka/remove-broker.yml \
+                            -i deploy/ansible/kafka/inventory/hosts.ini \
+                            --private-key "\$SSH_KEY" \
+                            -e "remove_broker_host=\$REMOVE_HOST" \
+                            -e "remove_node_id=${params.REMOVE_NODE_ID}" \
+                            -e "num_brokers=${params.NUM_BROKERS}" \
+                            -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
+                    """
+                }
             }
         }
 

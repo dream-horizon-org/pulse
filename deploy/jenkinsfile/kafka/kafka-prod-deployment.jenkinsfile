@@ -1,3 +1,16 @@
+// kafka-prod-deployment.jenkinsfile
+//
+// Creates (or updates) the Kafka cluster infrastructure and configures all brokers.
+//
+// For a FRESH cluster: provisions EC2 + EBS + DNS, then runs Ansible to configure
+//                      all brokers, format KRaft storage, and start Kafka.
+//
+// For an EXISTING cluster: runs Terraform to apply any infra changes only.
+//                          Ansible is skipped unless CONFIGURE_BROKERS=true.
+//
+// Jenkins job parameters:
+//   CONFIGURE_BROKERS – true/false (default: true for fresh, skip for infra-only updates)
+
 pipeline {
     agent {
         node { label 'ec2-pulse-deployment-fleet' }
@@ -7,24 +20,31 @@ pipeline {
         ansiColor('xterm')
     }
 
+    parameters {
+        booleanParam(
+            name: 'CONFIGURE_BROKERS',
+            defaultValue: true,
+            description: 'Run Ansible to configure brokers after Terraform. Set false for infra-only changes (e.g. security group update).'
+        )
+    }
+
     environment {
-        TF_IN_AUTOMATION = 'true'
+        TF_IN_AUTOMATION         = 'true'
+        ROUTE53_ZONE_NAME        = 'pulse.local'
         DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
     }
 
     stages {
         stage('Clear Existing Workspace') {
-            steps {
-                cleanWs()
-            }
+            steps { cleanWs() }
         }
 
         stage('Checkout') {
             steps {
                 checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/main']],
-                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
         }
@@ -33,7 +53,6 @@ pipeline {
             steps {
                 sh '''
                     cd deploy/terraform/kafka
-                    echo "Fetching variables from AWS Secrets Manager..."
                     aws secretsmanager get-secret-value \
                       --region ap-south-1 \
                       --secret-id prod/kafka/terraform \
@@ -45,82 +64,119 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                sh '''
-                    echo "Initializing Terraform..."
-                    cd deploy/terraform/kafka
-                    terraform init
-                '''
+                sh 'cd deploy/terraform/kafka && terraform init'
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh '''
-                    echo "Running Terraform Plan..."
-                    cd deploy/terraform/kafka
-                    terraform plan -out=tfplan
-                '''
+                sh 'cd deploy/terraform/kafka && terraform plan -out=tfplan'
             }
         }
 
         stage('Approval') {
             steps {
-                input message: 'Review the Terraform Plan output above. Do you want to apply these changes to AWS?', ok: 'Yes, Deploy!'
+                input message: 'Review the Terraform Plan above. Apply?', ok: 'Yes, Deploy!'
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                sh '''
-                    echo "Applying Terraform changes..."
-                    cd deploy/terraform/kafka
-                    terraform apply -input=false tfplan
-                '''
+                sh 'cd deploy/terraform/kafka && terraform apply -input=false tfplan'
             }
         }
 
-        stage('Store KRaft Cluster ID') {
-            // On first deploy, save the KRaft cluster ID to SSM so Ansible can use it later.
-            // On subsequent deploys this is a no-op (SSM put-parameter --no-overwrite).
+        // Store the KRaft cluster UUID in SSM so all Ansible jobs can read it.
+        // On first deploy this creates the parameter.
+        // On subsequent deploys --no-overwrite makes it a no-op.
+        stage('Store KRaft Cluster ID in SSM') {
             steps {
                 sh '''
-                    CLUSTER_ID=$(cd deploy/terraform/kafka && terraform output -raw kraft_cluster_id 2>/dev/null || echo "")
-                    if [ -n "$CLUSTER_ID" ]; then
-                      echo "Storing KRaft cluster ID in SSM..."
-                      aws ssm put-parameter \
+                    CLUSTER_ID=$(cd deploy/terraform/kafka && terraform output -raw kraft_cluster_id)
+                    echo "KRaft cluster ID: $CLUSTER_ID"
+                    aws ssm put-parameter \
                         --region ap-south-1 \
                         --name "/pulse/kafka/production/kraft_cluster_id" \
                         --value "$CLUSTER_ID" \
                         --type "SecureString" \
                         --no-overwrite \
-                        2>/dev/null || echo "SSM parameter already exists, skipping."
-                    fi
+                        2>/dev/null || echo "SSM parameter already exists — not overwriting."
                 '''
+            }
+        }
+
+        // Wait for all broker instances to be SSH-reachable before running Ansible.
+        stage('Wait for Brokers to be Ready') {
+            when { expression { return params.CONFIGURE_BROKERS } }
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh '''
+                        NUM_BROKERS=$(cd deploy/terraform/kafka && terraform output -json broker_dns | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+                        echo "Waiting for $NUM_BROKERS broker(s) to be SSH-reachable..."
+                        for i in $(seq 1 $NUM_BROKERS); do
+                            IDX=$(printf "%02d" $i)
+                            HOST="pulse-kafka-${IDX}.pulse.local"
+                            echo "Waiting for $HOST..."
+                            for attempt in $(seq 1 30); do
+                                ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+                                    -i "$SSH_KEY" admin@$HOST echo ok 2>/dev/null && break
+                                echo "  Attempt $attempt: not ready, retrying in 10s..."
+                                sleep 10
+                            done
+                        done
+                        echo "All brokers are reachable."
+                    '''
+                }
+            }
+        }
+
+        // Configure all brokers: mount EBS, write server.properties, format KRaft
+        // storage, start kafka.service, create topics (on node 1 only).
+        stage('Ansible: Configure All Brokers') {
+            when { expression { return params.CONFIGURE_BROKERS } }
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh '''
+                        KRAFT_CLUSTER_ID=$(aws ssm get-parameter \
+                            --region ap-south-1 \
+                            --name "/pulse/kafka/production/kraft_cluster_id" \
+                            --with-decryption \
+                            --query 'Parameter.Value' \
+                            --output text)
+
+                        NUM_BROKERS=$(cd deploy/terraform/kafka && terraform output -json broker_dns | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+
+                        ansible-playbook deploy/ansible/kafka/configure-broker.yml \
+                            -i deploy/ansible/kafka/inventory/hosts.ini \
+                            --private-key "$SSH_KEY" \
+                            -e "kraft_cluster_id=$KRAFT_CLUSTER_ID" \
+                            -e "num_brokers=$NUM_BROKERS" \
+                            -e "route53_zone_name=pulse.local"
+                    '''
+                }
             }
         }
     }
 
     post {
         always {
-            echo "Cleaning up workspace..."
             sh 'rm -f deploy/terraform/kafka/tfplan deploy/terraform/kafka/secrets.auto.tfvars.json'
         }
         success {
             script {
                 wrap([$class: 'BuildUser']) {
-                    def message = "<!channel> Kafka infrastructure deployed to production by ${BUILD_USER_EMAIL}\n" +
-                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                    def action = params.CONFIGURE_BROKERS ? "deployed and configured" : "infra updated"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                        color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
+                        message: "<!channel> Kafka cluster ${action} in production by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
                 }
             }
         }
         failure {
             script {
-                def message = "<!channel> Kafka infrastructure deployment failed\n" +
-                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+                    message: "<!channel> Kafka deployment FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
             }
         }
     }
