@@ -8,7 +8,7 @@ variable "aws_region" {
 }
 
 variable "ami_id" {
-  description = "AMI ID for Kafka EC2 instances"
+  description = "AMI ID for Kafka EC2 instances (pre-baked with Kafka installed)"
   type        = string
 }
 
@@ -19,7 +19,7 @@ variable "instance_type" {
 }
 
 variable "num_brokers" {
-  description = "Number of Kafka broker instances (also used as controller count in combined mode)"
+  description = "Number of Kafka broker instances"
   type        = number
   default     = 2
 }
@@ -59,7 +59,7 @@ variable "route53_zone_id" {
 }
 
 variable "route53_zone_name" {
-  description = "Route53 private hosted zone name (e.g. pulse.internal) — used to build broker FQDNs"
+  description = "Route53 private hosted zone name (e.g. pulse.local) — used to build broker FQDNs"
   type        = string
 }
 
@@ -67,9 +67,9 @@ variable "route53_zone_name" {
 # EBS
 # -------------------------------------------------------------------
 variable "ebs_size_gb" {
-  description = "EBS data volume size per broker in GB (separate from root OS disk)"
+  description = "EBS data volume size per broker in GB"
   type        = number
-  default     = 20  
+  default     = 250
 }
 
 variable "ebs_type" {
@@ -93,56 +93,5 @@ variable "ebs_iops" {
 variable "ebs_throughput" {
   description = "Throughput in MB/s for gp3 volumes (125–1000)"
   type        = number
-  default     = 125
-}
-
-# -------------------------------------------------------------------
-# Kafka
-# -------------------------------------------------------------------
-variable "kafka_version" {
-  description = "Apache Kafka version to install (must match Scala 2.13 build)"
-  type        = string
-  default     = "4.1.2"
-}
-
-variable "kafka_data_dir" {
-  description = "Mount point for the dedicated EBS data volume"
-  type        = string
-  default     = "/var/lib/kafka"
-}
-
-variable "replication_factor" {
-  description = "Default replication factor for topics (max = num_brokers)"
-  type        = number
-  default     = 2
-}
-
-variable "min_insync_replicas" {
-  description = "Minimum in-sync replicas required for a produce to succeed"
-  type        = number
-  default     = 1
-}
-
-variable "retention_hours" {
-  description = "Message retention period in hours"
-  type        = number
-  default     = 1
-}
-
-variable "compression_type" {
-  description = "Broker-side compression codec (gzip | snappy | lz4 | zstd | none)"
-  type        = string
-  default     = "gzip"
-}
-
-# -------------------------------------------------------------------
-# Topics
-# -------------------------------------------------------------------
-variable "kafka_topics" {
-  description = "Topics to create on first boot of node-01. Idempotent — safe to re-apply."
-  type = list(object({
-    name       = string
-    partitions = number
-  }))
-  default = []
+  default     = 250
 }

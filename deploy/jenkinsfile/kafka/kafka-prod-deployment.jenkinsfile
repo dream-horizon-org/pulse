@@ -78,12 +78,32 @@ pipeline {
                 '''
             }
         }
+
+        stage('Store KRaft Cluster ID') {
+            // On first deploy, save the KRaft cluster ID to SSM so Ansible can use it later.
+            // On subsequent deploys this is a no-op (SSM put-parameter --no-overwrite).
+            steps {
+                sh '''
+                    CLUSTER_ID=$(cd deploy/terraform/kafka && terraform output -raw kraft_cluster_id 2>/dev/null || echo "")
+                    if [ -n "$CLUSTER_ID" ]; then
+                      echo "Storing KRaft cluster ID in SSM..."
+                      aws ssm put-parameter \
+                        --region ap-south-1 \
+                        --name "/pulse/kafka/production/kraft_cluster_id" \
+                        --value "$CLUSTER_ID" \
+                        --type "SecureString" \
+                        --no-overwrite \
+                        2>/dev/null || echo "SSM parameter already exists, skipping."
+                    fi
+                '''
+            }
+        }
     }
 
     post {
         always {
             echo "Cleaning up workspace..."
-            sh 'rm -f deploy/terraform/kafka/tfplan'
+            sh 'rm -f deploy/terraform/kafka/tfplan deploy/terraform/kafka/secrets.auto.tfvars.json'
         }
         success {
             script {
