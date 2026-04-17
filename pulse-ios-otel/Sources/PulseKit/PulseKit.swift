@@ -307,45 +307,10 @@ public class Pulse {
         features: [PulseFeatureName],
         config: inout InstrumentationConfiguration
     ) {
-        for feature in features {
-            PulseLogger.log("Enabling feature: \(feature)")
-            switch feature {
-            case .custom_events:
-                _customEventsEnabled = true
-            case .network_change:
-                _configuration.includeNetworkAttributes = true
-            case .ios_crash:
-                config.crash { $0.enabled(true) }
-            case .session_replay:
-                config.sessionReplay { $0.enabled(true) }
-            case .click:
-                config.uiKitTap { $0.enabled(true) }
-            case .ios_lifecycle:
-                config.screenLifecycle { $0.enabled(true) }
-            case .ios_network:
-                config.urlSession { $0.enabled(true) }
-            case .interaction:
-                config.interaction { $0.enabled(true) }
-            case .java_crash,
-                 .js_crash,
-                 .cpp_crash,
-                 .java_anr,
-                 .cpp_anr,
-                 .rn_screen_load,
-                 .rn_screen_interactive,
-                 .rn_screen_session,
-                 .rn_network,
-                 .android_activity,
-                 .android_fragment,
-                 .android_slowrendering,
-                 .unknown:
-                break
-            }
-        }
-
+        let enabledFeatures = Set(features)
         for feature in PulseFeatureName.allCases {
-            guard !features.contains(feature) else { continue }
-            PulseLogger.log("Disabling feature: \(feature)")
+            let isEnabled = enabledFeatures.contains(feature)
+            PulseLogger.log("\(isEnabled ? "Enabling" : "Disabling") feature: \(feature)")
             switch feature {
             case .java_crash: break
             case .js_crash: break
@@ -353,24 +318,28 @@ public class Pulse {
             case .java_anr: break
             case .cpp_anr: break
             case .interaction:
-                config.interaction { $0.enabled(false) }
+                config.interaction { $0.enabled(isEnabled) }
             case .network_change:
-                _configuration.disableNetworkAttributes()
+                if isEnabled {
+                    _configuration.includeNetworkAttributes = true
+                } else {
+                    _configuration.disableNetworkAttributes()
+                }
             case .custom_events:
-                _customEventsEnabled = false
+                _customEventsEnabled = isEnabled
             case .rn_screen_load: break
             case .rn_screen_interactive: break
             case .rn_screen_session: break
             case .ios_crash:
-                config.crash { $0.enabled(false) }
+                config.crash { $0.enabled(isEnabled) }
             case .session_replay:
-                config.sessionReplay { $0.enabled(false) }
+                config.sessionReplay { $0.enabled(isEnabled) }
             case .click:
-                config.uiKitTap { $0.enabled(false) }
+                config.uiKitTap { $0.enabled(isEnabled) }
             case .ios_lifecycle:
-                config.screenLifecycle { $0.enabled(false) }
+                config.screenLifecycle { $0.enabled(isEnabled) }
             case .ios_network:
-                config.urlSession { $0.enabled(false) }
+                config.urlSession { $0.enabled(isEnabled) }
             case .rn_network: break
             case .android_activity: break
             case .android_fragment: break
