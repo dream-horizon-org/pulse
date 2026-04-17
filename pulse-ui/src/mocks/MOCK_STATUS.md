@@ -2,7 +2,7 @@
 
 Last Updated: 2025-03-19
 
-**Coverage**: 67/75 endpoints (89%)
+**Coverage**: 66/75 endpoints (88%)
 
 ### Invite Collaborators (PR #311)
 
@@ -40,7 +40,6 @@ Last Updated: 2025-03-19
 | `/query/job/*` | GET | `handleRealtimeQueryEndpoints` | Query job status |
 | `/query/ai` | POST | `handleRealtimeQueryEndpoints` | AI query assistance |
 | `/query` | POST | `handleRealtimeQueryEndpoints` | Execute query |
-| `/v1/interactions/{name}/error-attribution` | GET | `handleJobEndpoints` | Track B error-attribution (slim drill-only stub) |
 | `/v1/interactions` | GET/POST | `handleJobEndpoints` | Interactions CRUD |
 | `/job/*` | GET/POST/PUT/DELETE | `handleJobEndpoints` | Job management |
 | `/permission/check` | GET | `handlePermissionEndpoints` | Permission checks |

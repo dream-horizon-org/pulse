@@ -11,6 +11,7 @@ import org.dreamhorizon.pulseserver.service.interaction.PerformanceMetricService
 import org.dreamhorizon.pulseserver.service.interaction.impl.InteractionServiceImpl;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownService;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
+import org.dreamhorizon.pulseserver.service.errorattribution.RcaReportErrorAttributionMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceServiceImpl;
@@ -29,6 +30,7 @@ public class InteractionModule extends AbstractModule {
     bind(RootCauseService.class).in(Singleton.class);
     bind(ErrorAttributionService.class).in(Singleton.class);
     bind(ErrorAttributionDrillDownService.class).in(Singleton.class);
+    bind(RcaReportErrorAttributionMerger.class).in(Singleton.class);
     bind(SessionEvidenceService.class).to(SessionEvidenceServiceImpl.class).in(Singleton.class);
   }
 }

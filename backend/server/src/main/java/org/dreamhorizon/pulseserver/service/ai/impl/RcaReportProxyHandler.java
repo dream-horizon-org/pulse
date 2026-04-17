@@ -22,6 +22,7 @@ import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.Error;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
+import org.dreamhorizon.pulseserver.service.errorattribution.RcaReportErrorAttributionMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
@@ -65,6 +66,7 @@ final class RcaReportProxyHandler {
   private final RcaReportCacheDao rcaReportCacheDao;
   private final RootCauseConfig rootCauseConfig;
   private final RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger;
+  private final RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger;
   private final SessionEvidenceService sessionEvidenceService;
 
   RcaReportProxyHandler(
@@ -74,6 +76,7 @@ final class RcaReportProxyHandler {
       RcaReportCacheDao rcaReportCacheDao,
       RootCauseConfig rootCauseConfig,
       RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger,
+      RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger,
       SessionEvidenceService sessionEvidenceService) {
     this.upstream = upstream;
     this.objectMapper = objectMapper;
@@ -81,6 +84,7 @@ final class RcaReportProxyHandler {
     this.rcaReportCacheDao = rcaReportCacheDao;
     this.rootCauseConfig = rootCauseConfig;
     this.rcaRelatedHeatmapsMerger = rcaRelatedHeatmapsMerger;
+    this.rcaReportErrorAttributionMerger = rcaReportErrorAttributionMerger;
     this.sessionEvidenceService = sessionEvidenceService;
   }
 
@@ -247,9 +251,9 @@ final class RcaReportProxyHandler {
   }
 
   /**
-   * On successful buffered RCA JSON, merges per-segment related heatmaps when enrichment
-   * succeeded, sets {@code cached} and {@code cachedAt} (for UI), persists to MySQL, returns
-   * updated result.
+   * On successful buffered RCA JSON: optionally merges related heatmaps (only when segments
+   * exist), always attempts {@link RcaReportErrorAttributionMerger} (independent of segment
+   * count), then persists with cache metadata.
    */
   private CompletionStage<AiProxyUpstreamResult> finalizeSuccessfulRcaProxyResult(
       AiProxyUpstreamResult result, RcaEnrichmentOutcome enrichment, RcaCacheKeyParts keyParts) {
@@ -257,59 +261,100 @@ final class RcaReportProxyHandler {
       return CompletableFuture.completedFuture(result);
     }
     String body = result.getBufferedBody();
-    if (enrichment.enrichmentOk()
-        && enrichment.rootCause() != null
-        && enrichment.rootCause().getSegments() != null
-        && !enrichment.rootCause().getSegments().isEmpty()) {
-      try {
-        JsonNode tree = objectMapper.readTree(body);
-        if (tree instanceof ObjectNode root) {
-          RootCauseQueryBuilder.Window window =
-              new RootCauseQueryBuilder.Window(
-                  enrichment.anchorDate(),
-                  rootCauseConfig.getLookbackDays(),
-                  enrichment.windowEndExclusive());
-          CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
-          rootCauseService
-              .fetchDistinctScreensForInteraction(
-                  keyParts.projectId(), keyParts.interactionName(), window)
-              .subscribeOn(Schedulers.io())
-              .subscribe(
-                  screens -> {
-                    try {
-                      rcaRelatedHeatmapsMerger.mergeInto(
-                          root, enrichment.rootCause().getSegments(), window, screens);
-                      String merged = objectMapper.writeValueAsString(root);
-                      persistBufferedRcaReport(merged, result, keyParts)
-                          .whenComplete(
-                              (updated, err) -> {
-                                if (err != null) {
-                                  done.completeExceptionally(err);
-                                } else {
-                                  done.complete(updated);
-                                }
-                              });
-                    } catch (Exception e) {
-                      log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
-                      persistBufferedRcaReport(body, result, keyParts)
-                          .whenComplete(
-                              (updated, err) -> {
-                                if (err != null) {
-                                  done.completeExceptionally(err);
-                                } else {
-                                  done.complete(updated);
-                                }
-                              });
-                    }
-                  },
-                  err -> done.completeExceptionally(err));
-          return done;
-        }
-      } catch (Exception e) {
-        log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
+    try {
+      JsonNode tree = objectMapper.readTree(body);
+      if (!(tree instanceof ObjectNode root)) {
+        return persistBufferedRcaReport(body, result, keyParts);
       }
+      boolean heatmapEligible =
+          enrichment.enrichmentOk()
+              && enrichment.rootCause() != null
+              && enrichment.rootCause().getSegments() != null
+              && !enrichment.rootCause().getSegments().isEmpty();
+      if (heatmapEligible) {
+        RootCauseQueryBuilder.Window window =
+            new RootCauseQueryBuilder.Window(
+                enrichment.anchorDate(),
+                rootCauseConfig.getLookbackDays(),
+                enrichment.windowEndExclusive());
+        CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
+        rootCauseService
+            .fetchDistinctScreensForInteraction(
+                keyParts.projectId(), keyParts.interactionName(), window)
+            .subscribeOn(Schedulers.io())
+            .subscribe(
+                screens -> {
+                  try {
+                    rcaRelatedHeatmapsMerger.mergeInto(
+                        root, enrichment.rootCause().getSegments(), window, screens);
+                  } catch (Exception e) {
+                    log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
+                  }
+                  mergeErrorAttributionIntoStructuredReport(root, enrichment, keyParts);
+                  persistMergedRootOrFallback(root, body, result, keyParts, done);
+                },
+                err -> done.completeExceptionally(err));
+        return done;
+      }
+      mergeErrorAttributionIntoStructuredReport(root, enrichment, keyParts);
+      return persistMergedRootOrFallbackSync(root, body, result, keyParts);
+    } catch (Exception e) {
+      log.warn("Failed to parse RCA body for post-AI merges: {}", e.getMessage());
+      return persistBufferedRcaReport(body, result, keyParts);
     }
-    return persistBufferedRcaReport(body, result, keyParts);
+  }
+
+  private void mergeErrorAttributionIntoStructuredReport(
+      ObjectNode root, RcaEnrichmentOutcome enrichment, RcaCacheKeyParts keyParts) {
+    rcaReportErrorAttributionMerger.mergeInto(
+        root,
+        keyParts.projectId(),
+        keyParts.interactionName(),
+        enrichment.anchorDate(),
+        enrichment.windowEndExclusive(),
+        rootCauseConfig.getLookbackDays());
+  }
+
+  private void persistMergedRootOrFallback(
+      ObjectNode root,
+      String fallbackBody,
+      AiProxyUpstreamResult result,
+      RcaCacheKeyParts keyParts,
+      CompletableFuture<AiProxyUpstreamResult> done) {
+    try {
+      String merged = objectMapper.writeValueAsString(root);
+      persistBufferedRcaReport(merged, result, keyParts)
+          .whenComplete(
+              (updated, err) -> {
+                if (err != null) {
+                  done.completeExceptionally(err);
+                } else {
+                  done.complete(updated);
+                }
+              });
+    } catch (Exception e) {
+      log.warn("Failed to serialize merged RCA: {}", e.getMessage());
+      persistBufferedRcaReport(fallbackBody, result, keyParts)
+          .whenComplete(
+              (updated, err) -> {
+                if (err != null) {
+                  done.completeExceptionally(err);
+                } else {
+                  done.complete(updated);
+                }
+              });
+    }
+  }
+
+  private CompletionStage<AiProxyUpstreamResult> persistMergedRootOrFallbackSync(
+      ObjectNode root, String fallbackBody, AiProxyUpstreamResult result, RcaCacheKeyParts keyParts) {
+    try {
+      String merged = objectMapper.writeValueAsString(root);
+      return persistBufferedRcaReport(merged, result, keyParts);
+    } catch (Exception e) {
+      log.warn("Failed to serialize RCA with error attribution: {}", e.getMessage());
+      return persistBufferedRcaReport(fallbackBody, result, keyParts);
+    }
   }
 
   private CompletionStage<AiProxyUpstreamResult> persistBufferedRcaReport(

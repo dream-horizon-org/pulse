@@ -36,6 +36,7 @@ import java.util.concurrent.TimeoutException;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
+import org.dreamhorizon.pulseserver.service.errorattribution.RcaReportErrorAttributionMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
@@ -75,6 +76,9 @@ class AiProxyServiceImplTest {
   @Mock
   private SessionEvidenceService sessionEvidenceService;
 
+  @Mock
+  private RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger;
+
   private ObjectMapper objectMapper;
 
   @BeforeEach
@@ -93,12 +97,22 @@ class AiProxyServiceImplTest {
         .thenReturn(Single.just(List.of()));
     lenient().when(sessionEvidenceService.getSessionEvidence(anyString(), anyString(), any(), any(), any(), any(), anyInt()))
         .thenReturn(Single.just(SessionEvidenceResult.builder().sessions(List.of()).build()));
+    lenient()
+        .doNothing()
+        .when(rcaReportErrorAttributionMerger)
+        .mergeInto(
+            any(com.fasterxml.jackson.databind.node.ObjectNode.class),
+            anyString(),
+            anyString(),
+            any(),
+            any(),
+            anyInt());
   }
 
   private AiProxyServiceImpl fullPipelineService() {
     return new AiProxyServiceImpl(
         webClient, AI_SERVICE_URL, objectMapper, rootCauseService, rcaReportCacheDao,
-        sessionEvidenceService);
+        sessionEvidenceService, rcaReportErrorAttributionMerger);
   }
 
   private HttpResponse<Buffer> mockBufferedResponse(int status, String contentType, String body) {

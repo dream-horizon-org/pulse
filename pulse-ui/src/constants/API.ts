@@ -13,9 +13,3 @@ export const POST_RCA_REPORT_ROUTE = {
   apiPath: "/v1/ai/rca/report",
   method: "POST",
 } as const;
-
-export const GET_ERROR_ATTRIBUTION_ROUTE = {
-  key: "getErrorAttributionDrillDown",
-  getPath: (name: string) =>
-    `/v1/interactions/${encodeURIComponent(name)}/error-attribution`,
-} as const;

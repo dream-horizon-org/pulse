@@ -1,3 +1,5 @@
+import type { ErrorAttributionResponse } from "../useGetErrorAttribution/useGetErrorAttribution.interface";
+
 /** RCA structured report v1 (snake_case fields per pulse_ai / API JSON). */
 export type RcaStructuredMetricRowV1 = {
   metric_id: string;
@@ -39,6 +41,8 @@ export type RcaStructuredReportV1 = {
   executive_summary: string;
   segments: RcaStructuredSegmentV1[];
   recommendations: string[];
+  /** Merged on server after AI success (`RcaReportErrorAttributionMerger`); camelCase JSON. */
+  errorAttribution?: ErrorAttributionResponse | null;
 };
 
 export type RcaReportPayload = {
@@ -51,7 +55,8 @@ export const isRcaStructuredReportV1WithContent = (
   structured?.version === 1 &&
   ((structured.executive_summary?.trim() ?? "") !== "" ||
     (structured.segments?.length ?? 0) > 0 ||
-    (structured.recommendations?.length ?? 0) > 0);
+    (structured.recommendations?.length ?? 0) > 0 ||
+    structured.errorAttribution != null);
 
 export type RcaReportResponse = {
   report?: RcaReportPayload | null;

@@ -2586,27 +2586,6 @@ export class MockResponseGenerator {
       ) {
         const interactionName = decodeURIComponent(pathParts[2]);
 
-        // GET /v1/interactions/{name}/error-attribution — drill-only slim payload (matches pulse-server)
-        if (
-          method === "GET" &&
-          pathParts.length >= 4 &&
-          pathParts[3] === "error-attribution"
-        ) {
-          return {
-            data: {
-              data: {
-                disclaimer:
-                  "Mock server: observational diagnostic only; not causal evidence.",
-                cachedAt: new Date().toISOString(),
-                minRiskRatioForIssueAttribution: 1.25,
-                relatedAttributions: [],
-              },
-              error: null,
-            },
-            status: 200,
-          };
-        }
-
         console.log(
           `[Mock Server] Looking for interaction: "${interactionName}"`,
         );
@@ -7423,7 +7402,10 @@ ${
             },
           };
         }
-        if (body.screenName === "__error__" || body.compare?.screenName === "__error__") {
+        if (
+          body.screenName === "__error__" ||
+          body.compare?.screenName === "__error__"
+        ) {
           return {
             data: null,
             status: 500,
@@ -7434,7 +7416,10 @@ ${
             },
           };
         }
-        const data = heatmapMockCompare(body.screenName, body.compare.screenName);
+        const data = heatmapMockCompare(
+          body.screenName,
+          body.compare.screenName,
+        );
         return { data, status: 200, error: undefined };
       } catch (e: unknown) {
         return {

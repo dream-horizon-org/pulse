@@ -12,7 +12,6 @@ import {
   ROOT_CAUSE_MESSAGES,
 } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
-import { ErrorAttribution } from "../ErrorAttribution";
 import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
 
@@ -68,15 +67,6 @@ export function RootCause({
   const trimmedProjectId =
     effectiveProjectId != null ? String(effectiveProjectId).trim() : "";
   const isProjectIdMissing = trimmedProjectId === "";
-
-  /** Drill-only endpoint; show even when RCA report is missing, empty, or errored. */
-  const errorAttributionBlock = interactionName ? (
-    <ErrorAttribution
-      interactionName={interactionName}
-      date={date ?? null}
-      projectId={effectiveProjectId}
-    />
-  ) : null;
 
   const isAwaitingFirstReportResponse =
     reportFetching && reportResponse === undefined;
@@ -198,7 +188,6 @@ export function RootCause({
               <Skeleton height={120} />
             </div>
           </Box>
-          {errorAttributionBlock}
         </Stack>
       </>
     );
@@ -214,7 +203,6 @@ export function RootCause({
           onRegenerate={handleRegenerate}
           projectId={trimmedProjectId || null}
         />
-        {errorAttributionBlock}
       </Stack>
     );
   }
@@ -260,7 +248,6 @@ export function RootCause({
             </Button>
           </Stack>
         </Box>
-        {errorAttributionBlock}
       </Stack>
     );
   }
@@ -272,7 +259,6 @@ export function RootCause({
           {ROOT_CAUSE_MESSAGES.NO_DATA}
         </Text>
       </Box>
-      {errorAttributionBlock}
     </Stack>
   );
 }

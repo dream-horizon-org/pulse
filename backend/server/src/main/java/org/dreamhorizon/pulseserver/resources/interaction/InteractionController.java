@@ -53,7 +53,7 @@ import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownSignal;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRelatedAttributionRow;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRestResponseMapper;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
@@ -305,10 +305,7 @@ public class InteractionController {
     }
     return errorAttributionService
         .getErrorAttributionWithOptionalDrillDown(projectId, name, start, end, drillSignals)
-        .map(
-            bundle ->
-                toErrorAttributionRestResponse(
-                    bundle.relatedAttributions(), bundle.minRiskRatioForIssueAttribution()))
+        .map(ErrorAttributionRestResponseMapper::fromBundle)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -398,44 +395,4 @@ public class InteractionController {
         .build();
   }
 
-  private ErrorAttributionRestResponse toErrorAttributionRestResponse(
-      List<ErrorAttributionRelatedAttributionRow> relatedAttributions,
-      Double minRiskRatioForIssueAttribution) {
-    List<ErrorAttributionRestResponse.RelatedAttributionEntry> related =
-        relatedAttributions == null || relatedAttributions.isEmpty()
-            ? List.of()
-            : relatedAttributions.stream()
-                .map(InteractionController::toRelatedAttributionEntry)
-                .collect(Collectors.toList());
-    return ErrorAttributionRestResponse.builder()
-        .disclaimer(ErrorAttributionService.DISCLAIMER)
-        .cachedAt(Instant.now())
-        .minRiskRatioForIssueAttribution(minRiskRatioForIssueAttribution)
-        .relatedAttributions(related)
-        .build();
-  }
-
-  private static ErrorAttributionRestResponse.RelatedAttributionEntry toRelatedAttributionEntry(
-      ErrorAttributionRelatedAttributionRow r) {
-    return ErrorAttributionRestResponse.RelatedAttributionEntry.builder()
-        .sourceSignal(r.sourceSignal())
-        .rowKind(r.rowKind())
-        .groupId(r.groupId())
-        .title(r.title())
-        .exceptionType(r.exceptionType())
-        .url(r.url())
-        .graphqlOperationName(r.graphqlOperationName())
-        .graphqlOperationType(r.graphqlOperationType())
-        .occurrences(r.occurrences())
-        .nTreated(r.nTreated())
-        .nControl(r.nControl())
-        .nTreatedLow(r.nTreatedLow())
-        .nControlLow(r.nControlLow())
-        .p1(r.p1())
-        .p2(r.p2())
-        .rr(r.rr())
-        .rrUndefined(r.rrUndefined())
-        .rrUndefinedReason(r.rrUndefinedReason())
-        .build();
-  }
 }

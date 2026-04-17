@@ -14,6 +14,7 @@ import type {
   RcaStructuredReportV1,
 } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import type { RcaReportViewProps } from "./RcaReportView.interface";
+import { RcaEmbeddedErrorAttribution } from "./RcaEmbeddedErrorAttribution";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import { getMetricValueTone } from "./rcaMetricTone";
 import rcaClasses from "./RcaReportView.module.css";
@@ -106,6 +107,8 @@ const RcaStructuredReportV1View = ({
     (line) => String(line).trim() !== "",
   );
   const hasRecommendations = recommendations.length > 0;
+  const embeddedErrorAttribution = structured.errorAttribution ?? null;
+  const hasEmbeddedErrorAttribution = embeddedErrorAttribution != null;
 
   const hasRegenerate = typeof onRegenerate === "function";
   const showAsOf = cachedAt != null && cachedAt !== "";
@@ -407,6 +410,13 @@ const RcaStructuredReportV1View = ({
               </ul>
             </Card>
           )}
+
+          {hasEmbeddedErrorAttribution && hasProjectForHeatmaps ? (
+            <RcaEmbeddedErrorAttribution
+              data={embeddedErrorAttribution}
+              projectId={trimmedProjectId}
+            />
+          ) : null}
         </Stack>
       </Box>
     </Box>
@@ -425,8 +435,12 @@ export const RcaReportView = ({
   const hasSegmentOrRec =
     (structured?.segments?.length ?? 0) > 0 ||
     (structured?.recommendations?.length ?? 0) > 0;
+  const hasEmbeddedErrorAttribution = structured?.errorAttribution != null;
   const hasRenderableContent =
-    isValidStructured && (executiveSummaryText !== "" || hasSegmentOrRec);
+    isValidStructured &&
+    (executiveSummaryText !== "" ||
+      hasSegmentOrRec ||
+      hasEmbeddedErrorAttribution);
 
   if (!hasRenderableContent || structured == null || structured.version !== 1) {
     return (
