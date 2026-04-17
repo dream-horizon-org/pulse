@@ -50,6 +50,10 @@ public class Pulse {
     private var _consentMetricExporter: ConsentMetricExporter?
     private var meterProvider: MeterProviderSdk?
     private var instrumentationConfig: InstrumentationConfiguration?
+    private var _sdkName: PulseSdkName?
+    var sdkName: PulseSdkName? {
+        initializationQueue.sync { _sdkName }
+    }
 
     // User session emitter
     internal lazy var userSessionEmitter: PulseUserSessionEmitter = {
@@ -189,8 +193,8 @@ public class Pulse {
                 guard let av = resource.attributes[ResourceAttributes.telemetrySdkName.rawValue] else { return nil }
                 if case .string(let s) = av { return s } else { return nil }
             }()
-            let currentSdkName = PulseSdkName.from(telemetrySdkName: telemetrySdkName ?? PulseAttributes.PulseSdkNames.iosSwift)
-
+            _sdkName = PulseSdkName.from(telemetrySdkName: telemetrySdkName ?? PulseAttributes.PulseSdkNames.iosSwift)
+            guard let currentSdkName = _sdkName else { return }
             if let sdkConfig = configStorageQueue.sync(execute: { _currentSdkConfig }) {
                 let interactionConfigUrl = sdkConfig.interaction.configUrl
                 config.interaction { $0.setConfigUrl { interactionConfigUrl } }
