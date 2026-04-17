@@ -3,8 +3,8 @@ package org.dreamhorizon.pulseserver.service.errorattribution;
 import java.util.List;
 
 /**
- * In-memory bundle for one HTTP error-attribution response: merged related rows plus resolved RR
- * floor from config.
+ * In-memory bundle after drill-only aggregation: merged related rows plus resolved RR floor from
+ * config (used when mapping to RCA / REST payloads).
  */
 public record ErrorAttributionWithDrillDown(
     List<ErrorAttributionRelatedAttributionRow> relatedAttributions,

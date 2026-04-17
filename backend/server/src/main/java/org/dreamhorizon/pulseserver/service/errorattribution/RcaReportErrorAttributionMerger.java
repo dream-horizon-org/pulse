@@ -17,7 +17,7 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 /**
  * Injects {@code errorAttribution} into {@code report.structured} on successful RCA POST responses,
  * using the same interaction window as {@link RootCauseQueryBuilder.Window} and the same drill
- * signals as the UI standalone {@code GET .../error-attribution} (all four signals).
+ * the same four drill signals as the former REST drill path (crash, anr, non_fatal, api).
  *
  * <p>Runs independently of whether RCA segments exist (unlike heatmap merge). Failures are logged
  * and skipped so the RCA response still persists.

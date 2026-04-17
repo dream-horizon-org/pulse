@@ -1,6 +1,6 @@
 package org.dreamhorizon.pulseserver.service.errorattribution;
 
-/** Query param {@code signal} for error-attribution drill-down (Track B). */
+/** Per-signal discriminator for error-attribution drill-down (Track B). */
 public enum ErrorAttributionDrillDownSignal {
   crash,
   anr,

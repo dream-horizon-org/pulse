@@ -12,8 +12,8 @@ import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 
 /**
  * Builds {@link ErrorAttributionResult} from the Track B summary aggregate row shape (universe U).
- * Used for unit tests and offline validation; the HTTP error-attribution endpoint uses drill-only
- * {@link ErrorAttributionService#getErrorAttributionWithOptionalDrillDown} instead.
+ * Used for unit tests and offline validation. Production drill paths use
+ * {@link ErrorAttributionService#getErrorAttributionWithOptionalDrillDown} (no summary query).
  */
 @RequiredArgsConstructor
 public final class ErrorAttributionSummaryEngine {

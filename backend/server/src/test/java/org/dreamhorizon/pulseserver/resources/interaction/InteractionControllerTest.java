@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.resources.interaction;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -20,17 +19,12 @@ import jakarta.ws.rs.WebApplicationException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
-import org.dreamhorizon.pulseserver.resources.interaction.models.ErrorAttributionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownSignal;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionWithDrillDown;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
@@ -61,9 +55,6 @@ class InteractionControllerTest {
   @Mock
   private RootCauseService rootCauseService;
 
-  @Mock
-  private ErrorAttributionService errorAttributionService;
-
   private InteractionController interactionController;
 
   @BeforeEach
@@ -73,8 +64,7 @@ class InteractionControllerTest {
             interactionService,
             validator,
             rootCauseConfig,
-            rootCauseService,
-            errorAttributionService);
+            rootCauseService);
     ProjectContext.setProjectId("test-project");
   }
 
@@ -185,115 +175,6 @@ class InteractionControllerTest {
                 .getRootCause(
                     eq("test-project"), eq("my-interaction"), dateCaptor.capture(), any(Instant.class));
             assertEquals(expectedToday, dateCaptor.getValue());
-          });
-          testContext.completeNow();
-        });
-      });
-    }
-  }
-
-  @Nested
-  class GetErrorAttribution {
-
-    @Test
-    void shouldReturn400WhenStartQueryParamIsMissing(Vertx vertx, VertxTestContext testContext) {
-      vertx.runOnContext(v -> {
-        ProjectContext.setProjectId("test-project");
-        CompletionStage<Response<ErrorAttributionRestResponse>> result =
-            interactionController.getErrorAttribution(
-                "my-interaction", "", "2026-01-02T00:00:00Z", false, null);
-
-        result.whenComplete((resp, err) -> {
-          testContext.verify(() -> {
-            assertNull(resp);
-            assertNotNull(err);
-            assertInstanceOf(WebApplicationException.class, err);
-            assertEquals(400, ((WebApplicationException) err).getResponse().getStatus());
-            verifyNoInteractions(errorAttributionService);
-          });
-          testContext.completeNow();
-        });
-      });
-    }
-
-    @Test
-    void shouldReturn400WhenEndIsNotAfterStart(Vertx vertx, VertxTestContext testContext) {
-      vertx.runOnContext(v -> {
-        ProjectContext.setProjectId("test-project");
-        CompletionStage<Response<ErrorAttributionRestResponse>> result =
-            interactionController.getErrorAttribution(
-                "my-interaction",
-                "2026-01-03T12:00:00Z",
-                "2026-01-03T12:00:00Z",
-                false,
-                null);
-
-        result.whenComplete((resp, err) -> {
-          testContext.verify(() -> {
-            assertNull(resp);
-            assertNotNull(err);
-            assertInstanceOf(WebApplicationException.class, err);
-            assertEquals(400, ((WebApplicationException) err).getResponse().getStatus());
-            verifyNoInteractions(errorAttributionService);
-          });
-          testContext.completeNow();
-        });
-      });
-    }
-
-    @Test
-    void shouldReturn400WhenDrillDownMissing(Vertx vertx, VertxTestContext testContext) {
-      vertx.runOnContext(v -> {
-        ProjectContext.setProjectId("test-project");
-        CompletionStage<Response<ErrorAttributionRestResponse>> result =
-            interactionController.getErrorAttribution(
-                "no-such-span",
-                "2026-01-01T00:00:00Z",
-                "2026-01-08T00:00:00Z",
-                false,
-                null);
-
-        result.whenComplete((resp, err) -> {
-          testContext.verify(() -> {
-            assertNull(resp);
-            assertNotNull(err);
-            assertInstanceOf(WebApplicationException.class, err);
-            assertEquals(400, ((WebApplicationException) err).getResponse().getStatus());
-            verifyNoInteractions(errorAttributionService);
-          });
-          testContext.completeNow();
-        });
-      });
-    }
-
-    @Test
-    void shouldReturn200WithDrillOnlyPayloadWhenDrillDownPresent(Vertx vertx, VertxTestContext testContext) {
-      vertx.runOnContext(v -> {
-        ProjectContext.setProjectId("test-project");
-        List<ErrorAttributionDrillDownSignal> signals = List.of(ErrorAttributionDrillDownSignal.crash);
-        when(errorAttributionService.getErrorAttributionWithOptionalDrillDown(
-                eq("test-project"),
-                eq("no-such-span"),
-                any(Instant.class),
-                any(Instant.class),
-                eq(signals)))
-            .thenReturn(Single.just(new ErrorAttributionWithDrillDown(List.of(), 1.5)));
-
-        CompletionStage<Response<ErrorAttributionRestResponse>> result =
-            interactionController.getErrorAttribution(
-                "no-such-span",
-                "2026-01-01T00:00:00Z",
-                "2026-01-08T00:00:00Z",
-                false,
-                "crash");
-
-        result.whenComplete((resp, err) -> {
-          testContext.verify(() -> {
-            assertNull(err);
-            assertNotNull(resp);
-            assertThat(resp.getData().getDisclaimer()).isEqualTo(ErrorAttributionService.DISCLAIMER);
-            assertThat(resp.getData().getRelatedAttributions()).isEmpty();
-            assertThat(resp.getData().getMinRiskRatioForIssueAttribution()).isEqualTo(1.5);
           });
           testContext.completeNow();
         });

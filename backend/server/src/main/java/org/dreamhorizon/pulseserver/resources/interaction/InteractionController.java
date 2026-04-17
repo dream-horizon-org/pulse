@@ -14,7 +14,6 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
@@ -22,8 +21,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,7 +35,6 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractions
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RestInteractionDetail;
-import org.dreamhorizon.pulseserver.resources.interaction.models.ErrorAttributionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.UpdateInteractionRestResponse;
@@ -52,9 +48,6 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownSignal;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRestResponseMapper;
-import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -72,7 +65,6 @@ public class InteractionController {
   private final Validator validator;
   private final RootCauseConfig rootCauseConfig;
   private final RootCauseService rootCauseService;
-  private final ErrorAttributionService errorAttributionService;
 
   private static WebApplicationException getWebApplicationException(Set<ConstraintViolation<RestInteractionDetail>> violations) {
     return new WebApplicationException(
@@ -264,82 +256,6 @@ public class InteractionController {
     return rootCauseService.getRootCause(projectId, name, date, windowEndExclusiveUtc)
         .map(this::toRootCauseRestResponse)
         .to(RestResponse.jaxrsRestHandler());
-  }
-
-  @GET
-  @Path("/{name}/error-attribution")
-  @Produces(MediaType.APPLICATION_JSON)
-  @RequiresPermission("can_view")
-  public CompletionStage<Response<ErrorAttributionRestResponse>> getErrorAttribution(
-      @PathParam("name") String name,
-      @QueryParam("start") String startParam,
-      @QueryParam("end") String endParam,
-      @QueryParam("refresh") @DefaultValue("false") boolean refresh,
-      @QueryParam("drillDown") String drillDownParam) {
-    String projectId = ProjectContext.requireProjectId();
-    final Instant start;
-    final Instant end;
-    final List<ErrorAttributionDrillDownSignal> drillSignals;
-    try {
-      start = parseRequiredInstant(startParam, "start");
-      end = parseRequiredInstant(endParam, "end");
-      if (!end.isAfter(start)) {
-        throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
-            "'end' must be after 'start'");
-      }
-      drillSignals = parseDrillDownSignals(drillDownParam);
-      if (drillSignals.isEmpty()) {
-        throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
-            "Query parameter 'drillDown' is required and must list one or more signals: crash, anr, non_fatal, api.");
-      }
-      log.trace(
-          "error-attribution interaction={} refresh={} (drill path is not server-cached)",
-          name,
-          refresh);
-    } catch (WebApplicationException e) {
-      return CompletableFuture.failedFuture(e);
-    } catch (IllegalArgumentException e) {
-      WebApplicationException bad =
-          ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(e.getMessage());
-      return CompletableFuture.failedFuture(bad);
-    }
-    return errorAttributionService
-        .getErrorAttributionWithOptionalDrillDown(projectId, name, start, end, drillSignals)
-        .map(ErrorAttributionRestResponseMapper::fromBundle)
-        .to(RestResponse.jaxrsRestHandler());
-  }
-
-  private static List<ErrorAttributionDrillDownSignal> parseDrillDownSignals(String raw) {
-    if (raw == null || raw.isBlank()) {
-      return List.of();
-    }
-    LinkedHashSet<ErrorAttributionDrillDownSignal> set = new LinkedHashSet<>();
-    for (String part : raw.split(",")) {
-      String t = part.trim();
-      if (t.isEmpty()) {
-        continue;
-      }
-      try {
-        set.add(ErrorAttributionDrillDownSignal.fromParam(t));
-      } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException(e.getMessage(), e);
-      }
-    }
-    return new ArrayList<>(set);
-  }
-
-  private static Instant parseRequiredInstant(String value, String paramName) {
-    if (value == null || value.isBlank()) {
-      throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
-          "Query parameter '" + paramName + "' is required and must be a non-blank ISO-8601 instant.");
-    }
-    try {
-      return Instant.parse(value.trim());
-    } catch (java.time.format.DateTimeParseException e) {
-      throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
-          "Query parameter '" + paramName + "' must be a valid ISO-8601 instant (e.g. 2026-04-07T14:00:00Z).",
-          e.getMessage());
-    }
   }
 
   private static LocalDate parseRootCauseQueryDate(String dateParam) {
