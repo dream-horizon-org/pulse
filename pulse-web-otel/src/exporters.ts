@@ -1,5 +1,5 @@
 // M1: OTLP HTTP exporters (traces/logs/metrics) + BatchSpanProcessor
-// + sendBeacon flush on pagehide.
+// + keepalive-fetch flush on pagehide.
 //
 // Wire format: JSON (application/json) — the only format supported by browser-compatible
 // OTLP exporters (@opentelemetry/exporter-*-otlp-http). The -otlp-proto packages use
@@ -18,10 +18,75 @@ import { LoggerProvider, BatchLogRecordProcessor } from '@opentelemetry/sdk-logs
 import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import type { PushMetricExporter, ResourceMetrics } from '@opentelemetry/sdk-metrics';
 import type { ExportResult } from '@opentelemetry/core';
+import { ExportResultCode } from '@opentelemetry/core';
 import type { Resource } from '@opentelemetry/resources';
 import type { SpanProcessor } from '@opentelemetry/sdk-trace-web';
-import type { LogRecordProcessor } from '@opentelemetry/sdk-logs';
+import type { LogRecordProcessor, LogRecordExporter, ReadableLogRecord } from '@opentelemetry/sdk-logs';
 import type { Attributes } from '@opentelemetry/api';
+import { createExportLogsServiceRequest } from '@opentelemetry/otlp-transformer';
+
+/**
+ * Wraps an OTLPLogExporter and, when `_pagehide` is set to true, replaces the
+ * normal XHR-based export with a `fetch` call using `keepalive: true`.
+ *
+ * Background: XHR requests initiated during `pagehide` are cancelled by the
+ * browser before they complete.  The Fetch API's `keepalive` flag was designed
+ * precisely for this scenario — it keeps the request alive even after the page
+ * is torn down. Setting `_pagehide = true` before calling
+ * `loggerProvider.forceFlush()` ensures the `session.end` record reaches the
+ * OTLP collector reliably.
+ */
+class KeepaliveFetchLogExporter implements LogRecordExporter {
+  /** Set to true in the pagehide handler before calling forceFlush(). */
+  _pagehide = false;
+
+  constructor(
+    private readonly inner: OTLPLogExporter,
+    private readonly logsUrl: string,
+    private readonly headers: Record<string, string>,
+  ) {}
+
+  export(
+    logs: ReadableLogRecord[],
+    resultCallback: (result: ExportResult) => void,
+  ): void {
+    if (!this._pagehide) {
+      this.inner.export(logs, resultCallback);
+      return;
+    }
+
+    // Pagehide path — use fetch with keepalive so the request survives unload.
+    const body = JSON.stringify(
+      createExportLogsServiceRequest(logs, { useHex: true, useLongBits: false }),
+    );
+
+    const fetchHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.headers,
+    };
+
+    fetch(this.logsUrl, {
+      method: 'POST',
+      keepalive: true,
+      headers: fetchHeaders,
+      body,
+    })
+      .then(() => {
+        resultCallback({ code: ExportResultCode.SUCCESS });
+      })
+      .catch(() => {
+        resultCallback({ code: ExportResultCode.FAILED });
+      });
+  }
+
+  forceFlush(): Promise<void> {
+    return this.inner.forceFlush();
+  }
+
+  shutdown(): Promise<void> {
+    return this.inner.shutdown();
+  }
+}
 
 /**
  * Wraps any PushMetricExporter and merges dynamic global attributes (session.id,
@@ -144,9 +209,14 @@ export function createProviders(
   tracerProvider.addSpanProcessor(batchSpanProcessor);
 
   // ── Logs ────────────────────────────────────────────────────────────────────
-  const logExporter = new OTLPLogExporter({ url: logsUrl, headers });
+  const innerLogExporter = new OTLPLogExporter({ url: logsUrl, headers });
+  const keepaliveFetchLogExporter = new KeepaliveFetchLogExporter(
+    innerLogExporter,
+    logsUrl,
+    headers,
+  );
 
-  const batchLogProcessor = new BatchLogRecordProcessor(logExporter, batchOptions);
+  const batchLogProcessor = new BatchLogRecordProcessor(keepaliveFetchLogExporter, batchOptions);
 
   const loggerProvider = new LoggerProvider({ resource });
   for (const processor of logProcessors) {
@@ -175,11 +245,19 @@ export function createProviders(
   });
 
   // ── Pagehide flush ──────────────────────────────────────────────────────────
+  // XHR requests initiated during pagehide are cancelled by the browser before
+  // they complete. Setting _pagehide = true switches the log exporter to use
+  // fetch({ keepalive: true }), which is specifically designed to survive page
+  // unload. Traces and metrics use XHR too, but session.end is the only
+  // pagehide-critical signal — it is always a log record.
   if (typeof window !== 'undefined') {
     const pagehideHandler = (e: PageTransitionEvent) => {
       if (!e.persisted) {
+        keepaliveFetchLogExporter._pagehide = true;
+        void loggerProvider.forceFlush().finally(() => {
+          keepaliveFetchLogExporter._pagehide = false;
+        });
         void tracerProvider.forceFlush();
-        void loggerProvider.forceFlush();
         void meterProvider.forceFlush();
       }
     };

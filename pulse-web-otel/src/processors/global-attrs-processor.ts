@@ -142,6 +142,14 @@ export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordP
   onEmit(logRecord: LogRecord): void {
     const attrs = this.getCommonAttrs();
     for (const [key, value] of Object.entries(attrs)) {
+      // Do not overwrite session.id if the instrumentation already set it explicitly.
+      // session.start / session.end log records set the correct session.id themselves;
+      // overwriting them with the post-rotation value from getSessionId() would corrupt
+      // the session.end record (it would carry the NEW session.id instead of the old one).
+      if (key === 'session.id') {
+        const existing = logRecord.attributes ? (logRecord.attributes as Record<string, unknown>)[key] : undefined;
+        if (existing !== undefined && existing !== '') continue;
+      }
       logRecord.setAttribute(key, value);
     }
     this.sessionProvider.updateActivity();
