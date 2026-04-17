@@ -134,7 +134,7 @@ class DefaultSdkConfigTemplateTest {
           .findFirst()
           .orElse(null);
       assertThat(clickFeature).isNotNull();
-      assertThat(clickFeature.getSessionSampleRate()).isEqualTo(1.0);
+      assertThat(clickFeature.getSessionSampleRate()).isEqualTo(0.0);
       assertThat(clickFeature.getConfig()).isInstanceOf(ClickFeatureConfig.class);
       ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
       assertThat(clickConfig.getCaptureContext()).isTrue();

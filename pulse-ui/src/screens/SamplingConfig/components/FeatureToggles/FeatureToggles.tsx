@@ -218,7 +218,7 @@ export function FeatureToggles({
           } as FeatureConfig;
         }
       });
-  }, [featureOptions, configs, HIDDEN_MIRROR_FEATURES]);
+  }, [featureOptions, configs]);
 
   // Get features that haven't been configured yet (excluding hidden mirror keys)
   const availableFeatures = featureOptions.filter(
