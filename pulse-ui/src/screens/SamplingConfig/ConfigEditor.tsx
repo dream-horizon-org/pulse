@@ -24,7 +24,7 @@ import {
   TextInput,
   Paper,
   Alert,
-} from '@mantine/core';
+} from "@mantine/core";
 import {
   IconDeviceFloppy,
   IconRefresh,
@@ -36,26 +36,26 @@ import {
   IconInfoCircle,
   IconEye,
   IconCircleCheckFilled,
-} from '@tabler/icons-react';
-import {
-  PulseConfig,
-  ConfigEditorProps,
-} from './SamplingConfig.interface';
+} from "@tabler/icons-react";
+import { PulseConfig, ConfigEditorProps } from "./SamplingConfig.interface";
 import {
   DEFAULT_PULSE_CONFIG,
   UI_CONSTANTS,
   stripUIFields,
   addUIIds,
-} from './SamplingConfig.constants';
-import { SamplingRulesConfig } from './components/SamplingRulesConfig';
-import { FeatureToggles } from './components/FeatureToggles';
-import { InfraConfig } from './components/InfraConfig';
-import { AttributesToDropConfig } from './components/AttributesToDropConfig';
-import { AttributesToAddConfig } from './components/AttributesToAddConfig';
-import { useCreateSdkConfig, useGetActiveSdkConfig } from '../../hooks/useSdkConfig';
-import { useProjectContext } from '../../contexts';
-import { showNotification } from '../../helpers/showNotification';
-import classes from './SamplingConfig.module.css';
+} from "./SamplingConfig.constants";
+import { SamplingRulesConfig } from "./components/SamplingRulesConfig";
+import { FeatureToggles } from "./components/FeatureToggles";
+import { InfraConfig } from "./components/InfraConfig";
+import { AttributesToDropConfig } from "./components/AttributesToDropConfig";
+import { AttributesToAddConfig } from "./components/AttributesToAddConfig";
+import {
+  useCreateSdkConfig,
+  useGetActiveSdkConfig,
+} from "../../hooks/useSdkConfig";
+import { useProjectContext } from "../../contexts";
+import { showNotification } from "../../helpers/showNotification";
+import classes from "./SamplingConfig.module.css";
 
 export function ConfigEditor({
   initialConfig,
@@ -68,19 +68,19 @@ export function ConfigEditor({
   const theme = useMantineTheme();
   const { projectId, isInitializing } = useProjectContext();
 
-  const needsActiveFetch = !initialConfig && mode === 'create';
+  const needsActiveFetch = !initialConfig && mode === "create";
   const hasProject = Boolean(projectId);
 
   // Per-project React Query cache; API project scope still comes from X-Project-ID (session)
-  const { data: activeConfigData, isLoading: isLoadingActive } = useGetActiveSdkConfig({
-    enabled: needsActiveFetch && hasProject,
-    projectId,
-  });
-
+  const { data: activeConfigData, isLoading: isLoadingActive } =
+    useGetActiveSdkConfig({
+      enabled: needsActiveFetch && hasProject,
+      projectId,
+    });
 
   // Check if this is a "no config exists" scenario (first time setup)
   const isFirstTimeSetup =
-    mode === 'create' &&
+    mode === "create" &&
     !initialConfig &&
     hasProject &&
     !isLoadingActive &&
