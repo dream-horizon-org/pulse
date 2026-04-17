@@ -1057,6 +1057,7 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
+ 
   private handleV1SessionReplayEndpoints(
     pathname: string,
     method: string,
@@ -7402,10 +7403,7 @@ ${
             },
           };
         }
-        if (
-          body.screenName === "__error__" ||
-          body.compare?.screenName === "__error__"
-        ) {
+        if (body.screenName === "__error__" || body.compare?.screenName === "__error__") {
           return {
             data: null,
             status: 500,
@@ -7416,10 +7414,7 @@ ${
             },
           };
         }
-        const data = heatmapMockCompare(
-          body.screenName,
-          body.compare.screenName,
-        );
+        const data = heatmapMockCompare(body.screenName, body.compare.screenName);
         return { data, status: 200, error: undefined };
       } catch (e: unknown) {
         return {
