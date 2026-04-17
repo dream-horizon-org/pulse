@@ -10,9 +10,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Internal Track B summary aggregate shape (risk ratios, joint winners). Used for tests and offline
- * validation via {@link ErrorAttributionSummaryEngine}. Drill-only paths do not persist this
- * payload on {@code otel.root_cause_cache}.
+ * Internal Track B summary aggregate shape (risk ratios, joint winners). Retained for shared
+ * constants and nested {@link RiskRatioRow} used by drill-down and risk math. Drill-only paths do
+ * not persist this payload on {@code otel.root_cause_cache}.
  */
 @Data
 @Builder(toBuilder = true)
