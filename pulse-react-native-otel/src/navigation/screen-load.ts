@@ -70,12 +70,22 @@ export function createScreenLoadTracker(
   };
 
   const handleStateChange = (currentRoute: NavigationRoute): void => {
-    if (!enabled || !state.navigationSpan) {
+    if (!enabled) {
+      return;
+    }
+
+    // Before the first `Navigated` span exists (span starts on `__unsafe_action__` dispatch),
+    // still track the focused route so `last.screen.name` is not stuck on a shell route like
+    // Expo Router's `__root` when the user first navigates away (e.g. index → category).
+    if (!state.navigationSpan) {
+      if (!state.latestRoute || state.latestRoute.key !== currentRoute.key) {
+        state.latestRoute = currentRoute;
+        pushRecentRouteKey(currentRoute.key);
+      }
       return;
     }
 
     const previousRoute = state.latestRoute;
-
     if (previousRoute && previousRoute.key === currentRoute.key) {
       const routeHasBeenSeen = getRecentRouteKeys().includes(currentRoute.key);
       endNavigationSpan(currentRoute, previousRoute, routeHasBeenSeen);
