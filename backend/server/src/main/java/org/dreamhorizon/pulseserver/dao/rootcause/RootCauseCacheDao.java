@@ -48,7 +48,9 @@ public class RootCauseCacheDao {
         });
   }
 
-  /** Inserts one cache row. ReplacingMergeTree(cached_at) keeps latest by cached_at. */
+  /**
+   * Inserts one cache row. ReplacingMergeTree(cached_at) keeps latest by cached_at.
+   */
   public Completable upsert(
       String projectId,
       String interactionName,
@@ -57,7 +59,8 @@ public class RootCauseCacheDao {
       String mode,
       String baselineJson,
       String segmentsJson,
-      LocalDateTime cachedAt) {
+      LocalDateTime cachedAt
+  ) {
     String dateStr = date.format(DATE_FMT);
     String query = RootCauseCacheQueries.buildInsertQuery(
         projectId,
