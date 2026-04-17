@@ -239,7 +239,3 @@ ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/otel.root_caus
 PARTITION BY toYYYYMM(date)
 ORDER BY (ProjectId, interaction_name, date)
 SETTINGS index_granularity = 8192;
-
--- Removed error_attribution_json (drill-only error attribution; no longer stored on RCA cache row)
-ALTER TABLE otel.root_cause_cache ON CLUSTER `pulse-clickhouse`
-    DROP COLUMN IF EXISTS error_attribution_json;
