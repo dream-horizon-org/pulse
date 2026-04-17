@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.dreamhorizon.pulseserver.resources.interaction.models.ErrorAttributionRestResponse;
 
-/** Maps Track B domain rows to the REST wire DTO (shared by {@code InteractionController} and RCA merge). */
+/** Maps Track B domain rows to the REST wire DTO used when merging error attribution into RCA responses. */
 public final class ErrorAttributionRestResponseMapper {
 
   private ErrorAttributionRestResponseMapper() {}
@@ -14,7 +14,7 @@ public final class ErrorAttributionRestResponseMapper {
     return fromRows(bundle.relatedAttributions(), bundle.minRiskRatioForIssueAttribution());
   }
 
-  public static ErrorAttributionRestResponse fromRows(
+  static ErrorAttributionRestResponse fromRows(
       List<ErrorAttributionRelatedAttributionRow> relatedAttributions,
       Double minRiskRatioForIssueAttribution) {
     List<ErrorAttributionRestResponse.RelatedAttributionEntry> related =

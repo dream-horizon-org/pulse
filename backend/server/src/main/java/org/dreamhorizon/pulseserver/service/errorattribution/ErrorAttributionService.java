@@ -16,7 +16,6 @@ import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ErrorAttributionService {
 
-  public static final String SPEC_VERSION = "1";
   public static final String DISCLAIMER =
       "This diagnostic summarizes observational associations only; it does not establish causation.";
 
