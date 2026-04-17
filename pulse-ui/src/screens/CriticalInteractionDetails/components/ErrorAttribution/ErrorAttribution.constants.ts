@@ -1,6 +1,5 @@
 export const ERROR_ATTRIBUTION_MESSAGES = {
   SECTION_TITLE: "Error attribution",
-  REFRESH: "Refresh attribution",
   NO_DATA_IN_WINDOW: "No interaction data in this window",
   GENERIC_ERROR: "Something went wrong while loading error attribution.",
   DRILL_DOWN_TOGGLE_SHOW: "Top issues (sessions in U)",

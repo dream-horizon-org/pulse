@@ -1,40 +1,7 @@
-.section {
-  padding: var(--mantine-spacing-sm) 0;
-}
-
-.headerRow {
-  margin-bottom: var(--mantine-spacing-md);
-}
-
 .disclaimer {
-  margin-top: var(--mantine-spacing-md);
+  margin-top: var(--mantine-spacing-lg);
   font-size: var(--mantine-font-size-sm);
   color: var(--mantine-color-dimmed);
-}
-
-.cachedAt {
-  margin-top: var(--mantine-spacing-xs);
-  font-size: var(--mantine-font-size-xs);
-  color: var(--mantine-color-dimmed);
-}
-
-.skeletonBlock {
-  padding: 0 var(--mantine-spacing-xs);
-}
-
-.undefinedValue {
-  color: var(--mantine-color-dimmed);
-}
-
-.emptyState {
-  padding: var(--mantine-spacing-lg) 0;
-}
-
-.drillDownRow {
-  background: light-dark(
-    var(--mantine-color-gray-0),
-    var(--mantine-color-dark-6)
-  );
 }
 
 .drillDownLink {
@@ -44,4 +11,35 @@
 
 .drillDownLink:hover {
   text-decoration: underline;
+}
+
+/* Tighter than RCA segment rows — list is single-line (title + sessions). */
+.compactRow {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  margin: 0;
+  padding-block: 2px;
+}
+
+.compactRankBadge {
+  flex-shrink: 0;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mantine-radius-sm);
+  font-weight: 700;
+  font-size: var(--mantine-font-size-xs);
+  line-height: 1;
+  background: light-dark(
+    var(--mantine-color-gray-2),
+    var(--mantine-color-dark-4)
+  );
+  color: var(--mantine-color-gray-8);
+}
+
+.compactDivider {
+  margin-block: var(--mantine-spacing-xs);
 }

@@ -1,13 +1,13 @@
 import {
+  Badge,
   Box,
-  Button,
+  Card,
+  Divider,
   Group,
   Skeleton,
   Stack,
   Text,
-  Title,
 } from "@mantine/core";
-import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -15,7 +15,6 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import {
   getErrorAttributionWindowIso,
   useGetErrorAttribution,
-  useRefreshErrorAttribution,
 } from "../../../../hooks/useGetErrorAttribution";
 import type {
   ErrorAttributionSignal,
@@ -23,20 +22,13 @@ import type {
 } from "../../../../hooks/useGetErrorAttribution";
 import { encodeNetworkId } from "../../../NetworkList/utils/networkIdUtils";
 import {
-  EN_DASH,
   ERROR_ATTRIBUTION_MESSAGES,
   relatedAttributionsEmptyMessage,
 } from "./ErrorAttribution.constants";
 import type { ErrorAttributionProps } from "./ErrorAttribution.interface";
 import classes from "./ErrorAttribution.module.css";
 import rootCauseClasses from "../RootCause/RootCause.module.css";
-
-const SIGNAL_LABEL: Record<string, string> = {
-  crash: "Crash",
-  anr: "ANR",
-  non_fatal: "Non-fatal",
-  api: "API failure",
-};
+import rcaClasses from "../RootCause/RcaReportView.module.css";
 
 const ALL_DRILL_SIGNALS: ErrorAttributionSignal[] = [
   "crash",
@@ -44,21 +36,6 @@ const ALL_DRILL_SIGNALS: ErrorAttributionSignal[] = [
   "non_fatal",
   "api",
 ];
-
-function formatPoorRate(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return EN_DASH;
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-function formatRiskRatio(
-  rr: number | null | undefined,
-  rrUndefined: boolean | null | undefined,
-  rrUndefinedReason?: string | null,
-): string {
-  if (rrUndefinedReason === "INFINITE_RR") return "∞";
-  if (rrUndefined === true || rr == null || Number.isNaN(rr)) return EN_DASH;
-  return rr.toFixed(2);
-}
 
 function formatCachedAt(iso: string | null | undefined): string | null {
   if (iso == null || String(iso).trim() === "") return null;
@@ -76,90 +53,89 @@ function UnifiedRelatedAttributionsList({
   linkSuffix: string;
 }) {
   return (
-    <Stack gap="xs">
-      {rows.map((row, idx) => {
-        const signalLabel = SIGNAL_LABEL[row.sourceSignal] ?? row.sourceSignal;
-        if (row.rowKind === "api") {
-          const apiId = encodeNetworkId(
-            row.url ?? "",
-            row.graphqlOperationName ?? undefined,
-            row.graphqlOperationType ?? undefined,
-          );
-          const to = `/projects/${encodeURIComponent(projectId)}/network-apis/${encodeURIComponent(apiId)}${linkSuffix}`;
+    <Card
+      withBorder
+      padding="md"
+      radius="md"
+      className={rcaClasses.segmentCard}
+    >
+      <Stack gap={0}>
+        {rows.map((row, idx) => {
+          const rank = idx + 1;
+          if (row.rowKind === "api") {
+            const apiId = encodeNetworkId(
+              row.url ?? "",
+              row.graphqlOperationName ?? undefined,
+              row.graphqlOperationType ?? undefined,
+            );
+            const to = `/projects/${encodeURIComponent(projectId)}/network-apis/${encodeURIComponent(apiId)}${linkSuffix}`;
+            return (
+              <Box key={`api-${row.url}-${idx}`}>
+                {idx > 0 ? (
+                  <Divider size="xs" className={classes.compactDivider} />
+                ) : null}
+                <div className={classes.compactRow}>
+                  <div className={classes.compactRankBadge}>{rank}</div>
+                  <Text
+                    component={Link}
+                    to={to}
+                    fw={600}
+                    size="sm"
+                    className={classes.drillDownLink}
+                    style={{ flex: 1, minWidth: 0 }}
+                    lineClamp={2}
+                    lh={1.35}
+                  >
+                    {row.url || "(no URL)"}
+                  </Text>
+                  <Text size="xs" c="dimmed" style={{ flexShrink: 0 }} lh={1.2}>
+                    {row.occurrences.toLocaleString()}{" "}
+                    {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_SESSIONS}
+                  </Text>
+                </div>
+              </Box>
+            );
+          }
+
+          const to = `/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(row.groupId ?? "")}${linkSuffix}`;
+          const label =
+            row.title && row.title.trim() !== ""
+              ? row.title
+              : row.groupId || "(issue)";
+          const typeSuffix =
+            row.sourceSignal === "non_fatal" && row.exceptionType
+              ? ` (${row.exceptionType})`
+              : "";
           return (
-            <Stack key={`api-${row.url}-${idx}`} gap={4}>
-              <Group justify="space-between" wrap="nowrap" gap="md">
+            <Box key={`issue-${row.groupId}-${row.exceptionType ?? ""}-${idx}`}>
+              {idx > 0 ? (
+                <Divider size="xs" className={classes.compactDivider} />
+              ) : null}
+              <div className={classes.compactRow}>
+                <div className={classes.compactRankBadge}>{rank}</div>
                 <Text
                   component={Link}
                   to={to}
+                  fw={600}
                   size="sm"
                   className={classes.drillDownLink}
+                  style={{ flex: 1, minWidth: 0 }}
                   lineClamp={2}
+                  lh={1.35}
                 >
-                  {row.url || "(no URL)"}
+                  {label}
+                  {typeSuffix}
                 </Text>
-                <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
+                <Text size="xs" c="dimmed" style={{ flexShrink: 0 }} lh={1.2}>
                   {row.occurrences.toLocaleString()}{" "}
                   {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_SESSIONS}
                 </Text>
-              </Group>
-              <Text size="xs" c="dimmed">
-                {signalLabel} · Poor rate (with endpoint):{" "}
-                {formatPoorRate(row.p1)} · Poor rate (without):{" "}
-                {formatPoorRate(row.p2)} · RR:{" "}
-                {formatRiskRatio(
-                  row.rr,
-                  row.rrUndefined ?? null,
-                  row.rrUndefinedReason,
-                )}
-              </Text>
-            </Stack>
+              </div>
+            </Box>
           );
-        }
-
-        const to = `/projects/${encodeURIComponent(projectId)}/app-vitals/${encodeURIComponent(row.groupId ?? "")}${linkSuffix}`;
-        const label =
-          row.title && row.title.trim() !== ""
-            ? row.title
-            : row.groupId || "(issue)";
-        const typeSuffix =
-          row.sourceSignal === "non_fatal" && row.exceptionType
-            ? ` (${row.exceptionType})`
-            : "";
-        return (
-          <Stack
-            key={`issue-${row.groupId}-${row.exceptionType ?? ""}-${idx}`}
-            gap={4}
-          >
-            <Group justify="space-between" wrap="nowrap" gap="md">
-              <Text
-                component={Link}
-                to={to}
-                size="sm"
-                className={classes.drillDownLink}
-                lineClamp={2}
-              >
-                {label}
-                {typeSuffix}
-              </Text>
-              <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
-                {row.occurrences.toLocaleString()}{" "}
-                {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_SESSIONS}
-              </Text>
-            </Group>
-            <Text size="xs" c="dimmed">
-              {signalLabel} · Poor rate (with issue): {formatPoorRate(row.p1)} ·
-              Poor rate (without): {formatPoorRate(row.p2)} · RR:{" "}
-              {formatRiskRatio(
-                row.rr,
-                row.rrUndefined ?? null,
-                row.rrUndefinedReason,
-              )}
-            </Text>
-          </Stack>
-        );
-      })}
-    </Stack>
+        })}
+      </Stack>
+    </Card>
   );
 }
 
@@ -195,8 +171,6 @@ export function ErrorAttribution({
     enabled: trimmedProjectId !== "" && !!interactionName,
   });
 
-  const refreshAttribution = useRefreshErrorAttribution();
-
   const httpOk = apiResponse?.status === 200 && apiResponse.data != null;
   const body = httpOk ? apiResponse.data : null;
 
@@ -211,72 +185,73 @@ export function ErrorAttribution({
 
   const cachedAtLabel = formatCachedAt(body?.cachedAt);
 
-  const refreshButton = (
-    <Button
-      variant="light"
-      size="xs"
-      leftSection={<IconRefresh size={14} />}
-      loading={refreshAttribution.isPending}
-      onClick={() => {
-        refreshAttribution.mutate({
-          interactionName,
-          start,
-          end,
-          projectId: trimmedProjectId,
-          drillDownSignals: ALL_DRILL_SIGNALS,
-        });
-      }}
-    >
-      {ERROR_ATTRIBUTION_MESSAGES.REFRESH}
-    </Button>
-  );
-
   if (showLoading) {
     return (
-      <Box className={classes.section}>
-        <Group
-          justify="space-between"
-          align="center"
-          wrap="wrap"
-          gap="sm"
-          className={classes.headerRow}
-        >
-          <Title order={4}>{ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}</Title>
-          {refreshButton}
-        </Group>
-        <div className={classes.skeletonBlock}>
-          <Skeleton height={24} width="60%" mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} />
-        </div>
+      <Box className={rootCauseClasses.container}>
+        <Box className={rcaClasses.reportShell}>
+          <div className={rcaClasses.segmentsSectionTitleRow}>
+            <Text fw={700} size="md" tt="uppercase" c="gray.7">
+              {ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}
+            </Text>
+          </div>
+          <Card
+            withBorder
+            padding="md"
+            radius="md"
+            className={rcaClasses.segmentCard}
+          >
+            <Stack gap={0}>
+              {[0, 1, 2].map((i) => (
+                <Box key={`ea-skel-${i}`}>
+                  {i > 0 ? (
+                    <Divider size="xs" className={classes.compactDivider} />
+                  ) : null}
+                  <Group
+                    align="center"
+                    wrap="nowrap"
+                    gap="xs"
+                    className={classes.compactRow}
+                  >
+                    <Skeleton height={22} width={22} radius="sm" />
+                    <Skeleton height={16} style={{ flex: 1 }} />
+                    <Skeleton height={14} width={88} />
+                  </Group>
+                </Box>
+              ))}
+            </Stack>
+          </Card>
+        </Box>
       </Box>
     );
   }
 
   if (isError || (apiResponse != null && !httpOk)) {
     return (
-      <Box className={classes.section}>
-        <Group
-          justify="space-between"
-          align="center"
-          wrap="wrap"
-          gap="sm"
-          className={classes.headerRow}
-        >
-          <Title order={4}>{ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}</Title>
-          {refreshButton}
-        </Group>
-        <Stack
-          align="center"
-          gap="md"
-          className={rootCauseClasses.stateMessage}
-        >
-          <ErrorAndEmptyState
-            message={ERROR_ATTRIBUTION_MESSAGES.GENERIC_ERROR}
-            classes={[rootCauseClasses.errorState]}
-          />
-        </Stack>
+      <Box className={rootCauseClasses.container}>
+        <Box className={rcaClasses.reportShell}>
+          <div className={rcaClasses.segmentsSectionTitleRow}>
+            <Text fw={700} size="md" tt="uppercase" c="gray.7">
+              {ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}
+            </Text>
+          </div>
+          <Card
+            withBorder
+            padding="md"
+            radius="md"
+            className={rcaClasses.segmentCard}
+          >
+            <Stack
+              align="center"
+              gap="md"
+              className={rootCauseClasses.stateMessage}
+            >
+              <ErrorAndEmptyState
+                message={ERROR_ATTRIBUTION_MESSAGES.GENERIC_ERROR}
+                classes={[rootCauseClasses.errorState]}
+              />
+            </Stack>
+          </Card>
+        </Box>
       </Box>
     );
   }
@@ -288,32 +263,41 @@ export function ErrorAttribution({
   const related = body.relatedAttributions ?? [];
 
   return (
-    <Box className={classes.section}>
-      <Group
-        justify="space-between"
-        align="flex-start"
-        wrap="wrap"
-        gap="sm"
-        className={classes.headerRow}
-      >
-        <div>
-          <Title order={4}>{ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}</Title>
-          {cachedAtLabel ? (
-            <Text className={classes.cachedAt} size="xs">
-              Cached {cachedAtLabel}
-            </Text>
-          ) : null}
+    <Box className={rootCauseClasses.container}>
+      <Box className={rcaClasses.reportShell}>
+        <div className={rcaClasses.segmentsSectionTitleRow}>
+          <Stack gap={4}>
+            <Group gap="sm" wrap="wrap" align="center">
+              <Text fw={700} size="md" tt="uppercase" c="gray.7">
+                {ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}
+              </Text>
+              {related.length > 0 ? (
+                <Badge size="sm" variant="light" color="gray">
+                  {related.length}
+                </Badge>
+              ) : null}
+            </Group>
+            {cachedAtLabel ? (
+              <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
+                Cached {cachedAtLabel}
+              </Text>
+            ) : null}
+          </Stack>
         </div>
-        {refreshButton}
-      </Group>
 
-      <Stack gap="md" mt="md" className={classes.drillDownRow} p="md">
         {related.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            {relatedAttributionsEmptyMessage(
-              body.minRiskRatioForIssueAttribution,
-            )}
-          </Text>
+          <Card
+            withBorder
+            padding="md"
+            radius="md"
+            className={rcaClasses.segmentCard}
+          >
+            <Text size="sm" c="dimmed">
+              {relatedAttributionsEmptyMessage(
+                body.minRiskRatioForIssueAttribution,
+              )}
+            </Text>
+          </Card>
         ) : (
           <UnifiedRelatedAttributionsList
             rows={related}
@@ -321,9 +305,9 @@ export function ErrorAttribution({
             linkSuffix={linkSuffix}
           />
         )}
-      </Stack>
 
-      {disclaimerBlock}
+        {disclaimerBlock}
+      </Box>
     </Box>
   );
 }

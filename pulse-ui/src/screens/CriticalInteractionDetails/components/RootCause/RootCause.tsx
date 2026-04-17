@@ -69,6 +69,15 @@ export function RootCause({
     effectiveProjectId != null ? String(effectiveProjectId).trim() : "";
   const isProjectIdMissing = trimmedProjectId === "";
 
+  /** Drill-only endpoint; show even when RCA report is missing, empty, or errored. */
+  const errorAttributionBlock = interactionName ? (
+    <ErrorAttribution
+      interactionName={interactionName}
+      date={date ?? null}
+      projectId={effectiveProjectId}
+    />
+  ) : null;
+
   const isAwaitingFirstReportResponse =
     reportFetching && reportResponse === undefined;
   const reportPayload = reportResponse?.data ?? null;
@@ -180,14 +189,17 @@ export function RootCause({
             </Button>
           </Stack>
         </Modal>
-        <Box className={classes.container}>
-          <div className={classes.skeletonWrapper}>
-            <Skeleton height={24} width={200} mb="md" />
-            <Skeleton height={120} mb="md" />
-            <Skeleton height={120} mb="md" />
-            <Skeleton height={120} />
-          </div>
-        </Box>
+        <Stack gap="xl">
+          <Box className={classes.container}>
+            <div className={classes.skeletonWrapper}>
+              <Skeleton height={24} width={200} mb="md" />
+              <Skeleton height={120} mb="md" />
+              <Skeleton height={120} mb="md" />
+              <Skeleton height={120} />
+            </div>
+          </Box>
+          {errorAttributionBlock}
+        </Stack>
       </>
     );
   }
@@ -201,13 +213,7 @@ export function RootCause({
           cachedAt={cachedAtFormatted}
           onRegenerate={handleRegenerate}
         />
-        {interactionName ? (
-          <ErrorAttribution
-            interactionName={interactionName}
-            date={date ?? null}
-            projectId={effectiveProjectId}
-          />
-        ) : null}
+        {errorAttributionBlock}
       </Stack>
     );
   }
@@ -236,30 +242,36 @@ export function RootCause({
       ? ROOT_CAUSE_MESSAGES.REQUEST_TIMEOUT
       : message;
     return (
-      <Box className={classes.container}>
-        <Stack align="center" gap="md" className={classes.stateMessage}>
-          <ErrorAndEmptyState
-            message={displayMessage}
-            classes={[classes.errorState]}
-          />
-          <Button
-            className={classes.retryButton}
-            leftSection={<IconRefresh size={16} />}
-            variant="light"
-            onClick={() => refetch()}
-          >
-            Retry
-          </Button>
-        </Stack>
-      </Box>
+      <Stack gap="xl">
+        <Box className={classes.container}>
+          <Stack align="center" gap="md" className={classes.stateMessage}>
+            <ErrorAndEmptyState
+              message={displayMessage}
+              classes={[classes.errorState]}
+            />
+            <Button
+              className={classes.retryButton}
+              leftSection={<IconRefresh size={16} />}
+              variant="light"
+              onClick={() => refetch()}
+            >
+              Retry
+            </Button>
+          </Stack>
+        </Box>
+        {errorAttributionBlock}
+      </Stack>
     );
   }
 
   return (
-    <Box className={classes.container}>
-      <Text className={classes.stateMessage}>
-        {ROOT_CAUSE_MESSAGES.NO_DATA}
-      </Text>
-    </Box>
+    <Stack gap="xl">
+      <Box className={classes.container}>
+        <Text className={classes.stateMessage}>
+          {ROOT_CAUSE_MESSAGES.NO_DATA}
+        </Text>
+      </Box>
+      {errorAttributionBlock}
+    </Stack>
   );
 }
