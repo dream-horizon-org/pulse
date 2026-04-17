@@ -15,6 +15,7 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
  * Builds ClickHouse INSERT…WITH SQL for funnel computation.
  *
  * <p>Reads from {@code otel.otel_logs} with {@code LogAttributes['pulse.type'] = 'custom_event'}.
+ * Custom event names are read from the {@code Body} column (not {@code EventName}).
  *
  * <p>{@code windowFunnel}'s first argument must be {@code DateTime} (not {@code DateTime64}); we use
  * {@code toDateTime(Timestamp)} in the {@code raw} CTE.
@@ -44,7 +45,7 @@ public final class ClickHouseFunnelComputeDao {
     String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
 
     String windowFunnelArgs = steps.stream()
-        .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
+        .map(s -> "Body = '" + escape(s.getEventName()) + "'")
         .collect(Collectors.joining(",\n          "));
 
     String stepNamesArray = "[" + steps.stream()
@@ -61,7 +62,7 @@ public final class ClickHouseFunnelComputeDao {
           (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)
         WITH
           raw AS (
-            SELECT %s AS uid, toDateTime(Timestamp) AS FunnelTs, Body AS EventName
+            SELECT %s AS uid, toDateTime(Timestamp) AS FunnelTs, Body
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
               AND LogAttributes['pulse.type'] = 'custom_event'
@@ -126,7 +127,7 @@ public final class ClickHouseFunnelComputeDao {
                    LogAttributes['session.id'] AS SessionId,
                    Timestamp,
                    toDateTime(Timestamp) AS FunnelTs,
-                   Body AS EventName
+                   Body
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
               AND LogAttributes['pulse.type'] = 'custom_event'
@@ -140,7 +141,7 @@ public final class ClickHouseFunnelComputeDao {
       List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
       String groupKey = "SESSIONS".equalsIgnoreCase(def.getMode()) ? "SessionId" : "UserId";
       String windowFunnelArgs = steps.stream()
-          .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
+          .map(s -> "Body = '" + escape(s.getEventName()) + "'")
           .collect(Collectors.joining(", "));
 
       String cteName = "lvl_f" + i;

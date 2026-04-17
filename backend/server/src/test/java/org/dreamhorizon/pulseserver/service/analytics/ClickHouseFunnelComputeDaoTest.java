@@ -70,9 +70,9 @@ class ClickHouseFunnelComputeDaoTest {
     void shouldIncludeAllStepEventNames() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().build());
       assertThat(sql)
-          .contains("EventName = 'screen_view'")
-          .contains("EventName = 'add_to_cart'")
-          .contains("EventName = 'purchase'");
+          .contains("Body = 'screen_view'")
+          .contains("Body = 'add_to_cart'")
+          .contains("Body = 'purchase'");
     }
 
     @Test

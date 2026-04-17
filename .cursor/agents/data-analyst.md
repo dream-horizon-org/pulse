@@ -18,7 +18,7 @@ You are a data analyst specializing in Pulse's analytics databases.
 Key columns: `TraceId`, `SpanId`, `ParentSpanId`, `SpanName`, `SpanKind`, `ServiceName`, `Duration` (nanoseconds), `StatusCode`, `StatusMessage`, `Timestamp` (DateTime64), `SpanAttributes` (Map), `ResourceAttributes` (Map)
 
 ### `otel_logs` — log records
-Key columns: `TraceId`, `Body`, `SeverityText`, `SeverityNumber`, `Timestamp`, `EventName`, `LogAttributes` (Map), `ResourceAttributes` (Map)
+Key columns: `TraceId`, `Body` (custom event name text for `pulse.type` = `custom_event`), `SeverityText`, `SeverityNumber`, `Timestamp`, `LogAttributes` (Map), `ResourceAttributes` (Map). Prefer `Body` for event name in queries; do not assume a separate populated `EventName` column in all deployments.
 
 ### `otel_metrics_gauge` — gauge metrics
 Key columns: `MetricName`, `Value`, `TimeUnix`, `Attributes` (Map), `ResourceAttributes` (Map)

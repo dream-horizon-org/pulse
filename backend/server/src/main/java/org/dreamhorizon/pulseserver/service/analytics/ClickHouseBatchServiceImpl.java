@@ -140,6 +140,7 @@ public class ClickHouseBatchServiceImpl implements AnalyticsBatchService {
     return journeyDao.listAllAuto()
         .flatMap(all -> {
           if (all.isEmpty()) {
+            log.info("Journeys batch: no definitions with journey_type=AUTO; nothing to do");
             return Single.just(true);
           }
           return shouldSkipDailyBatch(AnalyticsJobType.JOURNEYS_DAILY)
@@ -215,6 +216,12 @@ public class ClickHouseBatchServiceImpl implements AnalyticsBatchService {
     int concurrency = Math.max(1, analyticsEngineConfig.getBatchProjectConcurrency());
     Map<String, List<JourneyRow>> byProject =
         all.stream().collect(Collectors.groupingBy(JourneyRow::getProjectId));
+    log.info(
+        "JOURNEYS_DAILY job id={}: running ClickHouse batch for {} journey(s) across {} project(s) "
+            + "(async on io scheduler)",
+        dbId,
+        all.size(),
+        byProject.size());
     Observable.fromIterable(byProject.entrySet())
         .flatMap(
             e ->

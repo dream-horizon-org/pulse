@@ -43,7 +43,7 @@ public final class FunnelDefinitionQueries {
           funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, funnel.date_range,
           funnel.start_time, funnel.end_time, funnel.expiry, funnel.created_at, funnel.updated_at,
           funnel.created_by, NULL AS latest_job_status
-      FROM funnel WHERE funnel.mode = 'AUTO'
+      FROM funnel WHERE funnel.funnel_type = 'AUTO'
       """;
 
   public static final String SELECT_BY_PROJECT_AND_ID =

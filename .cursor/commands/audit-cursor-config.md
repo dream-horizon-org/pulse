@@ -3,6 +3,10 @@ Audit `.cursor/` configuration files against the codebase source-of-truth files 
 1. Read the following source-of-truth files:
    - `deploy/docker-compose.yml` — services, ports, health checks, dependencies
    - `backend/ingestion/clickhouse-otel-schema.sql` — table schemas, materialized columns
+   - `backend/ingestion/clickhouse-funnel-results-schema.sql` — single-node `funnel_results` (MergeTree)
+   - `backend/ingestion/clickhouse-journey-results-schema.sql` — single-node `journey_results` (MergeTree)
+   - `backend/ingestion/clickhouse-funnel-journey-replicated-schema.sql` — cluster `funnel_results_local` / `journey_results_local` + Distributed tables
+   - `backend/ingestion/session-summary-mv.sql` — session summary MV (referenced by init)
    - `deploy/.env.example` — environment variable names
    - `deploy/scripts/build.sh` — accepted build targets
    - `deploy/scripts/start.sh` — accepted start targets

@@ -14,7 +14,9 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
  * Builds ClickHouse INSERT…WITH SQL for journey computation.
  *
  * <p>Reads from {@code otel.otel_logs} with {@code LogAttributes['pulse.type'] = 'custom_event'}.
- * Called twice per journey: once for direction "START" and once for "END".
+ * Custom event names are read from the {@code Body} column (not {@code EventName}).
+ * {@link ClickHouseComputeService} passes {@code direction} from the journey row (Spark parity:
+ * only {@code "START"} is forward; {@code "END"} otherwise).
  */
 @Slf4j
 public final class ClickHouseJourneyComputeDao {
@@ -25,8 +27,7 @@ public final class ClickHouseJourneyComputeDao {
 
   /**
    * Builds the INSERT SQL for a single journey definition. Used on the on-save path (both AUTO and
-   * ONCE modes). Must be called twice per journey: once with {@code direction="START"} and once
-   * with {@code direction="END"}.
+   * ONCE modes). {@code direction} must be {@code "START"} or {@code "END"} (from the saved journey).
    */
   public static String buildInsertSql(JourneyRow def, String direction) {
     List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
@@ -62,7 +63,7 @@ public final class ClickHouseJourneyComputeDao {
               %s
           ),
           positioned AS (
-            SELECT l.%s AS gid, l.Body AS EventName, l.Timestamp,
+            SELECT l.%s AS gid, l.Body, l.Timestamp,
               row_number() OVER (PARTITION BY l.%s ORDER BY l.Timestamp %s) AS rn
             FROM otel.otel_logs l
             INNER JOIN sessions s ON l.%s = s.gid
@@ -71,17 +72,17 @@ public final class ClickHouseJourneyComputeDao {
               AND l.Timestamp BETWEEN %s AND %s
           ),
           anchor_pos AS (
-            SELECT gid, minIf(rn, EventName = '%s') AS anchor_rn
+            SELECT gid, minIf(rn, Body = '%s') AS anchor_rn
             FROM positioned GROUP BY gid
           ),
           relative AS (
-            SELECT p.gid, p.EventName,
+            SELECT p.gid, p.Body,
               (p.rn - a.anchor_rn) * %d AS pos
             FROM positioned p JOIN anchor_pos a ON p.gid = a.gid
             WHERE abs(p.rn - a.anchor_rn) <= %d
           ),
           edges AS (
-            SELECT r1.gid, r1.pos AS pf, r1.EventName AS ef, r2.pos AS pt, r2.EventName AS et
+            SELECT r1.gid, r1.pos AS pf, r1.Body AS ef, r2.pos AS pt, r2.Body AS et
             FROM relative r1 JOIN relative r2 ON r1.gid = r2.gid AND r2.pos = r1.pos + 1
           )
         SELECT %d, '%s', now(), '%s', -1, '', 0, '%s', count(DISTINCT gid) FROM anchor_pos
@@ -99,8 +100,9 @@ public final class ClickHouseJourneyComputeDao {
   }
 
   /**
-   * Builds a batch INSERT SQL covering all AUTO journeys for a single project in one query.
-   * Used by the batch cron path. Must be called twice: once for "START" and once for "END".
+   * Builds a batch INSERT SQL covering journeys that share the same {@code direction} ("START" or
+   * "END"). Used by the batch cron path; {@link ClickHouseComputeService} may invoke this once or
+   * twice per project depending on how definitions are split.
    *
    * <p>Each journey gets its own CTE chain referencing the shared {@code raw} CTE.
    */
@@ -123,7 +125,9 @@ public final class ClickHouseJourneyComputeDao {
             SELECT LogAttributes['user.id'] AS UserId,
                    LogAttributes['session.id'] AS SessionId,
                    Timestamp,
-                   Body AS EventName
+                   Body,
+                   ResourceAttributes,
+                   LogAttributes
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
               AND LogAttributes['pulse.type'] = 'custom_event'
@@ -156,11 +160,11 @@ public final class ClickHouseJourneyComputeDao {
 
       sb.append("  ").append(sessions).append(" AS (\n");
       sb.append("    SELECT DISTINCT ").append(groupAlias).append(" AS gid\n");
-      sb.append("    FROM raw WHERE EventName = '").append(anchorEvent).append("' ").append(tighterFilter)
+      sb.append("    FROM raw WHERE Body = '").append(anchorEvent).append("' ").append(tighterFilter)
           .append(" ").append(filterClauses).append("\n  ),\n");
 
       sb.append("  ").append(positioned).append(" AS (\n");
-      sb.append("    SELECT r.").append(groupAlias).append(" AS gid, r.EventName, r.Timestamp,\n");
+      sb.append("    SELECT r.").append(groupAlias).append(" AS gid, r.Body, r.Timestamp,\n");
       sb.append("      row_number() OVER (PARTITION BY r.").append(groupAlias)
           .append(" ORDER BY r.Timestamp ").append(dirOrder).append(") AS rn\n");
       sb.append("    FROM raw r INNER JOIN ").append(sessions)
@@ -171,18 +175,18 @@ public final class ClickHouseJourneyComputeDao {
       sb.append("  ),\n");
 
       sb.append("  ").append(anchorPos).append(" AS (\n");
-      sb.append("    SELECT gid, minIf(rn, EventName = '").append(anchorEvent).append("') AS anchor_rn\n");
+      sb.append("    SELECT gid, minIf(rn, Body = '").append(anchorEvent).append("') AS anchor_rn\n");
       sb.append("    FROM ").append(positioned).append(" GROUP BY gid\n  ),\n");
 
       sb.append("  ").append(relative).append(" AS (\n");
-      sb.append("    SELECT p.gid, p.EventName, (p.rn - a.anchor_rn) * ").append(dirSign)
+      sb.append("    SELECT p.gid, p.Body, (p.rn - a.anchor_rn) * ").append(dirSign)
           .append(" AS pos\n");
       sb.append("    FROM ").append(positioned).append(" p JOIN ").append(anchorPos)
           .append(" a ON p.gid = a.gid WHERE abs(p.rn - a.anchor_rn) <= ").append(def.getDepth())
           .append("\n  ),\n");
 
       sb.append("  ").append(edges).append(" AS (\n");
-      sb.append("    SELECT r1.gid, r1.pos AS pf, r1.EventName AS ef, r2.pos AS pt, r2.EventName AS et\n");
+      sb.append("    SELECT r1.gid, r1.pos AS pf, r1.Body AS ef, r2.pos AS pt, r2.Body AS et\n");
       sb.append("    FROM ").append(relative).append(" r1 JOIN ").append(relative)
           .append(" r2 ON r1.gid = r2.gid AND r2.pos = r1.pos + 1\n  )");
       if (i < defs.size() - 1) {

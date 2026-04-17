@@ -40,7 +40,7 @@ public final class JourneyQueries {
           journey.depth, journey.mode, journey.filters_json, journey.start_time, journey.end_time,
           journey.journey_type, journey.expiry, journey.date_range, journey.created_at, journey.updated_at,
           journey.created_by, NULL AS latest_job_status
-      FROM journey WHERE journey.mode = 'AUTO'
+      FROM journey WHERE journey.journey_type = 'AUTO'
       """;
 
   public static final String SELECT_BY_PROJECT_AND_ID =

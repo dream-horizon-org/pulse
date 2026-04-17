@@ -8,8 +8,8 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
 /**
  * Shared SQL helper utilities for funnel and journey ClickHouse compute builders.
  *
- * <p>Source table is {@code otel.otel_logs}. Group key expressions use map access, not
- * materialized column names.
+ * <p>Source table is {@code otel.otel_logs}. Custom event names use the {@code Body} column.
+ * Group key expressions use map access, not materialized column names.
  */
 public final class ClickhouseAnalyticsQueryUtils {
 

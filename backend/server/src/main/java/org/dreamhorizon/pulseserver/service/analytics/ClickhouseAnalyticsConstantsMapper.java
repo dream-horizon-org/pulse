@@ -8,8 +8,9 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
 /**
  * Maps {@link FunnelAttributeFilter} field keys and operators to ClickHouse SQL fragments.
  *
- * <p>Source table is {@code otel.otel_logs} — no materialized columns are available for app/device
- * attributes. All lookups use {@code LogAttributes['key']} or {@code ResourceAttributes['key']}
+ * <p>Source table is {@code otel.otel_logs}. Custom event names use the {@code Body} column.
+ * No materialized columns are available for app/device attributes. All lookups use
+ * {@code LogAttributes['key']} or {@code ResourceAttributes['key']}
  * map access directly.
  */
 public final class ClickhouseAnalyticsConstantsMapper {

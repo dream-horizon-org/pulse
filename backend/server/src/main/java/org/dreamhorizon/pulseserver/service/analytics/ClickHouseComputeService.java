@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -44,16 +45,17 @@ public class ClickHouseComputeService {
 
   /**
    * Computes a single journey by ID. Used on the on-save path (AUTO and ONCE modes).
-   * Runs START then END sequentially.
+   * Writes one direction only, matching Spark: {@code journey.direction == "START"} → START semantics;
+   * otherwise END semantics.
    */
   public Single<Boolean> computeJourney(Long journeyId) {
     return journeyDao.findById(journeyId)
         .switchIfEmpty(Single.error(
             new IllegalArgumentException("Journey not found: " + journeyId)))
         .flatMap(def ->
-            executeInsert(def.getProjectId(), ClickHouseJourneyComputeDao.buildInsertSql(def, "START"))
-                .flatMap(__ -> executeInsert(def.getProjectId(),
-                    ClickHouseJourneyComputeDao.buildInsertSql(def, "END"))));
+            executeInsert(
+                def.getProjectId(),
+                ClickHouseJourneyComputeDao.buildInsertSql(def, journeyDirectionForSql(def))));
   }
 
   // ── Batch path ────────────────────────────────────────────────────────────────
@@ -66,12 +68,42 @@ public class ClickHouseComputeService {
   }
 
   /**
-   * Computes all provided journeys for a single project in one query (START then END).
+   * Computes all provided journeys for a single project. Journeys with {@code direction == "START"}
+   * are batched into one INSERT; remaining journeys (END) into another — same semantics as Spark.
    */
   public Single<Boolean> computeJourneyBatch(String projectId, List<JourneyRow> defs) {
-    return executeInsert(projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(defs, "START"))
-        .flatMap(__ -> executeInsert(projectId,
-            ClickHouseJourneyComputeDao.buildBatchInsertSql(defs, "END")));
+    if (defs == null || defs.isEmpty()) {
+      return Single.just(true);
+    }
+    List<JourneyRow> startDefs =
+        defs.stream().filter(d -> "START".equals(d.getDirection())).toList();
+    List<JourneyRow> endDefs =
+        defs.stream().filter(d -> !"START".equals(d.getDirection())).toList();
+
+    Single<Boolean> chain = Single.just(true);
+    if (!startDefs.isEmpty()) {
+      chain =
+          chain.flatMap(
+              __ ->
+                  executeInsert(
+                      projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(startDefs, "START")));
+    }
+    if (!endDefs.isEmpty()) {
+      chain =
+          chain.flatMap(
+              __ ->
+                  executeInsert(
+                      projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(endDefs, "END")));
+    }
+    return chain;
+  }
+
+  /**
+   * Matches Spark journey compute: only the literal {@code "START"} uses forward anchor semantics;
+   * any other stored value uses END semantics.
+   */
+  private static String journeyDirectionForSql(JourneyRow row) {
+    return "START".equals(row.getDirection()) ? "START" : "END";
   }
 
   // ── Core R2DBC helper ─────────────────────────────────────────────────────────
@@ -86,23 +118,33 @@ public class ClickHouseComputeService {
     }
     return clickhouseProjectCredentialsDao
         .getCredentialsByProjectId(projectId)
-        .switchIfEmpty(Single.error(
-            new IllegalStateException("No ClickHouse credentials found for project: " + projectId)))
-        .flatMap(creds -> {
-          var pool = poolManager.getPoolForProject(
-              projectId,
-              creds.getClickhouseUsername(),
-              creds.getClickhousePasswordEncrypted());
+        .switchIfEmpty(
+            Maybe.error(
+                new IllegalStateException(
+                    "No ClickHouse credentials configured for project: " + projectId)))
+        .toSingle()
+        .flatMap(
+            creds -> {
+              var pool =
+                  poolManager.getPoolForProject(
+                      projectId,
+                      creds.getClickhouseUsername(),
+                      creds.getClickhousePasswordEncrypted());
 
-          return Single.fromPublisher(pool.create())
-              .flatMap(conn ->
-                  Flowable.fromPublisher(conn.createStatement(sql).execute())
-                      .flatMap(result -> Flowable.fromPublisher(result.getRowsUpdated()))
-                      .reduce(0L, Long::sum)
-                      .map(rows -> true)
-                      .doFinally(() -> Completable.fromPublisher(conn.close()).subscribe()))
-              .doOnError(err ->
-                  log.error("ClickHouse INSERT failed for project {}: {}", projectId, err.getMessage()));
-        });
+              return Single.fromPublisher(pool.create())
+                  .flatMap(
+                      conn ->
+                          Flowable.fromPublisher(conn.createStatement(sql).execute())
+                              .flatMap(result -> Flowable.fromPublisher(result.getRowsUpdated()))
+                              .reduce(0L, Long::sum)
+                              .map(rows -> true)
+                              .doFinally(() -> Completable.fromPublisher(conn.close()).subscribe()))
+                  .doOnError(
+                      err ->
+                          log.error(
+                              "ClickHouse INSERT failed for project {}: {}",
+                              projectId,
+                              err.getMessage()));
+            });
   }
 }

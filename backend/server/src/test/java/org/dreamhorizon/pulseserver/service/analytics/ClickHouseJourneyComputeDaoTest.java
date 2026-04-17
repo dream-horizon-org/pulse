@@ -199,7 +199,18 @@ class ClickHouseJourneyComputeDaoTest {
       assertThat(sql)
           .contains("raw AS (")
           .contains("FROM otel.otel_logs")
-          .contains("LogAttributes['pulse.type'] = 'custom_event'");
+          .contains("LogAttributes['pulse.type'] = 'custom_event'")
+          .contains("ResourceAttributes,")
+          .contains("\n                   LogAttributes\n");
+    }
+
+    @Test
+    void shouldExposeAttributeMapsInRawCteSoGlobalFiltersResolve() {
+      String filtersJson =
+          "[{\"field\":\"APP_BUILD_NAME\",\"operator\":\"EQ\",\"value\":[\"9.7.0\"]}]";
+      String sql = ClickHouseJourneyComputeDao.buildBatchInsertSql(
+          List.of(baseRow().filtersJson(filtersJson).build()), "START");
+      assertThat(sql).contains("AND ResourceAttributes['app.build_name'] = '9.7.0'");
     }
 
     @Test
@@ -250,7 +261,7 @@ class ClickHouseJourneyComputeDaoTest {
     void shouldReferenceRawCteNotDirectlyOtelLogsForJourneyCtes() {
       String sql = ClickHouseJourneyComputeDao.buildBatchInsertSql(List.of(baseRow().build()), "START");
       // sessions CTE should SELECT FROM raw, not FROM otel.otel_logs
-      assertThat(sql).contains("FROM raw WHERE EventName");
+      assertThat(sql).contains("FROM raw WHERE Body");
     }
 
     @Test
