@@ -183,7 +183,7 @@ class DefaultSdkConfigTemplateTest {
           .findFirst()
           .orElse(null);
       assertThat(jsCrash).isNotNull();
-      assertThat(jsCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
+      assertThat(jsCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
 
       FeatureConfig javaAnr = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.java_anr)

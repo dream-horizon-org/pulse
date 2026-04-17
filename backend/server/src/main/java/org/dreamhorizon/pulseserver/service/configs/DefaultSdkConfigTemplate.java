@@ -73,7 +73,7 @@ public class DefaultSdkConfigTemplate {
         List<FeatureConfig> features = new ArrayList<>();
         features.add(createFeature(Features.interaction, 1.0, allSdks));
         features.add(createFeature(Features.java_crash, 1.0, androidSdk));
-        features.add(createFeature(Features.js_crash, 1.0, androidSdk));
+        features.add(createFeature(Features.js_crash, 1.0, rnSdk));
         features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
