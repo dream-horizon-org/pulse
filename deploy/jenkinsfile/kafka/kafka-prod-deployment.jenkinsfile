@@ -172,12 +172,12 @@ pipeline {
                 }
             }
         }
-        failure {
-            script {
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
-                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
-                    message: "<!channel> Kafka deployment FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
-            }
-        }
+//         failure {
+//             script {
+//                 slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+//                     color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+//                     message: "<!channel> Kafka deployment FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+//             }
+//         }
     }
 }

@@ -58,7 +58,6 @@ data "aws_subnet" "broker" {
 # Ansible configures each broker after provisioning.
 # -------------------------------------------------------------------
 resource "aws_launch_template" "kafka_broker" {
-  count         = var.num_brokers
   name          = "pulse-kafka-lt"
   image_id      = var.ami_id
   instance_type = var.instance_type
