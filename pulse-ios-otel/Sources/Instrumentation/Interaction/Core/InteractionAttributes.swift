@@ -16,6 +16,8 @@ internal enum InteractionAttributes {
     static let userCategory = "pulse.interaction.user_category"
     static let timeToCompleteInNano = "pulse.interaction.complete_time"
     static let isError = "pulse.interaction.is_error"
+    static let errorType = "pulse.interaction.error.type"
+    static let errorMessage = "pulse.interaction.error.message"
     static let localEvents = "internal_events"
     static let markerEvents = "internal_marker"
     static let logTag = "InteractionManager"

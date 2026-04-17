@@ -34,14 +34,22 @@ export type FeatureName =
   | "js_crash"
   | "java_anr"
   | "network_change"
-  | "network_instrumentation"
-  | "screen_session"
   | "custom_events"
   | "rn_screen_load"
   | "rn_screen_interactive"
+  | "rn_screen_session"
+  | "screen_session"
   | "session_replay"
   | "click"
-  | "heatmap";
+  | "heatmap"
+  | "ios_network"
+  | "rn_network"
+  | "network_instrumentation"
+  | "ios_crash"
+  | "ios_lifecycle"
+  | "android_activity"
+  | "android_fragment"
+  | "android_slowrendering";
 
 export type TextAndInputPrivacy =
   | "MASK_ALL"
@@ -72,6 +80,7 @@ export interface RageConfig {
 /** Click / tap instrumentation — matches backend {@code ClickFeatureConfig}. */
 export interface ClickFeatureConfig {
   featureName?: "click";
+  captureContext?: boolean;
   rage?: RageConfig;
 }
 
