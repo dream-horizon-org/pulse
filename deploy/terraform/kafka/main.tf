@@ -58,10 +58,20 @@ data "aws_subnet" "broker" {
 # Ansible configures each broker after provisioning.
 # -------------------------------------------------------------------
 resource "aws_launch_template" "kafka_broker" {
-  name          = "pulse-kafka-broker"
+  name          = "pulse-kafka-lt"
   image_id      = var.ami_id
   instance_type = var.instance_type
   key_name      = var.key_name
+
+  tags = {
+        Name             = "pulse-kafka-lt"
+        org_name         = "horizon"
+        environment_name = "production"
+        component_name   = "pulse-kafka"
+        component_type   = "kafka"
+        service_name     = "pulse"
+        resource_type    = "lt"
+  }
 
   iam_instance_profile {
     name = var.iam_instance_profile
@@ -80,15 +90,30 @@ resource "aws_launch_template" "kafka_broker" {
   tag_specifications {
     resource_type = "instance"
     tags = {
+      Name             = "${local.broker_names[count.index]}-instance"
       Role             = "kafka-broker"
       org_name         = "horizon"
       environment_name = "production"
       component_name   = "pulse-kafka"
-      component_type   = "data"
+      component_type   = "kafka"
       service_name     = "pulse"
       resource_type    = "ec2"
     }
   }
+
+   tag_specifications {
+      resource_type = "volume"
+      tags = {
+        Name             = "${local.broker_names[count.index]}-volume"
+        Role             = "kafka-broker"
+        org_name         = "horizon"
+        environment_name = "production"
+        component_name   = "pulse-kafka"
+        component_type   = "kafka"
+        service_name     = "pulse"
+        resource_type    = "ec2"
+      }
+    }
 }
 
 # -------------------------------------------------------------------
@@ -109,11 +134,14 @@ resource "aws_ebs_volume" "broker_data" {
   }
 
   tags = {
-    Name             = "${local.broker_names[count.index]}-data"
+    Name             = "${local.broker_names[count.index]}"
+    Role             = "kafka-broker"
     org_name         = "horizon"
     environment_name = "production"
     component_name   = "pulse-kafka"
     resource_type    = "ebs"
+    service_name     = "pulse"
+    component_type   = "application"
   }
 }
 

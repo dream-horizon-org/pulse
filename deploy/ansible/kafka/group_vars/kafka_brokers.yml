@@ -9,7 +9,7 @@ kafka_log_dir: "/var/lib/kafka/data"
 
 replication_factor: 2
 min_insync_replicas: 1
-retention_ms: 3600000       # 1 hour
+retention_ms: 21600000       # 1 hour
 compression_type: "gzip"
 
 # Topics created on first boot by node-01 (idempotent via --if-not-exists).
