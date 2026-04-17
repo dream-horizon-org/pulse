@@ -478,6 +478,21 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/interactions`,
     method: API_METHODS.GET,
   },
+  GET_SUGGESTED_INTERACTIONS: {
+    key: "GET_SUGGESTED_INTERACTIONS",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.GET,
+  },
+  DISMISS_SUGGESTED_INTERACTION: {
+    key: "DISMISS_SUGGESTED_INTERACTION",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.PUT,
+  },
+  ACTIVATE_SUGGESTED_INTERACTION: {
+    key: "ACTIVATE_SUGGESTED_INTERACTION",
+    apiPath: `/v1/interactions/suggestions`,
+    method: API_METHODS.PUT,
+  },
   GET_SESSION_REPLAYS: {
     key: "GET_SESSION_REPLAYS",
     apiPath: `/v1/session-replays`,
@@ -486,6 +501,16 @@ export const API_ROUTES: StreamverseRoutes = {
   DATA_QUERY: {
     key: "DATA_QUERY",
     apiPath: `/v1/interactions/performance-metric/distribution`,
+    method: API_METHODS.POST,
+  },
+  GET_HEATMAP_DATA: {
+    key: "GET_HEATMAP_DATA",
+    apiPath: `/v1/heatmap/data`,
+    method: API_METHODS.GET,
+  },
+  POST_HEATMAP_DATA: {
+    key: "POST_HEATMAP_DATA",
+    apiPath: `/api/v1/projects/:projectId/heatmap/data`,
     method: API_METHODS.POST,
   },
   GET_JOB_FILTERS: {

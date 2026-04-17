@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest;
 import io.opentelemetry.proto.common.v1.AnyValue;
@@ -33,6 +34,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
 import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -49,11 +51,14 @@ class ErrorGroupingServiceTest {
   @Mock
   private Symbolicator symbolicator;
 
+  private final ObjectMapper objectMapper = ObjectMapperFactory.get();
+
   private ErrorGroupingService errorGroupingService;
 
   @BeforeEach
   void setUp() {
-    errorGroupingService = new ErrorGroupingService(clickhouseQueryService, symbolicator);
+    errorGroupingService =
+        new ErrorGroupingService(clickhouseQueryService, symbolicator, objectMapper);
     lenient().when(symbolicator.symbolicateIosNative(anyList(), any(EventMeta.class), any(), anyBoolean()))
         .thenAnswer(invocation -> {
           @SuppressWarnings("unchecked")

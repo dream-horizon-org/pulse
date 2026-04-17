@@ -212,6 +212,7 @@ export function RootCause({
           report={reportPayload.report ?? {}}
           cachedAt={cachedAtFormatted}
           onRegenerate={handleRegenerate}
+          projectId={trimmedProjectId || null}
         />
         {errorAttributionBlock}
       </Stack>

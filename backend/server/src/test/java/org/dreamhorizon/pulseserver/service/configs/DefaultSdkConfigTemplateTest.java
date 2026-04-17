@@ -5,9 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
+import org.dreamhorizon.pulseserver.service.configs.models.ClickFeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.RageConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.junit.jupiter.api.Nested;
@@ -37,17 +38,14 @@ class DefaultSdkConfigTemplateTest {
       assertThat(config.getSampling().getDefaultSampling()).isNotNull();
       assertThat(config.getSampling().getDefaultSampling().getSessionSampleRate()).isEqualTo(1.0);
       assertThat(config.getSampling().getRules()).isEmpty();
-      assertThat(config.getSampling().getCriticalEventPolicies()).isNotNull();
       assertThat(config.getSampling().getCriticalSessionPolicies()).isNotNull();
+      assertThat(config.getSampling().getSignalsToSample()).isEmpty();
     }
 
     @Test
     void shouldIncludeSignalsConfig() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
       assertThat(config.getSignals()).isNotNull();
-      assertThat(config.getSignals().getFilters()).isNotNull();
-      assertThat(config.getSignals().getFilters().getMode()).isEqualTo(FilterMode.blacklist);
-      assertThat(config.getSignals().getFilters().getValues()).isEmpty();
       assertThat(config.getSignals().getScheduleDurationMs()).isEqualTo(5000);
       assertThat(config.getSignals().getLogsCollectorUrl()).isNotBlank();
       assertThat(config.getSignals().getMetricCollectorUrl()).isNotBlank();
@@ -55,6 +53,7 @@ class DefaultSdkConfigTemplateTest {
       assertThat(config.getSignals().getCustomEventCollectorUrl()).isNotBlank();
       assertThat(config.getSignals().getAttributesToDrop()).isEmpty();
       assertThat(config.getSignals().getAttributesToAdd()).isEmpty();
+      assertThat(config.getSignals().getMetricsToAdd()).isEmpty();
     }
 
     @Test
@@ -83,7 +82,9 @@ class DefaultSdkConfigTemplateTest {
               Features.custom_events,
               Features.rn_screen_load,
               Features.rn_screen_interactive,
-              Features.session_replay
+              Features.session_replay,
+              Features.click,
+              Features.heatmap
           );
     }
 
@@ -115,6 +116,24 @@ class DefaultSdkConfigTemplateTest {
       assertThat(replayConfig.getFlushAt()).isEqualTo(10);
       assertThat(replayConfig.getMaxBatchSize()).isEqualTo(50);
       assertThat(replayConfig.getReplayApiBaseUrl()).isNotBlank();
+    }
+
+    @Test
+    void shouldIncludeClickFeatureWithExpectedDefaults() {
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      FeatureConfig clickFeature = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.click)
+          .findFirst()
+          .orElse(null);
+      assertThat(clickFeature).isNotNull();
+      assertThat(clickFeature.getSessionSampleRate()).isEqualTo(1.0);
+      assertThat(clickFeature.getConfig()).isInstanceOf(ClickFeatureConfig.class);
+      ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+      assertThat(clickConfig.getRage()).isNotNull();
+      RageConfig rage = clickConfig.getRage();
+      assertThat(rage.getTimeWindowMs()).isEqualTo(1000L);
+      assertThat(rage.getThreshold()).isEqualTo(3);
+      assertThat(rage.getRadius()).isEqualTo(50);
     }
 
     @Test

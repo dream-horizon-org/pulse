@@ -1,15 +1,18 @@
 package com.pulse.sampling.core
 
+import com.pulse.sampling.models.PulseProp
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.utils.matchesFromRegexCache
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 
 public fun interface PulseSignalMatcher {
     public fun matches(
         scope: PulseSignalScope,
         name: String,
-        props: Map<String, Any?>,
+        props: Attributes,
         signalMatchConfig: PulseSignalMatchCondition,
         sdkName: PulseSdkName,
     ): Boolean
@@ -28,21 +31,41 @@ internal fun PulseSignalsAttrMatcher() =
             return@PulseSignalMatcher false
         }
 
-        val configPropsMap = signalMatchConfig.props.associate { it.name to it.value }
-        val signalPropsFiltered = signalProps.filter { it.key in configPropsMap.keys }
+        var isMatched = true
 
-        if (signalMatchConfig.props.size != signalPropsFiltered.size) {
-            return@PulseSignalMatcher false
-        }
+        val matchedConfigProps = mutableSetOf<PulseProp>()
+        signalProps.forEach { signalPropKey, signalPropValue ->
+            if (!isMatched) return@forEach
 
-        signalPropsFiltered
-            .all { signalProp ->
-                val configProp = configPropsMap[signalProp.key]
-                val signalValue = signalProp.value
-                if (configProp == null || signalValue == null) {
-                    signalValue == configProp
+            val configProp =
+                signalMatchConfig
+                    .props
+                    .firstOrNull { configProp ->
+                        configProp.matches(signalPropKey, signalPropValue)
+                    } ?: return@forEach
+
+            matchedConfigProps += configProp
+
+            val configPropValue = configProp.value
+
+            isMatched =
+                if (configPropValue == null || signalPropValue == null) {
+                    signalPropValue == configPropValue
                 } else {
-                    signalValue.toString().matchesFromRegexCache(configProp)
+                    signalPropValue.toString().matchesFromRegexCache(configPropValue)
                 }
-            }
+        }
+        isMatched && matchedConfigProps.size == signalMatchConfig.props.size
     }
+
+internal fun PulseProp.matches(
+    signalKey: AttributeKey<*>,
+    signalValue: Any,
+): Boolean =
+    signalKey.key.matchesFromRegexCache(this.name) &&
+        (
+            this.value == null ||
+                signalValue
+                    .toString()
+                    .matchesFromRegexCache(this.value ?: error("value can't be null"))
+        )

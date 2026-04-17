@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.jboss.resteasy.plugins.providers.multipart.InputPart;
@@ -50,9 +52,11 @@ class MappingFileUploadTest {
 
   private MappingFileUpload mappingFileUpload;
 
+  private final ObjectMapper objectMapper = ObjectMapperFactory.get();
+
   @BeforeEach
   void setUp() {
-    mappingFileUpload = new MappingFileUpload(symbolFileService);
+    mappingFileUpload = new MappingFileUpload(objectMapper, symbolFileService);
     ProjectContext.setProjectId("test-project");
   }
 

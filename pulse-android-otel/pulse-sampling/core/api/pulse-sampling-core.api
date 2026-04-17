@@ -7,7 +7,7 @@ public final class com/pulse/sampling/core/PulseSessionParser$Companion {
 }
 
 public abstract interface class com/pulse/sampling/core/PulseSignalMatcher {
-	public abstract fun matches (Lcom/pulse/sampling/models/PulseSignalScope;Ljava/lang/String;Ljava/util/Map;Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;Lcom/pulse/sampling/models/PulseSdkName;)Z
+	public abstract fun matches (Lcom/pulse/sampling/models/PulseSignalScope;Ljava/lang/String;Lio/opentelemetry/api/common/Attributes;Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;Lcom/pulse/sampling/models/PulseSdkName;)Z
 }
 
 public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcessors {
@@ -43,7 +43,7 @@ public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcesso
 }
 
 public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcessorsKt {
-	public static final fun PulseSamplingSignalProcessors (Landroid/content/Context;Lcom/pulse/sampling/models/PulseSdkConfig;Lcom/pulse/sampling/models/PulseSdkName;)Lcom/pulse/sampling/core/exporters/PulseSamplingSignalProcessors;
+	public static final fun PulseSamplingSignalProcessors (Landroid/content/Context;Lcom/pulse/sampling/models/PulseSdkConfig;Lcom/pulse/sampling/models/PulseSdkName;Lkotlin/Lazy;)Lcom/pulse/sampling/core/exporters/PulseSamplingSignalProcessors;
 }
 
 public final class com/pulse/sampling/core/exporters/PulseSignalSelectExporter {

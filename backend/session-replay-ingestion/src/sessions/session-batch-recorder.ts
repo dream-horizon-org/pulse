@@ -99,14 +99,29 @@ export class SessionBatchRecorder {
     }
 
     const allMetadata: SessionBlockMetadata[] = [];
-    const writer = this.storage.newBatch();
 
+    // Group non-empty recorders by projectId so each project gets its own S3 file.
+    const projectRecorders = new Map<string, SnappySessionRecorder[]>();
     for (const sessions of this.partitionSessions.values()) {
       for (const recorder of sessions.values()) {
-        if (recorder.isEmpty) {
-          continue;
-        }
+        if (recorder.isEmpty) continue;
+        const list = projectRecorders.get(recorder.projectId) ?? [];
+        list.push(recorder);
+        projectRecorders.set(recorder.projectId, list);
+      }
+    }
 
+    // One writer per project → path: {prefix}/{projectId}/{date}/{timestamp}-{suffix}
+    const writers = new Map(
+      [...projectRecorders.keys()].map((projectId) => [
+        projectId,
+        this.storage.newBatch(projectId),
+      ])
+    );
+
+    for (const [projectId, recorders] of projectRecorders) {
+      const writer = writers.get(projectId)!;
+      for (const recorder of recorders) {
         const endResult = await recorder.end();
         const writeResult = await writer.writeSession({
           buffer: endResult.buffer,
@@ -127,7 +142,7 @@ export class SessionBatchRecorder {
       }
     }
 
-    await writer.finish();
+    await Promise.all([...writers.values()].map((w) => w.finish()));
     console.log(
       `[BatchRecorder] S3 upload complete: ${allMetadata.length} blocks`,
     );

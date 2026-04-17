@@ -32,20 +32,14 @@ public class DefaultSdkConfigTemplate {
                 .sessionSampleRate(1.0)
                 .build())
             .rules(new ArrayList<>())
-            .criticalEventPolicies(CriticalEventPolicies.builder()
-                .alwaysSend(new ArrayList<>())
-                .build())
             .criticalSessionPolicies(CriticalSessionPolicies.builder()
                 .alwaysSend(new ArrayList<>())
                 .build())
+            .signalsToSample(new ArrayList<>())
             .build();
 
         // Signals configuration
         SignalsConfig signals = SignalsConfig.builder()
-            .filters(FilterConfig.builder()
-                .mode(FilterMode.blacklist)
-                .values(new ArrayList<>())
-                .build())
             .scheduleDurationMs(5000)
             .logsCollectorUrl(System.getenv().getOrDefault("LOGS_COLLECTOR_URL", "http://localhost:4318/v1/logs"))
             .metricCollectorUrl(System.getenv().getOrDefault("METRIC_COLLECTOR_URL", "http://localhost:4318/v1/metrics"))
@@ -53,6 +47,7 @@ public class DefaultSdkConfigTemplate {
             .customEventCollectorUrl(System.getenv().getOrDefault("CUSTOM_EVENT_COLLECTOR_URL", "http://localhost:4318/v1/events"))
             .attributesToDrop(new ArrayList<>())
             .attributesToAdd(new ArrayList<>())
+            .metricsToAdd(new ArrayList<>())
             .build();
 
         // Interaction configuration
@@ -75,6 +70,8 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.rn_screen_load, 1.0, allSdks));
         features.add(createFeature(Features.rn_screen_interactive, 1.0, allSdks));
         features.add(createSessionReplayFeature(1.0, allSdks));
+        features.add(createClickFeature(1.0, allSdks));
+        features.add(createFeature(Features.heatmap, 1.0, allSdks));
 
         // Create ConfigData
         return ConfigData.builder()
@@ -111,6 +108,23 @@ public class DefaultSdkConfigTemplate {
 
         return FeatureConfig.builder()
             .featureName(Features.session_replay)
+            .sessionSampleRate(sampleRate)
+            .sdks(sdks)
+            .config((FeatureConfigProperties) config)
+            .build();
+    }
+
+    private static FeatureConfig createClickFeature(Double sampleRate, List<Sdk> sdks) {
+        ClickFeatureConfig config = ClickFeatureConfig.builder()
+            .rage(RageConfig.builder()
+                .timeWindowMs(1000L)
+                .threshold(3)
+                .radius(50)
+                .build())
+            .build();
+
+        return FeatureConfig.builder()
+            .featureName(Features.click)
             .sessionSampleRate(sampleRate)
             .sdks(sdks)
             .config((FeatureConfigProperties) config)
