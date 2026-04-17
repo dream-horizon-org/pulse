@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from pulse_ai.agent import root_agent
 from pulse_ai.agents.rca import rca_agent
 from pulse_ai.constants import APP_NAME, DEFAULT_CORS_ORIGINS
+from pulse_ai.server.compacting_session_service import CompactingSessionService
 from pulse_ai.server.middleware import AuthMiddleware
 from pulse_ai.server.session_scope_store import (
     create_session_scope_store,
@@ -62,19 +63,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# raw_session_service: used by route handlers that return full history to the
+# frontend (GET /sessions/{user_id}/{session_id}).  Must NOT be compacted so
+# users always see their complete chat history.
 session_service = _create_session_service()
 session_scope_store = create_session_scope_store(os.getenv("SESSION_DB_URL"))
+
+# compacting_session_service: used exclusively by the Runner so the LLM only
+# sees a compacted, token-budget-capped view of the session history.
+_compacting_session_service = CompactingSessionService(inner=session_service)
 
 runner = Runner(
     agent=root_agent,
     app_name=APP_NAME,
-    session_service=session_service,
+    session_service=_compacting_session_service,
 )
 
 rca_runner = Runner(
     agent=rca_agent,
     app_name=APP_NAME,
-    session_service=session_service,
+    session_service=session_service,   # RCA is one-shot — no compaction needed
     auto_create_session=True,
 )
 
