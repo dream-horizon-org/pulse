@@ -21,7 +21,7 @@ internal class UIWindowSwizzler {
     private static var emitter: ClickEventEmitter?
     private static var appLifecycleObserver: NSObjectProtocol?
 
-    // Label extraction constants 
+    // Label extraction constants
     private static let maxLabelSegments = 5
     private static let maxLabelLength = 200
     private static let labelDelimiter = " | "
@@ -30,8 +30,6 @@ internal class UIWindowSwizzler {
     // Scroll vs tap detection: if a touch moves more than this many points from
     // its start position, it is treated as a scroll/pan and NOT reported as a tap.
     private static let tapSlopDistance: CGFloat = 10
-    // Touch start positions keyed by UITouch identity — always accessed on main thread.
-    private static var touchStartLocations: [ObjectIdentifier: CGPoint] = [:]
 
     /// One line per view while walking superviews: `isClickTarget` result (grep Xcode console for `Pulse/UIKitTap`).
     private static func logIsClickTarget(depth: Int, view: UIView, result: Bool) {
@@ -87,30 +85,11 @@ internal class UIWindowSwizzler {
                 return
             }
 
-            for touch in touches where touch.phase == .began {
-                touchStartLocations[ObjectIdentifier(touch)] = touch.location(in: window)
-            }
-            for touch in touches where touch.phase == .cancelled {
-                touchStartLocations.removeValue(forKey: ObjectIdentifier(touch))
-            }
-
             let clickTarget: (view: UIView?, location: CGPoint)? = {
                 guard let touch = touches.first(where: { $0.phase == .ended }) else { return nil }
+                guard let hitView = touch.view else { return nil }
                 let endLocation = touch.location(in: window)
-                let key = ObjectIdentifier(touch)
-                defer { touchStartLocations.removeValue(forKey: key) }
-
-                if let startLocation = touchStartLocations[key] {
-                    let dx = endLocation.x - startLocation.x
-                    let dy = endLocation.y - startLocation.y
-                    let distSq = dx * dx + dy * dy
-                    let slopSq = tapSlopDistance * tapSlopDistance
-                    guard distSq <= slopSq else {
-                        return nil
-                    }
-                }
-
-                let target = findClickTarget(in: window, at: endLocation)
+                let target = findClickTarget(in: window, at: endLocation, for: hitView)
                 return (target, endLocation)
             }()
 
@@ -169,13 +148,11 @@ internal class UIWindowSwizzler {
 
     // MARK: - Hit Testing
 
-    private static func findClickTarget(in window: UIWindow, at point: CGPoint) -> UIView? {
-        guard let hitView = window.hitTest(point, with: nil) else { return nil }
+    private static func findClickTarget(in window: UIWindow, at point: CGPoint, for hitView: UIView) -> UIView? {
         var candidate: UIView? = hitView
         var depth = 0
         while let view = candidate {
             let ok = isClickTarget(view)
-            logIsClickTarget(depth: depth, view: view, result: ok)
             if ok { return view }
             candidate = view.superview
             depth += 1
@@ -193,9 +170,12 @@ internal class UIWindowSwizzler {
         if traits.contains(.button) || traits.contains(.link) {
             return true
         }
+        // NOTE: Hack to identify clickable view specific in react native app
+        if Pulse.shared.sdkName == .pulse_ios_rn && view.isAccessibilityElement {
+            return true
+        }
         return false
     }
-
     /// Gestures that indicate intentional on-view actions. Excludes `UIPanGestureRecognizer`
     /// so scroll views, maps, and drag surfaces are not logged on every small touch movement.
     private static func hasDiscreteTappableGestureRecognizer(_ view: UIView) -> Bool {
@@ -282,7 +262,6 @@ internal class UIWindowSwizzler {
         buffer = nil
         emitter = nil
         logger = nil
-        touchStartLocations.removeAll()
 
         if let observer = appLifecycleObserver {
             NotificationCenter.default.removeObserver(observer)
