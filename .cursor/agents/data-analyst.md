@@ -32,6 +32,10 @@ Key columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc` (exclusiv
 ### `project_monthly_usage` + materialized views
 Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from logs, traces, metrics, and `stack_trace_events`.
 
+### Heatmap tables (`backend/ingestion/clickhouse-otel-schema.sql`)
+
+- **`interaction_heatmaps_daily`** — SummingMergeTree aggregates (`WeightNormal`, `WeightRage`, `WeightDead`, `XBin`, `YBin`, `Breakpoint`, …). Filled by **`interaction_heatmaps_daily_mv`** from **`otel_logs`** where **`PulseType = 'app.click'`** (tap/widget logs with normalized coordinates on `otel_logs`).
+
 ### Materialized Columns (all tables)
 
 These columns are extracted from Map attributes at insert time. **Always use these instead of accessing ResourceAttributes/SpanAttributes directly** — they are faster and indexed.

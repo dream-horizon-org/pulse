@@ -129,9 +129,32 @@ export const FEATURE_DISPLAY_INFO: Record<
       "Record and replay user sessions with configurable PII masking",
     icon: "replay",
   },
+  click: {
+    label: "Click & tap",
+    description:
+      "Tap and rage-click detection for interaction analytics (native SDKs)",
+    icon: "click",
+  },
+  heatmap: {
+    label: "Screen heatmaps",
+    description:
+      "Show aggregate tap heatmaps on the Screen detail page in Pulse (dashboard)",
+    icon: "heatmap",
+  },
 };
 
 export const SESSION_REPLAY_FEATURE_NAME = "session_replay" as const;
+
+export const CLICK_FEATURE_NAME = "click" as const;
+
+export const HEATMAP_FEATURE_NAME = "heatmap" as const;
+
+/** Server defaults from {@code ConfigController.applyClickDefaults} — form baseline when config is empty. */
+export const DEFAULT_RAGE_CONFIG = {
+  timeWindowMs: 2000,
+  threshold: 3,
+  radius: 50,
+} as const;
 
 // ============================================================================
 // FILTER MODE OPTIONS

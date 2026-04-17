@@ -151,7 +151,7 @@ export const SessionCard = ({ sessionId, onNavigate }: SessionCardProps) => {
       <Card.Section withBorder inheritPadding py="6px" mt="xs">
         <Group justify="center" gap="4px">
           <Text size="10px" fw={500} c="blue">
-            View Replay
+            Session Replay
           </Text>
           <IconExternalLink size={10} />
         </Group>

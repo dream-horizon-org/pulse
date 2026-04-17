@@ -86,7 +86,8 @@ class DefaultSdkConfigTemplateTest {
               Features.rn_screen_load,
               Features.rn_screen_interactive,
               Features.session_replay,
-              Features.click
+              Features.click,
+              Features.heatmap
           );
     }
 
