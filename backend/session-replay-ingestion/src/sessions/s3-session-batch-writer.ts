@@ -24,6 +24,7 @@ class S3SessionBatchFileWriter implements SessionBatchFileWriter {
         private readonly s3: S3Client,
         private readonly bucket: string,
         private readonly prefix: string,
+        private readonly projectId: string,
         private readonly timeout: number
     ) {
         this.stream = new PassThrough()
@@ -148,7 +149,7 @@ class S3SessionBatchFileWriter implements SessionBatchFileWriter {
         const datePrefix = now.toISOString().slice(0, 10) // yyyy-MM-dd
         const timestamp = now.getTime()
         const suffix = randomBytes(8).toString('hex')
-        return `${this.prefix}/${datePrefix}/${timestamp}-${suffix}`
+        return `${this.prefix}/${this.projectId}/${datePrefix}/${timestamp}-${suffix}`
     }
 }
 
@@ -165,8 +166,8 @@ export class S3SessionBatchFileStorage implements SessionBatchFileStorage {
         console.log(`[S3Storage] Created storage: bucket=${bucket}, prefix=${prefix}`)
     }
 
-    public newBatch(): SessionBatchFileWriter {
-        return new S3SessionBatchFileWriter(this.s3, this.bucket, this.prefix, this.timeout)
+    public newBatch(projectId: string): SessionBatchFileWriter {
+        return new S3SessionBatchFileWriter(this.s3, this.bucket, this.prefix, projectId, this.timeout)
     }
 
     public async checkHealth(): Promise<boolean> {
