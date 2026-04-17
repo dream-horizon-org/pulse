@@ -224,7 +224,7 @@ AS SELECT
 FROM otel.stack_trace_events_local
 GROUP BY project_id, month, source;
 
-CREATE TABLE IF NOT EXISTS otel.root_cause_cache ON CLUSTER `pulse-clickhouse`
+CREATE TABLE IF NOT EXISTS otel.root_cause_cache ON CLUSTER 'pulse-clickhouse'
 (
     `ProjectId`       LowCardinality(String) CODEC(ZSTD(1)),
     `interaction_name` LowCardinality(String) CODEC(ZSTD(1)),
