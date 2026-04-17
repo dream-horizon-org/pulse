@@ -8,7 +8,50 @@ PODS:
   - hermes-engine (0.81.1):
     - hermes-engine/Pre-built (= 0.81.1)
   - hermes-engine/Pre-built (0.81.1)
-  - PulseKit (0.0.1-beta.1)
+  - KSCrash (2.5.1):
+    - KSCrash/Installations (= 2.5.1)
+  - KSCrash/Core (2.5.1)
+  - KSCrash/DemangleFilter (2.5.1):
+    - KSCrash/Recording
+  - KSCrash/Filters (2.5.1):
+    - KSCrash/Recording
+    - KSCrash/RecordingCore
+    - KSCrash/ReportingCore
+  - KSCrash/Installations (2.5.1):
+    - KSCrash/DemangleFilter
+    - KSCrash/Filters
+    - KSCrash/Recording
+    - KSCrash/Sinks
+  - KSCrash/Recording (2.5.1):
+    - KSCrash/RecordingCore
+  - KSCrash/RecordingCore (2.5.1):
+    - KSCrash/Core
+  - KSCrash/ReportingCore (2.5.1):
+    - KSCrash/Core
+  - KSCrash/Sinks (2.5.1):
+    - KSCrash/Filters
+    - KSCrash/Recording
+  - libwebp (1.5.0):
+    - libwebp/demux (= 1.5.0)
+    - libwebp/mux (= 1.5.0)
+    - libwebp/sharpyuv (= 1.5.0)
+    - libwebp/webp (= 1.5.0)
+  - libwebp/demux (1.5.0):
+    - libwebp/webp
+  - libwebp/mux (1.5.0):
+    - libwebp/demux
+  - libwebp/sharpyuv (1.5.0)
+  - libwebp/webp (1.5.0):
+    - libwebp/sharpyuv
+  - OpenTelemetry-Swift-Api (2.2.0)
+  - OpenTelemetry-Swift-Sdk (2.2.0):
+    - OpenTelemetry-Swift-Api (= 2.2.0)
+  - PulseKit (0.0.1-beta.1):
+    - KSCrash (= 2.5.1)
+    - libwebp (= 1.5.0)
+    - OpenTelemetry-Swift-Api (= 2.2.0)
+    - OpenTelemetry-Swift-Sdk (= 2.2.0)
+    - SwiftProtobuf (= 1.34.1)
   - PulseReactNativeOtel (0.0.8):
     - boost
     - DoubleConversion
@@ -2459,6 +2502,7 @@ PODS:
     - SocketRocket
     - Yoga
   - SocketRocket (0.7.1)
+  - SwiftProtobuf (1.34.1)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -2469,7 +2513,7 @@ DEPENDENCIES:
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
-  - PulseKit (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk-release`)
+  - PulseKit (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse/pulse-ios-otel`)
   - PulseReactNativeOtel (from `../..`)
   - RCT-Folly (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -2543,7 +2587,12 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - KSCrash
+    - libwebp
+    - OpenTelemetry-Swift-Api
+    - OpenTelemetry-Swift-Sdk
     - SocketRocket
+    - SwiftProtobuf
 
 EXTERNAL SOURCES:
   boost:
@@ -2562,7 +2611,7 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
     :tag: hermes-2025-07-07-RNv0.81.0-e0fc67142ec0763c6b6153ca2bf96df815539782
   PulseKit:
-    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk-release"
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse/pulse-ios-otel"
   PulseReactNativeOtel:
     :path: "../.."
   RCT-Folly:
@@ -2708,7 +2757,11 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 4f8246b1f6d79f625e0d99472d1f3a71da4d28ca
-  PulseKit: ae756c3c02f1ab2de1ea819939645bb0426b6465
+  KSCrash: 8c4464fd5da7de520f2ce4a00fdf63f169a80f18
+  libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
+  OpenTelemetry-Swift-Api: 0785e3b9888286449aa297c0b48269797bfcaf7f
+  OpenTelemetry-Swift-Sdk: b856396d6147c01829a88ad782f481c0e1cd0966
+  PulseKit: 5853c0e24c4cc14ad976c9fea612dbf78092d624
   PulseReactNativeOtel: 860bf843e6a75ded31ec502c8e42f12438f84a70
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: c4b9e2fd0ab200e3af72b013ed6113187c607077
@@ -2777,8 +2830,9 @@ SPEC CHECKSUMS:
   RNGestureHandler: 043d32e7e7ae6bdcca06264682d5a078712903a1
   RNScreens: d6413aeb1878cdafd3c721e2c5218faf5d5d3b13
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
+  SwiftProtobuf: c901f00a3e125dc33cac9b16824da85682ee47da
   Yoga: f95f7e60346fa6828def95fbe5017346ccc8940e
 
-PODFILE CHECKSUM: 70c8801049645b0cb04ed604079ebdb86656c96c
+PODFILE CHECKSUM: 322138675cbf1068d11b73f196961a244164f693
 
 COCOAPODS: 1.15.2
