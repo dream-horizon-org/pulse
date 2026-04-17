@@ -26,19 +26,21 @@ public class PulseReactNativeOtelTracer: NSObject {
         let builder = tracer.spanBuilder(spanName: name)
             .setSpanKind(spanKind: SpanKind.internal)
 
+        if let attributes = attributes {
+            let swiftAttributes = AttributeValueConverter.convertToSwift(attributes)
+            if !swiftAttributes.isEmpty {
+                swiftAttributes.forEach { key, value in
+                    builder.setAttribute(key: key, value: value)
+                }
+            }
+        }
+
         // When active, the span will become parent of future spans
         if inheritContext {
             builder.setActive(true)
         }
         
         let span = builder.startSpan()
-        
-        if let attributes = attributes {
-            let swiftAttributes = AttributeValueConverter.convertToSwift(attributes)
-            if !swiftAttributes.isEmpty {
-                span.setAttributes(swiftAttributes)
-            }
-        }
         
         let spanId = UUID().uuidString
         spanStoreQueue.sync {
