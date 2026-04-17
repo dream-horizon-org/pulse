@@ -2429,6 +2429,7 @@ export class MockDataStore {
           sdks: ["android_java", "ios_native"],
           config: {
             featureName: "click",
+            captureContext: true,
             rage: {
               timeWindowMs: 2000,
               threshold: 3,
@@ -2673,6 +2674,7 @@ interface SessionReplayFeatureConfigV1 {
 
 interface ClickFeatureConfigV1 {
   featureName?: "click";
+  captureContext?: boolean;
   rage?: {
     timeWindowMs?: number;
     threshold?: number;
