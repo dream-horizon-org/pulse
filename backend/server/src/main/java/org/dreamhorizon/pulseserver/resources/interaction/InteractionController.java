@@ -310,5 +310,4 @@ public class InteractionController {
         .deltas(seg.getDeltas())
         .build();
   }
-
 }
