@@ -88,6 +88,11 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
+  const defaultTimeRangeStable = useMemo(
+    () => getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2),
+    [],
+  );
+
   // Initialize filter store from URL params
   useEffect(() => {
     initializeFromUrlParams(searchParams);
@@ -121,17 +126,36 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     setAppliedFilters((prev) => prev.filter((f) => f.id !== id));
   };
 
-  // Format times to UTC ISO format
-  const formatToUTC = (time: string): string => {
-    if (!time) return "";
-    if (time.includes("T") || time.includes("Z")) {
-      return dayjs.utc(time).toISOString();
-    }
-    // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
-    return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
+  /**
+   * Parse store/URL time strings to UTC ISO for API calls.
+   * Brush selection + formatted axis labels historically produced invalid values;
+   * fall back to defaults instead of calling toISOString on Invalid Date.
+   */
+  const formatToUTC = (time: string, fallback: string): string => {
+    const tryParse = (t: string): dayjs.Dayjs | null => {
+      const s = t?.trim();
+      if (!s || s === "Invalid Date") return null;
+      if (s.includes("T") || s.endsWith("Z")) {
+        const d = dayjs.utc(s);
+        return d.isValid() ? d : null;
+      }
+      const strict = dayjs.utc(s, "YYYY-MM-DD HH:mm:ss", true);
+      if (strict.isValid()) return strict;
+      const loose = dayjs.utc(s);
+      return loose.isValid() ? loose : null;
+    };
+    const parsed = tryParse(time) ?? tryParse(fallback);
+    return parsed ? parsed.toISOString() : "";
   };
-  const formattedStartTime = formatToUTC(startTime);
-  const formattedEndTime = formatToUTC(endTime);
+
+  const formattedStartTime = formatToUTC(
+    startTime,
+    defaultTimeRangeStable.startDate,
+  );
+  const formattedEndTime = formatToUTC(
+    endTime,
+    defaultTimeRangeStable.endDate,
+  );
 
   // Build common filters from applied filters
   // All filters use LIKE operator with wildcards for case-insensitive partial matching
@@ -237,8 +261,14 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       return {
         dataType: "TRACES" as const,
         timeRange: {
-          start: formatToUTC(startTime || defaultTimeRange.startDate),
-          end: formatToUTC(endTime || defaultTimeRange.endDate),
+          start: formatToUTC(
+            startTime || defaultTimeRange.startDate,
+            defaultTimeRangeStable.startDate,
+          ),
+          end: formatToUTC(
+            endTime || defaultTimeRange.endDate,
+            defaultTimeRangeStable.endDate,
+          ),
         },
         select: [],
         filters: [],
@@ -268,8 +298,8 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     return {
       dataType: "TRACES" as const,
       timeRange: {
-        start: formatToUTC(startTime),
-        end: formatToUTC(endTime),
+        start: formatToUTC(startTime, defaultTimeRangeStable.startDate),
+        end: formatToUTC(endTime, defaultTimeRangeStable.endDate),
       },
       select: [
         {
@@ -316,7 +346,15 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       filters,
       groupBy: ["url"],
     };
-  }, [decodedApiData, startTime, endTime, buildCommonFilters, graphqlFilters]);
+  }, [
+    decodedApiData,
+    startTime,
+    endTime,
+    buildCommonFilters,
+    graphqlFilters,
+    defaultTimeRangeStable.startDate,
+    defaultTimeRangeStable.endDate,
+  ]);
 
   const { data, isLoading, isError } = useGetDataQuery({
     requestBody,
@@ -785,15 +823,27 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
         <StatusCodeDistribution
           url={apiData.endpoint}
-          startTime={formatToUTC(startTime)}
-          endTime={formatToUTC(endTime)}
+          startTime={formatToUTC(
+            startTime,
+            defaultTimeRangeStable.startDate,
+          )}
+          endTime={formatToUTC(
+            endTime,
+            defaultTimeRangeStable.endDate,
+          )}
           additionalFilters={combinedFilters}
           queryResult={statusSeriesQuery}
         />
         <MethodDistribution
           url={apiData.endpoint}
-          startTime={formatToUTC(startTime)}
-          endTime={formatToUTC(endTime)}
+          startTime={formatToUTC(
+            startTime,
+            defaultTimeRangeStable.startDate,
+          )}
+          endTime={formatToUTC(
+            endTime,
+            defaultTimeRangeStable.endDate,
+          )}
           additionalFilters={combinedFilters}
           mode={useGraphqlOperationTypeCharts ? "graphql_operation_type" : "http_method"}
           queryResult={methodSeriesQuery}
@@ -804,21 +854,39 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
         <StatusCodeTimeSeries
           url={apiData.endpoint}
-          startTime={formatToUTC(startTime)}
-          endTime={formatToUTC(endTime)}
+          startTime={formatToUTC(
+            startTime,
+            defaultTimeRangeStable.startDate,
+          )}
+          endTime={formatToUTC(
+            endTime,
+            defaultTimeRangeStable.endDate,
+          )}
           additionalFilters={combinedFilters}
           queryResult={statusSeriesQuery}
         />
         <LatencyTimeSeries
           url={apiData.endpoint}
-          startTime={formatToUTC(startTime)}
-          endTime={formatToUTC(endTime)}
+          startTime={formatToUTC(
+            startTime,
+            defaultTimeRangeStable.startDate,
+          )}
+          endTime={formatToUTC(
+            endTime,
+            defaultTimeRangeStable.endDate,
+          )}
           additionalFilters={combinedFilters}
         />
         <MethodTimeSeries
           url={apiData.endpoint}
-          startTime={formatToUTC(startTime)}
-          endTime={formatToUTC(endTime)}
+          startTime={formatToUTC(
+            startTime,
+            defaultTimeRangeStable.startDate,
+          )}
+          endTime={formatToUTC(
+            endTime,
+            defaultTimeRangeStable.endDate,
+          )}
           additionalFilters={combinedFilters}
           mode={useGraphqlOperationTypeCharts ? "graphql_operation_type" : "http_method"}
           queryResult={methodSeriesQuery}
@@ -831,15 +899,27 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           <ErrorBreakdown
             type="4xx"
             url={apiData.endpoint}
-            startTime={formatToUTC(startTime)}
-            endTime={formatToUTC(endTime)}
+            startTime={formatToUTC(
+              startTime,
+              defaultTimeRangeStable.startDate,
+            )}
+            endTime={formatToUTC(
+              endTime,
+              defaultTimeRangeStable.endDate,
+            )}
             additionalFilters={combinedFilters}
           />
           <ErrorBreakdown
             type="5xx"
             url={apiData.endpoint}
-            startTime={formatToUTC(startTime)}
-            endTime={formatToUTC(endTime)}
+            startTime={formatToUTC(
+              startTime,
+              defaultTimeRangeStable.startDate,
+            )}
+            endTime={formatToUTC(
+              endTime,
+              defaultTimeRangeStable.endDate,
+            )}
             additionalFilters={combinedFilters}
           />
         </SimpleGrid>
@@ -849,8 +929,14 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       <Box mt="xl">
         <NetworkIssuesByProvider
           url={apiData.endpoint}
-          startTime={formatToUTC(startTime)}
-          endTime={formatToUTC(endTime)}
+          startTime={formatToUTC(
+            startTime,
+            defaultTimeRangeStable.startDate,
+          )}
+          endTime={formatToUTC(
+            endTime,
+            defaultTimeRangeStable.endDate,
+          )}
           shouldFetch={true}
           additionalFilters={combinedFilters}
           showHeader={true}

@@ -15,9 +15,13 @@ from google.adk.runners import Runner
 from pydantic import BaseModel
 
 from pulse_ai.agent import root_agent
+from pulse_ai.agents.rca import rca_pipeline_agent
 from pulse_ai.constants import APP_NAME, DEFAULT_CORS_ORIGINS
 from pulse_ai.server.middleware import AuthMiddleware
-from pulse_ai.server.session_scope_store import create_session_scope_store
+from pulse_ai.server.session_scope_store import (
+    create_session_scope_store,
+    to_async_sqlalchemy_url,
+)
 
 load_dotenv()
 
@@ -36,9 +40,12 @@ def _get_cors_origins() -> list[str]:
 
 def _create_session_service() -> Any:
     db_url = os.getenv("SESSION_DB_URL")
-    if db_url:
+    if db_url and db_url.strip():
         from google.adk.sessions import DatabaseSessionService
-        return DatabaseSessionService(db_url=db_url)
+
+        # ADK uses create_async_engine; plain sqlite:// uses sync pysqlite — use aiosqlite.
+        async_url = to_async_sqlalchemy_url(db_url.strip())
+        return DatabaseSessionService(db_url=async_url)
     from google.adk.sessions import InMemorySessionService
     return InMemorySessionService()
 
@@ -62,6 +69,13 @@ runner = Runner(
     agent=root_agent,
     app_name=APP_NAME,
     session_service=session_service,
+)
+
+rca_runner = Runner(
+    agent=rca_pipeline_agent,
+    app_name=APP_NAME,
+    session_service=session_service,
+    auto_create_session=True,
 )
 
 

@@ -18,11 +18,14 @@ dependencies {
     api(libs.opentelemetry.api)
     api(platform(libs.opentelemetry.platform.alpha))
     api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.instrumentation.clickCommon)
+    implementation(libs.opentelemetry.sdk)
 
     compileOnly(libs.compose)
     implementation(libs.opentelemetry.api.incubator)
     implementation(libs.opentelemetry.instrumentation.apiSemconv)
     implementation(libs.opentelemetry.semconv.incubating)
+    implementation(projects.pulseSemconv)
 
     testImplementation(projects.testCommon)
     testImplementation(projects.session)

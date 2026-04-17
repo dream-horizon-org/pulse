@@ -6,7 +6,8 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "build:android": "react-native build-android --extra-params \"--no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a\"",
+    "build:android": "react-native build-android --extra-params \"--no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a -x lint -x test\"",
+    "build:ios": "react-native build-ios --mode Debug --extra-params \"-destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64' -derivedDataPath ./build\"",
     "symbolicate": "npx metro-symbolicate android/app/src/main/assets/index.android.bundle.json < android/app/src/main/assets/stacktrace.txt",
     "bundle:android": "BUNDLE_PATH=android/app/src/main/assets ASSETS_PATH=android/app/src/main/assets/img PLATFORM=android ENTRY_FILE=index.js SOURCE_MAP_PATH=android/app/src/main/assets MAKE_SOURCEMAP=true ./scripts/bundle.sh"
   },
@@ -44,6 +45,11 @@
     "jsSrcsDir": "src/specs",
     "android": {
       "javaPackageName": "pulsereactnativeotel.example"
+    },
+    "ios": {
+      "modulesProvider": {
+        "NativePulseExampleModule": "RCTNativePulseExampleModule"
+      }
     }
   }
 }

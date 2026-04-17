@@ -26,7 +26,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
+import io.mockk.just
 import io.mockk.mockkClass
+import io.mockk.runs
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Before
 import org.junit.Test
@@ -55,6 +57,10 @@ internal class ComposeTapTargetDetectorTest {
     fun setup() {
         MockKAnnotations.init(this)
         composeTapTargetDetector = ComposeTapTargetDetector(composeLayoutNodeUtil)
+        // viewContainsPoint stubs — composeView is the root Owner passed as decorView in tests.
+        every { composeView.getLocationInWindow(any()) } just runs
+        every { composeView.width } returns 1000
+        every { composeView.height } returns 1000
     }
 
     @Test
@@ -117,9 +123,12 @@ internal class ComposeTapTargetDetectorTest {
             )
         every { composeView.root } returns mockLayoutNode
 
-        val actual =
-            composeTapTargetDetector.findTapTarget(composeView, motionEvent.x, motionEvent.y)
-        assertThat(actual).isEqualTo(mockLayoutNode)
+        val result =
+            composeTapTargetDetector.findTapResult(composeView, motionEvent.x, motionEvent.y)
+        assertThat(result).isInstanceOf(ComposeFindResult.Found::class.java)
+        val found = result as ComposeFindResult.Found
+        assertThat(found.target?.node).isEqualTo(mockLayoutNode)
+        assertThat(found.target?.ownerView).isEqualTo(composeView)
     }
 
     @Test
@@ -138,9 +147,10 @@ internal class ComposeTapTargetDetectorTest {
             )
         every { composeView.root } returns mockLayoutNode
 
-        val actual =
-            composeTapTargetDetector.findTapTarget(composeView, motionEvent.x, motionEvent.y)
-        assertThat(actual).isNull()
+        val result =
+            composeTapTargetDetector.findTapResult(composeView, motionEvent.x, motionEvent.y)
+        assertThat(result).isInstanceOf(ComposeFindResult.Found::class.java)
+        assertThat((result as ComposeFindResult.Found).target).isNull()
     }
 
     private fun createMockLayoutNode(

@@ -28,6 +28,10 @@ import {
   generateAiQueryResponse,
 } from "./responses/realtimeQueryResponses";
 import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import {
+  heatmapMockCompare,
+  resolveHeatmapData,
+} from "./responses/heatmapMockFixtures";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -108,8 +112,9 @@ export class MockResponseGenerator {
       console.log(`[Mock Server] ${method} ${pathname}`, request);
     }
 
-    // Add artificial delay
-    await this.delay(this.config.getDelay());
+    // Artificial delay (+ 1s on heatmap routes so loading states are visible in mock)
+    const heatmapExtraMs = pathname.includes("/heatmap/") ? 1000 : 0;
+    await this.delay(this.config.getDelay() + heatmapExtraMs);
 
     // Simulate random errors
     if (this.config.shouldSimulateError()) {
@@ -187,6 +192,11 @@ export class MockResponseGenerator {
       return this.handleOnboardingEndpoints(pathname, method, request);
     }
 
+    // Heatmap (before /v1/projects — paths like /api/v1/projects/:id/heatmap/* match projects)
+    if (pathname.includes("/heatmap/")) {
+      return this.handleHeatmapEndpoints(pathname, method, request);
+    }
+
     // Project endpoints (POST /v1/projects, GET /v1/projects/:projectId)
     if (pathname.includes("/v1/projects")) {
       return this.handleProjectEndpoints(pathname, method, request);
@@ -195,6 +205,17 @@ export class MockResponseGenerator {
     // Tenant endpoints (GET /v1/tenants/:tenantId, members)
     if (pathname.includes("/v1/tenants")) {
       return this.handleTenantEndpoints(pathname, method, request);
+    }
+
+    if (pathname.includes("/v1/sessions")) {
+      const sessionReplayResponse = this.handleV1SessionReplayEndpoints(
+        pathname,
+        method,
+        request,
+      );
+      if (sessionReplayResponse) {
+        return sessionReplayResponse;
+      }
     }
 
     // User endpoints - removed to avoid conflict with activity tracking endpoints
@@ -735,6 +756,9 @@ export class MockResponseGenerator {
             "custom_events",
             "rn_screen_load",
             "rn_screen_interactive",
+            "session_replay",
+            "click",
+            "heatmap",
           ],
         },
         status: 200,
@@ -1033,6 +1057,97 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
+ 
+  private handleV1SessionReplayEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse | null {
+    if (
+      /\/v1\/sessions\/listing\/?$/.test(pathname.replace(/\/$/, "") || "/") &&
+      method === "POST"
+    ) {
+      let body: Record<string, unknown> = {};
+      try {
+        body = request.body ? JSON.parse(request.body) : {};
+      } catch {
+        body = {};
+      }
+      const {
+        getMockSessionListingResponse,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSessionListingResponse(body),
+        status: 200,
+      };
+    }
+
+    if (pathname.includes("/v1/sessions/filters") && method === "GET") {
+      const {
+        getMockSessionsFiltersResponse,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSessionsFiltersResponse(),
+        status: 200,
+      };
+    }
+
+    if (pathname.includes("/snapshots-data") && method === "GET") {
+      const url = this.parseURL(request.url);
+      const startBlobKey = url.searchParams.get("start_blob_key") || "0";
+      const {
+        getMockSnapshotsData,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSnapshotsData(startBlobKey),
+        status: 200,
+      };
+    }
+
+    if (pathname.includes("/snapshots-source") && method === "GET") {
+      const m = pathname.match(/\/v1\/sessions\/([^/]+)\/snapshots-source\/?$/);
+      const sessionId = m ? decodeURIComponent(m[1]) : "";
+      return {
+        data: {
+          sessionId: sessionId || "unknown",
+          snapshotSource: "android",
+          sources: [
+            {
+              source: "blob",
+              blobKey: "0",
+              startTimestamp: "2026-03-13 12:17:28.354000",
+              endTimestamp: "2026-03-13 12:17:36.197000",
+            },
+            {
+              source: "blob",
+              blobKey: "1",
+              startTimestamp: "2026-03-13 12:17:37.197000",
+              endTimestamp: "2026-03-13 12:17:46.219000",
+            },
+          ],
+        },
+        status: 200,
+      };
+    }
+
+    const detailMatch = pathname.match(/^\/v1\/sessions\/([^/]+)\/?$/);
+    if (detailMatch && method === "GET") {
+      const sessionId = decodeURIComponent(detailMatch[1]);
+      if (sessionId === "listing" || sessionId === "filters") {
+        return null;
+      }
+      const {
+        getMockSessionDetailApiResponse,
+      } = require("../screens/SessionReplayDetail/mock/sessionReplayMock");
+      return {
+        data: getMockSessionDetailApiResponse(sessionId),
+        status: 200,
+      };
+    }
+
+    return null;
+  }
+
   private handleV1UserEndpoints(
     pathname: string,
     method: string,
@@ -1055,7 +1170,7 @@ export class MockResponseGenerator {
         data: {
           tenantId: tenant.tenantId,
           tenantName: tenant.tenantName,
-          projects,
+          projects: Array.isArray(tenant.projects) ? tenant.projects : [],
           redirectTo,
         },
         status: 200,
@@ -1465,6 +1580,11 @@ export class MockResponseGenerator {
     for (const email of uniqueEmails) {
       if (!email || !email.includes("@")) {
         failedEmails.push(email);
+        continue;
+      }
+
+      if (this.dataStore.hasProjectMember(projectId, email)) {
+        skippedEmails.push(email);
         continue;
       }
       const existingMember = this.dataStore.getProjectMemberByEmail(
@@ -2107,6 +2227,11 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
+      if (this.dataStore.hasTenantMember(tenantId, email)) {
+        skippedEmails.push(email);
+        continue;
+      }
+
       const existingMember = this.dataStore.getTenantMemberByEmail(
         tenantId,
         email,
@@ -7242,6 +7367,167 @@ ${
       error: {
         code: "NOT_FOUND",
         message: `Data query endpoint not found: ${method} ${pathname}`,
+        cause: "Invalid endpoint or method",
+      },
+    };
+  }
+
+  /**
+   * GET /v1/heatmap/data
+   * POST /api/v1/projects/:projectId/heatmap/data
+   * POST /api/v1/projects/:projectId/heatmap/compare
+   */
+  private handleHeatmapEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    const isCompare = pathname.includes("/heatmap/compare");
+    const isData = pathname.includes("/heatmap/data");
+
+    if (isCompare && method === "POST") {
+      try {
+        const body = request.body
+          ? typeof request.body === "string"
+            ? JSON.parse(request.body)
+            : request.body
+          : null;
+        if (!body?.screenName || !body?.compare?.screenName) {
+          return {
+            data: null,
+            status: 400,
+            error: {
+              code: "BAD_REQUEST",
+              message: "screenName and compare.screenName required",
+              cause: "Invalid body",
+            },
+          };
+        }
+        if (body.screenName === "__error__" || body.compare?.screenName === "__error__") {
+          return {
+            data: null,
+            status: 500,
+            error: {
+              code: "HEATMAP_ERROR",
+              message: "Mock heatmap compare failure",
+              cause: "__error__ scenario",
+            },
+          };
+        }
+        const data = heatmapMockCompare(body.screenName, body.compare.screenName);
+        return { data, status: 200, error: undefined };
+      } catch (e: unknown) {
+        return {
+          data: null,
+          status: 500,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Heatmap compare mock failed",
+            cause: e instanceof Error ? e.message : String(e),
+          },
+        };
+      }
+    }
+
+    if (isData && method === "GET") {
+      let url: URL;
+      try {
+        url = new URL(request.url);
+      } catch {
+        url = new URL(request.url, "http://localhost");
+      }
+      const screenName = url.searchParams.get("screenName") || "";
+      if (!screenName) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "BAD_REQUEST",
+            message: "screenName is required",
+            cause: "Missing query param",
+          },
+        };
+      }
+      if (screenName === "__error__") {
+        return {
+          data: null,
+          status: 500,
+          error: {
+            code: "HEATMAP_ERROR",
+            message: "Mock heatmap failure",
+            cause: "__error__ scenario",
+          },
+        };
+      }
+      const data = resolveHeatmapData(screenName, {
+        app_version: url.searchParams.get("app_version"),
+        platform: url.searchParams.get("platform"),
+        region: url.searchParams.get("region"),
+        from: url.searchParams.get("from"),
+        to: url.searchParams.get("to"),
+        breakpoint: url.searchParams.get("breakpoint"),
+      });
+      return { data, status: 200, error: undefined };
+    }
+
+    if (isData && method === "POST") {
+      try {
+        const body = request.body
+          ? typeof request.body === "string"
+            ? JSON.parse(request.body)
+            : request.body
+          : null;
+        const screenName = body?.screenName || "";
+        if (!screenName) {
+          return {
+            data: null,
+            status: 400,
+            error: {
+              code: "BAD_REQUEST",
+              message: "screenName is required",
+              cause: "Invalid body",
+            },
+          };
+        }
+        if (screenName === "__error__") {
+          return {
+            data: null,
+            status: 500,
+            error: {
+              code: "HEATMAP_ERROR",
+              message: "Mock heatmap failure",
+              cause: "__error__ scenario",
+            },
+          };
+        }
+        const data = resolveHeatmapData(screenName, {
+          app_version: body?.app_version,
+          platform: body?.platform,
+          region: body?.region,
+          from: body?.timeRange?.start,
+          to: body?.timeRange?.end,
+          breakpoint: body?.breakpoint,
+        });
+        return { data, status: 200, error: undefined };
+      } catch (e: unknown) {
+        return {
+          data: null,
+          status: 500,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Heatmap data mock failed",
+            cause: e instanceof Error ? e.message : String(e),
+          },
+        };
+      }
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: `Heatmap endpoint not found: ${method} ${pathname}`,
         cause: "Invalid endpoint or method",
       },
     };

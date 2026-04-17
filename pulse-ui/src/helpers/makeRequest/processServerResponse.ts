@@ -1,14 +1,73 @@
-import { ApiResponse } from "./makeRequest.interface";
+import type {
+  ApiResponse,
+  DefaultErrorResponse,
+} from "./makeRequest.interface";
+
+const extractUnwrappedErrorMessage = (json: unknown): string | null => {
+  if (json == null || typeof json !== "object") {
+    return null;
+  }
+  const record = json as Record<string, unknown>;
+  const detail = record.detail;
+  if (typeof detail === "string" && detail.trim() !== "") {
+    return detail;
+  }
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0];
+    if (first != null && typeof first === "object" && "msg" in first) {
+      const msg = (first as { msg?: unknown }).msg;
+      if (typeof msg === "string" && msg.trim() !== "") {
+        return msg;
+      }
+    }
+  }
+  const message = record.message;
+  if (typeof message === "string" && message.trim() !== "") {
+    return message;
+  }
+  const error = record.error;
+  if (typeof error === "string" && error.trim() !== "") {
+    return error;
+  }
+  return null;
+};
+
+const buildHttpError = (
+  status: number,
+  json: unknown,
+): DefaultErrorResponse => {
+  const message =
+    extractUnwrappedErrorMessage(json) ??
+    `Request failed with status ${status}`;
+  return {
+    code: String(status),
+    message,
+    cause: "",
+  };
+};
 
 export const processServerResponse = async <D>(
   response: Response,
   unwrapped?: boolean,
 ): Promise<ApiResponse<D>> => {
   const status = response.status;
-  const json = await response.json();
+  let json: unknown;
+  try {
+    const text = await response.text();
+    json = text.trim() === "" ? null : JSON.parse(text);
+  } catch {
+    json = null;
+  }
 
   if (unwrapped) {
-    // Endpoint returns raw data directly (no { data, error } wrapper)
+    const isResponseOk = response.ok;
+    if (!isResponseOk) {
+      return {
+        status,
+        data: null,
+        error: buildHttpError(status, json),
+      };
+    }
     return {
       status,
       data: json as D,
@@ -16,19 +75,41 @@ export const processServerResponse = async <D>(
     };
   }
 
-  const { data, error } = json;
-
-  if (data) {
+  const jsonInvalid = json == null || typeof json !== "object";
+  if (jsonInvalid) {
     return {
-      status: status,
-      data: data,
-      error: null,
-    };
-  } else {
-    return {
-      status: status,
+      status,
       data: null,
-      error: error,
+      error: response.ok ? null : buildHttpError(status, json),
     };
   }
+
+  const { data, error } = json as {
+    data?: unknown;
+    error?: DefaultErrorResponse | null;
+  };
+
+  // Prefer an explicit API `error` payload even when HTTP status is 2xx (e.g. misbehaving proxies)
+  // or when both `data` and `error` appear (defensive: surface the error).
+  if (error != null) {
+    return {
+      status,
+      data: (data as D | null | undefined) ?? null,
+      error,
+    };
+  }
+
+  if (data !== undefined && data !== null) {
+    return {
+      status,
+      data: data as D,
+      error: null,
+    };
+  }
+
+  return {
+    status,
+    data: null,
+    error: null,
+  };
 };

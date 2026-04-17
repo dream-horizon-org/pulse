@@ -21,6 +21,7 @@ export function ActiveSessionsGraph({
   device,
   startTime,
   endTime,
+  onTimeFilterChange,
 }: ActiveSessionsGraphProps = {}) {
   // Calculate date range - use provided time range or default to last 7 days
   const { startDate, endDate, bucketSize } = useMemo(() => {
@@ -96,6 +97,8 @@ export function ActiveSessionsGraph({
         <AreaChart
           height={260}
           withLegend={false}
+          onTimeFilterChange={onTimeFilterChange}
+          syncDataZoomToTimeFilter={Boolean(onTimeFilterChange)}
           option={{
             grid: { left: 60, right: 24, top: 24, bottom: 45 },
             tooltip: {

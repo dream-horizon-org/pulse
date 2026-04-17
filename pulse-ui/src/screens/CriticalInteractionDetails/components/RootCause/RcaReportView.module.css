@@ -1,0 +1,259 @@
+/* Shell: horizontal inset (card padding uses Mantine `padding="lg"` — do not use padding={0} on Card; it overrides CSS-module padding). */
+.reportShell {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  padding-inline: var(--mantine-spacing-md);
+  padding-bottom: var(--mantine-spacing-md);
+  box-sizing: border-box;
+}
+
+@media (min-width: 48em) {
+  .reportShell {
+    padding-inline: var(--mantine-spacing-xl);
+  }
+}
+
+.reportHeaderRow {
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.reportCachedAt {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-gray-6);
+  flex: 1;
+  min-width: min(100%, 12rem);
+}
+
+/* Padding lives on Mantine Card `padding="lg"` — only skin below */
+.executiveSummaryCard {
+  border-left: 4px solid var(--mantine-color-violet-5);
+  background: light-dark(
+    var(--mantine-color-violet-0),
+    rgba(118, 65, 255, 0.18)
+  );
+}
+
+.executiveSummaryTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.executiveSummaryBody {
+  max-width: 100%;
+}
+
+.segmentsSectionTitleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-top: 0;
+  margin-bottom: var(--mantine-spacing-md);
+  padding-top: var(--mantine-spacing-xs);
+}
+
+.segmentCard {
+  overflow: hidden;
+}
+
+.segmentHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-sm);
+  padding-bottom: var(--mantine-spacing-xs);
+}
+
+.rankBadge {
+  flex-shrink: 0;
+  min-width: 1.875rem;
+  height: 1.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mantine-radius-sm);
+  font-weight: 700;
+  font-size: var(--mantine-font-size-sm);
+  background: light-dark(
+    var(--mantine-color-gray-2),
+    var(--mantine-color-dark-4)
+  );
+  color: var(--mantine-color-gray-8);
+}
+
+.tableWrap {
+  margin-inline: calc(-1 * var(--mantine-spacing-xs));
+}
+
+.metricsTable {
+  font-size: var(--mantine-font-size-sm);
+  /* `layout="fixed"` on Mantine Table sets --table-layout; width fills card */
+  width: 100%;
+}
+
+/* Column widths on <col> — keeps thead/td borders aligned (Mantine default layout is auto). */
+.metricsTableColMetric {
+  width: 38%;
+}
+
+.metricsTableColNumeric {
+  width: 21%;
+}
+
+.metricsTableColDelta {
+  width: 20%;
+}
+
+.metricsColMetric {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.metricsColNumeric {
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricsColNumericNarrow {
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Full shorthand padding beats Mantine .m_4e7aa4f3 / .m_4e7aa4ef so th/td match exactly */
+.metricsTable :global(thead tr th),
+.metricsTable :global(tbody tr td) {
+  padding: 0.5rem var(--mantine-spacing-sm);
+}
+
+.metricsTable :global(thead tr th) {
+  text-transform: uppercase;
+  font-size: var(--mantine-font-size-xs);
+  letter-spacing: 0.02em;
+  color: var(--mantine-color-gray-6);
+  font-weight: 600;
+}
+
+/* Mantine th defaults to text-align: left — force numeric columns to match tbody */
+.metricsTable .metricsColNumeric,
+.metricsTable .metricsColNumericNarrow {
+  text-align: end;
+}
+
+/* Block slot fills cell so header labels share the same box model as body Text */
+.metricsThLabelMetric {
+  display: block;
+  width: 100%;
+  text-align: start;
+}
+
+.metricsThLabelNumeric {
+  display: block;
+  width: 100%;
+  text-align: end;
+}
+
+.impactCallout {
+  margin-top: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+  border: 1px solid
+    light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+.insightsCallout {
+  margin-top: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+  border: 1px solid
+    light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+.evidenceSection {
+  margin-top: var(--mantine-spacing-md);
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+.evidenceSectionTitleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.evidenceTitle {
+  color: var(--mantine-color-teal-7);
+  letter-spacing: 0.02em;
+}
+
+.evidenceCountBadge {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding-inline: 0.35rem;
+}
+
+.evidenceCardRow {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--mantine-spacing-sm);
+  overflow-x: auto;
+  padding-bottom: var(--mantine-spacing-xs);
+  scrollbar-gutter: stable;
+}
+
+.evidenceCardSlot {
+  flex: 0 0 auto;
+  min-width: 14rem;
+  max-width: 16rem;
+}
+
+.recommendationsCard {
+  border: 1px solid var(--mantine-color-teal-3);
+  background: light-dark(var(--mantine-color-teal-0), rgba(12, 148, 136, 0.22));
+}
+
+.recommendationsTitle {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.recommendationsList {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.recommendationsList li {
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.recommendationsList li:last-child {
+  margin-bottom: 0;
+}
+
+.metricValueGood {
+  font-weight: 600;
+  color: var(--mantine-color-teal-7);
+}
+
+.metricValueBad {
+  font-weight: 600;
+  color: var(--mantine-color-red-7);
+}
+
+.metricValueNeutral {
+  font-weight: 600;
+  color: light-dark(var(--mantine-color-dark-7), var(--mantine-color-gray-2));
+}

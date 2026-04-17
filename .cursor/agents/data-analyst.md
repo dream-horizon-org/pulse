@@ -20,11 +20,32 @@ Key columns: `TraceId`, `SpanId`, `ParentSpanId`, `SpanName`, `SpanKind`, `Servi
 ### `otel_logs` — log records
 Key columns: `TraceId`, `Body`, `SeverityText`, `SeverityNumber`, `Timestamp`, `EventName`, `LogAttributes` (Map), `ResourceAttributes` (Map)
 
-### `otel_metrics_gauge` — gauge metrics
-Key columns: `MetricName`, `Value`, `TimeUnix`, `Attributes` (Map), `ResourceAttributes` (Map)
+### OTLP metrics (physical tables — collector `INSERT` targets)
+
+All share materialized `ProjectId`, `SessionId`, RUM dimensions (same pattern as below), and `ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))`.
+
+- **`otel_metrics_gauge`** — `MetricName`, `Value`, `TimeUnix`, `Flags`, exemplar arrays (`Exemplars.*`), `Attributes`, `ResourceAttributes`
+- **`otel_metrics_sum`** — like gauge plus `AggregationTemporality`, `IsMonotonic` (counters / sums)
+- **`otel_metrics_summary`** — `Count`, `Sum`, `ValueAtQuantiles.Quantile` / `ValueAtQuantiles.Value` (arrays), `Flags`
+- **`otel_metrics_histogram`** — `Count`, `Sum`, `BucketCounts`, `ExplicitBounds`, `Min`, `Max`, `AggregationTemporality`, exemplars
+- **`otel_metrics_exp_histogram`** — exponential histogram fields (`Scale`, `ZeroCount`, `PositiveOffset`, `PositiveBucketCounts`, `NegativeOffset`, `NegativeBucketCounts`), `Min`, `Max`, `AggregationTemporality`, exemplars
+
+### `otel_metrics` — unified view (read/query)
+
+`VIEW` over all five physical metric tables: normalized columns `Timestamp` (= `TimeUnix`), `ServiceName`, `MetricName`, `Value` (gauge/sum use `Value`; others use `Sum`), nullable `Count`/`Sum`, `Attributes`, `ResourceAttributes`, `ProjectId`, `Flags`, `MetricSource` (`gauge` | `sum` | `summary` | `histogram` | `exp_histogram`). Use for cross-type queries (e.g. performance API `METRICS` dataType).
 
 ### `stack_trace_events` — symbolicated crashes/ANRs
-Key columns: `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `GroupId`, `Fingerprint`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`
+Key columns: `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `GroupId`, `Fingerprint`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`, `ProjectId`, `PulseType`, `MeteringSessionId`
+
+### `root_cause_cache` — server-side RCA result cache (ReplacingMergeTree)
+Key columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc` (exclusive window end, UTC), `mode` (`hierarchical` \| `flat`), `baseline` (JSON), `segments` (JSON), `cached_at`. Filter by `ProjectId` like other `otel.*` tables.
+
+### `project_monthly_usage` + materialized views
+Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from logs, traces, metrics, and `stack_trace_events`.
+
+### Heatmap tables (`backend/ingestion/clickhouse-otel-schema.sql`)
+
+- **`interaction_heatmaps_daily`** — SummingMergeTree aggregates (`WeightNormal`, `WeightRage`, `WeightDead`, `XBin`, `YBin`, `Breakpoint`, …). Filled by **`interaction_heatmaps_daily_mv`** from **`otel_logs`** where **`PulseType = 'app.click'`** (tap/widget logs with normalized coordinates on `otel_logs`).
 
 ### Materialized Columns (all tables)
 
@@ -43,9 +64,10 @@ These columns are extracted from Map attributes at insert time. **Always use the
 | `GeoCountry` | `geo.country.iso_code` | all |
 | `DeviceModel` | `device.model.name` | all |
 | `NetworkProvider` | `network.carrier.name` | all |
-| `UserId` | `user.id` | all |
+| `UserId` | `user.id` with fallback to `app.installation.id` | traces, logs, metrics |
+| `MeteringSessionId` | `pulse.metering.session.id` | traces, logs, metrics, `stack_trace_events` |
 
-All tables have ORDER BY starting with `ProjectId` for multi-tenant isolation (e.g., `otel_traces`: `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`).
+Core telemetry tables have ORDER BY starting with `ProjectId` for isolation (e.g., `otel_traces`: `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)`). `project_monthly_usage` orders by `project_id`; `root_cause_cache` orders by `(ProjectId, interaction_name, date, window_end_utc)`.
 
 ## Pulse-Specific Attributes
 
@@ -137,4 +159,4 @@ Four scopes exist for alerting:
 - **Always time-range filter** — prevent full table scans
 - **Use column pruning** — don't SELECT * on wide tables
 - **Use materialized columns** — always prefer `AppVersion`, `Platform`, etc. over `ResourceAttributes['...']`
-- **Use tenant credentials** — each tenant has dedicated ClickHouse credentials (stored in MySQL, resolved via `TenantContext`). The backend uses `ClickhouseTenantConnectionPoolManager` to route queries through per-tenant connection pools, ensuring project-scoped data isolation. For local CLI queries, use credentials from `deploy/.env` (`OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD`).
+- **Use project credentials** — each project has dedicated ClickHouse credentials (stored in MySQL, resolved via `ProjectContext`). The backend uses `ClickhouseProjectConnectionPoolManager` to route queries through per-project pools. For local CLI queries, use admin credentials from `deploy/.env` (`OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD`).

@@ -22,8 +22,7 @@ import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesRes
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
-import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
-import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
+import org.dreamhorizon.pulseserver.service.configs.models.*;
 import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 
@@ -69,6 +68,7 @@ public class ConfigController {
   private void applyConfigDefaults(PulseConfig config) {
     applyInteractionConfigDefaults(config);
     applySignalsConfigDefaults(config);
+    applyFeatureConfigDefaults(config);
   }
 
   private void applyInteractionConfigDefaults(PulseConfig config) {
@@ -102,6 +102,91 @@ public class ConfigController {
         signals.setCustomEventCollectorUrl(applicationConfig.getCustomEventCollectorUrl());
       }
     }
+  }
+
+  private void applyFeatureConfigDefaults(PulseConfig config) {
+    if (config.getFeatures() == null) {
+      return;
+    }
+
+    config.getFeatures().forEach(feature -> {
+      if (feature.getFeatureName() == Features.session_replay) {
+        feature.setConfig(applySessionReplayDefaults(feature.getConfig()));
+      }
+      if (feature.getFeatureName() == Features.click) {
+        feature.setConfig(applyClickDefaults(feature.getConfig()));
+      }
+    });
+  }
+
+  private SessionReplayFeatureConfig applySessionReplayDefaults(FeatureConfigProperties config) {
+    SessionReplayFeatureConfig sessionReplayConfig = config != null
+        ? (SessionReplayFeatureConfig) config
+        : SessionReplayFeatureConfig.builder().build();
+
+    if (sessionReplayConfig.getTextAndInputPrivacy() == null) {
+      sessionReplayConfig.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_ALL);
+    }
+
+    if (sessionReplayConfig.getImagePrivacy() == null) {
+      sessionReplayConfig.setImagePrivacy(ImagePrivacy.MASK_ALL);
+    }
+
+    if (sessionReplayConfig.getThrottleDelayMs() == null) {
+      sessionReplayConfig.setThrottleDelayMs(1000L);
+    }
+
+    if (sessionReplayConfig.getScreenshotScale() == null) {
+      sessionReplayConfig.setScreenshotScale(1.0f);
+    }
+
+    if (sessionReplayConfig.getScreenshotQuality() == null) {
+      sessionReplayConfig.setScreenshotQuality(30);
+    }
+
+    if (sessionReplayConfig.getFlushIntervalSeconds() == null) {
+      sessionReplayConfig.setFlushIntervalSeconds(60);
+    }
+
+    if (sessionReplayConfig.getFlushAt() == null) {
+      sessionReplayConfig.setFlushAt(10);
+    }
+
+    if (sessionReplayConfig.getMaxBatchSize() == null) {
+      sessionReplayConfig.setMaxBatchSize(50);
+    }
+
+    if (sessionReplayConfig.getReplayApiBaseUrl() == null
+        || sessionReplayConfig.getReplayApiBaseUrl().isBlank()) {
+      sessionReplayConfig.setReplayApiBaseUrl(applicationConfig.getReplayApiBaseUrl());
+    }
+    return sessionReplayConfig;
+  }
+
+  private ClickFeatureConfig applyClickDefaults(FeatureConfigProperties config) {
+    ClickFeatureConfig clickConfig = config != null
+        ? (ClickFeatureConfig) config
+        : ClickFeatureConfig.builder().build();
+
+    if (clickConfig.getCaptureContext() == null) {
+      clickConfig.setCaptureContext(true);
+    }
+
+    RageConfig rage = clickConfig.getRage();
+    if (rage == null) {
+      rage = RageConfig.builder().build();
+      clickConfig.setRage(rage);
+    }
+    if (rage.getTimeWindowMs() == null) {
+      rage.setTimeWindowMs(2000L);
+    }
+    if (rage.getThreshold() == null) {
+      rage.setThreshold(3);
+    }
+    if (rage.getRadius() == null) {
+      rage.setRadius(50);
+    }
+    return clickConfig;
   }
 
   @GET

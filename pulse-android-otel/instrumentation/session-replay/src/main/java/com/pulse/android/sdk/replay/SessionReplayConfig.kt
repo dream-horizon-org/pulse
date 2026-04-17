@@ -6,23 +6,23 @@ import android.graphics.drawable.Drawable
  * Immutable configuration for Session Replay. Built once during SDK init and never mutated.
  *
  * **Backend-controlled params** (set by the `session_replay` feature config from the server):
- * @param textAndInputPrivacy Controls masking of text and input fields.
- * @param imagePrivacy Controls masking of images.
- * @param throttleDelayMs Minimum delay between snapshots per window.
- * @param screenshotScale Scale factor for screenshot dimensions (0.0, 1.0].
- * @param screenshotQuality WebP lossy quality 0–100 for screenshot encoding.
- * @param flushIntervalSeconds Interval in seconds to flush the replay queue.
- * @param flushAt When the pending batch queue reaches this size, a flush is triggered. Also caps how many
+ * @property textAndInputPrivacy Controls masking of text and input fields.
+ * @property imagePrivacy Controls masking of images.
+ * @property isCaptureLogcat If true, capture logcat as console events.
+ * @property throttleDelayMs Minimum delay between snapshots per window.
+ * @property drawableConverter Optional: convert custom Drawables to Bitmap for wireframe mode.
+ * @property screenshotScale Scale factor for screenshot dimensions (0.0, 1.0].
+ * @property screenshotQuality WebP lossy quality 0–100 for screenshot encoding.
+ * @property flushIntervalSeconds Interval in seconds to flush the replay queue.
+ * @property flushAt When the pending batch queue reaches this size, a flush is triggered. Also caps how many
  *   replay batch files are uploaded in a single backend request (per flush and per cached-send chunk).
- * @param maxBatchSize Maximum number of replay batch files kept on disk (including the in-memory queue).
+ * @property maxBatchSize Maximum number of replay batch files kept on disk (including the in-memory queue).
  *   When exceeded, the oldest batches are deleted (latest-first retention).
- * @param replayApiBaseUrl When set, replay batches are sent to this URL via POST to /s/. When null, emitted as OTLP logs only.
+ * @property replayApiBaseUrl When set, replay batches are sent to this URL via POST to /s/. When null, emitted as OTLP logs only.
  *
- * **Client-only params** (set via the `sessionReplay { }` DSL in app code):
- * @param drawableConverter Optional: convert custom Drawables to Bitmap for wireframe mode.
- * @param isCaptureLogcat If true, capture logcat as console events.
- * @param maskViewClasses Fully-qualified class names whose instances (and subclasses) are always masked.
- * @param unmaskViewClasses Fully-qualified class names whose instances (and subclasses) are never masked by global config.
+ * Client-only params (set via the `sessionReplay { }` DSL in app code):
+ * @property maskViewClasses Fully-qualified class names whose instances (and subclasses) are always masked.
+ * @property unmaskViewClasses Fully-qualified class names whose instances (and subclasses) are never masked by global config.
  */
 public class SessionReplayConfig(
     public val textAndInputPrivacy: TextAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,

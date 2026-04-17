@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Badge,
   Box,
+  Button,
   Grid,
   Tabs,
   Title,
@@ -15,7 +16,8 @@ import {
 } from "../../constants";
 import { AllInteractionDetails } from "./AllInteractionDetails";
 import { useEffect, useState } from "react";
-import { IconArrowNarrowLeft } from "@tabler/icons-react";
+import { IconArrowNarrowLeft, IconPlayerPlay } from "@tabler/icons-react";
+import { useSessionReplayFilters } from "../../contexts/SessionReplayFilterContext";
 import { Manage } from "../CriticalInteractionList/components/Manage";
 import { InteractionDetailsFilters } from "./components/InteractionDetailsFilters";
 import { InteractionDetailsMainContent } from "./components/InteractionDetailsMainContent";
@@ -24,7 +26,11 @@ import { useFilterStore } from "../../stores/useFilterStore";
 import Analysis from "./components/InteractionDetailsMainContent/components/Analysis";
 import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangePicker";
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
+import { RootCause } from "./components/RootCause";
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
+import { getRootCauseDateFromEndTime } from "./utils/getRootCauseDateFromEndTime";
+
+const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
 export function CiritcalInteractionDetails() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,11 +64,19 @@ export function CiritcalInteractionDetails() {
     },
   });
 
-  const VALID_TABS = ["overview", "analysis", "sessions"];
+  const VALID_TABS = [
+    "overview",
+    "analysis",
+    "sessions",
+    ...(isRootCauseEnabled ? (["root-cause"] as const) : []),
+  ];
+  const { actions: sessionReplayActions } = useSessionReplayFilters();
   const initialTab = VALID_TABS.includes(searchParams.get("tab") || "")
     ? searchParams.get("tab")
     : "overview";
   const [activeTab, setActiveTab] = useState<string | null>(initialTab);
+
+  const rootCauseDate = getRootCauseDateFromEndTime(endTime);
 
   useEffect(() => {
     initializeFromUrlParams(searchParams);
@@ -148,6 +162,27 @@ export function CiritcalInteractionDetails() {
     );
   };
 
+  const handleViewSessions = () => {
+    const effectiveStart = selectedTimeFilter?.startDate || startTime;
+    const effectiveEnd = selectedTimeFilter?.endDate || endTime;
+
+    if (effectiveStart && effectiveEnd) {
+      sessionReplayActions.setDateRange("custom", effectiveStart, effectiveEnd);
+    }
+    if (interactionName) {
+      sessionReplayActions.setDrillDown(
+        "interaction",
+        interactionName,
+        interactionName,
+      );
+    }
+    const basePath = ROUTES.PROJECT_SESSION_REPLAY_SESSIONS.basePath.replace(
+      ":projectId",
+      projectId || "",
+    );
+    navigate(basePath);
+  };
+
   const handleTabChange = (value: string | null) => {
     if (value) {
       setActiveTab(value);
@@ -199,6 +234,16 @@ export function CiritcalInteractionDetails() {
 
           {/* Right Section - Actions, Filters, Time Picker */}
           <div className={classes.headerRightSection}>
+            <Button
+              variant="light"
+              color="teal"
+              size="xs"
+              leftSection={<IconPlayerPlay size={14} />}
+              onClick={handleViewSessions}
+            >
+              View Sessions
+            </Button>
+            <div className={classes.verticalDivider} />
             {!interactionDetailsError && interactionDetails?.data && (
               <>
                 <Manage
@@ -224,6 +269,9 @@ export function CiritcalInteractionDetails() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="analysis">Analysis</Tabs.Tab>
           <Tabs.Tab value="sessions">Interactions</Tabs.Tab>
+          {isRootCauseEnabled && (
+            <Tabs.Tab value="root-cause">Root Cause</Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="overview">
@@ -249,6 +297,7 @@ export function CiritcalInteractionDetails() {
                 dashboardFilters={filterValues}
                 startTime={startTime}
                 endTime={endTime}
+                onTimeFilterChange={handleTimeFilterChange}
               />
             </div>
           ) : null}
@@ -285,6 +334,17 @@ export function CiritcalInteractionDetails() {
             />
           )}
         </Tabs.Panel>
+        {isRootCauseEnabled && (
+          <Tabs.Panel value="root-cause">
+            {activeTab === "root-cause" ? (
+              <RootCause
+                interactionName={interactionName ?? null}
+                date={rootCauseDate}
+                projectId={projectId}
+              />
+            ) : null}
+          </Tabs.Panel>
+        )}
       </div>
     </Tabs>
   );

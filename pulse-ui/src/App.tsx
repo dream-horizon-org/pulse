@@ -16,7 +16,9 @@ import { AppContextProvider } from "./contexts";
 import "@mantine/dates/styles.css";
 import { Suspense, useEffect } from "react";
 import { initGA, logPageView } from "./helpers/googleAnalytics";
+import { SessionReplayFilterProvider } from "./contexts/SessionReplayFilterContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ScrollToTop } from "./components/ScrollToTop/ScrollToTop";
 
 export default function App() {
   useEffect(() => {
@@ -27,29 +29,32 @@ export default function App() {
     <MantineProvider theme={theme}>
       <Notifications position="top-center" />
       <Router basename={process.env.PUBLIC_URL || "/"}>
+        <ScrollToTop />
         <PageTracker />
         <QueryClientProvider client={queryClient}>
-          <AppContextProvider>
-            <Layout>
-              <ErrorBoundary>
-                <Suspense fallback={null}>
-                  <Routes>
-                    {Object.entries(ROUTES).map(([_, value]) => {
-                      const Component = value.element;
-                      return (
-                        <Route
-                          key={value.key}
-                          path={value.path}
-                          element={<Component />}
-                        />
-                      );
-                    })}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </ErrorBoundary>
-            </Layout>
-          </AppContextProvider>
+          <SessionReplayFilterProvider>
+            <AppContextProvider>
+              <Layout>
+                <ErrorBoundary>
+                  <Suspense fallback={null}>
+                    <Routes>
+                      {Object.entries(ROUTES).map(([_, value]) => {
+                        const Component = value.element;
+                        return (
+                          <Route
+                            key={value.key}
+                            path={value.path}
+                            element={<Component />}
+                          />
+                        );
+                      })}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </ErrorBoundary>
+              </Layout>
+            </AppContextProvider>
+          </SessionReplayFilterProvider>
         </QueryClientProvider>
       </Router>
     </MantineProvider>

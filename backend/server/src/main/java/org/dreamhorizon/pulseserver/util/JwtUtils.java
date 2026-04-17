@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 
 /**
  * Utility class for JWT token operations.
@@ -12,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JwtUtils {
     
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = ObjectMapperFactory.get();
     
     /**
      * Extract user ID from JWT token.

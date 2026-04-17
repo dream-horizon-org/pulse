@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // utils around serialisation
+
 package com.pulse.sampling.models
 
 import kotlinx.serialization.KSerializer
@@ -51,12 +53,39 @@ internal object PulseFeatureConfigSerializer : KSerializer<PulseFeatureConfig> {
 
         val configData =
             obj[KEY_CONFIG]?.let { configElement ->
-                if (featureName == PulseFeatureName.SESSION_REPLAY) {
-                    runCatching {
-                        json.decodeFromJsonElement(PulseFeatureConfigData.SessionReplay.serializer(), configElement)
-                    }.getOrNull() ?: PulseFeatureConfigData.Unknown
-                } else {
-                    PulseFeatureConfigData.Unknown
+                when (featureName) {
+                    PulseFeatureName.SESSION_REPLAY -> {
+                        runCatching {
+                            json.decodeFromJsonElement(PulseFeatureConfigData.SessionReplay.serializer(), configElement)
+                        }.getOrNull() ?: PulseFeatureConfigData.Unknown
+                    }
+                    PulseFeatureName.CLICK -> {
+                        runCatching {
+                            json.decodeFromJsonElement(PulseFeatureConfigData.ClickInstrumentation.serializer(), configElement)
+                        }.getOrNull() ?: PulseFeatureConfigData.Unknown
+                    }
+                    PulseFeatureName.JAVA_CRASH,
+                    PulseFeatureName.JS_CRASH,
+                    PulseFeatureName.CPP_CRASH,
+                    PulseFeatureName.JAVA_ANR,
+                    PulseFeatureName.CPP_ANR,
+                    PulseFeatureName.INTERACTION,
+                    PulseFeatureName.NETWORK_CHANGE,
+                    PulseFeatureName.CUSTOM_EVENTS,
+                    PulseFeatureName.RN_SCREEN_LOAD,
+                    PulseFeatureName.RN_SCREEN_INTERACTIVE,
+                    PulseFeatureName.RN_SCREEN_SESSION,
+                    PulseFeatureName.IOS_CRASH,
+                    PulseFeatureName.IOS_NETWORK,
+                    PulseFeatureName.RN_NETWORK,
+                    PulseFeatureName.IOS_LIFECYCLE,
+                    PulseFeatureName.ANDROID_ACTIVITY,
+                    PulseFeatureName.ANDROID_FRAGMENT,
+                    PulseFeatureName.ANDROID_SLOWRENDERING,
+                    PulseFeatureName.UNKNOWN,
+                    -> {
+                        PulseFeatureConfigData.Unknown
+                    }
                 }
             }
 
@@ -84,6 +113,9 @@ internal object PulseFeatureConfigSerializer : KSerializer<PulseFeatureConfig> {
                             PulseFeatureConfigData.SessionReplay.serializer(),
                             config,
                         )
+                    }
+                    is PulseFeatureConfigData.ClickInstrumentation -> {
+                        json.encodeToJsonElement(PulseFeatureConfigData.ClickInstrumentation.serializer(), config)
                     }
                     is PulseFeatureConfigData.Unknown -> {
                         null

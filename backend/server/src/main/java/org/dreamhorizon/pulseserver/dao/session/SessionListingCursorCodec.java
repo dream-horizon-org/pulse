@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.dao.session;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Base64;
@@ -12,7 +13,7 @@ import java.util.Base64;
  */
 public final class SessionListingCursorCodec {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = ObjectMapperFactory.get();
 
     private SessionListingCursorCodec() {}
 

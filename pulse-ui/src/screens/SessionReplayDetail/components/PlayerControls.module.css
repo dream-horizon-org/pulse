@@ -1,0 +1,16 @@
+.playerControls {
+  padding: var(--mantine-spacing-md);
+  background: var(--mantine-color-gray-0);
+  border-top: 1px solid var(--mantine-color-gray-3);
+}
+
+
+.controlsRow {
+  min-width: 0;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.speedGroup {
+  flex-shrink: 0;
+}

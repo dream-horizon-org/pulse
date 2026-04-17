@@ -6,6 +6,8 @@ export interface GetSpanDetailsParams {
   spanId: string;
   timestamp: string;
   groupId?: string; // Used for exceptions
+  sessionStartTime?: string;
+  sessionEndTime?: string;
   enabled?: boolean;
 }
 
@@ -85,4 +87,3 @@ export interface ExceptionDetailsResponse {
   signature: string | null;
   fingerprint: string | null;
 }
-

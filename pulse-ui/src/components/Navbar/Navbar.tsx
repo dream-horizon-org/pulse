@@ -24,6 +24,7 @@ import {
   MULTI_TENANT_CONSTANTS,
   NAVBAR_CONSTANTS,
   NAVBAR_ITEMS,
+  NAVBAR_ROUTES,
   ROUTES,
 } from "../../constants";
 import { TIERS } from "../../constants/Tiers";
@@ -39,11 +40,12 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { getCookies } from "../../helpers/cookies";
 import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
 import { useProjectContext, useTenantContext } from "../../contexts";
 import { usePermissions } from "../../hooks";
+import { useSessionReplayFromActiveConfig } from "../../hooks/useSessionReplayFromActiveConfig";
 import { performLogout } from "../../helpers/logout";
 import { ConfirmationModal } from "../ConfirmationModal";
 
@@ -59,6 +61,7 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
+  const [popoverOpened, setPopoverOpened] = useState(false);
   const {
     projectId: contextProjectId,
     clearProject,
@@ -66,10 +69,31 @@ export function Navbar({
   } = useProjectContext();
   const { tenantId, tenantName, tier, clearTenant, projects } =
     useTenantContext();
-  const [popoverOpened, setPopoverOpened] = useState(false);
-
   const permissions = usePermissions();
   const [logoutModalOpened, setLogoutModalOpened] = useState(false);
+
+  const { isSessionReplayEnabled, isLoading: sessionReplayConfigLoading } =
+    useSessionReplayFromActiveConfig({
+      enabled:
+        pathname.startsWith("/projects/") && !pathname.includes("/onboarding"),
+      projectId: contextProjectId,
+    });
+
+  const navbarItemsToShow = useMemo(() => {
+    if (
+      !pathname.startsWith("/projects/") ||
+      pathname.includes("/onboarding")
+    ) {
+      return NAVBAR_ITEMS;
+    }
+    return NAVBAR_ITEMS.filter((item) => {
+      if (item.routeTo === NAVBAR_ROUTES.SESSION_REPLAY) {
+        if (sessionReplayConfigLoading) return false;
+        return isSessionReplayEnabled;
+      }
+      return true;
+    });
+  }, [pathname, isSessionReplayEnabled, sessionReplayConfigLoading]);
 
   // Show nav items only on project dashboard pages (not on org pages or onboarding)
   const isProjectDashboard =
@@ -97,19 +121,35 @@ export function Navbar({
     }
   }
 
-  const isActive = (path: string) => {
+  const isActive = (navPath: string) => {
     const decodedRouteName = decodeURIComponent(pathname);
 
-    // For project-scoped routes, check the part after /projects/:projectId
+    // For project-scoped routes, match the path after /projects/:projectId
     if (decodedRouteName.startsWith("/projects/")) {
-      const projectPathParts = decodedRouteName.split("/").slice(3); // Skip '', 'projects', projectId
-      const projectPath = "/" + projectPathParts.join("/");
-      const basePath = "/" + path.split("/")[1];
-      return projectPath.startsWith(basePath);
+      const segments = decodedRouteName.split("/").filter(Boolean);
+      if (segments[0] !== "projects" || segments.length < 2) {
+        return false;
+      }
+      const afterProjectId = segments.slice(2);
+      const projectSubPath =
+        afterProjectId.length === 0
+          ? "/"
+          : `/${afterProjectId.join("/")}`;
+
+      // Home is "/": every other path also starts with "/", so only match the project root.
+      if (navPath === NAVBAR_ROUTES.HOME) {
+        return afterProjectId.length === 0;
+      }
+
+      const normalizedNav =
+        navPath.startsWith("/") ? navPath : `/${navPath}`;
+      return (
+        projectSubPath === normalizedNav ||
+        projectSubPath.startsWith(`${normalizedNav}/`)
+      );
     }
 
-    // For other routes, use the old logic
-    const base = path.split("/")[1];
+    const base = navPath.split("/")[1];
     const baseMatch = decodedRouteName.split("/")[1];
     return base === baseMatch;
   };
@@ -209,7 +249,7 @@ export function Navbar({
               width: "100%",
             }}
           >
-            {NAVBAR_ITEMS.map((item) => {
+            {navbarItemsToShow.map((item) => {
               const NavbarIcon = item.icon;
               const active = isActive(item.routeTo);
 

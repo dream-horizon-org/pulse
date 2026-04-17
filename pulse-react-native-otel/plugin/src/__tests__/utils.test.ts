@@ -50,6 +50,32 @@ describe('buildPulseInitializationCode', () => {
     });
   });
 
+  describe('customEventCollectorUrl', () => {
+    it('should emit HttpEndpointConnectivity with full URL and emptyMap without headers', () => {
+      const result = buildPulseInitializationCode({
+        endpointBaseUrl: 'http://localhost:4318',
+        apiKey: 'project-123',
+        customEventCollectorUrl: 'http://collector.example/v1/custom-events',
+      });
+      expect(result).toContain(
+        'customEventConnectivity = HttpEndpointConnectivity("http://collector.example/v1/custom-events", emptyMap())'
+      );
+    });
+
+    it('should reuse endpointHeaders map for customEventConnectivity when headers set', () => {
+      const result = buildPulseInitializationCode({
+        endpointBaseUrl: 'http://localhost:4318',
+        apiKey: 'project-123',
+        endpointHeaders: { 'X-Key': 'v' },
+        customEventCollectorUrl: 'http://collector.example/v1/logs',
+      });
+      expect(result).toContain('endpointHeaders = mapOf(');
+      expect(result).toContain(
+        'customEventConnectivity = HttpEndpointConnectivity("http://collector.example/v1/logs", mapOf("X-Key" to "v"))'
+      );
+    });
+  });
+
   describe('endpointHeaders', () => {
     it('should include endpointHeaders when provided', () => {
       const result = buildPulseInitializationCode({
@@ -78,7 +104,7 @@ describe('buildPulseInitializationCode', () => {
       expect(result).not.toContain('endpointHeaders');
     });
 
-    it('should include special characters in header keys and values as-is (might cause Kotlin compilation errors)', () => {
+    it('escapes quotes, backslashes, and $ in header keys and values for Kotlin', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
@@ -90,8 +116,8 @@ describe('buildPulseInitializationCode', () => {
 
       expect(result).toContain('apiKey = "project-123"');
       expect(result).toContain('endpointHeaders = mapOf');
-      expect(result).toContain('Header-With"Quotes');
-      expect(result).toContain('Value\\With\\Backslashes');
+      expect(result).toContain('"Header-With\\"Quotes" to');
+      expect(result).toContain('"Value\\\\With\\\\Backslashes"');
     });
 
     it('should handle single header', () => {
@@ -487,7 +513,7 @@ describe('buildPulseInitializationCode', () => {
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
         instrumentation: {
-          activity: true,
+          activity: { enabled: true },
         },
       });
 
@@ -499,7 +525,7 @@ describe('buildPulseInitializationCode', () => {
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
         instrumentation: {
-          network: false,
+          network: { enabled: false },
         },
       });
 
@@ -511,7 +537,7 @@ describe('buildPulseInitializationCode', () => {
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
         instrumentation: {
-          anr: true,
+          anr: { enabled: true },
         },
       });
 
@@ -523,7 +549,7 @@ describe('buildPulseInitializationCode', () => {
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
         instrumentation: {
-          slowRendering: false,
+          slowRendering: { enabled: false },
         },
       });
 
@@ -535,7 +561,7 @@ describe('buildPulseInitializationCode', () => {
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
         instrumentation: {
-          fragment: true,
+          fragment: { enabled: true },
         },
       });
 
@@ -547,7 +573,7 @@ describe('buildPulseInitializationCode', () => {
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
         instrumentation: {
-          crash: false,
+          crash: { enabled: false },
         },
       });
 
@@ -563,12 +589,12 @@ describe('buildPulseInitializationCode', () => {
             enabled: true,
             url: 'http://localhost:8080/v1/interactions',
           },
-          activity: true,
-          network: false,
-          anr: true,
-          slowRendering: false,
-          fragment: true,
-          crash: false,
+          activity: { enabled: true },
+          network: { enabled: false },
+          anr: { enabled: true },
+          slowRendering: { enabled: false },
+          fragment: { enabled: true },
+          crash: { enabled: false },
         },
       });
 
@@ -616,8 +642,8 @@ describe('buildPulseInitializationCode', () => {
             enabled: true,
             url: 'http://localhost:8080/v1/interactions',
           },
-          activity: true,
-          network: true,
+          activity: { enabled: true },
+          network: { enabled: true },
         },
       });
 
@@ -644,7 +670,7 @@ describe('buildPulseInitializationCode', () => {
           key2: 'value2',
         },
         instrumentation: {
-          activity: true,
+          activity: { enabled: true },
         },
       });
 

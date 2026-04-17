@@ -10,6 +10,8 @@ export interface CrashIssue {
   occurrences: number;
   firstSeen: string;
   lastSeen: string;
+  /** PulseType from API; used to align timestamp queries with the listing. */
+  pulseEventName?: string;
   appVersion: string;
   osVersion: string;
   device: string;
@@ -25,6 +27,7 @@ export interface ANRIssue {
   occurrences: number;
   firstSeen: string;
   lastSeen: string;
+  pulseEventName?: string;
   appVersion: string;
   osVersion: string;
   device: string;
@@ -42,6 +45,7 @@ export interface NonFatalIssue {
   occurrences: number;
   firstSeen: string;
   lastSeen: string;
+  pulseEventName?: string;
   appVersion: string;
   osVersion: string;
   device: string;
@@ -50,9 +54,6 @@ export interface NonFatalIssue {
 
 export interface VitalsFilters {
   issueType: IssueType;
-  appVersion: string;
-  osVersion: string;
-  device: string;
 }
 
 export interface VitalsStats {

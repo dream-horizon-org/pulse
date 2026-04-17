@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { FilterField, useGetDataQuery } from "../../../../../../../../hooks";
+import { DataQueryRequestBody, FilterField, useGetDataQuery } from "../../../../../../../../hooks";
 import { COLUMN_NAME, PulseType } from "../../../../../../../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import {
@@ -54,12 +54,17 @@ export const useGetDevicePerformance = ({
           alias: "deviceModel",
         },
       ],
+      orderBy: [
+        { field: "crash", direction: "DESC" },
+        { field: "anr", direction: "DESC" },
+        { field: "frozen_frame", direction: "DESC" },
+      ],
       groupBy: ["deviceModel"],
       filters: requestFilters,
       limit: 10,
     }),
     [startTime, endTime, requestFilters],
-  );
+  ) as DataQueryRequestBody;
 
   // Fetch device performance data
   const {

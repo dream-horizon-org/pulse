@@ -15,10 +15,8 @@ opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporte
 opentelemetry-api-incubator = { module = "io.opentelemetry:opentelemetry-api-incubator", version.ref = "opentelemetry-alpha" }
 pulse-android-agent = { module = "org.dreamhorizon:android-agent", version.ref = "pulse" }
 pulse-instrumentation-activity = { module = "org.dreamhorizon.instrumentation:activity", version.ref = "pulse" }
-pulse-instrumentation-compose-click = { module = "org.dreamhorizon.instrumentation:compose-click", version.ref = "pulse" }
 pulse-instrumentation-fragment = { module = "org.dreamhorizon.instrumentation:fragment", version.ref = "pulse" }
 pulse-instrumentation-slowrendering = { module = "org.dreamhorizon.instrumentation:slowrendering", version.ref = "pulse" }
-pulse-instrumentation-view-click = { module = "org.dreamhorizon.instrumentation:view-click", version.ref = "pulse" }
 pulse-instrumentation-sessions = { module = "org.dreamhorizon:session", version.ref = "pulse" }
 pulse-instrumentation-locationLibrary = { module = "org.dreamhorizon.instrumentation:location-location-library", version.ref = "pulse" }
 pulse-android-sdk = { module = "org.dreamhorizon:pulse-android-sdk", version.ref = "pulse" }
@@ -36,6 +34,7 @@ desugarJdkLibs = "com.android.tools:desugar_jdk_libs:2.1.5"
 # demo-app
 androidx-core-ktx = "androidx.core:core-ktx:1.17.0"
 androidx-lifecycle-runtime-ktx = "androidx.lifecycle:lifecycle-runtime-ktx:2.9.4"
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version = "2.9.4" }
 androidx-compose-bom = "androidx.compose:compose-bom:2025.10.00"
 androidx-activity-compose = "androidx.activity:activity-compose:1.11.0"
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }

@@ -1,0 +1,73 @@
+PODS:
+  - KSCrash (2.5.1):
+    - KSCrash/Installations (= 2.5.1)
+  - KSCrash/Core (2.5.1)
+  - KSCrash/DemangleFilter (2.5.1):
+    - KSCrash/Recording
+  - KSCrash/Filters (2.5.1):
+    - KSCrash/Recording
+    - KSCrash/RecordingCore
+    - KSCrash/ReportingCore
+  - KSCrash/Installations (2.5.1):
+    - KSCrash/DemangleFilter
+    - KSCrash/Filters
+    - KSCrash/Recording
+    - KSCrash/Sinks
+  - KSCrash/Recording (2.5.1):
+    - KSCrash/RecordingCore
+  - KSCrash/RecordingCore (2.5.1):
+    - KSCrash/Core
+  - KSCrash/ReportingCore (2.5.1):
+    - KSCrash/Core
+  - KSCrash/Sinks (2.5.1):
+    - KSCrash/Filters
+    - KSCrash/Recording
+  - libwebp (1.5.0):
+    - libwebp/demux (= 1.5.0)
+    - libwebp/mux (= 1.5.0)
+    - libwebp/sharpyuv (= 1.5.0)
+    - libwebp/webp (= 1.5.0)
+  - libwebp/demux (1.5.0):
+    - libwebp/webp
+  - libwebp/mux (1.5.0):
+    - libwebp/demux
+  - libwebp/sharpyuv (1.5.0)
+  - libwebp/webp (1.5.0):
+    - libwebp/sharpyuv
+  - OpenTelemetry-Swift-Api (2.2.0)
+  - OpenTelemetry-Swift-Sdk (2.2.0):
+    - OpenTelemetry-Swift-Api (= 2.2.0)
+  - PulseKit (0.0.1-alpha):
+    - KSCrash (= 2.5.1)
+    - libwebp (= 1.5.0)
+    - OpenTelemetry-Swift-Api (= 2.2.0)
+    - OpenTelemetry-Swift-Sdk (= 2.2.0)
+    - SwiftProtobuf (= 1.34.1)
+  - SwiftProtobuf (1.34.1)
+
+DEPENDENCIES:
+  - PulseKit (from `../../`)
+
+SPEC REPOS:
+  trunk:
+    - KSCrash
+    - libwebp
+    - OpenTelemetry-Swift-Api
+    - OpenTelemetry-Swift-Sdk
+    - SwiftProtobuf
+
+EXTERNAL SOURCES:
+  PulseKit:
+    :path: "../../"
+
+SPEC CHECKSUMS:
+  KSCrash: 8c4464fd5da7de520f2ce4a00fdf63f169a80f18
+  libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
+  OpenTelemetry-Swift-Api: 0785e3b9888286449aa297c0b48269797bfcaf7f
+  OpenTelemetry-Swift-Sdk: b856396d6147c01829a88ad782f481c0e1cd0966
+  PulseKit: 22632b2108ecc971f6488f2b61a7b2da2af26e1e
+  SwiftProtobuf: c901f00a3e125dc33cac9b16824da85682ee47da
+
+PODFILE CHECKSUM: f062e09aa835ba60cec9e8cb40ef5083c212cfc1
+
+COCOAPODS: 1.15.2

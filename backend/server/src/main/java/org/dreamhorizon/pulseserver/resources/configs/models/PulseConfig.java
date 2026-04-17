@@ -7,11 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
-import org.dreamhorizon.pulseserver.service.configs.models.Scope;
-import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
-import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.service.configs.models.*;
 
 @Data
 @Builder
@@ -19,286 +15,262 @@ import org.dreamhorizon.pulseserver.service.configs.models.rules;
 @NoArgsConstructor
 public class PulseConfig {
 
-  @JsonProperty("version")
-  private Long version;
+    @JsonProperty("version")
+    private Long version;
 
-  @NotNull
-  @JsonProperty("description")
-  private String description;
+    @NotNull
+    @JsonProperty("description")
+    private String description;
 
-  @NotNull
-  @JsonProperty("sampling")
-  private SamplingConfig sampling;
+    @NotNull
+    @JsonProperty("sampling")
+    private SamplingConfig sampling;
 
-  @NotNull
-  @JsonProperty("signals")
-  private SignalsConfig signals;
+    @NotNull
+    @JsonProperty("signals")
+    private SignalsConfig signals;
 
-  @NotNull
-  @JsonProperty("interaction")
-  private InteractionConfig interaction;
+    @NotNull
+    @JsonProperty("interaction")
+    private InteractionConfig interaction;
 
-  @NotNull
-  @JsonProperty("features")
-  private List<FeatureConfig> features;
+    @NotNull
+    @JsonProperty("features")
+    private List<FeatureConfig> features;
 
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class EventFilter {
 
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class EventFilter {
+        @JsonProperty("name")
+        private String name;
 
-    @JsonProperty("name")
-    private String name;
+        @JsonProperty("props")
+        private List<EventPropMatch> props;
 
-    @JsonProperty("props")
-    private List<EventPropMatch> props;
+        @JsonProperty("scopes")
+        private List<Scope> scopes;
 
-    @JsonProperty("scopes")
-    private List<Scope> scopes;
-
-    @JsonProperty("sdks")
-    private List<Sdk> sdks;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class EventPropMatch {
-
-    @JsonProperty("name")
-    private String name;
-
-    @JsonProperty("value")
-    private String value; // regex string
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class AttributeValue {
-
-    @JsonProperty("name")
-    private String name;
-
-    @JsonProperty("value")
-    private String value;
-
-    @JsonProperty("type")
-    public String getType() {
-      return "string";
+        @JsonProperty("sdks")
+        private List<Sdk> sdks;
     }
 
-    @JsonProperty("type")
-    public void setType(String type) {
-      // Ignore the incoming type value - we always return "string"
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class EventPropMatch {
+
+        @JsonProperty("name")
+        private String name;
+
+        @JsonProperty("value")
+        private String value; // regex string
     }
-  }
 
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class AttributeToAdd {
-
-    @JsonProperty("values")
-    private List<AttributeValue> values;
-
-    @JsonProperty("condition")
-    private EventFilter condition;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class AttributeToDrop {
-
-    @JsonProperty("values")
-    private List<String> values;
-
-    @JsonProperty("condition")
-    private EventFilter condition;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class SamplingConfig {
-
-    @JsonProperty("default")
-    private DefaultSampling defaultSampling;
-
-    @JsonProperty("rules")
-    private List<SamplingRule> rules;
-
-    @JsonProperty("criticalEventPolicies")
-    private CriticalEventPolicies criticalEventPolicies;
-
-    @JsonProperty("criticalSessionPolicies")
-    private CriticalSessionPolicies criticalSessionPolicies;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class DefaultSampling {
-    @JsonProperty("sessionSampleRate")
-    private double sessionSampleRate;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class SamplingRule {
-
-    @JsonProperty("name")
-    private rules name;
-
-    @JsonProperty("sdks")
-    private List<Sdk> sdks;
-
-    @JsonProperty("value")
-    private String value;
-
-    @JsonProperty("sessionSampleRate")
-    private double sessionSampleRate;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class CriticalEventPolicies {
-    @JsonProperty("alwaysSend")
-    private List<CriticalPolicyRule> alwaysSend;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class CriticalSessionPolicies {
-    @JsonProperty("alwaysSend")
-    private List<CriticalPolicyRule> alwaysSend;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class CriticalPolicyRule {
-
-    @JsonProperty("name")
-    private String name;
-
-    @JsonProperty("props")
-    private List<EventPropMatch> props;
-
-    @JsonProperty("scopes")
-    private List<Scope> scopes;
-
-    @JsonProperty("sdks")
-    private List<Sdk> sdks;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class FilterConfig {
-
-    @JsonProperty("mode")
-    private FilterMode mode;
-
-    @JsonProperty("values")
-    private List<EventFilter> values;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  public static class SignalsConfig {
-
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
     @NotNull
-    @JsonProperty("filters")
-    private FilterConfig filters;
+    public static class AttributeValue {
 
+        @JsonProperty("name")
+        private String name;
+
+        @JsonProperty("value")
+        private String value;
+
+        @JsonProperty("type")
+        public String getType() {
+            return "string";
+        }
+
+        @JsonProperty("type")
+        public void setType(String type) {
+            // Ignore the incoming type value - we always return "string"
+        }
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
     @NotNull
-    @JsonProperty("scheduleDurationMs")
-    private int scheduleDurationMs;
+    public static class AttributeToAdd {
 
-    @JsonProperty("logsCollectorUrl")
-    private String logsCollectorUrl;
+        @JsonProperty("values")
+        private List<AttributeValue> values;
 
-    @JsonProperty("metricCollectorUrl")
-    private String metricCollectorUrl;
+        @JsonProperty("condition")
+        private EventFilter condition;
+    }
 
-    @JsonProperty("spanCollectorUrl")
-    private String spanCollectorUrl;
-
-    @JsonProperty("customEventCollectorUrl")
-    private String customEventCollectorUrl;
-
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
     @NotNull
-    @JsonProperty("attributesToDrop")
-    private List<AttributeToDrop> attributesToDrop;
+    public static class AttributeToDrop {
 
-    @JsonProperty("attributesToAdd")
-    private List<AttributeToAdd> attributesToAdd;
-  }
+        @JsonProperty("values")
+        private List<String> values;
 
+        @JsonProperty("condition")
+        private EventFilter condition;
+    }
 
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  public static class InteractionConfig {
-
-    @JsonProperty("collectorUrl")
-    private String collectorUrl;
-
-    @JsonProperty("configUrl")
-    private String configUrl;
-
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
     @NotNull
-    @JsonProperty("beforeInitQueueSize")
-    private int beforeInitQueueSize;
-  }
+    public static class SamplingConfig {
 
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
-  public static class FeatureConfig {
+        @JsonProperty("default")
+        private DefaultSampling defaultSampling;
 
-    @JsonProperty("featureName")
-    private Features featureName;
+        @JsonProperty("rules")
+        private List<SamplingRule> rules;
 
-    @JsonProperty("sessionSampleRate")
-    private Double sessionSampleRate;
+        @JsonProperty("criticalSessionPolicies")
+        private CriticalSessionPolicies criticalSessionPolicies;
 
-    @JsonProperty("sdks")
-    private List<Sdk> sdks;
-  }
+        @JsonProperty("signalsToSample")
+        private List<SignalsToSampleEntry> signalsToSample;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class DefaultSampling {
+        @JsonProperty("sessionSampleRate")
+        private double sessionSampleRate;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class SamplingRule {
+
+        @JsonProperty("name")
+        private rules name;
+
+        @JsonProperty("sdks")
+        private List<Sdk> sdks;
+
+        @JsonProperty("value")
+        private String value;
+
+        @JsonProperty("sessionSampleRate")
+        private double sessionSampleRate;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class CriticalSessionPolicies {
+        @JsonProperty("alwaysSend")
+        private List<CriticalPolicyRule> alwaysSend;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class CriticalPolicyRule {
+
+        @JsonProperty("name")
+        private String name;
+
+        @JsonProperty("props")
+        private List<EventPropMatch> props;
+
+        @JsonProperty("scopes")
+        private List<Scope> scopes;
+
+        @JsonProperty("sdks")
+        private List<Sdk> sdks;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class SignalsConfig {
+
+        @NotNull
+        @JsonProperty("scheduleDurationMs")
+        private int scheduleDurationMs;
+
+        @JsonProperty("logsCollectorUrl")
+        private String logsCollectorUrl;
+
+        @JsonProperty("metricCollectorUrl")
+        private String metricCollectorUrl;
+
+        @JsonProperty("spanCollectorUrl")
+        private String spanCollectorUrl;
+
+        @JsonProperty("customEventCollectorUrl")
+        private String customEventCollectorUrl;
+
+        @NotNull
+        @JsonProperty("attributesToDrop")
+        private List<AttributeToDrop> attributesToDrop;
+
+        @JsonProperty("attributesToAdd")
+        private List<AttributeToAdd> attributesToAdd;
+
+        @JsonProperty("metricsToAdd")
+        private List<MetricsToAddEntry> metricsToAdd;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class InteractionConfig {
+
+        @JsonProperty("collectorUrl")
+        private String collectorUrl;
+
+        @JsonProperty("configUrl")
+        private String configUrl;
+
+        @NotNull
+        @JsonProperty("beforeInitQueueSize")
+        private int beforeInitQueueSize;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @NotNull
+    public static class FeatureConfig {
+
+        @JsonProperty("featureName")
+        private Features featureName;
+
+        @JsonProperty("sessionSampleRate")
+        private Double sessionSampleRate;
+
+        @JsonProperty("sdks")
+        private List<Sdk> sdks;
+
+        @JsonProperty("config")
+        private FeatureConfigProperties config;
+    }
 }
