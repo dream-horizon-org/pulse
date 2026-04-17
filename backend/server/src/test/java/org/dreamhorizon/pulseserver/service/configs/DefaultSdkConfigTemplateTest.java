@@ -68,7 +68,7 @@ class DefaultSdkConfigTemplateTest {
     @Test
     void shouldIncludeAllExpectedFeatures() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
-      assertThat(config.getFeatures()).hasSize(23);
+      assertThat(config.getFeatures()).hasSize(21);
 
       assertThat(config.getFeatures()).extracting(FeatureConfig::getFeatureName)
           .containsExactlyInAnyOrder(
@@ -92,7 +92,7 @@ class DefaultSdkConfigTemplateTest {
               Features.network_instrumentation,
               Features.ios_lifecycle,
               Features.android_activity,
-              Features.android_fragment,
+              Features.android_fragment
           );
     }
 
