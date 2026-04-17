@@ -37,7 +37,7 @@ variable "key_name" {
   default     = null
 }
 
-variable "iam_instance_profile" {
+variable "instance_profile_name" {
   description = "IAM instance profile name to attach to OTEL EC2 instances (optional)"
   type        = string
   default     = null
