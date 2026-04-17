@@ -146,7 +146,7 @@ pipeline {
 
                         NUM_BROKERS=$(cd deploy/terraform/kafka && terraform output -json broker_dns | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 
-                        ansible-playbook deploy/ansible/kafka/configure-broker.yml \
+                        /home/admin/.local/bin/ansible-playbook deploy/ansible/kafka/configure-broker.yml \
                             -i deploy/ansible/kafka/inventory/hosts.ini \
                             --private-key "$SSH_KEY" \
                             -e "kraft_cluster_id=$KRAFT_CLUSTER_ID" \
