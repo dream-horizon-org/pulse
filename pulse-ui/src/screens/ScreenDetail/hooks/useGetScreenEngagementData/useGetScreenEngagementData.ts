@@ -300,9 +300,9 @@ export function useGetScreenEngagementData({
     }
 
     const avgTimeSpent =
-      totalSessions > 0
+      totalUniqueSessions > 0
         ? Math.round(
-            (totalTimeSpentSum / totalSessions / 1_000_000_000) * 100,
+            (totalTimeSpentSum / totalUniqueSessions / 1_000_000_000) * 100,
           ) / 100
         : null;
     const avgLoadTime =
