@@ -29,7 +29,7 @@ export default function NetworkInterceptorDemo() {
     try {
       console.log('[Pulse Network] 🌐 Testing fetch() GET request...');
       const response = await fetch(
-        'https://jsonplaceholder.typicode.com/posts/1'
+        'https://jsonplaceholder.typicode.com/posts/2'
       );
       const data = await response.json();
       showResult(`Fetch GET: ${data.title}`);
