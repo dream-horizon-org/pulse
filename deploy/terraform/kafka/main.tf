@@ -58,7 +58,7 @@ data "aws_subnet" "broker" {
 # Ansible configures each broker after provisioning.
 # -------------------------------------------------------------------
 resource "aws_launch_template" "kafka_broker" {
-  count     = var.num_brokers
+  count         = var.num_brokers
   name          = "pulse-kafka-lt"
   image_id      = var.ami_id
   instance_type = var.instance_type
@@ -91,7 +91,6 @@ resource "aws_launch_template" "kafka_broker" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name             = "${local.broker_names[count.index]}-instance"
       Role             = "kafka-broker"
       org_name         = "horizon"
       environment_name = "production"
@@ -105,7 +104,6 @@ resource "aws_launch_template" "kafka_broker" {
    tag_specifications {
       resource_type = "volume"
       tags = {
-        Name             = "${local.broker_names[count.index]}-volume"
         Role             = "kafka-broker"
         org_name         = "horizon"
         environment_name = "production"
