@@ -201,8 +201,7 @@ public class Pulse {
                 let processors = PulseSamplingSignalProcessors(sdkConfig: sdkConfig, currentSdkName: currentSdkName)
                 _samplingSignalProcessors = processors
                 let enabledFeatures = processors.getEnabledFeatures()
-                applyEnabledFeatures(enabledFeatures: enabledFeatures, config: &config)
-                applyDisabledFeatures(enabledFeatures: enabledFeatures, config: &config)
+                configureFeaturesFromRemoteConfig(features: enabledFeatures, config: &config)
 
                 // Extract and merge Session Replay config from backend
                 let sessionReplayFeature = sdkConfig.features.first { feature in
@@ -303,48 +302,13 @@ public class Pulse {
 
     // MARK: - Private Helper Methods
 
-    /// Disables features not in enabledFeatures.
-    private func applyDisabledFeatures(enabledFeatures: [PulseFeatureName], config: inout InstrumentationConfiguration) {
-        for feature in PulseFeatureName.allCases {
-            guard !enabledFeatures.contains(feature) else { continue }
-            print("Disabling feature: \(feature)")
-            switch feature {
-            case .java_crash: break
-            case .js_crash: break
-            case .cpp_crash: break
-            case .java_anr: break
-            case .cpp_anr: break
-            case .interaction:
-                config.interaction { $0.enabled(false) }
-            case .network_change:
-                _configuration.disableNetworkAttributes()
-            case .custom_events:
-                _customEventsEnabled = false
-            case .rn_screen_load: break
-            case .rn_screen_interactive: break
-            case .rn_screen_session: break
-            case .ios_crash:
-                config.crash { $0.enabled(false) }
-            case .session_replay:
-                config.sessionReplay { $0.enabled(false) }
-            case .click:
-                config.uiKitTap { $0.enabled(false) }
-            case .ios_lifecycle:
-                config.screenLifecycle { $0.enabled(false) }
-            case .ios_network:
-                config.urlSession { $0.enabled(false) }
-            case .rn_network: break
-            case .android_activity: break
-            case .android_fragment: break
-            case .android_slowrendering: break
-            case .unknown: break
-            }
-        }
-    }
-
-    private func applyEnabledFeatures(enabledFeatures: [PulseFeatureName], config: inout InstrumentationConfiguration) {
-        for feature in enabledFeatures {
-            print("Enabling feature: \(feature)")
+    /// Applies remote sampling feature toggles: enables listed features, then disables any not listed.
+    private func configureFeaturesFromRemoteConfig(
+        features: [PulseFeatureName],
+        config: inout InstrumentationConfiguration
+    ) {
+        for feature in features {
+            PulseLogger.log("Enabling feature: \(feature)")
             switch feature {
             case .custom_events:
                 _customEventsEnabled = true
@@ -376,6 +340,42 @@ public class Pulse {
                  .android_slowrendering,
                  .unknown:
                 break
+            }
+        }
+
+        for feature in PulseFeatureName.allCases {
+            guard !features.contains(feature) else { continue }
+            PulseLogger.log("Disabling feature: \(feature)")
+            switch feature {
+            case .java_crash: break
+            case .js_crash: break
+            case .cpp_crash: break
+            case .java_anr: break
+            case .cpp_anr: break
+            case .interaction:
+                config.interaction { $0.enabled(false) }
+            case .network_change:
+                _configuration.disableNetworkAttributes()
+            case .custom_events:
+                _customEventsEnabled = false
+            case .rn_screen_load: break
+            case .rn_screen_interactive: break
+            case .rn_screen_session: break
+            case .ios_crash:
+                config.crash { $0.enabled(false) }
+            case .session_replay:
+                config.sessionReplay { $0.enabled(false) }
+            case .click:
+                config.uiKitTap { $0.enabled(false) }
+            case .ios_lifecycle:
+                config.screenLifecycle { $0.enabled(false) }
+            case .ios_network:
+                config.urlSession { $0.enabled(false) }
+            case .rn_network: break
+            case .android_activity: break
+            case .android_fragment: break
+            case .android_slowrendering: break
+            case .unknown: break
             }
         }
     }
