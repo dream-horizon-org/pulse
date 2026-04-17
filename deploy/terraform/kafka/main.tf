@@ -83,10 +83,10 @@ resource "aws_launch_template" "kafka_broker" {
     http_tokens   = "required"
   }
 
+  # tag_specifications here apply to the root OS volume created by the LT
   tag_specifications {
-    resource_type = "instance"
+    resource_type = "volume"
     tags = {
-      Role             = "kafka-broker"
       org_name         = "horizon"
       environment_name = "production"
       component_name   = "pulse-kafka"
@@ -95,19 +95,6 @@ resource "aws_launch_template" "kafka_broker" {
       resource_type    = "ec2"
     }
   }
-
-   tag_specifications {
-      resource_type = "volume"
-      tags = {
-        Role             = "kafka-broker"
-        org_name         = "horizon"
-        environment_name = "production"
-        component_name   = "pulse-kafka"
-        component_type   = "kafka"
-        service_name     = "pulse"
-        resource_type    = "ec2"
-      }
-    }
 }
 
 # -------------------------------------------------------------------
@@ -158,7 +145,14 @@ resource "aws_instance" "broker" {
   }
 
   tags = {
-    Name = local.broker_names[count.index]
+    Name             = local.broker_names[count.index]
+    Role             = "kafka-broker"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-kafka"
+    component_type   = "kafka"
+    service_name     = "pulse"
+    resource_type    = "ec2"
   }
 }
 
