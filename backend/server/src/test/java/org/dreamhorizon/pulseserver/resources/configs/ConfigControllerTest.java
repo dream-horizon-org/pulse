@@ -592,6 +592,7 @@ class ConfigControllerTest {
             assertNotNull(clickFeature);
             assertInstanceOf(ClickFeatureConfig.class, clickFeature.getConfig());
             ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+            assertTrue(clickConfig.getCaptureContext());
             assertNotNull(clickConfig.getRage());
             assertEquals(2000L, clickConfig.getRage().getTimeWindowMs());
             assertEquals(3, clickConfig.getRage().getThreshold());
@@ -637,6 +638,7 @@ class ConfigControllerTest {
                 .orElse(null);
             assertNotNull(clickFeature);
             ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+            assertTrue(clickConfig.getCaptureContext());
             assertEquals(7, clickConfig.getRage().getThreshold());
             assertEquals(2000L, clickConfig.getRage().getTimeWindowMs());
             assertEquals(50, clickConfig.getRage().getRadius());

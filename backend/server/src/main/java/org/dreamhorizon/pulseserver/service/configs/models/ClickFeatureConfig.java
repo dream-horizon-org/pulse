@@ -19,6 +19,9 @@ import lombok.experimental.SuperBuilder;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ClickFeatureConfig extends FeatureConfigProperties {
 
+  @JsonProperty("captureContext")
+  private Boolean captureContext;
+
   @JsonProperty("rage")
   private RageConfig rage;
 }

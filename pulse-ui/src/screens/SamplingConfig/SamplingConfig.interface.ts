@@ -80,6 +80,7 @@ export interface RageConfig {
 /** Click / tap instrumentation — matches backend {@code ClickFeatureConfig}. */
 export interface ClickFeatureConfig {
   featureName?: "click";
+  captureContext?: boolean;
   rage?: RageConfig;
 }
 

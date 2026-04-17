@@ -119,6 +119,12 @@ const FEATURE_COLORS: Record<string, string> = {
   android_slowrendering: "#dc2626",
 };
 
+// These are hidden mirror keys — controlled via their parent toggle, not shown as separate rows.
+const HIDDEN_MIRROR_FEATURES: FeatureName[] = [
+  "screen_session",
+  "network_instrumentation",
+];
+
 const TEXT_AND_INPUT_PRIVACY_OPTIONS: {
   value: TextAndInputPrivacy;
   label: string;
@@ -157,6 +163,7 @@ export function FeatureToggles({
     useState<TextAndInputPrivacy>("MASK_ALL");
   const [imagePrivacy, setImagePrivacy] = useState<ImagePrivacy>("MASK_ALL");
 
+  const [captureContext, setCaptureContext] = useState(true);
   const [rageTimeWindowMs, setRageTimeWindowMs] = useState<number>(
     DEFAULT_RAGE_CONFIG.timeWindowMs,
   );
@@ -188,12 +195,6 @@ export function FeatureToggles({
 
   const allSdks = useMemo(() => sdkOptions.map((s) => s.value), [sdkOptions]);
 
-  // These are hidden mirror keys — controlled via their parent toggle, not shown as separate rows
-  const HIDDEN_MIRROR_FEATURES: FeatureName[] = [
-    "screen_session",
-    "network_instrumentation",
-  ];
-
   const allFeaturesWithConfigs = useMemo(() => {
     if (!featureOptions.length) return [];
 
@@ -217,7 +218,7 @@ export function FeatureToggles({
           } as FeatureConfig;
         }
       });
-  }, [featureOptions, configs]);
+  }, [featureOptions, configs, HIDDEN_MIRROR_FEATURES]);
 
   // Get features that haven't been configured yet (excluding hidden mirror keys)
   const availableFeatures = featureOptions.filter(
@@ -233,6 +234,7 @@ export function FeatureToggles({
     setFeatureSdks([]);
     setTextAndInputPrivacy("MASK_ALL");
     setImagePrivacy("MASK_ALL");
+    setCaptureContext(true);
     setRageTimeWindowMs(DEFAULT_RAGE_CONFIG.timeWindowMs);
     setRageThreshold(DEFAULT_RAGE_CONFIG.threshold);
     setRageRadius(DEFAULT_RAGE_CONFIG.radius);
@@ -258,12 +260,14 @@ export function FeatureToggles({
     }
     if (feature.featureName === CLICK_FEATURE_NAME) {
       const c = feature.config as ClickFeatureConfig | null | undefined;
+      setCaptureContext(c?.captureContext ?? true);
       setRageTimeWindowMs(
         c?.rage?.timeWindowMs ?? DEFAULT_RAGE_CONFIG.timeWindowMs,
       );
       setRageThreshold(c?.rage?.threshold ?? DEFAULT_RAGE_CONFIG.threshold);
       setRageRadius(c?.rage?.radius ?? DEFAULT_RAGE_CONFIG.radius);
     } else {
+      setCaptureContext(true);
       setRageTimeWindowMs(DEFAULT_RAGE_CONFIG.timeWindowMs);
       setRageThreshold(DEFAULT_RAGE_CONFIG.threshold);
       setRageRadius(DEFAULT_RAGE_CONFIG.radius);
@@ -305,6 +309,7 @@ export function FeatureToggles({
     if (featureName === CLICK_FEATURE_NAME) {
       newFeature.config = {
         featureName: CLICK_FEATURE_NAME,
+        captureContext: captureContext,
         rage: {
           timeWindowMs: rageTimeWindowMs,
           threshold: rageThreshold,
@@ -672,6 +677,19 @@ export function FeatureToggles({
 
             {featureName === CLICK_FEATURE_NAME && (
               <Box>
+                <Group mb="sm">
+                  <Text size="sm" fw={500}>
+                    Capture context
+                  </Text>
+                  <Switch
+                    checked={captureContext}
+                    onChange={(e) => setCaptureContext(e.currentTarget.checked)}
+                    color="teal"
+                  />
+                  <Text size="xs" c="dimmed">
+                    Attach meaningful labels to click events
+                  </Text>
+                </Group>
                 <Text size="sm" fw={600} mb={4}>
                   Rage-click detection
                 </Text>

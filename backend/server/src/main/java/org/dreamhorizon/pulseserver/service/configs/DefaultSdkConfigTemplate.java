@@ -83,7 +83,7 @@ public class DefaultSdkConfigTemplate {
         // Legacy key for backward compatibility with old RN SDK versions
         features.add(createFeature(Features.screen_session, 1.0, rnSdk));
         features.add(createSessionReplayFeature(0.0, allSdks));
-        features.add(createClickFeature(1.0, allSdks));
+        features.add(createClickFeature(0.0, allSdks));
         features.add(createFeature(Features.heatmap, 1.0, allSdks));
         features.add(createFeature(Features.ios_crash, 1.0, iosSdk));
         features.add(createFeature(Features.android_slowrendering, 1.0, androidSdk));
@@ -138,8 +138,9 @@ public class DefaultSdkConfigTemplate {
 
     private static FeatureConfig createClickFeature(Double sampleRate, List<Sdk> sdks) {
         ClickFeatureConfig config = ClickFeatureConfig.builder()
+            .captureContext(true)
             .rage(RageConfig.builder()
-                .timeWindowMs(1000L)
+                .timeWindowMs(2000L)
                 .threshold(3)
                 .radius(50)
                 .build())

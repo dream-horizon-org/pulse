@@ -137,9 +137,10 @@ class DefaultSdkConfigTemplateTest {
       assertThat(clickFeature.getSessionSampleRate()).isEqualTo(1.0);
       assertThat(clickFeature.getConfig()).isInstanceOf(ClickFeatureConfig.class);
       ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+      assertThat(clickConfig.getCaptureContext()).isTrue();
       assertThat(clickConfig.getRage()).isNotNull();
       RageConfig rage = clickConfig.getRage();
-      assertThat(rage.getTimeWindowMs()).isEqualTo(1000L);
+      assertThat(rage.getTimeWindowMs()).isEqualTo(2000L);
       assertThat(rage.getThreshold()).isEqualTo(3);
       assertThat(rage.getRadius()).isEqualTo(50);
     }
