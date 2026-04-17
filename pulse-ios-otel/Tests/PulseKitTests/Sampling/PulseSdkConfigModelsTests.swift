@@ -388,7 +388,7 @@ final class PulseSdkConfigModelsTests: XCTestCase {
                 "beforeInitQueueSize": 100
             },
             "features": [
-                { "featureName": "rn_screen_session", "sessionSampleRate": 1.0, "sdks": ["pulse_ios_rn"] }
+                { "featureName": "future_unknown_feature", "sessionSampleRate": 1.0, "sdks": ["pulse_ios_rn"] }
             ]
         }
         """
