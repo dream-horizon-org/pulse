@@ -10,6 +10,7 @@ import Foundation
 
 /// Remote config structure for click instrumentation, parsed from backend feature config JSON.
 internal struct ClickFeatureRemoteConfig: Decodable {
+    let captureContext: Bool?
     let rage: RageConfig?
 
     struct RageConfig: Decodable {

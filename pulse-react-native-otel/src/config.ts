@@ -81,7 +81,7 @@ function resolveNavigationState(
 ): boolean {
   if (features !== undefined && features !== null) {
     const hasAny =
-      features[PULSE_FEATURE_NAMES.SCREEN_SESSION] === true ||
+      features[PULSE_FEATURE_NAMES.RN_SCREEN_SESSION] === true ||
       features[PULSE_FEATURE_NAMES.RN_SCREEN_LOAD] === true ||
       features[PULSE_FEATURE_NAMES.RN_SCREEN_INTERACTIVE] === true;
     return hasAny ?? optionValue;
@@ -116,7 +116,7 @@ export function start(options?: PulseConfig): void {
     ),
     autoDetectNetwork: resolveFeatureState(
       features,
-      PULSE_FEATURE_NAMES.NETWORK_INSTRUMENTATION,
+      PULSE_FEATURE_NAMES.RN_NETWORK,
       options?.autoDetectNetwork ?? defaultConfig.autoDetectNetwork
     ),
     networkHeaders: options?.networkHeaders ?? {
