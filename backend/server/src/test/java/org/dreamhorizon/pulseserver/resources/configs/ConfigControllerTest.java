@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
@@ -591,6 +592,7 @@ class ConfigControllerTest {
             assertNotNull(clickFeature);
             assertInstanceOf(ClickFeatureConfig.class, clickFeature.getConfig());
             ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+            assertTrue(clickConfig.getCaptureContext());
             assertNotNull(clickConfig.getRage());
             assertEquals(2000L, clickConfig.getRage().getTimeWindowMs());
             assertEquals(3, clickConfig.getRage().getThreshold());
@@ -636,6 +638,7 @@ class ConfigControllerTest {
                 .orElse(null);
             assertNotNull(clickFeature);
             ClickFeatureConfig clickConfig = (ClickFeatureConfig) clickFeature.getConfig();
+            assertTrue(clickConfig.getCaptureContext());
             assertEquals(7, clickConfig.getRage().getThreshold());
             assertEquals(2000L, clickConfig.getRage().getTimeWindowMs());
             assertEquals(50, clickConfig.getRage().getRadius());
@@ -1420,7 +1423,12 @@ class ConfigControllerTest {
         // Given
         RulesAndFeaturesResponse mockResponse = RulesAndFeaturesResponse.builder()
             .rules(Arrays.asList("os_version", "app_version", "country"))
-            .features(Arrays.asList("java_crash", "native_crash", "anr"))
+            .features(Arrays.asList(
+                "java_crash", "native_crash", "anr",
+                "ios_network", "rn_network",
+                "ios_crash", "ios_lifecycle", "android_activity",
+                "android_fragment", "android_slowrendering", "rn_screen_session"
+            ))
             .build();
 
         when(configService.getRulesandFeatures()).thenReturn(Single.just(mockResponse));
@@ -1436,7 +1444,11 @@ class ConfigControllerTest {
             assertNotNull(resp.getData().getRules());
             assertNotNull(resp.getData().getFeatures());
             assertEquals(3, resp.getData().getRules().size());
-            assertEquals(3, resp.getData().getFeatures().size());
+            assertEquals(11, resp.getData().getFeatures().size());
+            assertTrue(resp.getData().getFeatures().contains("ios_network"));
+            assertTrue(resp.getData().getFeatures().contains("rn_network"));
+            assertTrue(resp.getData().getFeatures().contains("ios_crash"));
+            assertTrue(resp.getData().getFeatures().contains("rn_screen_session"));
             verify(configService, times(1)).getRulesandFeatures();
           });
           testContext.completeNow();

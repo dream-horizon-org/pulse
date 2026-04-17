@@ -415,8 +415,8 @@ class ConfigServiceImplTest {
       // Verify features contains all enum values
       List<String> expectedFeatures = Features.getFeatures();
       assertThat(result.getFeatures()).containsExactlyInAnyOrderElementsOf(expectedFeatures);
-      assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change", "network_instrumentation",
-          "screen_session");
+      assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change",
+          "rn_screen_session", "session_replay", "ios_crash", "ios_lifecycle", "android_activity", "android_fragment");
     }
   }
 
