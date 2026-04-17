@@ -178,6 +178,91 @@ final class PulseSignalMatcherTests: XCTestCase {
         ))
     }
 
+    func testEmptyConditionNameMatchesAnySignalName() {
+        let condition = makeCondition(
+            name: "",
+            sdks: [.pulse_ios_swift],
+            scopes: [.traces],
+            props: []
+        )
+        XCTAssertTrue(matcher.matches(
+            scope: .traces,
+            name: "any_span_name",
+            props: [:],
+            condition: condition,
+            sdkName: currentSdkName
+        ))
+    }
+
+    func testWhitespaceOnlyConditionNameIsNotWildcard() {
+        let condition = makeCondition(
+            name: "  \t\n",
+            sdks: [.pulse_ios_swift],
+            scopes: [.traces],
+            props: []
+        )
+        XCTAssertFalse(matcher.matches(
+            scope: .traces,
+            name: "other",
+            props: [:],
+            condition: condition,
+            sdkName: currentSdkName
+        ), "Only \"\" skips name matching; whitespace is a normal pattern")
+    }
+
+    func testEmptyConditionNameWithPropsRequiresPropsAndIgnoresName() {
+        let condition = makeCondition(
+            name: "",
+            sdks: [.pulse_ios_swift],
+            scopes: [.traces],
+            props: [PulseProp(name: "kind", value: "client")]
+        )
+        XCTAssertTrue(matcher.matches(
+            scope: .traces,
+            name: "GET /users",
+            props: ["kind": "client"],
+            condition: condition,
+            sdkName: currentSdkName
+        ))
+        XCTAssertFalse(matcher.matches(
+            scope: .traces,
+            name: "GET /users",
+            props: ["kind": "server"],
+            condition: condition,
+            sdkName: currentSdkName
+        ))
+    }
+
+    func testNonEmptyNameWithPropsRequiresNameAndProps() {
+        let condition = makeCondition(
+            name: "checkout",
+            sdks: [.pulse_ios_swift],
+            scopes: [.traces],
+            props: [PulseProp(name: "tier", value: "pro")]
+        )
+        XCTAssertTrue(matcher.matches(
+            scope: .traces,
+            name: "checkout",
+            props: ["tier": "pro"],
+            condition: condition,
+            sdkName: currentSdkName
+        ))
+        XCTAssertFalse(matcher.matches(
+            scope: .traces,
+            name: "checkout",
+            props: ["tier": "free"],
+            condition: condition,
+            sdkName: currentSdkName
+        ))
+        XCTAssertFalse(matcher.matches(
+            scope: .traces,
+            name: "cart",
+            props: ["tier": "pro"],
+            condition: condition,
+            sdkName: currentSdkName
+        ))
+    }
+
     // MARK: - Helpers
 
     private func makeCondition(

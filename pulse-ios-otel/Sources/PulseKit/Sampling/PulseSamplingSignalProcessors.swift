@@ -791,6 +791,7 @@ private final class SamplingRegexCache {
     private let lock = NSLock()
 
     func matches(string: String, pattern: String) -> Bool {
+        if pattern.isEmpty { return true }
         let effectivePattern = normalizedSignalNamePattern(pattern)
         let regex: NSRegularExpression? = lock.withLock {
             if let cached = cache[effectivePattern] { return cached }
