@@ -22,7 +22,7 @@ alwaysApply: false
 | `otel_metrics` | View | Union of all five metric tables — Timestamp, Value, Count, Sum, MetricSource |
 | `stack_trace_events` | MergeTree | Symbolicated + grouped stack traces |
 | `project_monthly_usage` | AggregatingMergeTree | Monthly aggregates by `project_id`, `month`, `source` |
-| `root_cause_cache` | ReplacingMergeTree(`cached_at`) | RCA cache: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, JSON `baseline` / `segments`, `cached_at` |
+| `root_cause_cache` | ReplacingMergeTree(`cached_at`) | RCA cache: `ProjectId`, keys, JSON `baseline` / `segments` |
 
 Materialized views `project_monthly_*_mv` populate `project_monthly_usage` from traces, logs, metrics, and stack traces.
 
@@ -61,9 +61,7 @@ These columns are extracted from Map attributes at insert time. **Always use the
 
 ## `root_cause_cache`
 
-Columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, `baseline`, `segments`, `cached_at`. Row-level access uses the same `otel.*` policy as other analytics tables (`ProjectId`). Schema DDL: `backend/ingestion/clickhouse-otel-schema.sql`.
-
-**ORDER BY:** `(ProjectId, interaction_name, date)` (matches schema file; not `window_end_utc`).
+Columns: `ProjectId`, `interaction_name`, `date`, `window_end_utc`, `mode`, `baseline`, `segments`, `cached_at`. Row-level access uses the same `otel.*` policy as other analytics tables (`ProjectId`).
 
 ## `project_monthly_usage`
 
@@ -83,7 +81,6 @@ All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
 | `otel_metrics_histogram` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `otel_metrics_exp_histogram` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
 | `stack_trace_events` | `(ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))` |
-| `root_cause_cache` | `(ProjectId, interaction_name, date)` |
 | `interaction_heatmaps_daily` | `(Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin)` |
 
 ## `stack_trace_events` Key Columns
