@@ -11,6 +11,6 @@ internal enum class InteractionErrorType(
         private val byCode: Map<String, InteractionErrorType> =
             values().associateBy { it.code }
 
-        internal fun fromCode(value: String): InteractionErrorType? = byCode[value]
+        internal fun fromCode(value: String?): InteractionErrorType? = value?.let { byCode[it] }
     }
 }

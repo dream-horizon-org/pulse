@@ -266,17 +266,25 @@ internal object InteractionUtil {
             } else {
                 Triple(null, null, null)
             }
-            
-        val timeInMsDiffPair = events.getTimeSpanInNanos(interactionConfig.thresholdInMs)
-        
+
+        val timeInMsDiffPair =
+            computeInteractionTimeSpanInNanos(
+                events = events,
+                timeOutInMs = interactionConfig.thresholdInMs,
+                errorType = errorType,
+            )
+
         val maps =
             buildMap {
                 put(InteractionConstant.NAME, interactionName)
                 put(InteractionConstant.CONFIG_ID, interactionConfigId)
                 put(InteractionConstant.LAST_EVENT_TIME_IN_NANO, lastEventTimeInNano)
                 put(InteractionConstant.LOCAL_EVENTS, events.toList())
-                put(InteractionConstant.MARKER_EVENTS, (
-                    timeInMsDiffPair?.let { localMarkers.getEventsBetween(it.first, it.second) } ?: localMarkers.toList())
+                put(
+                    InteractionConstant.MARKER_EVENTS,
+                    timeInMsDiffPair?.let {
+                        localMarkers.getEventsBetween(it.first, it.second)
+                    } ?: localMarkers.toList(),
                 )
                 put(InteractionConstant.APDEX_SCORE, upTimeIndex)
                 put(InteractionConstant.USER_CATEGORY, timeCategory?.categoryName)
@@ -319,8 +327,34 @@ public class Interaction internal constructor(
     public val props: Map<String, Any?> = emptyMap(),
 )
 
+private fun computeInteractionTimeSpanInNanos(
+    events: List<InteractionLocalEvent>,
+    timeOutInMs: Long,
+    errorType: InteractionErrorType?,
+): Pair<Long, Long>? {
+    if (errorType != null) {
+        val steps = events
+        if (steps.isEmpty()) return null
+        val firstNs = steps.first().timeInNano
+        val lastNs = steps.last().timeInNano
+        val thresholdNs = timeOutInMs * 1_000_000L
+        return firstNs to
+            if (errorType == InteractionErrorType.TIMEOUT) {
+                firstNs + thresholdNs + (lastNs - firstNs)
+            } else {
+                lastNs
+            }
+    }
+    return events.getTimeSpanInNanos(timeOutInMs)
+}
+
 @Suppress("UNCHECKED_CAST")
-internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? = events.getTimeSpanInNanos(timeOutInMs)
+internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? =
+    computeInteractionTimeSpanInNanos(
+        events = events,
+        timeOutInMs = timeOutInMs,
+        errorType = InteractionErrorType.fromCode(errorTypeCode),
+    )
 
 internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
     val steps = this
@@ -332,19 +366,6 @@ internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): 
             "getTimeSpanInNanos: Events size is 0."
         }
         return null
-    }
-    val errorTypeParsed =
-        (props[InteractionConstant.ERROR_TYPE] as? String)?.let { InteractionErrorType.fromCode(it) }
-    if (errorTypeParsed != null) {
-        val firstNs = steps.first().timeInNano
-        val lastNs = steps.last().timeInNano
-        val thresholdNs = timeOutInMs * 1_000_000L
-        return firstNs to
-            if (errorTypeParsed == InteractionErrorType.TIMEOUT) {
-                firstNs + thresholdNs + (lastNs - firstNs)
-            } else {
-                lastNs
-            }
     }
     if (steps.size == 1) {
         return steps[0].timeInNano to steps[0].timeInNano + timeOutInMs * 1000000
