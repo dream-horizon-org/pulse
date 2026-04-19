@@ -75,7 +75,7 @@ public class PulseSdkConfigRestProvider(
     }
 
     internal companion object {
-        private const val TAG = "PulseSdkConfigRestProvider"
+        private const val TAG = "SdkConfigRestProvider"
         private const val MAX_CACHE_SIZE_BYTE: Long = 10 * 1024 * 1024
     }
 }
