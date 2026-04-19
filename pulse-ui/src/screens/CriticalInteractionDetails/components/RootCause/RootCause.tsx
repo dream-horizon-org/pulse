@@ -345,6 +345,7 @@ export function RootCause({
           cachedAt={cachedAtFormatted}
           relativeGeneratedAt={relativeGeneratedAt}
           onRegenerate={handleRegenerate}
+          projectId={trimmedProjectId || null}
         />
       </Stack>
     );

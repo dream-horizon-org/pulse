@@ -168,6 +168,46 @@
     light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
 }
 
+.evidenceSection {
+  margin-top: var(--mantine-spacing-md);
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+.evidenceSectionTitleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.evidenceTitle {
+  color: var(--mantine-color-teal-7);
+  letter-spacing: 0.02em;
+}
+
+.evidenceCountBadge {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding-inline: 0.35rem;
+}
+
+.evidenceCardRow {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--mantine-spacing-sm);
+  overflow-x: auto;
+  padding-bottom: var(--mantine-spacing-xs);
+  scrollbar-gutter: stable;
+}
+
+.evidenceCardSlot {
+  flex: 0 0 auto;
+  min-width: 14rem;
+  max-width: 16rem;
+}
+
 .recommendationsCard {
   border: 1px solid var(--mantine-color-teal-3);
   background: light-dark(var(--mantine-color-teal-0), rgba(12, 148, 136, 0.22));

@@ -101,6 +101,66 @@ final class InteractionInstrumentationTests: XCTestCase {
         XCTAssertEqual(interactionSpans.filter { $0.name == "InteractionB" }.count, 1)
     }
 
+    func testTimeout_emitsSpanWithErrorStatusAndErrorAttributes() async throws {
+        let events = [
+            InteractionTestUtils.createFakeInteractionEvent(name: "event1"),
+            InteractionTestUtils.createFakeInteractionEvent(name: "event2"),
+        ]
+        let config = try InteractionTestUtils.createFakeInteractionConfig(
+            name: "TimeoutInteraction",
+            eventSequence: events,
+            thresholdInMs: 50
+        )
+
+        var interactionConfiguration = InteractionInstrumentationConfiguration()
+        interactionConfiguration.useMockFetcher = true
+        interactionConfiguration.mockConfigs = [config]
+
+        instrumentation = InteractionInstrumentation(configuration: interactionConfiguration)
+        instrumentation.install()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        let manager = instrumentation.managerInstance
+        await waitUntil(timeoutSeconds: 5) { manager.currentStates.count == 1 }
+
+        manager.addEvent(eventName: "event1")
+
+        await waitUntil(timeoutSeconds: 5) {
+            self.spanExporter.getFinishedSpanItems().contains { $0.name == "TimeoutInteraction" }
+        }
+        tracerProvider.forceFlush()
+
+        let span = spanExporter.getFinishedSpanItems().first { $0.name == "TimeoutInteraction" }
+        XCTAssertNotNil(span)
+        guard let span else { return }
+
+        XCTAssertTrue(span.status.isError)
+        if case .error(let description) = span.status {
+            XCTAssertTrue(
+                description.contains("event2") || description.contains("Timed out"),
+                "description: \(description)"
+            )
+        } else {
+            XCTFail("expected error status")
+        }
+
+        XCTAssertEqual(
+            span.attributes[InteractionAttributes.errorType],
+            AttributeValue.string("timeout")
+        )
+        if case .string(let msg) = span.attributes[InteractionAttributes.errorMessage] {
+            XCTAssertFalse(msg.isEmpty)
+        } else {
+            XCTFail("expected string error message attribute")
+        }
+
+        // Single-event timeout: model uses thresholdNs; span uses Date (Double) so allow small jitter.
+        let startNs = Int64(span.startTime.timeIntervalSince1970 * 1_000_000_000)
+        let endNs = Int64(span.endTime.timeIntervalSince1970 * 1_000_000_000)
+        let durationNs = endNs - startNs
+        let expected = config.thresholdInMs * 1_000_000
+        XCTAssertLessThanOrEqual(abs(durationNs - expected), 2_000_000, "startNs=\(startNs) endNs=\(endNs)")
+    }
+
     private func waitUntil(
         timeoutSeconds: TimeInterval = 2,
         _ condition: @escaping () -> Bool

@@ -353,12 +353,14 @@ PulseSDK.INSTANCE.initialize(
         enabled(true)
     }
 
-    // View click. Add view-click dependency to enable. Use captureContext to control label/element extraction.
+    // View click is bundled in pulse-android-sdk.
+    // First launch starts with click suppressed until remote config is fetched/applied;
+    // backend `click` feature controls runtime enablement after that.
     viewClick {
         captureContext(true)  // default; set false for minimal context (type+source only)
     }
 
-    // Compose click. Add compose-click dependency to enable. Use captureContext to control label/element extraction.
+    // Compose click follows the same gating as view click.
     composeClick {
         captureContext(true)  // default; set false for minimal context (type+source only)
     }

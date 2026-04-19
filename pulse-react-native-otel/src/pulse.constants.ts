@@ -36,9 +36,9 @@ export enum PULSE_TYPES {
 
 export const PULSE_FEATURE_NAMES = {
   RN_SCREEN_LOAD: 'rn_screen_load',
-  SCREEN_SESSION: 'screen_session',
+  RN_SCREEN_SESSION: 'rn_screen_session',
   RN_SCREEN_INTERACTIVE: 'rn_screen_interactive',
-  NETWORK_INSTRUMENTATION: 'network_instrumentation',
+  RN_NETWORK: 'rn_network',
   CUSTOM_EVENTS: 'custom_events',
   JS_CRASH: 'js_crash',
 } as const;
@@ -47,6 +47,6 @@ export type PulseFeatureName =
   (typeof PULSE_FEATURE_NAMES)[keyof typeof PULSE_FEATURE_NAMES];
 
 export type NavigationFeatureName =
-  | typeof PULSE_FEATURE_NAMES.SCREEN_SESSION
+  | typeof PULSE_FEATURE_NAMES.RN_SCREEN_SESSION
   | typeof PULSE_FEATURE_NAMES.RN_SCREEN_LOAD
   | typeof PULSE_FEATURE_NAMES.RN_SCREEN_INTERACTIVE;

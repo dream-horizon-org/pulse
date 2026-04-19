@@ -9,12 +9,28 @@ export type RcaStructuredMetricRowV1 = {
   baseline_number: number | null;
 };
 
+/** Backend-injected (`RcaRelatedHeatmapsMerger`); snake_case from API JSON. */
+export type RcaHeatmapFiltersWireV1 = {
+  breakpoint?: string | null;
+  platform?: string | null;
+  app_version?: string | null;
+  geographical_region?: string | null;
+  from_date?: string | null;
+  to_date?: string | null;
+};
+
+export type RcaRelatedHeatmapsV1 = {
+  screens?: string[] | null;
+  heatmap_filters?: RcaHeatmapFiltersWireV1 | null;
+};
+
 export type RcaStructuredSegmentV1 = {
   rank: number;
   title: string;
   metrics: RcaStructuredMetricRowV1[];
   insights?: string | null;
   affected_sessions?: string[] | null;
+  related_heatmaps?: RcaRelatedHeatmapsV1 | null;
 };
 
 export type RcaStructuredReportV1 = {

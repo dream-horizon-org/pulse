@@ -1469,12 +1469,12 @@ class InteractionServiceImplTest {
           .thenReturn(Single.just(suggestion));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of()));
-      Mockito.when(interactionDao.isInteractionPresent("EventA -> EventB"))
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb"))
           .thenReturn(Single.just(false));
 
       ArgumentCaptor<InteractionDetails> captor = ArgumentCaptor.forClass(InteractionDetails.class);
       InteractionDetails createdInteraction = InteractionDetails.builder()
-          .id(100L).name("EventA -> EventB").description("test").status(InteractionStatus.RUNNING)
+          .id(100L).name("EventaToEventb").description("test").status(InteractionStatus.RUNNING)
           .events(List.of()).uptimeLowerLimitInMs(680).uptimeMidLimitInMs(720)
           .uptimeUpperLimitInMs(2100).thresholdInMs(4200)
           .createdAt(Timestamp.valueOf(LocalDateTime.now()))
@@ -1496,7 +1496,7 @@ class InteractionServiceImplTest {
 
       // Verify the created interaction has correct values derived from suggestion
       InteractionDetails captured = captor.getValue();
-      assertThat(captured.getName()).isEqualTo("EventA -> EventB");
+      assertThat(captured.getName()).isEqualTo("EventaToEventb");
       assertThat(captured.getDescription()).startsWith("Auto-created from suggested interaction");
       assertThat(captured.getEvents()).hasSize(2);
       assertThat(captured.getEvents().get(0).getName()).isEqualTo("EventA");
@@ -1562,12 +1562,12 @@ class InteractionServiceImplTest {
           .thenReturn(Single.just(suggestion));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of(existingInteraction)));
-      Mockito.when(interactionDao.isInteractionPresent("EventA -> EventB"))
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb"))
           .thenReturn(Single.just(false));
 
       ArgumentCaptor<InteractionDetails> captor = ArgumentCaptor.forClass(InteractionDetails.class);
       InteractionDetails createdInteraction = InteractionDetails.builder()
-          .id(101L).name("EventA -> EventB").description("test").status(InteractionStatus.RUNNING)
+          .id(101L).name("EventaToEventb").description("test").status(InteractionStatus.RUNNING)
           .events(List.of()).uptimeLowerLimitInMs(680).uptimeMidLimitInMs(720)
           .uptimeUpperLimitInMs(2100).thresholdInMs(4200)
           .createdAt(Timestamp.valueOf(LocalDateTime.now()))
@@ -1627,14 +1627,14 @@ class InteractionServiceImplTest {
           .thenReturn(Single.just(suggestion));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of())); // No event-sequence duplicate
-      Mockito.when(interactionDao.isInteractionPresent("EventA -> EventB"))
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb"))
           .thenReturn(Single.just(true)); // Name collision
-      Mockito.when(interactionDao.isInteractionPresent("EventA -> EventB (2)"))
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb (2)"))
           .thenReturn(Single.just(false)); // Suffix available
 
       ArgumentCaptor<InteractionDetails> captor = ArgumentCaptor.forClass(InteractionDetails.class);
       InteractionDetails createdInteraction = InteractionDetails.builder()
-          .id(100L).name("EventA -> EventB (2)").description("test").status(InteractionStatus.RUNNING)
+          .id(100L).name("EventaToEventb (2)").description("test").status(InteractionStatus.RUNNING)
           .events(List.of()).uptimeLowerLimitInMs(680).uptimeMidLimitInMs(720)
           .uptimeUpperLimitInMs(2100).thresholdInMs(4200)
           .createdAt(Timestamp.valueOf(LocalDateTime.now()))
@@ -1655,7 +1655,7 @@ class InteractionServiceImplTest {
       actual.assertNoErrors();
 
       InteractionDetails captured = captor.getValue();
-      assertThat(captured.getName()).isEqualTo("EventA -> EventB (2)");
+      assertThat(captured.getName()).isEqualTo("EventaToEventb (2)");
       Mockito.verify(suggestedInteractionDao).updateStatus(1L, "ACTIVATED", userEmail);
     }
 
@@ -1667,16 +1667,16 @@ class InteractionServiceImplTest {
           .thenReturn(Single.just(suggestion));
       Mockito.when(interactionDao.getAllActiveAndRunningInteractions("test"))
           .thenReturn(Single.just(List.of()));
-      Mockito.when(interactionDao.isInteractionPresent("EventA -> EventB"))
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb"))
           .thenReturn(Single.just(true));
-      Mockito.when(interactionDao.isInteractionPresent("EventA -> EventB (2)"))
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb (2)"))
           .thenReturn(Single.just(true));
-      Mockito.when(interactionDao.isInteractionPresent("EventA -> EventB (3)"))
+      Mockito.when(interactionDao.isInteractionPresent("EventaToEventb (3)"))
           .thenReturn(Single.just(false));
 
       ArgumentCaptor<InteractionDetails> captor = ArgumentCaptor.forClass(InteractionDetails.class);
       InteractionDetails createdInteraction = InteractionDetails.builder()
-          .id(100L).name("EventA -> EventB (3)").description("test").status(InteractionStatus.RUNNING)
+          .id(100L).name("EventaToEventb (3)").description("test").status(InteractionStatus.RUNNING)
           .events(List.of()).uptimeLowerLimitInMs(680).uptimeMidLimitInMs(720)
           .uptimeUpperLimitInMs(2100).thresholdInMs(4200)
           .createdAt(Timestamp.valueOf(LocalDateTime.now()))
@@ -1697,7 +1697,7 @@ class InteractionServiceImplTest {
       actual.assertNoErrors();
 
       InteractionDetails captured = captor.getValue();
-      assertThat(captured.getName()).isEqualTo("EventA -> EventB (3)");
+      assertThat(captured.getName()).isEqualTo("EventaToEventb (3)");
     }
 
     @Test

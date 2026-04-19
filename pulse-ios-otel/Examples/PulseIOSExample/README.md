@@ -15,7 +15,7 @@ The **`Podfile`** uses the development podspec at the repo root:
 pod 'PulseKit', path: '../../'
 ```
 
-PulseKit is built from Swift sources; OpenTelemetry, SwiftProtobuf, KSCrash, and libwebp are resolved from **CocoaPods trunk**. **`use_frameworks!`** is required so dynamic Swift frameworks link correctly.
+PulseKit compiles as **Swift**; other deps (including **`libwebp`**) come from **CocoaPods**. The default Podfile uses **`use_frameworks!`** so `pod install` succeeds—Swift + trunk **`libwebp`** needs that **or** a line **`pod 'libwebp', :modular_headers => true`** above `PulseKit` if you drop `use_frameworks!`.
 
 ```bash
 cd Examples/PulseIOSExample

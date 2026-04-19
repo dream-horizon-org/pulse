@@ -115,7 +115,7 @@ public final class PulseSessionSamplingDecision {
         )
         let randomValue = randomGenerator?() ?? Self.secureRandomFloatInZeroToOne()
         sessionRandomValue = randomValue
-        _shouldSample = randomValue <= samplingRate
+        _shouldSample = randomValue < samplingRate
     }
 
     /// Secure random float in [0, 1].

@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.module.EventDefinitionModule;
+import org.dreamhorizon.pulseserver.module.HeatmapModule;
 import org.dreamhorizon.pulseserver.module.QueryEngineModule;
 import org.dreamhorizon.pulseserver.module.ConfigModule;
 import org.dreamhorizon.pulseserver.module.RcaModule;
@@ -68,6 +69,7 @@ public class MainApplication extends Launcher {
         new ValidationModule(),
         new UploadInteractionDetailModule(vertx),
         new InteractionModule(),
+        new HeatmapModule(),
         new QueryEngineModule(),
         new EventDefinitionModule()
     };
