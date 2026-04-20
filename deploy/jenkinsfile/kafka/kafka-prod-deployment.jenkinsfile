@@ -162,16 +162,16 @@ pipeline {
         always {
             sh 'rm -f deploy/terraform/kafka/tfplan deploy/terraform/kafka/secrets.auto.tfvars.json'
         }
-        success {
-            script {
-                wrap([$class: 'BuildUser']) {
-                    def action = params.CONFIGURE_BROKERS ? "deployed and configured" : "infra updated"
-                    slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
-                        color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
-                        message: "<!channel> Kafka cluster ${action} in production by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
-                }
-            }
-        }
+//         success {
+//             script {
+//                 wrap([$class: 'BuildUser']) {
+//                     def action = params.CONFIGURE_BROKERS ? "deployed and configured" : "infra updated"
+//                     slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+//                         color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
+//                         message: "<!channel> Kafka cluster ${action} in production by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+//                 }
+//             }
+//         }
 //         failure {
 //             script {
 //                 slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
