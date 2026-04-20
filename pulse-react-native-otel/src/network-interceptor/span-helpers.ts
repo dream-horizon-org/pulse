@@ -3,8 +3,7 @@ import type {
   RequestStartContext,
   RequestEndContext,
 } from './network.interface';
-import type { Span } from '../index';
-import { Pulse, SpanStatusCode } from '../index';
+import { startSpan, SpanStatusCode, type Span } from '../trace';
 import type { PulseAttributes } from '../pulse.interface';
 import { extractHttpAttributes } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
@@ -90,7 +89,7 @@ export function createNetworkSpan(
   );
   const attributes = { ...baseAttributes, ...graphqlAttributes };
 
-  const span = Pulse.startSpan(spanName, { attributes });
+  const span = startSpan(spanName, { attributes });
 
   return span;
 }

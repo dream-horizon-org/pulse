@@ -75,6 +75,7 @@ internal class InteractionEventsTracker(
                                     interactionConfig,
                                     localEvents,
                                     localMarkers,
+                                    InteractionErrorType.SEQUENCE_VIOLATION,
                                 )
                             clearStates()
                             localEvents.add(lastEvent)
@@ -125,6 +126,7 @@ internal class InteractionEventsTracker(
                                         interactionConfig,
                                         localEvents,
                                         localMarkers,
+                                        InteractionErrorType.TIMEOUT,
                                     ),
                                 )
                             } else {
@@ -146,17 +148,35 @@ internal class InteractionEventsTracker(
         interactionConfig: InteractionConfig,
         localEvents: List<InteractionLocalEvent>,
         localMarkers: List<InteractionLocalEvent>,
-    ): InteractionRunningStatus.OngoingMatch =
-        this.copy(
+        errorType: InteractionErrorType,
+    ): InteractionRunningStatus.OngoingMatch {
+        val error =
+            when (errorType) {
+                InteractionErrorType.TIMEOUT -> {
+                    InteractionBuildError(
+                        type = InteractionErrorType.TIMEOUT,
+                        timeoutExpectedEventName = interactionConfig.events.getOrNull(index + 1)?.name,
+                    )
+                }
+                InteractionErrorType.SEQUENCE_VIOLATION -> {
+                    InteractionBuildError(
+                        type = InteractionErrorType.SEQUENCE_VIOLATION,
+                        sequenceViolationExpectedEventName = interactionConfig.events.getOrNull(index + 1)?.name,
+                        sequenceViolationReceivedEventName = localEvents.lastOrNull()?.name,
+                    )
+                }
+            }
+        return copy(
             interaction =
                 InteractionUtil.buildPulseInteraction(
                     interactionId,
                     interactionConfig,
                     localEvents,
                     localMarkers,
-                    false,
+                    error,
                 ),
         )
+    }
 
     fun addMarker(event: InteractionLocalEvent) {
         localMarkers += event

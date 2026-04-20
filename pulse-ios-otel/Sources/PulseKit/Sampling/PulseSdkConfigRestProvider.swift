@@ -95,8 +95,24 @@ public final class PulseSdkConfigRestProvider {
             PulseLogger.debug("Config fetch done (version \(config.version)).")
             return config
         } catch {
-            PulseLogger.warn("Config fetch: response decode failed (invalid or missing payload).")
+            let decodeDetail = (error as? DecodingError).map { Self.describeDecodingError($0) } ?? String(describing: error)
+            PulseLogger.warn("Config fetch: response decode failed. \(decodeDetail)")
             return nil
+        }
+    }
+
+    private static func describeDecodingError(_ error: DecodingError) -> String {
+        switch error {
+        case .keyNotFound(let key, let context):
+            return "keyNotFound(\(key.stringValue)) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+        case .typeMismatch(let type, let context):
+            return "typeMismatch(\(type)) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+        case .valueNotFound(let type, let context):
+            return "valueNotFound(\(type)) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+        case .dataCorrupted(let context):
+            return "dataCorrupted: \(context.debugDescription)"
+        @unknown default:
+            return error.localizedDescription
         }
     }
 }

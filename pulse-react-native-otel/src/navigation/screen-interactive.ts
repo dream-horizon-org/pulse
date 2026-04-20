@@ -1,8 +1,7 @@
-import { Pulse, type Span } from '../index';
-import { getIsStarted } from '../config';
+import { startSpan, discardSpan, type Span } from '../trace';
+import { getIsStarted } from '../sessionState';
 import { Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
-import { discardSpan } from '../trace';
 import type {
   NavigationRoute,
   NavigationContainer,
@@ -55,18 +54,15 @@ export function createScreenInteractiveTracker(
       discardScreenInteractive('previous span replaced by new navigation');
     }
 
-    state.screenInteractiveSpan = Pulse.startSpan(
-      SPAN_NAMES.SCREEN_INTERACTIVE,
-      {
-        attributes: {
-          [ATTRIBUTE_KEYS.PULSE_TYPE]: PULSE_TYPES.SCREEN_INTERACTIVE,
-          [ATTRIBUTE_KEYS.SCREEN_NAME]: route.name,
-          [ATTRIBUTE_KEYS.ROUTE_KEY]: route.key,
-          [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS,
-        },
-        inheritContext: false,
-      }
-    );
+    state.screenInteractiveSpan = startSpan(SPAN_NAMES.SCREEN_INTERACTIVE, {
+      attributes: {
+        [ATTRIBUTE_KEYS.PULSE_TYPE]: PULSE_TYPES.SCREEN_INTERACTIVE,
+        [ATTRIBUTE_KEYS.SCREEN_NAME]: route.name,
+        [ATTRIBUTE_KEYS.ROUTE_KEY]: route.key,
+        [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS,
+      },
+      inheritContext: false,
+    });
     state.currentInteractiveRouteKey = route.key;
     PulseLogger.debug(`Screen interactive: ${route.name} started`);
   };

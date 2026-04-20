@@ -1,4 +1,4 @@
-import { Pulse, type Span } from '../index';
+import { startSpan, type Span } from '../trace';
 import { type AppStateStatus, Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import type {
@@ -10,11 +10,14 @@ import { PulseLogger } from '../PulseLogger';
 export interface ScreenSessionState {
   screenSessionSpan: Span | undefined;
   currentScreenKey: string | undefined;
+  /** Route name when the current session span was started (accurate end logs). */
+  currentSessionRouteName: string | undefined;
 }
 
 export const INITIAL_SCREEN_SESSION_STATE: ScreenSessionState = {
   screenSessionSpan: undefined,
   currentScreenKey: undefined,
+  currentSessionRouteName: undefined,
 };
 
 export function createScreenSessionTracker(
@@ -22,7 +25,7 @@ export function createScreenSessionTracker(
   state: ScreenSessionState
 ) {
   const startScreenSession = (route: NavigationRoute): void => {
-    state.screenSessionSpan = Pulse.startSpan(SPAN_NAMES.SCREEN_SESSION, {
+    state.screenSessionSpan = startSpan(SPAN_NAMES.SCREEN_SESSION, {
       attributes: {
         [ATTRIBUTE_KEYS.PULSE_TYPE]: PULSE_TYPES.SCREEN_SESSION,
         [ATTRIBUTE_KEYS.SCREEN_NAME]: route.name,
@@ -31,18 +34,45 @@ export function createScreenSessionTracker(
       },
     });
     state.currentScreenKey = route.key;
-    PulseLogger.debug(`Screen session: ${route.name} started`);
+    state.currentSessionRouteName = route.name;
+    PulseLogger.debug(`${LOG_TAGS.SCREEN_SESSION} ${route.name} started`);
   };
 
-  const endScreenSession = (routeName?: string): void => {
+  const endScreenSession = (): void => {
     if (state.screenSessionSpan) {
+      const logName = state.currentSessionRouteName;
       state.screenSessionSpan.end();
-      if (routeName) {
-        PulseLogger.debug(`Screen session: ${routeName} ended`);
+      if (logName) {
+        PulseLogger.debug(`${LOG_TAGS.SCREEN_SESSION} ${logName} ended`);
       }
       state.screenSessionSpan = undefined;
       state.currentScreenKey = undefined;
+      state.currentSessionRouteName = undefined;
     }
+  };
+
+  /**
+   * Keeps one screen-session span aligned with the focused route (same idea as
+   * screen interactive: replace when `route.key` changes). Ends the previous
+   * session, then starts for the new route.
+   */
+  const syncSessionToCurrentRoute = (
+    route: NavigationRoute,
+    appState: AppStateStatus
+  ): void => {
+    if (!enabled || appState !== 'active') {
+      return;
+    }
+
+    if (state.screenSessionSpan && state.currentScreenKey === route.key) {
+      return;
+    }
+
+    if (state.screenSessionSpan) {
+      endScreenSession();
+    }
+
+    startScreenSession(route);
   };
 
   const handleAppStateChange = (
@@ -55,33 +85,20 @@ export function createScreenSessionTracker(
 
     if (nextAppState === 'background' || nextAppState === 'inactive') {
       if (state.screenSessionSpan) {
-        const currentRoute = navigationContainer?.getCurrentRoute();
-        endScreenSession(currentRoute?.name);
+        endScreenSession();
       }
     } else if (nextAppState === 'active') {
       const currentRoute = navigationContainer?.getCurrentRoute();
-      if (currentRoute && !state.screenSessionSpan) {
-        startScreenSession(currentRoute);
+      if (currentRoute) {
+        syncSessionToCurrentRoute(currentRoute, nextAppState);
       }
     }
-  };
-
-  const shouldStartSession = (
-    currentRoute: NavigationRoute,
-    appState: AppStateStatus
-  ): boolean => {
-    return (
-      enabled &&
-      appState === 'active' &&
-      !state.screenSessionSpan &&
-      state.currentScreenKey !== currentRoute.key
-    );
   };
 
   return {
     startScreenSession,
     endScreenSession,
     handleAppStateChange,
-    shouldStartSession,
+    syncSessionToCurrentRoute,
   };
 }

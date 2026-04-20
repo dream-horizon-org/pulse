@@ -50,6 +50,10 @@ public class Pulse {
     private var _consentMetricExporter: ConsentMetricExporter?
     private var meterProvider: MeterProviderSdk?
     private var instrumentationConfig: InstrumentationConfiguration?
+    private var _sdkName: PulseSdkName?
+    var sdkName: PulseSdkName? {
+        initializationQueue.sync { _sdkName }
+    }
 
     // User session emitter
     internal lazy var userSessionEmitter: PulseUserSessionEmitter = {
@@ -191,18 +195,15 @@ public class Pulse {
                 guard let av = resource.attributes[ResourceAttributes.telemetrySdkName.rawValue] else { return nil }
                 if case .string(let s) = av { return s } else { return nil }
             }()
-            let currentSdkName = PulseSdkName.from(telemetrySdkName: telemetrySdkName ?? PulseAttributes.PulseSdkNames.iosSwift)
-
+            _sdkName = PulseSdkName.from(telemetrySdkName: telemetrySdkName ?? PulseAttributes.PulseSdkNames.iosSwift)
+            guard let currentSdkName = _sdkName else { return }
             if let sdkConfig = configStorageQueue.sync(execute: { _currentSdkConfig }) {
                 let interactionConfigUrl = sdkConfig.interaction.configUrl
                 config.interaction { $0.setConfigUrl { interactionConfigUrl } }
                 let processors = PulseSamplingSignalProcessors(sdkConfig: sdkConfig, currentSdkName: currentSdkName)
                 _samplingSignalProcessors = processors
                 let enabledFeatures = processors.getEnabledFeatures()
-                applyDisabledFeatures(enabledFeatures: enabledFeatures, config: &config)
-                if enabledFeatures.contains(.session_replay) {
-                    config.sessionReplay { $0.enabled(true) }
-                }
+                configureFeaturesFromRemoteConfig(features: enabledFeatures, config: &config)
 
                 // Extract and merge Session Replay config from backend
                 let sessionReplayFeature = sdkConfig.features.first { feature in
@@ -303,11 +304,15 @@ public class Pulse {
 
     // MARK: - Private Helper Methods
 
-    /// Disables features not in enabledFeatures.
-    private func applyDisabledFeatures(enabledFeatures: [PulseFeatureName], config: inout InstrumentationConfiguration) {
+    /// Applies remote sampling feature toggles: enables listed features, then disables any not listed.
+    private func configureFeaturesFromRemoteConfig(
+        features: [PulseFeatureName],
+        config: inout InstrumentationConfiguration
+    ) {
+        let enabledFeatures = Set(features)
         for feature in PulseFeatureName.allCases {
-            guard !enabledFeatures.contains(feature) else { continue }
-            PulseLogger.debug("Disabling feature: \(feature)")
+            let isEnabled = enabledFeatures.contains(feature)
+            PulseLogger.debug("\(isEnabled ? "Enabling" : "Disabling") feature: \(feature)")
             switch feature {
             case .java_crash: break
             case .js_crash: break
@@ -315,23 +320,32 @@ public class Pulse {
             case .java_anr: break
             case .cpp_anr: break
             case .interaction:
-                config.interaction { $0.enabled(false) }
+                config.interaction { $0.enabled(isEnabled) }
             case .network_change:
-                _configuration.disableNetworkAttributes()
-            case .network_instrumentation:
-                config.urlSession { $0.enabled(false) }
-            case .screen_session:
-                config.screenLifecycle { $0.enabled(false) }
+                if isEnabled {
+                    _configuration.includeNetworkAttributes = true
+                } else {
+                    _configuration.disableNetworkAttributes()
+                }
             case .custom_events:
-                _customEventsEnabled = false
+                _customEventsEnabled = isEnabled
             case .rn_screen_load: break
             case .rn_screen_interactive: break
+            case .rn_screen_session: break
             case .ios_crash:
-                config.crash { $0.enabled(false) }
+                config.crash { $0.enabled(isEnabled) }
             case .session_replay:
-                config.sessionReplay { $0.enabled(false) }
+                config.sessionReplay { $0.enabled(isEnabled) }
             case .click:
-                config.uiKitTap { $0.enabled(false) }
+                config.uiKitTap { $0.enabled(isEnabled) }
+            case .ios_lifecycle:
+                config.screenLifecycle { $0.enabled(isEnabled) }
+            case .ios_network:
+                config.urlSession { $0.enabled(isEnabled) }
+            case .rn_network: break
+            case .android_activity: break
+            case .android_fragment: break
+            case .android_slowrendering: break
             case .unknown: break
             }
         }
@@ -347,6 +361,13 @@ public class Pulse {
 
         if let feature = clickFeature {
             let remoteConfig = ClickFeatureRemoteConfig.from(featureConfig: feature)
+
+            // Apply captureContext if provided
+            if let captureContext = remoteConfig?.captureContext {
+                config.uiKitTap { $0.captureContext(captureContext) }
+            }
+
+            // Apply rage config if provided
             var resolvedRage = config.uiKitTap.rage
             if let remote = remoteConfig?.rage {
                 resolvedRage.timeWindowMs = remote.timeWindowMs ?? resolvedRage.timeWindowMs

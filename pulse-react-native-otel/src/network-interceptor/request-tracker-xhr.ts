@@ -4,9 +4,9 @@ import type {
 } from './network.interface';
 import { RequestTracker } from './request-tracker';
 import { getAbsoluteUrl } from '../utility';
-import type { Span } from '../index';
+import type { Span } from '../trace';
 import { createNetworkSpan, completeNetworkSpan } from './span-helpers';
-import { getHeaderConfig } from './initialization';
+import { getHeaderConfig } from './headerConfigStore';
 import { shouldCaptureHeader } from './header-helper';
 import { PulseLogger } from '../PulseLogger';
 
