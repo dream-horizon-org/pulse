@@ -32,6 +32,25 @@ public final class ClickhouseAnalyticsQueryUtils {
   }
 
   /**
+   * Returns the ClickHouse expression for the group key using the
+   * {@code otel.otel_logs} materialized columns ({@code UserId} / {@code SessionId}).
+   *
+   * <p>Prefer this over {@link #resolveGroupKey(String)} for new code. The {@code UserId}
+   * materialized column includes the canonical {@code user.id → app.installation.id} fallback
+   * (see {@code clickhouse-otel-schema.sql} and {@code clickhouse-replicated-tiered-schema.sql});
+   * raw map access does not.
+   *
+   * @param mode "UNIQUE_USERS" or "SESSIONS" (case-insensitive)
+   * @return {@code UserId} or {@code SessionId}
+   */
+  public static String resolveMaterializedGroupKey(String mode) {
+    if ("SESSIONS".equalsIgnoreCase(mode)) {
+      return "SessionId";
+    }
+    return "UserId";
+  }
+
+  /**
    * Returns the ClickHouse SQL expression for the time range start.
    *
    * @param funnelType    funnel schedule: {@code AUTO} or {@code ONCE} (not UNIQUE_USERS / SESSIONS)

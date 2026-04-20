@@ -5,6 +5,7 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -34,13 +35,18 @@ public class ClickHouseComputeService {
 
   /**
    * Computes a single funnel by ID. Used on the on-save path (AUTO and ONCE modes).
+   *
+   * <p>Uses the chain-based builder ({@link ClickHouseFunnelComputeDao#buildInsertSqlChain})
+   * which populates both {@code UserCount} and {@code MedianStepSeconds} from the single
+   * deepest completed journey per user. The legacy {@code windowFunnel}-based
+   * {@link ClickHouseFunnelComputeDao#buildInsertSql} is retained as a backup.
    */
   public Single<Boolean> computeFunnel(Long funnelId) {
     return funnelDefinitionDao.findById(funnelId)
         .switchIfEmpty(Single.error(
             new IllegalArgumentException("Funnel not found: " + funnelId)))
         .flatMap(def -> executeInsert(def.getProjectId(),
-            ClickHouseFunnelComputeDao.buildInsertSql(def)));
+            ClickHouseFunnelComputeDao.buildInsertSqlChain(def)));
   }
 
   /**
@@ -61,10 +67,31 @@ public class ClickHouseComputeService {
   // ── Batch path ────────────────────────────────────────────────────────────────
 
   /**
-   * Computes all provided funnels for a single project in one query.
+   * Computes all provided funnels for a single project.
+   *
+   * <p>Runs one chain-based INSERT per funnel sequentially. Sequential (not parallel) within
+   * a project to preserve the ClickHouse load characteristic of the prior shared-scan batch
+   * (one concurrent query per project). Per-funnel failure is isolated via
+   * {@code onErrorReturn}; the project batch succeeds only if all funnels succeed.
+   *
+   * <p>The legacy single-query batch builder
+   * ({@link ClickHouseFunnelComputeDao#buildBatchInsertSql}) is retained as a backup.
    */
   public Single<Boolean> computeFunnelBatch(String projectId, List<FunnelDefinitionRow> defs) {
-    return executeInsert(projectId, ClickHouseFunnelComputeDao.buildBatchInsertSql(defs));
+    if (defs == null || defs.isEmpty()) {
+      return Single.just(true);
+    }
+    return Observable.fromIterable(defs)
+        .concatMapSingle(def ->
+            executeInsert(projectId, ClickHouseFunnelComputeDao.buildInsertSqlChain(def))
+                .onErrorReturn(err -> {
+                  log.error(
+                      "Funnel compute failed for projectId={}, funnelId={}",
+                      projectId, def.getId(), err);
+                  return false;
+                }))
+        .toList()
+        .map(results -> results.stream().allMatch(Boolean::booleanValue));
   }
 
   /**

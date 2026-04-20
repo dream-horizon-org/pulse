@@ -29,14 +29,15 @@ CREATE DATABASE IF NOT EXISTS otel ON CLUSTER `pulse-clickhouse`;
 CREATE TABLE IF NOT EXISTS otel.funnel_results_local
 ON CLUSTER `pulse-clickhouse`
 (
-    `FunnelId`      UInt64 COMMENT 'MySQL funnel.id',
-    `ProjectId`     LowCardinality(String) COMMENT 'Project ID (proj-xxx)',
-    `RunTime`       DateTime64(3, 'UTC') COMMENT 'Spark job execution time (UTC)',
-    `StepIndex`     UInt8 COMMENT '0-based step index',
-    `StepName`      LowCardinality(String) COMMENT 'Event name for this step',
-    `UserCount`     UInt64 COMMENT 'Unique users or sessions reaching this step',
-    `ConversionPct` Float64 COMMENT 'Conversion % from step 0 to this step' CODEC(ZSTD(1)),
-    `CreatedAt`     DateTime64(3, 'UTC') DEFAULT now64(3) COMMENT 'Row insert time (UTC)',
+    `FunnelId`           UInt64 COMMENT 'MySQL funnel.id',
+    `ProjectId`          LowCardinality(String) COMMENT 'Project ID (proj-xxx)',
+    `RunTime`            DateTime64(3, 'UTC') COMMENT 'Spark/server job execution time (UTC)',
+    `StepIndex`          UInt8 COMMENT '0-based step index',
+    `StepName`           LowCardinality(String) COMMENT 'Event name for this step',
+    `UserCount`          UInt64 COMMENT 'Unique users or sessions reaching this step',
+    `ConversionPct`      Float64 COMMENT 'Conversion % from step 0 to this step' CODEC(ZSTD(1)),
+    `MedianStepSeconds`  Nullable(Int64) COMMENT 'Median seconds from previous step; NULL for step 0',
+    `CreatedAt`          DateTime64(3, 'UTC') DEFAULT now64(3) COMMENT 'Row insert time (UTC)',
     CONSTRAINT chk_StepIndex_local CHECK StepIndex < 32
 )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/funnel_results_local', '{replica}')
@@ -48,6 +49,27 @@ CREATE TABLE IF NOT EXISTS otel.funnel_results
 ON CLUSTER `pulse-clickhouse`
 AS otel.funnel_results_local
 ENGINE = Distributed(`pulse-clickhouse`, otel, funnel_results_local, cityHash64(FunnelId));
+
+-- ---------------------------------------------------------------------------
+-- Migration for existing clusters (run once if tables pre-date MedianStepSeconds)
+-- ---------------------------------------------------------------------------
+-- If `otel.funnel_results_local` was created before the MedianStepSeconds column
+-- was added to this schema, run the ALTER below on the running cluster to avoid
+-- INSERT failures from the chain-based compute path (which always writes this
+-- column). ON CLUSTER runs the change on every replica.
+--
+--   ALTER TABLE otel.funnel_results_local ON CLUSTER `pulse-clickhouse`
+--     ADD COLUMN IF NOT EXISTS MedianStepSeconds Nullable(Int64)
+--       COMMENT 'Median seconds from previous step; NULL for step 0'
+--       AFTER ConversionPct;
+--
+--   ALTER TABLE otel.funnel_results ON CLUSTER `pulse-clickhouse`
+--     ADD COLUMN IF NOT EXISTS MedianStepSeconds Nullable(Int64)
+--       COMMENT 'Median seconds from previous step; NULL for step 0'
+--       AFTER ConversionPct;
+--
+-- The Distributed table (`funnel_results`) must be altered separately because
+-- it doesn't auto-propagate structure changes from the local table.
 
 -- ---------------------------------------------------------------------------
 -- Journey results
