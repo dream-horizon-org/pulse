@@ -23,7 +23,10 @@ public class PeriodicSyncService {
 
   /** Ensures at most one {@link DataSyncService#processUsageLimits()} runs at a time (avoids R2DBC pool starvation). */
   private final AtomicBoolean usageLimitsSyncInFlight = new AtomicBoolean(false);
-  
+
+  /** Ensures at most one {@link DataSyncService#syncApiKeys()} runs at a time (avoids overlapping POSTs). */
+  private final AtomicBoolean apiKeysSyncInFlight = new AtomicBoolean(false);
+
   private static final long USAGE_LIMITS_INTERVAL_SECONDS = 5; // 5 seconds
   private static final long API_KEYS_INTERVAL_SECONDS = 10 * 60; // 10 minutes
   private static final long NOTIFICATION_INTERVAL_SECONDS =  24 * 60 * 60; // 24 hours
@@ -117,10 +120,18 @@ public class PeriodicSyncService {
   }
   
   private void executeApiKeysSync() {
+    if (!apiKeysSyncInFlight.compareAndSet(false, true)) {
+      log.info("{} Skipping API keys sync: previous run still in progress",
+          Constants.API_KEYS_SYNC_LOG_PREFIX);
+      return;
+    }
     dataSyncService.syncApiKeys()
+        .doFinally(() -> apiKeysSyncInFlight.set(false))
         .subscribe(
-            () -> log.info("✅ API keys sync completed successfully"),
-            error -> log.error("❌ API keys sync failed", error)
+            () -> log.info("{} API keys sync completed successfully",
+                Constants.API_KEYS_SYNC_LOG_PREFIX),
+            error -> log.error("{} API keys sync failed",
+                Constants.API_KEYS_SYNC_LOG_PREFIX, error)
         );
   }
 

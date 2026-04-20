@@ -4,7 +4,6 @@ import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Completable;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulsealertscron.client.PulseServerApiClient;
-import org.dreamhorizon.pulsealertscron.dto.response.ApiKeysResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.ProjectUsageResult;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageLimitsApiResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageStats;
@@ -121,31 +120,17 @@ public class DataSyncService {
   }
 
   public Completable syncApiKeys() {
-    log.info("=== Starting API Keys Sync ===");
+    log.info("=== Starting API Keys Sync (via pulse-server) ===");
     long startTime = System.currentTimeMillis();
-    
-    return apiClient.getValidApiKeys()
-        .flatMapCompletable(response -> {
-          log.info("✅ Got {} valid API keys from API", response.getCount());
-          
-          // Log each API key mapping
-          for (ApiKeysResponse.ApiKey apiKey : response.getApiKeys()) {
-            log.info("🔑 API Key: {} → Project: {} (Active: {})", 
-                apiKey.getApiKey(), 
-                apiKey.getProjectId(), 
-                apiKey.getIsActive());
-          }
-          
+
+    return apiClient.syncApiKeysToRedis()
+        .doOnComplete(() -> {
           long duration = System.currentTimeMillis() - startTime;
-          log.info("✅ API keys sync completed in {}ms for {} keys", 
-              duration, response.getCount());
-          
-          // Save to Redis
-          return redisService.saveApiKeyMappings(response.getApiKeys());
+          log.info("API keys sync completed in {}ms (pulse-server wrote Redis)", duration);
         })
         .doOnError(error -> {
           long duration = System.currentTimeMillis() - startTime;
-          log.error("❌ API keys sync failed after {}ms", duration, error);
+          log.error("API keys sync failed after {}ms", duration, error);
         });
   }
 }

@@ -8,7 +8,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
-import org.dreamhorizon.pulsealertscron.dto.response.ApiKeysResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageLimitsApiResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageNotificationDto;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageNotificationResponse;
@@ -22,7 +21,7 @@ public class PulseServerApiClient {
   private final String serviceJwt;
 
   private static final String ACTIVE_LIMITS_PATH = "/internal/v1/projects/limits";
-  private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
+  private static final String SYNC_API_KEYS_TO_REDIS_PATH = "/internal/v1/api-keys/sync-to-redis";
   private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
   private static final String MARK_NOTIFICATIONS_PATH = "/internal/v1/projects/%s/limits/notifications";
   private static final String SEND_NOTIFICATION_PATH = "/v1/notifications/send";
@@ -72,39 +71,32 @@ public class PulseServerApiClient {
     );
   }
 
-  public Single<ApiKeysResponse.Response> getValidApiKeys() {
-    log.info("Fetching valid API keys from: {}", apiBaseUrl + VALID_API_KEYS_PATH);
-    
-    return Single.defer(() -> 
-        webClient
-            .getAbs(apiBaseUrl + VALID_API_KEYS_PATH)
-            .putHeader("Authorization", "Bearer " + serviceJwt)
-            .timeout(REQUEST_TIMEOUT_MS)
-            .rxSend()
-            .map(response -> {
-              int statusCode = response.statusCode();
-              
-              if (statusCode != 200) {
-                String errorMsg = String.format(
-                    "API returned status %d: %s", 
-                    statusCode, 
-                    response.bodyAsString()
-                );
-                log.error("❌ Failed to fetch API keys: {}", errorMsg);
-                throw new RuntimeException(errorMsg);
-              }
-              
-              var wrappedResponse = response.bodyAsJsonObject();
-              var dataObject = wrappedResponse.getJsonObject("data");
-              ApiKeysResponse.Response result = dataObject.mapTo(ApiKeysResponse.Response.class);
-              
-              log.info("✅ Successfully fetched {} valid API keys", result.getCount());
-              return result;
-            })
-            .doOnError(error -> 
-                log.error("❌ Error calling API keys API", error)
-            )
-    );
+  /**
+   * Delegates API key → Redis sync to pulse-server (Part A migration). Same auth as other internal routes.
+   */
+  public Completable syncApiKeysToRedis() {
+    String url = apiBaseUrl + SYNC_API_KEYS_TO_REDIS_PATH;
+    log.info("Calling pulse-server API key Redis sync: {}", url);
+
+    return webClient
+        .postAbs(url)
+        .putHeader("Authorization", "Bearer " + serviceJwt)
+        .timeout(REQUEST_TIMEOUT_MS)
+        .rxSend()
+        .flatMapCompletable(response -> {
+          int statusCode = response.statusCode();
+          if (statusCode != 200) {
+            String errorMsg = String.format(
+                "API returned status %d: %s",
+                statusCode,
+                response.bodyAsString());
+            log.error("Failed API key Redis sync: {}", errorMsg);
+            return Completable.error(new RuntimeException(errorMsg));
+          }
+          log.info("API key Redis sync completed successfully via pulse-server");
+          return Completable.complete();
+        })
+        .doOnError(error -> log.error("Error calling API key Redis sync", error));
   }
 
   /**

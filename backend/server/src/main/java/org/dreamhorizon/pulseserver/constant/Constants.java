@@ -1,6 +1,12 @@
 package org.dreamhorizon.pulseserver.constant;
 
 public final class Constants {
+  /**
+   * Redis hash used by Kong: field = raw API key, value = project id. Must match pulse-alerts-cron
+   * historical key and Kong plugin expectations.
+   */
+  public static final String KONG_API_KEY_MAP_REDIS_KEY = "{pulse}:apikey_map";
+
   //Alerts
   public static final String ALERT_EVALUATE_AND_TRIGGER_ALERT =
       "/v1/alert/evaluateAndTriggerAlert";
