@@ -80,6 +80,7 @@ jobs:
           gem install cocoapods --no-document
           pod install
 
+      # See rn-example-ios.yml: avoid hard-coded simulator device names on CI runners.
       - name: Build iOS (simulator)
         working-directory: pulse-react-native-otel/expo-example/ios
         run: |
@@ -88,6 +89,6 @@ jobs:
             -workspace expoexample.xcworkspace \
             -scheme expoexample \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64' \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath ./build \
             build

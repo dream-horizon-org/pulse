@@ -58,6 +58,8 @@ jobs:
           gem install cocoapods --no-document
           pod install
 
+      # GitHub macOS images may not ship a named iOS Simulator device for the selected Xcode;
+      # generic destination still produces a simulator slice without requiring a specific device.
       - name: Build bare example (iOS simulator)
         working-directory: pulse-react-native-otel/example/ios
         run: |
@@ -66,6 +68,6 @@ jobs:
             -workspace PulseReactNativeOtelExample.xcworkspace \
             -scheme PulseReactNativeOtelExample \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64' \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath ./build \
             build
