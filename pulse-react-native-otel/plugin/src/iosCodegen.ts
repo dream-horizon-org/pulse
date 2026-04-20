@@ -104,8 +104,8 @@ function buildSwiftGlobalAttributesLiteral(
   return `[\n${lines.join(',\n')}\n    ]`;
 }
 
-function swiftConsentCase(state: PulseDataCollectionState | undefined): string {
-  switch (state ?? 'PENDING') {
+function swiftConsentCase(state: PulseDataCollectionState): string {
+  switch (state) {
     case 'ALLOWED':
       return 'allowed';
     case 'DENIED':
@@ -439,6 +439,7 @@ export function buildSwiftPulseSdkInitialization(
     PulseSDK.initialize(
       endpointBaseUrl: "${escapeSwiftString(endpointBaseUrl)}",
       apiKey: "${escapeSwiftString(apiKey)}",
+      dataCollectionState: .${consent},
       configEndpointUrl: ${configUrlArg},
       customEventCollectorUrl: ${customEventUrlArg},
       endpointHeaders: ${endpointHeadersArg},
@@ -446,7 +447,6 @@ export function buildSwiftPulseSdkInitialization(
       resource: nil,
       configuration: ${configurationArg},
       instrumentations: ${instrumentationsArg},
-      dataCollectionState: .${consent},
       beforeSendSpan: nil,
       beforeSendLog: nil,
       beforeSendMetric: nil,

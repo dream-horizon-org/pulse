@@ -130,7 +130,7 @@ Top-level plugin fields apply to both platforms. Override per OS with **`android
 | ------------------------- | -------- | ------ | --------------------------------- |
 | `endpointBaseUrl`         | **Yes**  | string | OTLP / Pulse backend URL          |
 | `apiKey`                  | **Yes**  | string | Project API key                   |
-| `dataCollectionState`     | No       | string | `PENDING`, `ALLOWED`, or `DENIED` |
+| `dataCollectionState`     | **Yes**  | string | `PENDING`, `ALLOWED`, or `DENIED` |
 | `endpointHeaders`         | No       | object | Extra HTTP headers                |
 | `configEndpointUrl`       | No       | string | Remote SDK config URL             |
 | `customEventCollectorUrl` | No       | string | Custom events / logs URL          |
