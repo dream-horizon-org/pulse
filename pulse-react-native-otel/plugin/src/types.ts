@@ -121,7 +121,7 @@ export interface PulseIosKitConfigurationProps {
   includeGlobalAttributes?: boolean;
 }
 
-/** Per-platform overrides; merged with top-level init (endpoint + apiKey required after merge). */
+/** Per-platform overrides; merged with top-level init (endpoint + apiKey + dataCollectionState required after merge). */
 export type PulseNativeInitFields = {
   endpointBaseUrl?: string;
   apiKey?: string;
@@ -146,7 +146,7 @@ export interface PulseIosSection extends PulseNativeInitFields {
 export interface PulsePlatformInitProps {
   endpointBaseUrl: string;
   apiKey: string;
-  dataCollectionState?: PulseDataCollectionState;
+  dataCollectionState: PulseDataCollectionState;
   endpointHeaders?: Record<string, string>;
   configEndpointUrl?: string;
   customEventCollectorUrl?: string;
@@ -163,14 +163,14 @@ export type ResolvedIosPulseProps = PulsePlatformInitProps & {
 };
 
 /**
- * Expo config plugin props. Top-level `endpointBaseUrl` + `apiKey` required (non-empty).
+ * Expo config plugin props. Top-level `endpointBaseUrl`, `apiKey`, and `dataCollectionState` required.
  * `android` / `ios`: optional init overrides, `globalAttributes`, `instrumentation`; iOS also `configuration`.
  * Do not put `globalAttributes`, `instrumentation`, or `configuration` at the top level.
  */
 export interface PulsePluginProps {
   endpointBaseUrl: string;
   apiKey: string;
-  dataCollectionState?: PulseDataCollectionState;
+  dataCollectionState: PulseDataCollectionState;
   endpointHeaders?: Record<string, string>;
   configEndpointUrl?: string;
   customEventCollectorUrl?: string;

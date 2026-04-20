@@ -34,6 +34,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     PulseSDK.initialize(
       endpointBaseUrl: "http://127.0.0.1:4318",
       apiKey: "default-project_devkey01",
+      dataCollectionState: .allowed,
       configEndpointUrl: "http://127.0.0.1:8080/v1/configs/active/",
       customEventCollectorUrl: "http://127.0.0.1:4318/v1/logs",
       endpointHeaders: ["X-RN-Example-App": "true"],
@@ -50,8 +51,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         config.screenLifecycle { screenLifecycleConfig in
           screenLifecycleConfig.enabled(false)
         }
-      },
-      dataCollectionState: .allowed
+      }
     )
 
     window = UIWindow(frame: UIScreen.main.bounds)
