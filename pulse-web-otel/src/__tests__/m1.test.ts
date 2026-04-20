@@ -15,7 +15,7 @@ import {
   _resetInstallationStateForTesting,
   SessionChangeEvent,
 } from "../session";
-import { validateConfig } from "../config";
+import { validateConfig, isLocalEnvironment, resolveEndpointBaseUrl } from "../config";
 import {
   buildResource,
   computeAspectRatio,
@@ -282,12 +282,6 @@ describe("M1 — Session Provider", () => {
 // ---------------------------------------------------------------------------
 
 describe("M1 — Config validation", () => {
-  it("throws when endpointBaseUrl is missing", () => {
-    expect(() => validateConfig(makeConfig({ endpointBaseUrl: "" }))).toThrow(
-      "[PulseWeb] endpointBaseUrl is required",
-    );
-  });
-
   it("throws when apiKey is missing", () => {
     expect(() => validateConfig(makeConfig({ apiKey: "" }))).toThrow(
       "[PulseWeb] apiKey is required",
@@ -300,8 +294,33 @@ describe("M1 — Config validation", () => {
     );
   });
 
+  it("does not throw when endpointBaseUrl is missing (it's optional)", () => {
+    expect(() => validateConfig({ apiKey: "mykey", serviceName: "test-app" })).not.toThrow();
+  });
+
   it("does not throw with all required fields", () => {
     expect(() => validateConfig(makeConfig())).not.toThrow();
+  });
+
+  it("isLocalEnvironment: detects devkey in apiKey", () => {
+    expect(isLocalEnvironment("myproject-123_devkey456")).toBe(true);
+    expect(isLocalEnvironment("myproject-123_prod456")).toBe(false);
+  });
+
+  it("resolveEndpointBaseUrl: returns localhost:4318 for devkey", () => {
+    const url = resolveEndpointBaseUrl("myproject-123_devkey456");
+    expect(url).toBe("http://localhost:4318");
+  });
+
+  it("resolveEndpointBaseUrl: throws for production without endpointBaseUrl", () => {
+    expect(() => resolveEndpointBaseUrl("myproject-123_prod456")).toThrow(
+      "Production deployments require endpointBaseUrl",
+    );
+  });
+
+  it("resolveEndpointBaseUrl: uses provided endpointBaseUrl", () => {
+    const url = resolveEndpointBaseUrl("myproject-123_prod456", "https://collector.example.com");
+    expect(url).toBe("https://collector.example.com");
   });
 });
 
@@ -932,17 +951,21 @@ describe("M1 — Resource Builder (extended)", () => {
     expect(tz.length).toBeGreaterThan(0);
   });
 
-  it("apiKey without proj_ prefix → project.id falls back to raw apiKey", () => {
-    const config = makeConfig({ apiKey: "raw_key_without_prefix" });
+  it("apiKey without underscore → project.id falls back to raw apiKey", () => {
+    const config = makeConfig({ apiKey: "rawkeynoprefix" });
     const resource = buildResource(config);
-    expect(resource.attributes["project.id"]).toBe("raw_key_without_prefix");
+    expect(resource.attributes["project.id"]).toBe("rawkeynoprefix");
   });
 
-  it("extractProjectId: proj_abc_secret → proj_abc", () => {
-    expect(extractProjectId("proj_abc_supersecret")).toBe("proj_abc");
+  it("extractProjectId: myproject-123_devkey456 → myproject-123", () => {
+    expect(extractProjectId("myproject-123_devkey456")).toBe("myproject-123");
   });
 
-  it("extractProjectId: no prefix → returns full key", () => {
+  it("extractProjectId: myproject-123_prod456 → myproject-123", () => {
+    expect(extractProjectId("myproject-123_prod456")).toBe("myproject-123");
+  });
+
+  it("extractProjectId: no underscore → returns full key", () => {
     expect(extractProjectId("noprefixkey")).toBe("noprefixkey");
   });
 });

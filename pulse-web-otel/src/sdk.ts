@@ -11,7 +11,7 @@ import type { LoggerProvider } from '@opentelemetry/sdk-logs';
 import type { MeterProvider } from '@opentelemetry/sdk-metrics';
 
 import type { PulseWebConfig } from './config';
-import { validateConfig } from './config';
+import { validateConfig, resolveEndpointBaseUrl } from './config';
 import { SessionProvider, getOrCreateInstallationId, wasNewInstallation } from './session';
 import { buildResource } from './resource';
 import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from './remote-config';
@@ -59,9 +59,16 @@ class PulseWebSDK implements SdkContext {
     // Step 1: Validate config
     validateConfig(config);
 
+    // Step 1.5: Resolve endpointBaseUrl from apiKey if not provided
+    const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey, config.endpointBaseUrl);
+    const configWithUrl: PulseWebConfig = {
+      ...config,
+      endpointBaseUrl: endpointBaseUrl,
+    };
+
     // Consent gate — DENIED or PENDING → no-op, zero signals emitted
-    if (!isDataCollectionAllowed(config.dataCollectionState)) return;
-    this.config = config;
+    if (!isDataCollectionAllowed(configWithUrl.dataCollectionState)) return;
+    this.config = configWithUrl;
 
     // Step 2: SessionProvider
     const sessionCfg = config.instrumentations?.session;
@@ -79,12 +86,12 @@ class PulseWebSDK implements SdkContext {
     const resource = buildResource(config);
 
     // Step 4: Load cached SDK config
-    const projectId = extractProjectId(config.apiKey);
+    const projectId = extractProjectId(configWithUrl.apiKey);
     this.configFetcher = new SdkConfigFetcher(
-      config.endpointBaseUrl,
+      endpointBaseUrl,
       projectId,
-      config.configEndpointUrl,
-      config.apiKey,
+      configWithUrl.configEndpointUrl,
+      configWithUrl.apiKey,
     );
     const sdkConfig = this.configFetcher.loadCached();
 
@@ -97,7 +104,7 @@ class PulseWebSDK implements SdkContext {
     // Step 6: GlobalAttributesProcessor
     this.globalAttrsProcessor = new PulseGlobalAttributesProcessor(
       this.sessionProvider,
-      config,
+      configWithUrl,
     );
 
     // Step 7: Create providers
@@ -117,12 +124,12 @@ class PulseWebSDK implements SdkContext {
     const meteringSessionId = crypto.randomUUID();
 
     const exporterConfig = {
-      endpointBaseUrl: config.endpointBaseUrl,
-      apiKey: config.apiKey,
+      endpointBaseUrl: endpointBaseUrl,
+      apiKey: configWithUrl.apiKey,
       meteringSessionId,
-      format: config.export?.format,
-      compression: config.export?.compression,
-      batchOptions: config.export?.batch,
+      format: configWithUrl.export?.format,
+      compression: configWithUrl.export?.compression,
+      batchOptions: configWithUrl.export?.batch,
       // Inject the same global attributes into metric data points at export time.
       getMetricGlobalAttrs: () => this.globalAttrsProcessor.getCommonAttrsForMetrics(),
     };
@@ -144,7 +151,7 @@ class PulseWebSDK implements SdkContext {
     this.registry = new InstrumentationRegistry(
       this as SdkContext,
       gate,
-      config.instrumentations,
+      configWithUrl.instrumentations,
     );
     this.registry.installAll();
 

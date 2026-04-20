@@ -9,10 +9,11 @@ import { SDK_VERSION } from './version';
 import { parseUserAgent } from './utils/ua-parser';
 
 export function extractProjectId(apiKey: string): string {
-  // Format: 'proj_XXXX_...' → 'proj_XXXX' (first two segments)
-  const parts = apiKey.split('_');
-  if (parts.length >= 2 && parts[0] === 'proj') {
-    return `${parts[0]}_${parts[1]}`;
+  // Format: '<project_name>-<random_id>_<api_key_portion>' → '<project_name>-<random_id>'
+  // Everything before the last underscore is the project ID
+  const lastUnderscoreIdx = apiKey.lastIndexOf('_');
+  if (lastUnderscoreIdx > 0) {
+    return apiKey.substring(0, lastUnderscoreIdx);
   }
   return apiKey;
 }

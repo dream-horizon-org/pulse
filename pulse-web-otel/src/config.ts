@@ -25,9 +25,9 @@ export interface InstrumentationConfig {
 
 export interface PulseWebConfig {
   // Required
-  endpointBaseUrl: string;
   apiKey: string;
   serviceName: string;
+  endpointBaseUrl?: string;
 
   // Optional — identity
   serviceVersion?: string;
@@ -68,7 +68,31 @@ export interface PulseWebConfig {
 }
 
 export function validateConfig(config: PulseWebConfig): void {
-  if (!config.endpointBaseUrl) throw new Error('[PulseWeb] endpointBaseUrl is required');
   if (!config.apiKey) throw new Error('[PulseWeb] apiKey is required');
   if (!config.serviceName) throw new Error('[PulseWeb] serviceName is required');
+}
+
+/**
+ * Detects if the API key is for local development (contains 'devkey').
+ * Format: <project_name>-<random_id>_devkey<random_api_key> (local)
+ *         <project_name>-<random_id>_<random_api_key> (prod)
+ */
+export function isLocalEnvironment(apiKey: string): boolean {
+  return apiKey.includes('_devkey');
+}
+
+/**
+ * Derives the base URL from the API key environment.
+ * Local: http://localhost:4318
+ * Prod: https://<cloudflare-url> (caller must provide if production)
+ */
+export function resolveEndpointBaseUrl(apiKey: string, provided?: string): string {
+  if (provided) return provided;
+  if (isLocalEnvironment(apiKey)) {
+    return 'http://localhost:4318';
+  }
+  throw new Error(
+    '[PulseWeb] Production deployments require endpointBaseUrl. ' +
+    'Local development (devkey) resolves to localhost:4318 automatically.'
+  );
 }

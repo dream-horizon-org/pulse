@@ -65,7 +65,7 @@ export default function App() {
     const consentParam = searchParams.get('pulse_consent');
 
     PulseWeb.start({
-      endpointBaseUrl: import.meta.env['VITE_PULSE_ENDPOINT_BASE_URL'] ?? 'http://localhost:4318',
+      endpointBaseUrl: import.meta.env['VITE_PULSE_ENDPOINT_BASE_URL'],
       apiKey:          import.meta.env['VITE_PULSE_API_KEY']           ?? 'dev-key',
       serviceName:     import.meta.env['VITE_PULSE_SERVICE_NAME']      ?? 'ecommerce-demo',
       dataCollectionState:

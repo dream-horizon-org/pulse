@@ -120,9 +120,9 @@ function isValidSdkConfig(value: unknown): value is PulseSdkConfig {
 }
 
 /**
- * Derives the Pulse server base URL from the OTLP collector URL.
- * Mirrors Android's PulseSdkConfigRefresher.resolveConfigUrl():
- *   endpointBaseUrl(:4318) → pulseServerUrl(:8080)
+ * Derives the Pulse server config URL from the endpoint base URL.
+ * - Local: http://localhost:4318 → http://localhost:8080/v1/configs/active/
+ * - Prod: https://collector.example.com → https://collector.example.com/v1/configs/active/
  * If configEndpointUrl is supplied explicitly it takes precedence.
  */
 export function resolveConfigUrl(
@@ -130,7 +130,10 @@ export function resolveConfigUrl(
   endpointBaseUrl: string,
 ): string {
   if (configEndpointUrl) return configEndpointUrl;
-  const serverBase = endpointBaseUrl.replace(/:4318\b/, ':8080').replace(/\/$/, '');
+  // For local dev, swap :4318 → :8080; for prod, just append path
+  const serverBase = endpointBaseUrl
+    .replace(/:4318\b/, ':8080')
+    .replace(/\/$/, '');
   return `${serverBase}/v1/configs/active/`;
 }
 
