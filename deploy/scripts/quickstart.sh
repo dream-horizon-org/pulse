@@ -15,6 +15,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/common.sh"
 
+# True if deploy/.env defines a non-empty GOOGLE_API_KEY (ignores commented lines).
+_quickstart_has_google_api_key() {
+    local env_file="$DEPLOY_DIR/.env"
+    [ -f "$env_file" ] || return 1
+    local line key val
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%%#*}"
+        line="${line%"${line##*[![:space:]]}"}"
+        [[ "$line" == *"="* ]] || continue
+        key="${line%%=*}"
+        key="${key%"${key##*[![:space:]]}"}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        [ "$key" = "GOOGLE_API_KEY" ] || continue
+        val="${line#*=}"
+        val="${val#"${val%%[![:space:]]*}"}"
+        val="${val%"${val##*[![:space:]]}"}"
+        val="${val#\"}"
+        val="${val%\"}"
+        val="${val#\'}"
+        val="${val%\'}"
+        [ -n "$val" ] && return 0
+    done < "$env_file"
+    return 1
+}
+
 # Parse flags (before banner so they can be used later)
 BUILD_NO_CACHE=""
 SKIP_ENV_CHECK=""
@@ -67,6 +92,9 @@ echo "  2. Setup environment"
 echo "  3. Build Docker images"
 echo "  4. Start all services"
 echo "  5. Verify deployment"
+if ! _quickstart_has_google_api_key; then
+    echo "  (set GOOGLE_API_KEY in .env for Gemini; AI HTTP/API may fail without it)"
+fi
 echo ""
 read -r -p "Press Enter to continue or Ctrl+C to cancel..."
 
@@ -176,6 +204,12 @@ if [ ! -f "$ROOT_DIR/backend/ingestion/session-summary-mv.sql" ]; then
 fi
 print_success "ClickHouse session summary MV schema found"
 
+if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-session-replay-schema.sql" ]; then
+    print_error "ClickHouse session replay schema not found"
+    exit 1
+fi
+print_success "ClickHouse session replay schema found"
+
 load_env
 
 # Validate .env against .env.example and docker-compose.yml
@@ -280,6 +314,18 @@ else
     exit 1
 fi
 
+print_info "Testing Pulse AI health endpoint..."
+if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+    print_success "Pulse AI is responding"
+else
+    print_error "Pulse AI health check failed (port 8000 in use? see: ./logs.sh ai)"
+    exit 1
+fi
+print_info "Testing session replay pipeline..."
+if ! verify_session_replay; then
+    print_warning "Session replay pipeline may still be starting"
+fi
+
 echo ""
 print_info "Verifying database initialization..."
 INIT_OK=true
@@ -313,10 +359,13 @@ echo -e "${CYAN}Access Points:${NC}"
 echo -e "  ${BLUE}Frontend (UI):${NC}      http://localhost:3000"
 echo -e "  ${BLUE}Backend API:${NC}        http://localhost:8080"
 echo -e "  ${BLUE}Health Check:${NC}       http://localhost:8080/healthcheck"
+echo -e "  ${BLUE}Session Capture:${NC}    http://localhost:3400/s/ (POST)"
 echo -e "  ${BLUE}MySQL:${NC}              localhost:3307"
 echo -e "  ${BLUE}ClickHouse:${NC}         localhost:8123 (HTTP), localhost:9000 (Native)"
+echo -e "  ${BLUE}Kafka:${NC}              localhost:9092"
 echo -e "  ${BLUE}MinIO Console:${NC}      http://localhost:9101"
 echo -e "  ${BLUE}OTEL Collector:${NC}     localhost:4317 (gRPC), localhost:4318 (HTTP)"
+echo -e "  ${BLUE}Pulse AI:${NC}            http://localhost:8000"
 echo ""
 echo -e "${CYAN}Useful Commands:${NC}"
 echo -e "  ${BLUE}View all logs:${NC}      ./deploy/scripts/logs.sh"
@@ -324,6 +373,9 @@ echo -e "  ${BLUE}View server logs:${NC}   docker logs -f pulse-server"
 echo -e "  ${BLUE}Check status:${NC}       docker ps --filter network=pulse-network"
 echo -e "  ${BLUE}Stop services:${NC}      ./deploy/scripts/stop.sh"
 echo -e "  ${BLUE}Reset databases:${NC}    ./deploy/scripts/reset-databases.sh"
+echo ""
+echo -e "${CYAN}Test Session Replay Pipeline:${NC}"
+echo -e "  ${BLUE}curl -X POST http://localhost:3400/s/ -H 'Content-Type: application/json' -d '{\"event\":\"\$snapshot\",\"project_id\":\"test-proj\",\"user_id\":\"test-user\",\"properties\":{\"session_id\":\"test-session-001\",\"snapshot_source\":\"mobile\",\"snapshot_data\":[{\"type\":2,\"data\":{\"tag\":\"div\"},\"timestamp\":'$(date +%s)000'}]}}'${NC}"
 echo ""
 echo -e "${CYAN}Next Steps:${NC}"
 echo -e "  1. Open http://localhost:3000 in your browser"

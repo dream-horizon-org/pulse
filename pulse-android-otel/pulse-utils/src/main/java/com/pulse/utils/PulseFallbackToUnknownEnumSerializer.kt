@@ -1,3 +1,5 @@
+@file:Suppress("ForbiddenImport") // this utility requires it but rest all are forbidden
+
 package com.pulse.utils
 
 import kotlinx.serialization.KSerializer
@@ -14,6 +16,8 @@ import kotlin.reflect.KClass
 public object PulseSerialisationUtils {
     public val jsonConfigForSerialisation: Json = createJsonConfig(isStrict = PulseOtelUtils.isDebug())
 
+    // usage is fine as this is json utility
+    @Suppress("ForbiddenMethodCall")
     public fun createJsonConfig(isStrict: Boolean): Json =
         Json {
             encodeDefaults = true

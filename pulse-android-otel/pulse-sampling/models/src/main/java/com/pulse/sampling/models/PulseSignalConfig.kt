@@ -2,8 +2,10 @@ package com.pulse.sampling.models
 
 import androidx.annotation.Keep
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonClassDiscriminator
 
 @Keep
 @Serializable
@@ -19,31 +21,15 @@ public class PulseSignalConfig internal constructor(
     @SerialName("scheduleDurationMs")
     public val scheduleDurationMs: Long = 5000L,
     @SerialName("attributesToDrop")
-    public val attributesToDrop: List<PulseAttributesToDropEntry> = emptyList(),
+    public val attributesToDrop: Collection<PulseAttributesToDropEntry> = emptySet(),
     @SerialName("attributesToAdd")
-    public val attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
-    @SerialName("filters")
-    public val filters: PulseSignalFilter = PulseSignalFilter(),
+    public val attributesToAdd: Collection<PulseAttributesToAddEntry> = emptySet(),
+    /**
+     * Metrics to derive based on signal matching and target. See [PulseMetricsToAddEntry]
+     */
+    @SerialName("metricsToAdd")
+    public val metricsToAdd: Collection<PulseMetricsToAddEntry> = emptySet(),
 )
-
-@Keep
-@Serializable
-public class PulseSignalFilter internal constructor(
-    @SerialName("mode")
-    public val mode: PulseSignalFilterMode = PulseSignalFilterMode.BLACKLIST,
-    @SerialName("values")
-    public val values: List<PulseSignalMatchCondition> = emptyList(),
-)
-
-@Keep
-@Serializable
-public enum class PulseSignalFilterMode {
-    @SerialName("blacklist")
-    BLACKLIST,
-
-    @SerialName("whitelist")
-    WHITELIST,
-}
 
 @Keep
 @Serializable
@@ -97,9 +83,39 @@ public class PulseAttributeValue internal constructor(
 @Serializable
 public class PulseAttributesToAddEntry internal constructor(
     @SerialName("values")
-    public val values: List<PulseAttributeValue> = emptyList(),
+    public val values: Collection<PulseAttributeValue>,
+    @SerialName("condition")
+    public val condition: PulseSignalMatchCondition,
+)
+
+@Keep
+@Serializable
+public class PulseMetricsToAddEntry internal constructor(
+    /**
+     * Name of the metric to add
+     */
+    @SerialName("name")
+    public val name: String,
+    /**
+     * Target value from the signal is used as the data point
+     */
+    @SerialName("target")
+    public val target: PulseMetricsToAddTarget,
+    /**
+     * Condition to match the signal
+     */
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
+    /**
+     * The kind of OTel instrument to create. See [PulseMetricsType] for all the supported metric data
+     */
+    @SerialName("type")
+    public val type: PulseMetricsType,
+    /**
+     * Optional list of conditions specifying which signal attributes to attach to the emitted metric data point
+     */
+    @SerialName("attributesToPick")
+    public val attributesToPick: Collection<PulseSignalMatchCondition> = emptySet(),
 )
 
 @Keep
@@ -109,10 +125,87 @@ public class PulseAttributesToDropEntry internal constructor(
      * List of regex entries which will dropped from the signal
      */
     @SerialName("values")
-    public val values: List<String> = emptyList(),
+    public val values: Collection<String> = emptySet(),
     /**
      * Condition which should be matched for [values] to be dropped
      */
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
 )
+
+@Keep
+@OptIn(ExperimentalSerializationApi::class)
+@JsonClassDiscriminator("type")
+@Serializable
+public sealed class PulseMetricsToAddTarget protected constructor() {
+    /**
+     * Name of the signal will be used as data to record the metric
+     */
+    @Serializable
+    @SerialName("name")
+    public class Name(
+        @SerialName("type")
+        public val type: String,
+    ) : PulseMetricsToAddTarget()
+
+    /**
+     * Attribute of the signal matched by [condition] will be used as data to record the metric
+     */
+    @Serializable
+    @SerialName("attribute")
+    public class Attribute internal constructor(
+        @SerialName("type")
+        public val type: String,
+        @SerialName("condition")
+        public val condition: PulseSignalMatchCondition,
+        @SerialName("shouldAddPropNameAsSuffix")
+        /**
+         * When true final name of the metric will be <name>.<key_name_of_the_prop_matched>, where name is from [PulseMetricsToAddEntry.name]
+         */
+        public val shouldAddPropNameAsSuffix: Boolean = false,
+    ) : PulseMetricsToAddTarget()
+}
+
+@Keep
+@OptIn(ExperimentalSerializationApi::class)
+@JsonClassDiscriminator("type")
+@Serializable
+public sealed class PulseMetricsType {
+    @Serializable
+    @SerialName("counter")
+    public class Counter internal constructor(
+        @SerialName("type")
+        public val type: String,
+    ) : PulseMetricsType()
+
+    @Serializable
+    @SerialName("gauge")
+    public class Gauge internal constructor(
+        @SerialName("type")
+        public val type: String,
+        @SerialName("isFraction")
+        public val isFraction: Boolean,
+    ) : PulseMetricsType()
+
+    @Serializable
+    @SerialName("histogram")
+    public class Histogram internal constructor(
+        @SerialName("type")
+        public val type: String,
+        @SerialName("bucket")
+        public val bucket: List<Double>?,
+        @SerialName("isFraction")
+        public val isFraction: Boolean,
+    ) : PulseMetricsType()
+
+    @Serializable
+    @SerialName("sum")
+    public class Sum internal constructor(
+        @SerialName("type")
+        public val type: String,
+        @SerialName("isFraction")
+        public val isFraction: Boolean,
+        @SerialName("isMonotonic")
+        public val isMonotonic: Boolean,
+    ) : PulseMetricsType()
+}

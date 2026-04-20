@@ -10,9 +10,16 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
-from sqlalchemy import Float, String, delete, select
+from sqlalchemy import Float, Integer, String, UniqueConstraint, delete, select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from pulse_ai.constants import (
+    SESSION_SCOPE_APP_NAME_LEN,
+    SESSION_SCOPE_PROJECT_ID_LEN,
+    SESSION_SCOPE_SESSION_ID_LEN,
+    SESSION_SCOPE_USER_ID_LEN,
+)
 
 
 class Base(DeclarativeBase):
@@ -23,11 +30,20 @@ class PulseSessionScopeRow(Base):
     """Sidecar table; separate from ADK schema."""
 
     __tablename__ = "pulse_ai_session_scope"
+    __table_args__ = (
+        UniqueConstraint(
+            "app_name",
+            "user_id",
+            "session_id",
+            name="uq_pulse_ai_session_scope_natural",
+        ),
+    )
 
-    app_name: Mapped[str] = mapped_column(String(256), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(512), primary_key=True)
-    session_id: Mapped[str] = mapped_column(String(256), primary_key=True)
-    project_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    app_name: Mapped[str] = mapped_column(String(SESSION_SCOPE_APP_NAME_LEN), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(SESSION_SCOPE_USER_ID_LEN), nullable=False)
+    session_id: Mapped[str] = mapped_column(String(SESSION_SCOPE_SESSION_ID_LEN), nullable=False)
+    project_id: Mapped[str] = mapped_column(String(SESSION_SCOPE_PROJECT_ID_LEN), nullable=False)
     updated_at: Mapped[float] = mapped_column(Float, nullable=False)
 
 
@@ -153,10 +169,13 @@ class SqlSessionScopeStore(SessionScopeStore):
         await self._ensure_tables()
         now = time.time()
         async with self._session_factory() as session:
-            existing = await session.get(
-                PulseSessionScopeRow,
-                (app_name, user_id, session_id),
+            stmt = select(PulseSessionScopeRow).where(
+                PulseSessionScopeRow.app_name == app_name,
+                PulseSessionScopeRow.user_id == user_id,
+                PulseSessionScopeRow.session_id == session_id,
             )
+            result = await session.execute(stmt)
+            existing = result.scalar_one_or_none()
             if existing:
                 existing.project_id = project_id
                 existing.updated_at = now
@@ -181,10 +200,13 @@ class SqlSessionScopeStore(SessionScopeStore):
     ) -> str | None:
         await self._ensure_tables()
         async with self._session_factory() as session:
-            row = await session.get(
-                PulseSessionScopeRow,
-                (app_name, user_id, session_id),
+            stmt = select(PulseSessionScopeRow).where(
+                PulseSessionScopeRow.app_name == app_name,
+                PulseSessionScopeRow.user_id == user_id,
+                PulseSessionScopeRow.session_id == session_id,
             )
+            result = await session.execute(stmt)
+            row = result.scalar_one_or_none()
             return row.project_id if row else None
 
     async def list_session_ids_for_user_project(
@@ -227,8 +249,8 @@ class SqlSessionScopeStore(SessionScopeStore):
             await session.commit()
 
 
-def _to_async_sqlalchemy_url(url: str) -> str:
-    """Map sync-style ADK URLs to SQLAlchemy async drivers."""
+def to_async_sqlalchemy_url(url: str) -> str:
+    """Map sync-style session DB URLs to SQLAlchemy async drivers (sqlite+aiosqlite, asyncpg)."""
     u = url.strip()
     if "+aiosqlite" in u or "+asyncpg" in u:
         return u
@@ -244,5 +266,5 @@ def _to_async_sqlalchemy_url(url: str) -> str:
 def create_session_scope_store(session_db_url: str | None) -> SessionScopeStore:
     """SQL sidecar when SESSION_DB_URL is set; else in-memory."""
     if session_db_url and session_db_url.strip():
-        return SqlSessionScopeStore(_to_async_sqlalchemy_url(session_db_url.strip()))
+        return SqlSessionScopeStore(to_async_sqlalchemy_url(session_db_url.strip()))
     return MemorySessionScopeStore()

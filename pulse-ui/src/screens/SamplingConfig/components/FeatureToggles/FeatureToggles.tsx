@@ -1,15 +1,15 @@
 /**
  * Feature Toggles Component
  * Enable/disable SDK features per platform
- * 
+ *
  * Uses dynamic data from backend:
  * - GET /v1/configs/rules-features for available features
  * - GET /v1/configs/scopes-sdks for available SDKs
- * 
+ *
  * Note: Uses sessionSampleRate (0 = off, 1 = on) internally, but shows as toggle in UI
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo } from "react";
 import {
   Box,
   Text,
@@ -26,7 +26,8 @@ import {
   Alert,
   Tooltip,
   Loader,
-} from '@mantine/core';
+  NumberInput,
+} from "@mantine/core";
 import {
   IconSettings,
   IconBug,
@@ -38,18 +39,37 @@ import {
   IconWifi,
   IconDeviceMobile,
   IconTag,
-} from '@tabler/icons-react';
-import { FeatureConfig, FeatureName, SdkEnum, FeatureConfigsProps } from '../../SamplingConfig.interface';
-import { 
+  IconPlayerPlay,
+  IconFlame,
+  IconGridDots,
+} from "@tabler/icons-react";
+import {
+  FeatureConfig,
+  FeatureName,
+  SdkEnum,
+  FeatureConfigsProps,
+  TextAndInputPrivacy,
+  ImagePrivacy,
+  ClickFeatureConfig,
+  SessionReplayFeatureConfig,
+} from "../../SamplingConfig.interface";
+import {
   toSdkOptions,
   toFeatureOptions,
   SDK_DISPLAY_INFO,
   FEATURE_DISPLAY_INFO,
-  generateId, 
+  generateId,
+  SESSION_REPLAY_FEATURE_NAME,
+  CLICK_FEATURE_NAME,
+  HEATMAP_FEATURE_NAME,
+  DEFAULT_RAGE_CONFIG,
   UI_CONSTANTS,
-} from '../../SamplingConfig.constants';
-import { useGetSdkRulesAndFeatures, useGetSdkScopesAndSdks } from '../../../../hooks/useSdkConfig';
-import classes from '../../SamplingConfig.module.css';
+} from "../../SamplingConfig.constants";
+import {
+  useGetSdkRulesAndFeatures,
+  useGetSdkScopesAndSdks,
+} from "../../../../hooks/useSdkConfig";
+import classes from "../../SamplingConfig.module.css";
 
 const FEATURE_ICONS: Record<string, React.ReactNode> = {
   interaction: <IconClick size={22} />,
@@ -57,41 +77,106 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   js_crash: <IconBug size={22} />,
   java_anr: <IconAlertTriangle size={22} />,
   network_change: <IconWifi size={22} />,
-  network_instrumentation: <IconNetwork size={22} />,
-  screen_session: <IconDeviceMobile size={22} />,
   custom_events: <IconTag size={22} />,
   rn_screen_load: <IconDeviceMobile size={22} />,
   rn_screen_interactive: <IconDeviceMobile size={22} />,
+  rn_screen_session: <IconDeviceMobile size={22} />,
+  session_replay: <IconPlayerPlay size={22} />,
+  click: <IconFlame size={22} />,
+  [HEATMAP_FEATURE_NAME]: <IconGridDots size={22} />,
+  ios_network: <IconNetwork size={22} />,
+  rn_network: <IconNetwork size={22} />,
+  screen_session: <IconDeviceMobile size={22} />,
+  network_instrumentation: <IconNetwork size={22} />,
+  ios_crash: <IconBug size={22} />,
+  ios_lifecycle: <IconPlayerPlay size={22} />,
+  android_activity: <IconPlayerPlay size={22} />,
+  android_fragment: <IconPlayerPlay size={22} />,
+  android_slowrendering: <IconAlertTriangle size={22} />,
 };
 
 const FEATURE_COLORS: Record<string, string> = {
-  interaction: '#f59e0b',
-  java_crash: '#ef4444',
-  js_crash: '#ef4444',
-  java_anr: '#dc2626',
-  network_change: '#06b6d4',
-  network_instrumentation: '#3b82f6',
-  screen_session: '#8b5cf6',
-  custom_events: '#10b981',
-  rn_screen_load: '#f59e0b',
-  rn_screen_interactive: '#10b981',
+  interaction: "#f59e0b",
+  java_crash: "#ef4444",
+  js_crash: "#ef4444",
+  java_anr: "#dc2626",
+  network_change: "#06b6d4",
+  custom_events: "#10b981",
+  rn_screen_load: "#f59e0b",
+  rn_screen_interactive: "#10b981",
+  rn_screen_session: "#8b5cf6",
+  session_replay: "#6366f1",
+  click: "#f97316",
+  [HEATMAP_FEATURE_NAME]: "#ec4899",
+  ios_network: "#3b82f6",
+  rn_network: "#3b82f6",
+  screen_session: "#8b5cf6",
+  network_instrumentation: "#3b82f6",
+  ios_crash: "#ef4444",
+  ios_lifecycle: "#8b5cf6",
+  android_activity: "#8b5cf6",
+  android_fragment: "#8b5cf6",
+  android_slowrendering: "#dc2626",
 };
 
-export function FeatureToggles({ configs, onChange, disabled = false }: FeatureConfigsProps) {
+// These are hidden mirror keys — controlled via their parent toggle, not shown as separate rows.
+const HIDDEN_MIRROR_FEATURES: FeatureName[] = [
+  "screen_session",
+  "network_instrumentation",
+];
+
+const TEXT_AND_INPUT_PRIVACY_OPTIONS: {
+  value: TextAndInputPrivacy;
+  label: string;
+}[] = [
+  { value: "MASK_ALL", label: "Mask all text and inputs" },
+  { value: "MASK_ALL_INPUTS", label: "Mask all input fields only" },
+  { value: "MASK_SENSITIVE_INPUTS", label: "Mask sensitive inputs only" },
+];
+
+const IMAGE_PRIVACY_OPTIONS: { value: ImagePrivacy; label: string }[] = [
+  { value: "MASK_ALL", label: "Mask all images" },
+  { value: "MASK_NONE", label: "Do not mask images" },
+];
+
+export function FeatureToggles({
+  configs,
+  onChange,
+  disabled = false,
+}: FeatureConfigsProps) {
   // Fetch dynamic options from backend
-  const { data: rulesAndFeatures, isLoading: isLoadingFeatures } = useGetSdkRulesAndFeatures();
-  const { data: scopesAndSdks, isLoading: isLoadingSdks } = useGetSdkScopesAndSdks();
-  
+  const { data: rulesAndFeatures, isLoading: isLoadingFeatures } =
+    useGetSdkRulesAndFeatures();
+  const { data: scopesAndSdks, isLoading: isLoadingSdks } =
+    useGetSdkScopesAndSdks();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingFeature, setEditingFeature] = useState<FeatureConfig | null>(null);
-  
+  const [editingFeature, setEditingFeature] = useState<FeatureConfig | null>(
+    null,
+  );
+
   // Form state
-  const [featureName, setFeatureName] = useState<FeatureName | ''>('');
+  const [featureName, setFeatureName] = useState<FeatureName | "">("");
   const [featureEnabled, setFeatureEnabled] = useState(true); // UI toggle, maps to sessionSampleRate 0/1
   const [featureSdks, setFeatureSdks] = useState<SdkEnum[]>([]);
+  const [textAndInputPrivacy, setTextAndInputPrivacy] =
+    useState<TextAndInputPrivacy>("MASK_ALL");
+  const [imagePrivacy, setImagePrivacy] = useState<ImagePrivacy>("MASK_ALL");
+
+  const [captureContext, setCaptureContext] = useState(true);
+  const [rageTimeWindowMs, setRageTimeWindowMs] = useState<number>(
+    DEFAULT_RAGE_CONFIG.timeWindowMs,
+  );
+  const [rageThreshold, setRageThreshold] = useState<number>(
+    DEFAULT_RAGE_CONFIG.threshold,
+  );
+  const [rageRadius, setRageRadius] = useState<number>(
+    DEFAULT_RAGE_CONFIG.radius,
+  );
 
   // Helper to check if feature is enabled based on sessionSampleRate
-  const isFeatureEnabled = (feature: FeatureConfig) => feature.sessionSampleRate === 1;
+  const isFeatureEnabled = (feature: FeatureConfig) =>
+    feature.sessionSampleRate === 1;
 
   // Convert backend data to select options
   const featureOptions = useMemo(() => {
@@ -108,38 +193,51 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
     return [];
   }, [scopesAndSdks]);
 
-  const allSdks = useMemo(() => sdkOptions.map(s => s.value), [sdkOptions]);
+  const allSdks = useMemo(() => sdkOptions.map((s) => s.value), [sdkOptions]);
 
   const allFeaturesWithConfigs = useMemo(() => {
     if (!featureOptions.length) return [];
-    
-    return featureOptions.map(featureOption => {
-      const existingConfig = configs.find(c => c.featureName === featureOption.value);
-      
-      if (existingConfig) {
-        return existingConfig;
-      } else {
-        // Create default disabled config for features not yet configured
-        // Use featureName as a stable ID prefix for disabled features
-        return {
-          id: `disabled-${featureOption.value}`,
-          featureName: featureOption.value,
-          sessionSampleRate: 0,
-          sdks: [],
-        } as FeatureConfig;
-      }
-    });
+
+    return featureOptions
+      .filter((f) => !HIDDEN_MIRROR_FEATURES.includes(f.value as FeatureName))
+      .map((featureOption) => {
+        const existingConfig = configs.find(
+          (c) => c.featureName === featureOption.value,
+        );
+
+        if (existingConfig) {
+          return existingConfig;
+        } else {
+          // Create default disabled config for features not yet configured
+          // Use featureName as a stable ID prefix for disabled features
+          return {
+            id: `disabled-${featureOption.value}`,
+            featureName: featureOption.value,
+            sessionSampleRate: 0,
+            sdks: [],
+          } as FeatureConfig;
+        }
+      });
   }, [featureOptions, configs]);
 
-  // Get features that haven't been configured yet
+  // Get features that haven't been configured yet (excluding hidden mirror keys)
   const availableFeatures = featureOptions.filter(
-    f => !configs.some(c => c.featureName === f.value) || editingFeature?.featureName === f.value
+    (f) =>
+      !HIDDEN_MIRROR_FEATURES.includes(f.value as FeatureName) &&
+      (!configs.some((c) => c.featureName === f.value) ||
+        editingFeature?.featureName === f.value),
   );
 
   const resetForm = () => {
-    setFeatureName('');
+    setFeatureName("");
     setFeatureEnabled(true);
     setFeatureSdks([]);
+    setTextAndInputPrivacy("MASK_ALL");
+    setImagePrivacy("MASK_ALL");
+    setCaptureContext(true);
+    setRageTimeWindowMs(DEFAULT_RAGE_CONFIG.timeWindowMs);
+    setRageThreshold(DEFAULT_RAGE_CONFIG.threshold);
+    setRageRadius(DEFAULT_RAGE_CONFIG.radius);
     setEditingFeature(null);
   };
 
@@ -149,63 +247,185 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
     setFeatureName(feature.featureName);
     setFeatureEnabled(isFeatureEnabled(feature)); // Convert sessionSampleRate to boolean
     setFeatureSdks(feature.sdks);
+    if (feature.featureName === SESSION_REPLAY_FEATURE_NAME) {
+      const sr = feature.config as
+        | SessionReplayFeatureConfig
+        | null
+        | undefined;
+      setTextAndInputPrivacy(sr?.textAndInputPrivacy ?? "MASK_ALL");
+      setImagePrivacy(sr?.imagePrivacy ?? "MASK_ALL");
+    } else {
+      setTextAndInputPrivacy("MASK_ALL");
+      setImagePrivacy("MASK_ALL");
+    }
+    if (feature.featureName === CLICK_FEATURE_NAME) {
+      const c = feature.config as ClickFeatureConfig | null | undefined;
+      setCaptureContext(c?.captureContext ?? true);
+      setRageTimeWindowMs(
+        c?.rage?.timeWindowMs ?? DEFAULT_RAGE_CONFIG.timeWindowMs,
+      );
+      setRageThreshold(c?.rage?.threshold ?? DEFAULT_RAGE_CONFIG.threshold);
+      setRageRadius(c?.rage?.radius ?? DEFAULT_RAGE_CONFIG.radius);
+    } else {
+      setCaptureContext(true);
+      setRageTimeWindowMs(DEFAULT_RAGE_CONFIG.timeWindowMs);
+      setRageThreshold(DEFAULT_RAGE_CONFIG.threshold);
+      setRageRadius(DEFAULT_RAGE_CONFIG.radius);
+    }
     setIsModalOpen(true);
   };
 
   const handleSaveFeature = () => {
     if (!featureName) return;
-    
+
     // Check if feature already exists in configs
-    const existingConfig = configs.find(f => f.featureName === featureName);
-    
+    const existingConfig = configs.find((f) => f.featureName === featureName);
+
     const newFeature: FeatureConfig = {
-      // Use existing ID if updating, otherwise generate new one (or reuse if editing disabled feature)
-      id: existingConfig?.id || (editingFeature?.id && !editingFeature.id.startsWith('disabled-') ? editingFeature.id : generateId()),
+      id:
+        existingConfig?.id ||
+        (editingFeature?.id && !editingFeature.id.startsWith("disabled-")
+          ? editingFeature.id
+          : generateId()),
       featureName: featureName,
       sessionSampleRate: featureEnabled ? 1 : 0, // Convert toggle to sessionSampleRate
       sdks: featureSdks,
     };
 
-    if (existingConfig) {
-      onChange(configs.map(f => f.featureName === featureName ? newFeature : f));
-    } else {
-      onChange([...configs, newFeature]);
+    if (featureName === SESSION_REPLAY_FEATURE_NAME) {
+      const existingSessionReplayConfig =
+        existingConfig?.config ?? editingFeature?.config;
+      newFeature.config = {
+        ...(existingSessionReplayConfig &&
+        typeof existingSessionReplayConfig === "object"
+          ? existingSessionReplayConfig
+          : {}),
+        featureName: SESSION_REPLAY_FEATURE_NAME,
+        textAndInputPrivacy,
+        imagePrivacy,
+      };
     }
 
+    if (featureName === CLICK_FEATURE_NAME) {
+      newFeature.config = {
+        featureName: CLICK_FEATURE_NAME,
+        captureContext: captureContext,
+        rage: {
+          timeWindowMs: rageTimeWindowMs,
+          threshold: rageThreshold,
+          radius: rageRadius,
+        },
+      };
+    }
+
+    let updatedConfigs: FeatureConfig[];
+    if (existingConfig) {
+      updatedConfigs = configs.map((f) =>
+        f.featureName === featureName ? newFeature : f,
+      );
+    } else {
+      updatedConfigs = [...configs, newFeature];
+    }
+
+    // Mirror rn_screen_session → screen_session for older SDK versions
+    if (featureName === "rn_screen_session") {
+      const mirror: FeatureConfig = {
+        id: generateId(),
+        featureName: "screen_session",
+        sessionSampleRate: newFeature.sessionSampleRate,
+        sdks: newFeature.sdks,
+      };
+      updatedConfigs = [
+        ...updatedConfigs.filter((f) => f.featureName !== "screen_session"),
+        mirror,
+      ];
+    }
+
+    // Mirror rn_network → network_instrumentation for older SDK versions
+    if (featureName === "rn_network") {
+      const mirror: FeatureConfig = {
+        id: generateId(),
+        featureName: "network_instrumentation",
+        sessionSampleRate: newFeature.sessionSampleRate,
+        sdks: newFeature.sdks,
+      };
+      updatedConfigs = [
+        ...updatedConfigs.filter(
+          (f) => f.featureName !== "network_instrumentation",
+        ),
+        mirror,
+      ];
+    }
+
+    onChange(updatedConfigs);
     setIsModalOpen(false);
     resetForm();
   };
 
   const handleToggle = (featureName: FeatureName, enabled: boolean) => {
     if (disabled) return;
-    
-    const existingConfig = configs.find(c => c.featureName === featureName);
-    
+
+    const existingConfig = configs.find((c) => c.featureName === featureName);
+
+    let updatedConfigs: FeatureConfig[];
     if (existingConfig) {
-      // Update existing config
-      onChange(configs.map(f => 
-        f.featureName === featureName 
-          ? { ...f, sessionSampleRate: enabled ? 1 : 0 } 
-          : f
-      ));
+      updatedConfigs = configs.map((f) =>
+        f.featureName === featureName
+          ? { ...f, sessionSampleRate: enabled ? 1 : 0 }
+          : f,
+      );
     } else {
-      // Add new config with default SDKs (all SDKs) when enabling
-      // User can edit to customize SDKs later
-      const newFeature: FeatureConfig = {
-        id: generateId(),
-        featureName: featureName,
-        sessionSampleRate: enabled ? 1 : 0,
-        sdks: enabled ? allSdks : [], // Default to all SDKs when enabling
-      };
-      onChange([...configs, newFeature]);
+      updatedConfigs = [
+        ...configs,
+        {
+          id: generateId(),
+          featureName: featureName,
+          sessionSampleRate: enabled ? 1 : 0,
+          sdks: enabled ? allSdks : [],
+        },
+      ];
     }
+
+    // Mirror rn_screen_session → screen_session for older SDK versions
+    if (featureName === "rn_screen_session") {
+      const mirror: FeatureConfig = {
+        id: generateId(),
+        featureName: "screen_session",
+        sessionSampleRate: enabled ? 1 : 0,
+        sdks: enabled ? allSdks : [],
+      };
+      updatedConfigs = [
+        ...updatedConfigs.filter((f) => f.featureName !== "screen_session"),
+        mirror,
+      ];
+    }
+
+    // Mirror rn_network → network_instrumentation for older SDK versions
+    if (featureName === "rn_network") {
+      const mirror: FeatureConfig = {
+        id: generateId(),
+        featureName: "network_instrumentation",
+        sessionSampleRate: enabled ? 1 : 0,
+        sdks: enabled ? allSdks : [],
+      };
+      updatedConfigs = [
+        ...updatedConfigs.filter(
+          (f) => f.featureName !== "network_instrumentation",
+        ),
+        mirror,
+      ];
+    }
+
+    onChange(updatedConfigs);
   };
 
   const getFeatureDisplay = (name: FeatureName) => {
-    return FEATURE_DISPLAY_INFO[name] || {
-      label: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      description: 'SDK feature',
-    };
+    return (
+      FEATURE_DISPLAY_INFO[name] || {
+        label: name.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        description: "SDK feature",
+      }
+    );
   };
 
   const getSdkLabel = (sdk: SdkEnum) => SDK_DISPLAY_INFO[sdk]?.label || sdk;
@@ -221,27 +441,32 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
               <IconSettings size={20} />
             </Box>
             <Box>
-              <Text className={classes.cardTitle}>{UI_CONSTANTS.SECTIONS.FEATURES.TITLE}</Text>
-              <Text className={classes.cardDescription}>{UI_CONSTANTS.SECTIONS.FEATURES.DESCRIPTION}</Text>
+              <Text className={classes.cardTitle}>
+                {UI_CONSTANTS.SECTIONS.FEATURES.TITLE}
+              </Text>
+              <Text className={classes.cardDescription}>
+                {UI_CONSTANTS.SECTIONS.FEATURES.DESCRIPTION}
+              </Text>
             </Box>
           </Box>
         </Box>
-        
+
         <Box className={classes.cardContent}>
           {/* Explanation */}
-          <Alert 
-            icon={<IconInfoCircle size={18} />} 
-            color="violet" 
-            variant="light" 
+          <Alert
+            icon={<IconInfoCircle size={18} />}
+            color="violet"
+            variant="light"
             mb="lg"
             title="Feature-Level Control"
           >
             <Text size="xs">
-              All available SDK features are listed below. Toggle features on/off and configure which platforms they apply to. 
-              Disabled features (grayed out) are not collecting any data.
+              All available SDK features are listed below. Toggle features
+              on/off and configure which platforms they apply to. Disabled
+              features (grayed out) are not collecting any data.
             </Text>
             <Text size="xs" mt="xs" c="dimmed">
-              💡 <strong>Tip:</strong> Enable crash reporting on all platforms, 
+              💡 <strong>Tip:</strong> Enable crash reporting on all platforms,
               and selectively enable other features based on your needs.
             </Text>
           </Alert>
@@ -249,91 +474,125 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
           {isLoading ? (
             <Box ta="center" py="xl">
               <Loader size="sm" />
-              <Text size="sm" c="dimmed" mt="sm">Loading features...</Text>
+              <Text size="sm" c="dimmed" mt="sm">
+                Loading features...
+              </Text>
             </Box>
           ) : allFeaturesWithConfigs.length === 0 ? (
             <Box className={classes.emptyState}>
               <IconSettings size={32} style={{ opacity: 0.3 }} />
-              <Text size="sm" c="dimmed" mt="xs">No features available</Text>
-              <Text size="xs" c="dimmed">Features will appear here when available from the backend</Text>
+              <Text size="sm" c="dimmed" mt="xs">
+                No features available
+              </Text>
+              <Text size="xs" c="dimmed">
+                Features will appear here when available from the backend
+              </Text>
             </Box>
           ) : (
             <Stack gap="sm">
-              {allFeaturesWithConfigs.map((feature) => {
-                const display = getFeatureDisplay(feature.featureName);
-                const icon = FEATURE_ICONS[feature.featureName] || <IconSettings size={22} />;
-                const color = FEATURE_COLORS[feature.featureName] || '#6b7280';
-                
-                return (
-                  <Paper 
-                    key={feature.featureName} 
-                    withBorder 
-                    p="md"
-                    style={{ opacity: isFeatureEnabled(feature) ? 1 : 0.6 }}
-                  >
-                    <Group justify="space-between" wrap="nowrap">
-                      <Group gap="md" style={{ flex: 1 }}>
-                        <Box
-                          style={{ 
-                            width: 44,
-                            height: 44,
-                            borderRadius: 10,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: `${color}15`,
-                            color: isFeatureEnabled(feature) ? color : '#9ca3af',
-                          }}
-                        >
-                          {icon}
-                        </Box>
-                        
-                        <Box style={{ flex: 1, minWidth: 0 }}>
-                          <Group gap="xs" mb={4}>
-                            <Text fw={600}>{display.label}</Text>
-                            {!isFeatureEnabled(feature) && (
-                              <Badge size="xs" color="gray" variant="light">Disabled</Badge>
-                            )}
-                          </Group>
-                          <Text size="xs" c="dimmed" lineClamp={1}>{display.description}</Text>
-                          <Group gap="xs" mt="xs">
-                            {feature.sdks.slice(0, 3).map(sdk => (
-                              <Badge key={sdk} size="xs" variant="dot">
-                                {getSdkLabel(sdk)}
-                              </Badge>
-                            ))}
-                            {feature.sdks.length > 3 && (
-                              <Badge size="xs" variant="dot" color="gray">
-                                +{feature.sdks.length - 3}
-                              </Badge>
-                            )}
-                          </Group>
-                        </Box>
-                      </Group>
+              {allFeaturesWithConfigs
+                .filter(
+                  (feature) =>
+                    !["screen_session", "network_instrumentation"].includes(
+                      feature.featureName as string,
+                    ),
+                )
+                .map((feature) => {
+                  const display = getFeatureDisplay(feature.featureName);
+                  const icon = FEATURE_ICONS[feature.featureName] || (
+                    <IconSettings size={22} />
+                  );
+                  const color =
+                    FEATURE_COLORS[feature.featureName] || "#6b7280";
 
-                      <Group gap="md" wrap="nowrap">
-                        <Tooltip 
-                          label={isFeatureEnabled(feature) ? 'Feature is enabled' : 'Feature is disabled'}
-                          withArrow
-                        >
-                          <Switch
-                            checked={isFeatureEnabled(feature)}
-                            onChange={(e) => handleToggle(feature.featureName, e.currentTarget.checked)}
-                            color="teal"
-                            disabled={disabled}
-                          />
-                        </Tooltip>
+                  return (
+                    <Paper
+                      key={feature.featureName}
+                      withBorder
+                      p="md"
+                      style={{ opacity: isFeatureEnabled(feature) ? 1 : 0.6 }}
+                    >
+                      <Group justify="space-between" wrap="nowrap">
+                        <Group gap="md" style={{ flex: 1 }}>
+                          <Box
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 10,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              backgroundColor: `${color}15`,
+                              color: isFeatureEnabled(feature)
+                                ? color
+                                : "#9ca3af",
+                            }}
+                          >
+                            {icon}
+                          </Box>
 
-                        {!disabled && (
-                          <ActionIcon variant="subtle" onClick={() => openEditModal(feature)}>
-                            <IconEdit size={16} />
-                          </ActionIcon>
-                        )}
+                          <Box style={{ flex: 1, minWidth: 0 }}>
+                            <Group gap="xs" mb={4}>
+                              <Text fw={600}>{display.label}</Text>
+                              {!isFeatureEnabled(feature) && (
+                                <Badge size="xs" color="gray" variant="light">
+                                  Disabled
+                                </Badge>
+                              )}
+                            </Group>
+                            <Text size="xs" c="dimmed" lineClamp={1}>
+                              {display.description}
+                            </Text>
+                            <Group gap="xs" mt="xs">
+                              {feature.sdks.slice(0, 3).map((sdk) => (
+                                <Badge key={sdk} size="xs" variant="dot">
+                                  {getSdkLabel(sdk)}
+                                </Badge>
+                              ))}
+                              {feature.sdks.length > 3 && (
+                                <Badge size="xs" variant="dot" color="gray">
+                                  +{feature.sdks.length - 3}
+                                </Badge>
+                              )}
+                            </Group>
+                          </Box>
+                        </Group>
+
+                        <Group gap="md" wrap="nowrap">
+                          <Tooltip
+                            label={
+                              isFeatureEnabled(feature)
+                                ? "Feature is enabled"
+                                : "Feature is disabled"
+                            }
+                            withArrow
+                          >
+                            <Switch
+                              checked={isFeatureEnabled(feature)}
+                              onChange={(e) =>
+                                handleToggle(
+                                  feature.featureName,
+                                  e.currentTarget.checked,
+                                )
+                              }
+                              color="teal"
+                              disabled={disabled}
+                            />
+                          </Tooltip>
+
+                          {!disabled && (
+                            <ActionIcon
+                              variant="subtle"
+                              onClick={() => openEditModal(feature)}
+                            >
+                              <IconEdit size={16} />
+                            </ActionIcon>
+                          )}
+                        </Group>
                       </Group>
-                    </Group>
-                  </Paper>
-                );
-              })}
+                    </Paper>
+                  );
+                })}
             </Stack>
           )}
         </Box>
@@ -342,15 +601,20 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
       {/* Add/Edit Feature Modal */}
       <Modal
         opened={isModalOpen}
-        onClose={() => { setIsModalOpen(false); resetForm(); }}
-        title={editingFeature ? 'Edit Feature' : 'Add Feature'}
+        onClose={() => {
+          setIsModalOpen(false);
+          resetForm();
+        }}
+        title={editingFeature ? "Edit Feature" : "Add Feature"}
         size="md"
         centered
       >
         {isLoading ? (
           <Box ta="center" py="xl">
             <Loader size="sm" />
-            <Text size="sm" c="dimmed" mt="sm">Loading options...</Text>
+            <Text size="sm" c="dimmed" mt="sm">
+              Loading options...
+            </Text>
           </Box>
         ) : (
           <Stack gap="md">
@@ -358,8 +622,8 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
               label="Feature"
               description="Select an SDK feature to configure"
               placeholder="Select feature"
-              data={availableFeatures.map(f => ({ 
-                value: f.value, 
+              data={availableFeatures.map((f) => ({
+                value: f.value,
                 label: f.label,
               }))}
               value={featureName}
@@ -369,23 +633,29 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
             />
 
             <Group>
-              <Text size="sm" fw={500}>Enabled</Text>
+              <Text size="sm" fw={500}>
+                Enabled
+              </Text>
               <Switch
                 checked={featureEnabled}
                 onChange={(e) => setFeatureEnabled(e.currentTarget.checked)}
                 color="teal"
               />
               <Text size="xs" c="dimmed">
-                {featureEnabled ? 'Data collection for this feature is active' : 'Data collection for this feature is paused'}
+                {featureEnabled
+                  ? "Data collection for this feature is active"
+                  : "Data collection for this feature is paused"}
               </Text>
             </Group>
 
             <Box>
               <Group justify="space-between" mb="xs">
-                <Text size="sm" fw={500}>Target SDKs</Text>
-                <Button 
-                  size="compact-xs" 
-                  variant="subtle" 
+                <Text size="sm" fw={500}>
+                  Target SDKs
+                </Text>
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
                   onClick={() => setFeatureSdks(allSdks)}
                   disabled={sdkOptions.length === 0}
                 >
@@ -395,22 +665,125 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
               <MultiSelect
                 description="Which SDK platforms this feature applies to"
                 placeholder="Select SDKs"
-                data={sdkOptions.map(s => ({ value: s.value, label: s.label }))}
+                data={sdkOptions.map((s) => ({
+                  value: s.value,
+                  label: s.label,
+                }))}
                 value={featureSdks}
                 onChange={(v) => setFeatureSdks(v as SdkEnum[])}
                 required
               />
             </Box>
 
+            {featureName === CLICK_FEATURE_NAME && (
+              <Box>
+                <Group mb="sm">
+                  <Text size="sm" fw={500}>
+                    Capture context
+                  </Text>
+                  <Switch
+                    checked={captureContext}
+                    onChange={(e) => setCaptureContext(e.currentTarget.checked)}
+                    color="teal"
+                  />
+                  <Text size="xs" c="dimmed">
+                    Attach meaningful labels to click events
+                  </Text>
+                </Group>
+                <Text size="sm" fw={600} mb={4}>
+                  Rage-click detection
+                </Text>
+                <Text size="xs" c="dimmed" mb="sm">
+                  Tune how repeated taps in the same screen area are clustered
+                  for heatmaps (native Android / iOS SDKs).
+                </Text>
+                <Stack gap="sm">
+                  <NumberInput
+                    label="Time window (ms)"
+                    description="Taps within this window can form a rage cluster"
+                    min={100}
+                    max={60000}
+                    step={100}
+                    value={rageTimeWindowMs}
+                    onChange={(v) =>
+                      setRageTimeWindowMs(typeof v === "number" ? v : 2000)
+                    }
+                  />
+                  <NumberInput
+                    label="Tap threshold"
+                    description="Minimum number of taps to flag a rage cluster"
+                    min={2}
+                    max={99}
+                    value={rageThreshold}
+                    onChange={(v) =>
+                      setRageThreshold(typeof v === "number" ? v : 3)
+                    }
+                  />
+                  <NumberInput
+                    label="Radius (dp / px)"
+                    description="Max distance between taps to count as the same cluster"
+                    min={1}
+                    max={500}
+                    value={rageRadius}
+                    onChange={(v) =>
+                      setRageRadius(typeof v === "number" ? v : 50)
+                    }
+                  />
+                </Stack>
+              </Box>
+            )}
+
+            {featureName === SESSION_REPLAY_FEATURE_NAME && (
+              <Box>
+                <Text size="sm" fw={600} mb={4}>
+                  PII masking
+                </Text>
+                <Text size="xs" c="dimmed" mb="sm">
+                  Choose how personally identifiable information is hidden in
+                  recorded sessions to protect user privacy.
+                </Text>
+                <Stack gap="sm">
+                  <Select
+                    label="Text & input privacy"
+                    description="How visible text and form inputs appear in replays"
+                    data={TEXT_AND_INPUT_PRIVACY_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
+                    value={textAndInputPrivacy}
+                    onChange={(v) =>
+                      setTextAndInputPrivacy(v as TextAndInputPrivacy)
+                    }
+                  />
+                  <Select
+                    label="Image privacy"
+                    description="Whether screenshots and images are masked"
+                    data={IMAGE_PRIVACY_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
+                    value={imagePrivacy}
+                    onChange={(v) => setImagePrivacy(v as ImagePrivacy)}
+                  />
+                </Stack>
+              </Box>
+            )}
+
             <Group justify="flex-end" mt="md">
-              <Button variant="subtle" onClick={() => { setIsModalOpen(false); resetForm(); }}>
+              <Button
+                variant="subtle"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  resetForm();
+                }}
+              >
                 Cancel
               </Button>
               <Button
                 onClick={handleSaveFeature}
                 disabled={!featureName || featureSdks.length === 0}
               >
-                {editingFeature ? 'Update Feature' : 'Add Feature'}
+                {editingFeature ? "Update Feature" : "Add Feature"}
               </Button>
             </Group>
           </Stack>

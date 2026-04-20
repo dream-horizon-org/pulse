@@ -32,6 +32,7 @@ dependencies {
     implementation(libs.play.services.tasks)
     // we are exposing okHttp types and having api enabled clients to use it without declaring okHttp dependency
     api(libs.okhttp)
+    implementation(libs.retrofit)
     testImplementation(libs.bundles.junit)
     testImplementation(projects.testCommon)
     testFixturesImplementation(libs.opentelemetry.sdk.testing)

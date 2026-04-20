@@ -17,34 +17,47 @@ cp .env.example .env    # first time only, then edit values
 
 ```bash
 cd deploy
-./scripts/build.sh ui         # pulse-ui only
-./scripts/build.sh server     # pulse-server only
-./scripts/build.sh cron       # pulse-alerts-cron only
-./scripts/build.sh all        # everything
+./scripts/build.sh ui          # pulse-ui only
+./scripts/build.sh server      # pulse-server only
+./scripts/build.sh cron        # pulse-alerts-cron only
+./scripts/build.sh capture     # pulse-session-capture only
+./scripts/build.sh ingestion   # pulse-session-replay-ingestion only
+./scripts/build.sh ai          # pulse-ai-agent only
+./scripts/build.sh all         # same as omitting args: ui + server + cron + capture + ingestion + ai
 ```
 
 ## Start/Stop
 
 ```bash
-./scripts/start.sh -d           # start all detached
-./scripts/start.sh -d --build   # build + start detached
-./scripts/stop.sh                # stop all
-./scripts/stop.sh -v             # stop + remove volumes
+./scripts/start.sh -d              # start all detached (includes pulse-ai-agent)
+./scripts/start.sh -d --build      # build + start detached
+./scripts/stop.sh                  # stop all
+./scripts/stop.sh ai               # stop pulse-ai-agent only (CLI path)
+./scripts/stop.sh -v               # stop + remove volumes
 ```
 
 ## View Logs
 
 ```bash
 ./scripts/logs.sh                # all services
-./scripts/logs.sh pulse-server   # specific service
+./scripts/logs.sh server         # pulse-server
+./scripts/logs.sh ai             # pulse-ai-agent
 ```
 
-## AI Agent (own Docker Compose)
+## Heatmap screenshot ingestion
+
+**Service:** `pulse-heatmap-screenshot-ingestion` (Kafka → S3). Objects go to **`HEATMAP_S3_BUCKET`** (default `heatmap-assets`), prefix `heatmap-screenshots/`. **`pulse-server`** lists via **`HEATMAP_S3_ENDPOINT`** (e.g. `http://minio:9000`); for **presigned** URLs the browser needs a resolvable host — set **`HEATMAP_S3_PRESIGN_ENDPOINT=http://localhost:9100`** locally (MinIO is on host **9100**; **9000** on the host is ClickHouse). Omit **`HEATMAP_S3_PRESIGN_ENDPOINT`** in AWS if the default S3 hostname is fine. **Redis** is not started by deploy compose: set `REDIS_URL` or `REDIS_HOST` + `REDIS_PORT` for quota/dedupe. See `deploy/.env.example`.
+
+## Pulse AI
+
+**Integrated (deploy stack):** `pulse-ai-agent` starts with `./scripts/start.sh -d`. Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini. Health: `curl -sf http://localhost:8000/health`.
+
+**Standalone (AI-only dev):**
 
 ```bash
 cd pulse_ai && cp .env.example .env   # first time — set GOOGLE_API_KEY
 cd pulse_ai && ./setup.sh             # build + start (Docker, port 8000)
-curl http://localhost:8000             # health check
+curl -sf http://localhost:8000/health
 ```
 
 ## Reset Databases
@@ -64,7 +77,9 @@ Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover
 | pulse-alerts-cron | `curl http://localhost:<port>/healthcheck` | 4000 |
 | OpenFGA | `curl http://localhost:8180/healthz` | 8180 |
 | OTEL Collector | `curl http://localhost:<port>/` | 13133 |
-| pulse-ai (own compose) | `curl http://localhost:8000` | 8000 |
+| pulse-ai-agent | `curl -sf http://localhost:8000/health` | 8000 |
+| pulse-session-capture | `curl http://localhost:3400/healthcheck` | 3400 |
+| MinIO (dev) | S3 API on host `9100`, console `9101` | 9100 / 9101 |
 
 ## Troubleshooting
 

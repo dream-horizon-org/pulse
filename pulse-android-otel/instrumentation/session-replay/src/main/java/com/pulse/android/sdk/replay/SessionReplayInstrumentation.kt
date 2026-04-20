@@ -1,5 +1,8 @@
 package com.pulse.android.sdk.replay
 
+import android.content.pm.PackageInfo
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.google.auto.service.AutoService
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.internal.ReplayEnvelopeBuilder
@@ -25,6 +28,21 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
 
         val storageDir = File(application.filesDir, STORAGE_DIR_NAME)
         val replayApiClient = config.replayApiBaseUrl?.let { SessionReplayApiClient(baseUrl = it) }
+        val appVersion =
+            try {
+                val pkgInfo = application.packageManager.getPackageInfo(application.packageName, 0)
+                val versionName = pkgInfo.versionName.orEmpty()
+                val versionCode =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        getVersionCodeApi28(pkgInfo).toString()
+                    } else {
+                        @Suppress("DEPRECATION")
+                        pkgInfo.versionCode.toString()
+                    }
+                "${versionName}_$versionCode"
+            } catch (_: Exception) {
+                null
+            }
 
         val buildEnvelope: (String, List<ReplayEvent>) -> String = { sessionId, events ->
             ReplayEnvelopeBuilder.buildEnvelope(
@@ -32,6 +50,7 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
                 events = events,
                 projectId = bootstrap.projectId,
                 userId = bootstrap.userIdProvider().ifEmpty { "anonymous" },
+                appVersion = appVersion,
             )
         }
 
@@ -73,6 +92,7 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
                 config = config,
                 eventEmitter = persistingEmitter,
                 sessionIdProvider = { ctx.sessionProvider.getSessionId() },
+                screenNameProvider = bootstrap.screenNameProvider,
             )
         integration.install()
         if (bootstrap.isStartActive) {
@@ -120,6 +140,9 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
             }
         }
     }
+
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun getVersionCodeApi28(pkgInfo: PackageInfo): Long = pkgInfo.longVersionCode
 
     public companion object {
         public const val INSTRUMENTATION_NAME: String = "session_replay"

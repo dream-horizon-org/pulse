@@ -39,7 +39,17 @@ public class ApplicationConfig {
   public String symbolFilesS3BucketName;
   public String devModeApiKey;
   public SessionReplayS3Config sessionReplayS3;
-  
+  public String replayApiBaseUrl;
+  /** S3 key prefix for heatmap screenshot JSON (ingestion default: heatmap-screenshots). */
+  public String heatmapScreenshotsS3Prefix;
+  /**
+   * When {@code bucket} is set, heatmap screenshot list/presign uses this bucket; otherwise session
+   * replay S3 bucket. Endpoint/keys fall back to session replay when omitted (same MinIO). Optional
+   * {@code presignEndpoint} sets browser-facing hosts in presigned URLs only (see {@code
+   * HEATMAP_S3_PRESIGN_ENDPOINT}).
+   */
+  public HeatmapS3Config heatmapS3;
+
   /**
    * Get the dev mode API key with a sensible default.
    * This key is used when GOOGLE_OAUTH_ENABLED=false.

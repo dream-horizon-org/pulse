@@ -4,6 +4,8 @@
 # Pulse Observability - Start Script
 # Starts all containers. Uses Docker Compose if available, otherwise falls
 # back to Docker CLI with dependency-ordered health-check gating.
+# OpenFGA and pulse-ai-agent require Docker Compose for full parity; use ./start.sh -d
+# (not the CLI fallback) for the integrated stack.
 #
 # Usage:
 #   ./start.sh [-d|--detach] [--build] [--no-cache] [--skip-env-check]
@@ -106,6 +108,7 @@ if has_compose; then
         echo -e "${CYAN}Access points:${NC}"
         echo -e "  UI:  ${GREEN}http://localhost:3000${NC}"
         echo -e "  API: ${GREEN}http://localhost:8080${NC}"
+        echo -e "  Pulse AI: ${GREEN}http://localhost:8000${NC} (health: ${GREEN}http://localhost:8000/health${NC})"
         echo ""
         echo -e "${CYAN}View logs:${NC}  ./logs.sh"
     fi
@@ -169,8 +172,9 @@ docker run -d \
     -e "CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD}" \
     -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
     -v "${VOLUME_CLICKHOUSE}:/var/lib/clickhouse" \
-    -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
-    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/02-session-summary-mv.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/01-clickhouse-otel-schema.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/clickhouse-session-replay-schema.sql:/docker-entrypoint-initdb.d/02-clickhouse-session-replay-schema.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/03-session-summary-mv.sql:ro" \
     --health-cmd 'clickhouse-client --query "SELECT 1"' \
     --health-interval 10s \
     --health-timeout 5s \
@@ -190,7 +194,39 @@ if ! verify_mysql_init; then
 fi
 
 # ── Phase 2: MinIO ────────────────────────────────────────────────
-print_section "Phase 2: MinIO"
+print_section "Phase 2: Starting Kafka & MinIO"
+
+remove_container "$CONTAINER_KAFKA"
+print_info "Starting $CONTAINER_KAFKA ..."
+
+docker run -d \
+    --name "$CONTAINER_KAFKA" \
+    --network "$NETWORK_NAME" \
+    --network-alias kafka \
+    --restart unless-stopped \
+    -p 9092:9092 \
+    -e CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk \
+    -e KAFKA_NODE_ID=1 \
+    -e KAFKA_PROCESS_ROLES=broker,controller \
+    -e "KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093" \
+    -e "KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093" \
+    -e "KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092" \
+    -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+    -e "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT" \
+    -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true \
+    -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
+    -e KAFKA_LOG_DIRS=/var/lib/kafka/data \
+    -e KAFKA_NUM_PARTITIONS=12 \
+    -e KAFKA_LOG_RETENTION_HOURS=1 \
+    -v "${VOLUME_KAFKA}:/var/lib/kafka/data" \
+    --health-cmd "kafka-topics --bootstrap-server localhost:9092 --list" \
+    --health-interval 5s \
+    --health-timeout 5s \
+    --health-retries 10 \
+    --health-start-period 30s \
+    "$IMAGE_KAFKA" > /dev/null
+
+print_success "$CONTAINER_KAFKA container started"
 
 remove_container "$CONTAINER_MINIO"
 print_info "Starting $CONTAINER_MINIO ..."
@@ -202,7 +238,7 @@ docker run -d \
     --restart unless-stopped \
     -p 9100:9000 \
     -p 9101:9001 \
-    -e "MINIO_ROOT_USER=${MINIO_ROOT_USER}" \
+    -e "MINIO_ROOT_USER=${g}" \
     -e "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}" \
     -v "${VOLUME_MINIO}:/data" \
     --health-cmd "mc ready local" \
@@ -225,9 +261,9 @@ docker run --rm \
     --name "$CONTAINER_MINIO_INIT" \
     --network "$NETWORK_NAME" \
     "$IMAGE_MINIO_MC" \
-    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET}" > /dev/null 2>&1
+    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET} && mc mb --ignore-existing local/${HEATMAP_S3_BUCKET}" > /dev/null 2>&1
 
-print_success "MinIO bucket '${SESSION_REPLAY_S3_BUCKET}' ready"
+print_success "MinIO buckets '${SESSION_REPLAY_S3_BUCKET}' and '${HEATMAP_S3_BUCKET}' ready"
 
 # ── Phase 3: ClickHouse init + OTEL Collector ────────────────────────────
 print_section "Phase 3: Initialising ClickHouse tables & OTEL Collector"
@@ -244,6 +280,7 @@ docker run --rm \
     -e "CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE}" \
     -v "${SCRIPT_DIR}/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro" \
     -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro" \
     -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro" \
     "$IMAGE_CLICKHOUSE" \
     /bin/bash /scripts/init-clickhouse.sh
@@ -276,8 +313,80 @@ docker run -d \
 
 print_success "$CONTAINER_OTEL_COLLECTOR container started"
 
-# ── Phase 3: Pulse Server ────────────────────────────────────────────────
-print_section "Phase 3: Starting Pulse Server"
+# ── Phase 4: Session Replay Services ──────────────────────────────────────
+print_section "Phase 4: Starting Session Replay Services"
+
+remove_container "$CONTAINER_SESSION_CAPTURE"
+print_info "Starting $CONTAINER_SESSION_CAPTURE ..."
+
+docker run -d \
+    --name "$CONTAINER_SESSION_CAPTURE" \
+    --network "$NETWORK_NAME" \
+    --restart unless-stopped \
+    -p 3400:3400 \
+    -e PORT=3400 \
+    -e KAFKA_BROKERS=kafka:9092 \
+    -e KAFKA_TOPIC=session_recording_events \
+    -e RUST_LOG=pulse_session_capture=info \
+    --health-cmd "curl -f http://localhost:3400/healthcheck" \
+    --health-interval 10s \
+    --health-timeout 5s \
+    --health-retries 3 \
+    --health-start-period 10s \
+    "$IMAGE_SESSION_CAPTURE" > /dev/null
+
+print_success "$CONTAINER_SESSION_CAPTURE container started"
+
+remove_container "$CONTAINER_SESSION_INGESTION"
+print_info "Starting $CONTAINER_SESSION_INGESTION ..."
+
+docker run -d \
+    --name "$CONTAINER_SESSION_INGESTION" \
+    --network "$NETWORK_NAME" \
+    --restart unless-stopped \
+    -e KAFKA_BROKERS=kafka:9092 \
+    -e KAFKA_TOPIC=session_recording_events \
+    -e KAFKA_METADATA_TOPIC=clickhouse_session_replay_events \
+    -e KAFKA_GROUP_ID=session-replay-ingestion \
+    -e S3_ENDPOINT=http://minio:9000 \
+    -e "S3_BUCKET=${SESSION_REPLAY_S3_BUCKET}" \
+    -e "S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}" \
+    -e "S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}" \
+    -e S3_REGION=us-east-1 \
+    -e MAX_BATCH_SIZE_KB=102400 \
+    -e MAX_BATCH_AGE_MS=10000 \
+    "$IMAGE_SESSION_INGESTION" > /dev/null
+
+print_success "$CONTAINER_SESSION_INGESTION container started"
+
+remove_container "$CONTAINER_HEATMAP_INGESTION"
+print_info "Starting $CONTAINER_HEATMAP_INGESTION ..."
+
+docker run -d \
+    --name "$CONTAINER_HEATMAP_INGESTION" \
+    --network "$NETWORK_NAME" \
+    --restart unless-stopped \
+    -e KAFKA_BROKERS=kafka:9092 \
+    -e KAFKA_TOPIC=session_recording_events \
+    -e KAFKA_GROUP_ID=heatmap-screenshot-ingestion \
+    -e "HEATMAP_S3_ENDPOINT=${HEATMAP_S3_ENDPOINT}" \
+    -e "HEATMAP_S3_BUCKET=${HEATMAP_S3_BUCKET}" \
+    -e "HEATMAP_S3_REGION=${HEATMAP_S3_REGION}" \
+    -e "HEATMAP_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}" \
+    -e "HEATMAP_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}" \
+    -e S3_PREFIX=heatmap-screenshots \
+    -e "REDIS_URL=${REDIS_URL:-}" \
+    -e "REDIS_HOST=${REDIS_HOST:-}" \
+    -e "REDIS_PORT=${REDIS_PORT:-6379}" \
+    "$IMAGE_HEATMAP_INGESTION" > /dev/null
+
+print_success "$CONTAINER_HEATMAP_INGESTION container started"
+
+print_info "Waiting for session capture service..."
+wait_for_healthy "$CONTAINER_SESSION_CAPTURE" 60
+
+# ── Phase 5: Pulse Server ────────────────────────────────────────────────
+print_section "Phase 5: Starting Pulse Server"
 
 remove_container "$CONTAINER_SERVER"
 print_info "Starting $CONTAINER_SERVER ..."
@@ -324,6 +433,13 @@ docker run -d \
     -e "SESSION_REPLAY_S3_SECRET_ACCESS_KEY=${SESSION_REPLAY_S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD}}" \
     -e "SESSION_REPLAY_S3_REGION=${SESSION_REPLAY_S3_REGION:-us-south-1}" \
     \
+    -e "HEATMAP_S3_BUCKET=${HEATMAP_S3_BUCKET}" \
+    -e "HEATMAP_S3_ENDPOINT=${HEATMAP_S3_ENDPOINT}" \
+    -e "HEATMAP_S3_PRESIGN_ENDPOINT=${HEATMAP_S3_PRESIGN_ENDPOINT:-}" \
+    -e "HEATMAP_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}" \
+    -e "HEATMAP_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}" \
+    -e "HEATMAP_S3_REGION=${HEATMAP_S3_REGION}" \
+    \
     -e "CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID}" \
     -e "CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH}" \
     -e "INTERACTION_CLOUDFRONT_ASSET_PATH=${INTERACTION_CLOUDFRONT_ASSET_PATH}" \
@@ -333,6 +449,7 @@ docker run -d \
     -e "METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}" \
     -e "SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}" \
     -e "CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}" \
+    -e "CONFIG_REPLAY_API_BASE_URL=${CONFIG_REPLAY_API_BASE_URL}" \
     \
     -e "CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE}" \
     -e "CONFIG_SERVICE_APPLICATION_ATHENA_REGION=${CONFIG_SERVICE_APPLICATION_ATHENA_REGION}" \
@@ -354,8 +471,8 @@ print_success "$CONTAINER_SERVER container started"
 print_info "Waiting for $CONTAINER_SERVER to become healthy..."
 wait_for_healthy "$CONTAINER_SERVER" 180
 
-# ── Phase 4: Pulse UI & Alerts Cron ──────────────────────────────────────
-print_section "Phase 4: Starting Pulse UI & Alerts Cron"
+# ── Phase 6: Pulse UI & Alerts Cron ──────────────────────────────────────
+print_section "Phase 6: Starting Pulse UI & Alerts Cron"
 
 remove_container "$CONTAINER_UI"
 print_info "Starting $CONTAINER_UI ..."
@@ -414,8 +531,10 @@ if [ "$DETACHED" = "true" ]; then
     echo -e "${CYAN}Access points:${NC}"
     echo -e "  Frontend (UI):      ${GREEN}http://localhost:3000${NC}"
     echo -e "  Backend API:        ${GREEN}http://localhost:8080${NC}"
+    echo -e "  Session Capture:    ${GREEN}http://localhost:3400/s/${NC}"    
     echo -e "  MySQL:              ${GREEN}localhost:3307${NC}"
     echo -e "  ClickHouse HTTP:    ${GREEN}http://localhost:8123${NC}"
+    echo -e "  Kafka:              ${GREEN}localhost:9092${NC}"    
     echo -e "  MinIO Console:      ${GREEN}http://localhost:9101${NC}"
     echo -e "  OTEL gRPC:          ${GREEN}localhost:4317${NC}"
     echo ""

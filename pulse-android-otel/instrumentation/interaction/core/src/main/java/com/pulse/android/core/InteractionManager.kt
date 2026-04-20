@@ -2,6 +2,7 @@ package com.pulse.android.core
 
 import com.pulse.android.core.config.InteractionConfigFetcher
 import com.pulse.android.remote.models.InteractionConfig
+import com.pulse.utils.PulseNetworkingUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -39,13 +40,19 @@ public class InteractionManager
                 logDebug { "Initializing with endpoint: $interactionFetcher" }
 
                 val interactionConfigs =
-                    interactionConfigs ?: runCatching {
-                        interactionFetcher.getConfigs()
-                    }.onFailure { error ->
-                        currentCoroutineContext().ensureActive()
-                        logDebug { "Failed to fetch interactions: ${error.message ?: "no-msg"}" }
-                        return@launch
-                    }.getOrNull() ?: run {
+                    interactionConfigs ?: PulseNetworkingUtils
+                        .runNetworkCatching(
+                            tag = InteractionConstant.LOG_TAG,
+                            url = "",
+                            okHttpClient = null,
+                            removeCacheInFailure = false,
+                        ) {
+                            interactionFetcher.getConfigs()
+                        }.onFailure { error ->
+                            currentCoroutineContext().ensureActive()
+                            logDebug { "Failed to fetch interactions: ${error.message ?: "no-msg"}" }
+                            return@launch
+                        }.getOrNull() ?: run {
                         logDebug { "No interaction configs received" }
                         return@launch
                     }

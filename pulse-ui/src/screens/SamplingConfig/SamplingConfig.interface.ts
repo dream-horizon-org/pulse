@@ -8,42 +8,87 @@
 // ============================================================================
 
 // SDK platforms - matches backend Sdk enum
-export type SdkEnum = 'pulse_android_java' | 'pulse_android_rn' | 'pulse_ios_swift' | 'pulse_ios_rn';
+export type SdkEnum =
+  | "pulse_android_java"
+  | "pulse_android_rn"
+  | "pulse_ios_swift"
+  | "pulse_ios_rn";
 
 // Telemetry scopes - matches backend Scope enum
-export type ScopeEnum = 'logs' | 'traces' | 'metrics' | 'baggage';
-
-// Filter mode - matches backend FilterMode enum
-export type FilterMode = 'blacklist' | 'whitelist';
+export type ScopeEnum = "logs" | "traces" | "metrics" | "baggage";
 
 // Sampling rule names - matches backend rules enum
 export type SamplingRuleName =
-  | 'os_version'
-  | 'app_version'
-  | 'country'
-  | 'platform'
-  | 'state'
-  | 'device'
-  | 'network';
+  | "os_version"
+  | "app_version"
+  | "country"
+  | "platform"
+  | "state"
+  | "device"
+  | "network";
 
 // Feature names - matches backend Features enum
 export type FeatureName =
-  | 'interaction'
-  | 'java_crash'
-  | 'js_crash'
-  | 'java_anr'
-  | 'network_change'
-  | 'network_instrumentation'
-  | 'screen_session'
-  | 'custom_events'
-  | 'rn_screen_load'
-  | 'rn_screen_interactive';
+  | "interaction"
+  | "java_crash"
+  | "js_crash"
+  | "java_anr"
+  | "network_change"
+  | "custom_events"
+  | "rn_screen_load"
+  | "rn_screen_interactive"
+  | "rn_screen_session"
+  | "screen_session"
+  | "session_replay"
+  | "click"
+  | "heatmap"
+  | "ios_network"
+  | "rn_network"
+  | "network_instrumentation"
+  | "ios_crash"
+  | "ios_lifecycle"
+  | "android_activity"
+  | "android_fragment"
+  | "android_slowrendering";
+
+export type TextAndInputPrivacy =
+  | "MASK_ALL"
+  | "MASK_ALL_INPUTS"
+  | "MASK_SENSITIVE_INPUTS";
+export type ImagePrivacy = "MASK_ALL" | "MASK_NONE";
+
+export interface SessionReplayFeatureConfig {
+  featureName?: "session_replay";
+  textAndInputPrivacy?: TextAndInputPrivacy;
+  imagePrivacy?: ImagePrivacy;
+  throttleDelayMs?: number;
+  screenshotScale?: number;
+  screenshotQuality?: number;
+  flushIntervalSeconds?: number;
+  flushAt?: number;
+  maxBatchSize?: number;
+  replayApiBaseUrl?: string;
+}
+
+/** Rage-tap clustering for heatmaps — matches backend {@code RageConfig}. */
+export interface RageConfig {
+  timeWindowMs?: number;
+  threshold?: number;
+  radius?: number;
+}
+
+/** Click / tap instrumentation — matches backend {@code ClickFeatureConfig}. */
+export interface ClickFeatureConfig {
+  featureName?: "click";
+  captureContext?: boolean;
+  rage?: RageConfig;
+}
 
 // ============================================================================
 // EVENT FILTER TYPES
 // ============================================================================
 
-// Event property match (for filters and critical events)
+// Event property match (for attribute add/drop conditions)
 export interface EventPropMatch {
   name: string;
   value: string; // Regex pattern
@@ -79,16 +124,6 @@ export interface AttributeToDrop {
 }
 
 // ============================================================================
-// FILTERS CONFIGURATION - Nested under signals
-// ============================================================================
-
-// Filter config - matches backend FilterConfig
-export interface FilterConfig {
-  mode: FilterMode;
-  values: EventFilter[];
-}
-
-// ============================================================================
 // SAMPLING CONFIGURATION
 // ============================================================================
 
@@ -115,11 +150,6 @@ export interface CriticalPolicyRule {
   sdks: SdkEnum[];
 }
 
-// Critical event policies container
-export interface CriticalEventPolicies {
-  alwaysSend: CriticalPolicyRule[];
-}
-
 // Critical session policies container
 export interface CriticalSessionPolicies {
   alwaysSend: CriticalPolicyRule[];
@@ -129,7 +159,6 @@ export interface CriticalSessionPolicies {
 export interface SamplingConfig {
   default: DefaultSampling;
   rules: SamplingRule[];
-  criticalEventPolicies: CriticalEventPolicies;
   criticalSessionPolicies: CriticalSessionPolicies;
 }
 
@@ -139,7 +168,6 @@ export interface SamplingConfig {
 
 // Signals configuration - matches backend SignalsConfig
 export interface SignalsConfig {
-  filters: FilterConfig;
   scheduleDurationMs: number;
   logsCollectorUrl?: string; // Auto-filled by backend if not provided
   metricCollectorUrl?: string; // Auto-filled by backend if not provided
@@ -171,6 +199,7 @@ export interface FeatureConfig {
   featureName: FeatureName;
   sessionSampleRate: number; // 0 = disabled, 1 = enabled (UI shows as on/off toggle)
   sdks: SdkEnum[];
+  config?: SessionReplayFeatureConfig | ClickFeatureConfig | null;
 }
 
 // ============================================================================
@@ -228,18 +257,16 @@ export interface ScopesAndSdksResponse {
 // Pipeline stats for visualization
 export interface PipelineStats {
   totalEvents: number;
-  afterFilters: number;
   afterSampling: number;
   afterFeatures: number;
   finalSent: number;
-  filterDropRate: number;
   samplingDropRate: number;
   featureDropRate: number;
   totalSentRate: number;
 }
 
 // Editor mode
-export type ConfigEditorMode = 'create' | 'edit' | 'view';
+export type ConfigEditorMode = "create" | "edit" | "view";
 
 // ============================================================================
 // COMPONENT PROPS
@@ -248,12 +275,6 @@ export type ConfigEditorMode = 'create' | 'edit' | 'view';
 export interface DataPipelineProps {
   stats: PipelineStats;
   isLoading?: boolean;
-}
-
-export interface FiltersConfigProps {
-  config: FilterConfig;
-  onChange: (config: FilterConfig) => void;
-  disabled?: boolean;
 }
 
 export interface AttributesToDropProps {
@@ -265,14 +286,6 @@ export interface AttributesToDropProps {
 export interface SamplingConfigProps {
   config: SamplingConfig;
   onChange: (config: SamplingConfig) => void;
-  disabled?: boolean;
-}
-
-export interface CriticalPoliciesProps {
-  eventPolicies: CriticalEventPolicies;
-  sessionPolicies: CriticalSessionPolicies;
-  onEventPoliciesChange: (policies: CriticalEventPolicies) => void;
-  onSessionPoliciesChange: (policies: CriticalSessionPolicies) => void;
   disabled?: boolean;
 }
 

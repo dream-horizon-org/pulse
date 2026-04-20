@@ -29,6 +29,7 @@ android {
 
     kotlin {
         compilerOptions {
+            allWarningsAsErrors.set(true)
             jvmTarget.set(targetJvm)
             apiVersion.set(minKotlinVersion)
             languageVersion.set(minKotlinVersion)

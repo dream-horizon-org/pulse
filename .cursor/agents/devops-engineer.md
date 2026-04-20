@@ -15,14 +15,14 @@ You are a senior DevOps engineer specializing in the Pulse deployment infrastruc
 
 Services on `pulse-network` bridge:
 
-**Infrastructure**: mysql (3307), clickhouse (8123/9000), openfga (8180/8181/3001)
-**Init Containers**: openfga-migrate, openfga-init, clickhouse-init (run-once)
-**Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Vector (14317/14318 → S3) is optional; enable via `VECTOR_ENABLED=true` in .env.
-**Application**: pulse-server (8080), pulse-ui (3000), pulse-alerts-cron (4000)
+**Infrastructure**: mysql (3307), clickhouse (8123/9000), kafka (9092), minio (9100 S3 API, 9101 console), openfga (8180/8181/3001)
+**Init Containers**: openfga-migrate, openfga-init, minio-init, clickhouse-init (run-once; CH init waits on kafka healthy)
+**Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Session replay: pulse-session-capture (3400) → kafka → pulse-session-replay-ingestion → minio + ClickHouse. Vector (14317/14318 → S3) is optional; enable via `VECTOR_ENABLED=true` in .env.
+**Application**: pulse-ai-agent (8000), pulse-server (8080), pulse-alerts-cron (4000), pulse-ui (3000)
 
-**Note:** pulse-ai runs via its own `docker-compose.yml` in `pulse_ai/` (port 8000). Manage with `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
+**Pulse AI:** Integrated: `deploy/docker-compose.yml` `pulse-ai-agent` (starts with `docker compose up`; pulse-server `depends_on` it healthy). Standalone: `pulse_ai/docker-compose.yml` + `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
-Startup order: DBs → OpenFGA → OTEL Collector → App Services → UI
+Startup order (simplified): mysql / clickhouse / kafka / minio → init jobs → otel-collector → capture + replay consumer → pulse-ai-agent → pulse-server → pulse-ui (see `depends_on` in compose for exact gates)
 
 Always use `docker ps` to verify actual running services and ports.
 
@@ -43,8 +43,8 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 | Script | Purpose |
 |--------|---------|
 | `quickstart.sh` | Prereqs → build → start → health checks |
-| `build.sh` | Build images (accepts: `ui`, `server`, `cron`, `all`, `--no-cache`) |
-| `start.sh` | Start services (`-d` for detached, `--build` to build first) |
+| `build.sh` | Build images (`ui`, `server`, `cron`, `capture`, `ingestion`, `ai`, `all`, `--no-cache`; default no-args = ui+server+cron+capture+ingestion+ai) |
+| `start.sh` | Start services (`-d`, `--build`, `--no-cache`) |
 | `stop.sh` | Stop services (`-v` removes volumes) |
 | `logs.sh` | View logs (optionally filter by service) |
 | `reset-databases.sh` | Drop volumes and reinitialize DBs |

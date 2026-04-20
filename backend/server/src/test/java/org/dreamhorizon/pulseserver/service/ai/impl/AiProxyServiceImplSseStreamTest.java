@@ -15,17 +15,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration-style test: real {@link WebClient} against a local Vert.x HTTP server returning SSE.
- * <p>Previously this class called a removed constructor {@code AiProxyServiceImpl(WebClient,
- * HttpClient, String)}; the service now uses {@link AiProxyServiceImpl#AiProxyServiceImpl(WebClient,
- * String)} only.
+ * Integration-style test: real Vert.x {@link WebClient} against a local HTTP server returning SSE.
  */
 class AiProxyServiceImplSseStreamTest {
 
   private Vertx vertx;
   private HttpServer fakeAi;
   private int port;
-  private WebClient webClient;
   private AiProxyServiceImpl service;
 
   @BeforeEach
@@ -59,17 +55,12 @@ class AiProxyServiceImplSseStreamTest {
         });
     port = listenReady.get(5, TimeUnit.SECONDS);
 
-    io.vertx.rxjava3.core.Vertx rxVertx = io.vertx.rxjava3.core.Vertx.newInstance(vertx);
-    webClient = WebClient.create(rxVertx);
+    WebClient webClient = WebClient.create(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
     service = new AiProxyServiceImpl(webClient, "http://127.0.0.1:" + port);
   }
 
   @AfterEach
   void tearDown() throws Exception {
-    if (webClient != null) {
-      webClient.close();
-      webClient = null;
-    }
     CompletableFuture<Void> closed = new CompletableFuture<>();
     if (vertx != null) {
       vertx.close(ar -> closed.complete(null));

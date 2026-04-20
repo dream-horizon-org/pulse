@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class RxObjectMapper {
 
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper;
   private static final ExecutorService threadPool = Executors.newFixedThreadPool(20);
   private static final Scheduler vertxEventLoopScheduler = Utils.fromVertxEventLoop();
 

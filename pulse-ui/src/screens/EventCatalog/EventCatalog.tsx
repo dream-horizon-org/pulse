@@ -24,7 +24,6 @@ import {
   IconUpload,
   IconSearch,
   IconEdit,
-  IconTrash,
   IconCalendar,
   IconCategory,
 } from "@tabler/icons-react";
@@ -232,7 +231,7 @@ export function EventCatalog() {
                             className={classes.deleteButton}
                             onClick={() => setDeleteConfirmId(event.id)}
                           >
-                            <IconTrash size={15} />
+                            <IconArchive size={15} />
                           </ActionIcon>
                         </Tooltip>
                       </Group>

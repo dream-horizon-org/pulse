@@ -1,10 +1,27 @@
 public final class com/pulse/semconv/PulseAttributes {
+	public static final field APP_CLICK_CONTEXT Lio/opentelemetry/api/common/AttributeKey;
+	public static final field APP_SCREEN_COORDINATE_NX Lio/opentelemetry/api/common/AttributeKey;
+	public static final field APP_SCREEN_COORDINATE_NY Lio/opentelemetry/api/common/AttributeKey;
+	public static final field CLICK_IS_RAGE Lio/opentelemetry/api/common/AttributeKey;
+	public static final field CLICK_RAGE_COUNT Lio/opentelemetry/api/common/AttributeKey;
+	public static final field CLICK_TYPE Lio/opentelemetry/api/common/AttributeKey;
 	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes;
 	public static final field PROJECT_ID Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_NAME Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SPAN_ID Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_TYPE Lio/opentelemetry/api/common/AttributeKey;
 	public static final field TELEMETRY_SDK_NAME_KEY Lio/opentelemetry/api/common/AttributeKey;
+}
+
+public final class com/pulse/semconv/PulseAttributes$AppClickContext {
+	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes$AppClickContext;
+	public static final fun buildContext (Ljava/lang/String;)Ljava/lang/String;
+}
+
+public final class com/pulse/semconv/PulseAttributes$ClickTypeValues {
+	public static final field DEAD Ljava/lang/String;
+	public static final field GOOD Ljava/lang/String;
+	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes$ClickTypeValues;
 }
 
 public final class com/pulse/semconv/PulseAttributes$PulseSdkNames {
@@ -35,6 +52,13 @@ public final class com/pulse/semconv/PulseAttributes$PulseTypeValues {
 	public static final field SLOW Ljava/lang/String;
 	public static final field TOUCH Ljava/lang/String;
 	public static final fun isNetworkType (Ljava/lang/String;)Z
+}
+
+public final class com/pulse/semconv/PulseDeviceAttributes {
+	public static final field DEVICE_SCREEN_ASPECT_RATIO Lio/opentelemetry/api/common/AttributeKey;
+	public static final field DEVICE_SCREEN_HEIGHT Lio/opentelemetry/api/common/AttributeKey;
+	public static final field DEVICE_SCREEN_WIDTH Lio/opentelemetry/api/common/AttributeKey;
+	public static final field INSTANCE Lcom/pulse/semconv/PulseDeviceAttributes;
 }
 
 public final class com/pulse/semconv/PulseInteractionAttributes {

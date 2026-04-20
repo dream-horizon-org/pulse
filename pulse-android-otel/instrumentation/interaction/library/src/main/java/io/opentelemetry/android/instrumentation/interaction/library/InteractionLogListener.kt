@@ -48,7 +48,7 @@ internal class InteractionLogListener(
                 "device.anr",
                 "app.jank",
                 "network.change",
-                "app.screen.click",
+                "app.widget.click",
             )
     }
 }

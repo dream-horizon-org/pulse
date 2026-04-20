@@ -31,7 +31,7 @@ ON CLUSTER `pulse-clickhouse`
     `UserId` String MATERIALIZED ifNull(nullIf(LogAttributes['user.id'], ''), ifNull(LogAttributes['app.installation.id'], '')),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
     `EventName` LowCardinality(String) CODEC(ZSTD(1)),
-    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['metering.session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], ''),
 
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
@@ -89,7 +89,7 @@ ON CLUSTER `pulse-clickhouse`
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
     `UserId` String MATERIALIZED ifNull(nullIf(SpanAttributes['user.id'], ''), ifNull(SpanAttributes['app.installation.id'], '')),
-    `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['metering.session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['pulse.metering.session.id'], ''),
     INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_user_id UserId TYPE bloom_filter(0.001) GRANULARITY 1,
@@ -153,7 +153,7 @@ ON CLUSTER `pulse-clickhouse`
     `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
-    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['metering.session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], ''),
     INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
 )
@@ -223,3 +223,19 @@ AS SELECT
     uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
 FROM otel.stack_trace_events_local
 GROUP BY project_id, month, source;
+
+CREATE TABLE IF NOT EXISTS otel.root_cause_cache ON CLUSTER 'pulse-clickhouse'
+(
+    `ProjectId`       LowCardinality(String) CODEC(ZSTD(1)),
+    `interaction_name` LowCardinality(String) CODEC(ZSTD(1)),
+    `date`             Date,
+    `window_end_utc`   DateTime64(3, 'UTC') COMMENT 'Exclusive upper bound of RCA query window' CODEC(ZSTD(1)),
+    `mode`             LowCardinality(String) COMMENT 'hierarchical | flat' CODEC(ZSTD(1)),
+    `baseline`         String COMMENT 'JSON' CODEC(ZSTD(1)),
+    `segments`         String COMMENT 'JSON' CODEC(ZSTD(1)),
+    `cached_at`        DateTime64(3, 'UTC') CODEC(ZSTD(1))
+)
+ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/otel.root_cause_cache', '{replica}', cached_at)
+PARTITION BY toYYYYMM(date)
+ORDER BY (ProjectId, interaction_name, date)
+SETTINGS index_granularity = 8192;

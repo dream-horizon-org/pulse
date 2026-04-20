@@ -13,11 +13,11 @@ Real-time monitoring, crash reporting, ANR detection, and performance insights p
 
 ## Status: Development
 
-* [About](#about)
-* [Getting Started](#getting-started)
-* [Core Features](#core-features)
-* [API Reference](#api-reference)
-* [Advanced Configuration](#advanced-configuration)
+- [About](#about)
+- [Getting Started](#getting-started)
+- [Core Features](#core-features)
+- [API Reference](#api-reference)
+- [Advanced Configuration](#advanced-configuration)
 
 ---
 
@@ -26,6 +26,7 @@ Real-time monitoring, crash reporting, ANR detection, and performance insights p
 The Pulse Android SDK provides comprehensive Real User Monitoring (RUM) for Android applications. Built on top of the [OpenTelemetry Android SDK](https://github.com/open-telemetry/opentelemetry-android), it offers a simplified API for tracking custom events, errors, performance, and user behavior while automatically capturing native Android telemetry.
 
 **Key Benefits:**
+
 - 🚀 **Simple API**: High-level wrappers for common observability tasks
 - 🔧 **Auto-instrumentation**: Automatic ANR, crash, and performance tracking
 - 📊 **OpenTelemetry Native**: Full access to OpenTelemetry APIs when needed
@@ -36,6 +37,7 @@ The Pulse Android SDK provides comprehensive Real User Monitoring (RUM) for Andr
 ## Getting Started
 
 > **Requirements:**
+>
 > - Android minSdk: 21+
 > - Android Gradle Plugin: 8.3.0+
 > - If your minSdk < 26, enable [corelib desugaring](https://developer.android.com/studio/write/java8-support#library-desugaring) and set `android.useFullClasspathForDexingTransform=true` in `gradle.properties`. See [#73](https://github.com/open-telemetry/opentelemetry-android/issues/73).
@@ -325,41 +327,56 @@ PulseSDK.INSTANCE.initialize(
         enabled(true)
         setConfigUrl { "http://10.0.2.2:8080/v1/interactions/all-active-interactions" }
     }
-    
+
     // Activity lifecycle
     activity {
         enabled(true)
     }
-    
+
     // Fragment lifecycle
     fragment {
         enabled(false) // Disable if not using fragments
     }
-    
+
     // Network monitoring
     network {
         enabled(true)
     }
-    
+
     // ANR detection
     anr {
         enabled(true)
     }
-    
+
     // Slow/frozen render detection
     slowRendering {
         enabled(true)
+    }
+
+    // View click is bundled in pulse-android-sdk.
+    // First launch starts with click suppressed until remote config is fetched/applied;
+    // backend `click` feature controls runtime enablement after that.
+    viewClick {
+        captureContext(true)  // default; set false for minimal context (type+source only)
+    }
+
+    // Compose click follows the same gating as view click.
+    composeClick {
+        captureContext(true)  // default; set false for minimal context (type+source only)
     }
 }
 ```
 
 For detailed instrumentation configuration, see:
+
 - [Interaction Instrumentation](./instrumentation/interaction/)
 - [Activity Instrumentation](./instrumentation/activity/)
 - [Fragment Instrumentation](./instrumentation/fragment/)
 - [Network Instrumentation](./instrumentation/network/)
 - [ANR Detection](./instrumentation/anr/)
 - [Slow Rendering Detection](./instrumentation/slowrendering/)
+- [View Click Instrumentation](./instrumentation/view-click/)
+- [Compose Click Instrumentation](./instrumentation/compose/click/)
 
 ### Session Configuration
 
@@ -392,6 +409,7 @@ The SDK performs asynchronous exporter initialization with in-memory buffering a
 ---
 
 For more information about roles:
+
 - [Maintainer Role](https://github.com/open-telemetry/community/blob/main/guides/contributor/membership.md#maintainer)
 - [Approver Role](https://github.com/open-telemetry/community/blob/main/guides/contributor/membership.md#approver)
 

@@ -57,7 +57,7 @@ export interface SessionBatchFileStorage {
      * await writer.finish()
      * ```
      */
-    newBatch(): SessionBatchFileWriter
+    newBatch(projectId: string): SessionBatchFileWriter
 
     /**
      * Checks the health of the storage backend.

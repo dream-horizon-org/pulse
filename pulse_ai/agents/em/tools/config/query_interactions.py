@@ -7,6 +7,7 @@ import logging
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
+from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
 from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
 
 VALID_SCOPES = ("list", "detail", "filters", "telemetry_filters")
@@ -44,33 +45,39 @@ async def query_interactions(
             "status": "error",
             "message": "interaction_name is required when scope='detail'",
         }
-    bearer_token = tool_context.state.get("bearer_token") if tool_context else None
-    project_id = tool_context.state.get("project_id") if tool_context else None
-    client = PulseClient(authorization_header=bearer_token, project_id=project_id)
+    session_error = pulse_tool_session_auth_error(tool_context)
+    if session_error is not None:
+        return session_error
 
-    if scope == "list":
-        params = {"page": page, "size": size, "status": status}
-        if name:
-            params["name"] = name
-        response = await client.request("GET", "/v1/interactions", params=params)
+    bearer_token = tool_context.state.get("bearer_token")
+    project_id = tool_context.state.get("project_id")
+    async with PulseClient(
+        authorization_header=bearer_token,
+        project_id=project_id,
+    ) as client:
+        if scope == "list":
+            params = {"page": page, "size": size, "status": status}
+            if name:
+                params["name"] = name
+            response = await client.request("GET", "/v1/interactions", params=params)
 
-    elif scope == "detail":
-        response = await client.request("GET", f"/v1/interactions/{interaction_name}")
+        elif scope == "detail":
+            response = await client.request("GET", f"/v1/interactions/{interaction_name}")
 
-    elif scope == "filters":
-        response = await client.request("GET", "/v1/interactions/filter-options")
+        elif scope == "filters":
+            response = await client.request("GET", "/v1/interactions/filter-options")
 
-    elif scope == "telemetry_filters":
-        response = await client.request("GET", "/v1/interactions/telemetry-filters")
+        elif scope == "telemetry_filters":
+            response = await client.request("GET", "/v1/interactions/telemetry-filters")
 
-    # Handle network errors (PulseClient returns dict on connection/timeout)
-    if isinstance(response, dict):
-        return response
+        # Handle network errors (PulseClient returns dict on connection/timeout)
+        if isinstance(response, dict):
+            return response
 
-    # Handle HTTP errors
-    if response.status_code >= 400:
-        return parse_error_response(response)
+        # Handle HTTP errors
+        if response.status_code >= 400:
+            return parse_error_response(response)
 
-    # Success
-    body = response.json()
-    return {"status": "success", "data": body.get("data", body)}
+        # Success
+        body = response.json()
+        return {"status": "success", "data": body.get("data", body)}

@@ -9,8 +9,11 @@ import EventExample from './examples/EventExample';
 import ErrorHandlerExample from './examples/ErrorHandlerExample';
 import NetworkInterceptorExample from './examples/NetworkInterceptorExample';
 import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
-import AndroidFeaturesExample from './examples/AndroidFeaturesExample';
+import NativeFeaturesExample from './examples/NativeFeaturesExample';
 import InteractionDemo from './examples/InteractionDemo';
+import PulseAttributesExample from './examples/PulseAttributesExample';
+import SessionReplayExample from './examples/SessionReplayExample';
+import UserManagementExample from './examples/UserManagementExample';
 
 Pulse.start({
   networkHeaders: {
@@ -28,6 +31,13 @@ type DemoConfig = {
 };
 
 const DEMO_CONFIGS: DemoConfig[] = [
+  {
+    id: 'sessionReplayMask',
+    label: '🔐 Session Replay Masking',
+    title: 'Session Replay Privacy Masking',
+    color: '#E91E63',
+    component: SessionReplayExample,
+  },
   {
     id: 'navigation',
     label: '🚀 Native Stack Navigation',
@@ -78,11 +88,11 @@ const DEMO_CONFIGS: DemoConfig[] = [
     component: ErrorBoundaryExample,
   },
   {
-    id: 'androidFeatures',
-    label: '🤖 Android Features',
-    title: 'Android Features Testing',
+    id: 'nativeFeatures',
+    label: '🤖 Native Features',
+    title: 'Native Features Testing',
     color: '#795548',
-    component: AndroidFeaturesExample,
+    component: NativeFeaturesExample,
   },
   {
     id: 'interaction',
@@ -90,6 +100,20 @@ const DEMO_CONFIGS: DemoConfig[] = [
     title: 'Interaction Event Tracking',
     color: '#9C27B0',
     component: InteractionDemo,
+  },
+  {
+    id: 'userManagement',
+    label: '👤 User Management',
+    title: 'User ID & Properties',
+    color: '#607D8B',
+    component: UserManagementExample,
+  },
+  {
+    id: 'pulseAttributes',
+    label: '🧪 PulseAttributes Testing',
+    title: 'PulseAttributes Testing',
+    color: '#E91E63',
+    component: PulseAttributesExample,
   },
 ];
 

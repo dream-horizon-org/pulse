@@ -174,7 +174,7 @@ ON DUPLICATE KEY UPDATE name = name;
 -- OpenFGA relationships are set up in deploy/openfga/init-openfga.sh
 -- ============================================================================
 INSERT INTO users (user_id, email, name, firebase_uid, status, created_at, last_login_at)
-VALUES 
+VALUES
   ('mock-user-1', 'user1@example.com', 'Test User 1', 'mock-user-1-firebase-uid', 'active', NOW(), NOW()),
   ('mock-user-2', 'user2@example.com', 'Test User 2', 'mock-user-2-firebase-uid', 'active', NOW(), NOW())
 ON DUPLICATE KEY UPDATE user_id = user_id;
@@ -235,6 +235,55 @@ VALUES
 ), 0, 'system', 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
+-- Suggested interactions table (AI-mined interaction patterns)
+CREATE TABLE suggested_interaction (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL,
+    events_json JSON NOT NULL COMMENT 'Array of event objects with name and props',
+    total_occurrences INT NOT NULL DEFAULT 0,
+    unique_sessions INT NOT NULL DEFAULT 0,
+    session_pct DOUBLE NOT NULL DEFAULT 0,
+    mean_span_s DOUBLE NOT NULL DEFAULT 0,
+    median_span_s DOUBLE NOT NULL DEFAULT 0,
+    p95_span_s DOUBLE NOT NULL DEFAULT 0,
+    cv DOUBLE NOT NULL DEFAULT 0,
+    edges_json JSON COMMENT 'Array of edge objects with timing stats between consecutive events',
+    status VARCHAR(25) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    decided_by VARCHAR(255) NULL,
+    decided_at TIMESTAMP NULL,
+    INDEX idx_suggested_project_status (project_id, status),
+    CONSTRAINT fk_suggested_interaction_project FOREIGN KEY (project_id)
+        REFERENCES projects(project_id) ON DELETE CASCADE
+);
+
+-- Seed suggested interactions for default-project
+INSERT INTO suggested_interaction (project_id, events_json, total_occurrences, unique_sessions, session_pct, mean_span_s, median_span_s, p95_span_s, cv, edges_json)
+VALUES (
+  'default-project',
+  '[{"name":"Go shopping","props":[],"isBlacklisted":false},{"name":"Telescope selected","props":[],"isBlacklisted":false}]',
+  8420, 6120, 72.5, 0.72, 0.68, 2.1, 0.12,
+  '[{"from":"Go shopping","to":"Telescope selected","mean_gap_s":0.72,"median_gap_s":0.68,"cv":0.12,"p5_s":0.31,"p95_s":2.1}]'
+);
+
+-- 2. Two events, one has a prop
+INSERT INTO suggested_interaction (project_id, events_json, total_occurrences, unique_sessions, session_pct, mean_span_s, median_span_s, p95_span_s, cv, edges_json)
+VALUES (
+  'default-project',
+  '[{"name":"Go shopping","props":[{"name":"platform","value":"iOS","operator":"EQUALS"}],"isBlacklisted":false},{"name":"Add to cart","props":[],"isBlacklisted":false}]',
+  5200, 3800, 45.2, 1.1, 0.95, 3.5, 0.18,
+  '[{"from":"Go shopping","to":"Add to cart","mean_gap_s":1.1,"median_gap_s":0.95,"cv":0.18,"p5_s":0.4,"p95_s":3.5}]'
+);
+
+-- 3. Three events, multiple props
+INSERT INTO suggested_interaction (project_id, events_json, total_occurrences, unique_sessions, session_pct, mean_span_s, median_span_s, p95_span_s, cv, edges_json)
+VALUES (
+  'default-project',
+  '[{"name":"Login","props":[{"name":"auth_method","value":"SSO","operator":"EQUALS"}],"isBlacklisted":false},{"name":"Dashboard loaded","props":[],"isBlacklisted":false},{"name":"Report exported","props":[{"name":"format","value":"PDF","operator":"EQUALS"}],"isBlacklisted":false}]',
+  3100, 2200, 33.8, 2.5, 2.1, 6.8, 0.22,
+  '[{"from":"Login","to":"Dashboard loaded","mean_gap_s":1.2,"median_gap_s":1.0,"cv":0.15,"p5_s":0.5,"p95_s":3.0},{"from":"Dashboard loaded","to":"Report exported","mean_gap_s":1.3,"median_gap_s":1.1,"cv":0.2,"p5_s":0.4,"p95_s":3.8}]'
+);
+
 
 -- Symbol files table with project_id in composite primary key
 CREATE TABLE symbol_files (
@@ -274,18 +323,11 @@ CREATE TABLE pulse_sdk_configs (
 --       "sessionSampleRate": 1
 --     },
 --     "rules": [],
---     "criticalEventPolicies": {
---       "alwaysSend": []
---     },
 --     "criticalSessionPolicies": {
 --       "alwaysSend": []
 --     }
 --   },
 --   "signals": {
---     "filters": {
---       "mode": "blacklist",
---       "values": []
---     },
 --     "scheduleDurationMs": 5000,
 --     "logsCollectorUrl": "http://10.0.2.2:4318/v1/logs",
 --     "metricCollectorUrl": "http://10.0.2.2:4318/v1/metrics",
@@ -778,6 +820,39 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
 ))
 ON DUPLICATE KEY UPDATE body = body;
 
+-- Template 1: Usage limit threshold alert (under 100%)
+-- Header and button use Pulse theme (#0ba09a); internal metric colors kept
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('usage_limit_threshold', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Usage Alert: {{threshold}}% {{notifyFor}} limit reached for {{projectName}}',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0}.container{max-width:600px;margin:0 auto;padding:20px}.header{background-color:#0ba09a;color:white;padding:20px;text-align:center;border-radius:5px 5px 0 0}.content{background-color:#f9f9f9;padding:20px;border:1px solid #ddd;border-radius:0 0 5px 5px}.metric-box{background-color:white;padding:15px;margin:10px 0;border-left:4px solid #ff9800;border-radius:3px}.metric-label{font-weight:bold;color:#666;font-size:14px}.metric-value{font-size:24px;color:#ff9800;font-weight:bold;margin-top:5px}.footer{margin-top:20px;padding:15px;text-align:center;font-size:12px;color:#666}.cta-button{display:inline-block;padding:12px 24px;background-color:#0ba09a;color:#ffffff !important;text-decoration:none;border-radius:5px;margin:20px 0;font-weight:bold}</style></head><body><div class=\"container\"><div class=\"header\"><h1 style=\"margin:0\">Usage Alert</h1></div><div class=\"content\"><p>Your project <strong>{{projectName}}</strong> has reached <strong>{{threshold}}%</strong> of your monthly {{notifyFor}} limit.</p><h3>Current Usage:</h3><div class=\"metric-box\"><div class=\"metric-label\">Events Usage</div><div class=\"metric-value\">{{eventsPercentageDisplay}}%</div></div><div class=\"metric-box\"><div class=\"metric-label\">Sessions Usage</div><div class=\"metric-value\">{{sessionsPercentageDisplay}}%</div></div><p>Please review your usage to avoid service interruption.</p><div style=\"text-align:center\"><a href=\"{{dashboardUrl}}/projects/{{projectId}}\" class=\"cta-button\" style=\"color:#ffffff !important;text-decoration:none\">View Usage Details</a></div></div><div class=\"footer\"><p>This is an automated notification from Pulse Observability Platform</p></div></div></body></html>',
+    'text', '[Pulse] Usage Alert: {{threshold}}% {{notifyFor}} limit reached\n\nYour project {{projectName}} has reached {{threshold}}% of your monthly {{notifyFor}} limit.\n\nCurrent Usage:\n- Events: {{eventsPercentageDisplay}}%\n- Sessions: {{sessionsPercentageDisplay}}%\n\nPlease review your usage to avoid service interruption.\n\nView details: {{dashboardUrl}}/projects/{{projectId}}\n\n--\nThis is an automated notification from Pulse Observability Platform'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Template 2: Usage limit reached (100% - within overage buffer)
+-- Header and button use Pulse theme (#0ba09a); internal warning/metric colors kept
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('usage_limit_reached', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[URGENT] {{projectName}} has reached 100% {{notifyFor}} limit',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.6;color:#333;margin:0;padding:0}.container{max-width:600px;margin:0 auto;padding:24px}.header{background-color:#0ba09a;color:white;padding:24px;text-align:center;border-radius:8px 8px 0 0}.content{background-color:#fff;padding:24px;border:1px solid #c62828;border-top:none;border-radius:0 0 8px 8px}.warning-box{background-color:#ffebee;border-left:4px solid #c62828;padding:16px;margin:20px 0;border-radius:4px}.metric-box{background-color:#fafafa;padding:16px;margin:12px 0;border-left:4px solid #666;border-radius:4px}.metric-box.at-limit{border-left-color:#c62828}.metric-label{font-weight:600;color:#555;font-size:14px}.metric-value{font-size:20px;font-weight:bold;margin-top:8px}.metric-value.at-limit{color:#c62828}.buffer-info{background-color:#fff8e1;padding:12px;margin:15px 0;border-radius:4px;border-left:3px solid #ffa000}.cta-button{display:inline-block;padding:14px 28px;background-color:#0ba09a;color:#ffffff !important;text-decoration:none;border-radius:6px;margin:20px 0;font-weight:600}.footer{margin-top:24px;padding:16px;text-align:center;font-size:12px;color:#666}</style></head><body><div class=\"container\"><div class=\"header\"><h1 style=\"margin:0;font-size:24px\">Limit Reached</h1></div><div class=\"content\"><div class=\"warning-box\"><strong>ACTION REQUIRED:</strong> Your project <strong>{{projectName}}</strong> has reached 100% of your monthly {{notifyFor}} limit.</div><p><strong>You are currently using your overage buffer.</strong> Please upgrade soon to avoid service interruption.</p><div class=\"buffer-info\"><strong>Overage Buffer Active:</strong> You have an overage buffer to prevent immediate service disruption. However, your service will be blocked if usage continues to increase.</div><h3 style=\"margin-top:24px;font-size:16px\">Current Usage</h3><div class=\"metric-box at-limit\"><div class=\"metric-label\">Events</div><div class=\"metric-value at-limit\">100%</div></div><div class=\"metric-box\"><div class=\"metric-label\">Sessions</div><div class=\"metric-value\">{{sessionsPercentageDisplay}}%</div></div><p><strong>Immediate Actions:</strong></p><ul><li>Upgrade your plan to avoid service disruption</li><li>Review and optimize your instrumentation</li><li>Your service will be blocked if you exceed the overage buffer</li></ul><div style=\"text-align:center\"><a href=\"{{dashboardUrl}}/{{tenantId}}/pricing\" class=\"cta-button\" style=\"color:#ffffff !important;text-decoration:none\">Upgrade Plan Now</a></div></div><div class=\"footer\"><p>This is an automated notification from Pulse Observability Platform</p></div></div></body></html>',
+    'text', '[URGENT] {{projectName}} has reached 100% {{notifyFor}} limit\n\nACTION REQUIRED\n\nYour project {{projectName}} has reached 100% of your monthly {{notifyFor}} limit.\n\nYou are currently using your overage buffer. Please upgrade soon to avoid service interruption.\n\nOverage Buffer Active: You have an overage buffer to prevent immediate service disruption. However, your service will be blocked if usage continues to increase.\n\nCurrent Usage:\n- Events: 100% AT LIMIT\n- Sessions: {{sessionsPercentageDisplay}}%\n\nIMMEDIATE ACTIONS:\n- Upgrade your plan to avoid service disruption\n- Review and optimize your instrumentation\n- Your service will be blocked if you exceed the overage buffer\n\nUpgrade now: {{dashboardUrl}}/{{tenantId}}/pricing\n\n--\nThis is an automated notification from Pulse Observability Platform'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- Template 3: Usage limit blocked (exceeded overage limit)
+-- Header and button use Pulse theme (#0ba09a); internal critical/metric colors kept
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('usage_limit_blocked', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[CRITICAL] {{projectName}} {{notifyFor}} service BLOCKED - Immediate action required',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.6;color:#333;margin:0;padding:0}.container{max-width:600px;margin:0 auto;padding:24px}.header{background-color:#0ba09a;color:white;padding:24px;text-align:center;border-radius:8px 8px 0 0}.content{background-color:#fff;padding:24px;border:1px solid #c62828;border-top:none;border-radius:0 0 8px 8px}.critical-box{background-color:#c62828;color:white;padding:20px;margin:20px 0;border-radius:6px;text-align:center}.metric-box{background-color:#fafafa;padding:16px;margin:12px 0;border-left:4px solid #666;border-radius:4px}.metric-box.blocked{border-left-color:#c62828;background-color:#ffebee}.metric-label{font-weight:600;color:#555;font-size:14px}.metric-value{font-size:20px;font-weight:bold;margin-top:8px}.blocked-badge{display:inline-block;background-color:#c62828;color:white;padding:8px 16px;border-radius:4px;font-size:14px;font-weight:600}.explanation-box{margin-top:20px;padding:16px;background-color:#fafafa;border-left:4px solid #c62828;border-radius:4px}.cta-button{display:inline-block;padding:14px 28px;background-color:#0ba09a;color:#ffffff !important;text-decoration:none;border-radius:6px;margin:20px 0;font-weight:600;font-size:16px}.footer{margin-top:24px;padding:16px;text-align:center;font-size:12px;color:#666}</style></head><body><div class=\"container\"><div class=\"header\"><h1 style=\"margin:0;font-size:24px\">CRITICAL: Service Blocked</h1></div><div class=\"content\"><div class=\"critical-box\"><h2 style=\"margin:0;font-size:20px\">SERVICE BLOCKED</h2><p style=\"margin:12px 0 0 0;font-size:16px;opacity:0.95\">Your project <strong>{{projectName}}</strong> has exceeded its limit</p></div><p><strong style=\"color:#c62828\">Your {{notifyFor}} data ingestion has been BLOCKED.</strong> No new data is being accepted until you upgrade your plan.</p><h3 style=\"margin-top:24px;font-size:16px\">Current Status</h3><div class=\"metric-box blocked\"><div class=\"metric-label\">Events</div><div><span class=\"blocked-badge\">BLOCKED</span></div></div><div class=\"metric-box\"><div class=\"metric-label\">Sessions</div><div class=\"metric-value\">{{sessionsPercentageDisplay}}%</div></div><p><strong style=\"color:#c62828\">Upgrade required</strong></p><ul><li>Upgrade immediately to restore data ingestion</li><li>Your observability data is not being collected</li><li>Service will resume automatically after upgrade</li></ul><div style=\"text-align:center\"><a href=\"{{dashboardUrl}}/{{tenantId}}/pricing\" class=\"cta-button\" style=\"color:#ffffff !important;text-decoration:none\">Upgrade Now - Restore Service</a></div><div class=\"explanation-box\"><strong>What happened?</strong> You exceeded your monthly limit and overage buffer. To protect your account, data ingestion has been stopped.</div></div><div class=\"footer\"><p>This is an automated critical notification from Pulse Observability Platform</p></div></div></body></html>',
+    'text', '[CRITICAL] {{projectName}} {{notifyFor}} service BLOCKED - Immediate action required\n\nSERVICE BLOCKED\n\nYour project {{projectName}} has exceeded its limit.\n\nYour {{notifyFor}} data ingestion has been BLOCKED. No new data is being accepted until you upgrade your plan.\n\nCurrent Status:\n- Events: BLOCKED\n- Sessions: {{sessionsPercentageDisplay}}%\n\nCRITICAL - UPGRADE REQUIRED:\n- Upgrade immediately to restore data ingestion\n- Your observability data is not being collected\n- Service will resume automatically after upgrade\n\nUPGRADE NOW: {{dashboardUrl}}/{{tenantId}}/pricing\n\nWhat happened? You exceeded your monthly limit and overage buffer. To protect your account, data ingestion has been stopped.\n\n--\nThis is an automated critical notification from Pulse Observability Platform'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
 CREATE TABLE IF NOT EXISTS channel_event_mapping (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
@@ -838,6 +913,19 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
     INDEX idx_suppression_email (email)
 );
 
+-- ============================================================================
+-- RCA REPORT CACHE (AI-generated report per project / interaction / date)
+-- Staleness: user-driven regenerate in app; table stores latest report per key.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS rca_report_cache (
+    project_id VARCHAR(64) NOT NULL,
+    interaction_name VARCHAR(255) NOT NULL,
+    date DATE NOT NULL,
+    report_body LONGTEXT NOT NULL,
+    cached_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (project_id, interaction_name, date)
+);
+
 -- Event Definitions catalog (project-scoped)
 CREATE TABLE IF NOT EXISTS event_definitions (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -885,6 +973,22 @@ CREATE TABLE IF NOT EXISTS incidents (
     closed_at       TIMESTAMP NULL,
     INDEX idx_incidents_org (org_identifier),
     INDEX idx_incidents_severity (severity)
+);
+
+CREATE TABLE IF NOT EXISTS usage_limit_notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NOT NULL,
+    thresholds_notified JSON NOT NULL DEFAULT ('{}'),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    UNIQUE KEY uk_project_month (project_id, (DATE_FORMAT(created_at, '%Y-%m'))),
+    INDEX idx_created_at (created_at),
+    
+    CONSTRAINT fk_usage_notif_project 
+        FOREIGN KEY (project_id) 
+        REFERENCES projects(project_id) 
+        ON DELETE CASCADE
 );
 
 -- Display summary

@@ -43,6 +43,41 @@ const fetchSessionTraces = async (sessionId: string, timeRange: { start: string;
       { function: "COL", param: { field: "Duration" }, alias: "duration" },
       { function: "COL", param: { field: "StatusCode" }, alias: "statusCode" },
       { function: "COL", param: { field: "PulseType" }, alias: "pulseType" },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['graphql.operation.name']",
+        },
+        alias: "graphqlOperationName",
+      },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['graphql.operation.method']",
+        },
+        alias: "graphqlOperationMethod",
+      },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['graphql.operation.type']",
+        },
+        alias: "graphqlOperationType",
+      },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['http.url']",
+        },
+        alias: "httpUrl",
+      },
+      {
+        function: "CUSTOM",
+        param: {
+          expression: "SpanAttributes['screen.name']",
+        },
+        alias: "screenNameAttr",
+      },
     ],
     filters: [
       {

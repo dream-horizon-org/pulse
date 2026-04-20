@@ -58,6 +58,7 @@ android {
 
     kotlin {
         compilerOptions {
+            allWarningsAsErrors.set(true)
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
@@ -80,15 +81,14 @@ dependencies {
     // These are sourced from local project dirs. See settings.gradle.kts for the
     // configured substitutions.
     implementation(libs.pulse.android.sdk)    //parent dir
-    implementation(libs.pulse.instrumentation.compose.click)
     implementation(libs.pulse.instrumentation.sessions)
     implementation(libs.pulse.instrumentation.activity)
     implementation(libs.pulse.instrumentation.fragment)
-    implementation(libs.pulse.instrumentation.view.click)
     implementation(libs.pulse.instrumentation.slowrendering)
     implementation(libs.pulse.instrumentation.locationLibrary)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

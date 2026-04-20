@@ -61,7 +61,7 @@ import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 public class AlertsDao {
   private final MysqlClient d11MysqlClient;
   private final DateTimeUtil dateTimeUtil;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper;
 
   /**
    * Gets the current project ID from the ProjectContext.

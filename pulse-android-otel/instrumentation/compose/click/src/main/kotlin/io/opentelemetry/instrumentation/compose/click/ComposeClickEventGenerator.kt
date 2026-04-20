@@ -8,69 +8,116 @@
 package io.opentelemetry.instrumentation.compose.click
 
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.view.Window
-import androidx.compose.ui.node.LayoutNode
-import io.opentelemetry.api.common.Attributes
-import io.opentelemetry.api.logs.LogRecordBuilder
+import com.pulse.semconv.PulseAttributes
+import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
+import io.opentelemetry.android.instrumentation.click.PendingClick
+import io.opentelemetry.android.instrumentation.click.RageConfig
+import io.opentelemetry.android.instrumentation.click.common.ClickEventEmitter
+import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
 import io.opentelemetry.api.logs.Logger
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_X
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
-import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_NAME
+import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
-import kotlin.let
 
 internal class ComposeClickEventGenerator(
-    private val eventLogger: Logger,
+    eventLogger: Logger,
+    private val isContextEnrichmentEnabled: Boolean = true,
     private val composeLayoutNodeUtil: ComposeLayoutNodeUtil = ComposeLayoutNodeUtil(),
     private val composeTapTargetDetector: ComposeTapTargetDetector = ComposeTapTargetDetector(composeLayoutNodeUtil),
+    densityScale: Float = 1f,
+    rageConfig: RageConfig = RageConfig(),
+    clock: Clock = Clock.getDefault(),
 ) {
+    internal val clickEmitter = ClickEventEmitter(eventLogger, VIEW_CLICK_EVENT_NAME, densityScale, rageConfig, clock)
+
     private var windowRef: WeakReference<Window>? = null
+    private val gestureTracker = PulseClickGestureTracker()
 
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
-        val currentCallback: Window.Callback? = window.callback
-        window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
+        gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
+        val currentCallback = window.callback ?: return
+        window.callback = WindowCallbackWrapper(currentCallback, this)
     }
 
     fun generateClick(motionEvent: MotionEvent) {
-        windowRef?.get()?.let { window ->
-            if (motionEvent.actionMasked == MotionEvent.ACTION_UP) {
-                createEvent(APP_SCREEN_CLICK_EVENT_NAME)
-                    .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
-                    .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
-                    .emit()
+        when (motionEvent.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                gestureTracker.onActionDown(motionEvent)
+            }
+            MotionEvent.ACTION_UP -> {
+                if (!gestureTracker.onActionUp(motionEvent)) return
 
-                composeTapTargetDetector.findTapTarget(window.decorView, motionEvent.x, motionEvent.y)?.let { layoutNode ->
-                    createEvent(VIEW_CLICK_EVENT_NAME)
-                        .setAllAttributes(createNodeAttributes(layoutNode))
-                        .emit()
-                }
+                val decorView = windowRef?.get()?.decorView ?: return
+                // getX()/getY() from dispatchTouchEvent and boundsInWindow() both use window
+                // coordinates, so no raw→window conversion is needed.
+                val windowX = motionEvent.x
+                val windowY = motionEvent.y
+
+                // Single traversal: owns the tap only when it lands inside a ComposeView.
+                // Returns NotFound for taps outside Compose — ViewClickEventGenerator handles those.
+                val findResult = composeTapTargetDetector.findTapResult(decorView, windowX, windowY)
+                if (findResult !is ComposeFindResult.Found) return
+                val tapTarget = findResult.target
+
+                // Capture wall-clock time once at tap time so all PendingClick paths share it.
+                val tapEpochMs = System.currentTimeMillis()
+
+                // Build PendingClick — widgetName/widgetId/clickContext only populated on a hit.
+                val vpWidthPx = decorView.width
+                val vpHeightPx = decorView.height
+                val pending =
+                    tapTarget?.let { target ->
+                        val node = target.node
+                        val clickContext =
+                            if (isContextEnrichmentEnabled) {
+                                val label =
+                                    composeTapTargetDetector.getContextFromSemanticsTree(
+                                        target.ownerView,
+                                        windowX,
+                                        windowY,
+                                    ) ?: composeTapTargetDetector.getNodeContext(node)
+                                PulseAttributes.AppClickContext.buildContext(label)
+                            } else {
+                                null
+                            }
+                        PendingClick(
+                            xPx = windowX,
+                            yPx = windowY,
+                            timestampMs = clickEmitter.currentMonotonicTimeMs(),
+                            tapEpochMs = tapEpochMs,
+                            hasTarget = true,
+                            widgetName = composeTapTargetDetector.nodeToName(node),
+                            widgetId = node.semanticsId.toString(),
+                            clickContext = clickContext,
+                            viewportWidthPx = vpWidthPx,
+                            viewportHeightPx = vpHeightPx,
+                        )
+                    } ?: PendingClick(
+                        xPx = windowX,
+                        yPx = windowY,
+                        timestampMs = clickEmitter.currentMonotonicTimeMs(),
+                        tapEpochMs = tapEpochMs,
+                        hasTarget = false,
+                        viewportWidthPx = vpWidthPx,
+                        viewportHeightPx = vpHeightPx,
+                    )
+
+                clickEmitter.process(pending)
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                gestureTracker.onActionCancel()
             }
         }
     }
 
     fun stopTracking() {
+        // Flush buffered clicks before unwrapping so no taps are silently dropped on pause.
+        clickEmitter.flush()
         windowRef?.get()?.run {
-            callback = (callback as? WindowCallbackWrapper)?.unwrap()
+            callback = WindowCallbackUnwrap.fullyUnwrap(callback)
         }
         windowRef = null
-    }
-
-    private fun createEvent(name: String): LogRecordBuilder =
-        eventLogger
-            .logRecordBuilder()
-            .setEventName(name)
-
-    private fun createNodeAttributes(node: LayoutNode): Attributes {
-        val builder = Attributes.builder()
-        builder.put(APP_WIDGET_NAME, composeTapTargetDetector.nodeToName(node))
-        builder.put(APP_WIDGET_ID, node.semanticsId.toString())
-
-        composeLayoutNodeUtil.getLayoutNodePositionInWindow(node)?.let {
-            builder.put(APP_SCREEN_COORDINATE_X, it.x.toLong())
-            builder.put(APP_SCREEN_COORDINATE_Y, it.y.toLong())
-        }
-        return builder.build()
     }
 }

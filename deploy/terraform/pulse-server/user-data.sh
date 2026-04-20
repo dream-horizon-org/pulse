@@ -41,6 +41,28 @@ chmod 600 "$ENV_FILE"
 echo "Exported $(wc -l < $ENV_FILE) environment variables to $HOME/.pulse-server.env"
 
 # -------------------------------------------------------------------
+# 3a. Handle Pulse AI Environment Variables
+# -------------------------------------------------------------------
+PULSE_AI_SECRET_NAME="prod/pulseai/appenv"
+PULSE_AI_ENV_FILE=".pulse-ai.env"
+
+echo "Fetching secret '$PULSE_AI_SECRET_NAME' from AWS Secrets Manager..."
+PULSE_AI_SECRET_JSON=$(aws secretsmanager get-secret-value \
+  --secret-id "$PULSE_AI_SECRET_NAME" \
+  --query SecretString \
+  --output text)
+
+if [ -z "$PULSE_AI_SECRET_JSON" ]; then
+  echo "Error: Failed to fetch pulse-ai secrets"
+  exit 1
+fi
+
+touch "$PULSE_AI_ENV_FILE"
+echo "$PULSE_AI_SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' > "$PULSE_AI_ENV_FILE"
+chmod 600 "$PULSE_AI_ENV_FILE"
+echo "Exported $(wc -l < $PULSE_AI_ENV_FILE) environment variables to $HOME/.pulse-ai.env"
+
+# -------------------------------------------------------------------
 # 4. Download code artifact
 # -------------------------------------------------------------------
 AWS_REGION="ap-south-1"
@@ -61,6 +83,23 @@ aws codeartifact get-package-version-asset \
   "$APPLICATION_NAME".zip
 
 # -------------------------------------------------------------------
+# 4a. Download Pulse AI artifact
+# -------------------------------------------------------------------
+echo "Downloading pulse-ai artifact..."
+PULSE_AI_VERSION="${pulse_ai_artifact_version}"
+
+aws codeartifact get-package-version-asset \
+  --region "$AWS_REGION" \
+  --domain "$CODEARTIFACT_DOMAIN" \
+  --repository "pulse-ai" \
+  --format generic \
+  --namespace "pulse" \
+  --package "pulse-ai" \
+  --package-version "$PULSE_AI_VERSION" \
+  --asset "pulse-ai-$PULSE_AI_VERSION.zip" \
+  "pulse-ai.zip"
+
+# -------------------------------------------------------------------
 # 5. Unzip and Verify artifact
 # -------------------------------------------------------------------
 unzip "$APPLICATION_NAME".zip
@@ -72,7 +111,40 @@ if [ ! -f "$APPLICATION_NAME/$APPLICATION_NAME.jar" ]; then
 fi
 
 # -------------------------------------------------------------------
-# 6. Start Application
+# 5a. Unzip and Setup Pulse AI
+# -------------------------------------------------------------------
+echo "Setting up pulse-ai..."
+unzip -q "pulse-ai.zip"
+
+mv pulse-ai pulse_ai
+cd pulse_ai
+
+# Create virtual environment and install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -q -r requirements.txt
+
+cd $HOME
+echo "Pulse AI setup complete"
+
+# -------------------------------------------------------------------
+# 6. Start Pulse AI
+# -------------------------------------------------------------------
+echo "Starting pulse-ai"
+set -a
+source "$PULSE_AI_ENV_FILE"
+set +a
+
+
+nohup uvicorn pulse_ai.server:app --host 0.0.0.0 --port 8000 > ./pulse-ai.log 2>&1 &
+echo $! > ./pulse-ai.pid
+
+sleep 5
+
+echo "pulse-ai started successfully (PID: $(cat pulse-ai.pid))"
+
+# -------------------------------------------------------------------
+# 7. Start Application
 # -------------------------------------------------------------------
 echo "Starting pulse-server"
 set -a
