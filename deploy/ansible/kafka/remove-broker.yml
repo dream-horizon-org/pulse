@@ -43,9 +43,23 @@
     kafka_bin: "{{ kafka_dir | default('/opt/kafka') }}/bin"
 
   tasks:
+    - name: Check if broker to remove is online
+      wait_for:
+        host: "{{ remove_broker_host }}"
+        port: 9092
+        timeout: 10
+      register: broker_online_check
+      ignore_errors: true
+
+    - name: Skip drain — broker is already offline
+      debug:
+        msg: "Broker {{ remove_broker_host }} is already offline — skipping partition drain"
+      when: broker_online_check.failed
+
     - name: Get list of remaining broker IDs (after removal)
       set_fact:
         remaining_brokers: "{{ range(1, num_brokers | int + 1) | list | map('string') | join(',') }}"
+      when: not broker_online_check.failed
 
     - name: Generate reassignment plan excluding the broker to remove
       shell: |
@@ -64,11 +78,12 @@
           | grep '^{"version"' | tail -1 | tee /tmp/drain-plan.json
       register: drain_plan
       changed_when: false
+      when: not broker_online_check.failed
 
     - name: Validate drain plan is non-empty
       fail:
         msg: "Failed to generate reassignment plan — check broker connectivity"
-      when: drain_plan.stdout == "" or drain_plan.stdout == "null"
+      when: not broker_online_check.failed and (drain_plan.stdout == "" or drain_plan.stdout == "null")
 
     - name: Execute partition drain
       shell: |
@@ -77,6 +92,7 @@
           --reassignment-json-file /tmp/drain-plan.json \
           --execute
       register: drain_execute
+      when: not broker_online_check.failed
 
     - name: Wait for reassignment to complete (up to 20 minutes)
       shell: |
@@ -93,10 +109,12 @@
           (drain_plan.stdout | from_json).partitions | length
         )
       changed_when: false
+      when: not broker_online_check.failed
 
     - name: Print reassignment verification result
       debug:
         var: verify_result.stdout_lines
+      when: not broker_online_check.failed
 
 # Phase 2 — Remove node from KRaft quorum voters (rolling restart of surviving brokers).
 # Updates controller.quorum.voters to the reduced list on each surviving broker,
