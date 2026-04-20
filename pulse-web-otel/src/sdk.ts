@@ -150,27 +150,30 @@ class PulseWebSDK implements SdkContext {
     );
     this.registry.installAll();
 
-    // Step 10: Fetch fresh config in background + emit sdk.init heartbeat
+    // Step 10: Fetch fresh config in background.
     void this.configFetcher.fetchInBackground();
 
-    // Emit sdk.init heartbeat
-    const initSpan = this.tracer.startSpan('sdk.init');
-    initSpan.setAttribute('pulse.type', 'sdk.init');
-    initSpan.setAttribute('platform', 'web');
-    initSpan.end();
-
-    // Emit app.installation.start on first-ever install — mirrors Android.
-    if (wasNewInstallation()) {
-      this.logger.emit({
-        body: 'pulse.app.installation.start',
-        attributes: {
-          'pulse.type': 'pulse.app.installation.start',
-          'installation.id': getOrCreateInstallationId(),
-        },
-      });
-    }
-
     this._initialized = true;
+
+    // Defer sdk.init heartbeat until os.version async enrichment resolves (<200ms)
+    // so the span carries the real OS version instead of the frozen Chrome UA value.
+    void this.globalAttrsProcessor.enrichmentReady.then(() => {
+      const initSpan = this.tracer.startSpan('sdk.init');
+      initSpan.setAttribute('pulse.type', 'sdk.init');
+      initSpan.setAttribute('platform', 'web');
+      initSpan.end();
+
+      // Emit app.installation.start on first-ever install — mirrors Android.
+      if (wasNewInstallation()) {
+        this.logger.emit({
+          body: 'pulse.app.installation.start',
+          attributes: {
+            'pulse.type': 'pulse.app.installation.start',
+            'installation.id': getOrCreateInstallationId(),
+          },
+        });
+      }
+    });
   }
 
   async shutdown(): Promise<void> {

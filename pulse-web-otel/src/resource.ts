@@ -48,7 +48,8 @@ export function buildResource(config: PulseWebConfig): Resource {
     'browser.name': parsedUA.browserName,
     'browser.version': parsedUA.browserVersion,
     'os.name': parsedUA.osName,
-    'os.version': parsedUA.osVersion,
+    // os.version omitted here — injected per-signal by GlobalAttributesProcessor
+    // after async Client Hints enrichment resolves (avoids frozen Chrome UA "10").
     'device.type': parsedUA.deviceType,
   };
 

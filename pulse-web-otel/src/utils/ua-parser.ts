@@ -90,6 +90,29 @@ function parseDeviceTypeFromUA(ua: string): 'desktop' | 'mobile' | 'tablet' {
   return 'desktop';
 }
 
+/**
+ * Enriches os.version via the Client Hints high-entropy API (Chrome 90+).
+ * Returns the real major OS version (e.g. "15" for macOS Sequoia), or the
+ * sync fallback if Client Hints is unavailable or times out.
+ */
+export async function getOsVersionAsync(syncFallback: string): Promise<string> {
+  if (typeof navigator === 'undefined') return syncFallback;
+  const nav = navigator as Navigator & { userAgentData?: NavigatorUAData };
+  const fn = nav.userAgentData?.getHighEntropyValues;
+  if (typeof fn !== 'function') return syncFallback;
+  try {
+    const result = await Promise.race([
+      fn.call(nav.userAgentData, ['platformVersion']),
+      new Promise<null>((r) => setTimeout(() => r(null), 200)),
+    ]) as { platformVersion?: string } | null;
+    const v = result?.platformVersion;
+    if (v) return v.split('.')[0] ?? v;
+  } catch {
+    // getHighEntropyValues can throw if the browser blocks it
+  }
+  return syncFallback;
+}
+
 export function parseUserAgent(): ParsedUA {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return {
@@ -125,11 +148,15 @@ export function parseUserAgent(): ParsedUA {
     else if (platform === 'Android') osName = 'Android';
     else if (platform === 'iOS') osName = 'iOS';
 
+    // Client Hints doesn't expose platformVersion without an async getHighEntropyValues()
+    // call. Fall back to UA string for the version component only.
+    const osVersion = parseOSFromUA(navigator.userAgent).version;
+
     return {
       browserName,
       browserVersion,
       osName,
-      osVersion: '',
+      osVersion,
       deviceType,
     };
   }

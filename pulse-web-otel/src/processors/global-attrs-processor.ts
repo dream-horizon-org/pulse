@@ -7,6 +7,7 @@ import type { LogRecord, LogRecordProcessor } from '@opentelemetry/sdk-logs';
 import type { SessionProvider } from '../session';
 import { getOrCreateInstallationId } from '../session';
 import type { PulseWebConfig } from '../config';
+import { parseUserAgent, getOsVersionAsync } from '../utils/ua-parser';
 
 type NetworkConnection = {
   type?: string;
@@ -68,11 +69,18 @@ function resolveScreenName(
 export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordProcessor {
   private manualScreenName: string | null = null;
   private manualScreenNamePath: string | null = null;
+  private osVersion: string;
+  readonly enrichmentReady: Promise<void>;
 
   constructor(
     private readonly sessionProvider: SessionProvider,
     private readonly config: PulseWebConfig,
-  ) {}
+  ) {
+    const syncUA = parseUserAgent();
+    this.osVersion = syncUA.osVersion;
+    // Enrich asynchronously — resolves in <200ms on Chrome, updates all subsequent signals.
+    this.enrichmentReady = getOsVersionAsync(syncUA.osVersion).then((v) => { this.osVersion = v; });
+  }
 
   setScreenName(name: string): void {
     this.manualScreenName = name;
@@ -112,6 +120,7 @@ export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordP
       'installation.id': getOrCreateInstallationId(),
       'screen.name': screenName,
       'platform': 'web',
+      'os.version': this.osVersion,
     };
 
     if (typeof window !== 'undefined') {
