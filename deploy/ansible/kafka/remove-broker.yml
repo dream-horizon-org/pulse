@@ -126,7 +126,7 @@
 
   tasks:
     - name: Show current quorum status before removal
-      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller {{ inventory_hostname }}:9093 describe --status"
       register: pre_removal_status
       changed_when: false
       run_once: true
@@ -170,7 +170,7 @@
       when: voters_updated.changed
 
     - name: Show quorum status after update
-      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller {{ inventory_hostname }}:9093 describe --status"
       register: post_removal_status
       changed_when: false
       run_once: true

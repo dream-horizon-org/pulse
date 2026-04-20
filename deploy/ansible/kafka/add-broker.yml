@@ -156,7 +156,7 @@
     - name: Print quorum status
       shell: |
         "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
-          --bootstrap-controller localhost:9093 describe --status
+          --bootstrap-controller {{ inventory_hostname }}:9093 describe --status
       register: quorum_status
       changed_when: false
 
