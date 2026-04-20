@@ -63,6 +63,24 @@ class RootCauseQueryBuilderTest {
       assertThat(window.startInclusive).isEqualTo(expectedStart);
       assertThat(window.endExclusive).isEqualTo(endExclusive);
     }
+
+    @Test
+    void explicitWindowUsesExactBounds() {
+      Instant s = Instant.parse("2026-04-01T00:00:00Z");
+      Instant e = Instant.parse("2026-04-20T12:00:00Z");
+      RootCauseQueryBuilder.Window window = RootCauseQueryBuilder.Window.explicit(s, e);
+
+      assertThat(window.startInclusive).isEqualTo(s);
+      assertThat(window.endExclusive).isEqualTo(e);
+    }
+
+    @Test
+    void explicitWindowRejectsEndNotAfterStart() {
+      Instant s = Instant.parse("2026-04-20T12:00:00Z");
+      Instant e = Instant.parse("2026-04-01T00:00:00Z");
+      assertThatThrownBy(() -> RootCauseQueryBuilder.Window.explicit(s, e))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
   }
 
   @Nested

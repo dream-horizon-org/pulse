@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.dreamhorizon.pulseserver.constant.ClickhouseConstants;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionTelemetryConstants;
@@ -275,12 +276,30 @@ public class RootCauseQueryBuilder {
       if (lookbackDays < 1) {
         throw new IllegalArgumentException("lookbackDays must be >= 1");
       }
-      this.startInclusive =
+      Instant startInclusiveUtc =
           anchorDateUtc.minusDays(lookbackDays - 1).atStartOfDay(ZoneOffset.UTC).toInstant();
-      this.endExclusive = endExclusiveUtc;
-      if (!endExclusiveUtc.isAfter(startInclusive)) {
+      if (!endExclusiveUtc.isAfter(startInclusiveUtc)) {
         throw new IllegalArgumentException("endExclusiveUtc must be after startInclusive");
       }
+      this.startInclusive = startInclusiveUtc;
+      this.endExclusive = endExclusiveUtc;
+    }
+
+    /**
+     * Exact {@code [startInclusive, endExclusive)} bounds (e.g. UI date range). Does not apply lookback days.
+     */
+    public static Window explicit(Instant startInclusive, Instant endExclusive) {
+      Objects.requireNonNull(startInclusive, "startInclusive");
+      Objects.requireNonNull(endExclusive, "endExclusive");
+      if (!endExclusive.isAfter(startInclusive)) {
+        throw new IllegalArgumentException("endExclusive must be after startInclusive");
+      }
+      return new Window(startInclusive, endExclusive);
+    }
+
+    private Window(Instant startInclusive, Instant endExclusive) {
+      this.startInclusive = startInclusive;
+      this.endExclusive = endExclusive;
     }
   }
 }

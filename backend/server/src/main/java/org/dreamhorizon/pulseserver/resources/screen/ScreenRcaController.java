@@ -44,8 +44,33 @@ public class ScreenRcaController {
   public CompletionStage<Response<RootCauseRestResponse>> getScreenRootCause(
       @PathParam("screenName") String screenName,
       @QueryParam("date") String dateParam,
-      @QueryParam("asOf") String asOfParam) {
+      @QueryParam("asOf") String asOfParam,
+      @QueryParam("start") String startParam,
+      @QueryParam("end") String endParam) {
     String projectId = ProjectContext.requireProjectId();
+
+    boolean hasStart = startParam != null && !startParam.isBlank();
+    boolean hasEnd = endParam != null && !endParam.isBlank();
+    if (hasStart != hasEnd) {
+      return CompletableFuture.failedFuture(
+          ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+              "Query parameters 'start' and 'end' must both be provided together, or both omitted."));
+    }
+
+    if (hasStart) {
+      final Instant startInclusive;
+      final Instant endExclusive;
+      try {
+        startInclusive = parseQueryInstant(startParam, "start");
+        endExclusive = parseQueryInstant(endParam, "end");
+      } catch (WebApplicationException e) {
+        return CompletableFuture.failedFuture(e);
+      }
+      return screenRcaService.getScreenRootCause(projectId, screenName, startInclusive, endExclusive)
+          .map(this::toRootCauseRestResponse)
+          .to(RestResponse.jaxrsRestHandler());
+    }
+
     final LocalDate date;
     final Instant windowEndExclusiveUtc;
     try {
@@ -77,11 +102,17 @@ public class ScreenRcaController {
     if (asOfParam == null || asOfParam.isBlank()) {
       return Instant.now();
     }
+    return parseQueryInstant(asOfParam, "asOf");
+  }
+
+  private static Instant parseQueryInstant(String value, String paramName) {
     try {
-      return Instant.parse(asOfParam);
+      return Instant.parse(value.trim());
     } catch (DateTimeParseException e) {
       throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
-          "Query parameter 'asOf' must be a valid ISO-8601 instant (e.g. 2026-04-07T14:00:00Z).",
+          "Query parameter '"
+              + paramName
+              + "' must be a valid ISO-8601 instant (e.g. 2026-04-07T14:00:00Z).",
           e.getMessage());
     }
   }

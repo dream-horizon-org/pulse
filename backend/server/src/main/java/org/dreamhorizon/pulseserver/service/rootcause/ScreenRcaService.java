@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service.rootcause;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -32,15 +33,43 @@ import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ScreenRcaService {
 
+  /** Max duration for explicit {@code start}/{@code end} query params (inclusive/exclusive instants). */
+  static final Duration MAX_EXPLICIT_WINDOW = Duration.ofDays(90);
+
   private final RootCauseConfig config;
   private final ClickhouseQueryService clickhouseQueryService;
 
+  /**
+   * Legacy window: anchor day + configured lookback days ending at {@code windowEndExclusiveUtc}
+   * (same as interaction RCA).
+   */
   public Single<RootCauseResult> getScreenRootCause(
       String projectId, String screenName, LocalDate anchorDateUtc, Instant windowEndExclusiveUtc) {
     final RootCauseQueryBuilder.Window window;
     try {
       window =
           new RootCauseQueryBuilder.Window(anchorDateUtc, config.getLookbackDays(), windowEndExclusiveUtc);
+    } catch (IllegalArgumentException e) {
+      return Single.error(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(e.getMessage()));
+    }
+    return compute(projectId, screenName, window);
+  }
+
+  /**
+   * Explicit {@code [startInclusive, endExclusive)} window (e.g. UI date range). Ignores lookback; still uses
+   * {@link RootCauseConfig} for segmentation thresholds and dimension order.
+   */
+  public Single<RootCauseResult> getScreenRootCause(
+      String projectId, String screenName, Instant startInclusive, Instant endExclusive) {
+    Duration span = Duration.between(startInclusive, endExclusive);
+    if (span.compareTo(MAX_EXPLICIT_WINDOW) > 0) {
+      return Single.error(
+          ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+              "Explicit time window cannot exceed 90 days between start and end."));
+    }
+    final RootCauseQueryBuilder.Window window;
+    try {
+      window = RootCauseQueryBuilder.Window.explicit(startInclusive, endExclusive);
     } catch (IllegalArgumentException e) {
       return Single.error(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(e.getMessage()));
     }
