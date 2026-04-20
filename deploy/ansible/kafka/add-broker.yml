@@ -159,7 +159,6 @@
           --bootstrap-controller localhost:9093 describe --status
       register: quorum_status
       changed_when: false
-      ignore_errors: true
 
     - name: Show quorum status
       debug:

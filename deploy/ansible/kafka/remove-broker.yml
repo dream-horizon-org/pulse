@@ -130,7 +130,6 @@
       register: pre_removal_status
       changed_when: false
       run_once: true
-      ignore_errors: true
 
     - name: Print quorum status (before)
       debug:
@@ -175,7 +174,6 @@
       register: post_removal_status
       changed_when: false
       run_once: true
-      ignore_errors: true
 
     - name: Print quorum status (after)
       debug:
