@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
   }
 
@@ -32,10 +32,19 @@ provider "aws" {
 # -------------------------------------------------------------------
 
 resource "aws_launch_template" "otel-producer" {
-  name_prefix   = "pulse-otel-producer-lt-"
-  image_id      = var.ami_id
-  instance_type = var.instance_type
-  key_name      = var.ssh_key_name
+  name     = "pulse-otel-producer-lt"
+  image_id = var.ami_id
+  key_name = var.ssh_key_name
+
+  tags = {
+    Name             = "pulse-otel-producer-lt"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-otel-producer"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "lt"
+  }
 
   iam_instance_profile {
     name = var.instance_profile_name
@@ -46,28 +55,40 @@ resource "aws_launch_template" "otel-producer" {
   lifecycle {
     create_before_destroy = true
   }
+
   tag_specifications {
     resource_type = "instance"
     tags = {
-      service = "pulse"
+      Name             = "pulse-otel-producer-instance"
+      org_name         = "horizon"
+      environment_name = "production"
+      component_name   = "pulse-otel-producer"
+      component_type   = "application"
+      service_name     = "pulse"
+      resource_type    = "ec2"
     }
   }
 
   tag_specifications {
     resource_type = "volume"
     tags = {
-      Name      = "pulse-otel-producer-volume"
-      service   = "pulse"
-      ManagedBy = "terraform"
+      Name             = "pulse-otel-producer-volume"
+      org_name         = "horizon"
+      environment_name = "production"
+      component_name   = "pulse-otel-producer"
+      component_type   = "application"
+      service_name     = "pulse"
+      resource_type    = "ebs"
     }
   }
 
-   user_data = base64encode(file("${path.module}/user-data.sh"))
+  user_data = base64encode(file("${path.module}/user-data.sh"))
 
   metadata_options {
-      http_tokens                 = "required"
-      http_put_response_hop_limit = 1
-    }
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
 }
 
 # -------------------------------------------------------------------
@@ -82,6 +103,16 @@ resource "aws_lb" "otel-producer" {
   subnets            = var.private_nlb_subnet_ids
   drop_invalid_header_fields = true
   enable_deletion_protection = false
+
+  tags = {
+    Name             = "pulse-otel-producer-nlb"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-otel-producer"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "lb"
+  }
 }
 
 
@@ -97,6 +128,16 @@ resource "aws_lb_target_group" "otel-producer" {
     port                = tostring(var.healthcheck_port)
     matcher             = "200-399"
     protocol            = "HTTP"
+  }
+
+  tags = {
+    Name             = "pulse-otel-producer-tg"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-otel-producer"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "tg"
   }
 }
 
@@ -129,25 +170,76 @@ resource "aws_autoscaling_group" "aws_autoscaling_group" {
   health_check_type         = "EC2"
   health_check_grace_period = 60
 
-  launch_template {
-    id      = aws_launch_template.otel-producer.id
-    version = "$Latest"
+  mixed_instances_policy {
+    instances_distribution {
+      on_demand_percentage_above_base_capacity = 0
+      on_demand_base_capacity                  = var.asg_on_demand_base_capacity
+      spot_allocation_strategy                 = "price-capacity-optimized"
+    }
+
+    launch_template {
+      launch_template_specification {
+        launch_template_id = aws_launch_template.otel-producer.id
+        version            = aws_launch_template.otel-producer.latest_version
+      }
+
+      dynamic "override" {
+        for_each = var.instance_types
+        content {
+          instance_type = override.value
+        }
+      }
+    }
   }
 
-  # Explicit Name tag to override AWS defaults
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage       = 100
+      scale_in_protected_instances = "Refresh"
+    }
+    triggers = ["launch_template"]
+  }
+
   tag {
     key                 = "Name"
-    value               = "pulse-otel-producer-instance"
-    propagate_at_launch = true
+    value               = "pulse-otel-producer-asg"
+    propagate_at_launch = false
   }
   tag {
-      key                 = "service"
-      value               = "pulse"
-      propagate_at_launch = true
-   }
+    key                 = "org_name"
+    value               = "horizon"
+    propagate_at_launch = false
+  }
+  tag {
+    key                 = "environment_name"
+    value               = "production"
+    propagate_at_launch = false
+  }
+  tag {
+    key                 = "component_name"
+    value               = "pulse-otel-producer"
+    propagate_at_launch = false
+  }
+  tag {
+    key                 = "component_type"
+    value               = "application"
+    propagate_at_launch = false
+  }
+  tag {
+    key                 = "service_name"
+    value               = "pulse"
+    propagate_at_launch = false
+  }
+  tag {
+    key                 = "resource_type"
+    value               = "ec2"
+    propagate_at_launch = false
+  }
 
   lifecycle {
     create_before_destroy = true
+    ignore_changes        = [launch_template]
   }
 }
 
