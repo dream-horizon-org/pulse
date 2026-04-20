@@ -120,7 +120,17 @@ internal class PulseSdkSignalProcessors {
                         }
 
                         PulseOtelUtils.isNetworkSpan(span) -> {
-                            networkPulseTypeKey(span)
+                            PulseAttributes.PulseTypeValues.PULSE_NETWORK
+                                .getAttributeKey(
+                                    @Suppress("DEPRECATION")
+                                    span.attributes.get(HttpAttributes.HTTP_RESPONSE_STATUS_CODE)?.toString()
+                                        ?:
+                                        @Suppress("DEPRECATION")
+                                        span.attributes
+                                            .get(HttpIncubatingAttributes.HTTP_STATUS_CODE)
+                                            ?.toString()
+                                        ?: "0",
+                                ).key
                         }
 
                         else -> {
@@ -153,17 +163,6 @@ internal class PulseSdkSignalProcessors {
         }
 
         override fun isOnEndingRequired(): Boolean = true
-
-        @Suppress("DEPRECATION")
-        private fun networkPulseTypeKey(span: ReadWriteSpan): String {
-            val statusCode =
-                span.attributes.get(HttpAttributes.HTTP_RESPONSE_STATUS_CODE)?.toString()
-                    ?: span.attributes.get(HttpIncubatingAttributes.HTTP_STATUS_CODE)?.toString()
-                    ?: "0"
-            return PulseAttributes.PulseTypeValues.PULSE_NETWORK
-                .getAttributeKey(statusCode)
-                .key
-        }
     }
 
     companion object {
