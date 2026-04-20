@@ -73,26 +73,41 @@
         delay: 5
         timeout: 120
 
-    - name: Add new node as quorum voter
-      shell: |
-        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
-          --bootstrap-server localhost:9092 \
-          add-voter \
-          --voter-id {{ new_node_id }} \
-          --voter-directory-id $(
-            "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
-              --bootstrap-server {{ new_broker_host }}:9092 describe --status \
-              | grep 'DirectoryId' | awk '{print $NF}'
-          ) \
-          --voter-host {{ new_broker_host }} \
-          --voter-port 9093
-      register: add_voter_result
-      changed_when: add_voter_result.rc == 0
+    - name: Wait for new broker controller port to be reachable
+      wait_for:
+        host: "{{ new_broker_host }}"
+        port: 9093
+        delay: 2
+        timeout: 60
 
-    - name: Verify new voter appears in quorum status
+    - name: Fetch directory ID from new broker
       shell: |
         "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
-          --bootstrap-server localhost:9092 describe --status
+          --bootstrap-controller {{ new_broker_host }}:9093 \
+          describe --status \
+          | grep -i 'DirectoryId' | awk '{print $NF}'
+      register: new_broker_dir_id
+      retries: 5
+      delay: 5
+      until: new_broker_dir_id.stdout != ""
+      changed_when: false
+
+    - name: Add new node as quorum controller
+      shell: |
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
+          --bootstrap-controller localhost:9093 \
+          add-controller \
+          --controller-id {{ new_node_id }} \
+          --controller-directory-id {{ new_broker_dir_id.stdout | trim }} \
+          --controller-host {{ new_broker_host }} \
+          --controller-port 9093
+      register: add_controller_result
+      changed_when: add_controller_result.rc == 0
+
+    - name: Verify new controller appears in quorum status
+      shell: |
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
+          --bootstrap-controller localhost:9093 describe --status
       register: quorum_status
       changed_when: false
 

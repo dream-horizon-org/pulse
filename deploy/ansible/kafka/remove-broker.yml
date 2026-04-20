@@ -99,7 +99,7 @@
 
   tasks:
     - name: Show current quorum status before removal
-      shell: "{{ kafka_bin }}/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status"
+      shell: "{{ kafka_bin }}/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
       register: pre_removal_status
       changed_when: false
 
@@ -107,16 +107,16 @@
       debug:
         var: pre_removal_status.stdout_lines
 
-    - name: Remove voter from KRaft quorum
+    - name: Remove controller from KRaft quorum
       shell: |
         "{{ kafka_bin }}/kafka-metadata-quorum.sh" \
-          --bootstrap-server localhost:9092 \
-          remove-voter \
-          --voter-id {{ remove_node_id }}
-      register: remove_voter_result
+          --bootstrap-controller localhost:9093 \
+          remove-controller \
+          --controller-id {{ remove_node_id }}
+      register: remove_controller_result
 
-    - name: Verify voter removed from quorum
-      shell: "{{ kafka_bin }}/kafka-metadata-quorum.sh --bootstrap-server localhost:9092 describe --status"
+    - name: Verify controller removed from quorum
+      shell: "{{ kafka_bin }}/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
       register: post_removal_status
       changed_when: false
 
