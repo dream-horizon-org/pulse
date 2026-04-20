@@ -51,6 +51,15 @@ pipeline {
             }
         }
 
+        stage('Approve') {
+            when {
+                expression { params.ACTION == 'increase-partitions' }
+            }
+            steps {
+                input message: "Increase partitions for '${params.TOPIC_NAME}' to ${params.PARTITIONS}? This cannot be reversed.", ok: 'Yes, Increase!'
+            }
+        }
+
         stage('Run') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {

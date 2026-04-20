@@ -49,7 +49,7 @@
         "{{ kafka_dir }}/bin/kafka-topics.sh" \
           --bootstrap-server localhost:9092 \
           --describe --topic "{{ topic_name }}" \
-          | grep "PartitionCount" | awk '{print $2}'
+          | awk -F'PartitionCount: ' 'NR==1{split($2,a,"\t"); print a[1]}'
       when: action == "increase-partitions"
       register: current_partitions
       changed_when: false
