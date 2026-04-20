@@ -7,8 +7,8 @@
 # Steps:
 #   1. Reassign all partitions off the broker being removed
 #   2. Wait for reassignment to complete
-#   3. Remove the node from KRaft quorum voters
-#   4. Stop the kafka service
+#   3. Remove the node from KRaft quorum voters (rolling restart of surviving brokers)
+#   4. Stop the kafka service on the removed broker
 #
 # Required extra_vars:
 #   remove_broker_host  – FQDN of the broker to remove, e.g. pulse-kafka-03.pulse.local
@@ -23,6 +23,17 @@
 #     -e remove_node_id=3 \
 #     -e num_brokers=2 \
 #     -e route53_zone_name=pulse.local
+
+# Pre-play — Register the broker being removed into a dynamic group
+# so Phase 2 can target only surviving brokers with :!removed_broker.
+- name: Register removed broker in inventory
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - add_host:
+        name: "{{ remove_broker_host }}"
+        groups:
+          - removed_broker
 
 # Phase 1 — Drain partitions off the broker being removed (run from a surviving broker)
 - name: Drain partitions from broker being removed
@@ -90,39 +101,71 @@
       debug:
         var: verify_result.stdout_lines
 
-# Phase 2 — Remove node from KRaft quorum voters
-- name: Remove node from KRaft quorum
-  hosts: "{{ surviving_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
+# Phase 2 — Remove node from KRaft quorum voters (rolling restart of surviving brokers).
+# Updates controller.quorum.voters to the reduced list on each surviving broker,
+# then restarts them one at a time. Same approach as add-broker Phase 2 in reverse.
+- name: Remove node from KRaft quorum voters
+  hosts: "kafka_brokers:!removed_broker"
   become: true
-  vars:
-    kafka_bin: "{{ kafka_dir | default('/opt/kafka') }}/bin"
+  serial: 1   # rolling restart — one broker at a time
 
   tasks:
     - name: Show current quorum status before removal
-      shell: "{{ kafka_bin }}/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
       register: pre_removal_status
       changed_when: false
+      run_once: true
+      ignore_errors: true
 
-    - name: Print quorum status
+    - name: Print quorum status (before)
       debug:
         var: pre_removal_status.stdout_lines
+      run_once: true
 
-    - name: Remove controller from KRaft quorum
+    - name: Build reduced quorum voters string
       shell: |
-        "{{ kafka_bin }}/kafka-metadata-quorum.sh" \
-          --bootstrap-controller localhost:9093 \
-          remove-controller \
-          --controller-id {{ remove_node_id }}
-      register: remove_controller_result
-
-    - name: Verify controller removed from quorum
-      shell: "{{ kafka_bin }}/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
-      register: post_removal_status
+        QUORUM=""
+        for i in $(seq 1 {{ num_brokers }}); do
+          IDX=$(printf "%02d" $i)
+          ENTRY="${i}@pulse-kafka-${IDX}.{{ route53_zone_name }}:9093"
+          QUORUM="${QUORUM:+$QUORUM,}$ENTRY"
+        done
+        echo "$QUORUM"
+      register: quorum_result
       changed_when: false
 
-    - name: Print updated quorum status
+    - name: Update controller.quorum.voters in server.properties
+      lineinfile:
+        path: "{{ kafka_dir | default('/opt/kafka') }}/config/kraft/server.properties"
+        regexp: '^controller\.quorum\.voters='
+        line: "controller.quorum.voters={{ quorum_result.stdout }}"
+      register: voters_updated
+
+    - name: Restart kafka to apply updated quorum config
+      systemd:
+        name: kafka
+        state: restarted
+      when: voters_updated.changed
+
+    - name: Wait for broker to rejoin after restart
+      wait_for:
+        host: "{{ inventory_hostname }}"
+        port: 9092
+        delay: 5
+        timeout: 120
+      when: voters_updated.changed
+
+    - name: Show quorum status after update
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
+      register: post_removal_status
+      changed_when: false
+      run_once: true
+      ignore_errors: true
+
+    - name: Print quorum status (after)
       debug:
         var: post_removal_status.stdout_lines
+      run_once: true
 
 # Phase 3 — Stop Kafka on the broker being removed
 - name: Stop Kafka on broker being removed
