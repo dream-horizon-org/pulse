@@ -120,6 +120,7 @@ public class Pulse {
     public func initialize(
         endpointBaseUrl: String,
         apiKey: String,
+        dataCollectionState: PulseDataCollectionConsent,
         configEndpointUrl: String? = nil,
         customEventCollectorUrl: String? = nil,
         endpointHeaders: [String: String]? = nil,
@@ -127,7 +128,6 @@ public class Pulse {
         resource: ((inout [String: AttributeValue]) -> Void)? = nil,
         configuration: ((inout PulseKitConfiguration) -> Void)? = nil,
         instrumentations: ((inout InstrumentationConfiguration) -> Void)? = nil,
-        dataCollectionState: PulseDataCollectionConsent = .allowed,
         beforeSendSpan: BeforeSendSpanCallback? = nil,
         beforeSendLog: BeforeSendLogCallback? = nil,
         beforeSendMetric: BeforeSendMetricCallback? = nil,
