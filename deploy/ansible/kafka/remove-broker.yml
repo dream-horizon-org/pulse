@@ -90,7 +90,7 @@
       delay: 20
       until: >-
         verify_result.stdout | int >= (
-          drain_plan.stdout | from_json | json_query('length(partitions)')
+          (drain_plan.stdout | from_json).partitions | length
         )
       changed_when: false
 
