@@ -33,7 +33,9 @@
   tasks:
     - add_host:
         name: "{{ new_broker_host }}"
-        groups: new_broker
+        groups:
+          - new_broker
+          - kafka_brokers
         ansible_user: admin
         ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
