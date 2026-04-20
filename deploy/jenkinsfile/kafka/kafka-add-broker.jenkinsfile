@@ -45,7 +45,7 @@ pipeline {
             steps {
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: '*/main']],
+                    branches: [[name: '*/feat/kafka-teraaform-scripts']],
                     userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
@@ -123,7 +123,7 @@ pipeline {
                         KRAFT_CLUSTER_ID=\$(cat /tmp/kraft_cluster_id.txt)
                         NEW_HOST="pulse-kafka-\$(printf '%02d' ${env.NEW_NODE_ID}).${ROUTE53_ZONE_NAME}"
 
-                        ansible-playbook deploy/ansible/kafka/add-broker.yml \
+                        /home/admin/.local/bin/ansible-playbook deploy/ansible/kafka/add-broker.yml \
                             -i deploy/ansible/kafka/inventory/hosts.ini \
                             --private-key "\$SSH_KEY" \
                             -e "new_broker_host=\$NEW_HOST" \
@@ -150,12 +150,12 @@ pipeline {
                 }
             }
         }
-        failure {
-            script {
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
-                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
-                    message: "<!channel> Kafka add-broker FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
-            }
-        }
+//         failure {
+//             script {
+//                 slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+//                     color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+//                     message: "<!channel> Kafka add-broker FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+//             }
+//         }
     }
 }

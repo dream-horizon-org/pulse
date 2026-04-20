@@ -1,0 +1,88 @@
+// kafka-manage-topics.jenkinsfile
+//
+// Create a new Kafka topic or increase partitions on an existing one.
+//
+// Jenkins job parameters:
+//   ACTION      – "create" or "increase-partitions"
+//   TOPIC_NAME  – name of the topic (e.g. pulse.events)
+//   PARTITIONS  – partition count (new total for increase, initial count for create)
+
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['create', 'increase-partitions'], description: 'What to do')
+        string(name: 'TOPIC_NAME',  defaultValue: '', description: 'Topic name (e.g. pulse.events)')
+        string(name: 'PARTITIONS',  defaultValue: '', description: 'Partition count')
+    }
+
+    environment {
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    if (!params.TOPIC_NAME || !params.PARTITIONS) {
+                        error("TOPIC_NAME and PARTITIONS are required.")
+                    }
+                }
+            }
+        }
+
+        stage('Clear Existing Workspace') {
+            steps { cleanWs() }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/feat/kafka-teraaform-scripts']],
+                    userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Run') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        /home/admin/.local/bin/ansible-playbook deploy/ansible/kafka/manage-topics.yml \
+                            -i deploy/ansible/kafka/inventory/hosts.ini \
+                            --private-key "\$SSH_KEY" \
+                            -e "action=${params.ACTION}" \
+                            -e "topic_name=${params.TOPIC_NAME}" \
+                            -e "partitions=${params.PARTITIONS}"
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                        color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
+                        message: "<!channel> Kafka topic ${params.ACTION}: ${params.TOPIC_NAME} (partitions=${params.PARTITIONS}) by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+                }
+            }
+        }
+//         failure {
+//             script {
+//                 slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+//                     color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+//                     message: "<!channel> Kafka topic management FAILED (${params.ACTION}: ${params.TOPIC_NAME})\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+//             }
+//         }
+    }
+}

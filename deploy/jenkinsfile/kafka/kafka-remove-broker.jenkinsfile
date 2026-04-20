@@ -48,7 +48,7 @@ pipeline {
             steps {
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: '*/main']],
+                    branches: [[name: '*/feat/kafka-teraaform-scripts']],
                     userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
@@ -60,7 +60,7 @@ pipeline {
                     sh """
                         REMOVE_HOST="pulse-kafka-\$(printf '%02d' ${params.REMOVE_NODE_ID}).${ROUTE53_ZONE_NAME}"
 
-                        ansible-playbook deploy/ansible/kafka/remove-broker.yml \
+                        /home/admin/.local/bin/ansible-playbook deploy/ansible/kafka/remove-broker.yml \
                             -i deploy/ansible/kafka/inventory/hosts.ini \
                             --private-key "\$SSH_KEY" \
                             -e "remove_broker_host=\$REMOVE_HOST" \
@@ -116,12 +116,12 @@ pipeline {
                 }
             }
         }
-        failure {
-            script {
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
-                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
-                    message: "<!channel> Kafka remove-broker FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
-            }
-        }
+//         failure {
+//             script {
+//                 slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+//                     color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+//                     message: "<!channel> Kafka remove-broker FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+//             }
+//         }
     }
 }
