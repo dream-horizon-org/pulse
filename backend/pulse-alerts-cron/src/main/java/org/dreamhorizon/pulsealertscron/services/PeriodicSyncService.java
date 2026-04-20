@@ -6,6 +6,9 @@ import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulsealertscron.client.PulseServerApiClient;
 import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
+import org.dreamhorizon.pulsealertscron.constant.Constants;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 public class PeriodicSyncService {
@@ -17,6 +20,9 @@ public class PeriodicSyncService {
   private Long usageLimitsTimerId;
   private Long apiKeysTimerId;
   private Long notificationTimerId;
+
+  /** Ensures at most one {@link DataSyncService#processUsageLimits()} runs at a time (avoids R2DBC pool starvation). */
+  private final AtomicBoolean usageLimitsSyncInFlight = new AtomicBoolean(false);
   
   private static final long USAGE_LIMITS_INTERVAL_SECONDS = 5; // 5 seconds
   private static final long API_KEYS_INTERVAL_SECONDS = 10 * 60; // 10 minutes
@@ -95,10 +101,18 @@ public class PeriodicSyncService {
   }
 
   private void executeUsageLimitsSync() {
+    if (!usageLimitsSyncInFlight.compareAndSet(false, true)) {
+      log.info("{} Skipping usage limits sync: previous run still in progress",
+          Constants.USAGE_LIMITS_SYNC_LOG_PREFIX);
+      return;
+    }
     dataSyncService.processUsageLimits()
+        .doFinally(() -> usageLimitsSyncInFlight.set(false))
         .subscribe(
-            () -> log.info("✅ Usage limits sync completed successfully"),
-            error -> log.error("❌ Usage limits sync failed", error)
+            () -> log.info("{} Usage limits sync completed successfully",
+                Constants.USAGE_LIMITS_SYNC_LOG_PREFIX),
+            error -> log.error("{} Usage limits sync failed",
+                Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, error)
         );
   }
   

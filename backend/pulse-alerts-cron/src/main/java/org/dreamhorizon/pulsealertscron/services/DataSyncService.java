@@ -8,6 +8,7 @@ import org.dreamhorizon.pulsealertscron.dto.response.ApiKeysResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.ProjectUsageResult;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageLimitsApiResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageStats;
+import org.dreamhorizon.pulsealertscron.constant.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +31,7 @@ public class DataSyncService {
   }
 
   public Completable processUsageLimits() {
-    log.info("=== Starting Usage Limits Processing ===");
+    log.info("{} Starting usage limits processing", Constants.USAGE_LIMITS_SYNC_LOG_PREFIX);
     long startTime = System.currentTimeMillis();
     
     return clickhouseService.getCurrentMonthUsage()
@@ -95,8 +96,8 @@ public class DataSyncService {
         })
         .flatMapCompletable(results -> {
           long duration = System.currentTimeMillis() - startTime;
-          log.info("✅ Usage processing completed in {}ms for {} projects", 
-              duration, results.size());
+          log.info("{} Usage processing completed in {}ms for {} projects",
+              Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, duration, results.size());
           
           // Log summary
           long totalSessionsUsed = results.stream()
@@ -114,7 +115,8 @@ public class DataSyncService {
         })
         .doOnError(error -> {
           long duration = System.currentTimeMillis() - startTime;
-          log.error("❌ Usage processing failed after {}ms", duration, error);
+          log.error("{} Usage processing failed after {}ms",
+              Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, duration, error);
         });
   }
 
