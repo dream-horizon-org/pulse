@@ -14,14 +14,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class PeriodicSyncService {
   private final Vertx vertx;
   private final DataSyncService dataSyncService;
-  private final RedisService redisService;
   private final UsageLimitNotificationService notificationService;
-  
+
   private Long usageLimitsTimerId;
   private Long apiKeysTimerId;
   private Long notificationTimerId;
 
-  /** Ensures at most one {@link DataSyncService#processUsageLimits()} runs at a time (avoids R2DBC pool starvation). */
+  /** Ensures at most one {@link DataSyncService#processUsageLimits()} runs at a time (avoids overlapping POSTs). */
   private final AtomicBoolean usageLimitsSyncInFlight = new AtomicBoolean(false);
 
   /** Ensures at most one {@link DataSyncService#syncApiKeys()} runs at a time (avoids overlapping POSTs). */
@@ -34,11 +33,9 @@ public class PeriodicSyncService {
   @Inject
   public PeriodicSyncService(Vertx vertx, WebClient webClient, ApplicationConfig config) {
     this.vertx = vertx;
-    
-    ClickhouseService clickhouseService = new ClickhouseService(config);
+
     PulseServerApiClient apiClient = new PulseServerApiClient(webClient, config);
-    this.redisService = new RedisService(vertx, config);
-    this.dataSyncService = new DataSyncService(clickhouseService, apiClient, redisService);
+    this.dataSyncService = new DataSyncService(apiClient);
     this.notificationService = new UsageLimitNotificationService(apiClient);
   }
 
@@ -47,7 +44,7 @@ public class PeriodicSyncService {
    */
   public void start() {
     log.info("🚀 Starting Periodic Sync Service");
-    
+
     // Start usage limits sync (5 seconds)
     log.info("📊 Starting Usage Limits sync (interval: {} seconds)", USAGE_LIMITS_INTERVAL_SECONDS);
     executeUsageLimitsSync();
@@ -55,7 +52,7 @@ public class PeriodicSyncService {
       executeUsageLimitsSync();
     });
     log.info("✅ Usage Limits sync started with timer ID: {}", usageLimitsTimerId);
-    
+
     // Start API keys sync (10 minutes)
     log.info("🔑 Starting API Keys sync (interval: {} seconds)", API_KEYS_INTERVAL_SECONDS);
     executeApiKeysSync();
@@ -63,7 +60,7 @@ public class PeriodicSyncService {
       executeApiKeysSync();
     });
     log.info("✅ API Keys sync started with timer ID: {}", apiKeysTimerId);
-    
+
     // Start usage notification processing (1 hour)
     log.info("📧 Starting Usage Notification processing (interval: {} seconds)", NOTIFICATION_INTERVAL_SECONDS);
     executeNotificationProcessing();
@@ -78,28 +75,25 @@ public class PeriodicSyncService {
    */
   public void stop() {
     log.info("🛑 Stopping Periodic Sync Service");
-    
+
     if (usageLimitsTimerId != null) {
       vertx.cancelTimer(usageLimitsTimerId);
       log.info("✅ Cancelled usage limits timer: {}", usageLimitsTimerId);
       usageLimitsTimerId = null;
     }
-    
+
     if (apiKeysTimerId != null) {
       vertx.cancelTimer(apiKeysTimerId);
       log.info("✅ Cancelled API keys timer: {}", apiKeysTimerId);
       apiKeysTimerId = null;
     }
-    
+
     if (notificationTimerId != null) {
       vertx.cancelTimer(notificationTimerId);
       log.info("✅ Cancelled notification timer: {}", notificationTimerId);
       notificationTimerId = null;
     }
-    
-    // Close Redis connection
-    redisService.close();
-    
+
     log.info("✅ Periodic Sync Service stopped successfully");
   }
 
@@ -118,7 +112,7 @@ public class PeriodicSyncService {
                 Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, error)
         );
   }
-  
+
   private void executeApiKeysSync() {
     if (!apiKeysSyncInFlight.compareAndSet(false, true)) {
       log.info("{} Skipping API keys sync: previous run still in progress",
@@ -143,4 +137,3 @@ public class PeriodicSyncService {
         );
   }
 }
-

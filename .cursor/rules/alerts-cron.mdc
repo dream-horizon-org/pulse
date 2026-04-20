@@ -66,7 +66,9 @@ The cron evaluates alerts across four scopes:
 ## Cross-Service Dependency
 
 - Calls `pulse-server` API to fetch alerts (`/alerts`) and trigger evaluation (`/v1/alert/evaluateAndTriggerAlert?alertId=`)
-- Server URL configured via `ApplicationConfig.getPulseServerUrl()`
+- **Periodic sync** (`PeriodicSyncService`): on a timer, calls pulse-server internal POSTs with the service JWT—usage credits (`/internal/v1/projects/limits/sync-to-redis`) and API keys to Redis (`/internal/v1/api-keys/sync-to-redis`). **No** direct ClickHouse or Redis clients in cron; CH + MySQL + Redis for Kong are handled in pulse-server.
+- **Usage notifications**: thin orchestration over `GET`/`POST` pulse-server routes (see `UsageLimitNotificationService` / `PulseServerApiClient`).
+- Server URL and JWT configured via `ApplicationConfig` (`pulseServerUrl`, `serviceJwtSecret`)
 
 ## Code Style
 

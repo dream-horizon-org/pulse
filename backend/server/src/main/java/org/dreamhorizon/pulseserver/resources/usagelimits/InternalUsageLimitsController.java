@@ -26,10 +26,12 @@ import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLim
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ResetLimitsRestRequest;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.SetCustomLimitsRestRequest;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.UsageCreditsRedisSyncRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.UsageNotificationRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
+import org.dreamhorizon.pulseserver.service.kong.KongUsageCreditsRedisSyncService;
 import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
 
 /**
@@ -38,6 +40,7 @@ import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
  * Internal endpoints:
  * - GET /internal/v1/projects/{projectId}/limits - Get project limits (full info)
  * - GET /internal/v1/projects/limits - Get all active project limits
+ * - POST /internal/v1/projects/limits/sync-to-redis - ClickHouse + limits merge → Kong Redis credits
  * - GET /internal/v1/projects/limits/notifications-due - Get usage notifications due
  * - PUT /internal/v1/projects/{projectId}/limits - Set custom limits
  * - POST /internal/v1/projects/{projectId}/limits/reset - Reset to tier defaults
@@ -52,6 +55,7 @@ public class InternalUsageLimitsController {
   private static final UsageLimitMapper mapper = UsageLimitMapper.INSTANCE;
 
   private final UsageLimitService usageLimitService;
+  private final KongUsageCreditsRedisSyncService kongUsageCreditsRedisSyncService;
   private final JwtService jwtService;
 
   /**
@@ -88,6 +92,24 @@ public class InternalUsageLimitsController {
     return flowable
         .toList()
         .map(mapper::toListRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Loads current-month usage from ClickHouse, merges active limits from MySQL, and writes
+   * {@code project:{projectId}:credit} hashes to Redis for Kong (pulse-alerts-cron schedule).
+   */
+  @POST
+  @Path("/limits/sync-to-redis")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<UsageCreditsRedisSyncRestResponse>> syncUsageCreditsToRedis() {
+    long startMs = System.currentTimeMillis();
+    return kongUsageCreditsRedisSyncService.syncUsageCreditsToRedis()
+        .map(count -> UsageCreditsRedisSyncRestResponse.builder()
+            .projectsSynced(count)
+            .durationMs(System.currentTimeMillis() - startMs)
+            .build())
         .to(RestResponse.jaxrsRestHandler());
   }
 

@@ -4,113 +4,26 @@ import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Completable;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulsealertscron.client.PulseServerApiClient;
-import org.dreamhorizon.pulsealertscron.dto.response.ProjectUsageResult;
-import org.dreamhorizon.pulsealertscron.dto.response.UsageLimitsApiResponse;
-import org.dreamhorizon.pulsealertscron.dto.response.UsageStats;
 import org.dreamhorizon.pulsealertscron.constant.Constants;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Slf4j
 public class DataSyncService {
-  private final ClickhouseService clickhouseService;
   private final PulseServerApiClient apiClient;
-  private final RedisService redisService;
 
   @Inject
-  public DataSyncService(
-      ClickhouseService clickhouseService,
-      PulseServerApiClient apiClient,
-      RedisService redisService
-  ) {
-    this.clickhouseService = clickhouseService;
+  public DataSyncService(PulseServerApiClient apiClient) {
     this.apiClient = apiClient;
-    this.redisService = redisService;
   }
 
   public Completable processUsageLimits() {
     log.info("{} Starting usage limits processing", Constants.USAGE_LIMITS_SYNC_LOG_PREFIX);
     long startTime = System.currentTimeMillis();
-    
-    return clickhouseService.getCurrentMonthUsage()
-        .flatMap(clickhouseStats -> {
-          log.info("✅ Got ClickHouse data for {} projects", clickhouseStats.size());
-          
-          return apiClient.getActiveLimits()
-              .map(apiResponse -> {
-                log.info("✅ Got API limits for {} projects", apiResponse.getTotalCount());
-                
-                List<ProjectUsageResult> results = new ArrayList<>();
-                
-                for (UsageLimitsApiResponse.ProjectLimit limit : apiResponse.getLimits()) {
-                  String projectId = limit.getProjectId();
-                  
-                  // Find matching ClickHouse data by project_id
-                  UsageStats chStats = clickhouseStats.stream()
-                      .filter(s -> s.getProject_id().equals(projectId))
-                      .findFirst()
-                      .orElse(UsageStats.builder()
-                          .project_id(projectId)
-                          .eventsUsed(0L)
-                          .sessionsUsed(0L)
-                          .build());
-                  
-                  // Get finalThreshold from API (pre-calculated hard limit)
-                  UsageLimitsApiResponse.LimitMetric sessionLimit = limit.getUsageLimits()
-                      .get("max_user_sessions_per_project");
-                  UsageLimitsApiResponse.LimitMetric eventLimit = limit.getUsageLimits()
-                      .get("max_events_per_project");
-                  
-                  Integer sessionThreshold = sessionLimit.getFinalThreshold();
-                  Integer eventThreshold = eventLimit.getFinalThreshold();
-                  
-                  // Calculate remaining using hard limit
-                  long sessionsUsed = chStats.getSessionsUsed();
-                  long eventsUsed = chStats.getEventsUsed();
-                  long sessionsRemaining = sessionThreshold - sessionsUsed;
-                  long eventsRemaining = eventThreshold - eventsUsed;
-                  
-                  ProjectUsageResult result = ProjectUsageResult.builder()
-                      .projectId(projectId)
-                      .sessionFinalThreshold(sessionThreshold)
-                      .sessionsUsed(sessionsUsed)
-                      .sessionsRemaining(sessionsRemaining)
-                      .eventFinalThreshold(eventThreshold)
-                      .eventsUsed(eventsUsed)
-                      .eventsRemaining(eventsRemaining)
-                      .updatedAt(System.currentTimeMillis())
-                      .build();
-                  
-                  results.add(result);
-                  
-                  log.info("📊 Project: {} | Sessions: {}/{} ({} remaining) | Events: {}/{} ({} remaining)",
-                      projectId,
-                      sessionsUsed, sessionThreshold, sessionsRemaining,
-                      eventsUsed, eventThreshold, eventsRemaining);
-                }
-                
-                return results;
-              });
-        })
-        .flatMapCompletable(results -> {
+
+    return apiClient.syncUsageCreditsToRedis()
+        .doOnComplete(() -> {
           long duration = System.currentTimeMillis() - startTime;
-          log.info("{} Usage processing completed in {}ms for {} projects",
-              Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, duration, results.size());
-          
-          // Log summary
-          long totalSessionsUsed = results.stream()
-              .mapToLong(ProjectUsageResult::getSessionsUsed)
-              .sum();
-          long totalEventsUsed = results.stream()
-              .mapToLong(ProjectUsageResult::getEventsUsed)
-              .sum();
-          
-          log.info("📈 Total across all projects: {} sessions, {} events", 
-              totalSessionsUsed, totalEventsUsed);
-          
-          // Save to Redis
-          return redisService.saveUsageLimits(results);
+          log.info("{} Usage processing completed in {}ms (pulse-server wrote Redis)",
+              Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, duration);
         })
         .doOnError(error -> {
           long duration = System.currentTimeMillis() - startTime;

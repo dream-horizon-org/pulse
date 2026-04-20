@@ -8,7 +8,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
-import org.dreamhorizon.pulsealertscron.dto.response.UsageLimitsApiResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageNotificationDto;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageNotificationResponse;
 
@@ -20,7 +19,7 @@ public class PulseServerApiClient {
   private final String apiBaseUrl;
   private final String serviceJwt;
 
-  private static final String ACTIVE_LIMITS_PATH = "/internal/v1/projects/limits";
+  private static final String SYNC_USAGE_CREDITS_TO_REDIS_PATH = "/internal/v1/projects/limits/sync-to-redis";
   private static final String SYNC_API_KEYS_TO_REDIS_PATH = "/internal/v1/api-keys/sync-to-redis";
   private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
   private static final String MARK_NOTIFICATIONS_PATH = "/internal/v1/projects/%s/limits/notifications";
@@ -35,40 +34,32 @@ public class PulseServerApiClient {
     this.serviceJwt = config.getServiceJwtSecret();
   }
 
-  public Single<UsageLimitsApiResponse.Response> getActiveLimits() {
-    log.info("Fetching active usage limits from API: {}", apiBaseUrl + ACTIVE_LIMITS_PATH);
-    
-    return Single.defer(() -> 
-        webClient
-            .getAbs(apiBaseUrl + ACTIVE_LIMITS_PATH)
-            .putHeader("Authorization", "Bearer " + serviceJwt)
-            .timeout(REQUEST_TIMEOUT_MS)
-            .rxSend()
-            .map(response -> {
-              int statusCode = response.statusCode();
-              
-              if (statusCode != 200) {
-                String errorMsg = String.format(
-                    "API returned status %d: %s", 
-                    statusCode, 
-                    response.bodyAsString()
-                );
-                log.error("❌ Failed to fetch usage limits: {}", errorMsg);
-                throw new RuntimeException(errorMsg);
-              }
-              
-              var wrappedResponse = response.bodyAsJsonObject();
-              
-              var dataObject = wrappedResponse.getJsonObject("data");
-              UsageLimitsApiResponse.Response result = dataObject.mapTo(UsageLimitsApiResponse.Response.class);
-              
-              log.info("✅ Successfully fetched {} active usage limits", result.getTotalCount());
-              return result;
-            })
-            .doOnError(error -> 
-                log.error("❌ Error calling usage limits API", error)
-            )
-    );
+  /**
+   * Delegates usage credits (ClickHouse + limits → Redis) to pulse-server (Part B). Same auth as other internal routes.
+   */
+  public Completable syncUsageCreditsToRedis() {
+    String url = apiBaseUrl + SYNC_USAGE_CREDITS_TO_REDIS_PATH;
+    log.info("Calling pulse-server usage credits Redis sync: {}", url);
+
+    return webClient
+        .postAbs(url)
+        .putHeader("Authorization", "Bearer " + serviceJwt)
+        .timeout(REQUEST_TIMEOUT_MS)
+        .rxSend()
+        .flatMapCompletable(response -> {
+          int statusCode = response.statusCode();
+          if (statusCode != 200) {
+            String errorMsg = String.format(
+                "API returned status %d: %s",
+                statusCode,
+                response.bodyAsString());
+            log.error("Failed usage credits Redis sync: {}", errorMsg);
+            return Completable.error(new RuntimeException(errorMsg));
+          }
+          log.info("Usage credits Redis sync completed successfully via pulse-server");
+          return Completable.complete();
+        })
+        .doOnError(error -> log.error("Error calling usage credits Redis sync", error));
   }
 
   /**

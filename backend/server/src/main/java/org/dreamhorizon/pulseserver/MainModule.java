@@ -47,6 +47,7 @@ import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetry
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
 import org.dreamhorizon.pulseserver.service.kong.KongApiKeyRedisSyncService;
+import org.dreamhorizon.pulseserver.service.kong.KongUsageCreditsRedisSyncService;
 import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandler;
 import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
 import org.dreamhorizon.pulseserver.service.session.SessionReplayService;
@@ -128,6 +129,7 @@ public class MainModule extends VertxAbstractModule {
     bind(SessionBlockFetcher.class).in(Singleton.class);
     bind(SessionReplayService.class).in(Singleton.class);
     bind(KongApiKeyRedisSyncService.class).in(Singleton.class);
+    bind(KongUsageCreditsRedisSyncService.class).in(Singleton.class);
 
     // OpenFGA Authorization
     bind(OpenFgaConfig.class).toProvider(() -> {

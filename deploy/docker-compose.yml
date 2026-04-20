@@ -591,21 +591,12 @@ services:
       - CONFIG_SERVICE_APPLICATION_PULSESERVERURL=${CONFIG_SERVICE_APPLICATION_PULSESERVERURL:-http://pulse-server:8080}
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
       - CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET=${CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET:-dev_service_jwt_secret}
-      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEHOST=clickhouse
-      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPORT=8123
-      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEDATABASE=otel
-      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEUSERNAME=pulse_user
-      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPASSWORD=pulse_password
-      - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-redis}
-      - CONFIG_SERVICE_APPLICATION_REDISPORT=${REDIS_PORT:-6379}
     networks:
       - pulse-network
     depends_on:
       mysql:
         condition: service_healthy
       pulse-server:
-        condition: service_healthy
-      clickhouse:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully  
