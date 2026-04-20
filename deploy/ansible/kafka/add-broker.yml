@@ -147,6 +147,15 @@
         timeout: 300
       when: voters_updated.changed
 
+    - name: Verify broker is fully ready (not just port open)
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-topics.sh --bootstrap-server {{ inventory_hostname }}:9092 --list"
+      register: broker_ready
+      retries: 12
+      delay: 10
+      until: broker_ready.rc == 0
+      changed_when: false
+      when: voters_updated.changed
+
 # Phase 2b — Verify quorum (informational — does not fail the job)
 - name: Verify quorum status
   hosts: "{{ existing_broker | default('pulse-kafka-01.' + route53_zone_name) }}"

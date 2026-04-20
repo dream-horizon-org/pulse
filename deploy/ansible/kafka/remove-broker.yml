@@ -167,6 +167,15 @@
         timeout: 300
       when: voters_updated.changed
 
+    - name: Verify broker is fully ready (not just port open)
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-topics.sh --bootstrap-server {{ inventory_hostname }}:9092 --list"
+      register: broker_ready
+      retries: 12
+      delay: 10
+      until: broker_ready.rc == 0
+      changed_when: false
+      when: voters_updated.changed
+
     - name: Show quorum status after update
       shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller {{ inventory_hostname }}:9093 describe --status"
       register: post_removal_status
