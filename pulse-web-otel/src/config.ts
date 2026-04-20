@@ -1,16 +1,16 @@
 export enum PulseDataCollectionConsent {
-  ALLOWED = 'ALLOWED',
-  DENIED  = 'DENIED',
-  PENDING = 'PENDING',
+  ALLOWED = "ALLOWED",
+  DENIED = "DENIED",
+  PENDING = "PENDING",
 }
 
 export interface InstrumentationConfig {
-  errors?:        { enabled: boolean };
-  network?:       { enabled: boolean };
-  clicks?:        { enabled: boolean };
-  webVitals?:     { enabled: boolean };
-  navigation?:    { enabled: boolean };
-  session?:       {
+  errors?: { enabled: boolean };
+  network?: { enabled: boolean };
+  clicks?: { enabled: boolean };
+  webVitals?: { enabled: boolean };
+  navigation?: { enabled: boolean };
+  session?: {
     enabled: boolean;
     /** Rotate session after this many ms of inactivity. Default: 30 min. */
     inactivityTimeoutMs?: number;
@@ -19,7 +19,7 @@ export interface InstrumentationConfig {
     /** Rotate session after page has been hidden for this many ms. Default: 15 min. */
     pageHiddenTimeoutMs?: number;
   };
-  interactions?:  { enabled: boolean };
+  interactions?: { enabled: boolean };
   sessionReplay?: { enabled: boolean };
 }
 
@@ -47,8 +47,8 @@ export interface PulseWebConfig {
 
   // Optional — export tuning
   export?: {
-    format?: 'json' | 'protobuf';
-    compression?: 'gzip' | 'none';
+    format?: "json" | "protobuf";
+    compression?: "gzip" | "none";
     batch?: {
       scheduledDelayMillis?: number;
       maxQueueSize?: number;
@@ -68,31 +68,34 @@ export interface PulseWebConfig {
 }
 
 export function validateConfig(config: PulseWebConfig): void {
-  if (!config.apiKey) throw new Error('[PulseWeb] apiKey is required');
-  if (!config.serviceName) throw new Error('[PulseWeb] serviceName is required');
+  if (!config.apiKey) throw new Error("[PulseWeb] apiKey is required");
+  if (!config.serviceName)
+    throw new Error("[PulseWeb] serviceName is required");
 }
 
+const PULSE_PROD_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com";
+
 /**
- * Detects if the API key is for local development (contains 'devkey').
- * Format: <project_name>-<random_id>_devkey<random_api_key> (local)
- *         <project_name>-<random_id>_<random_api_key> (prod)
+ * Mirrors Android's PulseSDKInternal.isApiLocalDev().
+ * Matches: default-project_* OR Test-*_*
  */
 export function isLocalEnvironment(apiKey: string): boolean {
-  return apiKey.includes('_devkey');
+  return /^default-project_.*|^Test-.*_.*/.test(apiKey);
 }
 
 /**
- * Derives the base URL from the API key environment.
+ * Mirrors Android's PulseEndpointUtils.getBaseUrl().
  * Local: http://localhost:4318
- * Prod: https://<cloudflare-url> (caller must provide if production)
+ * Prod: https://pulse-otel-collector.pulse-ux.com
+ * Explicit override always wins.
  */
-export function resolveEndpointBaseUrl(apiKey: string, provided?: string): string {
+export function resolveEndpointBaseUrl(
+  apiKey: string,
+  provided?: string,
+): string {
   if (provided) return provided;
   if (isLocalEnvironment(apiKey)) {
-    return 'http://localhost:4318';
+    return "http://localhost:4318";
   }
-  throw new Error(
-    '[PulseWeb] Production deployments require endpointBaseUrl. ' +
-    'Local development (devkey) resolves to localhost:4318 automatically.'
-  );
+  return PULSE_PROD_ENDPOINT_URL;
 }

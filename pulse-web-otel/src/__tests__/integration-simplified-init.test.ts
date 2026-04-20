@@ -58,20 +58,21 @@ describe('Simplified SDK Initialization Integration Tests', () => {
     prodExporter.reset();
   });
 
-  describe('Development Mode (devkey)', () => {
-    it('should detect devkey in apiKey', () => {
-      const devKey = 'myproject-123_devkey456';
-      expect(isLocalEnvironment(devKey)).toBe(true);
+  describe('Development Mode (default-project / Test- keys)', () => {
+    it('should detect default-project_ prefix', () => {
+      expect(isLocalEnvironment('default-project_abc123')).toBe(true);
+      expect(isLocalEnvironment('Test-myapp_abc123')).toBe(true);
+      expect(isLocalEnvironment('myproject-123_prodkey456')).toBe(false);
     });
 
-    it('should resolve localhost:4318 for devkey without endpointBaseUrl', () => {
-      const devKey = 'myproject-123_devkey456';
+    it('should resolve localhost:4318 for default-project key without endpointBaseUrl', () => {
+      const devKey = 'default-project_devkey01';
       const url = resolveEndpointBaseUrl(devKey);
       expect(url).toBe('http://localhost:4318');
     });
 
     it('should export spans to localhost in dev mode', () => {
-      const devKey = 'myproject-123_devkey456';
+      const devKey = 'default-project_devkey01';
       const baseUrl = resolveEndpointBaseUrl(devKey);
 
       // Create mock SDK init config
@@ -105,7 +106,7 @@ describe('Simplified SDK Initialization Integration Tests', () => {
     });
 
     it('should export logs to localhost in dev mode', () => {
-      const devKey = 'myproject-123_devkey456';
+      const devKey = 'default-project_devkey01';
       const baseUrl = resolveEndpointBaseUrl(devKey);
 
       // Mock config
@@ -137,7 +138,7 @@ describe('Simplified SDK Initialization Integration Tests', () => {
     });
 
     it('should override localhost with explicit endpointBaseUrl in dev mode', () => {
-      const devKey = 'myproject-123_devkey456';
+      const devKey = 'default-project_devkey01';
       const explicitUrl = 'http://custom-collector:4318';
       const url = resolveEndpointBaseUrl(devKey, explicitUrl);
 
@@ -151,11 +152,10 @@ describe('Simplified SDK Initialization Integration Tests', () => {
       expect(isLocalEnvironment(prodKey)).toBe(false);
     });
 
-    it('should require endpointBaseUrl for production keys', () => {
+    it('should return prod URL for production keys without endpointBaseUrl', () => {
       const prodKey = 'myproject-123_prodkey456';
-      expect(() => resolveEndpointBaseUrl(prodKey)).toThrow(
-        'Production deployments require endpointBaseUrl'
-      );
+      const url = resolveEndpointBaseUrl(prodKey);
+      expect(url).toBe('https://pulse-otel-collector.pulse-ux.com');
     });
 
     it('should use provided endpointBaseUrl for production', () => {
@@ -234,7 +234,7 @@ describe('Simplified SDK Initialization Integration Tests', () => {
 
   describe('Data Flow Verification', () => {
     it('should flow multiple signals through dev mode without data loss', () => {
-      const devKey = 'ecommerce-app-dev_devkey789';
+      const devKey = 'default-project_devkey789';
       const baseUrl = resolveEndpointBaseUrl(devKey);
 
       expect(baseUrl).toBe('http://localhost:4318');
