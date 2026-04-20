@@ -140,7 +140,7 @@ class RcaReportJobDaoTest {
 
       assertThat(job).isNotNull();
       assertThat(job.status()).isEqualTo(RcaJobStatus.PROCESSING);
-      assertThat(created.createdAt())
+      assertThat(job.createdAt())
           .isEqualTo(LocalDateTime.of(2025, 5, 1, 10, 0, 0).toInstant(ZoneOffset.UTC));
     }
   }

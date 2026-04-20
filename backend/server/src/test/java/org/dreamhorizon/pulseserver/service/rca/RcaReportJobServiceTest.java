@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaJobStatus;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaReportJobDao;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
@@ -30,6 +31,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class RcaReportJobServiceTest {
 
   private static final LocalDate DATE = LocalDate.of(2025, 6, 1);
+  private static final RcaType TYPE = RcaType.INTERACTION;
+  private static final String ENTITY_KEY = "ix";
 
   @Mock
   private RcaReportJobDao jobDao;
@@ -48,7 +51,8 @@ class RcaReportJobServiceTest {
     return new RcaReportJob(
         id,
         "p1",
-        "ix",
+        TYPE,
+        ENTITY_KEY,
         DATE,
         RcaJobStatus.PROCESSING,
         null,
@@ -56,8 +60,7 @@ class RcaReportJobServiceTest {
         Instant.parse("2025-06-01T10:00:01Z"),
         null,
         null,
-        null,
-        2);
+        null);
   }
 
   @Test
@@ -79,11 +82,11 @@ class RcaReportJobServiceTest {
     @Test
     void shouldReturnExistingWithoutInsertWhenActiveJobPresent() {
       RcaReportJob existing = activeJob("j1");
-      when(jobDao.getActiveJobByKey("p1", "ix", DATE)).thenReturn(Maybe.just(existing));
+      when(jobDao.getActiveJobByKey("p1", TYPE, ENTITY_KEY, DATE)).thenReturn(Maybe.just(existing));
 
       RcaJobDispatch dispatch =
           service
-              .createOrGetJob(new RcaCacheKey("p1", "ix", DATE, false, "{}"), "u1")
+              .createOrGetJob(new RcaCacheKey("p1", TYPE, ENTITY_KEY, DATE, false, "{}"), "u1")
               .blockingGet();
 
       assertThat(dispatch.shouldEnqueueWorker()).isFalse();
@@ -93,13 +96,13 @@ class RcaReportJobServiceTest {
     @Test
     void shouldInsertAndEnqueueWhenNoActiveJob() {
       RcaReportJob created = activeJob("j-new");
-      when(jobDao.getActiveJobByKey("p1", "ix", DATE)).thenReturn(Maybe.empty());
-      when(jobDao.createJob(anyString(), eq("p1"), eq("ix"), eq(DATE), eq("u1")))
+      when(jobDao.getActiveJobByKey("p1", TYPE, ENTITY_KEY, DATE)).thenReturn(Maybe.empty());
+      when(jobDao.createJob(anyString(), eq("p1"), eq(TYPE), eq(ENTITY_KEY), eq(DATE), eq("u1")))
           .thenReturn(Single.just(created));
 
       RcaJobDispatch dispatch =
           service
-              .createOrGetJob(new RcaCacheKey("p1", "ix", DATE, false, "{}"), "u1")
+              .createOrGetJob(new RcaCacheKey("p1", TYPE, ENTITY_KEY, DATE, false, "{}"), "u1")
               .blockingGet();
 
       assertThat(dispatch.shouldEnqueueWorker()).isTrue();
@@ -109,17 +112,17 @@ class RcaReportJobServiceTest {
     @Test
     void shouldRecoverActiveJobOnDuplicateInsert() {
       RcaReportJob winner = activeJob("j-winner");
-      when(jobDao.getActiveJobByKey("p1", "ix", DATE))
+      when(jobDao.getActiveJobByKey("p1", TYPE, ENTITY_KEY, DATE))
           .thenReturn(Maybe.empty())
           .thenReturn(Maybe.just(winner));
-      when(jobDao.createJob(anyString(), eq("p1"), eq("ix"), eq(DATE), any()))
+      when(jobDao.createJob(anyString(), eq("p1"), eq(TYPE), eq(ENTITY_KEY), eq(DATE), any()))
           .thenReturn(
               Single.error(new io.vertx.mysqlclient.MySQLException(
                   "Duplicate entry for key 'uk_active_job'", 1062, "23000")));
 
       RcaJobDispatch dispatch =
           service
-              .createOrGetJob(new RcaCacheKey("p1", "ix", DATE, false, "{\"a\":1}"), "u1")
+              .createOrGetJob(new RcaCacheKey("p1", TYPE, ENTITY_KEY, DATE, false, "{\"a\":1}"), "u1")
               .blockingGet();
 
       assertThat(dispatch.shouldEnqueueWorker()).isFalse();
@@ -134,10 +137,10 @@ class RcaReportJobServiceTest {
     void shouldReturnCompletedResponseOnCacheHit() {
       String reportJson = "{\"structured\":null}";
       Instant cachedAt = Instant.parse("2025-06-01T10:00:00Z");
-      when(cacheDao.get("p1", "ix", DATE))
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE))
           .thenReturn(Maybe.just(new RcaReportCacheHit(reportJson, cachedAt)));
 
-      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(response).isNotNull();
       assertThat(response.getStatus()).isEqualTo(RcaJobStatus.COMPLETED.name());
@@ -152,10 +155,10 @@ class RcaReportJobServiceTest {
       // Cache body has the full shape: { "report": { "structured": {...} }, "cached": true }
       String cacheBody = "{\"report\":{\"structured\":null},\"cached\":true,\"cachedAt\":\"2025-06-01T10:00:00Z\"}";
       Instant cachedAt = Instant.parse("2025-06-01T10:00:00Z");
-      when(cacheDao.get("p1", "ix", DATE))
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE))
           .thenReturn(Maybe.just(new RcaReportCacheHit(cacheBody, cachedAt)));
 
-      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(response.getReport()).isNotNull();
       // report field must be the inner object { "structured": null }, not the full cache body
@@ -165,10 +168,10 @@ class RcaReportJobServiceTest {
 
     @Test
     void shouldReturnActiveJobWhenCacheEmpty() {
-      when(cacheDao.get("p1", "ix", DATE)).thenReturn(Maybe.empty());
-      when(jobDao.getActiveJobByKey("p1", "ix", DATE)).thenReturn(Maybe.just(activeJob("j1")));
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE)).thenReturn(Maybe.empty());
+      when(jobDao.getActiveJobByKey("p1", TYPE, ENTITY_KEY, DATE)).thenReturn(Maybe.just(activeJob("j1")));
 
-      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(response).isNotNull();
       assertThat(response.getJobId()).isEqualTo("j1");
@@ -177,20 +180,20 @@ class RcaReportJobServiceTest {
 
     @Test
     void shouldReturnEmptyWhenNeitherCacheNorActiveJob() {
-      when(cacheDao.get("p1", "ix", DATE)).thenReturn(Maybe.empty());
-      when(jobDao.getActiveJobByKey("p1", "ix", DATE)).thenReturn(Maybe.empty());
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE)).thenReturn(Maybe.empty());
+      when(jobDao.getActiveJobByKey("p1", TYPE, ENTITY_KEY, DATE)).thenReturn(Maybe.empty());
 
-      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(response).isNull();
     }
 
     @Test
     void shouldReturnCompletedWithNullReportOnMalformedCachedJson() {
-      when(cacheDao.get("p1", "ix", DATE))
+      when(cacheDao.get("p1", TYPE, ENTITY_KEY, DATE))
           .thenReturn(Maybe.just(new RcaReportCacheHit("{{not-valid-json", Instant.now())));
 
-      GetRcaJobResponse response = service.peekStatus("p1", "ix", DATE).blockingGet();
+      GetRcaJobResponse response = service.peekStatus("p1", TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(response).isNotNull();
       assertThat(response.getStatus()).isEqualTo(RcaJobStatus.COMPLETED.name());
@@ -222,15 +225,15 @@ class RcaReportJobServiceTest {
     void shouldReturnJobWithReportWhenCompleted() {
       RcaReportJob completedJob =
           new RcaReportJob(
-              "j1", "p1", "ix", DATE, RcaJobStatus.COMPLETED,
+              "j1", "p1", TYPE, ENTITY_KEY, DATE, RcaJobStatus.COMPLETED,
               null,
               Instant.parse("2025-06-01T10:00:00Z"),
               Instant.parse("2025-06-01T10:00:01Z"),
               Instant.parse("2025-06-01T10:05:00Z"),
-              null, null, 2);
+              null, null);
       Instant cachedAt = Instant.parse("2025-06-01T10:05:00Z");
       when(jobDao.getJobById("j1")).thenReturn(Maybe.just(completedJob));
-      when(cacheDao.getFromWriterPool("p1", "ix", DATE))
+      when(cacheDao.getFromWriterPool("p1", TYPE, ENTITY_KEY, DATE))
           .thenReturn(Maybe.just(new RcaReportCacheHit("{\"structured\":null}", cachedAt)));
 
       GetRcaJobResponse response = service.getJobStatus("j1", "p1").blockingGet();
@@ -246,16 +249,16 @@ class RcaReportJobServiceTest {
     void shouldExtractInnerReportFieldWhenCompletedCacheBodyHasReportWrapper() {
       RcaReportJob completedJob =
           new RcaReportJob(
-              "j1", "p1", "ix", DATE, RcaJobStatus.COMPLETED,
+              "j1", "p1", TYPE, ENTITY_KEY, DATE, RcaJobStatus.COMPLETED,
               null,
               Instant.parse("2025-06-01T10:00:00Z"),
               Instant.parse("2025-06-01T10:00:01Z"),
               Instant.parse("2025-06-01T10:05:00Z"),
-              null, null, 2);
+              null, null);
       // Full cache body shape: { "report": { "structured": {...} }, "cached": true, ... }
       String cacheBody = "{\"report\":{\"structured\":null},\"cached\":true,\"cachedAt\":\"2025-06-01T10:05:00Z\"}";
       when(jobDao.getJobById("j1")).thenReturn(Maybe.just(completedJob));
-      when(cacheDao.getFromWriterPool("p1", "ix", DATE))
+      when(cacheDao.getFromWriterPool("p1", TYPE, ENTITY_KEY, DATE))
           .thenReturn(Maybe.just(new RcaReportCacheHit(cacheBody, Instant.parse("2025-06-01T10:05:00Z"))));
 
       GetRcaJobResponse response = service.getJobStatus("j1", "p1").blockingGet();

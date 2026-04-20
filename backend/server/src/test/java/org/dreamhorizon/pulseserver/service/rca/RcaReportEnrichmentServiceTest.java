@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
@@ -90,7 +91,7 @@ class RcaReportEnrichmentServiceTest {
     body.put("interactionName", "ix");
     body.put("date", "2025-06-01");
     RcaParsedReportBody parsed =
-        new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, false);
+        new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
     CompletableFuture<RcaEnrichmentOutcome> done =
         service.enrichAsync(parsed, false).toCompletableFuture();
@@ -119,7 +120,7 @@ class RcaReportEnrichmentServiceTest {
       ObjectNode body = objectMapper.createObjectNode();
       body.put("interactionName", "ix");
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       RcaEnrichmentOutcome outcome =
           service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -153,7 +154,7 @@ class RcaReportEnrichmentServiceTest {
       ObjectNode body = objectMapper.createObjectNode();
       body.put("interactionName", "ix");
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       RcaEnrichmentOutcome outcome =
           service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -202,7 +203,7 @@ class RcaReportEnrichmentServiceTest {
       ObjectNode body = objectMapper.createObjectNode();
       body.put("interactionName", "ix");
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       RcaEnrichmentOutcome outcome =
           service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -223,7 +224,7 @@ class RcaReportEnrichmentServiceTest {
       String rawBody = "{\"interactionName\":\"ix\"}";
       ObjectNode body = (ObjectNode) objectMapper.readTree(rawBody);
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(rawBody, body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(rawBody, body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       RcaEnrichmentOutcome outcome =
           service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -240,7 +241,7 @@ class RcaReportEnrichmentServiceTest {
       String rawBody = "{\"interactionName\":\"ix\"}";
       ObjectNode body = (ObjectNode) objectMapper.readTree(rawBody);
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(rawBody, body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(rawBody, body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       RcaEnrichmentOutcome outcome =
           service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -267,7 +268,7 @@ class RcaReportEnrichmentServiceTest {
       ObjectNode body = objectMapper.createObjectNode();
       body.put("interactionName", "ix");
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       // Must complete without exception — falls back to partial working body
       RcaEnrichmentOutcome outcome =
@@ -285,7 +286,7 @@ class RcaReportEnrichmentServiceTest {
       ObjectNode body = objectMapper.createObjectNode();
       body.put("interactionName", "ix");
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       RcaEnrichmentOutcome outcome =
           service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -308,7 +309,7 @@ class RcaReportEnrichmentServiceTest {
       body.put("interactionName", "ix");
       body.put("regenerate", true);
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, true);
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, true);
 
       RcaEnrichmentOutcome outcome =
           service.enrichAsync(parsed, true).toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -341,7 +342,7 @@ class RcaReportEnrichmentServiceTest {
       ObjectNode body = objectMapper.createObjectNode();
       body.put("interactionName", "ix");
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
 
@@ -370,7 +371,7 @@ class RcaReportEnrichmentServiceTest {
       ObjectNode body = objectMapper.createObjectNode();
       body.put("interactionName", "ix");
       RcaParsedReportBody parsed =
-          new RcaParsedReportBody(body.toString(), body, "p1", "ix", DATE, false);
+          new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
       service.enrichAsync(parsed, false).toCompletableFuture().get(5, TimeUnit.SECONDS);
 

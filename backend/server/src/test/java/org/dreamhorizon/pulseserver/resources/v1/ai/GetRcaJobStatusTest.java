@@ -15,6 +15,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.v1.ai.models.GetRcaJobResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -87,7 +88,7 @@ class GetRcaJobStatusTest {
     @Test
     void shouldReturn404WhenInteractionNameIsNull() {
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus(null, "2025-06-01", "proj-1");
+          controller.peekRcaStatus(null, null, null, "2025-06-01", "proj-1");
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -96,7 +97,7 @@ class GetRcaJobStatusTest {
     @Test
     void shouldReturn404WhenInteractionNameIsBlank() {
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus("   ", "2025-06-01", "proj-1");
+          controller.peekRcaStatus(null, null, "   ", "2025-06-01", "proj-1");
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -105,7 +106,7 @@ class GetRcaJobStatusTest {
     @Test
     void shouldReturn404WhenProjectIdIsNull() {
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus("checkout", "2025-06-01", null);
+          controller.peekRcaStatus(null, null, "checkout", "2025-06-01", null);
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -114,7 +115,7 @@ class GetRcaJobStatusTest {
     @Test
     void shouldReturn404WhenProjectIdIsBlank() {
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus("checkout", "2025-06-01", "  ");
+          controller.peekRcaStatus(null, null, "checkout", "2025-06-01", "  ");
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -125,11 +126,11 @@ class GetRcaJobStatusTest {
       GetRcaJobResponse jobResponse =
           GetRcaJobResponse.builder().status("COMPLETED").cached(true).build();
       when(rcaReportJobService.peekStatus(
-              eq("proj-1"), eq("checkout"), eq(LocalDate.of(2025, 6, 1))))
+              eq("proj-1"), eq(RcaType.INTERACTION), eq("checkout"), eq(LocalDate.of(2025, 6, 1))))
           .thenReturn(Maybe.just(jobResponse));
 
       Response<GetRcaJobResponse> response =
-          await(controller.peekRcaStatus("checkout", "2025-06-01", "proj-1"));
+          await(controller.peekRcaStatus(null, null, "checkout", "2025-06-01", "proj-1"));
 
       assertThat(response.getData().getStatus()).isEqualTo("COMPLETED");
       assertThat(response.getData().getCached()).isTrue();
@@ -137,10 +138,10 @@ class GetRcaJobStatusTest {
 
     @Test
     void shouldReturn404WhenServiceReturnsEmpty() {
-      when(rcaReportJobService.peekStatus(any(), any(), any())).thenReturn(Maybe.empty());
+      when(rcaReportJobService.peekStatus(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus("checkout", "2025-06-01", "proj-1");
+          controller.peekRcaStatus(null, null, "checkout", "2025-06-01", "proj-1");
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -149,11 +150,11 @@ class GetRcaJobStatusTest {
     @Test
     void shouldFallbackToTodayWhenDateParamIsNull() throws Exception {
       GetRcaJobResponse jobResponse = GetRcaJobResponse.builder().status("PENDING").build();
-      when(rcaReportJobService.peekStatus(eq("proj-1"), eq("checkout"), any(LocalDate.class)))
+      when(rcaReportJobService.peekStatus(eq("proj-1"), eq(RcaType.INTERACTION), eq("checkout"), any(LocalDate.class)))
           .thenReturn(Maybe.just(jobResponse));
 
       Response<GetRcaJobResponse> response =
-          await(controller.peekRcaStatus("checkout", null, "proj-1"));
+          await(controller.peekRcaStatus(null, null, "checkout", null, "proj-1"));
 
       assertThat(response.getData().getStatus()).isEqualTo("PENDING");
     }
@@ -161,11 +162,11 @@ class GetRcaJobStatusTest {
     @Test
     void shouldFallbackToTodayWhenDateParamIsInvalid() throws Exception {
       GetRcaJobResponse jobResponse = GetRcaJobResponse.builder().status("PENDING").build();
-      when(rcaReportJobService.peekStatus(eq("proj-1"), eq("checkout"), any(LocalDate.class)))
+      when(rcaReportJobService.peekStatus(eq("proj-1"), eq(RcaType.INTERACTION), eq("checkout"), any(LocalDate.class)))
           .thenReturn(Maybe.just(jobResponse));
 
       Response<GetRcaJobResponse> response =
-          await(controller.peekRcaStatus("checkout", "not-a-date", "proj-1"));
+          await(controller.peekRcaStatus(null, null, "checkout", "not-a-date", "proj-1"));
 
       assertThat(response.getData().getStatus()).isEqualTo("PENDING");
     }

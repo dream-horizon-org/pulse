@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaJobStatus;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
@@ -77,7 +78,7 @@ class AiProxyServiceImplTest {
   void setUp() {
     objectMapper = new ObjectMapper();
     lenient()
-        .when(rcaReportCacheDao.put(any(), any(), any(), any()))
+        .when(rcaReportCacheDao.put(any(), any(), any(), any(), any()))
         .thenReturn(Completable.complete());
     lenient().when(webClient.getAbs(anyString())).thenReturn(httpRequest);
     lenient().when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -102,6 +103,7 @@ class AiProxyServiceImplTest {
     return new RcaReportJob(
         "rca-job-unit",
         PROJECT_ID,
+        RcaType.INTERACTION,
         "checkout",
         ANALYSIS_DATE,
         RcaJobStatus.PENDING,
@@ -110,8 +112,7 @@ class AiProxyServiceImplTest {
         null,
         null,
         null,
-        null,
-        1);
+        null);
   }
 
   private AiProxyServiceImpl fullPipelineService() {
@@ -168,7 +169,7 @@ class AiProxyServiceImplTest {
       assertThat(result.getStatusCode()).isEqualTo(200);
       assertThat(result.getBufferedBody()).contains("ok");
       verify(rcaReportJobService, never()).createOrGetJob(any(), any());
-      verify(rcaReportCacheDao, never()).get(any(), any(), any());
+      verify(rcaReportCacheDao, never()).get(any(), any(), any(), any());
 
       ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
       verify(webClient).postAbs(urlCaptor.capture());
@@ -182,7 +183,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldReturnMysqlHitWithoutCallingUpstream() throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(
               Maybe.just(
                   new RcaReportCacheHit("{\"fromDb\":1}", Instant.parse("2025-03-10T08:30:00Z"))));
@@ -205,7 +206,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldReturnMysqlHitUnchangedWhenBodyIsNotJsonObject() {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.just(new RcaReportCacheHit("[1,2]", null)));
 
       AiProxyUpstreamResult result =
@@ -232,9 +233,9 @@ class AiProxyServiceImplTest {
       JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
       assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1002");
       assertThat(envelope.path("error").path("message").asText())
-          .isEqualTo("interactionName is required");
+          .isEqualTo("entityKey is required");
 
-      verify(rcaReportCacheDao, never()).get(any(), any(), any());
+      verify(rcaReportCacheDao, never()).get(any(), any(), any(), any());
       verify(rcaReportJobService, never()).createOrGetJob(any(), any());
       verify(httpRequest, never()).rxSend();
       verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
@@ -274,7 +275,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldFailWithDatabaseErrorWhenMysqlGetErrors() throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.error(new RuntimeException("connection refused")));
 
       AiProxyUpstreamResult result =
@@ -293,7 +294,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldReturn202AndEnqueueWorkerWhenMysqlMisses() throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.empty());
 
       AiProxyUpstreamResult result =
@@ -314,7 +315,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldReturn202WhenMysqlMissesEvenForStructuredUpstreamScenario() throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.empty());
 
       AiProxyUpstreamResult result =
@@ -329,7 +330,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldReturn500WhenJobCreationFailsAfterMysqlMiss() throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.empty());
       when(rcaReportJobService.createOrGetJob(any(), any()))
           .thenReturn(Single.error(new RuntimeException("job insert failed")));
@@ -348,20 +349,20 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldReturn202WithoutMysqlPutFromProxyThread() throws Exception {
-      when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
+      when(rcaReportCacheDao.get(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       awaitResult(
           fullPipelineService()
               .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
 
-      verify(rcaReportCacheDao, never()).put(any(), any(), any(), any());
+      verify(rcaReportCacheDao, never()).put(any(), any(), any(), any(), any());
       verify(rcaReportProcessor, times(1))
           .enqueueProcess(any(), anyString(), anyBoolean(), eq(AUTH), eq(null));
     }
 
     @Test
     void shouldReturn202WhenMysqlMissesWithoutCallingUpstreamInProxyThread() {
-      when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
+      when(rcaReportCacheDao.get(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       AiProxyUpstreamResult result =
           awaitResult(
@@ -374,7 +375,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldRequeryMysqlAndEnqueueOnEachRequestWhenDaoMisses() {
-      when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
+      when(rcaReportCacheDao.get(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       AiProxyServiceImpl service = fullPipelineService();
       String body = rcaRequestBody();
@@ -385,7 +386,7 @@ class AiProxyServiceImplTest {
       verify(rcaReportJobService, times(2)).createOrGetJob(any(), any());
       verify(rcaReportProcessor, times(2))
           .enqueueProcess(any(), anyString(), anyBoolean(), eq(AUTH), eq(null));
-      verify(rcaReportCacheDao, times(2)).get(PROJECT_ID, "checkout", ANALYSIS_DATE);
+      verify(rcaReportCacheDao, times(2)).get(PROJECT_ID, RcaType.INTERACTION, "checkout", ANALYSIS_DATE);
     }
 
     @Test
@@ -396,7 +397,7 @@ class AiProxyServiceImplTest {
           awaitResult(
               fullPipelineService().proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
 
-      verify(rcaReportCacheDao, never()).get(any(), any(), any());
+      verify(rcaReportCacheDao, never()).get(any(), any(), any(), any());
       ArgumentCaptor<RcaCacheKey> keyCaptor = ArgumentCaptor.forClass(RcaCacheKey.class);
       verify(rcaReportJobService).createOrGetJob(keyCaptor.capture(), any());
       assertThat(keyCaptor.getValue().regenerate()).isTrue();
@@ -409,7 +410,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldPassUserEmailHeaderToCreateOrGetJob() throws Exception {
-      when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
+      when(rcaReportCacheDao.get(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       awaitResult(
           fullPipelineService()
