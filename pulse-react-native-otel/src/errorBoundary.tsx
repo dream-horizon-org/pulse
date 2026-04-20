@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Pulse } from './index';
-import { getIsShutdown } from './config';
+import { reportException } from './errorHandler';
+import { getIsShutdown } from './sessionState';
 
 export const UNKNOWN_COMPONENT = 'unknown';
 const COMPONENT_STACK_UNAVAILABLE = '<component stack unavailable>';
@@ -48,7 +48,7 @@ export class ErrorBoundary extends React.Component<
     const errorToReport =
       error instanceof Error ? error : new Error(String(error));
     if (!getIsShutdown()) {
-      Pulse.reportException(errorToReport, !handled);
+      reportException(errorToReport, !handled);
     }
 
     if (onError) {

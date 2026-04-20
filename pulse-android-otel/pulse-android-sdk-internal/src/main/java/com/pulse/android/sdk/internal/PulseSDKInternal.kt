@@ -318,15 +318,20 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 ?.firstOrNull { it.featureName == PulseFeatureName.CLICK }
                 ?.config
                 ?.let { it as? PulseFeatureConfigData.ClickInstrumentation }
-                ?.rage
-                ?.let { remoteRage ->
-                    val local = ClickContextEnrichmentConfig.rageConfig
-                    ClickContextEnrichmentConfig.rageConfig =
-                        RageConfig(
-                            timeWindowMs = remoteRage.timeWindowMs ?: local.timeWindowMs,
-                            threshold = remoteRage.threshold ?: local.threshold,
-                            radiusDp = remoteRage.radiusDp ?: local.radiusDp,
-                        )
+                ?.let { clickConfig ->
+                    clickConfig.shouldCaptureContext?.let { shouldCapture ->
+                        ClickContextEnrichmentConfig.isViewClickContextEnrichmentEnabled = shouldCapture
+                        ClickContextEnrichmentConfig.isComposeClickContextEnrichmentEnabled = shouldCapture
+                    }
+                    clickConfig.rage?.let { remoteRage ->
+                        val local = ClickContextEnrichmentConfig.rageConfig
+                        ClickContextEnrichmentConfig.rageConfig =
+                            RageConfig(
+                                timeWindowMs = remoteRage.timeWindowMs ?: local.timeWindowMs,
+                                threshold = remoteRage.threshold ?: local.threshold,
+                                radiusDp = remoteRage.radiusDp ?: local.radiusDp,
+                            )
+                    }
                 }
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
             sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)

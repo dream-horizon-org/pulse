@@ -5,14 +5,13 @@ import {
   StyleSheet,
   Button,
   Alert,
-  Platform,
   ScrollView,
 } from 'react-native';
 import PulseReactNativeOtel from '../../../src/NativePulseReactNativeOtel';
 import FrozenFrameStressTest from './FrozenFrameStressTest';
 import NativePulseExampleModule from '../specs/NativePulseExampleModule';
 
-export default function AndroidFeaturesExample() {
+export default function NativeFeaturesExample() {
   const [showStressTest, setShowStressTest] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -37,21 +36,15 @@ export default function AndroidFeaturesExample() {
     );
   };
 
-  // Native Android OkHttp GET request
   const testNativeGet = async () => {
-    if (Platform.OS !== 'android' || !NativePulseExampleModule) {
-      Alert.alert(
-        'Not Available',
-        'Native network module is only available on Android'
-      );
+    if (!NativePulseExampleModule) {
+      Alert.alert('Not Available', 'Native network module is not available');
       return;
     }
 
     setLoading('native-get');
     try {
-      console.log(
-        '[Pulse Network] 🤖 [Native Android] Making OkHttp GET request...'
-      );
+      console.log('[Pulse Network] Making GET request...');
       const result = await NativePulseExampleModule.makeGetRequest(
         'https://jsonplaceholder.typicode.com/posts/1'
       );
@@ -67,24 +60,18 @@ export default function AndroidFeaturesExample() {
     }
   };
 
-  // Native Android OkHttp POST request
   const testNativePost = async () => {
-    if (Platform.OS !== 'android' || !NativePulseExampleModule) {
-      Alert.alert(
-        'Not Available',
-        'Native network module is only available on Android'
-      );
+    if (!NativePulseExampleModule) {
+      Alert.alert('Not Available', 'Native network module is not available');
       return;
     }
 
     setLoading('native-post');
     try {
-      console.log(
-        '[Pulse Network] 🤖 [Native Android] Making OkHttp POST request...'
-      );
+      console.log('[Pulse Network] Making POST request...');
       const postBody = JSON.stringify({
-        title: 'Test Post from Native Android',
-        body: 'This is a test POST request from native OkHttp',
+        title: 'Test Post from Native',
+        body: 'This is a test POST request from native',
         userId: 1,
       });
       const result = await NativePulseExampleModule.makePostRequest(
@@ -120,8 +107,8 @@ export default function AndroidFeaturesExample() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🤖 Android Features</Text>
-      <Text style={styles.subtitle}>Test Android-specific features</Text>
+      <Text style={styles.title}>🤖 Native Features</Text>
+      <Text style={styles.subtitle}>Test Native-specific features</Text>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Performance Monitoring</Text>
@@ -145,7 +132,7 @@ export default function AndroidFeaturesExample() {
         </View>
       </View>
 
-      {Platform.OS === 'android' && NativePulseExampleModule && (
+      {NativePulseExampleModule && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Native Network (OkHttp)</Text>
 

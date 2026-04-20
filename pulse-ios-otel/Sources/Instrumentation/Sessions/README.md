@@ -23,6 +23,7 @@ import PulseKit
 Pulse.shared.initialize(
     endpointBaseUrl: "https://your-endpoint.com",
     apiKey: "your-api-key",
+    dataCollectionState: .allowed,
     instrumentations: { config in
         config.sessions { sessionsConfig in
             sessionsConfig.enabled(true) // true (default)

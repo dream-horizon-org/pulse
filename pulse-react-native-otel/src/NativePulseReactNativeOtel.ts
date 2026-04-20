@@ -74,9 +74,9 @@ export interface Spec extends TurboModule {
   /** Get all SDK Remote Config features */
   getAllFeatures(): {
     rn_screen_load: boolean;
-    screen_session: boolean;
+    rn_screen_session: boolean;
     rn_screen_interactive: boolean;
-    network_instrumentation: boolean;
+    rn_network: boolean;
     custom_events: boolean;
     js_crash: boolean;
   } | null;

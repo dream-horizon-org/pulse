@@ -41,13 +41,40 @@ public struct Interaction: Equatable {
         return isError
     }
 
-    /// Nanoseconds from earliest to latest matched event in `events`.
-    public var timeSpanInNanos: (start: Int64, end: Int64)? {
+    public var errorTypeCode: String? {
+        props[InteractionAttributes.errorType] as? String
+    }
+
+    public var errorMessage: String? {
+        props[InteractionAttributes.errorMessage] as? String
+    }
+
+    public func timeSpanInNanos(thresholdMs: Int64) -> (start: Int64, end: Int64)? {
         let steps = events
-        guard steps.count >= 2, let first = steps.first, let last = steps.last else {
+        if steps.isEmpty {
             return nil
         }
-        return (first.timeInNano, last.timeInNano)
+        if let errorTypeParsed = InteractionErrorType.fromCode(errorTypeCode) {
+            guard let firstNs = steps.first?.timeInNano, let lastNs = steps.last?.timeInNano else {
+                return nil
+            }
+            let thresholdNs = thresholdMs * 1_000_000
+            let end: Int64
+            if errorTypeParsed == .timeout {
+                end = firstNs + thresholdNs + (lastNs - firstNs)
+            } else {
+                end = lastNs
+            }
+            return (firstNs, end)
+        }
+        if steps.count == 1 {
+            let t0 = steps[0].timeInNano
+            return (t0, t0 + thresholdMs * 1_000_000)
+        }
+        guard let firstNs = steps.first?.timeInNano, let lastNs = steps.last?.timeInNano else {
+            return nil
+        }
+        return (firstNs, lastNs)
     }
 
     // Equatable conformance
