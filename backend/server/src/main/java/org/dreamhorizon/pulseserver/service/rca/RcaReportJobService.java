@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaJobStatus;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaReportJobDao;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
@@ -39,23 +40,25 @@ public class RcaReportJobService {
           .doOnError(
               e ->
                   log.error(
-                      "RCA createOrGetJob (regenerate) failed project={} interaction={} date={}",
+                      "RCA createOrGetJob (regenerate) failed project={} type={} entity={} date={}",
                       key.projectId(),
-                      key.interactionName(),
+                      key.type(),
+                      key.entityKey(),
                       key.date(),
                       e));
     }
     return jobDao
-        .getActiveJobByKey(key.projectId(), key.interactionName(), key.date())
+        .getActiveJobByKey(key.projectId(), key.type(), key.entityKey(), key.date())
         .map(job -> new RcaJobDispatch(job, false, null, false))
         .switchIfEmpty(Maybe.defer(() -> insertNewJobWithDedup(key, createdBy).toMaybe()))
         .toSingle()
         .doOnError(
             e ->
                 log.error(
-                    "RCA createOrGetJob failed project={} interaction={} date={}",
+                    "RCA createOrGetJob failed project={} type={} entity={} date={}",
                     key.projectId(),
-                    key.interactionName(),
+                    key.type(),
+                    key.entityKey(),
                     key.date(),
                     e));
   }
@@ -64,22 +67,24 @@ public class RcaReportJobService {
       final RcaCacheKey key, final String createdBy) {
     String jobId = "rca-job-" + UUID.randomUUID();
     return jobDao
-        .createJob(jobId, key.projectId(), key.interactionName(), key.date(), createdBy)
+        .createJob(jobId, key.projectId(), key.type(), key.entityKey(), key.date(), createdBy)
         .map(job -> new RcaJobDispatch(job, true, key.requestBody(), key.regenerate()))
         .onErrorResumeNext(
             err -> {
               if (!isDuplicateKey(err)) {
                 log.error(
-                    "RCA job insert failed (non-duplicate) project={} interaction={} date={}",
+                    "RCA job insert failed (non-duplicate) project={} type={} entity={} date={}",
                     key.projectId(),
-                    key.interactionName(),
+                    key.type(),
+                    key.entityKey(),
                     key.date(),
                     err);
                 return Single.error(err);
               }
-              log.debug("RCA job insert deduped for key {} {} {}", key.projectId(), key.interactionName(), key.date());
+              log.debug("RCA job insert deduped for key {} {} {} {}",
+                  key.projectId(), key.type(), key.entityKey(), key.date());
               return jobDao
-                  .getActiveJobByKey(key.projectId(), key.interactionName(), key.date())
+                  .getActiveJobByKey(key.projectId(), key.type(), key.entityKey(), key.date())
                   .map(job -> new RcaJobDispatch(job, false, null, false))
                   .switchIfEmpty(
                       Maybe.error(
@@ -110,15 +115,18 @@ public class RcaReportJobService {
    * or the active job info when a PENDING/PROCESSING job exists, or empty when neither.
    */
   public Maybe<GetRcaJobResponse> peekStatus(
-      final String projectId, final String interactionName, final LocalDate date) {
+      final String projectId,
+      final RcaType type,
+      final String entityKey,
+      final LocalDate date) {
     return cacheDao
-        .get(projectId, interactionName, date)
+        .get(projectId, type, entityKey, date)
         .map(this::buildCacheHitResponse)
         .switchIfEmpty(
             Maybe.defer(
                 () ->
                     jobDao
-                        .getActiveJobByKey(projectId, interactionName, date)
+                        .getActiveJobByKey(projectId, type, entityKey, date)
                         .map(job -> toResponse(job, null))));
   }
 
@@ -158,7 +166,7 @@ public class RcaReportJobService {
                 // Read from the writer pool to avoid replication lag: the report was just written
                 // to the primary, and a replica read could return empty before replication catches up.
                 return cacheDao
-                    .getFromWriterPool(job.projectId(), job.interactionName(), job.date())
+                    .getFromWriterPool(job.projectId(), job.type(), job.entityKey(), job.date())
                     .map(hit -> toResponse(job, hit))
                     .defaultIfEmpty(toResponse(job, null));
               }

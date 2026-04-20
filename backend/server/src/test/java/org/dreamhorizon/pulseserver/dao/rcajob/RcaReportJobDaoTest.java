@@ -34,7 +34,8 @@ class RcaReportJobDaoTest {
 
   private static final String JOB_ID = "rca-job-1";
   private static final String PROJECT = "p1";
-  private static final String INTERACTION = "checkout";
+  private static final RcaType TYPE = RcaType.INTERACTION;
+  private static final String ENTITY_KEY = "checkout";
   private static final LocalDate DATE = LocalDate.of(2025, 5, 1);
 
   @Mock
@@ -73,16 +74,16 @@ class RcaReportJobDaoTest {
     Row row = org.mockito.Mockito.mock(Row.class);
     when(row.getString(0)).thenReturn(JOB_ID);
     when(row.getString(1)).thenReturn(PROJECT);
-    when(row.getString(2)).thenReturn(INTERACTION);
-    when(row.getLocalDate(3)).thenReturn(DATE);
-    when(row.getString(4)).thenReturn(status.name());
-    when(row.getString(5)).thenReturn(null);
-    when(row.getLocalDateTime(6)).thenReturn(LocalDateTime.of(2025, 5, 1, 10, 0, 0));
-    when(row.getLocalDateTime(7)).thenReturn(LocalDateTime.of(2025, 5, 1, 10, 1, 0));
-    when(row.getLocalDateTime(8)).thenReturn(null);
-    when(row.getString(9)).thenReturn("user-1");
-    when(row.getString(10)).thenReturn(null);
-    when(row.getInteger(11)).thenReturn(2);
+    when(row.getString(2)).thenReturn(TYPE.name());
+    when(row.getString(3)).thenReturn(ENTITY_KEY);
+    when(row.getLocalDate(4)).thenReturn(DATE);
+    when(row.getString(5)).thenReturn(status.name());
+    when(row.getString(6)).thenReturn(null);
+    when(row.getLocalDateTime(7)).thenReturn(LocalDateTime.of(2025, 5, 1, 10, 0, 0));
+    when(row.getLocalDateTime(8)).thenReturn(LocalDateTime.of(2025, 5, 1, 10, 1, 0));
+    when(row.getLocalDateTime(9)).thenReturn(null);
+    when(row.getString(10)).thenReturn("user-1");
+    when(row.getString(11)).thenReturn(null);
     return row;
   }
 
@@ -94,15 +95,15 @@ class RcaReportJobDaoTest {
       setupWriter();
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      RcaReportJob created = dao.createJob(JOB_ID, PROJECT, INTERACTION, DATE, "user-1").blockingGet();
+      RcaReportJob created = dao.createJob(JOB_ID, PROJECT, TYPE, ENTITY_KEY, DATE, "user-1").blockingGet();
 
       assertThat(created.jobId()).isEqualTo(JOB_ID);
       assertThat(created.projectId()).isEqualTo(PROJECT);
-      assertThat(created.interactionName()).isEqualTo(INTERACTION);
+      assertThat(created.type()).isEqualTo(TYPE);
+      assertThat(created.entityKey()).isEqualTo(ENTITY_KEY);
       assertThat(created.date()).isEqualTo(DATE);
       assertThat(created.status()).isEqualTo(RcaJobStatus.PENDING);
       assertThat(created.createdBy()).isEqualTo("user-1");
-      assertThat(created.version()).isEqualTo(1);
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("INSERT INTO rca_report_jobs"));
     }
   }
@@ -139,7 +140,7 @@ class RcaReportJobDaoTest {
 
       assertThat(job).isNotNull();
       assertThat(job.status()).isEqualTo(RcaJobStatus.PROCESSING);
-      assertThat(job.createdAt())
+      assertThat(created.createdAt())
           .isEqualTo(LocalDateTime.of(2025, 5, 1, 10, 0, 0).toInstant(ZoneOffset.UTC));
     }
   }
@@ -157,7 +158,7 @@ class RcaReportJobDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       RcaReportJob job =
-          dao.getActiveJobByKey(PROJECT, INTERACTION, DATE).blockingGet();
+          dao.getActiveJobByKey(PROJECT, TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(job).isNull();
     }
@@ -174,7 +175,7 @@ class RcaReportJobDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       RcaReportJob job =
-          dao.getActiveJobByKey(PROJECT, INTERACTION, DATE).blockingGet();
+          dao.getActiveJobByKey(PROJECT, TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(job).isNotNull();
       assertThat(job.status()).isEqualTo(RcaJobStatus.PENDING);
@@ -201,7 +202,7 @@ class RcaReportJobDaoTest {
       setupWriter();
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      dao.markCompleted(JOB_ID, PROJECT, INTERACTION, DATE).blockingAwait();
+      dao.markCompleted(JOB_ID, PROJECT, TYPE, ENTITY_KEY, DATE).blockingAwait();
 
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("DELETE FROM rca_report_jobs"));
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("SET status = 'COMPLETED'"));
@@ -212,7 +213,7 @@ class RcaReportJobDaoTest {
       setupWriter();
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      dao.markFailed(JOB_ID, PROJECT, INTERACTION, DATE, "timeout").blockingAwait();
+      dao.markFailed(JOB_ID, PROJECT, TYPE, ENTITY_KEY, DATE, "timeout").blockingAwait();
 
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("DELETE FROM rca_report_jobs"));
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("SET status = 'FAILED'"));

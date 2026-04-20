@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -48,13 +49,24 @@ public class RcaReportEnrichmentService {
     working.remove(REGENERATE_FIELD);
     String fallbackBody = parsed.rawBody();
     String projectId = parsed.projectId();
-    String interactionName = parsed.interactionName();
+    RcaType type = parsed.type();
+    String entityKey = parsed.entityKey();
     LocalDate date = parsed.date();
     Instant windowEndExclusive = Instant.now();
 
     CompletableFuture<RcaEnrichmentOutcome> future = new CompletableFuture<>();
+
+    // For now, only INTERACTION type is fully supported with enrichment
+    // Other types may have different enrichment paths in the future
+    if (type != RcaType.INTERACTION) {
+      // For non-interaction types, return the body as-is without enrichment
+      // This can be extended in the future for SESSION and SCREEN types
+      future.complete(new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
+      return future;
+    }
+
     rootCauseService
-        .getRootCause(projectId, interactionName, date, windowEndExclusive, forceRootCauseRefresh)
+        .getRootCause(projectId, entityKey, date, windowEndExclusive, forceRootCauseRefresh)
         .subscribe(
             rootCauseResult -> {
               if (rootCauseResult.getSegments() != null) {
@@ -91,7 +103,7 @@ public class RcaReportEnrichmentService {
                         sessionEvidenceService
                             .getSessionEvidence(
                                 projectId,
-                                interactionName,
+                                entityKey,
                                 lookbackStart.atStartOfDay().toInstant(ZoneOffset.UTC),
                                 date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC),
                                 segment.getDimensions(),

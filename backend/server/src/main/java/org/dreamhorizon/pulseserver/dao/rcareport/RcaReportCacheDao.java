@@ -13,6 +13,7 @@ import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 
 @Slf4j
@@ -23,8 +24,9 @@ public class RcaReportCacheDao {
   private final MysqlClient mysqlClient;
 
   /** Returns the cached report body if present for the key (no time-based expiry). */
-  public Maybe<RcaReportCacheHit> get(String projectId, String interactionName, LocalDate date) {
-    return getFromPool(mysqlClient.getReaderPool(), projectId, interactionName, date);
+  public Maybe<RcaReportCacheHit> get(
+      String projectId, RcaType type, String entityKey, LocalDate date) {
+    return getFromPool(mysqlClient.getReaderPool(), projectId, type, entityKey, date);
   }
 
   /**
@@ -32,18 +34,19 @@ public class RcaReportCacheDao {
    * written and replica replication lag could cause a false cache-miss on the reader pool.
    */
   public Maybe<RcaReportCacheHit> getFromWriterPool(
-      String projectId, String interactionName, LocalDate date) {
-    return getFromPool(mysqlClient.getWriterPool(), projectId, interactionName, date);
+      String projectId, RcaType type, String entityKey, LocalDate date) {
+    return getFromPool(mysqlClient.getWriterPool(), projectId, type, entityKey, date);
   }
 
   private Maybe<RcaReportCacheHit> getFromPool(
       io.vertx.rxjava3.sqlclient.Pool pool,
       String projectId,
-      String interactionName,
+      RcaType type,
+      String entityKey,
       LocalDate date) {
     return pool
         .preparedQuery(RcaReportCacheQueries.GET_BY_KEY)
-        .rxExecute(Tuple.of(projectId, interactionName, date))
+        .rxExecute(Tuple.of(projectId, type.name(), entityKey, java.sql.Date.valueOf(date)))
         .flatMapMaybe(rows -> {
           if (rows.size() == 0) {
             return Maybe.empty();
@@ -64,20 +67,22 @@ public class RcaReportCacheDao {
   /**
    * Stores or updates the report for the given key.
    */
-  public Completable put(String projectId, String interactionName, LocalDate date, String reportBody) {
+  public Completable put(
+      String projectId, RcaType type, String entityKey, LocalDate date, String reportBody) {
     if (reportBody == null || reportBody.isBlank()) {
       return Completable.complete();
     }
     return mysqlClient.getWriterPool()
         .preparedQuery(RcaReportCacheQueries.UPSERT)
-        .rxExecute(Tuple.of(projectId, interactionName, date, reportBody))
+        .rxExecute(Tuple.of(projectId, type.name(), entityKey, java.sql.Date.valueOf(date), reportBody))
         .ignoreElement()
         .doOnComplete(
             () ->
                 log.debug(
-                    "RCA report cached: project={}, interaction={}, date={}",
+                    "RCA report cached: project={}, type={}, entity={}, date={}",
                     projectId,
-                    interactionName,
+                    type,
+                    entityKey,
                     date))
         .doOnError(e -> log.warn("RCA report cache put failed: {}", e.getMessage()));
   }

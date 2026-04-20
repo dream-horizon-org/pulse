@@ -13,6 +13,7 @@ import java.time.format.DateTimeParseException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.Error;
@@ -30,6 +31,8 @@ import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
 final class RcaReportProxyHandler {
 
   private static final String CONTENT_TYPE_JSON = "application/json";
+  private static final String TYPE_FIELD = "rcaType";
+  private static final String ENTITY_KEY_FIELD = "entityKey";
   private static final String INTERACTION_NAME_FIELD = "interactionName";
   private static final String DATE_FIELD = "date";
   private static final String REGENERATE_FIELD = "regenerate";
@@ -48,7 +51,7 @@ final class RcaReportProxyHandler {
   private static final String MESSAGE_BODY_REQUIRED = "Request body is required";
   private static final String MESSAGE_PROJECT_HEADER_REQUIRED = "X-Project-ID header is required";
   private static final String MESSAGE_BODY_JSON_OBJECT = "RCA report body must be a JSON object";
-  private static final String MESSAGE_INTERACTION_REQUIRED = "interactionName is required";
+  private static final String MESSAGE_ENTITY_REQUIRED = "entityKey is required";
 
   private final ObjectMapper objectMapper;
   private final RcaReportCacheDao rcaReportCacheDao;
@@ -79,9 +82,10 @@ final class RcaReportProxyHandler {
     ParsedRcaPost parsed = ((RcaPostValidation.Valid) validation).parsed();
     RcaCacheKeyParts keyParts = parsed.keyParts();
     log.info(
-        "RCA POST received project={} interactionName={} date={} regenerate={}",
+        "RCA POST received project={} type={} entity={} date={} regenerate={}",
         keyParts.projectId(),
-        keyParts.interactionName(),
+        keyParts.type(),
+        keyParts.entityKey(),
         keyParts.date(),
         keyParts.regenerate());
     if (keyParts.regenerate()) {
@@ -132,18 +136,20 @@ final class RcaReportProxyHandler {
       String createdByOrNull) {
     CompletableFuture<AiProxyUpstreamResult> resultFuture = new CompletableFuture<>();
     log.info(
-        "RCA MySQL cache lookup starting interactionName={} date={}",
-        keyParts.interactionName(),
+        "RCA MySQL cache lookup starting type={} entity={} date={}",
+        keyParts.type(),
+        keyParts.entityKey(),
         keyParts.date());
     rcaReportCacheDao
-        .get(keyParts.projectId(), keyParts.interactionName(), keyParts.date())
+        .get(keyParts.projectId(), keyParts.type(), keyParts.entityKey(), keyParts.date())
         // Never block Vert.x / JAX-RS I/O thread on MySQL pool subscription.
         .subscribeOn(Schedulers.io())
         .subscribe(
             hit -> {
               log.info(
-                  "RCA cache hit interactionName={} date={}",
-                  keyParts.interactionName(),
+                  "RCA cache hit type={} entity={} date={}",
+                  keyParts.type(),
+                  keyParts.entityKey(),
                   keyParts.date());
               resultFuture.complete(
                   AiProxyUpstreamResult.buffered(
@@ -157,8 +163,9 @@ final class RcaReportProxyHandler {
             },
             () -> {
               log.info(
-                  "RCA cache miss, async job path interactionName={} date={}",
-                  keyParts.interactionName(),
+                  "RCA cache miss, async job path type={} entity={} date={}",
+                  keyParts.type(),
+                  keyParts.entityKey(),
                   keyParts.date());
               dispatchAsyncRca(parsed, authorization, rawQuery, keyParts, createdByOrNull)
                   .whenComplete(
@@ -183,13 +190,15 @@ final class RcaReportProxyHandler {
     RcaCacheKey key =
         new RcaCacheKey(
             keyParts.projectId(),
-            keyParts.interactionName(),
+            keyParts.type(),
+            keyParts.entityKey(),
             keyParts.date(),
             keyParts.regenerate(),
             parsed.rawBody());
     log.info(
-        "RCA createOrGetJob starting interactionName={} date={}",
-        keyParts.interactionName(),
+        "RCA createOrGetJob starting type={} entity={} date={}",
+        keyParts.type(),
+        keyParts.entityKey(),
         keyParts.date());
     rcaReportJobService
         .createOrGetJob(key, createdByOrNull)
@@ -198,11 +207,12 @@ final class RcaReportProxyHandler {
             dispatch -> {
               AiProxyUpstreamResult response = acceptedResult(dispatch, keyParts.projectId());
               log.info(
-                  "RCA returning {} jobId={} enqueueWorker={} interactionName={}",
+                  "RCA returning {} jobId={} enqueueWorker={} type={} entity={}",
                   HTTP_ACCEPTED,
                   dispatch.job().jobId(),
                   dispatch.shouldEnqueueWorker(),
-                  keyParts.interactionName());
+                  keyParts.type(),
+                  keyParts.entityKey());
               if (dispatch.shouldEnqueueWorker()) {
                 rcaReportProcessor.enqueueProcess(
                     dispatch.job(),
@@ -252,7 +262,7 @@ final class RcaReportProxyHandler {
   }
 
   private record RcaCacheKeyParts(
-      String projectId, String interactionName, LocalDate date, boolean regenerate) {}
+      String projectId, RcaType type, String entityKey, LocalDate date, boolean regenerate) {}
 
   /** Parsed JSON body and cache key after {@link #validateRcaReportPost} succeeds. */
   private record ParsedRcaPost(String rawBody, ObjectNode bodyRoot, RcaCacheKeyParts keyParts) {}
@@ -284,18 +294,24 @@ final class RcaReportProxyHandler {
             badRequest(ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS, MESSAGE_BODY_JSON_OBJECT);
         return new RcaPostValidation.Invalid(errorResponse);
       }
-      JsonNode interactionNode = objectRoot.get(INTERACTION_NAME_FIELD);
-      boolean interactionMissing = interactionNode == null || interactionNode.asText().isBlank();
-      if (interactionMissing) {
+
+      // Extract or default the RCA type
+      RcaType type = extractRcaType(objectRoot);
+
+      // Extract entityKey (supports both entityKey and legacy interactionName)
+      String entityKey = extractEntityKey(objectRoot);
+      boolean entityMissing = entityKey == null || entityKey.isBlank();
+      if (entityMissing) {
         AiProxyUpstreamResult errorResponse =
             badRequest(
-                ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS, MESSAGE_INTERACTION_REQUIRED);
+                ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS, MESSAGE_ENTITY_REQUIRED);
         return new RcaPostValidation.Invalid(errorResponse);
       }
+
       LocalDate date = resolveDateFromNode(objectRoot.get(DATE_FIELD));
       boolean regenerate = isRegenerateRequested(objectRoot.get(REGENERATE_FIELD));
-      String interactionName = interactionNode.asText();
-      RcaCacheKeyParts keyParts = new RcaCacheKeyParts(projectId, interactionName, date, regenerate);
+
+      RcaCacheKeyParts keyParts = new RcaCacheKeyParts(projectId, type, entityKey, date, regenerate);
       ParsedRcaPost parsed = new ParsedRcaPost(body, objectRoot, keyParts);
       return new RcaPostValidation.Valid(parsed);
     } catch (Exception e) {
@@ -305,6 +321,33 @@ final class RcaReportProxyHandler {
               ServiceError.INVALID_REQUEST_BODY, ServiceError.INVALID_REQUEST_BODY.getErrorMessage());
       return new RcaPostValidation.Invalid(errorResponse);
     }
+  }
+
+  private static RcaType extractRcaType(ObjectNode objectRoot) {
+    JsonNode typeNode = objectRoot.get(TYPE_FIELD);
+    if (typeNode == null || typeNode.isNull()) {
+      return RcaType.INTERACTION; // Default type for backward compatibility
+    }
+    String typeStr = typeNode.asText().trim().toUpperCase();
+    try {
+      return RcaType.valueOf(typeStr);
+    } catch (IllegalArgumentException e) {
+      log.warn("Invalid RCA type '{}', defaulting to INTERACTION", typeStr);
+      return RcaType.INTERACTION;
+    }
+  }
+
+  private static String extractEntityKey(ObjectNode objectRoot) {
+    // Prefer entityKey field, fall back to legacy interactionName
+    JsonNode entityNode = objectRoot.get(ENTITY_KEY_FIELD);
+    if (entityNode == null || entityNode.isNull()) {
+      JsonNode legacyNode = objectRoot.get(INTERACTION_NAME_FIELD);
+      if (legacyNode != null && !legacyNode.isNull()) {
+        return legacyNode.asText().trim();
+      }
+      return null;
+    }
+    return entityNode.asText().trim();
   }
 
   private static AiProxyUpstreamResult badRequest(ServiceError error, String message) {

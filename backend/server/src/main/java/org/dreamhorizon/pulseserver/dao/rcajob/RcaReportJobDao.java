@@ -22,14 +22,13 @@ import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class RcaReportJobDao {
 
-  private static final int INITIAL_VERSION = 1;
-
   private final MysqlClient mysqlClient;
 
   public Single<RcaReportJob> createJob(
       final String jobId,
       final String projectId,
-      final String interactionName,
+      final RcaType type,
+      final String entityKey,
       final LocalDate date,
       final String createdBy) {
     return mysqlClient
@@ -40,13 +39,13 @@ public class RcaReportJobDao {
                 Arrays.asList(
                     jobId,
                     projectId,
-                    interactionName,
+                    type.name(),
+                    entityKey,
                     date,
                     RcaJobStatus.PENDING.name(),
                     null,
                     createdBy,
-                    null,
-                    INITIAL_VERSION)))
+                    null)))
         .ignoreElement()
         .andThen(
             Single.fromCallable(
@@ -54,7 +53,8 @@ public class RcaReportJobDao {
                     new RcaReportJob(
                         jobId,
                         projectId,
-                        interactionName,
+                        type,
+                        entityKey,
                         date,
                         RcaJobStatus.PENDING,
                         null,
@@ -62,8 +62,7 @@ public class RcaReportJobDao {
                         null,
                         null,
                         createdBy,
-                        null,
-                        INITIAL_VERSION)))
+                        null)))
         .doOnError(e -> log.warn("RCA report job insert failed: {}", e.getMessage()));
   }
 
@@ -83,11 +82,11 @@ public class RcaReportJobDao {
   }
 
   public Maybe<RcaReportJob> getActiveJobByKey(
-      String projectId, String interactionName, LocalDate date) {
+      String projectId, RcaType type, String entityKey, LocalDate date) {
     return mysqlClient
         .getReaderPool()
         .preparedQuery(RcaReportJobQueries.GET_ACTIVE_JOB_BY_KEY)
-        .rxExecute(Tuple.of(projectId, interactionName, date))
+        .rxExecute(Tuple.of(projectId, type.name(), entityKey, java.sql.Date.valueOf(date)))
         .flatMapMaybe(
             rows -> {
               if (rows.size() == 0) {
@@ -111,13 +110,14 @@ public class RcaReportJobDao {
   public Completable markCompleted(
       String jobId,
       String projectId,
-      String interactionName,
+      RcaType type,
+      String entityKey,
       LocalDate date) {
     Completable deleteOld =
         mysqlClient
             .getWriterPool()
             .preparedQuery(RcaReportJobQueries.DELETE_OLD_COMPLETED)
-            .rxExecute(Tuple.of(projectId, interactionName, date, jobId))
+            .rxExecute(Tuple.of(projectId, type.name(), entityKey, java.sql.Date.valueOf(date), jobId))
             .ignoreElement()
             .doOnError(e -> log.warn("RCA delete old completed row failed: {}", e.getMessage()))
             .onErrorComplete();
@@ -133,14 +133,15 @@ public class RcaReportJobDao {
   public Completable markFailed(
       String jobId,
       String projectId,
-      String interactionName,
+      RcaType type,
+      String entityKey,
       LocalDate date,
       String errorMessage) {
     Completable deleteOld =
         mysqlClient
             .getWriterPool()
             .preparedQuery(RcaReportJobQueries.DELETE_OLD_FAILED)
-            .rxExecute(Tuple.of(projectId, interactionName, date, jobId))
+            .rxExecute(Tuple.of(projectId, type.name(), entityKey, java.sql.Date.valueOf(date), jobId))
             .ignoreElement()
             .doOnError(e -> log.warn("RCA delete old failed row failed: {}", e.getMessage()))
             .onErrorComplete();
@@ -165,23 +166,25 @@ public class RcaReportJobDao {
   }
 
   private static RcaReportJob mapRow(Row row) {
-    String statusStr = row.getString(4);
+    String typeStr = row.getString(2);
+    RcaType type = RcaType.valueOf(typeStr);
+    String statusStr = row.getString(5);
     RcaJobStatus status = RcaJobStatus.valueOf(statusStr);
-    LocalDateTime created = row.getLocalDateTime(6);
-    LocalDateTime started = row.getLocalDateTime(7);
-    LocalDateTime completed = row.getLocalDateTime(8);
+    LocalDateTime created = row.getLocalDateTime(7);
+    LocalDateTime started = row.getLocalDateTime(8);
+    LocalDateTime completed = row.getLocalDateTime(9);
     return new RcaReportJob(
         row.getString(0),
         row.getString(1),
-        row.getString(2),
-        row.getLocalDate(3),
+        type,
+        row.getString(3),
+        row.getLocalDate(4),
         status,
-        row.getString(5),
+        row.getString(6),
         created != null ? created.toInstant(ZoneOffset.UTC) : null,
         started != null ? started.toInstant(ZoneOffset.UTC) : null,
         completed != null ? completed.toInstant(ZoneOffset.UTC) : null,
-        row.getString(9),
         row.getString(10),
-        row.getInteger(11));
+        row.getString(11));
   }
 }

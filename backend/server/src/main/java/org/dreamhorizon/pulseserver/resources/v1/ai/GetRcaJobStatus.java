@@ -15,6 +15,7 @@ import java.time.format.DateTimeParseException;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.v1.ai.models.GetRcaJobResponse;
@@ -54,10 +55,17 @@ public class GetRcaJobStatus {
   @Produces(MediaType.APPLICATION_JSON)
   @RequiresPermission("can_view")
   public CompletionStage<Response<GetRcaJobResponse>> peekRcaStatus(
+      @QueryParam("rcaType") String rcaTypeParam,
+      @QueryParam("entityKey") String entityKeyParam,
       @QueryParam("interactionName") String interactionName,
       @QueryParam("date") String dateParam,
       @HeaderParam(PROJECT_ID_HEADER) String projectId) {
-    if (interactionName == null || interactionName.isBlank()
+
+    // Support both new (rcaType + entityKey) and legacy (interactionName) parameters
+    RcaType type = resolveRcaType(rcaTypeParam);
+    String entityKey = resolveEntityKey(entityKeyParam, interactionName);
+
+    if (entityKey == null || entityKey.isBlank()
         || projectId == null || projectId.isBlank()) {
       return Maybe.<GetRcaJobResponse>error(ServiceError.NOT_FOUND.getException())
           .toSingle()
@@ -65,10 +73,30 @@ public class GetRcaJobStatus {
     }
     LocalDate date = resolveDate(dateParam);
     return rcaReportJobService
-        .peekStatus(projectId, interactionName, date)
+        .peekStatus(projectId, type, entityKey, date)
         .switchIfEmpty(Maybe.error(ServiceError.NOT_FOUND.getException()))
         .toSingle()
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private static RcaType resolveRcaType(String rcaTypeParam) {
+    if (rcaTypeParam == null || rcaTypeParam.isBlank()) {
+      return RcaType.INTERACTION; // Default type for backward compatibility
+    }
+    try {
+      return RcaType.valueOf(rcaTypeParam.trim().toUpperCase());
+    } catch (IllegalArgumentException e) {
+      log.warn("Invalid RCA type '{}', defaulting to INTERACTION", rcaTypeParam);
+      return RcaType.INTERACTION;
+    }
+  }
+
+  private static String resolveEntityKey(String entityKeyParam, String interactionName) {
+    if (entityKeyParam != null && !entityKeyParam.isBlank()) {
+      return entityKeyParam;
+    }
+    // Fall back to legacy interactionName parameter
+    return interactionName;
   }
 
   private static LocalDate resolveDate(final String dateParam) {

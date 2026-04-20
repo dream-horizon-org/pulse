@@ -64,7 +64,8 @@ public class RcaReportProcessor {
                 .markFailed(
                     job.jobId(),
                     job.projectId(),
-                    job.interactionName(),
+                    job.type(),
+                    job.entityKey(),
                     job.date(),
                     truncateMessage(ar.cause().getMessage()))
                 .subscribe(() -> {}, e -> log.warn("markFailed failed: {}", e.getMessage()));
@@ -107,7 +108,8 @@ public class RcaReportProcessor {
             .markFailed(
                 job.jobId(),
                 job.projectId(),
-                job.interactionName(),
+                job.type(),
+                job.entityKey(),
                 job.date(),
                 truncateMessage(
                     extractUpstreamErrorMessage(
@@ -118,7 +120,7 @@ public class RcaReportProcessor {
 
       finalizeSuccessfulRcaProxyResult(proxyResult, enrichment, job).toCompletableFuture().join();
       jobDao
-          .markCompleted(job.jobId(), job.projectId(), job.interactionName(), job.date())
+          .markCompleted(job.jobId(), job.projectId(), job.type(), job.entityKey(), job.date())
           .blockingAwait();
     } catch (Exception e) {
       log.error("RCA job {} failed", job.jobId(), e);
@@ -126,7 +128,8 @@ public class RcaReportProcessor {
           .markFailed(
               job.jobId(),
               job.projectId(),
-              job.interactionName(),
+              job.type(),
+              job.entityKey(),
               job.date(),
               truncateMessage(e.getMessage()))
           .blockingAwait();
@@ -148,7 +151,8 @@ public class RcaReportProcessor {
         requestBody,
         objectRoot,
         job.projectId(),
-        job.interactionName(),
+        job.type(),
+        job.entityKey(),
         job.date(),
         forceRootCauseRefresh);
   }
@@ -173,7 +177,7 @@ public class RcaReportProcessor {
           CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
           rootCauseService
               .fetchDistinctScreensForInteraction(
-                  job.projectId(), job.interactionName(), window)
+                  job.projectId(), job.entityKey(), window)
               .subscribeOn(Schedulers.io())
               .timeout(30, java.util.concurrent.TimeUnit.SECONDS)
               .subscribe(
@@ -223,7 +227,8 @@ public class RcaReportProcessor {
     Completable putOp =
         rcaReportCacheDao.put(
             job.projectId(),
-            job.interactionName(),
+            job.type(),
+            job.entityKey(),
             job.date(),
             updated.getBufferedBody());
     CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
