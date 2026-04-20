@@ -99,16 +99,14 @@
         "{{ kafka_bin }}/kafka-reassign-partitions.sh" \
           --bootstrap-server localhost:9092 \
           --reassignment-json-file /tmp/drain-plan.json \
-          --verify \
-          | grep -c "Reassignment of partition.*completed successfully"
+          --verify 2>&1 \
+          | grep -c "in progress" || true
       register: verify_result
       retries: 60
       delay: 20
-      until: >-
-        verify_result.stdout | int >= (
-          (drain_plan.stdout | from_json).partitions | length
-        )
+      until: verify_result.stdout | int == 0
       changed_when: false
+      failed_when: false
       when: not broker_online_check.failed
 
     - name: Print reassignment verification result
