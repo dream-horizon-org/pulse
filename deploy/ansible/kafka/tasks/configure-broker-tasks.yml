@@ -91,7 +91,7 @@
       listener.security.protocol.map=INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       controller.listener.names=CONTROLLER
       inter.broker.listener.name=INTERNAL
-      listeners=INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      listeners=INTERNAL://0.0.0.0:9092,CONTROLLER://pulse-kafka-{{ '%02d' | format(node_id | int) }}.{{ route53_zone_name }}:9093
       advertised.listeners=INTERNAL://pulse-kafka-{{ '%02d' | format(node_id | int) }}.{{ route53_zone_name }}:9092
       log.dirs={{ kafka_log_dir }}
       default.replication.factor={{ replication_factor }}
