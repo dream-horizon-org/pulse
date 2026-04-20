@@ -129,7 +129,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 spanEndpointConnectivity = HttpEndpointConnectivity.forTraces(PulseEndpointUtils.getBaseUrl(apiKey), headers),
                 logEndpointConnectivity = HttpEndpointConnectivity.forLogs(PulseEndpointUtils.getBaseUrl(apiKey), headers),
                 metricEndpointConnectivity = HttpEndpointConnectivity.forMetrics(PulseEndpointUtils.getBaseUrl(apiKey), headers),
-                customEventConnectivity = HttpEndpointConnectivity(PulseEndpointUtils.getBaseUrl(apiKey).trimEnd('/') + "/vector/v1/logs", headers),
+                customEventConnectivity = HttpEndpointConnectivity.forLogs(PulseEndpointUtils.getBaseUrl(apiKey), headers),
                 configEndpointUrl = PulseEndpointUtils.getActiveConfigUrl(apiKey, projectId),
                 resource = resource,
                 instrumentations = instrumentations,

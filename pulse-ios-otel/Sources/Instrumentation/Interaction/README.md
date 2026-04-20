@@ -25,17 +25,14 @@ Interactions are **server-configured event sequences** that the SDK tracks autom
 
 ```swift
 Pulse.shared.initialize(
-    endpointBaseUrl: "https://your-backend.com",
     apiKey: "your-project-id",
-    dataCollectionState: .allowed
-) { config in
-    config.interaction { interactionConfig in
-        interactionConfig.enabled(true)
-        interactionConfig.setConfigUrl {
-            "http://10.0.2.2:8080/v1/interactions/all-active-interactions"
+    dataCollectionState: .allowed,
+    instrumentations: { config in
+        config.interaction { interactionConfig in
+            interactionConfig.enabled(true)
         }
     }
-}
+)
 ```
 
 **Network Configuration:**
@@ -192,8 +189,8 @@ PulseKit.trackEvent()
 
 ### Common Issues
 
-| Problem                  | Solution                                            |
-| ------------------------ | --------------------------------------------------- |
-| Interactions not loading | Check network connectivity and `configUrl`          |
-| Events not matching      | Verify event names (case-sensitive), check timeout  |
-| Spans not appearing      | Verify `endpointBaseUrl`, check network permissions |
+| Problem                  | Solution                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------- |
+| Interactions not loading | Check network connectivity  |
+| Events not matching      | Verify event names (case-sensitive), check timeout                                    |
+| Spans not appearing      | Verify API key / network permissions; interaction config URL comes from remote config |

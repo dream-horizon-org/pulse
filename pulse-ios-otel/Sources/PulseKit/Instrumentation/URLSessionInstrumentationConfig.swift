@@ -34,14 +34,16 @@ public struct URLSessionInstrumentationConfig {
         baseUrl: String,
         userHandler: ((URLRequest) -> Bool)?
     ) -> ((URLRequest) -> Bool) {
-        _ = baseUrl  // Reserved for future host-based exclusion if needed
+        let baseHost = URL(string: baseUrl)?.host
         return { request in
             guard let url = request.url else { return userHandler?(request) ?? true }
-            let urlString = url.absoluteString
-            if urlString.contains("/v1/traces") || urlString.contains("/v1/logs") || urlString.contains("/v1/metrics") || urlString.contains("/session-capture") {
+            if let baseHost = baseHost, url.host == baseHost {
                 return false
             }
-
+            let path = url.path
+            if path.contains("/v1/traces") || path.contains("/v1/logs") || path.contains("/v1/metrics") {
+                return false
+            }
             return userHandler?(request) ?? true
         }
     }
