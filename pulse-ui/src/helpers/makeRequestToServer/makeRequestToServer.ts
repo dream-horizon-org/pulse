@@ -80,6 +80,27 @@ export async function streamAiRunSse(init?: RequestInit): Promise<Response> {
   const base = API_BASE_URL.replace(/\/$/, "");
   const url = `${base}${AI_API_PATHS.RUN_SSE}`;
   const authHeaders = buildAuthHeaders();
+
+  if (process.env.REACT_APP_USE_MOCK_SERVER === "true") {
+    try {
+      const MockServerClass = await getMockServer();
+      if (MockServerClass) {
+        const mockServer = MockServerClass.getInstance();
+        if (mockServer.isEnabled()) {
+          return await mockServer.handleRunSseRequest(url, {
+            ...init,
+            headers: { ...init?.headers, ...authHeaders },
+          });
+        }
+      }
+    } catch (error) {
+      console.warn(
+        "[Mock Server] SSE: failed to use mock, falling back to real API:",
+        error,
+      );
+    }
+  }
+
   return fetch(url, {
     ...init,
     headers: { ...init?.headers, ...authHeaders },
