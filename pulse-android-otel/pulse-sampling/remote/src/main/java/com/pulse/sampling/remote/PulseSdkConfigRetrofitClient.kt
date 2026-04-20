@@ -1,7 +1,7 @@
 package com.pulse.sampling.remote
 
 import com.pulse.utils.PulseNetworkingUtils
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.serialization.json.Json
 import okhttp3.Call
@@ -40,7 +40,7 @@ public class PulseSdkConfigRetrofitClient(
                         cachedResponse: Response,
                     ) {
                         super.cacheConditionalHit(call, cachedResponse)
-                        PulseOtelUtils.logDebug(TAG) {
+                        PulseLogger.logDebug(TAG) {
                             "checking cache for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }
@@ -50,14 +50,14 @@ public class PulseSdkConfigRetrofitClient(
                         response: Response,
                     ) {
                         super.cacheHit(call, response)
-                        PulseOtelUtils.logDebug(TAG) {
+                        PulseLogger.logDebug(TAG) {
                             "cacheHit for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }
 
                     override fun cacheMiss(call: Call) {
                         super.cacheMiss(call)
-                        PulseOtelUtils.logDebug(TAG) {
+                        PulseLogger.logDebug(TAG) {
                             "cacheMiss for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }

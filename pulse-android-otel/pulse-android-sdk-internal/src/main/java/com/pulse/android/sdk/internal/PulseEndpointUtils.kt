@@ -2,7 +2,7 @@ package com.pulse.android.sdk.internal
 
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.utils.PulseNetworkingUtils
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 
@@ -59,10 +59,10 @@ internal object PulseEndpointUtils {
                         fallbackCustomEvent.getHeaders(),
                     ),
             )
-        PulseOtelUtils.logDebug(TAG) { "spanCollectorUrl = ${PulseNetworkingUtils.redactUrl(resolved.span.getUrl())}" }
-        PulseOtelUtils.logDebug(TAG) { "logsCollectorUrl = ${PulseNetworkingUtils.redactUrl(resolved.log.getUrl())}" }
-        PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = ${PulseNetworkingUtils.redactUrl(resolved.metric.getUrl())}" }
-        PulseOtelUtils.logDebug(TAG) { "customEventCollectorUrl = ${PulseNetworkingUtils.redactUrl(resolved.customEvent.getUrl())}" }
+        PulseLogger.logDebug(TAG) { "spanCollectorUrl = ${PulseNetworkingUtils.redactUrl(resolved.span.getUrl())}" }
+        PulseLogger.logDebug(TAG) { "logsCollectorUrl = ${PulseNetworkingUtils.redactUrl(resolved.log.getUrl())}" }
+        PulseLogger.logDebug(TAG) { "metricCollectorUrl = ${PulseNetworkingUtils.redactUrl(resolved.metric.getUrl())}" }
+        PulseLogger.logDebug(TAG) { "customEventCollectorUrl = ${PulseNetworkingUtils.redactUrl(resolved.customEvent.getUrl())}" }
         return resolved
     }
 

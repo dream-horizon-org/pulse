@@ -5,15 +5,15 @@ public final class com/pulse/utils/BuildConfig {
 	public fun <init> ()V
 }
 
-public final class com/pulse/utils/LogLevel : java/lang/Enum {
-	public static final field DEBUG Lcom/pulse/utils/LogLevel;
-	public static final field ERROR Lcom/pulse/utils/LogLevel;
-	public static final field INFO Lcom/pulse/utils/LogLevel;
-	public static final field NONE Lcom/pulse/utils/LogLevel;
-	public static final field VERBOSE Lcom/pulse/utils/LogLevel;
-	public static final field WARN Lcom/pulse/utils/LogLevel;
-	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/utils/LogLevel;
-	public static fun values ()[Lcom/pulse/utils/LogLevel;
+public final class com/pulse/utils/PulseLogLevel : java/lang/Enum {
+	public static final field DEBUG Lcom/pulse/utils/PulseLogLevel;
+	public static final field ERROR Lcom/pulse/utils/PulseLogLevel;
+	public static final field INFO Lcom/pulse/utils/PulseLogLevel;
+	public static final field NONE Lcom/pulse/utils/PulseLogLevel;
+	public static final field VERBOSE Lcom/pulse/utils/PulseLogLevel;
+	public static final field WARN Lcom/pulse/utils/PulseLogLevel;
+	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/utils/PulseLogLevel;
+	public static fun values ()[Lcom/pulse/utils/PulseLogLevel;
 }
 
 public final class com/pulse/utils/PulseCoroutineUtilsKt {
@@ -51,12 +51,10 @@ public final class com/pulse/utils/PulseNetworkingUtils {
 	public final fun runNetworkCatching-hUnOzRk (Ljava/lang/String;Ljava/lang/String;Lokhttp3/OkHttpClient;ZLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
-public final class com/pulse/utils/PulseOtelUtils {
-	public static final field INSTANCE Lcom/pulse/utils/PulseOtelUtils;
-	public final fun getLogLevel ()Lcom/pulse/utils/LogLevel;
-	public final fun getTag (Lkotlin/jvm/functions/Function0;)Ljava/lang/String;
-	public final fun isDebug ()Z
-	public final fun isNetworkSpan (Lio/opentelemetry/sdk/trace/ReadableSpan;)Z
+public final class com/pulse/utils/PulseLogger {
+	public static final field INSTANCE Lcom/pulse/utils/PulseLogger;
+	public static final field TAG_PREFIX Ljava/lang/String;
+	public final fun getLogLevel ()Lcom/pulse/utils/PulseLogLevel;
 	public final fun logDebug (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
 	public final fun logError (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
 	public final fun logError (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
@@ -64,13 +62,18 @@ public final class com/pulse/utils/PulseOtelUtils {
 	public final fun logVerbose (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
 	public final fun logWarn (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
 	public final fun logWarn (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun setLogLevel (Lcom/pulse/utils/PulseLogLevel;)V
+}
+
+public final class com/pulse/utils/PulseOtelUtils {
+	public static final field INSTANCE Lcom/pulse/utils/PulseOtelUtils;
+	public final fun isDebug ()Z
+	public final fun isNetworkSpan (Lio/opentelemetry/sdk/trace/ReadableSpan;)Z
 	public final fun sanitizeInstrumentationName (Ljava/lang/String;C)Ljava/lang/String;
 	public static synthetic fun sanitizeInstrumentationName$default (Lcom/pulse/utils/PulseOtelUtils;Ljava/lang/String;CILjava/lang/Object;)Ljava/lang/String;
-	public final fun setLogLevel (Lcom/pulse/utils/LogLevel;)V
 }
 
 public final class com/pulse/utils/PulseOtelUtilsKt {
-	public static final field TAG Ljava/lang/String;
 	public static final fun filter (Lio/opentelemetry/api/common/Attributes;Lkotlin/jvm/functions/Function1;)Lio/opentelemetry/api/common/Attributes;
 	public static final fun filterNot (Lio/opentelemetry/api/common/Attributes;Lkotlin/jvm/functions/Function1;)Lio/opentelemetry/api/common/Attributes;
 	public static final fun matchesFromRegexCache (Ljava/lang/String;Ljava/lang/String;)Z

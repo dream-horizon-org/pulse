@@ -28,9 +28,9 @@ import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
-import com.pulse.utils.LogLevel
+import com.pulse.utils.PulseLogLevel
 import com.pulse.utils.PulseMathUtils
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
 import io.opentelemetry.android.AndroidResource
@@ -111,16 +111,16 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
-        logLevel: LogLevel = LogLevel.NONE,
+        logLevel: PulseLogLevel = PulseLogLevel.NONE,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
-        PulseOtelUtils.logLevel = logLevel
+        PulseLogger.logLevel = logLevel
         if (isShutdown) {
-            PulseOtelUtils.logWarn(TAG) { "Initialisation skipped: SDK has been shut down" }
+            PulseLogger.logWarn(TAG) { "Initialisation skipped: SDK has been shut down" }
             return
         }
         if (isInitialized()) {
-            PulseOtelUtils.logDebug(TAG) { "Initialisation skipped already initialised" }
+            PulseLogger.logDebug(TAG) { "Initialisation skipped already initialised" }
             return
         }
         this.application = application
@@ -148,7 +148,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 beforeSendData = beforeSendData,
             )
         }.also {
-            PulseOtelUtils.logInfo(TAG) { "sdk.init duration_ms=${it / 1_000_000}" }
+            PulseLogger.logInfo(TAG) { "sdk.init duration_ms=${it / 1_000_000}" }
         }
         isInitialised = true
     }
@@ -177,7 +177,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     ) {
         if (dataCollectionState == PulseDataCollectionConsent.DENIED) {
             oldState = PulseDataCollectionConsent.DENIED
-            PulseOtelUtils.logInfo(TAG) { "initializeInternal returned early as started with DENIED consent" }
+            PulseLogger.logInfo(TAG) { "initializeInternal returned early as started with DENIED consent" }
             return
         }
         val sharedPrefs =
@@ -343,7 +343,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
             sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)
             pulseSamplingProcessors?.run {
-                PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
+                PulseLogger.logDebug(TAG) { "Applying feature flags" }
                 val flagResult = PulseFeatureFlagUtils.apply(config, this)
                 isCustomEventEnabled = flagResult.isCustomEventEnabled
             } ?: run {
@@ -435,7 +435,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         endpointBaseUrl: String,
     ): SessionReplayConfig? {
         if (sdkConfig == null) {
-            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: no backend config fetched yet" }
+            PulseLogger.logDebug(TAG) { "Session replay disabled: no backend config fetched yet" }
             return null
         }
 
@@ -444,23 +444,23 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 .firstOrNull { it.featureName == PulseFeatureName.SESSION_REPLAY }
 
         if (backendFeature == null) {
-            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: feature absent from backend config" }
+            PulseLogger.logDebug(TAG) { "Session replay disabled: feature absent from backend config" }
             return null
         }
 
         if (backendFeature.sessionSampleRate <= 0F) {
-            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: sessionSampleRate=${backendFeature.sessionSampleRate}" }
+            PulseLogger.logDebug(TAG) { "Session replay disabled: sessionSampleRate=${backendFeature.sessionSampleRate}" }
             return null
         }
 
-        PulseOtelUtils.logDebug(TAG) { "Session replay enabled by backend (rate=${backendFeature.sessionSampleRate})" }
+        PulseLogger.logDebug(TAG) { "Session replay enabled by backend (rate=${backendFeature.sessionSampleRate})" }
 
         val base = localConfig ?: SessionReplayConfig()
 
         val featureConfig = backendFeature.config as? PulseFeatureConfigData.SessionReplay
         if (featureConfig == null) {
             val configType = backendFeature.config?.run { javaClass.simpleName } ?: "null"
-            PulseOtelUtils.logDebug(TAG) {
+            PulseLogger.logDebug(TAG) {
                 "Session replay config missing or failed to parse (config type=$configType), " +
                     "using base with endpointBaseUrl fallback"
             }
@@ -468,18 +468,18 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         }
 
         val replayUrl = featureConfig.replayApiBaseUrl ?: "null"
-        PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config (replayApiBaseUrl=$replayUrl)" }
+        PulseLogger.logDebug(TAG) { "Applying backend session replay config (replayApiBaseUrl=$replayUrl)" }
 
         val resolvedTextPrivacy =
             featureConfig.textAndInputPrivacy?.let { value ->
                 runCatching { TextAndInputPrivacy.valueOf(value) }
-                    .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
+                    .onFailure { PulseLogger.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
                     .getOrNull()
             }
         val resolvedImagePrivacy =
             featureConfig.imagePrivacy?.let { value ->
                 runCatching { ImagePrivacy.valueOf(value) }
-                    .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
+                    .onFailure { PulseLogger.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
                     .getOrNull()
             }
 
@@ -704,12 +704,12 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
     public fun shutdown() {
         if (isShutdown) {
-            PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down" }
+            PulseLogger.logDebug(TAG) { "Shutdown skipped: already shut down" }
             return
         }
         launch(Dispatchers.Main.immediate) {
             if (isShutdown) {
-                PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down in main thread" }
+                PulseLogger.logDebug(TAG) { "Shutdown skipped: already shut down in main thread" }
                 return@launch
             }
             sessionReplay?.flush()
@@ -720,21 +720,21 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             otelInstance?.shutdown()
             otelInstance = null
             isShutdown = true
-            PulseOtelUtils.logDebug(TAG) { "Pulse SDK shut down" }
+            PulseLogger.logDebug(TAG) { "Pulse SDK shut down" }
         }
     }
 
     public fun setDataCollectionState(newState: PulseDataCollectionConsent) {
         if (oldState == PulseDataCollectionConsent.DENIED) {
-            PulseOtelUtils.logDebug(TAG) { "setDataCollectionState skipped: SDK has been denied" }
+            PulseLogger.logDebug(TAG) { "setDataCollectionState skipped: SDK has been denied" }
             return
         }
         if (isShutdown) {
-            PulseOtelUtils.logDebug(TAG) { "setDataCollectionState skipped: SDK has been shut down" }
+            PulseLogger.logDebug(TAG) { "setDataCollectionState skipped: SDK has been shut down" }
             return
         }
         if (newState == oldState) {
-            PulseOtelUtils.logDebug(TAG) {
+            PulseLogger.logDebug(TAG) {
                 "setDataCollectionState skipped: oldState = ${oldState ?: "null"} is equal to newState = $newState"
             }
             return

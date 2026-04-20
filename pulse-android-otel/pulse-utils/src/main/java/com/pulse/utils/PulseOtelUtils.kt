@@ -1,6 +1,5 @@
 package com.pulse.utils
 
-import android.util.Log
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
@@ -12,9 +11,6 @@ import java.util.regex.Matcher
 import java.util.regex.Pattern
 
 public object PulseOtelUtils {
-    @Volatile
-    public var logLevel: LogLevel = LogLevel.NONE
-
     internal const val HEX_CHARS = "[0-9a-fA-F]"
     internal const val DIGITS = "\\d"
     internal const val ALPHANUMERIC = "[A-Za-z0-9]"
@@ -63,60 +59,6 @@ public object PulseOtelUtils {
             withLetterStart.take(255)
         }
     }
-
-    @PublishedApi
-    internal inline fun getTag(tag: () -> String): String = "$TAG:${tag()}"
-
-    public inline fun logError(
-        tag: String,
-        throwable: Throwable,
-        body: () -> String,
-    ) {
-        if (logLevel <= LogLevel.ERROR) Log.e(getTag { tag }, body(), throwable)
-    }
-
-    public inline fun logError(
-        tag: String,
-        body: () -> String,
-    ) {
-        if (logLevel <= LogLevel.ERROR) Log.e(getTag { tag }, body())
-    }
-
-    public inline fun logWarn(
-        tag: String,
-        body: () -> String,
-    ) {
-        if (logLevel <= LogLevel.WARN) Log.w(getTag { tag }, body())
-    }
-
-    public inline fun logWarn(
-        tag: String,
-        throwable: Throwable?,
-        body: () -> String,
-    ) {
-        if (logLevel <= LogLevel.WARN) Log.w(getTag { tag }, body(), throwable)
-    }
-
-    public inline fun logInfo(
-        tag: String,
-        body: () -> String,
-    ) {
-        if (logLevel <= LogLevel.INFO) Log.i(getTag { tag }, body())
-    }
-
-    public inline fun logDebug(
-        tag: String,
-        body: () -> String,
-    ) {
-        if (logLevel <= LogLevel.DEBUG) Log.d(getTag { tag }, body())
-    }
-
-    public inline fun logVerbose(
-        tag: String,
-        body: () -> String,
-    ) {
-        if (logLevel <= LogLevel.VERBOSE) Log.v(getTag { tag }, body())
-    }
 }
 
 public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): AttributesBuilder =
@@ -154,9 +96,6 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
             }
         }
     }
-
-@PublishedApi
-internal const val TAG: String = "PulseSDK"
 
 public fun Map<String, Any?>.toAttributes(): Attributes = (Attributes.builder() putAttributesFrom this).build()
 

@@ -7,6 +7,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 /// Coordinates loading current SDK config from storage and starting a background config fetch.
 /// Receives the final config URL from PulseKit (PulseKit applies default when app passes nil).

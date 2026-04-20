@@ -65,9 +65,9 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   OpenTelemetry-Swift-Api: 0785e3b9888286449aa297c0b48269797bfcaf7f
   OpenTelemetry-Swift-Sdk: b856396d6147c01829a88ad782f481c0e1cd0966
-  PulseKit: 22632b2108ecc971f6488f2b61a7b2da2af26e1e
+  PulseKit: a4afcbef0f4f98e5eef63d6ce62d091921cce741
   SwiftProtobuf: c901f00a3e125dc33cac9b16824da85682ee47da
 
 PODFILE CHECKSUM: f062e09aa835ba60cec9e8cb40ef5083c212cfc1
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

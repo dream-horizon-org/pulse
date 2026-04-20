@@ -6,7 +6,7 @@ import android.app.Application
 import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
-import com.pulse.utils.LogLevel
+import com.pulse.utils.PulseLogLevel
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
@@ -42,7 +42,7 @@ internal class PulseSDKAdapter(
         globalAttributes: (() -> Attributes)?,
         beforeSendData: PulseBeforeSendData?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
-        logLevel: LogLevel,
+        logLevel: PulseLogLevel,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         delegate.initialize(

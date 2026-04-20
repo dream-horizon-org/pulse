@@ -1818,7 +1818,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@dreamhorizonorg/pulse-react-native@workspace:.":
+"@dreamhorizonorg/pulse-react-native@workspace:*, @dreamhorizonorg/pulse-react-native@workspace:.":
   version: 0.0.0-use.local
   resolution: "@dreamhorizonorg/pulse-react-native@workspace:."
   dependencies:
@@ -12392,6 +12392,7 @@ __metadata:
     "@babel/core": ^7.25.2
     "@babel/preset-env": ^7.25.3
     "@babel/runtime": ^7.25.0
+    "@dreamhorizonorg/pulse-react-native": "workspace:*"
     "@react-native-community/cli": 20.0.0
     "@react-native-community/cli-platform-android": 20.0.0
     "@react-native-community/cli-platform-ios": 20.0.0

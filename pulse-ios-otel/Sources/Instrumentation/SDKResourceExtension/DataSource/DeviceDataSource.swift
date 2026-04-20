@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 #if os(watchOS)
   import WatchKit
 #elseif os(macOS)

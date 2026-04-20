@@ -4,6 +4,9 @@
 //
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import SwiftProtobuf
 #if canImport(OpenTelemetryProtocolExporterCommon)
 import OpenTelemetryProtocolExporterCommon

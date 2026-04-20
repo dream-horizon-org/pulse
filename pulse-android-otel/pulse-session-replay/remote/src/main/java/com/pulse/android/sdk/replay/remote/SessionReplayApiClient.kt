@@ -1,7 +1,7 @@
 package com.pulse.android.sdk.replay.remote
 
 import com.pulse.utils.PulseNetworkingUtils
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Retrofit
@@ -54,13 +54,13 @@ public class SessionReplayApiClient(
                         .orEmpty()
                         .take(MAX_ERROR_BODY_LOG)
                 val msg = response.message()
-                PulseOtelUtils.logError(REPLAY_LOG_TAG) {
+                PulseLogger.logError(REPLAY_LOG_TAG) {
                     "Session replay API error: ${response.code()} $msg. Body: $responseBody"
                 }
                 if (body.length <= MAX_REQUEST_LOG) {
-                    PulseOtelUtils.logVerbose(REPLAY_LOG_TAG) { "Request payload: $body" }
+                    PulseLogger.logVerbose(REPLAY_LOG_TAG) { "Request payload: $body" }
                 } else {
-                    PulseOtelUtils.logVerbose(REPLAY_LOG_TAG) {
+                    PulseLogger.logVerbose(REPLAY_LOG_TAG) {
                         "Request payload (first $MAX_REQUEST_LOG chars): ${body.take(MAX_REQUEST_LOG)}..."
                     }
                 }

@@ -7,6 +7,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 /// Remote config structure for click instrumentation, parsed from backend feature config JSON.
 internal struct ClickFeatureRemoteConfig: Decodable {

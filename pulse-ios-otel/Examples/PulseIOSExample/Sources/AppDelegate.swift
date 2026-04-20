@@ -50,13 +50,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                     }
                 }
             },
-            dataCollectionState: .allowed
+            dataCollectionState: .allowed,
+            logLevel: .debug
         )
         window = UIWindow(frame: UIScreen.main.bounds)
         let mainViewController = MainViewController()
         window?.rootViewController = UINavigationController(rootViewController: mainViewController)
         window?.makeKeyAndVisible()
-        print("SDK Initialised")
+        // Demo only: not using PulseLogger (package-internal). Initialization logs come from SDK when logLevel != .none.
+        print("SDK initialised (Pulse iOS example)")
         return true
     }
 }

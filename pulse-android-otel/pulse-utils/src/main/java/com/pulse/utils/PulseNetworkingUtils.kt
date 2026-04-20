@@ -60,6 +60,6 @@ public object PulseNetworkingUtils {
                 val urlIterator = okHttpClient.cache?.urls()
                 urlIterator?.forEach { if (it == url) urlIterator.remove() }
             }
-            PulseOtelUtils.logWarn(tag) { "onFailure in runCatching, url = ${redactUrl(url)} error = ${RedactionUtils.classifyError(throwable)}" }
+            PulseLogger.logWarn(tag) { "onFailure in runCatching, url = ${redactUrl(url)} error = ${RedactionUtils.classifyError(throwable)}" }
         }
 }

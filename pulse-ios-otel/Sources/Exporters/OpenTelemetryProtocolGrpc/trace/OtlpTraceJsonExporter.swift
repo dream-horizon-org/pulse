@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetrySdk
 import OpenTelemetryProtocolExporterCommon
 

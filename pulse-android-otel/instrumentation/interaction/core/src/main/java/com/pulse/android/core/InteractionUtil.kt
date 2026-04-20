@@ -3,7 +3,7 @@ package com.pulse.android.core
 import com.pulse.android.remote.models.InteractionAttrsEntry
 import com.pulse.android.remote.models.InteractionConfig
 import com.pulse.android.remote.models.InteractionEvent
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import java.util.Locale
 
 internal data class InteractionBuildError(
@@ -315,7 +315,7 @@ internal object InteractionUtil {
 }
 
 internal inline fun logVerbose(body: () -> String) {
-    PulseOtelUtils.logVerbose(InteractionConstant.LOG_TAG, body)
+    PulseLogger.logVerbose(InteractionConstant.LOG_TAG, body)
 }
 
 /**
@@ -359,7 +359,7 @@ internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>
 internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
     val steps = this
     if (steps.isEmpty()) {
-        PulseOtelUtils.logError(
+        PulseLogger.logError(
             tag = InteractionConstant.LOG_TAG,
             throwable = IllegalStateException("getTimeSpanInNanos: Events size is 0)"),
         ) {

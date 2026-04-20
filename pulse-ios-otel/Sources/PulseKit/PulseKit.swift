@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetryApi
 import OpenTelemetrySdk
 #if os(iOS) || os(tvOS)
@@ -15,14 +18,6 @@ internal enum PulseKitConstants {
 }
 
 public class Pulse {
-    /// When true, wraps the metric exporter with PulseLoggingMetricExporter to print exported metrics in the console.
-    /// Automatically true in Debug builds, false in Release.
-    #if DEBUG
-    private static let enableMetricExportLogging = true
-    #else
-    private static let enableMetricExportLogging = false
-    #endif
-
     public static let shared = Pulse()
 
     // Thread-safe initialization
@@ -477,8 +472,8 @@ public class Pulse {
             finalLogExporter = logsExporter
         }
 
-        // Metric pipeline: OtlpHttpMetricExporter -> BeforeSendMetricExporter? -> PulseLoggingMetricExporter? -> SampledMetricExporter? -> PersistenceMetricExporter -> ConsentMetricExporter -> PeriodicMetricReader -> MeterProviderSdk
-        // PulseLoggingMetricExporter is behind enableMetricExportLogging (dev-only) to avoid prod logs.
+        // Metric pipeline: OtlpHttpMetricExporter -> BeforeSendMetricExporter? -> PulseLoggingMetricExporter -> SampledMetricExporter? -> PersistenceMetricExporter -> ConsentMetricExporter -> PeriodicMetricReader -> MeterProviderSdk
+        // PulseLoggingMetricExporter only emits when PulseLogger.verbose would (same as debug vs release: controlled solely by logLevel).
         // ConsentMetricExporter wraps persistence so pending consent does not write metrics to disk.
         let metricsUrl = currentSdkConfig.map { URL(string: $0.signals.metricCollectorUrl)! }
             ?? URL(string: "\(base)/v1/metrics")!
@@ -487,9 +482,7 @@ public class Pulse {
             BeforeSendMetricExporter(callback: $0, delegate: otlpMetricExporter)
         } ?? otlpMetricExporter
         let baseMetricExporterForPipeline: MetricExporter =
-            Self.enableMetricExportLogging
-                ? PulseLoggingMetricExporter(delegate: metricExporterAfterBeforeSend)
-                : metricExporterAfterBeforeSend
+            PulseLoggingMetricExporter(delegate: metricExporterAfterBeforeSend)
 
         let finalMetricExporter: MetricExporter
         if let processors = _samplingSignalProcessors {
@@ -993,7 +986,7 @@ internal enum BatchProcessorDefaults {
     static let exportTimeout: TimeInterval = 30
 }
 
-// MARK: - Debug Metric Logging (remove before release)
+// MARK: - Metric export logging (PulseLogger.verbose only; same pipeline in Debug and Release)
 
 internal class PulseLoggingMetricExporter: MetricExporter {
     private let delegate: MetricExporter
@@ -1003,7 +996,7 @@ internal class PulseLoggingMetricExporter: MetricExporter {
     }
 
     func export(metrics: [MetricData]) -> ExportResult {
-        if !metrics.isEmpty {
+        if !metrics.isEmpty, PulseLogger.currentLevel <= .verbose {
             PulseLogger.verbose("┌─── [PulseMetrics] Exporting \(metrics.count) metric(s) ───")
             for metric in metrics {
                 PulseLogger.verbose("│ Name: \(metric.name)")
