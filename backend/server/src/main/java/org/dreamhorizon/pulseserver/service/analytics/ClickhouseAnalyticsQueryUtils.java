@@ -8,8 +8,9 @@ import java.time.format.DateTimeFormatter;
  * Shared SQL helper utilities for funnel and journey ClickHouse compute builders.
  *
  * <p>Source table is {@code otel.otel_logs}. Custom event names use the {@code Body} column.
- * Funnel SQL uses materialized {@code UserId} / {@code SessionId}; journey SQL uses
- * {@link #resolveGroupKey(String)} ({@code LogAttributes} map access).
+ * Funnel and journey compute SQL group by materialized {@code UserId} / {@code SessionId}
+ * via {@link #resolveMaterializedGroupKey(String)}. {@link #resolveGroupKey(String)} remains
+ * for {@code LogAttributes} map access where needed elsewhere.
  */
 public final class ClickhouseAnalyticsQueryUtils {
 
@@ -36,8 +37,9 @@ public final class ClickhouseAnalyticsQueryUtils {
    * {@code otel.otel_logs} materialized columns ({@code UserId} / {@code SessionId}).
    *
    * <p>The {@code UserId} materialized column includes the canonical
-   * {@code user.id → app.installation.id} fallback (see ingestion DDL). Funnel builders use this
-   * for grouping; events with empty {@code UserId} / {@code SessionId} are grouped separately.
+   * {@code user.id → app.installation.id} fallback (see ingestion DDL). Funnel and journey
+   * builders use this for grouping; events with empty {@code UserId} / {@code SessionId} are
+   * grouped separately.
    *
    * @param mode "UNIQUE_USERS" or "SESSIONS" (case-insensitive)
    * @return {@code UserId} or {@code SessionId}

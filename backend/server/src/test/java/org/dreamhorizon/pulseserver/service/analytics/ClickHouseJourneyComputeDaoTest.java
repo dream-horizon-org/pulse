@@ -133,14 +133,14 @@ class ClickHouseJourneyComputeDaoTest {
     void shouldUseUserIdGroupKeyForUniqueUsers() {
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(
           baseRow().mode("UNIQUE_USERS").build(), "START");
-      assertThat(sql).contains("LogAttributes['user.id']");
+      assertThat(sql).contains("SELECT DISTINCT UserId AS gid");
     }
 
     @Test
     void shouldUseSessionIdGroupKeyForSessions() {
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(
           baseRow().mode("SESSIONS").build(), "START");
-      assertThat(sql).contains("LogAttributes['session.id']");
+      assertThat(sql).contains("SELECT DISTINCT SessionId AS gid");
     }
 
     @Test
@@ -199,6 +199,8 @@ class ClickHouseJourneyComputeDaoTest {
       assertThat(sql)
           .contains("raw AS (")
           .contains("FROM otel.otel_logs")
+          .contains("SELECT UserId,")
+          .contains("SessionId,")
           .contains("LogAttributes['pulse.type'] = 'custom_event'")
           .contains("ResourceAttributes,")
           .contains("\n                   LogAttributes\n");

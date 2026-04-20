@@ -36,7 +36,7 @@ public final class ClickHouseJourneyComputeDao {
         .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
         .collect(Collectors.joining("\n      "));
 
-    String groupKey = ClickhouseAnalyticsQueryUtils.resolveGroupKey(def.getMode());
+    String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
     String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
         def.getJourneyType(), def.getDateRangeDays(), def.getStartTime());
     String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getJourneyType(), def.getEndTime());
@@ -122,8 +122,8 @@ public final class ClickHouseJourneyComputeDao {
           (JourneyId, ProjectId, RunTime, Direction, PosFrom, EventFrom, PosTo, EventTo, UserCount)
         WITH
           raw AS (
-            SELECT LogAttributes['user.id'] AS UserId,
-                   LogAttributes['session.id'] AS SessionId,
+            SELECT UserId,
+                   SessionId,
                    Timestamp,
                    Body,
                    ResourceAttributes,
@@ -141,7 +141,7 @@ public final class ClickHouseJourneyComputeDao {
     for (int i = 0; i < defs.size(); i++) {
       JourneyRow def = defs.get(i);
       String anchorEvent = escape(def.getAnchorEvent());
-      String groupAlias = "SESSIONS".equalsIgnoreCase(def.getMode()) ? "SessionId" : "UserId";
+      String groupAlias = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
       List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
       String filterClauses = filters.stream()
           .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
