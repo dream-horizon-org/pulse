@@ -116,7 +116,7 @@ pipeline {
                         git config user.name "Jenkins"
                         git add "\$HOSTS_FILE"
                         git diff --cached --quiet || git commit -m "chore: remove broker ${params.REMOVE_NODE_ID} from ansible inventory"
-                        git push origin feat/kafka-teraaform-scripts
+                        git push origin HEAD:feat/kafka-teraaform-scripts
                     """
                 }
             }
