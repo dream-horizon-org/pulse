@@ -60,7 +60,28 @@
     - name: Configure broker
       include_tasks: tasks/configure-broker-tasks.yml
 
-# Phase 2 — Add new broker as quorum voter (run from an existing broker)
+# Phase 1.5 — Read directory ID from new broker's meta.properties
+# (Written by kafka-storage.sh format — avoids querying a not-yet-joined controller)
+- name: Read directory ID from new broker
+  hosts: new_broker
+  become: true
+
+  tasks:
+    - name: Read directory.id from meta.properties
+      shell: grep '^directory.id=' {{ kafka_log_dir }}/meta.properties | cut -d= -f2
+      register: dir_id_raw
+      changed_when: false
+
+    - name: Fail if directory.id not found
+      fail:
+        msg: "directory.id not found in {{ kafka_log_dir }}/meta.properties — was KRaft storage formatted?"
+      when: dir_id_raw.stdout | trim == ""
+
+    - name: Expose directory ID as host fact
+      set_fact:
+        new_broker_directory_id: "{{ dir_id_raw.stdout | trim }}"
+
+# Phase 2 — Add new broker as quorum controller (run from an existing broker)
 - name: Add new node to KRaft quorum
   hosts: "{{ existing_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
   become: true
@@ -80,25 +101,13 @@
         delay: 2
         timeout: 60
 
-    - name: Fetch directory ID from new broker
-      shell: |
-        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
-          --bootstrap-controller {{ new_broker_host }}:9093 \
-          describe --status \
-          | grep -i 'DirectoryId' | awk '{print $NF}'
-      register: new_broker_dir_id
-      retries: 5
-      delay: 5
-      until: new_broker_dir_id.stdout != ""
-      changed_when: false
-
     - name: Add new node as quorum controller
       shell: |
         "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
           --bootstrap-controller localhost:9093 \
           add-controller \
           --controller-id {{ new_node_id }} \
-          --controller-directory-id {{ new_broker_dir_id.stdout | trim }} \
+          --controller-directory-id {{ hostvars[new_broker_host]['new_broker_directory_id'] }} \
           --controller-host {{ new_broker_host }} \
           --controller-port 9093
       register: add_controller_result
