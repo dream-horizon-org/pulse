@@ -32,7 +32,7 @@ pipeline {
             steps {
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: '*/feat/kafka-teraaform-scripts']],
+                    branches: [[name: '*/main']],
                     userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
@@ -156,7 +156,7 @@ pipeline {
                         git config user.name "Jenkins"
                         git add "\$HOSTS_FILE"
                         git diff --cached --quiet || git commit -m "chore: add broker ${env.NEW_NODE_ID} to ansible inventory"
-                        git push origin HEAD:feat/kafka-teraaform-scripts
+                        git push origin HEAD:main
                     """
                 }
             }
