@@ -136,7 +136,16 @@
           socket.request.max.bytes=104857600
 
     # ------------------------------------------------------------------
-    # 3. Write systemd unit and start Kafka
+    # 3. Deploy JMX exporter config
+    # ------------------------------------------------------------------
+    - name: Deploy JMX exporter config
+      copy:
+        src: kafka-jmx-config.yml
+        dest: "{{ kafka_dir }}/config/kafka-jmx-config.yml"
+        mode: "0644"
+
+    # ------------------------------------------------------------------
+    # 4. Write systemd unit and start Kafka
     # ------------------------------------------------------------------
     - name: Write kafka.service unit
       copy:
@@ -174,7 +183,7 @@
     - name: Wait for Kafka to accept connections
       shell: "{{ kafka_dir }}/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
       register: kafka_ready
-      retries: 30
+      retries: 60
       delay: 5
       until: kafka_ready.rc == 0
       changed_when: false
