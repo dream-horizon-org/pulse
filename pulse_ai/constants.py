@@ -82,8 +82,12 @@ PULSE_USER_EMAIL_ENV_KEY = "PULSE_USER_EMAIL"
 # Derived from: Gemini Flash latency sweet-spot at ~40K tokens.
 TOKEN_BUDGET = 40_000
 
-# Number of chars per token (Gemini heuristic: 1 token ≈ 4 chars).
+# Number of chars per token (Gemini heuristic: 1 token ≈ 4 chars for plain text).
 CHARS_PER_TOKEN = 4
+
+# JSON payloads (function_call args, function_response) tokenize more densely
+# than prose — Gemini averages ~3 chars/token on structured JSON.
+CHARS_PER_TOKEN_JSON = 3
 
 # Tool responses older than this many turns are compacted into structured
 # summaries.  The most recent K turns keep raw tool payloads for full fidelity

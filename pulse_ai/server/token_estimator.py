@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pulse_ai.constants import CHARS_PER_TOKEN
+from pulse_ai.constants import CHARS_PER_TOKEN, CHARS_PER_TOKEN_JSON
 
 
 def estimate_tokens_for_text(text: str) -> int:
@@ -48,7 +48,7 @@ def estimate_tokens_for_event(event: Any) -> int:
                 payload = name + json.dumps(args)
             except (TypeError, ValueError):
                 payload = name
-            total += estimate_tokens_for_text(payload)
+            total += max(1, len(payload) // CHARS_PER_TOKEN_JSON)
 
         fn_resp = getattr(part, "function_response", None)
         if fn_resp:
@@ -57,6 +57,6 @@ def estimate_tokens_for_event(event: Any) -> int:
                 payload = json.dumps(response)
             except (TypeError, ValueError):
                 payload = str(response)
-            total += estimate_tokens_for_text(payload)
+            total += max(1, len(payload) // CHARS_PER_TOKEN_JSON)
 
     return max(1, total)
