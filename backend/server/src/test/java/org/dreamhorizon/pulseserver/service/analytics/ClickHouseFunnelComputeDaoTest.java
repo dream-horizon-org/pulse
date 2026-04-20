@@ -49,7 +49,7 @@ class ClickHouseFunnelComputeDaoTest {
     @Test
     void shouldFilterByPulseType() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().build());
-      assertThat(sql).contains("LogAttributes['pulse.type'] = 'custom_event'");
+      assertThat(sql).contains("PulseType = 'custom_event'");
     }
 
     @Test
@@ -156,7 +156,7 @@ class ClickHouseFunnelComputeDaoTest {
           .contains("FROM otel.otel_logs")
           .contains("SELECT UserId,")
           .contains("SessionId,")
-          .contains("LogAttributes['pulse.type'] = 'custom_event'");
+          .contains("PulseType = 'custom_event'");
     }
 
     @Test
@@ -283,7 +283,7 @@ class ClickHouseFunnelComputeDaoTest {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(baseRow().build());
       assertThat(sql)
           .contains("ResourceAttributes['project.id'] = '" + PROJECT_ID + "'")
-          .contains("LogAttributes['pulse.type'] = 'custom_event'");
+          .contains("PulseType = 'custom_event'");
     }
 
     @Test

@@ -14,7 +14,8 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
 /**
  * Builds ClickHouse INSERT…WITH SQL for funnel computation.
  *
- * <p>Reads from {@code otel.otel_logs} with {@code LogAttributes['pulse.type'] = 'custom_event'}.
+ * <p>Reads from {@code otel.otel_logs} with {@code PulseType = 'custom_event'}
+ * (materialized from {@code LogAttributes['pulse.type']}).
  * Custom event names are read from the {@code Body} column (not {@code EventName}).
  *
  * <p>Two SQL builders are provided:
@@ -113,7 +114,7 @@ public final class ClickHouseFunnelComputeDao {
         .append("           Body\n")
         .append("    FROM otel.otel_logs\n")
         .append("    WHERE ResourceAttributes['project.id'] = '").append(projectId).append("'\n")
-        .append("      AND LogAttributes['pulse.type'] = 'custom_event'\n")
+        .append("      AND PulseType = 'custom_event'\n")
         .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
         .append("      AND Body IN (").append(bodyInClause).append(")\n");
     if (!additionalFilters.isBlank()) {
@@ -295,7 +296,7 @@ public final class ClickHouseFunnelComputeDao {
         .append("           ) AS step_idx\n")
         .append("    FROM otel.otel_logs\n")
         .append("    WHERE ResourceAttributes['project.id'] = '").append(projectId).append("'\n")
-        .append("      AND LogAttributes['pulse.type'] = 'custom_event'\n")
+        .append("      AND PulseType = 'custom_event'\n")
         .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
         .append("      AND Body IN (").append(bodyInClause).append(")\n");
     if (!additionalFilters.isBlank()) {
@@ -362,7 +363,7 @@ public final class ClickHouseFunnelComputeDao {
             SELECT %s AS uid, toDateTime(Timestamp) AS FunnelTs, Body
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
-              AND LogAttributes['pulse.type'] = 'custom_event'
+              AND PulseType = 'custom_event'
               AND Timestamp BETWEEN %s AND %s
               %s
           ),
@@ -427,7 +428,7 @@ public final class ClickHouseFunnelComputeDao {
                    Body
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
-              AND LogAttributes['pulse.type'] = 'custom_event'
+              AND PulseType = 'custom_event'
               AND Timestamp >= now() - INTERVAL %d DAY
           ),
         """.formatted(projectId, maxDays));

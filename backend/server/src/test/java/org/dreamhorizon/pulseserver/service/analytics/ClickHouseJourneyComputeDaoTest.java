@@ -51,7 +51,7 @@ class ClickHouseJourneyComputeDaoTest {
     @Test
     void shouldFilterByPulseType() {
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(baseRow().build(), "START");
-      assertThat(sql).contains("LogAttributes['pulse.type'] = 'custom_event'");
+      assertThat(sql).contains("PulseType = 'custom_event'");
     }
 
     @Test
@@ -201,7 +201,7 @@ class ClickHouseJourneyComputeDaoTest {
           .contains("FROM otel.otel_logs")
           .contains("SELECT UserId,")
           .contains("SessionId,")
-          .contains("LogAttributes['pulse.type'] = 'custom_event'")
+          .contains("PulseType = 'custom_event'")
           .contains("ResourceAttributes,")
           .contains("\n                   LogAttributes\n");
     }

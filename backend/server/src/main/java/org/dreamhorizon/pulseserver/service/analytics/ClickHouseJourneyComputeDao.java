@@ -13,7 +13,8 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
 /**
  * Builds ClickHouse INSERT…WITH SQL for journey computation.
  *
- * <p>Reads from {@code otel.otel_logs} with {@code LogAttributes['pulse.type'] = 'custom_event'}.
+ * <p>Reads from {@code otel.otel_logs} with {@code PulseType = 'custom_event'}
+ * (materialized from {@code LogAttributes['pulse.type']}).
  * Custom event names are read from the {@code Body} column (not {@code EventName}).
  * {@link ClickHouseComputeService} passes {@code direction} from the journey row (Spark parity:
  * only {@code "START"} is forward; {@code "END"} otherwise).
@@ -57,7 +58,7 @@ public final class ClickHouseJourneyComputeDao {
             SELECT DISTINCT %s AS gid
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
-              AND LogAttributes['pulse.type'] = 'custom_event'
+              AND PulseType = 'custom_event'
               AND Timestamp BETWEEN %s AND %s
               AND Body = '%s'
               %s
@@ -68,7 +69,7 @@ public final class ClickHouseJourneyComputeDao {
             FROM otel.otel_logs l
             INNER JOIN sessions s ON l.%s = s.gid
             WHERE ResourceAttributes['project.id'] = '%s'
-              AND LogAttributes['pulse.type'] = 'custom_event'
+              AND PulseType = 'custom_event'
               AND l.Timestamp BETWEEN %s AND %s
           ),
           anchor_pos AS (
@@ -130,7 +131,7 @@ public final class ClickHouseJourneyComputeDao {
                    LogAttributes
             FROM otel.otel_logs
             WHERE ResourceAttributes['project.id'] = '%s'
-              AND LogAttributes['pulse.type'] = 'custom_event'
+              AND PulseType = 'custom_event'
               AND Timestamp >= now() - INTERVAL %d DAY
           ),
         """.formatted(projectId, maxDays));
