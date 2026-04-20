@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaJobStatus;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaReportJobDao;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiUpstreamProxyExecutor;
@@ -81,15 +82,15 @@ class RcaReportProcessorTest {
     when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
     when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
     when(jobDao.updateStatus(any(), any())).thenReturn(Completable.complete());
-    when(jobDao.markCompleted(any(), any(), any(), any())).thenReturn(Completable.complete());
-    when(jobDao.markFailed(any(), any(), any(), any(), any())).thenReturn(Completable.complete());
-    when(cacheDao.put(any(), any(), any(), any())).thenReturn(Completable.complete());
+    when(jobDao.markCompleted(any(), any(), any(), any(), any())).thenReturn(Completable.complete());
+    when(jobDao.markFailed(any(), any(), any(), any(), any(), any())).thenReturn(Completable.complete());
+    when(cacheDao.put(any(), any(), any(), any(), any())).thenReturn(Completable.complete());
   }
 
   private RcaReportJob job() {
     return new RcaReportJob(
-        JOB_ID, "p1", "ix", DATE, RcaJobStatus.PENDING, null,
-        Instant.now(), null, null, null, null, 1);
+        JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE, RcaJobStatus.PENDING, null,
+        Instant.now(), null, null, null, null);
   }
 
   /** Stubs vertx.executeBlocking to run the callable synchronously on the calling thread. */
@@ -148,8 +149,8 @@ class RcaReportProcessorTest {
     processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
 
     verify(jobDao).updateStatus(JOB_ID, RcaJobStatus.PROCESSING);
-    verify(cacheDao).put(eq("p1"), eq("ix"), eq(DATE), any());
-    verify(jobDao).markCompleted(JOB_ID, "p1", "ix", DATE);
+    verify(cacheDao).put(eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE), any());
+    verify(jobDao).markCompleted(JOB_ID, "p1", RcaType.INTERACTION, "ix", DATE);
   }
 
   @Test
@@ -162,8 +163,8 @@ class RcaReportProcessorTest {
 
     processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
 
-    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq("ix"), eq(DATE), eq("model failed"));
-    verify(jobDao, never()).markCompleted(any(), any(), any(), any());
+    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE), eq("model failed"));
+    verify(jobDao, never()).markCompleted(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -176,7 +177,7 @@ class RcaReportProcessorTest {
 
     processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
 
-    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq("ix"), eq(DATE), eq("bad request"));
+    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE), eq("bad request"));
   }
 
   @Test
@@ -190,7 +191,7 @@ class RcaReportProcessorTest {
     processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
 
     verify(jobDao).markFailed(
-        eq(JOB_ID), eq("p1"), eq("ix"), eq(DATE),
+        eq(JOB_ID), eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE),
         argThat(msg -> msg.contains("HTTP 503")));
   }
 
@@ -202,8 +203,8 @@ class RcaReportProcessorTest {
 
     processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
 
-    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq("ix"), eq(DATE), any());
-    verify(jobDao, never()).markCompleted(any(), any(), any(), any());
+    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE), any());
+    verify(jobDao, never()).markCompleted(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -212,7 +213,7 @@ class RcaReportProcessorTest {
 
     processor.enqueueProcess(job(), "{not-valid-json}", false, "Bearer t", null);
 
-    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq("ix"), eq(DATE), any());
+    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE), any());
   }
 
   @Test
@@ -225,7 +226,7 @@ class RcaReportProcessorTest {
     processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
 
     verify(jobDao).markFailed(
-        eq(JOB_ID), eq("p1"), eq("ix"), eq(DATE),
+        eq(JOB_ID), eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE),
         argThat(msg -> msg != null && msg.length() <= 4000));
   }
 
@@ -246,6 +247,6 @@ class RcaReportProcessorTest {
 
     processor.enqueueProcess(job(), BODY, false, "Bearer t", null);
 
-    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq("ix"), eq(DATE), any());
+    verify(jobDao).markFailed(eq(JOB_ID), eq("p1"), eq(RcaType.INTERACTION), eq("ix"), eq(DATE), any());
   }
 }
