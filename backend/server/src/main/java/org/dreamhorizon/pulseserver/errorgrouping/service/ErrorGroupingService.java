@@ -53,7 +53,7 @@ public class ErrorGroupingService {
           .withZone(ZoneOffset.UTC);
   private final ClickhouseQueryService clickhouseQueryService;
   private final Symbolicator symbolicator;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper;
   public static final String LOG_PREFIX = "[PULSE ERROR GROUPING SERVICE]";
 
   public static String traceIdHex(ByteString bs) {

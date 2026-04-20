@@ -13,7 +13,6 @@ import {
   PulseConfig,
   SdkEnum,
   ScopeEnum,
-  FilterMode,
   SamplingRuleName,
   FeatureName,
   PipelineStats,
@@ -129,29 +128,32 @@ export const FEATURE_DISPLAY_INFO: Record<
       "Record and replay user sessions with configurable PII masking",
     icon: "replay",
   },
+  click: {
+    label: "Click & tap",
+    description:
+      "Tap and rage-click detection for interaction analytics (native SDKs)",
+    icon: "click",
+  },
+  heatmap: {
+    label: "Screen heatmaps",
+    description:
+      "Show aggregate tap heatmaps on the Screen detail page in Pulse (dashboard)",
+    icon: "heatmap",
+  },
 };
 
 export const SESSION_REPLAY_FEATURE_NAME = "session_replay" as const;
 
-// ============================================================================
-// FILTER MODE OPTIONS
-// ============================================================================
-export const FILTER_MODE_OPTIONS: {
-  value: FilterMode;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: "blacklist",
-    label: "Blacklist",
-    description: "Block matching events",
-  },
-  {
-    value: "whitelist",
-    label: "Whitelist",
-    description: "Only allow matching events",
-  },
-];
+export const CLICK_FEATURE_NAME = "click" as const;
+
+export const HEATMAP_FEATURE_NAME = "heatmap" as const;
+
+/** Server defaults from {@code ConfigController.applyClickDefaults} — form baseline when config is empty. */
+export const DEFAULT_RAGE_CONFIG = {
+  timeWindowMs: 2000,
+  threshold: 3,
+  radius: 50,
+} as const;
 
 // ============================================================================
 // PROPERTY MATCH OPERATORS - Simplified pattern matching for UX
@@ -210,7 +212,7 @@ function unescapeRegex(str: string): string {
 
 /**
  * Detect operator and extract raw value from a regex pattern
- * Returns { operator, rawValue } for use when editing existing filters/policies
+ * Returns { operator, rawValue } for use when editing attribute condition regexes
  */
 export function detectOperatorFromRegex(regexPattern: string): {
   operator: PropertyMatchOperator;
@@ -414,18 +416,11 @@ export const DEFAULT_PULSE_CONFIG: PulseConfig = {
       sessionSampleRate: 1.0, // 100% by default
     },
     rules: [],
-    criticalEventPolicies: {
-      alwaysSend: [],
-    },
     criticalSessionPolicies: {
       alwaysSend: [],
     },
   },
   signals: {
-    filters: {
-      mode: "blacklist",
-      values: [],
-    },
     scheduleDurationMs: 5000,
     logsCollectorUrl: "http://10.0.2.2:4318/v1/logs",
     metricCollectorUrl: "http://10.0.2.2:4318/v1/metrics",
@@ -448,27 +443,9 @@ export const DEFAULT_PULSE_CONFIG: PulseConfig = {
 export const calculatePipelineStats = (config: PulseConfig): PipelineStats => {
   const baseEvents = 100000; // Simulated monthly events
 
-  // Calculate filter impact
-  // Blacklist: More filters = more events blocked. Estimate ~5% per filter rule, max 50%
-  // Whitelist: More filters = more events allowed. With whitelist, having 0 filters blocks everything
-  const filterRulesCount = config.signals.filters.values.length;
-  let filterDropRate: number;
-
-  if (config.signals.filters.mode === "whitelist") {
-    // Whitelist: If no filters defined, nothing is allowed (100% drop)
-    // With filters, estimate each filter allows ~20% of traffic, max 95% pass
-    filterDropRate =
-      filterRulesCount === 0 ? 100 : Math.max(100 - filterRulesCount * 20, 5);
-  } else {
-    // Blacklist: Each filter blocks ~5% of traffic, max 50% blocked
-    filterDropRate = Math.min(filterRulesCount * 5, 50);
-  }
-
-  const afterFilters = baseEvents * (1 - filterDropRate / 100);
-
   // Sampling rate from default session sample rate
   const samplingRate = config.sampling.default.sessionSampleRate * 100;
-  const afterSampling = afterFilters * (samplingRate / 100);
+  const afterSampling = baseEvents * (samplingRate / 100);
 
   // Feature gates - features control which types of data are collected
   // If no features configured, assume 100% of data passes (no feature-level filtering)
@@ -502,11 +479,9 @@ export const calculatePipelineStats = (config: PulseConfig): PipelineStats => {
 
   return {
     totalEvents: baseEvents,
-    afterFilters: Math.round(afterFilters),
     afterSampling: Math.round(afterSampling),
     afterFeatures: Math.round(afterFeatures),
     finalSent: finalSent,
-    filterDropRate: Math.round(filterDropRate),
     samplingDropRate: Math.round(100 - samplingRate),
     featureDropRate: Math.round(featureDropRate),
     totalSentRate:
@@ -522,11 +497,6 @@ export const UI_CONSTANTS = {
   PAGE_SUBTITLE: "Control what data your app sends to Pulse",
 
   SECTIONS: {
-    FILTERS: {
-      TITLE: "Event Filters",
-      DESCRIPTION:
-        "Block or allow events based on name, properties, scope, and SDK",
-    },
     ATTRIBUTES_TO_DROP: {
       TITLE: "Attributes to Drop",
       DESCRIPTION:
@@ -539,14 +509,6 @@ export const UI_CONSTANTS = {
     SAMPLING_RULES: {
       TITLE: "Sampling Rules",
       DESCRIPTION: "Apply different sample rates based on device parameters",
-    },
-    CRITICAL_EVENTS: {
-      TITLE: "Critical Event Policies",
-      DESCRIPTION: "Events that are always sent regardless of sampling",
-    },
-    CRITICAL_SESSIONS: {
-      TITLE: "Critical Session Policies",
-      DESCRIPTION: "Sessions that are always tracked regardless of sampling",
     },
     FEATURES: {
       TITLE: "Feature Configuration",
@@ -587,12 +549,8 @@ export const UI_CONSTANTS = {
  * Strips UI-only fields (like id) from config before sending to API
  */
 export const stripUIFields = (config: PulseConfig): PulseConfig => {
+  console.log("stripUIFields", config);
   const cleanConfig = JSON.parse(JSON.stringify(config));
-
-  // Remove id fields from filters
-  cleanConfig.signals.filters.values.forEach(
-    (f: { id?: string }) => delete f.id,
-  );
 
   // Remove id fields from attributesToDrop and their conditions
   cleanConfig.signals.attributesToDrop.forEach(
@@ -613,11 +571,6 @@ export const stripUIFields = (config: PulseConfig): PulseConfig => {
   // Remove id fields from sampling rules
   cleanConfig.sampling.rules.forEach((r: { id?: string }) => delete r.id);
 
-  // Remove id fields from critical event policies
-  cleanConfig.sampling.criticalEventPolicies.alwaysSend.forEach(
-    (p: { id?: string }) => delete p.id,
-  );
-
   // Remove id fields from critical session policies
   cleanConfig.sampling.criticalSessionPolicies.alwaysSend.forEach(
     (p: { id?: string }) => delete p.id,
@@ -634,13 +587,6 @@ export const stripUIFields = (config: PulseConfig): PulseConfig => {
  */
 export const addUIIds = (config: PulseConfig): PulseConfig => {
   const configWithIds = JSON.parse(JSON.stringify(config));
-
-  // Add id fields to filters
-  configWithIds.signals.filters.values =
-    configWithIds.signals.filters.values.map((f: object) => ({
-      ...f,
-      id: generateId(),
-    }));
 
   // Add id fields to attributesToDrop
   configWithIds.signals.attributesToDrop =
@@ -662,12 +608,6 @@ export const addUIIds = (config: PulseConfig): PulseConfig => {
   configWithIds.sampling.rules = configWithIds.sampling.rules.map(
     (r: object) => ({ ...r, id: generateId() }),
   );
-
-  // Add id fields to critical event policies
-  configWithIds.sampling.criticalEventPolicies.alwaysSend =
-    configWithIds.sampling.criticalEventPolicies.alwaysSend.map(
-      (p: object) => ({ ...p, id: generateId() }),
-    );
 
   // Add id fields to critical session policies
   if (configWithIds.sampling.criticalSessionPolicies) {

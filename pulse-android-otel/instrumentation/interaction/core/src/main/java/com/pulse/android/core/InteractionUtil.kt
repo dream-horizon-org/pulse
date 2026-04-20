@@ -233,6 +233,7 @@ internal object InteractionUtil {
             } else {
                 Triple(null, null, null)
             }
+        val timeInMsDiffPair = events.getTimeSpanInNanos(interactionConfig.thresholdInMs)
         val maps =
             mapOf(
                 InteractionConstant.NAME to interactionName,
@@ -240,7 +241,9 @@ internal object InteractionUtil {
                 InteractionConstant.LAST_EVENT_TIME_IN_NANO to lastEventTimeInNano,
                 // making a copy so that any changes to stepWiseTimeInNano doesn't effect the stored value
                 InteractionConstant.LOCAL_EVENTS to events.toList(),
-                InteractionConstant.MARKER_EVENTS to localMarkers.toList(),
+                InteractionConstant.MARKER_EVENTS to (
+                    timeInMsDiffPair?.let { localMarkers.getEventsBetween(it.first, it.second) } ?: localMarkers.toList()
+                ),
                 InteractionConstant.APDEX_SCORE to upTimeIndex,
                 InteractionConstant.USER_CATEGORY to timeCategory?.categoryName,
                 InteractionConstant.TIME_TO_COMPLETE_IN_NANO to timeDifferenceInNano,
@@ -281,8 +284,10 @@ public class Interaction internal constructor(
 )
 
 @Suppress("UNCHECKED_CAST")
-internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
-    val steps = events
+internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? = events.getTimeSpanInNanos(timeOutInMs)
+
+internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
+    val steps = this
     if (steps.isEmpty()) {
         PulseOtelUtils.logError(
             tag = InteractionConstant.LOG_TAG,
@@ -297,6 +302,14 @@ internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>
     }
     return steps.first().timeInNano to steps.last().timeInNano
 }
+
+internal fun List<InteractionLocalEvent>.getEventsBetween(
+    startInNanoInclusive: Long,
+    endInNanoInclusive: Long,
+): List<InteractionLocalEvent> =
+    this.filter {
+        it.timeInNano in startInNanoInclusive..endInNanoInclusive
+    }
 
 public fun Interaction.getTimeSpanInNanos(interactionStatus: InteractionRunningStatus.OngoingMatch): Pair<Long, Long>? =
     this.getTimeSpanInNanos(timeOutInMs = interactionStatus.interactionConfig.thresholdInMs)

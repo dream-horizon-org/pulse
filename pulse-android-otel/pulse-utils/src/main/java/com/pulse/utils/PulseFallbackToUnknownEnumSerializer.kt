@@ -14,7 +14,7 @@ import kotlinx.serialization.json.Json
 import kotlin.reflect.KClass
 
 public object PulseSerialisationUtils {
-    public val jsonConfigForSerialisation: Json = createJsonConfig(isStrict = PulseOtelUtils.isDebug())
+    public val jsonConfigForSerialisation: Json = createJsonConfig(isStrict = false)
 
     // usage is fine as this is json utility
     @Suppress("ForbiddenMethodCall")

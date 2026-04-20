@@ -1,5 +1,6 @@
 package com.pulse.android.sdk.internal
 
+import com.pulse.android.sdk.internal.PulseSDKInternal.Companion.isApiLocalDev
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
@@ -77,5 +78,30 @@ internal object PulseEndpointUtils {
             HttpEndpointConnectivity(url = fallbackUrl, headers = fallbackHeaders + headers)
         }
 
-    private const val TAG = "PulseEndpointUtils"
+    internal fun getBaseUrl(apiKey: String): String {
+        return if (isApiLocalDev(apiKey)) {
+            "http://10.0.2.2:4318"
+        } else {
+            PULSE_ENDPOINT_URL
+        }
+    }
+
+    internal fun getActiveConfigUrl(apiKey: String, projectId: String): String {
+        return if (isApiLocalDev(apiKey)) {
+            "http://10.0.2.2:8080/v1/configs/active/"
+        } else {
+            "$PULSE_ENDPOINT_URL/config/projects/$projectId/pulse-config.json"
+        }
+    }
+
+    internal fun getInteractionConfigUrl(apiKey: String, projectId: String): String {
+        return if (isApiLocalDev(apiKey)) {
+            "http://10.0.2.2:8080/v1/interaction-configs/"
+        } else {
+            "$PULSE_ENDPOINT_URL/config/projects/$projectId/interaction-config.json"
+        }
+    }
+
+    private const val TAG = "EndpointUtils"
+    private const val PULSE_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com"
 }

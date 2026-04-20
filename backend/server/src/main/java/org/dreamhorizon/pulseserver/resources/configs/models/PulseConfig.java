@@ -137,11 +137,11 @@ public class PulseConfig {
         @JsonProperty("rules")
         private List<SamplingRule> rules;
 
-        @JsonProperty("criticalEventPolicies")
-        private CriticalEventPolicies criticalEventPolicies;
-
         @JsonProperty("criticalSessionPolicies")
         private CriticalSessionPolicies criticalSessionPolicies;
+
+        @JsonProperty("signalsToSample")
+        private List<SignalsToSampleEntry> signalsToSample;
     }
 
     @Data
@@ -179,16 +179,6 @@ public class PulseConfig {
     @AllArgsConstructor
     @NoArgsConstructor
     @NotNull
-    public static class CriticalEventPolicies {
-        @JsonProperty("alwaysSend")
-        private List<CriticalPolicyRule> alwaysSend;
-    }
-
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    @NotNull
     public static class CriticalSessionPolicies {
         @JsonProperty("alwaysSend")
         private List<CriticalPolicyRule> alwaysSend;
@@ -218,25 +208,7 @@ public class PulseConfig {
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
-    @NotNull
-    public static class FilterConfig {
-
-        @JsonProperty("mode")
-        private FilterMode mode;
-
-        @JsonProperty("values")
-        private List<EventFilter> values;
-    }
-
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
     public static class SignalsConfig {
-
-        @NotNull
-        @JsonProperty("filters")
-        private FilterConfig filters;
 
         @NotNull
         @JsonProperty("scheduleDurationMs")
@@ -260,6 +232,9 @@ public class PulseConfig {
 
         @JsonProperty("attributesToAdd")
         private List<AttributeToAdd> attributesToAdd;
+
+        @JsonProperty("metricsToAdd")
+        private List<MetricsToAddEntry> metricsToAdd;
     }
 
     @Data

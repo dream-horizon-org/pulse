@@ -26,6 +26,7 @@ import {
   Alert,
   Tooltip,
   Loader,
+  NumberInput,
 } from "@mantine/core";
 import {
   IconSettings,
@@ -39,6 +40,8 @@ import {
   IconDeviceMobile,
   IconTag,
   IconPlayerPlay,
+  IconFlame,
+  IconGridDots,
 } from "@tabler/icons-react";
 import {
   FeatureConfig,
@@ -47,6 +50,8 @@ import {
   FeatureConfigsProps,
   TextAndInputPrivacy,
   ImagePrivacy,
+  ClickFeatureConfig,
+  SessionReplayFeatureConfig,
 } from "../../SamplingConfig.interface";
 import {
   toSdkOptions,
@@ -55,6 +60,9 @@ import {
   FEATURE_DISPLAY_INFO,
   generateId,
   SESSION_REPLAY_FEATURE_NAME,
+  CLICK_FEATURE_NAME,
+  HEATMAP_FEATURE_NAME,
+  DEFAULT_RAGE_CONFIG,
   UI_CONSTANTS,
 } from "../../SamplingConfig.constants";
 import {
@@ -75,6 +83,8 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
   rn_screen_load: <IconDeviceMobile size={22} />,
   rn_screen_interactive: <IconDeviceMobile size={22} />,
   session_replay: <IconPlayerPlay size={22} />,
+  click: <IconFlame size={22} />,
+  [HEATMAP_FEATURE_NAME]: <IconGridDots size={22} />,
 };
 
 const FEATURE_COLORS: Record<string, string> = {
@@ -89,6 +99,8 @@ const FEATURE_COLORS: Record<string, string> = {
   rn_screen_load: "#f59e0b",
   rn_screen_interactive: "#10b981",
   session_replay: "#6366f1",
+  click: "#f97316",
+  [HEATMAP_FEATURE_NAME]: "#ec4899",
 };
 
 const TEXT_AND_INPUT_PRIVACY_OPTIONS: {
@@ -128,6 +140,14 @@ export function FeatureToggles({
   const [textAndInputPrivacy, setTextAndInputPrivacy] =
     useState<TextAndInputPrivacy>("MASK_ALL");
   const [imagePrivacy, setImagePrivacy] = useState<ImagePrivacy>("MASK_ALL");
+
+  const [rageTimeWindowMs, setRageTimeWindowMs] = useState<number>(
+    DEFAULT_RAGE_CONFIG.timeWindowMs,
+  );
+  const [rageThreshold, setRageThreshold] = useState<number>(
+    DEFAULT_RAGE_CONFIG.threshold,
+  );
+  const [rageRadius, setRageRadius] = useState<number>(DEFAULT_RAGE_CONFIG.radius);
 
   // Helper to check if feature is enabled based on sessionSampleRate
   const isFeatureEnabled = (feature: FeatureConfig) =>
@@ -186,6 +206,9 @@ export function FeatureToggles({
     setFeatureSdks([]);
     setTextAndInputPrivacy("MASK_ALL");
     setImagePrivacy("MASK_ALL");
+    setRageTimeWindowMs(DEFAULT_RAGE_CONFIG.timeWindowMs);
+    setRageThreshold(DEFAULT_RAGE_CONFIG.threshold);
+    setRageRadius(DEFAULT_RAGE_CONFIG.radius);
     setEditingFeature(null);
   };
 
@@ -196,11 +219,24 @@ export function FeatureToggles({
     setFeatureEnabled(isFeatureEnabled(feature)); // Convert sessionSampleRate to boolean
     setFeatureSdks(feature.sdks);
     if (feature.featureName === SESSION_REPLAY_FEATURE_NAME) {
-      setTextAndInputPrivacy(feature.config?.textAndInputPrivacy ?? "MASK_ALL");
-      setImagePrivacy(feature.config?.imagePrivacy ?? "MASK_ALL");
+      const sr = feature.config as SessionReplayFeatureConfig | null | undefined;
+      setTextAndInputPrivacy(sr?.textAndInputPrivacy ?? "MASK_ALL");
+      setImagePrivacy(sr?.imagePrivacy ?? "MASK_ALL");
     } else {
       setTextAndInputPrivacy("MASK_ALL");
       setImagePrivacy("MASK_ALL");
+    }
+    if (feature.featureName === CLICK_FEATURE_NAME) {
+      const c = feature.config as ClickFeatureConfig | null | undefined;
+      setRageTimeWindowMs(
+        c?.rage?.timeWindowMs ?? DEFAULT_RAGE_CONFIG.timeWindowMs,
+      );
+      setRageThreshold(c?.rage?.threshold ?? DEFAULT_RAGE_CONFIG.threshold);
+      setRageRadius(c?.rage?.radius ?? DEFAULT_RAGE_CONFIG.radius);
+    } else {
+      setRageTimeWindowMs(DEFAULT_RAGE_CONFIG.timeWindowMs);
+      setRageThreshold(DEFAULT_RAGE_CONFIG.threshold);
+      setRageRadius(DEFAULT_RAGE_CONFIG.radius);
     }
     setIsModalOpen(true);
   };
@@ -233,6 +269,17 @@ export function FeatureToggles({
         featureName: SESSION_REPLAY_FEATURE_NAME,
         textAndInputPrivacy,
         imagePrivacy,
+      };
+    }
+
+    if (featureName === CLICK_FEATURE_NAME) {
+      newFeature.config = {
+        featureName: CLICK_FEATURE_NAME,
+        rage: {
+          timeWindowMs: rageTimeWindowMs,
+          threshold: rageThreshold,
+          radius: rageRadius,
+        },
       };
     }
 
@@ -522,6 +569,51 @@ export function FeatureToggles({
                 required
               />
             </Box>
+
+            {featureName === CLICK_FEATURE_NAME && (
+              <Box>
+                <Text size="sm" fw={600} mb={4}>
+                  Rage-click detection
+                </Text>
+                <Text size="xs" c="dimmed" mb="sm">
+                  Tune how repeated taps in the same screen area are clustered
+                  for heatmaps (native Android / iOS SDKs).
+                </Text>
+                <Stack gap="sm">
+                  <NumberInput
+                    label="Time window (ms)"
+                    description="Taps within this window can form a rage cluster"
+                    min={100}
+                    max={60000}
+                    step={100}
+                    value={rageTimeWindowMs}
+                    onChange={(v) =>
+                      setRageTimeWindowMs(typeof v === "number" ? v : 2000)
+                    }
+                  />
+                  <NumberInput
+                    label="Tap threshold"
+                    description="Minimum number of taps to flag a rage cluster"
+                    min={2}
+                    max={99}
+                    value={rageThreshold}
+                    onChange={(v) =>
+                      setRageThreshold(typeof v === "number" ? v : 3)
+                    }
+                  />
+                  <NumberInput
+                    label="Radius (dp / px)"
+                    description="Max distance between taps to count as the same cluster"
+                    min={1}
+                    max={500}
+                    value={rageRadius}
+                    onChange={(v) =>
+                      setRageRadius(typeof v === "number" ? v : 50)
+                    }
+                  />
+                </Stack>
+              </Box>
+            )}
 
             {featureName === SESSION_REPLAY_FEATURE_NAME && (
               <Box>

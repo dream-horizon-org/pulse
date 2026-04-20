@@ -534,6 +534,7 @@ export function RealTimeQuery() {
           error={executionState.status === "cancelled" ? null : executionState.errorMessage}
           errorCause={executionState.status === "cancelled" ? null : executionState.errorCause}
           isCancelled={executionState.status === "cancelled"}
+          mode={queryMode}
           onRefresh={handleRunQuery}
           onLoadMore={loadMore}
         />

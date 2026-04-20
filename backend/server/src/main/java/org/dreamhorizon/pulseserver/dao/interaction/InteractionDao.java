@@ -45,8 +45,7 @@ import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRe
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))

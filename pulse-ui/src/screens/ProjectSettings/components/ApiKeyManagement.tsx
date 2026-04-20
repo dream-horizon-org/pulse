@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Stack, Text, Box, Group, Button, Code, CopyButton, ActionIcon, Tooltip, Loader, Alert } from '@mantine/core';
+import { Stack, Text, Box, Group, Button, CopyButton, ActionIcon, Tooltip, Loader, Alert, PasswordInput } from '@mantine/core';
 import { IconCopy, IconCheck, IconRefresh, IconPlus, IconInfoCircle, IconKey } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useProjectContext } from '../../../contexts';
@@ -140,7 +140,11 @@ export function ApiKeyManagement() {
             </Group>
             
             {apiKey && (
-              <Code block>{apiKey}</Code>
+              <PasswordInput
+                value={apiKey}
+                readOnly
+                styles={{ input: { fontFamily: 'monospace', fontSize: 13 } }}
+              />
             )}
             
             {!apiKey && (
