@@ -36,8 +36,22 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
 public final class ClickHouseFunnelComputeDao {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final String STEP_ORDER_UNORDERED = "UNORDERED";
 
   private ClickHouseFunnelComputeDao() {}
+
+  /**
+   * Builds INSERT SQL using the funnel's configured step-order semantics.
+   *
+   * <p>{@code stepOrderType == UNORDERED} uses {@link #buildInsertSqlUnordered(FunnelDefinitionRow)};
+   * all other values use {@link #buildInsertSqlChain(FunnelDefinitionRow)}.
+   */
+  public static String buildInsertSqlForDefinition(FunnelDefinitionRow def) {
+    if (isUnorderedFunnel(def)) {
+      return buildInsertSqlUnordered(def);
+    }
+    return buildInsertSqlChain(def);
+  }
 
   /**
    * Builds the chain-based INSERT SQL for a single funnel. This is the default builder.
@@ -225,6 +239,87 @@ public final class ClickHouseFunnelComputeDao {
       }
       sql.append("FROM winners\n");
     }
+
+    return sql.toString();
+  }
+
+  /**
+   * Builds unordered-funnel INSERT SQL for a single funnel.
+   *
+   * <p>Semantics match Spark unordered funnels: per identity, find the maximum number of distinct
+   * steps completed inside any {@code windowSeconds}-wide forward window; step {@code i} count is
+   * the number of identities with at least {@code i+1} distinct steps in that best window.
+   *
+   * <p>Median step duration is always {@code NULL} for unordered funnels.
+   */
+  public static String buildInsertSqlUnordered(FunnelDefinitionRow def) {
+    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
+    if (steps.isEmpty()) {
+      return "";
+    }
+    List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
+
+    int stepCount = steps.size();
+    long windowSeconds = def.getWindowSeconds();
+    long funnelId = def.getId();
+    String projectId = def.getProjectId();
+
+    String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
+    String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
+        def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
+    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
+
+    String bodyInClause = steps.stream()
+        .map(s -> "'" + escape(s.getEventName()) + "'")
+        .collect(Collectors.joining(", "));
+    String additionalFilters = filters.stream()
+        .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
+        .collect(Collectors.joining("\n      "));
+
+    String stepRows = buildUnorderedStepRows(steps, funnelId, projectId);
+
+    StringBuilder sql = new StringBuilder(2048);
+    sql.append("INSERT INTO otel.funnel_results\n")
+        .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
+        .append("WITH\n")
+        .append("  step_events AS (\n")
+        .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+        .append("           toDateTime(Timestamp) AS FunnelTs,\n")
+        .append("           Body,\n")
+        .append("           multiIf(\n");
+    for (int i = 0; i < stepCount; i++) {
+      sql.append("             Body = '").append(escape(steps.get(i).getEventName())).append("', ")
+          .append(i).append(",\n");
+    }
+    sql.append("             -1\n")
+        .append("           ) AS step_idx\n")
+        .append("    FROM otel.otel_logs\n")
+        .append("    WHERE ResourceAttributes['project.id'] = '").append(projectId).append("'\n")
+        .append("      AND LogAttributes['pulse.type'] = 'custom_event'\n")
+        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("      AND Body IN (").append(bodyInClause).append(")\n");
+    if (!additionalFilters.isBlank()) {
+      sql.append("      ").append(additionalFilters).append("\n");
+    }
+    sql.append("  ),\n")
+        .append("  window_scores AS (\n")
+        .append("    SELECT a.uid,\n")
+        .append("           a.FunnelTs AS anchor_ts,\n")
+        .append("           uniqExactIf(\n")
+        .append("             b.step_idx,\n")
+        .append("             b.FunnelTs >= a.FunnelTs\n")
+        .append("             AND b.FunnelTs <= a.FunnelTs + INTERVAL ").append(windowSeconds).append(" SECOND\n")
+        .append("           ) AS steps_in_window\n")
+        .append("    FROM step_events a\n")
+        .append("    INNER JOIN step_events b ON a.uid = b.uid\n")
+        .append("    GROUP BY a.uid, a.FunnelTs\n")
+        .append("  ),\n")
+        .append("  best_per_uid AS (\n")
+        .append("    SELECT uid, max(steps_in_window) AS max_steps\n")
+        .append("    FROM window_scores\n")
+        .append("    GROUP BY uid\n")
+        .append("  )\n")
+        .append(stepRows);
 
     return sql.toString();
   }
@@ -430,5 +525,27 @@ public final class ClickHouseFunnelComputeDao {
       return "";
     }
     return value.replace("'", "\\'");
+  }
+
+  private static String buildUnorderedStepRows(
+      List<FunnelDefinitionStep> steps, long funnelId, String projectId) {
+    StringBuilder rows = new StringBuilder(1024);
+    for (int i = 0; i < steps.size(); i++) {
+      if (i > 0) {
+        rows.append("UNION ALL\n");
+      }
+      rows.append("SELECT toUInt64(").append(funnelId).append("), '").append(projectId).append("', now64(3), ")
+          .append("toUInt8(").append(i).append("), '").append(escape(steps.get(i).getEventName())).append("',\n")
+          .append("       countIf(max_steps >= ").append(i + 1).append("),\n")
+          .append("       countIf(max_steps >= ").append(i + 1).append(") * 100.0 / greatest(count(), 1),\n")
+          .append("       CAST(NULL AS Nullable(Int64))\n")
+          .append("FROM best_per_uid\n");
+    }
+    return rows.toString();
+  }
+
+  private static boolean isUnorderedFunnel(FunnelDefinitionRow def) {
+    String stepOrderType = def.getStepOrderType();
+    return stepOrderType != null && STEP_ORDER_UNORDERED.equalsIgnoreCase(stepOrderType);
   }
 }

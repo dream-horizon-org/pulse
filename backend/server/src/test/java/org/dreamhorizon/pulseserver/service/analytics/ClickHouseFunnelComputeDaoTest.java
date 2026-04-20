@@ -497,4 +497,41 @@ class ClickHouseFunnelComputeDaoTest {
       assertThat(sql).contains("toDateTime(Timestamp) AS FunnelTs");
     }
   }
+
+  @Nested
+  class BuildInsertSqlForDefinition {
+
+    @Test
+    void shouldUseOrderedChainBuilderWhenStepOrderTypeIsNotUnordered() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
+          baseRow().stepOrderType("ORDERED").build());
+      assertThat(sql)
+          .contains("attempts AS (")
+          .contains("argMax(tuple(")
+          .doesNotContain("window_scores AS (");
+    }
+
+    @Test
+    void shouldUseUnorderedBuilderWhenStepOrderTypeIsUnordered() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
+          baseRow().stepOrderType("UNORDERED").build());
+      assertThat(sql)
+          .contains("window_scores AS (")
+          .contains("uniqExactIf(")
+          .contains("best_per_uid AS (")
+          .doesNotContain("argMax(tuple(");
+    }
+
+    @Test
+    void shouldEmitNullMediansForUnorderedFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(
+          baseRow().stepOrderType("UNORDERED").build());
+      assertThat(sql)
+          .contains("countIf(max_steps >= 1)")
+          .contains("countIf(max_steps >= 2)")
+          .contains("countIf(max_steps >= 3)")
+          .contains("CAST(NULL AS Nullable(Int64))")
+          .doesNotContain("quantileExactIf(0.5)");
+    }
+  }
 }

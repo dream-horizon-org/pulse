@@ -36,9 +36,10 @@ public class ClickHouseComputeService {
   /**
    * Computes a single funnel by ID. Used on the on-save path (AUTO and ONCE modes).
    *
-   * <p>Uses the chain-based builder ({@link ClickHouseFunnelComputeDao#buildInsertSqlChain})
-   * which populates both {@code UserCount} and {@code MedianStepSeconds} from the single
-   * deepest completed journey per user. The legacy {@code windowFunnel}-based
+   * <p>Uses the funnel step-order-aware builder
+   * ({@link ClickHouseFunnelComputeDao#buildInsertSqlForDefinition(FunnelDefinitionRow)}):
+   * ORDERED funnels use the chain path (with medians); UNORDERED funnels use the sliding-window
+   * distinct-step path (no medians). The legacy {@code windowFunnel}-based
    * {@link ClickHouseFunnelComputeDao#buildInsertSql} is retained as a backup.
    */
   public Single<Boolean> computeFunnel(Long funnelId) {
@@ -46,7 +47,7 @@ public class ClickHouseComputeService {
         .switchIfEmpty(Single.error(
             new IllegalArgumentException("Funnel not found: " + funnelId)))
         .flatMap(def -> executeInsert(def.getProjectId(),
-            ClickHouseFunnelComputeDao.buildInsertSqlChain(def)));
+            ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(def)));
   }
 
   /**
@@ -83,7 +84,7 @@ public class ClickHouseComputeService {
     }
     return Observable.fromIterable(defs)
         .concatMapSingle(def ->
-            executeInsert(projectId, ClickHouseFunnelComputeDao.buildInsertSqlChain(def))
+            executeInsert(projectId, ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(def))
                 .onErrorReturn(err -> {
                   log.error(
                       "Funnel compute failed for projectId={}, funnelId={}",
