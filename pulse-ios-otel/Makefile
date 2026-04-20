@@ -2,7 +2,7 @@ PROJECT_NAME="pulse-ios-sdk-Package"
 
 XCODEBUILD_OPTIONS_IOS=\
 	-configuration Debug \
-	-destination 'platform=iOS Simulator,name=iPhone 16' \
+	-destination 'generic/platform=iOS Simulator' \
 	-scheme $(PROJECT_NAME) \
 	-test-iterations 5 \
     -retry-tests-on-failure \

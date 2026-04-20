@@ -87,7 +87,7 @@ jobs:
             -workspace PulseIOSExample.xcworkspace \
             -scheme PulseIOSExample \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64' \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath ./build \
             build
 
@@ -195,7 +195,7 @@ jobs:
             -workspace PulseIOSExample.xcworkspace \
             -scheme PulseIOSExample \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'generic/platform=iOS Simulator' \
             build
 
   workflow-notification:
