@@ -25,9 +25,21 @@
 #     -e num_brokers=3 \
 #     -e route53_zone_name=pulse.local
 
+# Pre-play — Register the new broker into in-memory inventory.
+# It won't be in hosts.ini yet (Terraform just created it), so we add it dynamically.
+- name: Register new broker in inventory
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - add_host:
+        name: "{{ new_broker_host }}"
+        groups: new_broker
+        ansible_user: admin
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+
 # Phase 1 — Configure and start the new broker
 - name: Configure new broker
-  hosts: "{{ new_broker_host }}"
+  hosts: new_broker
   become: true
   vars:
     node_id: "{{ new_node_id }}"

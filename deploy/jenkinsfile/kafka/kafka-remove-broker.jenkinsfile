@@ -101,6 +101,26 @@ pipeline {
                 """
             }
         }
+
+        stage('Update hosts.ini') {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'd11-horizon-bot', gitToolName: 'Default')]) {
+                    sh """
+                        REMOVE_HOST="pulse-kafka-\$(printf '%02d' ${params.REMOVE_NODE_ID}).${ROUTE53_ZONE_NAME}"
+                        HOSTS_FILE="deploy/ansible/kafka/inventory/hosts.ini"
+
+                        sed -i "/^\$REMOVE_HOST /d" "\$HOSTS_FILE"
+                        echo "Removed \$REMOVE_HOST from \$HOSTS_FILE"
+
+                        git config user.email "jenkins@dream-horizon.org"
+                        git config user.name "Jenkins"
+                        git add "\$HOSTS_FILE"
+                        git diff --cached --quiet || git commit -m "chore: remove broker ${params.REMOVE_NODE_ID} from ansible inventory"
+                        git push origin feat/kafka-teraaform-scripts
+                    """
+                }
+            }
+        }
     }
 
     post {

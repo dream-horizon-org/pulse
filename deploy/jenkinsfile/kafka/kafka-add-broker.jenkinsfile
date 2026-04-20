@@ -135,6 +135,31 @@ pipeline {
                 }
             }
         }
+
+        stage('Update hosts.ini') {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'd11-horizon-bot', gitToolName: 'Default')]) {
+                    sh """
+                        NEW_HOST="pulse-kafka-\$(printf '%02d' ${env.NEW_NODE_ID}).${ROUTE53_ZONE_NAME}"
+                        HOSTS_FILE="deploy/ansible/kafka/inventory/hosts.ini"
+
+                        # Add new broker to hosts.ini if not already present
+                        if ! grep -q "\$NEW_HOST" "\$HOSTS_FILE"; then
+                            sed -i "/^\\[kafka_brokers:vars\\]/i \$NEW_HOST  node_id=${env.NEW_NODE_ID}" "\$HOSTS_FILE"
+                            echo "Added \$NEW_HOST to \$HOSTS_FILE"
+                        else
+                            echo "\$NEW_HOST already in \$HOSTS_FILE — skipping"
+                        fi
+
+                        git config user.email "jenkins@dream-horizon.org"
+                        git config user.name "Jenkins"
+                        git add "\$HOSTS_FILE"
+                        git diff --cached --quiet || git commit -m "chore: add broker ${env.NEW_NODE_ID} to ansible inventory"
+                        git push origin feat/kafka-teraaform-scripts
+                    """
+                }
+            }
+        }
     }
 
     post {
