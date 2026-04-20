@@ -32,11 +32,6 @@ export { getIsShutdown, getIsStarted } from './sessionState';
 export { getFeaturesFromRemoteConfig } from './remoteFeatures';
 export { PulseLogLevel };
 
-export type NetworkHeaderConfig = {
-  requestHeaders?: string[];
-  responseHeaders?: string[];
-};
-
 export type PulseConfig = {
   autoDetectExceptions?: boolean;
   autoDetectNavigation?: boolean;

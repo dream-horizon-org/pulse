@@ -1,10 +1,9 @@
 import createXmlHttpRequestTracker from './request-tracker-xhr';
 import type { NetworkHeaderConfig } from './headerConfigStore';
 import { setHeaderConfig } from './headerConfigStore';
+import { PulseLogger } from '../PulseLogger';
 
 export type { NetworkHeaderConfig } from './headerConfigStore';
-import type { NetworkHeaderConfig } from '../config';
-import { PulseLogger } from '../PulseLogger';
 // Re-export header utilities for convenience (they're in a separate file to avoid dependency issues)
 export { normalizeHeaderName, shouldCaptureHeader } from './header-helper';
 

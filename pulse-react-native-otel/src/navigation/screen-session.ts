@@ -6,6 +6,7 @@ import type {
   NavigationContainer,
 } from './navigation.interface';
 import { PulseLogger } from '../PulseLogger';
+import { LOG_TAGS } from './utils';
 
 export interface ScreenSessionState {
   screenSessionSpan: Span | undefined;
