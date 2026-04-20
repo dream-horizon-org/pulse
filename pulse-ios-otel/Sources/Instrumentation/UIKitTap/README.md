@@ -142,6 +142,7 @@ Notes:
 Pulse.shared.initialize(
     endpointBaseUrl: "...",
     apiKey: "...",
+    dataCollectionState: .allowed,
     instrumentations: { config in
         config.uiKitTap { tap in
             tap.enabled(true)          // default: false

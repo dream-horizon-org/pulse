@@ -748,8 +748,13 @@ extension InteractionManagerTests {
         
         // Wait for timeout (20 seconds + buffer)
         try? await Task.sleep(nanoseconds: 21_000_000_000) // 21 seconds
-        
-        _ = assertSingleFinalInteraction(isSuccess: false)
+
+        let (_, timedOut) = assertSingleFinalInteraction(isSuccess: false)
+        XCTAssertEqual(timedOut.errorTypeCode, "timeout")
+        XCTAssertTrue(
+            timedOut.errorMessage?.contains("event2") == true
+                || timedOut.errorMessage == "Timed out before the next expected event arrived."
+        )
     }
     
     func testEvent1Event2WithAfter20sDelayDoesntGiveFinalInteraction() async {
@@ -853,9 +858,12 @@ extension InteractionManagerTests {
         
         // Add event3 (wrong event, should skip event2)
         addEventWithNanoTimeFromBoot("event3")
-        let (interactionId2, _) = assertSingleFinalInteraction(isSuccess: false)
-        
+        let (interactionId2, failed) = assertSingleFinalInteraction(isSuccess: false)
+
         XCTAssertEqual(interactionId, interactionId2, "Interaction ID should match")
+        XCTAssertEqual(failed.errorTypeCode, "sequence_violation")
+        XCTAssertTrue(failed.errorMessage?.contains("event2") == true)
+        XCTAssertTrue(failed.errorMessage?.contains("event3") == true)
     }
     
     func testAfterErrorInteractionSuccessInteractionIsMade() async {

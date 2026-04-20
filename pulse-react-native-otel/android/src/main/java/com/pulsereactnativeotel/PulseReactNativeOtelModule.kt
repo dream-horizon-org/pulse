@@ -143,9 +143,9 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
 
     val requiredFeatures = listOf(
       "rn_screen_load",
-      "screen_session",
+      "rn_screen_session",
       "rn_screen_interactive",
-      "network_instrumentation",
+      "rn_network",
       "custom_events",
       "js_crash"
     )

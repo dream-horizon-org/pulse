@@ -1,4 +1,8 @@
-import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
+import {
+  STATUS_CODE,
+  PulseType,
+  COLUMN_NAME,
+} from "../../constants/PulseOtelSemcov";
 import { Screen } from "../../screens/ScreenList/ScreenList.interface";
 import { useGetDataQuery } from "../useGetDataQuery";
 import { useMemo } from "react";
@@ -42,11 +46,6 @@ export const useGetScreenDetails = ({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "countIf(PulseType = 'screen_session')" },
-          alias: "session_count",
-        },
-        {
-          function: "CUSTOM" as const,
           param: { expression: "countIf(PulseType = 'screen_load')" },
           alias: "load_count",
         },
@@ -71,6 +70,13 @@ export const useGetScreenDetails = ({
           function: "CUSTOM" as const,
           param: { expression: "COUNT()" },
           alias: "screen_count",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+          },
+          alias: "unique_session_count",
         },
       ],
       filters: [
@@ -119,33 +125,36 @@ export const useGetScreenDetails = ({
     const screenNameIndex = fields.indexOf("screen_name");
     const totalTimeSpentIndex = fields.indexOf("total_time_spent");
     const totalLoadTimeIndex = fields.indexOf("total_load_time");
-    const sessionCountIndex = fields.indexOf("session_count");
     const loadCountIndex = fields.indexOf("load_count");
     const userCountIndex = fields.indexOf("user_count");
     const errorCountIndex = fields.indexOf("error_count");
     const screenCountIndex = fields.indexOf("screen_count");
+    const uniqueSessionCountIndex = fields.indexOf("unique_session_count");
 
     return screenDetailsData.data.rows.map((row, index) => {
       const screenName = row[screenNameIndex] || "";
       const totalTimeSpent = parseFloat(row[totalTimeSpentIndex]) || 0;
       const totalLoadTime = parseFloat(row[totalLoadTimeIndex]) || 0;
-      const sessionCount = parseFloat(row[sessionCountIndex]) || 1;
       const loadCount = parseFloat(row[loadCountIndex]) || 1;
       const userCount = parseFloat(row[userCountIndex]) || 0;
       const errorCount = parseFloat(row[errorCountIndex]) || 0;
       const totalCount = parseFloat(row[screenCountIndex]) || 1;
+      const uniqueSessionCount = parseFloat(row[uniqueSessionCountIndex]) || 0;
 
       return {
         id: `screen-${index}`,
         screenName,
         description: "",
         status: "Active",
-        avgTimeSpent: Math.round(totalTimeSpent / sessionCount),
+        avgTimeSpent:
+          uniqueSessionCount > 0
+            ? Math.round(totalTimeSpent / uniqueSessionCount)
+            : undefined,
         loadTime: Math.round(totalLoadTime / loadCount),
         users: Math.round(userCount),
         errorRate: totalCount > 0 ? (errorCount / totalCount) * 100 : 0,
       } as Screen & {
-        avgTimeSpent: number;
+        avgTimeSpent: number | undefined;
         loadTime: number;
         users: number;
         errorRate: number;
@@ -158,7 +167,7 @@ export const useGetScreenDetails = ({
     const map: Record<
       string,
       Screen & {
-        avgTimeSpent: number;
+        avgTimeSpent: number | undefined;
         loadTime: number;
         users: number;
         errorRate: number;

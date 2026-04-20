@@ -4,7 +4,9 @@ import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeProp
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCondition
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.utils.toAttributes
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.Ignore
 import org.junit.Test
 
 class PulseSignalsAttrSamplerTest {
@@ -15,7 +17,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns true when all conditions are met`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value1", "key2" to "value2")
+        val signalProps = mapOf("key1" to "value1", "key2" to "value2").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
@@ -33,7 +35,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns false when sdk name is not present`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value1", "key2" to "value2")
+        val signalProps = mapOf("key1" to "value1", "key2" to "value2").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
@@ -51,7 +53,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns false when scope is not present`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value1", "key2" to "value2")
+        val signalProps = mapOf("key1" to "value1", "key2" to "value2").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
@@ -69,7 +71,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns false when name does not match regex`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value1", "key2" to "value2")
+        val signalProps = mapOf("key1" to "value1", "key2" to "value2").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "other_signal",
@@ -87,7 +89,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns false when props size mismatch`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value1")
+        val signalProps = mapOf("key1" to "value1").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
@@ -105,7 +107,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns false when prop value mismatch`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value1", "key2" to "value3")
+        val signalProps = mapOf("key1" to "value1", "key2" to "value3").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
@@ -123,7 +125,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns true with regex for name`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal_123"
-        val signalProps = mapOf("key1" to "value1")
+        val signalProps = mapOf("key1" to "value1").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal_.*",
@@ -141,7 +143,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns true with regex for props`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value_123")
+        val signalProps = mapOf("key1" to "value_123").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
@@ -155,11 +157,12 @@ class PulseSignalsAttrSamplerTest {
         assertThat(result).isTrue
     }
 
+    @Ignore("attributes can't have null value")
     @Test
     fun `matches returns true when props value are null`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value_1", "key2" to null)
+        val signalProps = mapOf("key1" to "value_1", "key2" to null).toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
@@ -177,7 +180,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns false when props value is null but config is empty`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value_1", "key2" to null)
+        val signalProps = mapOf("key1" to "value_1", "key2" to null).toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
@@ -195,7 +198,7 @@ class PulseSignalsAttrSamplerTest {
     fun `matches returns false when prop value is empty but config is null`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
-        val signalProps = mapOf("key1" to "value_1", "key2" to "")
+        val signalProps = mapOf("key1" to "value_1", "key2" to "").toAttributes()
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
