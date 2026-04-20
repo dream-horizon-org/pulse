@@ -6,7 +6,8 @@
 #
 # Steps:
 #   1. Configure the new broker (mount EBS, write server.properties, start Kafka)
-#   2. Add the new node as a quorum voter (dynamic KRaft voter management, Kafka 3.7+)
+#   2. Update controller.quorum.voters on existing brokers and rolling-restart them
+#      (Kafka 4.x KRaft uses static voter config — no dynamic add-voter command)
 #   3. Trigger partition rebalance so the new broker gets its share of partitions
 #
 # Required extra_vars:
@@ -60,67 +61,63 @@
     - name: Configure broker
       include_tasks: tasks/configure-broker-tasks.yml
 
-# Phase 1.5 — Read directory ID from new broker's meta.properties
-# (Written by kafka-storage.sh format — avoids querying a not-yet-joined controller)
-- name: Read directory ID from new broker
-  hosts: new_broker
+# Phase 2 — Update controller.quorum.voters on existing brokers and rolling-restart
+# In Kafka 4.x KRaft, voter membership is driven by controller.quorum.voters in
+# server.properties. We update existing brokers one-at-a-time so the cluster
+# stays up throughout. The new broker already has the full voters list.
+- name: Update KRaft quorum voters on existing brokers
+  hosts: "kafka_brokers:!new_broker"
   become: true
+  serial: 1   # rolling restart — one broker at a time
 
   tasks:
-    - name: Read directory.id from meta.properties
-      shell: grep '^directory.id=' {{ kafka_log_dir }}/meta.properties | cut -d= -f2
-      register: dir_id_raw
+    - name: Build updated quorum voters string
+      shell: |
+        QUORUM=""
+        for i in $(seq 1 {{ num_brokers }}); do
+          IDX=$(printf "%02d" $i)
+          ENTRY="${i}@pulse-kafka-${IDX}.{{ route53_zone_name }}:9093"
+          QUORUM="${QUORUM:+$QUORUM,}$ENTRY"
+        done
+        echo "$QUORUM"
+      register: quorum_result
       changed_when: false
 
-    - name: Fail if directory.id not found
-      fail:
-        msg: "directory.id not found in {{ kafka_log_dir }}/meta.properties — was KRaft storage formatted?"
-      when: dir_id_raw.stdout | trim == ""
+    - name: Update controller.quorum.voters in server.properties
+      lineinfile:
+        path: "{{ kafka_dir | default('/opt/kafka') }}/config/kraft/server.properties"
+        regexp: '^controller\.quorum\.voters='
+        line: "controller.quorum.voters={{ quorum_result.stdout }}"
+      register: voters_updated
 
-    - name: Expose directory ID as host fact
-      set_fact:
-        new_broker_directory_id: "{{ dir_id_raw.stdout | trim }}"
+    - name: Restart kafka to apply updated quorum config
+      systemd:
+        name: kafka
+        state: restarted
+      when: voters_updated.changed
 
-# Phase 2 — Add new broker as quorum controller (run from an existing broker)
-- name: Add new node to KRaft quorum
+    - name: Wait for broker to rejoin after restart
+      wait_for:
+        host: "{{ inventory_hostname }}"
+        port: 9092
+        delay: 5
+        timeout: 120
+      when: voters_updated.changed
+
+# Phase 2b — Verify the new node is visible in quorum (sanity check)
+- name: Verify quorum status
   hosts: "{{ existing_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
   become: true
 
   tasks:
-    - name: Wait for new broker to be reachable on port 9092
-      wait_for:
-        host: "{{ new_broker_host }}"
-        port: 9092
-        delay: 5
-        timeout: 120
-
-    - name: Wait for new broker controller port to be reachable
-      wait_for:
-        host: "{{ new_broker_host }}"
-        port: 9093
-        delay: 2
-        timeout: 60
-
-    - name: Add new node as quorum controller
-      shell: |
-        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
-          --bootstrap-controller localhost:9093 \
-          add-controller \
-          --controller-id {{ new_node_id }} \
-          --controller-directory-id {{ hostvars[new_broker_host]['new_broker_directory_id'] }} \
-          --controller-host {{ new_broker_host }} \
-          --controller-port 9093
-      register: add_controller_result
-      changed_when: add_controller_result.rc == 0
-
-    - name: Verify new controller appears in quorum status
+    - name: Print quorum status
       shell: |
         "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
           --bootstrap-controller localhost:9093 describe --status
       register: quorum_status
       changed_when: false
 
-    - name: Print quorum status
+    - name: Show quorum status
       debug:
         var: quorum_status.stdout_lines
 
