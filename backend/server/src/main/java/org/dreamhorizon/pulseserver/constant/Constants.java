@@ -66,4 +66,12 @@ public final class Constants {
    * com.google.inject.name.Named} for long-timeout outbound calls to Pulse AI (SSE / run_sse).
    */
   public static final String WEB_CLIENT_AI_PROXY = "aiProxy";
+
+  /**
+   * {@link org.dreamhorizon.pulseserver.vertx.AiStreamingHttpClient} stored in {@link
+   * org.dreamhorizon.pulseserver.vertx.SharedDataUtils} for true chunk-by-chunk SSE proxying to the
+   * Pulse AI service (core {@link io.vertx.core.http.HttpClient} with {@code ReadStream<Buffer>},
+   * not {@link io.vertx.rxjava3.ext.web.client.WebClient}).
+   */
+  public static final String HTTP_CLIENT_AI_STREAMING = "aiStreaming";
 }
