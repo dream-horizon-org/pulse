@@ -7,6 +7,9 @@ kafka_dir: "/opt/kafka"
 kafka_data_dir: "/var/lib/kafka"
 kafka_log_dir: "/var/lib/kafka/data"
 
+jmx_exporter_version: "1.0.1"
+jmx_exporter_port: 7071
+
 replication_factor: 2
 min_insync_replicas: 1
 retention_ms: 21600000       # 1 hour

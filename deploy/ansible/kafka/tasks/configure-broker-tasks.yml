@@ -127,7 +127,29 @@
   when: not kraft_marker.stat.exists
 
 # ------------------------------------------------------------------
-# 5. Systemd service
+# 5. JMX Exporter (Prometheus metrics on port 7071)
+# ------------------------------------------------------------------
+- name: Verify JMX exporter jar is present in AMI
+  stat:
+    path: "{{ kafka_dir }}/libs/jmx_prometheus_javaagent.jar"
+  register: jmx_jar
+
+- name: Fail if JMX exporter jar missing — rebuild AMI
+  fail:
+    msg: >-
+      JMX exporter jar not found at {{ kafka_dir }}/libs/jmx_prometheus_javaagent.jar.
+      Ensure the AMI was built with the jar pre-installed.
+  when: not jmx_jar.stat.exists
+
+- name: Deploy JMX exporter config
+  copy:
+    src: kafka-jmx-config.yml
+    dest: "{{ kafka_dir }}/config/kafka-jmx-config.yml"
+    mode: "0644"
+  notify: restart kafka
+
+# ------------------------------------------------------------------
+# 6. Systemd service
 # ------------------------------------------------------------------
 - name: Write kafka.service unit
   copy:
@@ -142,6 +164,7 @@
       Type=simple
       WorkingDirectory={{ kafka_dir }}
       Environment="KAFKA_HEAP_OPTS=-Xmx4g -Xms4g"
+      Environment="KAFKA_OPTS=-javaagent:{{ kafka_dir }}/libs/jmx_prometheus_javaagent.jar={{ jmx_exporter_port }}:{{ kafka_dir }}/config/kafka-jmx-config.yml"
       ExecStart={{ kafka_dir }}/bin/kafka-server-start.sh {{ kafka_dir }}/config/kraft/server.properties
       ExecStop={{ kafka_dir }}/bin/kafka-server-stop.sh
       Restart=on-failure

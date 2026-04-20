@@ -151,6 +151,7 @@
           Type=simple
           WorkingDirectory={{ kafka_dir }}
           Environment="KAFKA_HEAP_OPTS=-Xmx4g -Xms4g"
+          Environment="KAFKA_OPTS=-javaagent:{{ kafka_dir }}/libs/jmx_prometheus_javaagent.jar={{ jmx_exporter_port }}:{{ kafka_dir }}/config/kafka-jmx-config.yml"
           ExecStart={{ kafka_dir }}/bin/kafka-server-start.sh {{ kafka_dir }}/config/kraft/server.properties
           ExecStop={{ kafka_dir }}/bin/kafka-server-stop.sh
           Restart=on-failure
