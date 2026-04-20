@@ -1,7 +1,7 @@
 package com.pulse.sampling.remote
 
-import com.pulse.utils.PulseNetworkingUtils
 import com.pulse.utils.PulseLogger
+import com.pulse.utils.PulseNetworkingUtils
 import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.serialization.json.Json
 import okhttp3.Call

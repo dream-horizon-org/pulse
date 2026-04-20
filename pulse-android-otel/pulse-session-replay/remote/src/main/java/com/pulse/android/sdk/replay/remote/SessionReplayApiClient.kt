@@ -1,7 +1,7 @@
 package com.pulse.android.sdk.replay.remote
 
-import com.pulse.utils.PulseNetworkingUtils
 import com.pulse.utils.PulseLogger
+import com.pulse.utils.PulseNetworkingUtils
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Retrofit
