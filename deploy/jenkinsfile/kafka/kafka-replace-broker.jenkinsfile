@@ -17,8 +17,7 @@ pipeline {
     }
 
     parameters {
-        string(name: 'NODE_ID',     defaultValue: '', description: 'Node ID of the broker to replace (e.g. 2)')
-        string(name: 'NUM_BROKERS', defaultValue: '', description: 'Total broker count (unchanged, e.g. 2)')
+        string(name: 'NODE_ID', defaultValue: '', description: 'Node ID of the broker to replace (e.g. 2)')
     }
 
     environment {
@@ -31,8 +30,8 @@ pipeline {
         stage('Validate Parameters') {
             steps {
                 script {
-                    if (!params.NODE_ID || !params.NUM_BROKERS) {
-                        error("NODE_ID and NUM_BROKERS are required.")
+                    if (!params.NODE_ID) {
+                        error("NODE_ID is required.")
                     }
                 }
             }
@@ -68,12 +67,14 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 sh """
+                    NUM_BROKERS=\$(grep -c "node_id=" deploy/ansible/kafka/inventory/hosts.ini)
+                    REPLACE_IDX=\$(( ${params.NODE_ID.toInteger()} - 1 ))
+
                     cd deploy/terraform/kafka
                     terraform init
-                    REPLACE_IDX=\$(( ${params.NODE_ID.toInteger()} - 1 ))
                     terraform plan \
                         -replace="aws_instance.broker[\$REPLACE_IDX]" \
-                        -var num_brokers=${params.NUM_BROKERS} \
+                        -var num_brokers=\$NUM_BROKERS \
                         -out=tfplan
                 """
             }
@@ -81,7 +82,7 @@ pipeline {
 
         stage('Approve') {
             steps {
-                input message: "Replace broker ${params.NODE_ID} with new instance (EBS preserved)?", ok: 'Yes, Replace!'
+                input message: "Replace broker ${params.NODE_ID} with a new EC2 instance? (EBS data volume preserved, node ID unchanged)", ok: 'Yes, Replace!'
             }
         }
 
@@ -128,13 +129,15 @@ pipeline {
                         KRAFT_CLUSTER_ID=\$(cat /tmp/kraft_cluster_id.txt)
                         TARGET_HOST="pulse-kafka-\$(printf '%02d' ${params.NODE_ID}).${ROUTE53_ZONE_NAME}"
 
+                        NUM_BROKERS=\$(grep -c "node_id=" deploy/ansible/kafka/inventory/hosts.ini)
+
                         /home/admin/.local/bin/ansible-playbook deploy/ansible/kafka/replace-broker.yml \
                             -i deploy/ansible/kafka/inventory/hosts.ini \
                             --private-key "\$SSH_KEY" \
                             -e "target_host=\$TARGET_HOST" \
                             -e "node_id=${params.NODE_ID}" \
                             -e "kraft_cluster_id=\$KRAFT_CLUSTER_ID" \
-                            -e "num_brokers=${params.NUM_BROKERS}" \
+                            -e "num_brokers=\$NUM_BROKERS" \
                             -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
                     """
                 }

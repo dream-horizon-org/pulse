@@ -15,9 +15,7 @@ pipeline {
         ansiColor('xterm')
     }
 
-    parameters {
-        string(name: 'NUM_BROKERS', defaultValue: '', description: 'Total broker count AFTER adding (e.g. 3). New node ID = this number.')
-    }
+    // No parameters — broker count is derived from hosts.ini after checkout
 
     environment {
         TF_IN_AUTOMATION         = 'true'
@@ -26,17 +24,6 @@ pipeline {
     }
 
     stages {
-        stage('Validate Parameters') {
-            steps {
-                script {
-                    if (!params.NUM_BROKERS) {
-                        error("NUM_BROKERS is required.")
-                    }
-                    env.NEW_NODE_ID = params.NUM_BROKERS  // node IDs are sequential: new node ID = new total
-                }
-            }
-        }
-
         stage('Clear Existing Workspace') {
             steps { cleanWs() }
         }
@@ -48,6 +35,20 @@ pipeline {
                     branches: [[name: '*/feat/kafka-teraaform-scripts']],
                     userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
+            }
+        }
+
+        stage('Resolve Broker Count') {
+            steps {
+                script {
+                    def current = sh(
+                        script: "grep -c 'node_id=' deploy/ansible/kafka/inventory/hosts.ini",
+                        returnStdout: true
+                    ).trim().toInteger()
+                    env.NUM_BROKERS  = (current + 1).toString()
+                    env.NEW_NODE_ID  = env.NUM_BROKERS
+                    echo "Current brokers: ${current} → adding broker ${env.NEW_NODE_ID} (total after: ${env.NUM_BROKERS})"
+                }
             }
         }
 
@@ -69,14 +70,14 @@ pipeline {
                 sh """
                     cd deploy/terraform/kafka
                     terraform init
-                    terraform plan -var num_brokers=${params.NUM_BROKERS} -out=tfplan
+                    terraform plan -var num_brokers=${env.NUM_BROKERS} -out=tfplan
                 """
             }
         }
 
         stage('Approve') {
             steps {
-                input message: "Add broker node ${env.NEW_NODE_ID} (num_brokers → ${params.NUM_BROKERS}). Apply?", ok: 'Yes, Add Broker!'
+                input message: "Add broker node ${env.NEW_NODE_ID} (num_brokers → ${env.NUM_BROKERS}). Apply?", ok: 'Yes, Add Broker!'
             }
         }
 
@@ -129,7 +130,7 @@ pipeline {
                             -e "new_broker_host=\$NEW_HOST" \
                             -e "new_node_id=${env.NEW_NODE_ID}" \
                             -e "kraft_cluster_id=\$KRAFT_CLUSTER_ID" \
-                            -e "num_brokers=${params.NUM_BROKERS}" \
+                            -e "num_brokers=${env.NUM_BROKERS}" \
                             -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
                     """
                 }

@@ -16,8 +16,7 @@ pipeline {
     }
 
     parameters {
-        string(name: 'REMOVE_NODE_ID', defaultValue: '', description: 'Node ID of the broker to remove (e.g. 3)')
-        string(name: 'NUM_BROKERS',    defaultValue: '', description: 'Total broker count AFTER removal (e.g. 2)')
+        string(name: 'REMOVE_NODE_ID', defaultValue: '', description: 'Node ID of the broker to remove — must be the highest-numbered broker (e.g. 3)')
     }
 
     environment {
@@ -30,11 +29,8 @@ pipeline {
         stage('Validate Parameters') {
             steps {
                 script {
-                    if (!params.REMOVE_NODE_ID || !params.NUM_BROKERS) {
-                        error("REMOVE_NODE_ID and NUM_BROKERS are required.")
-                    }
-                    if (params.NUM_BROKERS.toInteger() < 2) {
-                        error("Cannot reduce below 2 brokers.")
+                    if (!params.REMOVE_NODE_ID) {
+                        error("REMOVE_NODE_ID is required.")
                     }
                 }
             }
@@ -54,6 +50,25 @@ pipeline {
             }
         }
 
+        stage('Resolve Broker Count') {
+            steps {
+                script {
+                    def current = sh(
+                        script: "grep -c 'node_id=' deploy/ansible/kafka/inventory/hosts.ini",
+                        returnStdout: true
+                    ).trim().toInteger()
+                    if (params.REMOVE_NODE_ID.toInteger() != current) {
+                        error("Can only remove the highest-numbered broker. Current highest: ${current}, requested: ${params.REMOVE_NODE_ID}")
+                    }
+                    if (current <= 2) {
+                        error("Cannot reduce below 2 brokers. Current count: ${current}")
+                    }
+                    env.NUM_BROKERS = (current - 1).toString()
+                    echo "Removing broker ${params.REMOVE_NODE_ID} → remaining brokers: ${env.NUM_BROKERS}"
+                }
+            }
+        }
+
         stage('Ansible: Drain and Remove Broker') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
@@ -65,7 +80,7 @@ pipeline {
                             --private-key "\$SSH_KEY" \
                             -e "remove_broker_host=\$REMOVE_HOST" \
                             -e "remove_node_id=${params.REMOVE_NODE_ID}" \
-                            -e "num_brokers=${params.NUM_BROKERS}" \
+                            -e "num_brokers=${env.NUM_BROKERS}" \
                             -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
                     """
                 }
@@ -104,7 +119,7 @@ pipeline {
                     terraform state rm "aws_volume_attachment.broker_data[\$REMOVE_IDX]" || true
                     terraform state rm "aws_ebs_volume.broker_data[\$REMOVE_IDX]" || true
 
-                    terraform plan -var num_brokers=${params.NUM_BROKERS} -out=tfplan
+                    terraform plan -var num_brokers=${env.NUM_BROKERS} -out=tfplan
                     terraform apply -input=false tfplan
                 """
             }
