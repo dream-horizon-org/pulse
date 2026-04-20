@@ -4,6 +4,7 @@
  * Generates realistic mock responses for different API endpoints
  */
 
+import { AI_API_PATHS } from "../constants/aiApiPaths";
 import { MockResponse, MockRequest } from "./types";
 import { MockDataStore } from "./MockDataStore";
 import { MockConfigManager } from "./MockConfig";
@@ -139,6 +140,78 @@ export class MockResponseGenerator {
         cause: "Random error simulation",
       },
     };
+  }
+
+  /**
+   * SSE stream for POST /v1/ai/run_sse — matches pulse_ai `data: {json}\n\n` lines and terminal `data: [DONE]\n\n`.
+   * Invoked from the mock server when `REACT_APP_USE_MOCK_SERVER=true` and the UI calls the streaming AI endpoint.
+   */
+  async buildRunSseMockResponse(request: MockRequest): Promise<Response> {
+    const url = this.parseURL(request.url);
+    const pathname = url.pathname;
+    const method = request.method.toUpperCase();
+
+    if (method !== "POST" || !pathname.endsWith(AI_API_PATHS.RUN_SSE)) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (this.config.shouldLog()) {
+      console.log("[Mock Server] SSE run_sse (streaming mock)", pathname);
+    }
+
+    await this.delay(Math.min(this.config.getDelay(), 500));
+
+    const encoder = new TextEncoder();
+    const chunkGapMs = 100;
+    const sseLine = (payload: Record<string, unknown>) =>
+      `data: ${JSON.stringify(payload)}\n\n`;
+
+    const payloads: string[] = [
+      sseLine({
+        type: "meta",
+        user_event_id: "mock-user-event",
+        assistant_event_id: "mock-assistant-event",
+        invocation_id: "mock-invocation",
+      }),
+      sseLine({ type: "text", content: "Mock " }),
+      sseLine({ type: "text", content: "streaming " }),
+      sseLine({ type: "text", content: "response " }),
+      sseLine({ type: "text", content: "from the dev mock server." }),
+      "data: [DONE]\n\n",
+    ];
+
+    const self = this;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        void (async () => {
+          try {
+            for (const chunk of payloads) {
+              await self.delay(chunkGapMs);
+              controller.enqueue(encoder.encode(chunk));
+            }
+            controller.close();
+          } catch (e) {
+            controller.error(
+              e instanceof Error ? e : new Error(String(e)),
+            );
+          }
+        })();
+      },
+    });
+
+    return new Response(stream, {
+      status: 200,
+      statusText: "OK",
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
   }
 
   private createMockJWTToken(payload: any): string {
