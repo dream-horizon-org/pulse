@@ -1124,6 +1124,28 @@ test.describe("@M1 screen.name manual override", () => {
     const log = await otlp.waitForLogByBody("reset_check");
     expect(getAttr(log.attributes, "screen.name")).toBe("/cart");
   });
+
+  test("screen.name resets to URL path after SPA navigation (override cleared)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // Set override then simulate SPA pushState navigation (no page reload)
+    await page.evaluate(() => {
+      const p = window as unknown as {
+        PulseWeb: { setScreenName: (n: string) => void; trackEvent: (n: string) => void };
+      };
+      p.PulseWeb.setScreenName("my-screen");
+      history.pushState({}, '', '/cart');
+      p.PulseWeb.trackEvent("spa_nav_check");
+    });
+
+    const log = await otlp.waitForLogByBody("spa_nav_check");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/cart");
+  });
 });
 
 // ─── Area 2: url attributes ───────────────────────────────────────────────────

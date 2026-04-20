@@ -2,31 +2,31 @@
 // fetches fresh config in the background from /v1/configs/active.
 // See: web-sdk-plan/v1/01-foundation/sdk-config.md
 
-const SDK_CONFIG_CACHE_KEY = "pulse_sdk_config";
+const SDK_CONFIG_CACHE_KEY = 'pulse_sdk_config';
 
 export type PulseSdkName =
-  | "pulse_android_java"
-  | "pulse_android_rn"
-  | "pulse_ios_swift"
-  | "pulse_ios_rn"
-  | "pulse_web_js";
+  | 'pulse_android_java'
+  | 'pulse_android_rn'
+  | 'pulse_ios_swift'
+  | 'pulse_ios_rn'
+  | 'pulse_web_js';
 
 export type PulseFeatureName =
-  | "js_crash"
-  | "network_instrumentation"
-  | "click"
-  | "web_vitals"
-  | "screen_session"
-  | "long_task"
-  | "resource_timing"
-  | "visibility"
-  | "websocket"
-  | "bfcache"
-  | "interaction"
-  | "session_replay"
-  | "network_change"
-  | "custom_events"
-  | "session";
+  | 'js_crash'
+  | 'network_instrumentation'
+  | 'click'
+  | 'web_vitals'
+  | 'screen_session'
+  | 'long_task'
+  | 'resource_timing'
+  | 'visibility'
+  | 'websocket'
+  | 'bfcache'
+  | 'interaction'
+  | 'session_replay'
+  | 'network_change'
+  | 'custom_events'
+  | 'session';
 
 export interface PulseFeatureConfig {
   featureName: PulseFeatureName;
@@ -38,14 +38,14 @@ export interface PulseFeatureConfig {
 export interface PulseSignalMatchCondition {
   name: string;
   props: Array<{ key: string; value: string }>;
-  scopes: Array<"LOGS" | "TRACES" | "METRICS">;
+  scopes: Array<'LOGS' | 'TRACES' | 'METRICS'>;
   sdks: PulseSdkName[];
 }
 
 export interface PulseAttributeValue {
   name: string;
   value: string;
-  type: "STRING" | "BOOLEAN" | "LONG" | "DOUBLE" | "STRING_ARRAY";
+  type: 'STRING' | 'BOOLEAN' | 'LONG' | 'DOUBLE' | 'STRING_ARRAY';
 }
 
 export interface PulseAttributesToDropEntry {
@@ -59,7 +59,7 @@ export interface PulseAttributesToAddEntry {
 }
 
 export interface PulseSignalFilter {
-  mode: "BLACKLIST" | "WHITELIST";
+  mode: 'BLACKLIST' | 'WHITELIST';
   values: PulseSignalMatchCondition[];
 }
 
@@ -102,20 +102,20 @@ export const DEFAULT_SDK_CONFIG: PulseSdkConfig = {
     scheduleDurationMs: 5000,
     attributesToDrop: [],
     attributesToAdd: [],
-    filters: { mode: "BLACKLIST", values: [] },
+    filters: { mode: 'BLACKLIST', values: [] },
   },
   interaction: { beforeInitQueueSize: 5000 },
   features: [],
 };
 
 function isValidSdkConfig(value: unknown): value is PulseSdkConfig {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
-    typeof v["version"] === "number" &&
-    typeof v["sampling"] === "object" &&
-    typeof v["signals"] === "object" &&
-    Array.isArray(v["features"])
+    typeof v['version'] === 'number' &&
+    typeof v['sampling'] === 'object' &&
+    typeof v['signals'] === 'object' &&
+    Array.isArray(v['features'])
   );
 }
 
@@ -132,14 +132,11 @@ export function resolveConfigUrl(
 ): string {
   if (configEndpointUrl) return configEndpointUrl;
   // Local dev: rewrite :4318 → :8080, use /v1/configs/active/
-  if (
-    endpointBaseUrl.includes("localhost") ||
-    endpointBaseUrl.includes("10.0.2.2")
-  ) {
-    return `${endpointBaseUrl.replace(/:4318\b/, ":8080").replace(/\/$/, "")}/v1/configs/active/`;
+  if (endpointBaseUrl.includes('localhost') || endpointBaseUrl.includes('10.0.2.2')) {
+    return `${endpointBaseUrl.replace(/:4318\b/, ':8080').replace(/\/$/, '')}/v1/configs/active/`;
   }
   // Prod: /config/projects/{projectId}/pulse-config.json
-  return `${endpointBaseUrl.replace(/\/$/, "")}/config/projects/${projectId}/pulse-config.json`;
+  return `${endpointBaseUrl.replace(/\/$/, '')}/config/projects/${projectId}/pulse-config.json`;
 }
 
 export class SdkConfigFetcher {
@@ -148,23 +145,14 @@ export class SdkConfigFetcher {
   private readonly projectId: string;
   private readonly apiKey: string;
 
-  constructor(
-    endpointBaseUrl: string,
-    projectId: string,
-    configEndpointUrl?: string,
-    apiKey?: string,
-  ) {
-    this.configUrl = resolveConfigUrl(
-      configEndpointUrl,
-      endpointBaseUrl,
-      projectId,
-    );
+  constructor(endpointBaseUrl: string, projectId: string, configEndpointUrl?: string, apiKey?: string) {
+    this.configUrl = resolveConfigUrl(configEndpointUrl, endpointBaseUrl, projectId);
     this.projectId = projectId;
-    this.apiKey = apiKey ?? "";
+    this.apiKey = apiKey ?? '';
   }
 
   loadCached(): PulseSdkConfig {
-    if (typeof window === "undefined") return this.config;
+    if (typeof window === 'undefined') return this.config;
 
     try {
       const raw = localStorage.getItem(SDK_CONFIG_CACHE_KEY);
@@ -186,10 +174,8 @@ export class SdkConfigFetcher {
 
     try {
       const url = this.configUrl;
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (this.apiKey) headers["X-API-KEY"] = this.apiKey;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.apiKey) headers['X-API-KEY'] = this.apiKey;
       const response = await fetch(url, { headers });
 
       if (!response.ok) return;
@@ -201,7 +187,7 @@ export class SdkConfigFetcher {
       if (data.version !== this.config.version) {
         this.config = data;
 
-        if (typeof window !== "undefined") {
+        if (typeof window !== 'undefined') {
           try {
             localStorage.setItem(SDK_CONFIG_CACHE_KEY, JSON.stringify(data));
           } catch {

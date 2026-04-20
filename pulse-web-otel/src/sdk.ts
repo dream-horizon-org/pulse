@@ -71,12 +71,7 @@ class PulseWebSDK implements SdkContext {
     this.config = configWithUrl;
 
     // Step 2: SessionProvider
-    const sessionCfg = config.instrumentations?.session;
-    this.sessionProvider = new SessionProvider(
-      sessionCfg?.inactivityTimeoutMs,
-      sessionCfg?.maxSessionLifetimeMs,
-      sessionCfg?.pageHiddenTimeoutMs,
-    );
+    this.sessionProvider = new SessionProvider();
 
     // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate
     // before any signal is emitted (global-attrs-processor may call it later).
@@ -90,7 +85,7 @@ class PulseWebSDK implements SdkContext {
     this.configFetcher = new SdkConfigFetcher(
       endpointBaseUrl,
       projectId,
-      configWithUrl.configEndpointUrl,
+      undefined,
       configWithUrl.apiKey,
     );
     const sdkConfig = this.configFetcher.loadCached();
