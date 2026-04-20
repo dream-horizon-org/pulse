@@ -65,22 +65,16 @@ pipeline {
             }
         }
 
-        stage('Taint Dead Instance') {
-            steps {
-                sh """
-                    cd deploy/terraform/kafka
-                    terraform init
-                    terraform taint "aws_instance.broker[${params.NODE_ID.toInteger() - 1}]" 2>/dev/null || \
-                        echo "Instance already gone — continuing."
-                """
-            }
-        }
-
         stage('Terraform Plan') {
             steps {
                 sh """
                     cd deploy/terraform/kafka
-                    terraform plan -var num_brokers=${params.NUM_BROKERS} -out=tfplan
+                    terraform init
+                    REPLACE_IDX=\$(( ${params.NODE_ID.toInteger()} - 1 ))
+                    terraform plan \
+                        -replace="aws_instance.broker[\$REPLACE_IDX]" \
+                        -var num_brokers=${params.NUM_BROKERS} \
+                        -out=tfplan
                 """
             }
         }
