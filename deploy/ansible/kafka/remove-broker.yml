@@ -164,7 +164,7 @@
         host: "{{ inventory_hostname }}"
         port: 9092
         delay: 5
-        timeout: 120
+        timeout: 300
       when: voters_updated.changed
 
     - name: Show quorum status after update

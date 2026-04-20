@@ -144,7 +144,7 @@
         host: "{{ inventory_hostname }}"
         port: 9092
         delay: 5
-        timeout: 120
+        timeout: 300
       when: voters_updated.changed
 
 # Phase 2b — Verify quorum (informational — does not fail the job)
