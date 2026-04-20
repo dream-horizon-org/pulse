@@ -45,8 +45,17 @@
     node_id: "{{ new_node_id }}"
     process_roles: "broker,controller"
 
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: true
+    - name: restart kafka
+      systemd:
+        name: kafka
+        state: restarted
+
   tasks:
-    - name: Include configure-broker tasks
+    - name: Configure broker
       include_tasks: tasks/configure-broker-tasks.yml
 
 # Phase 2 — Add new broker as quorum voter (run from an existing broker)
