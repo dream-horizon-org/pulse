@@ -5,17 +5,6 @@ public final class com/pulse/utils/BuildConfig {
 	public fun <init> ()V
 }
 
-public final class com/pulse/utils/PulseLogLevel : java/lang/Enum {
-	public static final field DEBUG Lcom/pulse/utils/PulseLogLevel;
-	public static final field ERROR Lcom/pulse/utils/PulseLogLevel;
-	public static final field INFO Lcom/pulse/utils/PulseLogLevel;
-	public static final field NONE Lcom/pulse/utils/PulseLogLevel;
-	public static final field VERBOSE Lcom/pulse/utils/PulseLogLevel;
-	public static final field WARN Lcom/pulse/utils/PulseLogLevel;
-	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/utils/PulseLogLevel;
-	public static fun values ()[Lcom/pulse/utils/PulseLogLevel;
-}
-
 public final class com/pulse/utils/PulseCoroutineUtilsKt {
 	public static final fun await (Lcom/google/android/gms/tasks/Task;Lcom/google/android/gms/tasks/CancellationTokenSource;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun await (Lcom/google/android/gms/tasks/Task;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -36,6 +25,32 @@ public class com/pulse/utils/PulseFallbackToUnknownEnumSerializer : kotlinx/seri
 public final class com/pulse/utils/PulseFallbackToUnknownEnumSerializer$Companion {
 }
 
+public final class com/pulse/utils/PulseLogLevel : java/lang/Enum {
+	public static final field DEBUG Lcom/pulse/utils/PulseLogLevel;
+	public static final field ERROR Lcom/pulse/utils/PulseLogLevel;
+	public static final field INFO Lcom/pulse/utils/PulseLogLevel;
+	public static final field NONE Lcom/pulse/utils/PulseLogLevel;
+	public static final field VERBOSE Lcom/pulse/utils/PulseLogLevel;
+	public static final field WARN Lcom/pulse/utils/PulseLogLevel;
+	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/utils/PulseLogLevel;
+	public static fun values ()[Lcom/pulse/utils/PulseLogLevel;
+}
+
+public final class com/pulse/utils/PulseLogger {
+	public static final field INSTANCE Lcom/pulse/utils/PulseLogger;
+	public static final field TAG_PREFIX Ljava/lang/String;
+	public final fun getLogLevel ()Lcom/pulse/utils/PulseLogLevel;
+	public final fun getTag (Lkotlin/jvm/functions/Function0;)Ljava/lang/String;
+	public final fun logDebug (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun logError (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
+	public final fun logError (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun logInfo (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun logVerbose (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun logWarn (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
+	public final fun logWarn (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun setLogLevel (Lcom/pulse/utils/PulseLogLevel;)V
+}
+
 public final class com/pulse/utils/PulseMathUtils {
 	public static final field INSTANCE Lcom/pulse/utils/PulseMathUtils;
 	public final fun gcd (II)I
@@ -49,20 +64,6 @@ public final class com/pulse/utils/PulseNetworkingUtils {
 	public final fun getOkHttpClient ()Lokhttp3/OkHttpClient;
 	public final fun redactUrl (Ljava/lang/String;)Ljava/lang/String;
 	public final fun runNetworkCatching-hUnOzRk (Ljava/lang/String;Ljava/lang/String;Lokhttp3/OkHttpClient;ZLkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-}
-
-public final class com/pulse/utils/PulseLogger {
-	public static final field INSTANCE Lcom/pulse/utils/PulseLogger;
-	public static final field TAG_PREFIX Ljava/lang/String;
-	public final fun getLogLevel ()Lcom/pulse/utils/PulseLogLevel;
-	public final fun logDebug (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
-	public final fun logError (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
-	public final fun logError (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
-	public final fun logInfo (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
-	public final fun logVerbose (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
-	public final fun logWarn (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
-	public final fun logWarn (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
-	public final fun setLogLevel (Lcom/pulse/utils/PulseLogLevel;)V
 }
 
 public final class com/pulse/utils/PulseOtelUtils {
