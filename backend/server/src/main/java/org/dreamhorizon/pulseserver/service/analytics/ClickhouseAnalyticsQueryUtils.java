@@ -3,13 +3,13 @@ package org.dreamhorizon.pulseserver.service.analytics;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
 
 /**
  * Shared SQL helper utilities for funnel and journey ClickHouse compute builders.
  *
  * <p>Source table is {@code otel.otel_logs}. Custom event names use the {@code Body} column.
- * Group key expressions use map access, not materialized column names.
+ * Funnel SQL uses materialized {@code UserId} / {@code SessionId}; journey SQL uses
+ * {@link #resolveGroupKey(String)} ({@code LogAttributes} map access).
  */
 public final class ClickhouseAnalyticsQueryUtils {
 
@@ -35,10 +35,9 @@ public final class ClickhouseAnalyticsQueryUtils {
    * Returns the ClickHouse expression for the group key using the
    * {@code otel.otel_logs} materialized columns ({@code UserId} / {@code SessionId}).
    *
-   * <p>Prefer this over {@link #resolveGroupKey(String)} for new code. The {@code UserId}
-   * materialized column includes the canonical {@code user.id → app.installation.id} fallback
-   * (see {@code clickhouse-otel-schema.sql} and {@code clickhouse-replicated-tiered-schema.sql});
-   * raw map access does not.
+   * <p>The {@code UserId} materialized column includes the canonical
+   * {@code user.id → app.installation.id} fallback (see ingestion DDL). Funnel builders use this
+   * for grouping; events with empty {@code UserId} / {@code SessionId} are grouped separately.
    *
    * @param mode "UNIQUE_USERS" or "SESSIONS" (case-insensitive)
    * @return {@code UserId} or {@code SessionId}

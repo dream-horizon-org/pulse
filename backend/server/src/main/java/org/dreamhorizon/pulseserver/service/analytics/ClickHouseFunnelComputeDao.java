@@ -52,12 +52,12 @@ public final class ClickHouseFunnelComputeDao {
    *   <li>Select the winning attempt per user with {@code argMax(..., (depth, -t0))}
    *       (deepest wins; earliest {@code t0} breaks ties).</li>
    *   <li>Per step, compute {@code UserCount = countIf(winning_depth >= step)} and
-   *       {@code MedianStepSeconds = quantileTDigestIf(0.5)(dateDiff(...))} on the winning
-   *       chain timestamps.</li>
+   *       {@code MedianStepSeconds} via {@code quantileExactIf(0.5)} on per-step
+   *       {@code dateDiff} over the winning chain.</li>
    * </ol>
    *
-   * <p>Uses the materialized {@code UserId} / {@code SessionId} columns (which include the
-   * canonical {@code user.id → app.installation.id} fallback) for entity grouping.
+   * <p>Groups by materialized {@code UserId} / {@code SessionId} on {@code otel.otel_logs}
+   * (see ingestion DDL: {@code user.id} with {@code app.installation.id} fallback).
    *
    * @param def funnel definition; must have at least one step
    * @return the INSERT SQL, or an empty string if the funnel has no steps
@@ -77,8 +77,7 @@ public final class ClickHouseFunnelComputeDao {
     String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
     String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
         def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
-    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(
-        def.getFunnelType(), def.getEndTime());
+    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
 
     String bodyInClause = steps.stream()
         .map(s -> "'" + escape(s.getEventName()) + "'")
@@ -116,9 +115,13 @@ public final class ClickHouseFunnelComputeDao {
         .append("    WHERE Body = '").append(escape(steps.get(0).getEventName())).append("'\n")
         .append("  )");
 
-    // s1..s(N-1): chain forward. Each CTE adds t_i via LEFT JOIN + min() on the next step's
-    // events, constrained to [t_{i-1}, t0 + window]. NULL propagates cleanly when a user
-    // didn't reach the prior step (NULL comparisons are falsy → no match → min() returns NULL).
+    // s1..s(N-1): chain forward. ClickHouse rejects non-equi predicates in JOIN ON unless
+    // allow_experimental_join_condition is set; equi-join on (uid, Body) only and apply the
+    // funnel window [t_{i-1}, t0 + W] inside minOrNullIf.
+    //
+    // Use minOrNullIf (not minIf): for non-Nullable DateTime, minIf with no matching rows
+    // returns default 1970-01-01, which is still IS NOT NULL and breaks depth (every user looks
+    // like they completed all steps) and poisons median dateDiff with huge negatives.
     for (int i = 1; i < stepCount; i++) {
       String prevCte = i == 1 ? "attempts" : ("s" + (i - 1));
       String prevAlias = i == 1 ? "a" : ("s" + (i - 1));
@@ -129,14 +132,13 @@ public final class ClickHouseFunnelComputeDao {
       for (int j = 1; j < i; j++) {
         sql.append(", ").append(prevAlias).append(".t").append(j);
       }
-      sql.append(",\n           min(e.FunnelTs) AS t").append(i).append("\n")
+      sql.append(",\n           minOrNullIf(e.FunnelTs, e.FunnelTs >= ").append(prevAlias).append(".t")
+          .append(i - 1).append(" AND e.FunnelTs <= ").append(prevAlias).append(".t0 + INTERVAL ")
+          .append(windowSeconds).append(" SECOND) AS t").append(i).append("\n")
           .append("    FROM ").append(prevCte).append(" AS ").append(prevAlias).append("\n")
           .append("    LEFT JOIN step_events e\n")
           .append("      ON e.uid = ").append(prevAlias).append(".uid\n")
           .append("     AND e.Body = '").append(stepName).append("'\n")
-          .append("     AND e.FunnelTs >= ").append(prevAlias).append(".t").append(i - 1).append("\n")
-          .append("     AND e.FunnelTs <= ").append(prevAlias).append(".t0 + INTERVAL ")
-          .append(windowSeconds).append(" SECOND\n")
           .append("    GROUP BY ").append(prevAlias).append(".uid, ").append(prevAlias).append(".t0");
       for (int j = 1; j < i; j++) {
         sql.append(", ").append(prevAlias).append(".t").append(j);
@@ -196,11 +198,29 @@ public final class ClickHouseFunnelComputeDao {
       if (k == 1) {
         sql.append("       CAST(NULL AS Nullable(Int64))\n");
       } else {
-        // dateDiff returns NULL when either operand is NULL (winning_depth < k). quantileTDigest
-        // ignores NULLs; returns NaN if all inputs are NULL. accurateCastOrNull maps NaN to
-        // NULL cleanly, giving us the intended "no data" signal for empty steps.
-        sql.append("       accurateCastOrNull(round(quantileTDigest(0.5)(\n")
-            .append("         dateDiff('second', chain.").append(k - 1).append(", chain.").append(k).append(")\n")
+        String lo = Integer.toString(k - 1);
+        String hi = Integer.toString(k);
+        String diff =
+            "toFloat64(dateDiff('second', tupleElement(chain, "
+                + lo
+                + "), tupleElement(chain, "
+                + hi
+                + ")))";
+        String cond =
+            "winning_depth >= "
+                + k
+                + " AND tupleElement(chain, "
+                + lo
+                + ") IS NOT NULL AND tupleElement(chain, "
+                + hi
+                + ") IS NOT NULL AND tupleElement(chain, "
+                + hi
+                + ") >= tupleElement(chain, "
+                + lo
+                + ")";
+        sql.append("       accurateCastOrNull(round(quantileExactIf(0.5)(\n")
+            .append("         ").append(diff).append(",\n")
+            .append("         ").append(cond).append("\n")
             .append("       )), 'Int64')\n");
       }
       sql.append("FROM winners\n");
@@ -221,7 +241,7 @@ public final class ClickHouseFunnelComputeDao {
         .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
         .collect(Collectors.joining("\n      "));
 
-    String groupKey = ClickhouseAnalyticsQueryUtils.resolveGroupKey(def.getMode());
+    String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
     String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
         def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
     String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
@@ -305,8 +325,8 @@ public final class ClickHouseFunnelComputeDao {
           (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)
         WITH
           raw AS (
-            SELECT LogAttributes['user.id'] AS UserId,
-                   LogAttributes['session.id'] AS SessionId,
+            SELECT UserId,
+                   SessionId,
                    Timestamp,
                    toDateTime(Timestamp) AS FunnelTs,
                    Body
@@ -321,7 +341,7 @@ public final class ClickHouseFunnelComputeDao {
     for (int i = 0; i < defs.size(); i++) {
       FunnelDefinitionRow def = defs.get(i);
       List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
-      String groupKey = "SESSIONS".equalsIgnoreCase(def.getMode()) ? "SessionId" : "UserId";
+      String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
       String windowFunnelArgs = steps.stream()
           .map(s -> "Body = '" + escape(s.getEventName()) + "'")
           .collect(Collectors.joining(", "));

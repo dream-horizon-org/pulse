@@ -85,14 +85,14 @@ class ClickHouseFunnelComputeDaoTest {
     void shouldUseUserIdGroupKeyForUniqueUsers() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(
           baseRow().mode("UNIQUE_USERS").build());
-      assertThat(sql).contains("LogAttributes['user.id']");
+      assertThat(sql).contains("SELECT UserId AS uid");
     }
 
     @Test
     void shouldUseSessionIdGroupKeyForSessions() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(
           baseRow().mode("SESSIONS").build());
-      assertThat(sql).contains("LogAttributes['session.id']");
+      assertThat(sql).contains("SELECT SessionId AS uid");
     }
 
     @Test
@@ -154,6 +154,8 @@ class ClickHouseFunnelComputeDaoTest {
       assertThat(sql)
           .contains("raw AS (")
           .contains("FROM otel.otel_logs")
+          .contains("SELECT UserId,")
+          .contains("SessionId,")
           .contains("LogAttributes['pulse.type'] = 'custom_event'");
     }
 
@@ -259,21 +261,21 @@ class ClickHouseFunnelComputeDaoTest {
     }
 
     @Test
-    void shouldUseMaterializedUserIdForUniqueUsersMode() {
+    void shouldUseMaterializedUserIdColumnForUniqueUsersMode() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(
           baseRow().mode("UNIQUE_USERS").build());
       assertThat(sql)
           .contains("SELECT UserId AS uid")
-          .doesNotContain("LogAttributes['user.id']");
+          .doesNotContain("SELECT LogAttributes['user.id'] AS uid");
     }
 
     @Test
-    void shouldUseMaterializedSessionIdForSessionsMode() {
+    void shouldUseMaterializedSessionIdColumnForSessionsMode() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(
           baseRow().mode("SESSIONS").build());
       assertThat(sql)
           .contains("SELECT SessionId AS uid")
-          .doesNotContain("LogAttributes['session.id']");
+          .doesNotContain("SELECT LogAttributes['session.id'] AS uid");
     }
 
     @Test
@@ -311,23 +313,23 @@ class ClickHouseFunnelComputeDaoTest {
     }
 
     @Test
-    void shouldChainStepEventsWithMinAndWindowBound() {
+    void shouldChainStepEventsWithMinOrNullIfAndWindowBoundInsideAggregate() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(baseRow().windowSeconds(3600L).build());
       assertThat(sql)
-          .contains("min(e.FunnelTs) AS t1")
+          .contains(
+              "minOrNullIf(e.FunnelTs, e.FunnelTs >= a.t0 AND e.FunnelTs <= a.t0 + INTERVAL 3600 SECOND) AS t1")
           .contains("AND e.Body = 'add_to_cart'")
-          .contains("AND e.FunnelTs >= a.t0")
-          .contains("AND e.FunnelTs <= a.t0 + INTERVAL 3600 SECOND");
+          .contains("LEFT JOIN step_events e\n")
+          .contains("ON e.uid = a.uid");
     }
 
     @Test
     void shouldChainStepTwoAgainstPreviousStepTimestamp() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(baseRow().windowSeconds(7200L).build());
       assertThat(sql)
-          .contains("min(e.FunnelTs) AS t2")
-          .contains("AND e.Body = 'purchase'")
-          .contains("AND e.FunnelTs >= s1.t1")
-          .contains("AND e.FunnelTs <= s1.t0 + INTERVAL 7200 SECOND");
+          .contains(
+              "minOrNullIf(e.FunnelTs, e.FunnelTs >= s1.t1 AND e.FunnelTs <= s1.t0 + INTERVAL 7200 SECOND) AS t2")
+          .contains("AND e.Body = 'purchase'");
     }
 
     @Test
@@ -371,10 +373,18 @@ class ClickHouseFunnelComputeDaoTest {
     void shouldEmitQuantileMedianForSubsequentSteps() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(baseRow().build());
       assertThat(sql)
-          .contains("dateDiff('second', chain.1, chain.2)")
-          .contains("dateDiff('second', chain.2, chain.3)")
-          .contains("accurateCastOrNull(round(quantileTDigest(0.5)")
-          .contains("'Int64')");
+          .contains(
+              "toFloat64(dateDiff('second', tupleElement(chain, 1), tupleElement(chain, 2)))")
+          .contains(
+              "toFloat64(dateDiff('second', tupleElement(chain, 2), tupleElement(chain, 3)))")
+          .contains("quantileExactIf(0.5)(")
+          .contains("accurateCastOrNull(round(quantileExactIf(0.5)(")
+          .contains("'Int64')")
+          .contains("tupleElement(chain, 1) IS NOT NULL AND tupleElement(chain, 2) IS NOT NULL")
+          .contains("tupleElement(chain, 2) >= tupleElement(chain, 1)")
+          .contains("tupleElement(chain, 3) >= tupleElement(chain, 2)")
+          .contains("winning_depth >= 2")
+          .contains("winning_depth >= 3");
     }
 
     @Test
@@ -408,7 +418,7 @@ class ClickHouseFunnelComputeDaoTest {
           .doesNotContain("s2 AS (")
           .contains("multiIf(\n             t1 IS NOT NULL, 2,\n             1")
           .contains("argMax(tuple(t0, t1)")
-          .contains("dateDiff('second', chain.1, chain.2)");
+          .contains("tupleElement(chain, 1), tupleElement(chain, 2)");
     }
 
     @Test
@@ -424,7 +434,7 @@ class ClickHouseFunnelComputeDaoTest {
           .contains("s4 AS (")
           .doesNotContain("s5 AS (")
           .contains("argMax(tuple(t0, t1, t2, t3, t4)")
-          .contains("dateDiff('second', chain.4, chain.5)");
+          .contains("tupleElement(chain, 4), tupleElement(chain, 5)");
       assertThat(sql.split("UNION ALL", -1)).hasSize(5);
     }
 
@@ -436,7 +446,7 @@ class ClickHouseFunnelComputeDaoTest {
       assertThat(sql).contains(
           "s3 AS (\n"
               + "    SELECT s2.uid, s2.t0, s2.t1, s2.t2,\n"
-              + "           min(e.FunnelTs) AS t3");
+              + "           minOrNullIf(e.FunnelTs, e.FunnelTs >= s2.t2 AND e.FunnelTs <= s2.t0 + INTERVAL 3600 SECOND) AS t3");
       assertThat(sql).contains(
           "GROUP BY s2.uid, s2.t0, s2.t1, s2.t2");
     }
