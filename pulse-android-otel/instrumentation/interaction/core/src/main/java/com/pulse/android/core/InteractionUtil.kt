@@ -6,6 +6,13 @@ import com.pulse.android.remote.models.InteractionEvent
 import com.pulse.utils.PulseOtelUtils
 import java.util.Locale
 
+internal data class InteractionBuildError(
+    val type: InteractionErrorType,
+    val timeoutExpectedEventName: String? = null,
+    val sequenceViolationExpectedEventName: String? = null,
+    val sequenceViolationReceivedEventName: String? = null,
+)
+
 internal object InteractionUtil {
     /**
      * Returns null when there is event of interest but because of ordering it didn't create any
@@ -85,7 +92,6 @@ internal object InteractionUtil {
                                                 interactionConfig = interactionConfig,
                                                 events = stepWiseTimeInNano,
                                                 localMarkers = localMarkers,
-                                                isSuccessInteraction = true,
                                             ),
                                     ),
                             )
@@ -124,7 +130,12 @@ internal object InteractionUtil {
                                         interactionConfig = interactionConfig,
                                         events = stepWiseTimeInNano,
                                         localMarkers = localMarkers,
-                                        isSuccessInteraction = false,
+                                        error =
+                                            InteractionBuildError(
+                                                type = InteractionErrorType.SEQUENCE_VIOLATION,
+                                                sequenceViolationExpectedEventName = configEvent.name,
+                                                sequenceViolationReceivedEventName = localEvent.name,
+                                            ),
                                     ),
                             ),
                     )
@@ -183,19 +194,41 @@ internal object InteractionUtil {
         }
     }
 
+    private fun interactionErrorMessage(error: InteractionBuildError): String =
+        when (error.type) {
+            InteractionErrorType.TIMEOUT -> {
+                if (error.timeoutExpectedEventName != null) {
+                    """Timed out while waiting for event "${error.timeoutExpectedEventName}"."""
+                } else {
+                    "Timed out before the next expected event arrived."
+                }
+            }
+            InteractionErrorType.SEQUENCE_VIOLATION -> {
+                if (error.sequenceViolationExpectedEventName != null && error.sequenceViolationReceivedEventName != null) {
+                    """Expected event "${error.sequenceViolationExpectedEventName}", received "${error.sequenceViolationReceivedEventName}"."""
+                } else {
+                    "An event did not match the next expected event in this interaction."
+                }
+            }
+        }
+
     internal fun buildPulseInteraction(
         interactionId: String,
         interactionConfig: InteractionConfig,
         events: List<InteractionLocalEvent>,
         localMarkers: List<InteractionLocalEvent>,
-        isSuccessInteraction: Boolean,
+        error: InteractionBuildError? = null,
     ): Interaction {
+        require(events.isNotEmpty()) { "buildPulseInteraction requires at least one event" }
         val interactionName = interactionConfig.name
         val interactionConfigId = interactionConfig.id
         val lastEventTimeInNano = events.last().timeInNano
+        val errorType = error?.type
+
+        val errorMessage = error?.let { interactionErrorMessage(it) }
 
         val (timeDifferenceInNano, timeCategory, upTimeIndex) =
-            if (isSuccessInteraction) {
+            if (errorType == null) {
                 val timeDifferenceInNano = lastEventTimeInNano - events.first().timeInNano
                 val timeDifferenceInMs = timeDifferenceInNano / 1000_000
                 val lowerLimitInMs = interactionConfig.uptimeLowerLimitInMs
@@ -233,22 +266,33 @@ internal object InteractionUtil {
             } else {
                 Triple(null, null, null)
             }
-        val timeInMsDiffPair = events.getTimeSpanInNanos(interactionConfig.thresholdInMs)
-        val maps =
-            mapOf(
-                InteractionConstant.NAME to interactionName,
-                InteractionConstant.CONFIG_ID to interactionConfigId,
-                InteractionConstant.LAST_EVENT_TIME_IN_NANO to lastEventTimeInNano,
-                // making a copy so that any changes to stepWiseTimeInNano doesn't effect the stored value
-                InteractionConstant.LOCAL_EVENTS to events.toList(),
-                InteractionConstant.MARKER_EVENTS to (
-                    timeInMsDiffPair?.let { localMarkers.getEventsBetween(it.first, it.second) } ?: localMarkers.toList()
-                ),
-                InteractionConstant.APDEX_SCORE to upTimeIndex,
-                InteractionConstant.USER_CATEGORY to timeCategory?.categoryName,
-                InteractionConstant.TIME_TO_COMPLETE_IN_NANO to timeDifferenceInNano,
-                InteractionConstant.IS_ERROR to !isSuccessInteraction,
+
+        val timeInMsDiffPair =
+            computeInteractionTimeSpanInNanos(
+                events = events,
+                timeOutInMs = interactionConfig.thresholdInMs,
+                errorType = errorType,
             )
+
+        val maps =
+            buildMap {
+                put(InteractionConstant.NAME, interactionName)
+                put(InteractionConstant.CONFIG_ID, interactionConfigId)
+                put(InteractionConstant.LAST_EVENT_TIME_IN_NANO, lastEventTimeInNano)
+                put(InteractionConstant.LOCAL_EVENTS, events.toList())
+                put(
+                    InteractionConstant.MARKER_EVENTS,
+                    timeInMsDiffPair?.let {
+                        localMarkers.getEventsBetween(it.first, it.second)
+                    } ?: localMarkers.toList(),
+                )
+                put(InteractionConstant.APDEX_SCORE, upTimeIndex)
+                put(InteractionConstant.USER_CATEGORY, timeCategory?.categoryName)
+                put(InteractionConstant.TIME_TO_COMPLETE_IN_NANO, timeDifferenceInNano)
+                put(InteractionConstant.IS_ERROR, errorType != null)
+                put(InteractionConstant.ERROR_TYPE, errorType?.code)
+                put(InteractionConstant.ERROR_MESSAGE, errorMessage)
+            }
 
         return Interaction(
             id = interactionId,
@@ -283,8 +327,34 @@ public class Interaction internal constructor(
     public val props: Map<String, Any?> = emptyMap(),
 )
 
+private fun computeInteractionTimeSpanInNanos(
+    events: List<InteractionLocalEvent>,
+    timeOutInMs: Long,
+    errorType: InteractionErrorType?,
+): Pair<Long, Long>? {
+    if (errorType != null) {
+        val steps = events
+        if (steps.isEmpty()) return null
+        val firstNs = steps.first().timeInNano
+        val lastNs = steps.last().timeInNano
+        val thresholdNs = timeOutInMs * 1_000_000L
+        return firstNs to
+            if (errorType == InteractionErrorType.TIMEOUT) {
+                firstNs + thresholdNs + (lastNs - firstNs)
+            } else {
+                lastNs
+            }
+    }
+    return events.getTimeSpanInNanos(timeOutInMs)
+}
+
 @Suppress("UNCHECKED_CAST")
-internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? = events.getTimeSpanInNanos(timeOutInMs)
+internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? =
+    computeInteractionTimeSpanInNanos(
+        events = events,
+        timeOutInMs = timeOutInMs,
+        errorType = InteractionErrorType.fromCode(errorTypeCode),
+    )
 
 internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
     val steps = this
@@ -335,3 +405,9 @@ public val Interaction.isErrored: Boolean
                 ?: error("InteractionConstant.IS_ERROR is missing or not of correct type")
         return isError
     }
+
+public val Interaction.errorTypeCode: String?
+    get() = props[InteractionConstant.ERROR_TYPE] as? String
+
+public val Interaction.errorMessage: String?
+    get() = props[InteractionConstant.ERROR_MESSAGE] as? String

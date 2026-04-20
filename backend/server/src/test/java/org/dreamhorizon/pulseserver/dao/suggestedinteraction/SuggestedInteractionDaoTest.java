@@ -24,7 +24,8 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionDetails;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +56,7 @@ class SuggestedInteractionDaoTest {
   @BeforeEach
   void setUp() {
     ProjectContext.setProjectId(PROJECT_ID);
-    objectMapperUtil = new ObjectMapperUtil();
+    objectMapperUtil = new ObjectMapperUtil(ObjectMapperFactory.get());
     dao = new SuggestedInteractionDao(mysqlClient, objectMapperUtil);
   }
 

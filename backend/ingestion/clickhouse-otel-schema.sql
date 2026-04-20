@@ -82,6 +82,17 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `UserId` String MATERIALIZED ifNull(nullIf(LogAttributes['user.id'], ''), ifNull(LogAttributes['app.installation.id'], '')),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
     `EventName` LowCardinality(String) CODEC(ZSTD(1)),
+    `ScreenName` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['screen.name'], ''),
+    `ClickType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['click.type'], ''),
+    `Rage` Bool MATERIALIZED (LogAttributes['click.is_rage'] = 'true'),
+    `RageCount` UInt8 MATERIALIZED toUInt8OrZero(LogAttributes['click.rage_count']),
+    `XPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.x']),
+    `YPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.y']),
+    `NormXPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.nx']),
+    `NormYPer` Float32 MATERIALIZED toFloat32OrZero(LogAttributes['app.screen.coordinate.ny']),
+    `ViewportWidth` UInt16 MATERIALIZED toUInt16OrZero(LogAttributes['device.screen.width']),
+    `ViewportHeight` UInt16 MATERIALIZED toUInt16OrZero(LogAttributes['device.screen.height']),
+    `AspectRatio` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['device.screen.aspect_ratio'], ''),
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
 ENGINE = MergeTree
@@ -132,6 +143,271 @@ PARTITION BY toDate(TimeUnix)
 -- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
 SETTINGS index_granularity = 8192;
+
+CREATE TABLE IF NOT EXISTS otel.otel_metrics_sum
+(
+    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ResourceSchemaUrl` String CODEC(ZSTD(1)),
+    `ScopeName` String CODEC(ZSTD(1)),
+    `ScopeVersion` String CODEC(ZSTD(1)),
+    `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ScopeDroppedAttrCount` UInt32 CODEC(ZSTD(1)),
+    `ScopeSchemaUrl` String CODEC(ZSTD(1)),
+    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
+    `MetricName` String CODEC(ZSTD(1)),
+    `MetricDescription` String CODEC(ZSTD(1)),
+    `MetricUnit` String CODEC(ZSTD(1)),
+    `Attributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `StartTimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `TimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `Value` Float64 CODEC(ZSTD(1)),
+    `Flags` UInt32 CODEC(ZSTD(1)),
+    `Exemplars.FilteredAttributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
+    `Exemplars.TimeUnix` Array(DateTime64(9)) CODEC(ZSTD(1)),
+    `Exemplars.Value` Array(Float64) CODEC(ZSTD(1)),
+    `Exemplars.SpanId` Array(String) CODEC(ZSTD(1)),
+    `Exemplars.TraceId` Array(String) CODEC(ZSTD(1)),
+    `AggregationTemporality` Int32 CODEC(ZSTD(1)),
+    `IsMonotonic` Bool CODEC(ZSTD(1)),
+    `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
+    `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(Attributes['pulse.metering.session.id'], ''),
+    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
+    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
+    `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
+    `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
+    `GeoState` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.region.iso_code'], ''),
+    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.country.iso_code'], ''),
+    `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
+    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(Attributes['network.carrier.name'], ''),
+    `UserId` String MATERIALIZED ifNull(nullIf(Attributes['user.id'], ''), ifNull(Attributes['app.installation.id'], ''))
+)
+ENGINE = MergeTree
+PARTITION BY toDate(TimeUnix)
+ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
+SETTINGS index_granularity = 8192;
+
+CREATE TABLE IF NOT EXISTS otel.otel_metrics_summary
+(
+    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ResourceSchemaUrl` String CODEC(ZSTD(1)),
+    `ScopeName` String CODEC(ZSTD(1)),
+    `ScopeVersion` String CODEC(ZSTD(1)),
+    `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ScopeDroppedAttrCount` UInt32 CODEC(ZSTD(1)),
+    `ScopeSchemaUrl` String CODEC(ZSTD(1)),
+    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
+    `MetricName` String CODEC(ZSTD(1)),
+    `MetricDescription` String CODEC(ZSTD(1)),
+    `MetricUnit` String CODEC(ZSTD(1)),
+    `Attributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `StartTimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `TimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `Count` UInt64 CODEC(Delta(8), ZSTD(1)),
+    `Sum` Float64 CODEC(ZSTD(1)),
+    `ValueAtQuantiles.Quantile` Array(Float64) CODEC(ZSTD(1)),
+    `ValueAtQuantiles.Value` Array(Float64) CODEC(ZSTD(1)),
+    `Flags` UInt32 CODEC(ZSTD(1)),
+    `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
+    `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(Attributes['pulse.metering.session.id'], ''),
+    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
+    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
+    `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
+    `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
+    `GeoState` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.region.iso_code'], ''),
+    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.country.iso_code'], ''),
+    `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
+    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(Attributes['network.carrier.name'], ''),
+    `UserId` String MATERIALIZED ifNull(nullIf(Attributes['user.id'], ''), ifNull(Attributes['app.installation.id'], ''))
+)
+ENGINE = MergeTree
+PARTITION BY toDate(TimeUnix)
+ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
+SETTINGS index_granularity = 8192;
+
+CREATE TABLE IF NOT EXISTS otel.otel_metrics_histogram
+(
+    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ResourceSchemaUrl` String CODEC(ZSTD(1)),
+    `ScopeName` String CODEC(ZSTD(1)),
+    `ScopeVersion` String CODEC(ZSTD(1)),
+    `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ScopeDroppedAttrCount` UInt32 CODEC(ZSTD(1)),
+    `ScopeSchemaUrl` String CODEC(ZSTD(1)),
+    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
+    `MetricName` String CODEC(ZSTD(1)),
+    `MetricDescription` String CODEC(ZSTD(1)),
+    `MetricUnit` String CODEC(ZSTD(1)),
+    `Attributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `StartTimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `TimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `Count` UInt64 CODEC(Delta(8), ZSTD(1)),
+    `Sum` Float64 CODEC(ZSTD(1)),
+    `BucketCounts` Array(UInt64) CODEC(ZSTD(1)),
+    `ExplicitBounds` Array(Float64) CODEC(ZSTD(1)),
+    `Exemplars.FilteredAttributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
+    `Exemplars.TimeUnix` Array(DateTime64(9)) CODEC(ZSTD(1)),
+    `Exemplars.Value` Array(Float64) CODEC(ZSTD(1)),
+    `Exemplars.SpanId` Array(String) CODEC(ZSTD(1)),
+    `Exemplars.TraceId` Array(String) CODEC(ZSTD(1)),
+    `Flags` UInt32 CODEC(ZSTD(1)),
+    `Min` Float64 CODEC(ZSTD(1)),
+    `Max` Float64 CODEC(ZSTD(1)),
+    `AggregationTemporality` Int32 CODEC(ZSTD(1)),
+    `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
+    `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(Attributes['pulse.metering.session.id'], ''),
+    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
+    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
+    `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
+    `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
+    `GeoState` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.region.iso_code'], ''),
+    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.country.iso_code'], ''),
+    `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
+    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(Attributes['network.carrier.name'], ''),
+    `UserId` String MATERIALIZED ifNull(nullIf(Attributes['user.id'], ''), ifNull(Attributes['app.installation.id'], ''))
+)
+ENGINE = MergeTree
+PARTITION BY toDate(TimeUnix)
+ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
+SETTINGS index_granularity = 8192;
+
+CREATE TABLE IF NOT EXISTS otel.otel_metrics_exp_histogram
+(
+    `ResourceAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ResourceSchemaUrl` String CODEC(ZSTD(1)),
+    `ScopeName` String CODEC(ZSTD(1)),
+    `ScopeVersion` String CODEC(ZSTD(1)),
+    `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ScopeDroppedAttrCount` UInt32 CODEC(ZSTD(1)),
+    `ScopeSchemaUrl` String CODEC(ZSTD(1)),
+    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
+    `MetricName` String CODEC(ZSTD(1)),
+    `MetricDescription` String CODEC(ZSTD(1)),
+    `MetricUnit` String CODEC(ZSTD(1)),
+    `Attributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `StartTimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `TimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `Count` UInt64 CODEC(Delta(8), ZSTD(1)),
+    `Sum` Float64 CODEC(ZSTD(1)),
+    `Scale` Int32 CODEC(ZSTD(1)),
+    `ZeroCount` UInt64 CODEC(ZSTD(1)),
+    `PositiveOffset` Int32 CODEC(ZSTD(1)),
+    `PositiveBucketCounts` Array(UInt64) CODEC(ZSTD(1)),
+    `NegativeOffset` Int32 CODEC(ZSTD(1)),
+    `NegativeBucketCounts` Array(UInt64) CODEC(ZSTD(1)),
+    `Exemplars.FilteredAttributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
+    `Exemplars.TimeUnix` Array(DateTime64(9)) CODEC(ZSTD(1)),
+    `Exemplars.Value` Array(Float64) CODEC(ZSTD(1)),
+    `Exemplars.SpanId` Array(String) CODEC(ZSTD(1)),
+    `Exemplars.TraceId` Array(String) CODEC(ZSTD(1)),
+    `Flags` UInt32 CODEC(ZSTD(1)),
+    `Min` Float64 CODEC(ZSTD(1)),
+    `Max` Float64 CODEC(ZSTD(1)),
+    `AggregationTemporality` Int32 CODEC(ZSTD(1)),
+    `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
+    `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(Attributes['pulse.metering.session.id'], ''),
+    `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
+    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
+    `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
+    `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
+    `GeoState` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.region.iso_code'], ''),
+    `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.country.iso_code'], ''),
+    `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
+    `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(Attributes['network.carrier.name'], ''),
+    `UserId` String MATERIALIZED ifNull(nullIf(Attributes['user.id'], ''), ifNull(Attributes['app.installation.id'], ''))
+)
+ENGINE = MergeTree
+PARTITION BY toDate(TimeUnix)
+ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
+SETTINGS index_granularity = 8192;
+
+-- Unified read surface for performance queries (METRICS dataType); underlying tables receive collector INSERTs
+CREATE VIEW IF NOT EXISTS otel.otel_metrics
+(
+    `Timestamp` DateTime64(9),
+    `ServiceName` LowCardinality(String),
+    `MetricName` String,
+    `Value` Float64,
+    `Count` Nullable(UInt64),
+    `Sum` Nullable(Float64),
+    `Attributes` Map(LowCardinality(String), String),
+    `ResourceAttributes` Map(LowCardinality(String), String),
+    `ProjectId` LowCardinality(String),
+    `Flags` UInt32,
+    `MetricSource` LowCardinality(String)
+) AS
+SELECT
+    TimeUnix AS Timestamp,
+    ServiceName,
+    MetricName,
+    Value,
+    CAST(NULL AS Nullable(UInt64)) AS Count,
+    CAST(NULL AS Nullable(Float64)) AS Sum,
+    Attributes,
+    ResourceAttributes,
+    ProjectId,
+    Flags,
+    CAST('gauge' AS LowCardinality(String)) AS MetricSource
+FROM otel.otel_metrics_gauge
+UNION ALL
+SELECT
+    TimeUnix,
+    ServiceName,
+    MetricName,
+    Value,
+    CAST(NULL AS Nullable(UInt64)),
+    CAST(NULL AS Nullable(Float64)),
+    Attributes,
+    ResourceAttributes,
+    ProjectId,
+    Flags,
+    CAST('sum' AS LowCardinality(String))
+FROM otel.otel_metrics_sum
+UNION ALL
+SELECT
+    TimeUnix,
+    ServiceName,
+    MetricName,
+    Sum AS Value,
+    CAST(Count AS Nullable(UInt64)),
+    CAST(Sum AS Nullable(Float64)),
+    Attributes,
+    ResourceAttributes,
+    ProjectId,
+    Flags,
+    CAST('summary' AS LowCardinality(String))
+FROM otel.otel_metrics_summary
+UNION ALL
+SELECT
+    TimeUnix,
+    ServiceName,
+    MetricName,
+    Sum AS Value,
+    CAST(Count AS Nullable(UInt64)),
+    CAST(Sum AS Nullable(Float64)),
+    Attributes,
+    ResourceAttributes,
+    ProjectId,
+    Flags,
+    CAST('histogram' AS LowCardinality(String))
+FROM otel.otel_metrics_histogram
+UNION ALL
+SELECT
+    TimeUnix,
+    ServiceName,
+    MetricName,
+    Sum AS Value,
+    CAST(Count AS Nullable(UInt64)),
+    CAST(Sum AS Nullable(Float64)),
+    Attributes,
+    ResourceAttributes,
+    ProjectId,
+    Flags,
+    CAST('exp_histogram' AS LowCardinality(String))
+FROM otel.otel_metrics_exp_histogram;
 
 CREATE TABLE IF NOT EXISTS otel.stack_trace_events
 (
@@ -232,6 +508,49 @@ AS SELECT
 FROM otel.otel_metrics_gauge
 GROUP BY project_id, month, source;
 
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_sum_mv
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(TimeUnix) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+FROM otel.otel_metrics_sum
+GROUP BY project_id, month, source;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_summary_mv
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(TimeUnix) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+FROM otel.otel_metrics_summary
+GROUP BY project_id, month, source;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_histogram_mv
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(TimeUnix) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+FROM otel.otel_metrics_histogram
+GROUP BY project_id, month, source;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_exp_histogram_mv
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(TimeUnix) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+FROM otel.otel_metrics_exp_histogram
+GROUP BY project_id, month, source;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stack_traces_events_mv
 TO otel.project_monthly_usage
@@ -259,3 +578,48 @@ ENGINE = ReplacingMergeTree(cached_at)
 PARTITION BY toYYYYMM(date)
 ORDER BY (ProjectId, interaction_name, date)
 SETTINGS index_granularity = 8192;
+
+
+CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily (
+    `Date` Date,
+    `ProjectId` LowCardinality(String),
+    `ScreenName` LowCardinality(String),
+    `AppVersion` LowCardinality(String),
+    `Platform` LowCardinality(String),
+    `GeographicalRegion` LowCardinality(String),
+    `Breakpoint` LowCardinality(String),
+    `XBin` Float32,
+    `YBin` Float32,
+    `WeightNormal` UInt64,
+    `WeightRage` UInt64,
+    `WeightDead` UInt64
+)
+ENGINE = SummingMergeTree()
+ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin);
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.interaction_heatmaps_daily_mv
+TO otel.interaction_heatmaps_daily AS
+SELECT
+    toDate(Timestamp) AS Date,
+    ProjectId,
+    ScreenName,
+    AppVersion,
+    Platform,
+    GeoState AS GeographicalRegion,
+    multiIf(
+        Platform = 'Web' AND ViewportWidth > 1024, 'Web_Extra_Large',
+        Platform = 'Web', 'Mobile_Medium',
+        ViewportWidth > 600, 'Tablet_Large',
+        ViewportWidth <= 600 AND (ViewportHeight / ViewportWidth) <= 1.5, 'Mobile_Small',
+        'Mobile_Medium'
+    ) AS Breakpoint,
+    round(NormXPer, 2) AS XBin,
+    round(NormYPer, 2) AS YBin,
+    count() AS WeightNormal,
+    countIf(Rage) AS WeightRage,
+    countIf(ClickType = 'dead') AS WeightDead
+FROM otel.otel_logs
+WHERE PulseType = 'app.click'
+GROUP BY Date, ProjectId, ScreenName, AppVersion, Platform, GeoState, Breakpoint, XBin, YBin;
+ 

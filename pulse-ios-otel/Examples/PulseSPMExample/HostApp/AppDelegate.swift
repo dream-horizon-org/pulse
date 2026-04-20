@@ -11,7 +11,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         Pulse.shared.initialize(
             endpointBaseUrl: "http://127.0.0.1:4318",
-            apiKey: "default-project_devkey01"
+            apiKey: "default-project_devkey01",
+            dataCollectionState: .allowed
         )
 
         let window = UIWindow(frame: UIScreen.main.bounds)

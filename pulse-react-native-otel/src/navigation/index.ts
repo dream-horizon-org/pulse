@@ -1,9 +1,8 @@
 import { AppState, type AppStateStatus } from 'react-native';
-import type { RefObject } from 'react';
 import type {
   NavigationContainer,
   NavigationIntegrationOptions,
-  NavigationRoute,
+  ReactNavigationIntegration,
 } from './navigation.interface';
 import { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
 import { pushRecentRouteKey, LOG_TAGS } from './utils';
@@ -25,16 +24,19 @@ import {
   type ScreenSessionState,
   INITIAL_SCREEN_SESSION_STATE,
 } from './screen-session';
-import { useNavigationTracking as useNavigationTrackingBase } from './useNavigationTracking';
 import { isSupportedPlatform } from '../initialization';
 import PulseReactNativeOtel from '../NativePulseReactNativeOtel';
-import { getFeaturesFromRemoteConfig } from '../config';
+import { getFeaturesFromRemoteConfig } from '../remoteFeatures';
 import {
   PULSE_FEATURE_NAMES,
   type NavigationFeatureName,
 } from '../pulse.constants';
 
-export type { NavigationRoute, NavigationIntegrationOptions };
+export type {
+  NavigationRoute,
+  NavigationIntegrationOptions,
+  ReactNavigationIntegration,
+} from './navigation.interface';
 export { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
 
 let currentNavigationUnregister: (() => void) | null = null;
@@ -44,13 +46,6 @@ export function uninstallNavigationIntegration(): void {
     currentNavigationUnregister();
     currentNavigationUnregister = null;
   }
-}
-
-export interface ReactNavigationIntegration {
-  registerNavigationContainer: (
-    maybeNavigationContainer: unknown
-  ) => () => void;
-  markContentReady: () => void;
 }
 
 function resolveNavigationFeatureState(
@@ -70,7 +65,7 @@ export function createReactNavigationIntegration(
 
   const screenSessionTracking = resolveNavigationFeatureState(
     features,
-    PULSE_FEATURE_NAMES.SCREEN_SESSION,
+    PULSE_FEATURE_NAMES.RN_SCREEN_SESSION,
     options?.screenSessionTracking ??
       DEFAULT_NAVIGATION_OPTIONS.screenSessionTracking
   );
@@ -141,13 +136,8 @@ export function createReactNavigationIntegration(
         );
       }
 
-      if (
-        screenSessionTracking &&
-        screenSessionState.screenSessionSpan &&
-        navigationContainer
-      ) {
-        const currentRoute = navigationContainer.getCurrentRoute();
-        screenSessionTracker.endScreenSession(currentRoute?.name);
+      if (screenSessionTracking && screenSessionState.screenSessionSpan) {
+        screenSessionTracker.endScreenSession();
       }
 
       screenLoadTracker.startNavigationSpan();
@@ -182,11 +172,8 @@ export function createReactNavigationIntegration(
       screenLoadTracker.handleStateChange(currentRoute);
 
       const appState = AppState.currentState as AppStateStatus;
-      if (
-        appState &&
-        screenSessionTracker.shouldStartSession(currentRoute, appState)
-      ) {
-        screenSessionTracker.startScreenSession(currentRoute);
+      if (screenSessionTracking) {
+        screenSessionTracker.syncSessionToCurrentRoute(currentRoute, appState);
       }
 
       if (screenInteractiveTracking) {
@@ -238,8 +225,7 @@ export function createReactNavigationIntegration(
       if (isInitialized && navigationContainer === container) {
         return () => {
           if (screenSessionTracking && screenSessionState.screenSessionSpan) {
-            const currentRoute = container.getCurrentRoute();
-            screenSessionTracker.endScreenSession(currentRoute?.name);
+            screenSessionTracker.endScreenSession();
           }
         };
       }
@@ -260,8 +246,7 @@ export function createReactNavigationIntegration(
 
       const unmountCleanup = (): void => {
         if (screenSessionTracking && screenSessionState.screenSessionSpan) {
-          const currentRoute = container.getCurrentRoute();
-          screenSessionTracker.endScreenSession(currentRoute?.name);
+          screenSessionTracker.endScreenSession();
         }
 
         if (screenInteractiveTracking) {
@@ -298,11 +283,11 @@ export function createReactNavigationIntegration(
         }
 
         const appState = AppState.currentState as AppStateStatus;
-        if (
-          appState &&
-          screenSessionTracker.shouldStartSession(currentRoute, appState)
-        ) {
-          screenSessionTracker.startScreenSession(currentRoute);
+        if (screenSessionTracking) {
+          screenSessionTracker.syncSessionToCurrentRoute(
+            currentRoute,
+            appState
+          );
         }
 
         if (screenInteractiveTracking) {
@@ -334,15 +319,3 @@ export function createReactNavigationIntegration(
 }
 
 export { markContentReady };
-
-export function useNavigationTracking(
-  navigationRef: RefObject<any>,
-  options?: NavigationIntegrationOptions
-): () => void {
-  const { createNavigationIntegrationWithConfig } = require('../config');
-  return useNavigationTrackingBase(
-    navigationRef,
-    options,
-    createNavigationIntegrationWithConfig
-  );
-}

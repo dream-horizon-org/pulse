@@ -168,6 +168,10 @@ public class ConfigController {
         ? (ClickFeatureConfig) config
         : ClickFeatureConfig.builder().build();
 
+    if (clickConfig.getCaptureContext() == null) {
+      clickConfig.setCaptureContext(true);
+    }
+
     RageConfig rage = clickConfig.getRage();
     if (rage == null) {
       rage = RageConfig.builder().build();

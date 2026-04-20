@@ -14,28 +14,7 @@ import {
 
 // SDK Config types matching the PulseConfig schema
 type SdkEnum = "android_native" | "android_rn" | "ios_native" | "ios_rn";
-type ScopeEnum = "logs" | "traces" | "metrics" | "baggage";
-type FilterMode = "blacklist" | "whitelist";
 type SamplingMatchType = "app_version_min" | "app_version_max";
-
-interface EventPropMatch {
-  name: string;
-  value: string;
-}
-
-interface EventFilter {
-  id?: string;
-  name: string;
-  props: EventPropMatch[];
-  scope: ScopeEnum[];
-  sdks: SdkEnum[];
-}
-
-interface FiltersConfig {
-  mode: FilterMode;
-  whitelist: EventFilter[];
-  blacklist: EventFilter[];
-}
 
 interface SamplingMatchCondition {
   type: SamplingMatchType;
@@ -51,17 +30,9 @@ interface SamplingRule {
   session_sample_rate: number;
 }
 
-interface CriticalEventPolicy {
-  id?: string;
-  name: string;
-  props: EventPropMatch[];
-  scope: ScopeEnum[];
-}
-
 interface SamplingConfig {
   default: { session_sample_rate: number };
   rules: SamplingRule[];
-  criticalEventPolicies: { alwaysSend: CriticalEventPolicy[] };
 }
 
 interface SignalsConfig {
@@ -85,7 +56,6 @@ interface FeatureConfig {
 
 interface PulseConfig {
   version: number;
-  filtersConfig: FiltersConfig;
   samplingConfig: SamplingConfig;
   signals: SignalsConfig;
   interaction: InteractionConfig;
@@ -229,34 +199,6 @@ export class MockDataStore {
 
     return {
       version: 1,
-      filtersConfig: {
-        mode: "blacklist",
-        whitelist: [
-          {
-            id: generateId(),
-            name: "test_event",
-            props: [{ name: "user_id", value: ".*test.*" }],
-            scope: ["logs", "traces"],
-            sdks: ["android_native", "ios_native"],
-          },
-        ],
-        blacklist: [
-          {
-            id: generateId(),
-            name: "sensitive_event",
-            props: [{ name: "contains_pii", value: "true" }],
-            scope: ["logs", "traces", "metrics"],
-            sdks: ["android_native", "android_rn", "ios_native", "ios_rn"],
-          },
-          {
-            id: generateId(),
-            name: "debug_log",
-            props: [{ name: "level", value: "debug" }],
-            scope: ["logs"],
-            sdks: ["android_native", "ios_native"],
-          },
-        ],
-      },
       samplingConfig: {
         default: { session_sample_rate: 0.5 },
         rules: [
@@ -281,28 +223,6 @@ export class MockDataStore {
             session_sample_rate: 0.1,
           },
         ],
-        criticalEventPolicies: {
-          alwaysSend: [
-            {
-              id: generateId(),
-              name: "crash",
-              props: [{ name: "severity", value: "critical" }],
-              scope: ["traces", "logs"],
-            },
-            {
-              id: generateId(),
-              name: "payment_error",
-              props: [{ name: "error_type", value: "payment.*" }],
-              scope: ["traces"],
-            },
-            {
-              id: generateId(),
-              name: "auth_failure",
-              props: [{ name: "error_code", value: "401|403" }],
-              scope: ["traces", "logs"],
-            },
-          ],
-        },
       },
       signals: {
         scheduleDurationMs: 5000,
@@ -2246,7 +2166,7 @@ export class MockDataStore {
           version: 2,
           createdAt: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
           createdBy: "admin@example.com",
-          description: "Added blacklist filters for sensitive data",
+          description: "Adjusted default session sample rate",
           isActive: false,
         },
       },
@@ -2272,7 +2192,7 @@ export class MockDataStore {
           version: 4,
           createdAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
           createdBy: "jane.smith@example.com",
-          description: "Added payment_error to critical events",
+          description: "Restored default session sample rate",
           isActive: false,
         },
       },
@@ -2402,41 +2322,11 @@ export class MockDataStore {
             sessionSampleRate: 1.0,
           },
         ],
-        criticalEventPolicies: {
-          alwaysSend: [
-            {
-              id: generateId(),
-              name: "crash",
-              props: [{ name: "severity", value: "critical" }],
-              scopes: ["traces", "logs"],
-              sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
-            },
-            {
-              id: generateId(),
-              name: "payment_error",
-              props: [{ name: "error_type", value: "^payment.*" }],
-              scopes: ["traces"],
-              sdks: ["android_java", "ios_native"],
-            },
-          ],
-        },
         criticalSessionPolicies: {
           alwaysSend: [],
         },
       },
       signals: {
-        filters: {
-          mode: "blacklist",
-          values: [
-            {
-              id: generateId(),
-              name: "^debug_.*",
-              props: [{ name: "level", value: "debug" }],
-              scopes: ["logs"],
-              sdks: ["android_java", "ios_native"],
-            },
-          ],
-        },
         scheduleDurationMs: 5000,
         logsCollectorUrl: "http://10.0.2.2:4318/v1/logs",
         metricCollectorUrl: "http://10.0.2.2:4318/v1/metrics",
@@ -2531,6 +2421,27 @@ export class MockDataStore {
             maxBatchSize: 100,
             replayApiBaseUrl: "http://10.0.2.2:4317",
           },
+        },
+        {
+          id: generateId(),
+          featureName: "click",
+          sessionSampleRate: 1,
+          sdks: ["android_java", "ios_native"],
+          config: {
+            featureName: "click",
+            captureContext: true,
+            rage: {
+              timeWindowMs: 2000,
+              threshold: 3,
+              radius: 50,
+            },
+          },
+        },
+        {
+          id: generateId(),
+          featureName: "heatmap",
+          sessionSampleRate: 1,
+          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
         },
       ],
     };
@@ -2657,7 +2568,6 @@ export class MockDataStore {
 
 type SdkEnumV1 = "android_java" | "android_rn" | "ios_native" | "ios_rn";
 type ScopeEnumV1 = "logs" | "traces" | "metrics" | "baggage";
-type FilterModeV1 = "blacklist" | "whitelist";
 type SamplingRuleNameV1 =
   | "os_version"
   | "app_version"
@@ -2677,7 +2587,9 @@ type FeatureNameV1 =
   | "custom_events"
   | "rn_screen_load"
   | "rn_screen_interactive"
-  | "session_replay";
+  | "session_replay"
+  | "click"
+  | "heatmap";
 
 interface EventPropMatchV1 {
   name: string;
@@ -2703,11 +2615,6 @@ interface AttributeToAddV1 {
   condition: EventFilterV1;
 }
 
-interface FilterConfigV1 {
-  mode: FilterModeV1;
-  values: EventFilterV1[];
-}
-
 interface SamplingRuleV1 {
   id?: string;
   name: SamplingRuleNameV1;
@@ -2727,7 +2634,6 @@ interface CriticalPolicyRuleV1 {
 interface SamplingConfigV1 {
   default: { sessionSampleRate: number };
   rules: SamplingRuleV1[];
-  criticalEventPolicies: { alwaysSend: CriticalPolicyRuleV1[] };
   criticalSessionPolicies: { alwaysSend: CriticalPolicyRuleV1[] };
 }
 
@@ -2738,7 +2644,6 @@ interface AttributeToDropV1 {
 }
 
 interface SignalsConfigV1 {
-  filters: FilterConfigV1;
   scheduleDurationMs: number;
   logsCollectorUrl?: string;
   metricCollectorUrl?: string;
@@ -2767,12 +2672,22 @@ interface SessionReplayFeatureConfigV1 {
   replayApiBaseUrl?: string;
 }
 
+interface ClickFeatureConfigV1 {
+  featureName?: "click";
+  captureContext?: boolean;
+  rage?: {
+    timeWindowMs?: number;
+    threshold?: number;
+    radius?: number;
+  };
+}
+
 interface FeatureConfigV1 {
   id?: string;
   featureName: FeatureNameV1;
   sessionSampleRate: number;
   sdks: SdkEnumV1[];
-  config?: SessionReplayFeatureConfigV1 | null;
+  config?: SessionReplayFeatureConfigV1 | ClickFeatureConfigV1 | null;
 }
 
 interface PulseConfigV1 {

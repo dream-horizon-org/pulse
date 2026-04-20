@@ -4,4 +4,5 @@ export interface RcaReportViewProps {
   report: RcaReportPayload;
   cachedAt?: string | null;
   onRegenerate?: () => void;
+  projectId?: string | null;
 }
