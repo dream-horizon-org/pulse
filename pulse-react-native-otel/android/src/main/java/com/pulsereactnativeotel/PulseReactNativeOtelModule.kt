@@ -9,7 +9,7 @@ import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import android.content.Context
 import android.os.Looper
-import com.pulse.utils.PulseLogger
+import android.util.Log
 import android.os.Handler
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
@@ -106,9 +106,7 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
 
   override fun triggerAnr() {
     Handler(Looper.getMainLooper()).postAtFrontOfQueue {
-      PulseLogger.logDebug("PulseRN") {
-        "triggerAnr: PostAtFrontOfQueue on ${Thread.currentThread().name}"
-      }
+      Log.d("[Pulse]", "Now running PostAtFrontQueue: ${Thread.currentThread().name}")
       Thread.sleep(10_000)
     }
   }
