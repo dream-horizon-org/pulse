@@ -61,9 +61,7 @@
           --broker-list "{{ remaining_brokers }}" \
           --topics-to-move-json-file /tmp/topics-to-drain.json \
           --generate \
-          | grep '^{"version"' | tail -1 > /tmp/drain-plan.json
-        echo "Generated reassignment plan:"
-        cat /tmp/drain-plan.json
+          | grep '^{"version"' | tail -1 | tee /tmp/drain-plan.json
       register: drain_plan
       changed_when: false
 
@@ -80,7 +78,7 @@
           --execute
       register: drain_execute
 
-    - name: Wait for reassignment to complete (up to 10 minutes)
+    - name: Wait for reassignment to complete (up to 20 minutes)
       shell: |
         "{{ kafka_bin }}/kafka-reassign-partitions.sh" \
           --bootstrap-server localhost:9092 \
@@ -88,14 +86,13 @@
           --verify \
           | grep -c "Reassignment of partition.*completed successfully"
       register: verify_result
-      retries: 30
+      retries: 60
       delay: 20
       until: >-
         verify_result.stdout | int >= (
           drain_plan.stdout | from_json | json_query('length(partitions)')
         )
       changed_when: false
-      ignore_errors: true
 
     - name: Print reassignment verification result
       debug:

@@ -96,6 +96,14 @@ pipeline {
                 sh """
                     cd deploy/terraform/kafka
                     terraform init
+
+                    # Remove the EBS volume and its attachment from Terraform state before
+                    # applying. prevent_destroy=true would otherwise block the apply.
+                    # The EBS volume remains in AWS as an unattached orphan — data preserved.
+                    REMOVE_IDX=\$(( ${params.REMOVE_NODE_ID} - 1 ))
+                    terraform state rm "aws_volume_attachment.broker_data[\$REMOVE_IDX]" || true
+                    terraform state rm "aws_ebs_volume.broker_data[\$REMOVE_IDX]" || true
+
                     terraform plan -var num_brokers=${params.NUM_BROKERS} -out=tfplan
                     terraform apply -input=false tfplan
                 """
