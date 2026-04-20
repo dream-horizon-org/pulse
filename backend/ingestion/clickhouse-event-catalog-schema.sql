@@ -15,7 +15,8 @@
 --
 -- **Writers (same table; dedup on merge, use FINAL for reads):**
 --   * **Spark:** `backend/spark` EventCatalogJob (S3 / EVENTS_INCREMENTAL).
---   * **Materialized view:** `event_catalog_entries_mv` → inserts into this table from
+--   * **Materialized views:** `event_catalog_entries_mv_*` (four views; no UNION in MV on CH 24.8+)
+--     → insert into this table from
 --     `otel.otel_logs` on each log insert (`PulseType = 'custom_event'` only; aligns with
 --     `ClickhouseAnalyticsConstantsMapper`: `Body` for EVENT, `ResourceAttributes['os.name']`,
 --     `['os.version']`, `['app.build_name']` for the dimension keys — no reliance on optional
@@ -41,7 +42,10 @@ ENGINE = ReplacingMergeTree
 ORDER BY (ProjectId, FilterKey, FilterValue)
 SETTINGS index_granularity = 8192;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv
+-- Upgrade from older single MV name (optional):
+--   DROP VIEW IF EXISTS otel.event_catalog_entries_mv;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_event
 TO otel.event_catalog_entries
 AS
 SELECT
@@ -51,8 +55,11 @@ SELECT
 FROM otel.otel_logs
 WHERE ProjectId != ''
   AND PulseType = 'custom_event'
-  AND Body != ''
-UNION ALL
+  AND Body != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_app_build_name
+TO otel.event_catalog_entries
+AS
 SELECT
     ProjectId,
     CAST('APP_BUILD_NAME' AS LowCardinality(String)) AS FilterKey,
@@ -60,8 +67,11 @@ SELECT
 FROM otel.otel_logs
 WHERE ProjectId != ''
   AND PulseType = 'custom_event'
-  AND ifNull(ResourceAttributes['app.build_name'], '') != ''
-UNION ALL
+  AND ifNull(ResourceAttributes['app.build_name'], '') != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_os_version
+TO otel.event_catalog_entries
+AS
 SELECT
     ProjectId,
     CAST('OS_VERSION' AS LowCardinality(String)) AS FilterKey,
@@ -69,8 +79,11 @@ SELECT
 FROM otel.otel_logs
 WHERE ProjectId != ''
   AND PulseType = 'custom_event'
-  AND ifNull(ResourceAttributes['os.version'], '') != ''
-UNION ALL
+  AND ifNull(ResourceAttributes['os.version'], '') != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_os_name
+TO otel.event_catalog_entries
+AS
 SELECT
     ProjectId,
     CAST('OS_NAME' AS LowCardinality(String)) AS FilterKey,

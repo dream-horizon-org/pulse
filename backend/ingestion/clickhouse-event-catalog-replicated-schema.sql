@@ -7,8 +7,8 @@
 -- Creates:
 --   * otel.event_catalog_entries_local — ReplicatedReplacingMergeTree (dedup on merge)
 --   * otel.event_catalog_entries — Distributed (Spark / API target; same name as dev)
---   * otel.event_catalog_entries_mv — Materialized view → `event_catalog_entries_local`
---     from `otel.otel_logs_local` (custom_event rows; same FilterKey mapping as dev script)
+--   * otel.event_catalog_entries_mv_* — Four materialized views → `event_catalog_entries_local`
+--     from `otel.otel_logs_local` (UNION is not allowed in MVs in CH 24.8+; one MV per row shape)
 --
 -- Column names: **PascalCase** (same as `clickhouse-event-catalog-schema.sql`).
 --
@@ -42,7 +42,10 @@ ON CLUSTER `pulse-clickhouse`
 AS otel.event_catalog_entries_local
 ENGINE = Distributed(`pulse-clickhouse`, otel, event_catalog_entries_local, cityHash64(ProjectId));
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv
+-- Upgrade from older single MV name (optional):
+--   DROP VIEW IF EXISTS otel.event_catalog_entries_mv ON CLUSTER `pulse-clickhouse`;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_event
 ON CLUSTER `pulse-clickhouse`
 TO otel.event_catalog_entries_local
 AS
@@ -53,8 +56,12 @@ SELECT
 FROM otel.otel_logs_local
 WHERE ProjectId != ''
   AND PulseType = 'custom_event'
-  AND Body != ''
-UNION ALL
+  AND Body != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_app_build_name
+ON CLUSTER `pulse-clickhouse`
+TO otel.event_catalog_entries_local
+AS
 SELECT
     ProjectId,
     CAST('APP_BUILD_NAME' AS LowCardinality(String)) AS FilterKey,
@@ -62,8 +69,12 @@ SELECT
 FROM otel.otel_logs_local
 WHERE ProjectId != ''
   AND PulseType = 'custom_event'
-  AND ifNull(ResourceAttributes['app.build_name'], '') != ''
-UNION ALL
+  AND ifNull(ResourceAttributes['app.build_name'], '') != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_os_version
+ON CLUSTER `pulse-clickhouse`
+TO otel.event_catalog_entries_local
+AS
 SELECT
     ProjectId,
     CAST('OS_VERSION' AS LowCardinality(String)) AS FilterKey,
@@ -71,8 +82,12 @@ SELECT
 FROM otel.otel_logs_local
 WHERE ProjectId != ''
   AND PulseType = 'custom_event'
-  AND ifNull(ResourceAttributes['os.version'], '') != ''
-UNION ALL
+  AND ifNull(ResourceAttributes['os.version'], '') != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_os_name
+ON CLUSTER `pulse-clickhouse`
+TO otel.event_catalog_entries_local
+AS
 SELECT
     ProjectId,
     CAST('OS_NAME' AS LowCardinality(String)) AS FilterKey,
