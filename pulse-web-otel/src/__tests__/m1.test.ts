@@ -302,20 +302,20 @@ describe("M1 — Config validation", () => {
     expect(() => validateConfig(makeConfig())).not.toThrow();
   });
 
-  it("isLocalEnvironment: detects devkey in apiKey", () => {
-    expect(isLocalEnvironment("myproject-123_devkey456")).toBe(true);
+  it("isLocalEnvironment: detects default-project_ prefix", () => {
+    expect(isLocalEnvironment("default-project_abc123")).toBe(true);
+    expect(isLocalEnvironment("Test-myapp_abc123")).toBe(true);
     expect(isLocalEnvironment("myproject-123_prod456")).toBe(false);
   });
 
-  it("resolveEndpointBaseUrl: returns localhost:4318 for devkey", () => {
-    const url = resolveEndpointBaseUrl("myproject-123_devkey456");
+  it("resolveEndpointBaseUrl: returns localhost:4318 for default-project key", () => {
+    const url = resolveEndpointBaseUrl("default-project_devkey01");
     expect(url).toBe("http://localhost:4318");
   });
 
-  it("resolveEndpointBaseUrl: throws for production without endpointBaseUrl", () => {
-    expect(() => resolveEndpointBaseUrl("myproject-123_prod456")).toThrow(
-      "Production deployments require endpointBaseUrl",
-    );
+  it("resolveEndpointBaseUrl: returns prod URL for production key without endpointBaseUrl", () => {
+    const url = resolveEndpointBaseUrl("myproject-123_prod456");
+    expect(url).toBe("https://pulse-otel-collector.pulse-ux.com");
   });
 
   it("resolveEndpointBaseUrl: uses provided endpointBaseUrl", () => {
@@ -440,8 +440,8 @@ describe("M1 — SDK singleton guard", () => {
 // ---------------------------------------------------------------------------
 
 describe("M1 — resolveConfigUrl", () => {
-  it("replaces :4318 with :8080 when no explicit configEndpointUrl", () => {
-    expect(resolveConfigUrl(undefined, "http://localhost:4318")).toBe(
+  it("replaces :4318 with :8080 for localhost", () => {
+    expect(resolveConfigUrl(undefined, "http://localhost:4318", "proj_abc")).toBe(
       "http://localhost:8080/v1/configs/active/",
     );
   });
@@ -451,14 +451,15 @@ describe("M1 — resolveConfigUrl", () => {
       resolveConfigUrl(
         "https://api.example.com/v1/configs/active/",
         "http://localhost:4318",
+        "proj_abc",
       ),
     ).toBe("https://api.example.com/v1/configs/active/");
   });
 
-  it("leaves non-4318 URLs unchanged", () => {
-    expect(resolveConfigUrl(undefined, "https://ingest.pulse.io")).toBe(
-      "https://ingest.pulse.io/v1/configs/active/",
-    );
+  it("returns prod config path for non-local URL", () => {
+    expect(
+      resolveConfigUrl(undefined, "https://pulse-otel-collector.pulse-ux.com", "myproject-123"),
+    ).toBe("https://pulse-otel-collector.pulse-ux.com/config/projects/myproject-123/pulse-config.json");
   });
 });
 

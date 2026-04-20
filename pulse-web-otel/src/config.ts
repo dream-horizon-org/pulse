@@ -72,27 +72,26 @@ export function validateConfig(config: PulseWebConfig): void {
   if (!config.serviceName) throw new Error('[PulseWeb] serviceName is required');
 }
 
+const PULSE_PROD_ENDPOINT_URL = 'https://pulse-otel-collector.pulse-ux.com';
+
 /**
- * Detects if the API key is for local development (contains 'devkey').
- * Format: <project_name>-<random_id>_devkey<random_api_key> (local)
- *         <project_name>-<random_id>_<random_api_key> (prod)
+ * Mirrors Android's PulseSDKInternal.isApiLocalDev().
+ * Matches: default-project_* OR Test-*_*
  */
 export function isLocalEnvironment(apiKey: string): boolean {
-  return apiKey.includes('_devkey');
+  return /^default-project_.*|^Test-.*_.*/.test(apiKey);
 }
 
 /**
- * Derives the base URL from the API key environment.
+ * Mirrors Android's PulseEndpointUtils.getBaseUrl().
  * Local: http://localhost:4318
- * Prod: https://<cloudflare-url> (caller must provide if production)
+ * Prod: https://pulse-otel-collector.pulse-ux.com
+ * Explicit override always wins.
  */
 export function resolveEndpointBaseUrl(apiKey: string, provided?: string): string {
   if (provided) return provided;
   if (isLocalEnvironment(apiKey)) {
     return 'http://localhost:4318';
   }
-  throw new Error(
-    '[PulseWeb] Production deployments require endpointBaseUrl. ' +
-    'Local development (devkey) resolves to localhost:4318 automatically.'
-  );
+  return PULSE_PROD_ENDPOINT_URL;
 }

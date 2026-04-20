@@ -120,21 +120,23 @@ function isValidSdkConfig(value: unknown): value is PulseSdkConfig {
 }
 
 /**
- * Derives the Pulse server config URL from the endpoint base URL.
- * - Local: http://localhost:4318 → http://localhost:8080/v1/configs/active/
- * - Prod: https://collector.example.com → https://collector.example.com/v1/configs/active/
- * If configEndpointUrl is supplied explicitly it takes precedence.
+ * Mirrors Android's PulseEndpointUtils.getActiveConfigUrl().
+ * - Local (isApiLocalDev): http://localhost:8080/v1/configs/active/
+ * - Prod: https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/pulse-config.json
+ * Explicit configEndpointUrl always takes precedence.
  */
 export function resolveConfigUrl(
   configEndpointUrl: string | undefined,
   endpointBaseUrl: string,
+  projectId: string,
 ): string {
   if (configEndpointUrl) return configEndpointUrl;
-  // For local dev, swap :4318 → :8080; for prod, just append path
-  const serverBase = endpointBaseUrl
-    .replace(/:4318\b/, ':8080')
-    .replace(/\/$/, '');
-  return `${serverBase}/v1/configs/active/`;
+  // Local dev: rewrite :4318 → :8080, use /v1/configs/active/
+  if (endpointBaseUrl.includes('localhost') || endpointBaseUrl.includes('10.0.2.2')) {
+    return `${endpointBaseUrl.replace(/:4318\b/, ':8080').replace(/\/$/, '')}/v1/configs/active/`;
+  }
+  // Prod: /config/projects/{projectId}/pulse-config.json
+  return `${endpointBaseUrl.replace(/\/$/, '')}/config/projects/${projectId}/pulse-config.json`;
 }
 
 export class SdkConfigFetcher {
@@ -144,7 +146,7 @@ export class SdkConfigFetcher {
   private readonly apiKey: string;
 
   constructor(endpointBaseUrl: string, projectId: string, configEndpointUrl?: string, apiKey?: string) {
-    this.configUrl = resolveConfigUrl(configEndpointUrl, endpointBaseUrl);
+    this.configUrl = resolveConfigUrl(configEndpointUrl, endpointBaseUrl, projectId);
     this.projectId = projectId;
     this.apiKey = apiKey ?? '';
   }
