@@ -92,7 +92,7 @@ function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
 export function buildPulseInitializationCode(options: {
   endpointBaseUrl: string;
   apiKey: string;
-  dataCollectionState?: PulseDataCollectionState;
+  dataCollectionState: PulseDataCollectionState;
   endpointHeaders?: Record<string, string>;
   configEndpointUrl?: string;
   customEventCollectorUrl?: string;
@@ -114,7 +114,7 @@ export function buildPulseInitializationCode(options: {
   params.push(`apiKey = "${escapeKotlinString(apiKey)}"`);
 
   params.push(
-    `dataCollectionState = PulseDataCollectionConsent.${dataCollectionState ?? 'PENDING'}`
+    `dataCollectionState = PulseDataCollectionConsent.${dataCollectionState}`
   );
 
   if (endpointHeaders && Object.keys(endpointHeaders).length > 0) {
