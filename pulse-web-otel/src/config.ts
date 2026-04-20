@@ -10,15 +10,7 @@ export interface InstrumentationConfig {
   clicks?:        { enabled: boolean };
   webVitals?:     { enabled: boolean };
   navigation?:    { enabled: boolean };
-  session?:       {
-    enabled: boolean;
-    /** Rotate session after this many ms of inactivity. Default: 30 min. */
-    inactivityTimeoutMs?: number;
-    /** Hard max session lifetime in ms regardless of activity. Default: 4 hours. */
-    maxSessionLifetimeMs?: number;
-    /** Rotate session after page has been hidden for this many ms. Default: 15 min. */
-    pageHiddenTimeoutMs?: number;
-  };
+  session?:       { enabled: boolean };
   interactions?:  { enabled: boolean };
   sessionReplay?: { enabled: boolean };
 }
@@ -41,9 +33,6 @@ export interface PulseWebConfig {
 
   // Optional — route → screen name mapping (used by navigation instrumentation)
   routePatterns?: Array<{ pattern: string; name: string }>;
-
-  // Optional — remote config
-  configEndpointUrl?: string;
 
   // Optional — export tuning
   export?: {

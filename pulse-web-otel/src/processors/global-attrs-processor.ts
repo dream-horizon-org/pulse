@@ -67,6 +67,7 @@ function resolveScreenName(
 
 export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordProcessor {
   private manualScreenName: string | null = null;
+  private manualScreenNamePath: string | null = null;
 
   constructor(
     private readonly sessionProvider: SessionProvider,
@@ -75,9 +76,20 @@ export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordP
 
   setScreenName(name: string): void {
     this.manualScreenName = name;
+    this.manualScreenNamePath = typeof location !== 'undefined' ? location.pathname : null;
   }
 
   getCurrentScreenName(): string {
+    // Clear manual override if the URL has changed since it was set (SPA navigation).
+    if (
+      this.manualScreenName !== null &&
+      this.manualScreenNamePath !== null &&
+      typeof location !== 'undefined' &&
+      location.pathname !== this.manualScreenNamePath
+    ) {
+      this.manualScreenName = null;
+      this.manualScreenNamePath = null;
+    }
     return resolveScreenName(this.manualScreenName, this.config);
   }
 
