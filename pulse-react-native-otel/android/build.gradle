@@ -90,6 +90,8 @@ dependencies {
   }
   implementation("org.dreamhorizon:pulse-semconv:$pulse_version")
   implementation("org.dreamhorizon:pulse-sampling-models:$pulse_version")
+  // PulseLogger (not re-exported by pulse-android-sdk-internal)
+  implementation("org.dreamhorizon:pulse-utils:$pulse_version")
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
   implementation("io.opentelemetry:opentelemetry-sdk")
   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
