@@ -1,8 +1,8 @@
 package com.pulse.android.sdk.internal
 
 import com.pulse.sampling.models.PulseSdkConfig
-import com.pulse.utils.PulseNetworkingUtils
 import com.pulse.utils.PulseLogger
+import com.pulse.utils.PulseNetworkingUtils
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 

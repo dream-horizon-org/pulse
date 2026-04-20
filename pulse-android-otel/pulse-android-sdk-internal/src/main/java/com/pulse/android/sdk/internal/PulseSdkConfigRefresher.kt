@@ -4,8 +4,8 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
 import com.pulse.sampling.models.PulseSdkConfig
-import com.pulse.utils.PulseNetworkingUtils
 import com.pulse.utils.PulseLogger
+import com.pulse.utils.PulseNetworkingUtils
 import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope

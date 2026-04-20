@@ -29,8 +29,8 @@ import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
 import com.pulse.utils.PulseLogLevel
-import com.pulse.utils.PulseMathUtils
 import com.pulse.utils.PulseLogger
+import com.pulse.utils.PulseMathUtils
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
 import io.opentelemetry.android.AndroidResource
