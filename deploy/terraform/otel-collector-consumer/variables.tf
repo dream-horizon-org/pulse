@@ -9,10 +9,15 @@ variable "ami_id" {
   type        = string
 }
 
-variable "instance_type" {
-  description = "EC2 instance type for OTEL collectors"
-  type        = string
-  default     = "t3.medium"
+variable "instance_types" {
+  description = "List of EC2 instance types for the ASG mixed instances policy"
+  type        = list(string)
+}
+
+variable "asg_on_demand_base_capacity" {
+  description = "Number of on-demand instances to maintain as base capacity in ASG"
+  type        = number
+  default     = 0
 }
 
 variable "collector_count" {
@@ -37,7 +42,7 @@ variable "key_name" {
   default     = null
 }
 
-variable "iam_instance_profile" {
+variable "instance_profile_name" {
   description = "IAM instance profile name to attach to OTEL EC2 instances (optional)"
   type        = string
   default     = null
