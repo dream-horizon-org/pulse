@@ -318,11 +318,15 @@ class UsageLimitServiceNotificationsTest extends UsageLimitServiceTestBase {
         .build());
 
     JsonNode notified = objectMapper.readTree("{\"50\":\"2025-01-01T00:00:00Z\"}");
+    Instant notificationCreated = Instant.parse("2025-01-01T00:00:00Z");
     ProjectUsageLimit limit = ProjectUsageLimit.builder()
         .projectUsageLimitId(1L)
         .projectId("proj-notified")
         .usageLimits(objectMapper.writeValueAsString(limits))
         .thresholdsNotified(notified)
+        .notificationCreatedAt(notificationCreated)
+        .notificationProjectUsageLimitId(1L)
+        .notificationRowActive(true)
         .isActive(true)
         .build();
 
