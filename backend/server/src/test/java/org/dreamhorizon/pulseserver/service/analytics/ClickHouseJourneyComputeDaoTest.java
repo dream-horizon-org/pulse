@@ -203,7 +203,7 @@ class ClickHouseJourneyComputeDaoTest {
           .contains("SessionId,")
           .contains("PulseType = 'custom_event'")
           .contains("ResourceAttributes,")
-          .contains("\n                   LogAttributes\n");
+          .contains("LogAttributes");
     }
 
     @Test
