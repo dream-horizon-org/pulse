@@ -53,7 +53,7 @@ pulse-web-otel/
 │   ├── utils/session-sampling-rate.ts # resolveSessionSamplingRate, log body, critical list
 │   ├── processors/
 │   │   ├── global-attrs-processor.ts # Injects session.id, screen.name, url.path etc.
-│   │   └── signal-filter-processor.ts # Attribute drop/add, signal blacklist
+│   │   └── signal-filter-processor.ts # Attribute drop/add (processor); signal BLACKLIST/WHITELIST in export gate
 │   ├── instrumentations/
 │   │   ├── session.ts                # session.start / session.end
 │   │   ├── errors.ts                 # device.crash + non_fatal
@@ -143,3 +143,5 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 | V2 features | `web-sdk-plan/v2/` |
 | Phase dependencies | `web-sdk-plan/00-orchestrator.md` |
 | Session sampling rules (web vs Android, dashboard) | `web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md` |
+| `metricsToAdd` (product + backend + Web gap) | `web-sdk-plan/METRICS-TO-ADD.md` |
+| `metricsToAdd` Web implementation plan | `web-sdk-plan/METRICS-TO-ADD-WEB-PLAN.md` |
