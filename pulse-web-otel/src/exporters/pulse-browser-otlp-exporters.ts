@@ -30,18 +30,11 @@ import {
 
 import { isGzipSupported } from "../utils/otlp-gzip";
 import type { IdbSignalBuffer } from "../persistence/indexed-db";
-import {
-  buildBrowserExportTransport,
-  type OtlpSignalKind,
-  type PersistMeta,
-} from "./otlp-transport";
+import { buildBrowserExportTransport } from "./otlp-transport";
+import type { PersistMeta } from "../types/otlp-transport";
+import type { PulseBrowserExporterOptions } from "../types/browser-exporter";
 
-export interface PulseBrowserExporterOptions {
-  useProtobuf: boolean;
-  useGzip: boolean;
-  diskBuffer: { enabled: boolean; buffer: IdbSignalBuffer };
-  signalKind: OtlpSignalKind;
-}
+export type { PulseBrowserExporterOptions } from "../types/browser-exporter";
 
 abstract class PulseBrowserOtelExporter<
   ExportItem,

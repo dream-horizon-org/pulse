@@ -26,7 +26,7 @@ import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecy
 import { createProviders } from "./exporters";
 import { InstrumentationRegistry } from "./instrumentation-registry";
 import type { SdkContext } from "./instrumentation-registry";
-import { extractProjectId } from "./resource";
+import { extractProjectId } from "./utils/resource-helpers";
 import { isDataCollectionAllowed } from "./consent";
 import { IdbSignalBuffer } from "./persistence/indexed-db";
 import { drainBufferedOtlpExports } from "./persistence/drain-buffered-exports";
@@ -166,7 +166,8 @@ class PulseWebSDK implements SdkContext {
         buffer: idbBuffer,
       },
       // Inject the same global attributes into metric data points at export time.
-      getMetricGlobalAttrs: () => this.globalAttrsProcessor.getCommonAttrsForMetrics(),
+      getMetricGlobalAttrs: () =>
+        this.globalAttrsProcessor.getCommonAttrsForMetrics(),
     };
 
     const bundle = createProviders(

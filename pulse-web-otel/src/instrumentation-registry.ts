@@ -2,27 +2,18 @@
 // calls installAll() during SDK.start() and uninstallAll() during shutdown().
 // See: web-sdk-plan/v1/01-foundation/sdk-lifecycle.md
 
-import type { Logger } from '@opentelemetry/api-logs';
-import type { Tracer } from '@opentelemetry/api';
-import type { PulseWebConfig, InstrumentationConfig } from './config';
-import type { SessionProvider } from './session';
-import type { PulseGlobalAttributesProcessor } from './processors/global-attrs-processor';
-import type { FeatureGate } from './feature-gate';
-import { SessionInstrumentation } from './instrumentations/session';
+import type { PulseWebConfig, InstrumentationConfig } from "./config";
+import type { FeatureGate } from "./feature-gate";
+import { SessionInstrumentation } from "./instrumentations/session";
+import type {
+  PulseInstrumentation,
+  SdkContext,
+} from "./types/instrumentation-registry";
 
-export interface SdkContext {
-  sessionProvider: SessionProvider;
-  logger: Logger;
-  tracer: Tracer;
-  config: PulseWebConfig;
-  globalAttrsProcessor: PulseGlobalAttributesProcessor;
-}
-
-export interface PulseInstrumentation {
-  readonly name: string;
-  install(sdk: SdkContext): void;
-  uninstall(): void;
-}
+export type {
+  PulseInstrumentation,
+  SdkContext,
+} from "./types/instrumentation-registry";
 
 export class InstrumentationRegistry {
   private installed: PulseInstrumentation[] = [];
@@ -35,17 +26,19 @@ export class InstrumentationRegistry {
 
   private shouldInstall(key: keyof InstrumentationConfig): boolean {
     const featureMap: Record<keyof InstrumentationConfig, string> = {
-      errors: 'js_crash',
-      network: 'network_instrumentation',
-      clicks: 'click',
-      webVitals: 'web_vitals',
-      navigation: 'screen_session',
-      session: 'session',
-      interactions: 'interaction',
-      sessionReplay: 'session_replay',
+      errors: "js_crash",
+      network: "network_instrumentation",
+      clicks: "click",
+      webVitals: "web_vitals",
+      navigation: "screen_session",
+      session: "session",
+      interactions: "interaction",
+      sessionReplay: "session_replay",
     };
 
-    const featureName = featureMap[key] as Parameters<FeatureGate['isEnabled']>[0];
+    const featureName = featureMap[key] as Parameters<
+      FeatureGate["isEnabled"]
+    >[0];
     const gateEnabled = this.gate.isEnabled(featureName);
     const configEnabled = this.instrConfig?.[key]?.enabled ?? true;
 
@@ -54,7 +47,7 @@ export class InstrumentationRegistry {
 
   installAll(): void {
     // M1: Install session instrumentation
-    if (this.shouldInstall('session')) {
+    if (this.shouldInstall("session")) {
       const sessionInstr = new SessionInstrumentation();
       sessionInstr.install(this.sdk);
       this.installed.push(sessionInstr);

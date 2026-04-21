@@ -34,12 +34,15 @@ import type { Attributes } from "@opentelemetry/api";
 import { createExportLogsServiceRequest } from "@opentelemetry/otlp-transformer";
 
 import { IdbSignalBuffer } from "./persistence/indexed-db";
+import type { ExporterConfig, ProviderBundle } from "./types/exporters";
+export type { ExporterConfig, ProviderBundle } from "./types/exporters";
 import {
   PulseBrowserTraceExporter,
   PulseBrowserLogExporter,
   createPulseBrowserMetricExporter,
 } from "./exporters/pulse-browser-otlp-exporters";
 import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lifecycle-debug";
+import { DEFAULT_BATCH_OPTIONS } from "./constants/exporters";
 // Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
 // Browser gzip for the normal path is handled by PulseBrowser* exporters + otlp-transport.
 
@@ -154,48 +157,6 @@ class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
     this.inner.selectAggregation?.bind(this.inner);
 }
 
-export interface ExporterConfig {
-  endpointBaseUrl: string;
-  apiKey: string;
-  meteringSessionId: string;
-  getMetricGlobalAttrs?: () => Attributes;
-  /**
-   * Wire format for Pulse browser trace/log/metric exporters (JSON vs protobuf on the wire).
-   */
-  format?: "json" | "protobuf";
-  /** Payload compression for Pulse browser exporters. Defaults to 'gzip' when supported. */
-  compression?: "gzip" | "none";
-  batchOptions?: {
-    scheduledDelayMillis?: number;
-    maxQueueSize?: number;
-    maxExportBatchSize?: number;
-  };
-  logsUrl?: string;
-  tracesUrl?: string;
-  metricsUrl?: string;
-  /** When enabled, failed exports are written to IndexedDB for later replay. */
-  diskBuffer?: {
-    enabled: boolean;
-    buffer: IdbSignalBuffer;
-  };
-
-  /** Log each log batch at OTLP export (see PulseWebConfig.debugLogRecordLifecycle). */
-  debugLogRecordLifecycle?: boolean;
-}
-
-export interface ProviderBundle {
-  tracerProvider: WebTracerProvider;
-  loggerProvider: LoggerProvider;
-  meterProvider: MeterProvider;
-}
-
-const DEFAULT_BATCH_OPTIONS = {
-  scheduledDelayMillis: 5000,
-  maxQueueSize: 2048,
-  maxExportBatchSize: 512,
-  exportTimeoutMillis: 30000,
-};
-
 export function createProviders(
   config: ExporterConfig,
   resource: Resource,
@@ -217,7 +178,8 @@ export function createProviders(
   const metricsUrl =
     config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
 
-  const useProtobuf = config.format === "protobuf";
+  // Protobuf on the wire by default (matches MILESTONES / collector). Use `format: 'json'` for dev.
+  const useProtobuf = config.format !== "json";
   const useGzip = config.compression !== "none";
   const diskOpts = config.diskBuffer;
   if (diskOpts?.enabled === true && !diskOpts.buffer) {

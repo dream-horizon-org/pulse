@@ -1,7 +1,29 @@
 # Pulse Web SDK — M1 Implementation
 
 Package: `@dreamhorizon/pulse-web`  
-Status: **M1 complete — 97 Vitest cases (`m1.test.ts`) + 31 Playwright tests (`e2e/m1.spec.ts`, Chromium)**
+Status: **M1 foundation shipped in tree — 115 Vitest tests (`src/__tests__/m1.test.ts`) + 63 Playwright tests (`examples/ecommerce-demo/e2e/m1.spec.ts`; run with `--project=chromium` as needed)**
+
+This document is the **living record of what the code does today**, how it was tested, and **gaps vs** `web-sdk-plan/v1/MILESTONES.md` / `WEB-SDK-AGENT-CONTEXT.md`. It is updated alongside implementation (last reviewed from codebase + internal code review pass).
+
+---
+
+## Milestone alignment (M1 vs what shipped)
+
+The **M1 milestone table** in `MILESTONES.md` lists foundation only (session skeleton, OTLP, IndexedDB buffer, `SdkConfigFetcher`). The **current package intentionally includes adjacent plumbing** that the plan schedules for later milestones, because the init path needs hooks early:
+
+| Area | Strict M1 wording | In repo now |
+|------|-------------------|-------------|
+| Remote config + sampling + signal filter + feature gate | M2 table in milestones | **Wired in `sdk.ts`** — `FeatureGate`, `PulseSamplingProcessor`, `SignalFilterProcessor`, `SdkConfigFetcher` |
+| Custom events / manual errors | Useful for demo + parity | **`PulseWeb.trackEvent`**, **`reportException`**, **`trackNonFatal`**, **`reportDeviceCrash`** on core export path |
+| React | M2 `PulseProvider` | **M1 doc / demo:** `PulseErrorBoundary` only (`src/integrations/react/`), separate `@dreamhorizon/pulse-web/react` entry |
+
+**Spec deltas to track (not bugs by default):**
+
+1. **OTLP wire format:** `createProviders` uses **protobuf** unless `config.export.format === 'json'` (`src/exporters.ts`) — aligned with `MILESTONES.md`.
+2. **Sampling:** `PulseSamplingProcessor` sets `pulse.sampled: false` when the session draw fails; signals **still export** unless the collector/backend drops unsampled data. This is **not** the same as “zero bytes on `sessionSampleRate: 0`” (an M2 exit criterion).
+3. **`session` feature flag:** Remote config can disable the `session` feature → `SessionInstrumentation` never installs → no `session.start` / `session.end`. Confirm product intent (identity vs optional telemetry).
+4. **`beforeSend`:** Declared on `PulseWebConfig` but **not invoked** anywhere in the pipeline yet (planned for M3 in milestones).
+5. **`session.start` on reload:** When the SDK **reuses** a session (`SessionProvider` clone/reuse path), `emitInitialSession` may skip a new `session.start` — compare to exit-criteria wording “on init” if dashboards expect one start per navigation.
 
 ---
 
@@ -18,12 +40,12 @@ PulseWeb.start(config)
   │  Step 3.5: getOrCreateInstallationId() [3-tier persistence]     │
   │  Step 4: buildResource() → OTEL Resource                        │
   │  Step 5: SdkConfigFetcher.loadCached() → PulseSdkConfig        │
-  │  Step 6: FeatureGate + SamplingProcessor + FilterProcessor      │
-  │  Step 7: GlobalAttributesProcessor                              │
+  │  Step 6: FeatureGate + PulseSamplingProcessor + SignalFilterProcessor │
+  │  Step 7: GlobalAttributesProcessor (+ optional LogRecordLifecycleDebug) │
   │  Step 8: createProviders() → TracerProvider, LoggerProvider,    │
-  │          MeterProvider                                          │
+  │          MeterProvider (PeriodicExportingMetricReader)           │
   │  Step 9: Register global providers                              │
-  │  Step 10: InstrumentationRegistry.installAll()                  │
+  │  Step 10: InstrumentationRegistry.installAll() (session only)   │
   │  Step 11: configFetcher.fetchInBackground()                     │
   │  Step 12: Emit sdk.init span                                    │
   │  Step 13: Emit pulse.app.installation.start (first install only)│
@@ -58,17 +80,48 @@ PulseWeb.start(config)
   │          ▼                                                           │
   │  OTEL Collector :4318/v1/{traces|logs|metrics}                       │
   │          │                                                           │
-  │          ├──▶ ClickHouse (otel_traces, otel_logs, otel_metrics_gauge)│
-  │          └──▶ pulse-server :8080 (non_fatal, device.crash logs only) │
+  │          └──▶ OTEL Collector → storage (e.g. ClickHouse) per deploy wiring │
   └──────────────────────────────────────────────────────────────────────┘
 
-  Pagehide / unload path:
-  window 'pagehide' (persisted=false)
+  Pagehide / unload path (`persisted=false`):
+  window `pagehide`
           │
-          ▼
-  forceFlush() on all 3 providers → drains in-flight batch immediately
-  SessionProvider emits session.end (with duration_ms, screens_visited)
+          ├── Logger: `forceFlush()` → batched path ends with **`fetch(..., { keepalive: true })`**
+          │   (`KeepaliveFetchLogExporter` in `src/exporters.ts`) so logs can leave the tab during unload
+          ├── Traces + metrics: `forceFlush()` on providers (XHR/protobuf path for normal batches unchanged)
+          └── `SessionProvider` emits `session.end` (`session.duration_ms`, `session.end_reason`, etc.)
 ```
+
+---
+
+## Implemented modules (`pulse-web-otel/src/`)
+
+| Path | Role |
+|------|------|
+| `index.ts` | Public exports: `PulseWeb`, config types, `PulseDataCollectionConsent`, `SDK_VERSION`, `PulseWebSemconv` |
+| `sdk.ts` | Singleton lifecycle, providers, registry, public logging APIs, `shutdown` |
+| `config.ts` | `PulseWebConfig`, `InstrumentationConfig`, validation, consent enum |
+| `consent.ts` | `isDataCollectionAllowed` |
+| `session.ts` | Installation id (3-tier), `SessionProvider`, rotation, BFCache / clone semantics |
+| `resource.ts` | Static browser resource + `extractProjectId` |
+| `remote-config.ts` | `SdkConfigFetcher`, cache, version merge, background fetch |
+| `feature-gate.ts` | Remote feature flags |
+| `instrumentation-registry.ts` | Install/uninstall; **only** `SessionInstrumentation` today |
+| `instrumentations/session.ts` | `session.start` / `session.end` logs from `SessionProvider` events |
+| `exporters.ts` | `createProviders`, batch processors, pagehide wiring, metric reader |
+| `exporters/pulse-browser-otlp-exporters.ts` | Browser OTLP exporters |
+| `exporters/otlp-transport.ts` | XHR transport, gzip, build chain |
+| `exporters/pulse-retrying-transport.ts` | Retry wrapper |
+| `exporters/wrap-log-exporter-lifecycle-debug.ts` | Debug wrapper for log exporter |
+| `processors/global-attrs-processor.ts` | Dynamic attrs on spans/logs + metric helper |
+| `processors/sampling-processor.ts` | Session sampling decision → `pulse.sampled` |
+| `processors/signal-filter-processor.ts` | Remote signal rules (log-focused) |
+| `processors/log-record-lifecycle-debug-processor.ts` | Optional pipeline debug |
+| `persistence/indexed-db.ts` | `IdbSignalBuffer` |
+| `persistence/drain-buffered-exports.ts` | Replay failed exports on next start |
+| `utils/otlp-gzip.ts`, `utils/compression.ts`, `utils/ua-parser.ts`, `utils/error-stack.ts` | Transport + UA + stack filename |
+| `semconv.ts`, `version.ts` | Constants / build version |
+| `integrations/react/PulseErrorBoundary.tsx`, `integrations/react/index.ts` | React error boundary entry |
 
 ---
 
@@ -85,9 +138,10 @@ PulseWeb.start(config)
 | Disk buffering (opt-in)        | `diskBuffering.enabled` → async `drainBufferedOtlpExports()` replays IndexedDB rows against `/v1/*`, then normal init (`finishStart`). Shared `IdbSignalBuffer` passed into exporters. |
 | Init sequence                  | Validate → consent → (optional drain) → session → install ID → resource → remote config → processors → providers → instruments → background fetch → `sdk.init` + first-install log     |
 | Metering session ID            | `crypto.randomUUID()` — stable UUID per page load, sent as `X-Pulse-Metering-Session-ID` on every OTLP request (mirrors Android)                                                       |
-| `sdk.init` heartbeat           | Span emitted on every init, `pulse.type=sdk.init`, `platform=web`                                                                                                                      |
+| `sdk.init` span                | Short-lived span on every successful init — `pulse.type` = SDK init (`semconv`); used as pipeline heartbeat in M1 exit criteria (naming differs from literal string “heartbeat”)          |
 | `pulse.app.installation.start` | Log emitted on first-ever install only — detected via `wasNewInstallation()`                                                                                                           |
-| `shutdown()`                   | Force-flushes all providers, unregisters instrumentations, clears session                                                                                                              |
+| `shutdown()`                   | Awaits `forceFlush()` on all three providers, `InstrumentationRegistry.uninstallAll()`, `SessionProvider.shutdown()`                                                                      |
+| Debug: log record lifecycle    | `config.debugLogRecordLifecycle === true` → `LogRecordLifecycleDebugProcessor` stages + optional `wrapLogExporterLifecycleDebug` on the log exporter; **verbose `console.log`** — dev only |
 
 
 ### 2. Public API (`src/sdk.ts`)
@@ -95,10 +149,10 @@ PulseWeb.start(config)
 
 | Method                             | Signal type | Body                                                     | Key attributes                                                                                                    |
 | ---------------------------------- | ----------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `trackEvent(name, attrs?)`         | Log         | event name                                               | `pulse.type=custom_event`, `event.name=pulse.custom_event`, custom attrs                                          |
-| `reportException(error, attrs?)`   | Log         | `error.message`                                          | `pulse.type=non_fatal`, `exception.type`, `exception.message`, `exception.stacktrace`, `non_fatal.is_manual=true` |
-| `trackNonFatal(name, attrs?)`      | Log         | event name                                               | `pulse.type=non_fatal`, `non_fatal.type`, `non_fatal.is_manual=true`, custom attrs                                |
-| `reportDeviceCrash(error, attrs?)` | Log         | error message                                            | `pulse.type=device.crash`, `exception.*`, `error.filename` (from stack); used by `PulseErrorBoundary`             |
+| `trackEvent(name, attrs?)`         | Log         | event name (body)                                        | Gated on **remote feature** `custom_events` (`FeatureGate`). Attrs: `pulse.type=custom_event`, `event.name=pulse.custom_event`, plus caller attrs                                 |
+| `reportException(error, attrs?)`   | Log         | `error.message`                                          | **Not** feature-gated in `sdk.ts`. Attrs: `pulse.type=non_fatal`, `exception.*`, `non_fatal.is_manual=true`                                                                       |
+| `trackNonFatal(name, attrs?)`      | Log         | event name (body)                                        | **Not** feature-gated in `sdk.ts`. Attrs: `pulse.type=non_fatal`, `non_fatal.type`, `non_fatal.is_manual=true`                                                                    |
+| `reportDeviceCrash(error, attrs?)` | Log         | error message                                            | `pulse.type=device.crash`, `exception.*`, `error.filename` (from stack); used by `PulseErrorBoundary`                                                                             |
 | `setScreenName(name)`              | —           | sets global attr `screen.name` on all subsequent signals |                                                                                                                   |
 | `isInitialized()`                  | —           | returns boolean                                          |                                                                                                                   |
 
@@ -121,10 +175,11 @@ Import from `@dreamhorizon/pulse-web/react` (separate bundle entry in `tsup`). `
 | Feature             | Details                                                                             |
 | ------------------- | ----------------------------------------------------------------------------------- |
 | Session ID          | UUID v4, regenerated on inactivity timeout (default: 30 min)                        |
-| Inactivity timeout  | Configurable via `config.instrumentations.session.inactivityTimeoutMs`              |
+| Inactivity timeout  | `inactivityTimeoutMs` (default 30 min) — also **`maxSessionLifetimeMs`** (default 4 h) and **`pageHiddenTimeoutMs`** (default 15 min) on `SessionProvider` |
 | BFCache guard       | `pagehide` with `persisted=true` → updates activity timestamp, does NOT end session |
+| Clone / reload reuse | `sessionStorage` clone flag pattern: duplicated tab or certain reload paths can reuse session id — see `session.ts` |
 | `session.start` log | Emitted on SDK init with `session.id`, `installation.id`, `platform=web`            |
-| `session.end` log   | Emitted on `pagehide` (non-BFCache) with `session.duration_ms`, `screens_visited`   |
+| `session.end` log   | Emitted on `pagehide` (non-BFCache), inactivity/max-lifetime rotation, shutdown — attrs include **`session.duration_ms`** (derived from `durationNs` in provider), `session.end_reason`, and `screens_visited` where applicable |
 | Session rotation    | `onSessionChange` callback, emits `session.end` + new `session.start` on rotation   |
 
 
@@ -149,9 +204,9 @@ Exports use **custom browser classes** (`PulseBrowserTraceExporter`, `PulseBrows
 
 | Setting         | Default                                        | Notes                                                                                                                                                              |
 | --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Format          | `json` if omitted                              | `config.export.format`: `json` → `application/json`; `protobuf` → `application/x-protobuf`                                                                         |
-| Compression     | On when `config.export.compression !== 'none'` | If `CompressionStream` is missing, gzip wrapper is skipped (same as Node-less browsers). E2E `.env.test` sets `VITE_PULSE_COMPRESSION=none` for plain JSON bodies. |
-| Transport       | XHR (`createPulseXhrTransport`)                | Chain: retrying → optional IndexedDB persist → optional gzip → XHR (`buildBrowserExportTransport` in `otlp-transport.ts`)                                          |
+| Format          | **`protobuf` if `format` omitted** (`useProtobuf = config.format !== "json"`) | Set `export.format: 'json'` for `application/json` (demo E2E, local DevTools).                                                                                      |
+| Compression     | Gzip when `config.export.compression !== 'none'` (default gzip path) | If `CompressionStream` is missing, gzip wrapper is skipped. E2E `.env.test` uses `VITE_PULSE_COMPRESSION=none` for readable bodies.                                |
+| Transport       | **Traces/metrics:** XHR chain in `otlp-transport.ts` | **Logs (normal batches):** same XHR stack. **Logs (`pagehide` flush path):** inner exporter bypasses XHR for a **keepalive `fetch`** (`KeepaliveFetchLogExporter`). |
 | Auth header     | `X-API-KEY`                                    | Required                                                                                                                                                           |
 | Metering header | `X-Pulse-Metering-Session-ID`                  | Stable UUID for the page load (Android parity)                                                                                                                     |
 
@@ -191,8 +246,8 @@ Remote config `features[]` array controls per-signal enable/disable by `featureN
 | Processor                   | Role                                                                                                                                                                                                                                                      |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GlobalAttributesProcessor` | Injects `session.id`, `installation.id`, `screen.name`, `url.path`, `page.url`, `browser.name`, `browser.version`, `os.name`, `os.version`, `device.type`, `network.connection.type`, `rum.sdk.version`, `project.id`, `platform=web` on every span + log |
-| `PulseSamplingProcessor`    | Drops signals per `sessionSampleRate` from remote config                                                                                                                                                                                                  |
-| `SignalFilterProcessor`     | Drops entire signal categories (e.g. disable all `non_fatal` via remote config)                                                                                                                                                                           |
+| `PulseSamplingProcessor`    | One draw at construction: if unsampled, sets `pulse.sampled=false` on spans/logs — **does not drop export**; backend/collector must interpret if “no billing” is required                                                                               |
+| `SignalFilterProcessor`     | Remote `signals` config: log attribute drops / log drops; **trace span attribute drops are not implemented** (`onEnd` is a no-op for mutation — see source comment)                                                                                      |
 
 
 ### 9. OTEL Collector Config (`backend/ingestion/otel-collector.yaml`)
@@ -218,22 +273,26 @@ Remote config `features[]` array controls per-signal enable/disable by `featureN
 
 ## What Has Been Tested
 
-### Unit tests (`src/__tests__/m1.test.ts`) — 97 cases
+### Unit tests (`src/__tests__/m1.test.ts`) — **115** tests
 
-Suites include (non-exhaustive): **Installation ID** (storage tiers + extended cases), **Session Provider** (rotation, BFCache, extended), **Config validation**, **Resource builder** (extended), **SDK singleton guard**, **resolveConfigUrl**, **SdkConfigFetcher**, **FeatureGate**, **wasNewInstallation**, **computeAspectRatio**, **GlobalAttributesProcessor**, **SessionInstrumentation events**, **SDK public API signals** (`trackEvent` / `reportException` / `trackNonFatal`).
+Suites include (non-exhaustive): **Installation ID** (storage tiers + extended cases), **Session Provider** (rotation, BFCache, max lifetime, page-hidden timeout, clone flag), **Config validation**, **Resource builder**, **SDK singleton / consent**, **resolveConfigUrl**, **SdkConfigFetcher**, **FeatureGate**, **wasNewInstallation**, **computeAspectRatio**, **GlobalAttributesProcessor**, **SessionInstrumentation events**, **SDK public API** (`trackEvent` / `reportException` / `trackNonFatal` / `reportDeviceCrash`), **sampling/filter processors**, and more.
+
+**Note:** `m1.test.ts` mocks `../exporters`; deep transport behavior is covered mainly by E2E and manual checks.
 
 Run: `cd pulse-web-otel && yarn test:run`.
 
-### E2E tests (`examples/ecommerce-demo/e2e/m1.spec.ts`) — 31 tests
+### E2E tests (`examples/ecommerce-demo/e2e/m1.spec.ts`) — **63** tests
 
-Playwright config: `e2e/playwright.config.ts` (must pass `--config` when invoking `playwright test` from a directory that is not `ecommerce-demo/`). Web server uses Vite `--mode test` (`.env.test`: `VITE_PULSE_ENDPOINT_BASE_URL=http://127.0.0.1:4318`, `VITE_PULSE_BATCH_DELAY_MS=200`, `VITE_PULSE_FORMAT=json`, `VITE_PULSE_COMPRESSION=none`). Routes intercept OTLP; CORS preflight is fulfilled in fixtures.
+Playwright config: `examples/ecommerce-demo/e2e/playwright.config.ts` (pass `--config e2e/playwright.config.ts` from the demo package). Vite `--mode test` uses `.env.test` (`VITE_PULSE_ENDPOINT_BASE_URL`, `VITE_PULSE_BATCH_DELAY_MS=200`, `VITE_PULSE_FORMAT=json`, `VITE_PULSE_COMPRESSION=none`). OTLP routes + CORS fixtures in `e2e/fixture`.
+
+Filter M1-focused groups: `yarn e2e --grep "@M1"` from `examples/ecommerce-demo/` (see file header).
 
 
 | Suite                          | Tests                                                                                                                           |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | **@M1 session lifecycle**      | `session.start` on page load; `session.end` on pagehide; BFCache no session.end; double `start()` = exactly one `session.start` |
 | **@M1 identity persistence**   | `installation.id` survives reload; localStorage; fallback when `localStorage` throws; new `session.id` per fresh load           |
-| **@M1 OTLP pipeline**          | `x-api-key`; `Content-Type: application/json` (test mode); resource attributes                                                  |
+| **@M1 OTLP pipeline**          | `x-api-key`; `Content-Type: application/json` when `.env.test` sets `VITE_PULSE_FORMAT=json`; resource attributes                |
 | **@M1 SDK shutdown**           | `shutdown()` force-flushes without errors                                                                                       |
 | **@M1 batching**               | Multiple `trackEvent` coalesced; first export after batch delay; pagehide flush; `session.end` ordering                         |
 | **@M1 payload attributes**     | `session.start` contract attrs; global attrs; resource attrs; `sdk.init` span                                                   |
@@ -283,9 +342,9 @@ Playwright config: `e2e/playwright.config.ts` (must pass `--config` when invokin
 
 ### Test 4 — Protobuf vs JSON format
 
-1. Open `.env.local` in `examples/ecommerce-demo/`. Set `VITE_PULSE_FORMAT=json` for readable bodies in DevTools.
-2. In DevTools → Network → a `v1/logs` POST → Preview should show JSON when format is `json`.
-3. Set `VITE_PULSE_FORMAT=protobuf` and reload — body is protobuf bytes (`Content-Type: application/x-protobuf`). Optionally set `VITE_PULSE_COMPRESSION=gzip` (browser `CompressionStream`) and confirm `Content-Encoding: gzip` when the collector allows it. E2E uses `json` + `none` so Playwright can decode payloads.
+1. **Default (production):** unset `VITE_PULSE_FORMAT` (or set `protobuf`) — `v1/logs` POST uses **`Content-Type: application/x-protobuf`** and binary body.
+2. For readable bodies in DevTools, set `VITE_PULSE_FORMAT=json` in `examples/ecommerce-demo/.env.local`.
+3. Optionally set `VITE_PULSE_COMPRESSION=gzip` and confirm `Content-Encoding: gzip` when the collector allows it. E2E uses **`json` + `none`** (`.env.test`) so Playwright fixtures can decode payloads.
 
 ### Test 5 — X-Pulse-Metering-Session-ID header
 
@@ -329,7 +388,7 @@ Playwright config: `e2e/playwright.config.ts` (must pass `--config` when invokin
 
 ```bash
 cd pulse-web-otel
-yarn test:run          # single run — 97 cases in m1.test.ts
+yarn test:run          # single run — 115 tests in m1.test.ts
 yarn test              # watch mode
 ```
 
@@ -367,17 +426,58 @@ yarn lint              # tsc --noEmit
 
 ---
 
+## Internal code review — strengths, gaps, verification
+
+Structured pass over `src/` (init, session, exporters, persistence, processors, remote config, registry, session instrumentation). **No P0** called from static review alone; below is what to fix or verify next.
+
+### Strengths
+
+- Init order in `sdk.ts` is explicit and easy to extend (identity → resource → cached config → processors → providers → registry → background fetch → `sdk.init` + optional installation log).
+- `SessionProvider` models real browsers: inactivity, max lifetime, page-hidden timeout, BFCache, clone/reuse, `session.end` reasons.
+- Browser-specific OTLP: custom exporters + transformer (not Node HTTP clients), retry + optional IndexedDB persist + gzip, documented lazy transport init.
+- `PulseGlobalAttributesProcessor` avoids clobbering `session.id` on logs when already set by session instrumentation (correct `session.start` / `session.end` contract).
+- Metrics: `GlobalAttributeInjectingMetricExporter` merges the same dynamic attrs into metric points as traces/logs.
+
+### Gaps and risks (prioritized)
+
+| Priority | Topic | Detail |
+|----------|--------|--------|
+| ~~P1~~ | Default OTLP format | **Resolved:** omitted `export.format` ⇒ protobuf (`src/exporters.ts`). |
+| P1 | Sampling vs “zero export” | `PulseSamplingProcessor` only marks `pulse.sampled=false`. **Verify** collector/backend drops or ignores unsampled signals if billing depends on it. |
+| P1 | Remote `session` feature off | Disables **all** session instrumentation including `session.start` / `session.end`. Confirm this is intended when `session` feature is disabled in remote config. |
+| P1 | `getPreviousSessionId()` | Reads `localStorage['pulse_prev_session_id']` but **nothing in-repo writes that key** — `session.previousSessionId` on `session.start` is usually empty unless extended later. |
+| P2 | Keepalive log export success | `KeepaliveFetchLogExporter` treats fulfilled `fetch` as success; **non-2xx** may still dequeue — verify retry expectations. |
+| P2 | Remote config logging | `sdkConfigDevLog` in `remote-config.ts` uses **`console.log`** — noisy in production; consider gating on `debug` / dev. |
+| P2 | `SignalFilterProcessor` traces | Trace attribute mutation not implemented; only log path fully wired. |
+| P2 | Unit vs integration coverage | `m1.test.ts` **mocks** `../exporters` — batch delays, pagehide keepalive path, protobuf headers, metric injection: rely on E2E or add focused exporter tests. |
+
+### Privacy / security notes
+
+- OTLP bodies in IndexedDB (`diskBuffering`) can hold URLs, stacks, and custom attrs — treat as sensitive.
+- `page.url` uses `location.href` (query strings / tokens). Stacks and `trackEvent` bodies can carry PII — same as other RUM SDKs; document for integrators.
+- Consent: `DENIED` and **`PENDING`** both block `start()` (strict). Confirm product intent for `PENDING`.
+
+### Verification checklist (engineering)
+
+1. Backend/collector: behavior for `pulse.sampled=false`.
+2. Intended `session.start` behavior on reload when session is reused.
+3. OTel SDK version: does `setAttribute(key, undefined)` actually drop keys in `SignalFilterProcessor`?
+
+---
+
 ## Known limitations / TODOs
 
 
 | Item                                   | Status        | Notes                                                                                                                                     |
 | -------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Browser gzip                           | **Done (M1)** | `src/utils/otlp-gzip.ts` + transport wrapper; disabled with `export.compression: 'none'` when `CompressionStream` is missing or for tests |
-| Web Vitals instrumentation             | M2            | `instrumentations/web-vitals.ts` scaffolded, not wired                                                                                    |
-| Click tracking (`app.click`)           | M2            | `instrumentations/clicks.ts` scaffolded, not wired                                                                                        |
-| Network instrumentation (`http` spans) | M2            | `instrumentations/network.ts` scaffolded, not wired                                                                                       |
-| React `PulseProvider` / context        | M3            | Planned — M1 ships `PulseErrorBoundary` + `@dreamhorizon/pulse-web/react` only                                                            |
-| Next.js integration                    | M3            | Planned                                                                                                                                   |
+| Browser gzip                           | **Done (M1)** | `src/utils/otlp-gzip.ts` + transport wrapper; use `export.compression: 'none'` when `CompressionStream` is missing or for tests        |
+| `beforeSend` hook                      | **Not wired** | Declared on `PulseWebConfig`; no processor/exporter calls it yet (M3 plan)                                                               |
+| Default protobuf on wire              | **Done**      | Omitted `export.format` uses protobuf; `export.format: 'json'` for dev/tests                                                           |
+| Sampling stops export                 | **No**        | Only attribute `pulse.sampled`; export still runs                                                                                       |
+| `pulse_prev_session_id` persistence   | **Unused**    | Reader exists; writer not implemented — previous session id on logs stays empty unless added later                                       |
+| Web Vitals / clicks / network / nav    | M3            | Only `src/instrumentations/session.ts` exists today; other instrumentations are **not** in this package tree yet (per milestones)       |
+| React `PulseProvider` / SSR guard       | M2            | Not in package; `PulseErrorBoundary` + `@dreamhorizon/pulse-web/react` only                                                              |
+| Next.js integration                    | Later         | Planned                                                                                                                                   |
 | CDN/UMD bundle                         | M5            | Planned                                                                                                                                   |
 
 

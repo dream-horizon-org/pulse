@@ -1,14 +1,9 @@
-import type { BufferedSignalRow, IdbSignalBuffer } from "./indexed-db";
+import type { IdbSignalBuffer } from "./indexed-db";
+import type { BufferedSignalRow } from "../types/persistence";
+import type { DrainBufferedExportsParams } from "../types/drain-buffered-exports";
 import { base64ToUint8 } from "../exporters/otlp-transport";
 
-export interface DrainBufferedExportsParams {
-  tracesUrl: string;
-  logsUrl: string;
-  metricsUrl: string;
-  apiKey: string;
-  meteringSessionId: string;
-  buffer: IdbSignalBuffer;
-}
+export type { DrainBufferedExportsParams } from "../types/drain-buffered-exports";
 
 function urlForRow(
   row: BufferedSignalRow,
