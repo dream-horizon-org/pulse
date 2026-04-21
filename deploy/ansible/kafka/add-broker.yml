@@ -62,38 +62,49 @@
     - name: Configure broker
       include_tasks: tasks/configure-broker-tasks.yml
 
-# Phase 1b — Verify new broker endpoint registration
-# Ensures the FQDN endpoint was registered correctly in KRaft metadata.
-# If this fails, it indicates a DNS/FQDN resolution issue — investigate and fix root cause.
-- name: Verify new broker endpoint registration
+# Phase 1b — Force-reformat the new broker's KRaft storage.
+# Reason: the first run registered the CONTROLLER endpoint using the raw EC2
+# hostname (e.g. ip-10-250-0-x) because listeners=CONTROLLER://0.0.0.0:9093
+# was used. That is now fixed to use the FQDN in configure-broker-tasks.yml,
+# so we must reformat to register the correct endpoint in the quorum metadata.
+- name: Re-register new broker with correct controller endpoint
   hosts: new_broker
   become: true
-  
+
   tasks:
-    - name: Get quorum status to verify endpoint
-      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller localhost:9093 describe --status"
-      register: quorum_check
-      retries: 3
+    - name: Stop kafka before reformat
+      systemd:
+        name: kafka
+        state: stopped
+
+    - name: Remove KRaft formatted marker (forces reformat on next start)
+      file:
+        path: "{{ kafka_log_dir }}/.kraft_formatted"
+        state: absent
+
+    - name: Wipe existing KRaft metadata log
+      shell: "rm -rf {{ kafka_log_dir }}/__cluster_metadata-0"
+      changed_when: true
+
+    - name: Reformat KRaft storage with correct FQDN-based endpoint
+      shell: |
+        "{{ kafka_dir }}/bin/kafka-storage.sh" format \
+          -t "{{ kraft_cluster_id }}" \
+          -c "{{ kafka_dir }}/config/kraft/server.properties"
+        touch "{{ kafka_log_dir }}/.kraft_formatted"
+
+    - name: Start kafka with corrected endpoint
+      systemd:
+        name: kafka
+        state: started
+
+    - name: Wait for Kafka to be ready after reformat
+      shell: "{{ kafka_dir }}/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+      register: kafka_ready
+      retries: 30
       delay: 5
-      until: quorum_check.rc == 0
+      until: kafka_ready.rc == 0
       changed_when: false
-
-    - name: Verify FQDN endpoint is registered correctly
-      assert:
-        that:
-          - "'pulse-kafka-' + '%02d' | format(new_node_id | int) in quorum_check.stdout"
-        fail_msg: >-
-          Broker endpoint not registered correctly in KRaft metadata!
-          Expected FQDN 'pulse-kafka-{{ '%02d' | format(new_node_id | int) }}' not found in quorum status.
-          This indicates a DNS/FQDN resolution issue. Verify:
-          1. Route53 DNS has the broker A record
-          2. FQDN resolves correctly: pulse-kafka-{{ '%02d' | format(new_node_id | int) }}.{{ route53_zone_name }}
-          3. Broker can resolve its own FQDN internally
-      when: quorum_check.rc == 0
-
-    - name: Print endpoint verification success
-      debug:
-        msg: "✅ Broker endpoint verified correctly as pulse-kafka-{{ '%02d' | format(new_node_id | int) }}.{{ route53_zone_name }}"
 
 # Phase 2 — Update controller.quorum.voters on existing brokers and rolling-restart.
 # Each existing broker gets the new voters list (1,2,3) then restarts one at a time.

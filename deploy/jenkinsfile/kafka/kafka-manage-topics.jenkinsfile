@@ -45,7 +45,7 @@ pipeline {
             steps {
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: '*/feat/kafka-teraaform-scripts']],
+                    branches: [[name: '*/main']],
                     userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
@@ -77,21 +77,21 @@ pipeline {
     }
 
     post {
-//        success {
-//            script {
-//                wrap([$class: 'BuildUser']) {
-//                    slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
-//                        color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
-//                        message: "<!channel> Kafka topic ${params.ACTION}: ${params.TOPIC_NAME} (partitions=${params.PARTITIONS}) by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
-//                }
-//            }
-//        }
-//        failure {
-//            script {
-//                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
-//                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
-//                    message: "<!channel> Kafka topic management FAILED (${params.ACTION}: ${params.TOPIC_NAME})\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
-//            }
-//        }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                        color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
+                        message: "<!channel> Kafka topic ${params.ACTION}: ${params.TOPIC_NAME} (partitions=${params.PARTITIONS}) by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+                }
+            }
+        }
+        failure {
+            script {
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+                    message: "<!channel> Kafka topic management FAILED (${params.ACTION}: ${params.TOPIC_NAME})\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+            }
+        }
     }
 }

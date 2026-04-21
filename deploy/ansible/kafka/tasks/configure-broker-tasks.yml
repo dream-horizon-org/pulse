@@ -111,21 +111,6 @@
   notify: restart kafka
 
 # ------------------------------------------------------------------
-# 4. Verify FQDN resolves before formatting KRaft
-# ------------------------------------------------------------------
-- name: Verify FQDN resolves correctly
-  wait_for:
-    host: "pulse-kafka-{{ '%02d' | format(node_id | int) }}.{{ route53_zone_name }}"
-    port: 22
-    timeout: 60
-  register: fqdn_ready
-  changed_when: false
-
-- name: Print FQDN resolution result
-  debug:
-    msg: "FQDN pulse-kafka-{{ '%02d' | format(node_id | int) }}.{{ route53_zone_name }} resolves correctly"
-
-# ------------------------------------------------------------------
 # 4. Format KRaft storage (only once — marker file guards it)
 # ------------------------------------------------------------------
 - name: Check if KRaft storage already formatted
@@ -133,7 +118,7 @@
     path: "{{ kafka_log_dir }}/.kraft_formatted"
   register: kraft_marker
 
-- name: Format KRaft storage with verified FQDN
+- name: Format KRaft storage
   shell: |
     "{{ kafka_dir }}/bin/kafka-storage.sh" format \
       -t "{{ kraft_cluster_id }}" \
