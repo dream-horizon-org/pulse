@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
@@ -14,6 +13,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.core.buffer.Buffer;
 import io.vertx.rxjava3.ext.web.Router;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import java.lang.reflect.Field;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -52,10 +52,11 @@ class RestVerticleSseProxyTest {
   private io.vertx.rxjava3.core.http.HttpServer pulseHttpServer;
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws Exception {
     coreVertx = Vertx.vertx();
     rxVertx = io.vertx.rxjava3.core.Vertx.newInstance(coreVertx);
     doNothing().when(alertEvaluationService).registerConsumers();
+    setStaticGuiceInjector(guiceInjector);
   }
 
   @AfterEach
@@ -78,6 +79,14 @@ class RestVerticleSseProxyTest {
       c.get(5, TimeUnit.SECONDS);
       coreVertx = null;
     }
+    setStaticGuiceInjector(null);
+  }
+
+  /** Sets {@code GuiceInjector.guiceInjector} static field directly, bypassing initialization. */
+  private static void setStaticGuiceInjector(GuiceInjector value) throws Exception {
+    Field field = GuiceInjector.class.getDeclaredField("guiceInjector");
+    field.setAccessible(true);
+    field.set(null, value);
   }
 
   private JwtService jwtService() {
@@ -159,25 +168,21 @@ class RestVerticleSseProxyTest {
               .put(Constants.HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE, "4");
       SharedDataUtils.put(
           coreVertx, AiStreamingHttpClient.create(coreVertx, wc), Constants.HTTP_CLIENT_AI_STREAMING);
+      bindGuice(jwtService());
 
-      try (var guice = mockStatic(GuiceInjector.class)) {
-        guice.when(GuiceInjector::getGuiceInjector).thenReturn(guiceInjector);
-        bindGuice(jwtService());
+      ExposeRouter rv = new ExposeRouter(rxVertx);
+      int pulsePort = startPulse(routerFromVerticle(rv));
 
-        ExposeRouter rv = new ExposeRouter(rxVertx);
-        int pulsePort = startPulse(routerFromVerticle(rv));
+      var resp =
+          WebClient.create(rxVertx)
+              .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
+              .putHeader("X-Project-ID", "p1")
+              .rxSendBuffer(Buffer.buffer("{}"))
+              .timeout(10, TimeUnit.SECONDS)
+              .blockingGet();
 
-        var resp =
-            WebClient.create(rxVertx)
-                .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
-                .putHeader("X-Project-ID", "p1")
-                .rxSendBuffer(Buffer.buffer("{}"))
-                .timeout(10, TimeUnit.SECONDS)
-                .blockingGet();
-
-        assertThat(resp.statusCode()).isEqualTo(401);
-        assertThat(resp.bodyAsString()).contains("Missing auth token");
-      }
+      assertThat(resp.statusCode()).isEqualTo(401);
+      assertThat(resp.bodyAsString()).contains("Missing auth token");
     }
 
     @Test
@@ -193,26 +198,22 @@ class RestVerticleSseProxyTest {
               .put(Constants.HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE, "4");
       SharedDataUtils.put(
           coreVertx, AiStreamingHttpClient.create(coreVertx, wc), Constants.HTTP_CLIENT_AI_STREAMING);
+      bindGuice(jwtService());
 
-      try (var guice = mockStatic(GuiceInjector.class)) {
-        guice.when(GuiceInjector::getGuiceInjector).thenReturn(guiceInjector);
-        bindGuice(jwtService());
+      ExposeRouter rv = new ExposeRouter(rxVertx);
+      int pulsePort = startPulse(routerFromVerticle(rv));
 
-        ExposeRouter rv = new ExposeRouter(rxVertx);
-        int pulsePort = startPulse(routerFromVerticle(rv));
+      var resp =
+          WebClient.create(rxVertx)
+              .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
+              .putHeader("Authorization", "Bearer not-a-valid-jwt")
+              .putHeader("X-Project-ID", "p1")
+              .rxSendBuffer(Buffer.buffer("{}"))
+              .timeout(10, TimeUnit.SECONDS)
+              .blockingGet();
 
-        var resp =
-            WebClient.create(rxVertx)
-                .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
-                .putHeader("Authorization", "Bearer not-a-valid-jwt")
-                .putHeader("X-Project-ID", "p1")
-                .rxSendBuffer(Buffer.buffer("{}"))
-                .timeout(10, TimeUnit.SECONDS)
-                .blockingGet();
-
-        assertThat(resp.statusCode()).isEqualTo(401);
-        assertThat(resp.bodyAsString()).contains("Invalid token");
-      }
+      assertThat(resp.statusCode()).isEqualTo(401);
+      assertThat(resp.bodyAsString()).contains("Invalid token");
     }
 
     @Test
@@ -228,26 +229,22 @@ class RestVerticleSseProxyTest {
               .put(Constants.HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE, "4");
       SharedDataUtils.put(
           coreVertx, AiStreamingHttpClient.create(coreVertx, wc), Constants.HTTP_CLIENT_AI_STREAMING);
+      bindGuice(jwtService());
 
-      try (var guice = mockStatic(GuiceInjector.class)) {
-        guice.when(GuiceInjector::getGuiceInjector).thenReturn(guiceInjector);
-        bindGuice(jwtService());
+      String token = jwtService().generateAccessToken("u1", "a@b.com", "N");
+      ExposeRouter rv = new ExposeRouter(rxVertx);
+      int pulsePort = startPulse(routerFromVerticle(rv));
 
-        String token = jwtService().generateAccessToken("u1", "a@b.com", "N");
-        ExposeRouter rv = new ExposeRouter(rxVertx);
-        int pulsePort = startPulse(routerFromVerticle(rv));
+      var resp =
+          WebClient.create(rxVertx)
+              .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
+              .putHeader("Authorization", "Bearer " + token)
+              .rxSendBuffer(Buffer.buffer("{}"))
+              .timeout(10, TimeUnit.SECONDS)
+              .blockingGet();
 
-        var resp =
-            WebClient.create(rxVertx)
-                .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
-                .putHeader("Authorization", "Bearer " + token)
-                .rxSendBuffer(Buffer.buffer("{}"))
-                .timeout(10, TimeUnit.SECONDS)
-                .blockingGet();
-
-        assertThat(resp.statusCode()).isEqualTo(400);
-        assertThat(resp.bodyAsString()).contains("Missing X-Project-ID");
-      }
+      assertThat(resp.statusCode()).isEqualTo(400);
+      assertThat(resp.bodyAsString()).contains("Missing X-Project-ID");
     }
 
     @Test
@@ -266,27 +263,23 @@ class RestVerticleSseProxyTest {
               .put(Constants.HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE, "4");
       SharedDataUtils.put(
           coreVertx, AiStreamingHttpClient.create(coreVertx, wc), Constants.HTTP_CLIENT_AI_STREAMING);
+      bindGuice(jwtService());
 
-      try (var guice = mockStatic(GuiceInjector.class)) {
-        guice.when(GuiceInjector::getGuiceInjector).thenReturn(guiceInjector);
-        bindGuice(jwtService());
+      String token = jwtService().generateAccessToken("u1", "a@b.com", "N");
+      ExposeRouter rv = new ExposeRouter(rxVertx);
+      int pulsePort = startPulse(routerFromVerticle(rv));
 
-        String token = jwtService().generateAccessToken("u1", "a@b.com", "N");
-        ExposeRouter rv = new ExposeRouter(rxVertx);
-        int pulsePort = startPulse(routerFromVerticle(rv));
+      var resp =
+          WebClient.create(rxVertx)
+              .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
+              .putHeader("Authorization", "Bearer " + token)
+              .putHeader("X-Project-ID", "p9")
+              .rxSendBuffer(Buffer.buffer("{}"))
+              .timeout(10, TimeUnit.SECONDS)
+              .blockingGet();
 
-        var resp =
-            WebClient.create(rxVertx)
-                .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
-                .putHeader("Authorization", "Bearer " + token)
-                .putHeader("X-Project-ID", "p9")
-                .rxSendBuffer(Buffer.buffer("{}"))
-                .timeout(10, TimeUnit.SECONDS)
-                .blockingGet();
-
-        assertThat(resp.statusCode()).isEqualTo(403);
-        assertThat(resp.bodyAsString()).contains("Access denied");
-      }
+      assertThat(resp.statusCode()).isEqualTo(403);
+      assertThat(resp.bodyAsString()).contains("Access denied");
     }
   }
 
@@ -316,31 +309,27 @@ class RestVerticleSseProxyTest {
               .put(Constants.HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE, "4");
       SharedDataUtils.put(
           coreVertx, AiStreamingHttpClient.create(coreVertx, wc), Constants.HTTP_CLIENT_AI_STREAMING);
+      bindGuice(jwtService());
 
-      try (var guice = mockStatic(GuiceInjector.class)) {
-        guice.when(GuiceInjector::getGuiceInjector).thenReturn(guiceInjector);
-        bindGuice(jwtService());
+      String token = jwtService().generateAccessToken("u1", "a@b.com", "N");
+      ExposeRouter rv = new ExposeRouter(rxVertx);
+      int pulsePort = startPulse(routerFromVerticle(rv));
 
-        String token = jwtService().generateAccessToken("u1", "a@b.com", "N");
-        ExposeRouter rv = new ExposeRouter(rxVertx);
-        int pulsePort = startPulse(routerFromVerticle(rv));
+      var httpResp =
+          WebClient.create(rxVertx)
+              .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
+              .putHeader("Authorization", "Bearer " + token)
+              .putHeader("X-Project-ID", "p1")
+              .rxSendBuffer(Buffer.buffer("{\"q\":\"hi\"}"))
+              .timeout(15, TimeUnit.SECONDS)
+              .blockingGet();
 
-        var httpResp =
-            WebClient.create(rxVertx)
-                .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
-                .putHeader("Authorization", "Bearer " + token)
-                .putHeader("X-Project-ID", "p1")
-                .rxSendBuffer(Buffer.buffer("{\"q\":\"hi\"}"))
-                .timeout(15, TimeUnit.SECONDS)
-                .blockingGet();
-
-        assertThat(httpResp.statusCode()).isEqualTo(200);
-        assertThat(httpResp.getHeader(Constants.HEADER_CONTENT_TYPE))
-            .contains(Constants.CONTENT_TYPE_TEXT_EVENT_STREAM);
-        assertThat(httpResp.getHeader(Constants.HEADER_X_ACCEL_BUFFERING))
-            .isEqualTo(Constants.SSE_PROXY_X_ACCEL_BUFFERING);
-        assertThat(httpResp.bodyAsString()).contains("data:").contains("\"t\":1");
-      }
+      assertThat(httpResp.statusCode()).isEqualTo(200);
+      assertThat(httpResp.getHeader(Constants.HEADER_CONTENT_TYPE))
+          .contains(Constants.CONTENT_TYPE_TEXT_EVENT_STREAM);
+      assertThat(httpResp.getHeader(Constants.HEADER_X_ACCEL_BUFFERING))
+          .isEqualTo(Constants.SSE_PROXY_X_ACCEL_BUFFERING);
+      assertThat(httpResp.bodyAsString()).contains("data:").contains("\"t\":1");
     }
 
     @Test
@@ -365,28 +354,24 @@ class RestVerticleSseProxyTest {
               .put(Constants.HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE, "4");
       SharedDataUtils.put(
           coreVertx, AiStreamingHttpClient.create(coreVertx, wc), Constants.HTTP_CLIENT_AI_STREAMING);
+      bindGuice(jwtService());
 
-      try (var guice = mockStatic(GuiceInjector.class)) {
-        guice.when(GuiceInjector::getGuiceInjector).thenReturn(guiceInjector);
-        bindGuice(jwtService());
+      String token = jwtService().generateAccessToken("u1", "a@b.com", "N");
+      ExposeRouter rv = new ExposeRouter(rxVertx);
+      int pulsePort = startPulse(routerFromVerticle(rv));
 
-        String token = jwtService().generateAccessToken("u1", "a@b.com", "N");
-        ExposeRouter rv = new ExposeRouter(rxVertx);
-        int pulsePort = startPulse(routerFromVerticle(rv));
+      var httpResp =
+          WebClient.create(rxVertx)
+              .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
+              .putHeader("Authorization", "Bearer " + token)
+              .putHeader("X-Project-ID", "p1")
+              .rxSendBuffer(Buffer.buffer("{}"))
+              .timeout(15, TimeUnit.SECONDS)
+              .blockingGet();
 
-        var httpResp =
-            WebClient.create(rxVertx)
-                .post(pulsePort, "127.0.0.1", "/v1/ai/run_sse")
-                .putHeader("Authorization", "Bearer " + token)
-                .putHeader("X-Project-ID", "p1")
-                .rxSendBuffer(Buffer.buffer("{}"))
-                .timeout(15, TimeUnit.SECONDS)
-                .blockingGet();
-
-        assertThat(httpResp.statusCode()).isEqualTo(500);
-        assertThat(httpResp.getHeader("Content-Type")).contains("application/json");
-        assertThat(httpResp.bodyAsString()).contains("AI service returned 500");
-      }
+      assertThat(httpResp.statusCode()).isEqualTo(500);
+      assertThat(httpResp.getHeader("Content-Type")).contains("application/json");
+      assertThat(httpResp.bodyAsString()).contains("AI service returned 500");
     }
   }
 }
