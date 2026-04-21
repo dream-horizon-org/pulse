@@ -62,6 +62,7 @@ public class MainApplication extends Launcher {
       new ValidationModule(),
       new UploadInteractionDetailModule(vertx),
       new InteractionModule(),
+      new HeatmapModule(),
       new QueryEngineModule(),
       new EventDefinitionModule()
     };

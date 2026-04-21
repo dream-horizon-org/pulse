@@ -7,6 +7,29 @@ import Foundation
 
 /// Core utility for matching event sequences and building interactions
 internal enum InteractionUtil {
+    internal struct InteractionBuildError {
+        let type: InteractionErrorType
+        var timeoutExpectedEventName: String?
+        var sequenceViolationExpectedEventName: String?
+        var sequenceViolationReceivedEventName: String?
+    }
+
+    private static func interactionErrorMessage(_ error: InteractionBuildError) -> String {
+        switch error.type {
+        case .timeout:
+            if let name = error.timeoutExpectedEventName {
+                return "Timed out while waiting for event \"\(name)\"."
+            }
+            return "Timed out before the next expected event arrived."
+        case .sequenceViolation:
+            if let expected = error.sequenceViolationExpectedEventName,
+               let received = error.sequenceViolationReceivedEventName {
+                return "Expected event \"\(expected)\", received \"\(received)\"."
+            }
+            return "An event did not match the next expected event in this interaction."
+        }
+    }
+
     /// Result of matching a sequence
     struct MatchResult {
         let shouldTakeFirstEvent: Bool
@@ -80,7 +103,7 @@ internal enum InteractionUtil {
                                     interactionConfig: interactionConfig,
                                     events: stepWiseTimeInNano,
                                     localMarkers: localMarkers,
-                                    isSuccessInteraction: true
+                                    error: nil
                                 )
                             )
                         )
@@ -118,7 +141,11 @@ internal enum InteractionUtil {
                             interactionConfig: interactionConfig,
                             events: stepWiseTimeInNano,
                             localMarkers: localMarkers,
-                            isSuccessInteraction: false
+                            error: InteractionBuildError(
+                                type: .sequenceViolation,
+                                sequenceViolationExpectedEventName: configEvent.name,
+                                sequenceViolationReceivedEventName: localEvent.name
+                            )
                         )
                     )
                 )
@@ -210,33 +237,19 @@ internal enum InteractionUtil {
         interactionConfig: InteractionConfig,
         events: [InteractionLocalEvent],
         localMarkers: [InteractionLocalEvent],
-        isSuccessInteraction: Bool
+        error: InteractionBuildError? = nil
     ) -> Interaction {
+        guard let firstEvent = events.first, let lastEvent = events.last else {
+            preconditionFailure("buildPulseInteraction requires at least one event")
+        }
+
         let interactionName = interactionConfig.name
         let interactionConfigId = interactionConfig.id
-        let lastEventTimeInNano = events.last?.timeInNano ?? 0
+        let lastEventTimeInNano = lastEvent.timeInNano
 
         let (timeDifferenceInNano, timeCategory, upTimeIndex): (Int64?, InteractionAttributes.TimeCategory?, Double?)
 
-        if isSuccessInteraction {
-            guard let firstEvent = events.first, let lastEvent = events.last else {
-                return Interaction(
-                    id: interactionId,
-                    name: interactionConfig.name,
-                    props: [
-                        InteractionAttributes.name: interactionConfig.name,
-                        InteractionAttributes.configId: interactionConfig.id,
-                        InteractionAttributes.lastEventTimeInNano: 0,
-                        InteractionAttributes.localEvents: events,
-                        InteractionAttributes.markerEvents: localMarkers,
-                        InteractionAttributes.apdexScore: nil,
-                        InteractionAttributes.userCategory: nil,
-                        InteractionAttributes.timeToCompleteInNano: nil,
-                        InteractionAttributes.isError: !isSuccessInteraction
-                    ]
-                )
-            }
-
+        if error == nil {
             let timeDiffInNano = lastEvent.timeInNano - firstEvent.timeInNano
             let timeDifferenceInMs = timeDiffInNano / 1_000_000
             let lowerLimitInMs = interactionConfig.uptimeLowerLimitInMs
@@ -271,17 +284,24 @@ internal enum InteractionUtil {
             (timeDifferenceInNano, timeCategory, upTimeIndex) = (nil, nil, nil)
         }
 
-        let maps: [String: Any?] = [
-            InteractionAttributes.name: interactionName,
-            InteractionAttributes.configId: interactionConfigId,
-            InteractionAttributes.lastEventTimeInNano: lastEventTimeInNano,
-            InteractionAttributes.localEvents: events,
-            InteractionAttributes.markerEvents: localMarkers,
-            InteractionAttributes.apdexScore: upTimeIndex,
-            InteractionAttributes.userCategory: timeCategory?.rawValue,
-            InteractionAttributes.timeToCompleteInNano: timeDifferenceInNano,
-            InteractionAttributes.isError: !isSuccessInteraction
-        ]
+        let maps: [String: Any?] = {
+            var m: [String: Any?] = [
+                InteractionAttributes.name: interactionName,
+                InteractionAttributes.configId: interactionConfigId,
+                InteractionAttributes.lastEventTimeInNano: lastEventTimeInNano,
+                InteractionAttributes.localEvents: events,
+                InteractionAttributes.markerEvents: localMarkers,
+                InteractionAttributes.apdexScore: upTimeIndex,
+                InteractionAttributes.userCategory: timeCategory?.rawValue,
+                InteractionAttributes.timeToCompleteInNano: timeDifferenceInNano,
+                InteractionAttributes.isError: error != nil
+            ]
+            if let error = error {
+                m[InteractionAttributes.errorType] = error.type.code
+                m[InteractionAttributes.errorMessage] = interactionErrorMessage(error)
+            }
+            return m
+        }()
 
         return Interaction(
             id: interactionId,

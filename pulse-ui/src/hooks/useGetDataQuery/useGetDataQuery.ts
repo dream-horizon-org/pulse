@@ -11,34 +11,37 @@ import utc from "dayjs/plugin/utc";
 
 dayjs.extend(utc);
 
+/** Parse UI time strings to UTC ISO. Returns null if empty or unparseable (avoids Invalid Date → toISOString throw). */
+function tryFormatTimeToIso(time: string): string | null {
+  const trimmed = typeof time === "string" ? time.trim() : "";
+  if (!trimmed) return null;
+  if (trimmed.includes("T") || trimmed.includes("Z")) {
+    const d = dayjs.utc(trimmed);
+    return d.isValid() ? d.toISOString() : null;
+  }
+  const withFormat = dayjs.utc(trimmed, "YYYY-MM-DD HH:mm:ss");
+  if (withFormat.isValid()) return withFormat.toISOString();
+  const loose = dayjs.utc(trimmed);
+  return loose.isValid() ? loose.toISOString() : null;
+}
+
 export const useGetDataQuery = ({
   requestBody,
   enabled = true,
   refetchInterval = false,
 }: GetDataQueryParams) => {
   const dataQuery = API_ROUTES.DATA_QUERY;
-  const isProjectReady = useProjectQueryEnabled(enabled);
-
-  // Format times to ISO string
-  // If the time is already in ISO format (contains 'T' or 'Z'), parse it directly
-  // Otherwise, parse it as UTC (since getStartAndEndDateTimeString returns UTC times in "YYYY-MM-DD HH:mm:ss" format)
-  const formatTime = (time: string): string => {
-    if (time.includes("T") || time.includes("Z")) {
-      // Already ISO format, just ensure it's valid
-      return dayjs.utc(time).toISOString();
-    }
-    // Parse as UTC since the time string is already in UTC
-    return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
-  };
-
-  const formattedStartTime = formatTime(requestBody.timeRange.start);
-  const formattedEndTime = formatTime(requestBody.timeRange.end);
+  const formattedStartTime = tryFormatTimeToIso(requestBody.timeRange.start);
+  const formattedEndTime = tryFormatTimeToIso(requestBody.timeRange.end);
+  const hasValidTimeRange =
+    formattedStartTime != null && formattedEndTime != null;
+  const isProjectReady = useProjectQueryEnabled(enabled && hasValidTimeRange);
 
   const modifiedRequestBody = {
     ...requestBody,
     timeRange: {
-      start: formattedStartTime,
-      end: formattedEndTime,
+      start: formattedStartTime ?? "",
+      end: formattedEndTime ?? "",
     },
   };
 

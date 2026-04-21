@@ -30,6 +30,8 @@ pub struct RecordingProperties {
     pub snapshot_data: Option<Value>,
 
     pub snapshot_source: Option<Value>,
+
+    pub app_version: Option<Value>,
 }
 
 impl RawRecording {
@@ -112,6 +114,14 @@ pub async fn process_replay_events(
         .and_then(|v| v.as_str().map(|s| s.to_string()))
         .unwrap_or_else(|| "mobile".to_string());
 
+    // Take app_version from first event only (optional; e.g. heatmap Redis caps)
+    let app_version = first_event
+        .properties
+        .app_version
+        .take()
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+        .filter(|s| !s.is_empty());
+
     // Collect snapshot_data from all events by taking ownership (no clone!)
     // Process first event's snapshot_data, then remaining events separately
     let mut snapshot_items: Vec<Value> = Vec::new();
@@ -143,6 +153,7 @@ pub async fn process_replay_events(
         &user_id,
         &session_id,
         &snapshot_source,
+        app_version.as_deref(),
         &snapshot_items,
     );
 
@@ -180,16 +191,20 @@ pub fn serialize_snapshot_data_sync(
     user_id: &str,
     session_id: &str,
     snapshot_source: &str,
+    app_version: Option<&str>,
     snapshot_items: &[Value],
 ) -> String {
+    let mut properties = serde_json::Map::new();
+    properties.insert("user_id".to_string(), json!(user_id));
+    properties.insert("session_id".to_string(), json!(session_id));
+    properties.insert("snapshot_items".to_string(), json!(snapshot_items));
+    properties.insert("snapshot_source".to_string(), json!(snapshot_source));
+    if let Some(av) = app_version.filter(|s| !s.is_empty()) {
+        properties.insert("app_version".to_string(), json!(av));
+    }
     json!({
         "event": "snapshot_items",
-        "properties": {
-            "user_id": user_id,
-            "session_id": session_id,
-            "snapshot_items": snapshot_items,
-            "snapshot_source": snapshot_source,
-        }
+        "properties": Value::Object(properties),
     })
     .to_string()
 }

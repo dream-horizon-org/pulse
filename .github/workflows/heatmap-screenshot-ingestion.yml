@@ -1,0 +1,39 @@
+name: Heatmap screenshot ingestion (Node)
+
+on:
+  push:
+    branches: [main, release/*]
+    paths:
+      - "backend/heatmap-screenshot-ingestion/**"
+      - ".github/workflows/heatmap-screenshot-ingestion.yml"
+  pull_request:
+    paths:
+      - "backend/heatmap-screenshot-ingestion/**"
+      - ".github/workflows/heatmap-screenshot-ingestion.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/heatmap-screenshot-ingestion
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/heatmap-screenshot-ingestion/package-lock.json
+
+      - name: Native deps for node-rdkafka
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3 libsasl2-dev libssl-dev librdkafka-dev
+
+      - name: Install and verify
+        run: npm ci && npm run build && npm test

@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
@@ -525,27 +524,6 @@ class PulseConfigModelsTest {
     }
   }
 
-  // CriticalEventPolicies Tests
-  @Nested
-  class TestCriticalEventPolicies {
-
-    @Test
-    void shouldCreateWithNoArgs() {
-      PulseConfig.CriticalEventPolicies policies = new PulseConfig.CriticalEventPolicies();
-      assertNotNull(policies);
-    }
-
-    @Test
-    void shouldCreateWithBuilder() {
-      List<PulseConfig.CriticalPolicyRule> alwaysSend = new ArrayList<>();
-      PulseConfig.CriticalEventPolicies policies = PulseConfig.CriticalEventPolicies.builder()
-          .alwaysSend(alwaysSend)
-          .build();
-
-      assertEquals(alwaysSend, policies.getAlwaysSend());
-    }
-  }
-
   // CriticalSessionPolicies Tests
   @Nested
   class TestCriticalSessionPolicies {
@@ -597,41 +575,6 @@ class PulseConfigModelsTest {
     }
   }
 
-  // FilterConfig Tests
-  @Nested
-  class TestFilterConfig {
-
-    @Test
-    void shouldCreateWithNoArgs() {
-      PulseConfig.FilterConfig filterConfig = new PulseConfig.FilterConfig();
-      assertNotNull(filterConfig);
-    }
-
-    @Test
-    void shouldCreateWithBuilder() {
-      List<PulseConfig.EventFilter> values = new ArrayList<>();
-
-      PulseConfig.FilterConfig filterConfig = PulseConfig.FilterConfig.builder()
-          .mode(FilterMode.blacklist)
-          .values(values)
-          .build();
-
-      assertEquals(FilterMode.blacklist, filterConfig.getMode());
-      assertEquals(values, filterConfig.getValues());
-    }
-
-    @Test
-    void shouldSetAndGetFields() {
-      PulseConfig.FilterConfig filterConfig = new PulseConfig.FilterConfig();
-
-      filterConfig.setMode(FilterMode.whitelist);
-      filterConfig.setValues(new ArrayList<>());
-
-      assertEquals(FilterMode.whitelist, filterConfig.getMode());
-      assertNotNull(filterConfig.getValues());
-    }
-  }
-
   // SignalsConfig Tests
   @Nested
   class TestSignalsConfig {
@@ -644,9 +587,6 @@ class PulseConfigModelsTest {
 
     @Test
     void shouldCreateWithBuilder() {
-      PulseConfig.FilterConfig filters = PulseConfig.FilterConfig.builder()
-          .mode(FilterMode.blacklist)
-          .build();
       List<PulseConfig.AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<PulseConfig.AttributeToAdd> attributesToAdd = new ArrayList<>();
 
@@ -656,7 +596,6 @@ class PulseConfigModelsTest {
           .metricCollectorUrl("http://metrics.example.com")
           .spanCollectorUrl("http://spans.example.com")
           .customEventCollectorUrl("http://custom-events.example.com")
-          .filters(filters)
           .attributesToDrop(attributesToDrop)
           .attributesToAdd(attributesToAdd)
           .build();
@@ -666,7 +605,6 @@ class PulseConfigModelsTest {
       assertEquals("http://metrics.example.com", signalsConfig.getMetricCollectorUrl());
       assertEquals("http://spans.example.com", signalsConfig.getSpanCollectorUrl());
       assertEquals("http://custom-events.example.com", signalsConfig.getCustomEventCollectorUrl());
-      assertEquals(filters, signalsConfig.getFilters());
       assertEquals(attributesToDrop, signalsConfig.getAttributesToDrop());
       assertEquals(attributesToAdd, signalsConfig.getAttributesToAdd());
     }
@@ -680,7 +618,6 @@ class PulseConfigModelsTest {
       signalsConfig.setMetricCollectorUrl("http://new-metrics.example.com");
       signalsConfig.setSpanCollectorUrl("http://new-spans.example.com");
       signalsConfig.setCustomEventCollectorUrl("http://new-custom-events.example.com");
-      signalsConfig.setFilters(new PulseConfig.FilterConfig());
       signalsConfig.setAttributesToDrop(new ArrayList<>());
       signalsConfig.setAttributesToAdd(new ArrayList<>());
 

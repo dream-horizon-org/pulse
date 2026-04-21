@@ -4,6 +4,8 @@ module.exports = {
     '<rootDir>/example/node_modules',
     '<rootDir>/lib/',
   ],
+  // `tsc` emits `.d.ts` next to `plugin/build/__tests__/*.js`; Jest must not treat them as suites.
+  testPathIgnorePatterns: ['\\.d\\.ts$'],
   testEnvironment: 'node',
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': [

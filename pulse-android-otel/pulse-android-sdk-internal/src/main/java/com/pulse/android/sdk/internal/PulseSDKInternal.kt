@@ -218,6 +218,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     context = application,
                     sdkConfig = currentSdkConfig,
                     currentSdkName = currentSdkName,
+                    meterProviderLazy = meterProviderLazy,
                 )
             }
         pulseSpanProcessor = PulseSdkSignalProcessors()
@@ -321,15 +322,20 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 ?.firstOrNull { it.featureName == PulseFeatureName.CLICK }
                 ?.config
                 ?.let { it as? PulseFeatureConfigData.ClickInstrumentation }
-                ?.rage
-                ?.let { remoteRage ->
-                    val local = ClickContextEnrichmentConfig.rageConfig
-                    ClickContextEnrichmentConfig.rageConfig =
-                        RageConfig(
-                            timeWindowMs = remoteRage.timeWindowMs ?: local.timeWindowMs,
-                            threshold = remoteRage.threshold ?: local.threshold,
-                            radiusDp = remoteRage.radiusDp ?: local.radiusDp,
-                        )
+                ?.let { clickConfig ->
+                    clickConfig.shouldCaptureContext?.let { shouldCapture ->
+                        ClickContextEnrichmentConfig.isViewClickContextEnrichmentEnabled = shouldCapture
+                        ClickContextEnrichmentConfig.isComposeClickContextEnrichmentEnabled = shouldCapture
+                    }
+                    clickConfig.rage?.let { remoteRage ->
+                        val local = ClickContextEnrichmentConfig.rageConfig
+                        ClickContextEnrichmentConfig.rageConfig =
+                            RageConfig(
+                                timeWindowMs = remoteRage.timeWindowMs ?: local.timeWindowMs,
+                                threshold = remoteRage.threshold ?: local.threshold,
+                                radiusDp = remoteRage.radiusDp ?: local.radiusDp,
+                            )
+                    }
                 }
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
             sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)
@@ -771,7 +777,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         getOtelOrThrow()
             .getOpenTelemetry()
             .logsBridge
-            .loggerBuilder(INSTRUMENTATION_SCOPE)
+            .loggerBuilder("$SDK_INSTRUMENTATION_SCOPE.logger")
             .build()
     }
 
@@ -779,9 +785,16 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         getOtelOrThrow()
             .getOpenTelemetry()
             .tracerProvider
-            .tracerBuilder(INSTRUMENTATION_SCOPE)
+            .tracerBuilder("$SDK_INSTRUMENTATION_SCOPE.tracer")
             .build()
     }
+
+    private val meterProviderLazy =
+        lazy {
+            getOtelOrThrow()
+                .getOpenTelemetry()
+                .meterProvider
+        }
 
     private val sharedPrefsData by lazy {
         val application = application ?: throwSdkNotInitError()
@@ -813,7 +826,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private var oldState: PulseDataCollectionConsent? = null
 
     internal companion object {
-        private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
+        private const val SDK_INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"

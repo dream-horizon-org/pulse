@@ -1,9 +1,6 @@
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
-import {
-  getFeaturesFromRemoteConfig,
-  getIsShutdown,
-  getIsStarted,
-} from './config';
+import { getFeaturesFromRemoteConfig } from './remoteFeatures';
+import { getIsShutdown, getIsStarted } from './sessionState';
 import { mergeWithGlobalAttributes } from './globalAttributes';
 import { isSupportedPlatform } from './initialization';
 import type { PulseAttributes } from './pulse.interface';

@@ -365,4 +365,96 @@ final class PulseSdkConfigModelsTests: XCTestCase {
         let config = try JSONDecoder().decode(PulseSdkConfig.self, from: data)
         XCTAssertTrue(config.sampling.signalsToSample.isEmpty)
     }
+
+    /// Server may emit feature names the SDK does not know yet; iOS maps those to `.unknown` (parity with Android).
+    func testDecodeUnknownFeatureNameMapsToUnknown() throws {
+        let json = """
+        {
+            "version": 1,
+            "description": "test",
+            "sampling": { "default": { "sessionSampleRate": 0.5 }, "rules": [] },
+            "signals": {
+                "scheduleDurationMs": 60000,
+                "logsCollectorUrl": "https://logs",
+                "metricCollectorUrl": "https://metrics",
+                "spanCollectorUrl": "https://spans",
+                "customEventCollectorUrl": "https://custom",
+                "attributesToDrop": [],
+                "attributesToAdd": []
+            },
+            "interaction": {
+                "collectorUrl": "https://coll",
+                "configUrl": "https://config",
+                "beforeInitQueueSize": 100
+            },
+            "features": [
+                { "featureName": "future_unknown_feature", "sessionSampleRate": 1.0, "sdks": ["pulse_ios_rn"] }
+            ]
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let config = try JSONDecoder().decode(PulseSdkConfig.self, from: data)
+        XCTAssertEqual(config.features.count, 1)
+        XCTAssertEqual(config.features[0].featureName, .unknown)
+    }
+
+    func testDecodeFeatureNameNonStringMapsToUnknown() throws {
+        let json = """
+        {
+            "version": 1,
+            "description": "test",
+            "sampling": { "default": { "sessionSampleRate": 0.5 }, "rules": [] },
+            "signals": {
+                "scheduleDurationMs": 60000,
+                "logsCollectorUrl": "https://logs",
+                "metricCollectorUrl": "https://metrics",
+                "spanCollectorUrl": "https://spans",
+                "customEventCollectorUrl": "https://custom",
+                "attributesToDrop": [],
+                "attributesToAdd": []
+            },
+            "interaction": {
+                "collectorUrl": "https://coll",
+                "configUrl": "https://config",
+                "beforeInitQueueSize": 100
+            },
+            "features": [
+                { "featureName": 1, "sessionSampleRate": 1.0, "sdks": ["pulse_ios_rn"] }
+            ]
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let config = try JSONDecoder().decode(PulseSdkConfig.self, from: data)
+        XCTAssertEqual(config.features[0].featureName, .unknown)
+    }
+
+    func testDecodeFeatureNameNullMapsToUnknown() throws {
+        let json = """
+        {
+            "version": 1,
+            "description": "test",
+            "sampling": { "default": { "sessionSampleRate": 0.5 }, "rules": [] },
+            "signals": {
+                "scheduleDurationMs": 60000,
+                "logsCollectorUrl": "https://logs",
+                "metricCollectorUrl": "https://metrics",
+                "spanCollectorUrl": "https://spans",
+                "customEventCollectorUrl": "https://custom",
+                "attributesToDrop": [],
+                "attributesToAdd": []
+            },
+            "interaction": {
+                "collectorUrl": "https://coll",
+                "configUrl": "https://config",
+                "beforeInitQueueSize": 100
+            },
+            "features": [
+                { "featureName": null, "sessionSampleRate": 1.0, "sdks": ["pulse_ios_rn"] }
+            ]
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let config = try JSONDecoder().decode(PulseSdkConfig.self, from: data)
+        XCTAssertEqual(config.features[0].featureName, .unknown)
+    }
 }

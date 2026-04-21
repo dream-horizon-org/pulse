@@ -24,16 +24,20 @@ describe('ATTRIBUTES_IMPORT', () => {
 
 describe('buildPulseInitializationCode', () => {
   describe('basic initialization', () => {
-    it('should generate basic initialization code with only endpointBaseUrl', () => {
+    it('should generate basic initialization code with endpoint, apiKey, and consent', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
       });
 
       expect(result).toContain('Pulse.initialize');
       expect(result).toContain('this,');
       expect(result).toContain('"http://localhost:4318"');
       expect(result).toContain('apiKey = "project-123"');
+      expect(result).toContain(
+        'dataCollectionState = PulseDataCollectionConsent.PENDING'
+      );
       expect(result).not.toContain('endpointHeaders');
       expect(result).not.toContain('globalAttributes');
       expect(result).toMatch(/\)\s*\{[\s\S]*\}/);
@@ -43,10 +47,39 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'https://api.example.com/v1/endpoint',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
       });
 
       expect(result).toContain('"https://api.example.com/v1/endpoint"');
       expect(result).toContain('apiKey = "project-123"');
+    });
+  });
+
+  describe('customEventCollectorUrl', () => {
+    it('should emit HttpEndpointConnectivity with full URL and emptyMap without headers', () => {
+      const result = buildPulseInitializationCode({
+        endpointBaseUrl: 'http://localhost:4318',
+        apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
+        customEventCollectorUrl: 'http://collector.example/v1/custom-events',
+      });
+      expect(result).toContain(
+        'customEventConnectivity = HttpEndpointConnectivity("http://collector.example/v1/custom-events", emptyMap())'
+      );
+    });
+
+    it('should reuse endpointHeaders map for customEventConnectivity when headers set', () => {
+      const result = buildPulseInitializationCode({
+        endpointBaseUrl: 'http://localhost:4318',
+        apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
+        endpointHeaders: { 'X-Key': 'v' },
+        customEventCollectorUrl: 'http://collector.example/v1/logs',
+      });
+      expect(result).toContain('endpointHeaders = mapOf(');
+      expect(result).toContain(
+        'customEventConnectivity = HttpEndpointConnectivity("http://collector.example/v1/logs", mapOf("X-Key" to "v"))'
+      );
     });
   });
 
@@ -55,6 +88,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         endpointHeaders: {
           'Authorization': 'Bearer token123',
           'X-API-Key': 'api-key-456',
@@ -71,6 +105,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         endpointHeaders: {},
       });
 
@@ -78,10 +113,11 @@ describe('buildPulseInitializationCode', () => {
       expect(result).not.toContain('endpointHeaders');
     });
 
-    it('should include special characters in header keys and values as-is (might cause Kotlin compilation errors)', () => {
+    it('escapes quotes, backslashes, and $ in header keys and values for Kotlin', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         endpointHeaders: {
           'Header-With"Quotes': 'Value\\With\\Backslashes',
           'Header\nWith\nNewlines': 'Value\tWith\tTabs',
@@ -90,14 +126,15 @@ describe('buildPulseInitializationCode', () => {
 
       expect(result).toContain('apiKey = "project-123"');
       expect(result).toContain('endpointHeaders = mapOf');
-      expect(result).toContain('Header-With"Quotes');
-      expect(result).toContain('Value\\With\\Backslashes');
+      expect(result).toContain('"Header-With\\"Quotes" to');
+      expect(result).toContain('"Value\\\\With\\\\Backslashes"');
     });
 
     it('should handle single header', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         endpointHeaders: {
           Authorization: 'Bearer token',
         },
@@ -113,6 +150,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         endpointHeaders: {
           Header1: 'Value1',
           Header2: 'Value2',
@@ -139,6 +177,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -163,6 +202,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -204,6 +244,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -225,6 +266,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -245,6 +287,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -263,6 +306,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -281,6 +325,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -299,6 +344,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -316,6 +362,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -336,6 +383,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -356,6 +404,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -369,6 +418,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: {},
       });
 
@@ -385,6 +435,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -408,6 +459,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -430,6 +482,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -440,6 +493,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: {},
       });
 
@@ -454,6 +508,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
           interaction: {
             enabled: true,
@@ -471,6 +526,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
           interaction: {
             enabled: false,
@@ -486,8 +542,9 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
-          activity: true,
+          activity: { enabled: true },
         },
       });
 
@@ -498,8 +555,9 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
-          network: false,
+          network: { enabled: false },
         },
       });
 
@@ -510,8 +568,9 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
-          anr: true,
+          anr: { enabled: true },
         },
       });
 
@@ -522,8 +581,9 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
-          slowRendering: false,
+          slowRendering: { enabled: false },
         },
       });
 
@@ -534,8 +594,9 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
-          fragment: true,
+          fragment: { enabled: true },
         },
       });
 
@@ -546,8 +607,9 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
-          crash: false,
+          crash: { enabled: false },
         },
       });
 
@@ -558,17 +620,18 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         instrumentation: {
           interaction: {
             enabled: true,
             url: 'http://localhost:8080/v1/interactions',
           },
-          activity: true,
-          network: false,
-          anr: true,
-          slowRendering: false,
-          fragment: true,
-          crash: false,
+          activity: { enabled: true },
+          network: { enabled: false },
+          anr: { enabled: true },
+          slowRendering: { enabled: false },
+          fragment: { enabled: true },
+          crash: { enabled: false },
         },
       });
 
@@ -587,6 +650,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
       });
 
       expect(result).toContain(') {');
@@ -602,6 +666,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'https://api.example.com:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         endpointHeaders: {
           'Authorization': 'Bearer token',
           'X-API-Key': 'key123',
@@ -616,8 +681,8 @@ describe('buildPulseInitializationCode', () => {
             enabled: true,
             url: 'http://localhost:8080/v1/interactions',
           },
-          activity: true,
-          network: true,
+          activity: { enabled: true },
+          network: { enabled: true },
         },
       });
 
@@ -636,6 +701,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         endpointHeaders: {
           Header1: 'Value1',
         },
@@ -644,7 +710,7 @@ describe('buildPulseInitializationCode', () => {
           key2: 'value2',
         },
         instrumentation: {
-          activity: true,
+          activity: { enabled: true },
         },
       });
 
@@ -665,6 +731,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: longUrl,
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
       });
 
       expect(result).toContain(`"${longUrl}"`);
@@ -676,6 +743,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         endpointHeaders: {
           LongHeader: longValue,
         },
@@ -694,6 +762,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -712,6 +781,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -731,6 +801,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -749,6 +820,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 
@@ -766,6 +838,7 @@ describe('buildPulseInitializationCode', () => {
       const result = buildPulseInitializationCode({
         endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
         globalAttributes: attributes,
       });
 

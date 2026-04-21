@@ -3,6 +3,7 @@ import classes from "./CriticalInteractionList.module.css";
 import {
   Box,
   Button,
+  Drawer,
   Group,
   Popover,
   ScrollArea,
@@ -16,7 +17,7 @@ import {
   CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS,
   ROUTES,
 } from "../../constants";
-import { IconFilterEdit } from "@tabler/icons-react";
+import { IconFilterEdit, IconSparkles } from "@tabler/icons-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChangeEvent,
@@ -73,6 +74,7 @@ export function CriticalInteractionList() {
   const { trackClick } = useAnalytics("InteractionList");
   const searchFields = Object.fromEntries(searchParams.entries());
   const [opened, { open, close }] = useDisclosure(false);
+  const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
   const [checked, setChecked] = useState(
     searchFields?.userEmail === getCookies(COOKIES_KEY.USER_EMAIL),
   );
@@ -412,7 +414,7 @@ export function CriticalInteractionList() {
       );
     }
 
-    if (data.length === 0 && suggestions.length === 0) {
+    if (data.length === 0) {
       return (
         <ErrorAndEmptyState
           classes={[classes.error]}
@@ -428,44 +430,6 @@ export function CriticalInteractionList() {
         viewportRef={scrollContainerRef}
         className={classes.scrollArea}
       >
-        {isLoadingSuggestions && (
-          <Box className={classes.suggestionsSection}>
-            <Box className={classes.suggestionsHeader}>
-              <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>
-            </Box>
-            <Box className={classes.suggestionsGrid}>
-              {Array.from({ length: 3 }).map((_, index) => (
-                <CardSkeleton key={index} height={180} showHeader contentRows={3} />
-              ))}
-            </Box>
-          </Box>
-        )}
-        {!isLoadingSuggestions && suggestions.length > 0 && (
-          <Box className={classes.suggestionsSection}>
-            <Box className={classes.suggestionsHeader}>
-              <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>
-              <span className={classes.suggestionsCount}>{suggestions.length}</span>
-            </Box>
-            <Box className={classes.suggestionsGrid}>
-              {suggestions.map((suggestion) => (
-                <SuggestedInteractionCard
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  onDismiss={handleDismissSuggestion}
-                  onActivate={handleActivateSuggestion}
-                  isDismissing={
-                    dismissMutation.isPending &&
-                    dismissMutation.variables?.id === suggestion.id
-                  }
-                  isActivating={
-                    activateMutation.isPending &&
-                    activateMutation.variables?.id === suggestion.id
-                  }
-                />
-              ))}
-            </Box>
-          </Box>
-        )}
         <Box className={classes.criticalInteractionsTableContainer}>
           {data.map((item) => {
             const interactionName = item?.name || "";
@@ -577,6 +541,70 @@ export function CriticalInteractionList() {
 
       {/* Content Section */}
       {renderContent()}
+
+      {/* Floating Suggestions Button */}
+      {!isLoadingSuggestions && suggestions.length > 0 && (
+        <button
+          className={classes.suggestionsFab}
+          onClick={openDrawer}
+          type="button"
+        >
+          <IconSparkles size={18} />
+          <span>{suggestions.length} Discovered</span>
+        </button>
+      )}
+
+      {/* Suggestions Drawer */}
+      <Drawer
+        opened={drawerOpened}
+        onClose={closeDrawer}
+        position="right"
+        size="lg"
+        title={null}
+        withCloseButton={false}
+        classNames={{
+          content: classes.drawerContent,
+          body: classes.drawerBody,
+        }}
+      >
+        <Box className={classes.drawerHeader}>
+          <Box className={classes.drawerTitleRow}>
+            <h2 className={classes.suggestionsTitle}>Suggested Interactions</h2>
+            <span className={classes.suggestionsCount}>{suggestions.length}</span>
+          </Box>
+          <Button variant="subtle" size="sm" onClick={closeDrawer} className={classes.drawerCloseBtn}>
+            &times;
+          </Button>
+        </Box>
+        <ScrollArea className={classes.drawerScrollArea}>
+          {isLoadingSuggestions ? (
+            <Box className={classes.drawerCardList}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <CardSkeleton key={index} height={180} showHeader contentRows={3} />
+              ))}
+            </Box>
+          ) : (
+            <Box className={classes.drawerCardList}>
+              {suggestions.map((suggestion) => (
+                <SuggestedInteractionCard
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  onDismiss={handleDismissSuggestion}
+                  onActivate={handleActivateSuggestion}
+                  isDismissing={
+                    dismissMutation.isPending &&
+                    dismissMutation.variables?.id === suggestion.id
+                  }
+                  isActivating={
+                    activateMutation.isPending &&
+                    activateMutation.variables?.id === suggestion.id
+                  }
+                />
+              ))}
+            </Box>
+          )}
+        </ScrollArea>
+      </Drawer>
     </Box>
   );
 }

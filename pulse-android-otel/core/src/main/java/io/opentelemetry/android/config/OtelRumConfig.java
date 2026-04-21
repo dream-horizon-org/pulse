@@ -67,6 +67,17 @@ public class OtelRumConfig {
         return this;
     }
 
+    /**
+     * Re-enables the collection of runtime network attributes after a prior {@link
+     * #disableNetworkAttributes()} call. Default = true (no-op if not previously disabled).
+     *
+     * @return this
+     */
+    public OtelRumConfig enableNetworkAttributes() {
+        includeNetworkAttributes = true;
+        return this;
+    }
+
     /** Disable adding frame attributes in spans about slow and frozen frames */
     public OtelRumConfig disableFrameAttributes() {
         includeFrameAttributes = false;
