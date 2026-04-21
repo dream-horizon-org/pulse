@@ -84,13 +84,12 @@ internal class PulseSignalProcessor {
             var normalized = originalUrl.components(separatedBy: "?").first ?? originalUrl
 
             let patterns: [(pattern: String, replacement: String)] = [
-                ("([0-9a-fA-F]{64})(?=/|$)", "[redacted]"),
-                ("([0-9a-fA-F]{40})(?=/|$)", "[redacted]"),
-                ("([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?=/|$)", "[redacted]"),
-                ("([0-9a-fA-F]{32})(?=/|$)", "[redacted]"),
-                ("([0-9a-fA-F]{24})(?=/|$)", "[redacted]"),
-                ("(\\d{3,})(?=/|$)", "[redacted]"),
-                ("([A-Za-z0-9]{16,})(?=/|$)", "[redacted]")
+                ("(?<=/)([0-9a-fA-F]{64}|[0-9a-fA-F]{40})(?=/|$)", "[redacted]"),
+                ("(?<=/)([0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?=/|$)", "[redacted]"),
+                ("(?<=/)([0-9a-fA-F]{24})(?=/|$)", "[redacted]"),
+                ("(?<=/)([0-9A-HJKMNP-TV-Z]{26})(?=/|$)", "[redacted]"),
+                ("(?<=/)(\\d{3,})(?=/|$)", "[redacted]"),
+                ("(?<=/)([A-Za-z0-9]{16,})(?=/|$)", "[redacted]")
             ]
 
             for (pattern, replacement) in patterns {

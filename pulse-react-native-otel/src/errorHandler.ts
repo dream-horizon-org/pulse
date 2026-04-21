@@ -1,5 +1,5 @@
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
-import { getIsShutdown, getIsStarted } from './config';
+import { getIsShutdown, getIsStarted } from './sessionState';
 import { mergeWithGlobalAttributes } from './globalAttributes';
 import { isSupportedPlatform } from './initialization';
 import { extractErrorDetails } from './utility';

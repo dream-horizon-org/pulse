@@ -25,6 +25,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         Pulse.shared.initialize(
             endpointBaseUrl: "http://127.0.0.1:4318",
             apiKey: "default-project_devkey01",
+            dataCollectionState: .allowed,
             endpointHeaders: nil,
             globalAttributes: globalAttributes,
             instrumentations: { config in
@@ -49,8 +50,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                         localConfig.replayEndpointBaseUrl = "http://127.0.0.1:3400"
                     }
                 }
-            },
-            dataCollectionState: .allowed
+            }
         )
         window = UIWindow(frame: UIScreen.main.bounds)
         let mainViewController = MainViewController()

@@ -29,12 +29,6 @@ public enum class PulseFeatureName {
     @SerialName("network_change")
     NETWORK_CHANGE,
 
-    @SerialName("network_instrumentation")
-    NETWORK_INSTRUMENTATION,
-
-    @SerialName("screen_session")
-    SCREEN_SESSION,
-
     @SerialName("custom_events")
     CUSTOM_EVENTS,
 
@@ -44,11 +38,35 @@ public enum class PulseFeatureName {
     @SerialName("rn_screen_interactive")
     RN_SCREEN_INTERACTIVE,
 
+    @SerialName("rn_screen_session")
+    RN_SCREEN_SESSION,
+
     @SerialName("session_replay")
     SESSION_REPLAY,
 
     @SerialName("click")
     CLICK,
+
+    @SerialName("ios_crash")
+    IOS_CRASH,
+
+    @SerialName("ios_network")
+    IOS_NETWORK,
+
+    @SerialName("rn_network")
+    RN_NETWORK,
+
+    @SerialName("ios_lifecycle")
+    IOS_LIFECYCLE,
+
+    @SerialName("android_activity")
+    ANDROID_ACTIVITY,
+
+    @SerialName("android_fragment")
+    ANDROID_FRAGMENT,
+
+    @SerialName("android_slowrendering")
+    ANDROID_SLOWRENDERING,
 
     @SerialName(PulseFallbackToUnknownEnumSerializer.UNKNOWN_KEY_NAME)
     UNKNOWN,

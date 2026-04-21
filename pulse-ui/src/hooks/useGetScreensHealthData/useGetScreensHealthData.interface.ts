@@ -6,7 +6,7 @@ export interface UseGetScreensHealthDataProps {
 
 export interface ScreenHealthData {
   screenName: string;
-  avgTimeSpent: number;
+  avgTimeSpent: number | undefined;
   crashRate: number;
   loadTime: number;
   users: number;

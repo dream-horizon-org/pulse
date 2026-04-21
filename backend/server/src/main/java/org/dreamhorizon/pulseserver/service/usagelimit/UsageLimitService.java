@@ -405,6 +405,18 @@ public class UsageLimitService {
           return usageLimitDao.markThresholdsNotified(
               projectId, thresholds, limit.getProjectUsageLimitId());
         })
+        .doOnSuccess(record -> log.info(
+            "usage_limit_notifications persisted — projectId={} rowId={} requestedThresholds={} "
+                + "storedKeys={}",
+            projectId,
+            record.getId(),
+            thresholds,
+            record.getThresholdsNotified()))
+        .doOnError(error -> log.error(
+            "Failed to persist usage_limit_notifications — projectId={} requestedThresholds={}",
+            projectId,
+            thresholds,
+            error))
         .map(record -> {
           String month = record.getCreatedAt() != null
               ? record.getCreatedAt().atZone(java.time.ZoneOffset.UTC)

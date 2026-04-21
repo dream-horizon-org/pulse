@@ -21,7 +21,7 @@ import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInter
 import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.SuggestedInteractionEdge;
 import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))

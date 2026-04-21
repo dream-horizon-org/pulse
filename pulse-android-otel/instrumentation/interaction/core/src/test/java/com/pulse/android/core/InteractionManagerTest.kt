@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.util.concurrent.TimeUnit
 import kotlin.error
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 
 @ExtendWith(MockKExtension::class)
@@ -1508,8 +1509,15 @@ class InteractionManagerTest {
                 advanceTimeBy(20.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(1.seconds)
-                assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                val (_, timeoutInteraction) =
+                    assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
                 assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
+                Assertions
+                    .assertThat(timeoutInteraction.errorTypeCode)
+                    .isEqualTo(InteractionErrorType.TIMEOUT.code)
+                Assertions
+                    .assertThat(timeoutInteraction.errorMessage)
+                    .isEqualTo("Timed out while waiting for event \"event2\".")
             }
 
         @Test
@@ -1693,12 +1701,15 @@ class InteractionManagerTest {
 
                 addEventWithNanoTimeFromBoot("event3")
                 advanceTimeBy(1.seconds)
-                val (interactionId2, _) =
+                val (interactionId2, failedInteraction) =
                     assertSingleFinalInteraction(
                         skipAdvancing = true,
                         isSuccess = false,
                     )
-                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
+                assertFinalInteractionTimeRange(time1, time1)
+                Assertions
+                    .assertThat(failedInteraction.errorTypeCode)
+                    .isEqualTo(InteractionErrorType.SEQUENCE_VIOLATION.code)
                 Assertions.assertThat(interactionId2).isEqualTo(interactionId)
 
                 // terminal state
@@ -1731,8 +1742,11 @@ class InteractionManagerTest {
                 addEventWithNanoTimeFromBoot("event3")
                 advanceTimeBy(1.seconds)
 
-                val (failedInteractionId, _) = assertSingleFinalInteraction(isSuccess = false)
-                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
+                val (failedInteractionId, failedInteraction) = assertSingleFinalInteraction(isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1)
+                Assertions
+                    .assertThat(failedInteraction.errorTypeCode)
+                    .isEqualTo(InteractionErrorType.SEQUENCE_VIOLATION.code)
 
                 addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
@@ -1851,6 +1865,58 @@ class InteractionManagerTest {
                 Assertions.assertThat(successInteraction.markerEvents.map { it.name }).containsExactly("marker_success")
                 Assertions.assertThat(successInteraction.markerEvents.map { it.name }).doesNotContain("marker_timeout")
             }
+
+        @Test
+        fun `Successful interaction excludes marker events before start time and after end time`() =
+            runTest(standardTestDispatcher) {
+                initMockInteractionManager(twoEventConfig)
+                val t0 = System.nanoTime()
+                addMarkerWithNanoTimeFromBoot("marker_before_start", eventTimeInNano = t0 - 100)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_during", eventTimeInNano = t0 + 1)
+                runCurrent()
+                addMarkerWithNanoTimeFromBoot("marker_after_end", eventTimeInNano = t0 + 100)
+                runCurrent()
+                addEventWithNanoTimeFromBoot("event2", eventTimeInNano = t0 + 2)
+                runCurrent()
+                val (_, interaction) = assertSingleFinalInteraction(skipAdvancing = true)
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly("marker_during")
+            }
+
+        @Test
+        fun `Timed out interaction excludes marker events before start time and after end time`() =
+            runTest(standardTestDispatcher) {
+                val twoEventConfigWith20SecTimeout =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                            ),
+                        thresholdInNanos = 20.seconds.inWholeNanoseconds,
+                    )
+                initMockInteractionManager(twoEventConfigWith20SecTimeout)
+                val t0 = System.nanoTime()
+                addMarkerWithNanoTimeFromBoot("marker_before_start", eventTimeInNano = t0 - 100)
+                advanceTimeBy(100.nanoseconds)
+                addEventWithNanoTimeFromBoot("event1", eventTimeInNano = t0)
+                advanceTimeBy(1.nanoseconds)
+                addMarkerWithNanoTimeFromBoot("marker_during", eventTimeInNano = t0 + 1)
+                advanceTimeBy(100.nanoseconds)
+                addMarkerWithNanoTimeFromBoot("marker_during_after_100ns", eventTimeInNano = t0 + 101)
+                advanceTimeBy(19.seconds)
+                addMarkerWithNanoTimeFromBoot("marker_during_after_19s", eventTimeInNano = t0 + 101)
+                advanceTimeBy(2.seconds)
+                addMarkerWithNanoTimeFromBoot("marker_after_timeout", eventTimeInNano = t0 + 101 + 20.seconds.inWholeNanoseconds)
+                val (_, interaction) = assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                Assertions.assertThat(interaction.markerEvents.map { it.name }).containsExactly(
+                    "marker_during",
+                    "marker_during_after_100ns",
+                    "marker_during_after_19s",
+                )
+            }
     }
 
     private fun TestScope.initMockInteractionManager(vararg interactionConfigs: InteractionConfig) {
@@ -1951,14 +2017,16 @@ class InteractionManagerTest {
         isSuccess: Boolean = true,
     ): Pair<String, Interaction> {
         if (!skipAdvancing) advanceTimeBy(1.seconds)
-        Assertions
-            .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
-            .hasSize(1)
-            .first()
-            .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
+        val value = mockInteractionManager.interactionTrackerStatesState.value
+        val matchWithInteraction =
+            value
+                .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+                .firstOrNull { it.interaction != null }
+                ?: error("expected OngoingMatch with interaction in $value")
+        Assertions.assertThat(matchWithInteraction).isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
 
         return assertSingleFinalInteraction(
-            interactionRunningStatus = mockInteractionManager.interactionTrackerStatesState.value.first(),
+            interactionRunningStatus = matchWithInteraction,
             previousIdToMatch = previousIdToMatch,
             skipAdvancing = skipAdvancing,
             isSuccess = isSuccess,
@@ -2003,12 +2071,12 @@ class InteractionManagerTest {
         startInNs: Long,
         endInNs: Long,
     ) {
-        Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value).hasSize(1)
+        val states = mockInteractionManager.interactionTrackerStatesState.value
         val finalInteractionOngoingStatus =
-            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.OngoingMatch
-                ?: throwNotOfOngoingType(
-                    mockInteractionManager.interactionTrackerStatesState.value.first(),
-                )
+            states
+                .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+                .firstOrNull { it.interaction != null }
+                ?: error("No OngoingMatch with non-null interaction in $states")
         val interaction =
             finalInteractionOngoingStatus.interaction ?: error("Interaction should not be null")
         Assertions

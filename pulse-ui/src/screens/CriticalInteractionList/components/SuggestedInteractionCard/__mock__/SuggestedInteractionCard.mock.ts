@@ -47,3 +47,29 @@ export const mockSuggestionSmallNumbers: SuggestedInteraction = {
   id: 4,
   totalOccurrences: 500,
 };
+
+export const mockSuggestionSingleEvent: SuggestedInteraction = {
+  ...mockSuggestion,
+  id: 5,
+  events: [{ name: "Checkout completed", props: [], isBlacklisted: false }],
+  edges: [],
+};
+
+export const mockSuggestionThreeEvents: SuggestedInteraction = {
+  ...mockSuggestion,
+  id: 6,
+  events: [
+    { name: "Add to cart", props: [], isBlacklisted: false },
+    { name: "Go shopping", props: [], isBlacklisted: false },
+    { name: "Checkout completed", props: [], isBlacklisted: false },
+  ],
+};
+
+export const mockSuggestionSpecialChars: SuggestedInteraction = {
+  ...mockSuggestion,
+  id: 7,
+  events: [
+    { name: "user-login_success", props: [], isBlacklisted: false },
+    { name: "dashboard.view", props: [], isBlacklisted: false },
+  ],
+};

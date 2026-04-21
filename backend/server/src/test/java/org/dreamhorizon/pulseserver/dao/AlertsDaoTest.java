@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
@@ -105,7 +106,7 @@ class AlertsDaoTest {
   public void setup() {
     TenantContext.setTenantId("test-tenant");
     ProjectContext.setProjectId("test-project");
-    alertsDao = new AlertsDao(d11MysqlClient, dateTimeUtil);
+    alertsDao = new AlertsDao(d11MysqlClient, dateTimeUtil, new ObjectMapper());
   }
 
   @AfterEach

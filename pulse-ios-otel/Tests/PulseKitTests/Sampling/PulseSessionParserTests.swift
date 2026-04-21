@@ -116,13 +116,25 @@ final class PulseSessionParserTests: XCTestCase {
         XCTAssertFalse(decision.shouldSampleThisSession)
     }
 
-    func testShouldSampleWhenRandomEqualsRate() {
+    /// Session sampling uses strict `random < rate` (threshold exclusive: equality does not sample).
+    func testShouldNotSampleWhenRandomEqualsRate() {
         let config = makeSamplingConfig(defaultRate: 0.5, rules: [])
         let decision = PulseSessionSamplingDecision(
             samplingConfig: config,
             currentSdkName: .pulse_ios_swift,
             parser: PulseSessionConfigParser(),
             randomGenerator: { 0.5 }
+        )
+        XCTAssertFalse(decision.shouldSampleThisSession)
+    }
+
+    func testShouldSampleWhenRandomStrictlyBelowRate() {
+        let config = makeSamplingConfig(defaultRate: 0.5, rules: [])
+        let decision = PulseSessionSamplingDecision(
+            samplingConfig: config,
+            currentSdkName: .pulse_ios_swift,
+            parser: PulseSessionConfigParser(),
+            randomGenerator: { 0.49 }
         )
         XCTAssertTrue(decision.shouldSampleThisSession)
     }
