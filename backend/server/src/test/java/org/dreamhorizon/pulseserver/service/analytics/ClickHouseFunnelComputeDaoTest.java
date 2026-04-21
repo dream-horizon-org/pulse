@@ -43,7 +43,7 @@ class ClickHouseFunnelComputeDaoTest {
     @Test
     void shouldFilterByProjectId() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().build());
-      assertThat(sql).contains("ResourceAttributes['project.id'] = '" + PROJECT_ID + "'");
+      assertThat(sql).contains("ProjectId = '" + PROJECT_ID + "'");
     }
 
     @Test
@@ -70,9 +70,9 @@ class ClickHouseFunnelComputeDaoTest {
     void shouldIncludeAllStepEventNames() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().build());
       assertThat(sql)
-          .contains("Body = 'screen_view'")
-          .contains("Body = 'add_to_cart'")
-          .contains("Body = 'purchase'");
+          .contains("EventName = 'screen_view'")
+          .contains("EventName = 'add_to_cart'")
+          .contains("EventName = 'purchase'");
     }
 
     @Test
@@ -117,7 +117,7 @@ class ClickHouseFunnelComputeDaoTest {
     void shouldAppendGlobalFilterClauses() {
       String filtersJson = "[{\"field\":\"OS_NAME\",\"operator\":\"EQ\",\"value\":[\"Android\"]}]";
       String sql = ClickHouseFunnelComputeDao.buildInsertSql(baseRow().filtersJson(filtersJson).build());
-      assertThat(sql).contains("AND ResourceAttributes['os.name'] = 'Android'");
+      assertThat(sql).contains("AND Platform = 'Android'");
     }
 
     @Test
@@ -156,6 +156,7 @@ class ClickHouseFunnelComputeDaoTest {
           .contains("FROM otel.otel_logs")
           .contains("SELECT UserId,")
           .contains("SessionId,")
+          .contains("EventName")
           .contains("PulseType = 'custom_event'");
     }
 
@@ -282,7 +283,7 @@ class ClickHouseFunnelComputeDaoTest {
     void shouldFilterByProjectIdAndPulseType() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(baseRow().build());
       assertThat(sql)
-          .contains("ResourceAttributes['project.id'] = '" + PROJECT_ID + "'")
+          .contains("ProjectId = '" + PROJECT_ID + "'")
           .contains("PulseType = 'custom_event'");
     }
 
@@ -290,7 +291,7 @@ class ClickHouseFunnelComputeDaoTest {
     void shouldNarrowStepEventsToFunnelStepNames() {
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(baseRow().build());
       assertThat(sql).contains(
-          "AND Body IN ('screen_view', 'add_to_cart', 'purchase')");
+          "AND EventName IN ('screen_view', 'add_to_cart', 'purchase')");
     }
 
     @Test
@@ -300,7 +301,7 @@ class ClickHouseFunnelComputeDaoTest {
           "attempts AS (\n"
               + "    SELECT uid, FunnelTs AS t0\n"
               + "    FROM step_events\n"
-              + "    WHERE Body = 'screen_view'");
+              + "    WHERE EventName = 'screen_view'");
     }
 
     @Test
@@ -318,7 +319,7 @@ class ClickHouseFunnelComputeDaoTest {
       assertThat(sql)
           .contains(
               "minOrNullIf(e.FunnelTs, e.FunnelTs >= a.t0 AND e.FunnelTs <= a.t0 + INTERVAL 3600 SECOND) AS t1")
-          .contains("AND e.Body = 'add_to_cart'")
+          .contains("AND e.EventName = 'add_to_cart'")
           .contains("LEFT JOIN step_events e\n")
           .contains("ON e.uid = a.uid");
     }
@@ -329,7 +330,7 @@ class ClickHouseFunnelComputeDaoTest {
       assertThat(sql)
           .contains(
               "minOrNullIf(e.FunnelTs, e.FunnelTs >= s1.t1 AND e.FunnelTs <= s1.t0 + INTERVAL 7200 SECOND) AS t2")
-          .contains("AND e.Body = 'purchase'");
+          .contains("AND e.EventName = 'purchase'");
     }
 
     @Test
@@ -474,7 +475,7 @@ class ClickHouseFunnelComputeDaoTest {
       String filtersJson = "[{\"field\":\"OS_NAME\",\"operator\":\"EQ\",\"value\":[\"Android\"]}]";
       String sql = ClickHouseFunnelComputeDao.buildInsertSqlChain(
           baseRow().filtersJson(filtersJson).build());
-      assertThat(sql).contains("AND ResourceAttributes['os.name'] = 'Android'");
+      assertThat(sql).contains("AND Platform = 'Android'");
     }
 
     @Test

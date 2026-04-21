@@ -19,7 +19,7 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
  *
  * <p>Reads from {@code otel.otel_logs} with {@code PulseType = 'custom_event'}
  * (materialized from {@code LogAttributes['pulse.type']}).
- * Custom event names are read from the {@code Body} column (not {@code EventName}).
+ * Custom event names are read from the {@code EventName} column.
  *
  * <p>Two SQL builders are provided:
  * <ul>
@@ -111,7 +111,7 @@ public final class ClickHouseFunnelComputeDao {
         def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
     String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
 
-    String bodyInClause = steps.stream()
+    String eventNameInClause = steps.stream()
         .map(s -> "'" + escape(s.getEventName()) + "'")
         .collect(Collectors.joining(", "));
 
@@ -128,12 +128,12 @@ public final class ClickHouseFunnelComputeDao {
     sql.append("  step_events AS (\n")
         .append("    SELECT ").append(groupKey).append(" AS uid,\n")
         .append("           toDateTime(Timestamp) AS FunnelTs,\n")
-        .append("           Body\n")
+        .append("           EventName\n")
         .append("    FROM otel.otel_logs\n")
-        .append("    WHERE ResourceAttributes['project.id'] = '").append(projectId).append("'\n")
+        .append("    WHERE ProjectId = '").append(projectId).append("'\n")
         .append("      AND PulseType = 'custom_event'\n")
         .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
-        .append("      AND Body IN (").append(bodyInClause).append(")\n");
+        .append("      AND EventName IN (").append(eventNameInClause).append(")\n");
     if (!additionalFilters.isBlank()) {
       sql.append("      ").append(additionalFilters).append("\n");
     }
@@ -144,11 +144,11 @@ public final class ClickHouseFunnelComputeDao {
     sql.append("  attempts AS (\n")
         .append("    SELECT uid, FunnelTs AS t0\n")
         .append("    FROM step_events\n")
-        .append("    WHERE Body = '").append(escape(steps.get(0).getEventName())).append("'\n")
+        .append("    WHERE EventName = '").append(escape(steps.get(0).getEventName())).append("'\n")
         .append("  )");
 
     // s1..s(N-1): chain forward. ClickHouse rejects non-equi predicates in JOIN ON unless
-    // allow_experimental_join_condition is set; equi-join on (uid, Body) only and apply the
+    // allow_experimental_join_condition is set; equi-join on (uid, EventName) only and apply the
     // funnel window [t_{i-1}, t0 + W] inside minOrNullIf.
     //
     // Use minOrNullIf (not minIf): for non-Nullable DateTime, minIf with no matching rows
@@ -170,7 +170,7 @@ public final class ClickHouseFunnelComputeDao {
           .append("    FROM ").append(prevCte).append(" AS ").append(prevAlias).append("\n")
           .append("    LEFT JOIN step_events e\n")
           .append("      ON e.uid = ").append(prevAlias).append(".uid\n")
-          .append("     AND e.Body = '").append(stepName).append("'\n")
+          .append("     AND e.EventName = '").append(stepName).append("'\n")
           .append("    GROUP BY ").append(prevAlias).append(".uid, ").append(prevAlias).append(".t0");
       for (int j = 1; j < i; j++) {
         sql.append(", ").append(prevAlias).append(".t").append(j);
@@ -287,7 +287,7 @@ public final class ClickHouseFunnelComputeDao {
         def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
     String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
 
-    String bodyInClause = steps.stream()
+    String eventNameInClause = steps.stream()
         .map(s -> "'" + escape(s.getEventName()) + "'")
         .collect(Collectors.joining(", "));
     String additionalFilters = filters.stream()
@@ -303,19 +303,19 @@ public final class ClickHouseFunnelComputeDao {
         .append("  step_events AS (\n")
         .append("    SELECT ").append(groupKey).append(" AS uid,\n")
         .append("           toDateTime(Timestamp) AS FunnelTs,\n")
-        .append("           Body,\n")
+        .append("           EventName,\n")
         .append("           multiIf(\n");
     for (int i = 0; i < stepCount; i++) {
-      sql.append("             Body = '").append(escape(steps.get(i).getEventName())).append("', ")
+      sql.append("             EventName = '").append(escape(steps.get(i).getEventName())).append("', ")
           .append(i).append(",\n");
     }
     sql.append("             -1\n")
         .append("           ) AS step_idx\n")
         .append("    FROM otel.otel_logs\n")
-        .append("    WHERE ResourceAttributes['project.id'] = '").append(projectId).append("'\n")
+        .append("    WHERE ProjectId = '").append(projectId).append("'\n")
         .append("      AND PulseType = 'custom_event'\n")
         .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
-        .append("      AND Body IN (").append(bodyInClause).append(")\n");
+        .append("      AND EventName IN (").append(eventNameInClause).append(")\n");
     if (!additionalFilters.isBlank()) {
       sql.append("      ").append(additionalFilters).append("\n");
     }
@@ -360,7 +360,7 @@ public final class ClickHouseFunnelComputeDao {
     String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
 
     String windowFunnelArgs = steps.stream()
-        .map(s -> "Body = '" + escape(s.getEventName()) + "'")
+        .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
         .collect(Collectors.joining(",\n          "));
 
     String stepNamesArray = "[" + steps.stream()
@@ -377,9 +377,9 @@ public final class ClickHouseFunnelComputeDao {
           (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)
         WITH
           raw AS (
-            SELECT %s AS uid, toDateTime(Timestamp) AS FunnelTs, Body
+            SELECT %s AS uid, toDateTime(Timestamp) AS FunnelTs, EventName
             FROM otel.otel_logs
-            WHERE ResourceAttributes['project.id'] = '%s'
+            WHERE ProjectId = '%s'
               AND PulseType = 'custom_event'
               AND Timestamp BETWEEN %s AND %s
               %s
@@ -442,9 +442,9 @@ public final class ClickHouseFunnelComputeDao {
                    SessionId,
                    Timestamp,
                    toDateTime(Timestamp) AS FunnelTs,
-                   Body
+                   EventName
             FROM otel.otel_logs
-            WHERE ResourceAttributes['project.id'] = '%s'
+            WHERE ProjectId = '%s'
               AND PulseType = 'custom_event'
               AND Timestamp >= now() - INTERVAL %d DAY
           ),
@@ -456,7 +456,7 @@ public final class ClickHouseFunnelComputeDao {
       List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
       String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
       String windowFunnelArgs = steps.stream()
-          .map(s -> "Body = '" + escape(s.getEventName()) + "'")
+          .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
           .collect(Collectors.joining(", "));
 
       String cteName = "lvl_f" + i;

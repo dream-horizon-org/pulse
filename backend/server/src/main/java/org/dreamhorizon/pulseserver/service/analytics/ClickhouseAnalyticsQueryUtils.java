@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter;
 /**
  * Shared SQL helper utilities for funnel and journey ClickHouse compute builders.
  *
- * <p>Source table is {@code otel.otel_logs}. Custom event names use the {@code Body} column.
+ * <p>Source table is {@code otel.otel_logs}. Custom event names use the {@code EventName} column.
  * Funnel and journey compute SQL group by materialized {@code UserId} / {@code SessionId}
  * via {@link #resolveMaterializedGroupKey(String)}. {@link #resolveGroupKey(String)} remains
  * for {@code LogAttributes} map access where needed elsewhere.
