@@ -2,9 +2,6 @@ package org.dreamhorizon.pulseserver.service.analytics;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 
@@ -12,17 +9,12 @@ import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
-import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseWriteClient;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.FunnelDefinitionDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.funneldefinition.models.FunnelDefinitionRow;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.JourneyDao;
 import org.dreamhorizon.pulseserver.dao.productAnalysis.journey.models.JourneyRow;
 
-/**
- * Executes ClickHouse INSERT queries for funnel and journey computation using per-project R2DBC
- * connection pools.
- */
 @Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -30,8 +22,7 @@ public class ClickHouseComputeService {
 
   private final FunnelDefinitionDao funnelDefinitionDao;
   private final JourneyDao journeyDao;
-  private final ClickhouseProjectCredentialsDao clickhouseProjectCredentialsDao;
-  private final ClickhouseProjectConnectionPoolManager poolManager;
+  private final ClickhouseWriteClient clickhouseWriteClient;
 
   // ── On-save path ─────────────────────────────────────────────────────────────
 
@@ -135,45 +126,17 @@ public class ClickHouseComputeService {
     return "START".equals(row.getDirection()) ? "START" : "END";
   }
 
-  // ── Core R2DBC helper ─────────────────────────────────────────────────────────
-
-  /**
-   * Executes a raw SQL INSERT against the per-project ClickHouse pool using a non-blocking R2DBC
-   * chain. Returns {@code true} on success.
-   */
   Single<Boolean> executeInsert(String projectId, String sql) {
     if (sql == null || sql.isBlank()) {
       return Single.just(true);
     }
-    return clickhouseProjectCredentialsDao
-      .getCredentialsByProjectId(projectId)
-      .switchIfEmpty(
-        Maybe.error(
-          new IllegalStateException(
-            "No ClickHouse credentials configured for project: " + projectId)))
-      .toSingle()
-      .flatMap(
-        creds -> {
-          var pool =
-            poolManager.getPoolForProject(
+    return clickhouseWriteClient
+      .executeSql(sql)
+      .doOnError(
+        err ->
+          log.error(
+              "ClickHouse INSERT failed for project {}: {}",
               projectId,
-              creds.getClickhouseUsername(),
-              creds.getClickhousePasswordEncrypted());
-
-          return Single.fromPublisher(pool.create())
-            .flatMap(
-              conn ->
-                Flowable.fromPublisher(conn.createStatement(sql).execute())
-                  .flatMap(result -> Flowable.fromPublisher(result.getRowsUpdated()))
-                  .reduce(0L, Long::sum)
-                  .map(rows -> true)
-                  .doFinally(() -> Completable.fromPublisher(conn.close()).subscribe()))
-            .doOnError(
-              err ->
-                log.error(
-                  "ClickHouse INSERT failed for project {}: {}",
-                  projectId,
-                  err.getMessage()));
-        });
+              err.getMessage()));
   }
 }

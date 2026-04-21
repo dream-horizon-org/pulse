@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.service.analytics;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelAttributeFilter;
@@ -14,11 +15,11 @@ class ClickhouseAnalyticsConstantsMapperTest {
   class FieldMapping {
 
     @Test
-    void shouldMapOsName() {
+    void shouldMapOsNameToPlatform() {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
           .field("OS_NAME").operator(FunnelFilterOperator.EQ).value(List.of("Android")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND ResourceAttributes['os.name']");
+          .startsWith("AND Platform");
     }
 
     @Test
@@ -26,71 +27,32 @@ class ClickhouseAnalyticsConstantsMapperTest {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
           .field("OS_VERSION").operator(FunnelFilterOperator.EQ).value(List.of("14")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND ResourceAttributes['os.version']");
+          .startsWith("AND OsVersion");
     }
 
     @Test
-    void shouldMapAppBuildName() {
+    void shouldMapAppBuildNameToAppVersion() {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
           .field("APP_BUILD_NAME").operator(FunnelFilterOperator.EQ).value(List.of("1.0.0")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND ResourceAttributes['app.build_name']");
+          .startsWith("AND AppVersion");
     }
 
     @Test
-    void shouldMapAppBuildId() {
+    void shouldRejectUnknownField() {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
-          .field("APP_BUILD_ID").operator(FunnelFilterOperator.EQ).value(List.of("42")).build();
-      assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND ResourceAttributes['app.build_id']");
+          .field("SCREEN_NAME").operator(FunnelFilterOperator.EQ).value(List.of("x")).build();
+      assertThatThrownBy(() -> ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("Unsupported filter field for analytics");
     }
 
     @Test
-    void shouldMapDeviceManufacturer() {
+    void shouldRejectBlankField() {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
-          .field("DEVICE_MANUFACTURER").operator(FunnelFilterOperator.EQ).value(List.of("Samsung")).build();
-      assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND ResourceAttributes['device.manufacturer']");
-    }
-
-    @Test
-    void shouldMapDeviceModelId() {
-      FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
-          .field("DEVICE_MODEL_ID").operator(FunnelFilterOperator.EQ).value(List.of("SM-G998")).build();
-      assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND ResourceAttributes['device.model.identifier']");
-    }
-
-    @Test
-    void shouldMapAndroidOsApiLevel() {
-      FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
-          .field("ANDROID_OS_API_LEVEL").operator(FunnelFilterOperator.EQ).value(List.of("33")).build();
-      assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND ResourceAttributes['android.os.api_level']");
-    }
-
-    @Test
-    void shouldMapScreenName() {
-      FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
-          .field("SCREEN_NAME").operator(FunnelFilterOperator.EQ).value(List.of("HomeScreen")).build();
-      assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND LogAttributes['screen.name']");
-    }
-
-    @Test
-    void shouldMapPulseAppState() {
-      FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
-          .field("PULSE_APP_STATE").operator(FunnelFilterOperator.EQ).value(List.of("foreground")).build();
-      assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND LogAttributes['pulse.app_state']");
-    }
-
-    @Test
-    void shouldFallbackToLogAttributesForUnknownField() {
-      FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
-          .field("CUSTOM_ATTR").operator(FunnelFilterOperator.EQ).value(List.of("val")).build();
-      assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .startsWith("AND LogAttributes['custom_attr']");
+          .field("  ").operator(FunnelFilterOperator.EQ).value(List.of("x")).build();
+      assertThatThrownBy(() -> ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
+          .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -98,7 +60,7 @@ class ClickhouseAnalyticsConstantsMapperTest {
       FunnelAttributeFilter lower = FunnelAttributeFilter.builder()
           .field("os_name").operator(FunnelFilterOperator.EQ).value(List.of("iOS")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(lower))
-          .startsWith("AND ResourceAttributes['os.name']");
+          .startsWith("AND Platform");
     }
   }
 
@@ -110,7 +72,7 @@ class ClickhouseAnalyticsConstantsMapperTest {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
           .field("OS_NAME").operator(FunnelFilterOperator.EQ).value(List.of("iOS")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .isEqualTo("AND ResourceAttributes['os.name'] = 'iOS'");
+          .isEqualTo("AND Platform = 'iOS'");
     }
 
     @Test
@@ -118,7 +80,7 @@ class ClickhouseAnalyticsConstantsMapperTest {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
           .field("OS_NAME").operator(FunnelFilterOperator.NE).value(List.of("Android")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .isEqualTo("AND ResourceAttributes['os.name'] != 'Android'");
+          .isEqualTo("AND Platform != 'Android'");
     }
 
     @Test
@@ -126,7 +88,7 @@ class ClickhouseAnalyticsConstantsMapperTest {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
           .field("OS_NAME").operator(FunnelFilterOperator.IN).value(List.of("iOS", "Android")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .isEqualTo("AND ResourceAttributes['os.name'] IN ('iOS', 'Android')");
+          .isEqualTo("AND Platform IN ('iOS', 'Android')");
     }
 
     @Test
@@ -134,15 +96,15 @@ class ClickhouseAnalyticsConstantsMapperTest {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
           .field("OS_NAME").operator(FunnelFilterOperator.NOT_IN).value(List.of("iOS", "Android")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .isEqualTo("AND ResourceAttributes['os.name'] NOT IN ('iOS', 'Android')");
+          .isEqualTo("AND Platform NOT IN ('iOS', 'Android')");
     }
 
     @Test
     void shouldEscapeSingleQuotesInValue() {
       FunnelAttributeFilter filter = FunnelAttributeFilter.builder()
-          .field("SCREEN_NAME").operator(FunnelFilterOperator.EQ).value(List.of("O'Brien")).build();
+          .field("OS_NAME").operator(FunnelFilterOperator.EQ).value(List.of("O'Brien")).build();
       assertThat(ClickhouseAnalyticsConstantsMapper.toSqlClause(filter))
-          .isEqualTo("AND LogAttributes['screen.name'] = 'O\\'Brien'");
+          .isEqualTo("AND Platform = 'O\\'Brien'");
     }
   }
 }

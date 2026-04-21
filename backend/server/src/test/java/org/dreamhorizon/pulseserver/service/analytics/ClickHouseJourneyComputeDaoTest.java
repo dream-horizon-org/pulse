@@ -45,7 +45,7 @@ class ClickHouseJourneyComputeDaoTest {
     @Test
     void shouldFilterByProjectId() {
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(baseRow().build(), "START");
-      assertThat(sql).contains("ResourceAttributes['project.id'] = '" + PROJECT_ID + "'");
+      assertThat(sql).contains("ProjectId = '" + PROJECT_ID + "'");
     }
 
     @Test
@@ -57,7 +57,7 @@ class ClickHouseJourneyComputeDaoTest {
     @Test
     void shouldIncludeAnchorEventInSessionsCte() {
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(baseRow().build(), "START");
-      assertThat(sql).contains("Body = '" + ANCHOR + "'");
+      assertThat(sql).contains("EventName = '" + ANCHOR + "'");
     }
 
     @Test
@@ -155,7 +155,7 @@ class ClickHouseJourneyComputeDaoTest {
       String filtersJson = "[{\"field\":\"OS_NAME\",\"operator\":\"EQ\",\"value\":[\"Android\"]}]";
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(
           baseRow().filtersJson(filtersJson).build(), "START");
-      assertThat(sql).contains("AND ResourceAttributes['os.name'] = 'Android'");
+      assertThat(sql).contains("AND Platform = 'Android'");
     }
 
     @Test
@@ -201,18 +201,20 @@ class ClickHouseJourneyComputeDaoTest {
           .contains("FROM otel.otel_logs")
           .contains("SELECT UserId,")
           .contains("SessionId,")
-          .contains("PulseType = 'custom_event'")
-          .contains("ResourceAttributes,")
-          .contains("\n                   LogAttributes\n");
+          .contains("EventName")
+          .contains("Platform")
+          .contains("OsVersion")
+          .contains("AppVersion")
+          .contains("PulseType = 'custom_event'");
     }
 
     @Test
-    void shouldExposeAttributeMapsInRawCteSoGlobalFiltersResolve() {
+    void shouldApplyMaterializedAppVersionFilterInBatch() {
       String filtersJson =
           "[{\"field\":\"APP_BUILD_NAME\",\"operator\":\"EQ\",\"value\":[\"9.7.0\"]}]";
       String sql = ClickHouseJourneyComputeDao.buildBatchInsertSql(
           List.of(baseRow().filtersJson(filtersJson).build()), "START");
-      assertThat(sql).contains("AND ResourceAttributes['app.build_name'] = '9.7.0'");
+      assertThat(sql).contains("AND AppVersion = '9.7.0'");
     }
 
     @Test
@@ -263,7 +265,7 @@ class ClickHouseJourneyComputeDaoTest {
     void shouldReferenceRawCteNotDirectlyOtelLogsForJourneyCtes() {
       String sql = ClickHouseJourneyComputeDao.buildBatchInsertSql(List.of(baseRow().build()), "START");
       // sessions CTE should SELECT FROM raw, not FROM otel.otel_logs
-      assertThat(sql).contains("FROM raw WHERE Body");
+      assertThat(sql).contains("FROM raw WHERE EventName");
     }
 
     @Test

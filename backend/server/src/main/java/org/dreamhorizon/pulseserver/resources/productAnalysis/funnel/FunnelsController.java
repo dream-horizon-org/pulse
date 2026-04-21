@@ -8,6 +8,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ReplaceEntityTagsRequest;
@@ -31,6 +32,7 @@ public class FunnelsController {
    * {@code /tags} must remain before {@code /{id}} routing.
    */
   @GET
+  @RequiresPermission("can_view")
   @Path("/tags")
   public CompletionStage<Response<FunnelJourneyTagsListResponse>> listFunnelJourneyTags(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId) {
@@ -38,6 +40,7 @@ public class FunnelsController {
   }
 
   @GET
+  @RequiresPermission("can_view")
   public CompletionStage<Response<FunnelDefinitionListResponse>> listFunnels(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
     @BeanParam FunnelListQueryParams query) {
@@ -47,6 +50,7 @@ public class FunnelsController {
   }
 
   @GET
+  @RequiresPermission("can_view")
   @Path("/{id: \\d+}")
   public CompletionStage<Response<FunnelDefinitionResponse>> getFunnel(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
@@ -55,6 +59,7 @@ public class FunnelsController {
   }
 
   @POST
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<Long>> createFunnel(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
     @HeaderParam("user-email") String userEmail,
@@ -65,6 +70,7 @@ public class FunnelsController {
   }
 
   @PUT
+  @RequiresPermission("can_edit")
   @Path("/{id: \\d+}")
   public CompletionStage<Response<String>> updateFunnel(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
@@ -76,6 +82,7 @@ public class FunnelsController {
   }
 
   @DELETE
+  @RequiresPermission("can_edit")
   @Path("/{id: \\d+}")
   public CompletionStage<Response<String>> deleteFunnel(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
@@ -91,6 +98,7 @@ public class FunnelsController {
    * {@code funnel_journey_tag}.
    */
   @PUT
+  @RequiresPermission("can_edit")
   @Path("/{id}/tags")
   public CompletionStage<Response<String>> replaceFunnelTags(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,

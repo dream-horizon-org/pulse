@@ -8,6 +8,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ReplaceEntityTagsRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -26,6 +27,7 @@ public class JourneysController {
   private final JourneyService journeyService;
 
   @GET
+  @RequiresPermission("can_view")
   public CompletionStage<Response<JourneyListResponse>> listJourneys(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
     @BeanParam JourneyListQueryParams query) {
@@ -33,6 +35,7 @@ public class JourneysController {
   }
 
   @GET
+  @RequiresPermission("can_view")
   @Path("/{id}")
   public CompletionStage<Response<JourneyResponse>> getJourney(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
@@ -41,6 +44,7 @@ public class JourneysController {
   }
 
   @POST
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<Long>> createJourney(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
     @HeaderParam("user-email") String userEmail,
@@ -49,6 +53,7 @@ public class JourneysController {
   }
 
   @PUT
+  @RequiresPermission("can_edit")
   @Path("/{id}")
   public CompletionStage<Response<String>> updateJourney(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
@@ -61,6 +66,7 @@ public class JourneysController {
   }
 
   @DELETE
+  @RequiresPermission("can_edit")
   @Path("/{id}")
   public CompletionStage<Response<String>> deleteJourney(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
@@ -76,6 +82,7 @@ public class JourneysController {
    * {@code funnel_journey_tag}.
    */
   @PUT
+  @RequiresPermission("can_edit")
   @Path("/{id}/tags")
   public CompletionStage<Response<String>> replaceJourneyTags(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
