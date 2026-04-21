@@ -36,3 +36,35 @@ export function getHeaderCaseInsensitive(
   }
   return undefined;
 }
+
+/** This is used to approximate request body size for typical JSON/string/blob payloads.*/
+export function estimateRequestBodyByteLength(
+  body?: Document | XMLHttpRequestBodyInit | null
+): number | undefined {
+  if (body == null) {
+    return undefined;
+  }
+  if (typeof body === 'string') {
+    if (body.length === 0) {
+      return undefined;
+    }
+    try {
+      return new TextEncoder().encode(body).length;
+    } catch {
+      return undefined;
+    }
+  }
+  if (typeof Blob !== 'undefined' && body instanceof Blob) {
+    const n = body.size;
+    return n > 0 ? n : undefined;
+  }
+  if (body instanceof ArrayBuffer) {
+    const n = body.byteLength;
+    return n > 0 ? n : undefined;
+  }
+  if (ArrayBuffer.isView(body)) {
+    const n = body.byteLength;
+    return n > 0 ? n : undefined;
+  }
+  return undefined;
+}

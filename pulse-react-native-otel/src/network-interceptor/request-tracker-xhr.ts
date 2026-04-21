@@ -8,7 +8,10 @@ import type { Span } from '../trace';
 import { createNetworkSpan, completeNetworkSpan } from './span-helpers';
 import { getHeaderConfig } from './headerConfigStore';
 import { shouldCaptureHeader } from './header-helper';
-import { parseContentLength } from './content-length-parser';
+import {
+  estimateRequestBodyByteLength,
+  parseContentLength,
+} from './content-length-parser';
 
 interface RequestData {
   method: string;
@@ -106,9 +109,9 @@ function createXmlHttpRequestTracker(
             )
           : undefined;
 
-      const requestBodyContentLength = parseContentLength(
-        requestContentLengthHeaderValue.get(this)
-      );
+      const requestBodyContentLength =
+        parseContentLength(requestContentLengthHeaderValue.get(this)) ??
+        estimateRequestBodyByteLength(body);
 
       const startContext: RequestStartContext = {
         type: 'xmlhttprequest',
