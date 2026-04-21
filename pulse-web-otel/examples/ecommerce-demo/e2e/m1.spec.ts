@@ -105,9 +105,13 @@ test.describe("@M1 identity persistence", () => {
 
     otlp.reset();
     await page.reload();
-    const second = await otlp.waitForLog("session.start");
-
-    expect(getAttr(second.attributes, "installation.id")).toBe(installId);
+    // After reload the session is reused — no session.start fires (correct behaviour per 3.7).
+    // Wait for sdk.init span instead, then read installation.id from localStorage.
+    await otlp.waitForSpanByName("sdk.init");
+    const storedId = await page.evaluate(() =>
+      localStorage.getItem("pulse_installation_id"),
+    );
+    expect(storedId).toBe(installId);
   });
 
   test("installation.id stored in localStorage as pulse_iid", async ({
@@ -604,7 +608,9 @@ test.describe("@M1 localStorage state", () => {
 
     otlp.reset();
     await page.reload();
-    await otlp.waitForLog("session.start");
+    // Session is reused on reload — no session.start fires (correct per 3.7).
+    // sdk.init span always fires after enrichmentReady resolves — use as SDK-ready signal.
+    await otlp.waitForSpanByName("sdk.init");
     expect(await readCachedMeta()).toEqual({
       version: 1,
       description: "cfg-1",
@@ -613,7 +619,7 @@ test.describe("@M1 localStorage state", () => {
     server.version = 2;
     otlp.reset();
     await page.reload();
-    await otlp.waitForLog("session.start");
+    await otlp.waitForSpanByName("sdk.init");
     await expect
       .poll(async () => (await readCachedMeta())?.version ?? null, {
         timeout: 10_000,
@@ -622,7 +628,7 @@ test.describe("@M1 localStorage state", () => {
 
     otlp.reset();
     await page.reload();
-    await otlp.waitForLog("session.start");
+    await otlp.waitForSpanByName("sdk.init");
     expect(await readCachedMeta()).toEqual({
       version: 2,
       description: "cfg-2",
@@ -1178,6 +1184,28 @@ test.describe("@M1 screen.name manual override", () => {
     const log = await otlp.waitForLogByBody("reset_check");
     expect(getAttr(log.attributes, "screen.name")).toBe("/cart");
   });
+
+  test("screen.name resets to URL path after SPA navigation (override cleared)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // Set override then simulate SPA pushState navigation (no page reload)
+    await page.evaluate(() => {
+      const p = window as unknown as {
+        PulseWeb: { setScreenName: (n: string) => void; trackEvent: (n: string) => void };
+      };
+      p.PulseWeb.setScreenName("my-screen");
+      history.pushState({}, '', '/cart');
+      p.PulseWeb.trackEvent("spa_nav_check");
+    });
+
+    const log = await otlp.waitForLogByBody("spa_nav_check");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/cart");
+  });
 });
 
 // ─── Area 2: url attributes ───────────────────────────────────────────────────
@@ -1475,7 +1503,7 @@ test.describe('@M1 Area 3 session lifecycle', () => {
   });
 
   // 3.13 — very short session (immediate pagehide) still emits session.end with duration >= 0
-  test('3.13: very short session emits session.end with non-negative duration_ns', async ({ page, otlp }) => {
+  test('3.13: very short session emits session.end with non-negative duration_ms', async ({ page, otlp }) => {
     await page.goto('/');
     const startLog = await otlp.waitForLog('session.start');
     const sid = getAttr(startLog.attributes, 'session.id') as string;
@@ -1492,11 +1520,11 @@ test.describe('@M1 Area 3 session lifecycle', () => {
     expect(endLog).toBeDefined();
     expect(getAttr(endLog.attributes, 'session.id')).toBe(sid);
 
-    const durationNs = getAttr(endLog.attributes, 'session.duration_ns') as number;
-    // Duration must exist and be non-negative (0 or positive nanoseconds)
-    expect(durationNs).toBeGreaterThanOrEqual(0);
-    // Duration must be in nanoseconds — for a < 2s session at most ~2e9 ns
-    expect(durationNs).toBeLessThan(2_000_000_000);
+    const durationMs = getAttr(endLog.attributes, 'session.duration_ms') as number;
+    // Duration must exist and be non-negative milliseconds
+    expect(durationMs).toBeGreaterThanOrEqual(0);
+    // For a < 2s session at most ~2000 ms
+    expect(durationMs).toBeLessThan(2_000);
   });
 
   // 3.15 — consent DENIED: no session.start and no session.end emitted

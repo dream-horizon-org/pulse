@@ -58,20 +58,26 @@ function isValidSdkConfig(value: unknown): value is PulseSdkConfig {
 }
 
 /**
- * Derives the Pulse server base URL from the OTLP collector URL.
- * Mirrors Android's PulseSdkConfigRefresher.resolveConfigUrl():
- *   endpointBaseUrl(:4318) → pulseServerUrl(:8080)
- * If configEndpointUrl is supplied explicitly it takes precedence.
+ * Mirrors Android's PulseEndpointUtils.getActiveConfigUrl().
+ * - Local (isApiLocalDev): http://localhost:8080/v1/configs/active/
+ * - Prod: https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/pulse-config.json
+ * Explicit configEndpointUrl always takes precedence.
  */
 export function resolveConfigUrl(
   configEndpointUrl: string | undefined,
   endpointBaseUrl: string,
+  projectId: string,
 ): string {
   if (configEndpointUrl) return configEndpointUrl;
-  const serverBase = endpointBaseUrl
-    .replace(/:4318\b/, ":8080")
-    .replace(/\/$/, "");
-  return `${serverBase}/v1/configs/active/`;
+  // Local dev: rewrite :4318 → :8080, use /v1/configs/active/
+  if (
+    endpointBaseUrl.includes("localhost") ||
+    endpointBaseUrl.includes("10.0.2.2")
+  ) {
+    return `${endpointBaseUrl.replace(/:4318\b/, ":8080").replace(/\/$/, "")}/v1/configs/active/`;
+  }
+  // Prod: /config/projects/{projectId}/pulse-config.json
+  return `${endpointBaseUrl.replace(/\/$/, "")}/config/projects/${projectId}/pulse-config.json`;
 }
 
 export class SdkConfigFetcher {
@@ -86,7 +92,11 @@ export class SdkConfigFetcher {
     configEndpointUrl?: string,
     apiKey?: string,
   ) {
-    this.configUrl = resolveConfigUrl(configEndpointUrl, endpointBaseUrl);
+    this.configUrl = resolveConfigUrl(
+      configEndpointUrl,
+      endpointBaseUrl,
+      projectId,
+    );
     this.projectId = projectId;
     this.apiKey = apiKey ?? "";
   }
