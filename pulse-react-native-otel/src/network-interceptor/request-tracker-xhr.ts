@@ -8,6 +8,7 @@ import type { Span } from '../trace';
 import { createNetworkSpan, completeNetworkSpan } from './span-helpers';
 import { getHeaderConfig } from './headerConfigStore';
 import { shouldCaptureHeader } from './header-helper';
+import { parseContentLength } from './content-length-parser';
 
 interface RequestData {
   method: string;
@@ -33,6 +34,7 @@ function createXmlHttpRequestTracker(
 
   const requestTracker = new RequestTracker();
   const trackedRequests = new WeakMap<XMLHttpRequest, RequestData>();
+  const requestContentLengthHeaderValue = new WeakMap<XMLHttpRequest, string>();
   const trackedSpans = new WeakMap<XMLHttpRequest, Span>();
   const requestHandlers = new WeakMap<
     XMLHttpRequest,
@@ -49,6 +51,7 @@ function createXmlHttpRequestTracker(
       method,
       url: getAbsoluteUrl(String(url)),
     });
+    requestContentLengthHeaderValue.delete(this);
 
     // @ts-expect-error rest
     originalOpen.call(this, method, url, ...rest);
@@ -65,6 +68,9 @@ function createXmlHttpRequestTracker(
     name: string,
     value: string
   ): void {
+    if (name.toLowerCase() === 'content-length') {
+      requestContentLengthHeaderValue.set(this, value);
+    }
     const headerConfig = getHeaderConfig();
     const requestHeadersList = headerConfig.requestHeaders ?? [];
     if (
@@ -100,6 +106,10 @@ function createXmlHttpRequestTracker(
             )
           : undefined;
 
+      const requestBodyContentLength = parseContentLength(
+        requestContentLengthHeaderValue.get(this)
+      );
+
       const startContext: RequestStartContext = {
         type: 'xmlhttprequest',
         method: requestData.method,
@@ -109,6 +119,9 @@ function createXmlHttpRequestTracker(
           Object.keys(filteredRequestHeaders).length > 0
             ? filteredRequestHeaders
             : undefined,
+        ...(requestBodyContentLength !== undefined
+          ? { requestBodyContentLength }
+          : {}),
       };
 
       this.setRequestHeader('X-Pulse-RN-Tracked', 'true');
@@ -159,17 +172,33 @@ function createXmlHttpRequestTracker(
               ? capturedResponseHeaders
               : undefined;
 
+          let responseBodyContentLength: number | undefined;
+          try {
+            responseBodyContentLength = parseContentLength(
+              this.getResponseHeader('Content-Length')
+            );
+          } catch {
+            responseBodyContentLength = undefined;
+          }
+
+          const responseSizeFields =
+            responseBodyContentLength !== undefined
+              ? { responseBodyContentLength }
+              : {};
+
           if (this.status <= 0 || this.status >= 400) {
             endContext = {
               state: 'error',
               status: this.status,
               responseHeaders,
+              ...responseSizeFields,
             };
           } else {
             endContext = {
               state: 'success',
               status: this.status,
               responseHeaders,
+              ...responseSizeFields,
             };
           }
 
@@ -185,6 +214,7 @@ function createXmlHttpRequestTracker(
 
           // Clean up
           requestHeadersMap.delete(this);
+          requestContentLengthHeaderValue.delete(this);
 
           onRequestEnd(endContext);
         }
