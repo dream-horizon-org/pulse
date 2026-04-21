@@ -1,7 +1,7 @@
 import type { Logger } from "@opentelemetry/api-logs";
 import type { Tracer } from "@opentelemetry/api";
 
-import type { PulseWebConfig } from "./config";
+import type { PulseWebConfig } from "../config";
 import type { PulseGlobalAttributesProcessor } from "../processors/global-attrs-processor";
 import type { SessionProvider } from "../session";
 

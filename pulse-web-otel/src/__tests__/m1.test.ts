@@ -15,12 +15,16 @@ import {
   _resetInstallationStateForTesting,
   SessionChangeEvent,
 } from "../session";
-import { validateConfig } from "../config";
-import { buildResource } from "../resource";
 import {
+  validateConfig,
+  isLocalEnvironment,
+  resolveEndpointBaseUrl,
+} from "../config";
+import {
+  buildResource,
   computeAspectRatio,
   extractProjectId,
-} from "../utils/resource-helpers";
+} from "../resource";
 import {
   SdkConfigFetcher,
   DEFAULT_SDK_CONFIG,
@@ -289,12 +293,6 @@ describe("M1 — Session Provider", () => {
 // ---------------------------------------------------------------------------
 
 describe("M1 — Config validation", () => {
-  it("throws when endpointBaseUrl is missing", () => {
-    expect(() => validateConfig(makeConfig({ endpointBaseUrl: "" }))).toThrow(
-      "[PulseWeb] endpointBaseUrl is required",
-    );
-  });
-
   it("throws when apiKey is missing", () => {
     expect(() => validateConfig(makeConfig({ apiKey: "" }))).toThrow(
       "[PulseWeb] apiKey is required",
@@ -307,8 +305,38 @@ describe("M1 — Config validation", () => {
     );
   });
 
+  it("does not throw when endpointBaseUrl is missing (it's optional)", () => {
+    expect(() =>
+      validateConfig({ apiKey: "mykey", serviceName: "test-app" }),
+    ).not.toThrow();
+  });
+
   it("does not throw with all required fields", () => {
     expect(() => validateConfig(makeConfig())).not.toThrow();
+  });
+
+  it("isLocalEnvironment: detects default-project_ prefix", () => {
+    expect(isLocalEnvironment("default-project_abc123")).toBe(true);
+    expect(isLocalEnvironment("Test-myapp_abc123")).toBe(true);
+    expect(isLocalEnvironment("myproject-123_prod456")).toBe(false);
+  });
+
+  it("resolveEndpointBaseUrl: returns localhost:4318 for default-project key", () => {
+    const url = resolveEndpointBaseUrl("default-project_devkey01");
+    expect(url).toBe("http://localhost:4318");
+  });
+
+  it("resolveEndpointBaseUrl: returns prod URL for production key without endpointBaseUrl", () => {
+    const url = resolveEndpointBaseUrl("myproject-123_prod456");
+    expect(url).toBe("https://pulse-otel-collector.pulse-ux.com");
+  });
+
+  it("resolveEndpointBaseUrl: uses provided endpointBaseUrl", () => {
+    const url = resolveEndpointBaseUrl(
+      "myproject-123_prod456",
+      "https://collector.example.com",
+    );
+    expect(url).toBe("https://collector.example.com");
   });
 });
 
@@ -323,23 +351,23 @@ describe("M1 — Resource builder", () => {
   });
 
   it("includes platform=web", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     expect(resource.attributes[R.PLATFORM]).toBe(F.PLATFORM_WEB);
   });
 
   it("includes rum.sdk.name=pulse_web_js", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     expect(resource.attributes[R.RUM_SDK_NAME]).toBe(F.RUM_SDK_NAME);
   });
 
   it("includes service.name from config", () => {
-    const resource = buildResource(makeConfig({ serviceName: "my-shop" }));
+    const resource = buildResource(makeConfig({ serviceName: "my-shop" }), "14");
     expect(resource.attributes[R.SERVICE_NAME]).toBe("my-shop");
   });
 
   it("extracts project.id from api key", () => {
     const config = makeConfig({ apiKey: "proj_abc123_secrettoken" });
-    const resource = buildResource(config);
+    const resource = buildResource(config, "14");
     expect(resource.attributes[R.PROJECT_ID]).toBe("proj_abc123");
   });
 });
@@ -400,10 +428,13 @@ describe("M1 — SDK singleton guard", () => {
     const config = makeConfig();
 
     PulseWeb.start(config);
+    // finishStart is async (awaits OS version resolution); flush microtasks.
+    await Promise.resolve();
     expect(PulseWeb.isInitialized()).toBe(true);
 
     // Second call should be no-op
     PulseWeb.start(config);
+    await Promise.resolve();
     expect(PulseWeb.isInitialized()).toBe(true);
   });
 
@@ -412,6 +443,8 @@ describe("M1 — SDK singleton guard", () => {
     const config = makeConfig();
 
     PulseWeb.start(config);
+    // finishStart is async (awaits OS version resolution); flush microtasks.
+    await Promise.resolve();
     expect(PulseWeb.isInitialized()).toBe(true);
 
     await PulseWeb.shutdown();
@@ -419,6 +452,7 @@ describe("M1 — SDK singleton guard", () => {
 
     // Should be able to re-initialize
     PulseWeb.start(config);
+    await Promise.resolve();
     expect(PulseWeb.isInitialized()).toBe(true);
   });
 });
@@ -428,10 +462,10 @@ describe("M1 — SDK singleton guard", () => {
 // ---------------------------------------------------------------------------
 
 describe("M1 — resolveConfigUrl", () => {
-  it("replaces :4318 with :8080 when no explicit configEndpointUrl", () => {
-    expect(resolveConfigUrl(undefined, "http://localhost:4318")).toBe(
-      "http://localhost:8080/v1/configs/active/",
-    );
+  it("replaces :4318 with :8080 for localhost", () => {
+    expect(
+      resolveConfigUrl(undefined, "http://localhost:4318", "proj_abc"),
+    ).toBe("http://localhost:8080/v1/configs/active/");
   });
 
   it("uses explicit configEndpointUrl as-is when provided", () => {
@@ -439,13 +473,20 @@ describe("M1 — resolveConfigUrl", () => {
       resolveConfigUrl(
         "https://api.example.com/v1/configs/active/",
         "http://localhost:4318",
+        "proj_abc",
       ),
     ).toBe("https://api.example.com/v1/configs/active/");
   });
 
-  it("leaves non-4318 URLs unchanged", () => {
-    expect(resolveConfigUrl(undefined, "https://ingest.pulse.io")).toBe(
-      "https://ingest.pulse.io/v1/configs/active/",
+  it("returns prod config path for non-local URL", () => {
+    expect(
+      resolveConfigUrl(
+        undefined,
+        "https://pulse-otel-collector.pulse-ux.com",
+        "myproject-123",
+      ),
+    ).toBe(
+      "https://pulse-otel-collector.pulse-ux.com/config/projects/myproject-123/pulse-config.json",
     );
   });
 });
@@ -868,7 +909,7 @@ describe("M1 — Resource Builder (extended)", () => {
   });
 
   it("includes rum.sdk.version as a non-empty string", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     expect(typeof resource.attributes[R.RUM_SDK_VERSION]).toBe("string");
     expect(
       (resource.attributes[R.RUM_SDK_VERSION] as string).length,
@@ -876,17 +917,17 @@ describe("M1 — Resource Builder (extended)", () => {
   });
 
   it("service.version defaults to 0.0.0 when not provided", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     expect(resource.attributes[R.SERVICE_VERSION]).toBe("0.0.0");
   });
 
   it("service.version uses config value when provided", () => {
-    const resource = buildResource(makeConfig({ serviceVersion: "2.3.1" }));
+    const resource = buildResource(makeConfig({ serviceVersion: "2.3.1" }), "14");
     expect(resource.attributes[R.SERVICE_VERSION]).toBe("2.3.1");
   });
 
   it("installation.id is present and matches UUID v4 format", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     const id = resource.attributes[R.INSTALLATION_ID] as string;
     expect(id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
@@ -895,61 +936,65 @@ describe("M1 — Resource Builder (extended)", () => {
 
   it("installation.id in resource matches getOrCreateInstallationId()", () => {
     const expected = getOrCreateInstallationId();
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     expect(resource.attributes[R.INSTALLATION_ID]).toBe(expected);
   });
 
   it("browser.name is a non-empty string", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     const name = resource.attributes[R.BROWSER_NAME] as string;
     expect(typeof name).toBe("string");
     expect(name.length).toBeGreaterThan(0);
   });
 
   it("device.type is one of desktop | mobile | tablet", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     expect(["desktop", "mobile", "tablet"]).toContain(
       resource.attributes[R.DEVICE_TYPE],
     );
   });
 
   it("screen.resolution is in WxH format", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     const res = resource.attributes[R.SCREEN_RESOLUTION] as string;
     expect(res).toMatch(/^\d+x\d+$/);
   });
 
   it("screen.aspect_ratio is in W:H format", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     const ratio = resource.attributes[R.SCREEN_ASPECT_RATIO] as string;
     expect(ratio).toMatch(/^\d+:\d+$/);
   });
 
   it("browser.language is a non-empty string", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     const lang = resource.attributes[R.BROWSER_LANGUAGE] as string;
     expect(typeof lang).toBe("string");
     expect(lang.length).toBeGreaterThan(0);
   });
 
   it("timezone is a non-empty string", () => {
-    const resource = buildResource(makeConfig());
+    const resource = buildResource(makeConfig(), "14");
     const tz = resource.attributes[R.TIMEZONE] as string;
     expect(typeof tz).toBe("string");
     expect(tz.length).toBeGreaterThan(0);
   });
 
-  it("apiKey without proj_ prefix → project.id falls back to raw apiKey", () => {
-    const config = makeConfig({ apiKey: "raw_key_without_prefix" });
-    const resource = buildResource(config);
-    expect(resource.attributes[R.PROJECT_ID]).toBe("raw_key_without_prefix");
+  it("apiKey without underscore → project.id falls back to raw apiKey", () => {
+    const config = makeConfig({ apiKey: "rawkeynoprefix" });
+    const resource = buildResource(config, "14");
+    expect(resource.attributes["project.id"]).toBe("rawkeynoprefix");
   });
 
-  it("extractProjectId: proj_abc_secret → proj_abc", () => {
-    expect(extractProjectId("proj_abc_supersecret")).toBe("proj_abc");
+  it("extractProjectId: myproject-123_devkey456 → myproject-123", () => {
+    expect(extractProjectId("myproject-123_devkey456")).toBe("myproject-123");
   });
 
-  it("extractProjectId: no prefix → returns full key", () => {
+  it("extractProjectId: myproject-123_prod456 → myproject-123", () => {
+    expect(extractProjectId("myproject-123_prod456")).toBe("myproject-123");
+  });
+
+  it("extractProjectId: no underscore → returns full key", () => {
     expect(extractProjectId("noprefixkey")).toBe("noprefixkey");
   });
 });
@@ -2071,6 +2116,8 @@ describe("M1 — SDK public API signals", () => {
 
     const { PulseWeb } = await import("../sdk");
     PulseWeb.start(makeConfig());
+    // finishStart is async (awaits OS version resolution); flush microtasks.
+    await Promise.resolve();
 
     // Clear calls from sdk.init and session.start that happen during start()
     emitSpy.mockClear();
@@ -2097,6 +2144,8 @@ describe("M1 — SDK public API signals", () => {
 
     const { PulseWeb } = await import("../sdk");
     PulseWeb.start(makeConfig());
+    // finishStart is async (awaits OS version resolution); flush microtasks.
+    await Promise.resolve();
 
     emitSpy.mockClear();
 
@@ -2122,6 +2171,8 @@ describe("M1 — SDK public API signals", () => {
 
     const { PulseWeb } = await import("../sdk");
     PulseWeb.start(makeConfig());
+    // finishStart is async (awaits OS version resolution); flush microtasks.
+    await Promise.resolve();
 
     emitSpy.mockClear();
 

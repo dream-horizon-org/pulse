@@ -1,4 +1,4 @@
-// M1: PulseWebSDK — init sequence (singleton). Optional async IndexedDB drain when diskBuffering enabled.
+// M1: PulseWebSDK — full 10-step init sequence (singleton). Optional async IndexedDB drain when diskBuffering enabled.
 
 import { trace } from "@opentelemetry/api";
 import type { Tracer } from "@opentelemetry/api";
@@ -10,26 +10,27 @@ import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import type { MeterProvider } from "@opentelemetry/sdk-metrics";
 
 import type { PulseWebConfig } from "./config";
-import { validateConfig } from "./config";
+import { resolveEndpointBaseUrl, validateConfig } from "./config";
 import {
   SessionProvider,
   getOrCreateInstallationId,
   wasNewInstallation,
 } from "./session";
 import { buildResource } from "./resource";
+import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
 import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
 import { PulseSamplingProcessor } from "./processors/sampling-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
-import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { createProviders } from "./exporters";
 import { InstrumentationRegistry } from "./instrumentation-registry";
 import type { SdkContext } from "./instrumentation-registry";
-import { extractProjectId } from "./utils/resource-helpers";
+import { extractProjectId } from "./resource";
 import { isDataCollectionAllowed } from "./consent";
-import { IdbSignalBuffer } from "./persistence/indexed-db";
 import { drainBufferedOtlpExports } from "./persistence/drain-buffered-exports";
+import { IdbSignalBuffer } from "./persistence/indexed-db";
+import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { PulseWebSemconv } from "./semconv";
 import { errorFilenameFromStack } from "./utils/error-stack";
 
@@ -62,12 +63,24 @@ class PulseWebSDK implements SdkContext {
   start(config: PulseWebConfig): void {
     if (this._initialized || this._shuttingDown || this._starting) return;
 
+    // Step 1: Validate config
     validateConfig(config);
 
-    if (!isDataCollectionAllowed(config.dataCollectionState)) return;
-    this.config = config;
+    // Step 1.5: Resolve endpointBaseUrl from apiKey if not provided
+    const endpointBaseUrl = resolveEndpointBaseUrl(
+      config.apiKey,
+      config.endpointBaseUrl,
+    );
+    const configWithUrl: PulseWebConfig = {
+      ...config,
+      endpointBaseUrl: endpointBaseUrl,
+    };
 
-    const disk = config.diskBuffering;
+    // Consent gate — DENIED or PENDING → no-op, zero signals emitted
+    if (!isDataCollectionAllowed(configWithUrl.dataCollectionState)) return;
+    this.config = configWithUrl;
+
+    const disk = configWithUrl.diskBuffering;
     const diskEnabled = disk?.enabled === true;
     const idbBuffer = new IdbSignalBuffer(disk?.maxAgeMs, disk?.maxSizeBytes);
     const meteringSessionId = crypto.randomUUID();
@@ -75,48 +88,67 @@ class PulseWebSDK implements SdkContext {
     if (diskEnabled) {
       this._starting = true;
       void drainBufferedOtlpExports({
-        tracesUrl: `${config.endpointBaseUrl}/v1/traces`,
-        logsUrl: `${config.endpointBaseUrl}/v1/logs`,
-        metricsUrl: `${config.endpointBaseUrl}/v1/metrics`,
-        apiKey: config.apiKey,
+        tracesUrl: `${endpointBaseUrl}/v1/traces`,
+        logsUrl: `${endpointBaseUrl}/v1/logs`,
+        metricsUrl: `${endpointBaseUrl}/v1/metrics`,
+        apiKey: configWithUrl.apiKey,
         meteringSessionId,
         buffer: idbBuffer,
       })
         .catch(() => {})
         .finally(() => {
           this._starting = false;
-          this.finishStart(config, idbBuffer, meteringSessionId);
+          void this.finishStart(
+            configWithUrl,
+            endpointBaseUrl,
+            idbBuffer,
+            meteringSessionId,
+          );
         });
       return;
     }
 
-    this.finishStart(config, idbBuffer, meteringSessionId);
+    // Set _starting before the async finishStart so the singleton guard blocks
+    // any duplicate start() calls that arrive during the 200ms OS-version await.
+    this._starting = true;
+    void this.finishStart(
+      configWithUrl,
+      endpointBaseUrl,
+      idbBuffer,
+      meteringSessionId,
+    );
   }
 
-  private finishStart(
-    config: PulseWebConfig,
+  private async finishStart(
+    configWithUrl: PulseWebConfig,
+    endpointBaseUrl: string,
     idbBuffer: IdbSignalBuffer,
     meteringSessionId: string,
-  ): void {
-    if (this._initialized || this._shuttingDown) return;
+  ): Promise<void> {
+    if (this._initialized || this._shuttingDown) {
+      this._starting = false;
+      return;
+    }
     // Step 2: SessionProvider
-    const sessionCfg = config.instrumentations?.session;
-    this.sessionProvider = new SessionProvider(
-      sessionCfg?.inactivityTimeoutMs,
-      sessionCfg?.maxSessionLifetimeMs,
-      sessionCfg?.pageHiddenTimeoutMs,
-    );
+    this.sessionProvider = new SessionProvider();
 
+    // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate
+    // before any signal is emitted (global-attrs-processor may call it later).
     getOrCreateInstallationId();
 
-    const resource = buildResource(config);
+    // Step 3: Resolve real OS version async (Client Hints, <200ms) then build Resource.
+    // This matches Android which puts os.version in the Resource via Build.VERSION.RELEASE.
+    const syncUA = parseUserAgent();
+    const resolvedOsVersion = await getOsVersionAsync(syncUA.osVersion);
+    const resource = buildResource(configWithUrl, resolvedOsVersion);
 
-    const projectId = extractProjectId(config.apiKey);
+    // Step 4: Load cached SDK config
+    const projectId = extractProjectId(configWithUrl.apiKey);
     this.configFetcher = new SdkConfigFetcher(
-      config.endpointBaseUrl,
+      endpointBaseUrl,
       projectId,
-      config.configEndpointUrl,
-      config.apiKey,
+      undefined,
+      configWithUrl.apiKey,
     );
     const sdkConfig = this.configFetcher.loadCached();
 
@@ -130,7 +162,7 @@ class PulseWebSDK implements SdkContext {
 
     this.globalAttrsProcessor = new PulseGlobalAttributesProcessor(
       this.sessionProvider,
-      config,
+      configWithUrl,
     );
 
     const spanProcessors = [
@@ -138,7 +170,7 @@ class PulseWebSDK implements SdkContext {
       samplingProcessor,
       filterProcessor,
     ];
-    const logLifecycle = config.debugLogRecordLifecycle === true;
+    const logLifecycle = configWithUrl.debugLogRecordLifecycle === true;
     const logProcessors = [
       ...(logLifecycle
         ? [new LogRecordLifecycleDebugProcessor("ingress")]
@@ -151,23 +183,22 @@ class PulseWebSDK implements SdkContext {
         : []),
     ];
 
-    const diskEnabled = config.diskBuffering?.enabled === true;
+    const diskEnabled = configWithUrl.diskBuffering?.enabled === true;
 
     const exporterConfig = {
-      endpointBaseUrl: config.endpointBaseUrl,
-      apiKey: config.apiKey,
+      endpointBaseUrl,
+      apiKey: configWithUrl.apiKey,
       meteringSessionId,
-      format: config.export?.format,
-      compression: config.export?.compression,
-      batchOptions: config.export?.batch,
-      debugLogRecordLifecycle: config.debugLogRecordLifecycle,
-      diskBuffer: {
-        enabled: diskEnabled,
-        buffer: idbBuffer,
-      },
+      format: configWithUrl.export?.format,
+      compression: configWithUrl.export?.compression,
+      batchOptions: configWithUrl.export?.batch,
       // Inject the same global attributes into metric data points at export time.
       getMetricGlobalAttrs: () =>
         this.globalAttrsProcessor.getCommonAttrsForMetrics(),
+      ...(diskEnabled
+        ? { diskBuffer: { enabled: true, buffer: idbBuffer } }
+        : {}),
+      debugLogRecordLifecycle: configWithUrl.debugLogRecordLifecycle === true,
     };
 
     const bundle = createProviders(
@@ -190,32 +221,32 @@ class PulseWebSDK implements SdkContext {
     this.registry = new InstrumentationRegistry(
       this as SdkContext,
       gate,
-      config.instrumentations,
+      configWithUrl.instrumentations,
     );
     this.registry.installAll();
 
+    // Step 10: Fetch fresh config in background.
     void this.configFetcher.fetchInBackground();
 
-    const K = PulseWebSemconv.AttributeKey;
-    const T = PulseWebSemconv.PulseType;
-    const B = PulseWebSemconv.LogBody;
-    const F = PulseWebSemconv.FixedValue;
-    const initSpan = this.tracer.startSpan(PulseWebSemconv.SpanName.SDK_INIT);
-    initSpan.setAttribute(K.PULSE_TYPE, T.SDK_INIT);
-    initSpan.setAttribute(K.PLATFORM, F.PLATFORM_WEB);
+    this._initialized = true;
+    this._starting = false;
+
+    // os.version is already resolved before we built the Resource, so emit immediately.
+    const initSpan = this.tracer.startSpan("sdk.init");
+    initSpan.setAttribute("pulse.type", "sdk.init");
+    initSpan.setAttribute("platform", "web");
     initSpan.end();
 
+    // Emit app.installation.start on first-ever install — mirrors Android.
     if (wasNewInstallation()) {
       this.logger.emit({
-        body: B.APP_INSTALLATION_START,
+        body: "pulse.app.installation.start",
         attributes: {
-          [K.PULSE_TYPE]: T.INSTALLATION_START,
-          [K.INSTALLATION_ID]: getOrCreateInstallationId(),
+          "pulse.type": "pulse.app.installation.start",
+          "installation.id": getOrCreateInstallationId(),
         },
       });
     }
-
-    this._initialized = true;
   }
 
   async shutdown(): Promise<void> {

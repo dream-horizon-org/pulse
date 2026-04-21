@@ -7,10 +7,6 @@ import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
 import { getOrCreateInstallationId } from "../session";
 import type { PulseWebConfig } from "../config";
-import { PulseWebSemconv } from "../semconv";
-
-/** When merging global attrs into logs, never overwrite an explicit value here (session.end, etc.). */
-const SESSION_ID_ATTR_KEY = PulseWebSemconv.AttributeKey.SESSION_ID;
 
 type NetworkConnection = {
   type?: string;
@@ -77,6 +73,7 @@ export class PulseGlobalAttributesProcessor
   implements SpanProcessor, LogRecordProcessor
 {
   private manualScreenName: string | null = null;
+  private manualScreenNamePath: string | null = null;
 
   constructor(
     private readonly sessionProvider: SessionProvider,
@@ -85,9 +82,21 @@ export class PulseGlobalAttributesProcessor
 
   setScreenName(name: string): void {
     this.manualScreenName = name;
+    this.manualScreenNamePath =
+      typeof location !== "undefined" ? location.pathname : null;
   }
 
   getCurrentScreenName(): string {
+    // Clear manual override if the URL has changed since it was set (SPA navigation).
+    if (
+      this.manualScreenName !== null &&
+      this.manualScreenNamePath !== null &&
+      typeof location !== "undefined" &&
+      location.pathname !== this.manualScreenNamePath
+    ) {
+      this.manualScreenName = null;
+      this.manualScreenNamePath = null;
+    }
     return resolveScreenName(this.manualScreenName, this.config);
   }
 
@@ -104,29 +113,27 @@ export class PulseGlobalAttributesProcessor
     const screenName = this.getCurrentScreenName();
     const network = getNetworkConnection();
 
-    const K = PulseWebSemconv.AttributeKey;
-    const F = PulseWebSemconv.FixedValue;
     const attrs: Record<string, string | number | boolean> = {
-      [K.SESSION_ID]: sessionId,
-      [K.INSTALLATION_ID]: getOrCreateInstallationId(),
-      [K.SCREEN_NAME]: screenName,
-      [K.PLATFORM]: F.PLATFORM_WEB,
-      [K.WINDOW_ID]: this.sessionProvider.getWindowId(),
+      "session.id": sessionId,
+      "window.id": this.sessionProvider.getWindowId(),
+      "installation.id": getOrCreateInstallationId(),
+      "screen.name": screenName,
+      platform: "web",
     };
 
     if (typeof window !== "undefined") {
-      attrs[K.URL_PATH] = window.location.pathname;
-      attrs[K.PAGE_URL] = window.location.href;
+      attrs["url.path"] = window.location.pathname;
+      attrs["page.url"] = window.location.href;
     }
 
-    attrs[K.NETWORK_CONNECTION_TYPE] = network.type ?? "unknown";
-    attrs[K.NETWORK_EFFECTIVE_TYPE] = network.effectiveType ?? "unknown";
+    attrs["network.connection.type"] = network.type ?? "unknown";
+    attrs["network.effective_type"] = network.effectiveType ?? "unknown";
 
     if (typeof network.rtt === "number") {
-      attrs[K.NETWORK_RTT] = network.rtt;
+      attrs["network.rtt"] = network.rtt;
     }
     if (typeof network.downlink === "number") {
-      attrs[K.NETWORK_DOWNLINK] = network.downlink;
+      attrs["network.downlink"] = network.downlink;
     }
 
     // Inject global attributes from config
@@ -158,11 +165,9 @@ export class PulseGlobalAttributesProcessor
       // session.start / session.end log records set the correct session.id themselves;
       // overwriting them with the post-rotation value from getSessionId() would corrupt
       // the session.end record (it would carry the NEW session.id instead of the old one).
-      if (key === SESSION_ID_ATTR_KEY) {
+      if (key === "session.id") {
         const existing = logRecord.attributes
-          ? (logRecord.attributes as Record<string, unknown>)[
-              SESSION_ID_ATTR_KEY
-            ]
+          ? (logRecord.attributes as Record<string, unknown>)["session.id"]
           : undefined;
         if (existing !== undefined && existing !== "") continue;
       }

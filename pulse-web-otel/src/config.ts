@@ -1,15 +1,97 @@
-export {
-  PulseDataCollectionConsent,
-  type InstrumentationConfig,
-  type PulseWebConfig,
-} from "./types/config";
+import { PulseDataCollectionConsent } from "./types/config";
 
-import type { PulseWebConfig } from "./types/config";
+export { PulseDataCollectionConsent } from "./types/config";
+
+export interface InstrumentationConfig {
+  errors?: { enabled: boolean };
+  network?: { enabled: boolean };
+  clicks?: { enabled: boolean };
+  webVitals?: { enabled: boolean };
+  navigation?: { enabled: boolean };
+  session?: { enabled: boolean };
+  interactions?: { enabled: boolean };
+  sessionReplay?: { enabled: boolean };
+}
+
+export interface PulseWebConfig {
+  // Required
+  apiKey: string;
+  serviceName: string;
+  endpointBaseUrl?: string;
+
+  // Optional — identity
+  serviceVersion?: string;
+
+  // Optional — privacy
+  dataCollectionState?: PulseDataCollectionConsent;
+  beforeSend?: (signal: unknown) => unknown | null;
+
+  // Optional — custom attributes stamped on every signal
+  globalAttributes?: Record<string, string | number | boolean>;
+
+  // Optional — route → screen name mapping (used by navigation instrumentation)
+  routePatterns?: Array<{ pattern: string; name: string }>;
+
+  // Optional — export tuning
+  export?: {
+    format?: "json" | "protobuf";
+    compression?: "gzip" | "none";
+    batch?: {
+      scheduledDelayMillis?: number;
+      maxQueueSize?: number;
+      maxExportBatchSize?: number;
+    };
+  };
+
+  // Optional — offline / retry persistence
+  diskBuffering?: {
+    enabled?: boolean;
+    maxSizeBytes?: number;
+    maxAgeMs?: number;
+  };
+
+  // Optional — per-instrumentation toggles
+  instrumentations?: InstrumentationConfig;
+
+  /**
+   * When true, logs each log record lifecycle: pipeline ingress, post pre-batch
+   * (before BatchLogRecordProcessor queue), and each OTLP log batch at export.
+   */
+  debugLogRecordLifecycle?: boolean;
+
+  /** Override SDK config fetch URL (defaults derived from endpointBaseUrl + project id). */
+  configEndpointUrl?: string;
+}
 
 export function validateConfig(config: PulseWebConfig): void {
-  if (!config.endpointBaseUrl)
-    throw new Error("[PulseWeb] endpointBaseUrl is required");
   if (!config.apiKey) throw new Error("[PulseWeb] apiKey is required");
   if (!config.serviceName)
     throw new Error("[PulseWeb] serviceName is required");
+}
+
+const PULSE_PROD_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com";
+
+/**
+ * Mirrors Android's PulseSDKInternal.isApiLocalDev().
+ * Matches: default-project_* OR Test-*_*
+ */
+export function isLocalEnvironment(apiKey: string): boolean {
+  return /^default-project_.*|^Test-.*_.*/.test(apiKey);
+}
+
+/**
+ * Mirrors Android's PulseEndpointUtils.getBaseUrl().
+ * Local: http://localhost:4318
+ * Prod: https://pulse-otel-collector.pulse-ux.com
+ * Explicit override always wins.
+ */
+export function resolveEndpointBaseUrl(
+  apiKey: string,
+  provided?: string,
+): string {
+  if (provided) return provided;
+  if (isLocalEnvironment(apiKey)) {
+    return "http://localhost:4318";
+  }
+  return PULSE_PROD_ENDPOINT_URL;
 }
