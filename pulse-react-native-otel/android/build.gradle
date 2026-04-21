@@ -88,6 +88,7 @@ dependencies {
   api("org.dreamhorizon:pulse-android-sdk-internal:$pulse_version") {
     exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
   }
+  api("org.dreamhorizon:pulse-utils:$pulse_version")
   implementation("org.dreamhorizon:pulse-semconv:$pulse_version")
   implementation("org.dreamhorizon:pulse-sampling-models:$pulse_version")
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
