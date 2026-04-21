@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from pulse_ai.agent import root_agent
 from pulse_ai.agents.rca import rca_pipeline_agent
+from pulse_ai.agents.screen_rca import screen_rca_narrative_agent
 from pulse_ai.constants import APP_NAME, DEFAULT_CORS_ORIGINS
 from pulse_ai.server.middleware import AuthMiddleware
 from pulse_ai.server.session_scope_store import (
@@ -73,6 +74,13 @@ runner = Runner(
 
 rca_runner = Runner(
     agent=rca_pipeline_agent,
+    app_name=APP_NAME,
+    session_service=session_service,
+    auto_create_session=True,
+)
+
+screen_rca_runner = Runner(
+    agent=screen_rca_narrative_agent,
     app_name=APP_NAME,
     session_service=session_service,
     auto_create_session=True,

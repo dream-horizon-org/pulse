@@ -198,7 +198,7 @@ public class RootCauseService {
           String segmentsJson = objectMapper.writeValueAsString(result.getSegments());
           RootCauseAnalysisMode modeForCache =
               result.getMode() != null ? result.getMode() : RootCauseAnalysisMode.FLAT;
-          return cacheDao.upsert( // add screen names for interaction name here
+          return cacheDao.upsert(
               projectId,
               interactionName,
               date,
