@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 
-import { DEFAULT_SDK_CONFIG, mergePulseSdkConfig } from "../remote-config";
+import {
+  DEFAULT_SDK_CONFIG,
+  mergePulseSdkConfig,
+  normalizeSignalMatchCondition,
+} from "../remote-config";
 import { getCriticalAlwaysSendConditions } from "../utils/session-sampling-rate";
 import type {
   PulseSdkConfig,
@@ -46,6 +50,49 @@ describe("mergePulseSdkConfig", () => {
       "^ev$",
     );
     expect(m.sampling.criticalSessionPolicies).toBeUndefined();
+  });
+
+  it("normalizes lowercase scopes on signal conditions", () => {
+    const raw = {
+      ...DEFAULT_SDK_CONFIG,
+      version: 2,
+      signals: {
+        ...DEFAULT_SDK_CONFIG.signals,
+        attributesToDrop: [
+          {
+            values: ["screen.name"],
+            condition: {
+              name: "^sdk\\.init$",
+              props: [],
+              scopes: ["traces", "logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+        ],
+      },
+    } as unknown as PulseSdkConfig;
+    const m = mergePulseSdkConfig(raw);
+    expect(m.signals.attributesToDrop[0]?.condition.scopes).toEqual([
+      "TRACES",
+      "LOGS",
+    ]);
+  });
+});
+
+describe("normalizeSignalMatchCondition", () => {
+  it("uppercases logs/traces/metrics and drops unknown scope tokens", () => {
+    expect(
+      normalizeSignalMatchCondition({
+        name: ".*",
+        props: [],
+        scopes: [
+          "Logs",
+          "METRICS",
+          "nope",
+        ] as unknown as PulseSignalMatchCondition["scopes"],
+        sdks: ["pulse_web_js"],
+      }).scopes,
+    ).toEqual(["LOGS", "METRICS"]);
   });
 });
 

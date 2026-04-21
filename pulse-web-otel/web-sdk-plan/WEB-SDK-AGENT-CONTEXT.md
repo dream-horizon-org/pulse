@@ -112,6 +112,8 @@ Every signal must carry these attrs. Deviating breaks the Pulse dashboard.
 
 Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcessors`), `pulse-android-sdk-internal` exporter wiring, session + semconv modules.
 
+**Session sampling rules (web vs Android):** `web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md` — which `sampling.rules[].name` values are implemented on web, which still only match `navigator.userAgent`, and how the Pulse dashboard should author rules for `pulse_web_js`.
+
 **Remote config at runtime:** `SdkConfigFetcher.loadCached()` (plus merge) feeds `FeatureGate` and `ExportSamplingGate` at `PulseWeb.start()`. **`fetchInBackground()` persists newer JSON to storage but does not rebuild those gates** — sampling and feature flags stay as at cold start until a **full page reload** (documented M1 scope).
 
 ---
@@ -140,3 +142,4 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 | Build / distribution | `web-sdk-plan/v1/05-build-distribution/` |
 | V2 features | `web-sdk-plan/v2/` |
 | Phase dependencies | `web-sdk-plan/00-orchestrator.md` |
+| Session sampling rules (web vs Android, dashboard) | `web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md` |

@@ -17,6 +17,11 @@ import {
   resolveSessionSamplingRate,
 } from "../utils/session-sampling-rate";
 
+export type ExportSamplingGateInit = {
+  /** Same string as OTEL resource `service.version` (PulseWebConfig.serviceVersion). */
+  serviceVersion?: string;
+};
+
 export class ExportSamplingGate {
   private readonly sessionRandomValue: number;
   private readonly shouldSampleThisSession: boolean;
@@ -25,9 +30,12 @@ export class ExportSamplingGate {
   constructor(
     private readonly config: PulseSdkConfig,
     private readonly sdkName: PulseSdkName,
+    init?: ExportSamplingGateInit,
   ) {
     this.sessionRandomValue = Math.random();
-    const sessionRate = resolveSessionSamplingRate(config, sdkName);
+    const sessionRate = resolveSessionSamplingRate(config, sdkName, {
+      serviceVersion: init?.serviceVersion,
+    });
     this.shouldSampleThisSession = this.sessionRandomValue < sessionRate;
     this.signalsToSample = config.sampling.signalsToSample ?? [];
   }
@@ -50,6 +58,26 @@ export class ExportSamplingGate {
     return false;
   }
 
+  /**
+   * {@code signals.filters}: BLACKLIST drops signals matching any condition; WHITELIST
+   * allows only signals matching at least one condition (empty {@code values} → no restriction).
+   */
+  private signalBlockedByPulseFilters(
+    scope: PulseSignalScope,
+    signalName: string,
+    attrs: Attributes | Readonly<Attributes> | undefined,
+  ): boolean {
+    const filters = this.config.signals?.filters;
+    if (!filters?.values?.length) return false;
+
+    const matched = filters.values.some((c) =>
+      pulseSignalConditionMatches(scope, signalName, attrs, c, this.sdkName),
+    );
+
+    if (filters.mode === "BLACKLIST") return matched;
+    return !matched;
+  }
+
   /** Android: matched signalsToSample entry uses its rate; else session decision. */
   shouldExportSignal(
     scope: PulseSignalScope,
@@ -57,6 +85,9 @@ export class ExportSamplingGate {
     attrs: Attributes | Readonly<Attributes> | undefined,
   ): boolean {
     if (this.isAlwaysSend(scope, signalName, attrs)) return true;
+
+    if (this.signalBlockedByPulseFilters(scope, signalName, attrs))
+      return false;
 
     const matched = this.signalsToSample.find((entry) =>
       pulseSignalConditionMatches(

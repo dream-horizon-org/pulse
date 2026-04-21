@@ -122,7 +122,9 @@ class PulseWebSDK implements SdkContext {
 
     const gate = new FeatureGate(sdkConfig);
     this.gate = gate;
-    const samplingGate = new ExportSamplingGate(sdkConfig, "pulse_web_js");
+    const samplingGate = new ExportSamplingGate(sdkConfig, "pulse_web_js", {
+      serviceVersion: config.serviceVersion,
+    });
     const filterProcessor = new SignalFilterProcessor(sdkConfig.signals);
 
     this.globalAttrsProcessor = new PulseGlobalAttributesProcessor(

@@ -103,4 +103,103 @@ describe("ExportSamplingGate", () => {
     const logs = [makeLog("session.start", { "pulse.type": "session.start" })];
     expect(gate.filterReadableLogs(logs)).toHaveLength(1);
   });
+
+  it("BLACKLIST signal filter drops matching logs", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const config: PulseSdkConfig = {
+      ...DEFAULT_SDK_CONFIG,
+      sampling: {
+        default: { sessionSampleRate: 1 },
+        rules: [],
+        signalsToSample: [],
+      },
+      signals: {
+        ...DEFAULT_SDK_CONFIG.signals,
+        filters: {
+          mode: "BLACKLIST",
+          values: [
+            {
+              name: "^internal\\.",
+              props: [],
+              scopes: ["LOGS"],
+              sdks: ["pulse_web_js"],
+            },
+          ],
+        },
+      },
+    };
+    const gate = new ExportSamplingGate(config, "pulse_web_js");
+    expect(gate.filterReadableLogs([makeLog("internal.debug")])).toHaveLength(
+      0,
+    );
+    expect(gate.filterReadableLogs([makeLog("session.start")])).toHaveLength(1);
+  });
+
+  it("WHITELIST signal filter keeps only matching logs", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const config: PulseSdkConfig = {
+      ...DEFAULT_SDK_CONFIG,
+      sampling: {
+        default: { sessionSampleRate: 1 },
+        rules: [],
+        signalsToSample: [],
+      },
+      signals: {
+        ...DEFAULT_SDK_CONFIG.signals,
+        filters: {
+          mode: "WHITELIST",
+          values: [
+            {
+              name: "^session\\.",
+              props: [],
+              scopes: ["LOGS"],
+              sdks: ["pulse_web_js"],
+            },
+          ],
+        },
+      },
+    };
+    const gate = new ExportSamplingGate(config, "pulse_web_js");
+    expect(gate.filterReadableLogs([makeLog("session.start")])).toHaveLength(1);
+    expect(gate.filterReadableLogs([makeLog("custom_event")])).toHaveLength(0);
+  });
+
+  it("alwaysSend bypasses BLACKLIST signal filter", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const config: PulseSdkConfig = {
+      ...DEFAULT_SDK_CONFIG,
+      sampling: {
+        default: { sessionSampleRate: 1 },
+        rules: [],
+        signalsToSample: [],
+        criticalEventPolicies: {
+          alwaysSend: [
+            {
+              name: ".*",
+              props: [{ key: "pulse\\.type", value: "device\\.crash" }],
+              scopes: ["LOGS"],
+              sdks: ["pulse_web_js"],
+            },
+          ],
+        },
+      },
+      signals: {
+        ...DEFAULT_SDK_CONFIG.signals,
+        filters: {
+          mode: "BLACKLIST",
+          values: [
+            {
+              name: ".*",
+              props: [],
+              scopes: ["LOGS"],
+              sdks: ["pulse_web_js"],
+            },
+          ],
+        },
+      },
+    };
+    const gate = new ExportSamplingGate(config, "pulse_web_js");
+    const logs = [makeLog("anything", { "pulse.type": "device.crash" })];
+    expect(gate.filterReadableLogs(logs)).toHaveLength(1);
+  });
 });

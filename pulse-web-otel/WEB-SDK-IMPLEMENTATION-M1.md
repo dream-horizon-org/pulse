@@ -1,7 +1,7 @@
 # Pulse Web SDK — M1 Implementation
 
 Package: `@dreamhorizon/pulse-web`  
-Status: **M1 foundation shipped in tree — 123 Vitest tests (`src/__tests__/*.test.ts`) + 63 Playwright tests (`examples/ecommerce-demo/e2e/m1.spec.ts`; run with `--project=chromium` as needed)**
+Status: **M1 foundation shipped in tree — 145 Vitest tests (`src/__tests__/*.test.ts`) + 63 Playwright tests (`examples/ecommerce-demo/e2e/m1.spec.ts`; run with `--project=chromium` as needed)**
 
 This document is the **living record of what the code does today**, how it was tested, and **gaps vs** `web-sdk-plan/v1/MILESTONES.md` / `WEB-SDK-AGENT-CONTEXT.md`. It is updated alongside implementation (last reviewed from codebase + internal code review pass).
 
@@ -115,7 +115,7 @@ PulseWeb.start(config)
 
 ### Session rules vs Android `Context`
 
-Web picks the first `sampling.rules[]` entry whose `sdks` includes `pulse_web_js` (`resolveSessionSamplingRate`). Android matches rules against app **`Context`** keys. There is no identical browser key on the wire; parity is **best-effort** until remote rules can express the same dimensions for web.
+Web picks the first `sampling.rules[]` entry whose `sdks` includes `pulse_web_js` (`resolveSessionSamplingRate`). Android matches rules against app **`Context`** keys. **`platform`** rules match Pulse RUM **`platform` = `web`**. **`app_version`**, **`os_version`**, **`network`**, and **`device`** use the browser-side mappings in **`web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md`** (including `service.version` at init for `app_version`). **`country`**, **`state`**, and other names still use the **legacy user-agent regex** path until mapped.
 
 ### Critical policies — Android audit
 
@@ -306,9 +306,9 @@ Remote config `features[]` array controls per-signal enable/disable by `featureN
 
 ## What Has Been Tested
 
-### Unit tests (`src/__tests__/`) — **123** tests (`m1.test.ts`, `export-sampling-gate.test.ts`, `merge-pulse-sdk-config.test.ts`, `sampling-signal-match.test.ts`)
+### Unit tests (`src/__tests__/`) — **145** tests (`m1.test.ts`, `export-sampling-gate.test.ts`, `merge-pulse-sdk-config.test.ts`, `sampling-signal-match.test.ts`, `session-sampling-rate.test.ts`, `signal-filter-processor.test.ts`)
 
-Suites include (non-exhaustive): **Installation ID**, **Session Provider**, **Config validation**, **Resource builder**, **SDK singleton / consent**, **SdkConfigFetcher**, **mergePulseSdkConfig** / critical-policy normalization, **FeatureGate**, **ExportSamplingGate** (session rate 0, critical bypass, `signalsToSample`), **`pulseSignalConditionMatches`** (invalid-regex fallback), **GlobalAttributesProcessor**, **SessionInstrumentation**, **SDK public API**, **SignalFilterProcessor**, and more.
+Suites include (non-exhaustive): **Installation ID**, **Session Provider**, **Config validation**, **Resource builder**, **SDK singleton / consent**, **SdkConfigFetcher**, **mergePulseSdkConfig** / critical-policy normalization, **FeatureGate**, **ExportSamplingGate** (session rate 0, critical bypass, `signalsToSample`), **`sessionRuleMatchesWeb` / `resolveSessionSamplingRate`** (platform = `web`, UNKNOWN), **`pulseSignalConditionMatches`** (invalid-regex fallback), **GlobalAttributesProcessor**, **SessionInstrumentation**, **SDK public API**, **SignalFilterProcessor**, and more.
 
 **Note:** `m1.test.ts` mocks `../exporters`; deep transport behavior is covered mainly by E2E and manual checks.
 

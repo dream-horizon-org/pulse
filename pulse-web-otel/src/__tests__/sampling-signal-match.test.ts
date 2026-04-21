@@ -1,7 +1,24 @@
 import { describe, it, expect } from "vitest";
 
 import type { PulseSignalMatchCondition } from "../types/remote-config";
-import { pulseSignalConditionMatches } from "../utils/sampling-signal-match";
+import {
+  attributeKeyMatchesAnyDropPattern,
+  pulseSignalConditionMatches,
+} from "../utils/sampling-signal-match";
+
+describe("attributeKeyMatchesAnyDropPattern", () => {
+  it("matches attribute keys against drop regex list (Android semantics)", () => {
+    expect(
+      attributeKeyMatchesAnyDropPattern("screen.name", ["screen\\.name"]),
+    ).toBe(true);
+    expect(
+      attributeKeyMatchesAnyDropPattern("screen.foo", ["screen\\..*"]),
+    ).toBe(true);
+    expect(attributeKeyMatchesAnyDropPattern("page.url", ["screen\\..*"])).toBe(
+      false,
+    );
+  });
+});
 
 describe("pulseSignalConditionMatches", () => {
   it("accepts invalid regex in condition.name via literal fallback (not silent drop-all)", () => {

@@ -30,6 +30,20 @@ function matchesRegex(haystack: string, pattern: string): boolean {
   return safeRegex(pattern).test(haystack);
 }
 
+/**
+ * Android {@code attributesToDrop.values}: each entry is a regex matched against
+ * attribute keys (not only literals).
+ */
+export function attributeKeyMatchesAnyDropPattern(
+  attributeKey: string,
+  dropPatterns: readonly string[],
+): boolean {
+  for (const pattern of dropPatterns) {
+    if (matchesRegex(attributeKey, pattern)) return true;
+  }
+  return false;
+}
+
 /** Flatten OTEL attributes to string values for Pulse-style prop matching. */
 export function attrsToStringMap(
   attrs: Attributes | Readonly<Attributes> | undefined,

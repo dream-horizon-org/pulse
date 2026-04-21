@@ -2,7 +2,13 @@
 // fetches fresh config in the background from /v1/configs/active.
 // See: web-sdk-plan/v1/01-foundation/sdk-config.md
 
-import type { PulseSdkConfig } from "./types/remote-config";
+import type {
+  PulseAttributesToAddEntry,
+  PulseAttributesToDropEntry,
+  PulseSdkConfig,
+  PulseSignalMatchCondition,
+  PulseSignalsToSampleEntry,
+} from "./types/remote-config";
 
 export type {
   PulseAttributeValue,
@@ -21,6 +27,41 @@ export type {
 
 const SDK_CONFIG_CACHE_KEY = "pulse_sdk_config";
 
+/** Dashboard / server JSON often uses lowercase scopes; OTEL matcher expects Android enums. */
+export function normalizeSignalMatchCondition(
+  c: PulseSignalMatchCondition,
+): PulseSignalMatchCondition {
+  const scopes = (c.scopes ?? [])
+    .map((s) => String(s).toUpperCase())
+    .filter(
+      (u): u is "LOGS" | "TRACES" | "METRICS" =>
+        u === "LOGS" || u === "TRACES" || u === "METRICS",
+    );
+  return {
+    ...c,
+    props: c.props ?? [],
+    scopes,
+  };
+}
+
+function normalizeAttributesToDrop(
+  entries: PulseAttributesToDropEntry[],
+): PulseAttributesToDropEntry[] {
+  return entries.map((e) => ({
+    ...e,
+    condition: normalizeSignalMatchCondition(e.condition),
+  }));
+}
+
+function normalizeAttributesToAdd(
+  entries: PulseAttributesToAddEntry[],
+): PulseAttributesToAddEntry[] {
+  return entries.map((e) => ({
+    ...e,
+    condition: normalizeSignalMatchCondition(e.condition),
+  }));
+}
+
 /** Merge server JSON with defaults; normalize Android `criticalSessionPolicies` key. */
 export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
   const samplingIn = raw.sampling ?? DEFAULT_SDK_CONFIG.sampling;
@@ -31,6 +72,10 @@ export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
   } = samplingIn;
   const criticalMerged = _criticalEvent ?? _criticalSession;
   const signalsIn = raw.signals ?? DEFAULT_SDK_CONFIG.signals;
+  const filtersMerged = {
+    ...DEFAULT_SDK_CONFIG.signals.filters,
+    ...signalsIn.filters,
+  };
   return {
     ...DEFAULT_SDK_CONFIG,
     ...raw,
@@ -42,15 +87,35 @@ export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
         ...samplingIn.default,
       },
       rules: samplingIn.rules ?? [],
-      signalsToSample: samplingIn.signalsToSample ?? [],
-      ...(criticalMerged ? { criticalEventPolicies: criticalMerged } : {}),
+      signalsToSample: (samplingIn.signalsToSample ?? []).map(
+        (e: PulseSignalsToSampleEntry) => ({
+          ...e,
+          condition: normalizeSignalMatchCondition(e.condition),
+        }),
+      ),
+      ...(criticalMerged
+        ? {
+            criticalEventPolicies: {
+              alwaysSend: (criticalMerged.alwaysSend ?? []).map(
+                normalizeSignalMatchCondition,
+              ),
+            },
+          }
+        : {}),
     },
     signals: {
       ...DEFAULT_SDK_CONFIG.signals,
       ...signalsIn,
-      attributesToDrop: signalsIn.attributesToDrop ?? [],
-      attributesToAdd: signalsIn.attributesToAdd ?? [],
-      filters: signalsIn.filters ?? DEFAULT_SDK_CONFIG.signals.filters,
+      attributesToDrop: normalizeAttributesToDrop(
+        signalsIn.attributesToDrop ?? [],
+      ),
+      attributesToAdd: normalizeAttributesToAdd(
+        signalsIn.attributesToAdd ?? [],
+      ),
+      filters: {
+        ...filtersMerged,
+        values: (filtersMerged.values ?? []).map(normalizeSignalMatchCondition),
+      },
     },
     interaction: raw.interaction ?? DEFAULT_SDK_CONFIG.interaction,
     features: raw.features ?? [],
