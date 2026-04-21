@@ -192,10 +192,10 @@ public class ProjectMemberService {
         List<String> successEmails = new ArrayList<>();
         List<String> failedEmails = new ArrayList<>();
         List<String> skippedEmails = new ArrayList<>();
-
+        
         // Process each email sequentially
         List<Completable> inviteOperations = new ArrayList<>();
-
+        
         for (String email : uniqueEmails) {
             Completable operation = addMemberToProject(projectId, email, role, addedBy)
                 .doOnSuccess(user -> {
@@ -205,20 +205,20 @@ public class ProjectMemberService {
                 })
                 .ignoreElement() // Convert Single to Completable
                 .onErrorComplete(error -> {
-                    log.warn("Failed to add member to project: email={}, error={}",
-                        email, error.getMessage());
+                    // Log and record error, then complete successfully to continue with other emails
+                    log.warn("Failed to add member to project: email={}, error={}", email, error.getMessage());
                     synchronized (failedEmails) {
                         failedEmails.add(email + " (" + error.getMessage() + ")");
                     }
                     return true; // Complete successfully to continue processing
                 });
-
+            
             inviteOperations.add(operation);
         }
-
+        
         // Execute all operations and collect results
         return Completable.merge(inviteOperations)
-            .andThen(Single.fromCallable(() ->
+            .andThen(Single.fromCallable(() -> 
                 BulkInviteResult.builder()
                     .successCount(successEmails.size())
                     .failureCount(failedEmails.size())

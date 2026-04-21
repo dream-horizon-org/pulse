@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Tenant membership operations backed by OpenFGA.
+
  */
 @Slf4j
 @Singleton
@@ -167,7 +167,7 @@ public class TenantMemberService {
             .map(String::trim)
             .filter(email -> !email.isEmpty())
             .collect(Collectors.toSet());
-
+        
         if (uniqueEmails.isEmpty()) {
             return Single.just(BulkInviteResult.builder()
                 .successCount(0)
@@ -178,14 +178,14 @@ public class TenantMemberService {
                 .skippedEmails(new ArrayList<>())
                 .build());
         }
-
+        
         List<String> successEmails = new ArrayList<>();
         List<String> failedEmails = new ArrayList<>();
         List<String> skippedEmails = new ArrayList<>();
-
+        
         // Process each email sequentially
         List<Completable> inviteOperations = new ArrayList<>();
-
+        
         for (String email : uniqueEmails) {
             Completable operation = addUserToTenant(tenantId, email, role, addedBy)
                 .doOnSuccess(user -> {
@@ -195,25 +195,24 @@ public class TenantMemberService {
                 })
                 .ignoreElement() // Convert Single to Completable
                 .onErrorComplete(error -> {
-                    log.warn("Failed to add user to tenant: email={}, error={}",
-                        email, error.getMessage());
+                    // Log and record error, then complete successfully to continue with other emails
+                    log.warn("Failed to add user to tenant: email={}, error={}", email, error.getMessage());
                     synchronized (failedEmails) {
                         failedEmails.add(email + " (" + error.getMessage() + ")");
                     }
                     return true; // Complete successfully to continue processing
                 });
-
+            
             inviteOperations.add(operation);
         }
-
+        
         // Execute all operations and collect results
         return Completable.merge(inviteOperations)
-            .andThen(Single.fromCallable(() ->
+            .andThen(Single.fromCallable(() -> 
                 BulkInviteResult.builder()
                     .successCount(successEmails.size())
                     .failureCount(failedEmails.size())
-                    .skippedCount(uniqueEmails.size()
-                        - (successEmails.size() + failedEmails.size()))
+                    .skippedCount(uniqueEmails.size() - (successEmails.size() + failedEmails.size()))
                     .successEmails(successEmails)
                     .failedEmails(failedEmails)
                     .skippedEmails(skippedEmails)
@@ -410,7 +409,7 @@ public class TenantMemberService {
      */
     Single<User> addUserToTenantInternal(String tenantId, String email) {
         log.info("Internal: Auto-adding user to tenant as member: email={}, tenant={}", email, tenantId);
-
+        
         // Fetch tenant and get or create user
         return tenantService.getTenant(tenantId)
             .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
@@ -435,11 +434,11 @@ public class TenantMemberService {
                     return openFgaService.assignTenantRole(ctx.user.getUserId(), tenantId, "member")
                         .andThen(Single.just(ctx.user))
                         .doOnSuccess(user -> {
-                            log.info("User auto-added to tenant successfully: userId={}, tenant={}, role=member",
+                            log.info("User auto-added to tenant successfully: userId={}, tenant={}, role=member", 
                                 user.getUserId(), tenantId);
                         });
                 }))
-            .doOnError(error ->
+            .doOnError(error -> 
                 log.error("Failed to auto-add user to tenant: email={}, tenant={}", email, tenantId, error)
             );
     }
