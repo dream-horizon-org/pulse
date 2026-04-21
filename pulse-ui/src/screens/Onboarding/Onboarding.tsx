@@ -228,8 +228,9 @@ export function Onboarding() {
                 p="xl"
                 radius="md"
                 style={{
-                  opacity: organizationName.trim() ? 1 : 0.7,
+                  opacity: organizationName.trim() ? 1 : 0.5,
                   transition: "opacity 0.3s ease",
+                  pointerEvents: organizationName.trim() ? "auto" : "none",
                 }}
               >
                 <Group gap="sm" mb="md">
@@ -252,6 +253,12 @@ export function Onboarding() {
                   )}
                 </Group>
 
+                {!organizationName.trim() && (
+                  <Text size="xs" c="orange.6" mb="sm" fw={500}>
+                    Complete Step 1 first to unlock this section.
+                  </Text>
+                )}
+
                 <Text
                   size="sm"
                   c="dimmed"
@@ -268,6 +275,7 @@ export function Onboarding() {
                     placeholder="e.g., Mobile App, Web Dashboard, API Service"
                     size="md"
                     required
+                    disabled={!organizationName.trim()}
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                     error={errors.project}
@@ -279,6 +287,7 @@ export function Onboarding() {
                     label="Project Description (Optional)"
                     placeholder="Add a brief description to help your team understand this project..."
                     size="md"
+                    disabled={!organizationName.trim()}
                     value={projectDescription}
                     onChange={(e) => setProjectDescription(e.target.value)}
                     minRows={3}
@@ -302,8 +311,8 @@ export function Onboarding() {
                 }}
               >
                 {isSubmitting
-                  ? "Setting up..."
-                  : "Complete Setup & Get Started"}
+                  ? "Creating your organization and project..."
+                  : "Create Organization & Project"}
               </Button>
             </Stack>
           </form>

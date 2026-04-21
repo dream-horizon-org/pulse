@@ -10,6 +10,7 @@ import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteraction
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsResponse;
+import org.dreamhorizon.pulseserver.service.interaction.models.GetSuggestedInteractionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 
@@ -29,4 +30,10 @@ public interface InteractionService {
   Single<InteractionFilterOptionsResponse> getInteractionFilterOptions();
 
   Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions();
+
+  Single<GetSuggestedInteractionsResponse> getSuggestedInteractions();
+
+  Single<EmptyResponse> dismissSuggestion(Long suggestionId, String userEmail);
+
+  Single<EmptyResponse> activateSuggestion(Long suggestionId, String userEmail);
 }

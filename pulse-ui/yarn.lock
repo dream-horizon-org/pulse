@@ -9249,6 +9249,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"heatmap.js@npm:2.0.5":
+  version: 2.0.5
+  resolution: "heatmap.js@npm:2.0.5"
+  checksum: 10c0/ce7a15097e08db4b9f407a849880581ff656d958bec814bad2bfe22b8cd66c9ef29f10f53c2ecfcf260a2c95e0235127deab727f8beebe971e4f617b45185a1c
+  languageName: node
+  linkType: hard
+
 "hoist-non-react-statics@npm:^3.3.0, hoist-non-react-statics@npm:^3.3.2":
   version: 3.3.2
   resolution: "hoist-non-react-statics@npm:3.3.2"
@@ -14595,6 +14602,7 @@ __metadata:
     firebase: "npm:^11.0.0"
     flame-chart-js: "npm:^3.3.0"
     fs-extra: "npm:^10.0.0"
+    heatmap.js: "npm:2.0.5"
     html-webpack-plugin: "npm:^5.5.0"
     husky: "npm:^9.0.11"
     identity-obj-proxy: "npm:^3.0.0"

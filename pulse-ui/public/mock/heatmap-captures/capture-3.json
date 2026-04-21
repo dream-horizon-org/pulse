@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "projectId": "default-project",
+  "sessionId": "mock-sess-capture-3",
+  "snapshotSource": "Android",
+  "appVersion": "2.1.0",
+  "screenHref": "MockHeatmapScreen",
+  "breakpoint": "Web_Extra_Large",
+  "metaTimestamp": 1712345679100,
+  "viewport": { "width": 400, "height": 900 },
+  "image": {
+    "encoding": "base64",
+    "mimeType": "image/png",
+    "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAjkBA1+qZ6oAAAAASUVORK5CYII="
+  }
+}

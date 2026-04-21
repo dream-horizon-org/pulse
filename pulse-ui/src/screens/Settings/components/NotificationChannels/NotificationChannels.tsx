@@ -498,7 +498,7 @@ export function NotificationChannels() {
                   <Text size="sm" fw={500}>Slack</Text>
                   <Text size="xs" c="dimmed">Webhook integration</Text>
                 </Box>
-                <Tooltip label="Email support coming soon" withArrow>
+                <Tooltip label="Email alerts are not available yet — use Slack in the meantime" withArrow>
                   <Box className={`${classes.typeCard} ${classes.typeCardDisabled}`}>
                     <Box className={`${classes.typeCardIcon} ${classes.typeCardEmail}`}>
                       <IconMail size={20} />

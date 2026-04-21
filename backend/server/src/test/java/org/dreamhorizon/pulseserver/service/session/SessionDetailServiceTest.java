@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionSpanRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionTimingRow;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,11 +35,13 @@ class SessionDetailServiceTest {
   @Mock
   SessionDetailDao sessionDetailDao;
 
+  private final ObjectMapper objectMapper = ObjectMapperFactory.get();
+
   SessionDetailService sessionDetailService;
 
   @BeforeEach
   void setUp() {
-    sessionDetailService = new SessionDetailService(sessionDetailDao);
+    sessionDetailService = new SessionDetailService(objectMapper, sessionDetailDao);
   }
 
   private static QueryResultResponse<SessionCoreRow> coreResponse(List<SessionCoreRow> rows) {

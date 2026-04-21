@@ -11,6 +11,7 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
+import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulsereactnativeotel.Pulse
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
@@ -43,6 +44,8 @@ class MainApplication : Application(), ReactApplication {
     Pulse.initialize(
       application = this,
       endpointBaseUrl = "http://10.0.2.2:4318",
+      apiKey = "default-project_devkey01",
+      dataCollectionState = PulseDataCollectionConsent.ALLOWED,
       globalAttributes = {
         Attributes.of(AttributeKey.stringKey("app-name"), "pulsern79")
       },

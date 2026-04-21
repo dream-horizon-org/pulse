@@ -2,15 +2,16 @@
 
 # ============================================================================
 # Pulse Observability - Build Script
-# Builds Docker images for pulse-ui, pulse-server, pulse-alerts-cron, and
-# pulse-ai-agent (included in default / "all" build).
+# Builds Docker images for pulse-ui, pulse-server, pulse-alerts-cron,
+# pulse-session-capture, pulse-session-replay-ingestion,
+# pulse-heatmap-screenshot-ingestion, and pulse-ai-agent (included in default / "all" build).
 # Uses Docker Compose if available, otherwise falls back to Docker CLI.
 #
 # Usage:
-#   ./build.sh [--no-cache] [ui|server|cron|capture|ingestion|ai|all]
+#   ./build.sh [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]
 #
 # Examples:
-#   ./build.sh              # ui + server + cron + pulse-ai-agent
+#   ./build.sh              # ui + server + cron + capture + ingestion + heatmap-ingestion + ai
 #   ./build.sh ai           # pulse-ai-agent only
 #   ./build.sh ui           # pulse-ui only
 #   ./build.sh --no-cache   # Build all without cache
@@ -105,18 +106,22 @@ while [[ $# -gt 0 ]]; do
         ingestion|session-ingestion|pulse-session-replay-ingestion)
             SERVICES+=("ingestion")
             shift
-            ;;    
+            ;;
+        heatmap|heatmap-ingestion|pulse-heatmap-screenshot-ingestion)
+            SERVICES+=("heatmap-ingestion")
+            shift
+            ;;
         all)
             SERVICES=()
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|ai|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|ai|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|heatmap-ingestion|ai|all]"
             exit 1
             ;;
     esac
@@ -124,7 +129,7 @@ done
 
 # Default: full application stack including pulse-ai-agent
 if [ ${#SERVICES[@]} -eq 0 ]; then
-    SERVICES=("ui" "server" "cron" "capture" "ingestion" "ai")
+    SERVICES=("ui" "server" "cron" "capture" "ingestion" "heatmap-ingestion" "ai")
 fi
 
 # Validate encryption key when building server or cron (required at runtime)
@@ -151,6 +156,7 @@ if has_compose; then
             ai)     COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-ai-agent" ;;
             capture)   COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-session-capture" ;;
             ingestion) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-session-replay-ingestion" ;;
+            heatmap-ingestion) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-heatmap-screenshot-ingestion" ;;
         esac
     done
 
@@ -239,6 +245,16 @@ build_ingestion() {
     print_success "pulse-session-replay-ingestion image built -> $IMAGE_SESSION_INGESTION"
 }
 
+build_heatmap_ingestion() {
+    print_info "Building pulse-heatmap-screenshot-ingestion image..."
+    docker build \
+        $NO_CACHE \
+        -t "$IMAGE_HEATMAP_INGESTION" \
+        -f "$ROOT_DIR/backend/heatmap-screenshot-ingestion/Dockerfile" \
+        "$ROOT_DIR/backend/heatmap-screenshot-ingestion"
+    print_success "pulse-heatmap-screenshot-ingestion image built -> $IMAGE_HEATMAP_INGESTION"
+}
+
 # When building multiple images, run them in parallel with per-service log files
 BUILD_LOG_DIR=$(mktemp -d)
 PIDS=()
@@ -255,6 +271,7 @@ for svc in "${SERVICES[@]}"; do
             ai)     build_ai     > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ai")     ;;
             capture)   build_capture   > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("capture")   ;;
             ingestion) build_ingestion > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ingestion") ;;
+            heatmap-ingestion) build_heatmap_ingestion > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("heatmap-ingestion") ;;
         esac
     else
         case $svc in
@@ -264,6 +281,7 @@ for svc in "${SERVICES[@]}"; do
             ai)     build_ai     || FAILED=1 ;;
             capture)   build_capture   || FAILED=1 ;;
             ingestion) build_ingestion || FAILED=1 ;;
+            heatmap-ingestion) build_heatmap_ingestion || FAILED=1 ;;
         esac
     fi
 done

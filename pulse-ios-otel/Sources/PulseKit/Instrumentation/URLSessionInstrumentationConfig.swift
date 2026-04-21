@@ -38,7 +38,7 @@ public struct URLSessionInstrumentationConfig {
         return { request in
             guard let url = request.url else { return userHandler?(request) ?? true }
             let urlString = url.absoluteString
-            if urlString.contains("/v1/traces") || urlString.contains("/v1/logs") || urlString.contains("/v1/metrics") {
+            if urlString.contains("/v1/traces") || urlString.contains("/v1/logs") || urlString.contains("/v1/metrics") || urlString.contains("/session-capture") {
                 return false
             }
 

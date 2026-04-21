@@ -2,7 +2,6 @@ package org.dreamhorizon.pulseserver.client.chclient;
 
 import com.clickhouse.client.api.insert.InsertResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.inject.Inject;
 import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.Statement;
@@ -35,7 +34,7 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
   private final ClickhouseWriteClient clickhouseWriteClient;
   private final ClickhouseProjectConnectionPoolManager clickhouseProjectConnectionPoolManager;
   private final ClickhouseProjectCredentialsDao clickhouseProjectCredentialsDao;
-  private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+  private final ObjectMapper objectMapper;
 
 
   @Override

@@ -21,6 +21,8 @@ disable-model-invocation: true
 
 Edit `backend/ingestion/clickhouse-otel-schema.sql` to reflect the final desired state. This file is used for fresh installs.
 
+When you add or rename tables, materialized columns, or row-policy targets, update `.cursor/` docs to match (at minimum `agents/data-analyst.md`, `rules/clickhouse-sql.mdc`, `rules/pulse-architecture.mdc`, `commands/query-clickhouse.md`) or run `/audit-cursor-config` to catch drift.
+
 ## Step 2: Create Migration Script
 
 Create `deploy/db/migration-clickhouse-<description>.sql`:

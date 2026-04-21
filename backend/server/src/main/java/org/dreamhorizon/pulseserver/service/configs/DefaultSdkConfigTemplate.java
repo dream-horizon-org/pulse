@@ -25,6 +25,18 @@ public class DefaultSdkConfigTemplate {
             Sdk.pulse_ios_swift,
             Sdk.pulse_ios_rn
         );
+        List<Sdk> iosSdk = Arrays.asList(
+            Sdk.pulse_ios_swift,
+            Sdk.pulse_ios_rn
+        );
+        List<Sdk> androidSdk = Arrays.asList(
+            Sdk.pulse_android_java,
+            Sdk.pulse_android_rn
+        );
+        List<Sdk> rnSdk = Arrays.asList(
+            Sdk.pulse_android_rn,
+            Sdk.pulse_ios_rn
+        );
 
         // Sampling configuration
         SamplingConfig sampling = SamplingConfig.builder()
@@ -32,20 +44,14 @@ public class DefaultSdkConfigTemplate {
                 .sessionSampleRate(1.0)
                 .build())
             .rules(new ArrayList<>())
-            .criticalEventPolicies(CriticalEventPolicies.builder()
-                .alwaysSend(new ArrayList<>())
-                .build())
             .criticalSessionPolicies(CriticalSessionPolicies.builder()
                 .alwaysSend(new ArrayList<>())
                 .build())
+            .signalsToSample(new ArrayList<>())
             .build();
 
         // Signals configuration
         SignalsConfig signals = SignalsConfig.builder()
-            .filters(FilterConfig.builder()
-                .mode(FilterMode.blacklist)
-                .values(new ArrayList<>())
-                .build())
             .scheduleDurationMs(5000)
             .logsCollectorUrl(System.getenv().getOrDefault("LOGS_COLLECTOR_URL", "http://localhost:4318/v1/logs"))
             .metricCollectorUrl(System.getenv().getOrDefault("METRIC_COLLECTOR_URL", "http://localhost:4318/v1/metrics"))
@@ -53,6 +59,7 @@ public class DefaultSdkConfigTemplate {
             .customEventCollectorUrl(System.getenv().getOrDefault("CUSTOM_EVENT_COLLECTOR_URL", "http://localhost:4318/v1/events"))
             .attributesToDrop(new ArrayList<>())
             .attributesToAdd(new ArrayList<>())
+            .metricsToAdd(new ArrayList<>())
             .build();
 
         // Interaction configuration
@@ -62,19 +69,31 @@ public class DefaultSdkConfigTemplate {
             .beforeInitQueueSize(100)
             .build();
 
-        // Feature configurations - enable all features with full sampling (except network_instrumentation)
+        // Feature configurations - enable all features with full sampling
         List<FeatureConfig> features = new ArrayList<>();
         features.add(createFeature(Features.interaction, 1.0, allSdks));
-        features.add(createFeature(Features.java_crash, 1.0, allSdks));
-        features.add(createFeature(Features.js_crash, 1.0, allSdks));
-        features.add(createFeature(Features.java_anr, 1.0, allSdks));
+        features.add(createFeature(Features.java_crash, 1.0, androidSdk));
+        features.add(createFeature(Features.js_crash, 1.0, rnSdk));
+        features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
-        features.add(createFeature(Features.network_instrumentation, 0.0, allSdks)); // Disabled by default
-        features.add(createFeature(Features.screen_session, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
-        features.add(createFeature(Features.rn_screen_load, 1.0, allSdks));
-        features.add(createFeature(Features.rn_screen_interactive, 1.0, allSdks));
-        features.add(createSessionReplayFeature(1.0, allSdks));
+        features.add(createFeature(Features.rn_screen_load, 1.0, rnSdk));
+        features.add(createFeature(Features.rn_screen_interactive, 1.0, rnSdk));
+        features.add(createFeature(Features.rn_screen_session, 1.0, rnSdk));
+        // Legacy key for backward compatibility with old RN SDK versions
+        features.add(createFeature(Features.screen_session, 1.0, rnSdk));
+        features.add(createSessionReplayFeature(0.0, allSdks));
+        features.add(createClickFeature(0.0, allSdks));
+        features.add(createFeature(Features.heatmap, 1.0, allSdks));
+        features.add(createFeature(Features.ios_crash, 1.0, iosSdk));
+        features.add(createFeature(Features.android_slowrendering, 1.0, androidSdk));
+        features.add(createFeature(Features.ios_network, 1.0, iosSdk));
+        features.add(createFeature(Features.rn_network, 1.0, rnSdk));
+        // Legacy key for backward compatibility with old SDK versions
+        features.add(createFeature(Features.network_instrumentation, 1.0, allSdks));
+        features.add(createFeature(Features.ios_lifecycle, 0.0, iosSdk));
+        features.add(createFeature(Features.android_activity, 1.0, androidSdk));
+        features.add(createFeature(Features.android_fragment, 0.0, androidSdk));
 
         // Create ConfigData
         return ConfigData.builder()
@@ -111,6 +130,24 @@ public class DefaultSdkConfigTemplate {
 
         return FeatureConfig.builder()
             .featureName(Features.session_replay)
+            .sessionSampleRate(sampleRate)
+            .sdks(sdks)
+            .config((FeatureConfigProperties) config)
+            .build();
+    }
+
+    private static FeatureConfig createClickFeature(Double sampleRate, List<Sdk> sdks) {
+        ClickFeatureConfig config = ClickFeatureConfig.builder()
+            .captureContext(true)
+            .rage(RageConfig.builder()
+                .timeWindowMs(2000L)
+                .threshold(3)
+                .radius(50)
+                .build())
+            .build();
+
+        return FeatureConfig.builder()
+            .featureName(Features.click)
             .sessionSampleRate(sampleRate)
             .sdks(sdks)
             .config((FeatureConfigProperties) config)
