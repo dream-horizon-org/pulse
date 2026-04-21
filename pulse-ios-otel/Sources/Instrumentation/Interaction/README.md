@@ -26,7 +26,8 @@ Interactions are **server-configured event sequences** that the SDK tracks autom
 ```swift
 Pulse.shared.initialize(
     endpointBaseUrl: "https://your-backend.com",
-    apiKey: "your-project-id"
+    apiKey: "your-project-id",
+    dataCollectionState: .allowed
 ) { config in
     config.interaction { interactionConfig in
         interactionConfig.enabled(true)

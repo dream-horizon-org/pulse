@@ -1,0 +1,170 @@
+// kafka-remove-broker.jenkinsfile
+//
+// Gracefully removes a Kafka broker from the production cluster.
+//
+// Jenkins job parameters:
+//   REMOVE_NODE_ID  – KRaft node ID of the broker to remove (e.g. 3)
+//   NUM_BROKERS     – Total broker count AFTER removal (e.g. 2)
+
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        string(name: 'REMOVE_NODE_ID', defaultValue: '', description: 'Node ID of the broker to remove — must be the highest-numbered broker (e.g. 3)')
+    }
+
+    environment {
+        TF_IN_AUTOMATION         = 'true'
+        ROUTE53_ZONE_NAME        = 'pulse.local'
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    if (!params.REMOVE_NODE_ID) {
+                        error("REMOVE_NODE_ID is required.")
+                    }
+                }
+            }
+        }
+
+        stage('Clear Existing Workspace') {
+            steps { cleanWs() }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Resolve Broker Count') {
+            steps {
+                script {
+                    def current = sh(
+                        script: "grep -c 'node_id=' deploy/ansible/kafka/inventory/hosts.ini",
+                        returnStdout: true
+                    ).trim().toInteger()
+                    if (params.REMOVE_NODE_ID.toInteger() != current) {
+                        error("Can only remove the highest-numbered broker. Current highest: ${current}, requested: ${params.REMOVE_NODE_ID}")
+                    }
+                    if (current <= 2) {
+                        error("Cannot reduce below 2 brokers. Current count: ${current}")
+                    }
+                    env.NUM_BROKERS = (current - 1).toString()
+                    echo "Removing broker ${params.REMOVE_NODE_ID} → remaining brokers: ${env.NUM_BROKERS}"
+                }
+            }
+        }
+
+        stage('Ansible: Drain and Remove Broker') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        REMOVE_HOST="pulse-kafka-\$(printf '%02d' ${params.REMOVE_NODE_ID}).${ROUTE53_ZONE_NAME}"
+
+                        /home/admin/.local/bin/ansible-playbook deploy/ansible/kafka/remove-broker.yml \
+                            -i deploy/ansible/kafka/inventory/hosts.ini \
+                            --private-key "\$SSH_KEY" \
+                            -e "remove_broker_host=\$REMOVE_HOST" \
+                            -e "remove_node_id=${params.REMOVE_NODE_ID}" \
+                            -e "num_brokers=${env.NUM_BROKERS}" \
+                            -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
+                    """
+                }
+            }
+        }
+
+        stage('Approve Instance Termination') {
+            steps {
+                input message: "Broker ${params.REMOVE_NODE_ID} drained and stopped. Terminate EC2 instance? (EBS preserved)", ok: 'Yes, Terminate!'
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    cd deploy/terraform/kafka
+                    aws secretsmanager get-secret-value \
+                      --region ap-south-1 \
+                      --secret-id prod/kafka/terraform \
+                      --query 'SecretString' \
+                      --output text > secrets.auto.tfvars.json
+                '''
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh """
+                    cd deploy/terraform/kafka
+                    terraform init
+
+                    # Remove the EBS volume and its attachment from Terraform state before
+                    # applying. prevent_destroy=true would otherwise block the apply.
+                    # The EBS volume remains in AWS as an unattached orphan — data preserved.
+                    REMOVE_IDX=\$(( ${params.REMOVE_NODE_ID} - 1 ))
+                    terraform state rm "aws_volume_attachment.broker_data[\$REMOVE_IDX]" || true
+                    terraform state rm "aws_ebs_volume.broker_data[\$REMOVE_IDX]" || true
+
+                    terraform plan -var num_brokers=${env.NUM_BROKERS} -out=tfplan
+                    terraform apply -input=false tfplan
+                """
+            }
+        }
+
+        stage('Update hosts.ini') {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'd11-horizon-bot', gitToolName: 'Default')]) {
+                    sh """
+                        REMOVE_HOST="pulse-kafka-\$(printf '%02d' ${params.REMOVE_NODE_ID}).${ROUTE53_ZONE_NAME}"
+                        HOSTS_FILE="deploy/ansible/kafka/inventory/hosts.ini"
+
+                        sed -i "/^\$REMOVE_HOST /d" "\$HOSTS_FILE"
+                        echo "Removed \$REMOVE_HOST from \$HOSTS_FILE"
+
+                        git config user.email "jenkins@dream-horizon.org"
+                        git config user.name "Jenkins"
+                        git add "\$HOSTS_FILE"
+                        git diff --cached --quiet || git commit -m "chore: remove broker ${params.REMOVE_NODE_ID} from ansible inventory"
+                        git push origin HEAD:main
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f deploy/terraform/kafka/tfplan deploy/terraform/kafka/secrets.auto.tfvars.json'
+        }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                        color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
+                        message: "<!channel> Kafka broker ${params.REMOVE_NODE_ID} removed by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+                }
+            }
+        }
+        failure {
+            script {
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+                    message: "<!channel> Kafka remove-broker FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+            }
+        }
+    }
+}

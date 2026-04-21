@@ -295,7 +295,7 @@ public struct PulseFeatureConfig: Codable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        featureName = try container.decode(PulseFeatureName.self, forKey: .featureName)
+        featureName = try container.decodeIfPresent(PulseFeatureName.self, forKey: .featureName) ?? .unknown
         sessionSampleRate = try container.decode(Float.self, forKey: .sessionSampleRate)
         sdks = try container.decode([PulseSdkName].self, forKey: .sdks)
         config = try? container.decodeIfPresent([String: AnyCodable].self, forKey: .config)
@@ -338,7 +338,9 @@ public enum PulseSdkName: String, Codable, CaseIterable {
     }
 }
 
-public enum PulseFeatureName: String, Codable, CaseIterable {
+/// JSON uses snake_case strings. Unknown or future server values decode to `.unknown` (same idea as Android
+/// `PulseFallbackToUnknownEnumSerializer`).
+public enum PulseFeatureName: String, CaseIterable {
     case java_crash
     case js_crash
     case cpp_crash
@@ -346,15 +348,42 @@ public enum PulseFeatureName: String, Codable, CaseIterable {
     case cpp_anr
     case interaction
     case network_change
-    case network_instrumentation
-    case screen_session
     case custom_events
     case rn_screen_load
     case rn_screen_interactive
+    case rn_screen_session
     case ios_crash
     case session_replay
     case click
+    case ios_network
+    case rn_network
+    case ios_lifecycle
+    case android_activity
+    case android_fragment
+    case android_slowrendering
     case unknown
+}
+
+extension PulseFeatureName: Codable {
+    /// Bad types, null, or unexpected payloads map to `.unknown` instead of failing the whole config (parity with Android fallback).
+    public init(from decoder: Decoder) throws {
+        do {
+            let container = try decoder.singleValueContainer()
+            if try container.decodeNil() {
+                self = .unknown
+                return
+            }
+            let raw = try container.decode(String.self)
+            self = Self(rawValue: raw) ?? .unknown
+        } catch {
+            self = .unknown
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public enum PulseDeviceAttributeName: String, Codable, CaseIterable {

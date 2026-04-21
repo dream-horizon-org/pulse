@@ -15,4 +15,6 @@ public class ProjectUsageLimitRowConstants {
   public  static final String ID = "id";
   public  static final String CREATED_AT = "created_at";
   public  static final String UPDATED_AT = "updated_at";
+  public static final String NOTIFICATION_PROJECT_USAGE_LIMIT_ID = "notification_project_usage_limit_id";
+  public static final String NOTIFICATION_ROW_ACTIVE = "notification_row_active";  
 }

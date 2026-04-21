@@ -42,7 +42,8 @@ import PulseKit
 
 Pulse.shared.initialize(
     endpointBaseUrl: "https://your-backend.com",
-    apiKey: "your-api-key"
+    apiKey: "your-api-key",
+    dataCollectionState: .allowed
 )
 ```
 
@@ -58,6 +59,7 @@ Initializes the SDK. Call this once, typically in `AppDelegate.application(_:did
 Pulse.shared.initialize(
     endpointBaseUrl: "https://your-backend.com",
     apiKey: "your-api-key",
+    dataCollectionState: .allowed,
     endpointHeaders: ["X-Custom-Header": "value"],
     globalAttributes: ["environment": .string("production")],
     configuration: { config in
@@ -68,8 +70,7 @@ Pulse.shared.initialize(
         config.sessions { $0.maxLifetime(2 * 60 * 60) }   // 2 hours
         config.uiKitTap { $0.enabled(true) }
         config.location { $0.enabled(true) }
-    },
-    dataCollectionState: .allowed
+    }
 )
 ```
 
@@ -77,23 +78,23 @@ Pulse.shared.initialize(
 
 ### Parameters
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `endpointBaseUrl` | `String` | **required** | Base URL for OTLP export (e.g. `"https://your-backend.com"`) |
-| `apiKey` | `String` | **required** | Sent as `X-API-KEY` header and as the `project.id` resource attribute |
-| `configEndpointUrl` | `String?` | `nil` | Remote SDK config URL. Defaults to `{endpointBaseUrl:8080}/v1/configs/active/` |
-| `customEventCollectorUrl` | `String?` | `nil` | Override endpoint for custom event delivery |
-| `endpointHeaders` | `[String: String]?` | `nil` | Extra HTTP headers merged with `X-API-KEY` for all requests (apiKey wins on conflicts) |
-| `globalAttributes` | `[String: AttributeValue]?` | `nil` | Attributes added to every span and log |
-| `resource` | `((inout [String: AttributeValue]) -> Void)?` | `nil` | Closure to add or override resource attributes |
-| `configuration` | `((inout PulseKitConfiguration) -> Void)?` | `nil` | Closure to configure SDK-level feature flags (screen/network/global attributes) — see below |
-| `instrumentations` | `((inout InstrumentationConfiguration) -> Void)?` | `nil` | Closure to configure individual instrumentations — see [Instrumentations](#instrumentations) |
-| `dataCollectionState` | `PulseDataCollectionConsent` | `.allowed` | Initial consent state. Use `.denied` to skip initialization entirely when the user has not consented |
-| `beforeSendSpan` | `BeforeSendSpanCallback?` | `nil` | Called before each span is exported; return `nil` to drop |
-| `beforeSendLog` | `BeforeSendLogCallback?` | `nil` | Called before each log is exported; return `nil` to drop |
-| `beforeSendMetric` | `BeforeSendMetricCallback?` | `nil` | Called before each metric is exported; return `nil` to drop |
-| `tracerProviderCustomizer` | `((TracerProviderBuilder) -> TracerProviderBuilder)?` | `nil` | Advanced: customize the `TracerProvider` directly |
-| `loggerProviderCustomizer` | `(([LogRecordProcessor]) -> [LogRecordProcessor])?` | `nil` | Advanced: insert or replace `LogRecordProcessor`s |
+| Parameter                  | Type                                                  | Default      | Description                                                                                                                    |
+| -------------------------- | ----------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `endpointBaseUrl`          | `String`                                              | **required** | Base URL for OTLP export (e.g. `"https://your-backend.com"`)                                                                   |
+| `apiKey`                   | `String`                                              | **required** | Sent as `X-API-KEY` header and as the `project.id` resource attribute                                                          |
+| `dataCollectionState`      | `PulseDataCollectionConsent`                          | **required** | Initial consent (`.allowed`, `.pending`, or `.denied`). Use `.denied` to skip building the SDK when the user has not consented |
+| `configEndpointUrl`        | `String?`                                             | `nil`        | Remote SDK config URL. Defaults to `{endpointBaseUrl:8080}/v1/configs/active/`                                                 |
+| `customEventCollectorUrl`  | `String?`                                             | `nil`        | Override endpoint for custom event delivery                                                                                    |
+| `endpointHeaders`          | `[String: String]?`                                   | `nil`        | Extra HTTP headers merged with `X-API-KEY` for all requests (apiKey wins on conflicts)                                         |
+| `globalAttributes`         | `[String: AttributeValue]?`                           | `nil`        | Attributes added to every span and log                                                                                         |
+| `resource`                 | `((inout [String: AttributeValue]) -> Void)?`         | `nil`        | Closure to add or override resource attributes                                                                                 |
+| `configuration`            | `((inout PulseKitConfiguration) -> Void)?`            | `nil`        | Closure to configure SDK-level feature flags (screen/network/global attributes) — see below                                    |
+| `instrumentations`         | `((inout InstrumentationConfiguration) -> Void)?`     | `nil`        | Closure to configure individual instrumentations — see [Instrumentations](#instrumentations)                                   |
+| `beforeSendSpan`           | `BeforeSendSpanCallback?`                             | `nil`        | Called before each span is exported; return `nil` to drop                                                                      |
+| `beforeSendLog`            | `BeforeSendLogCallback?`                              | `nil`        | Called before each log is exported; return `nil` to drop                                                                       |
+| `beforeSendMetric`         | `BeforeSendMetricCallback?`                           | `nil`        | Called before each metric is exported; return `nil` to drop                                                                    |
+| `tracerProviderCustomizer` | `((TracerProviderBuilder) -> TracerProviderBuilder)?` | `nil`        | Advanced: customize the `TracerProvider` directly                                                                              |
+| `loggerProviderCustomizer` | `(([LogRecordProcessor]) -> [LogRecordProcessor])?`   | `nil`        | Advanced: insert or replace `LogRecordProcessor`s                                                                              |
 
 ---
 
@@ -109,11 +110,11 @@ configuration: { config in
 }
 ```
 
-| Method | Default | Effect |
-| --- | --- | --- |
-| `disableScreenAttributes()` | enabled | Stops adding `screen.name` to spans and logs |
-| `disableNetworkAttributes()` | enabled | Stops adding `network.type` / `network.subtype` |
-| `disableGlobalAttributes()` | enabled | Stops injecting `globalAttributes` on every signal |
+| Method                       | Default | Effect                                             |
+| ---------------------------- | ------- | -------------------------------------------------- |
+| `disableScreenAttributes()`  | enabled | Stops adding `screen.name` to spans and logs       |
+| `disableNetworkAttributes()` | enabled | Stops adding `network.type` / `network.subtype`    |
+| `disableGlobalAttributes()`  | enabled | Stops injecting `globalAttributes` on every signal |
 
 ---
 
@@ -123,18 +124,18 @@ Configure via the `instrumentations` closure in `initialize`. All instrumentatio
 
 ### Instrumentation Summary
 
-| Instrumentation | DSL method | Enabled by default | Key options |
-| --- | --- | :---: | --- |
-| URLSession | `urlSession { }` | Yes | `setShouldInstrument`, `excludeOtlpEndpoints` |
-| Sessions | `sessions { }` | Yes | `maxLifetime` (4 h), `backgroundInactivityTimeout` (15 min), `shouldPersist` |
-| Crashes | `crash { }` | Yes | `enabled` |
-| App Lifecycle | `appLifecycle { }` | Yes | `enabled` |
-| Screen Lifecycle | `screenLifecycle { }` | Yes | `enabled` |
-| App Startup | `appStartup { }` | Yes | `enabled` |
-| Interaction | `interaction { }` | Yes | `setConfigUrl` |
-| UIKit Tap | `uiKitTap { }` | **No** | `captureContext`, `rage { }` |
-| Location | `location { }` | **No** | `enabled` |
-| Session Replay | `sessionReplay { }` | **No** | `configure { }` with full `SessionReplayConfig` |
+| Instrumentation  | DSL method            | Enabled by default | Key options                                                                  |
+| ---------------- | --------------------- | :----------------: | ---------------------------------------------------------------------------- |
+| URLSession       | `urlSession { }`      |        Yes         | `setShouldInstrument`, `excludeOtlpEndpoints`                                |
+| Sessions         | `sessions { }`        |        Yes         | `maxLifetime` (4 h), `backgroundInactivityTimeout` (15 min), `shouldPersist` |
+| Crashes          | `crash { }`           |        Yes         | `enabled`                                                                    |
+| App Lifecycle    | `appLifecycle { }`    |        Yes         | `enabled`                                                                    |
+| Screen Lifecycle | `screenLifecycle { }` |        Yes         | `enabled`                                                                    |
+| App Startup      | `appStartup { }`      |        Yes         | `enabled`                                                                    |
+| Interaction      | `interaction { }`     |        Yes         | `setConfigUrl`                                                               |
+| UIKit Tap        | `uiKitTap { }`        |       **No**       | `captureContext`, `rage { }`                                                 |
+| Location         | `location { }`        |       **No**       | `enabled`                                                                    |
+| Session Replay   | `sessionReplay { }`   |       **No**       | `configure { }` with full `SessionReplayConfig`                              |
 
 ---
 
@@ -156,11 +157,11 @@ config.urlSession { urlSession in
 }
 ```
 
-| Method | Description |
-| --- | --- |
-| `enabled(Bool)` | Enable / disable (default: `true`) |
-| `setShouldInstrument((URLRequest) -> Bool)` | Filter which requests to instrument. Return `false` to skip a request |
-| `excludeOtlpEndpoints(baseUrl:)` | Exclude `/v1/traces`, `/v1/logs`, `/v1/metrics` paths under the given base URL |
+| Method                                      | Description                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `enabled(Bool)`                             | Enable / disable (default: `true`)                                             |
+| `setShouldInstrument((URLRequest) -> Bool)` | Filter which requests to instrument. Return `false` to skip a request          |
+| `excludeOtlpEndpoints(baseUrl:)`            | Exclude `/v1/traces`, `/v1/logs`, `/v1/metrics` paths under the given base URL |
 
 > For advanced options (payload capture, custom header injection, span customization), see [URLSession Instrumentation README](../Instrumentation/URLSession/README.md).
 
@@ -179,12 +180,12 @@ config.sessions { sessions in
 }
 ```
 
-| Method | Default | Description |
-| --- | --- | --- |
-| `enabled(Bool)` | `true` | Enable / disable |
-| `maxLifetime(TimeInterval?)` | `14400` (4 h) | Maximum session duration regardless of activity. Pass `nil` for no fixed limit |
+| Method                                       | Default        | Description                                                                           |
+| -------------------------------------------- | -------------- | ------------------------------------------------------------------------------------- |
+| `enabled(Bool)`                              | `true`         | Enable / disable                                                                      |
+| `maxLifetime(TimeInterval?)`                 | `14400` (4 h)  | Maximum session duration regardless of activity. Pass `nil` for no fixed limit        |
 | `backgroundInactivityTimeout(TimeInterval?)` | `900` (15 min) | Session expires if the app stays backgrounded longer than this. Pass `nil` to disable |
-| `shouldPersist(Bool)` | `false` | Persist the session ID across cold app launches |
+| `shouldPersist(Bool)`                        | `false`        | Persist the session ID across cold app launches                                       |
 
 > See [Sessions Instrumentation README](../Instrumentation/Sessions/README.md) for emitted events and session ID attributes.
 
@@ -200,9 +201,9 @@ config.crash { crash in
 }
 ```
 
-| Method | Default | Description |
-| --- | --- | --- |
-| `enabled(Bool)` | `true` | Enable / disable |
+| Method          | Default | Description      |
+| --------------- | ------- | ---------------- |
+| `enabled(Bool)` | `true`  | Enable / disable |
 
 > See [Crashes Instrumentation README](../Instrumentation/Crashes/README.md) for emitted attributes and crash types.
 
@@ -218,9 +219,9 @@ config.appLifecycle { appLifecycle in
 }
 ```
 
-| Method | Default | Description |
-| --- | --- | --- |
-| `enabled(Bool)` | `true` | Enable / disable |
+| Method          | Default | Description      |
+| --------------- | ------- | ---------------- |
+| `enabled(Bool)` | `true`  | Enable / disable |
 
 > See [App Lifecycle README](../Instrumentation/AppLifecycle/README.md) for emitted states.
 
@@ -236,9 +237,9 @@ config.screenLifecycle { screenLifecycle in
 }
 ```
 
-| Method | Default | Description |
-| --- | --- | --- |
-| `enabled(Bool)` | `true` | Enable / disable |
+| Method          | Default | Description      |
+| --------------- | ------- | ---------------- |
+| `enabled(Bool)` | `true`  | Enable / disable |
 
 ---
 
@@ -252,9 +253,9 @@ config.appStartup { appStartup in
 }
 ```
 
-| Method | Default | Description |
-| --- | --- | --- |
-| `enabled(Bool)` | `true` | Enable / disable |
+| Method          | Default | Description      |
+| --------------- | ------- | ---------------- |
+| `enabled(Bool)` | `true`  | Enable / disable |
 
 ---
 
@@ -269,9 +270,9 @@ config.interaction { interaction in
 }
 ```
 
-| Method | Default | Description |
-| --- | --- | --- |
-| `enabled(Bool)` | `true` | Enable / disable |
+| Method                       | Default     | Description                           |
+| ---------------------------- | ----------- | ------------------------------------- |
+| `enabled(Bool)`              | `true`      | Enable / disable                      |
 | `setConfigUrl(() -> String)` | SDK default | URL to fetch interaction flow configs |
 
 > See [Interaction README](../Instrumentation/Interaction/README.md) for config payload format and flow tracking details.
@@ -298,19 +299,19 @@ config.uiKitTap { uiKitTap in
 }
 ```
 
-| Method | Default | Description |
-| --- | --- | --- |
-| `enabled(Bool)` | `false` | Enable / disable |
-| `captureContext(Bool)` | `false` | Extract and emit label text from the tapped view. Disable for apps with very large/deep view hierarchies |
-| `rage { }` | see below | Configure rage-click detection sensitivity |
+| Method                 | Default   | Description                                                                                              |
+| ---------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `enabled(Bool)`        | `false`   | Enable / disable                                                                                         |
+| `captureContext(Bool)` | `false`   | Extract and emit label text from the tapped view. Disable for apps with very large/deep view hierarchies |
+| `rage { }`             | see below | Configure rage-click detection sensitivity                                                               |
 
 **`RageConfig` defaults:**
 
-| Property | Default | Description |
-| --- | --- | --- |
-| `timeWindowMs` | `2000` | Sliding window (ms) used to count consecutive taps |
-| `rageThreshold` | `3` | Number of taps in the window that triggers a rage event |
-| `radiusPt` | `50.0` | Radius (points) within which taps count as the same target |
+| Property        | Default | Description                                                |
+| --------------- | ------- | ---------------------------------------------------------- |
+| `timeWindowMs`  | `2000`  | Sliding window (ms) used to count consecutive taps         |
+| `rageThreshold` | `3`     | Number of taps in the window that triggers a rage event    |
+| `radiusPt`      | `50.0`  | Radius (points) within which taps count as the same target |
 
 > Note: Text input field content is never captured. SwiftUI-only screens get best-effort coverage via UIKit's internal view tree. See [UIKit Tap README](../Instrumentation/UIKitTap/README.md).
 
@@ -328,8 +329,8 @@ config.location { location in
 }
 ```
 
-| Method | Default | Description |
-| --- | --- | --- |
+| Method          | Default | Description      |
+| --------------- | ------- | ---------------- |
 | `enabled(Bool)` | `false` | Enable / disable |
 
 Attributes added: `geo.location.lat`, `geo.location.lon`, `geo.country.iso_code`, `geo.region.iso_code`, `geo.locality.name`, `geo.postal_code`.
@@ -360,19 +361,19 @@ config.sessionReplay { replay in
 }
 ```
 
-| `SessionReplayConfig` property | Default | Description |
-| --- | --- | --- |
-| `captureIntervalMs` | `1000` | Milliseconds between screenshot captures |
-| `compressionQuality` | `0.3` | WebP/JPEG quality (0.0 = smallest, 1.0 = lossless) |
-| `textAndInputPrivacy` | `.maskAll` | `.maskAll` · `.maskAllInputs` · `.maskSensitiveInputs` |
-| `imagePrivacy` | `.maskAll` | `.maskAll` · `.maskNone` |
-| `screenshotScale` | `1.0` | Screenshot resolution scale relative to screen scale |
-| `flushIntervalSeconds` | `60` | Time-based flush interval |
-| `flushAt` | `10` | Flush when this many batches accumulate |
-| `maxBatchSize` | `50` | Maximum batches included in a single flush |
-| `replayEndpointBaseUrl` | `nil` | Custom replay endpoint; uses `endpointBaseUrl` when nil |
-| `maskViewClasses` | `[]` | Class names to always mask (by class name string) |
-| `unmaskViewClasses` | `[]` | Class names to always unmask |
+| `SessionReplayConfig` property | Default    | Description                                             |
+| ------------------------------ | ---------- | ------------------------------------------------------- |
+| `captureIntervalMs`            | `1000`     | Milliseconds between screenshot captures                |
+| `compressionQuality`           | `0.3`      | WebP/JPEG quality (0.0 = smallest, 1.0 = lossless)      |
+| `textAndInputPrivacy`          | `.maskAll` | `.maskAll` · `.maskAllInputs` · `.maskSensitiveInputs`  |
+| `imagePrivacy`                 | `.maskAll` | `.maskAll` · `.maskNone`                                |
+| `screenshotScale`              | `1.0`      | Screenshot resolution scale relative to screen scale    |
+| `flushIntervalSeconds`         | `60`       | Time-based flush interval                               |
+| `flushAt`                      | `10`       | Flush when this many batches accumulate                 |
+| `maxBatchSize`                 | `50`       | Maximum batches included in a single flush              |
+| `replayEndpointBaseUrl`        | `nil`      | Custom replay endpoint; uses `endpointBaseUrl` when nil |
+| `maskViewClasses`              | `[]`       | Class names to always mask (by class name string)       |
+| `unmaskViewClasses`            | `[]`       | Class names to always unmask                            |
 
 > UIKit-first. SwiftUI is not reliably supported. See [Session Replay README](../Instrumentation/SessionReplay/README.md).
 
@@ -395,11 +396,11 @@ Pulse.shared.trackEvent(
 )
 ```
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `name` | `String` | Event name |
-| `observedTimeStampInMs` | `Int64` | Epoch milliseconds |
-| `params` | `[String: Any?]` | Optional attributes |
+| Parameter               | Type             | Description         |
+| ----------------------- | ---------------- | ------------------- |
+| `name`                  | `String`         | Event name          |
+| `observedTimeStampInMs` | `Int64`          | Epoch milliseconds  |
+| `params`                | `[String: Any?]` | Optional attributes |
 
 ---
 
@@ -433,11 +434,11 @@ do {
 }
 ```
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `name` / `error` | `String` / `Error` | Error identifier or Swift error |
-| `observedTimeStampInMs` | `Int64` | Epoch milliseconds |
-| `params` | `[String: Any?]` | Optional attributes |
+| Parameter               | Type               | Description                     |
+| ----------------------- | ------------------ | ------------------------------- |
+| `name` / `error`        | `String` / `Error` | Error identifier or Swift error |
+| `observedTimeStampInMs` | `Int64`            | Epoch milliseconds              |
+| `params`                | `[String: Any?]`   | Optional attributes             |
 
 ---
 
@@ -489,6 +490,7 @@ try performUpload()
 Permanently shuts down the SDK. All subsequent API calls become no-ops. Cannot be re-initialized in the same process.
 
 **What it does:**
+
 - Uninstalls all instrumentations
 - Disables view-controller swizzling
 - Flushes and shuts down span / log processors
