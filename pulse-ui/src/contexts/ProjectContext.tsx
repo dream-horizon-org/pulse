@@ -148,6 +148,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // Invalidate all project-related queries to ensure fresh data
         queryClient.invalidateQueries({ queryKey: ["project"] });
 
+        // Invalidate SDK config caches so consumers get fresh data for this project
+        queryClient.invalidateQueries({
+          queryKey: [API_ROUTES.GET_ACTIVE_SDK_CONFIG.key],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [API_ROUTES.GET_ALL_SDK_CONFIGS.key],
+        });
+
         // Determine what route we're currently on and where we should go
         const currentPath = location.pathname;
         const exactDashboardRoute = `/projects/${targetProjectId}`;

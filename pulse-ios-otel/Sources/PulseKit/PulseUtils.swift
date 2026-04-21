@@ -19,11 +19,12 @@ internal class PulseUtils {
     /// Uses window bounds in points to match click viewport width/height semantics.
     static func currentViewportAspectRatio() -> String? {
         #if os(iOS) || os(tvOS)
-        var aspectRatio: String?
-        DispatchQueue.main.async {
-            aspectRatio = currentViewportAspectRatioOnMainThread()
+        if Thread.isMainThread {
+            return currentViewportAspectRatioOnMainThread()
         }
-        return aspectRatio
+        return DispatchQueue.main.sync {
+            currentViewportAspectRatioOnMainThread()
+        }
         #else
         return nil
         #endif
@@ -42,10 +43,13 @@ internal class PulseUtils {
 
         let width = Int(window.bounds.width)
         let height = Int(window.bounds.height)
-        guard width > 0, height > 0 else { return nil }
+        guard width > 0, height > 0 else {
+            return nil
+        }
 
         let divisor = gcd(width, height)
-        return "\(width / divisor):\(height / divisor)"
+        let aspectRatio = "\(width / divisor):\(height / divisor)"
+        return aspectRatio
     }
     #endif
 

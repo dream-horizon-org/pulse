@@ -12,10 +12,9 @@ public object PulseSdkConfigFakeUtils {
         collectorUrl: String = "https://example.com/",
         configUrl: String = "https://example.com/configs/active",
         beforeInitQueueSize: Int = 100,
-        filterMode: PulseSignalFilterMode = PulseSignalFilterMode.WHITELIST,
-        signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
         attributesToDrop: List<PulseAttributesToDropEntry> = emptyList(),
         attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+        metricsToAdd: List<PulseMetricsToAddEntry> = emptyList(),
         features: List<PulseFeatureConfig> = emptyList(),
         sampling: PulseSamplingConfig =
             PulseSamplingConfig(
@@ -39,11 +38,7 @@ public object PulseSdkConfigFakeUtils {
                     customEventCollectorUrl = collectorUrl + "v1/custom-events",
                     attributesToDrop = attributesToDrop,
                     attributesToAdd = attributesToAdd,
-                    filters =
-                        PulseSignalFilter(
-                            mode = filterMode,
-                            values = signalFilters,
-                        ),
+                    metricsToAdd = metricsToAdd,
                 ),
             interaction =
                 PulseInteractionConfig(
@@ -57,14 +52,14 @@ public object PulseSdkConfigFakeUtils {
     public fun createFakeSamplingConfig(
         default: PulseDefaultSamplingConfig = createFakeDefaultSamplingConfig(),
         rules: List<PulseSessionSamplingRule> = emptyList(),
-        criticalEventPolicies: PulseCriticalEventPolicies? = null,
         criticalSessionPolicies: PulseCriticalEventPolicies? = null,
+        signalsToSample: List<PulseSignalsToSampleEntry> = emptyList(),
     ): PulseSamplingConfig =
         PulseSamplingConfig(
             default = default,
             rules = rules,
-            criticalEventPolicies = criticalEventPolicies,
             criticalSessionPolicies = criticalSessionPolicies,
+            signalsToSample = signalsToSample,
         )
 
     public fun createFakeDefaultSamplingConfig(sessionSampleRate: SamplingRate = 1.0f): PulseDefaultSamplingConfig =
@@ -155,4 +150,57 @@ public object PulseSdkConfigFakeUtils {
         PulseCriticalEventPolicies(
             alwaysSend = alwaysSend,
         )
+
+    public fun createFakeSignalsToSampleEntry(
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        sampleRate: SamplingRate = 1.0f,
+    ): PulseSignalsToSampleEntry =
+        PulseSignalsToSampleEntry(
+            condition = condition,
+            sampleRate = sampleRate,
+        )
+
+    public fun createFakeMetricsToAddEntry(
+        name: String = "fake_metric",
+        target: PulseMetricsToAddTarget = PulseMetricsToAddTarget.Name(type = "name"),
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        type: PulseMetricsType = createFakeCounter(),
+        attributesToPick: Collection<PulseSignalMatchCondition> = emptySet(),
+    ): PulseMetricsToAddEntry =
+        PulseMetricsToAddEntry(
+            name = name,
+            target = target,
+            condition = condition,
+            type = type,
+            attributesToPick = attributesToPick,
+        )
+
+    public fun createFakeCounter(): PulseMetricsType.Counter =
+        PulseMetricsType.Counter(
+            type = "counter",
+        )
+
+    public fun createFakeGauge(isFraction: Boolean = false): PulseMetricsType.Gauge =
+        PulseMetricsType.Gauge(type = "gauge", isFraction = isFraction)
+
+    public fun createFakeHistogram(
+        bucket: List<Double>? = null,
+        isFraction: Boolean = false,
+    ): PulseMetricsType.Histogram =
+        PulseMetricsType.Histogram(
+            type = "histogram",
+            bucket = bucket,
+            isFraction = isFraction,
+        )
+
+    public fun createFakeSum(
+        isFraction: Boolean = false,
+        isMonotonic: Boolean = false,
+    ): PulseMetricsType.Sum = PulseMetricsType.Sum(type = "sum", isFraction = isFraction, isMonotonic = isMonotonic)
+
+    public fun createFakeMetricsToAddTargetAttribute(
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        shouldAddPropNameAsSuffix: Boolean = false,
+    ): PulseMetricsToAddTarget.Attribute =
+        PulseMetricsToAddTarget.Attribute(type = "attribute", condition = condition, shouldAddPropNameAsSuffix = shouldAddPropNameAsSuffix)
 }

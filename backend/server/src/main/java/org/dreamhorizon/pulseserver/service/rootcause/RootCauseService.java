@@ -29,7 +29,7 @@ import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMo
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))

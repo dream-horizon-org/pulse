@@ -5,7 +5,6 @@ import com.pulse.sampling.core.PulseSignalsAttrMatcher
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
-import com.pulse.utils.toMap
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
@@ -26,8 +25,7 @@ public class PulseSignalSelectExporter internal constructor(
                 signals = spans,
                 map = spanMapReversed,
                 signalScope = PulseSignalScope.TRACES,
-                getName = { it.name },
-                getProps = { it.attributes.toMap() },
+                signalValuesProvider = SpanData::toSignalValues,
                 exportBatch = { exporter, batch -> exporter.export(batch) },
             )
 
@@ -56,8 +54,7 @@ public class PulseSignalSelectExporter internal constructor(
                 signals = logs,
                 map = logMapReversed,
                 signalScope = PulseSignalScope.LOGS,
-                getName = { it.bodyValue?.asString().orEmpty() },
-                getProps = { it.attributes.toMap() },
+                signalValuesProvider = LogRecordData::toSignalValues,
                 exportBatch = { exporter, batch -> exporter.export(batch) },
             )
 
@@ -86,15 +83,13 @@ public class PulseSignalSelectExporter internal constructor(
         signals: Collection<T>,
         map: List<Pair<PulseSignalMatchCondition, E>>,
         signalScope: PulseSignalScope,
-        getName: (T) -> String,
-        getProps: (T) -> Map<String, Any?>,
+        signalValuesProvider: T.() -> SignalMatchValues,
         exportBatch: (E, Collection<T>) -> CompletableResultCode,
     ): CompletableResultCode {
         val signalsByExporter =
             signals
                 .mapNotNull { signal ->
-                    val signalName = getName(signal)
-                    val signalPropsMap = getProps(signal)
+                    val (signalName, signalPropsMap) = signal.signalValuesProvider()
 
                     val matchingExporter =
                         map

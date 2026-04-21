@@ -75,6 +75,7 @@ public class io/opentelemetry/android/config/OtelRumConfig {
 	public fun disableNetworkAttributes ()Lio/opentelemetry/android/config/OtelRumConfig;
 	public fun disableScreenAttributes ()Lio/opentelemetry/android/config/OtelRumConfig;
 	public fun disableSdkInitializationEvents ()Lio/opentelemetry/android/config/OtelRumConfig;
+	public fun enableNetworkAttributes ()Lio/opentelemetry/android/config/OtelRumConfig;
 	public fun getDiskBufferingConfig ()Lio/opentelemetry/android/features/diskbuffering/DiskBufferingConfig;
 	public fun getGlobalAttributesSupplier ()Ljava/util/function/Supplier;
 	public fun hasGlobalAttributes ()Z
