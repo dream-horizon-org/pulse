@@ -201,7 +201,6 @@ export const useHandleSend = () => {
       activeSessionId,
       sessions,
       addMessage,
-      appendToLastMessage,
       flushPendingVisuals,
       markLastMessageComplete,
       markLastMessageError,
