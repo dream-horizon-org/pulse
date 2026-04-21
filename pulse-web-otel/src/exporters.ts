@@ -17,8 +17,9 @@ import {
   MeterProvider,
   PeriodicExportingMetricReader,
 } from "@opentelemetry/sdk-metrics";
+import type { Meter } from "@opentelemetry/api";
 import type { Resource } from "@opentelemetry/resources";
-import type { SpanProcessor } from "@opentelemetry/sdk-trace-web";
+import type { SpanExporter, SpanProcessor } from "@opentelemetry/sdk-trace-web";
 import type {
   LogRecordProcessor,
   LogRecordExporter,
@@ -45,6 +46,8 @@ import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lif
 import { DEFAULT_BATCH_OPTIONS } from "./constants/exporters";
 import type { ExportSamplingGate } from "./sampling/export-sampling-gate";
 import {
+  MetricsToAddLogRecordExporter,
+  MetricsToAddSpanExporter,
   SampledLogRecordExporter,
   SampledPushMetricExporter,
   SampledSpanExporter,
@@ -214,9 +217,18 @@ export function createProviders(
       signalKind: "trace",
     },
   );
-  const traceExporter = config.samplingGate
+  let traceExporter: SpanExporter = config.samplingGate
     ? new SampledSpanExporter(innerTraceExporter, config.samplingGate)
     : innerTraceExporter;
+  const metricsEntries = config.metricsToAdd ?? [];
+  let meterForDerivedMetrics: Meter | undefined;
+  if (metricsEntries.length > 0 && config.metricsToAddSdkName) {
+    traceExporter = new MetricsToAddSpanExporter(traceExporter, {
+      entries: metricsEntries,
+      sdkName: config.metricsToAddSdkName,
+      getMeter: () => meterForDerivedMetrics!,
+    });
+  }
   const batchSpanProcessor = new BatchSpanProcessor(
     traceExporter,
     batchOptions,
@@ -238,22 +250,33 @@ export function createProviders(
     },
   );
 
-  const sampledBaseLog =
-    config.samplingGate !== undefined
-      ? new SampledLogRecordExporter(baseLogExporter, config.samplingGate)
-      : baseLogExporter;
-
+  let logInnerChain: LogRecordExporter = baseLogExporter;
+  if (config.samplingGate !== undefined) {
+    logInnerChain = new SampledLogRecordExporter(
+      logInnerChain,
+      config.samplingGate,
+    );
+  }
   const keepaliveFetchLogExporter = new KeepaliveFetchLogExporter(
-    sampledBaseLog,
+    logInnerChain,
     logsUrl,
     headers,
     config.samplingGate,
   );
+  /** Metrics run outside keepalive so pagehide batches still increment derived metrics first. */
+  let logExporterHead: LogRecordExporter = keepaliveFetchLogExporter;
+  if (metricsEntries.length > 0 && config.metricsToAddSdkName) {
+    logExporterHead = new MetricsToAddLogRecordExporter(logExporterHead, {
+      entries: metricsEntries,
+      sdkName: config.metricsToAddSdkName,
+      getMeter: () => meterForDerivedMetrics!,
+    });
+  }
 
   const logExporter =
     config.debugLogRecordLifecycle === true
-      ? wrapLogExporterLifecycleDebug(keepaliveFetchLogExporter)
-      : keepaliveFetchLogExporter;
+      ? wrapLogExporterLifecycleDebug(logExporterHead)
+      : logExporterHead;
 
   const batchLogProcessor = new BatchLogRecordProcessor(
     logExporter,
@@ -306,6 +329,13 @@ export function createProviders(
     resource,
     readers: [metricReader],
   });
+
+  if (metricsEntries.length > 0) {
+    meterForDerivedMetrics = meterProvider.getMeter(
+      "pulse.web.metrics_derived",
+      "1.0.0",
+    );
+  }
 
   if (typeof window !== "undefined") {
     const pagehideHandler = (e: PageTransitionEvent) => {

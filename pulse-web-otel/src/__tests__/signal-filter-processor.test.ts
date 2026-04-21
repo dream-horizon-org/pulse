@@ -30,6 +30,7 @@ describe("SignalFilterProcessor", () => {
       ],
       attributesToAdd: [],
       filters: { mode: "BLACKLIST", values: [] },
+      metricsToAdd: [],
     };
 
     const proc = new SignalFilterProcessor(signalConfig);
@@ -61,6 +62,7 @@ describe("SignalFilterProcessor", () => {
       ],
       attributesToAdd: [],
       filters: { mode: "BLACKLIST", values: [] },
+      metricsToAdd: [],
     };
     new SignalFilterProcessor(signalConfig).onStart(span, context.active());
     expect(attrs["screen.name"]).toBeUndefined();
@@ -86,6 +88,7 @@ describe("SignalFilterProcessor", () => {
       ],
       attributesToAdd: [],
       filters: { mode: "BLACKLIST", values: [] },
+      metricsToAdd: [],
     };
     new SignalFilterProcessor(signalConfig).onStart(span, context.active());
     expect(attrs["screen.name"]).toBe("/home");
@@ -116,6 +119,7 @@ describe("SignalFilterProcessor", () => {
       ],
       attributesToAdd: [],
       filters: { mode: "BLACKLIST", values: [] },
+      metricsToAdd: [],
     };
 
     new SignalFilterProcessor(signalConfig).onEmit(logRecord);
@@ -139,6 +143,7 @@ describe("SignalFilterProcessor", () => {
         },
       ],
       filters: { mode: "BLACKLIST", values: [] },
+      metricsToAdd: [],
     };
     const proc = new SignalFilterProcessor(signalConfig);
 

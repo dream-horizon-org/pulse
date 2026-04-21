@@ -47,7 +47,10 @@ pulse-web-otel/
 │   │   └── indexed-db.ts             # IndexedDB signal buffer (drain on init)
 │   ├── sampling/                     # Export-time session sampling (Android parity)
 │   │   ├── export-sampling-gate.ts   # ExportSamplingGate orchestration
-│   │   └── sampling-exporters.ts    # Sampled span/log/metric exporter wrappers
+│   │   ├── sampling-exporters.ts     # Sampled + MetricsToAdd span/log wrappers (export order)
+│   │   ├── metrics-to-add-recorder.ts
+│   │   ├── metrics-to-add-apply.ts
+│   │   └── sanitize-instrumentation-name.ts
 │   ├── types/sampling.ts             # PulseSignalScope
 │   ├── utils/sampling-signal-match.ts # pulseSignalConditionMatches (Android matcher)
 │   ├── utils/session-sampling-rate.ts # resolveSessionSamplingRate, log body, critical list
@@ -137,7 +140,7 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 | Verification queries (ClickHouse SQL) | `web-sdk-plan/v1/MILESTONES.md` — inside each milestone's testing scope |
 | Foundation detail | `web-sdk-plan/v1/01-foundation/index.md` |
 | Instrumentation specs | `web-sdk-plan/v1/02-instrumentations/<signal>.md` |
-| Interactions spec | `web-sdk-plan/v1/03-interactions/` |
+| Interactions spec | `web-sdk-plan/v1/03-interactions/` · M2 parity plan: `v1/03-interactions/IMPLEMENTATION-PLAN-M2-ANDROID-PARITY.md` |
 | Framework integrations | `web-sdk-plan/v1/04-frameworks/` |
 | Build / distribution | `web-sdk-plan/v1/05-build-distribution/` |
 | V2 features | `web-sdk-plan/v2/` |

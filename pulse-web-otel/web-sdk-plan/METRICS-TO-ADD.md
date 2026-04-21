@@ -58,7 +58,7 @@ So in practice, `metricsToAdd` is usually:
 
 4. Then **`attributesToDrop`** and **session / `signalsToSample`** filtering run; then spans/logs are exported.
 
-**Web SDK (`pulse-web-otel`):** does **not** yet read `metricsToAdd` or run this path — see **`METRICS-TO-ADD-WEB-PLAN.md`** for a proposed implementation plan.
+**Web SDK (`pulse-web-otel`):** reads merged `signals.metricsToAdd`, records via the shared `MeterProvider` on trace/log export batches **before** the export sampling gate (see `MetricsToAddSpanExporter` / `MetricsToAddLogRecordExporter` in `sampling-exporters.ts`). UI editor for the JSON field is still optional.
 
 ---
 

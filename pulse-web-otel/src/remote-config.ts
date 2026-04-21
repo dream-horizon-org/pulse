@@ -5,6 +5,8 @@
 import type {
   PulseAttributesToAddEntry,
   PulseAttributesToDropEntry,
+  PulseMetricsToAddEntry,
+  PulseMetricsToAddTarget,
   PulseSdkConfig,
   PulseSignalMatchCondition,
   PulseSignalsToSampleEntry,
@@ -20,12 +22,26 @@ export type {
   PulseSdkConfig,
   PulseSdkName,
   PulseSessionSamplingRule,
+  PulseMetricsToAddEntry,
+  PulseMetricsToAddTarget,
+  PulseMetricsType,
   PulseSignalConfig,
   PulseSignalFilter,
   PulseSignalMatchCondition,
 } from "./types/remote-config";
 
 const SDK_CONFIG_CACHE_KEY = "pulse_sdk_config";
+
+function normalizeMatchProp(p: {
+  key?: string;
+  name?: string;
+  value?: string | null;
+}): { key: string; value: string } {
+  return {
+    key: p.key ?? p.name ?? "",
+    value: p.value ?? "",
+  };
+}
 
 /** Dashboard / server JSON often uses lowercase scopes; OTEL matcher expects Android enums. */
 export function normalizeSignalMatchCondition(
@@ -37,11 +53,54 @@ export function normalizeSignalMatchCondition(
       (u): u is "LOGS" | "TRACES" | "METRICS" =>
         u === "LOGS" || u === "TRACES" || u === "METRICS",
     );
+  const rawProps = (c.props ?? []) as Array<{
+    key?: string;
+    name?: string;
+    value?: string | null;
+  }>;
   return {
     ...c,
-    props: c.props ?? [],
+    props: rawProps.map(normalizeMatchProp),
     scopes,
   };
+}
+
+function normalizePulseMetricsToAddTarget(
+  t: PulseMetricsToAddTarget,
+): PulseMetricsToAddTarget {
+  if (t.type === "attribute") {
+    return {
+      ...t,
+      condition: normalizeSignalMatchCondition(t.condition),
+    };
+  }
+  return t;
+}
+
+function normalizeMetricsToAddEntry(
+  e: PulseMetricsToAddEntry,
+): PulseMetricsToAddEntry {
+  return {
+    ...e,
+    condition: normalizeSignalMatchCondition(
+      e.condition ?? {
+        name: ".*",
+        props: [],
+        scopes: [],
+        sdks: [],
+      },
+    ),
+    target: normalizePulseMetricsToAddTarget(e.target),
+    attributesToPick: (e.attributesToPick ?? []).map(
+      normalizeSignalMatchCondition,
+    ),
+  };
+}
+
+function normalizeMetricsToAdd(
+  entries: PulseMetricsToAddEntry[] | undefined,
+): PulseMetricsToAddEntry[] {
+  return (entries ?? []).map(normalizeMetricsToAddEntry);
 }
 
 function normalizeAttributesToDrop(
@@ -116,6 +175,7 @@ export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
         ...filtersMerged,
         values: (filtersMerged.values ?? []).map(normalizeSignalMatchCondition),
       },
+      metricsToAdd: normalizeMetricsToAdd(signalsIn.metricsToAdd),
     },
     interaction: raw.interaction ?? DEFAULT_SDK_CONFIG.interaction,
     features: raw.features ?? [],
@@ -146,6 +206,7 @@ export const DEFAULT_SDK_CONFIG: PulseSdkConfig = {
     attributesToDrop: [],
     attributesToAdd: [],
     filters: { mode: "BLACKLIST", values: [] },
+    metricsToAdd: [],
   },
   interaction: { beforeInitQueueSize: 5000 },
   features: [],

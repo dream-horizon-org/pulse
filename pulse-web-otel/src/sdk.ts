@@ -190,6 +190,8 @@ class PulseWebSDK implements SdkContext {
       getMetricGlobalAttrs: () =>
         this.globalAttrsProcessor.getCommonAttrsForMetrics(),
       samplingGate,
+      metricsToAdd: sdkConfig.signals.metricsToAdd,
+      metricsToAddSdkName: "pulse_web_js" as const,
       ...(diskEnabled
         ? { diskBuffer: { enabled: true, buffer: idbBuffer } }
         : {}),

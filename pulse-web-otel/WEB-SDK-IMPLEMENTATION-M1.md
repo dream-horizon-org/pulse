@@ -1,7 +1,7 @@
 # Pulse Web SDK — M1 Implementation
 
 Package: `@dreamhorizon/pulse-web`  
-Status: **M1 foundation shipped in tree — 162 Vitest tests (`src/__tests__/*.test.ts`) + 63 Playwright tests (`examples/ecommerce-demo/e2e/m1.spec.ts`; run with `--project=chromium` as needed)**
+Status: **M1 foundation shipped in tree — 166 Vitest tests (`src/__tests__/*.test.ts`) + 63 Playwright tests (`examples/ecommerce-demo/e2e/m1.spec.ts`; run with `--project=chromium` as needed)**
 
 This document is the **living record of what the code does today**, how it was tested, and **gaps vs** `web-sdk-plan/v1/MILESTONES.md` / `WEB-SDK-AGENT-CONTEXT.md`. It is updated alongside implementation (last reviewed from codebase + internal code review pass).
 
@@ -306,7 +306,7 @@ Remote config `features[]` array controls per-signal enable/disable by `featureN
 
 ## What Has Been Tested
 
-### Unit tests (`src/__tests__/`) — **162** tests (`m1.test.ts`, `integration-simplified-init.test.ts`, `export-sampling-gate.test.ts`, `merge-pulse-sdk-config.test.ts`, `sampling-signal-match.test.ts`, `session-sampling-rate.test.ts`, `signal-filter-processor.test.ts`)
+### Unit tests (`src/__tests__/`) — **166** tests (`m1.test.ts`, `integration-simplified-init.test.ts`, `export-sampling-gate.test.ts`, `merge-pulse-sdk-config.test.ts`, `metrics-to-add.test.ts`, `sampling-signal-match.test.ts`, `session-sampling-rate.test.ts`, `signal-filter-processor.test.ts`)
 
 Suites include (non-exhaustive): **Installation ID**, **Session Provider**, **Config validation**, **Resource builder**, **SDK singleton / consent**, **SdkConfigFetcher**, **mergePulseSdkConfig** / critical-policy normalization, **FeatureGate**, **ExportSamplingGate** (session rate 0, critical bypass, `signalsToSample`), **`sessionRuleMatchesWeb` / `resolveSessionSamplingRate`** (platform = `web`, UNKNOWN), **`pulseSignalConditionMatches`** (invalid-regex fallback), **GlobalAttributesProcessor**, **SessionInstrumentation**, **SDK public API**, **SignalFilterProcessor**, and more.
 

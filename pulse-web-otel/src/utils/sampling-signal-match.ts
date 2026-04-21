@@ -71,6 +71,29 @@ function propConfigMatchesSignalAttr(
   return matchesRegex(signalValue, propValuePattern);
 }
 
+/** `metricsToAdd` attribute target: any config prop matches this signal attribute (regex). */
+export function pulseTargetPropMatchesConfig(
+  propKeyPattern: string,
+  propValuePattern: string | undefined,
+  signalAttrKey: string,
+  signalAttrValue: string,
+): boolean {
+  return propConfigMatchesSignalAttr(
+    propKeyPattern,
+    propValuePattern,
+    signalAttrKey,
+    signalAttrValue,
+  );
+}
+
+/** `attributesToPick`: attribute key must match one of these patterns (Android `buildAttributesFromPick`). */
+export function pulsePickAttrKeyMatches(
+  attrKey: string,
+  pattern: string,
+): boolean {
+  return matchesRegex(attrKey, pattern);
+}
+
 /**
  * Same contract as Android {@code PulseSignalsAttrMatcher}:
  * sdks, scopes, name regex on signal name, and every condition prop must be

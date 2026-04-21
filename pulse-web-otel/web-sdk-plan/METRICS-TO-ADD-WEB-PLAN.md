@@ -70,3 +70,4 @@
 | Date | Change |
 |------|--------|
 | 2026-04 | Initial plan after `chore/web-sdk` merge; Web export sampling retained, `PulseSamplingProcessor` not reintroduced (export gate is canonical for session sampling). |
+| 2026-04 | Phases 0–3 implemented: types + merge, `metrics-to-add-recorder.ts`, export decorators, log chain order `MetricsToAdd` outside keepalive for pagehide parity. |
