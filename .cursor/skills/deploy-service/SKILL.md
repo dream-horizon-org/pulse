@@ -44,6 +44,10 @@ cd deploy
 ./scripts/logs.sh ai             # pulse-ai-agent
 ```
 
+## Heatmap screenshot ingestion
+
+**Service:** `pulse-heatmap-screenshot-ingestion` (Kafka → S3). Objects go to **`HEATMAP_S3_BUCKET`** (default `heatmap-assets`), prefix `heatmap-screenshots/`. **`pulse-server`** lists via **`HEATMAP_S3_ENDPOINT`** (e.g. `http://minio:9000`); for **presigned** URLs the browser needs a resolvable host — set **`HEATMAP_S3_PRESIGN_ENDPOINT=http://localhost:9100`** locally (MinIO is on host **9100**; **9000** on the host is ClickHouse). Omit **`HEATMAP_S3_PRESIGN_ENDPOINT`** in AWS if the default S3 hostname is fine. **Redis** is not started by deploy compose: set `REDIS_URL` or `REDIS_HOST` + `REDIS_PORT` for quota/dedupe. See `deploy/.env.example`.
+
 ## Pulse AI
 
 **Integrated (deploy stack):** `pulse-ai-agent` starts with `./scripts/start.sh -d`. Set `GOOGLE_API_KEY` in

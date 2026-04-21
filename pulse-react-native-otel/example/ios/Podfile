@@ -14,10 +14,20 @@ linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
+else
+  Pod::UI.puts "Configuring Pod with dynamically linked Frameworks".green
+  use_frameworks!
 end
 
 target 'PulseReactNativeOtelExample' do
   config = use_native_modules!
+
+  # Monorepo (and CI): sibling `pulse-ios-otel` next to `pulse-react-native-otel`. Otherwise CocoaPods
+  # resolves PulseKit from PulseReactNativeOtel.podspec (published tag).
+  pulsekit_sdk_root = File.expand_path('../../../pulse-ios-otel', __dir__)
+  if File.exist?(File.join(pulsekit_sdk_root, 'PulseKit.podspec'))
+    pod 'PulseKit', :path => pulsekit_sdk_root
+  end
 
   use_react_native!(
     :path => config[:reactNativePath],

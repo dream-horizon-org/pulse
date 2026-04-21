@@ -7,6 +7,7 @@ import com.pulse.android.core.InteractionManager
 import com.pulse.android.core.InteractionRunningStatus
 import com.pulse.android.core.config.InteractionConfigFetcher
 import com.pulse.android.core.config.InteractionConfigRestFetcher
+import com.pulse.android.core.errorMessage
 import com.pulse.android.core.events
 import com.pulse.android.core.getTimeSpanInNanos
 import com.pulse.android.core.isErrored
@@ -145,7 +146,7 @@ class InteractionInstrumentation :
                 interaction.events addAsSpanEventsTo span
                 interaction.markerEvents addAsSpanEventsTo span
                 if (interaction.isErrored) {
-                    span.setStatus(StatusCode.ERROR)
+                    span.setStatus(StatusCode.ERROR, interaction.errorMessage ?: "Interaction error")
                 }
                 span.end(timeSpanInNano.second, TimeUnit.NANOSECONDS)
             }

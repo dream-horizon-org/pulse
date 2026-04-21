@@ -2,7 +2,7 @@ Audit `.cursor/` configuration files against the codebase source-of-truth files 
 
 1. Read the following source-of-truth files:
    - `deploy/docker-compose.yml` — services, ports, health checks, dependencies
-   - `backend/ingestion/clickhouse-otel-schema.sql` — table schemas, materialized columns
+   - `backend/ingestion/clickhouse-otel-schema.sql` — table schemas, materialized columns, heatmap aggregates (`interaction_heatmaps_daily`)
    - `deploy/.env.example` — environment variable names
    - `deploy/scripts/build.sh` — accepted build targets
    - `deploy/scripts/start.sh` — accepted start targets
