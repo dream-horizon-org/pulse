@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelEventsResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelFilterKeysResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelFilterValuesResponse;
@@ -30,6 +31,7 @@ public class FunnelEventsController {
    * {@code FilterKey = 'EVENT'}).
    */
   @GET
+  @RequiresPermission("can_view")
   @Path("/events")
   public CompletionStage<Response<FunnelEventsResponse>> listEventNames(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required")
@@ -42,6 +44,7 @@ public class FunnelEventsController {
    * all distinct {@code FilterKey} values excluding {@code EVENT}).
    */
   @GET
+  @RequiresPermission("can_view")
   @Path("/filters")
   public CompletionStage<Response<FunnelFilterKeysResponse>> listFilterKeys(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required")
@@ -54,6 +57,7 @@ public class FunnelEventsController {
    * {@code FilterValue} where {@code FilterKey} matches the path).
    */
   @GET
+  @RequiresPermission("can_view")
   @Path("/filters/{filterKey}/values")
   public CompletionStage<Response<FunnelFilterValuesResponse>> listFilterValues(
     @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required")
