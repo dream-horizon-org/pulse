@@ -40,12 +40,6 @@ export function wrapLogExporterLifecycleDebug(
       });
       inner.export(logs, resultCallback);
     },
-    forceFlush(): Promise<void> {
-      const withFlush = inner as LogRecordExporter & {
-        forceFlush?: () => Promise<void>;
-      };
-      return withFlush.forceFlush?.() ?? Promise.resolve();
-    },
     shutdown(): Promise<void> {
       return inner.shutdown();
     },

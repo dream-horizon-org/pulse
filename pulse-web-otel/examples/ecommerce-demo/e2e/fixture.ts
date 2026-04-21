@@ -12,8 +12,8 @@
  *
  * The `waitFor*` helpers poll `captured` on a 100ms interval — no external server needed.
  */
-import { test as base, expect, type Route } from '@playwright/test';
-import { gunzipSync } from 'zlib';
+import { test as base, expect, type Route } from "@playwright/test";
+import { gunzipSync } from "zlib";
 
 // ─── OTLP JSON types (minimal — add fields as needed) ────────────────────────
 
@@ -53,43 +53,58 @@ export interface OtlpDataPoint {
   timeUnixNano?: string;
 }
 
-type LogsBody    = { resourceLogs:    ResourceLogs[] };
-type TracesBody  = { resourceSpans:   ResourceSpans[] };
+type LogsBody = { resourceLogs: ResourceLogs[] };
+type TracesBody = { resourceSpans: ResourceSpans[] };
 type MetricsBody = { resourceMetrics: ResourceMetrics[] };
 
-interface ResourceLogs    { resource?: { attributes: OtlpAttr[] }; scopeLogs:    { logRecords: OtlpLogRecord[] }[] }
-interface ResourceSpans   { resource?: { attributes: OtlpAttr[] }; scopeSpans:   { spans: OtlpSpan[] }[] }
-interface ResourceMetrics { resource?: { attributes: OtlpAttr[] }; scopeMetrics: { metrics: OtlpMetric[] }[] }
+interface ResourceLogs {
+  resource?: { attributes: OtlpAttr[] };
+  scopeLogs: { logRecords: OtlpLogRecord[] }[];
+}
+interface ResourceSpans {
+  resource?: { attributes: OtlpAttr[] };
+  scopeSpans: { spans: OtlpSpan[] }[];
+}
+interface ResourceMetrics {
+  resource?: { attributes: OtlpAttr[] };
+  scopeMetrics: { metrics: OtlpMetric[] }[];
+}
 interface OtlpMetric {
   name: string;
   gauge?: { dataPoints: OtlpDataPoint[] };
-  sum?:   { dataPoints: OtlpDataPoint[] };
+  sum?: { dataPoints: OtlpDataPoint[] };
 }
 
 export type CapturedRequest =
-  | { type: 'logs';    body: LogsBody }
-  | { type: 'traces';  body: TracesBody }
-  | { type: 'metrics'; body: MetricsBody };
+  | { type: "logs"; body: LogsBody }
+  | { type: "traces"; body: TracesBody }
+  | { type: "metrics"; body: MetricsBody };
 
 // ─── Attribute helpers ────────────────────────────────────────────────────────
 
 /** Read a scalar attribute value by key. Returns undefined if not found. */
-export function getAttr(attrs: OtlpAttr[] | undefined, key: string): string | number | boolean | undefined {
-  const a = (attrs ?? []).find(a => a.key === key);
+export function getAttr(
+  attrs: OtlpAttr[] | undefined,
+  key: string,
+): string | number | boolean | undefined {
+  const a = (attrs ?? []).find((a) => a.key === key);
   if (!a) return undefined;
   const v = a.value;
   return v.stringValue ?? v.intValue ?? v.doubleValue ?? v.boolValue;
 }
 
 /** Find all logs matching a pulse.type value. */
-export function findAllLogs(captured: CapturedRequest[], pulseType: string): OtlpLogRecord[] {
+export function findAllLogs(
+  captured: CapturedRequest[],
+  pulseType: string,
+): OtlpLogRecord[] {
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
-    if (c.type !== 'logs') continue;
+    if (c.type !== "logs") continue;
     for (const rl of c.body.resourceLogs) {
       for (const sl of rl.scopeLogs) {
         for (const lr of sl.logRecords) {
-          if (getAttr(lr.attributes, 'pulse.type') === pulseType) out.push(lr);
+          if (getAttr(lr.attributes, "pulse.type") === pulseType) out.push(lr);
         }
       }
     }
@@ -98,14 +113,17 @@ export function findAllLogs(captured: CapturedRequest[], pulseType: string): Otl
 }
 
 /** Find all spans matching a pulse.type value (for SDK-defined signal types). */
-export function findAllSpans(captured: CapturedRequest[], pulseType: string): OtlpSpan[] {
+export function findAllSpans(
+  captured: CapturedRequest[],
+  pulseType: string,
+): OtlpSpan[] {
   const out: OtlpSpan[] = [];
   for (const c of captured) {
-    if (c.type !== 'traces') continue;
+    if (c.type !== "traces") continue;
     for (const rs of c.body.resourceSpans) {
       for (const ss of rs.scopeSpans) {
         for (const sp of ss.spans) {
-          if (getAttr(sp.attributes, 'pulse.type') === pulseType) out.push(sp);
+          if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
         }
       }
     }
@@ -114,10 +132,13 @@ export function findAllSpans(captured: CapturedRequest[], pulseType: string): Ot
 }
 
 /** Find all spans matching a span name (for trackEvent / custom spans that have no pulse.type). */
-export function findAllSpansByName(captured: CapturedRequest[], spanName: string): OtlpSpan[] {
+export function findAllSpansByName(
+  captured: CapturedRequest[],
+  spanName: string,
+): OtlpSpan[] {
   const out: OtlpSpan[] = [];
   for (const c of captured) {
-    if (c.type !== 'traces') continue;
+    if (c.type !== "traces") continue;
     for (const rs of c.body.resourceSpans) {
       for (const ss of rs.scopeSpans) {
         for (const sp of ss.spans) {
@@ -130,10 +151,13 @@ export function findAllSpansByName(captured: CapturedRequest[], spanName: string
 }
 
 /** Find all custom_event logs matching an event body (name). Used for trackEvent assertions. */
-export function findAllLogsByBody(captured: CapturedRequest[], body: string): OtlpLogRecord[] {
+export function findAllLogsByBody(
+  captured: CapturedRequest[],
+  body: string,
+): OtlpLogRecord[] {
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
-    if (c.type !== 'logs') continue;
+    if (c.type !== "logs") continue;
     for (const rl of c.body.resourceLogs) {
       for (const sl of rl.scopeLogs) {
         for (const lr of sl.logRecords) {
@@ -146,10 +170,13 @@ export function findAllLogsByBody(captured: CapturedRequest[], body: string): Ot
 }
 
 /** Find all metric data points by metric name. */
-export function findAllMetricPoints(captured: CapturedRequest[], metricName: string): OtlpDataPoint[] {
+export function findAllMetricPoints(
+  captured: CapturedRequest[],
+  metricName: string,
+): OtlpDataPoint[] {
   const out: OtlpDataPoint[] = [];
   for (const c of captured) {
-    if (c.type !== 'metrics') continue;
+    if (c.type !== "metrics") continue;
     for (const rm of c.body.resourceMetrics) {
       for (const sm of rm.scopeMetrics) {
         for (const m of sm.metrics) {
@@ -166,12 +193,17 @@ export function findAllMetricPoints(captured: CapturedRequest[], metricName: str
 }
 
 /** Read a resource-level attribute from any captured payload. */
-export function getResourceAttr(captured: CapturedRequest[], key: string): string | undefined {
+export function getResourceAttr(
+  captured: CapturedRequest[],
+  key: string,
+): string | undefined {
   for (const c of captured) {
     const resourceList =
-      c.type === 'logs'    ? c.body.resourceLogs.map(r => r.resource) :
-      c.type === 'traces'  ? c.body.resourceSpans.map(r => r.resource) :
-                             c.body.resourceMetrics.map(r => r.resource);
+      c.type === "logs"
+        ? c.body.resourceLogs.map((r) => r.resource)
+        : c.type === "traces"
+          ? c.body.resourceSpans.map((r) => r.resource)
+          : c.body.resourceMetrics.map((r) => r.resource);
     for (const res of resourceList) {
       const val = getAttr(res?.attributes, key);
       if (val !== undefined) return String(val);
@@ -184,8 +216,16 @@ export function getResourceAttr(captured: CapturedRequest[], key: string): strin
 
 function decodeBody(buf: Buffer | null): unknown {
   if (!buf) return {};
-  try { return JSON.parse(gunzipSync(buf).toString('utf-8')); } catch { /* not gzip */ }
-  try { return JSON.parse(buf.toString('utf-8')); } catch { return {}; }
+  try {
+    return JSON.parse(gunzipSync(buf).toString("utf-8"));
+  } catch {
+    /* not gzip */
+  }
+  try {
+    return JSON.parse(buf.toString("utf-8"));
+  } catch {
+    return {};
+  }
 }
 
 async function pollUntil<T>(
@@ -197,7 +237,7 @@ async function pollUntil<T>(
   while (Date.now() < deadline) {
     const result = fn();
     if (result !== undefined) return result;
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error(`Timeout (${timeoutMs}ms) waiting for ${description}`);
 }
@@ -227,30 +267,68 @@ export const test = base.extend<{ otlp: OtlpFixture }>({
   otlp: async ({ page }, use) => {
     const captured: CapturedRequest[] = [];
 
+    const corsHeaders: Record<string, string> = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers":
+        "Content-Type, Content-Encoding, X-API-KEY, X-Pulse-Metering-Session-ID",
+    };
+
     const intercept =
-      (type: 'logs' | 'traces' | 'metrics') =>
-      async (route: Route) => {
+      (type: "logs" | "traces" | "metrics") => async (route: Route) => {
+        if (route.request().method() === "OPTIONS") {
+          await route.fulfill({ status: 204, headers: corsHeaders });
+          return;
+        }
         const body = decodeBody(route.request().postDataBuffer()) as never;
         captured.push({ type, body });
         await route.fulfill({
           status: 200,
-          contentType: 'application/json',
+          contentType: "application/json",
+          headers: corsHeaders,
           body: '{"partialSuccess":{}}',
         });
       };
 
-    await page.route('**/v1/logs',    intercept('logs'));
-    await page.route('**/v1/traces',  intercept('traces'));
-    await page.route('**/v1/metrics', intercept('metrics'));
+    await page.route("**/v1/logs", intercept("logs"));
+    await page.route("**/v1/traces", intercept("traces"));
+    await page.route("**/v1/metrics", intercept("metrics"));
 
     await use({
       captured,
-      waitForLog:        (t, ms = 8_000)  => pollUntil(() => findAllLogs(captured, t)[0],          ms, `log(pulse.type="${t}")`),
-      waitForSpan:       (t, ms = 8_000)  => pollUntil(() => findAllSpans(captured, t)[0],         ms, `span(pulse.type="${t}")`),
-      waitForSpanByName: (n, ms = 8_000)  => pollUntil(() => findAllSpansByName(captured, n)[0],   ms, `span(name="${n}")`),
-      waitForLogByBody:  (b, ms = 8_000)  => pollUntil(() => findAllLogsByBody(captured, b)[0],    ms, `log(body="${b}")`),
-      waitForMetric:     (n, ms = 15_000) => pollUntil(() => findAllMetricPoints(captured, n)[0],  ms, `metric(name="${n}")`),
-      reset: () => { captured.length = 0; },
+      waitForLog: (t, ms = 8_000) =>
+        pollUntil(
+          () => findAllLogs(captured, t)[0],
+          ms,
+          `log(pulse.type="${t}")`,
+        ),
+      waitForSpan: (t, ms = 8_000) =>
+        pollUntil(
+          () => findAllSpans(captured, t)[0],
+          ms,
+          `span(pulse.type="${t}")`,
+        ),
+      waitForSpanByName: (n, ms = 8_000) =>
+        pollUntil(
+          () => findAllSpansByName(captured, n)[0],
+          ms,
+          `span(name="${n}")`,
+        ),
+      waitForLogByBody: (b, ms = 8_000) =>
+        pollUntil(
+          () => findAllLogsByBody(captured, b)[0],
+          ms,
+          `log(body="${b}")`,
+        ),
+      waitForMetric: (n, ms = 15_000) =>
+        pollUntil(
+          () => findAllMetricPoints(captured, n)[0],
+          ms,
+          `metric(name="${n}")`,
+        ),
+      reset: () => {
+        captured.length = 0;
+      },
     });
   },
 });

@@ -1,7 +1,6 @@
-<<<<<<< HEAD
 # Pulse — Claude Code Instructions
 
-Pulse is a real-time mobile observability platform built on OpenTelemetry.
+Pulse is a real-time mobile + web observability platform built on OpenTelemetry.
 
 ## Monorepo Layout
 
@@ -14,12 +13,13 @@ Pulse is a real-time mobile observability platform built on OpenTelemetry.
 | `pulse_ai/` | AI agent | Python, Google ADK + Gemini | 8000 |
 | `pulse-android-otel/` | Android SDK | Kotlin, OpenTelemetry | — |
 | `pulse-react-native-otel/` | React Native SDK | TypeScript | — |
+| `pulse-web-otel/` | Web SDK | TypeScript, OTLP | — |
 | `deploy/` | Docker Compose, scripts, Terraform | — | — |
 
 ## Data Flow
 
 ```
-Mobile SDKs → OTEL Collector (4317/4318) → ClickHouse (otel DB)
+Mobile/Web SDKs → OTEL Collector (4317/4318) → ClickHouse (otel DB)
 Custom Events → Vector (14317/14318) → S3 (Parquet) → Athena
 ```
 
@@ -43,6 +43,9 @@ cd backend/server && mvn verify               # tests + checkstyle + JaCoCo
 # Frontend
 cd pulse-ui && yarn install && yarn start     # dev server :3000
 cd pulse-ui && yarn build && yarn lint
+
+# Web SDK
+cd pulse-web-otel && yarn install && yarn build && yarn test
 
 # AI Agent
 cd pulse_ai && ./setup.sh                     # Docker, port 8000
@@ -101,6 +104,7 @@ Alert metrics span: MySQL schema → backend service/DAO → ClickHouse query �
 - Docker/deploy: `.claude/rules/docker-deploy.md`
 - Android SDK: `.claude/rules/android-sdk.md`
 - React Native SDK: `.claude/rules/react-native-sdk.md`
+- Web SDK: `.claude/rules/web-sdk.md`
 - Python AI agent: `.claude/rules/python-ai-agent.md`
 - Alerts cron: `.claude/rules/alerts-cron.md`
 
@@ -115,7 +119,6 @@ Alert metrics span: MySQL schema → backend service/DAO → ClickHouse query �
 
 When compacting history, preserve: API contracts, auth logic, schema changes, test failures and their fixes.
 Discard: debug output, failed attempts, exploratory file reads.
-=======
 # Pulse repo — AI assistant defaults
 
 ## Caveman (team default)
@@ -129,4 +132,4 @@ Use **caveman** communication for natural-language replies: terse, high signal, 
 Cursor loads the same policy from `.cursor/rules/caveman.mdc`.
 
 Inspired by [caveman](https://github.com/JuliusBrussee/caveman) (MIT).
->>>>>>> c95a2049df6a697793ec99ebacb6f2c135f60912
+

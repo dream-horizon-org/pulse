@@ -20,6 +20,14 @@ import {
   getResourceAttr,
 } from "./fixture";
 
+/** XHR + custom OTLP headers require CORS preflight; route fulfill must allow origin. */
+const E2E_OTLP_CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Content-Encoding, X-API-KEY, X-Pulse-Metering-Session-ID",
+} as const;
+
 // ─── Session Lifecycle ────────────────────────────────────────────────────────
 
 test.describe("@M1 session lifecycle", () => {
@@ -97,14 +105,7 @@ test.describe("@M1 identity persistence", () => {
 
     otlp.reset();
     await page.reload();
-
-    await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
-        trackEvent: (name: string) => void;
-      };
-      p.trackEvent("install_id_check");
-    });
-    const second = await otlp.waitForLogByBody("install_id_check");
+    const second = await otlp.waitForLog("session.start");
 
     expect(getAttr(second.attributes, "installation.id")).toBe(installId);
   });
@@ -206,8 +207,16 @@ test.describe("@M1 OTLP pipeline", () => {
   test("x-api-key header sent on every OTLP request", async ({ page }) => {
     const headers: string[] = [];
     await page.route("**/v1/logs", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: { ...E2E_OTLP_CORS } });
+        return;
+      }
       headers.push(route.request().headers()["x-api-key"] ?? "");
-      await route.fulfill({ status: 200, body: "{}" });
+      await route.fulfill({
+        status: 200,
+        headers: { ...E2E_OTLP_CORS },
+        body: "{}",
+      });
     });
     await page.goto("/");
     await page.waitForTimeout(1000);
@@ -218,8 +227,16 @@ test.describe("@M1 OTLP pipeline", () => {
   test("Content-Type is application/json", async ({ page }) => {
     let contentType = "";
     await page.route("**/v1/logs", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: { ...E2E_OTLP_CORS } });
+        return;
+      }
       contentType = route.request().headers()["content-type"] ?? "";
-      await route.fulfill({ status: 200, body: "{}" });
+      await route.fulfill({
+        status: 200,
+        headers: { ...E2E_OTLP_CORS },
+        body: "{}",
+      });
     });
     await page.goto("/");
     await page.waitForTimeout(1000);
@@ -319,10 +336,15 @@ test.describe("@M1 batching", () => {
     const pageLoadStartAt = Date.now();
 
     await page.route("**/v1/logs", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: E2E_OTLP_CORS });
+        return;
+      }
       if (firstExportAt === 0) firstExportAt = Date.now();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
+        headers: E2E_OTLP_CORS,
         body: '{"partialSuccess":{}}',
       });
     });
@@ -391,7 +413,7 @@ test.describe("@M1 batching", () => {
     // session.end must arrive via forceFlush, not the batch timer
     const log = await otlp.waitForLog("session.end", 3000);
     expect(getAttr(log.attributes, "session.id")).toBeTruthy();
-    expect(getAttr(log.attributes, "session.duration_ns")).toBeTruthy();
+    expect(getAttr(log.attributes, "session.duration_ms")).toBeTruthy();
   });
 });
 
@@ -508,6 +530,104 @@ test.describe("@M1 localStorage state", () => {
       expect(typeof cfg.version).toBe("number");
     }
   });
+
+  /**
+   * Simulates: publish config v1 → cached after background fetch → reload still reads same
+   * cached v1 (fetch returns same version → no localStorage rewrite). Server bumps to v2
+   * (e.g. Pulse UI) → first reload: init uses v1 from loadCached, then fetchInBackground
+   * persists v2. Second reload: loadCached reads v2 from localStorage.
+   */
+  test("pulse_sdk_config version: cache + reload, then new version after two reloads", async ({
+    page,
+    otlp,
+  }) => {
+    const server = { version: 1 };
+    const CONFIG_CORS = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, X-API-KEY",
+    } as const;
+
+    const makeBody = () =>
+      JSON.stringify({
+        version: server.version,
+        description: `cfg-${server.version}`,
+        sampling: { default: { sessionSampleRate: 1 }, rules: [] },
+        signals: {
+          scheduleDurationMs: 5000,
+          attributesToDrop: [],
+          attributesToAdd: [],
+          filters: { mode: "BLACKLIST", values: [] },
+        },
+        interaction: { beforeInitQueueSize: 5000 },
+        features: [],
+      });
+
+    await page.route("**/v1/configs/active**", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: CONFIG_CORS });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: CONFIG_CORS,
+        body: makeBody(),
+      });
+    });
+
+    const readCachedMeta = () =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem("pulse_sdk_config");
+        if (!raw) return null;
+        try {
+          const o = JSON.parse(raw) as {
+            version: number;
+            description?: string;
+          };
+          return typeof o.version === "number"
+            ? { version: o.version, description: o.description }
+            : null;
+        } catch {
+          return null;
+        }
+      });
+
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    await expect
+      .poll(async () => (await readCachedMeta())?.version ?? null, {
+        timeout: 10_000,
+      })
+      .toBe(1);
+    expect((await readCachedMeta())?.description).toBe("cfg-1");
+
+    otlp.reset();
+    await page.reload();
+    await otlp.waitForLog("session.start");
+    expect(await readCachedMeta()).toEqual({
+      version: 1,
+      description: "cfg-1",
+    });
+
+    server.version = 2;
+    otlp.reset();
+    await page.reload();
+    await otlp.waitForLog("session.start");
+    await expect
+      .poll(async () => (await readCachedMeta())?.version ?? null, {
+        timeout: 10_000,
+      })
+      .toBe(2);
+
+    otlp.reset();
+    await page.reload();
+    await otlp.waitForLog("session.start");
+    expect(await readCachedMeta()).toEqual({
+      version: 2,
+      description: "cfg-2",
+    });
+  });
 });
 
 // ─── Consent ──────────────────────────────────────────────────────────────────
@@ -556,11 +676,16 @@ test.describe("@M1 signal headers", () => {
   }) => {
     const meteringIds: string[] = [];
     await page.route("**/v1/logs", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: E2E_OTLP_CORS });
+        return;
+      }
       const id = route.request().headers()["x-pulse-metering-session-id"] ?? "";
       meteringIds.push(id);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
+        headers: E2E_OTLP_CORS,
         body: '{"partialSuccess":{}}',
       });
     });
@@ -580,43 +705,35 @@ test.describe("@M1 signal headers", () => {
   }) => {
     const meteringIds: string[] = [];
     await page.route("**/v1/logs", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: E2E_OTLP_CORS });
+        return;
+      }
       const id = route.request().headers()["x-pulse-metering-session-id"] ?? "";
       if (id) meteringIds.push(id);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
+        headers: E2E_OTLP_CORS,
         body: '{"partialSuccess":{}}',
       });
     });
 
     await page.goto("/");
-    // Wait for initial session.start and SDK initialization
+    // Let the first scheduled batch flush (VITE_PULSE_BATCH_DELAY_MS=200) so we get an
+    // initial /v1/logs export before coalescing later signals into a single pagehide flush.
     await page.waitForTimeout(500);
-
-    // Emit a few events to trigger multiple OTLP exports
     await page.evaluate(() => {
       const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
         trackEvent: (name: string) => void;
       };
       p.trackEvent("header_test_1");
       p.trackEvent("header_test_2");
-      p.trackEvent("header_test_3");
-    });
-    // Wait for batching and export
-    await page.waitForTimeout(1000);
-
-    await page.evaluate(() => {
-      window.dispatchEvent(
-        new PageTransitionEvent("pagehide", {
-          persisted: false,
-          bubbles: true,
-        }),
-      );
     });
     await page.waitForTimeout(500);
 
-    // Must have captured at least 1 request (might be batched into one if SDK batching is fast)
-    expect(meteringIds.length).toBeGreaterThanOrEqual(1);
+    // Must have captured at least 2 log requests to compare header stability
+    expect(meteringIds.length).toBeGreaterThanOrEqual(2);
     const uniqueIds = new Set(meteringIds);
     expect(uniqueIds.size).toBe(1);
     // The single value must be a valid UUID
@@ -714,69 +831,6 @@ test.describe("@M1 reportException body", () => {
 
     const log = await otlp.waitForLog("non_fatal");
     expect(log.body?.stringValue).toBe("test error message");
-  });
-});
-
-// ─── Session Duration (Nanoseconds) ───────────────────────────────────────────
-
-test.describe("@M1 session duration in nanoseconds", () => {
-  test("session.end carries duration_ns (nanoseconds, not duration_ms)", async ({
-    page,
-    otlp,
-  }) => {
-    await page.goto("/");
-    await otlp.waitForLog("session.start");
-    otlp.reset();
-
-    // Trigger pagehide to emit session.end
-    await page.evaluate(() => {
-      window.dispatchEvent(
-        new PageTransitionEvent("pagehide", {
-          persisted: false,
-          bubbles: true,
-        }),
-      );
-    });
-
-    const log = await otlp.waitForLog("session.end", 3000);
-    const durationNs = getAttr(log.attributes, "session.duration_ns");
-
-    // Must exist and be a large number (nanoseconds are ~1e9 per second)
-    expect(durationNs).toBeTruthy();
-    expect(typeof durationNs).toBe("number");
-    // Duration should be at least 1ms in nanoseconds = 1e6
-    expect(durationNs as number).toBeGreaterThan(1_000_000);
-  });
-
-  test("session.duration_ns aligns with Android SDK (nanoseconds UTC)", async ({
-    page,
-    otlp,
-  }) => {
-    // This confirms we're sending nanoseconds, not milliseconds
-    // Android sends duration_ns in nanoseconds; we should match
-    await page.goto("/");
-    await otlp.waitForLog("session.start");
-
-    // Wait a bit to accumulate duration
-    await page.waitForTimeout(100);
-    otlp.reset();
-
-    await page.evaluate(() => {
-      window.dispatchEvent(
-        new PageTransitionEvent("pagehide", {
-          persisted: false,
-          bubbles: true,
-        }),
-      );
-    });
-
-    const log = await otlp.waitForLog("session.end", 3000);
-    const durationNs = getAttr(log.attributes, "session.duration_ns") as number;
-
-    // Duration includes: page load setup + 100ms wait + SDK overhead + batching
-    // Be generous with tolerance: at least 50ms, at most 1 second (1e9 ns)
-    expect(durationNs).toBeGreaterThan(50_000_000);
-    expect(durationNs).toBeLessThan(1_000_000_000);
   });
 });
 

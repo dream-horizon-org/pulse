@@ -1,12 +1,10 @@
 // OTLP HTTP exporters (traces/logs/metrics) + batching + pagehide flush.
-// Uses browser-compatible @opentelemetry/exporter-*-otlp-http (JSON over XHR/fetch).
+// Browser JSON or protobuf via @opentelemetry/otlp-transformer; optional gzip (CompressionStream);
+// optional IndexedDB persistence on export failure (diskBuffering).
 // Log export on pagehide uses fetch({ keepalive: true }) with JSON OTLP (see KeepaliveFetchLogExporter)
-// because unload can cancel normal exporter requests before they complete.
+// because XHR-based sends from PulseBrowserLogExporter are cancelled during unload.
 // See: web-sdk-plan/v1/01-foundation/pipeline.md
 
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
-import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import {
   WebTracerProvider,
   BatchSpanProcessor,
@@ -35,15 +33,31 @@ import { ExportResultCode } from "@opentelemetry/core";
 import type { Attributes } from "@opentelemetry/api";
 import { createExportLogsServiceRequest } from "@opentelemetry/otlp-transformer";
 
+import { IdbSignalBuffer } from "./persistence/indexed-db";
+import {
+  PulseBrowserTraceExporter,
+  PulseBrowserLogExporter,
+  createPulseBrowserMetricExporter,
+} from "./exporters/pulse-browser-otlp-exporters";
+import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lifecycle-debug";
+// Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
+// Browser gzip for the normal path is handled by PulseBrowser* exporters + otlp-transport.
+
 /**
- * Wraps a log exporter and, when `_pagehide` is set to true, replaces the normal export
- * with `fetch(..., { keepalive: true })` and JSON OTLP.
+ * Wraps a {@link LogRecordExporter} and, when `_pagehide` is set to true, replaces the
+ * normal export (XHR / custom transport from {@link PulseBrowserLogExporter}) with a
+ * `fetch` call using `keepalive: true`.
+ *
+ * Normal batches still use the inner exporter (gzip, protobuf, disk buffer as configured).
+ * The pagehide path sends JSON OTLP (`application/json`) without gzip so the body stays
+ * small and compatible with keepalive limits.
  */
 class KeepaliveFetchLogExporter implements LogRecordExporter {
+  /** Set to true in the pagehide handler before calling `loggerProvider.forceFlush()`. */
   _pagehide = false;
 
   constructor(
-    private readonly inner: OTLPLogExporter,
+    private readonly inner: LogRecordExporter,
     private readonly logsUrl: string,
     private readonly headers: Record<string, string>,
   ) {}
@@ -84,7 +98,10 @@ class KeepaliveFetchLogExporter implements LogRecordExporter {
   }
 
   forceFlush(): Promise<void> {
-    return this.inner.forceFlush();
+    const maybeFlush = this.inner as LogRecordExporter & {
+      forceFlush?: () => Promise<void>;
+    };
+    return maybeFlush.forceFlush?.() ?? Promise.resolve();
   }
 
   shutdown(): Promise<void> {
@@ -142,7 +159,11 @@ export interface ExporterConfig {
   apiKey: string;
   meteringSessionId: string;
   getMetricGlobalAttrs?: () => Attributes;
+  /**
+   * Wire format for Pulse browser trace/log/metric exporters (JSON vs protobuf on the wire).
+   */
   format?: "json" | "protobuf";
+  /** Payload compression for Pulse browser exporters. Defaults to 'gzip' when supported. */
   compression?: "gzip" | "none";
   batchOptions?: {
     scheduledDelayMillis?: number;
@@ -152,6 +173,14 @@ export interface ExporterConfig {
   logsUrl?: string;
   tracesUrl?: string;
   metricsUrl?: string;
+  /** When enabled, failed exports are written to IndexedDB for later replay. */
+  diskBuffer?: {
+    enabled: boolean;
+    buffer: IdbSignalBuffer;
+  };
+
+  /** Log each log batch at OTLP export (see PulseWebConfig.debugLogRecordLifecycle). */
+  debugLogRecordLifecycle?: boolean;
 }
 
 export interface ProviderBundle {
@@ -188,7 +217,28 @@ export function createProviders(
   const metricsUrl =
     config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
 
-  const traceExporter = new OTLPTraceExporter({ url: tracesUrl, headers });
+  const useProtobuf = config.format === "protobuf";
+  const useGzip = config.compression !== "none";
+  const diskOpts = config.diskBuffer;
+  if (diskOpts?.enabled === true && !diskOpts.buffer) {
+    throw new Error(
+      "[PulseWeb] diskBuffer.buffer is required when diskBuffering.enabled",
+    );
+  }
+  const pulseDisk = {
+    enabled: diskOpts?.enabled === true,
+    buffer: diskOpts?.buffer ?? new IdbSignalBuffer(),
+  };
+
+  const traceExporter = new PulseBrowserTraceExporter(
+    { url: tracesUrl, headers },
+    {
+      useProtobuf,
+      useGzip,
+      diskBuffer: pulseDisk,
+      signalKind: "trace",
+    },
+  );
   const batchSpanProcessor = new BatchSpanProcessor(
     traceExporter,
     batchOptions,
@@ -200,15 +250,29 @@ export function createProviders(
   }
   tracerProvider.addSpanProcessor(batchSpanProcessor);
 
-  const innerLogExporter = new OTLPLogExporter({ url: logsUrl, headers });
+  const baseLogExporter = new PulseBrowserLogExporter(
+    { url: logsUrl, headers },
+    {
+      useProtobuf,
+      useGzip,
+      diskBuffer: pulseDisk,
+      signalKind: "log",
+    },
+  );
+
   const keepaliveFetchLogExporter = new KeepaliveFetchLogExporter(
-    innerLogExporter,
+    baseLogExporter,
     logsUrl,
     headers,
   );
 
+  const logExporter =
+    config.debugLogRecordLifecycle === true
+      ? wrapLogExporterLifecycleDebug(keepaliveFetchLogExporter)
+      : keepaliveFetchLogExporter;
+
   const batchLogProcessor = new BatchLogRecordProcessor(
-    keepaliveFetchLogExporter,
+    logExporter,
     batchOptions,
   );
 
@@ -218,10 +282,26 @@ export function createProviders(
   }
   loggerProvider.addLogRecordProcessor(batchLogProcessor);
 
-  const rawMetricExporter = new OTLPMetricExporter({
-    url: metricsUrl,
-    headers,
-  });
+  if (config.debugLogRecordLifecycle === true) {
+    console.log("[PulseWeb:logLifecycle]", {
+      phase: "batch_config",
+      scheduledDelayMillis: batchOptions.scheduledDelayMillis,
+      maxQueueSize: batchOptions.maxQueueSize,
+      maxExportBatchSize: batchOptions.maxExportBatchSize,
+      note: "BatchLogRecordProcessor keeps a private in-memory queue; export runs on the timer, when the queue fills a batch slice, or on forceFlush (e.g. pagehide).",
+    });
+  }
+
+  const rawMetricExporter = createPulseBrowserMetricExporter(
+    { url: metricsUrl, headers },
+    {
+      useProtobuf,
+      useGzip,
+      diskBuffer: pulseDisk,
+      signalKind: "metric",
+    },
+  );
+
   const metricExporter: PushMetricExporter = config.getMetricGlobalAttrs
     ? new GlobalAttributeInjectingMetricExporter(
         rawMetricExporter,

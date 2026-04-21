@@ -12,7 +12,8 @@
     "outDir": "dist",
     "rootDir": "src",
     "skipLibCheck": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "jsx": "react-jsx"
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules", "examples"]
