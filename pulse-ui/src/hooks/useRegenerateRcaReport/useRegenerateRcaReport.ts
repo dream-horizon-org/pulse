@@ -1,16 +1,23 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { POST_RCA_REPORT_ROUTE } from "../../constants/API";
 import { makeRequest } from "../../helpers/makeRequest";
+import { isValidRcaDateParam } from "../../helpers/rcaRequestUtils";
+import {
+  getJobIdFromRcaPostResponse,
+  unwrapRcaReportPostApiBody,
+} from "../../helpers/rcaResponseUnwrap";
 import { getApiBaseUrl } from "../../utils";
-import type { RcaReportResponse } from "../useGetRcaReport/useGetRcaReport.interface";
+import type {
+  RcaJobResponse,
+  RcaReportResponse,
+} from "../useGetRcaReport/useGetRcaReport.interface";
 import type { UseRegenerateRcaReportParams } from "./useRegenerateRcaReport.interface";
-
-const isValidRcaDateParam = (date: string | null | undefined): date is string =>
-  !!date && date !== "Invalid Date" && /^\d{4}-\d{2}-\d{2}$/.test(date);
 
 /**
  * Recomputes ClickHouse segments and regenerates the AI RCA report for the key.
  * POST /v1/ai/rca/report with { interactionName, date?, regenerate: true }.
+ * Bodies are unwrapped with {@link unwrapRcaReportPostApiBody}; on 202 use
+ * {@link getJobIdFromRcaPostResponse} from `rcaResponseUnwrap` to read `jobId`.
  */
 export const useRegenerateRcaReport = () => {
   const queryClient = useQueryClient();
@@ -39,7 +46,7 @@ export const useRegenerateRcaReport = () => {
       if (trimmedProjectId !== "") {
         headers["X-Project-ID"] = trimmedProjectId;
       }
-      return makeRequest<RcaReportResponse>({
+      const raw = await makeRequest<RcaReportResponse | RcaJobResponse>({
         url,
         init: {
           method: POST_RCA_REPORT_ROUTE.method,
@@ -48,16 +55,32 @@ export const useRegenerateRcaReport = () => {
         },
         unwrapped: true,
       });
+      return unwrapRcaReportPostApiBody(raw);
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: [
-          POST_RCA_REPORT_ROUTE.key,
-          variables.interactionName,
-          variables.date ?? null,
-          variables.projectId,
-        ],
-      });
+    onSuccess: (data, variables) => {
+      if (data.status === 200) {
+        queryClient.invalidateQueries({
+          queryKey: [
+            POST_RCA_REPORT_ROUTE.key,
+            variables.interactionName,
+            variables.date ?? null,
+            variables.projectId,
+          ],
+          refetchType: "all",
+        });
+        return;
+      }
+      if (data.status === 202 && getJobIdFromRcaPostResponse(data) == null) {
+        queryClient.invalidateQueries({
+          queryKey: [
+            POST_RCA_REPORT_ROUTE.key,
+            variables.interactionName,
+            variables.date ?? null,
+            variables.projectId,
+          ],
+          refetchType: "all",
+        });
+      }
     },
   });
 };

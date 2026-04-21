@@ -22,11 +22,15 @@ describe('buildSwiftPulseSdkInitialization', () => {
     const code = buildSwiftPulseSdkInitialization({
       endpointBaseUrl: 'http://127.0.0.1:4318',
       apiKey: 'key_1',
+      dataCollectionState: 'PENDING',
     });
     expect(code).toContain('PulseSDK.initialize(');
     expect(code).toContain('endpointBaseUrl: "http://127.0.0.1:4318"');
     expect(code).toContain('apiKey: "key_1"');
     expect(code).toContain('dataCollectionState: .pending');
+    expect(code).toMatch(
+      /apiKey:[\s\S]*dataCollectionState:[\s\S]*configEndpointUrl:/
+    );
     expect(code).toContain('configEndpointUrl: nil');
     expect(code).toContain('endpointHeaders: nil');
     expect(code).toContain('globalAttributes: nil');
@@ -38,6 +42,7 @@ describe('buildSwiftPulseSdkInitialization', () => {
     const code = buildSwiftPulseSdkInitialization({
       endpointBaseUrl: 'http://x',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       configuration: {
         includeScreenAttributes: false,
         includeNetworkAttributes: true,
@@ -70,6 +75,7 @@ describe('buildSwiftPulseSdkInitialization', () => {
     const code = buildSwiftPulseSdkInitialization({
       endpointBaseUrl: 'http://host/path?q="x"',
       apiKey: 'k"y',
+      dataCollectionState: 'PENDING',
     });
     expect(code).toContain('\\"');
   });
@@ -78,6 +84,7 @@ describe('buildSwiftPulseSdkInitialization', () => {
     const code = buildSwiftPulseSdkInitialization({
       endpointBaseUrl: 'http://localhost:4318',
       apiKey: 'p',
+      dataCollectionState: 'PENDING',
       configEndpointUrl: 'http://localhost:8080/v1/configs/active/',
       customEventCollectorUrl: 'http://localhost:4318/v1/logs',
       endpointHeaders: { 'X-Custom': '1' },
@@ -95,6 +102,7 @@ describe('buildSwiftPulseSdkInitialization', () => {
     const code = buildSwiftPulseSdkInitialization({
       endpointBaseUrl: 'http://x',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       globalAttributes: {
         s: 'a',
         n: 3,
@@ -114,6 +122,7 @@ describe('buildSwiftPulseSdkInitialization', () => {
     const code = buildSwiftPulseSdkInitialization({
       endpointBaseUrl: 'http://x',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       instrumentation: {
         screenLifecycle: { enabled: true },
         interaction: { enabled: true, configUrl: 'https://cfg.example/v1' },
@@ -130,6 +139,7 @@ describe('buildSwiftPulseSdkInitialization', () => {
     const code = buildSwiftPulseSdkInitialization({
       endpointBaseUrl: 'http://x',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       instrumentation: {
         sessionReplay: {
           enabled: true,
@@ -256,6 +266,7 @@ describe('Expo AppDelegate merge (fixtures)', () => {
     const init = buildSwiftPulseSdkInitialization({
       endpointBaseUrl: 'http://127.0.0.1:4318',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
     });
     const out = mergeContents({
       src: EXPO_APP_DELEGATE_SNIPPET,

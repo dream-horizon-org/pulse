@@ -1,12 +1,23 @@
 import { PluginError } from '@expo/config-plugins';
 
 import type {
+  PulseDataCollectionState,
   PulseNativeInitFields,
   PulsePluginProps,
   PulsePlatformInitProps,
   ResolvedAndroidPulseProps,
   ResolvedIosPulseProps,
 } from './types';
+
+function parseConsent(value: unknown, label: string): PulseDataCollectionState {
+  if (value === 'PENDING' || value === 'ALLOWED' || value === 'DENIED') {
+    return value;
+  }
+  throw new PluginError(
+    `Pulse config plugin: ${label} must be one of "PENDING", "ALLOWED", or "DENIED".`,
+    'INVALID_PLUGIN_TYPE'
+  );
+}
 
 function mergePlatformInit(
   root: PulsePluginProps,
@@ -20,11 +31,14 @@ function mergePlatformInit(
       'INVALID_PLUGIN_TYPE'
     );
   }
+  const dataCollectionState = parseConsent(
+    section?.dataCollectionState ?? root.dataCollectionState,
+    'dataCollectionState (merge top-level with platform "android" / "ios")'
+  );
   return {
     endpointBaseUrl,
     apiKey,
-    dataCollectionState:
-      section?.dataCollectionState ?? root.dataCollectionState,
+    dataCollectionState,
     endpointHeaders: section?.endpointHeaders ?? root.endpointHeaders,
     configEndpointUrl: section?.configEndpointUrl ?? root.configEndpointUrl,
     customEventCollectorUrl:
@@ -59,6 +73,11 @@ export function assertPulsePluginProps(
       'INVALID_PLUGIN_TYPE'
     );
   }
+
+  parseConsent(
+    p.dataCollectionState,
+    'top-level "dataCollectionState" (required; override per platform under "android" / "ios" if needed)'
+  );
 
   const forbiddenRoot = [
     'globalAttributes',
