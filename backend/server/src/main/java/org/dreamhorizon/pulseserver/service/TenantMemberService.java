@@ -11,18 +11,15 @@ import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
-import org.dreamhorizon.pulseserver.resources.v1.members.models.FailedInvite;
-import org.dreamhorizon.pulseserver.resources.v1.members.models.FailureReason;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
-
+ * Tenant membership operations backed by OpenFGA.
  */
 @Slf4j
 @Singleton
@@ -188,7 +185,6 @@ public class TenantMemberService {
         List<String> successEmails = new ArrayList<>();
         List<String> failedEmails = new ArrayList<>();
         List<String> skippedEmails = new ArrayList<>();
-        List<FailedInvite> structuredFailures = new ArrayList<>();
 
         // Process each email sequentially
         List<Completable> inviteOperations = new ArrayList<>();
@@ -202,15 +198,10 @@ public class TenantMemberService {
                 })
                 .ignoreElement() // Convert Single to Completable
                 .onErrorComplete(error -> {
-                    log.warn("Failed to add user to tenant: email={}, reason={}, error={}",
-                        email, FailureReason.from(error), error.getMessage());
+                    log.warn("Failed to add user to tenant: email={}, error={}",
+                        email, error.getMessage());
                     synchronized (failedEmails) {
                         failedEmails.add(email + " (" + error.getMessage() + ")");
-                        structuredFailures.add(FailedInvite.builder()
-                            .email(email)
-                            .reason(FailureReason.from(error))
-                            .message(error.getMessage())
-                            .build());
                     }
                     return true; // Complete successfully to continue processing
                 });
@@ -228,7 +219,6 @@ public class TenantMemberService {
                     .successEmails(successEmails)
                     .failedEmails(failedEmails)
                     .skippedEmails(skippedEmails)
-                    .structuredFailures(structuredFailures)
                     .build()
             ))
             .doOnSuccess(bulkResult -> {

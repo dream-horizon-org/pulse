@@ -20,7 +20,6 @@ import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
-import org.dreamhorizon.pulseserver.resources.v1.members.models.FailureReason;
 import org.dreamhorizon.pulseserver.service.TenantMemberService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -705,7 +704,7 @@ class ProjectMemberServiceTest {
     }
 
     @Test
-    void shouldPopulateStructuredFailuresWithTypedReasons() {
+    void shouldRecordCrossTenantBulkInviteFailureInFailedEmails() {
       Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
       User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
       User user1 = createUser("user-1", "ok@test.com", "User 1");
@@ -731,10 +730,8 @@ class ProjectMemberServiceTest {
 
       assertThat(result.getSuccessCount()).isEqualTo(1);
       assertThat(result.getFailureCount()).isEqualTo(1);
-      assertThat(result.getStructuredFailures()).hasSize(1);
-      assertThat(result.getStructuredFailures().get(0).getEmail()).isEqualTo("cross@test.com");
-      assertThat(result.getStructuredFailures().get(0).getReason()).isEqualTo(FailureReason.CROSS_TENANT_VIOLATION);
-      assertThat(result.getStructuredFailures().get(0).getMessage()).contains("different organization");
+      assertThat(result.getFailedEmails()).hasSize(1);
+      assertThat(result.getFailedEmails().get(0)).contains("cross@test.com").contains("different organization");
     }
   }
 

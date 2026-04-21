@@ -5,7 +5,6 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,8 +22,6 @@ import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
-import org.dreamhorizon.pulseserver.resources.v1.members.models.FailedInvite;
-import org.dreamhorizon.pulseserver.resources.v1.members.models.FailureReason;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 
@@ -195,7 +192,6 @@ public class ProjectMemberService {
         List<String> successEmails = new ArrayList<>();
         List<String> failedEmails = new ArrayList<>();
         List<String> skippedEmails = new ArrayList<>();
-        List<FailedInvite> structuredFailures = new ArrayList<>();
 
         // Process each email sequentially
         List<Completable> inviteOperations = new ArrayList<>();
@@ -209,15 +205,10 @@ public class ProjectMemberService {
                 })
                 .ignoreElement() // Convert Single to Completable
                 .onErrorComplete(error -> {
-                    log.warn("Failed to add member to project: email={}, reason={}, error={}",
-                        email, FailureReason.from(error), error.getMessage());
+                    log.warn("Failed to add member to project: email={}, error={}",
+                        email, error.getMessage());
                     synchronized (failedEmails) {
                         failedEmails.add(email + " (" + error.getMessage() + ")");
-                        structuredFailures.add(FailedInvite.builder()
-                            .email(email)
-                            .reason(FailureReason.from(error))
-                            .message(error.getMessage())
-                            .build());
                     }
                     return true; // Complete successfully to continue processing
                 });
@@ -235,7 +226,6 @@ public class ProjectMemberService {
                     .successEmails(successEmails)
                     .failedEmails(failedEmails)
                     .skippedEmails(skippedEmails)
-                    .structuredFailures(structuredFailures)
                     .build()
             ))
             .doOnSuccess(bulkResult -> {
