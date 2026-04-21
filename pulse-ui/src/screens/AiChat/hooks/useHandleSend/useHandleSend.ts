@@ -1,7 +1,8 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { v4 as uuidV4 } from "uuid";
 import { useChatStore } from "../../../../stores/useChatStore";
 import { useGetPulseAiResponse } from "../useGetPulseAiResponse";
+import type { AiChartConfig, AiTableConfig } from "../../types/chat";
 import { ChatMessage } from "../../types/chat";
 import { AI_CHAT_TEXTS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 
@@ -32,6 +33,9 @@ export const useHandleSend = () => {
   const tokenQueueRef = useRef<string[]>([]);
   const streamDoneRef = useRef(false);
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Charts/tables from SSE are held here until the typewriter queue drains so visuals appear after text. */
+  const pendingChartsRef = useRef<AiChartConfig[] | null>(null);
+  const pendingTablesRef = useRef<AiTableConfig[] | null>(null);
 
   const stopTypewriter = useCallback(() => {
     if (typewriterRef.current !== null) {
@@ -39,6 +43,23 @@ export const useHandleSend = () => {
       typewriterRef.current = null;
     }
   }, []);
+
+  const flushPendingVisuals = useCallback(
+    (sid: string) => {
+      const charts = pendingChartsRef.current;
+      const tables = pendingTablesRef.current;
+      if (charts === null && tables === null) return;
+      if (charts !== null) {
+        updateLastMessageCharts(sid, charts);
+        pendingChartsRef.current = null;
+      }
+      if (tables !== null) {
+        updateLastMessageTables(sid, tables);
+        pendingTablesRef.current = null;
+      }
+    },
+    [updateLastMessageCharts, updateLastMessageTables],
+  );
 
   /**
    * Start the display-queue drain interval for a given session.
@@ -51,6 +72,7 @@ export const useHandleSend = () => {
         if (tokenQueueRef.current.length === 0) {
           // Nothing left to display — finalise if stream is also done.
           if (streamDoneRef.current) {
+            flushPendingVisuals(sid);
             stopTypewriter();
             setStreaming(false);
             markLastMessageComplete(sid);
@@ -82,6 +104,7 @@ export const useHandleSend = () => {
       setStreaming,
       markLastMessageComplete,
       appendToLastMessage,
+      flushPendingVisuals,
     ],
   );
 
@@ -121,6 +144,8 @@ export const useHandleSend = () => {
       // Reset display queue state for this send.
       tokenQueueRef.current = [];
       streamDoneRef.current = false;
+      pendingChartsRef.current = null;
+      pendingTablesRef.current = null;
       stopTypewriter();
 
       const sid = activeSessionId;
@@ -140,15 +165,16 @@ export const useHandleSend = () => {
           startTypewriter(sid);
         },
         onCharts: (charts) => {
-          updateLastMessageCharts(sid, charts);
+          pendingChartsRef.current = charts;
         },
         onTables: (tables) => {
-          updateLastMessageTables(sid, tables);
+          pendingTablesRef.current = tables;
         },
         onComplete: () => {
           // Mark stream as done. The interval will finalise once the queue drains.
           streamDoneRef.current = true;
           if (tokenQueueRef.current.length === 0) {
+            flushPendingVisuals(sid);
             stopTypewriter();
             setStreaming(false);
             markLastMessageComplete(sid);
@@ -159,6 +185,8 @@ export const useHandleSend = () => {
           stopTypewriter();
           tokenQueueRef.current = [];
           streamDoneRef.current = false;
+          pendingChartsRef.current = null;
+          pendingTablesRef.current = null;
           const display =
             typeof errMsg === "string" && errMsg.trim().length > 0
               ? errMsg.trim().slice(0, 2000)
@@ -174,8 +202,7 @@ export const useHandleSend = () => {
       sessions,
       addMessage,
       appendToLastMessage,
-      updateLastMessageCharts,
-      updateLastMessageTables,
+      flushPendingVisuals,
       markLastMessageComplete,
       markLastMessageError,
       patchLastMessageIdByRole,
@@ -187,6 +214,15 @@ export const useHandleSend = () => {
       stopTypewriter,
     ],
   );
+
+  useEffect(() => {
+    return () => {
+      pendingChartsRef.current = null;
+      pendingTablesRef.current = null;
+      stopTypewriter();
+      cancel();
+    };
+  }, [stopTypewriter, cancel]);
 
   return { handleSend, cancel };
 };

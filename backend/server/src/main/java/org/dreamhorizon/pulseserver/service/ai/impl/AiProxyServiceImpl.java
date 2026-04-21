@@ -27,7 +27,6 @@ import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {
 
-  private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
   private static final String RCA_REPORT_PATH = "rca/report";
 
   /**
@@ -94,10 +93,14 @@ public class AiProxyServiceImpl implements AiProxyService {
       RootCauseConfig rootCauseConfig,
       RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger) {
 
-
+    String aiServiceUrl = config.getAiServiceUrl();
+    if (aiServiceUrl == null || aiServiceUrl.isBlank()) {
+      throw new IllegalStateException(
+          "AI_SERVICE_URL is not configured. Set the AI_SERVICE_URL environment variable.");
+    }
     return wiringForFullPipeline(
-        webClient, config.getAiServiceUrl(), objectMapper, rootCauseService, rcaReportCacheDao,
-        sessionEvidenceService,rootCauseConfig,
+        webClient, aiServiceUrl, objectMapper, rootCauseService, rcaReportCacheDao,
+        sessionEvidenceService, rootCauseConfig,
         rcaRelatedHeatmapsMerger);
   }
 
@@ -126,7 +129,7 @@ public class AiProxyServiceImpl implements AiProxyService {
   }
 
   private static String normalizeAiServiceUrl(String url) {
-    return url != null && !url.isBlank() ? url : DEFAULT_AI_SERVICE_URL;
+    return url != null ? url.strip() : "";
   }
 
   // TODO: Refactor this as it violates the Single Responsibility Principle

@@ -58,8 +58,7 @@ export const NAVBAR_CONFIG: AppShellNavbarConfiguration = {
 export const API_BASE_URL: string =
   process.env.REACT_APP_PULSE_SERVER_URL ?? "";
 
-export const AI_BASE_URL: string =
-  process.env.REACT_APP_AI_BASE_URL ?? "http://localhost:8000";
+export const AI_BASE_URL: string = process.env.REACT_APP_AI_BASE_URL ?? "";
 
 export const ENABLE_AI_CHAT: boolean =
   process.env.REACT_APP_ENABLE_AI_CHAT === "true";

@@ -75,6 +75,10 @@ function buildAuthHeaders(): Record<string, string> {
  * which avoids SSRF findings on generic `fetch(userUrl)` patterns.
  *
  * @returns Raw {@link Response} for {@link Response.body} streaming (e.g. SSE).
+ *
+ * @remarks With `REACT_APP_USE_MOCK_SERVER`, SSE goes through the mock server's `handleRunSseRequest`
+ * (same idea as `makeRequestToServer`) so local dev and tests can run without pulse-server or the
+ * Python agent. If mock init fails, falls back to `fetch` like the non-streaming path.
  */
 export async function streamAiRunSse(init?: RequestInit): Promise<Response> {
   const base = API_BASE_URL.replace(/\/$/, "");
@@ -101,10 +105,12 @@ export async function streamAiRunSse(init?: RequestInit): Promise<Response> {
     }
   }
 
-  return fetch(url, {
+  const response = await fetch(url, {
     ...init,
     headers: { ...init?.headers, ...authHeaders },
   });
+
+  return response;
 }
 
 export const makeRequestToServer = async (

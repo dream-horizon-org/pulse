@@ -304,7 +304,8 @@ class RestVerticleSseProxyTest {
           startFakeAi(
               resp ->
                   resp.setStatusCode(200)
-                      .putHeader("Content-Type", "text/event-stream")
+                      .putHeader(
+                          Constants.HEADER_CONTENT_TYPE, Constants.CONTENT_TYPE_TEXT_EVENT_STREAM)
                       .end("data: {\"t\":1}\n\n"));
 
       ApplicationConfig appConfig = new ApplicationConfig();
@@ -336,8 +337,10 @@ class RestVerticleSseProxyTest {
                 .blockingGet();
 
         assertThat(httpResp.statusCode()).isEqualTo(200);
-        assertThat(httpResp.getHeader("Content-Type")).contains("text/event-stream");
-        assertThat(httpResp.getHeader("X-Accel-Buffering")).isEqualTo("no");
+        assertThat(httpResp.getHeader(Constants.HEADER_CONTENT_TYPE))
+            .contains(Constants.CONTENT_TYPE_TEXT_EVENT_STREAM);
+        assertThat(httpResp.getHeader(Constants.HEADER_X_ACCEL_BUFFERING))
+            .isEqualTo(Constants.SSE_PROXY_X_ACCEL_BUFFERING);
         assertThat(httpResp.bodyAsString()).contains("data:").contains("\"t\":1");
       }
     }
