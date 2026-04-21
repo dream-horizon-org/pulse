@@ -10,6 +10,13 @@ import {
     WriteSessionResult,
 } from './session-batch-file-storage'
 
+/**
+ * S3 `Tagging` header: `project_id` + `date` (must match heatmap-screenshot-ingestion exactly).
+ */
+function buildIngestionS3ObjectTagging(projectId: string, dateUtcYyyyMmDd: string): string {
+    return `project_id=${encodeURIComponent(projectId)}&date=${encodeURIComponent(dateUtcYyyyMmDd)}`
+}
+
 class S3SessionBatchFileWriter implements SessionBatchFileWriter {
     private stream: PassThrough
     private uploadPromise: Promise<CompleteMultipartUploadCommandOutput>
@@ -28,7 +35,8 @@ class S3SessionBatchFileWriter implements SessionBatchFileWriter {
         private readonly timeout: number
     ) {
         this.stream = new PassThrough()
-        this.key = this.generateKey()
+        const { key, dateUtcYyyyMmDd } = this.generateKeyAndDate()
+        this.key = key
         this.uploadStartTime = Date.now()
 
         console.log(`[S3BatchWriter] Opening stream for ${this.key}`)
@@ -40,6 +48,7 @@ class S3SessionBatchFileWriter implements SessionBatchFileWriter {
                 Key: this.key,
                 Body: this.stream,
                 ContentType: 'application/octet-stream',
+                Tagging: buildIngestionS3ObjectTagging(this.projectId, dateUtcYyyyMmDd),
             },
         })
 
@@ -144,12 +153,15 @@ class S3SessionBatchFileWriter implements SessionBatchFileWriter {
         })
     }
 
-    private generateKey(): string {
+    private generateKeyAndDate(): { key: string; dateUtcYyyyMmDd: string } {
         const now = new Date()
-        const datePrefix = now.toISOString().slice(0, 10) // yyyy-MM-dd
+        const dateUtcYyyyMmDd = now.toISOString().slice(0, 10) // yyyy-MM-dd UTC
         const timestamp = now.getTime()
         const suffix = randomBytes(8).toString('hex')
-        return `${this.prefix}/${this.projectId}/${datePrefix}/${timestamp}-${suffix}`
+        return {
+            key: `${this.prefix}/${this.projectId}/${dateUtcYyyyMmDd}/${timestamp}-${suffix}`,
+            dateUtcYyyyMmDd,
+        }
     }
 }
 
