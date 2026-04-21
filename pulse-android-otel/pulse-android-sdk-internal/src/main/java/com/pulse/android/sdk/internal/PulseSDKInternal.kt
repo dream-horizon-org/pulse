@@ -309,7 +309,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     config,
                     endpointHeaders,
                     interactionUrlProvider = {
-                        currentSdkConfig?.interaction?.configUrl ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
+                        currentSdkConfig?.run { interaction.configUrl }
+                            ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
                     },
                 )
             instrumentationConfig.configure()
