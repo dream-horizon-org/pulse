@@ -8,6 +8,9 @@ import type { SessionProvider } from '../session';
 import { getOrCreateInstallationId } from '../session';
 import type { PulseWebConfig } from '../config';
 
+/** When merging global attrs into logs, never overwrite an explicit value here (session.end, etc.). */
+const SESSION_ID_ATTR_KEY = PulseWebSemconv.AttributeKey.SESSION_ID;
+
 type NetworkConnection = {
   type?: string;
   effectiveType?: string;
@@ -146,9 +149,13 @@ export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordP
       // session.start / session.end log records set the correct session.id themselves;
       // overwriting them with the post-rotation value from getSessionId() would corrupt
       // the session.end record (it would carry the NEW session.id instead of the old one).
-      if (key === 'session.id') {
-        const existing = logRecord.attributes ? (logRecord.attributes as Record<string, unknown>)[key] : undefined;
-        if (existing !== undefined && existing !== '') continue;
+      if (key === SESSION_ID_ATTR_KEY) {
+        const existing = logRecord.attributes
+          ? (logRecord.attributes as Record<string, unknown>)[
+              SESSION_ID_ATTR_KEY
+            ]
+          : undefined;
+        if (existing !== undefined && existing !== "") continue;
       }
       logRecord.setAttribute(key, value);
     }

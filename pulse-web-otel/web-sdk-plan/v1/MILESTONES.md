@@ -12,16 +12,18 @@ Milestones ≠ phases. Phases are technical groupings. Milestones are shippable 
 
 **From Phase 1 (all of it):**
 
-| Area | What gets built |
-|---|---|
-| Scaffold + Config | Repo, package.json, `PulseWebConfig` type |
-| Identity | `installation.id` (3-tier), `session.id` (30-min rotation), Session Provider |
-| Resource Builder | All static browser attributes stamped on every signal |
-| OTLP Pipeline | HTTP exporters (traces/logs/metrics), batch processor (5s/2048/512). Wire format: **protobuf** (`application/x-protobuf`) by default; configurable to JSON via `export.format = 'json'` (dev/DevTools mode). Browser gzip via custom `CompressionStream` exporter — TODO. |
-| SDK Lifecycle | `PulseWeb.start()` singleton, `shutdown()`, instrumentation registry |
-| Session Instrumentation | `session.start` / `session.end` log signals |
-| SDK Config (foundation only) | `SdkConfigFetcher` — load from localStorage + fetch in background |
-| Persistence | IndexedDB signal buffer (opt-in), drain on next load |
+
+| Area                         | What gets built                                                                                                                                                                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scaffold + Config            | Repo, package.json, `PulseWebConfig` type                                                                                                                                                                                                                                 |
+| Identity                     | `installation.id` (3-tier), `session.id` (30-min rotation), Session Provider                                                                                                                                                                                              |
+| Resource Builder             | All static browser attributes stamped on every signal                                                                                                                                                                                                                     |
+| OTLP Pipeline                | HTTP exporters (traces/logs/metrics), batch processor (5s/2048/512). Wire format: **protobuf** (`application/x-protobuf`) by default; configurable to JSON via `export.format = 'json'` (dev/DevTools mode). Browser gzip via custom `CompressionStream` exporter — TODO. |
+| SDK Lifecycle                | `PulseWeb.start()` singleton, `shutdown()`, instrumentation registry                                                                                                                                                                                                      |
+| Session Instrumentation      | `session.start` / `session.end` log signals                                                                                                                                                                                                                               |
+| SDK Config (foundation only) | `SdkConfigFetcher` — load from localStorage + fetch in background                                                                                                                                                                                                         |
+| Persistence                  | IndexedDB signal buffer (opt-in), drain on next load                                                                                                                                                                                                                      |
+
 
 **What ships:** Internal build. Not published to npm. Engineers can point it at dev ingest and see sessions.
 
@@ -42,53 +44,62 @@ Milestones ≠ phases. Phases are technical groupings. Milestones are shippable 
 ```
 
 **Exit criteria:**
-- [x] Heartbeat span in ClickHouse: `platform = 'web'`, correct `project.id`, `session.id`, `rum.sdk.version` — verified 2026-04-15
-- [x] `session.start` emitted on init; `session.end` emitted on `pagehide`
-- [x] `installation.id` survives page reload (localStorage)
-- [x] CORS verified on `/v1/traces`, `/v1/logs`, `/v1/metrics` — 204 on all three after adding `cors:` to otel-collector.yaml
-- [x] Unit tests green: identity, resource, config validation, sdk singleton (26/26 passing)
-- [x] E2E tests green: 12/12 Playwright tests passing (session lifecycle, identity, OTLP pipeline, shutdown)
+
+- Heartbeat span in ClickHouse: `platform = 'web'`, correct `project.id`, `session.id`, `rum.sdk.version` — verified 2026-04-15
+- `session.start` emitted on init; `session.end` emitted on `pagehide`
+- `installation.id` survives page reload (localStorage)
+- CORS verified on `/v1/traces`, `/v1/logs`, `/v1/metrics` — 204 on all three after adding `cors:` to otel-collector.yaml
+- Unit tests green: identity, resource, config validation, sdk singleton (26/26 passing)
+- E2E tests green: 12/12 Playwright tests passing (session lifecycle, identity, OTLP pipeline, shutdown)
 
 ---
 
-## M2 — Interactions + SDK Config + React + First Publish
+## M2 — Interactions + Interaction Config +SDK Config + React + First Publish
 
 > **Goal:** The highest-value Pulse-specific feature ships. Teams can track multi-step user journeys, control the SDK remotely, and integrate with React. First npm alpha published.
 
 **Why interactions before instrumentations?**
-Interactions don't depend on auto-instrumentations — they hook into manual `trackEvent()`. Highest business value (parity with mobile). SDK Config is needed _with_ interactions to control sampling before going live.
+Interactions don't depend on auto-instrumentations — they hook into manual `trackEvent()`. Highest business value (parity with mobile). SDK Config is needed *with* interactions to control sampling before going live.
 
 **From Phase 3 — Interactions (all):**
 
-| Area | What gets built |
-|---|---|
-| Config Fetcher | CDN fetch at init, JSON parse, in-memory cache, graceful failure |
-| Matching Algorithm | State machine (IDLE → ONGOING → COMPLETED/ERROR), step sequence, timeout, blacklists |
+
+| Area                | What gets built                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| Config Fetcher      | CDN fetch at init, JSON parse, in-memory cache, graceful failure                        |
+| Matching Algorithm  | State machine (IDLE → ONGOING → COMPLETED/ERROR), step sequence, timeout, blacklists    |
 | Span + APDEX Output | APDEX scoring (Satisfied/Tolerating/Frustrated), OTel span with full attribute contract |
+
 
 **From Phase 4 — SDK Config (all):**
 
-| Area | What gets built |
-|---|---|
-| Sampling Processor | Session-level sampling decision (once per session), rule evaluation, critical event bypass |
-| Feature Gate | `isEnabled(featureName)` — reads remote config, gates instrumentation install |
-| Signal Filter Processor | Attribute drop/add, signal blacklist/whitelist — stateless, applies immediately |
-| Config wire-up | Wired into `sdk.ts` init sequence — gates all instrumentation installs |
+
+| Area                    | What gets built                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| Sampling Processor      | Session-level sampling decision (once per session), rule evaluation, critical event bypass |
+| Feature Gate            | `isEnabled(featureName)` — reads remote config, gates instrumentation install              |
+| Signal Filter Processor | Attribute drop/add, signal blacklist/whitelist — stateless, applies immediately            |
+| Config wire-up          | Wired into `sdk.ts` init sequence — gates all instrumentation installs                     |
+
 
 **From Phase 5 — React only:**
 
-| Area | What gets built |
-|---|---|
-| `<PulseProvider>` | Initialises SDK once with SSR guard (`typeof window !== 'undefined'`) |
-| `<PulseErrorBoundary>` | Catches React render errors → `device.crash` log |
-| React Router v6 hook | `useRouterTracking()` → `screen_session` spans on route change |
+
+| Area                   | What gets built                                                       |
+| ---------------------- | --------------------------------------------------------------------- |
+| `<PulseProvider>`      | Initialises SDK once with SSR guard (`typeof window !== 'undefined'`) |
+| `<PulseErrorBoundary>` | Catches React render errors → `device.crash` log                      |
+| React Router v6 hook   | `useRouterTracking()` → `screen_session` spans on route change        |
+
 
 **From Phase 6 — publish only:**
 
-| Area | What gets built |
-|---|---|
+
+| Area              | What gets built                                                            |
+| ----------------- | -------------------------------------------------------------------------- |
 | npm alpha publish | `@dreamhorizon/pulse-web@0.1.0-alpha.1` — internal teams can `npm install` |
-| Basic tsup build | ESM + CJS outputs, TypeScript types — no CDN yet |
+| Basic tsup build  | ESM + CJS outputs, TypeScript types — no CDN yet                           |
+
 
 **What ships:** `@dreamhorizon/pulse-web@0.1.0-alpha.1` on npm. React teams can install and use. Interactions visible in existing Pulse Interactions dashboard (no backend changes needed).
 
@@ -118,13 +129,14 @@ Publish:
 ```
 
 **Exit criteria:**
-- [ ] Interaction span with correct `user_category` and APDEX visible in Interactions dashboard
-- [ ] Config fetch failure → no crash, tracking disabled gracefully
-- [ ] `sessionSampleRate: 0` → zero signals exported
-- [ ] React app tracks route changes without manual wiring
-- [ ] SSR guard: no `localStorage is not defined` in server render
-- [ ] `npm install @dreamhorizon/pulse-web@0.1.0-alpha.1` works
-- [ ] Unit tests: state machine all transitions, sampling edge cases, feature gate
+
+- Interaction span with correct `user_category` and APDEX visible in Interactions dashboard
+- Config fetch failure → no crash, tracking disabled gracefully
+- `sessionSampleRate: 0` → zero signals exported
+- React app tracks route changes without manual wiring
+- SSR guard: no `localStorage is not defined` in server render
+- `npm install @dreamhorizon/pulse-web@0.1.0-alpha.1` works
+- Unit tests: state machine all transitions, sampling edge cases, feature gate
 
 ---
 
@@ -134,14 +146,16 @@ Publish:
 
 **From Phase 2 — all 6 instrumentations (built in parallel):**
 
-| Instrumentation | Signals | Key detail |
-|---|---|---|
-| Errors | `device.crash`, `non_fatal` | `window.onerror` + `unhandledrejection`; deduplication |
-| Network | `http` span | Patch `fetch` + `XHR`; exclude Pulse endpoints; GraphQL op name |
-| Clicks | `app.click` | Rage click (3 clicks / 700ms); dead click detection; normalised x/y coords |
-| Web Vitals | `web_vital` Metric (OTLP Gauge) | LCP, CLS, INP, FCP, TTFB via `web-vitals` library with attribution |
-| Navigation | `screen_load`, `screen_interactive`, `screen_session` | Navigation Timing API + History API patching |
-| Session signals | `session.start`, `session.end` | Already wired in M1; this milestone polishes edge cases (BFCache, rotation) |
+
+| Instrumentation | Signals                                               | Key detail                                                                  |
+| --------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| Errors          | `device.crash`, `non_fatal`                           | `window.onerror` + `unhandledrejection`; deduplication                      |
+| Network         | `http` span                                           | Patch `fetch` + `XHR`; exclude Pulse endpoints; GraphQL op name             |
+| Clicks          | `app.click`                                           | Rage click (3 clicks / 700ms); dead click detection; normalised x/y coords  |
+| Web Vitals      | `web_vital` Metric (OTLP Gauge)                       | LCP, CLS, INP, FCP, TTFB via `web-vitals` library with attribution          |
+| Navigation      | `screen_load`, `screen_interactive`, `screen_session` | Navigation Timing API + History API patching                                |
+| Session signals | `session.start`, `session.end`                        | Already wired in M1; this milestone polishes edge cases (BFCache, rotation) |
+
 
 **SDK changes needed alongside instrumentations:**
 
@@ -185,14 +199,15 @@ Consent:
 ```
 
 **Exit criteria:**
-- [ ] All 6 signal types visible in Pulse dashboard under `platform = 'web'`
-- [ ] Rage click detection working
-- [ ] Web Vitals attribution populated (LCP element, CLS node)
-- [ ] SPA route changes tracked automatically (React Router)
-- [ ] No signals emitted when consent is DENIED
-- [ ] Pulse ingest endpoints excluded from network tracing
-- [ ] No errors on Firefox or Safari (graceful no-ops for Chrome-only APIs)
-- [ ] Unit tests green for all 6 instrumentations
+
+- All 6 signal types visible in Pulse dashboard under `platform = 'web'`
+- Rage click detection working
+- Web Vitals attribution populated (LCP element, CLS node)
+- SPA route changes tracked automatically (React Router)
+- No signals emitted when consent is DENIED
+- Pulse ingest endpoints excluded from network tracing
+- No errors on Firefox or Safari (graceful no-ops for Chrome-only APIs)
+- Unit tests green for all 6 instrumentations
 
 ---
 
@@ -202,23 +217,27 @@ Consent:
 
 **From Phase 5 — remaining frameworks:**
 
-| Integration | What gets built |
-|---|---|
-| Next.js | App Router (`app/layout.tsx`) + Pages Router (`_app.tsx`); SSR guard; `usePathname` / `useRouter` route tracking |
-| CDN / Vanilla JS | Async `<script>` snippet; `window.PulseWeb` queue drain; non-bundler usage |
+
+| Integration      | What gets built                                                                                                  |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Next.js          | App Router (`app/layout.tsx`) + Pages Router (`_app.tsx`); SSR guard; `usePathname` / `useRouter` route tracking |
+| CDN / Vanilla JS | Async `<script>` snippet; `window.PulseWeb` queue drain; non-bundler usage                                       |
+
 
 **From Phase 6 — full build + distribution:**
 
-| Area | What gets built |
-|---|---|
-| tsup full config | ESM + CJS + UMD; separate bundles per entry point |
-| TypeScript declarations | `*.d.ts` for all entry points |
-| npm exports map | `.`, `./react`, `./nextjs` entry points |
-| CDN upload | S3 + CloudFront; versioned + floating alias |
-| GitHub Actions CI | lint → typecheck → test → build → bundle size check on every PR |
-| GitHub Actions CD | build → test → npm publish → CDN upload → GitHub release on tag |
-| Bundle size enforcement | `size-limit`: core < 30 KB, react < 2 KB, CDN UMD < 80 KB |
-| SDK version injection | `rum.sdk.version` in spans matches npm package version at build time |
+
+| Area                    | What gets built                                                      |
+| ----------------------- | -------------------------------------------------------------------- |
+| tsup full config        | ESM + CJS + UMD; separate bundles per entry point                    |
+| TypeScript declarations | `*.d.ts` for all entry points                                        |
+| npm exports map         | `.`, `./react`, `./nextjs` entry points                              |
+| CDN upload              | S3 + CloudFront; versioned + floating alias                          |
+| GitHub Actions CI       | lint → typecheck → test → build → bundle size check on every PR      |
+| GitHub Actions CD       | build → test → npm publish → CDN upload → GitHub release on tag      |
+| Bundle size enforcement | `size-limit`: core < 30 KB, react < 2 KB, CDN UMD < 80 KB            |
+| SDK version injection   | `rum.sdk.version` in spans matches npm package version at build time |
+
 
 **What ships:** `@dreamhorizon/pulse-web@0.1.0-alpha` (full alpha). Any web project — React, Next.js, or plain HTML — can integrate. CI enforces quality going forward.
 
@@ -248,13 +267,14 @@ CI/CD:
 ```
 
 **Exit criteria:**
-- [ ] Next.js App + Pages Router both work, zero SSR errors
-- [ ] CDN async snippet queues and drains correctly
-- [ ] `npm install @dreamhorizon/pulse-web` works in fresh project (ESM + CJS + types)
-- [ ] CDN URL serves gzip-encoded bundle with correct `rum.sdk.version`
-- [ ] Core bundle < 30 KB gzip enforced in CI (PR fails if exceeded)
-- [ ] Release tag triggers full publish pipeline
-- [ ] Example apps for React, Next.js, CDN all working under `examples/`
+
+- Next.js App + Pages Router both work, zero SSR errors
+- CDN async snippet queues and drains correctly
+- `npm install @dreamhorizon/pulse-web` works in fresh project (ESM + CJS + types)
+- CDN URL serves gzip-encoded bundle with correct `rum.sdk.version`
+- Core bundle < 30 KB gzip enforced in CI (PR fails if exceeded)
+- Release tag triggers full publish pipeline
+- Example apps for React, Next.js, CDN all working under `examples/`
 
 ---
 
@@ -305,13 +325,18 @@ gantt
     Full publish               :milestone, after ci1, 1d
 ```
 
+
+
 ---
 
 ## Milestone Exit Gates Summary
 
-| Milestone | Ships | Key Gate |
-|---|---|---|
-| **M1** Foundation | Internal build only | Heartbeat span in ClickHouse · CORS verified · Session signals flowing |
-| **M2** Interactions + React | `@0.1.0-alpha.1` npm | Interaction span in dashboard · React app works · SDK Config gates working |
-| **M3** Instrumentations | Updated alpha | All 6 signal types in dashboard · No signals on DENIED consent |
-| **M4** Full ship | `@0.1.0-alpha` stable | Next.js SSR clean · CDN snippet works · Core < 30 KB · CI/CD live |
+
+| Milestone                   | Ships                 | Key Gate                                                                   |
+| --------------------------- | --------------------- | -------------------------------------------------------------------------- |
+| **M1** Foundation           | Internal build only   | Heartbeat span in ClickHouse · CORS verified · Session signals flowing     |
+| **M2** Interactions + React | `@0.1.0-alpha.1` npm  | Interaction span in dashboard · React app works · SDK Config gates working |
+| **M3** Instrumentations     | Updated alpha         | All 6 signal types in dashboard · No signals on DENIED consent             |
+| **M4** Full ship            | `@0.1.0-alpha` stable | Next.js SSR clean · CDN snippet works · Core < 30 KB · CI/CD live          |
+
+
