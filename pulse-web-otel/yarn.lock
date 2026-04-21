@@ -298,12 +298,15 @@ __metadata:
     "@opentelemetry/instrumentation": "npm:^0.53.0"
     "@opentelemetry/instrumentation-fetch": "npm:^0.53.0"
     "@opentelemetry/instrumentation-xml-http-request": "npm:^0.53.0"
+    "@opentelemetry/otlp-exporter-base": "npm:^0.53.0"
+    "@opentelemetry/otlp-transformer": "npm:^0.53.0"
     "@opentelemetry/resources": "npm:^1.26.0"
     "@opentelemetry/sdk-logs": "npm:^0.53.0"
     "@opentelemetry/sdk-metrics": "npm:^1.26.0"
     "@opentelemetry/sdk-trace-web": "npm:^1.26.0"
     "@size-limit/preset-small-lib": "npm:^11.1.0"
     "@types/node": "npm:^22.0.0"
+    "@types/react": "npm:^18.3.0"
     "@vitest/coverage-v8": "npm:^2.1.0"
     jsdom: "npm:^25.0.0"
     size-limit: "npm:^11.1.0"
@@ -311,6 +314,11 @@ __metadata:
     typescript: "npm:^5.6.0"
     vitest: "npm:^2.1.0"
     web-vitals: "npm:^4.2.0"
+  peerDependencies:
+    react: ">=18.0.0"
+  peerDependenciesMeta:
+    react:
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -1076,7 +1084,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@opentelemetry/otlp-exporter-base@npm:0.53.0":
+"@opentelemetry/otlp-exporter-base@npm:0.53.0, @opentelemetry/otlp-exporter-base@npm:^0.53.0":
   version: 0.53.0
   resolution: "@opentelemetry/otlp-exporter-base@npm:0.53.0"
   dependencies:
@@ -1088,7 +1096,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@opentelemetry/otlp-transformer@npm:0.53.0":
+"@opentelemetry/otlp-transformer@npm:0.53.0, @opentelemetry/otlp-transformer@npm:^0.53.0":
   version: 0.53.0
   resolution: "@opentelemetry/otlp-transformer@npm:0.53.0"
   dependencies:

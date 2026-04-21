@@ -1,27 +1,38 @@
-// M1: OTLP HTTP exporters (traces/logs/metrics) + BatchSpanProcessor
-// + sendBeacon flush on pagehide.
-//
-// Wire format: JSON (application/json) — the only format supported by browser-compatible
-// OTLP exporters (@opentelemetry/exporter-*-otlp-http). The -otlp-proto packages use
-// OTLPExporterNodeBase and are Node.js-only; they cannot be bundled by Vite/browser.
-// Native browser protobuf support is tracked as a TODO (requires a custom fetch exporter).
-//
-// See: web-sdk-plan/v1/01-foundation/pipeline.md
+// OTLP HTTP exporters (traces/logs/metrics) + batching + pagehide flush.
+// Browser JSON or protobuf via @opentelemetry/otlp-transformer; optional gzip (CompressionStream);
+// optional IndexedDB persistence on export failure (diskBuffering).
 
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import {
+  WebTracerProvider,
+  BatchSpanProcessor,
+} from "@opentelemetry/sdk-trace-web";
+import {
+  LoggerProvider,
+  BatchLogRecordProcessor,
+} from "@opentelemetry/sdk-logs";
+import {
+  MeterProvider,
+  PeriodicExportingMetricReader,
+} from "@opentelemetry/sdk-metrics";
+import type { Resource } from "@opentelemetry/resources";
+import type { SpanProcessor } from "@opentelemetry/sdk-trace-web";
+import type { LogRecordProcessor } from "@opentelemetry/sdk-logs";
+
+import { IdbSignalBuffer } from "./persistence/indexed-db";
+import {
+  PulseBrowserTraceExporter,
+  PulseBrowserLogExporter,
+  createPulseBrowserMetricExporter,
+} from "./exporters/pulse-browser-otlp-exporters";
+import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lifecycle-debug";
 // Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
 // Browser gzip requires a custom XHR/fetch exporter wrapping CompressionStream — tracked as TODO.
-import { WebTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-web';
-import { LoggerProvider, BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
-import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import type { PushMetricExporter, ResourceMetrics } from '@opentelemetry/sdk-metrics';
-import type { ExportResult } from '@opentelemetry/core';
-import type { Resource } from '@opentelemetry/resources';
-import type { SpanProcessor } from '@opentelemetry/sdk-trace-web';
-import type { LogRecordProcessor } from '@opentelemetry/sdk-logs';
-import type { Attributes } from '@opentelemetry/api';
+import type {
+  PushMetricExporter,
+  ResourceMetrics,
+} from "@opentelemetry/sdk-metrics";
+import type { ExportResult } from "@opentelemetry/core";
+import type { Attributes } from "@opentelemetry/api";
 
 /**
  * Wraps any PushMetricExporter and merges dynamic global attributes (session.id,
@@ -35,7 +46,10 @@ class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
     private readonly getGlobalAttrs: () => Attributes,
   ) {}
 
-  export(metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void {
+  export(
+    metrics: ResourceMetrics,
+    resultCallback: (result: ExportResult) => void,
+  ): void {
     const extra = this.getGlobalAttrs();
     const patched: ResourceMetrics = {
       ...metrics,
@@ -51,26 +65,29 @@ class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
             ...dp,
             attributes: { ...extra, ...dp.attributes },
           })),
-        })) as ResourceMetrics['scopeMetrics'][number]['metrics'],
+        })) as ResourceMetrics["scopeMetrics"][number]["metrics"],
       })),
     };
     this.inner.export(patched, resultCallback);
   }
 
-  forceFlush(): Promise<void> { return this.inner.forceFlush(); }
-  shutdown(): Promise<void>   { return this.inner.shutdown(); }
+  forceFlush(): Promise<void> {
+    return this.inner.forceFlush();
+  }
+  shutdown(): Promise<void> {
+    return this.inner.shutdown();
+  }
 
-  selectAggregationTemporality: PushMetricExporter['selectAggregationTemporality'] =
+  selectAggregationTemporality: PushMetricExporter["selectAggregationTemporality"] =
     this.inner.selectAggregationTemporality?.bind(this.inner);
 
-  selectAggregation: PushMetricExporter['selectAggregation'] =
+  selectAggregation: PushMetricExporter["selectAggregation"] =
     this.inner.selectAggregation?.bind(this.inner);
 }
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
   apiKey: string;
-  /** Stable UUID generated at SDK init — sent as X-Pulse-Metering-Session-ID on every request. */
   meteringSessionId: string;
   /**
    * Called at each metric export to get current global attributes (session.id, screen.name, etc.).
@@ -82,9 +99,9 @@ export interface ExporterConfig {
    * (application/json). Protobuf support requires a custom browser fetch exporter
    * and is tracked as a TODO.
    */
-  format?: 'json' | 'protobuf';
+  format?: "json" | "protobuf";
   /** Payload compression. Defaults to 'gzip'. Browser gzip is tracked as a TODO. */
-  compression?: 'gzip' | 'none';
+  compression?: "gzip" | "none";
   batchOptions?: {
     scheduledDelayMillis?: number;
     maxQueueSize?: number;
@@ -93,6 +110,14 @@ export interface ExporterConfig {
   logsUrl?: string;
   tracesUrl?: string;
   metricsUrl?: string;
+  /** When enabled, failed exports are written to IndexedDB for later replay. */
+  diskBuffer?: {
+    enabled: boolean;
+    buffer: IdbSignalBuffer;
+  };
+
+  /** Log each log batch at OTLP export (see PulseWebConfig.debugLogRecordLifecycle). */
+  debugLogRecordLifecycle?: boolean;
 }
 
 export interface ProviderBundle {
@@ -114,13 +139,9 @@ export function createProviders(
   spanProcessors: SpanProcessor[],
   logProcessors: LogRecordProcessor[],
 ): ProviderBundle {
-  // config.format and config.compression are reserved for future use —
-  // browser-compatible protobuf and gzip require custom fetch exporters (TODO).
-
-  // Custom headers on every OTLP request — Content-Type is set by the exporter itself.
-  const headers: Record<string, string> = {
-    'X-API-KEY': config.apiKey,
-    'X-Pulse-Metering-Session-ID': config.meteringSessionId,
+  const headers = {
+    "X-API-KEY": config.apiKey,
+    "X-Pulse-Metering-Session-ID": config.meteringSessionId,
   };
 
   const batchOptions = {
@@ -128,14 +149,37 @@ export function createProviders(
     ...config.batchOptions,
   };
 
-  const tracesUrl  = config.tracesUrl  ?? `${config.endpointBaseUrl}/v1/traces`;
-  const logsUrl    = config.logsUrl    ?? `${config.endpointBaseUrl}/v1/logs`;
-  const metricsUrl = config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
+  const tracesUrl = config.tracesUrl ?? `${config.endpointBaseUrl}/v1/traces`;
+  const logsUrl = config.logsUrl ?? `${config.endpointBaseUrl}/v1/logs`;
+  const metricsUrl =
+    config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
 
-  // ── Traces ──────────────────────────────────────────────────────────────────
-  const traceExporter = new OTLPTraceExporter({ url: tracesUrl, headers });
+  const useProtobuf = config.format === "protobuf";
+  const useGzip = config.compression !== "none";
+  const diskOpts = config.diskBuffer;
+  if (diskOpts?.enabled === true && !diskOpts.buffer) {
+    throw new Error(
+      "[PulseWeb] diskBuffer.buffer is required when diskBuffering.enabled",
+    );
+  }
+  const pulseDisk = {
+    enabled: diskOpts?.enabled === true,
+    buffer: diskOpts?.buffer ?? new IdbSignalBuffer(),
+  };
 
-  const batchSpanProcessor = new BatchSpanProcessor(traceExporter, batchOptions);
+  const traceExporter = new PulseBrowserTraceExporter(
+    { url: tracesUrl, headers },
+    {
+      useProtobuf,
+      useGzip,
+      diskBuffer: pulseDisk,
+      signalKind: "trace",
+    },
+  );
+  const batchSpanProcessor = new BatchSpanProcessor(
+    traceExporter,
+    batchOptions,
+  );
 
   const tracerProvider = new WebTracerProvider({ resource });
   for (const processor of spanProcessors) {
@@ -143,10 +187,24 @@ export function createProviders(
   }
   tracerProvider.addSpanProcessor(batchSpanProcessor);
 
-  // ── Logs ────────────────────────────────────────────────────────────────────
-  const logExporter = new OTLPLogExporter({ url: logsUrl, headers });
+  const baseLogExporter = new PulseBrowserLogExporter(
+    { url: logsUrl, headers },
+    {
+      useProtobuf,
+      useGzip,
+      diskBuffer: pulseDisk,
+      signalKind: "log",
+    },
+  );
+  const logExporter =
+    config.debugLogRecordLifecycle === true
+      ? wrapLogExporterLifecycleDebug(baseLogExporter)
+      : baseLogExporter;
 
-  const batchLogProcessor = new BatchLogRecordProcessor(logExporter, batchOptions);
+  const batchLogProcessor = new BatchLogRecordProcessor(
+    logExporter,
+    batchOptions,
+  );
 
   const loggerProvider = new LoggerProvider({ resource });
   for (const processor of logProcessors) {
@@ -154,14 +212,31 @@ export function createProviders(
   }
   loggerProvider.addLogRecordProcessor(batchLogProcessor);
 
-  // ── Metrics ─────────────────────────────────────────────────────────────────
-  const rawMetricExporter = new OTLPMetricExporter({ url: metricsUrl, headers });
+  if (config.debugLogRecordLifecycle === true) {
+    console.log("[PulseWeb:logLifecycle]", {
+      phase: "batch_config",
+      scheduledDelayMillis: batchOptions.scheduledDelayMillis,
+      maxQueueSize: batchOptions.maxQueueSize,
+      maxExportBatchSize: batchOptions.maxExportBatchSize,
+      note: "BatchLogRecordProcessor keeps a private in-memory queue; export runs on the timer, when the queue fills a batch slice, or on forceFlush (e.g. pagehide).",
+    });
+  }
 
-  // Wrap with global attribute injector so every data point carries session.id,
-  // installation.id, screen.name, platform, etc. — mirroring what the
-  // GlobalAttributesProcessor does for spans and logs.
+  const rawMetricExporter = createPulseBrowserMetricExporter(
+    { url: metricsUrl, headers },
+    {
+      useProtobuf,
+      useGzip,
+      diskBuffer: pulseDisk,
+      signalKind: "metric",
+    },
+  );
+
   const metricExporter: PushMetricExporter = config.getMetricGlobalAttrs
-    ? new GlobalAttributeInjectingMetricExporter(rawMetricExporter, config.getMetricGlobalAttrs)
+    ? new GlobalAttributeInjectingMetricExporter(
+        rawMetricExporter,
+        config.getMetricGlobalAttrs,
+      )
     : rawMetricExporter;
 
   const metricReader = new PeriodicExportingMetricReader({
@@ -174,8 +249,7 @@ export function createProviders(
     readers: [metricReader],
   });
 
-  // ── Pagehide flush ──────────────────────────────────────────────────────────
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     const pagehideHandler = (e: PageTransitionEvent) => {
       if (!e.persisted) {
         void tracerProvider.forceFlush();
@@ -183,7 +257,7 @@ export function createProviders(
         void meterProvider.forceFlush();
       }
     };
-    window.addEventListener('pagehide', pagehideHandler);
+    window.addEventListener("pagehide", pagehideHandler);
   }
 
   return { tracerProvider, loggerProvider, meterProvider };
