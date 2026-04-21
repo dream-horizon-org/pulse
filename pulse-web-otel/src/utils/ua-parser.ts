@@ -109,6 +109,7 @@ export async function getOsVersionAsync(syncFallback: string): Promise<string> {
   return syncFallback;
 }
 
+
 export function parseUserAgent(): ParsedUA {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return {

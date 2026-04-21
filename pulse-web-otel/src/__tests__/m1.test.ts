@@ -361,7 +361,10 @@ describe("M1 — Resource builder", () => {
   });
 
   it("includes service.name from config", () => {
-    const resource = buildResource(makeConfig({ serviceName: "my-shop" }), "14");
+    const resource = buildResource(
+      makeConfig({ serviceName: "my-shop" }),
+      "14",
+    );
     expect(resource.attributes[R.SERVICE_NAME]).toBe("my-shop");
   });
 
@@ -922,7 +925,10 @@ describe("M1 — Resource Builder (extended)", () => {
   });
 
   it("service.version uses config value when provided", () => {
-    const resource = buildResource(makeConfig({ serviceVersion: "2.3.1" }), "14");
+    const resource = buildResource(
+      makeConfig({ serviceVersion: "2.3.1" }),
+      "14",
+    );
     expect(resource.attributes[R.SERVICE_VERSION]).toBe("2.3.1");
   });
 
