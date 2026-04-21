@@ -1,7 +1,7 @@
 export enum PulseDataCollectionConsent {
-  ALLOWED = 'ALLOWED',
-  DENIED  = 'DENIED',
-  PENDING = 'PENDING',
+  ALLOWED = "ALLOWED",
+  DENIED = "DENIED",
+  PENDING = "PENDING",
 }
 
 export interface InstrumentationConfig {
@@ -10,7 +10,15 @@ export interface InstrumentationConfig {
   clicks?:        { enabled: boolean };
   webVitals?:     { enabled: boolean };
   navigation?:    { enabled: boolean };
-  session?:       { enabled: boolean; inactivityTimeoutMs?: number };
+  session?:       {
+    enabled: boolean;
+    /** Rotate session after this many ms of inactivity. Default: 30 min. */
+    inactivityTimeoutMs?: number;
+    /** Hard max session lifetime in ms regardless of activity. Default: 4 hours. */
+    maxSessionLifetimeMs?: number;
+    /** Rotate session after page has been hidden for this many ms. Default: 15 min. */
+    pageHiddenTimeoutMs?: number;
+  };
   interactions?:  { enabled: boolean };
   sessionReplay?: { enabled: boolean };
 }
@@ -39,8 +47,8 @@ export interface PulseWebConfig {
 
   // Optional — export tuning
   export?: {
-    format?: 'json' | 'protobuf';
-    compression?: 'gzip' | 'none';
+    format?: "json" | "protobuf";
+    compression?: "gzip" | "none";
     batch?: {
       scheduledDelayMillis?: number;
       maxQueueSize?: number;
@@ -57,10 +65,18 @@ export interface PulseWebConfig {
 
   // Optional — per-instrumentation toggles
   instrumentations?: InstrumentationConfig;
+
+  /**
+   * When true, logs each log record lifecycle: pipeline ingress, post pre-batch
+   * (before BatchLogRecordProcessor queue), and each OTLP log batch at export.
+   */
+  debugLogRecordLifecycle?: boolean;
 }
 
 export function validateConfig(config: PulseWebConfig): void {
-  if (!config.endpointBaseUrl) throw new Error('[PulseWeb] endpointBaseUrl is required');
-  if (!config.apiKey) throw new Error('[PulseWeb] apiKey is required');
-  if (!config.serviceName) throw new Error('[PulseWeb] serviceName is required');
+  if (!config.endpointBaseUrl)
+    throw new Error("[PulseWeb] endpointBaseUrl is required");
+  if (!config.apiKey) throw new Error("[PulseWeb] apiKey is required");
+  if (!config.serviceName)
+    throw new Error("[PulseWeb] serviceName is required");
 }

@@ -1,12 +1,16 @@
 // M1: Sampling processor — makes a once-at-construction sampling decision.
 // Marks unsampled spans/logs with pulse.sampled=false.
 
-import type { Span, Context } from '@opentelemetry/api';
-import type { SpanProcessor, ReadableSpan } from '@opentelemetry/sdk-trace-web';
-import type { LogRecord, LogRecordProcessor } from '@opentelemetry/sdk-logs';
-import type { PulseSdkConfig, PulseSdkName } from '../remote-config';
+import type { Span, Context } from "@opentelemetry/api";
+import type { SpanProcessor, ReadableSpan } from "@opentelemetry/sdk-trace-web";
+import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
+import type { PulseSdkConfig, PulseSdkName } from "../remote-config";
+import { PulseWebSemconv } from "../semconv";
 
-function computeSamplingDecision(config: PulseSdkConfig, sdkName: PulseSdkName): boolean {
+function computeSamplingDecision(
+  config: PulseSdkConfig,
+  sdkName: PulseSdkName,
+): boolean {
   const sessionSampleRate = config.sampling.default.sessionSampleRate;
 
   // Check if any SDK-specific rule overrides the default
@@ -19,7 +23,9 @@ function computeSamplingDecision(config: PulseSdkConfig, sdkName: PulseSdkName):
   return Math.random() < sessionSampleRate;
 }
 
-export class PulseSamplingProcessor implements SpanProcessor, LogRecordProcessor {
+export class PulseSamplingProcessor
+  implements SpanProcessor, LogRecordProcessor
+{
   readonly shouldSample: boolean;
 
   constructor(config: PulseSdkConfig, sdkName: PulseSdkName) {
@@ -28,7 +34,7 @@ export class PulseSamplingProcessor implements SpanProcessor, LogRecordProcessor
 
   onStart(span: Span, _parentContext: Context): void {
     if (!this.shouldSample) {
-      span.setAttribute('pulse.sampled', false);
+      span.setAttribute(PulseWebSemconv.AttributeKey.PULSE_SAMPLED, false);
     }
   }
 
@@ -38,7 +44,7 @@ export class PulseSamplingProcessor implements SpanProcessor, LogRecordProcessor
 
   onEmit(logRecord: LogRecord): void {
     if (!this.shouldSample) {
-      logRecord.setAttribute('pulse.sampled', false);
+      logRecord.setAttribute(PulseWebSemconv.AttributeKey.PULSE_SAMPLED, false);
     }
   }
 

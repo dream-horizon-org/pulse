@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Playwright E2E config for the ecommerce-demo SDK harness.
@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
  * behaviour, and @playwright/test is a demo dev-dependency (not part of the SDK).
  *
  * The webServer starts Vite in --mode test which loads .env.test:
- *   - OTLP calls go to http://otel-mock.test (intercepted via page.route — no real ingest)
+ *   - OTLP calls go to http://127.0.0.1:4318 (intercepted via page.route — no real collector needed)
  *   - Batch flush delay = 200ms (fast assertions instead of waiting 5s)
  *   - gzip disabled (plain JSON; fixture also handles gzip transparently)
  *
@@ -19,31 +19,34 @@ import { defineConfig, devices } from '@playwright/test';
  * From SDK root:     yarn workspace ecommerce-demo e2e
  */
 export default defineConfig({
-  testDir: '.',           // specs live alongside this config file in e2e/
-  testMatch: '*.spec.ts',
+  testDir: ".", // specs live alongside this config file in e2e/
+  testMatch: "*.spec.ts",
   timeout: 30_000,
   expect: { timeout: 10_000 },
-  fullyParallel: false,   // OTLP signal order is time-sensitive; run serially
+  fullyParallel: false, // OTLP signal order is time-sensitive; run serially
   workers: 1,
-  reporter: [['list'], ['html', { open: 'never', outputFolder: '../e2e-report' }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never", outputFolder: "../e2e-report" }],
+  ],
 
   use: {
-    baseURL: 'http://localhost:3099',
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    baseURL: "http://localhost:3099",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
 
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox',  use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit',   use: { ...devices['Desktop Safari'] } },
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
 
   webServer: {
-    command: 'yarn dev --mode test --port 3099',
-    cwd: '..',              // ecommerce-demo root (one level up from e2e/)
+    command: "yarn dev --mode test --port 3099",
+    cwd: "..", // ecommerce-demo root (one level up from e2e/)
     port: 3099,
-    reuseExistingServer: false,  // always start fresh — avoids .env.local contamination
+    reuseExistingServer: false, // always start fresh — avoids .env.local contamination
     timeout: 60_000,
   },
 });

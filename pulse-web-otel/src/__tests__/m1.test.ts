@@ -13,6 +13,7 @@ import {
   SessionProvider,
   wasNewInstallation,
   _resetInstallationStateForTesting,
+  SessionChangeEvent,
 } from "../session";
 import { validateConfig } from "../config";
 import {
@@ -32,6 +33,13 @@ import { PulseGlobalAttributesProcessor } from "../processors/global-attrs-proce
 import { SessionInstrumentation } from "../instrumentations/session";
 import { SdkContext } from "../instrumentation-registry";
 import { logs } from "@opentelemetry/api-logs";
+import { PulseWebSemconv } from "../semconv";
+
+const R = PulseWebSemconv.ResourceKey;
+const K = PulseWebSemconv.AttributeKey;
+const T = PulseWebSemconv.PulseType;
+const B = PulseWebSemconv.LogBody;
+const F = PulseWebSemconv.FixedValue;
 
 // Mock the exporters module to avoid real OTLP network calls in tests
 vi.mock("../exporters", () => {
@@ -74,6 +82,10 @@ vi.mock("../exporters", () => {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function msToNs(ms: number): number {
+  return ms * 1_000_000;
+}
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   return {
@@ -312,23 +324,23 @@ describe("M1 — Resource builder", () => {
 
   it("includes platform=web", () => {
     const resource = buildResource(makeConfig());
-    expect(resource.attributes["platform"]).toBe("web");
+    expect(resource.attributes[R.PLATFORM]).toBe(F.PLATFORM_WEB);
   });
 
   it("includes rum.sdk.name=pulse_web_js", () => {
     const resource = buildResource(makeConfig());
-    expect(resource.attributes["rum.sdk.name"]).toBe("pulse_web_js");
+    expect(resource.attributes[R.RUM_SDK_NAME]).toBe(F.RUM_SDK_NAME);
   });
 
   it("includes service.name from config", () => {
     const resource = buildResource(makeConfig({ serviceName: "my-shop" }));
-    expect(resource.attributes["service.name"]).toBe("my-shop");
+    expect(resource.attributes[R.SERVICE_NAME]).toBe("my-shop");
   });
 
   it("extracts project.id from api key", () => {
     const config = makeConfig({ apiKey: "proj_abc123_secrettoken" });
     const resource = buildResource(config);
-    expect(resource.attributes["project.id"]).toBe("proj_abc123");
+    expect(resource.attributes[R.PROJECT_ID]).toBe("proj_abc123");
   });
 });
 
@@ -691,13 +703,13 @@ describe("M1 — Session Provider (extended)", () => {
     expect(id2).toBe(id1);
   });
 
-  it("session ID lives in sessionStorage, not localStorage", () => {
+  it("session ID lives in localStorage (shared across tabs), not sessionStorage", () => {
     const provider = new SessionProvider();
     currentProvider = provider;
     const id = provider.getSessionId();
 
-    expect(window.sessionStorage.getItem("pulse_session_id")).toBe(id);
-    expect(window.localStorage.getItem("pulse_session_id")).toBeNull();
+    expect(window.localStorage.getItem("pulse_session_id")).toBe(id);
+    expect(window.sessionStorage.getItem("pulse_session_id")).toBeNull();
   });
 
   it("updateActivity() resets the inactivity clock — same session ID returned", () => {
@@ -714,14 +726,14 @@ describe("M1 — Session Provider (extended)", () => {
     expect(id2).toBe(id1);
   });
 
-  it("shutdown() clears session from sessionStorage", () => {
+  it("shutdown() clears session from localStorage", () => {
     const provider = new SessionProvider();
     // Don't assign currentProvider here — the test itself calls shutdown()
     provider.getSessionId();
-    expect(window.sessionStorage.getItem("pulse_session_id")).toBeTruthy();
+    expect(window.localStorage.getItem("pulse_session_id")).toBeTruthy();
 
     provider.shutdown();
-    expect(window.sessionStorage.getItem("pulse_session_id")).toBeNull();
+    expect(window.localStorage.getItem("pulse_session_id")).toBeNull();
   });
 
   it("emits session.end with reason shutdown on shutdown()", () => {
@@ -772,15 +784,15 @@ describe("M1 — Session Provider (extended)", () => {
     expect(endEvents).toHaveLength(0);
   });
 
-  it("session.end includes correct session.id and positive durationMs", () => {
+  it("session.end includes correct session.id and positive durationNs", () => {
     const provider = new SessionProvider();
     // Don't assign currentProvider — test calls shutdown() itself
     const sessionId = provider.getSessionId();
 
-    let capturedEnd: { sessionId?: string; durationMs?: number } = {};
+    let capturedEnd: { sessionId?: string; durationNs?: number } = {};
     provider.onSessionChange((e) => {
       if (e.type === "end") {
-        capturedEnd = { sessionId: e.sessionId, durationMs: e.durationMs };
+        capturedEnd = { sessionId: e.sessionId, durationNs: e.durationNs };
       }
     });
 
@@ -788,7 +800,7 @@ describe("M1 — Session Provider (extended)", () => {
     provider.shutdown();
 
     expect(capturedEnd.sessionId).toBe(sessionId);
-    expect(capturedEnd.durationMs).toBeGreaterThanOrEqual(0);
+    expect(capturedEnd.durationNs).toBeGreaterThanOrEqual(0);
   });
 
   it("rotation emits end then start — exactly one of each", () => {
@@ -857,25 +869,25 @@ describe("M1 — Resource Builder (extended)", () => {
 
   it("includes rum.sdk.version as a non-empty string", () => {
     const resource = buildResource(makeConfig());
-    expect(typeof resource.attributes["rum.sdk.version"]).toBe("string");
+    expect(typeof resource.attributes[R.RUM_SDK_VERSION]).toBe("string");
     expect(
-      (resource.attributes["rum.sdk.version"] as string).length,
+      (resource.attributes[R.RUM_SDK_VERSION] as string).length,
     ).toBeGreaterThan(0);
   });
 
   it("service.version defaults to 0.0.0 when not provided", () => {
     const resource = buildResource(makeConfig());
-    expect(resource.attributes["service.version"]).toBe("0.0.0");
+    expect(resource.attributes[R.SERVICE_VERSION]).toBe("0.0.0");
   });
 
   it("service.version uses config value when provided", () => {
     const resource = buildResource(makeConfig({ serviceVersion: "2.3.1" }));
-    expect(resource.attributes["service.version"]).toBe("2.3.1");
+    expect(resource.attributes[R.SERVICE_VERSION]).toBe("2.3.1");
   });
 
   it("installation.id is present and matches UUID v4 format", () => {
     const resource = buildResource(makeConfig());
-    const id = resource.attributes["installation.id"] as string;
+    const id = resource.attributes[R.INSTALLATION_ID] as string;
     expect(id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
@@ -884,12 +896,12 @@ describe("M1 — Resource Builder (extended)", () => {
   it("installation.id in resource matches getOrCreateInstallationId()", () => {
     const expected = getOrCreateInstallationId();
     const resource = buildResource(makeConfig());
-    expect(resource.attributes["installation.id"]).toBe(expected);
+    expect(resource.attributes[R.INSTALLATION_ID]).toBe(expected);
   });
 
   it("browser.name is a non-empty string", () => {
     const resource = buildResource(makeConfig());
-    const name = resource.attributes["browser.name"] as string;
+    const name = resource.attributes[R.BROWSER_NAME] as string;
     expect(typeof name).toBe("string");
     expect(name.length).toBeGreaterThan(0);
   });
@@ -897,32 +909,32 @@ describe("M1 — Resource Builder (extended)", () => {
   it("device.type is one of desktop | mobile | tablet", () => {
     const resource = buildResource(makeConfig());
     expect(["desktop", "mobile", "tablet"]).toContain(
-      resource.attributes["device.type"],
+      resource.attributes[R.DEVICE_TYPE],
     );
   });
 
   it("screen.resolution is in WxH format", () => {
     const resource = buildResource(makeConfig());
-    const res = resource.attributes["screen.resolution"] as string;
+    const res = resource.attributes[R.SCREEN_RESOLUTION] as string;
     expect(res).toMatch(/^\d+x\d+$/);
   });
 
   it("screen.aspect_ratio is in W:H format", () => {
     const resource = buildResource(makeConfig());
-    const ratio = resource.attributes["screen.aspect_ratio"] as string;
+    const ratio = resource.attributes[R.SCREEN_ASPECT_RATIO] as string;
     expect(ratio).toMatch(/^\d+:\d+$/);
   });
 
   it("browser.language is a non-empty string", () => {
     const resource = buildResource(makeConfig());
-    const lang = resource.attributes["browser.language"] as string;
+    const lang = resource.attributes[R.BROWSER_LANGUAGE] as string;
     expect(typeof lang).toBe("string");
     expect(lang.length).toBeGreaterThan(0);
   });
 
   it("timezone is a non-empty string", () => {
     const resource = buildResource(makeConfig());
-    const tz = resource.attributes["timezone"] as string;
+    const tz = resource.attributes[R.TIMEZONE] as string;
     expect(typeof tz).toBe("string");
     expect(tz.length).toBeGreaterThan(0);
   });
@@ -930,7 +942,7 @@ describe("M1 — Resource Builder (extended)", () => {
   it("apiKey without proj_ prefix → project.id falls back to raw apiKey", () => {
     const config = makeConfig({ apiKey: "raw_key_without_prefix" });
     const resource = buildResource(config);
-    expect(resource.attributes["project.id"]).toBe("raw_key_without_prefix");
+    expect(resource.attributes[R.PROJECT_ID]).toBe("raw_key_without_prefix");
   });
 
   it("extractProjectId: proj_abc_secret → proj_abc", () => {
@@ -1015,7 +1027,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
 
     processor.onStart(fakeSpan, {} as never);
 
-    expect(attrs["session.id"]).toBe(sessionId);
+    expect(attrs[K.SESSION_ID]).toBe(sessionId);
   });
 
   it("injects installation.id onto a span via onStart", () => {
@@ -1031,7 +1043,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
 
     processor.onStart(fakeSpan, {} as never);
 
-    expect(attrs["installation.id"]).toBe(installId);
+    expect(attrs[K.INSTALLATION_ID]).toBe(installId);
   });
 
   it("injects platform=web onto every span", () => {
@@ -1044,7 +1056,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
     } as unknown as Parameters<typeof processor.onStart>[0];
 
     processor.onStart(fakeSpan, {} as never);
-    expect(attrs["platform"]).toBe("web");
+    expect(attrs[K.PLATFORM]).toBe(F.PLATFORM_WEB);
   });
 
   it("injects url.path from window.location.pathname", () => {
@@ -1057,7 +1069,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
     } as unknown as Parameters<typeof processor.onStart>[0];
 
     processor.onStart(fakeSpan, {} as never);
-    expect(attrs["url.path"]).toBe(window.location.pathname);
+    expect(attrs[K.URL_PATH]).toBe(window.location.pathname);
   });
 
   it("injects page.url from window.location.href", () => {
@@ -1070,7 +1082,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
     } as unknown as Parameters<typeof processor.onStart>[0];
 
     processor.onStart(fakeSpan, {} as never);
-    expect(attrs["page.url"]).toBe(window.location.href);
+    expect(attrs[K.PAGE_URL]).toBe(window.location.href);
   });
 
   it("injects session.id onto a log record via onEmit", () => {
@@ -1085,7 +1097,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
     } as unknown as Parameters<typeof processor.onEmit>[0];
 
     processor.onEmit(fakeLog);
-    expect(attrs["session.id"]).toBe(sessionId);
+    expect(attrs[K.SESSION_ID]).toBe(sessionId);
   });
 
   it("setScreenName overrides screen.name on next signal", () => {
@@ -1100,7 +1112,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
     } as unknown as Parameters<typeof processor.onStart>[0];
 
     processor.onStart(fakeSpan, {} as never);
-    expect(attrs["screen.name"]).toBe("checkout");
+    expect(attrs[K.SCREEN_NAME]).toBe("checkout");
   });
 
   it("screen.name heuristic: strips numeric segments from path", () => {
@@ -1219,8 +1231,8 @@ describe("M1 — GlobalAttributesProcessor", () => {
 
     rotationProcessor.onStart(fakeSpan, {} as never);
 
-    expect(attrs["session.id"]).toBe(secondSessionId);
-    expect(attrs["session.id"]).not.toBe(firstSessionId);
+    expect(attrs[K.SESSION_ID]).toBe(secondSessionId);
+    expect(attrs[K.SESSION_ID]).not.toBe(firstSessionId);
 
     // Suppress unused variable warning — processor/sessionProvider were registered for cleanup
     void processor;
@@ -1290,7 +1302,7 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const starts = captured.filter(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
     expect(starts).toHaveLength(1);
   });
@@ -1303,9 +1315,9 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const startLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
-    expect(startLog?.body).toBe("session.start");
+    expect(startLog?.body).toBe(B.SESSION_START);
   });
 
   it("session.start carries non-empty session.id", () => {
@@ -1316,9 +1328,9 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const startLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
-    expect(startLog?.attributes["session.id"]).toBeTruthy();
+    expect(startLog?.attributes[K.SESSION_ID]).toBeTruthy();
   });
 
   it("session.start session.id matches the active session ID", () => {
@@ -1330,9 +1342,9 @@ describe("M1 — SessionInstrumentation events", () => {
 
     const activeSessionId = sessionProvider.getSessionId();
     const startLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
-    expect(startLog?.attributes["session.id"]).toBe(activeSessionId);
+    expect(startLog?.attributes[K.SESSION_ID]).toBe(activeSessionId);
   });
 
   it("session.start carries session.start_reason = sdk_init on first start", () => {
@@ -1343,9 +1355,9 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const startLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
-    expect(startLog?.attributes["session.start_reason"]).toBe("sdk_init");
+    expect(startLog?.attributes[K.SESSION_START_REASON]).toBe("sdk_init");
   });
 
   it("session.start carries empty session.previous_id on first start", () => {
@@ -1356,9 +1368,9 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const startLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
-    expect(startLog?.attributes["session.previous_id"]).toBe("");
+    expect(startLog?.attributes[K.SESSION_PREVIOUS_ID]).toBe("");
   });
 
   it("emits session.end on pagehide (persisted=false)", () => {
@@ -1375,13 +1387,13 @@ describe("M1 — SessionInstrumentation events", () => {
     );
 
     const endLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.end",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_END,
     );
     expect(endLog).toBeDefined();
-    expect(endLog?.body).toBe("session.end");
+    expect(endLog?.body).toBe(B.SESSION_END);
   });
 
-  it("session.end carries non-negative session.duration_ms", () => {
+  it("session.end carries non-negative session.duration_ns", () => {
     const captured = makeCapture();
     const sessionProvider = new SessionProvider();
     currentProvider = sessionProvider;
@@ -1395,9 +1407,9 @@ describe("M1 — SessionInstrumentation events", () => {
     );
 
     const endLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.end",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_END,
     );
-    expect(endLog?.attributes["session.duration_ms"]).toBeGreaterThanOrEqual(0);
+    expect(endLog?.attributes[K.SESSION_DURATION_MS]).toBeGreaterThanOrEqual(0);
   });
 
   it("session.end carries the correct session.id", () => {
@@ -1415,9 +1427,9 @@ describe("M1 — SessionInstrumentation events", () => {
     );
 
     const endLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.end",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_END,
     );
-    expect(endLog?.attributes["session.id"]).toBe(activeId);
+    expect(endLog?.attributes[K.SESSION_ID]).toBe(activeId);
   });
 
   it("does NOT emit session.end on BFCache pagehide (persisted=true)", () => {
@@ -1433,7 +1445,7 @@ describe("M1 — SessionInstrumentation events", () => {
     );
 
     const endLog = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.end",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_END,
     );
     expect(endLog).toBeUndefined();
   });
@@ -1446,10 +1458,10 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const starts = captured.filter(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
     const ends = captured.filter(
-      (l) => l.attributes["pulse.type"] === "session.end",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_END,
     );
 
     expect(starts).toHaveLength(1);
@@ -1468,11 +1480,11 @@ describe("M1 — SessionInstrumentation events", () => {
     vi.advanceTimersByTime(timeoutMs + 100);
     sessionProvider.getSessionId(); // trigger rotation
 
-    const types = captured.map((l) => l.attributes["pulse.type"]);
-    expect(types).toContain("session.end");
-    expect(types).toContain("session.start");
-    expect(types.indexOf("session.end")).toBeLessThan(
-      types.indexOf("session.start"),
+    const types = captured.map((l) => l.attributes[K.PULSE_TYPE]);
+    expect(types).toContain(T.SESSION_END);
+    expect(types).toContain(T.SESSION_START);
+    expect(types.indexOf(T.SESSION_END)).toBeLessThan(
+      types.indexOf(T.SESSION_START),
     );
   });
 
@@ -1491,9 +1503,9 @@ describe("M1 — SessionInstrumentation events", () => {
     sessionProvider.getSessionId();
 
     const rotationStart = captured.find(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
-    expect(rotationStart?.attributes["session.previous_id"]).toBe(firstId);
+    expect(rotationStart?.attributes[K.SESSION_PREVIOUS_ID]).toBe(firstId);
   });
 
   it("uninstall() stops emitting events — rotation after uninstall is silent", () => {
@@ -1523,9 +1535,247 @@ describe("M1 — SessionInstrumentation events", () => {
     instr.install(makeFakeSdk(sessionProvider));
 
     const starts = captured.filter(
-      (l) => l.attributes["pulse.type"] === "session.start",
+      (l) => l.attributes[K.PULSE_TYPE] === T.SESSION_START,
     );
     expect(starts).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M1 — Session Provider: reload and clone detection
+// ---------------------------------------------------------------------------
+
+describe("M1 — Session Provider: reload and clone detection (beforeunload flag)", () => {
+  const createdProviders: SessionProvider[] = [];
+
+  function makeProvider(inactivityMs?: number, maxLifetimeMs?: number, pageHiddenMs?: number) {
+    const p = new SessionProvider(inactivityMs, maxLifetimeMs, pageHiddenMs);
+    createdProviders.push(p);
+    return p;
+  }
+
+  afterEach(() => {
+    for (const p of createdProviders) p.shutdown();
+    createdProviders.length = 0;
+    vi.restoreAllMocks();
+    window.sessionStorage.clear();
+    window.localStorage.removeItem("pulse_session_id");
+    window.localStorage.removeItem("pulse_session_ts");
+    window.localStorage.removeItem("pulse_session_start");
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
+
+  // --- Clone detection ---
+  // PostHog model: clone → same session.id (inherited), new window.id (unique per tab).
+
+  it("clone: flag present → inherits session (wasSessionReused=true, same session ID)", () => {
+    const clonedId = "cloned-session-uuid";
+    window.localStorage.setItem("pulse_session_id", clonedId);
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 3000)));
+    window.sessionStorage.setItem("pulse_session_clone_flag", "1");
+
+    const provider = makeProvider();
+
+    expect(provider.wasSessionReused()).toBe(true);
+    expect(provider.getSessionId()).toBe(clonedId);
+  });
+
+  it("clone: session is preserved in localStorage (not cleared)", () => {
+    window.localStorage.setItem("pulse_session_id", "clone-id");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 1000)));
+    window.sessionStorage.setItem("pulse_session_clone_flag", "1");
+
+    makeProvider();
+
+    // The inherited session must be kept (not wiped)
+    expect(window.localStorage.getItem("pulse_session_id")).toBe("clone-id");
+    // The flag is re-set for THIS tab so any future clone of it is also detected
+    expect(window.sessionStorage.getItem("pulse_session_clone_flag")).toBe("1");
+  });
+
+  it("clone: emitInitialSession() is silent (session reused — no duplicate session.start)", () => {
+    window.localStorage.setItem("pulse_session_id", "cloned-session");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 3000)));
+    window.sessionStorage.setItem("pulse_session_clone_flag", "1");
+
+    const provider = makeProvider();
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    provider.emitInitialSession();
+
+    expect(events.filter((e) => e.type === "start")).toHaveLength(0);
+  });
+
+  it("clone: getWindowId() is different from a separate tab instance", () => {
+    // Two tabs initialised in sequence get distinct window IDs
+    window.sessionStorage.setItem("pulse_session_clone_flag", "1");
+    const tabA = makeProvider();
+    window.sessionStorage.clear();
+    const tabB = makeProvider();
+
+    expect(tabA.getWindowId()).not.toBe(tabB.getWindowId());
+  });
+
+  // --- Reload detection ---
+
+  it("reload: no flag + active session → wasSessionReused() true, same ID returned", () => {
+    const priorId = "prior-session-uuid";
+    window.localStorage.setItem("pulse_session_id", priorId);
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 5000)));
+    // No clone flag — beforeunload removed it before reload
+
+    const provider = makeProvider();
+
+    expect(provider.wasSessionReused()).toBe(true);
+    expect(provider.getSessionId()).toBe(priorId);
+  });
+
+  it("reload: emitInitialSession() does NOT emit session.start when session is reused", () => {
+    window.localStorage.setItem("pulse_session_id", "reload-session");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - 5000)));
+
+    const provider = makeProvider();
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    provider.emitInitialSession();
+
+    expect(events.filter((e) => e.type === "start")).toHaveLength(0);
+  });
+
+  it("fresh new tab: no flag, no session → creates new session", () => {
+    const provider = makeProvider();
+    expect(provider.wasSessionReused()).toBe(false);
+    const id = provider.getSessionId();
+    expect(id.length).toBeGreaterThan(0);
+  });
+
+  // --- beforeunload flag lifecycle ---
+
+  it("init always writes clone flag to sessionStorage", () => {
+    makeProvider();
+    expect(window.sessionStorage.getItem("pulse_session_clone_flag")).toBe("1");
+  });
+
+  it("beforeunload removes the clone flag (reload won't see it)", () => {
+    makeProvider();
+    expect(window.sessionStorage.getItem("pulse_session_clone_flag")).toBe("1");
+
+    window.dispatchEvent(new Event("beforeunload"));
+
+    expect(window.sessionStorage.getItem("pulse_session_clone_flag")).toBeNull();
+  });
+
+  // --- pagehide behaviour ---
+
+  it("pagehide: emits session.end event", () => {
+    const provider = makeProvider();
+    provider.getSessionId();
+
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+
+    expect(events.filter((e) => e.type === "end" && e.reason === "page_unload")).toHaveLength(1);
+  });
+
+  it("pagehide: does NOT clear localStorage (skipClear=true)", () => {
+    const provider = makeProvider();
+    provider.getSessionId();
+    const before = window.localStorage.getItem("pulse_session_id");
+    expect(before).not.toBeNull();
+
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+
+    expect(window.localStorage.getItem("pulse_session_id")).toBe(before);
+  });
+
+  it("shutdown(): clears localStorage", () => {
+    const provider = makeProvider();
+    provider.getSessionId();
+    expect(window.localStorage.getItem("pulse_session_id")).not.toBeNull();
+    provider.shutdown();
+    expect(window.localStorage.getItem("pulse_session_id")).toBeNull();
+  });
+
+  // --- 4-hour max session lifetime ---
+
+  it("max lifetime: session rotates when age exceeds threshold", () => {
+    const maxMs = 1000;
+    window.localStorage.setItem("pulse_session_id", "old");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now() - maxMs - 100)));
+
+    const provider = makeProvider(30 * 60 * 1000, maxMs);
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+
+    const newId = provider.getSessionId();
+
+    expect(newId).not.toBe("old");
+    expect(events.find((e) => e.type === "end"   && e.reason === "max_lifetime")).toBeTruthy();
+    expect(events.find((e) => e.type === "start" && e.reason === "max_lifetime")).toBeTruthy();
+  });
+
+  it("max lifetime: session within threshold is NOT rotated", () => {
+    window.localStorage.setItem("pulse_session_id", "fresh");
+    window.localStorage.setItem("pulse_session_ts", String(msToNs(Date.now())));
+    window.localStorage.setItem("pulse_session_start", String(msToNs(Date.now()) - 100));
+
+    const provider = makeProvider(30 * 60 * 1000, 5000);
+    expect(provider.getSessionId()).toBe("fresh");
+  });
+
+  // --- 15-minute page-hidden inactivity timeout ---
+
+  it("page-hidden timeout: session rotates when page hidden beyond threshold", () => {
+    const pageHiddenMs = 500;
+    const provider = makeProvider(30 * 60 * 1000, 4 * 60 * 60 * 1000, pageHiddenMs);
+    const oldId = provider.getSessionId();
+
+    const events: SessionChangeEvent[] = [];
+    provider.onSessionChange((e) => events.push(e));
+
+    // Page goes hidden — provider records hiddenAt = real Date.now()
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // Access the recorded hiddenAt and mock Date.now() to be past the threshold
+    const hiddenAt = (provider as unknown as Record<string, unknown>)["_hiddenAtMs"] as number;
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(hiddenAt + pageHiddenMs + 100);
+
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    nowSpy.mockRestore();
+
+    expect(provider.getSessionId()).not.toBe(oldId);
+    expect(events.find((e) => e.type === "end"   && e.reason === "inactivity_timeout")).toBeTruthy();
+    expect(events.find((e) => e.type === "start" && e.reason === "inactivity_timeout")).toBeTruthy();
+  });
+
+  it("page-hidden timeout: session NOT rotated when hidden duration under threshold", () => {
+    const pageHiddenMs = 60_000;
+    const provider = makeProvider(30 * 60 * 1000, 4 * 60 * 60 * 1000, pageHiddenMs);
+    const existingId = provider.getSessionId();
+
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // Mock Date.now() to be just under the threshold
+    const hiddenAt = (provider as unknown as Record<string, unknown>)["_hiddenAtMs"] as number;
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(hiddenAt + pageHiddenMs - 1000);
+
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    nowSpy.mockRestore();
+
+    expect(provider.getSessionId()).toBe(existingId);
   });
 });
 
@@ -1705,9 +1955,9 @@ describe("M1 — SDK public API signals", () => {
       attributes: Record<string, unknown>;
     };
     expect(call.body).toBe("something broke");
-    expect(call.attributes["pulse.type"]).toBe("non_fatal");
-    expect(call.attributes["exception.type"]).toBe("Error");
-    expect(call.attributes["non_fatal.is_manual"]).toBe(true);
+    expect(call.attributes[K.PULSE_TYPE]).toBe(T.NON_FATAL);
+    expect(call.attributes[K.EXCEPTION_TYPE]).toBe("Error");
+    expect(call.attributes[K.NON_FATAL_IS_MANUAL]).toBe(true);
   });
 
   it("trackNonFatal emits non_fatal log with name as body", async () => {
@@ -1730,9 +1980,9 @@ describe("M1 — SDK public API signals", () => {
       attributes: Record<string, unknown>;
     };
     expect(call.body).toBe("payment_declined");
-    expect(call.attributes["pulse.type"]).toBe("non_fatal");
-    expect(call.attributes["non_fatal.type"]).toBe("payment_declined");
-    expect(call.attributes["non_fatal.is_manual"]).toBe(true);
+    expect(call.attributes[K.PULSE_TYPE]).toBe(T.NON_FATAL);
+    expect(call.attributes[K.NON_FATAL_TYPE]).toBe("payment_declined");
+    expect(call.attributes[K.NON_FATAL_IS_MANUAL]).toBe(true);
   });
 
   it("trackEvent emits custom_event log (not span)", async () => {
@@ -1754,7 +2004,7 @@ describe("M1 — SDK public API signals", () => {
       body: string;
       attributes: Record<string, unknown>;
     };
-    expect(call.attributes["pulse.type"]).toBe("custom_event");
-    expect(call.attributes["event.name"]).toBe("pulse.custom_event");
+    expect(call.attributes[K.PULSE_TYPE]).toBe(T.CUSTOM_EVENT);
+    expect(call.attributes[K.EVENT_NAME]).toBe(F.EVENT_NAME_CUSTOM_EVENT);
   });
 });

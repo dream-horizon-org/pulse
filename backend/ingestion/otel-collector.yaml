@@ -4,13 +4,17 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
         cors:
+          # confighttp/rs.cors: `*` alone is invalid with Allow-Credentials. Use protocol
+          # wildcards so any dev port (e.g. :3002 demo, :3099 Playwright) matches — not
+          # `http://localhost:*` (wildcard is for host labels like *.example.com, not ports).
           allowed_origins:
-            - "http://localhost:*"
-            - "http://127.0.0.1:*"
+            - "http://*"
+            - "https://*"
           allowed_headers:
             - "x-api-key"
             - "x-pulse-metering-session-id"
             - "content-type"
+            - "content-encoding"
             - "accept"
 
 extensions:
