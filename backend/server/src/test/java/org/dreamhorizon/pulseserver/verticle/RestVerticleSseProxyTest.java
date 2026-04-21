@@ -10,10 +10,8 @@ import static org.mockito.Mockito.when;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
-import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.core.buffer.Buffer;
-import io.vertx.rxjava3.core.http.HttpServer;
 import io.vertx.rxjava3.ext.web.Router;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.util.concurrent.CompletableFuture;
@@ -51,7 +49,7 @@ class RestVerticleSseProxyTest {
   private Vertx coreVertx;
   private io.vertx.rxjava3.core.Vertx rxVertx;
   private io.vertx.core.http.HttpServer fakeAiServer;
-  private HttpServer pulseHttpServer;
+  private io.vertx.rxjava3.core.http.HttpServer pulseHttpServer;
 
   @BeforeEach
   void setUp() {
