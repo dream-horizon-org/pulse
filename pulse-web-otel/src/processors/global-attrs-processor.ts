@@ -78,7 +78,12 @@ export class PulseGlobalAttributesProcessor
   constructor(
     private readonly sessionProvider: SessionProvider,
     private readonly config: PulseWebConfig,
-  ) {}
+  ) {
+    const syncUA = parseUserAgent();
+    this.osVersion = syncUA.osVersion;
+    // Enrich asynchronously — resolves in <200ms on Chrome, updates all subsequent signals.
+    this.enrichmentReady = getOsVersionAsync(syncUA.osVersion).then((v) => { this.osVersion = v; });
+  }
 
   setScreenName(name: string): void {
     this.manualScreenName = name;

@@ -109,7 +109,6 @@ export async function getOsVersionAsync(syncFallback: string): Promise<string> {
   return syncFallback;
 }
 
-
 export function parseUserAgent(): ParsedUA {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return {
@@ -148,6 +147,9 @@ export function parseUserAgent(): ParsedUA {
     // Client Hints doesn't expose platformVersion without an async getHighEntropyValues()
     // call. Fall back to UA string for the version component only.
     const osVersion = parseOSFromUA(navigator.userAgent).version;
+
+    // Client Hints doesn't expose platformVersion without an async getHighEntropyValues()
+    // call. Fall back to UA string for the version component only.
 
     return {
       browserName,
