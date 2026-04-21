@@ -442,7 +442,7 @@ public class Pulse {
         let logsUrl = currentSdkConfig.map { URL(string: $0.signals.logsCollectorUrl)! }
             ?? URL(string: "\(base)/v1/logs")!
         let customEventUrl = currentSdkConfig.map { URL(string: $0.signals.customEventCollectorUrl)! }
-            ?? (customEventCollectorUrl.flatMap { URL(string: $0) } ?? URL(string: "\(base)/v1/logs")!)
+            ?? URL(string: "\(base)/v1/logs")!
         let otlpSpanExporter = OtlpHttpTraceExporter(endpoint: tracesUrl, envVarHeaders: envVarHeaders)
         let spanExporterAfterBeforeSend: SpanExporter = beforeSendSpan.map {
             BeforeSendSpanExporter(callback: $0, delegate: otlpSpanExporter)
