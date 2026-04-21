@@ -1386,7 +1386,7 @@ describe("M1 — SessionInstrumentation events", () => {
     expect(endLog?.body).toBe("session.end");
   });
 
-  it("session.end carries non-negative session.duration_ms", () => {
+  it("session.end carries non-negative session.duration_ns", () => {
     const captured = makeCapture();
     const sessionProvider = new SessionProvider();
     currentProvider = sessionProvider;
@@ -1402,7 +1402,8 @@ describe("M1 — SessionInstrumentation events", () => {
     const endLog = captured.find(
       (l) => l.attributes["pulse.type"] === "session.end",
     );
-    expect(endLog?.attributes["session.duration_ms"]).toBeGreaterThanOrEqual(0);
+    // Duration is now in nanoseconds (5000ms = 5e9 ns)
+    expect(endLog?.attributes["session.duration_ns"]).toBeGreaterThanOrEqual(0);
   });
 
   it("session.end carries the correct session.id", () => {
