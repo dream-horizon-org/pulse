@@ -21,6 +21,10 @@ Key columns: `TraceId`, `SpanId`, `ParentSpanId`, `SpanName`, `SpanKind`, `Servi
 
 ### `otel_logs` — log records
 
+Key columns: `TraceId`, `Body` (custom event name text for `pulse.type` = `custom_event`), `SeverityText`,
+`SeverityNumber`, `Timestamp`, `LogAttributes` (Map), `ResourceAttributes` (Map). Prefer `Body` for event name in
+queries; do not assume a separate populated `EventName` column in all deployments.
+
 Key columns: `TraceId`, `Body`, `SeverityText`, `SeverityNumber`, `Timestamp`, `EventName`, `LogAttributes` (Map),
 `ResourceAttributes` (Map)
 

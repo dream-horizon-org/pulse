@@ -29,7 +29,7 @@ public class FunnelDefinitionResponse {
   private String description;
 
   /**
-   * Derived from funnel_type + latest FUNNEL spark_jobs row (not persisted lifecycle).
+   * Derived from funnel_type + latest FUNNEL analytics_jobs row (not persisted lifecycle).
    */
   private AnalysisComputedStatus status;
 

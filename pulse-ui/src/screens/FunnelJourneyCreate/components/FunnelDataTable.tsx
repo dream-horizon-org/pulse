@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Box, Group, Loader, Select, Table, Text } from "@mantine/core";
+import { Badge, Box, Group, Loader, Table, Text } from "@mantine/core";
 import { IconArrowDown, IconArrowUp } from "@tabler/icons-react";
 import {
   FunnelGroupedRow,
@@ -7,7 +7,7 @@ import {
   FunnelStepResult,
   useGetFunnelGrouped,
 } from "../../../hooks/useGetFunnelData";
-import { formatDuration, GROUP_BY_OPTIONS } from "../FunnelJourneyCreate.util";
+import { formatDuration } from "../FunnelJourneyCreate.util";
 import classes from "../FunnelCreate.module.css";
 
 interface FunnelDataTableProps {
@@ -25,6 +25,7 @@ export function FunnelDataTable({
 }: FunnelDataTableProps) {
   const [sortField, setSortField] = useState<SortField>("count");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  // eslint-disable-next-line
   const [groupBy, setGroupBy] = useState("none");
 
   const { data: groupedData, isLoading: groupedLoading } = useGetFunnelGrouped({
@@ -173,14 +174,14 @@ export function FunnelDataTable({
     <Box className={classes.tableSection}>
       <Box className={classes.tableSectionHeader}>
         <Text className={classes.tableSectionTitle}>Step Breakdown</Text>
-        <Select
-          data={GROUP_BY_OPTIONS}
-          value={groupBy}
-          onChange={(val) => setGroupBy(val || "none")}
-          size="xs"
-          style={{ width: 180 }}
-          allowDeselect={false}
-        />
+        {/*<Select*/}
+        {/*  data={GROUP_BY_OPTIONS}*/}
+        {/*  value={groupBy}*/}
+        {/*  onChange={(val) => setGroupBy(val || "none")}*/}
+        {/*  size="xs"*/}
+        {/*  style={{ width: 180 }}*/}
+        {/*  allowDeselect={false}*/}
+        {/*/>*/}
       </Box>
 
       {groupBy === "none" ? (

@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
  * Args:
  * --job_type        FUNNELS_DAILY | JOURNEYS_DAILY | EVENTS_INCREMENTAL | FUNNEL | JOURNEY
  * --reference_id    Long (required for FUNNEL / JOURNEY)
- * --spark_job_id    Long (MySQL spark_jobs row to update)
+ * --spark_job_id    Long (MySQL analytics_jobs.id row to update; legacy flag name)
  * --secrets_name    optional AWS Secrets Manager name
  * --aws_region      default ap-south-1
  * --s3_bucket_prefix default pulse-otel-
@@ -35,11 +35,11 @@ public class SparkJobRunner {
     var jobType = require(params, "job_type");
     String runTime = LocalDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
     var s3Prefix = params.getOrDefault("s3_bucket_prefix", "pulse-otel-");
-    Long sparkJobId = params.containsKey("spark_job_id") ? Long.parseLong(params.get("spark_job_id")) : null;
+    Long analyticsJobId = params.containsKey("spark_job_id") ? Long.parseLong(params.get("spark_job_id")) : null;
     Long referenceId = params.containsKey("reference_id") ? Long.parseLong(params.get("reference_id")) : null;
     validateJobArguments(jobType, referenceId);
-    log.info("Spark job starting. job_type={}, reference_id={}, spark_job_id={}, s3_bucket_prefix={}",
-        jobType, referenceId, sparkJobId, s3Prefix);
+    log.info("Spark job starting. job_type={}, reference_id={}, analytics_job_id={}, s3_bucket_prefix={}",
+        jobType, referenceId, analyticsJobId, s3Prefix);
 
     var mysql = new MysqlRepository(
         require(params, "mysql_host"),
@@ -58,8 +58,8 @@ public class SparkJobRunner {
     ch.ping();
     log.info("ClickHouse connectivity check passed");
 
-    if (sparkJobId != null) {
-      mysql.updateSparkJobRunning(sparkJobId);
+    if (analyticsJobId != null) {
+      mysql.updateAnalyticsJobRunning(analyticsJobId);
     }
 
     var spark = SparkSession.builder()
@@ -94,18 +94,18 @@ public class SparkJobRunner {
         dispatch(jobType, spark, mysql, ch, referenceId, s3Prefix, runTime);
       }
       log.info("Job {} completed successfully", jobType);
-      if (sparkJobId != null) {
-        mysql.updateSparkJobSucceeded(sparkJobId);
+      if (analyticsJobId != null) {
+        mysql.updateAnalyticsJobSucceeded(analyticsJobId);
       }
     } catch (Exception e) {
       failed = true;
       errorMessage = e.getMessage();
       log.error("Job {} failed after retry: {}", jobType, errorMessage, e);
-      if (sparkJobId != null) {
+      if (analyticsJobId != null) {
         try {
-          mysql.updateSparkJobFailed(sparkJobId, errorMessage);
+          mysql.updateAnalyticsJobFailed(analyticsJobId, errorMessage);
         } catch (Exception ex) {
-          log.error("Failed to update spark_jobs status: {}", ex.getMessage());
+          log.error("Failed to update analytics_jobs status: {}", ex.getMessage());
         }
       }
     } finally {

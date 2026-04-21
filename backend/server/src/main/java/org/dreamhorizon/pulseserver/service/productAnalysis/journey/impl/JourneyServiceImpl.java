@@ -26,7 +26,7 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
 import org.dreamhorizon.pulseserver.resources.productAnalysis.journey.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterOptions;
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
-import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
+import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyResultsMapper;
 import org.dreamhorizon.pulseserver.service.productAnalysis.journey.JourneyService;
 
@@ -46,7 +46,7 @@ public class JourneyServiceImpl implements JourneyService {
   private final JourneyDao journeyDao;
   private final FunnelJourneyTagDao funnelJourneyTagDao;
   private final JourneyResultsDao journeyResultsDao;
-  private final AnalyticsBatchServiceImpl analyticsBatchService;
+  private final AnalyticsBatchService analyticsBatchService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
@@ -97,10 +97,9 @@ public class JourneyServiceImpl implements JourneyService {
               projectId, FunnelJourneyTagEntityType.JOURNEY, journeyId, tagsToStore)
             .toSingleDefault(journeyId))
       .flatMap(journeyId ->
-        analyticsBatchService.triggerJourneyOnSaveJob(journeyId)
-          .onErrorReturnItem(false) // Don't fail journey creation if job submission fails
-          .map(triggered -> journeyId)
-      )
+        analyticsBatchService
+            .triggerJourneyOnSaveJob(journeyId)
+            .map(__ -> journeyId))
       .onErrorResumeNext(
         err ->
           Single.error(
@@ -160,9 +159,7 @@ public class JourneyServiceImpl implements JourneyService {
               projectId, FunnelJourneyTagEntityType.JOURNEY, id, tagsToStore);
           });
           return tagStep.andThen(
-            analyticsBatchService.triggerJourneyOnSaveJob(id)
-              .onErrorReturnItem(false)
-              .ignoreElement());
+            analyticsBatchService.triggerJourneyOnSaveJob(id).ignoreElement());
         });
   }
 

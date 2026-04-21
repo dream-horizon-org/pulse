@@ -123,7 +123,7 @@ public class MysqlRepository {
   public Optional<Timestamp> getLatestSucceededEventCatalogJobStartedAt() throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-             "SELECT MAX(started_at) AS ts FROM spark_jobs "
+             "SELECT MAX(started_at) AS ts FROM analytics_jobs "
                  + "WHERE job_type = 'EVENTS_INCREMENTAL' "
                  + "AND status = 'SUCCEEDED' AND started_at IS NOT NULL")) {
       var rs = stmt.executeQuery();
@@ -149,31 +149,31 @@ public class MysqlRepository {
     return ids;
   }
 
-  public void updateSparkJobRunning(long sparkJobId) throws SQLException {
+  public void updateAnalyticsJobRunning(long analyticsJobId) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-             "UPDATE spark_jobs SET status = 'RUNNING', started_at = NOW() WHERE id = ?")) {
-      stmt.setLong(1, sparkJobId);
+             "UPDATE analytics_jobs SET status = 'RUNNING', started_at = NOW() WHERE id = ?")) {
+      stmt.setLong(1, analyticsJobId);
       stmt.executeUpdate();
     }
   }
 
-  public void updateSparkJobSucceeded(long sparkJobId) throws SQLException {
+  public void updateAnalyticsJobSucceeded(long analyticsJobId) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-             "UPDATE spark_jobs SET status = 'SUCCEEDED', completed_at = NOW() WHERE id = ?")) {
-      stmt.setLong(1, sparkJobId);
+             "UPDATE analytics_jobs SET status = 'SUCCEEDED', completed_at = NOW() WHERE id = ?")) {
+      stmt.setLong(1, analyticsJobId);
       stmt.executeUpdate();
     }
   }
 
-  public void updateSparkJobFailed(long sparkJobId, String errorMessage) throws SQLException {
+  public void updateAnalyticsJobFailed(long analyticsJobId, String errorMessage) throws SQLException {
     try (var conn = DriverManager.getConnection(jdbcUrl, user, password);
          var stmt = conn.prepareStatement(
-             "UPDATE spark_jobs SET status = 'FAILED', error_message = ?, completed_at = NOW() WHERE id = ?")) {
+             "UPDATE analytics_jobs SET status = 'FAILED', error_message = ?, completed_at = NOW() WHERE id = ?")) {
       stmt.setString(1, errorMessage != null && errorMessage.length() > 2000
           ? errorMessage.substring(0, 2000) : errorMessage);
-      stmt.setLong(2, sparkJobId);
+      stmt.setLong(2, analyticsJobId);
       stmt.executeUpdate();
     }
   }

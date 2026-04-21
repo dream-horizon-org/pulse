@@ -23,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
@@ -74,6 +75,10 @@ public class MainVerticle extends AbstractVerticle {
           
           JsonObject sparkJson = config.getJsonObject("spark", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), sparkJson.mapTo(org.dreamhorizon.pulseserver.config.SparkConfig.class));
+
+          JsonObject analyticsEngineJson = config.getJsonObject("analyticsEngine", new JsonObject());
+          AnalyticsEngineConfig analyticsEngineConfig = analyticsEngineJson.mapTo(AnalyticsEngineConfig.class);
+          SharedDataUtils.put(vertx.getDelegate(), analyticsEngineConfig);
           
           log.info(
               "EMR Serverless config: enabled={} region={}",
@@ -137,7 +142,7 @@ public class MainVerticle extends AbstractVerticle {
           ApplicationConfig loadedAppConfig = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
           ClickhouseConfig loadedChConfig = SharedDataUtils.get(vertx.getDelegate(), ClickhouseConfig.class);
           StartupConfigValidator.validate(
-              loadedAppConfig, loadedChConfig, emrServerlessConfig);
+              loadedAppConfig, loadedChConfig, emrServerlessConfig, analyticsEngineConfig);
 
           return config;
         })

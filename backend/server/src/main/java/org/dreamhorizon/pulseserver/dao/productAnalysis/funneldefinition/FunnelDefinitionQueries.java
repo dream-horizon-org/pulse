@@ -23,8 +23,28 @@ public final class FunnelDefinitionQueries {
    * Latest job status for FUNNEL runs; subquery must be correlated with alias {@code funnel} (table name).
    */
   public static final String LATEST_FUNNEL_JOB_STATUS =
-    "(SELECT sj.status FROM spark_jobs sj WHERE sj.job_type = 'FUNNEL' AND sj.reference_id = funnel.id "
+    "(SELECT sj.status FROM analytics_jobs sj WHERE sj.job_type = 'FUNNEL' AND sj.reference_id = funnel.id "
       + "ORDER BY sj.id DESC LIMIT 1)";
+
+  public static final String SELECT_BY_ID =
+    """
+      SELECT funnel.id, funnel.project_id, funnel.name, funnel.description, funnel.funnel_type, funnel.step_order_type,
+          funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, funnel.date_range,
+          funnel.start_time, funnel.end_time, funnel.expiry, funnel.created_at, funnel.updated_at,
+          funnel.created_by,
+      """
+      + LATEST_FUNNEL_JOB_STATUS
+      + " AS latest_job_status "
+      + "FROM funnel WHERE funnel.id = ?";
+
+  public static final String SELECT_ALL_AUTO =
+    """
+      SELECT funnel.id, funnel.project_id, funnel.name, funnel.description, funnel.funnel_type, funnel.step_order_type,
+          funnel.steps_json, funnel.window_seconds, funnel.mode, funnel.filters_json, funnel.date_range,
+          funnel.start_time, funnel.end_time, funnel.expiry, funnel.created_at, funnel.updated_at,
+          funnel.created_by, NULL AS latest_job_status
+      FROM funnel WHERE funnel.funnel_type = 'AUTO'
+      """;
 
   public static final String SELECT_BY_PROJECT_AND_ID =
     """

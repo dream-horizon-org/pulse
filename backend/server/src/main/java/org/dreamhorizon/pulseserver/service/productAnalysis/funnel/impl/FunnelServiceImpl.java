@@ -23,7 +23,7 @@ import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.*;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourneyTagsListResponse;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ListFilterOptions;
-import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchServiceImpl;
+import org.dreamhorizon.pulseserver.service.analytics.AnalyticsBatchService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.AnalysisEntityTags;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelResultsMapper;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
@@ -44,7 +44,7 @@ public class FunnelServiceImpl implements FunnelService {
   private final FunnelDefinitionDao funnelDefinitionDao;
   private final FunnelJourneyTagDao funnelJourneyTagDao;
   private final FunnelResultsDao funnelResultsDao;
-  private final AnalyticsBatchServiceImpl analyticsBatchService;
+  private final AnalyticsBatchService analyticsBatchService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
@@ -94,10 +94,9 @@ public class FunnelServiceImpl implements FunnelService {
               projectId, FunnelJourneyTagEntityType.FUNNEL, funnelId, tagsToStore)
             .toSingleDefault(funnelId))
       .flatMap(funnelId ->
-        analyticsBatchService.triggerFunnelOnSaveJob(funnelId)
-          .onErrorReturnItem(false) // Don't fail funnel creation if job submission fails
-          .map(triggered -> funnelId)
-      )
+        analyticsBatchService
+            .triggerFunnelOnSaveJob(funnelId)
+            .map(__ -> funnelId))
       .onErrorResumeNext(
         err ->
           Single.error(
@@ -159,9 +158,7 @@ public class FunnelServiceImpl implements FunnelService {
               projectId, FunnelJourneyTagEntityType.FUNNEL, id, tagsToStore);
           });
           return tagStep.andThen(
-            analyticsBatchService.triggerFunnelOnSaveJob(id)
-              .onErrorReturnItem(false)
-              .ignoreElement());
+            analyticsBatchService.triggerFunnelOnSaveJob(id).ignoreElement());
         });
   }
 

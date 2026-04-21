@@ -3,7 +3,7 @@ package org.dreamhorizon.pulseserver.analysis;
 import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.FunnelType;
 
 /**
- * Derives display status from AUTO|ONCE and latest spark_jobs.status (PENDING, RUNNING, SUCCEEDED,
+ * Derives display status from AUTO|ONCE and latest analytics_jobs.status (PENDING, RUNNING, SUCCEEDED,
  * FAILED). Funnel and journey share the same rules.
  */
 public final class AnalysisComputedStatusResolver {

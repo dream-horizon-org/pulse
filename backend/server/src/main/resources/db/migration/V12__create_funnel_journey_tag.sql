@@ -20,5 +20,5 @@ CREATE TABLE IF NOT EXISTS funnel_journey_tag (
     UNIQUE KEY uk_funnel_journey_tag (project_id, entity_type, entity_id, tag),
     KEY idx_funnel_journey_tag_entity (project_id, entity_type, entity_id),
     KEY idx_funnel_journey_tag_tag (project_id, tag)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Tag mappings for saved funnels and journeys';

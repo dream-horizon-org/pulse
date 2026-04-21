@@ -32,7 +32,7 @@ public class FunnelDefinitionRow {
   Instant updatedAt;
   String createdBy;
   /**
-   * Latest spark_jobs.status for FUNNEL, or null if no job.
+   * Latest analytics_jobs.status for FUNNEL, or null if no job.
    */
   String latestJobStatus;
   /**

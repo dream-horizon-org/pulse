@@ -13,6 +13,12 @@ cp .env.example .env    # first time only, then edit values
 ./scripts/quickstart.sh
 ```
 
+## Product analytics batch (pulse-server)
+
+Funnel/journey daily batch uses **`ANALYTICS_COMPUTE_ENGINE`** (`spark` \| `clickhouse`) and **`ANALYTICS_BATCH_PROJECT_CONCURRENCY`** (positive integer; required when engine is `clickhouse` in production). Declared in `deploy/.env.example`; loaded via `backend/server/src/main/resources/conf/analytics-engine-default.conf`. **Docker Compose** sets defaults in `deploy/docker-compose.yml`; **`deploy/scripts/common.sh`** `load_env` applies defaults for script-driven runs (e.g. `start.sh`).
+
+**pulse-server ClickHouse URL in Compose:** `CLICKHOUSE_R2DBC_URL` targets the internal service **`http://clickhouse:8123`** with database from **`OTEL_CLICKHOUSE_DATABASE`**. Credentials use **`OTEL_CLICKHOUSE_USER`** / **`OTEL_CLICKHOUSE_PASSWORD`**. Overriding to a remote replica requires editing compose (or an override file) so URL/host match the target; `.env` keys like `CLICKHOUSE_HOST` alone are not wired unless compose substitutes them.
+
 ## Build Specific Service
 
 ```bash

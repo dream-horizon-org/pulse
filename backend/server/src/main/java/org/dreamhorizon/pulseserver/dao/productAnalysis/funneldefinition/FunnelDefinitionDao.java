@@ -98,6 +98,33 @@ public class FunnelDefinitionDao {
         });
   }
 
+  public Maybe<FunnelDefinitionRow> findById(long id) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool
+      .preparedQuery(FunnelDefinitionQueries.SELECT_BY_ID)
+      .rxExecute(Tuple.of(id))
+      .flatMapMaybe(
+        rows -> {
+          var it = rows.iterator();
+          if (!it.hasNext()) {
+            return Maybe.empty();
+          }
+          return Maybe.just(mapRow(it.next()));
+        });
+  }
+
+  public Single<List<FunnelDefinitionRow>> listAllAuto() {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool
+      .preparedQuery(FunnelDefinitionQueries.SELECT_ALL_AUTO)
+      .rxExecute()
+      .map(rows -> {
+        List<FunnelDefinitionRow> out = new ArrayList<>();
+        rows.forEach(row -> out.add(mapRow(row)));
+        return out;
+      });
+  }
+
   public Single<List<FunnelDefinitionRow>> listByProject(String projectId, FunnelDefinitionListParams funnelDefinitionListParams) {
     StringBuilder sql =
       new StringBuilder(

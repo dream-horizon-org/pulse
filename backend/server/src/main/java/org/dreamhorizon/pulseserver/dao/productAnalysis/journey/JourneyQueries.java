@@ -20,8 +20,28 @@ public final class JourneyQueries {
   public static final String DELETE = "DELETE FROM journey WHERE project_id = ? AND id = ?";
 
   public static final String LATEST_JOURNEY_JOB_STATUS =
-    "(SELECT sj.status FROM spark_jobs sj WHERE sj.job_type = 'JOURNEY' AND sj.reference_id = journey.id "
+    "(SELECT sj.status FROM analytics_jobs sj WHERE sj.job_type = 'JOURNEY' AND sj.reference_id = journey.id "
       + "ORDER BY sj.id DESC LIMIT 1)";
+
+  public static final String SELECT_BY_ID =
+    """
+      SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event, journey.direction,
+          journey.depth, journey.mode, journey.filters_json, journey.start_time, journey.end_time,
+          journey.journey_type, journey.expiry, journey.date_range, journey.created_at, journey.updated_at,
+          journey.created_by,
+      """
+      + LATEST_JOURNEY_JOB_STATUS
+      + " AS latest_job_status "
+      + "FROM journey WHERE journey.id = ?";
+
+  public static final String SELECT_ALL_AUTO =
+    """
+      SELECT journey.id, journey.project_id, journey.name, journey.description, journey.anchor_event, journey.direction,
+          journey.depth, journey.mode, journey.filters_json, journey.start_time, journey.end_time,
+          journey.journey_type, journey.expiry, journey.date_range, journey.created_at, journey.updated_at,
+          journey.created_by, NULL AS latest_job_status
+      FROM journey WHERE journey.journey_type = 'AUTO'
+      """;
 
   public static final String SELECT_BY_PROJECT_AND_ID =
     """
