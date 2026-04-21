@@ -1,66 +1,12 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { GetFunnelGroupedParams } from "./useGetFunnelData.interface";
 import {
-  GetFunnelDataParams,
-  GetFunnelGroupedParams,
-  GetFunnelSessionsParams,
-  GetJourneyParams,
-} from "./useGetFunnelData.interface";
-import {
-  analyzeFunnel,
-  exploreJourney,
   fetchFunnelEvents,
   fetchFunnelFilters,
   fetchFunnelFilterValues,
   fetchFunnelGrouped,
-  fetchFunnelSessions,
   fetchTags,
 } from "../../services/funnels.service";
-
-export const useGetFunnelData = ({
-  requestBody,
-  enabled = true,
-}: GetFunnelDataParams) => {
-  return useQuery({
-    queryKey: [
-      "FUNNEL_CREATE",
-      JSON.stringify(requestBody.steps),
-      requestBody.timeRange.start,
-      requestBody.timeRange.end,
-      JSON.stringify(requestBody.filters),
-      requestBody.groupBy,
-      requestBody.mode,
-      requestBody.windowSeconds,
-    ],
-    queryFn: () => analyzeFunnel(requestBody),
-    refetchOnWindowFocus: false,
-    enabled:
-      enabled &&
-      requestBody.steps.length >= 2 &&
-      requestBody.steps.every((s) => s.eventName.trim() !== ""),
-    staleTime: 10000,
-  });
-};
-
-export const useGetFunnelSessions = ({
-  requestBody,
-  enabled = true,
-}: GetFunnelSessionsParams) => {
-  return useQuery({
-    queryKey: [
-      "FUNNEL_SESSIONS",
-      JSON.stringify(requestBody.steps),
-      requestBody.timeRange.start,
-      requestBody.timeRange.end,
-      requestBody.stepLevel,
-      requestBody.issueType,
-      requestBody.mode,
-    ],
-    queryFn: () => fetchFunnelSessions(requestBody),
-    refetchOnWindowFocus: false,
-    enabled: enabled && requestBody.stepLevel >= 1,
-    staleTime: 10000,
-  });
-};
 
 export const useGetFunnelGrouped = ({
   requestBody,
@@ -78,27 +24,6 @@ export const useGetFunnelGrouped = ({
     queryFn: () => fetchFunnelGrouped(requestBody),
     refetchOnWindowFocus: false,
     enabled: enabled && !!requestBody.groupBy && requestBody.groupBy !== "none",
-    staleTime: 10000,
-  });
-};
-
-export const useGetJourneyData = ({
-  requestBody,
-  enabled = true,
-}: GetJourneyParams) => {
-  return useQuery({
-    queryKey: [
-      "JOURNEY_EXPLORE",
-      requestBody.direction,
-      requestBody.anchorEvent,
-      requestBody.depth,
-      requestBody.timeRange.start,
-      requestBody.timeRange.end,
-      JSON.stringify(requestBody.filters),
-    ],
-    queryFn: () => exploreJourney(requestBody),
-    refetchOnWindowFocus: false,
-    enabled: enabled && !!requestBody.anchorEvent,
     staleTime: 10000,
   });
 };

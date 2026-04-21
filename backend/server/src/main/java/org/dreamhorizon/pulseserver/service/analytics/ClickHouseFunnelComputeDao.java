@@ -2,6 +2,9 @@ package org.dreamhorizon.pulseserver.service.analytics;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,8 +41,21 @@ public final class ClickHouseFunnelComputeDao {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final String STEP_ORDER_UNORDERED = "UNORDERED";
+  private static final DateTimeFormatter RUN_TIME_FMT =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
 
   private ClickHouseFunnelComputeDao() {}
+
+  /**
+   * A single {@code RunTime} literal used to stamp every row of one funnel INSERT. All
+   * UNION ALL branches must share the same value so the "latest run" query
+   * ({@code WHERE RunTime = (SELECT max(RunTime) ...)}) returns every step. Using
+   * {@code now64(3)} per branch yields slightly different millisecond values and causes
+   * {@code max(RunTime)} to match only the last-evaluated branch.
+   */
+  private static String runTimeLiteral() {
+    return "toDateTime64('" + RUN_TIME_FMT.format(Instant.now()) + "', 3, 'UTC')";
+  }
 
   /**
    * Builds INSERT SQL using the funnel's configured step-order semantics.
@@ -88,6 +104,7 @@ public final class ClickHouseFunnelComputeDao {
     long windowSeconds = def.getWindowSeconds();
     long funnelId = def.getId();
     String projectId = def.getProjectId();
+    String runTime = runTimeLiteral();
 
     String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
     String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
@@ -206,7 +223,7 @@ public final class ClickHouseFunnelComputeDao {
       }
       String stepName = escape(steps.get(k - 1).getEventName());
       sql.append("SELECT toUInt64(").append(funnelId).append("), '").append(projectId)
-          .append("', now64(3), toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
+          .append("', ").append(runTime).append(", toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
           .append("       countIf(winning_depth >= ").append(k).append("),\n")
           .append("       countIf(winning_depth >= ").append(k)
           .append(") * 100.0 / greatest(count(), 1),\n");
@@ -277,7 +294,7 @@ public final class ClickHouseFunnelComputeDao {
         .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
         .collect(Collectors.joining("\n      "));
 
-    String stepRows = buildUnorderedStepRows(steps, funnelId, projectId);
+    String stepRows = buildUnorderedStepRows(steps, funnelId, projectId, runTimeLiteral());
 
     StringBuilder sql = new StringBuilder(2048);
     sql.append("INSERT INTO otel.funnel_results\n")
@@ -529,13 +546,14 @@ public final class ClickHouseFunnelComputeDao {
   }
 
   private static String buildUnorderedStepRows(
-      List<FunnelDefinitionStep> steps, long funnelId, String projectId) {
+      List<FunnelDefinitionStep> steps, long funnelId, String projectId, String runTime) {
     StringBuilder rows = new StringBuilder(1024);
     for (int i = 0; i < steps.size(); i++) {
       if (i > 0) {
         rows.append("UNION ALL\n");
       }
-      rows.append("SELECT toUInt64(").append(funnelId).append("), '").append(projectId).append("', now64(3), ")
+      rows.append("SELECT toUInt64(").append(funnelId).append("), '").append(projectId).append("', ")
+          .append(runTime).append(", ")
           .append("toUInt8(").append(i).append("), '").append(escape(steps.get(i).getEventName())).append("',\n")
           .append("       countIf(max_steps >= ").append(i + 1).append("),\n")
           .append("       countIf(max_steps >= ").append(i + 1).append(") * 100.0 / greatest(count(), 1),\n")

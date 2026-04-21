@@ -965,6 +965,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
+  FUNNEL_LIST: {
+    key: "FUNNEL_LIST",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.GET,
+  },
   FUNNEL_CREATE: {
     key: "FUNNEL_CREATE",
     apiPath: `/v1/funnels`,
@@ -989,6 +994,21 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "JOURNEY_EXPLORE",
     apiPath: `/v1/journeys/explore`,
     method: API_METHODS.POST,
+  },
+  JOURNEY_LIST: {
+    key: "JOURNEY_LIST",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.GET,
+  },
+  JOURNEY_CREATE: {
+    key: "JOURNEY_CREATE",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_DETAILS: {
+    key: "JOURNEY_DETAILS",
+    apiPath: `/v1/journeys`,
+    method: API_METHODS.GET,
   },
   FUNNEL_EVENTS: {
     key: "FUNNEL_EVENTS",

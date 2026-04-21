@@ -35,6 +35,10 @@ public class ClickhouseProjectService {
 
   private static final String ROOT_CAUSE_CACHE_TABLE = "otel.root_cause_cache";
 
+  private static final String FUNNEL_RESULTS_TABLE = "otel.funnel_results";
+
+  private static final String JOURNEY_RESULTS_TABLE = "otel.journey_results";
+
   // ==================== CREDENTIAL GENERATION (Pure, no I/O) ====================
 
   public String generateUsername(String projectId) {
@@ -108,6 +112,17 @@ public class ClickhouseProjectService {
           String grantInsertSQL = String.format("GRANT%s INSERT ON %s TO %s", onCluster, ROOT_CAUSE_CACHE_TABLE, username);
           executeSQL(adminPool, grantInsertSQL);
           log.info("Granted INSERT on {} to: {}", ROOT_CAUSE_CACHE_TABLE, username);
+
+          // Step 5: Grant INSERT on funnel_results and journey_results for on-save / batch compute
+          String grantFunnelInsertSQL = String.format(
+              "GRANT%s INSERT ON %s TO %s", onCluster, FUNNEL_RESULTS_TABLE, username);
+          executeSQL(adminPool, grantFunnelInsertSQL);
+          log.info("Granted INSERT on {} to: {}", FUNNEL_RESULTS_TABLE, username);
+
+          String grantJourneyInsertSQL = String.format(
+              "GRANT%s INSERT ON %s TO %s", onCluster, JOURNEY_RESULTS_TABLE, username);
+          executeSQL(adminPool, grantJourneyInsertSQL);
+          log.info("Granted INSERT on {} to: {}", JOURNEY_RESULTS_TABLE, username);
         })
         .doOnComplete(() ->
             log.info("Successfully created ClickHouse user and policies for project: {}", projectId)

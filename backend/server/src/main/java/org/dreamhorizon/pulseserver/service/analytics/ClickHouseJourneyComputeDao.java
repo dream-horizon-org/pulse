@@ -80,7 +80,7 @@ public final class ClickHouseJourneyComputeDao {
             SELECT p.gid, p.Body,
               (p.rn - a.anchor_rn) * %d AS pos
             FROM positioned p JOIN anchor_pos a ON p.gid = a.gid
-            WHERE abs(p.rn - a.anchor_rn) <= %d
+            WHERE p.rn >= a.anchor_rn AND (p.rn - a.anchor_rn) <= %d
           ),
           edges AS (
             SELECT r1.gid, r1.pos AS pf, r1.Body AS ef, r2.pos AS pt, r2.Body AS et
@@ -183,8 +183,8 @@ public final class ClickHouseJourneyComputeDao {
       sb.append("    SELECT p.gid, p.Body, (p.rn - a.anchor_rn) * ").append(dirSign)
           .append(" AS pos\n");
       sb.append("    FROM ").append(positioned).append(" p JOIN ").append(anchorPos)
-          .append(" a ON p.gid = a.gid WHERE abs(p.rn - a.anchor_rn) <= ").append(def.getDepth())
-          .append("\n  ),\n");
+          .append(" a ON p.gid = a.gid WHERE p.rn >= a.anchor_rn AND (p.rn - a.anchor_rn) <= ")
+          .append(def.getDepth()).append("\n  ),\n");
 
       sb.append("  ").append(edges).append(" AS (\n");
       sb.append("    SELECT r1.gid, r1.pos AS pf, r1.Body AS ef, r2.pos AS pt, r2.Body AS et\n");

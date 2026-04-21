@@ -7,7 +7,9 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
+
 import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
@@ -44,10 +46,9 @@ public class ClickHouseComputeService {
    */
   public Single<Boolean> computeFunnel(Long funnelId) {
     return funnelDefinitionDao.findById(funnelId)
-        .switchIfEmpty(Single.error(
-            new IllegalArgumentException("Funnel not found: " + funnelId)))
-        .flatMap(def -> executeInsert(def.getProjectId(),
-            ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(def)));
+      .switchIfEmpty(Single.error(
+        new IllegalArgumentException("Funnel not found: " + funnelId)))
+      .flatMap(def -> executeInsert(def.getProjectId(), ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(def)));
   }
 
   /**
@@ -57,12 +58,12 @@ public class ClickHouseComputeService {
    */
   public Single<Boolean> computeJourney(Long journeyId) {
     return journeyDao.findById(journeyId)
-        .switchIfEmpty(Single.error(
-            new IllegalArgumentException("Journey not found: " + journeyId)))
-        .flatMap(def ->
-            executeInsert(
-                def.getProjectId(),
-                ClickHouseJourneyComputeDao.buildInsertSql(def, journeyDirectionForSql(def))));
+      .switchIfEmpty(Single.error(
+        new IllegalArgumentException("Journey not found: " + journeyId)))
+      .flatMap(def ->
+        executeInsert(
+          def.getProjectId(),
+          ClickHouseJourneyComputeDao.buildInsertSql(def, journeyDirectionForSql(def))));
   }
 
   // ── Batch path ────────────────────────────────────────────────────────────────
@@ -83,16 +84,16 @@ public class ClickHouseComputeService {
       return Single.just(true);
     }
     return Observable.fromIterable(defs)
-        .concatMapSingle(def ->
-            executeInsert(projectId, ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(def))
-                .onErrorReturn(err -> {
-                  log.error(
-                      "Funnel compute failed for projectId={}, funnelId={}",
-                      projectId, def.getId(), err);
-                  return false;
-                }))
-        .toList()
-        .map(results -> results.stream().allMatch(Boolean::booleanValue));
+      .concatMapSingle(def ->
+        executeInsert(projectId, ClickHouseFunnelComputeDao.buildInsertSqlForDefinition(def))
+          .onErrorReturn(err -> {
+            log.error(
+              "Funnel compute failed for projectId={}, funnelId={}",
+              projectId, def.getId(), err);
+            return false;
+          }))
+      .toList()
+      .map(results -> results.stream().allMatch(Boolean::booleanValue));
   }
 
   /**
@@ -104,24 +105,24 @@ public class ClickHouseComputeService {
       return Single.just(true);
     }
     List<JourneyRow> startDefs =
-        defs.stream().filter(d -> "START".equals(d.getDirection())).toList();
+      defs.stream().filter(d -> "START".equals(d.getDirection())).toList();
     List<JourneyRow> endDefs =
-        defs.stream().filter(d -> !"START".equals(d.getDirection())).toList();
+      defs.stream().filter(d -> !"START".equals(d.getDirection())).toList();
 
     Single<Boolean> chain = Single.just(true);
     if (!startDefs.isEmpty()) {
       chain =
-          chain.flatMap(
-              __ ->
-                  executeInsert(
-                      projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(startDefs, "START")));
+        chain.flatMap(
+          __ ->
+            executeInsert(
+              projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(startDefs, "START")));
     }
     if (!endDefs.isEmpty()) {
       chain =
-          chain.flatMap(
-              __ ->
-                  executeInsert(
-                      projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(endDefs, "END")));
+        chain.flatMap(
+          __ ->
+            executeInsert(
+              projectId, ClickHouseJourneyComputeDao.buildBatchInsertSql(endDefs, "END")));
     }
     return chain;
   }
@@ -145,34 +146,34 @@ public class ClickHouseComputeService {
       return Single.just(true);
     }
     return clickhouseProjectCredentialsDao
-        .getCredentialsByProjectId(projectId)
-        .switchIfEmpty(
-            Maybe.error(
-                new IllegalStateException(
-                    "No ClickHouse credentials configured for project: " + projectId)))
-        .toSingle()
-        .flatMap(
-            creds -> {
-              var pool =
-                  poolManager.getPoolForProject(
-                      projectId,
-                      creds.getClickhouseUsername(),
-                      creds.getClickhousePasswordEncrypted());
+      .getCredentialsByProjectId(projectId)
+      .switchIfEmpty(
+        Maybe.error(
+          new IllegalStateException(
+            "No ClickHouse credentials configured for project: " + projectId)))
+      .toSingle()
+      .flatMap(
+        creds -> {
+          var pool =
+            poolManager.getPoolForProject(
+              projectId,
+              creds.getClickhouseUsername(),
+              creds.getClickhousePasswordEncrypted());
 
-              return Single.fromPublisher(pool.create())
-                  .flatMap(
-                      conn ->
-                          Flowable.fromPublisher(conn.createStatement(sql).execute())
-                              .flatMap(result -> Flowable.fromPublisher(result.getRowsUpdated()))
-                              .reduce(0L, Long::sum)
-                              .map(rows -> true)
-                              .doFinally(() -> Completable.fromPublisher(conn.close()).subscribe()))
-                  .doOnError(
-                      err ->
-                          log.error(
-                              "ClickHouse INSERT failed for project {}: {}",
-                              projectId,
-                              err.getMessage()));
-            });
+          return Single.fromPublisher(pool.create())
+            .flatMap(
+              conn ->
+                Flowable.fromPublisher(conn.createStatement(sql).execute())
+                  .flatMap(result -> Flowable.fromPublisher(result.getRowsUpdated()))
+                  .reduce(0L, Long::sum)
+                  .map(rows -> true)
+                  .doFinally(() -> Completable.fromPublisher(conn.close()).subscribe()))
+            .doOnError(
+              err ->
+                log.error(
+                  "ClickHouse INSERT failed for project {}: {}",
+                  projectId,
+                  err.getMessage()));
+        });
   }
 }

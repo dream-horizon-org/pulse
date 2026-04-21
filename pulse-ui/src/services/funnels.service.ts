@@ -9,13 +9,7 @@ import type {
   FunnelFilterValuesResponse,
   FunnelGroupedRequestBody,
   FunnelGroupedResponse,
-  FunnelRequestBody,
-  FunnelResponse,
-  FunnelSessionsRequestBody,
-  FunnelSessionsResponse,
   FunnelStep,
-  JourneyRequestBody,
-  JourneyResponse,
   TagsResponse
 } from "../hooks/useGetFunnelData/useGetFunnelData.interface";
 import type { FilterField, TimeRange } from "../hooks/useGetDataQuery/useGetDataQuery.interface";
@@ -263,7 +257,6 @@ export interface CreateJourneyRequestBody {
 }
 
 const FUNNELS_BASE = "/v1/funnels";
-const JOURNEYS_BASE = "/v1/journeys";
 
 function filterListParams(
   params: FunnelJourneyListQueryParams,
@@ -290,9 +283,9 @@ export async function fetchFunnelsList(
     Object.keys(filtered).length > 0 ? getQueryParamString(filtered) : "";
 
   return makeRequest<FunnelListResponse>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}${suffix}`,
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_DETAILS.apiPath}${suffix}`,
     init: {
-      method: "GET",
+      method: API_ROUTES.FUNNEL_DETAILS.method,
     },
   });
 }
@@ -306,9 +299,9 @@ export async function fetchJourneysList(
     Object.keys(filtered).length > 0 ? getQueryParamString(filtered) : "";
 
   return makeRequest<JourneyListResponse>({
-    url: `${API_BASE_URL}${JOURNEYS_BASE}${suffix}`,
+    url: `${API_BASE_URL}${API_ROUTES.JOURNEY_LIST.apiPath}${suffix}`,
     init: {
-      method: "GET",
+      method: API_ROUTES.JOURNEY_LIST.method,
     },
   });
 }
@@ -328,9 +321,9 @@ export async function fetchFunnelById(funnelId: string) {
 export async function fetchJourneyById(journeyId: string) {
   const encoded = encodeURIComponent(journeyId);
   return makeRequest<JourneyDetail>({
-    url: `${API_BASE_URL}${JOURNEYS_BASE}/${encoded}`,
+    url: `${API_BASE_URL}${API_ROUTES.JOURNEY_DETAILS.apiPath}/${encoded}`,
     init: {
-      method: "GET",
+      method: API_ROUTES.JOURNEY_DETAILS.method,
     },
   });
 }
@@ -349,9 +342,9 @@ export async function createFunnel(payload: CreateFunnelRequestBody) {
 /** POST /v1/journeys */
 export async function createJourney(payload: CreateJourneyRequestBody) {
   return makeRequest<JourneyDetail>({
-    url: `${API_BASE_URL}${JOURNEYS_BASE}`,
+    url: `${API_BASE_URL}${API_ROUTES.JOURNEY_CREATE.apiPath}`,
     init: {
-      method: "POST",
+      method: API_ROUTES.JOURNEY_CREATE.method,
       body: JSON.stringify(payload),
     },
   });
@@ -364,7 +357,7 @@ export async function updateFunnel(
 ) {
   const encoded = encodeURIComponent(funnelId);
   return makeRequest<FunnelDetail>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}/${encoded}`,
+    url: `${API_BASE_URL}${API_ROUTES.FUNNEL_CREATE.apiPath}/${encoded}`,
     init: {
       method: "PUT",
       body: JSON.stringify(payload),
@@ -373,34 +366,17 @@ export async function updateFunnel(
 }
 
 /** PUT /v1/journeys/:journeyId */
-export async function updateJourney(journeyId: string, payload: CreateJourneyRequestBody) {
+export async function updateJourney(
+  journeyId: string,
+  payload: CreateJourneyRequestBody,
+) {
   const encoded = encodeURIComponent(journeyId);
   return makeRequest<JourneyDetail>({
-    url: `${API_BASE_URL}${JOURNEYS_BASE}/${encoded}`,
+    url: `${API_BASE_URL}${API_ROUTES.JOURNEY_CREATE.apiPath}/${encoded}`,
     init: {
       method: "PUT",
       body: JSON.stringify(payload),
     },
-  });
-}
-
-// ─── Funnel analysis (compute / analytics endpoints) ────────────────────────
-
-/** POST /v1/funnels — run funnel conversion analysis; returns step metrics (not a saved funnel). */
-export async function analyzeFunnel(body: FunnelRequestBody) {
-  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
-  return makeRequest<FunnelResponse>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}`,
-    init: { method: "POST", body: JSON.stringify(payload) },
-  });
-}
-
-/** POST /v1/funnels/sessions — fetch session-level drill-down for a specific funnel step. */
-export async function fetchFunnelSessions(body: FunnelSessionsRequestBody) {
-  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
-  return makeRequest<FunnelSessionsResponse>({
-    url: `${API_BASE_URL}${FUNNELS_BASE}/sessions`,
-    init: { method: "POST", body: JSON.stringify(payload) },
   });
 }
 
@@ -409,15 +385,6 @@ export async function fetchFunnelGrouped(body: FunnelGroupedRequestBody) {
   const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
   return makeRequest<FunnelGroupedResponse>({
     url: `${API_BASE_URL}${FUNNELS_BASE}/grouped`,
-    init: { method: "POST", body: JSON.stringify(payload) },
-  });
-}
-
-/** POST /v1/journeys/explore — explore user journey paths forward or backward from an anchor event. */
-export async function exploreJourney(body: JourneyRequestBody) {
-  const payload = { ...body, timeRange: formatTimeRange(body.timeRange) };
-  return makeRequest<JourneyResponse>({
-    url: `${API_BASE_URL}${JOURNEYS_BASE}/explore`,
     init: { method: "POST", body: JSON.stringify(payload) },
   });
 }

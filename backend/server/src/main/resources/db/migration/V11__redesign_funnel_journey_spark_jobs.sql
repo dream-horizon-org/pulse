@@ -40,7 +40,7 @@ CREATE TABLE funnel (
     INDEX idx_funnel_updated (updated_at),
     INDEX idx_funnel_project_updated (project_id, updated_at),
     FULLTEXT INDEX idx_funnel_name_fts (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Saved funnel definitions for Spark computation and dashboard';
 
 -- =============================================================================
@@ -72,7 +72,7 @@ CREATE TABLE journey (
     INDEX idx_journey_anchor_event (anchor_event),
     INDEX idx_journey_direction (direction),
     FULLTEXT INDEX idx_journey_name_fts (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Saved journey definitions for event path exploration and dashboard';
 
 -- =============================================================================
