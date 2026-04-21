@@ -548,6 +548,7 @@ class ProjectUsageLimitDaoTest {
       when(rowSet.property(MySQLClient.LAST_INSERTED_ID)).thenReturn(2L);
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.just(rowSet))
+          .thenReturn(Single.just(rowSet))
           .thenReturn(Single.just(rowSet));
 
       ProjectUsageLimit result = projectUsageLimitDao.updateUsageLimits(
