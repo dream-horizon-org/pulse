@@ -165,6 +165,8 @@ class PulseWebSDK implements SdkContext {
         enabled: diskEnabled,
         buffer: idbBuffer,
       },
+      // Inject the same global attributes into metric data points at export time.
+      getMetricGlobalAttrs: () => this.globalAttrsProcessor.getCommonAttrsForMetrics(),
     };
 
     const bundle = createProviders(

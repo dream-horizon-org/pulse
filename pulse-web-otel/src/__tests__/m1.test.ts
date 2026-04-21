@@ -1393,7 +1393,7 @@ describe("M1 — SessionInstrumentation events", () => {
     expect(endLog?.body).toBe(B.SESSION_END);
   });
 
-  it("session.end carries non-negative session.duration_ms", () => {
+  it("session.end carries non-negative session.duration_ns", () => {
     const captured = makeCapture();
     const sessionProvider = new SessionProvider();
     currentProvider = sessionProvider;

@@ -25,13 +25,82 @@ import {
   createPulseBrowserMetricExporter,
 } from "./exporters/pulse-browser-otlp-exporters";
 import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lifecycle-debug";
+// Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
+// Browser gzip requires a custom XHR/fetch exporter wrapping CompressionStream — tracked as TODO.
+import type {
+  PushMetricExporter,
+  ResourceMetrics,
+} from "@opentelemetry/sdk-metrics";
+import type { ExportResult } from "@opentelemetry/core";
+import type { Attributes } from "@opentelemetry/api";
+
+/**
+ * Wraps any PushMetricExporter and merges dynamic global attributes (session.id,
+ * installation.id, screen.name, platform, etc.) into every data point at export time.
+ * This is necessary because metrics do not go through the SpanProcessor / LogRecordProcessor
+ * pipeline — they need a separate injection point.
+ */
+class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
+  constructor(
+    private readonly inner: PushMetricExporter,
+    private readonly getGlobalAttrs: () => Attributes,
+  ) {}
+
+  export(
+    metrics: ResourceMetrics,
+    resultCallback: (result: ExportResult) => void,
+  ): void {
+    const extra = this.getGlobalAttrs();
+    const patched: ResourceMetrics = {
+      ...metrics,
+      scopeMetrics: metrics.scopeMetrics.map((sm) => ({
+        ...sm,
+        // Cast required: TypeScript loses the discriminated-union narrowing when
+        // we spread each MetricData, but the shape is preserved — only attributes
+        // on each DataPoint are extended with global attrs (extra takes lower
+        // priority than per-instrument attrs so they cannot override them).
+        metrics: sm.metrics.map((m) => ({
+          ...m,
+          dataPoints: m.dataPoints.map((dp) => ({
+            ...dp,
+            attributes: { ...extra, ...dp.attributes },
+          })),
+        })) as ResourceMetrics["scopeMetrics"][number]["metrics"],
+      })),
+    };
+    this.inner.export(patched, resultCallback);
+  }
+
+  forceFlush(): Promise<void> {
+    return this.inner.forceFlush();
+  }
+  shutdown(): Promise<void> {
+    return this.inner.shutdown();
+  }
+
+  selectAggregationTemporality: PushMetricExporter["selectAggregationTemporality"] =
+    this.inner.selectAggregationTemporality?.bind(this.inner);
+
+  selectAggregation: PushMetricExporter["selectAggregation"] =
+    this.inner.selectAggregation?.bind(this.inner);
+}
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
   apiKey: string;
   meteringSessionId: string;
+  /**
+   * Called at each metric export to get current global attributes (session.id, screen.name, etc.).
+   * If omitted, no extra attributes are injected into metric data points.
+   */
+  getMetricGlobalAttrs?: () => Attributes;
+  /**
+   * Wire format. Currently unused — browser OTLP exporters always send JSON
+   * (application/json). Protobuf support requires a custom browser fetch exporter
+   * and is tracked as a TODO.
+   */
   format?: "json" | "protobuf";
-  /** Default: gzip when CompressionStream is available; set 'none' to disable. */
+  /** Payload compression. Defaults to 'gzip'. Browser gzip is tracked as a TODO. */
   compression?: "gzip" | "none";
   batchOptions?: {
     scheduledDelayMillis?: number;
@@ -153,7 +222,7 @@ export function createProviders(
     });
   }
 
-  const metricExporter = createPulseBrowserMetricExporter(
+  const rawMetricExporter = createPulseBrowserMetricExporter(
     { url: metricsUrl, headers },
     {
       useProtobuf,
@@ -162,6 +231,13 @@ export function createProviders(
       signalKind: "metric",
     },
   );
+
+  const metricExporter: PushMetricExporter = config.getMetricGlobalAttrs
+    ? new GlobalAttributeInjectingMetricExporter(
+        rawMetricExporter,
+        config.getMetricGlobalAttrs,
+      )
+    : rawMetricExporter;
 
   const metricReader = new PeriodicExportingMetricReader({
     exporter: metricExporter,

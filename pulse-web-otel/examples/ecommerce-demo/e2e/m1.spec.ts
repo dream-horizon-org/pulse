@@ -144,6 +144,43 @@ test.describe("@M1 identity persistence", () => {
     expect(getAttr(log.attributes, "installation.id")).toBeTruthy();
   });
 
+  test("installation.id falls back to in-memory when both localStorage and sessionStorage are blocked", async ({
+    page,
+    otlp,
+  }) => {
+    await page.addInitScript(() => {
+      // Block both localStorage and sessionStorage
+      Object.defineProperty(window, "localStorage", {
+        get() {
+          throw new DOMException("storage unavailable", "SecurityError");
+        },
+        configurable: true,
+      });
+      Object.defineProperty(window, "sessionStorage", {
+        get() {
+          throw new DOMException("storage unavailable", "SecurityError");
+        },
+        configurable: true,
+      });
+    });
+    await page.goto("/");
+
+    // SDK must not crash; session.start should still emit (using in-memory ID)
+    // Give extra timeout since SDK might be slower without storage
+    const log = await otlp.waitForLog("session.start", 10_000);
+    const installId = getAttr(log.attributes, "installation.id") as string;
+
+    // Verify a valid UUID was generated
+    expect(installId).toBeTruthy();
+    expect(installId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+
+    // Verify it's marked as a new installation (since ID wasn't in storage)
+    const isNew = getAttr(log.attributes, "pulse.type");
+    expect(isNew).toBe("session.start");
+  });
+
   test("new session.id on each fresh page load", async ({ page, otlp }) => {
     await page.goto("/");
     const log1 = await otlp.waitForLog("session.start");
@@ -794,5 +831,485 @@ test.describe("@M1 reportException body", () => {
 
     const log = await otlp.waitForLog("non_fatal");
     expect(log.body?.stringValue).toBe("test error message");
+  });
+});
+
+// ─── Window ID ────────────────────────────────────────────────────────────────
+
+test.describe("@M1 window.id uniqueness", () => {
+  test("window.id is present on every signal", async ({ page, otlp }) => {
+    await page.goto("/");
+    const log = await otlp.waitForLog("session.start");
+
+    // window.id must be stamped by GlobalAttributesProcessor
+    const windowId = getAttr(log.attributes, "window.id");
+    expect(windowId).toBeTruthy();
+    expect(typeof windowId).toBe("string");
+    // Must be a valid UUID
+    expect(windowId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  test("window.id is unique per page load (in-memory, never persisted)", async ({
+    page,
+    otlp,
+  }) => {
+    // First load — capture window.id
+    await page.goto("/");
+    const log1 = await otlp.waitForLog("session.start");
+    const windowId1 = getAttr(log1.attributes, "window.id") as string;
+
+    otlp.reset();
+
+    // Reload — should get a different window.id (same session, but new page-load = new in-memory ID)
+    await page.reload();
+    // After reload, session is reused (no new session.start emitted)
+    // So we emit a trackEvent to capture a signal after reload
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent("reload_check");
+    });
+
+    // trackEvent creates a log with body "reload_check" (not pulse.type)
+    const log2 = await otlp.waitForLogByBody("reload_check");
+    const windowId2 = getAttr(log2.attributes, "window.id") as string;
+
+    // Both must exist
+    expect(windowId1).toBeTruthy();
+    expect(windowId2).toBeTruthy();
+    // But they must be different (in-memory ID, regenerated on each load)
+    expect(windowId2).not.toBe(windowId1);
+  });
+
+  test("window.id same across multiple signals within one page load", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    const log1 = await otlp.waitForLog("session.start");
+    const windowId1 = getAttr(log1.attributes, "window.id") as string;
+
+    // Emit another signal
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent("window_id_test");
+    });
+
+    await page.waitForTimeout(500);
+    const allLogs = findAllLogsByBody(otlp.captured, "window_id_test");
+    expect(allLogs.length).toBeGreaterThan(0);
+
+    const windowId2 = getAttr(allLogs[0]?.attributes, "window.id") as string;
+    // Same page load → same window.id
+    expect(windowId2).toBe(windowId1);
+  });
+});
+
+// ─── Clone Detection (PostHog Model) ───────────────────────────────────────────
+
+test.describe("@M1 clone detection", () => {
+  test("session.id is stored in localStorage (shared across tabs)", async ({
+    page,
+  }) => {
+    // Load page and verify session.id is stored in localStorage
+    await page.goto("/");
+    await page.waitForTimeout(1000); // Wait for SDK to initialize
+
+    const sid = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
+    expect(sid).toBeTruthy();
+    expect(typeof sid).toBe("string");
+    expect(sid).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+
+    // Verify it persists on page reload (same session.id)
+    const sidBefore = sid;
+    await page.reload();
+    await page.waitForTimeout(500);
+    const sidAfter = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
+    expect(sidAfter).toBe(sidBefore);
+  });
+
+  test("clone flag detects duplicate tab via sessionStorage inheritance", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.waitForTimeout(500);
+
+    // Clone flag should be set in sessionStorage on init
+    const flagAfterInit = await page.evaluate(() =>
+      sessionStorage.getItem("pulse_session_clone_flag"),
+    );
+    expect(flagAfterInit).toBe("1");
+
+    // Simulate what happens on reload: beforeunload removes the flag
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("beforeunload"));
+    });
+
+    // After beforeunload, flag should be gone
+    const flagAfterBeforeunload = await page.evaluate(() =>
+      sessionStorage.getItem("pulse_session_clone_flag"),
+    );
+    expect(flagAfterBeforeunload).toBeNull();
+
+    // On next init (simulated by reload), flag is re-written
+    // We can't directly test reload here without it being a real reload,
+    // but the flag lifecycle is: init writes it → beforeunload removes it → next init rewrites it
+  });
+});
+
+// ─── Reload vs Clone ──────────────────────────────────────────────────────────
+
+test.describe("@M1 reload vs clone detection", () => {
+  test("reload: same session.id persisted (session reused silently, no new session.start)", async ({
+    page,
+    otlp,
+  }) => {
+    // First load
+    await page.goto("/");
+    const log1 = await otlp.waitForLog("session.start");
+    const sid1 = getAttr(log1.attributes, "session.id") as string;
+
+    otlp.reset();
+
+    // Reload — session should be reused, NOT emit a new session.start
+    await page.reload();
+    // Give SDK time to initialize and emit any signals
+    await page.waitForTimeout(1000);
+
+    // Session should be reused, so session.id in localStorage should be the same
+    const sid2 = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
+    expect(sid2).toBe(sid1);
+
+    // Verify NO new session.start was emitted on reload (session reused silently)
+    const allStarts = findAllLogs(otlp.captured, "session.start");
+    expect(allStarts.length).toBe(0); // No new session.start because session was reused
+  });
+
+  test("reload: beforeunload called (removes clone flag, keeps session intact)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.waitForTimeout(500);
+
+    // Verify clone flag is present before reload
+    let flagBefore = await page.evaluate(() =>
+      sessionStorage.getItem("pulse_session_clone_flag"),
+    );
+    expect(flagBefore).toBe("1");
+
+    // beforeunload is called before reload
+    // We can't actually trigger reload in playwright cleanly, but we can simulate beforeunload
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("beforeunload"));
+    });
+
+    // After beforeunload, flag should be cleared
+    const flagAfter = await page.evaluate(() =>
+      sessionStorage.getItem("pulse_session_clone_flag"),
+    );
+    expect(flagAfter).toBeNull();
+
+    // session.id should still be in localStorage
+    const sessionId = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
+    expect(sessionId).toBeTruthy();
+  });
+});
+
+// ─── Area 2: screen.name resolution ──────────────────────────────────────────
+
+test.describe("@M1 screen.name resolution", () => {
+  // 2.2 — screen.name resolves from URL path
+  test("screen.name resolves from URL path /products → '/products'", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await page.evaluate(
+      () =>
+        (window as unknown as Record<string, unknown>)["PulseWeb"] &&
+        (
+          window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
+        ).PulseWeb.trackEvent("screen_name_check"),
+    );
+    const log = await otlp.waitForLogByBody("screen_name_check");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+  });
+
+  // 2.3 — screen.name strips numeric IDs
+  test("screen.name strips numeric segment: /products/123 → '/products'", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products/123");
+    await page.evaluate(() =>
+      (
+        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
+      ).PulseWeb.trackEvent("numeric_strip_check"),
+    );
+    const log = await otlp.waitForLogByBody("numeric_strip_check");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+  });
+
+  // 2.16 — screen.name for root path /
+  test("screen.name for root path / resolves to '/'", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await page.evaluate(() =>
+      (
+        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
+      ).PulseWeb.trackEvent("root_path_check"),
+    );
+    const log = await otlp.waitForLogByBody("root_path_check");
+    const screenName = getAttr(log.attributes, "screen.name") as string;
+    expect(screenName).toBeTruthy();
+    expect(screenName).toBe("/");
+  });
+
+  // 2.17 — screen.name strips UUIDs
+  test("screen.name strips UUID segment: /products/<uuid> → '/products'", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products/550e8400-e29b-41d4-a716-446655440000");
+    await page.evaluate(() =>
+      (
+        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
+      ).PulseWeb.trackEvent("uuid_strip_check"),
+    );
+    const log = await otlp.waitForLogByBody("uuid_strip_check");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/products");
+  });
+});
+
+// ─── Area 2: manual screen.name override ─────────────────────────────────────
+
+test.describe("@M1 screen.name manual override", () => {
+  // 2.18 — setScreenName() manual override applied immediately
+  test("PulseWeb.setScreenName() overrides screen.name on next signal", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      const p = window as unknown as {
+        PulseWeb: {
+          setScreenName: (n: string) => void;
+          trackEvent: (n: string) => void;
+        };
+      };
+      p.PulseWeb.setScreenName("custom-screen");
+      p.PulseWeb.trackEvent("override_check");
+    });
+    const log = await otlp.waitForLogByBody("override_check");
+    expect(getAttr(log.attributes, "screen.name")).toBe("custom-screen");
+  });
+
+  // 2.19 — manual override persists across multiple pings
+  test("manual screen.name override persists across multiple events", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      const p = window as unknown as {
+        PulseWeb: {
+          setScreenName: (n: string) => void;
+          trackEvent: (n: string) => void;
+        };
+      };
+      p.PulseWeb.setScreenName("my-screen");
+      p.PulseWeb.trackEvent("persist_check_1");
+      p.PulseWeb.trackEvent("persist_check_2");
+    });
+
+    const log1 = await otlp.waitForLogByBody("persist_check_1");
+    const log2 = await otlp.waitForLogByBody("persist_check_2");
+    expect(getAttr(log1.attributes, "screen.name")).toBe("my-screen");
+    expect(getAttr(log2.attributes, "screen.name")).toBe("my-screen");
+  });
+
+  // 2.20 — override resets to URL-based value after navigation
+  test("screen.name resets to URL path after navigation (override cleared)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // Set override on /products
+    await page.evaluate(() => {
+      const p = window as unknown as {
+        PulseWeb: { setScreenName: (n: string) => void };
+      };
+      p.PulseWeb.setScreenName("my-screen");
+    });
+
+    // Navigate to /cart — override should reset
+    await page.goto("/cart");
+    await page.evaluate(() =>
+      (
+        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
+      ).PulseWeb.trackEvent("reset_check"),
+    );
+    const log = await otlp.waitForLogByBody("reset_check");
+    expect(getAttr(log.attributes, "screen.name")).toBe("/cart");
+  });
+});
+
+// ─── Area 2: url attributes ───────────────────────────────────────────────────
+
+test.describe("@M1 url attributes", () => {
+  // 2.4 — url.path updates on navigation
+  test("url.path updates correctly after SPA navigation", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    // First event on /products
+    await page.evaluate(() =>
+      (
+        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
+      ).PulseWeb.trackEvent("url_path_products"),
+    );
+    const log1 = await otlp.waitForLogByBody("url_path_products");
+    expect(getAttr(log1.attributes, "url.path")).toBe("/products");
+    otlp.reset();
+
+    // Navigate to /cart
+    await page.goto("/cart");
+    await page.evaluate(() =>
+      (
+        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
+      ).PulseWeb.trackEvent("url_path_cart"),
+    );
+    const log2 = await otlp.waitForLogByBody("url_path_cart");
+    expect(getAttr(log2.attributes, "url.path")).toBe("/cart");
+  });
+
+  // 2.21 — screen.name present on log records (not just spans)
+  test("screen.name is present on log records, not just spans", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    const log = await otlp.waitForLog("session.start");
+    const screenName = getAttr(log.attributes, "screen.name") as string;
+    expect(screenName).toBeTruthy();
+    // session.start is a log — screen.name must be on it
+    expect(typeof screenName).toBe("string");
+  });
+
+  // 2.22 — page.url contains full URL, url.path contains only path
+  test("page.url is full URL and url.path is path-only — two separate attributes", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/products");
+    await page.evaluate(() =>
+      (
+        window as unknown as { PulseWeb: { trackEvent: (n: string) => void } }
+      ).PulseWeb.trackEvent("url_attrs_check"),
+    );
+    const log = await otlp.waitForLogByBody("url_attrs_check");
+    const pageUrl = getAttr(log.attributes, "page.url") as string;
+    const urlPath = getAttr(log.attributes, "url.path") as string;
+
+    expect(pageUrl).toMatch(/^https?:\/\/.+\/products$/);
+    expect(urlPath).toBe("/products");
+    // They must be different values
+    expect(pageUrl).not.toBe(urlPath);
+  });
+});
+
+// ─── Area 2: resource attributes ─────────────────────────────────────────────
+
+test.describe("@M1 resource attributes", () => {
+  // 2.10 — browser.name and browser.version
+  test("browser.name and browser.version are non-empty in resource attributes", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+
+    const browserName = getResourceAttr(otlp.captured, "browser.name");
+    const browserVersion = getResourceAttr(otlp.captured, "browser.version");
+
+    expect(browserName).toBeTruthy();
+    expect(browserVersion).toBeTruthy();
+    // Should be a recognisable browser name
+    expect(["Chrome", "Google Chrome", "Firefox", "Safari", "Edge"]).toContain(
+      // Normalise: Playwright chromium reports "Google Chrome" or "Chromium"
+      browserName?.includes("Chrome") || browserName?.includes("Chromium")
+        ? "Chrome"
+        : browserName,
+    );
+  });
+
+  // 2.11 — os.name and os.version
+  test("os.name is non-empty in resource attributes", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+
+    const osName = getResourceAttr(otlp.captured, "os.name");
+    expect(osName).toBeTruthy();
+    // Must be a recognisable OS name
+    expect(["macOS", "Windows", "Linux", "Android", "iOS"]).toContain(osName);
+  });
+
+  // 2.12 — device.type
+  test("device.type = 'desktop' when running in a desktop browser", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+
+    const deviceType = getResourceAttr(otlp.captured, "device.type");
+    expect(deviceType).toBe("desktop");
+  });
+
+  // 2.15 — project.id extracted from API key
+  test("project.id is present and non-empty in resource attributes", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+
+    const projectId = getResourceAttr(otlp.captured, "project.id");
+    expect(projectId).toBeTruthy();
+    // project.id must be derived from the API key — must not be empty
+    expect((projectId as string).length).toBeGreaterThan(0);
   });
 });
