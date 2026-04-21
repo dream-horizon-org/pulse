@@ -37,10 +37,12 @@ export function getHeaderCaseInsensitive(
   return undefined;
 }
 
-/** This is used to approximate request body size for typical JSON/string/blob payloads.*/
-export function estimateRequestBodyByteLength(
-  body?: Document | XMLHttpRequestBodyInit | null
-): number | undefined {
+/**
+ * Approximates raw byte length for HTTP request or response bodies when
+ * Content-Length is missing. Supports string (UTF-8), Blob, ArrayBuffer,
+ * typed arrays, and Document (via XMLSerializer when available).
+ */
+export function estimateHttpBodyByteLength(body: unknown): number | undefined {
   if (body == null) {
     return undefined;
   }
@@ -65,6 +67,20 @@ export function estimateRequestBodyByteLength(
   if (ArrayBuffer.isView(body)) {
     const n = body.byteLength;
     return n > 0 ? n : undefined;
+  }
+  if (typeof Document !== 'undefined' && body instanceof Document) {
+    try {
+      if (typeof XMLSerializer !== 'undefined') {
+        const markup = new XMLSerializer().serializeToString(body);
+        if (markup.length === 0) {
+          return undefined;
+        }
+        return new TextEncoder().encode(markup).length;
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
   }
   return undefined;
 }

@@ -1,5 +1,5 @@
 import {
-  estimateRequestBodyByteLength,
+  estimateHttpBodyByteLength,
   getHeaderCaseInsensitive,
   parseContentLength,
 } from '../network-interceptor/content-length-parser';
@@ -125,28 +125,28 @@ describe('getHeaderCaseInsensitive', () => {
   });
 });
 
-describe('estimateRequestBodyByteLength', () => {
+describe('estimateHttpBodyByteLength', () => {
   describe('nullish and empty string', () => {
     it('returns undefined for null and undefined', () => {
-      expect(estimateRequestBodyByteLength(null)).toBeUndefined();
-      expect(estimateRequestBodyByteLength(undefined)).toBeUndefined();
+      expect(estimateHttpBodyByteLength(null)).toBeUndefined();
+      expect(estimateHttpBodyByteLength(undefined)).toBeUndefined();
     });
 
     it('returns undefined for empty string', () => {
-      expect(estimateRequestBodyByteLength('')).toBeUndefined();
+      expect(estimateHttpBodyByteLength('')).toBeUndefined();
     });
   });
 
   describe('string bodies (UTF-8 byte length)', () => {
     it('counts ASCII bytes', () => {
-      expect(estimateRequestBodyByteLength('a')).toBe(1);
-      expect(estimateRequestBodyByteLength('hello')).toBe(5);
+      expect(estimateHttpBodyByteLength('a')).toBe(1);
+      expect(estimateHttpBodyByteLength('hello')).toBe(5);
     });
 
     it('counts multi-byte UTF-8 correctly', () => {
-      expect(estimateRequestBodyByteLength('é')).toBe(2);
-      expect(estimateRequestBodyByteLength('你好')).toBe(6);
-      expect(estimateRequestBodyByteLength('🚀')).toBe(4);
+      expect(estimateHttpBodyByteLength('é')).toBe(2);
+      expect(estimateHttpBodyByteLength('你好')).toBe(6);
+      expect(estimateHttpBodyByteLength('🚀')).toBe(4);
     });
   });
 
@@ -157,7 +157,7 @@ describe('estimateRequestBodyByteLength', () => {
         return;
       }
       const b = new Blob(['abc']);
-      expect(estimateRequestBodyByteLength(b)).toBe(3);
+      expect(estimateHttpBodyByteLength(b)).toBe(3);
     });
 
     it('returns undefined for empty Blob (size 0)', () => {
@@ -165,69 +165,107 @@ describe('estimateRequestBodyByteLength', () => {
         expect(true).toBe(true);
         return;
       }
-      expect(estimateRequestBodyByteLength(new Blob([]))).toBeUndefined();
+      expect(estimateHttpBodyByteLength(new Blob([]))).toBeUndefined();
     });
   });
 
   describe('ArrayBuffer and ArrayBuffer views', () => {
     it('returns byteLength for non-empty ArrayBuffer', () => {
       const buf = new ArrayBuffer(4);
-      expect(estimateRequestBodyByteLength(buf)).toBe(4);
+      expect(estimateHttpBodyByteLength(buf)).toBe(4);
     });
 
     it('returns undefined for zero-length ArrayBuffer', () => {
-      expect(estimateRequestBodyByteLength(new ArrayBuffer(0))).toBeUndefined();
+      expect(estimateHttpBodyByteLength(new ArrayBuffer(0))).toBeUndefined();
     });
 
     it('returns byteLength for Uint8Array', () => {
-      expect(estimateRequestBodyByteLength(new Uint8Array([1, 2, 3]))).toBe(3);
+      expect(estimateHttpBodyByteLength(new Uint8Array([1, 2, 3]))).toBe(3);
     });
 
     it('returns undefined for empty typed array', () => {
-      expect(estimateRequestBodyByteLength(new Uint8Array(0))).toBeUndefined();
+      expect(estimateHttpBodyByteLength(new Uint8Array(0))).toBeUndefined();
     });
 
     it('returns byteLength for DataView', () => {
       const ab = new ArrayBuffer(8);
       const dv = new DataView(ab);
-      expect(estimateRequestBodyByteLength(dv)).toBe(8);
+      expect(estimateHttpBodyByteLength(dv)).toBe(8);
     });
 
     it('returns byteLength for Int16Array (ArrayBufferView)', () => {
-      expect(estimateRequestBodyByteLength(new Int16Array([1, 2, 3]))).toBe(6);
+      expect(estimateHttpBodyByteLength(new Int16Array([1, 2, 3]))).toBe(6);
     });
   });
 
-  describe('fallback: types not handled by implementation', () => {
-    it('returns undefined for plain object', () => {
-      expect(estimateRequestBodyByteLength({} as never)).toBeUndefined();
+  describe('Document (typical XHR responseType document)', () => {
+    it('returns UTF-8 byte length of serialized markup when DOM APIs exist', () => {
+      if (
+        typeof Document === 'undefined' ||
+        typeof XMLSerializer === 'undefined'
+      ) {
+        expect(true).toBe(true);
+        return;
+      }
+      const doc = new Document();
+      const root = doc.createElement('root');
+      root.textContent = 'hi';
+      doc.appendChild(root);
+      const n = estimateHttpBodyByteLength(doc);
+      expect(n).toBeGreaterThan(0);
+      expect(n).toBe(
+        new TextEncoder().encode(new XMLSerializer().serializeToString(doc))
+          .length
+      );
+    });
+
+    it('returns undefined for empty serialized document', () => {
+      if (
+        typeof Document === 'undefined' ||
+        typeof XMLSerializer === 'undefined'
+      ) {
+        expect(true).toBe(true);
+        return;
+      }
+      const doc = new Document();
+      jest
+        .spyOn(XMLSerializer.prototype, 'serializeToString')
+        .mockReturnValue('');
+      expect(estimateHttpBodyByteLength(doc)).toBeUndefined();
+      jest.restoreAllMocks();
+    });
+  });
+
+  describe('fallback: types not measured', () => {
+    it('returns undefined for plain object (e.g. responseType json)', () => {
+      expect(estimateHttpBodyByteLength({ ok: true })).toBeUndefined();
     });
 
     it('returns undefined for number', () => {
-      expect(estimateRequestBodyByteLength(42 as never)).toBeUndefined();
+      expect(estimateHttpBodyByteLength(42)).toBeUndefined();
     });
 
     it('returns undefined for boolean', () => {
-      expect(estimateRequestBodyByteLength(true as never)).toBeUndefined();
+      expect(estimateHttpBodyByteLength(true)).toBeUndefined();
     });
 
-    it('returns undefined for FormData when present (not in checklist)', () => {
+    it('returns undefined for FormData when present', () => {
       if (typeof FormData === 'undefined') {
         expect(true).toBe(true);
         return;
       }
       const fd = new FormData();
       fd.append('a', 'b');
-      expect(estimateRequestBodyByteLength(fd as never)).toBeUndefined();
+      expect(estimateHttpBodyByteLength(fd)).toBeUndefined();
     });
 
-    it('returns undefined for URLSearchParams when present (not in checklist)', () => {
+    it('returns undefined for URLSearchParams when present', () => {
       if (typeof URLSearchParams === 'undefined') {
         expect(true).toBe(true);
         return;
       }
       const params = new URLSearchParams({ x: '1', y: '2' });
-      expect(estimateRequestBodyByteLength(params as never)).toBeUndefined();
+      expect(estimateHttpBodyByteLength(params)).toBeUndefined();
     });
   });
 
@@ -238,7 +276,7 @@ describe('estimateRequestBodyByteLength', () => {
         .mockImplementation(() => {
           throw new Error('encode failed');
         });
-      expect(estimateRequestBodyByteLength('not-empty')).toBeUndefined();
+      expect(estimateHttpBodyByteLength('not-empty')).toBeUndefined();
       encodeSpy.mockRestore();
     });
   });

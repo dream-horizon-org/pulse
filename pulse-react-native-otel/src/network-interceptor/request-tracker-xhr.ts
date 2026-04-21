@@ -9,7 +9,7 @@ import { createNetworkSpan, completeNetworkSpan } from './span-helpers';
 import { getHeaderConfig } from './headerConfigStore';
 import { shouldCaptureHeader } from './header-helper';
 import {
-  estimateRequestBodyByteLength,
+  estimateHttpBodyByteLength,
   parseContentLength,
 } from './content-length-parser';
 
@@ -111,7 +111,7 @@ function createXmlHttpRequestTracker(
 
       const requestBodyContentLength =
         parseContentLength(requestContentLengthHeaderValue.get(this)) ??
-        estimateRequestBodyByteLength(body);
+        estimateHttpBodyByteLength(body);
 
       const startContext: RequestStartContext = {
         type: 'xmlhttprequest',
@@ -177,9 +177,9 @@ function createXmlHttpRequestTracker(
 
           let responseBodyContentLength: number | undefined;
           try {
-            responseBodyContentLength = parseContentLength(
-              this.getResponseHeader('Content-Length')
-            );
+            responseBodyContentLength =
+              parseContentLength(this.getResponseHeader('Content-Length')) ??
+              estimateHttpBodyByteLength(this.response);
           } catch {
             responseBodyContentLength = undefined;
           }
