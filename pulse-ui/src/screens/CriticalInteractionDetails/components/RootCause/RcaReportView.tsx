@@ -13,6 +13,7 @@ import type {
   RcaStructuredMetricRowV1,
   RcaStructuredReportV1,
 } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
+import { extractStructuredReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import type { RcaReportViewProps } from "./RcaReportView.interface";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import { getMetricValueTone } from "./rcaMetricTone";
@@ -89,11 +90,13 @@ const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
 const RcaStructuredReportV1View = ({
   structured,
   cachedAt,
+  relativeGeneratedAt,
   onRegenerate,
   projectId,
 }: {
   structured: RcaStructuredReportV1;
   cachedAt?: string | null;
+  relativeGeneratedAt?: string | null;
   onRegenerate?: () => void;
   projectId?: string | null;
 }) => {
@@ -108,14 +111,16 @@ const RcaStructuredReportV1View = ({
   const hasRecommendations = recommendations.length > 0;
 
   const hasRegenerate = typeof onRegenerate === "function";
-  const showAsOf = cachedAt != null && cachedAt !== "";
+  const relative =
+    relativeGeneratedAt != null && String(relativeGeneratedAt).trim() !== "";
+  const showAsOf = !relative && cachedAt != null && cachedAt !== "";
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
   const hasProjectForHeatmaps = trimmedProjectId !== "";
 
   return (
     <Box className={rootCauseClasses.container}>
       <Box className={rcaClasses.reportShell}>
-        {(showAsOf || hasRegenerate) && (
+        {(showAsOf || relative || hasRegenerate) && (
           <Group
             className={rcaClasses.reportHeaderRow}
             justify="space-between"
@@ -123,7 +128,11 @@ const RcaStructuredReportV1View = ({
             wrap="wrap"
             gap="sm"
           >
-            {showAsOf ? (
+            {relative ? (
+              <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
+                Generated {relativeGeneratedAt}
+              </Text>
+            ) : showAsOf ? (
               <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
                 Report as of {cachedAt}
               </Text>
@@ -179,8 +188,6 @@ const RcaStructuredReportV1View = ({
               <Stack gap="md">
                 {segments.map((segment, index) => {
                   const rank = segment.rank ?? index + 1;
-                  const impactText = segment.impact?.trim() ?? "";
-                  const hasImpact = impactText !== "";
                   const insightsText = segment.insights?.trim() ?? "";
                   const hasInsights = insightsText !== "";
                   const metrics = segment.metrics ?? [];
@@ -306,16 +313,6 @@ const RcaStructuredReportV1View = ({
                           </Table.ScrollContainer>
                         </div>
                       ) : null}
-                      {hasImpact && (
-                        <div className={rcaClasses.impactCallout}>
-                          <Text size="xs" fw={600} c="dimmed" mb={6}>
-                            Impact
-                          </Text>
-                          <Text size="sm" lh={1.6}>
-                            {impactText}
-                          </Text>
-                        </div>
-                      )}
                       {hasInsights && (
                         <div className={rcaClasses.insightsCallout}>
                           <Text size="xs" fw={600} c="dimmed" mb={6}>
@@ -416,19 +413,19 @@ const RcaStructuredReportV1View = ({
 export const RcaReportView = ({
   report,
   cachedAt,
+  relativeGeneratedAt,
   onRegenerate,
   projectId,
 }: RcaReportViewProps) => {
-  const structured = report.structured;
-  const isValidStructured = structured != null && structured.version === 1;
+  const structured = extractStructuredReport(report);
   const executiveSummaryText = structured?.executive_summary?.trim() ?? "";
   const hasSegmentOrRec =
     (structured?.segments?.length ?? 0) > 0 ||
     (structured?.recommendations?.length ?? 0) > 0;
   const hasRenderableContent =
-    isValidStructured && (executiveSummaryText !== "" || hasSegmentOrRec);
+    structured != null && (executiveSummaryText !== "" || hasSegmentOrRec);
 
-  if (!hasRenderableContent || structured == null || structured.version !== 1) {
+  if (!hasRenderableContent || structured == null) {
     return (
       <Box className={rootCauseClasses.container}>
         <Text className={rootCauseClasses.stateMessage}>
@@ -442,6 +439,7 @@ export const RcaReportView = ({
     <RcaStructuredReportV1View
       structured={structured}
       cachedAt={cachedAt}
+      relativeGeneratedAt={relativeGeneratedAt}
       onRegenerate={onRegenerate}
       projectId={projectId}
     />
