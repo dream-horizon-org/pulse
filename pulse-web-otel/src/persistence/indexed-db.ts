@@ -1,21 +1,16 @@
 // IndexedDB signal buffer — failed OTLP exports (opt-in via diskBuffering).
 
-export type BufferedSignalType = "trace" | "log" | "metric";
+import type {
+  BufferedOtlpEnvelope,
+  BufferedSignalRow,
+  BufferedSignalType,
+} from "../types/persistence";
 
-/** Serialized OTLP request body + HTTP metadata for replay. */
-export interface BufferedOtlpEnvelope {
-  bodyB64: string;
-  contentType: string;
-  contentEncoding?: "gzip";
-}
-
-export interface BufferedSignalRow {
-  id?: number;
-  signalType: BufferedSignalType;
-  envelope: BufferedOtlpEnvelope;
-  timestamp: number;
-  retryCount: number;
-}
+export type {
+  BufferedOtlpEnvelope,
+  BufferedSignalRow,
+  BufferedSignalType,
+} from "../types/persistence";
 
 const DB_NAME = "pulse_signal_buffer";
 const DB_VERSION = 2;

@@ -1,10 +1,8 @@
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
 import { PulseWeb } from "../../sdk";
+import type { PulseErrorBoundaryProps } from "../../types/react";
 
-export interface PulseErrorBoundaryProps {
-  children: ReactNode;
-  fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
-}
+export type { PulseErrorBoundaryProps } from "../../types/react";
 
 interface State {
   hasError: boolean;

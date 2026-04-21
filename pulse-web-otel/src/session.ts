@@ -2,16 +2,28 @@
 // + 30-minute inactivity session rotation + BFCache guard.
 // See: web-sdk-plan/v1/01-foundation/identity.md
 
+import type {
+  SessionChangeEvent,
+  SessionEndReason,
+  SessionStartReason,
+} from "./types/session";
+
+export type {
+  SessionChangeEvent,
+  SessionEndReason,
+  SessionStartReason,
+} from "./types/session";
+
 // Storage keys
-const INSTALL_KEY = 'pulse_installation_id';
-const SESSION_ID_KEY = 'pulse_session_id';
-const SESSION_TS_KEY = 'pulse_session_ts';
-const SESSION_START_KEY = 'pulse_session_start';
+const INSTALL_KEY = "pulse_installation_id";
+const SESSION_ID_KEY = "pulse_session_id";
+const SESSION_TS_KEY = "pulse_session_ts";
+const SESSION_START_KEY = "pulse_session_start";
 
 // Clone detection key (PostHog beforeunload flag pattern)
 // Written to sessionStorage on init; removed on beforeunload so reload sees it gone.
 // If flag is present on init → tab was cloned (duplicated tab) → session reused.
-const SESSION_CLONE_FLAG_KEY = 'pulse_session_clone_flag';
+const SESSION_CLONE_FLAG_KEY = "pulse_session_clone_flag";
 
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_MAX_SESSION_LIFETIME_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -26,13 +38,16 @@ let _isNewInstall = false;
 let _installationChecked = false;
 
 function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   // Fallback UUID v4 implementation
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -70,10 +85,13 @@ export function _resetInstallationStateForTesting(): void {
 }
 
 export function getOrCreateInstallationId(): string {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     if (!_memoryInstallationId) {
       _memoryInstallationId = generateUUID();
-      if (!_installationChecked) { _isNewInstall = true; _installationChecked = true; }
+      if (!_installationChecked) {
+        _isNewInstall = true;
+        _installationChecked = true;
+      }
     }
     return _memoryInstallationId;
   }
@@ -82,12 +100,18 @@ export function getOrCreateInstallationId(): string {
   const fromLocal = tryLocalStorage(() => {
     const existing = localStorage.getItem(INSTALL_KEY);
     if (existing) {
-      if (!_installationChecked) { _isNewInstall = false; _installationChecked = true; }
+      if (!_installationChecked) {
+        _isNewInstall = false;
+        _installationChecked = true;
+      }
       return existing;
     }
     const newId = generateUUID();
     localStorage.setItem(INSTALL_KEY, newId);
-    if (!_installationChecked) { _isNewInstall = true; _installationChecked = true; }
+    if (!_installationChecked) {
+      _isNewInstall = true;
+      _installationChecked = true;
+    }
     return newId;
   });
   if (fromLocal) return fromLocal;
@@ -96,12 +120,18 @@ export function getOrCreateInstallationId(): string {
   const fromSession = trySessionStorage(() => {
     const existing = sessionStorage.getItem(INSTALL_KEY);
     if (existing) {
-      if (!_installationChecked) { _isNewInstall = false; _installationChecked = true; }
+      if (!_installationChecked) {
+        _isNewInstall = false;
+        _installationChecked = true;
+      }
       return existing;
     }
     const newId = generateUUID();
     sessionStorage.setItem(INSTALL_KEY, newId);
-    if (!_installationChecked) { _isNewInstall = true; _installationChecked = true; }
+    if (!_installationChecked) {
+      _isNewInstall = true;
+      _installationChecked = true;
+    }
     return newId;
   });
   if (fromSession) return fromSession;
@@ -109,22 +139,12 @@ export function getOrCreateInstallationId(): string {
   // Tier 3: in-memory
   if (!_memoryInstallationId) {
     _memoryInstallationId = generateUUID();
-    if (!_installationChecked) { _isNewInstall = true; _installationChecked = true; }
+    if (!_installationChecked) {
+      _isNewInstall = true;
+      _installationChecked = true;
+    }
   }
   return _memoryInstallationId;
-}
-
-export type SessionStartReason = 'sdk_init' | 'inactivity_timeout' | 'max_lifetime';
-export type SessionEndReason = 'inactivity_timeout' | 'shutdown' | 'page_unload' | 'max_lifetime';
-
-export interface SessionChangeEvent {
-  type: 'start' | 'end';
-  newSessionId?: string;
-  previousSessionId?: string;
-  sessionId?: string;
-  /** Duration in nanoseconds */
-  durationNs?: number;
-  reason: SessionStartReason | SessionEndReason;
 }
 
 type SessionChangeHandler = (event: SessionChangeEvent) => void;
@@ -151,15 +171,22 @@ export class SessionProvider {
   /** Timestamp when page was hidden (ms), or null if not hidden */
   _hiddenAtMs: number | null = null;
 
-  constructor(inactivityTimeoutMs?: number, maxSessionLifetimeMs?: number, pageHiddenTimeoutMs?: number) {
-    this.inactivityTimeoutMs = inactivityTimeoutMs ?? DEFAULT_INACTIVITY_TIMEOUT_MS;
-    this.maxSessionLifetimeMs = maxSessionLifetimeMs ?? DEFAULT_MAX_SESSION_LIFETIME_MS;
-    this.pageHiddenTimeoutMs = pageHiddenTimeoutMs ?? DEFAULT_PAGE_HIDDEN_TIMEOUT_MS;
+  constructor(
+    inactivityTimeoutMs?: number,
+    maxSessionLifetimeMs?: number,
+    pageHiddenTimeoutMs?: number,
+  ) {
+    this.inactivityTimeoutMs =
+      inactivityTimeoutMs ?? DEFAULT_INACTIVITY_TIMEOUT_MS;
+    this.maxSessionLifetimeMs =
+      maxSessionLifetimeMs ?? DEFAULT_MAX_SESSION_LIFETIME_MS;
+    this.pageHiddenTimeoutMs =
+      pageHiddenTimeoutMs ?? DEFAULT_PAGE_HIDDEN_TIMEOUT_MS;
 
     // Generate a unique window ID for this page load
     this._windowId = generateUUID();
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       // Clone detection: check if the clone flag is present in sessionStorage
       // If so, this tab was duplicated (cloned) from another tab → reuse session
       const hasCloneFlag = this._readCloneFlag();
@@ -173,7 +200,7 @@ export class SessionProvider {
       if (existingId && existingTs > 0) {
         // Active session found. Determine if it's fresh enough.
         const age = existingStart > 0 ? now - existingStart : 0;
-        const inactivityOk = (now - existingTs) <= this.inactivityTimeoutMs;
+        const inactivityOk = now - existingTs <= this.inactivityTimeoutMs;
         const lifetimeOk = age <= this.maxSessionLifetimeMs;
 
         if (inactivityOk && lifetimeOk) {
@@ -191,14 +218,14 @@ export class SessionProvider {
       this.beforeunloadListener = () => {
         this._removeCloneFlag();
       };
-      window.addEventListener('beforeunload', this.beforeunloadListener);
+      window.addEventListener("beforeunload", this.beforeunloadListener);
 
       // Set up pagehide listener
       this.pagehideListener = (e: PageTransitionEvent) => {
         if (!e.persisted) {
           // Real unload — emit session.end but don't clear localStorage
           // (so reload can reuse session)
-          this._emitSessionEndSkipClear('page_unload');
+          this._emitSessionEndSkipClear("page_unload");
         }
       };
 
@@ -226,22 +253,23 @@ export class SessionProvider {
               const currentId = this._readSessionId();
               if (currentId) {
                 const startTs = this._readSessionStart();
-                const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
+                const durationNs =
+                  startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
                 this._emitEvent({
-                  type: 'end',
+                  type: "end",
                   sessionId: currentId,
                   durationNs,
-                  reason: 'inactivity_timeout',
+                  reason: "inactivity_timeout",
                 });
                 this._clearSession();
 
                 const newId = generateUUID();
                 this._writeSession(newId);
                 this._emitEvent({
-                  type: 'start',
+                  type: "start",
                   newSessionId: newId,
                   previousSessionId: currentId,
-                  reason: 'inactivity_timeout',
+                  reason: "inactivity_timeout",
                 });
               }
             }
@@ -249,16 +277,19 @@ export class SessionProvider {
         }
       };
 
-      window.addEventListener('pagehide', this.pagehideListener);
-      window.addEventListener('pageshow', this.pageshowListener);
-      document.addEventListener('visibilitychange', this.visibilityChangeListener);
+      window.addEventListener("pagehide", this.pagehideListener);
+      window.addEventListener("pageshow", this.pageshowListener);
+      document.addEventListener(
+        "visibilitychange",
+        this.visibilityChangeListener,
+      );
     }
   }
 
   // ---- Private storage helpers (use localStorage for cross-tab sharing) ----
 
   private _readSessionId(): string | null {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     try {
       return localStorage.getItem(SESSION_ID_KEY);
     } catch {
@@ -267,7 +298,7 @@ export class SessionProvider {
   }
 
   private _readSessionTs(): number {
-    if (typeof window === 'undefined') return 0;
+    if (typeof window === "undefined") return 0;
     try {
       const ts = localStorage.getItem(SESSION_TS_KEY);
       // Stored as nanoseconds; convert to ms
@@ -278,7 +309,7 @@ export class SessionProvider {
   }
 
   private _readSessionStart(): number {
-    if (typeof window === 'undefined') return 0;
+    if (typeof window === "undefined") return 0;
     try {
       const ts = localStorage.getItem(SESSION_START_KEY);
       // Stored as nanoseconds; convert to ms
@@ -289,7 +320,7 @@ export class SessionProvider {
   }
 
   private _writeSession(id: string, startTs?: number): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const nowNs = Date.now() * 1_000_000;
     try {
       localStorage.setItem(SESSION_ID_KEY, id);
@@ -301,7 +332,7 @@ export class SessionProvider {
   }
 
   private _clearSession(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     try {
       localStorage.removeItem(SESSION_ID_KEY);
       localStorage.removeItem(SESSION_TS_KEY);
@@ -313,7 +344,7 @@ export class SessionProvider {
 
   private _readCloneFlag(): boolean {
     try {
-      return sessionStorage.getItem(SESSION_CLONE_FLAG_KEY) === '1';
+      return sessionStorage.getItem(SESSION_CLONE_FLAG_KEY) === "1";
     } catch {
       return false;
     }
@@ -321,7 +352,7 @@ export class SessionProvider {
 
   private _writeCloneFlag(): void {
     try {
-      sessionStorage.setItem(SESSION_CLONE_FLAG_KEY, '1');
+      sessionStorage.setItem(SESSION_CLONE_FLAG_KEY, "1");
     } catch {
       // ignore
     }
@@ -353,7 +384,7 @@ export class SessionProvider {
     const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
 
     const event: SessionChangeEvent = {
-      type: 'end',
+      type: "end",
       sessionId,
       durationNs,
       reason,
@@ -371,7 +402,7 @@ export class SessionProvider {
     const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
 
     const event: SessionChangeEvent = {
-      type: 'end',
+      type: "end",
       sessionId,
       durationNs,
       reason,
@@ -381,9 +412,13 @@ export class SessionProvider {
     this._clearSession();
   }
 
-  private _emitSessionStart(newSessionId: string, previousSessionId: string, reason: SessionStartReason): void {
+  private _emitSessionStart(
+    newSessionId: string,
+    previousSessionId: string,
+    reason: SessionStartReason,
+  ): void {
     const event: SessionChangeEvent = {
-      type: 'start',
+      type: "start",
       newSessionId,
       previousSessionId,
       reason,
@@ -405,7 +440,7 @@ export class SessionProvider {
     const sessionStartMs = this._readSessionStart();
 
     if (existingId && lastTs > 0) {
-      const inactivityOk = (now - lastTs) <= this.inactivityTimeoutMs;
+      const inactivityOk = now - lastTs <= this.inactivityTimeoutMs;
       const age = sessionStartMs > 0 ? now - sessionStartMs : 0;
       const lifetimeOk = age <= this.maxSessionLifetimeMs;
 
@@ -416,15 +451,20 @@ export class SessionProvider {
       }
 
       // Determine reason for rotation
-      const rotationReason: SessionEndReason = lifetimeOk ? 'inactivity_timeout' : 'max_lifetime';
-      const startReason: SessionStartReason = lifetimeOk ? 'inactivity_timeout' : 'max_lifetime';
+      const rotationReason: SessionEndReason = lifetimeOk
+        ? "inactivity_timeout"
+        : "max_lifetime";
+      const startReason: SessionStartReason = lifetimeOk
+        ? "inactivity_timeout"
+        : "max_lifetime";
 
       // Rotate session
       this._rotatingSession = true;
       try {
-        const durationNs = sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
+        const durationNs =
+          sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
         this._emitEvent({
-          type: 'end',
+          type: "end",
           sessionId: existingId,
           durationNs,
           reason: rotationReason,
@@ -443,19 +483,24 @@ export class SessionProvider {
     // No valid session — create a fresh one
     if (existingId) {
       // Expired session — emit end before creating new
-      const durationNs = sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
+      const durationNs =
+        sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
       this._emitEvent({
-        type: 'end',
+        type: "end",
         sessionId: existingId,
         durationNs,
-        reason: 'inactivity_timeout',
+        reason: "inactivity_timeout",
       });
       this._clearSession();
     }
 
     const newId = generateUUID();
     this._writeSession(newId);
-    this._emitSessionStart(newId, existingId ?? '', existingId ? 'inactivity_timeout' : 'sdk_init');
+    this._emitSessionStart(
+      newId,
+      existingId ?? "",
+      existingId ? "inactivity_timeout" : "sdk_init",
+    );
     return newId;
   }
 
@@ -485,16 +530,16 @@ export class SessionProvider {
   getPreviousSessionId(): string {
     // Returns the previous session ID tracked in memory (before current rotation)
     // This is used externally; we store it in localStorage if available
-    if (typeof window === 'undefined') return '';
+    if (typeof window === "undefined") return "";
     try {
-      return localStorage.getItem('pulse_prev_session_id') ?? '';
+      return localStorage.getItem("pulse_prev_session_id") ?? "";
     } catch {
-      return '';
+      return "";
     }
   }
 
   private _updateActivityTs(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     try {
       localStorage.setItem(SESSION_TS_KEY, String(Date.now() * 1_000_000));
     } catch {
@@ -525,28 +570,31 @@ export class SessionProvider {
       // No session exists yet — create one
       const newId = generateUUID();
       this._writeSession(newId);
-      this._emitSessionStart(newId, '', 'sdk_init');
+      this._emitSessionStart(newId, "", "sdk_init");
     } else {
       // Session already exists from getSessionId() call — emit start event for it
-      this._emitSessionStart(sessionId, '', 'sdk_init');
+      this._emitSessionStart(sessionId, "", "sdk_init");
     }
   }
 
   shutdown(): void {
-    this._emitSessionEnd('shutdown');
+    this._emitSessionEnd("shutdown");
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       if (this.pagehideListener) {
-        window.removeEventListener('pagehide', this.pagehideListener);
+        window.removeEventListener("pagehide", this.pagehideListener);
       }
       if (this.pageshowListener) {
-        window.removeEventListener('pageshow', this.pageshowListener);
+        window.removeEventListener("pageshow", this.pageshowListener);
       }
       if (this.beforeunloadListener) {
-        window.removeEventListener('beforeunload', this.beforeunloadListener);
+        window.removeEventListener("beforeunload", this.beforeunloadListener);
       }
       if (this.visibilityChangeListener) {
-        document.removeEventListener('visibilitychange', this.visibilityChangeListener);
+        document.removeEventListener(
+          "visibilitychange",
+          this.visibilityChangeListener,
+        );
       }
     }
 

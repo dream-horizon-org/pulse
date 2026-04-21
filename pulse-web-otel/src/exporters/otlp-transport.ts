@@ -6,6 +6,9 @@ import type {
 import { createPulseRetryingTransport } from "./pulse-retrying-transport";
 import { gzipUint8Array, isGzipSupported } from "../utils/otlp-gzip";
 import type { IdbSignalBuffer } from "../persistence/indexed-db";
+import type { OtlpSignalKind, PersistMeta } from "../types/otlp-transport";
+
+export type { OtlpSignalKind, PersistMeta } from "../types/otlp-transport";
 
 const RETRYABLE = new Set([429, 502, 503, 504]);
 
@@ -105,13 +108,6 @@ export function wrapTransportWithGzip(
       inner.shutdown();
     },
   };
-}
-
-export type OtlpSignalKind = "trace" | "log" | "metric";
-
-export interface PersistMeta {
-  contentType: string;
-  contentEncoding?: "gzip";
 }
 
 export function wrapTransportWithDiskPersistence(

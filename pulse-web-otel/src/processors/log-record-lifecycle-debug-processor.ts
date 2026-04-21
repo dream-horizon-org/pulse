@@ -2,6 +2,9 @@
 
 import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { LogBody } from "@opentelemetry/api-logs";
+import type { LogRecordLifecyclePhase } from "../types/log-record-lifecycle";
+
+export type { LogRecordLifecyclePhase } from "../types/log-record-lifecycle";
 
 let emitSeq = 0;
 
@@ -25,8 +28,6 @@ function summarizeLogRecord(logRecord: LogRecord): Record<string, unknown> {
     eventName: attrs["event.name"],
   };
 }
-
-export type LogRecordLifecyclePhase = "ingress" | "pre_batch";
 
 /**
  * ingress: first processor — log as emitted from the app (before GlobalAttributesProcessor).
