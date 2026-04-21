@@ -313,7 +313,7 @@ public class ProjectUsageLimitDao {
             return updateExistingNotification(pool, result.iterator().next(), thresholds, now);
           }
           log.info("usage_limit_notifications inserting new row for current month — projectId={}", projectId);
-          return createNewNotification(pool, projectId, thresholds, now);
+          return createNewNotification(pool, projectId, thresholds, projectUsageLimitId, now);
         })
         .doOnError(error -> log.error(
             "Failed to mark thresholds notified for project: {} thresholds: {}",
