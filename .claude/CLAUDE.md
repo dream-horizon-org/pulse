@@ -119,6 +119,7 @@ Alert metrics span: MySQL schema → backend service/DAO → ClickHouse query �
 
 When compacting history, preserve: API contracts, auth logic, schema changes, test failures and their fixes.
 Discard: debug output, failed attempts, exploratory file reads.
+# Pulse repo — AI assistant defaults
 
 ## Caveman (team default)
 
@@ -131,3 +132,4 @@ Use **caveman** communication for natural-language replies: terse, high signal, 
 Cursor loads the same policy from `.cursor/rules/caveman.mdc`.
 
 Inspired by [caveman](https://github.com/JuliusBrussee/caveman) (MIT).
+

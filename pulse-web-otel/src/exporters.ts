@@ -1,6 +1,9 @@
 // OTLP HTTP exporters (traces/logs/metrics) + batching + pagehide flush.
 // Browser JSON or protobuf via @opentelemetry/otlp-transformer; optional gzip (CompressionStream);
 // optional IndexedDB persistence on export failure (diskBuffering).
+// Log export on pagehide uses fetch({ keepalive: true }) with JSON OTLP (see KeepaliveFetchLogExporter)
+// because XHR-based sends from PulseBrowserLogExporter are cancelled during unload.
+// See: web-sdk-plan/v1/01-foundation/pipeline.md
 
 import {
   WebTracerProvider,
@@ -16,7 +19,19 @@ import {
 } from "@opentelemetry/sdk-metrics";
 import type { Resource } from "@opentelemetry/resources";
 import type { SpanProcessor } from "@opentelemetry/sdk-trace-web";
-import type { LogRecordProcessor } from "@opentelemetry/sdk-logs";
+import type {
+  LogRecordProcessor,
+  LogRecordExporter,
+  ReadableLogRecord,
+} from "@opentelemetry/sdk-logs";
+import type {
+  PushMetricExporter,
+  ResourceMetrics,
+} from "@opentelemetry/sdk-metrics";
+import type { ExportResult } from "@opentelemetry/core";
+import { ExportResultCode } from "@opentelemetry/core";
+import type { Attributes } from "@opentelemetry/api";
+import { createExportLogsServiceRequest } from "@opentelemetry/otlp-transformer";
 
 import { IdbSignalBuffer } from "./persistence/indexed-db";
 import {
@@ -26,19 +41,76 @@ import {
 } from "./exporters/pulse-browser-otlp-exporters";
 import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lifecycle-debug";
 // Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
-// Browser gzip requires a custom XHR/fetch exporter wrapping CompressionStream — tracked as TODO.
-import type {
-  PushMetricExporter,
-  ResourceMetrics,
-} from "@opentelemetry/sdk-metrics";
-import type { ExportResult } from "@opentelemetry/core";
-import type { Attributes } from "@opentelemetry/api";
+// Browser gzip for the normal path is handled by PulseBrowser* exporters + otlp-transport.
 
 /**
- * Wraps any PushMetricExporter and merges dynamic global attributes (session.id,
- * installation.id, screen.name, platform, etc.) into every data point at export time.
- * This is necessary because metrics do not go through the SpanProcessor / LogRecordProcessor
- * pipeline — they need a separate injection point.
+ * Wraps a {@link LogRecordExporter} and, when `_pagehide` is set to true, replaces the
+ * normal export (XHR / custom transport from {@link PulseBrowserLogExporter}) with a
+ * `fetch` call using `keepalive: true`.
+ *
+ * Normal batches still use the inner exporter (gzip, protobuf, disk buffer as configured).
+ * The pagehide path sends JSON OTLP (`application/json`) without gzip so the body stays
+ * small and compatible with keepalive limits.
+ */
+class KeepaliveFetchLogExporter implements LogRecordExporter {
+  /** Set to true in the pagehide handler before calling `loggerProvider.forceFlush()`. */
+  _pagehide = false;
+
+  constructor(
+    private readonly inner: LogRecordExporter,
+    private readonly logsUrl: string,
+    private readonly headers: Record<string, string>,
+  ) {}
+
+  export(
+    logs: ReadableLogRecord[],
+    resultCallback: (result: ExportResult) => void,
+  ): void {
+    if (!this._pagehide) {
+      this.inner.export(logs, resultCallback);
+      return;
+    }
+
+    const body = JSON.stringify(
+      createExportLogsServiceRequest(logs, {
+        useHex: true,
+        useLongBits: false,
+      }),
+    );
+
+    const fetchHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.headers,
+    };
+
+    fetch(this.logsUrl, {
+      method: "POST",
+      keepalive: true,
+      headers: fetchHeaders,
+      body,
+    })
+      .then(() => {
+        resultCallback({ code: ExportResultCode.SUCCESS });
+      })
+      .catch(() => {
+        resultCallback({ code: ExportResultCode.FAILED });
+      });
+  }
+
+  forceFlush(): Promise<void> {
+    const maybeFlush = this.inner as LogRecordExporter & {
+      forceFlush?: () => Promise<void>;
+    };
+    return maybeFlush.forceFlush?.() ?? Promise.resolve();
+  }
+
+  shutdown(): Promise<void> {
+    return this.inner.shutdown();
+  }
+}
+
+/**
+ * Wraps any PushMetricExporter and merges dynamic global attributes into every data point.
  */
 class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
   constructor(
@@ -55,10 +127,6 @@ class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
       ...metrics,
       scopeMetrics: metrics.scopeMetrics.map((sm) => ({
         ...sm,
-        // Cast required: TypeScript loses the discriminated-union narrowing when
-        // we spread each MetricData, but the shape is preserved — only attributes
-        // on each DataPoint are extended with global attrs (extra takes lower
-        // priority than per-instrument attrs so they cannot override them).
         metrics: sm.metrics.map((m) => ({
           ...m,
           dataPoints: m.dataPoints.map((dp) => ({
@@ -74,6 +142,7 @@ class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
   forceFlush(): Promise<void> {
     return this.inner.forceFlush();
   }
+
   shutdown(): Promise<void> {
     return this.inner.shutdown();
   }
@@ -89,18 +158,12 @@ export interface ExporterConfig {
   endpointBaseUrl: string;
   apiKey: string;
   meteringSessionId: string;
-  /**
-   * Called at each metric export to get current global attributes (session.id, screen.name, etc.).
-   * If omitted, no extra attributes are injected into metric data points.
-   */
   getMetricGlobalAttrs?: () => Attributes;
   /**
-   * Wire format. Currently unused — browser OTLP exporters always send JSON
-   * (application/json). Protobuf support requires a custom browser fetch exporter
-   * and is tracked as a TODO.
+   * Wire format for Pulse browser trace/log/metric exporters (JSON vs protobuf on the wire).
    */
   format?: "json" | "protobuf";
-  /** Payload compression. Defaults to 'gzip'. Browser gzip is tracked as a TODO. */
+  /** Payload compression for Pulse browser exporters. Defaults to 'gzip' when supported. */
   compression?: "gzip" | "none";
   batchOptions?: {
     scheduledDelayMillis?: number;
@@ -196,10 +259,17 @@ export function createProviders(
       signalKind: "log",
     },
   );
+
+  const keepaliveFetchLogExporter = new KeepaliveFetchLogExporter(
+    baseLogExporter,
+    logsUrl,
+    headers,
+  );
+
   const logExporter =
     config.debugLogRecordLifecycle === true
-      ? wrapLogExporterLifecycleDebug(baseLogExporter)
-      : baseLogExporter;
+      ? wrapLogExporterLifecycleDebug(keepaliveFetchLogExporter)
+      : keepaliveFetchLogExporter;
 
   const batchLogProcessor = new BatchLogRecordProcessor(
     logExporter,
@@ -252,8 +322,11 @@ export function createProviders(
   if (typeof window !== "undefined") {
     const pagehideHandler = (e: PageTransitionEvent) => {
       if (!e.persisted) {
+        keepaliveFetchLogExporter._pagehide = true;
+        void loggerProvider.forceFlush().finally(() => {
+          keepaliveFetchLogExporter._pagehide = false;
+        });
         void tracerProvider.forceFlush();
-        void loggerProvider.forceFlush();
         void meterProvider.forceFlush();
       }
     };

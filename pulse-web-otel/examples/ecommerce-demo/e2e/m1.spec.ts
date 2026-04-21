@@ -1248,6 +1248,280 @@ test.describe("@M1 url attributes", () => {
   });
 });
 
+// ─── Area 3: Session Start / Session End (missing coverage) ──────────────────
+
+test.describe('@M1 Area 3 session lifecycle', () => {
+  // 3.2 — session.start does NOT fire again on SPA navigation
+  test('3.2: session.start does NOT fire on SPA navigation', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+    otlp.reset();
+
+    // Navigate through multiple SPA routes
+    await page.getByRole('link', { name: /products/i }).first().click();
+    await page.waitForURL('**/products');
+    await page.getByRole('link', { name: /cart/i }).first().click();
+    await page.waitForURL('**/cart');
+    await page.waitForTimeout(600);
+
+    expect(findAllLogs(otlp.captured, 'session.start').length).toBe(0);
+  });
+
+  // 3.6 — New session.start (+ session.end for old) after simulated 30-min inactivity
+  test('3.6: session rotates after simulated 30-min inactivity', async ({ page, otlp }) => {
+    await page.goto('/');
+    const first = await otlp.waitForLog('session.start');
+    const oldSid = getAttr(first.attributes, 'session.id') as string;
+    otlp.reset();
+
+    // Simulate 31-minute idle: write pulse_session_ts = 31 min ago in nanoseconds
+    // (session.ts) is stored as Date.now() * 1_000_000 — see session.ts:msToNs)
+    await page.evaluate(() => {
+      const thirtyOneMinutesAgoNs = (Date.now() - 31 * 60 * 1000) * 1_000_000;
+      localStorage.setItem('pulse_session_ts', String(thirtyOneMinutesAgoNs));
+    });
+
+    // trackEvent → onEmit → getSessionId() → detects inactivity → rotates
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+        trackEvent: (n: string) => void;
+      };
+      p.trackEvent('after_inactivity');
+    });
+
+    // New session.start must arrive with a different session.id
+    const newStart = await otlp.waitForLog('session.start', 5_000);
+    const newSid = getAttr(newStart.attributes, 'session.id') as string;
+    expect(newSid).toBeTruthy();
+    expect(newSid).not.toBe(oldSid);
+    expect(getAttr(newStart.attributes, 'session.start_reason')).toBe('inactivity_timeout');
+
+    // session.end for the OLD session must also be present
+    const ends = findAllLogs(otlp.captured, 'session.end');
+    expect(ends.length).toBeGreaterThan(0);
+    expect(getAttr(ends[0]?.attributes, 'session.id')).toBe(oldSid);
+  });
+
+  // 3.8 — session.end fires on reload pagehide; same session resumes after reload (no new session.start)
+  test('3.8: session.end fires on pagehide before reload; same session resumes silently', async ({ page, otlp }) => {
+    await page.goto('/');
+    const first = await otlp.waitForLog('session.start');
+    const sid = getAttr(first.attributes, 'session.id') as string;
+    otlp.reset();
+
+    // Simulate the pagehide that fires just before a page reload
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }));
+    });
+    const endLog = await otlp.waitForLog('session.end', 3_000);
+    expect(getAttr(endLog.attributes, 'session.id')).toBe(sid);
+    expect(getAttr(endLog.attributes, 'session.end_reason')).toBe('page_unload');
+    otlp.reset();
+
+    // Real reload — same session must resume (session.id unchanged in localStorage)
+    await page.reload();
+    await page.waitForTimeout(1_000);
+
+    const storedSid = await page.evaluate(() => localStorage.getItem('pulse_session_id'));
+    expect(storedSid).toBe(sid);
+    // Session was reused → no new session.start emitted
+    expect(findAllLogs(otlp.captured, 'session.start').length).toBe(0);
+  });
+
+  // 3.9 — Duplicate tab inherits session (same session.id, no new session.start)
+  test('3.9: duplicate page in same context inherits session.id', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+    const sid1 = await page.evaluate(() => localStorage.getItem('pulse_session_id'));
+    const sessionTs = await page.evaluate(() => localStorage.getItem('pulse_session_ts'));
+    const sessionStart = await page.evaluate(() => localStorage.getItem('pulse_session_start'));
+
+    // Simulate tab clone: open page2 in same context, pre-populate storage with page1's session
+    const page2 = await page.context().newPage();
+    // Silence OTLP calls from page2 (no capture needed — assert via storage only)
+    await page2.route('**/v1/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    });
+    await page2.addInitScript(
+      ({ id, ts, start }) => {
+        if (id)    localStorage.setItem('pulse_session_id',    id);
+        if (ts)    localStorage.setItem('pulse_session_ts',    ts);
+        if (start) localStorage.setItem('pulse_session_start', start);
+      },
+      { id: sid1, ts: sessionTs, start: sessionStart },
+    );
+    await page2.goto('http://localhost:3099/');
+    await page2.waitForTimeout(1_000);
+
+    // Same session.id must be in localStorage — no new session was created
+    const sid2 = await page2.evaluate(() => localStorage.getItem('pulse_session_id'));
+    expect(sid2).toBe(sid1);
+
+    await page2.close();
+  });
+
+  // 3.10 — Fresh browser context (new tab, empty storage) creates a new independent session
+  test('3.10: fresh browser context creates new independent session', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+    const sid1 = await page.evaluate(() => localStorage.getItem('pulse_session_id'));
+
+    // Fresh context = isolated storage (no shared localStorage)
+    const freshCtx = await page.context().browser()!.newContext();
+    const freshLogs: Array<Record<string, unknown>> = [];
+    await freshCtx.route('**/v1/logs', async (route) => {
+      const buf = route.request().postDataBuffer();
+      if (buf) {
+        try { freshLogs.push(JSON.parse(buf.toString('utf-8')) as Record<string, unknown>); } catch { /* skip */ }
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    });
+    await freshCtx.route('**/v1/traces', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    });
+    await freshCtx.route('**/v1/metrics', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    });
+
+    const freshPage = await freshCtx.newPage();
+    await freshPage.goto('http://localhost:3099/');
+    await freshPage.waitForTimeout(1_500);
+
+    // Fresh context must have a different session.id
+    const sid2 = await freshPage.evaluate(() => localStorage.getItem('pulse_session_id'));
+    expect(sid2).toBeTruthy();
+    expect(sid2).not.toBe(sid1);
+
+    // session.start must have fired in the fresh context
+    const sessionStartFound = freshLogs.some((body) =>
+      ((body as { resourceLogs?: { scopeLogs?: { logRecords?: { attributes?: { key: string; value: { stringValue?: string } }[] }[] }[] }[] }).resourceLogs ?? [])
+        .flatMap((rl) => rl.scopeLogs ?? [])
+        .flatMap((sl) => sl.logRecords ?? [])
+        .some((lr) =>
+          (lr.attributes ?? []).some(
+            (a) => a.key === 'pulse.type' && a.value?.stringValue === 'session.start',
+          ),
+        ),
+    );
+    expect(sessionStartFound).toBe(true);
+
+    await freshCtx.close();
+  });
+
+  // 3.11 + 3.12 — Rotation order: session.end fires BEFORE session.start; IDs are different
+  test('3.11/3.12: rotation emits session.end then session.start with different session IDs', async ({ page, otlp }) => {
+    await page.goto('/');
+    const first = await otlp.waitForLog('session.start');
+    const oldSid = getAttr(first.attributes, 'session.id') as string;
+    otlp.reset();
+
+    // Simulate inactivity
+    await page.evaluate(() => {
+      const thirtyOneMinutesAgoNs = (Date.now() - 31 * 60 * 1000) * 1_000_000;
+      localStorage.setItem('pulse_session_ts', String(thirtyOneMinutesAgoNs));
+    });
+
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+        trackEvent: (n: string) => void;
+      };
+      p.trackEvent('rotation_order_check');
+    });
+
+    await otlp.waitForLog('session.start', 5_000);
+    await page.waitForTimeout(300); // let batch flush complete
+
+    const allLogs = otlp.captured
+      .filter((c) => c.type === 'logs')
+      .flatMap((c) =>
+        c.body.resourceLogs.flatMap((rl) =>
+          rl.scopeLogs.flatMap((sl) => sl.logRecords),
+        ),
+      );
+
+    // Find the rotation pair by index to verify ORDER: end must appear before start
+    const endIdx   = allLogs.findIndex((lr) => getAttr(lr.attributes, 'pulse.type') === 'session.end');
+    const startIdx = allLogs.findIndex((lr) => {
+      const pt = getAttr(lr.attributes, 'pulse.type');
+      const sid = getAttr(lr.attributes, 'session.id') as string;
+      return pt === 'session.start' && sid !== oldSid;
+    });
+
+    expect(endIdx).toBeGreaterThanOrEqual(0);   // session.end exists
+    expect(startIdx).toBeGreaterThanOrEqual(0);  // session.start exists
+    expect(endIdx).toBeLessThan(startIdx);        // end BEFORE start
+
+    // 3.12: The new session.start carries a DIFFERENT session.id than session.end
+    const endSid   = getAttr(allLogs[endIdx]?.attributes,   'session.id') as string;
+    const startSid = getAttr(allLogs[startIdx]?.attributes, 'session.id') as string;
+    expect(endSid).toBe(oldSid);
+    expect(startSid).not.toBe(oldSid);
+  });
+
+  // 3.14 — session.end does NOT fire on in-app SPA navigation
+  test('3.14: session.end does NOT fire on in-app SPA navigation', async ({ page, otlp }) => {
+    await page.goto('/');
+    await otlp.waitForLog('session.start');
+    otlp.reset();
+
+    // Navigate through multiple SPA routes
+    await page.getByRole('link', { name: /products/i }).first().click();
+    await page.waitForURL('**/products');
+    await page.getByRole('link', { name: /cart/i }).first().click();
+    await page.waitForURL('**/cart');
+    await page.waitForTimeout(600);
+
+    expect(findAllLogs(otlp.captured, 'session.end').length).toBe(0);
+  });
+
+  // 3.13 — very short session (immediate pagehide) still emits session.end with duration >= 0
+  test('3.13: very short session emits session.end with non-negative duration_ns', async ({ page, otlp }) => {
+    await page.goto('/');
+    const startLog = await otlp.waitForLog('session.start');
+    const sid = getAttr(startLog.attributes, 'session.id') as string;
+    otlp.reset();
+
+    // Immediately dispatch pagehide — session was very short (< 1s)
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }),
+      );
+    });
+
+    const endLog = await otlp.waitForLog('session.end', 3_000);
+    expect(endLog).toBeDefined();
+    expect(getAttr(endLog.attributes, 'session.id')).toBe(sid);
+
+    const durationNs = getAttr(endLog.attributes, 'session.duration_ns') as number;
+    // Duration must exist and be non-negative (0 or positive nanoseconds)
+    expect(durationNs).toBeGreaterThanOrEqual(0);
+    // Duration must be in nanoseconds — for a < 2s session at most ~2e9 ns
+    expect(durationNs).toBeLessThan(2_000_000_000);
+  });
+
+  // 3.15 — consent DENIED: no session.start and no session.end emitted
+  test('3.15: consent DENIED — no session.start or session.end emitted', async ({ page, otlp }) => {
+    // ?pulse_consent=denied → App.tsx passes PulseDataCollectionConsent.DENIED to PulseWeb.start()
+    // The SDK returns early without installing any instrumentations, so no signals fire.
+    await page.goto('/?pulse_consent=denied');
+    await page.waitForTimeout(800);
+
+    expect(findAllLogs(otlp.captured, 'session.start').length).toBe(0);
+    expect(findAllLogs(otlp.captured, 'session.end').length).toBe(0);
+
+    // Trigger pagehide — still no session.end (SDK never started)
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }),
+      );
+    });
+    await page.waitForTimeout(300);
+
+    expect(findAllLogs(otlp.captured, 'session.start').length).toBe(0);
+    expect(findAllLogs(otlp.captured, 'session.end').length).toBe(0);
+  });
+});
+
 // ─── Area 2: resource attributes ─────────────────────────────────────────────
 
 test.describe("@M1 resource attributes", () => {

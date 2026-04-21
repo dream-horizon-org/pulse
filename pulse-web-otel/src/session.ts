@@ -1,40 +1,21 @@
 // M1: 3-tier identity storage (localStorage → sessionStorage → memory)
-// + session rotation (inactivity / max-lifetime / page-hidden) + BFCache guard.
-// Clone detection uses PostHog's beforeunload-flag pattern (no Navigation API dependency).
+// + 30-minute inactivity session rotation + BFCache guard.
 // See: web-sdk-plan/v1/01-foundation/identity.md
-
-// Utility: convert milliseconds to nanoseconds (mirrors Android Clock.now()).
-function msToNs(ms: number): number {
-  return ms * 1_000_000;
-}
-
-// Utility: convert nanoseconds to milliseconds.
-function nsToMs(ns: number): number {
-  return Math.floor(ns / 1_000_000);
-}
-
-// Get current time in nanoseconds UTC (mirrors Android Clock.getDefault().now()).
-function getCurrentTimeNanos(): number {
-  return msToNs(Date.now());
-}
 
 // Storage keys
 const INSTALL_KEY = 'pulse_installation_id';
 const SESSION_ID_KEY = 'pulse_session_id';
-const SESSION_TS_KEY = 'pulse_session_ts';  // last activity, stored as nanoseconds
-const SESSION_START_KEY = 'pulse_session_start';  // session start, stored as nanoseconds
+const SESSION_TS_KEY = 'pulse_session_ts';
+const SESSION_START_KEY = 'pulse_session_start';
 
-// Written to sessionStorage on every SDK init; removed on beforeunload so a genuine
-// page reload doesn't trigger clone-detection on the next load.  A duplicated tab
-// inherits this flag and detects it as a clone on its first init.
+// Clone detection key (PostHog beforeunload flag pattern)
+// Written to sessionStorage on init; removed on beforeunload so reload sees it gone.
+// If flag is present on init → tab was cloned (duplicated tab) → session reused.
 const SESSION_CLONE_FLAG_KEY = 'pulse_session_clone_flag';
 
-const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;  // 30 minutes
-const DEFAULT_INACTIVITY_TIMEOUT_NS = msToNs(DEFAULT_INACTIVITY_TIMEOUT_MS);
-const DEFAULT_MAX_SESSION_LIFETIME_MS = 4 * 60 * 60 * 1000; // 4 hours  (mirrors Android)
-const DEFAULT_MAX_SESSION_LIFETIME_NS = msToNs(DEFAULT_MAX_SESSION_LIFETIME_MS);
-const DEFAULT_PAGE_HIDDEN_TIMEOUT_MS  = 15 * 60 * 1000; // 15 minutes hidden (mirrors Android)
-const DEFAULT_PAGE_HIDDEN_TIMEOUT_NS = msToNs(DEFAULT_PAGE_HIDDEN_TIMEOUT_MS);
+const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_MAX_SESSION_LIFETIME_MS = 4 * 60 * 60 * 1000; // 4 hours
+const DEFAULT_PAGE_HIDDEN_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 // In-memory fallback
 let _memoryInstallationId: string | null = null;
@@ -141,7 +122,8 @@ export interface SessionChangeEvent {
   newSessionId?: string;
   previousSessionId?: string;
   sessionId?: string;
-  durationNs?: number;  // nanoseconds UTC (mirrors Android)
+  /** Duration in nanoseconds */
+  durationNs?: number;
   reason: SessionStartReason | SessionEndReason;
 }
 
@@ -154,154 +136,128 @@ export class SessionProvider {
   private handlers: SessionChangeHandler[] = [];
   private pagehideListener?: (e: PageTransitionEvent) => void;
   private pageshowListener?: (e: PageTransitionEvent) => void;
-  private _beforeunloadListener?: () => void;
-  private _visibilityChangeListener?: () => void;
-  private _sessionWasReused = false;
-  private _hiddenAtMs: number | null = null;  // milliseconds (for calculation)
-  // Unique per browser tab / page-load lifetime — never persisted.
-  // Mirrors PostHog's window_id: cloned tabs share the same session.id but each
-  // gets a distinct window.id so per-tab activity can be isolated in queries.
-  private readonly _windowId: string = generateUUID();
+  private beforeunloadListener?: () => void;
+  private visibilityChangeListener?: () => void;
 
-  constructor(
-    inactivityTimeoutMs?: number,
-    maxSessionLifetimeMs?: number,
-    pageHiddenTimeoutMs?: number,
-  ) {
-    this.inactivityTimeoutMs  = inactivityTimeoutMs  ?? DEFAULT_INACTIVITY_TIMEOUT_MS;
+  /** In-memory window ID — unique per page load, not persisted */
+  private readonly _windowId: string;
+
+  /** Whether the session was reused (reload or clone) */
+  private _sessionReused = false;
+
+  /** Reentrancy guard: prevent nested getSessionId() calls from triggering another rotation */
+  private _rotatingSession = false;
+
+  /** Timestamp when page was hidden (ms), or null if not hidden */
+  _hiddenAtMs: number | null = null;
+
+  constructor(inactivityTimeoutMs?: number, maxSessionLifetimeMs?: number, pageHiddenTimeoutMs?: number) {
+    this.inactivityTimeoutMs = inactivityTimeoutMs ?? DEFAULT_INACTIVITY_TIMEOUT_MS;
     this.maxSessionLifetimeMs = maxSessionLifetimeMs ?? DEFAULT_MAX_SESSION_LIFETIME_MS;
-    this.pageHiddenTimeoutMs  = pageHiddenTimeoutMs  ?? DEFAULT_PAGE_HIDDEN_TIMEOUT_MS;
+    this.pageHiddenTimeoutMs = pageHiddenTimeoutMs ?? DEFAULT_PAGE_HIDDEN_TIMEOUT_MS;
+
+    // Generate a unique window ID for this page load
+    this._windowId = generateUUID();
 
     if (typeof window !== 'undefined') {
-      // Step 1: detect clone vs reload before registering any listeners.
-      this._initializeSession();
+      // Clone detection: check if the clone flag is present in sessionStorage
+      // If so, this tab was duplicated (cloned) from another tab → reuse session
+      const hasCloneFlag = this._readCloneFlag();
 
-      // Step 2: pagehide — emit session.end, keep sessionStorage intact.
-      //   On tab close  → browser clears sessionStorage automatically.
-      //   On reload     → beforeunload will remove the clone flag so the next
-      //                   load knows it's a reload and reuses the session.
+      // Check for active session in localStorage
+      const existingId = this._readSessionId();
+      const existingTs = this._readSessionTs();
+      const existingStart = this._readSessionStart();
+      const now = Date.now();
+
+      if (existingId && existingTs > 0) {
+        // Active session found. Determine if it's fresh enough.
+        const age = existingStart > 0 ? now - existingStart : 0;
+        const inactivityOk = (now - existingTs) <= this.inactivityTimeoutMs;
+        const lifetimeOk = age <= this.maxSessionLifetimeMs;
+
+        if (inactivityOk && lifetimeOk) {
+          // Session is valid — mark as reused (reload or clone)
+          this._sessionReused = true;
+        }
+        // If session expired (by inactivity or lifetime), rotation happens lazily in getSessionId()
+      }
+
+      // Always write the clone flag to sessionStorage so any future clone of THIS tab
+      // will detect that it was cloned.
+      this._writeCloneFlag();
+
+      // Set up beforeunload: remove clone flag so page reload sees it gone
+      this.beforeunloadListener = () => {
+        this._removeCloneFlag();
+      };
+      window.addEventListener('beforeunload', this.beforeunloadListener);
+
+      // Set up pagehide listener
       this.pagehideListener = (e: PageTransitionEvent) => {
         if (!e.persisted) {
-          this.emitSessionEnd('page_unload', true /* skipClear */);
+          // Real unload — emit session.end but don't clear localStorage
+          // (so reload can reuse session)
+          this._emitSessionEndSkipClear('page_unload');
         }
       };
 
-      // Step 3: pageshow (BFCache restore) — keep session alive.
+      // Set up pageshow listener
       this.pageshowListener = (e: PageTransitionEvent) => {
         if (e.persisted) {
-          this._hiddenAtMs = null;
+          // BFCache restore: update activity to keep session alive
           this.updateActivity();
         }
       };
 
-      // Step 4: beforeunload — remove the clone flag so a genuine reload of
-      //   THIS tab does not trigger clone-detection on the next load.
-      this._beforeunloadListener = () => {
-        try { sessionStorage.removeItem(SESSION_CLONE_FLAG_KEY); } catch { /* ignore */ }
-      };
-
-      // Step 5: visibilitychange — rotate session after 15 min hidden (mirrors Android).
-      this._visibilityChangeListener = () => {
-        if (typeof document === 'undefined') return;
+      // Set up visibility change listener for page-hidden timeout
+      this.visibilityChangeListener = () => {
         if (document.hidden) {
+          // Page is being hidden — record the timestamp
           this._hiddenAtMs = Date.now();
         } else {
+          // Page is becoming visible again — check if too much time passed
           if (this._hiddenAtMs !== null) {
-            const hiddenMs = Date.now() - this._hiddenAtMs;
-            if (hiddenMs >= this.pageHiddenTimeoutMs) {
-              this._rotateSessionAfterHidden(this._hiddenAtMs);
-            }
+            const hiddenDuration = Date.now() - this._hiddenAtMs;
             this._hiddenAtMs = null;
+
+            if (hiddenDuration > this.pageHiddenTimeoutMs) {
+              // Rotate session due to page-hidden inactivity
+              const currentId = this._readSessionId();
+              if (currentId) {
+                const startTs = this._readSessionStart();
+                const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
+                this._emitEvent({
+                  type: 'end',
+                  sessionId: currentId,
+                  durationNs,
+                  reason: 'inactivity_timeout',
+                });
+                this._clearSession();
+
+                const newId = generateUUID();
+                this._writeSession(newId);
+                this._emitEvent({
+                  type: 'start',
+                  newSessionId: newId,
+                  previousSessionId: currentId,
+                  reason: 'inactivity_timeout',
+                });
+              }
+            }
           }
         }
       };
 
-      window.addEventListener('pagehide',     this.pagehideListener);
-      window.addEventListener('pageshow',     this.pageshowListener);
-      window.addEventListener('beforeunload', this._beforeunloadListener);
-      document.addEventListener('visibilitychange', this._visibilityChangeListener);
+      window.addEventListener('pagehide', this.pagehideListener);
+      window.addEventListener('pageshow', this.pageshowListener);
+      document.addEventListener('visibilitychange', this.visibilityChangeListener);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
+  // ---- Private storage helpers (use localStorage for cross-tab sharing) ----
 
-  /**
-   * Called once from the constructor (before event-listener registration).
-   *
-   * Uses PostHog's beforeunload-flag pattern — no Navigation API required:
-   *
-   *   Clone flag present  → tab was duplicated / opened via window.open()
-   *                         → discard inherited session, start fresh.
-   *   Clone flag absent   → genuine reload (beforeunload removed it) OR fresh new tab
-   *                         → reuse session if one exists and is still active.
-   *
-   * After the check, the flag is always set so the NEXT init (whether in this
-   * tab or in a future clone) can make the same determination.
-   */
-  private _initializeSession(): void {
-    if (typeof window === 'undefined') return;
-    try {
-      // Whether this tab was reloaded OR cloned, reuse the inherited session if it is
-      // still within its inactivity and max-lifetime windows.
-      //
-      // PostHog model: clone → same session.id, new window.id (generated in constructor).
-      // The clone flag is still written/removed so callers can detect the clone case
-      // for future instrumentation, but it no longer affects session continuity.
-      const existingId = this.readSessionId();
-      const lastTs     = this.readSessionTs();  // nanoseconds
-      const startTs    = this.readSessionStart();  // nanoseconds
-      const now        = getCurrentTimeNanos();
-
-      const notInactivityExpired  = lastTs  > 0 && now - lastTs  <= msToNs(this.inactivityTimeoutMs);
-      const notMaxLifetimeExpired = startTs > 0 && now - startTs <  msToNs(this.maxSessionLifetimeMs);
-
-      if (existingId && notInactivityExpired && notMaxLifetimeExpired) {
-        this._sessionWasReused = true;
-        this.updateActivity();
-      }
-
-      // Always write the clone flag for this tab.
-      // beforeunload will remove it on navigate/reload so a genuine reload won't see it.
-      // A cloned tab inherits it and can use it to detect that it is a clone.
-      sessionStorage.setItem(SESSION_CLONE_FLAG_KEY, '1');
-    } catch {
-      // sessionStorage unavailable — skip entirely.
-    }
-  }
-
-  /**
-   * Rotate the session after the page was hidden longer than pageHiddenTimeoutMs.
-   * The session end timestamp is anchored to when the page was hidden (mirrors Android).
-   */
-  private _rotateSessionAfterHidden(hiddenAtMs: number): void {
-    const existingId = this.readSessionId();
-    if (!existingId) return;
-
-    const startTs    = this.readSessionStart();  // nanoseconds
-    const hiddenAtNs = msToNs(hiddenAtMs);
-    const durationNs = startTs > 0 ? hiddenAtNs - startTs : 0;
-
-    this.emit({ type: 'end', sessionId: existingId, durationNs, reason: 'inactivity_timeout' });
-    this.clearSession();
-
-    const newId = generateUUID();
-    this.writeSession(newId, getCurrentTimeNanos());
-    this.emitSessionStart(newId, existingId, 'inactivity_timeout');
-  }
-
-  /** Whether the session was reused from a page reload or tab clone rather than freshly created. */
-  wasSessionReused(): boolean {
-    return this._sessionWasReused;
-  }
-
-  /** Unique ID for this browser tab / page-load. Never persisted. */
-  getWindowId(): string {
-    return this._windowId;
-  }
-
-  private readSessionId(): string | null {
+  private _readSessionId(): string | null {
     if (typeof window === 'undefined') return null;
     try {
       return localStorage.getItem(SESSION_ID_KEY);
@@ -310,39 +266,41 @@ export class SessionProvider {
     }
   }
 
-  private readSessionTs(): number {
+  private _readSessionTs(): number {
     if (typeof window === 'undefined') return 0;
     try {
       const ts = localStorage.getItem(SESSION_TS_KEY);
-      return ts ? parseInt(ts, 10) : 0;  // nanoseconds
+      // Stored as nanoseconds; convert to ms
+      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
     } catch {
       return 0;
     }
   }
 
-  private readSessionStart(): number {
+  private _readSessionStart(): number {
     if (typeof window === 'undefined') return 0;
     try {
       const ts = localStorage.getItem(SESSION_START_KEY);
-      return ts ? parseInt(ts, 10) : 0;  // nanoseconds
+      // Stored as nanoseconds; convert to ms
+      return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
     } catch {
       return 0;
     }
   }
 
-  private writeSession(id: string, startNs?: number): void {
+  private _writeSession(id: string, startTs?: number): void {
     if (typeof window === 'undefined') return;
-    const nowNs = getCurrentTimeNanos();
+    const nowNs = Date.now() * 1_000_000;
     try {
       localStorage.setItem(SESSION_ID_KEY, id);
       localStorage.setItem(SESSION_TS_KEY, String(nowNs));
-      localStorage.setItem(SESSION_START_KEY, String(startNs ?? nowNs));
+      localStorage.setItem(SESSION_START_KEY, String(startTs ?? nowNs));
     } catch {
       // ignore storage errors
     }
   }
 
-  private clearSession(): void {
+  private _clearSession(): void {
     if (typeof window === 'undefined') return;
     try {
       localStorage.removeItem(SESSION_ID_KEY);
@@ -353,35 +311,31 @@ export class SessionProvider {
     }
   }
 
-  private emitSessionEnd(reason: SessionEndReason, skipClear = false): void {
-    const sessionId = this.readSessionId();
-    if (!sessionId) return;
-
-    const startTs = this.readSessionStart();  // nanoseconds
-    const durationNs = startTs > 0 ? getCurrentTimeNanos() - startTs : 0;
-
-    const event: SessionChangeEvent = {
-      type: 'end',
-      sessionId,
-      durationNs,
-      reason,
-    };
-
-    this.emit(event);
-    if (!skipClear) this.clearSession();
+  private _readCloneFlag(): boolean {
+    try {
+      return sessionStorage.getItem(SESSION_CLONE_FLAG_KEY) === '1';
+    } catch {
+      return false;
+    }
   }
 
-  private emitSessionStart(newSessionId: string, previousSessionId: string, reason: SessionStartReason): void {
-    const event: SessionChangeEvent = {
-      type: 'start',
-      newSessionId,
-      previousSessionId,
-      reason,
-    };
-    this.emit(event);
+  private _writeCloneFlag(): void {
+    try {
+      sessionStorage.setItem(SESSION_CLONE_FLAG_KEY, '1');
+    } catch {
+      // ignore
+    }
   }
 
-  private emit(event: SessionChangeEvent): void {
+  private _removeCloneFlag(): void {
+    try {
+      sessionStorage.removeItem(SESSION_CLONE_FLAG_KEY);
+    } catch {
+      // ignore
+    }
+  }
+
+  private _emitEvent(event: SessionChangeEvent): void {
     for (const handler of this.handlers) {
       try {
         handler(event);
@@ -391,42 +345,141 @@ export class SessionProvider {
     }
   }
 
+  private _emitSessionEndSkipClear(reason: SessionEndReason): void {
+    const sessionId = this._readSessionId();
+    if (!sessionId) return;
+
+    const startTs = this._readSessionStart();
+    const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
+
+    const event: SessionChangeEvent = {
+      type: 'end',
+      sessionId,
+      durationNs,
+      reason,
+    };
+
+    this._emitEvent(event);
+    // NOTE: intentionally does NOT call _clearSession() so reload can reuse session
+  }
+
+  private _emitSessionEnd(reason: SessionEndReason): void {
+    const sessionId = this._readSessionId();
+    if (!sessionId) return;
+
+    const startTs = this._readSessionStart();
+    const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
+
+    const event: SessionChangeEvent = {
+      type: 'end',
+      sessionId,
+      durationNs,
+      reason,
+    };
+
+    this._emitEvent(event);
+    this._clearSession();
+  }
+
+  private _emitSessionStart(newSessionId: string, previousSessionId: string, reason: SessionStartReason): void {
+    const event: SessionChangeEvent = {
+      type: 'start',
+      newSessionId,
+      previousSessionId,
+      reason,
+    };
+    this._emitEvent(event);
+  }
+
+  // ---- Public API ----
+
   getSessionId(): string {
-    const now        = getCurrentTimeNanos();  // nanoseconds
-    const existingId = this.readSessionId();
-    const lastTs     = this.readSessionTs();  // nanoseconds
-    const startTs    = this.readSessionStart();  // nanoseconds
-
-    if (existingId && lastTs > 0 && now - lastTs <= msToNs(this.inactivityTimeoutMs)) {
-      // Check hard max lifetime (mirrors Android SessionManager).
-      if (startTs > 0 && now - startTs >= msToNs(this.maxSessionLifetimeMs)) {
-        // Session has lived too long — rotate with reason 'max_lifetime'.
-        const durationNs = now - startTs;
-        this.emit({ type: 'end', sessionId: existingId, durationNs, reason: 'max_lifetime' });
-        this.clearSession();
-        const newId = generateUUID();
-        this.writeSession(newId);
-        this.emitSessionStart(newId, existingId, 'max_lifetime');
-        return newId;
-      }
-
-      // Active and within max lifetime — refresh the activity timestamp and reuse.
-      this.updateActivity();
-      return existingId;
+    // Reentrancy guard
+    if (this._rotatingSession) {
+      return this._readSessionId() ?? generateUUID();
     }
 
-    // Need to rotate (inactivity) or create (first call).
-    const previousSessionId = existingId ?? '';
+    const now = Date.now();
+    const existingId = this._readSessionId();
+    const lastTs = this._readSessionTs();
+    const sessionStartMs = this._readSessionStart();
+
+    if (existingId && lastTs > 0) {
+      const inactivityOk = (now - lastTs) <= this.inactivityTimeoutMs;
+      const age = sessionStartMs > 0 ? now - sessionStartMs : 0;
+      const lifetimeOk = age <= this.maxSessionLifetimeMs;
+
+      if (inactivityOk && lifetimeOk) {
+        // Session is valid — update activity timestamp
+        this._updateActivityTs();
+        return existingId;
+      }
+
+      // Determine reason for rotation
+      const rotationReason: SessionEndReason = lifetimeOk ? 'inactivity_timeout' : 'max_lifetime';
+      const startReason: SessionStartReason = lifetimeOk ? 'inactivity_timeout' : 'max_lifetime';
+
+      // Rotate session
+      this._rotatingSession = true;
+      try {
+        const durationNs = sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
+        this._emitEvent({
+          type: 'end',
+          sessionId: existingId,
+          durationNs,
+          reason: rotationReason,
+        });
+        this._clearSession();
+
+        const newId = generateUUID();
+        this._writeSession(newId);
+        this._emitSessionStart(newId, existingId, startReason);
+        return newId;
+      } finally {
+        this._rotatingSession = false;
+      }
+    }
+
+    // No valid session — create a fresh one
     if (existingId) {
-      const durationNs = startTs > 0 ? now - startTs : 0;
-      this.emit({ type: 'end', sessionId: existingId, durationNs, reason: 'inactivity_timeout' });
-      this.clearSession();
+      // Expired session — emit end before creating new
+      const durationNs = sessionStartMs > 0 ? (now - sessionStartMs) * 1_000_000 : 0;
+      this._emitEvent({
+        type: 'end',
+        sessionId: existingId,
+        durationNs,
+        reason: 'inactivity_timeout',
+      });
+      this._clearSession();
     }
 
     const newId = generateUUID();
-    this.writeSession(newId);
-    this.emitSessionStart(newId, previousSessionId, existingId ? 'inactivity_timeout' : 'sdk_init');
+    this._writeSession(newId);
+    this._emitSessionStart(newId, existingId ?? '', existingId ? 'inactivity_timeout' : 'sdk_init');
     return newId;
+  }
+
+  /**
+   * Non-rotating read accessor — returns the current session ID without triggering
+   * any rotation or activity update.
+   */
+  currentSessionId(): string | null {
+    return this._readSessionId();
+  }
+
+  /**
+   * Returns the window ID — a unique UUID generated per page load, not persisted.
+   * This distinguishes tabs that have the same session ID (clone detection).
+   */
+  getWindowId(): string {
+    return this._windowId;
+  }
+
+  /**
+   * Returns true if the session was reused from a previous page load or cloned tab.
+   */
+  wasSessionReused(): boolean {
+    return this._sessionReused;
   }
 
   getPreviousSessionId(): string {
@@ -440,13 +493,17 @@ export class SessionProvider {
     }
   }
 
-  updateActivity(): void {
+  private _updateActivityTs(): void {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(SESSION_TS_KEY, String(getCurrentTimeNanos()));
+      localStorage.setItem(SESSION_TS_KEY, String(Date.now() * 1_000_000));
     } catch {
       // ignore
     }
+  }
+
+  updateActivity(): void {
+    this._updateActivityTs();
   }
 
   onSessionChange(handler: SessionChangeHandler): () => void {
@@ -457,40 +514,46 @@ export class SessionProvider {
   }
 
   emitInitialSession(): void {
-    // Called by SessionInstrumentation after install
-    // Ensures the initial session.start is emitted
-    if (this._sessionWasReused) {
-      // Session survived a page reload — do not re-emit session.start for the same session
+    // Called by SessionInstrumentation after install.
+    // If the session was reused (reload or clone), do NOT emit session.start.
+    if (this._sessionReused) {
       return;
     }
-    const sessionId = this.readSessionId();
-    const nowNs = getCurrentTimeNanos();
+
+    const sessionId = this._readSessionId();
     if (!sessionId) {
       // No session exists yet — create one
       const newId = generateUUID();
-      this.writeSession(newId, nowNs);
-      this.emitSessionStart(newId, '', 'sdk_init');
+      this._writeSession(newId);
+      this._emitSessionStart(newId, '', 'sdk_init');
     } else {
       // Session already exists from getSessionId() call — emit start event for it
-      this.emitSessionStart(sessionId, '', 'sdk_init');
+      this._emitSessionStart(sessionId, '', 'sdk_init');
     }
   }
 
   shutdown(): void {
-    this.emitSessionEnd('shutdown');
+    this._emitSessionEnd('shutdown');
 
     if (typeof window !== 'undefined') {
-      if (this.pagehideListener)          window.removeEventListener('pagehide',     this.pagehideListener);
-      if (this.pageshowListener)          window.removeEventListener('pageshow',     this.pageshowListener);
-      if (this._beforeunloadListener)     window.removeEventListener('beforeunload', this._beforeunloadListener);
-      if (this._visibilityChangeListener) document.removeEventListener('visibilitychange', this._visibilityChangeListener);
+      if (this.pagehideListener) {
+        window.removeEventListener('pagehide', this.pagehideListener);
+      }
+      if (this.pageshowListener) {
+        window.removeEventListener('pageshow', this.pageshowListener);
+      }
+      if (this.beforeunloadListener) {
+        window.removeEventListener('beforeunload', this.beforeunloadListener);
+      }
+      if (this.visibilityChangeListener) {
+        document.removeEventListener('visibilitychange', this.visibilityChangeListener);
+      }
     }
 
-    this._hiddenAtMs = null;
-    this.handlers  = [];
+    this.handlers = [];
   }
 
   getSessionStartTimestamp(): number {
-    return this.readSessionStart();  // nanoseconds UTC
+    return this._readSessionStart();
   }
 }
