@@ -3,7 +3,8 @@ package org.dreamhorizon.pulseserver.verticle;
 import com.dream11.rest.AbstractRestVerticle;
 import com.dream11.rest.ClassInjector;
 import com.dream11.rest.filter.RequestResponseFilter;
-import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpMethod;
@@ -16,12 +17,15 @@ import io.vertx.rxjava3.ext.web.handler.BodyHandler;
 import io.vertx.rxjava3.ext.web.handler.CorsHandler;
 import io.vertx.rxjava3.ext.web.handler.ResponseContentTypeHandler;
 import io.vertx.rxjava3.ext.web.handler.StaticHandler;
+import io.reactivex.rxjava3.core.Single;
+import jakarta.ws.rs.core.Response.Status;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.filter.StreamingSafeLoggerFilter;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
@@ -32,6 +36,7 @@ import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 public class RestVerticle extends AbstractRestVerticle {
   private static final String PACKAGE_NAME = "org.dreamhorizon.pulseserver";
+  private static final String JSON_CONTENT_TYPE = "application/json";
 
   protected RestVerticle(HttpServerOptions httpServerOptions) {
     super(PACKAGE_NAME, httpServerOptions);
@@ -65,7 +70,6 @@ public class RestVerticle extends AbstractRestVerticle {
     AlertEvaluationService alertEvaluationService = GuiceInjector.getGuiceInjector().getInstance(AlertEvaluationService.class);
     alertEvaluationService.registerConsumers();
 
-
     final Set<String> allowedHeaders = new HashSet<>();
     allowedHeaders.add("x-requested-with");
     allowedHeaders.add("Access-Control-Allow-Origin");
@@ -94,7 +98,11 @@ public class RestVerticle extends AbstractRestVerticle {
         .allowedMethods(allowedMethods)
         .allowedHeaders(allowedHeaders));
 
-    router.post("/v1/ai/run_sse").handler(this::handleAiStreamingProxy);
+    // Vert.x exact-match route for SSE proxying. Registered before the JAX-RS scanner mounts
+    // resources, so it takes priority over AiProxyController's wildcard @Path("/{path:.*}").
+    // This ordering is intentional: the JAX-RS path buffers the full response whereas this handler
+    // streams chunks directly. Do not reorder without updating AiProxyController accordingly.
+    router.post(Constants.AI_RUN_SSE_PATH).handler(this::handleAiStreamingProxy);
 
     return router;
   }
@@ -102,88 +110,95 @@ public class RestVerticle extends AbstractRestVerticle {
   /**
    * Native SSE proxy for the root agent. Stateless auth only - no {@code ProjectContext} / {@code
    * TenantContext} ThreadLocals.
+   *
+   * <p>JWT verification is offloaded to an IO thread via {@code Single.fromCallable} so that crypto
+   * work never stalls the Vert.x event loop. The subsequent OpenFGA permission check is already
+   * reactive. The returned {@link Disposable} is disposed when the client disconnects so the
+   * subscription does not fire on a closed response.
    */
   void handleAiStreamingProxy(RoutingContext ctx) {
-    String authHeader = ctx.request().getHeader("Authorization");
-    String projectId = ctx.request().getHeader("X-Project-ID");
+    String authHeader = ctx.request().getHeader(Constants.HEADER_AUTHORIZATION);
+    String projectId = ctx.request().getHeader(Constants.HEADER_PROJECT_ID);
 
-    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-      ctx.response()
-          .setStatusCode(401)
-          .putHeader("Content-Type", "application/json")
-          .end("{\"error\":\"Missing auth token\"}");
+    if (authHeader == null || !authHeader.startsWith(Constants.BEARER_PREFIX)) {
+      respond(ctx, ServiceError.UNAUTHORISED.getHttpStatusCode(), "Missing auth token");
       return;
     }
     if (projectId == null || projectId.isBlank()) {
-      ctx.response()
-          .setStatusCode(400)
-          .putHeader("Content-Type", "application/json")
-          .end("{\"error\":\"Missing X-Project-ID\"}");
+      respond(
+          ctx,
+          ServiceError.INCORRECT_OR_MISSING_HEADER_PARAMETERS.getHttpStatusCode(),
+          "Missing X-Project-ID");
       return;
     }
 
-    JwtService jwtService = GuiceInjector.getGuiceInjector().getInstance(JwtService.class);
-    Claims claims;
-    try {
-      claims = jwtService.verifyToken(authHeader.substring("Bearer ".length()).trim());
-    } catch (Exception e) {
-      ctx.response()
-          .setStatusCode(401)
-          .putHeader("Content-Type", "application/json")
-          .end("{\"error\":\"Invalid token\"}");
-      return;
-    }
-    String userId = claims.getSubject();
+    String token = authHeader.substring(Constants.BEARER_PREFIX.length()).trim();
     String trimmedProjectId = projectId.trim();
 
+    JwtService jwtService = GuiceInjector.getGuiceInjector().getInstance(JwtService.class);
     OpenFgaService openFgaService =
         GuiceInjector.getGuiceInjector().getInstance(OpenFgaService.class);
 
-    openFgaService
-        .checkPermission(userId, "can_view", "project", trimmedProjectId)
-        .subscribeOn(Schedulers.io())
-        .subscribe(
-            allowed ->
-                vertx.runOnContext(
-                    v -> {
-                      if (!allowed) {
-                        ctx.response()
-                            .setStatusCode(403)
-                            .putHeader("Content-Type", "application/json")
-                            .end("{\"error\":\"Access denied\"}");
-                        return;
-                      }
-                      proxyToAiService(ctx, authHeader, trimmedProjectId);
-                    }),
-            err ->
-                vertx.runOnContext(
-                    v ->
-                        ctx.response()
-                            .setStatusCode(500)
-                            .putHeader("Content-Type", "application/json")
-                            .end("{\"error\":\"Auth check failed\"}")));
+    Disposable sub =
+        Single.<String>fromCallable(
+                () -> jwtService.verifyToken(token).getSubject())
+            .subscribeOn(Schedulers.io())
+            .flatMap(
+                userId ->
+                    openFgaService.checkPermission(
+                        userId,
+                        Constants.PERMISSION_CAN_VIEW,
+                        Constants.RESOURCE_TYPE_PROJECT,
+                        trimmedProjectId))
+            .subscribe(
+                allowed ->
+                    vertx.runOnContext(
+                        v -> {
+                          if (!allowed) {
+                            respond(ctx, ServiceError.FORBIDDEN.getHttpStatusCode(), "Access denied");
+                            return;
+                          }
+                          proxyToAiService(ctx, authHeader, trimmedProjectId);
+                        }),
+                err ->
+                    vertx.runOnContext(
+                        v -> {
+                          if (err instanceof JwtException) {
+                            respond(
+                                ctx, ServiceError.UNAUTHORISED.getHttpStatusCode(), "Invalid token");
+                          } else {
+                            respond(
+                                ctx,
+                                ServiceError.INTERNAL_SERVER_ERROR.getHttpStatusCode(),
+                                "Auth check failed");
+                          }
+                        }));
+
+    ctx.response().closeHandler(v -> sub.dispose());
   }
 
+  /**
+   * Forwards the POST body to the configured ADK {@code /run_sse} URL using the shared streaming
+   * {@link io.vertx.core.http.HttpClient}. Uses {@link RequestOptions#setAbsoluteURI(String)} so
+   * host, port, TLS, and path are resolved from one absolute URL — same idea as {@link
+   * io.vertx.rxjava3.ext.web.client.WebClient#postAbs(String)} in {@link
+   * org.dreamhorizon.pulseserver.service.ai.impl.AiUpstreamProxyExecutor}.
+   */
   private void proxyToAiService(RoutingContext ctx, String authHeader, String projectId) {
     ApplicationConfig config = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
     String base = config.getAiServiceUrl();
     if (base == null || base.isBlank()) {
-      base = "http://localhost:8000";
-    }
-    String normalizedBase = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
-
-    URI uri;
-    try {
-      uri = URI.create(normalizedBase + "/run_sse");
-    } catch (Exception e) {
-      ctx.response().setStatusCode(502).end("{\"error\":\"Bad AI service URL\"}");
+      respond(ctx, Status.SERVICE_UNAVAILABLE.getStatusCode(), "AI service URL is not configured");
       return;
     }
-
-    int port = uri.getPort() > 0 ? uri.getPort() : ("https".equals(uri.getScheme()) ? 443 : 80);
-    boolean ssl = "https".equals(uri.getScheme());
-    // getPath() is safe here: normalizedBase always ends without a trailing slash, so the
-    // constructed URI always has a non-empty path component ("/run_sse").
+    String normalizedBase = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+    String absoluteUrl = normalizedBase + "/run_sse";
+    try {
+      URI.create(absoluteUrl);
+    } catch (IllegalArgumentException e) {
+      respond(ctx, Status.BAD_GATEWAY.getStatusCode(), "Bad AI service URL");
+      return;
+    }
 
     io.vertx.core.http.HttpClient httpClient =
         SharedDataUtils.get(
@@ -199,16 +214,13 @@ public class RestVerticle extends AbstractRestVerticle {
         .request(
             new RequestOptions()
                 .setMethod(HttpMethod.POST)
-                .setHost(uri.getHost())
-                .setPort(port)
-                .setSsl(ssl)
-                .setURI(uri.getPath())
-                .setTimeout(120_000L))
+                .setAbsoluteURI(absoluteUrl)
+                .setTimeout(Constants.AI_UPSTREAM_TIMEOUT_MS))
         .compose(
             req -> {
-              req.putHeader("Content-Type", "application/json");
-              req.putHeader("Authorization", authHeader);
-              req.putHeader("X-Project-ID", projectId);
+              req.putHeader(Constants.HEADER_CONTENT_TYPE, JSON_CONTENT_TYPE);
+              req.putHeader(Constants.HEADER_AUTHORIZATION, authHeader);
+              req.putHeader(Constants.HEADER_PROJECT_ID, projectId);
               return req.send(bodyBuffer);
             })
         .onSuccess(
@@ -216,19 +228,23 @@ public class RestVerticle extends AbstractRestVerticle {
               int status = upstreamResp.statusCode();
 
               if (status < 200 || status >= 300) {
-                response
-                    .setStatusCode(status)
-                    .putHeader("Content-Type", "application/json")
-                    .end("{\"error\":\"AI service returned " + status + "\"}");
+                if (!response.ended()) {
+                  response
+                      .setStatusCode(status)
+                      .putHeader(Constants.HEADER_CONTENT_TYPE, JSON_CONTENT_TYPE)
+                      .end(jsonError("AI service returned " + status));
+                }
                 return;
               }
 
               response
-                  .setStatusCode(200)
-                  .putHeader("Content-Type", "text/event-stream")
-                  .putHeader("Cache-Control", "no-cache")
-                  .putHeader("Connection", "keep-alive")
-                  .putHeader("X-Accel-Buffering", "no")
+                  .setStatusCode(Status.OK.getStatusCode())
+                  .putHeader(
+                      Constants.HEADER_CONTENT_TYPE, Constants.CONTENT_TYPE_TEXT_EVENT_STREAM)
+                  .putHeader(Constants.HEADER_CACHE_CONTROL, Constants.SSE_PROXY_CACHE_CONTROL)
+                  .putHeader(Constants.HEADER_CONNECTION, Constants.SSE_PROXY_CONNECTION)
+                  .putHeader(
+                      Constants.HEADER_X_ACCEL_BUFFERING, Constants.SSE_PROXY_X_ACCEL_BUFFERING)
                   .setChunked(true);
 
               upstreamResp.handler(
@@ -253,8 +269,33 @@ public class RestVerticle extends AbstractRestVerticle {
         .onFailure(
             err -> {
               if (!response.ended()) {
-                response.setStatusCode(502).end("{\"error\":\"AI service unavailable\"}");
+                response
+                    .setStatusCode(Status.BAD_GATEWAY.getStatusCode())
+                    .putHeader(Constants.HEADER_CONTENT_TYPE, JSON_CONTENT_TYPE)
+                    .end(jsonError("AI service unavailable"));
               }
             });
+  }
+
+  /**
+   * Writes a JSON error response if the response has not already been ended. Used for error paths
+   * in the SSE proxy where we cannot use JAX-RS exception handling.
+   */
+  private void respond(RoutingContext ctx, int statusCode, String message) {
+    if (!ctx.response().ended()) {
+      ctx.response()
+          .setStatusCode(statusCode)
+          .putHeader(Constants.HEADER_CONTENT_TYPE, JSON_CONTENT_TYPE)
+          .end(jsonError(message));
+    }
+  }
+
+  /**
+   * Builds a minimal {@code {"error":"..."}} JSON string. Note: the rest of the API uses
+   * {@code ServiceError.ExceptionResponseEntity} shape {@code {"error":{"code","message","cause"}}};
+   * the SSE proxy uses this simpler shape because it bypasses JAX-RS serialisation.
+   */
+  private static String jsonError(String message) {
+    return "{\"" + Constants.ERROR_KEY + "\":\"" + message.replace("\"", "\\\"") + "\"}";
   }
 }

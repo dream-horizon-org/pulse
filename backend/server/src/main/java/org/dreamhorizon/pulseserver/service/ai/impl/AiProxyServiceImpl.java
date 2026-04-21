@@ -25,7 +25,6 @@ import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {
 
-  private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
   private static final String RCA_REPORT_PATH = "rca/report";
 
   /**
@@ -80,7 +79,7 @@ public class AiProxyServiceImpl implements AiProxyService {
   }
 
   private static String normalizeAiServiceUrl(String url) {
-    return url != null && !url.isBlank() ? url : DEFAULT_AI_SERVICE_URL;
+    return url != null ? url.strip() : "";
   }
 
   // TODO: Refactor this as it violates the Single Responsibility Principle
