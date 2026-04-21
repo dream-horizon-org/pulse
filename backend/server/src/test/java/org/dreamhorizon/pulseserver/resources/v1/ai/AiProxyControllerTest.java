@@ -132,7 +132,7 @@ class AiProxyControllerTest {
       InputStream body =
           new ByteArrayInputStream("{\"message\":\"hi\"}".getBytes(StandardCharsets.UTF_8));
       Response response =
-          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, body));
+          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, null, uriInfo, body));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
@@ -147,7 +147,7 @@ class AiProxyControllerTest {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       Response response =
-          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, null));
+          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, null, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
@@ -319,7 +319,7 @@ class AiProxyControllerTest {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       Response response =
-          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, null));
+          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, null, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
     }
@@ -330,7 +330,7 @@ class AiProxyControllerTest {
 
       InputStream emptyBody = new ByteArrayInputStream(new byte[0]);
       Response response =
-          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, emptyBody));
+          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, null, uriInfo, emptyBody));
 
       assertThat(response.getStatus()).isEqualTo(200);
     }

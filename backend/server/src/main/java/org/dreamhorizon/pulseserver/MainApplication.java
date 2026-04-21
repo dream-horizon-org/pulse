@@ -16,6 +16,7 @@ import org.dreamhorizon.pulseserver.module.EventDefinitionModule;
 import org.dreamhorizon.pulseserver.module.HeatmapModule;
 import org.dreamhorizon.pulseserver.module.QueryEngineModule;
 import org.dreamhorizon.pulseserver.module.ConfigModule;
+import org.dreamhorizon.pulseserver.module.RcaModule;
 import org.dreamhorizon.pulseserver.module.InteractionModule;
 import org.dreamhorizon.pulseserver.module.UploadInteractionDetailModule;
 import org.dreamhorizon.pulseserver.module.ValidationModule;
@@ -63,6 +64,7 @@ public class MainApplication extends Launcher {
   protected Module[] getGoogleGuiceModules(Vertx vertx) {
     return new Module[] {
         new MainModule(vertx),
+        new RcaModule(),
         new ConfigModule(vertx),
         new ValidationModule(),
         new UploadInteractionDetailModule(vertx),
