@@ -78,29 +78,32 @@ internal object PulseEndpointUtils {
             HttpEndpointConnectivity(url = fallbackUrl, headers = fallbackHeaders + headers)
         }
 
-    internal fun getBaseUrl(apiKey: String): String {
-        return if (isApiLocalDev(apiKey)) {
+    internal fun getBaseUrl(apiKey: String): String =
+        if (isApiLocalDev(apiKey)) {
             "http://10.0.2.2:4318"
         } else {
             PULSE_ENDPOINT_URL
         }
-    }
 
-    internal fun getActiveConfigUrl(apiKey: String, projectId: String): String {
-        return if (isApiLocalDev(apiKey)) {
+    internal fun getActiveConfigUrl(
+        apiKey: String,
+        projectId: String,
+    ): String =
+        if (isApiLocalDev(apiKey)) {
             "http://10.0.2.2:8080/v1/configs/active/"
         } else {
             "$PULSE_ENDPOINT_URL/config/projects/$projectId/pulse-config.json"
         }
-    }
 
-    internal fun getInteractionConfigUrl(apiKey: String, projectId: String): String {
-        return if (isApiLocalDev(apiKey)) {
+    internal fun getInteractionConfigUrl(
+        apiKey: String,
+        projectId: String,
+    ): String =
+        if (isApiLocalDev(apiKey)) {
             "http://10.0.2.2:8080/v1/interaction-configs/"
         } else {
             "$PULSE_ENDPOINT_URL/config/projects/$projectId/interaction-config.json"
         }
-    }
 
     private const val TAG = "EndpointUtils"
     private const val PULSE_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com"

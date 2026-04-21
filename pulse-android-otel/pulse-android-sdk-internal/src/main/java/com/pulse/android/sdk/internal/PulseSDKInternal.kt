@@ -180,7 +180,6 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 Context.MODE_PRIVATE,
             )
 
-
         val currentSdkConfig =
             PulseSdkConfigRefresher.loadAndRefresh(
                 cacheDir = application.cacheDir,
@@ -305,13 +304,14 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         var sessionReplayConfig: SessionReplayConfig? = null
         instrumentations?.let { configure ->
-            val instrumentationConfig = InstrumentationConfiguration(
-                config,
-                endpointHeaders,
-                interactionUrlProvider = {
-                    currentSdkConfig?.interaction?.configUrl ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
-                }
-            )
+            val instrumentationConfig =
+                InstrumentationConfiguration(
+                    config,
+                    endpointHeaders,
+                    interactionUrlProvider = {
+                        currentSdkConfig?.interaction?.configUrl ?: PulseEndpointUtils.getInteractionConfigUrl(apiKey, projectId)
+                    },
+                )
             instrumentationConfig.configure()
             currentSdkConfig
                 ?.features
@@ -842,9 +842,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             }
         }
 
-        internal fun isApiLocalDev(apiKey: String): Boolean {
-            return apiKey.matches("default-project_.*|Test-.*_.*".toRegex())
-        }
+        internal fun isApiLocalDev(apiKey: String): Boolean = apiKey.matches("default-project_.*|Test-.*_.*".toRegex())
 
         private fun createApiKeyHeader(apiKey: String): Map<String, String> = mapOf(API_KEY_HEADER to apiKey)
 
