@@ -110,7 +110,8 @@ class DefaultSdkConfigTemplateTest {
               Sdk.pulse_android_java,
               Sdk.pulse_android_rn,
               Sdk.pulse_ios_swift,
-              Sdk.pulse_ios_rn
+              Sdk.pulse_ios_rn,
+              Sdk.pulse_web_js
           );
 
       assertThat(sessionReplayFeature.getConfig()).isInstanceOf(SessionReplayFeatureConfig.class);
@@ -183,7 +184,8 @@ class DefaultSdkConfigTemplateTest {
           .findFirst()
           .orElse(null);
       assertThat(jsCrash).isNotNull();
-      assertThat(jsCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
+      assertThat(jsCrash.getSdks())
+          .containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn, Sdk.pulse_web_js);
 
       FeatureConfig javaAnr = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.java_anr)
@@ -271,7 +273,12 @@ class DefaultSdkConfigTemplateTest {
           .orElse(null);
       assertThat(interaction).isNotNull();
       assertThat(interaction.getSdks())
-          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+          .containsExactlyInAnyOrder(
+              Sdk.pulse_android_java,
+              Sdk.pulse_android_rn,
+              Sdk.pulse_ios_swift,
+              Sdk.pulse_ios_rn,
+              Sdk.pulse_web_js);
 
       FeatureConfig networkChange = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.network_change)
@@ -279,7 +286,12 @@ class DefaultSdkConfigTemplateTest {
           .orElse(null);
       assertThat(networkChange).isNotNull();
       assertThat(networkChange.getSdks())
-          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+          .containsExactlyInAnyOrder(
+              Sdk.pulse_android_java,
+              Sdk.pulse_android_rn,
+              Sdk.pulse_ios_swift,
+              Sdk.pulse_ios_rn,
+              Sdk.pulse_web_js);
 
       FeatureConfig customEvents = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.custom_events)
@@ -287,7 +299,12 @@ class DefaultSdkConfigTemplateTest {
           .orElse(null);
       assertThat(customEvents).isNotNull();
       assertThat(customEvents.getSdks())
-          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+          .containsExactlyInAnyOrder(
+              Sdk.pulse_android_java,
+              Sdk.pulse_android_rn,
+              Sdk.pulse_ios_swift,
+              Sdk.pulse_ios_rn,
+              Sdk.pulse_web_js);
     }
   }
 }

@@ -4,6 +4,7 @@ import type { MeterProvider } from "@opentelemetry/sdk-metrics";
 import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 
 import type { IdbSignalBuffer } from "../persistence/indexed-db";
+import type { ExportSamplingGate } from "../sampling/export-sampling-gate";
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
@@ -33,6 +34,9 @@ export interface ExporterConfig {
 
   /** Log each log batch at OTLP export (see PulseWebConfig.debugLogRecordLifecycle). */
   debugLogRecordLifecycle?: boolean;
+
+  /** Android-style export-time session + per-signal sampling (optional for tests). */
+  samplingGate?: ExportSamplingGate;
 }
 
 export interface ProviderBundle {

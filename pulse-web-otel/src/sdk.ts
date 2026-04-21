@@ -20,7 +20,6 @@ import { buildResource } from "./resource";
 import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
-import { PulseSamplingProcessor } from "./processors/sampling-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
 import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { createProviders } from "./exporters";
@@ -32,6 +31,7 @@ import { IdbSignalBuffer } from "./persistence/indexed-db";
 import { drainBufferedOtlpExports } from "./persistence/drain-buffered-exports";
 import { PulseWebSemconv } from "./semconv";
 import { errorFilenameFromStack } from "./utils/error-stack";
+import { ExportSamplingGate } from "./sampling/export-sampling-gate";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -122,10 +122,7 @@ class PulseWebSDK implements SdkContext {
 
     const gate = new FeatureGate(sdkConfig);
     this.gate = gate;
-    const samplingProcessor = new PulseSamplingProcessor(
-      sdkConfig,
-      "pulse_web_js",
-    );
+    const samplingGate = new ExportSamplingGate(sdkConfig, "pulse_web_js");
     const filterProcessor = new SignalFilterProcessor(sdkConfig.signals);
 
     this.globalAttrsProcessor = new PulseGlobalAttributesProcessor(
@@ -133,18 +130,13 @@ class PulseWebSDK implements SdkContext {
       config,
     );
 
-    const spanProcessors = [
-      this.globalAttrsProcessor,
-      samplingProcessor,
-      filterProcessor,
-    ];
+    const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
     const logLifecycle = config.debugLogRecordLifecycle === true;
     const logProcessors = [
       ...(logLifecycle
         ? [new LogRecordLifecycleDebugProcessor("ingress")]
         : []),
       this.globalAttrsProcessor,
-      samplingProcessor,
       filterProcessor,
       ...(logLifecycle
         ? [new LogRecordLifecycleDebugProcessor("pre_batch")]
@@ -168,6 +160,7 @@ class PulseWebSDK implements SdkContext {
       // Inject the same global attributes into metric data points at export time.
       getMetricGlobalAttrs: () =>
         this.globalAttrsProcessor.getCommonAttrsForMetrics(),
+      samplingGate,
     };
 
     const bundle = createProviders(

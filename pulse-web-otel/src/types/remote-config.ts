@@ -67,10 +67,20 @@ export interface PulseSignalConfig {
   filters: PulseSignalFilter;
 }
 
+/** Per-signal sampling override (Android `signalsToSample`). */
+export interface PulseSignalsToSampleEntry {
+  condition: PulseSignalMatchCondition;
+  sampleRate: number;
+}
+
 export interface PulseSamplingConfig {
   default: { sessionSampleRate: number };
   rules: PulseSessionSamplingRule[];
+  /** Android JSON key — same as `criticalEventPolicies` when present. */
+  criticalSessionPolicies?: { alwaysSend: PulseSignalMatchCondition[] };
   criticalEventPolicies?: { alwaysSend: PulseSignalMatchCondition[] };
+  /** Android `signalsToSample` — optional per-signal rates after attr pipeline. */
+  signalsToSample?: PulseSignalsToSampleEntry[];
 }
 
 export interface PulseSessionSamplingRule {

@@ -11,14 +11,14 @@ export default function Products() {
   const batchStressDone = useRef(false);
 
   useEffect(() => {
-    if (loading || error || products.length === 0 || batchStressDone.current)
-      return;
-    if (!PulseWeb.isInitialized()) return;
-    batchStressDone.current = true;
-    // Batch default maxExportBatchSize is 512 — fire 600 custom_event logs once to overflow one batch. Comment out when done.
-    for (let i = 0; i < 600; i++) {
-      PulseWeb.trackEvent("products_batch_stress", { seq: i });
-    }
+    // if (loading || error || products.length === 0 || batchStressDone.current)
+    //   return;
+    // if (!PulseWeb.isInitialized()) return;
+    // batchStressDone.current = true;
+    // // Batch default maxExportBatchSize is 512 — fire 600 custom_event logs once to overflow one batch. Comment out when done.
+    // for (let i = 0; i < 600; i++) {
+    //   PulseWeb.trackEvent("products_batch_stress", { seq: i });
+    // }
   }, [loading, error, products.length]);
 
   if (loading)

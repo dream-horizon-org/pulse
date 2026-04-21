@@ -23,7 +23,8 @@ public class DefaultSdkConfigTemplate {
             Sdk.pulse_android_java,
             Sdk.pulse_android_rn,
             Sdk.pulse_ios_swift,
-            Sdk.pulse_ios_rn
+            Sdk.pulse_ios_rn,
+            Sdk.pulse_web_js
         );
         List<Sdk> iosSdk = Arrays.asList(
             Sdk.pulse_ios_swift,
@@ -36,6 +37,11 @@ public class DefaultSdkConfigTemplate {
         List<Sdk> rnSdk = Arrays.asList(
             Sdk.pulse_android_rn,
             Sdk.pulse_ios_rn
+        );
+        List<Sdk> rnAndWebJsSdk = Arrays.asList(
+            Sdk.pulse_android_rn,
+            Sdk.pulse_ios_rn,
+            Sdk.pulse_web_js
         );
 
         // Sampling configuration
@@ -73,7 +79,7 @@ public class DefaultSdkConfigTemplate {
         List<FeatureConfig> features = new ArrayList<>();
         features.add(createFeature(Features.interaction, 1.0, allSdks));
         features.add(createFeature(Features.java_crash, 1.0, androidSdk));
-        features.add(createFeature(Features.js_crash, 1.0, rnSdk));
+        features.add(createFeature(Features.js_crash, 1.0, rnAndWebJsSdk));
         features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));

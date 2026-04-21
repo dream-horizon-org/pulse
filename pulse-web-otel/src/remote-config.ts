@@ -21,6 +21,42 @@ export type {
 
 const SDK_CONFIG_CACHE_KEY = "pulse_sdk_config";
 
+/** Merge server JSON with defaults; normalize Android `criticalSessionPolicies` key. */
+export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
+  const samplingIn = raw.sampling ?? DEFAULT_SDK_CONFIG.sampling;
+  const {
+    criticalSessionPolicies: _criticalSession,
+    criticalEventPolicies: _criticalEvent,
+    ...samplingRest
+  } = samplingIn;
+  const criticalMerged = _criticalEvent ?? _criticalSession;
+  const signalsIn = raw.signals ?? DEFAULT_SDK_CONFIG.signals;
+  return {
+    ...DEFAULT_SDK_CONFIG,
+    ...raw,
+    sampling: {
+      ...DEFAULT_SDK_CONFIG.sampling,
+      ...samplingRest,
+      default: {
+        ...DEFAULT_SDK_CONFIG.sampling.default,
+        ...samplingIn.default,
+      },
+      rules: samplingIn.rules ?? [],
+      signalsToSample: samplingIn.signalsToSample ?? [],
+      ...(criticalMerged ? { criticalEventPolicies: criticalMerged } : {}),
+    },
+    signals: {
+      ...DEFAULT_SDK_CONFIG.signals,
+      ...signalsIn,
+      attributesToDrop: signalsIn.attributesToDrop ?? [],
+      attributesToAdd: signalsIn.attributesToAdd ?? [],
+      filters: signalsIn.filters ?? DEFAULT_SDK_CONFIG.signals.filters,
+    },
+    interaction: raw.interaction ?? DEFAULT_SDK_CONFIG.interaction,
+    features: raw.features ?? [],
+  };
+}
+
 /** Temporary dev tracing — grep `PulseWeb:sdkConfig` or `sdkConfigDevLog` to remove. */
 function sdkConfigDevLog(
   phase: string,
@@ -35,7 +71,11 @@ function sdkConfigDevLog(
 
 export const DEFAULT_SDK_CONFIG: PulseSdkConfig = {
   version: -1,
-  sampling: { default: { sessionSampleRate: 1.0 }, rules: [] },
+  sampling: {
+    default: { sessionSampleRate: 1.0 },
+    rules: [],
+    signalsToSample: [],
+  },
   signals: {
     scheduleDurationMs: 5000,
     attributesToDrop: [],
@@ -116,7 +156,7 @@ export class SdkConfigFetcher {
       } else {
         const parsed: unknown = JSON.parse(raw);
         if (isValidSdkConfig(parsed)) {
-          this.config = parsed;
+          this.config = mergePulseSdkConfig(parsed);
           source = "localStorage_valid";
         } else {
           source = "localStorage_invalid_shape";
@@ -174,7 +214,7 @@ export class SdkConfigFetcher {
 
       // Only update and persist if version has changed
       if (data.version !== this.config.version) {
-        this.config = data;
+        this.config = mergePulseSdkConfig(data);
         sdkConfigDevLog("fetchInBackground applied new version (in-memory)", {
           previousVersion,
           newVersion: data.version,
@@ -183,7 +223,10 @@ export class SdkConfigFetcher {
 
         if (typeof window !== "undefined") {
           try {
-            localStorage.setItem(SDK_CONFIG_CACHE_KEY, JSON.stringify(data));
+            localStorage.setItem(
+              SDK_CONFIG_CACHE_KEY,
+              JSON.stringify(this.config),
+            );
             sdkConfigDevLog("fetchInBackground persisted localStorage", {
               key: SDK_CONFIG_CACHE_KEY,
               version: data.version,

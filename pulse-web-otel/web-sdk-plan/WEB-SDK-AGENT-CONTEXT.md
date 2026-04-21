@@ -45,10 +45,15 @@ pulse-web-otel/
 │   ├── version.ts                    # __SDK_VERSION__ placeholder
 │   ├── persistence/
 │   │   └── indexed-db.ts             # IndexedDB signal buffer (drain on init)
+│   ├── sampling/                     # Export-time session sampling (Android parity)
+│   │   ├── export-sampling-gate.ts   # ExportSamplingGate orchestration
+│   │   └── sampling-exporters.ts    # Sampled span/log/metric exporter wrappers
+│   ├── types/sampling.ts             # PulseSignalScope
+│   ├── utils/sampling-signal-match.ts # pulseSignalConditionMatches (Android matcher)
+│   ├── utils/session-sampling-rate.ts # resolveSessionSamplingRate, log body, critical list
 │   ├── processors/
 │   │   ├── global-attrs-processor.ts # Injects session.id, screen.name, url.path etc.
-│   │   ├── sampling-processor.ts     # Session-level sample rate
-│   │   └── signal-filter-processor.ts# Attribute drop/add, signal blacklist
+│   │   └── signal-filter-processor.ts # Attribute drop/add, signal blacklist
 │   ├── instrumentations/
 │   │   ├── session.ts                # session.start / session.end
 │   │   ├── errors.ts                 # device.crash + non_fatal
@@ -98,6 +103,16 @@ Every signal must carry these attrs. Deviating breaks the Pulse dashboard.
 ## Global Attributes (injected on every signal by `global-attrs-processor.ts`)
 
 `session.id` · `installation.id` · `screen.name` · `url.path` · `page.url` · `browser.name` · `browser.version` · `os.name` · `os.version` · `device.type` · `network.connection.type` · `rum.sdk.version` · `project.id` · `platform='web'`
+
+---
+
+## Ground rule — parity with Android SDK
+
+**Core product logic should mimic `pulse-android-otel` as closely as browser constraints allow.** That includes sampling (session draw + export-time behavior), remote config interpretation, signal filtering/add/drop semantics, and session identity semantics. When `MILESTONES.md` or phase docs disagree with Android, **treat Android as the source of truth** unless there is an explicit, documented browser-only exception (e.g. CORS, `fetch({ keepalive })` on unload, no `Context` for rule matching — then document the smallest intentional delta).
+
+Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcessors`), `pulse-android-sdk-internal` exporter wiring, session + semconv modules.
+
+**Remote config at runtime:** `SdkConfigFetcher.loadCached()` (plus merge) feeds `FeatureGate` and `ExportSamplingGate` at `PulseWeb.start()`. **`fetchInBackground()` persists newer JSON to storage but does not rebuild those gates** — sampling and feature flags stay as at cold start until a **full page reload** (documented M1 scope).
 
 ---
 

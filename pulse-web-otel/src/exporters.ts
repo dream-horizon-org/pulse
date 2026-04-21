@@ -43,6 +43,12 @@ import {
 } from "./exporters/pulse-browser-otlp-exporters";
 import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lifecycle-debug";
 import { DEFAULT_BATCH_OPTIONS } from "./constants/exporters";
+import type { ExportSamplingGate } from "./sampling/export-sampling-gate";
+import {
+  SampledLogRecordExporter,
+  SampledPushMetricExporter,
+  SampledSpanExporter,
+} from "./sampling/sampling-exporters";
 // Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
 // Browser gzip for the normal path is handled by PulseBrowser* exporters + otlp-transport.
 
@@ -63,6 +69,7 @@ class KeepaliveFetchLogExporter implements LogRecordExporter {
     private readonly inner: LogRecordExporter,
     private readonly logsUrl: string,
     private readonly headers: Record<string, string>,
+    private readonly samplingGate?: ExportSamplingGate,
   ) {}
 
   export(
@@ -74,8 +81,14 @@ class KeepaliveFetchLogExporter implements LogRecordExporter {
       return;
     }
 
+    const toSend = this.samplingGate?.filterReadableLogs(logs) ?? logs;
+    if (toSend.length === 0) {
+      resultCallback({ code: ExportResultCode.SUCCESS });
+      return;
+    }
+
     const body = JSON.stringify(
-      createExportLogsServiceRequest(logs, {
+      createExportLogsServiceRequest(toSend, {
         useHex: true,
         useLongBits: false,
       }),
@@ -192,7 +205,7 @@ export function createProviders(
     buffer: diskOpts?.buffer ?? new IdbSignalBuffer(),
   };
 
-  const traceExporter = new PulseBrowserTraceExporter(
+  const innerTraceExporter = new PulseBrowserTraceExporter(
     { url: tracesUrl, headers },
     {
       useProtobuf,
@@ -201,6 +214,9 @@ export function createProviders(
       signalKind: "trace",
     },
   );
+  const traceExporter = config.samplingGate
+    ? new SampledSpanExporter(innerTraceExporter, config.samplingGate)
+    : innerTraceExporter;
   const batchSpanProcessor = new BatchSpanProcessor(
     traceExporter,
     batchOptions,
@@ -222,10 +238,16 @@ export function createProviders(
     },
   );
 
+  const sampledBaseLog =
+    config.samplingGate !== undefined
+      ? new SampledLogRecordExporter(baseLogExporter, config.samplingGate)
+      : baseLogExporter;
+
   const keepaliveFetchLogExporter = new KeepaliveFetchLogExporter(
-    baseLogExporter,
+    sampledBaseLog,
     logsUrl,
     headers,
+    config.samplingGate,
   );
 
   const logExporter =
@@ -264,12 +286,16 @@ export function createProviders(
     },
   );
 
+  const sampledMetric = config.samplingGate
+    ? new SampledPushMetricExporter(rawMetricExporter, config.samplingGate)
+    : rawMetricExporter;
+
   const metricExporter: PushMetricExporter = config.getMetricGlobalAttrs
     ? new GlobalAttributeInjectingMetricExporter(
-        rawMetricExporter,
+        sampledMetric,
         config.getMetricGlobalAttrs,
       )
-    : rawMetricExporter;
+    : sampledMetric;
 
   const metricReader = new PeriodicExportingMetricReader({
     exporter: metricExporter,
