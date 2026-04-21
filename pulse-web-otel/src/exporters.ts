@@ -1,43 +1,45 @@
-// M1: OTLP HTTP exporters (traces/logs/metrics) + BatchSpanProcessor
-// + keepalive-fetch flush on pagehide.
-//
-// Wire format: JSON (application/json) — the only format supported by browser-compatible
-// OTLP exporters (@opentelemetry/exporter-*-otlp-http). The -otlp-proto packages use
-// OTLPExporterNodeBase and are Node.js-only; they cannot be bundled by Vite/browser.
-// Native browser protobuf support is tracked as a TODO (requires a custom fetch exporter).
-//
+// OTLP HTTP exporters (traces/logs/metrics) + batching + pagehide flush.
+// Uses browser-compatible @opentelemetry/exporter-*-otlp-http (JSON over XHR/fetch).
+// Log export on pagehide uses fetch({ keepalive: true }) with JSON OTLP (see KeepaliveFetchLogExporter)
+// because unload can cancel normal exporter requests before they complete.
 // See: web-sdk-plan/v1/01-foundation/pipeline.md
 
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-// Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
-// Browser gzip requires a custom XHR/fetch exporter wrapping CompressionStream — tracked as TODO.
-import { WebTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-web';
-import { LoggerProvider, BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
-import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import type { PushMetricExporter, ResourceMetrics } from '@opentelemetry/sdk-metrics';
-import type { ExportResult } from '@opentelemetry/core';
-import { ExportResultCode } from '@opentelemetry/core';
-import type { Resource } from '@opentelemetry/resources';
-import type { SpanProcessor } from '@opentelemetry/sdk-trace-web';
-import type { LogRecordProcessor, LogRecordExporter, ReadableLogRecord } from '@opentelemetry/sdk-logs';
-import type { Attributes } from '@opentelemetry/api';
-import { createExportLogsServiceRequest } from '@opentelemetry/otlp-transformer';
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import {
+  WebTracerProvider,
+  BatchSpanProcessor,
+} from "@opentelemetry/sdk-trace-web";
+import {
+  LoggerProvider,
+  BatchLogRecordProcessor,
+} from "@opentelemetry/sdk-logs";
+import {
+  MeterProvider,
+  PeriodicExportingMetricReader,
+} from "@opentelemetry/sdk-metrics";
+import type { Resource } from "@opentelemetry/resources";
+import type { SpanProcessor } from "@opentelemetry/sdk-trace-web";
+import type {
+  LogRecordProcessor,
+  LogRecordExporter,
+  ReadableLogRecord,
+} from "@opentelemetry/sdk-logs";
+import type {
+  PushMetricExporter,
+  ResourceMetrics,
+} from "@opentelemetry/sdk-metrics";
+import type { ExportResult } from "@opentelemetry/core";
+import { ExportResultCode } from "@opentelemetry/core";
+import type { Attributes } from "@opentelemetry/api";
+import { createExportLogsServiceRequest } from "@opentelemetry/otlp-transformer";
 
 /**
- * Wraps an OTLPLogExporter and, when `_pagehide` is set to true, replaces the
- * normal XHR-based export with a `fetch` call using `keepalive: true`.
- *
- * Background: XHR requests initiated during `pagehide` are cancelled by the
- * browser before they complete.  The Fetch API's `keepalive` flag was designed
- * precisely for this scenario — it keeps the request alive even after the page
- * is torn down. Setting `_pagehide = true` before calling
- * `loggerProvider.forceFlush()` ensures the `session.end` record reaches the
- * OTLP collector reliably.
+ * Wraps a log exporter and, when `_pagehide` is set to true, replaces the normal export
+ * with `fetch(..., { keepalive: true })` and JSON OTLP.
  */
 class KeepaliveFetchLogExporter implements LogRecordExporter {
-  /** Set to true in the pagehide handler before calling forceFlush(). */
   _pagehide = false;
 
   constructor(
@@ -55,18 +57,20 @@ class KeepaliveFetchLogExporter implements LogRecordExporter {
       return;
     }
 
-    // Pagehide path — use fetch with keepalive so the request survives unload.
     const body = JSON.stringify(
-      createExportLogsServiceRequest(logs, { useHex: true, useLongBits: false }),
+      createExportLogsServiceRequest(logs, {
+        useHex: true,
+        useLongBits: false,
+      }),
     );
 
     const fetchHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...this.headers,
     };
 
     fetch(this.logsUrl, {
-      method: 'POST',
+      method: "POST",
       keepalive: true,
       headers: fetchHeaders,
       body,
@@ -89,10 +93,7 @@ class KeepaliveFetchLogExporter implements LogRecordExporter {
 }
 
 /**
- * Wraps any PushMetricExporter and merges dynamic global attributes (session.id,
- * installation.id, screen.name, platform, etc.) into every data point at export time.
- * This is necessary because metrics do not go through the SpanProcessor / LogRecordProcessor
- * pipeline — they need a separate injection point.
+ * Wraps any PushMetricExporter and merges dynamic global attributes into every data point.
  */
 class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
   constructor(
@@ -100,56 +101,49 @@ class GlobalAttributeInjectingMetricExporter implements PushMetricExporter {
     private readonly getGlobalAttrs: () => Attributes,
   ) {}
 
-  export(metrics: ResourceMetrics, resultCallback: (result: ExportResult) => void): void {
+  export(
+    metrics: ResourceMetrics,
+    resultCallback: (result: ExportResult) => void,
+  ): void {
     const extra = this.getGlobalAttrs();
     const patched: ResourceMetrics = {
       ...metrics,
       scopeMetrics: metrics.scopeMetrics.map((sm) => ({
         ...sm,
-        // Cast required: TypeScript loses the discriminated-union narrowing when
-        // we spread each MetricData, but the shape is preserved — only attributes
-        // on each DataPoint are extended with global attrs (extra takes lower
-        // priority than per-instrument attrs so they cannot override them).
         metrics: sm.metrics.map((m) => ({
           ...m,
           dataPoints: m.dataPoints.map((dp) => ({
             ...dp,
             attributes: { ...extra, ...dp.attributes },
           })),
-        })) as ResourceMetrics['scopeMetrics'][number]['metrics'],
+        })) as ResourceMetrics["scopeMetrics"][number]["metrics"],
       })),
     };
     this.inner.export(patched, resultCallback);
   }
 
-  forceFlush(): Promise<void> { return this.inner.forceFlush(); }
-  shutdown(): Promise<void>   { return this.inner.shutdown(); }
+  forceFlush(): Promise<void> {
+    return this.inner.forceFlush();
+  }
 
-  selectAggregationTemporality: PushMetricExporter['selectAggregationTemporality'] =
+  shutdown(): Promise<void> {
+    return this.inner.shutdown();
+  }
+
+  selectAggregationTemporality: PushMetricExporter["selectAggregationTemporality"] =
     this.inner.selectAggregationTemporality?.bind(this.inner);
 
-  selectAggregation: PushMetricExporter['selectAggregation'] =
+  selectAggregation: PushMetricExporter["selectAggregation"] =
     this.inner.selectAggregation?.bind(this.inner);
 }
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
   apiKey: string;
-  /** Stable UUID generated at SDK init — sent as X-Pulse-Metering-Session-ID on every request. */
   meteringSessionId: string;
-  /**
-   * Called at each metric export to get current global attributes (session.id, screen.name, etc.).
-   * If omitted, no extra attributes are injected into metric data points.
-   */
   getMetricGlobalAttrs?: () => Attributes;
-  /**
-   * Wire format. Currently unused — browser OTLP exporters always send JSON
-   * (application/json). Protobuf support requires a custom browser fetch exporter
-   * and is tracked as a TODO.
-   */
-  format?: 'json' | 'protobuf';
-  /** Payload compression. Defaults to 'gzip'. Browser gzip is tracked as a TODO. */
-  compression?: 'gzip' | 'none';
+  format?: "json" | "protobuf";
+  compression?: "gzip" | "none";
   batchOptions?: {
     scheduledDelayMillis?: number;
     maxQueueSize?: number;
@@ -179,13 +173,9 @@ export function createProviders(
   spanProcessors: SpanProcessor[],
   logProcessors: LogRecordProcessor[],
 ): ProviderBundle {
-  // config.format and config.compression are reserved for future use —
-  // browser-compatible protobuf and gzip require custom fetch exporters (TODO).
-
-  // Custom headers on every OTLP request — Content-Type is set by the exporter itself.
-  const headers: Record<string, string> = {
-    'X-API-KEY': config.apiKey,
-    'X-Pulse-Metering-Session-ID': config.meteringSessionId,
+  const headers = {
+    "X-API-KEY": config.apiKey,
+    "X-Pulse-Metering-Session-ID": config.meteringSessionId,
   };
 
   const batchOptions = {
@@ -193,14 +183,16 @@ export function createProviders(
     ...config.batchOptions,
   };
 
-  const tracesUrl  = config.tracesUrl  ?? `${config.endpointBaseUrl}/v1/traces`;
-  const logsUrl    = config.logsUrl    ?? `${config.endpointBaseUrl}/v1/logs`;
-  const metricsUrl = config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
+  const tracesUrl = config.tracesUrl ?? `${config.endpointBaseUrl}/v1/traces`;
+  const logsUrl = config.logsUrl ?? `${config.endpointBaseUrl}/v1/logs`;
+  const metricsUrl =
+    config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
 
-  // ── Traces ──────────────────────────────────────────────────────────────────
   const traceExporter = new OTLPTraceExporter({ url: tracesUrl, headers });
-
-  const batchSpanProcessor = new BatchSpanProcessor(traceExporter, batchOptions);
+  const batchSpanProcessor = new BatchSpanProcessor(
+    traceExporter,
+    batchOptions,
+  );
 
   const tracerProvider = new WebTracerProvider({ resource });
   for (const processor of spanProcessors) {
@@ -208,7 +200,6 @@ export function createProviders(
   }
   tracerProvider.addSpanProcessor(batchSpanProcessor);
 
-  // ── Logs ────────────────────────────────────────────────────────────────────
   const innerLogExporter = new OTLPLogExporter({ url: logsUrl, headers });
   const keepaliveFetchLogExporter = new KeepaliveFetchLogExporter(
     innerLogExporter,
@@ -216,7 +207,10 @@ export function createProviders(
     headers,
   );
 
-  const batchLogProcessor = new BatchLogRecordProcessor(keepaliveFetchLogExporter, batchOptions);
+  const batchLogProcessor = new BatchLogRecordProcessor(
+    keepaliveFetchLogExporter,
+    batchOptions,
+  );
 
   const loggerProvider = new LoggerProvider({ resource });
   for (const processor of logProcessors) {
@@ -224,14 +218,15 @@ export function createProviders(
   }
   loggerProvider.addLogRecordProcessor(batchLogProcessor);
 
-  // ── Metrics ─────────────────────────────────────────────────────────────────
-  const rawMetricExporter = new OTLPMetricExporter({ url: metricsUrl, headers });
-
-  // Wrap with global attribute injector so every data point carries session.id,
-  // installation.id, screen.name, platform, etc. — mirroring what the
-  // GlobalAttributesProcessor does for spans and logs.
+  const rawMetricExporter = new OTLPMetricExporter({
+    url: metricsUrl,
+    headers,
+  });
   const metricExporter: PushMetricExporter = config.getMetricGlobalAttrs
-    ? new GlobalAttributeInjectingMetricExporter(rawMetricExporter, config.getMetricGlobalAttrs)
+    ? new GlobalAttributeInjectingMetricExporter(
+        rawMetricExporter,
+        config.getMetricGlobalAttrs,
+      )
     : rawMetricExporter;
 
   const metricReader = new PeriodicExportingMetricReader({
@@ -244,13 +239,7 @@ export function createProviders(
     readers: [metricReader],
   });
 
-  // ── Pagehide flush ──────────────────────────────────────────────────────────
-  // XHR requests initiated during pagehide are cancelled by the browser before
-  // they complete. Setting _pagehide = true switches the log exporter to use
-  // fetch({ keepalive: true }), which is specifically designed to survive page
-  // unload. Traces and metrics use XHR too, but session.end is the only
-  // pagehide-critical signal — it is always a log record.
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     const pagehideHandler = (e: PageTransitionEvent) => {
       if (!e.persisted) {
         keepaliveFetchLogExporter._pagehide = true;
@@ -261,7 +250,7 @@ export function createProviders(
         void meterProvider.forceFlush();
       }
     };
-    window.addEventListener('pagehide', pagehideHandler);
+    window.addEventListener("pagehide", pagehideHandler);
   }
 
   return { tracerProvider, loggerProvider, meterProvider };
