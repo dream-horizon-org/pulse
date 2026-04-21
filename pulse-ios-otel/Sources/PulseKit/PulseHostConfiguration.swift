@@ -11,11 +11,7 @@ internal enum PulseHostConfiguration {
     private static let pulseEndpointURLLocal = "http://127.0.0.1"
 
     internal static func isApiLocalDev(apiKey: String) -> Bool {
-        guard let regex = try? NSRegularExpression(pattern: #"^(default-project_.*|Test-.*_.*)$"#, options: []) else {
-            return false
-        }
-        let range = NSRange(apiKey.startIndex..<apiKey.endIndex, in: apiKey)
-        return regex.firstMatch(in: apiKey, options: [], range: range) != nil
+        apiKey.hasPrefix("default-project_")
     }
 
     internal static func baseUrl(apiKey: String) -> String {

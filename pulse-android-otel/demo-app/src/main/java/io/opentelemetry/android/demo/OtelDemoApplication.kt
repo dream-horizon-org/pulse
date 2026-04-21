@@ -25,7 +25,7 @@ import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter
 
 const val TAG = "otel.demo"
 // Demo API key for local development testing - not a real secret (orca-security-ignore)
-private const val DEMO_API_KEY = "Test-FQqAtyGT_sB7O2H3aEPOACxXX4aZOctKE"
+private const val DEMO_API_KEY = "default-project_devkey01"
 
 class OtelDemoApplication : Application() {
 

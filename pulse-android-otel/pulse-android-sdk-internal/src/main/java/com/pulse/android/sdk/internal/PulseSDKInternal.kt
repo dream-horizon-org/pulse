@@ -842,7 +842,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             }
         }
 
-        internal fun isApiLocalDev(apiKey: String): Boolean = apiKey.matches("default-project_.*|Test-.*_.*".toRegex())
+        internal fun isApiLocalDev(apiKey: String): Boolean = apiKey.matches("default-project_.*".toRegex())
 
         private fun createApiKeyHeader(apiKey: String): Map<String, String> = mapOf(API_KEY_HEADER to apiKey)
 
