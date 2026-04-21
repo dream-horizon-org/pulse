@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
@@ -26,7 +25,6 @@ public class InteractionConfigController {
   @GET
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
-  @RequiresPermission("can_view")
   public CompletionStage<List<InteractionConfig>> getInteractionConfig() {
     return interactionService.getInteractionConfig()
         .map(mapper::toInteractionConfig)
