@@ -348,7 +348,7 @@ class ClickhouseProjectServiceTest {
           .test()
           .assertComplete();
 
-      verify(mockConnection, times(4)).createStatement(anyString());
+      verify(mockConnection, times(3)).createStatement(anyString());
     }
   }
 
