@@ -37,6 +37,7 @@ import PulseKit
 Pulse.shared.initialize(
     endpointBaseUrl: "https://your-endpoint.com",
     apiKey: "your-project-id",
+    dataCollectionState: .allowed,
     instrumentations: { config in
         config.sessionReplay { replayConfig in
             replayConfig.enabled(true) // opt in (SDK default is false)

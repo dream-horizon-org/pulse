@@ -10,7 +10,11 @@ import type { PulsePluginProps } from '../types';
 describe('assertPulsePluginProps', () => {
   it('accepts top-level defaults only', () => {
     expect(() =>
-      assertPulsePluginProps({ endpointBaseUrl: 'http://x', apiKey: 'k' })
+      assertPulsePluginProps({
+        endpointBaseUrl: 'http://x',
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+      })
     ).not.toThrow();
   });
 
@@ -19,6 +23,7 @@ describe('assertPulsePluginProps', () => {
       assertPulsePluginProps({
         endpointBaseUrl: 'http://default',
         apiKey: 'default-key',
+        dataCollectionState: 'PENDING',
         android: { endpointBaseUrl: 'http://a', apiKey: 'ka' },
         ios: { endpointBaseUrl: 'http://i', apiKey: 'ki' },
       })
@@ -29,6 +34,7 @@ describe('assertPulsePluginProps', () => {
     expect(() =>
       assertPulsePluginProps({
         apiKey: 'k',
+        dataCollectionState: 'PENDING',
         android: { endpointBaseUrl: 'http://a', apiKey: 'ka' },
         ios: { endpointBaseUrl: 'http://i', apiKey: 'ki' },
       } as PulsePluginProps)
@@ -40,8 +46,19 @@ describe('assertPulsePluginProps', () => {
       assertPulsePluginProps({
         endpointBaseUrl: 'http://x',
         apiKey: '   ',
+        dataCollectionState: 'PENDING',
       })
     ).toThrow(/apiKey/);
+  });
+
+  it('rejects invalid top-level dataCollectionState', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        endpointBaseUrl: 'http://x',
+        apiKey: 'k',
+        dataCollectionState: 'maybe',
+      } as unknown as PulsePluginProps)
+    ).toThrow(/dataCollectionState/);
   });
 
   it('rejects configuration at top level', () => {
@@ -49,6 +66,7 @@ describe('assertPulsePluginProps', () => {
       assertPulsePluginProps({
         endpointBaseUrl: 'http://x',
         apiKey: 'k',
+        dataCollectionState: 'PENDING',
         configuration: {},
       })
     ).toThrow(/configuration/);
@@ -59,6 +77,7 @@ describe('assertPulsePluginProps', () => {
       assertPulsePluginProps({
         endpointBaseUrl: 'http://x',
         apiKey: 'k',
+        dataCollectionState: 'PENDING',
         globalAttributes: {},
       })
     ).toThrow(/globalAttributes/);
@@ -69,6 +88,7 @@ describe('assertPulsePluginProps', () => {
       assertPulsePluginProps({
         endpointBaseUrl: 'http://x',
         apiKey: 'k',
+        dataCollectionState: 'PENDING',
         instrumentation: {},
       })
     ).toThrow(/instrumentation/);
@@ -79,6 +99,7 @@ describe('assertPulsePluginProps', () => {
       assertPulsePluginProps({
         endpointBaseUrl: 'http://x',
         apiKey: 'k',
+        dataCollectionState: 'PENDING',
         android: 'bad',
       })
     ).toThrow(/android/);
@@ -123,6 +144,7 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     const props: PulsePluginProps = {
       endpointBaseUrl: 'http://d',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       customEventCollectorUrl: 'http://root/v1/logs',
       ios: { customEventCollectorUrl: 'http://ios/v1/logs' },
     };
