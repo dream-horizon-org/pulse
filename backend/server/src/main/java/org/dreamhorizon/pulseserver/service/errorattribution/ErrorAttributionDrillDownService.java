@@ -12,14 +12,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
-import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownQueryBuilder.DrillDownQueryParams;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownResult.IssueRow;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownResult.NetworkEndpointRow;
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionResult.RiskRatioRow;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQuerySpec;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
+import org.dreamhorizon.pulseserver.util.ClickhouseQueryRowUtils;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -43,7 +42,7 @@ public class ErrorAttributionDrillDownService {
             projectId, interactionName, startInclusive, endExclusive, signal, params);
     return clickhouseQueryService
         .executeRootCauseQuery(projectId, spec.sql(), spec.bindNames(), spec.bindValues())
-        .map(this::rowsToMaps)
+        .map(ClickhouseQueryRowUtils::rowsToMaps)
         .map(rows -> mapResult(signal, rows, params));
   }
 
@@ -151,24 +150,5 @@ public class ErrorAttributionDrillDownService {
       m.put(e.getKey().toLowerCase(Locale.ROOT), e.getValue());
     }
     return m;
-  }
-
-  private List<Map<String, Object>> rowsToMaps(GetQueryDataResponseDto<GetRawUserEventsResponseDto> response) {
-    if (!response.isJobComplete() || response.getData() == null) {
-      return List.of();
-    }
-    GetRawUserEventsResponseDto data = response.getData();
-    List<String> names =
-        data.getSchema().getFields().stream().map(GetRawUserEventsResponseDto.Field::getName).toList();
-    List<Map<String, Object>> out = new ArrayList<>();
-    for (GetRawUserEventsResponseDto.Row row : data.getRows()) {
-      Map<String, Object> m = new LinkedHashMap<>();
-      for (int i = 0; i < names.size(); i++) {
-        Object v = i < row.getRowFields().size() ? row.getRowFields().get(i).getValue() : null;
-        m.put(names.get(i), v);
-      }
-      out.add(m);
-    }
-    return out;
   }
 }

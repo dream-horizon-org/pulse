@@ -20,6 +20,22 @@ public final class ErrorAttributionDrillDownQueryBuilder {
   /** Per-signal SQL cap; aligns with {@link RootCauseConfig#DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT}. */
   static final int DRILL_DOWN_CANDIDATE_LIMIT = RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT;
 
+  /**
+   * ClickHouse {@code ORDER BY} expression for Mode A drill rows: finite RR, then infinite-style
+   * branch, then {@code n_treated}. Shared by {@link #buildStack} and {@link #buildApi}.
+   */
+  private static final String RR_SORT_ORDER_EXPR =
+      "multiIf("
+          + "ks.n_treated = 0, -1e200, "
+          + "(ut.n_u - ks.n_treated) <= 0, 1e300, "
+          + "(pt.n_poor_u - ks.n_treated_low) > 0 AND (ut.n_u - ks.n_treated) > 0, "
+          + "round( "
+          + "(toFloat64(ks.n_treated_low) / toFloat64(ks.n_treated)) "
+          + "/ (toFloat64(pt.n_poor_u - ks.n_treated_low) / toFloat64(ut.n_u - ks.n_treated)), "
+          + "4), "
+          + "ks.n_treated_low > 0, 1e301, "
+          + "-1e200) ";
+
   public record DrillDownQueryParams(
       int minTreatedSessions,
       int minControlSessions,
@@ -176,18 +192,6 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             ? "ks.group_id AS group_id, ks.title AS title, ks.exception_type AS exception_type, "
             : "ks.group_id AS group_id, ks.title AS title, ";
 
-    String rrSort =
-        "multiIf("
-            + "ks.n_treated = 0, -1e200, "
-            + "(ut.n_u - ks.n_treated) <= 0, 1e300, "
-            + "(pt.n_poor_u - ks.n_treated_low) > 0 AND (ut.n_u - ks.n_treated) > 0, "
-            + "round( "
-            + "(toFloat64(ks.n_treated_low) / toFloat64(ks.n_treated)) "
-            + "/ (toFloat64(pt.n_poor_u - ks.n_treated_low) / toFloat64(ut.n_u - ks.n_treated)), "
-            + "4), "
-            + "ks.n_treated_low > 0, 1e301, "
-            + "-1e200) ";
-
     String sql =
         withCommon
             + "stack_sessions AS ( "
@@ -236,7 +240,7 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + p5
             + ")) "
             + "ORDER BY "
-            + rrSort
+            + RR_SORT_ORDER_EXPR
             + "DESC, ks.n_treated DESC "
             + "LIMIT toInt64(:"
             + p6
@@ -281,18 +285,6 @@ public final class ErrorAttributionDrillDownQueryBuilder {
         "ifNull(SpanAttributes['http.request.method'], ifNull(SpanAttributes['http.method'], ''))";
     String statusCodeExpr =
         "ifNull(SpanAttributes['http.response.status_code'], ifNull(SpanAttributes['http.status_code'], ''))";
-
-    String rrSort =
-        "multiIf("
-            + "ks.n_treated = 0, -1e200, "
-            + "(ut.n_u - ks.n_treated) <= 0, 1e300, "
-            + "(pt.n_poor_u - ks.n_treated_low) > 0 AND (ut.n_u - ks.n_treated) > 0, "
-            + "round( "
-            + "(toFloat64(ks.n_treated_low) / toFloat64(ks.n_treated)) "
-            + "/ (toFloat64(pt.n_poor_u - ks.n_treated_low) / toFloat64(ut.n_u - ks.n_treated)), "
-            + "4), "
-            + "ks.n_treated_low > 0, 1e301, "
-            + "-1e200) ";
 
     String sql =
         "WITH "
@@ -419,7 +411,7 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + p5
             + ")) "
             + "ORDER BY "
-            + rrSort
+            + RR_SORT_ORDER_EXPR
             + "DESC, ks.n_treated DESC "
             + "LIMIT toInt64(:"
             + p6
