@@ -1,0 +1,10 @@
+{
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@dreamhorizonorg/pulse-react-native": ["../src/index.tsx"]
+    }
+  },
+  "include": ["src/**/*", "index.js"]
+}

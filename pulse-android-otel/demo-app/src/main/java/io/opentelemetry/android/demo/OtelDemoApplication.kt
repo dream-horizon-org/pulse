@@ -12,6 +12,7 @@ import android.app.Application
 import android.util.Log
 import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.PulseSDK
+import com.pulse.utils.PulseLogLevel
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.common.RumConstants
@@ -51,6 +52,7 @@ class OtelDemoApplication : Application() {
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
                 },
+                logLevel = PulseLogLevel.DEBUG
             ) {
                 interaction {
                     enabled(true)

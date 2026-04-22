@@ -12,6 +12,7 @@ import {
   estimateHttpBodyByteLength,
   parseContentLength,
 } from './content-length-parser';
+import { PulseLogger } from '../PulseLogger';
 
 interface RequestData {
   method: string;
@@ -31,7 +32,7 @@ function createXmlHttpRequestTracker(
   xhr: typeof XMLHttpRequest
 ): XmlHttpRequestTrackerResult {
   if (isXHRIntercepted) {
-    console.warn('[Pulse] XMLHttpRequest already intercepted');
+    PulseLogger.warn('XMLHttpRequest already intercepted');
     return { requestTracker: new RequestTracker(), uninstall: () => {} };
   }
 
@@ -162,8 +163,7 @@ function createXmlHttpRequestTracker(
                 }
               }
             } catch (e) {
-              // Headers may not be available in some cases (CORS, etc.)
-              console.debug('[Pulse] Could not read response headers:', e);
+              PulseLogger.verbose(`Could not read response headers: ${e}`);
             }
           }
 
