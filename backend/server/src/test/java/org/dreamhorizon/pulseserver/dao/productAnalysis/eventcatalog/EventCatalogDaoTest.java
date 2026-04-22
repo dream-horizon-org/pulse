@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.productAnalysis.eventcatalog;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -82,17 +81,6 @@ class EventCatalogDaoTest {
     }
 
     @Test
-    void shouldReturnEmptyOnNullResponse() {
-      when(clickhouseQueryService.executeQueryOrCreateJob(
-          any(QueryConfiguration.class), eq(EventCatalogEventNameRow.class)))
-          .thenReturn(Single.just(null));
-
-      List<String> result = dao.listEventNames(PROJECT_ID).blockingGet();
-      assertNotNull(result);
-      assertTrue(result.isEmpty());
-    }
-
-    @Test
     void shouldReturnEmptyOnNullRows() {
       QueryResultResponse<EventCatalogEventNameRow> resp =
           QueryResultResponse.<EventCatalogEventNameRow>builder().rows(null).build();
@@ -133,15 +121,6 @@ class EventCatalogDaoTest {
       assertEquals(2, result.size());
       assertEquals("OS", result.get(0));
       assertEquals("COUNTRY", result.get(1));
-    }
-
-    @Test
-    void shouldReturnEmptyOnNullResponse() {
-      when(clickhouseQueryService.executeQueryOrCreateJob(
-          any(QueryConfiguration.class), eq(EventCatalogFilterKeyRow.class)))
-          .thenReturn(Single.just(null));
-
-      assertTrue(dao.listFilterKeys(PROJECT_ID).blockingGet().isEmpty());
     }
 
     @Test

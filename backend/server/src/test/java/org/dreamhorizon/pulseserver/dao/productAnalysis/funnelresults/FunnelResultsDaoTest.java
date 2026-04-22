@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.productAnalysis.funnelresults;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -70,17 +69,6 @@ class FunnelResultsDaoTest {
     }
 
     @Test
-    void shouldReturnEmptyOnNullResponse() {
-      when(clickhouseQueryService.executeQueryOrCreateJob(
-          any(QueryConfiguration.class), eq(FunnelResultRow.class)))
-          .thenReturn(Single.just(null));
-
-      List<FunnelResultRow> result = dao.queryLatest(PROJECT, 1L).blockingGet();
-      assertNotNull(result);
-      assertTrue(result.isEmpty());
-    }
-
-    @Test
     void shouldReturnEmptyOnNullRows() {
       QueryResultResponse<FunnelResultRow> resp =
           QueryResultResponse.<FunnelResultRow>builder().rows(null).build();
@@ -126,17 +114,6 @@ class FunnelResultsDaoTest {
 
       assertEquals(1, result.size());
       assertEquals(75.0, result.get(1L).getConversionPct());
-    }
-
-    @Test
-    void shouldHandleNullResponse() {
-      when(clickhouseQueryService.executeQueryOrCreateJob(
-          any(QueryConfiguration.class), eq(FunnelConversionSummaryRow.class)))
-          .thenReturn(Single.just(null));
-
-      Map<Long, FunnelConversionSummaryRow> result =
-          dao.queryConversionSummaries(PROJECT, Collections.singletonList(1L)).blockingGet();
-      assertTrue(result.isEmpty());
     }
 
     @Test

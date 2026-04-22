@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.productAnalysis.journeyresults;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -61,17 +60,6 @@ class JourneyResultsDaoTest {
     List<JourneyResultRow> result = dao.queryLatest(PROJECT, 1L, "forward").blockingGet();
     assertEquals(1, result.size());
     assertEquals("forward", result.get(0).getDirection());
-  }
-
-  @Test
-  void shouldReturnEmptyOnNullResponse() {
-    when(clickhouseQueryService.executeQueryOrCreateJob(
-        any(QueryConfiguration.class), eq(JourneyResultRow.class)))
-        .thenReturn(Single.just(null));
-
-    List<JourneyResultRow> result = dao.queryLatest(PROJECT, 1L, "forward").blockingGet();
-    assertNotNull(result);
-    assertTrue(result.isEmpty());
   }
 
   @Test

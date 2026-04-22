@@ -94,7 +94,8 @@ class FunnelDefinitionDaoTest {
   }
 
   private void setupForEach(List<Row> rows) {
-    when(rowSet.iterator()).thenReturn(iter(rows));
+    RowIterator<Row> it = iter(rows);
+    when(rowSet.iterator()).thenReturn(it);
     doAnswer(inv -> {
       Consumer<Row> c = inv.getArgument(0);
       rows.forEach(c);
@@ -193,7 +194,8 @@ class FunnelDefinitionDaoTest {
     @Test
     void shouldReturnRow() {
       setupReader();
-      when(rowSet.iterator()).thenReturn(iter(Collections.singletonList(funnelRow(false))));
+      RowIterator<Row> it = iter(Collections.singletonList(funnelRow(false)));
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       FunnelDefinitionRow result = dao.findByProjectAndId(PROJECT, 1L).blockingGet();
@@ -206,7 +208,8 @@ class FunnelDefinitionDaoTest {
     @Test
     void shouldReturnEmpty() {
       setupReader();
-      when(rowSet.iterator()).thenReturn(iter(Collections.emptyList()));
+      RowIterator<Row> it = iter(Collections.emptyList());
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       FunnelDefinitionRow result = dao.findByProjectAndId(PROJECT, 1L).blockingGet();
@@ -219,7 +222,8 @@ class FunnelDefinitionDaoTest {
     @Test
     void shouldReturnRow() {
       setupReader();
-      when(rowSet.iterator()).thenReturn(iter(Collections.singletonList(funnelRow(false))));
+      RowIterator<Row> it = iter(Collections.singletonList(funnelRow(false)));
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       FunnelDefinitionRow result = dao.findById(1L).blockingGet();
@@ -229,7 +233,8 @@ class FunnelDefinitionDaoTest {
     @Test
     void shouldReturnEmpty() {
       setupReader();
-      when(rowSet.iterator()).thenReturn(iter(Collections.emptyList()));
+      RowIterator<Row> it = iter(Collections.emptyList());
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       FunnelDefinitionRow result = dao.findById(1L).blockingGet();

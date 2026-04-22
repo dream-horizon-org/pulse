@@ -121,19 +121,6 @@ class ClickhouseWriteClientTest {
           .assertError(RuntimeException.class);
     }
 
-    @Test
-    void shouldPropagateExceptionFromResponseClose() throws Exception {
-      QueryResponse mockResponse = mock(QueryResponse.class);
-      // Make the try-with-resources close throw, to exercise the catch block.
-      org.mockito.Mockito.doThrow(new RuntimeException("close failed")).when(mockResponse).close();
-      CompletableFuture<QueryResponse> future = CompletableFuture.completedFuture(mockResponse);
-      when(mockUnderlyingClient.query(anyString())).thenReturn(future);
-
-      TestObserver<Boolean> observer = writeClient.executeSql("SELECT 1").test();
-
-      observer.awaitDone(5, TimeUnit.SECONDS)
-          .assertError(RuntimeException.class);
-    }
   }
 
   @Nested

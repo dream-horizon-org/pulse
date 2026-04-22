@@ -192,7 +192,8 @@ class AnalyticsJobDaoTest {
     @Test
     void shouldReturnEntity() {
       setupWriterPreparedQuery();
-      when(rowSet.iterator()).thenReturn(iteratorOf(Collections.singletonList(createJobRow())));
+      RowIterator<Row> it = iteratorOf(Collections.singletonList(createJobRow()));
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AnalyticsJobEntity result = dao.getJobById(1L).blockingGet();
@@ -208,7 +209,8 @@ class AnalyticsJobDaoTest {
     @Test
     void shouldReturnEmptyWhenNoRow() {
       setupWriterPreparedQuery();
-      when(rowSet.iterator()).thenReturn(iteratorOf(Collections.emptyList()));
+      RowIterator<Row> it = iteratorOf(Collections.emptyList());
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       assertFalse(dao.getJobById(1L).isEmpty().blockingGet() == Boolean.FALSE);
@@ -220,7 +222,8 @@ class AnalyticsJobDaoTest {
     @Test
     void shouldReturnEntity() {
       setupWriterPreparedQuery();
-      when(rowSet.iterator()).thenReturn(iteratorOf(Collections.singletonList(createJobRow())));
+      RowIterator<Row> it = iteratorOf(Collections.singletonList(createJobRow()));
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AnalyticsJobEntity result = dao.getJobByJobId("emr-job-123").blockingGet();
@@ -232,7 +235,8 @@ class AnalyticsJobDaoTest {
     @Test
     void shouldReturnEmptyWhenNoRow() {
       setupWriterPreparedQuery();
-      when(rowSet.iterator()).thenReturn(iteratorOf(Collections.emptyList()));
+      RowIterator<Row> it = iteratorOf(Collections.emptyList());
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AnalyticsJobEntity result = dao.getJobByJobId("missing").blockingGet();
@@ -246,7 +250,8 @@ class AnalyticsJobDaoTest {
     @Test
     void shouldReturnEntity() {
       setupWriterPreparedQuery();
-      when(rowSet.iterator()).thenReturn(iteratorOf(Collections.singletonList(createJobRow())));
+      RowIterator<Row> it = iteratorOf(Collections.singletonList(createJobRow()));
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AnalyticsJobEntity result = dao.getLatestJobByReference(
@@ -259,7 +264,8 @@ class AnalyticsJobDaoTest {
     @Test
     void shouldReturnEmptyWhenNoRow() {
       setupWriterPreparedQuery();
-      when(rowSet.iterator()).thenReturn(iteratorOf(Collections.emptyList()));
+      RowIterator<Row> it = iteratorOf(Collections.emptyList());
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AnalyticsJobEntity result = dao.getLatestJobByReference(
@@ -273,7 +279,8 @@ class AnalyticsJobDaoTest {
     @Test
     void shouldReturnEntity() {
       setupWriterPreparedQuery();
-      when(rowSet.iterator()).thenReturn(iteratorOf(Collections.singletonList(createJobRow())));
+      RowIterator<Row> it = iteratorOf(Collections.singletonList(createJobRow()));
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AnalyticsJobEntity result = dao.getLatestJobByType(AnalyticsJobType.FUNNELS_DAILY)
@@ -285,7 +292,8 @@ class AnalyticsJobDaoTest {
     @Test
     void shouldReturnEmptyWhenNoRow() {
       setupWriterPreparedQuery();
-      when(rowSet.iterator()).thenReturn(iteratorOf(Collections.emptyList()));
+      RowIterator<Row> it = iteratorOf(Collections.emptyList());
+      when(rowSet.iterator()).thenReturn(it);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       AnalyticsJobEntity result = dao.getLatestJobByType(AnalyticsJobType.EVENTS_INCREMENTAL)
