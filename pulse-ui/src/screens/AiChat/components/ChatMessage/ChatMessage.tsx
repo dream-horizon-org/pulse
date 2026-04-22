@@ -15,6 +15,8 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.role === "user";
   const sql = message.sql ?? extractSql(message.text);
   const displayText = sql ? stripSqlBlocks(message.text) : message.text;
+  /** Hide structured cards until streaming ends so typewriter text is not visually preceded by chart/table UI (see useHandleSend deferred flush). */
+  const showStructuredCards = !message.isStreaming;
 
   return (
     <Box
@@ -42,27 +44,29 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
               content={displayText}
               className={classes.markdown}
             />
-            {sql && <SqlResultCard sql={sql} />}
-            {message.charts
-              ?.filter(
-                (chart): chart is NonNullable<typeof chart> => chart != null,
-              )
-              .map((chart, idx) => (
-                <AiChartCard
-                  key={`chart-${chart.title}-${idx}`}
-                  chart={chart}
-                />
-              ))}
-            {message.tables
-              ?.filter(
-                (table): table is NonNullable<typeof table> => table != null,
-              )
-              .map((table, idx) => (
-                <AiTableCard
-                  key={`table-${table.title}-${idx}`}
-                  table={table}
-                />
-              ))}
+            {showStructuredCards && sql && <SqlResultCard sql={sql} />}
+            {showStructuredCards &&
+              message.charts
+                ?.filter(
+                  (chart): chart is NonNullable<typeof chart> => chart != null,
+                )
+                .map((chart, idx) => (
+                  <AiChartCard
+                    key={`chart-${chart.title}-${idx}`}
+                    chart={chart}
+                  />
+                ))}
+            {showStructuredCards &&
+              message.tables
+                ?.filter(
+                  (table): table is NonNullable<typeof table> => table != null,
+                )
+                .map((table, idx) => (
+                  <AiTableCard
+                    key={`table-${table.title}-${idx}`}
+                    table={table}
+                  />
+                ))}
           </>
         )}
         <Text size="xs" c="dimmed" className={classes.timestamp}>

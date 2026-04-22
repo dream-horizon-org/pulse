@@ -25,3 +25,8 @@ env.json
 
 docs/
 **/.idea
+docs/api
+docs/architecture
+graphify-out/
+CLAUDE.md
+backend/server/src/test/graphify-out/

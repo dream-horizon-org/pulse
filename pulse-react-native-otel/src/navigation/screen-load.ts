@@ -2,7 +2,7 @@ import { startSpan, type Span } from '../trace';
 import { Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import type { NavigationRoute } from './navigation.interface';
-import { LOG_TAGS } from './utils';
+import { PulseLogger } from '../PulseLogger';
 
 export interface ScreenLoadState {
   navigationSpan: Span | undefined;
@@ -32,7 +32,7 @@ export function createScreenLoadTracker(
         [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS as 'android' | 'ios',
       },
     });
-    console.log(`${LOG_TAGS.SCREEN_LOAD} started`);
+    PulseLogger.debug('Screen load: started');
   };
 
   const endNavigationSpan = (
@@ -61,7 +61,7 @@ export function createScreenLoadTracker(
       state.navigationSpan = undefined;
 
       if (route) {
-        console.log(`${LOG_TAGS.SCREEN_LOAD} ${route.name} ended`);
+        PulseLogger.debug(`Screen load: ${route.name} ended`);
         if (onLoadEnd) {
           onLoadEnd(route);
         }

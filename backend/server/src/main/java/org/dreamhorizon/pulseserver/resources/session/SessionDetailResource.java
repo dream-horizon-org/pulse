@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
@@ -33,6 +34,7 @@ public class SessionDetailResource {
     @Path("/{sessionId}")
     @Consumes(MediaType.WILDCARD)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequiresPermission("can_view")
     public CompletionStage<Response<SessionDetailResponse>> getSessionDetail(
             @PathParam("sessionId") String sessionId,
             @QueryParam("include") String include

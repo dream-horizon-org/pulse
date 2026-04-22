@@ -5,9 +5,6 @@ export const PULSE_DATA_COLLECTION_CONSENT_IMPORT =
 export const ATTRIBUTES_IMPORT =
   'import io.opentelemetry.api.common.Attributes\nimport io.opentelemetry.api.common.AttributeKey\n';
 
-export const PULSE_HTTP_ENDPOINT_CONNECTIVITY_IMPORT =
-  'import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity\n';
-
 function escapeKotlinString(value: string): string {
   return value
     .replace(/\\/g, '\\\\')
@@ -20,22 +17,6 @@ import type {
   PulseAttributes,
   PulseDataCollectionState,
 } from './types';
-
-function buildEndpointHeadersMap(headers: Record<string, string>): string {
-  const entries = Object.entries(headers).map(([k, v]) => {
-    return '"' + escapeKotlinString(k) + '" to "' + escapeKotlinString(v) + '"';
-  });
-  return `mapOf(${entries.join(', ')})`;
-}
-
-function kotlinHeadersArgument(
-  headers: Record<string, string> | undefined
-): string {
-  if (headers && Object.keys(headers).length > 0) {
-    return buildEndpointHeadersMap(headers);
-  }
-  return 'emptyMap()';
-}
 
 function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
   const puts: string[] = [];
@@ -90,25 +71,13 @@ function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
 }
 
 export function buildPulseInitializationCode(options: {
-  endpointBaseUrl: string;
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
-  endpointHeaders?: Record<string, string>;
-  configEndpointUrl?: string;
-  customEventCollectorUrl?: string;
   globalAttributes?: PulseAttributes;
   instrumentation?: PulseAndroidInstrumentationProps;
 }): string {
-  const {
-    endpointBaseUrl,
-    apiKey,
-    dataCollectionState,
-    endpointHeaders,
-    configEndpointUrl,
-    customEventCollectorUrl,
-    globalAttributes,
-    instrumentation,
-  } = options;
+  const { apiKey, dataCollectionState, globalAttributes, instrumentation } =
+    options;
   const params: string[] = [];
 
   params.push(`apiKey = "${escapeKotlinString(apiKey)}"`);
@@ -116,24 +85,6 @@ export function buildPulseInitializationCode(options: {
   params.push(
     `dataCollectionState = PulseDataCollectionConsent.${dataCollectionState}`
   );
-
-  if (endpointHeaders && Object.keys(endpointHeaders).length > 0) {
-    params.push(
-      `endpointHeaders = ${buildEndpointHeadersMap(endpointHeaders)}`
-    );
-  }
-
-  if (configEndpointUrl) {
-    params.push(
-      `configEndpointUrl = "${escapeKotlinString(configEndpointUrl)}"`
-    );
-  }
-
-  if (customEventCollectorUrl?.trim()) {
-    params.push(
-      `customEventConnectivity = HttpEndpointConnectivity("${escapeKotlinString(customEventCollectorUrl.trim())}", ${kotlinHeadersArgument(endpointHeaders)})`
-    );
-  }
 
   const attributesLambda = globalAttributes
     ? buildGlobalAttributesLambda(globalAttributes)
@@ -147,14 +98,10 @@ export function buildPulseInitializationCode(options: {
   // in their native MainApplication.kt instead of through this plugin.
   params.push('beforeSendData = null');
 
-  let code = `\n    Pulse.initialize(\n      this,\n      "${escapeKotlinString(endpointBaseUrl)}",\n      ${params.join(',\n      ')}\n    ) {\n`;
+  let code = `\n    Pulse.initialize(\n      this,\n      ${params.join(',\n      ')}\n    ) {\n`;
 
   if (instrumentation?.interaction !== undefined) {
-    if (instrumentation.interaction.url) {
-      code += `      interaction { enabled(${instrumentation.interaction.enabled}); setConfigUrl { "${escapeKotlinString(instrumentation.interaction.url)}" } }\n`;
-    } else {
-      code += `      interaction { enabled(${instrumentation.interaction.enabled}) }\n`;
-    }
+    code += `      interaction { enabled(${instrumentation.interaction.enabled}) }\n`;
   }
 
   if (instrumentation?.activity?.enabled !== undefined) {

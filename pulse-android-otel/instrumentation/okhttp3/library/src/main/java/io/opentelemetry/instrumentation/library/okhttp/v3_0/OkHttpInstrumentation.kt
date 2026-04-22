@@ -77,7 +77,7 @@ class OkHttpInstrumentation : AndroidInstrumentation {
         }
 
     private var peerServiceMapping: Map<String, String> = emptyMap()
-    private var shouldEmitExperimentalHttpClientTelemetry = false
+    private var shouldEmitExperimentalHttpClientTelemetry = true
 
     /**
      * Adds an [AttributesExtractor] that will extract additional attributes.

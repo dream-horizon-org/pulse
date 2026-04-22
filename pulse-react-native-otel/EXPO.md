@@ -1,7 +1,6 @@
 # Expo integration
 
-Pulse ships an **Expo config plugin** so Android / iOS native SDKs are wired from **`app.json`**.
----
+## Pulse ships an **Expo config plugin** so Android / iOS native SDKs are wired from **`app.json`**.
 
 ## Quick setup
 
@@ -167,10 +166,11 @@ Values: strings, numbers, booleans, or arrays of those types.
 
 #### `urlSession`
 
-| Field                  | Type    | Description           |
-| ---------------------- | ------- | --------------------- |
-| `enabled`              | boolean | Instrument URLSession |
-| `excludeOtlpEndpoints` | boolean | Skip your OTLP host   |
+| Field     | Type    | Description           |
+| --------- | ------- | --------------------- |
+| `enabled` | boolean | Instrument URLSession |
+
+OTLP export URLs on the collector origin are skipped automatically in PulseKit (no Expo field).
 
 #### `sessions`
 
@@ -183,10 +183,11 @@ Values: strings, numbers, booleans, or arrays of those types.
 
 #### `interaction`
 
-| Field       | Type    | Description       |
-| ----------- | ------- | ----------------- |
-| `enabled`   | boolean | Interactions      |
-| `configUrl` | string  | Remote config URL |
+| Field     | Type    | Description  |
+| --------- | ------- | ------------ |
+| `enabled` | boolean | Interactions |
+
+Interaction config URL comes from remote SDK config, not `app.json`.
 
 #### `uiKitTap`
 
@@ -276,7 +277,7 @@ Pulse.markContentReady();
 
 `app.json` enables Pulse wiring; **view clicks** still need OTel artifacts in **`android/app/build.gradle`** (after `prebuild`):
 
-```kotlin
+````kotlin
 // XML / classic views (pulse-android-otel/instrumentation/view-click)
 implementation("'org.dreamhorizon.instrumentation:view-click:0.0.8-alpha'")
 
@@ -289,4 +290,4 @@ Only **`app.json`** — under **`ios.instrumentation.uiKitTap`**, for example:
   "enabled": true,
   "captureContext": true
 }
-```
+````
