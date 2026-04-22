@@ -108,7 +108,7 @@ public class RcaReportEnrichmentService {
               return fetchSessionEvidenceForAllSegments(segments, projectId, entityKey, date)
                   .flatMap(
                       enrichedSegments -> {
-                        ObjectNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
+                        JsonNode rcPayloadNode = working.get(ROOT_CAUSE_PAYLOAD_FIELD);
                         if (rcPayloadNode instanceof ObjectNode rcPayload) {
                           rcPayload.set("segments", objectMapper.valueToTree(enrichedSegments));
                         }

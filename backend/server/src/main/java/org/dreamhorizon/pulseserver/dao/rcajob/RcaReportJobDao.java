@@ -88,7 +88,7 @@ public class RcaReportJobDao {
     return mysqlClient
         .getReaderPool()
         .preparedQuery(RcaReportJobQueries.GET_ACTIVE_JOB_BY_KEY)
-        .rxExecute(Tuple.of(
+        .rxExecute(Tuple.wrap(new Object[] {
             projectId,
             type.name(),
             entityKey,
@@ -96,7 +96,7 @@ public class RcaReportJobDao {
             pending,
             processing,
             processing,
-            pending))
+            pending}))
         .flatMapMaybe(
             rows -> {
               if (rows.size() == 0) {

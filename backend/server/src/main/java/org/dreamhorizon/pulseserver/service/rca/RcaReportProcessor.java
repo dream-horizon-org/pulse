@@ -11,8 +11,8 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.vertx.core.Vertx;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
@@ -25,6 +25,7 @@ import org.dreamhorizon.pulseserver.service.ai.impl.AiUpstreamProxyExecutor;
 import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 
 /** Worker-side RCA pipeline: enrich → AI → merge heatmaps → MySQL cache. */
 @Slf4j
@@ -34,6 +35,7 @@ public class RcaReportProcessor {
 
   private static final String RCA_REPORT_PATH = "rca/report";
   private static final int ERR_MSG_MAX = 4000;
+  private static final long HEATMAP_FETCH_TIMEOUT_SEC = 30;
 
   private final Vertx vertx;
   private final RcaReportJobDao jobDao;
@@ -53,87 +55,69 @@ public class RcaReportProcessor {
       final String rawQuery) {
     vertx.executeBlocking(
         () -> {
-          runPipeline(job, requestBody, forceRootCauseRefresh, authorization, rawQuery);
+          runPipeline(job, requestBody, forceRootCauseRefresh, authorization, rawQuery)
+              .blockingAwait();
           return null;
         },
         false,
         ar -> {
           if (ar.failed()) {
             log.error("RCA job worker failed for {}", job.jobId(), ar.cause());
-            jobDao
-                .markFailed(
-                    job.jobId(),
-                    job.projectId(),
-                    job.entityType(),
-                    job.entityKey(),
-                    job.date(),
-                    truncateMessage(ar.cause().getMessage()))
+            markJobFailed(job, truncateMessage(ar.cause().getMessage()))
                 .subscribe(() -> {}, e -> log.warn("markFailed failed: {}", e.getMessage()));
           }
         });
   }
 
-  private void runPipeline(
+  /**
+   * Fully reactive RCA pipeline. All operations composed as RxJava chain with proper
+   * error handling at each step. No blocking calls except the single blockingAwait()
+   * inside vertx.executeBlocking() which is required by the worker pattern.
+   */
+  private Completable runPipeline(
       final RcaReportJob job,
       final String requestBody,
       final boolean forceRootCauseRefresh,
       final String authorization,
       final String rawQuery) {
-    try {
-      log.info("RCA job {} starting pipeline", job.jobId());
-      jobDao.updateStatus(job.jobId(), RcaJobStatus.PROCESSING).blockingAwait();
 
-      RcaParsedReportBody parsed = parseJobRequest(job, requestBody, forceRootCauseRefresh);
+    log.info("RCA job {} starting pipeline", job.jobId());
 
-      RcaEnrichmentOutcome enrichment =
-          enrichmentService
-              .enrichAsync(parsed, forceRootCauseRefresh)
-              .toCompletableFuture()
-              .join();
-
-      String targetUrl = upstream.buildTargetUrl(RCA_REPORT_PATH, rawQuery);
-      AiProxyUpstreamResult proxyResult =
-          Single.fromCompletionStage(
+    return jobDao
+        .updateStatus(job.jobId(), RcaJobStatus.PROCESSING)
+        .andThen(Single.fromCallable(() -> parseJobRequest(job, requestBody, forceRootCauseRefresh)))
+        .flatMap(parsed -> Single.fromCompletionStage(enrichmentService.enrichAsync(parsed, forceRootCauseRefresh)))
+        .flatMap(
+            enrichment -> {
+              String targetUrl = upstream.buildTargetUrl(RCA_REPORT_PATH, rawQuery);
+              return Single.fromCompletionStage(
                   upstream.executeProxy(
                       "POST", targetUrl, enrichment.body(), authorization, job.projectId()))
-              .blockingGet();
-
-      if (!AiProxyUpstreamResult.isSuccessfulBuffered(proxyResult)) {
-        log.warn(
-            "RCA job {} AI upstream error status={} body={}",
-            job.jobId(),
-            proxyResult.getStatusCode(),
-            proxyResult.getBufferedBody());
-        jobDao
-            .markFailed(
-                job.jobId(),
-                job.projectId(),
-                job.entityType(),
-                job.entityKey(),
-                job.date(),
-                truncateMessage(
-                    extractUpstreamErrorMessage(
-                        proxyResult.getStatusCode(), proxyResult.getBufferedBody())))
-            .blockingAwait();
-        return;
-      }
-
-      finalizeSuccessfulRcaProxyResult(proxyResult, enrichment, job).toCompletableFuture().join();
-      jobDao
-          .markCompleted(job.jobId(), job.projectId(), job.entityType(), job.entityKey(), job.date())
-          .blockingAwait();
-    } catch (Exception e) {
-      log.error("RCA job {} failed", job.jobId(), e);
-      jobDao
-          .markFailed(
-              job.jobId(),
-              job.projectId(),
-              job.entityType(),
-              job.entityKey(),
-              job.date(),
-              truncateMessage(e.getMessage()))
-          .blockingAwait();
-    }
+                  .map(proxyResult -> new EnrichmentWithResult(enrichment, proxyResult));
+            })
+        .flatMap(
+            pair -> {
+              AiProxyUpstreamResult proxyResult = pair.proxyResult();
+              if (!AiProxyUpstreamResult.isSuccessfulBuffered(proxyResult)) {
+                log.warn(
+                    "RCA job {} AI upstream error status={} body={}",
+                    job.jobId(),
+                    proxyResult.getStatusCode(),
+                    proxyResult.getBufferedBody());
+                String errorMessage =
+                    extractUpstreamErrorMessage(proxyResult.getStatusCode(), proxyResult.getBufferedBody());
+                return markJobFailed(job, truncateMessage(errorMessage))
+                    .andThen(Single.error(new RuntimeException("AI upstream error: " + errorMessage)));
+              }
+              return finalizeSuccessfulRcaProxyResult(pair.proxyResult(), pair.enrichment(), job)
+                  .flatMap(r -> markJobCompleted(job).andThen(Single.defer(() -> Single.just(r))));
+            })
+        .ignoreElement()
+        .onErrorResumeNext(
+            error -> {
+              log.error("RCA job {} failed", job.jobId(), error);
+              return markJobFailed(job, truncateMessage(error.getMessage()));
+            });
   }
 
   private RcaParsedReportBody parseJobRequest(
@@ -157,90 +141,105 @@ public class RcaReportProcessor {
         forceRootCauseRefresh);
   }
 
-  private CompletionStage<AiProxyUpstreamResult> finalizeSuccessfulRcaProxyResult(
+  /**
+   * Finalizes successful RCA result by merging heatmaps if applicable.
+   * Fully reactive using RxJava operators.
+   */
+  private Single<AiProxyUpstreamResult> finalizeSuccessfulRcaProxyResult(
       final AiProxyUpstreamResult result,
       final RcaEnrichmentOutcome enrichment,
       final RcaReportJob job) {
+
     String body = result.getBufferedBody();
-    if (enrichment.enrichmentOk()
-        && enrichment.rootCause() != null
-        && enrichment.rootCause().getSegments() != null
-        && !enrichment.rootCause().getSegments().isEmpty()) {
-      try {
-        JsonNode tree = objectMapper.readTree(body);
-        if (tree instanceof ObjectNode root) {
-          RootCauseQueryBuilder.Window window =
-              new RootCauseQueryBuilder.Window(
-                  enrichment.anchorDate(),
-                  rootCauseConfig.getLookbackDays(),
-                  enrichment.windowEndExclusive());
-          CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
-          rootCauseService
-              .fetchDistinctScreensForInteraction(
-                  job.projectId(), job.entityKey(), window)
-              .subscribeOn(Schedulers.io())
-              .timeout(30, java.util.concurrent.TimeUnit.SECONDS)
-              .subscribe(
-                  screens -> {
-                    try {
-                      rcaRelatedHeatmapsMerger.mergeInto(
-                          root, enrichment.rootCause().getSegments(), window, screens);
-                      String merged = objectMapper.writeValueAsString(root);
-                      persistBufferedRcaReport(merged, result, job)
-                          .whenComplete(
-                              (updated, err) -> {
-                                if (err != null) {
-                                  done.completeExceptionally(err);
-                                } else {
-                                  done.complete(updated);
-                                }
-                              });
-                    } catch (Exception e) {
-                      log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
-                      persistBufferedRcaReport(body, result, job)
-                          .whenComplete(
-                              (updated, err) -> {
-                                if (err != null) {
-                                  done.completeExceptionally(err);
-                                } else {
-                                  done.complete(updated);
-                                }
-                              });
-                    }
-                  },
-                  err -> done.completeExceptionally(err));
-          return done;
-        }
-      } catch (Exception e) {
-        log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
-      }
+
+    boolean shouldMergeHeatmaps =
+        enrichment.enrichmentOk()
+            && enrichment.rootCause() != null
+            && enrichment.rootCause().getSegments() != null
+            && !enrichment.rootCause().getSegments().isEmpty();
+
+    if (!shouldMergeHeatmaps) {
+      return persistBufferedRcaReport(body, result, job);
     }
-    return persistBufferedRcaReport(body, result, job);
+
+    JsonNode tree;
+    try {
+      tree = objectMapper.readTree(body);
+    } catch (Exception e) {
+      log.warn("Failed to parse RCA response body for heatmap merging: {}", e.getMessage());
+      return persistBufferedRcaReport(body, result, job);
+    }
+
+    if (!(tree instanceof ObjectNode root)) {
+      return persistBufferedRcaReport(body, result, job);
+    }
+
+    RootCauseQueryBuilder.Window window =
+        new RootCauseQueryBuilder.Window(
+            enrichment.anchorDate(),
+            rootCauseConfig.getLookbackDays(),
+            enrichment.windowEndExclusive());
+
+    List<RootCauseSegment> segments = enrichment.rootCause().getSegments();
+
+    return rootCauseService
+        .fetchDistinctScreensForInteraction(job.projectId(), job.entityKey(), window)
+        .subscribeOn(Schedulers.io())
+        .timeout(HEATMAP_FETCH_TIMEOUT_SEC, TimeUnit.SECONDS)
+        .flatMap(
+            screens -> {
+              try {
+                rcaRelatedHeatmapsMerger.mergeInto(root, segments, window, screens);
+                String merged = objectMapper.writeValueAsString(root);
+                return persistBufferedRcaReport(merged, result, job);
+              } catch (Exception e) {
+                log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
+                return persistBufferedRcaReport(body, result, job);
+              }
+            })
+        .onErrorResumeNext(
+            error -> {
+              log.warn("Failed to fetch screens for heatmap merging: {}", error.getMessage());
+              return persistBufferedRcaReport(body, result, job);
+            });
   }
 
-  private CompletionStage<AiProxyUpstreamResult> persistBufferedRcaReport(
+  private Single<AiProxyUpstreamResult> persistBufferedRcaReport(
       final String body, final AiProxyUpstreamResult result, final RcaReportJob job) {
     String withMeta = applyCacheMetadata(body, true, Instant.now());
     String mediaType = result.getMediaType();
     AiProxyUpstreamResult updated =
         AiProxyUpstreamResult.buffered(result.getStatusCode(), mediaType, withMeta);
-    Completable putOp =
-        rcaReportCacheDao.put(
+
+    return rcaReportCacheDao
+        .put(
             job.projectId(),
             job.entityType(),
             job.entityKey(),
             job.date(),
-            updated.getBufferedBody());
-    CompletableFuture<AiProxyUpstreamResult> done = new CompletableFuture<>();
-    putOp.andThen(Single.just(updated)).subscribe(done::complete, done::completeExceptionally);
-    return done;
+            updated.getBufferedBody())
+        .andThen(Single.just(updated));
+  }
+
+  private Completable markJobCompleted(final RcaReportJob job) {
+    return jobDao.markCompleted(
+        job.jobId(), job.projectId(), job.entityType(), job.entityKey(), job.date());
+  }
+
+  private Completable markJobFailed(final RcaReportJob job, final String errorMessage) {
+    return jobDao.markFailed(
+        job.jobId(),
+        job.projectId(),
+        job.entityType(),
+        job.entityKey(),
+        job.date(),
+        errorMessage);
   }
 
   private String applyCacheMetadata(final String body, final boolean cached, final Instant cachedAt) {
     try {
       JsonNode node = objectMapper.readTree(body);
-      if (node instanceof ObjectNode) {
-        ObjectNode obj = (ObjectNode) node;
+      if (node instanceof ObjectNode obj) {
         obj.put("cached", cached);
         if (cachedAt != null) {
           obj.put("cachedAt", DateTimeFormatter.ISO_INSTANT.format(cachedAt));
@@ -286,4 +285,6 @@ public class RcaReportProcessor {
     }
     return message.substring(0, ERR_MSG_MAX);
   }
+
+  private record EnrichmentWithResult(RcaEnrichmentOutcome enrichment, AiProxyUpstreamResult proxyResult) {}
 }
