@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.dao.project;
 import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.CHECK_PROJECT_EXISTS;
 import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.DEACTIVATE_PROJECT;
 import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_ACTIVE_PROJECT_COUNT;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_ALL_ACTIVE_PROJECT_IDS;
 import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_PROJECTS_BY_TENANT_ID;
 import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_PROJECT_BY_PROJECT_ID;
 import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.INSERT_PROJECT;
@@ -14,6 +15,8 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import java.util.ArrayList;
+import java.util.List;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
@@ -134,6 +137,21 @@ public class ProjectDao {
         .createdAt(row.getLocalDateTime("created_at") != null ? row.getLocalDateTime("created_at").toString() : null)
         .updatedAt(row.getLocalDateTime("updated_at") != null ? row.getLocalDateTime("updated_at").toString() : null)
         .build();
+  }
+
+  /** All active projects in the database (used for superadmin project listing). */
+  public Single<List<String>> getAllActiveProjectIds() {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_ALL_ACTIVE_PROJECT_IDS)
+        .rxExecute()
+        .map(rowSet -> {
+          List<String> ids = new ArrayList<>();
+          for (Row row : rowSet) {
+            ids.add(row.getString("project_id"));
+          }
+          return ids;
+        })
+        .doOnError(error -> log.error("Failed to list all active project ids", error));
   }
 
   public Single<Integer> getActiveProjectCount(String tenantId) {
