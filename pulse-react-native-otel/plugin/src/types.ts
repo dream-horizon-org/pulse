@@ -16,34 +16,145 @@ export type PulseAttributes = Record<
   PulseAttributeValue | undefined | null
 >;
 
-interface IInteractionConfig {
-  enabled: boolean;
-  url?: string;
+export type PulseDataCollectionState = 'PENDING' | 'ALLOWED' | 'DENIED';
+
+/** Simple on/off for `app.json` instrumentation (Android + iOS). */
+export interface PulseInstrumentationEnabled {
+  enabled?: boolean;
 }
 
-export interface PulsePluginProps {
-  endpointBaseUrl: string;
-  apiKey: string;
-  /**
-   * Initial data collection consent state.
-   * Defaults to PENDING (buffers all telemetry until setDataCollectionState is called).
-   * Use ALLOWED to skip buffering and export immediately.
-   */
-  dataCollectionState?: 'PENDING' | 'ALLOWED' | 'DENIED';
-  endpointHeaders?: Record<string, string>;
-  /**
-   * Optional custom URL for fetching SDK configuration.
-   * If not provided, defaults to: {endpointBaseUrl with port 8080}/v1/configs/active/
-   */
-  configEndpointUrl?: string;
+/** Android interaction block; `url` → Kotlin `setConfigUrl`. */
+export interface PulseAndroidInteractionInstrumentation {
+  enabled: boolean;
+}
+
+/** Android `Pulse.initialize { … }` (under `android` only). */
+export interface PulseAndroidInstrumentationProps {
+  interaction?: PulseAndroidInteractionInstrumentation;
+  activity?: PulseInstrumentationEnabled;
+  network?: PulseInstrumentationEnabled;
+  anr?: PulseInstrumentationEnabled;
+  crash?: PulseInstrumentationEnabled;
+  slowRendering?: PulseInstrumentationEnabled;
+  fragment?: PulseInstrumentationEnabled;
+}
+
+/** iOS interaction toggles; interaction config URL comes from remote SDK config. */
+export interface PulseIosInteractionInstrumentation {
+  enabled?: boolean;
+}
+
+export interface PulseIosUIKitTapRage {
+  timeWindowMs?: number;
+  rageThreshold?: number;
+  radiusPt?: number;
+}
+
+export interface PulseIosUIKitTapInstrumentation {
+  enabled?: boolean;
+  captureContext?: boolean;
+  rage?: PulseIosUIKitTapRage;
+}
+
+export type PulseIosSessionReplayTextPrivacy =
+  | 'maskAll'
+  | 'maskAllInputs'
+  | 'maskSensitiveInputs';
+
+export type PulseIosSessionReplayImagePrivacy = 'maskAll' | 'maskNone';
+
+/** iOS session replay + `SessionReplayConfig` fields expressible from JSON. */
+export interface PulseIosSessionReplayInstrumentation {
+  enabled?: boolean;
+  replayEndpointBaseUrl?: string;
+  maskViewClasses?: string[];
+  unmaskViewClasses?: string[];
+  textAndInputPrivacy?: PulseIosSessionReplayTextPrivacy;
+  imagePrivacy?: PulseIosSessionReplayImagePrivacy;
+  captureIntervalMs?: number;
+  compressionQuality?: number;
+  screenshotScale?: number;
+  flushIntervalSeconds?: number;
+  flushAt?: number;
+  maxBatchSize?: number;
+}
+
+/** iOS URL session instrumentation (`URLSessionInstrumentationConfig`). */
+export interface PulseIosUrlSessionInstrumentation {
+  enabled?: boolean;
+}
+
+/** iOS sessions instrumentation (`SessionsInstrumentationConfig`); times are seconds. */
+export interface PulseIosSessionsInstrumentation {
+  enabled?: boolean;
+  maxLifetimeSeconds?: number;
+  backgroundInactivityTimeoutSeconds?: number;
+  shouldPersist?: boolean;
+}
+
+/** iOS `ios.instrumentation` → PulseKit `InstrumentationConfiguration` (Swift `instrumentations:`). */
+export interface PulseIosInstrumentationProps {
+  urlSession?: PulseIosUrlSessionInstrumentation;
+  sessions?: PulseIosSessionsInstrumentation;
+  signPost?: PulseInstrumentationEnabled;
+  interaction?: PulseIosInteractionInstrumentation;
+  location?: PulseInstrumentationEnabled;
+  crash?: PulseInstrumentationEnabled;
+  appLifecycle?: PulseInstrumentationEnabled;
+  screenLifecycle?: PulseInstrumentationEnabled;
+  appStartup?: PulseInstrumentationEnabled;
+  uiKitTap?: PulseIosUIKitTapInstrumentation;
+  sessionReplay?: PulseIosSessionReplayInstrumentation;
+}
+
+/** iOS `PulseKitConfiguration` (`configuration: { kit in … }`). */
+export interface PulseIosKitConfigurationProps {
+  includeScreenAttributes?: boolean;
+  includeNetworkAttributes?: boolean;
+  includeGlobalAttributes?: boolean;
+}
+
+/** Per-platform overrides; merged with top-level `apiKey` + `dataCollectionState` (both required after merge). */
+export type PulseNativeInitFields = {
+  apiKey?: string;
+  dataCollectionState?: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
-  instrumentation?: {
-    interaction?: IInteractionConfig;
-    activity?: boolean;
-    network?: boolean;
-    anr?: boolean;
-    crash?: boolean;
-    slowRendering?: boolean;
-    fragment?: boolean;
-  };
+};
+
+export interface PulseAndroidSection extends PulseNativeInitFields {
+  instrumentation?: PulseAndroidInstrumentationProps;
+}
+
+export interface PulseIosSection extends PulseNativeInitFields {
+  instrumentation?: PulseIosInstrumentationProps;
+  configuration?: PulseIosKitConfigurationProps;
+}
+
+/** Merged init passed to native codegen. */
+export interface PulsePlatformInitProps {
+  apiKey: string;
+  dataCollectionState: PulseDataCollectionState;
+  globalAttributes?: PulseAttributes;
+}
+
+export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
+  instrumentation?: PulseAndroidInstrumentationProps;
+};
+
+export type ResolvedIosPulseProps = PulsePlatformInitProps & {
+  configuration?: PulseIosKitConfigurationProps;
+  instrumentation?: PulseIosInstrumentationProps;
+};
+
+/**
+ * Expo config plugin props. Top-level `apiKey` and `dataCollectionState` are required.
+ * `android` / `ios`: optional init overrides, `globalAttributes`, `instrumentation`; iOS also `configuration`.
+ * Do not put `globalAttributes`, `instrumentation`, or `configuration` at the top level.
+ */
+export interface PulsePluginProps {
+  apiKey: string;
+  dataCollectionState: PulseDataCollectionState;
+
+  android?: PulseAndroidSection;
+  ios?: PulseIosSection;
 }

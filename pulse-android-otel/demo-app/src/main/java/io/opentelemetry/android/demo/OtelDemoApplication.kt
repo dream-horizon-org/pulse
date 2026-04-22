@@ -14,7 +14,6 @@ import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.PulseSDK
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
-import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
@@ -23,8 +22,6 @@ import io.opentelemetry.api.metrics.LongCounter
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.exporter.otlp.logs.OtlpGrpcLogRecordExporter
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter
-import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.minutes
 
 const val TAG = "otel.demo"
 // Demo API key for local development testing - not a real secret (orca-security-ignore)
@@ -49,20 +46,14 @@ class OtelDemoApplication : Application() {
         runCatching {
             PulseSDK.INSTANCE.initialize(
                 application = application,
-                endpointBaseUrl = "http://10.0.2.2:4318",
                 dataCollectionState = PulseDataCollectionConsent.ALLOWED,
                 apiKey = DEMO_API_KEY,
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
                 },
-                sessionConfig = SessionConfig(
-                    backgroundInactivityTimeout = 2.minutes,
-                    maxLifetime = 1.days
-                ),
             ) {
                 interaction {
                     enabled(true)
-                    setConfigUrl { "http://10.0.2.2:8080/v1/interaction-configs/" }
                 }
                 activity {
                     enabled(true)

@@ -17,6 +17,7 @@ import io.opentelemetry.android.instrumentation.interaction.library.InteractionI
 class InteractionConfiguration internal constructor(
     private val config: OtelRumConfig,
     private val defaultHeaders: Map<String, String> = emptyMap(),
+    urlProvider: () -> String,
 ) : CanBeEnabledAndDisabled {
     private val interactionInstrumentation: InteractionInstrumentation by lazy {
         AndroidInstrumentationLoader.getInstrumentation(
@@ -31,7 +32,7 @@ class InteractionConfiguration internal constructor(
      * Headers from endpointHeaders + apiKey are automatically included.
      * Also see [setConfigFetcher]
      */
-    fun setConfigUrl(urlProvider: () -> String): InteractionConfiguration =
+    private fun setConfigUrl(urlProvider: () -> String): InteractionConfiguration =
         apply {
             interactionInstrumentation.setConfigFetcher(InteractionConfigRestFetcher(urlProvider, defaultHeaders))
         }
@@ -56,5 +57,9 @@ class InteractionConfiguration internal constructor(
         } else {
             config.suppressInstrumentation(interactionInstrumentation.name)
         }
+    }
+
+    init {
+        setConfigUrl(urlProvider)
     }
 }

@@ -30,7 +30,6 @@ export type RcaStructuredSegmentV1 = {
   rank: number;
   title: string;
   metrics: RcaStructuredMetricRowV1[];
-  impact?: string | null;
   insights?: string | null;
   affected_sessions?: string[] | null;
   related_heatmaps?: RcaRelatedHeatmapsV1 | null;
@@ -47,23 +46,75 @@ export type RcaStructuredReportV1 = {
 
 export type RcaReportPayload = {
   structured?: RcaStructuredReportV1 | null;
+  /** Backend may return double-wrapped report: { report: { structured } } */
+  report?: RcaReportPayload | null;
+};
+
+/**
+ * Extracts the structured report from potentially double-wrapped payload.
+ * Handles both { structured } and { report: { structured } } formats.
+ */
+export const extractStructuredReport = (
+  payload: RcaReportPayload | null | undefined,
+): RcaStructuredReportV1 | null | undefined => {
+  if (payload == null) {
+    return null;
+  }
+  // Direct structured content
+  if (payload.structured != null) {
+    return payload.structured;
+  }
+  // Nested report: { report: { structured } }
+  if (payload.report?.structured != null) {
+    return payload.report.structured;
+  }
+  return null;
 };
 
 export const isRcaStructuredReportV1WithContent = (
   structured: RcaStructuredReportV1 | null | undefined,
-): boolean =>
-  structured?.version === 1 &&
-  ((structured.executive_summary?.trim() ?? "") !== "" ||
+): boolean => {
+  if (structured == null) {
+    return false;
+  }
+  const hasContent =
+    (structured.executive_summary?.trim() ?? "") !== "" ||
     (structured.segments?.length ?? 0) > 0 ||
-    (structured.recommendations?.length ?? 0) > 0 ||
-    structured.errorAttribution != null);
+    (structured.recommendations?.length ?? 0) > 0;
+  return hasContent;
+};
 
 export type RcaReportResponse = {
   report?: RcaReportPayload | null;
   cached?: boolean;
   /** ISO-8601 instant when served from MySQL cache (pulse-server only) */
   cachedAt?: string | null;
+  regeneratedBy?: string | null;
+  regeneratedAt?: string | null;
 };
+
+/** Job lifecycle for async RCA generation (polling). */
+export type RcaJobStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+
+/** Normalized status including client-side guard for unexpected API values. */
+export type RcaNormalizedJobStatus = RcaJobStatus | "UNKNOWN";
+
+/**
+ * Full job payload from GET /v1/ai-rca/job/{jobId} (and superset for POST 202 body).
+ * Some fields are only present in certain states (e.g. report on COMPLETED).
+ */
+export interface RcaJobResponse {
+  jobId: string;
+  status: RcaJobStatus;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  report?: RcaReportPayload;
+  errorMessage?: string;
+  isJoiningExistingJob?: boolean;
+  cached?: boolean;
+  cachedAt?: string;
+}
 
 export type UseGetRcaReportParams = {
   interactionName: string | null;
@@ -71,4 +122,8 @@ export type UseGetRcaReportParams = {
   enabled?: boolean;
   /** Included in query key so requests refetch when project context changes (e.g. synced from URL) */
   projectId?: string | null;
+  /**
+   * Increment when forcing a new POST (e.g. after regenerate returns 200) while interaction/date/project are unchanged.
+   */
+  requestSession?: number;
 };

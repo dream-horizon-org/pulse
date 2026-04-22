@@ -119,6 +119,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               url: `${API_BASE_URL}${API_ROUTES.GET_PROJECT.apiPath.replace(":projectId", targetProjectId)}`,
               init: {
                 method: API_ROUTES.GET_PROJECT.method,
+                headers: {
+                  // Same as useGetProject: bootstrap fetch runs before pulse_project_context exists.
+                  "X-Project-ID": targetProjectId,
+                },
               },
             }),
           // Force fresh fetch - don't use stale cache

@@ -1,5 +1,11 @@
 #import "PulseReactNativeOtel.h"
 
+#if __has_include(<PulseReactNativeOtel/PulseReactNativeOtel-Swift.h>)
+#import <PulseReactNativeOtel/PulseReactNativeOtel-Swift.h>
+#elif __has_include("PulseReactNativeOtel-Swift.h")
+#import "PulseReactNativeOtel-Swift.h"
+#endif
+
 @implementation PulseReactNativeOtel
 
 RCT_EXPORT_MODULE()
@@ -9,60 +15,99 @@ RCT_EXPORT_MODULE()
   return NO;
 }
 
-- (instancetype)init
+#pragma mark - Shared implementation (used by both arches)
+
+- (NSNumber *)doIsInitialized
 {
-  self = [super init];
-  if (self) {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-      NSLog(@"[Pulse] iOS support coming soon. All operations will be no-ops.");
-    });
-  }
-  return self;
+  return @([PulseSDK pulseIsInitialized]);
 }
 
-#pragma mark - Shared implementation
-
-- (NSNumber *)doIsInitialized { return @NO; }
-
 - (NSNumber *)doTrackEvent:(NSString *)event observedTimeMs:(double)observedTimeMs properties:(NSDictionary *)properties
-{ return @NO; }
+{
+  [PulseReactNativeOtelLogger trackEvent:event observedTimeMs:observedTimeMs properties:properties];
+  return @YES;
+}
 
-- (NSString *)doStartSpan:(NSString *)name inheritContext:(NSNumber *)inheritContext attributes:(NSDictionary *)attributes
-{ return [NSString stringWithFormat:@"noop-ios-%@", [[NSUUID UUID] UUIDString]]; }
+- (NSString *)doStartSpan:(NSString *)name inheritContext:(BOOL)inheritContext attributes:(NSDictionary *)attributes
+{
+  return [PulseReactNativeOtelTracer startSpan:name inheritContext:inheritContext attributes:attributes];
+}
 
 - (NSNumber *)doEndSpan:(NSString *)spanId statusCode:(NSString *)statusCode
-{ return @NO; }
+{
+  [PulseReactNativeOtelTracer endSpan:spanId statusCode:statusCode];
+  return @YES;
+}
 
 - (NSNumber *)doAddSpanEvent:(NSString *)spanId name:(NSString *)name attributes:(NSDictionary *)attributes
-{ return @NO; }
+{
+  [PulseReactNativeOtelTracer addEvent:spanId name:name attributes:attributes];
+  return @YES;
+}
 
 - (NSNumber *)doSetSpanAttributes:(NSString *)spanId attributes:(NSDictionary *)attributes
-{ return @NO; }
+{
+  [PulseReactNativeOtelTracer setAttributes:spanId attributes:attributes];
+  return @YES;
+}
 
 - (NSNumber *)doRecordSpanException:(NSString *)spanId errorMessage:(NSString *)errorMessage stackTrace:(NSString *)stackTrace
-{ return @NO; }
+{
+  [PulseReactNativeOtelTracer recordException:spanId errorMessage:errorMessage stackTrace:stackTrace];
+  return @YES;
+}
 
 - (NSNumber *)doReportException:(NSString *)errorMessage observedTimeMs:(double)observedTimeMs stackTrace:(NSString *)stackTrace isFatal:(BOOL)isFatal errorType:(NSString *)errorType attributes:(NSDictionary *)attributes
-{ return @NO; }
+{
+  [PulseReactNativeOtelLogger reportException:errorMessage observedTimeMs:observedTimeMs stackTrace:stackTrace isFatal:isFatal errorType:errorType attributes:attributes];
+  return @YES;
+}
 
-- (NSNumber *)doDiscardSpan:(NSString *)spanId { return @NO; }
+- (NSNumber *)doDiscardSpan:(NSString *)spanId
+{
+  [PulseReactNativeOtelTracer discardSpan:spanId];
+  return @YES;
+}
 
-- (void)doSetUserId:(NSString *)id { }
+- (void)doSetUserId:(NSString *)id
+{
+  [PulseSDK pulseSetUserId:id];
+}
 
-- (void)doSetUserProperties:(NSDictionary *)properties { }
+- (void)doSetUserProperties:(NSDictionary *)properties
+{
+  NSDictionary<NSString *, PulseAttributeValue *> *converted = [AttributeValueConverter convertFromDictionary:properties];
+  [PulseSDK pulseSetUserProperties:converted];
+}
 
-- (void)doSetUserProperty:(NSString *)name value:(NSString *)value { }
+- (void)doSetUserProperty:(NSString *)name value:(NSString *)value
+{
+  PulseAttributeValue *attrValue = value ? [PulseAttributeValue attributeValueFromValue:value] : nil;
+  [PulseSDK pulseSetUserProperty:name value:attrValue];
+}
 
-- (void)doTriggerAnr { }
+- (void)doSetDataCollectionState:(NSString *)state
+{
+  [PulseSDK pulseSetDataCollectionState:state ?: @"PENDING"];
+}
 
-- (NSNumber *)doSetCurrentScreenName:(NSString *)screenName { return @NO; }
+- (NSNumber *)doSetCurrentScreenName:(NSString *)screenName
+{
+  [ReactNativeScreenNameTracker setCurrentScreenName:screenName];
+  return @YES;
+}
 
-- (NSDictionary *)doGetAllFeatures { return nil; }
+- (NSNumber *)doShutdown
+{
+  return @([PulseSDK shutdown]);
+}
 
-- (NSNumber *)doShutdown { return @YES; }
+- (NSDictionary *)doGetAllFeatures
+{
+  return [PulseSDK pulseGetAllFeatures];
+}
 
-#pragma mark - New Architecture
+#pragma mark - New Architecture (no macros; TurboModule/spec calls these directly)
 
 #if RCT_NEW_ARCH_ENABLED
 
@@ -71,7 +116,7 @@ RCT_EXPORT_MODULE()
 - (NSNumber *)trackEvent:(NSString *)event observedTimeMs:(double)observedTimeMs properties:(NSDictionary *)properties
 { return [self doTrackEvent:event observedTimeMs:observedTimeMs properties:properties]; }
 
-- (NSString *)startSpan:(NSString *)name inheritContext:(NSNumber *)inheritContext attributes:(NSDictionary *)attributes
+- (NSString *)startSpan:(NSString *)name inheritContext:(BOOL)inheritContext attributes:(NSDictionary *)attributes
 { return [self doStartSpan:name inheritContext:inheritContext attributes:attributes]; }
 
 - (NSNumber *)endSpan:(NSString *)spanId statusCode:(NSString *)statusCode
@@ -97,20 +142,22 @@ RCT_EXPORT_MODULE()
 
 - (void)setUserProperty:(NSString *)name value:(NSString *)value { [self doSetUserProperty:name value:value]; }
 
-- (void)triggerAnr { [self doTriggerAnr]; }
+- (void)setDataCollectionState:(NSString *)state { [self doSetDataCollectionState:state]; }
+
+- (void)triggerAnr { }
+
+- (NSNumber *)shutdown { return [self doShutdown]; }
 
 - (NSNumber *)setCurrentScreenName:(NSString *)screenName { return [self doSetCurrentScreenName:screenName]; }
 
 - (NSDictionary *)getAllFeatures { return [self doGetAllFeatures]; }
-
-- (NSNumber *)shutdown { return [self doShutdown]; }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:(const facebook::react::ObjCTurboModule::InitParams &)params
 {
   return std::make_shared<facebook::react::NativePulseReactNativeOtelSpecJSI>(params);
 }
 
-#pragma mark - Old Architecture
+#pragma mark - Old Architecture (RCT_EXPORT_* so bridge discovers methods)
 
 #else
 
@@ -147,9 +194,6 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(setCurrentScreenName:(NSString *)screenNa
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getAllFeatures)
 { return [self doGetAllFeatures]; }
 
-RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(shutdown)
-{ return [self doShutdown]; }
-
 RCT_EXPORT_METHOD(setUserId:(NSString *)id)
 { [self doSetUserId:id]; }
 
@@ -159,8 +203,14 @@ RCT_EXPORT_METHOD(setUserProperties:(NSDictionary *)properties)
 RCT_EXPORT_METHOD(setUserProperty:(NSString *)name value:(NSString *)value)
 { [self doSetUserProperty:name value:value]; }
 
+RCT_EXPORT_METHOD(setDataCollectionState:(NSString *)state)
+{ [self doSetDataCollectionState:state]; }
+
 RCT_EXPORT_METHOD(triggerAnr)
-{ [self doTriggerAnr]; }
+{ }
+
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(shutdown)
+{ return [self doShutdown]; }
 
 #endif
 

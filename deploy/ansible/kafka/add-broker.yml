@@ -1,0 +1,212 @@
+---
+# add-broker.yml
+#
+# Adds a new broker to an existing KRaft cluster (combined broker+controller mode).
+# Run AFTER Terraform has provisioned the new EC2 instance and attached its EBS volume.
+#
+# Steps:
+#   1. Configure and start the new broker (combined broker+controller)
+#   2. Force-reformat the new broker's KRaft storage so it registers with the
+#      correct FQDN-based controller endpoint (not the raw EC2 hostname)
+#   3. Update controller.quorum.voters on existing brokers (rolling restart)
+#   4. Trigger partition rebalance so the new broker gets its share of partitions
+#
+# Required extra_vars:
+#   new_broker_host    – FQDN of the new broker, e.g. pulse-kafka-03.pulse.local
+#   new_node_id        – KRaft node ID for the new broker (must be unique, e.g. 3)
+#   kraft_cluster_id   – from SSM /pulse/kafka/production/kraft_cluster_id
+#   num_brokers        – total broker count AFTER adding this one
+#   route53_zone_name  – e.g. pulse.local
+#
+# Example:
+#   ansible-playbook add-broker.yml \
+#     -i inventory/hosts.ini \
+#     -e new_broker_host=pulse-kafka-03.pulse.local \
+#     -e new_node_id=3 \
+#     -e kraft_cluster_id=<id> \
+#     -e num_brokers=3 \
+#     -e route53_zone_name=pulse.local
+
+# Pre-play — Register the new broker into in-memory inventory.
+# It won't be in hosts.ini yet (Terraform just created it), so we add it dynamically.
+- name: Register new broker in inventory
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - add_host:
+        name: "{{ new_broker_host }}"
+        groups:
+          - new_broker
+          - kafka_brokers
+        ansible_user: admin
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+
+# Phase 1 — Configure and start the new broker
+- name: Configure new broker
+  hosts: new_broker
+  become: true
+  vars:
+    node_id: "{{ new_node_id }}"
+    process_roles: "broker,controller"
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: true
+    - name: restart kafka
+      systemd:
+        name: kafka
+        state: restarted
+
+  tasks:
+    - name: Configure broker
+      include_tasks: tasks/configure-broker-tasks.yml
+
+# Phase 1b — Force-reformat the new broker's KRaft storage.
+# Reason: the first run registered the CONTROLLER endpoint using the raw EC2
+# hostname (e.g. ip-10-250-0-x) because listeners=CONTROLLER://0.0.0.0:9093
+# was used. That is now fixed to use the FQDN in configure-broker-tasks.yml,
+# so we must reformat to register the correct endpoint in the quorum metadata.
+- name: Re-register new broker with correct controller endpoint
+  hosts: new_broker
+  become: true
+
+  tasks:
+    - name: Stop kafka before reformat
+      systemd:
+        name: kafka
+        state: stopped
+
+    - name: Remove KRaft formatted marker (forces reformat on next start)
+      file:
+        path: "{{ kafka_log_dir }}/.kraft_formatted"
+        state: absent
+
+    - name: Wipe existing KRaft metadata log
+      shell: "rm -rf {{ kafka_log_dir }}/__cluster_metadata-0"
+      changed_when: true
+
+    - name: Reformat KRaft storage with correct FQDN-based endpoint
+      shell: |
+        "{{ kafka_dir }}/bin/kafka-storage.sh" format \
+          -t "{{ kraft_cluster_id }}" \
+          -c "{{ kafka_dir }}/config/kraft/server.properties"
+        touch "{{ kafka_log_dir }}/.kraft_formatted"
+
+    - name: Start kafka with corrected endpoint
+      systemd:
+        name: kafka
+        state: started
+
+    - name: Wait for Kafka to be ready after reformat
+      shell: "{{ kafka_dir }}/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+      register: kafka_ready
+      retries: 30
+      delay: 5
+      until: kafka_ready.rc == 0
+      changed_when: false
+
+# Phase 2 — Update controller.quorum.voters on existing brokers and rolling-restart.
+# Each existing broker gets the new voters list (1,2,3) then restarts one at a time.
+- name: Update KRaft quorum voters on existing brokers
+  hosts: "kafka_brokers:!new_broker"
+  become: true
+  serial: 1   # rolling restart — one broker at a time
+
+  tasks:
+    - name: Build updated quorum voters string
+      shell: |
+        QUORUM=""
+        for i in $(seq 1 {{ num_brokers }}); do
+          IDX=$(printf "%02d" $i)
+          ENTRY="${i}@pulse-kafka-${IDX}.{{ route53_zone_name }}:9093"
+          QUORUM="${QUORUM:+$QUORUM,}$ENTRY"
+        done
+        echo "$QUORUM"
+      register: quorum_result
+      changed_when: false
+
+    - name: Update controller.quorum.voters in server.properties
+      lineinfile:
+        path: "{{ kafka_dir | default('/opt/kafka') }}/config/kraft/server.properties"
+        regexp: '^controller\.quorum\.voters='
+        line: "controller.quorum.voters={{ quorum_result.stdout }}"
+      register: voters_updated
+
+    - name: Restart kafka to apply updated quorum config
+      systemd:
+        name: kafka
+        state: restarted
+      when: voters_updated.changed
+
+    - name: Wait for broker to rejoin after restart
+      wait_for:
+        host: "{{ inventory_hostname }}"
+        port: 9092
+        delay: 5
+        timeout: 300
+      when: voters_updated.changed
+
+    - name: Verify broker is fully ready (not just port open)
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-topics.sh --bootstrap-server {{ inventory_hostname }}:9092 --list"
+      register: broker_ready
+      retries: 12
+      delay: 10
+      until: broker_ready.rc == 0
+      changed_when: false
+      when: voters_updated.changed
+
+# Phase 2b — Verify quorum (informational — does not fail the job)
+- name: Verify quorum status
+  hosts: "{{ existing_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
+  become: true
+
+  tasks:
+    - name: Print quorum status
+      shell: |
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh" \
+          --bootstrap-controller {{ inventory_hostname }}:9093 describe --status
+      register: quorum_status
+      changed_when: false
+
+    - name: Show quorum status
+      debug:
+        var: quorum_status.stdout_lines
+
+# Phase 3 — Rebalance partitions onto new broker
+- name: Trigger partition rebalance
+  hosts: "{{ existing_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
+  become: true
+
+  tasks:
+    - name: Generate reassignment plan
+      shell: |
+        BROKERS=$(seq -s, 1 {{ num_brokers }})
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 --list \
+          | while read t; do echo "{\"topic\": \"$t\"}"; done \
+          | paste -sd ',' > /tmp/broker-topics.tmp
+        cat > /tmp/topics-to-reassign.json <<EOF
+        {"topics": [$(cat /tmp/broker-topics.tmp)], "version": 1}
+        EOF
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --broker-list "$BROKERS" \
+          --topics-to-move-json-file /tmp/topics-to-reassign.json \
+          --generate \
+          | grep '^{"version"' | tail -1 > /tmp/reassignment-plan.json
+        cat /tmp/reassignment-plan.json
+      register: reassignment_plan
+      changed_when: false
+
+    - name: Execute partition reassignment
+      shell: |
+        "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --reassignment-json-file /tmp/reassignment-plan.json \
+          --execute
+      when: reassignment_plan.stdout != ""
+
+    - name: Print reassignment status
+      debug:
+        msg: "Partition rebalance started. Monitor with: kafka-reassign-partitions.sh --verify"

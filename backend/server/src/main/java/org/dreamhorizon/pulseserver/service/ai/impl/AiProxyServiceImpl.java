@@ -2,20 +2,14 @@ package org.dreamhorizon.pulseserver.service.ai.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.config.RootCauseConfig;
-import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
-import org.dreamhorizon.pulseserver.service.errorattribution.RcaReportErrorAttributionMerger;
-import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
-import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
-import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
+import org.dreamhorizon.pulseserver.service.rca.RcaReportJobService;
+import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
 
 /**
  * HTTP client implementation for forwarding requests to the Pulse AI service.
@@ -42,25 +36,26 @@ public class AiProxyServiceImpl implements AiProxyService {
 
   @Inject
   public AiProxyServiceImpl(
-      @Named(Constants.WEB_CLIENT_AI_PROXY) WebClient webClient,
-      ApplicationConfig config,
+      AiUpstreamProxyExecutor upstreamExecutor,
       ObjectMapper objectMapper,
-      RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao,
-      SessionEvidenceService sessionEvidenceService,
-      RootCauseConfig rootCauseConfig,
-      RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger,
-      RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger) {
-    this(wiringForProduction(webClient, config, objectMapper, rootCauseService, rcaReportCacheDao,
-        sessionEvidenceService, rootCauseConfig,
-        rcaRelatedHeatmapsMerger, rcaReportErrorAttributionMerger));
+      RcaReportJobService rcaReportJobService,
+      RcaReportProcessor rcaReportProcessor) {
+    this.upstreamExecutor = upstreamExecutor;
+    this.rcaReportProxyHandler =
+        new RcaReportProxyHandler(
+            objectMapper, rcaReportCacheDao, rcaReportJobService, rcaReportProcessor);
+    log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
   }
 
   /**
    * For unit tests and simple wiring: plain proxy only (no RCA enrichment or MySQL cache).
    */
   public AiProxyServiceImpl(WebClient webClient, String aiServiceUrl) {
-    this(wiringForPlainProxy(webClient, aiServiceUrl));
+    this.upstreamExecutor =
+        new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl));
+    this.rcaReportProxyHandler = null;
+    log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
   }
 
   /**
@@ -70,63 +65,15 @@ public class AiProxyServiceImpl implements AiProxyService {
       WebClient webClient,
       String aiServiceUrl,
       ObjectMapper objectMapper,
-      RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao,
-      SessionEvidenceService sessionEvidenceService,
-      RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger) {
-    this(
-        wiringForFullPipeline(
-            webClient, aiServiceUrl, objectMapper, rootCauseService, rcaReportCacheDao,
-            sessionEvidenceService, RootCauseConfig.withDefaults(null),
-            new RcaRelatedHeatmapsMerger(objectMapper),
-            rcaReportErrorAttributionMerger));
-  }
-
-  private AiProxyServiceImpl(AiProxyWiring wiring) {
-    this.upstreamExecutor = wiring.upstreamExecutor;
-    this.rcaReportProxyHandler = wiring.rcaReportProxyHandler;
-    log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
-  }
-
-  private static AiProxyWiring wiringForProduction(
-      WebClient webClient,
-      ApplicationConfig config,
-      ObjectMapper objectMapper,
-      RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao,
-      SessionEvidenceService sessionEvidenceService,
-      RootCauseConfig rootCauseConfig,
-      RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger,
-      RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger) {
-    return wiringForFullPipeline(
-        webClient, config.getAiServiceUrl(), objectMapper, rootCauseService, rcaReportCacheDao,
-        sessionEvidenceService, rootCauseConfig,
-        rcaRelatedHeatmapsMerger, rcaReportErrorAttributionMerger);
-  }
-
-  private static AiProxyWiring wiringForFullPipeline(
-      WebClient webClient,
-      String aiServiceUrl,
-      ObjectMapper objectMapper,
-      RootCauseService rootCauseService,
-      RcaReportCacheDao rcaReportCacheDao,
-      SessionEvidenceService sessionEvidenceService,
-      RootCauseConfig rootCauseConfig,
-      RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger,
-      RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger) {
-    String base = normalizeAiServiceUrl(aiServiceUrl);
-    AiUpstreamProxyExecutor executor = new AiUpstreamProxyExecutor(webClient, base);
-    RcaReportProxyHandler rcaHandler =
-        new RcaReportProxyHandler(executor, objectMapper, rootCauseService, rcaReportCacheDao,
-            rootCauseConfig, rcaRelatedHeatmapsMerger, rcaReportErrorAttributionMerger,
-            sessionEvidenceService);
-    return new AiProxyWiring(executor, rcaHandler);
-  }
-
-  private static AiProxyWiring wiringForPlainProxy(WebClient webClient, String aiServiceUrl) {
-    AiUpstreamProxyExecutor executor =
+      RcaReportJobService rcaReportJobService,
+      RcaReportProcessor rcaReportProcessor) {
+    this.upstreamExecutor =
         new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl));
-    return new AiProxyWiring(executor, null);
+    this.rcaReportProxyHandler =
+        new RcaReportProxyHandler(
+            objectMapper, rcaReportCacheDao, rcaReportJobService, rcaReportProcessor);
+    log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
   }
 
   private static String normalizeAiServiceUrl(String url) {
@@ -141,23 +88,14 @@ public class AiProxyServiceImpl implements AiProxyService {
       String rawQuery,
       String body,
       String authorization,
-      String projectId) {
+      String projectId,
+      String createdByOrNull) {
     boolean isRcaReportPost = "POST".equals(method) && RCA_REPORT_PATH.equals(path);
     if (isRcaReportPost && rcaReportProxyHandler != null) {
-      return rcaReportProxyHandler.handlePost(rawQuery, body, authorization, projectId);
+      return rcaReportProxyHandler.handlePost(
+          rawQuery, body, authorization, projectId, createdByOrNull);
     }
     String targetUrl = upstreamExecutor.buildTargetUrl(path, rawQuery);
     return upstreamExecutor.executeProxy(method, targetUrl, body, authorization, projectId);
-  }
-
-  private static final class AiProxyWiring {
-    private final AiUpstreamProxyExecutor upstreamExecutor;
-    private final RcaReportProxyHandler rcaReportProxyHandler;
-
-    private AiProxyWiring(
-        AiUpstreamProxyExecutor upstreamExecutor, RcaReportProxyHandler rcaReportProxyHandler) {
-      this.upstreamExecutor = upstreamExecutor;
-      this.rcaReportProxyHandler = rcaReportProxyHandler;
-    }
   }
 }

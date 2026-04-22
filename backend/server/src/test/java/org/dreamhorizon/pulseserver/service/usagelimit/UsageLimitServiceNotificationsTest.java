@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.util.Collections;
@@ -50,7 +52,13 @@ class UsageLimitServiceNotificationsTest extends UsageLimitServiceTestBase {
         .updatedAt(created)
         .build();
 
-    when(usageLimitDao.markThresholdsNotified(eq("proj-a"), eq(List.of(50))))
+    ProjectUsageLimit active = ProjectUsageLimit.builder()
+        .projectUsageLimitId(99L)
+        .projectId("proj-a")
+        .isActive(true)
+        .build();
+    when(usageLimitDao.getActiveLimitByProjectId("proj-a")).thenReturn(Maybe.just(active));
+    when(usageLimitDao.markThresholdsNotified(eq("proj-a"), eq(List.of(50)), eq(99L)))
         .thenReturn(Single.just(record));
 
     NotificationStatusResponse response =
@@ -60,7 +68,7 @@ class UsageLimitServiceNotificationsTest extends UsageLimitServiceTestBase {
     assertEquals("2025-06", response.getMonth());
     assertEquals(node, response.getThresholdsNotified());
     assertEquals(created, response.getCreatedAt());
-    verify(usageLimitDao).markThresholdsNotified("proj-a", List.of(50));
+    verify(usageLimitDao).markThresholdsNotified("proj-a", List.of(50), 99L);
   }
 
   @Test
@@ -73,7 +81,13 @@ class UsageLimitServiceNotificationsTest extends UsageLimitServiceTestBase {
         .updatedAt(Instant.now())
         .build();
 
-    when(usageLimitDao.markThresholdsNotified(anyString(), anyList()))
+    ProjectUsageLimit active = ProjectUsageLimit.builder()
+        .projectUsageLimitId(7L)
+        .projectId("proj-b")
+        .isActive(true)
+        .build();
+    when(usageLimitDao.getActiveLimitByProjectId("proj-b")).thenReturn(Maybe.just(active));
+    when(usageLimitDao.markThresholdsNotified(eq("proj-b"), eq(List.of(75)), eq(7L)))
         .thenReturn(Single.just(record));
 
     NotificationStatusResponse response =
@@ -84,7 +98,13 @@ class UsageLimitServiceNotificationsTest extends UsageLimitServiceTestBase {
 
   @Test
   void shouldPropagateErrorWhenMarkDaoFails() {
-    when(usageLimitDao.markThresholdsNotified(anyString(), anyList()))
+    ProjectUsageLimit active = ProjectUsageLimit.builder()
+        .projectUsageLimitId(1L)
+        .projectId("p")
+        .isActive(true)
+        .build();
+    when(usageLimitDao.getActiveLimitByProjectId("p")).thenReturn(Maybe.just(active));
+    when(usageLimitDao.markThresholdsNotified(anyString(), anyList(), anyLong()))
         .thenReturn(Single.error(new RuntimeException("db down")));
 
     RuntimeException ex = assertThrows(RuntimeException.class,
@@ -298,11 +318,15 @@ class UsageLimitServiceNotificationsTest extends UsageLimitServiceTestBase {
         .build());
 
     JsonNode notified = objectMapper.readTree("{\"50\":\"2025-01-01T00:00:00Z\"}");
+    Instant notificationCreated = Instant.parse("2025-01-01T00:00:00Z");
     ProjectUsageLimit limit = ProjectUsageLimit.builder()
         .projectUsageLimitId(1L)
         .projectId("proj-notified")
         .usageLimits(objectMapper.writeValueAsString(limits))
         .thresholdsNotified(notified)
+        .notificationCreatedAt(notificationCreated)
+        .notificationProjectUsageLimitId(1L)
+        .notificationRowActive(true)
         .isActive(true)
         .build();
 

@@ -50,6 +50,10 @@ public class Pulse {
     private var _consentMetricExporter: ConsentMetricExporter?
     private var meterProvider: MeterProviderSdk?
     private var instrumentationConfig: InstrumentationConfiguration?
+    private var _sdkName: PulseSdkName?
+    var sdkName: PulseSdkName? {
+        initializationQueue.sync { _sdkName }
+    }
 
     // User session emitter
     internal lazy var userSessionEmitter: PulseUserSessionEmitter = {
@@ -119,16 +123,12 @@ public class Pulse {
     private init() {}
 
     public func initialize(
-        endpointBaseUrl: String,
         apiKey: String,
-        configEndpointUrl: String? = nil,
-        customEventCollectorUrl: String? = nil,
-        endpointHeaders: [String: String]? = nil,
+        dataCollectionState: PulseDataCollectionConsent,
         globalAttributes: [String: AttributeValue]? = nil,
         resource: ((inout [String: AttributeValue]) -> Void)? = nil,
         configuration: ((inout PulseKitConfiguration) -> Void)? = nil,
         instrumentations: ((inout InstrumentationConfiguration) -> Void)? = nil,
-        dataCollectionState: PulseDataCollectionConsent = .allowed,
         beforeSendSpan: BeforeSendSpanCallback? = nil,
         beforeSendLog: BeforeSendLogCallback? = nil,
         beforeSendMetric: BeforeSendMetricCallback? = nil,
@@ -157,9 +157,12 @@ public class Pulse {
             _dataCollectionState = dataCollectionState
             consentStateLock.unlock()
 
-            // Merge apiKey with endpointHeaders for all API calls (config endpoint—default or custom—and OTLP)
+            let projectId = Self.extractProjectID(from: apiKey)
+            let endpointBaseUrl = PulseHostConfiguration.baseUrl(apiKey: apiKey)
+            let resolvedConfigEndpointUrl = PulseHostConfiguration.activeConfigUrl(apiKey: apiKey, projectId: projectId)
+
             let apiKeyHeader = [PulseAttributes.apiKeyHeaderKey: apiKey]
-            let endpointHeadersWithProject = (endpointHeaders ?? [:]).merging(apiKeyHeader) { _, new in new }
+            let endpointHeadersWithProject = apiKeyHeader
 
             // Config: load from persistence (sync)
             let useLocalMockConfig = false
@@ -173,7 +176,6 @@ public class Pulse {
                 PulseLogger.log("No persisted config, using defaults.")
             }
 
-            let resolvedConfigEndpointUrl = configEndpointUrl ?? Self.defaultConfigEndpointUrl(from: endpointBaseUrl)
             configCoordinator.startBackgroundFetch(
                 configEndpointUrl: resolvedConfigEndpointUrl,
                 endpointHeaders: endpointHeadersWithProject,
@@ -189,18 +191,16 @@ public class Pulse {
                 guard let av = resource.attributes[ResourceAttributes.telemetrySdkName.rawValue] else { return nil }
                 if case .string(let s) = av { return s } else { return nil }
             }()
-            let currentSdkName = PulseSdkName.from(telemetrySdkName: telemetrySdkName ?? PulseAttributes.PulseSdkNames.iosSwift)
-
-            if let sdkConfig = configStorageQueue.sync(execute: { _currentSdkConfig }) {
+            _sdkName = PulseSdkName.from(telemetrySdkName: telemetrySdkName ?? PulseAttributes.PulseSdkNames.iosSwift)
+            guard let currentSdkName = _sdkName else { return }
+            let persistedConfig = configStorageQueue.sync(execute: { _currentSdkConfig })
+            if let sdkConfig = persistedConfig {
                 let interactionConfigUrl = sdkConfig.interaction.configUrl
                 config.interaction { $0.setConfigUrl { interactionConfigUrl } }
                 let processors = PulseSamplingSignalProcessors(sdkConfig: sdkConfig, currentSdkName: currentSdkName)
                 _samplingSignalProcessors = processors
                 let enabledFeatures = processors.getEnabledFeatures()
-                applyDisabledFeatures(enabledFeatures: enabledFeatures, config: &config)
-                if enabledFeatures.contains(.session_replay) {
-                    config.sessionReplay { $0.enabled(true) }
-                }
+                configureFeaturesFromRemoteConfig(features: enabledFeatures, config: &config)
 
                 // Extract and merge Session Replay config from backend
                 let sessionReplayFeature = sdkConfig.features.first { feature in
@@ -234,11 +234,14 @@ public class Pulse {
                 }
 
                 applyClickFeatureConfig(from: sdkConfig, to: &config, currentSdkName: currentSdkName)
+            } else {
+                let derivedInteractionUrl = PulseHostConfiguration.interactionConfigUrl(apiKey: apiKey, projectId: projectId)
+                config.interaction { $0.setConfigUrl { derivedInteractionUrl } }
             }
 
             let (tracerProvider, loggerProvider, openTelemetry) = buildOpenTelemetrySDK(
                 endpointBaseUrl: endpointBaseUrl,
-                customEventCollectorUrl: customEventCollectorUrl,
+                customEventCollectorUrl: nil,
                 endpointHeaders: endpointHeadersWithProject,
                 resource: resource,
                 config: config,
@@ -301,11 +304,15 @@ public class Pulse {
 
     // MARK: - Private Helper Methods
 
-    /// Disables features not in enabledFeatures.
-    private func applyDisabledFeatures(enabledFeatures: [PulseFeatureName], config: inout InstrumentationConfiguration) {
+    /// Applies remote sampling feature toggles: enables listed features, then disables any not listed.
+    private func configureFeaturesFromRemoteConfig(
+        features: [PulseFeatureName],
+        config: inout InstrumentationConfiguration
+    ) {
+        let enabledFeatures = Set(features)
         for feature in PulseFeatureName.allCases {
-            guard !enabledFeatures.contains(feature) else { continue }
-            print("Disabling feature: \(feature)")
+            let isEnabled = enabledFeatures.contains(feature)
+            PulseLogger.log("\(isEnabled ? "Enabling" : "Disabling") feature: \(feature)")
             switch feature {
             case .java_crash: break
             case .js_crash: break
@@ -313,23 +320,32 @@ public class Pulse {
             case .java_anr: break
             case .cpp_anr: break
             case .interaction:
-                config.interaction { $0.enabled(false) }
+                config.interaction { $0.enabled(isEnabled) }
             case .network_change:
-                _configuration.disableNetworkAttributes()
-            case .network_instrumentation:
-                config.urlSession { $0.enabled(false) }
-            case .screen_session:
-                config.screenLifecycle { $0.enabled(false) }
+                if isEnabled {
+                    _configuration.includeNetworkAttributes = true
+                } else {
+                    _configuration.disableNetworkAttributes()
+                }
             case .custom_events:
-                _customEventsEnabled = false
+                _customEventsEnabled = isEnabled
             case .rn_screen_load: break
             case .rn_screen_interactive: break
+            case .rn_screen_session: break
             case .ios_crash:
-                config.crash { $0.enabled(false) }
+                config.crash { $0.enabled(isEnabled) }
             case .session_replay:
-                config.sessionReplay { $0.enabled(false) }
+                config.sessionReplay { $0.enabled(isEnabled) }
             case .click:
-                config.uiKitTap { $0.enabled(false) }
+                config.uiKitTap { $0.enabled(isEnabled) }
+            case .ios_lifecycle:
+                config.screenLifecycle { $0.enabled(isEnabled) }
+            case .ios_network:
+                config.urlSession { $0.enabled(isEnabled) }
+            case .rn_network: break
+            case .android_activity: break
+            case .android_fragment: break
+            case .android_slowrendering: break
             case .unknown: break
             }
         }
@@ -345,6 +361,13 @@ public class Pulse {
 
         if let feature = clickFeature {
             let remoteConfig = ClickFeatureRemoteConfig.from(featureConfig: feature)
+
+            // Apply captureContext if provided
+            if let captureContext = remoteConfig?.captureContext {
+                config.uiKitTap { $0.captureContext(captureContext) }
+            }
+
+            // Apply rage config if provided
             var resolvedRage = config.uiKitTap.rage
             if let remote = remoteConfig?.rage {
                 resolvedRage.timeWindowMs = remote.timeWindowMs ?? resolvedRage.timeWindowMs
@@ -413,14 +436,13 @@ public class Pulse {
 
         // URL resolution (see expectations in PulseKit README):
         // Traces/Logs/Metrics: config present → use full path from config; else → baseUrl + /v1/{traces|logs|metrics}
-        // customEventCollectorUrl: config present → from config; else user-provided; else baseUrl + /v1/logs
         let base = Self.normalizedBaseUrl(endpointBaseUrl)
         let tracesUrl = currentSdkConfig.map { URL(string: $0.signals.spanCollectorUrl)! }
             ?? URL(string: "\(base)/v1/traces")!
         let logsUrl = currentSdkConfig.map { URL(string: $0.signals.logsCollectorUrl)! }
             ?? URL(string: "\(base)/v1/logs")!
         let customEventUrl = currentSdkConfig.map { URL(string: $0.signals.customEventCollectorUrl)! }
-            ?? (customEventCollectorUrl.flatMap { URL(string: $0) } ?? URL(string: "\(base)/v1/logs")!)
+            ?? URL(string: "\(base)/v1/logs")!
         let otlpSpanExporter = OtlpHttpTraceExporter(endpoint: tracesUrl, envVarHeaders: envVarHeaders)
         let spanExporterAfterBeforeSend: SpanExporter = beforeSendSpan.map {
             BeforeSendSpanExporter(callback: $0, delegate: otlpSpanExporter)

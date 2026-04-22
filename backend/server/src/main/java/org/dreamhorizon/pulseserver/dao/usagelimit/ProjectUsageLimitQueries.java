@@ -8,15 +8,18 @@ public class ProjectUsageLimitQueries {
   private static final String LIMIT_COLUMNS_WITH_NOTIFICATIONS =
       "pul.project_usage_limit_id, pul.project_id, pul.usage_limits, pul.is_active, "
           + "pul.created_at, pul.disabled_at, pul.disabled_by, pul.disabled_reason, pul.created_by, "
-          + "COALESCE(uln.thresholds_notified, '{}') as thresholds_notified, "
-          + "uln.created_at as notification_created_at, "
+          + "uln.thresholds_notified AS thresholds_notified, "
+          + "uln.project_usage_limit_id AS notification_project_usage_limit_id, "
+          + "uln.is_active AS notification_row_active, "
+          + "uln.created_at AS notification_created_at, "
           + "COALESCE(p.name, pul.project_id) as project_name, "
           + "p.tenant_id as tenant_id";
 
   private static final String NOTIFICATION_JOIN =
       " LEFT JOIN usage_limit_notifications uln "
           + "ON pul.project_id = uln.project_id "
-          + "AND DATE_FORMAT(uln.created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')";
+          + "AND DATE_FORMAT(uln.created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m') "
+          + "AND uln.is_active = TRUE";
 
   private static final String PROJECT_JOIN =
       " LEFT JOIN projects p ON pul.project_id = p.project_id";
@@ -34,6 +37,11 @@ public class ProjectUsageLimitQueries {
 
   public static final String GET_LIMIT_BY_ID =
       "SELECT " + LIMIT_COLUMNS + " FROM project_usage_limits WHERE project_usage_limit_id = ?";
+
+  /** Marks all active notification rows for a project inactive (e.g. when usage limits are replaced). */
+  public static final String DEACTIVATE_ACTIVE_NOTIFICATIONS_FOR_PROJECT =
+      "UPDATE usage_limit_notifications SET is_active = FALSE "
+          + "WHERE project_id = ? AND is_active = TRUE";
 
   public static final String GET_ALL_LIMITS_BY_PROJECT_ID =
       "SELECT " + LIMIT_COLUMNS + " FROM project_usage_limits WHERE project_id = ? ORDER BY created_at DESC";
@@ -64,14 +72,16 @@ public class ProjectUsageLimitQueries {
       "SELECT " + LIMIT_COLUMNS + " FROM project_usage_limits ORDER BY project_id, created_at DESC";
 
   public static final String GET_NOTIFICATION_FOR_CURRENT_MONTH =
-      "SELECT id, project_id, thresholds_notified, created_at, updated_at "
-          + "FROM usage_limit_notifications "
-          + "WHERE project_id = ? "
-          + "AND DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')";
+      "SELECT uln.id, uln.project_id, uln.thresholds_notified, uln.project_usage_limit_id, "
+          + "uln.is_active, uln.created_at, uln.updated_at "
+          + "FROM usage_limit_notifications uln "
+          + "WHERE uln.project_id = ? "
+          + "AND DATE_FORMAT(uln.created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m') "
+          + "AND uln.is_active = TRUE";
 
   public static final String INSERT_NOTIFICATION =
-      "INSERT INTO usage_limit_notifications (project_id, thresholds_notified) "
-          + "VALUES (?, ?)";
+      "INSERT INTO usage_limit_notifications (project_id, thresholds_notified, project_usage_limit_id, is_active) "
+          + "VALUES (?, ?, ?, TRUE)";
 
   public static final String UPDATE_NOTIFICATION =
       "UPDATE usage_limit_notifications "

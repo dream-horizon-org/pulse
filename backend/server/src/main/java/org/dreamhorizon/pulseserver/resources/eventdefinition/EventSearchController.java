@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.eventdefinition.models.EventSearchResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
@@ -34,6 +35,7 @@ public class EventSearchController {
   @GET
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<EventSearchResponse>> searchEvents(
       @QueryParam("search_string") @DefaultValue("") String searchString,
       @QueryParam("limit") @DefaultValue("10") int limit

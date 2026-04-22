@@ -8,23 +8,16 @@ import {
   ATTRIBUTES_IMPORT,
   buildPulseInitializationCode,
 } from './utils';
-import type { PulsePluginProps } from './types';
+import type { ResolvedAndroidPulseProps } from './types';
 
-export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
+export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
   config,
-  props: PulsePluginProps
+  props: ResolvedAndroidPulseProps
 ) => {
   return withMainApplication(config, (modConfig) => {
     try {
-      const {
-        endpointBaseUrl,
-        apiKey,
-        dataCollectionState,
-        endpointHeaders,
-        configEndpointUrl,
-        globalAttributes,
-        instrumentation,
-      } = props;
+      const { apiKey, dataCollectionState, globalAttributes, instrumentation } =
+        props;
 
       // 1. Add import statements
       modConfig.modResults.contents = mergeContents({
@@ -57,11 +50,8 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
       }
 
       const initCode = buildPulseInitializationCode({
-        endpointBaseUrl,
         apiKey,
         dataCollectionState,
-        endpointHeaders,
-        configEndpointUrl,
         globalAttributes,
         instrumentation,
       });
