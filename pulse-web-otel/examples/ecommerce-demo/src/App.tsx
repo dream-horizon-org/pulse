@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense, useMemo } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -7,6 +7,10 @@ import {
   useLocation,
 } from "react-router-dom";
 import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import {
+  PulseProvider,
+  PulseErrorBoundary,
+} from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 import { mockSdkConfigAbsoluteUrl } from "./maybeLoadMockPulseSdkConfig";
 
@@ -104,7 +108,7 @@ function AppRoutes() {
 }
 
 export default function App() {
-  useEffect(() => {
+  const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
     const enableDiskBuffer =
@@ -121,7 +125,7 @@ export default function App() {
     const useMockSdkConfig =
       import.meta.env["VITE_PULSE_MOCK_SDK_CONFIG"] === "true";
 
-    PulseWeb.start({
+    return {
       endpointBaseUrl: import.meta.env["VITE_PULSE_ENDPOINT_BASE_URL"],
       apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
       serviceName:
@@ -158,16 +162,44 @@ export default function App() {
             },
           }
         : {}),
-    });
-
-    // Expose for E2E shutdown test (m1.spec.ts)
-    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <BrowserRouter>
-      <AppRoutes />
-      <PulseDebugPanel />
-    </BrowserRouter>
+    // shutdownOnUnmount=false: SDK lives for the full page lifetime.
+    // PulseErrorBoundary at root catches any SDK-adjacent render errors.
+    <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
+      <PulseErrorBoundary
+        fallback={(error) => (
+          <div
+            style={{
+              padding: 32,
+              color: "#b91c1c",
+              fontFamily: "monospace",
+              fontSize: 14,
+            }}
+          >
+            <strong>App error caught by PulseErrorBoundary:</strong>
+            <pre>{error.message}</pre>
+          </div>
+        )}
+      >
+        <BrowserRouter>
+          {/* Expose for E2E shutdown test (m1.spec.ts) */}
+          <_PulseWebExpose />
+          <AppRoutes />
+          <PulseDebugPanel />
+        </BrowserRouter>
+      </PulseErrorBoundary>
+    </PulseProvider>
   );
+}
+
+/** Exposes PulseWeb on window for E2E tests. No UI rendered. */
+function _PulseWebExpose(): null {
+  React.useEffect(() => {
+    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+  }, []);
+  return null;
 }
