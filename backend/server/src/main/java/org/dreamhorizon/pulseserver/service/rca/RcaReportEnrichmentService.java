@@ -9,6 +9,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
@@ -24,6 +26,7 @@ import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.service.rootcause.models.SessionEvidenceResult;
+import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 
 /**
  * Builds the RCA POST body with {@code rootCausePayload} and per-segment session evidence (same
@@ -40,6 +43,7 @@ public class RcaReportEnrichmentService {
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
   private final SessionEvidenceService sessionEvidenceService;
+  private final RootCauseConfig rootCauseConfig;
 
   /**
    * Enriches the RCA JSON body with root-cause data and example sessions.
@@ -80,7 +84,8 @@ public class RcaReportEnrichmentService {
                     new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
               }
 
-              JsonNode resultNode = objectMapper.valueToTree(rootCauseResult);
+              RootCauseResult sanitizedResult = sanitizeForAiReport(rootCauseResult);
+              JsonNode resultNode = objectMapper.valueToTree(sanitizedResult);
               working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
 
               List<RootCauseSegment> segments = rootCauseResult.getSegments();
@@ -195,6 +200,63 @@ public class RcaReportEnrichmentService {
           String enrichedBody = objectMapper.writeValueAsString(working);
           return new RcaEnrichmentOutcome(enrichedBody, rootCauseResult, date, windowEnd, true);
         });
+  }
+
+  /**
+   * Sanitizes RootCauseResult for AI report by:
+   * 1. Filtering out low-volume segments (< minSegmentVolumePct% of baseline)
+   * 2. Sorting remaining segments by problematic_count descending (most affected first)
+   * 3. Removing internal-only fields like problematic_count from final output
+   */
+  private RootCauseResult sanitizeForAiReport(RootCauseResult result) {
+    Map<String, Object> sanitizedBaseline = sanitizeMetrics(result.getBaseline());
+    double minVolumePct = rootCauseConfig.getMinSegmentVolumePct();
+
+    // Calculate minimum volume threshold based on baseline
+    long baselineVolume = NumberCoercionUtils.toLong(result.getBaseline().get("volume"));
+    double minVolumeThreshold = baselineVolume * (minVolumePct / 100.0);
+
+    // Filter segments by volume, sort by problematic_count descending, then sanitize
+    List<RootCauseSegment> filteredAndSortedSegments = result.getSegments().stream()
+        .filter(s -> isSegmentVolumeAboveThreshold(s, minVolumeThreshold))
+        .sorted(Comparator.comparingLong(this::getProblematicCount).reversed())
+        .map(s -> RootCauseSegment.builder()
+            .label(s.getLabel())
+            .dimensions(s.getDimensions())
+            .metrics(sanitizeMetrics(s.getMetrics()))
+            .deltas(s.getDeltas())
+            .exampleSessionIds(s.getExampleSessionIds())
+            .build())
+        .toList();
+
+    return result.toBuilder()
+        .baseline(sanitizedBaseline)
+        .segments(filteredAndSortedSegments)
+        .build();
+  }
+
+  private static boolean isSegmentVolumeAboveThreshold(RootCauseSegment segment, double threshold) {
+    if (segment.getMetrics() == null) {
+      return false;
+    }
+    long volume = NumberCoercionUtils.toLong(segment.getMetrics().get("volume"));
+    return volume >= threshold;
+  }
+
+  private long getProblematicCount(RootCauseSegment segment) {
+    if (segment.getMetrics() == null) {
+      return 0L;
+    }
+    return NumberCoercionUtils.toLong(segment.getMetrics().get("problematic_count"));
+  }
+
+  private static Map<String, Object> sanitizeMetrics(Map<String, Object> metrics) {
+    if (metrics == null) {
+      return Map.of();
+    }
+    Map<String, Object> sanitized = new HashMap<>(metrics);
+    sanitized.remove("problematic_count");
+    return sanitized;
   }
 
   private Map<String, Double> extractSegmentMetrics(Map<String, Object> metrics) {
