@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Text, View, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { Pulse } from '@dreamhorizonorg/pulse-react-native';
+import { Pulse, PulseLogLevel } from '@dreamhorizonorg/pulse-react-native';
 import ButtonWithTitle from './components/ButtonWithTitle';
 import NavigationExample from './examples/NavigationExample';
 import TraceExample from './examples/TraceExample';
@@ -20,6 +20,7 @@ Pulse.start({
     requestHeaders: ['Content-Type', 'Authorization'],
     responseHeaders: ['Content-Type', 'Cache-Control'],
   },
+  logLevel: PulseLogLevel.DEBUG,
 });
 
 type DemoConfig = {

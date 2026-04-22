@@ -101,13 +101,6 @@ public class ClickhouseProjectService {
           String grantSQL = String.format("GRANT%s SELECT ON otel.* TO %s", onCluster, username);
           executeSQL(adminPool, grantSQL);
           log.info("Granted SELECT permissions to: {}", username);
-
-          // root_cause_cache uses ProjectId like other otel.* tables; DB-wide row policy above applies.
-
-          // Step 4: Grant INSERT on root_cause_cache for cache upsert
-          String grantInsertSQL = String.format("GRANT%s INSERT ON %s TO %s", onCluster, ROOT_CAUSE_CACHE_TABLE, username);
-          executeSQL(adminPool, grantInsertSQL);
-          log.info("Granted INSERT on {} to: {}", ROOT_CAUSE_CACHE_TABLE, username);
         })
         .doOnComplete(() ->
             log.info("Successfully created ClickHouse user and policies for project: {}", projectId)

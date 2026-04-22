@@ -2,6 +2,7 @@ package org.dreamhorizon.pulsealertscron.services;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.Future;
 import io.vertx.redis.client.Redis;
 import io.vertx.redis.client.RedisAPI;
@@ -125,6 +126,7 @@ public class RedisService {
           });
     });
   }
+
 
   /**
    * Closes Redis connection and cleans up resources

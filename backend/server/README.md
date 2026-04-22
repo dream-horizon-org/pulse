@@ -2702,6 +2702,17 @@ CONFIG_SERVICE_APPLICATION_SERVER_PORT=8080
 CONFIG_SERVICE_APPLICATION_SERVER_HOST=0.0.0.0
 ```
 
+**Product analytics batch engine (funnel / journey)**
+
+Mapped from `src/main/resources/conf/analytics-engine-default.conf`. Use `spark` (EMR batch jobs) or `clickhouse` (in-process ClickHouse compute). When `APP_ENVIRONMENT` is `prod` and the engine is `clickhouse`, `ANALYTICS_BATCH_PROJECT_CONCURRENCY` must be a positive integer (`StartupConfigValidator`).
+
+```bash
+ANALYTICS_COMPUTE_ENGINE=spark
+ANALYTICS_BATCH_PROJECT_CONCURRENCY=4
+```
+
+Docker / quickstart defaults: `deploy/docker-compose.yml`, `deploy/.env.example`, and `deploy/scripts/common.sh` (`load_env`).
+
 **Authentication Configuration**
 
 ```bash
@@ -2749,6 +2760,21 @@ The application supports AWS credentials through multiple methods:
    - Lambda execution environment credentials
 
 **Note:** For production deployments, it's recommended to use IAM roles (EC2 instance profiles, ECS task roles, or Lambda execution roles) rather than hardcoding credentials. For local development, use environment variables or AWS credential files.
+
+**EMR Serverless (batch job API client):**
+
+Configuration is in `src/main/resources/conf/emr-serverless-default.conf`. All keys are read from environment variables (same pattern as ClickHouse). Set them in `deploy/.env` / your orchestrator; local Docker supplies defaults via `deploy/docker-compose.yml`.
+
+When `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED` is `false`, leave ARNs and `applicationId` empty. When `enabled` is `true`, all of the following must be non-blank:
+
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN`
+
+When `APP_ENVIRONMENT` is `prod`, startup validation additionally requires EMR to be **enabled** and every value above to be set (`StartupConfigValidator`).
+
+The server uses `software.amazon.awssdk:emrserverless` with `DefaultCredentialsProvider` (same chain as other AWS SDK usage). Provision the EMR Serverless application and IAM roles in AWS manually (or your own tooling); no Terraform for this module lives in this repo.
 
 **Adding Support for Other Query Engines:**
 

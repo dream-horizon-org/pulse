@@ -295,7 +295,7 @@ class AiProxyControllerTest {
       Response response = awaitResponse(controller.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(502);
-      assertThat(response.getEntity().toString()).contains("AI service unavailable");
+      assertThat(response.getEntity().toString()).contains("Something went wrong");
     }
 
     @Test

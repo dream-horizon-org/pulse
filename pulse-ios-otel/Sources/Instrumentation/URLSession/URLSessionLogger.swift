@@ -6,7 +6,9 @@
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetrySdk
-import os.log
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 class URLSessionLogger {
   static var runningSpans = [String: Span]()
@@ -19,12 +21,9 @@ class URLSessionLogger {
         let netstats = try NetworkStatus()
         return NetworkStatusInjector(netstat: netstats)
       } catch {
-        if #available(iOS 14, macOS 11, tvOS 14, *) {
-          os_log(.error, "[Pulse] failed to initialize network connection status: %@", error.localizedDescription)
-        } else {
-          NSLog("[Pulse] failed to initialize network connection status: %@", error.localizedDescription)
-        }
-
+        PulseLogger.error(
+          "Failed to initialize network connection status: \(error.localizedDescription)"
+        )
         return nil
       }
     }()

@@ -1,0 +1,33 @@
+.shell {
+  min-height: calc(100vh - 60px);
+  background: #f8fafb;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.titleBlock {
+  flex: 1;
+  min-width: 0;
+}
+
+.paper {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+}
+
+.metaLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
