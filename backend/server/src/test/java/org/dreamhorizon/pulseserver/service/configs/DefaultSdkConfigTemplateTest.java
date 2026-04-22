@@ -68,12 +68,13 @@ class DefaultSdkConfigTemplateTest {
     @Test
     void shouldIncludeAllExpectedFeatures() {
       ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
-      assertThat(config.getFeatures()).hasSize(21);
+      assertThat(config.getFeatures()).hasSize(22);
 
       assertThat(config.getFeatures()).extracting(FeatureConfig::getFeatureName)
           .containsExactlyInAnyOrder(
               Features.interaction,
               Features.java_crash,
+              Features.js_crash,
               Features.js_crash,
               Features.java_anr,
               Features.network_change,
@@ -179,13 +180,24 @@ class DefaultSdkConfigTemplateTest {
       assertThat(javaCrash.getSessionSampleRate()).isEqualTo(1.0);
       assertThat(javaCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
 
-      FeatureConfig jsCrash = config.getFeatures().stream()
+      var jsCrashRows = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.js_crash)
-          .findFirst()
-          .orElse(null);
-      assertThat(jsCrash).isNotNull();
-      assertThat(jsCrash.getSdks())
-          .containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn, Sdk.pulse_web_js);
+          .toList();
+      assertThat(jsCrashRows).hasSize(2);
+      assertThat(jsCrashRows)
+          .filteredOn(f -> f.getSdks().contains(Sdk.pulse_web_js))
+          .singleElement()
+          .satisfies(f -> {
+            assertThat(f.getSessionSampleRate()).isEqualTo(1.0);
+            assertThat(f.getSdks()).containsExactly(Sdk.pulse_web_js);
+          });
+      assertThat(jsCrashRows)
+          .filteredOn(f -> !f.getSdks().contains(Sdk.pulse_web_js))
+          .singleElement()
+          .satisfies(f -> {
+            assertThat(f.getSessionSampleRate()).isEqualTo(1.0);
+            assertThat(f.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
+          });
 
       FeatureConfig javaAnr = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.java_anr)

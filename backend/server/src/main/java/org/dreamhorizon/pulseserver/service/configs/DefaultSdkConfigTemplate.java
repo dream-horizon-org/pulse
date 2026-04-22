@@ -38,11 +38,7 @@ public class DefaultSdkConfigTemplate {
             Sdk.pulse_android_rn,
             Sdk.pulse_ios_rn
         );
-        List<Sdk> rnAndWebJsSdk = Arrays.asList(
-            Sdk.pulse_android_rn,
-            Sdk.pulse_ios_rn,
-            Sdk.pulse_web_js
-        );
+        List<Sdk> webJsSdk = Arrays.asList(Sdk.pulse_web_js);
 
         // Sampling configuration
         SamplingConfig sampling = SamplingConfig.builder()
@@ -79,7 +75,9 @@ public class DefaultSdkConfigTemplate {
         List<FeatureConfig> features = new ArrayList<>();
         features.add(createFeature(Features.interaction, 1.0, allSdks));
         features.add(createFeature(Features.java_crash, 1.0, androidSdk));
-        features.add(createFeature(Features.js_crash, 1.0, rnAndWebJsSdk));
+        // js_crash is shared by RN (Hermes) and Web; separate rows so defaults and future sample rates stay explicit per surface.
+        features.add(createFeature(Features.js_crash, 1.0, rnSdk));
+        features.add(createFeature(Features.js_crash, 1.0, webJsSdk));
         features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
