@@ -68,12 +68,12 @@ public class AiProxyServiceImpl implements AiProxyService {
       RcaReportCacheDao rcaReportCacheDao,
       RcaReportJobService rcaReportJobService,
       RcaReportProcessor rcaReportProcessor) {
-    this.upstreamExecutor =
-        new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl));
-    this.rcaReportProxyHandler =
-        new RcaReportProxyHandler(
-            objectMapper, rcaReportCacheDao, rcaReportJobService, rcaReportProcessor);
-    log.info("AI proxy service initialized → {}", upstreamExecutor.getAiServiceUrl());
+    this(
+        new AiUpstreamProxyExecutor(webClient, normalizeAiServiceUrl(aiServiceUrl)),
+        objectMapper,
+        rcaReportCacheDao,
+        rcaReportJobService,
+        rcaReportProcessor);
   }
 
   private static String normalizeAiServiceUrl(String url) {

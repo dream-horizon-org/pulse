@@ -205,10 +205,12 @@ final class RcaReportProxyHandler {
         .subscribeOn(Schedulers.io())
         .subscribe(
             dispatch -> {
-              AiProxyUpstreamResult response = acceptedResult(dispatch);
+              AiProxyUpstreamResult response =
+                  acceptedResult(dispatch, keyParts.projectId());
               log.info(
-                  "RCA returning {} jobId={} enqueueWorker={} type={} entity={}",
+                  "RCA returning {} project={} jobId={} enqueueWorker={} type={} entity={}",
                   HTTP_ACCEPTED,
+                  keyParts.projectId(),
                   dispatch.job().jobId(),
                   dispatch.shouldEnqueueWorker(),
                   keyParts.type(),
@@ -227,9 +229,10 @@ final class RcaReportProxyHandler {
     return done;
   }
 
-  private AiProxyUpstreamResult acceptedResult(RcaJobDispatch dispatch) {
+  private AiProxyUpstreamResult acceptedResult(RcaJobDispatch dispatch, String projectId) {
     try {
       var job = dispatch.job();
+      log.debug("RCA 202 response body project={} jobId={}", projectId, job.jobId());
       ObjectNode root = objectMapper.createObjectNode();
       root.set("jobId", TextNode.valueOf(job.jobId()));
       root.set("status", TextNode.valueOf(job.status().name()));
@@ -250,7 +253,7 @@ final class RcaReportProxyHandler {
       }
       return AiProxyUpstreamResult.buffered(HTTP_ACCEPTED, CONTENT_TYPE_JSON, root.toString());
     } catch (Exception e) {
-      log.warn("Failed to build RCA 202 body: {}", e.getMessage());
+      log.warn("Failed to build RCA 202 body (project={}): {}", projectId, e.getMessage());
       return AiProxyUpstreamResult.buffered(
           HTTP_INTERNAL_ERROR, CONTENT_TYPE_JSON, ERROR_INTERNAL_RCA_BODY);
     }
