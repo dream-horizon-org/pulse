@@ -51,4 +51,6 @@ export interface ProviderBundle {
   tracerProvider: WebTracerProvider;
   loggerProvider: LoggerProvider;
   meterProvider: MeterProvider;
+  /** Removes the pagehide listener registered by createProviders. Call in shutdown(). */
+  cleanup: () => void;
 }

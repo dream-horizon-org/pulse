@@ -95,9 +95,12 @@ async shutdown(options?: { clearPersisted?: boolean }): Promise<void> {
     await clearSignalBuffer();
   }
 
-  // Step 4: Lock out re-initialisation
-  this._isShutdown = true;
+  // Step 4: Reset all lifecycle flags so start() can run again after shutdown
+  // _starting must be reset here — if shutdown races a slow async init, it
+  // would otherwise be stuck true, permanently blocking future start() calls.
   this.initialized = false;
+  this._isShuttingDown = false;
+  this._starting = false;
 }
 ```
 
@@ -210,7 +213,9 @@ curl -I -X OPTIONS https://ingest.pulse.io/v1/traces \
 **Shutdown**
 - [ ] `await PulseWeb.shutdown()` force-flushes all providers
 - [ ] All instrumentation `uninstall()` methods called (in reverse order)
-- [ ] Post-shutdown `start()` call is rejected (does not reinitialise)
+- [ ] `_starting`, `_initialized`, `_shuttingDown` all reset to `false` on shutdown
+- [ ] `start()` succeeds after `shutdown()` completes (restart cycle works end-to-end)
+- [ ] `start()` during an in-progress shutdown does not produce duplicate exporters
 
 **Instrumentation Registry**
 - [ ] `instrumentations.errors.enabled: false` prevents error instrumentation from installing

@@ -337,6 +337,7 @@ export function createProviders(
     );
   }
 
+  let cleanup = () => {};
   if (typeof window !== "undefined") {
     const pagehideHandler = (e: PageTransitionEvent) => {
       if (!e.persisted) {
@@ -349,7 +350,8 @@ export function createProviders(
       }
     };
     window.addEventListener("pagehide", pagehideHandler);
+    cleanup = () => window.removeEventListener("pagehide", pagehideHandler);
   }
 
-  return { tracerProvider, loggerProvider, meterProvider };
+  return { tracerProvider, loggerProvider, meterProvider, cleanup };
 }

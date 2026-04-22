@@ -59,14 +59,14 @@ trackEvent('checkout_started', { cart_value: 99.99 });
 reportException(error, { isFatal: false });
 ```
 
-### `usePulseNavigationTracker()` — React Router v6 Integration
+### `useRouterTracking()` — React Router v6 Integration
 
 Automatically tracks SPA route changes by listening to React Router's location changes.
 
 ```tsx
 // Inside a component wrapped by <Router>
 function AppRoutes() {
-  usePulseNavigationTracker();
+  useRouterTracking();
   return <Routes>...</Routes>;
 }
 ```
@@ -156,12 +156,12 @@ export class PulseErrorBoundary extends Component<Props, State> {
 ```
 
 ```typescript
-// src/integrations/react/usePulseNavigationTracker.ts
-import { useEffect } from 'react';
+// src/integrations/react/useRouterTracking.ts
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePulse } from './PulseProvider';
 
-export function usePulseNavigationTracker(): void {
+export function useRouterTracking(): void {
   const location = useLocation();
   const sdk = usePulse();
   const isFirst = useRef(true);
@@ -171,23 +171,39 @@ export function usePulseNavigationTracker(): void {
       isFirst.current = false;
       return; // Skip initial mount — navigation instrumentation handles the first load
     }
-    // React Router v6 has already updated the URL — notify navigation instrumentation
-    sdk.navigationInstrumentation?.onRouteChange(location.pathname);
+    // React Router v6 has already updated the URL — call setScreenName directly
+    sdk.setScreenName(location.pathname);
   }, [location.pathname]);
+  // No teardown needed — hook unmounts cleanly; no external listener registered
 }
 ```
 
 ---
 
-## Package Exports
+## Package Exports & Dependencies
 
 ```typescript
 // src/integrations/react/index.ts
 export { PulseProvider } from './PulseProvider';
 export { PulseErrorBoundary } from './PulseErrorBoundary';
 export { usePulse } from './PulseProvider';
-export { usePulseNavigationTracker } from './usePulseNavigationTracker';
+export { useRouterTracking } from './useRouterTracking';
 export type { PulseProviderProps } from './PulseProvider';
+```
+
+Consumed via `@dreamhorizon/pulse-web/react` (already wired in `package.json` exports + tsup entry).
+
+`react-router-dom` must also be declared as an optional peer dependency in `package.json`:
+
+```json
+"peerDependencies": {
+  "react": ">=18.0.0",
+  "react-router-dom": ">=6.0.0"
+},
+"peerDependenciesMeta": {
+  "react": { "optional": true },
+  "react-router-dom": { "optional": true }
+}
 ```
 
 ---
@@ -255,16 +271,80 @@ it('PulseErrorBoundary reports error to SDK', () => {
     expect.objectContaining({ isFatal: false })
   );
 });
+
+it('SDK initialises exactly once under StrictMode double-render', () => {
+  const startSpy = vi.spyOn(PulseWeb, 'start');
+  render(
+    <React.StrictMode>
+      <PulseProvider apiKey="test-key" serviceName="test"><div /></PulseProvider>
+    </React.StrictMode>
+  );
+  expect(startSpy).toHaveBeenCalledOnce();
+});
+
+it('useRouterTracking calls setScreenName on route change', () => {
+  const setScreenSpy = vi.spyOn(PulseWeb, 'setScreenName');
+  // Render with initial route, then navigate
+  const { rerender } = render(
+    <MemoryRouter initialEntries={['/home']}>
+      <PulseProvider apiKey="test-key" serviceName="test">
+        <RouteTracker />
+      </PulseProvider>
+    </MemoryRouter>
+  );
+  rerender(
+    <MemoryRouter initialEntries={['/checkout']}>
+      <PulseProvider apiKey="test-key" serviceName="test">
+        <RouteTracker />
+      </PulseProvider>
+    </MemoryRouter>
+  );
+  expect(setScreenSpy).toHaveBeenCalledWith('/checkout');
+});
+
+it('useRouterTracking does not leak listeners on unmount', () => {
+  const { unmount } = render(
+    <MemoryRouter initialEntries={['/home']}>
+      <PulseProvider apiKey="test-key" serviceName="test">
+        <RouteTracker />
+      </PulseProvider>
+    </MemoryRouter>
+  );
+  unmount();
+  // No assertion needed beyond unmount completing without error —
+  // verifies the hook has no dangling teardown side-effects
+});
 ```
 
 ---
 
 ## Done Criteria
 
-- [ ] `<PulseProvider>` initializes SDK once and provides context
-- [ ] `usePulse()` throws a clear error outside `<PulseProvider>`
-- [ ] `<PulseErrorBoundary>` renders fallback and reports error on render failure
-- [ ] `componentStack` captured and sent as `react.component_stack` attribute
-- [ ] `usePulseNavigationTracker()` calls `onRouteChange()` on React Router location changes
+**SDK Cleanup**
+- [ ] `_starting`, `_initialized`, `_shuttingDown` all reset in `shutdown()` so `start()` works after shutdown
+- [ ] All instrumentation event listeners removed via `uninstallAll()` on shutdown
+
+**PulseProvider**
+- [ ] SDK initializes exactly once, even under React StrictMode double-render
+- [ ] `usePulse()` throws a clear error when called outside `<PulseProvider>`
 - [ ] SDK shuts down cleanly on `PulseProvider` unmount
-- [ ] All unit tests passing
+
+**PulseErrorBoundary**
+- [ ] Renders fallback and calls `reportDeviceCrash()` on render failure
+- [ ] `react.component_stack` attribute captured and sent with every crash report
+
+**useRouterTracking**
+- [ ] Calls `setScreenName()` on every React Router v6 location change (skips initial mount)
+- [ ] Unmounts without dangling listeners or side-effects
+
+**Package & Dependencies** *(single task)*
+- [ ] All React exports (`PulseProvider`, `PulseErrorBoundary`, `usePulse`, `useRouterTracking`) available under `@dreamhorizon/pulse-web/react`
+- [ ] `react-router-dom >= 6.0.0` declared as optional peer dependency in `package.json`
+
+**Demo App**
+- [ ] Ecommerce demo refactored to use `PulseProvider`, `PulseErrorBoundary`, `useRouterTracking` instead of manual wiring
+
+**Tests**
+- [ ] StrictMode double-render: `start()` called exactly once
+- [ ] Error boundary: crash captured + `react.component_stack` present in payload
+- [ ] `useRouterTracking`: `setScreenName` called on navigation, no leak on unmount

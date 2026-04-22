@@ -52,6 +52,7 @@ class PulseWebSDK implements SdkContext {
   private registry?: InstrumentationRegistry;
   private configFetcher: SdkConfigFetcher = new SdkConfigFetcher("", "");
   private gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
+  private _providerCleanup: () => void = () => {};
 
   static getInstance(): PulseWebSDK {
     if (!PulseWebSDK._instance) {
@@ -140,6 +141,10 @@ class PulseWebSDK implements SdkContext {
     // This matches Android which puts os.version in the Resource via Build.VERSION.RELEASE.
     const syncUA = parseUserAgent();
     const resolvedOsVersion = await getOsVersionAsync(syncUA.osVersion);
+    if (this._shuttingDown) {
+      this._starting = false;
+      return;
+    }
     const resource = buildResource(configWithUrl, resolvedOsVersion);
 
     // Step 4: Load cached SDK config
@@ -208,6 +213,7 @@ class PulseWebSDK implements SdkContext {
     this.tracerProvider = bundle.tracerProvider;
     this.loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
+    this._providerCleanup = bundle.cleanup ?? (() => {});
 
     trace.setGlobalTracerProvider(this.tracerProvider);
     logs.setGlobalLoggerProvider(this.loggerProvider);
@@ -248,9 +254,11 @@ class PulseWebSDK implements SdkContext {
   }
 
   async shutdown(): Promise<void> {
-    if (!this._initialized) return;
+    if (!this._initialized && !this._starting) return;
     this._shuttingDown = true;
+    this._starting = false; // kill any pending async init
 
+    this._providerCleanup();
     this.registry?.uninstallAll();
     this.sessionProvider?.shutdown();
 
@@ -262,6 +270,7 @@ class PulseWebSDK implements SdkContext {
 
     this._initialized = false;
     this._shuttingDown = false;
+    // _starting already reset above
   }
 
   isInitialized(): boolean {

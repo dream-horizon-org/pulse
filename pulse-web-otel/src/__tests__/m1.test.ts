@@ -864,7 +864,7 @@ describe("M1 — Session Provider (extended)", () => {
     let capturedEnd: { sessionId?: string; durationNs?: number } = {};
     provider.onSessionChange((e) => {
       if (e.type === "end") {
-        capturedEnd = { sessionId: e.sessionId, durationNs: e.durationNs };
+        capturedEnd = { sessionId: e.sessionId, durationNs: e.durationMs ?? 0 };
       }
     });
 
@@ -2093,6 +2093,7 @@ function makeMockBundle(emitSpy: ReturnType<typeof vi.fn>) {
       forceFlush: vi.fn().mockResolvedValue(undefined),
       shutdown: vi.fn().mockResolvedValue(undefined),
     },
+    cleanup: vi.fn(),
   };
 }
 
