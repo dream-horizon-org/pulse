@@ -11,6 +11,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.session.models.SnapshotBlobResponse;
 import org.dreamhorizon.pulseserver.resources.session.models.SnapshotSourcesResponse;
 import org.dreamhorizon.pulseserver.resources.session.models.SnapshotsDataRequest;
@@ -30,6 +31,7 @@ public class SessionReplay {
   @GET
   @Path("/{sessionId}/snapshots-source")
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<SnapshotSourcesResponse>> getSnapshotsSource(
       @PathParam("sessionId") String sessionId) {
     return sessionReplayService.getBlockSources(sessionId)
@@ -39,6 +41,7 @@ public class SessionReplay {
   @GET
   @Path("/{sessionId}/snapshots-data")
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<SnapshotBlobResponse>> getSnapshotsData(
       @PathParam("sessionId") String sessionId,
       @Valid @BeanParam SnapshotsDataRequest request) {

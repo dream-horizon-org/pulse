@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import Combine
 
 /// Manages interaction tracking lifecycle
@@ -58,7 +61,7 @@ public final class InteractionManager {
 
             startStateObservation()
         } catch {
-            print("[Pulse] Interaction: Failed to initialize - \(error.localizedDescription). Error: \(error)")
+            PulseLogger.error("Interaction: Failed to initialize - \(error.localizedDescription)")
         }
     }
 

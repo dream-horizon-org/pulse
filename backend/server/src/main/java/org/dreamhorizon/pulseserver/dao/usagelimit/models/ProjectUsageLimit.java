@@ -23,6 +23,8 @@ public class ProjectUsageLimit {
   private String disabledReason;
   private String createdBy;
   private JsonNode thresholdsNotified;
+  private Long notificationProjectUsageLimitId;
+  private Boolean notificationRowActive;
   private Instant notificationCreatedAt;
   private String tenantId;
 }

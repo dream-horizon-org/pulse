@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.eventdefinition.models.RestBulkUploadResponse;
 import org.dreamhorizon.pulseserver.resources.eventdefinition.models.RestEventDefinition;
 import org.dreamhorizon.pulseserver.resources.eventdefinition.models.RestEventDefinitionListResponse;
@@ -41,6 +42,7 @@ public class EventDefinitionController {
   @GET
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<RestEventDefinitionListResponse>> getAllEventDefinitions(
       @QueryParam("limit") @DefaultValue("50") int limit,
       @QueryParam("offset") @DefaultValue("0") int offset,
@@ -56,6 +58,7 @@ public class EventDefinitionController {
   @Path("/categories")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<List<String>>> getCategories() {
     return eventDefinitionService.getDistinctCategories()
         .to(RestResponse.jaxrsRestHandler());
@@ -65,6 +68,7 @@ public class EventDefinitionController {
   @Path("/{id}")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<RestEventDefinition>> getEventDefinitionById(
       @PathParam("id") Long id
   ) {
@@ -76,6 +80,7 @@ public class EventDefinitionController {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<RestEventDefinition>> createEventDefinition(
       @NotNull @HeaderParam("user-email") String userEmail,
       @NotNull RestEventDefinition restRequest
@@ -90,6 +95,7 @@ public class EventDefinitionController {
   @Path("/{id}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<RestEventDefinition>> updateEventDefinition(
       @NotNull @HeaderParam("user-email") String userEmail,
       @PathParam("id") Long id,
@@ -106,6 +112,7 @@ public class EventDefinitionController {
   @Path("/{id}")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<RestEventDefinition>> archiveEventDefinition(
       @NotNull @HeaderParam("user-email") String userEmail,
       @PathParam("id") Long id
@@ -120,6 +127,7 @@ public class EventDefinitionController {
   @Path("/bulk")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<RestBulkUploadResponse>> bulkUpload(
       @NotNull @HeaderParam("user-email") String userEmail,
       @MultipartForm MultipartFormDataInput input
