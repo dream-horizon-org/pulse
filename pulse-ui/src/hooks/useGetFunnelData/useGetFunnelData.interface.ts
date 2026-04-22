@@ -1,7 +1,4 @@
-import {
-  FilterField,
-  TimeRange,
-} from "../useGetDataQuery/useGetDataQuery.interface";
+import { FilterField, TimeRange } from "../useGetDataQuery/useGetDataQuery.interface";
 
 export interface FunnelStep {
   eventName: string;
@@ -26,18 +23,6 @@ export interface FunnelStepResult {
   medianStepSeconds?: number | null;
 }
 
-export interface FunnelResponse {
-  steps: FunnelStepResult[];
-  totalEnteredUsers: number;
-  overallConversionRate: number;
-  groupedResults?: Record<string, FunnelStepResult[]>;
-}
-
-export interface GetFunnelDataParams {
-  requestBody: FunnelRequestBody;
-  enabled?: boolean;
-}
-
 // Health: crash/ANR/non-fatal per step
 export interface FunnelStepHealth {
   stepLevel: number;
@@ -49,18 +34,6 @@ export interface FunnelStepHealth {
   crashRate: number;
   anrRate: number;
   nonFatalRate: number;
-}
-
-export interface FunnelHealthResponse {
-  steps: FunnelStepHealth[];
-  totalCrashUsers: number;
-  totalAnrUsers: number;
-  totalNonFatalUsers: number;
-}
-
-export interface GetFunnelHealthParams {
-  requestBody: FunnelRequestBody;
-  enabled?: boolean;
 }
 
 // Sessions drill-down
@@ -79,13 +52,6 @@ export interface FunnelSessionDetail {
   deviceModel: string;
 }
 
-export interface FunnelSessionsResponse {
-  stepLevel: number;
-  stepName: string;
-  totalAffectedSessions: number;
-  sessions: FunnelSessionDetail[];
-}
-
 export interface FunnelSessionsRequestBody {
   steps: FunnelStep[];
   timeRange: TimeRange;
@@ -95,11 +61,6 @@ export interface FunnelSessionsRequestBody {
   stepLevel: number;
   issueType?: "ALL" | "CRASH" | "ANR" | "NON_FATAL";
   limit?: number;
-}
-
-export interface GetFunnelSessionsParams {
-  requestBody: FunnelSessionsRequestBody;
-  enabled?: boolean;
 }
 
 // Grouped funnel
@@ -151,11 +112,6 @@ export interface JourneyRequestBody {
   depth: number;
   timeRange: TimeRange;
   filters?: FilterField[];
-}
-
-export interface GetJourneyParams {
-  requestBody: JourneyRequestBody;
-  enabled?: boolean;
 }
 
 // Funnel events list

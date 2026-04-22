@@ -1051,7 +1051,7 @@ CREATE TABLE IF NOT EXISTS funnel (
     INDEX idx_funnel_updated (updated_at),
     INDEX idx_funnel_project_updated (project_id, updated_at),
     FULLTEXT INDEX idx_funnel_name_fts (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Saved funnel definitions for Spark computation and dashboard';
 
 CREATE TABLE IF NOT EXISTS journey (
@@ -1079,7 +1079,7 @@ CREATE TABLE IF NOT EXISTS journey (
     INDEX idx_journey_anchor_event (anchor_event),
     INDEX idx_journey_direction (direction),
     FULLTEXT INDEX idx_journey_name_fts (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Saved journey definitions for event path exploration and dashboard';
 
 -- funnel_journey_tag (align with V12__create_funnel_journey_tag.sql; no FK on project_id)
@@ -1094,7 +1094,7 @@ CREATE TABLE IF NOT EXISTS funnel_journey_tag (
     UNIQUE KEY uk_funnel_journey_tag (project_id, entity_type, entity_id, tag),
     KEY idx_funnel_journey_tag_entity (project_id, entity_type, entity_id),
     KEY idx_funnel_journey_tag_tag (project_id, tag)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Tag mappings for saved funnels and journeys';
 
 -- ============================================================================

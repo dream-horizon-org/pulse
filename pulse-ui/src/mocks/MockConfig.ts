@@ -11,8 +11,11 @@ export class MockConfigManager {
   private config: MockConfig;
 
   private constructor() {
+    // Enable mock server by default in development mode if not explicitly disabled
+    const isDevelopment = process.env.NODE_ENV === "development";
     const mockServerEnabled =
-      process.env.REACT_APP_USE_MOCK_SERVER === "true";
+      process.env.REACT_APP_USE_MOCK_SERVER === "true" ||
+      (isDevelopment && process.env.REACT_APP_USE_MOCK_SERVER !== "false");
 
     this.config = {
       enabled: mockServerEnabled,
