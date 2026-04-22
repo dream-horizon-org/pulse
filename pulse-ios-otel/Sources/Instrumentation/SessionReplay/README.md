@@ -35,7 +35,6 @@ Session Replay instrumentation is configured when initializing Pulse in your app
 import PulseKit
 
 Pulse.shared.initialize(
-    endpointBaseUrl: "https://your-endpoint.com",
     apiKey: "your-project-id",
     dataCollectionState: .allowed,
     instrumentations: { config in

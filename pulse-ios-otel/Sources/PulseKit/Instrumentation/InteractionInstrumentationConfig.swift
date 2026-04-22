@@ -20,7 +20,8 @@ public struct InteractionInstrumentationConfig {
         self.enabled = value
     }
 
-    public mutating func setConfigUrl(_ provider: @escaping () -> String) {
+    /// Resolved from remote SDK config or derived defaults inside `Pulse.shared.initialize` — not overridable from app code.
+    internal mutating func setConfigUrl(_ provider: @escaping () -> String) {
         self.configUrlProvider = provider
     }
 

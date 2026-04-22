@@ -1,0 +1,216 @@
+---
+# remove-broker.yml
+#
+# Gracefully removes a broker from the KRaft cluster.
+# Run BEFORE Terraform decreases num_brokers or terminates the instance.
+#
+# Steps:
+#   1. Reassign all partitions off the broker being removed
+#   2. Wait for reassignment to complete
+#   3. Remove the node from KRaft quorum voters (rolling restart of surviving brokers)
+#   4. Stop the kafka service on the removed broker
+#
+# Required extra_vars:
+#   remove_broker_host  – FQDN of the broker to remove, e.g. pulse-kafka-03.pulse.local
+#   remove_node_id      – KRaft node ID of the broker to remove, e.g. 3
+#   num_brokers         – total broker count AFTER removal (for rebalance target)
+#   route53_zone_name   – e.g. pulse.local
+#
+# Example:
+#   ansible-playbook remove-broker.yml \
+#     -i inventory/hosts.ini \
+#     -e remove_broker_host=pulse-kafka-03.pulse.local \
+#     -e remove_node_id=3 \
+#     -e num_brokers=2 \
+#     -e route53_zone_name=pulse.local
+
+# Pre-play — Register the broker being removed into a dynamic group
+# so Phase 2 can target only surviving brokers with :!removed_broker.
+- name: Register removed broker in inventory
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - add_host:
+        name: "{{ remove_broker_host }}"
+        groups:
+          - removed_broker
+
+# Phase 1 — Drain partitions off the broker being removed (run from a surviving broker)
+- name: Drain partitions from broker being removed
+  hosts: "{{ surviving_broker | default('pulse-kafka-01.' + route53_zone_name) }}"
+  become: true
+  vars:
+    kafka_bin: "{{ kafka_dir | default('/opt/kafka') }}/bin"
+
+  tasks:
+    - name: Check if broker to remove is online
+      wait_for:
+        host: "{{ remove_broker_host }}"
+        port: 9092
+        timeout: 10
+      register: broker_online_check
+      ignore_errors: true
+
+    - name: Skip drain — broker is already offline
+      debug:
+        msg: "Broker {{ remove_broker_host }} is already offline — skipping partition drain"
+      when: broker_online_check.failed
+
+    - name: Get list of remaining broker IDs (after removal)
+      set_fact:
+        remaining_brokers: "{{ range(1, num_brokers | int + 1) | list | map('string') | join(',') }}"
+      when: not broker_online_check.failed
+
+    - name: Generate reassignment plan excluding the broker to remove
+      shell: |
+        "{{ kafka_bin }}/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 --list \
+          | while read t; do echo "{\"topic\": \"$t\"}"; done \
+          | paste -sd ',' > /tmp/broker-topics.tmp
+        cat > /tmp/topics-to-drain.json <<EOF
+        {"topics": [$(cat /tmp/broker-topics.tmp)], "version": 1}
+        EOF
+        "{{ kafka_bin }}/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --broker-list "{{ remaining_brokers }}" \
+          --topics-to-move-json-file /tmp/topics-to-drain.json \
+          --generate \
+          | grep '^{"version"' | tail -1 | tee /tmp/drain-plan.json
+      register: drain_plan
+      changed_when: false
+      when: not broker_online_check.failed
+
+    - name: Validate drain plan is non-empty
+      fail:
+        msg: "Failed to generate reassignment plan — check broker connectivity"
+      when: not broker_online_check.failed and (drain_plan.stdout == "" or drain_plan.stdout == "null")
+
+    - name: Execute partition drain
+      shell: |
+        "{{ kafka_bin }}/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --reassignment-json-file /tmp/drain-plan.json \
+          --execute
+      register: drain_execute
+      when: not broker_online_check.failed
+
+    - name: Wait for reassignment to complete (up to 20 minutes)
+      shell: |
+        "{{ kafka_bin }}/kafka-reassign-partitions.sh" \
+          --bootstrap-server localhost:9092 \
+          --reassignment-json-file /tmp/drain-plan.json \
+          --verify 2>&1 \
+          | grep -c "in progress" || true
+      register: verify_result
+      retries: 60
+      delay: 20
+      until: verify_result.stdout | int == 0
+      changed_when: false
+      failed_when: false
+      when: not broker_online_check.failed
+
+    - name: Print reassignment verification result
+      debug:
+        var: verify_result.stdout_lines
+      when: not broker_online_check.failed
+
+# Phase 2 — Remove node from KRaft quorum voters (rolling restart of surviving brokers).
+# Updates controller.quorum.voters to the reduced list on each surviving broker,
+# then restarts them one at a time. Same approach as add-broker Phase 2 in reverse.
+- name: Remove node from KRaft quorum voters
+  hosts: "kafka_brokers:!removed_broker"
+  become: true
+  serial: 1   # rolling restart — one broker at a time
+
+  tasks:
+    - name: Show current quorum status before removal
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller {{ inventory_hostname }}:9093 describe --status"
+      register: pre_removal_status
+      changed_when: false
+      run_once: true
+
+    - name: Print quorum status (before)
+      debug:
+        var: pre_removal_status.stdout_lines
+      run_once: true
+
+    - name: Build reduced quorum voters string
+      shell: |
+        QUORUM=""
+        for i in $(seq 1 {{ num_brokers }}); do
+          IDX=$(printf "%02d" $i)
+          ENTRY="${i}@pulse-kafka-${IDX}.{{ route53_zone_name }}:9093"
+          QUORUM="${QUORUM:+$QUORUM,}$ENTRY"
+        done
+        echo "$QUORUM"
+      register: quorum_result
+      changed_when: false
+
+    - name: Update controller.quorum.voters in server.properties
+      lineinfile:
+        path: "{{ kafka_dir | default('/opt/kafka') }}/config/kraft/server.properties"
+        regexp: '^controller\.quorum\.voters='
+        line: "controller.quorum.voters={{ quorum_result.stdout }}"
+      register: voters_updated
+
+    - name: Restart kafka to apply updated quorum config
+      systemd:
+        name: kafka
+        state: restarted
+      when: voters_updated.changed
+
+    - name: Wait for broker to rejoin after restart
+      wait_for:
+        host: "{{ inventory_hostname }}"
+        port: 9092
+        delay: 5
+        timeout: 300
+      when: voters_updated.changed
+
+    - name: Verify broker is fully ready (not just port open)
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-topics.sh --bootstrap-server {{ inventory_hostname }}:9092 --list"
+      register: broker_ready
+      retries: 12
+      delay: 10
+      until: broker_ready.rc == 0
+      changed_when: false
+      when: voters_updated.changed
+
+    - name: Show quorum status after update
+      shell: "{{ kafka_dir | default('/opt/kafka') }}/bin/kafka-metadata-quorum.sh --bootstrap-controller {{ inventory_hostname }}:9093 describe --status"
+      register: post_removal_status
+      changed_when: false
+      run_once: true
+
+    - name: Print quorum status (after)
+      debug:
+        var: post_removal_status.stdout_lines
+      run_once: true
+
+# Phase 3 — Stop Kafka on the broker being removed
+- name: Stop Kafka on broker being removed
+  hosts: "{{ remove_broker_host }}"
+  become: true
+
+  tasks:
+    - name: Stop kafka service
+      systemd:
+        name: kafka
+        state: stopped
+        enabled: false
+
+    - name: Confirm kafka is stopped
+      shell: systemctl is-active kafka || true
+      register: kafka_status
+      changed_when: false
+
+    - name: Print kafka service status
+      debug:
+        msg: "Kafka service status: {{ kafka_status.stdout }}"
+
+    - name: Broker removal complete
+      debug:
+        msg: >-
+          Broker {{ remove_node_id }} ({{ remove_broker_host }}) stopped and removed from quorum.
+          You can now run: terraform apply -var num_brokers={{ num_brokers }}
+          to terminate the EC2 instance. The EBS data volume will be preserved.
