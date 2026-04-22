@@ -123,6 +123,9 @@ export type PulseNativeInitFields = {
 
 export interface PulseAndroidSection extends PulseNativeInitFields {
   instrumentation?: PulseAndroidInstrumentationProps;
+  
+  /** Version for `com.android.tools:desugar_jdk_libs`. Default: `2.1.4`.*/
+  coreLibraryDesugarVersion?: string;
 }
 
 export interface PulseIosSection extends PulseNativeInitFields {
@@ -139,6 +142,7 @@ export interface PulsePlatformInitProps {
 
 export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
   instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugarVersion: string;
 };
 
 export type ResolvedIosPulseProps = PulsePlatformInitProps & {

@@ -9,6 +9,8 @@ import type {
   ResolvedIosPulseProps,
 } from './types';
 
+const DEFAULT_CORE_LIBRARY_DESUGAR_VERSION = '2.1.4';
+
 function parseConsent(value: unknown, label: string): PulseDataCollectionState {
   if (value === 'PENDING' || value === 'ALLOWED' || value === 'DENIED') {
     return value;
@@ -101,9 +103,15 @@ export function resolveAndroidProps(
   props: PulsePluginProps
 ): ResolvedAndroidPulseProps {
   const merged = mergePlatformInit(props, props.android);
+  const rawVersion = props.android?.coreLibraryDesugarVersion?.trim();
+  const coreLibraryDesugarVersion =
+    rawVersion && rawVersion.length > 0
+      ? rawVersion
+      : DEFAULT_CORE_LIBRARY_DESUGAR_VERSION;
   return {
     ...merged,
     instrumentation: props.android?.instrumentation,
+    coreLibraryDesugarVersion,
   };
 }
 
