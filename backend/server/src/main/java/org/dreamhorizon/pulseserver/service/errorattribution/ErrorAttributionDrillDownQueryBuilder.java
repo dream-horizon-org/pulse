@@ -120,7 +120,12 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + interactionType
             + "' AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_ts "
+            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_ts, "
+            + "maxIf(greatest(0, toInt64(ifNull(Duration, 0))), PulseType = '"
+            + interactionType
+            + "' AND SpanName = :"
+            + p1
+            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_max_duration_ns "
             + "FROM "
             + traces
             + " WHERE ProjectId = :"
@@ -155,7 +160,7 @@ public final class ErrorAttributionDrillDownQueryBuilder {
                 + p2
                 + ", 9, 'UTC') AND ta.poor_ts < toDateTime64(:"
                 + p3
-                + ", 9, 'UTC') AND ss.first_issue_ts < ta.poor_ts) AS n_treated_low ")
+                + ", 9, 'UTC') AND ss.first_issue_ts < (ta.poor_ts + toIntervalNanosecond(ta.poor_max_duration_ns))) AS n_treated_low ")
             : "uniqCombined64If(ss.SessionId, ta.is_low = 1) AS n_treated_low ";
 
     String keyStatsGroupBy =
@@ -272,6 +277,10 @@ public final class ErrorAttributionDrillDownQueryBuilder {
     String urlExpr = "ifNull(SpanAttributes['http.url'], '')";
     String gqlNameExpr = "ifNull(SpanAttributes['graphql.operation.name'], '')";
     String gqlTypeExpr = "ifNull(SpanAttributes['graphql.operation.type'], '')";
+    String methodExpr =
+        "ifNull(SpanAttributes['http.request.method'], ifNull(SpanAttributes['http.method'], ''))";
+    String statusCodeExpr =
+        "ifNull(SpanAttributes['http.response.status_code'], ifNull(SpanAttributes['http.status_code'], ''))";
 
     String rrSort =
         "multiIf("
@@ -318,7 +327,12 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + interactionType
             + "' AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_ts "
+            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_ts, "
+            + "maxIf(greatest(0, toInt64(ifNull(Duration, 0))), PulseType = '"
+            + interactionType
+            + "' AND SpanName = :"
+            + p1
+            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_max_duration_ns "
             + "FROM "
             + traces
             + " WHERE ProjectId = :"
@@ -341,7 +355,11 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + gqlNameExpr
             + " AS drill_gql_name, "
             + gqlTypeExpr
-            + " AS drill_gql_type"
+            + " AS drill_gql_type, "
+            + methodExpr
+            + " AS drill_http_method, "
+            + statusCodeExpr
+            + " AS drill_http_status"
             + (params.issueMustPrecedePoor() ? ", min(Timestamp) AS first_endpoint_error_ts " : " ")
             + "FROM "
             + traces
@@ -356,29 +374,33 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + ", 9, 'UTC') "
             + "AND PulseType LIKE 'network.%' "
             + "AND StatusCode = 'Error' "
-            + "GROUP BY SessionId, drill_url, drill_gql_name, drill_gql_type "
+            + "GROUP BY SessionId, drill_url, drill_gql_name, drill_gql_type, drill_http_method, drill_http_status "
             + "), "
             + "key_stats AS ( "
             + "SELECT "
             + "ns.drill_url AS url, "
             + "ns.drill_gql_name AS graphql_operation_name, "
             + "ns.drill_gql_type AS graphql_operation_type, "
+            + "ns.drill_http_method AS http_method, "
+            + "ns.drill_http_status AS http_status_code, "
             + "uniqCombined64(ns.SessionId) AS n_treated, "
             + (params.issueMustPrecedePoor()
                 ? ("uniqCombined64If(ns.SessionId, ta.is_low = 1 AND ta.poor_ts >= toDateTime64(:"
                     + p2
                     + ", 9, 'UTC') AND ta.poor_ts < toDateTime64(:"
                     + p3
-                    + ", 9, 'UTC') AND ns.first_endpoint_error_ts < ta.poor_ts) AS n_treated_low ")
+                    + ", 9, 'UTC') AND ns.first_endpoint_error_ts < (ta.poor_ts + toIntervalNanosecond(ta.poor_max_duration_ns))) AS n_treated_low ")
                 : "uniqCombined64If(ns.SessionId, ta.is_low = 1) AS n_treated_low ")
             + "FROM network_sessions ns "
             + "INNER JOIN trace_agg ta ON ns.SessionId = ta.SessionId "
-            + "GROUP BY ns.drill_url, ns.drill_gql_name, ns.drill_gql_type "
+            + "GROUP BY ns.drill_url, ns.drill_gql_name, ns.drill_gql_type, ns.drill_http_method, ns.drill_http_status "
             + ") "
             + "SELECT "
             + "ks.url AS url, "
             + "ks.graphql_operation_name AS graphql_operation_name, "
             + "ks.graphql_operation_type AS graphql_operation_type, "
+            + "ks.http_method AS http_method, "
+            + "ks.http_status_code AS http_status_code, "
             + "ks.n_treated AS n_treated, "
             + "ks.n_treated_low AS n_treated_low, "
             + "(ut.n_u - ks.n_treated) AS n_control, "

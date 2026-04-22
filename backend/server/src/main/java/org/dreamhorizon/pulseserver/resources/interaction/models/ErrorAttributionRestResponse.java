@@ -43,6 +43,8 @@ public class ErrorAttributionRestResponse {
     private String url;
     private String graphqlOperationName;
     private String graphqlOperationType;
+    private String httpMethod;
+    private String httpStatusCode;
     private Long occurrences;
     private Long nTreated;
     private Long nControl;

@@ -13,6 +13,8 @@ public record ErrorAttributionRelatedAttributionRow(
     String url,
     String graphqlOperationName,
     String graphqlOperationType,
+    String httpMethod,
+    String httpStatusCode,
     Long occurrences,
     Long nTreated,
     Long nControl,

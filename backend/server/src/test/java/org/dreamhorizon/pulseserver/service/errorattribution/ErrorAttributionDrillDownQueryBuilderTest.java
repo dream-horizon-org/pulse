@@ -39,13 +39,13 @@ class ErrorAttributionDrillDownQueryBuilderTest {
     assertThat(sql).contains("key_stats AS");
     assertThat(sql).contains("universe AS");
     assertThat(sql).contains("poor_tot AS");
-    assertThat(sql).contains(" AS poor_ts ");
+    assertThat(sql).contains("AS poor_ts,");
     assertThat(sql).doesNotContain("eligible_stack_groups");
     assertThat(sql).doesNotContain("poor_sessions AS");
     assertThat(sql).contains("SELECT SessionId, GroupId, Title FROM ");
     assertThat(sql).contains("PulseType = 'device.crash'");
     assertThat(sql).contains("LIMIT toInt64(:");
-    assertThat(sql).doesNotContain("first_issue_ts < ta.poor_ts");
+    assertThat(sql).doesNotContain("toIntervalNanosecond(ta.poor_max_duration_ns)");
     assertSharedBinds(spec);
   }
 
@@ -56,7 +56,11 @@ class ErrorAttributionDrillDownQueryBuilderTest {
             "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.crash, PARAMS_TEMPORAL_ON);
     String sql = spec.sql();
     assertThat(sql).contains("min(Timestamp) AS first_issue_ts");
-    assertThat(sql).contains("first_issue_ts < ta.poor_ts");
+    assertThat(sql).contains("AS poor_max_duration_ns");
+    assertThat(sql).contains("maxIf(greatest(0, toInt64(ifNull(Duration, 0)))");
+    assertThat(sql)
+        .contains(
+            "ss.first_issue_ts < (ta.poor_ts + toIntervalNanosecond(ta.poor_max_duration_ns))");
     assertThat(sql).contains("ta.poor_ts >= toDateTime64(:");
     assertThat(sql).contains("ta.poor_ts < toDateTime64(:");
     assertThat(sql).doesNotContain("poor_ts IS NOT NULL");
@@ -82,9 +86,12 @@ class ErrorAttributionDrillDownQueryBuilderTest {
     String sql = spec.sql();
     assertThat(sql).contains("network_sessions AS");
     assertThat(sql).contains("SpanAttributes['http.url']");
+    assertThat(sql).contains("drill_http_method");
+    assertThat(sql).contains("drill_http_status");
     assertThat(sql).contains(ClickhouseConstants.OTEL_TRACES_TABLE);
     assertThat(sql).doesNotContain(ClickhouseConstants.STACK_TRACE_EVENTS_TABLE);
-    assertThat(sql).contains(" AS poor_ts ");
+    assertThat(sql).contains("AS poor_ts,");
+    assertThat(sql).contains("AS poor_max_duration_ns");
     assertSharedBinds(spec);
   }
 
@@ -94,7 +101,10 @@ class ErrorAttributionDrillDownQueryBuilderTest {
         ErrorAttributionDrillDownQueryBuilder.build(
             "proj-1", "checkout", START, END, ErrorAttributionDrillDownSignal.api, PARAMS_TEMPORAL_ON);
     String sql = spec.sql();
-    assertThat(sql).contains("first_endpoint_error_ts < ta.poor_ts");
+    assertThat(sql).contains("AS poor_max_duration_ns");
+    assertThat(sql)
+        .contains(
+            "ns.first_endpoint_error_ts < (ta.poor_ts + toIntervalNanosecond(ta.poor_max_duration_ns))");
     assertThat(sql).contains("min(Timestamp) AS first_endpoint_error_ts");
     assertSharedBinds(spec);
   }

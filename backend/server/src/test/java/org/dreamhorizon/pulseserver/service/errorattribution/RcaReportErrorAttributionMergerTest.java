@@ -49,6 +49,8 @@ class RcaReportErrorAttributionMergerTest {
             null,
             null,
             null,
+            null,
+            null,
             10L,
             10L,
             100L,

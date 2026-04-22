@@ -31,26 +31,38 @@ export function UnifiedRelatedAttributionsList({
               row.graphqlOperationName ?? undefined,
               row.graphqlOperationType ?? undefined,
             );
+            const methodStatus =
+              [row.httpMethod, row.httpStatusCode]
+                .filter(Boolean)
+                .join(" · ") || null;
             const to = `/projects/${encodeURIComponent(projectId)}/network-apis/${encodeURIComponent(apiId)}${linkSuffix}`;
             return (
-              <Box key={`api-${row.url}-${idx}`}>
+              <Box
+                key={`api-${row.url}-${row.httpMethod}-${row.httpStatusCode}-${idx}`}
+              >
                 {idx > 0 ? (
                   <Divider size="xs" className={classes.compactDivider} />
                 ) : null}
                 <div className={classes.compactRow}>
                   <div className={classes.compactRankBadge}>{rank}</div>
-                  <Text
-                    component={Link}
-                    to={to}
-                    fw={600}
-                    size="sm"
-                    className={classes.drillDownLink}
-                    style={{ flex: 1, minWidth: 0 }}
-                    lineClamp={2}
-                    lh={1.35}
-                  >
-                    {row.url || "(no URL)"}
-                  </Text>
+                  <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+                    <Text
+                      component={Link}
+                      to={to}
+                      fw={600}
+                      size="sm"
+                      className={classes.drillDownLink}
+                      lineClamp={2}
+                      lh={1.35}
+                    >
+                      {row.url || "(no URL)"}
+                    </Text>
+                    {methodStatus ? (
+                      <Text size="xs" c="dimmed" lh={1.2}>
+                        {methodStatus}
+                      </Text>
+                    ) : null}
+                  </Stack>
                   <Text size="xs" c="dimmed" style={{ flexShrink: 0 }} lh={1.2}>
                     {row.occurrences.toLocaleString()}{" "}
                     {ERROR_ATTRIBUTION_MESSAGES.DRILL_DOWN_SESSIONS}

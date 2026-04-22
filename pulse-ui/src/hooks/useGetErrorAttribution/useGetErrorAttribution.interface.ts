@@ -18,6 +18,10 @@ export interface RelatedAttributionEntry {
   url?: string | null;
   graphqlOperationName?: string | null;
   graphqlOperationType?: string | null;
+  /** HTTP verb from span attributes (`http.request.method` or `http.method`). */
+  httpMethod?: string | null;
+  /** Status from span attributes (`http.response.status_code` or `http.status_code`). */
+  httpStatusCode?: string | null;
   occurrences: number;
   nTreated?: number | null;
   nControl?: number | null;

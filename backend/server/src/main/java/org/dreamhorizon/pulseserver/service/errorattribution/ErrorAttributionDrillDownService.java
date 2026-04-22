@@ -72,6 +72,8 @@ public class ErrorAttributionDrillDownService {
                 .url(stringOrEmpty(m.get("url")))
                 .graphqlOperationName(stringOrEmpty(m.get("graphql_operation_name")))
                 .graphqlOperationType(stringOrEmpty(m.get("graphql_operation_type")))
+                .httpMethod(stringOrEmpty(m.get("http_method")))
+                .httpStatusCode(stringOrEmpty(m.get("http_status_code")))
                 .occurrences(r.getNTreated())
                 .nTreated(r.getNTreated())
                 .nControl(r.getNControl())

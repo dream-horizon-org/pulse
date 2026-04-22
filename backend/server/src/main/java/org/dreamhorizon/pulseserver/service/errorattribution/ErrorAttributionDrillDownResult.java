@@ -62,6 +62,10 @@ public class ErrorAttributionDrillDownResult {
     private String url;
     private String graphqlOperationName;
     private String graphqlOperationType;
+    /** From {@code SpanAttributes['http.request.method']} or {@code SpanAttributes['http.method']}. */
+    private String httpMethod;
+    /** From {@code SpanAttributes['http.response.status_code']} or {@code SpanAttributes['http.status_code']}. */
+    private String httpStatusCode;
     /** Distinct sessions in {@code U} with this endpoint key (same as {@code nTreated}). */
     private Long occurrences;
     private Long nTreated;

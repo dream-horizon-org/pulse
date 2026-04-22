@@ -42,6 +42,8 @@ public final class ErrorAttributionRestResponseMapper {
         .url(r.url())
         .graphqlOperationName(r.graphqlOperationName())
         .graphqlOperationType(r.graphqlOperationType())
+        .httpMethod(r.httpMethod())
+        .httpStatusCode(r.httpStatusCode())
         .occurrences(r.occurrences())
         .nTreated(r.nTreated())
         .nControl(r.nControl())

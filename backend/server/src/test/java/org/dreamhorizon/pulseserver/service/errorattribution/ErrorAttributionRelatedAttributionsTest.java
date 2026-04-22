@@ -62,6 +62,8 @@ class ErrorAttributionRelatedAttributionsTest {
             .url("/v1/x")
             .graphqlOperationName(null)
             .graphqlOperationType(null)
+            .httpMethod("POST")
+            .httpStatusCode("503")
             .occurrences(5L)
             .nTreated(5L)
             .nControl(100L)
@@ -81,6 +83,8 @@ class ErrorAttributionRelatedAttributionsTest {
     assertThat(out).hasSize(1);
     assertThat(out.get(0).rowKind()).isEqualTo(ErrorAttributionRelatedAttributions.ROW_KIND_API);
     assertThat(out.get(0).url()).isEqualTo("/v1/x");
+    assertThat(out.get(0).httpMethod()).isEqualTo("POST");
+    assertThat(out.get(0).httpStatusCode()).isEqualTo("503");
   }
 
   @Test
