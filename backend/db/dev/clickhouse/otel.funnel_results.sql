@@ -19,6 +19,4 @@ CREATE TABLE IF NOT EXISTS otel.funnel_results
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(toDate(RunTime))
 ORDER BY (ProjectId, FunnelId, RunTime, StepIndex)
-TTL toDateTime(RunTime) + toIntervalDay(7)  TO VOLUME 'cold',
-    toDateTime(RunTime) + toIntervalDay(90) DELETE
-SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+SETTINGS index_granularity = 8192;

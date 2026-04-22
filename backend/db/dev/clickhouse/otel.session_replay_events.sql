@@ -17,6 +17,4 @@ CREATE TABLE IF NOT EXISTS otel.session_replay_events
 ENGINE = AggregatingMergeTree
 PARTITION BY (toYYYYMMDD(MinFirstTimestamp))
 ORDER BY (ProjectId, SessionId)
-TTL toDateTime(MinFirstTimestamp) + toIntervalDay(7)  TO VOLUME 'cold',
-    toDateTime(MaxLastTimestamp)  + toIntervalDay(90) DELETE
-SETTINGS merge_with_ttl_timeout = 86400, index_granularity = 8192, storage_policy = 'tiered';
+SETTINGS merge_with_ttl_timeout = 86400, index_granularity = 8192;

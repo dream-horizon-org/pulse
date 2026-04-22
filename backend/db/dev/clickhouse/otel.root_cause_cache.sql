@@ -16,6 +16,4 @@ CREATE TABLE IF NOT EXISTS otel.root_cause_cache
 ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(date)
 ORDER BY (ProjectId, interaction_name, date, mode)
-TTL toDateTime(date) + toIntervalDay(7)  TO VOLUME 'cold',
-    toDateTime(date) + toIntervalDay(90) DELETE
-SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+SETTINGS index_granularity = 8192;

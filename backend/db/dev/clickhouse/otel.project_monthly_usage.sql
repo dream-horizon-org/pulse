@@ -9,5 +9,4 @@ CREATE TABLE IF NOT EXISTS otel.project_monthly_usage
 ENGINE = AggregatingMergeTree
 PARTITION BY toYYYYMM(month)
 ORDER BY (project_id, month, source)
-TTL toDateTime(month) + toIntervalDay(30) TO VOLUME 'cold'
-SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+SETTINGS index_granularity = 8192;

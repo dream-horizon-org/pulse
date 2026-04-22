@@ -41,9 +41,4 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (ProjectId, PulseType, EventName, Timestamp)
-TTL
-    toDateTime(Timestamp) + INTERVAL 7  DAY TO VOLUME 'cold',
-    toDateTime(Timestamp) + INTERVAL 90 DAY DELETE
-SETTINGS
-    index_granularity  = 8192,
-    storage_policy     = 'tiered';
+SETTINGS index_granularity  = 8192;

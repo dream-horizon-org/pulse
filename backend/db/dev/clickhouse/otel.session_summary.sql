@@ -33,6 +33,4 @@ CREATE TABLE IF NOT EXISTS otel.session_summary
 ENGINE = AggregatingMergeTree
 PARTITION BY (toYYYYMMDD(startTime))
 ORDER BY (ProjectId, sessionId)
-TTL toDateTime(startTime) + toIntervalDay(7)  TO VOLUME 'cold',
-    toDateTime(startTime) + toIntervalDay(90) DELETE
-SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+SETTINGS index_granularity = 8192;

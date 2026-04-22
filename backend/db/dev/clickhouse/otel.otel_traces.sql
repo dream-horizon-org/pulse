@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     NetworkProvider    LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], '')        CODEC(ZSTD(1)),
     MeteringSessionId  String                 MATERIALIZED ifNull(SpanAttributes['metering.session.id'], '')         CODEC(ZSTD(1)),
     UserId             String                 MATERIALIZED ifNull(SpanAttributes['user.id'], '')                     CODEC(ZSTD(1)),
+    HttpUrl            String                 MATERIALIZED ifNull(SpanAttributes['http.url'], ifNull(SpanAttributes['url.full'], '')) CODEC(ZSTD(3)),
+    HttpHost           LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['net.peer.name'], ifNull(SpanAttributes['server.address'], '')) CODEC(ZSTD(1)),
+    HttpMethod         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['http.method'], ifNull(SpanAttributes['http.request.method'], '')) CODEC(ZSTD(1)),
+    HttpStatusCode     UInt16                 MATERIALIZED toUInt16OrZero(ifNull(SpanAttributes['http.status_code'], ifNull(SpanAttributes['http.response.status_code'], '0'))) CODEC(T64, ZSTD(1)),
 
     INDEX idx_trace_id      TraceId           TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_span_id       SpanId            TYPE bloom_filter(0.01)  GRANULARITY 1,
@@ -50,23 +54,12 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     INDEX idx_status        StatusCode        TYPE set(8)              GRANULARITY 1,
     INDEX idx_kind          SpanKind          TYPE set(8)              GRANULARITY 1,
     INDEX idx_duration      Duration          TYPE minmax              GRANULARITY 1,
-    INDEX idx_ts            Timestamp         TYPE minmax              GRANULARITY 1
+    INDEX idx_ts            Timestamp         TYPE minmax              GRANULARITY 1,
+    INDEX idx_http_host    HttpHost           TYPE bloom_filter(0.01)  GRANULARITY 1,
+    INDEX idx_http_method  HttpMethod         TYPE set(16)             GRANULARITY 1,
+    INDEX idx_http_status  HttpStatusCode     TYPE minmax              GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (ProjectId, PulseType, SpanName, Timestamp)
-TTL toDateTime(Timestamp) + INTERVAL 7  DAY TO VOLUME 'cold',
-    toDateTime(Timestamp) + INTERVAL 90 DAY DELETE
-SETTINGS index_granularity = 8192, storage_policy = 'tiered';
-
-
--- Optional follow-up (NOT applied): network-span hot columns.
--- Apply separately if you proceed with the network-query optimization:
---   ALTER TABLE otel.otel_traces_local ON CLUSTER 'pulse-clickhouse'
---     ADD COLUMN HttpUrl        String                 MATERIALIZED ifNull(SpanAttributes['http.url'], ifNull(SpanAttributes['url.full'], '')) CODEC(ZSTD(3)),
---     ADD COLUMN HttpHost       LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['net.peer.name'], ifNull(SpanAttributes['server.address'], '')) CODEC(ZSTD(1)),
---     ADD COLUMN HttpMethod     LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['http.method'], ifNull(SpanAttributes['http.request.method'], '')) CODEC(ZSTD(1)),
---     ADD COLUMN HttpStatusCode UInt16                 MATERIALIZED toUInt16OrZero(ifNull(SpanAttributes['http.status_code'], ifNull(SpanAttributes['http.response.status_code'], '0'))) CODEC(T64, ZSTD(1)),
---     ADD INDEX  idx_http_host    HttpHost       TYPE bloom_filter(0.01) GRANULARITY 1,
---     ADD INDEX  idx_http_method  HttpMethod     TYPE set(16)            GRANULARITY 1,
---     ADD INDEX  idx_http_status  HttpStatusCode TYPE minmax             GRANULARITY 1;
+SETTINGS index_granularity = 8192;

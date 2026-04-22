@@ -19,6 +19,4 @@ ENGINE = MergeTree
 PARTITION BY toYYYYMM(toDate(RunTime))
 PRIMARY KEY (ProjectId, JourneyId, RunTime)
 ORDER BY (ProjectId, JourneyId, RunTime, Direction, PosFrom, EventFrom, PosTo, EventTo)
-TTL toDateTime(RunTime) + toIntervalDay(7)  TO VOLUME 'cold',
-    toDateTime(RunTime) + toIntervalDay(90) DELETE
-SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+SETTINGS index_granularity = 8192;

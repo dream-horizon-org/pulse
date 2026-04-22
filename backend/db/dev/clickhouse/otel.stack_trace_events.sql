@@ -45,6 +45,4 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (ProjectId, GroupId, ExceptionType, Timestamp)
-TTL toDateTime(Timestamp) + toIntervalDay(7)  TO VOLUME 'cold',
-    toDateTime(Timestamp) + toIntervalDay(90) DELETE
-SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+SETTINGS index_granularity = 8192;
