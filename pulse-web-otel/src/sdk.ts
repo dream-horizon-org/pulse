@@ -147,7 +147,7 @@ class PulseWebSDK implements SdkContext {
     this.configFetcher = new SdkConfigFetcher(
       endpointBaseUrl,
       projectId,
-      undefined,
+      configWithUrl.configEndpointUrl,
       configWithUrl.apiKey,
     );
     const sdkConfig = this.configFetcher.loadCached();

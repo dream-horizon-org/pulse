@@ -1,3 +1,5 @@
+import type { Route } from "@playwright/test";
+
 /**
  * M1 E2E Tests — Foundation: SDK Core Pipeline
  *
@@ -19,6 +21,13 @@ import {
   findAllLogsByBody,
   getResourceAttr,
 } from "./fixture";
+import {
+  blockActiveConfigFetch,
+  demoE2eWhitelistFilterValues,
+  minimalPulseSdkConfig,
+  seedPulseSdkConfig,
+  waitPastSeededSignalsBatchWindow,
+} from "./test-sdk-config";
 
 /** XHR + custom OTLP headers require CORS preflight; route fulfill must allow origin. */
 const E2E_OTLP_CORS = {
@@ -114,7 +123,7 @@ test.describe("@M1 identity persistence", () => {
     expect(storedId).toBe(installId);
   });
 
-  test("installation.id stored in localStorage as pulse_iid", async ({
+  test("installation.id stored in localStorage as pulse_installation_id", async ({
     page,
     otlp,
   }) => {
@@ -208,43 +217,74 @@ test.describe("@M1 identity persistence", () => {
 // ─── OTLP Pipeline ───────────────────────────────────────────────────────────
 
 test.describe("@M1 OTLP pipeline", () => {
-  test("x-api-key header sent on every OTLP request", async ({ page }) => {
-    const headers: string[] = [];
-    await page.route("**/v1/logs", async (route) => {
+  const fulfillOtlp = async (route: Route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: { ...E2E_OTLP_CORS } });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { ...E2E_OTLP_CORS },
+      body: '{"partialSuccess":{}}',
+    });
+  };
+
+  test("x-api-key header sent on every OTLP request (logs, traces, metrics)", async ({
+    page,
+  }) => {
+    const byKind = {
+      logs: [] as string[],
+      traces: [] as string[],
+      metrics: [] as string[],
+    };
+    const tap = (kind: keyof typeof byKind) => async (route: Route) => {
       if (route.request().method() === "OPTIONS") {
-        await route.fulfill({ status: 204, headers: { ...E2E_OTLP_CORS } });
+        await fulfillOtlp(route);
         return;
       }
-      headers.push(route.request().headers()["x-api-key"] ?? "");
-      await route.fulfill({
-        status: 200,
-        headers: { ...E2E_OTLP_CORS },
-        body: "{}",
-      });
-    });
+      byKind[kind].push(route.request().headers()["x-api-key"] ?? "");
+      await fulfillOtlp(route);
+    };
+    await page.route("**/v1/logs", tap("logs"));
+    await page.route("**/v1/traces", tap("traces"));
+    await page.route("**/v1/metrics", tap("metrics"));
     await page.goto("/");
-    await page.waitForTimeout(1000);
-    expect(headers.length).toBeGreaterThan(0);
-    for (const h of headers) expect(h).toBe("test-api-key");
+    await expect
+      .poll(
+        () => byKind.logs.length + byKind.traces.length + byKind.metrics.length,
+        {
+          timeout: 15_000,
+        },
+      )
+      .toBeGreaterThan(0);
+    for (const kind of ["logs", "traces", "metrics"] as const) {
+      const headers = byKind[kind];
+      for (const h of headers) expect(h).toBe("test-api-key");
+    }
   });
 
-  test("Content-Type is application/json", async ({ page }) => {
-    let contentType = "";
-    await page.route("**/v1/logs", async (route) => {
+  test("Content-Type is application/json on logs, traces, and metrics", async ({
+    page,
+  }) => {
+    const seen: Record<string, string> = {};
+    const tap = (key: string) => async (route: Route) => {
       if (route.request().method() === "OPTIONS") {
-        await route.fulfill({ status: 204, headers: { ...E2E_OTLP_CORS } });
+        await fulfillOtlp(route);
         return;
       }
-      contentType = route.request().headers()["content-type"] ?? "";
-      await route.fulfill({
-        status: 200,
-        headers: { ...E2E_OTLP_CORS },
-        body: "{}",
-      });
-    });
+      seen[key] = route.request().headers()["content-type"] ?? "";
+      await fulfillOtlp(route);
+    };
+    await page.route("**/v1/logs", tap("logs"));
+    await page.route("**/v1/traces", tap("traces"));
+    await page.route("**/v1/metrics", tap("metrics"));
     await page.goto("/");
-    await page.waitForTimeout(1000);
-    expect(contentType).toContain("application/json");
+    await expect
+      .poll(() => Object.keys(seen).length, { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(1);
+    for (const ct of Object.values(seen)) {
+      expect(ct).toContain("application/json");
+    }
   });
 
   test("resource attributes present on signal (platform, service.name, rum.sdk.version)", async ({
@@ -636,6 +676,87 @@ test.describe("@M1 localStorage state", () => {
   });
 });
 
+const ACTIVE_CONFIG_CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, X-API-KEY",
+} as const;
+
+test.describe("@M1 remote config fetch resilience", () => {
+  test("active config 404 + empty pulse_sdk_config → defaults, session.start exports", async ({
+    page,
+    otlp,
+  }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.removeItem("pulse_sdk_config");
+      } catch {
+        /* ignore */
+      }
+    });
+    await page.route("**/v1/configs/active**", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: ACTIVE_CONFIG_CORS });
+        return;
+      }
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        headers: ACTIVE_CONFIG_CORS,
+        body: "{}",
+      });
+    });
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+  });
+
+  test("cached pulse_sdk_config version unchanged when active fetch returns 404 on reload", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 991,
+      description: "pinned-for-404-reload",
+      sampling: {
+        default: { sessionSampleRate: 1 },
+        rules: [],
+        signalsToSample: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await page.route("**/v1/configs/active**", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: ACTIVE_CONFIG_CORS });
+        return;
+      }
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        headers: ACTIVE_CONFIG_CORS,
+        body: "{}",
+      });
+    });
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    const v1 = await page.evaluate(() => {
+      const raw = localStorage.getItem("pulse_sdk_config");
+      if (!raw) return null;
+      return (JSON.parse(raw) as { version: number }).version;
+    });
+    expect(v1).toBe(991);
+
+    otlp.reset();
+    await page.reload();
+    await otlp.waitForSpanByName("sdk.init");
+    const v2 = await page.evaluate(() => {
+      const raw = localStorage.getItem("pulse_sdk_config");
+      if (!raw) return null;
+      return (JSON.parse(raw) as { version: number }).version;
+    });
+    expect(v2).toBe(991);
+  });
+});
+
 // ─── Consent ──────────────────────────────────────────────────────────────────
 
 test.describe("@M1 consent", () => {
@@ -677,29 +798,34 @@ test.describe("@M1 consent", () => {
 // ─── Signal headers ───────────────────────────────────────────────────────────
 
 test.describe("@M1 signal headers", () => {
-  test("X-Pulse-Metering-Session-ID header sent on every OTLP request", async ({
+  const tapMeteringHeader = (meteringIds: string[]) => async (route: Route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: E2E_OTLP_CORS });
+      return;
+    }
+    const id = route.request().headers()["x-pulse-metering-session-id"] ?? "";
+    meteringIds.push(id);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: E2E_OTLP_CORS,
+      body: '{"partialSuccess":{}}',
+    });
+  };
+
+  test("X-Pulse-Metering-Session-ID header sent on logs, traces, and metrics OTLP requests", async ({
     page,
   }) => {
     const meteringIds: string[] = [];
-    await page.route("**/v1/logs", async (route) => {
-      if (route.request().method() === "OPTIONS") {
-        await route.fulfill({ status: 204, headers: E2E_OTLP_CORS });
-        return;
-      }
-      const id = route.request().headers()["x-pulse-metering-session-id"] ?? "";
-      meteringIds.push(id);
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        headers: E2E_OTLP_CORS,
-        body: '{"partialSuccess":{}}',
-      });
-    });
+    const tap = tapMeteringHeader(meteringIds);
+    await page.route("**/v1/logs", tap);
+    await page.route("**/v1/traces", tap);
+    await page.route("**/v1/metrics", tap);
 
     await page.goto("/");
-    await page.waitForTimeout(1000);
-
-    expect(meteringIds.length).toBeGreaterThan(0);
+    await expect
+      .poll(() => meteringIds.length, { timeout: 15_000 })
+      .toBeGreaterThan(0);
     for (const id of meteringIds) {
       expect(id).toBeTruthy();
       expect(id.length).toBeGreaterThan(0);
@@ -710,7 +836,7 @@ test.describe("@M1 signal headers", () => {
     page,
   }) => {
     const meteringIds: string[] = [];
-    await page.route("**/v1/logs", async (route) => {
+    const tap = async (route: Route) => {
       if (route.request().method() === "OPTIONS") {
         await route.fulfill({ status: 204, headers: E2E_OTLP_CORS });
         return;
@@ -723,7 +849,10 @@ test.describe("@M1 signal headers", () => {
         headers: E2E_OTLP_CORS,
         body: '{"partialSuccess":{}}',
       });
-    });
+    };
+    await page.route("**/v1/logs", tap);
+    await page.route("**/v1/traces", tap);
+    await page.route("**/v1/metrics", tap);
 
     await page.goto("/");
     // Let the first scheduled batch flush (VITE_PULSE_BATCH_DELAY_MS=200) so we get an
@@ -1196,10 +1325,13 @@ test.describe("@M1 screen.name manual override", () => {
     // Set override then simulate SPA pushState navigation (no page reload)
     await page.evaluate(() => {
       const p = window as unknown as {
-        PulseWeb: { setScreenName: (n: string) => void; trackEvent: (n: string) => void };
+        PulseWeb: {
+          setScreenName: (n: string) => void;
+          trackEvent: (n: string) => void;
+        };
       };
       p.PulseWeb.setScreenName("my-screen");
-      history.pushState({}, '', '/cart');
+      history.pushState({}, "", "/cart");
       p.PulseWeb.trackEvent("spa_nav_check");
     });
 
@@ -1278,156 +1410,236 @@ test.describe("@M1 url attributes", () => {
 
 // ─── Area 3: Session Start / Session End (missing coverage) ──────────────────
 
-test.describe('@M1 Area 3 session lifecycle', () => {
+test.describe("@M1 Area 3 session lifecycle", () => {
   // 3.2 — session.start does NOT fire again on SPA navigation
-  test('3.2: session.start does NOT fire on SPA navigation', async ({ page, otlp }) => {
-    await page.goto('/');
-    await otlp.waitForLog('session.start');
+  test("3.2: session.start does NOT fire on SPA navigation", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
     otlp.reset();
 
     // Navigate through multiple SPA routes
-    await page.getByRole('link', { name: /products/i }).first().click();
-    await page.waitForURL('**/products');
-    await page.getByRole('link', { name: /cart/i }).first().click();
-    await page.waitForURL('**/cart');
+    await page
+      .getByRole("link", { name: /products/i })
+      .first()
+      .click();
+    await page.waitForURL("**/products");
+    await page.getByRole("link", { name: /cart/i }).first().click();
+    await page.waitForURL("**/cart");
     await page.waitForTimeout(600);
 
-    expect(findAllLogs(otlp.captured, 'session.start').length).toBe(0);
+    expect(findAllLogs(otlp.captured, "session.start").length).toBe(0);
   });
 
   // 3.6 — New session.start (+ session.end for old) after simulated 30-min inactivity
-  test('3.6: session rotates after simulated 30-min inactivity', async ({ page, otlp }) => {
-    await page.goto('/');
-    const first = await otlp.waitForLog('session.start');
-    const oldSid = getAttr(first.attributes, 'session.id') as string;
+  test("3.6: session rotates after simulated 30-min inactivity", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    const first = await otlp.waitForLog("session.start");
+    const oldSid = getAttr(first.attributes, "session.id") as string;
     otlp.reset();
 
     // Simulate 31-minute idle: write pulse_session_ts = 31 min ago in nanoseconds
     // (session.ts) is stored as Date.now() * 1_000_000 — see session.ts:msToNs)
     await page.evaluate(() => {
       const thirtyOneMinutesAgoNs = (Date.now() - 31 * 60 * 1000) * 1_000_000;
-      localStorage.setItem('pulse_session_ts', String(thirtyOneMinutesAgoNs));
+      localStorage.setItem("pulse_session_ts", String(thirtyOneMinutesAgoNs));
     });
 
     // trackEvent → onEmit → getSessionId() → detects inactivity → rotates
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
         trackEvent: (n: string) => void;
       };
-      p.trackEvent('after_inactivity');
+      p.trackEvent("after_inactivity");
     });
 
     // New session.start must arrive with a different session.id
-    const newStart = await otlp.waitForLog('session.start', 5_000);
-    const newSid = getAttr(newStart.attributes, 'session.id') as string;
+    const newStart = await otlp.waitForLog("session.start", 5_000);
+    const newSid = getAttr(newStart.attributes, "session.id") as string;
     expect(newSid).toBeTruthy();
     expect(newSid).not.toBe(oldSid);
-    expect(getAttr(newStart.attributes, 'session.start_reason')).toBe('inactivity_timeout');
+    expect(getAttr(newStart.attributes, "session.start_reason")).toBe(
+      "inactivity_timeout",
+    );
 
     // session.end for the OLD session must also be present
-    const ends = findAllLogs(otlp.captured, 'session.end');
+    const ends = findAllLogs(otlp.captured, "session.end");
     expect(ends.length).toBeGreaterThan(0);
-    expect(getAttr(ends[0]?.attributes, 'session.id')).toBe(oldSid);
+    expect(getAttr(ends[0]?.attributes, "session.id")).toBe(oldSid);
   });
 
   // 3.8 — session.end fires on reload pagehide; same session resumes after reload (no new session.start)
-  test('3.8: session.end fires on pagehide before reload; same session resumes silently', async ({ page, otlp }) => {
-    await page.goto('/');
-    const first = await otlp.waitForLog('session.start');
-    const sid = getAttr(first.attributes, 'session.id') as string;
+  test("3.8: session.end fires on pagehide before reload; same session resumes silently", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    const first = await otlp.waitForLog("session.start");
+    const sid = getAttr(first.attributes, "session.id") as string;
     otlp.reset();
 
     // Simulate the pagehide that fires just before a page reload
     await page.evaluate(() => {
-      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }));
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", {
+          persisted: false,
+          bubbles: true,
+        }),
+      );
     });
-    const endLog = await otlp.waitForLog('session.end', 3_000);
-    expect(getAttr(endLog.attributes, 'session.id')).toBe(sid);
-    expect(getAttr(endLog.attributes, 'session.end_reason')).toBe('page_unload');
+    const endLog = await otlp.waitForLog("session.end", 3_000);
+    expect(getAttr(endLog.attributes, "session.id")).toBe(sid);
+    expect(getAttr(endLog.attributes, "session.end_reason")).toBe(
+      "page_unload",
+    );
     otlp.reset();
 
     // Real reload — same session must resume (session.id unchanged in localStorage)
     await page.reload();
     await page.waitForTimeout(1_000);
 
-    const storedSid = await page.evaluate(() => localStorage.getItem('pulse_session_id'));
+    const storedSid = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
     expect(storedSid).toBe(sid);
     // Session was reused → no new session.start emitted
-    expect(findAllLogs(otlp.captured, 'session.start').length).toBe(0);
+    expect(findAllLogs(otlp.captured, "session.start").length).toBe(0);
   });
 
   // 3.9 — Duplicate tab inherits session (same session.id, no new session.start)
-  test('3.9: duplicate page in same context inherits session.id', async ({ page, otlp }) => {
-    await page.goto('/');
-    await otlp.waitForLog('session.start');
-    const sid1 = await page.evaluate(() => localStorage.getItem('pulse_session_id'));
-    const sessionTs = await page.evaluate(() => localStorage.getItem('pulse_session_ts'));
-    const sessionStart = await page.evaluate(() => localStorage.getItem('pulse_session_start'));
+  test("3.9: duplicate page in same context inherits session.id", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    const sid1 = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
+    const sessionTs = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_ts"),
+    );
+    const sessionStart = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_start"),
+    );
 
     // Simulate tab clone: open page2 in same context, pre-populate storage with page1's session
     const page2 = await page.context().newPage();
     // Silence OTLP calls from page2 (no capture needed — assert via storage only)
-    await page2.route('**/v1/**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    await page2.route("**/v1/**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: '{"partialSuccess":{}}',
+      });
     });
     await page2.addInitScript(
       ({ id, ts, start }) => {
-        if (id)    localStorage.setItem('pulse_session_id',    id);
-        if (ts)    localStorage.setItem('pulse_session_ts',    ts);
-        if (start) localStorage.setItem('pulse_session_start', start);
+        if (id) localStorage.setItem("pulse_session_id", id);
+        if (ts) localStorage.setItem("pulse_session_ts", ts);
+        if (start) localStorage.setItem("pulse_session_start", start);
       },
       { id: sid1, ts: sessionTs, start: sessionStart },
     );
-    await page2.goto('http://localhost:3099/');
+    await page2.goto("/");
     await page2.waitForTimeout(1_000);
 
     // Same session.id must be in localStorage — no new session was created
-    const sid2 = await page2.evaluate(() => localStorage.getItem('pulse_session_id'));
+    const sid2 = await page2.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
     expect(sid2).toBe(sid1);
 
     await page2.close();
   });
 
   // 3.10 — Fresh browser context (new tab, empty storage) creates a new independent session
-  test('3.10: fresh browser context creates new independent session', async ({ page, otlp }) => {
-    await page.goto('/');
-    await otlp.waitForLog('session.start');
-    const sid1 = await page.evaluate(() => localStorage.getItem('pulse_session_id'));
+  test("3.10: fresh browser context creates new independent session", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    const sid1 = await page.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
 
     // Fresh context = isolated storage (no shared localStorage)
     const freshCtx = await page.context().browser()!.newContext();
     const freshLogs: Array<Record<string, unknown>> = [];
-    await freshCtx.route('**/v1/logs', async (route) => {
+    await freshCtx.route("**/v1/logs", async (route) => {
       const buf = route.request().postDataBuffer();
       if (buf) {
-        try { freshLogs.push(JSON.parse(buf.toString('utf-8')) as Record<string, unknown>); } catch { /* skip */ }
+        try {
+          freshLogs.push(
+            JSON.parse(buf.toString("utf-8")) as Record<string, unknown>,
+          );
+        } catch {
+          /* skip */
+        }
       }
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: '{"partialSuccess":{}}',
+      });
     });
-    await freshCtx.route('**/v1/traces', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    await freshCtx.route("**/v1/traces", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: '{"partialSuccess":{}}',
+      });
     });
-    await freshCtx.route('**/v1/metrics', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"partialSuccess":{}}' });
+    await freshCtx.route("**/v1/metrics", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: '{"partialSuccess":{}}',
+      });
     });
 
     const freshPage = await freshCtx.newPage();
-    await freshPage.goto('http://localhost:3099/');
+    await freshPage.goto("/");
     await freshPage.waitForTimeout(1_500);
 
     // Fresh context must have a different session.id
-    const sid2 = await freshPage.evaluate(() => localStorage.getItem('pulse_session_id'));
+    const sid2 = await freshPage.evaluate(() =>
+      localStorage.getItem("pulse_session_id"),
+    );
     expect(sid2).toBeTruthy();
     expect(sid2).not.toBe(sid1);
 
     // session.start must have fired in the fresh context
     const sessionStartFound = freshLogs.some((body) =>
-      ((body as { resourceLogs?: { scopeLogs?: { logRecords?: { attributes?: { key: string; value: { stringValue?: string } }[] }[] }[] }[] }).resourceLogs ?? [])
+      (
+        (
+          body as {
+            resourceLogs?: {
+              scopeLogs?: {
+                logRecords?: {
+                  attributes?: {
+                    key: string;
+                    value: { stringValue?: string };
+                  }[];
+                }[];
+              }[];
+            }[];
+          }
+        ).resourceLogs ?? []
+      )
         .flatMap((rl) => rl.scopeLogs ?? [])
         .flatMap((sl) => sl.logRecords ?? [])
         .some((lr) =>
           (lr.attributes ?? []).some(
-            (a) => a.key === 'pulse.type' && a.value?.stringValue === 'session.start',
+            (a) =>
+              a.key === "pulse.type" &&
+              a.value?.stringValue === "session.start",
           ),
         ),
     );
@@ -1437,30 +1649,33 @@ test.describe('@M1 Area 3 session lifecycle', () => {
   });
 
   // 3.11 + 3.12 — Rotation order: session.end fires BEFORE session.start; IDs are different
-  test('3.11/3.12: rotation emits session.end then session.start with different session IDs', async ({ page, otlp }) => {
-    await page.goto('/');
-    const first = await otlp.waitForLog('session.start');
-    const oldSid = getAttr(first.attributes, 'session.id') as string;
+  test("3.11/3.12: rotation emits session.end then session.start with different session IDs", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    const first = await otlp.waitForLog("session.start");
+    const oldSid = getAttr(first.attributes, "session.id") as string;
     otlp.reset();
 
     // Simulate inactivity
     await page.evaluate(() => {
       const thirtyOneMinutesAgoNs = (Date.now() - 31 * 60 * 1000) * 1_000_000;
-      localStorage.setItem('pulse_session_ts', String(thirtyOneMinutesAgoNs));
+      localStorage.setItem("pulse_session_ts", String(thirtyOneMinutesAgoNs));
     });
 
     await page.evaluate(() => {
-      const p = (window as unknown as Record<string, unknown>)['PulseWeb'] as {
+      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
         trackEvent: (n: string) => void;
       };
-      p.trackEvent('rotation_order_check');
+      p.trackEvent("rotation_order_check");
     });
 
-    await otlp.waitForLog('session.start', 5_000);
+    await otlp.waitForLog("session.start", 5_000);
     await page.waitForTimeout(300); // let batch flush complete
 
     const allLogs = otlp.captured
-      .filter((c) => c.type === 'logs')
+      .filter((c) => c.type === "logs")
       .flatMap((c) =>
         c.body.resourceLogs.flatMap((rl) =>
           rl.scopeLogs.flatMap((sl) => sl.logRecords),
@@ -1468,59 +1683,79 @@ test.describe('@M1 Area 3 session lifecycle', () => {
       );
 
     // Find the rotation pair by index to verify ORDER: end must appear before start
-    const endIdx   = allLogs.findIndex((lr) => getAttr(lr.attributes, 'pulse.type') === 'session.end');
+    const endIdx = allLogs.findIndex(
+      (lr) => getAttr(lr.attributes, "pulse.type") === "session.end",
+    );
     const startIdx = allLogs.findIndex((lr) => {
-      const pt = getAttr(lr.attributes, 'pulse.type');
-      const sid = getAttr(lr.attributes, 'session.id') as string;
-      return pt === 'session.start' && sid !== oldSid;
+      const pt = getAttr(lr.attributes, "pulse.type");
+      const sid = getAttr(lr.attributes, "session.id") as string;
+      return pt === "session.start" && sid !== oldSid;
     });
 
-    expect(endIdx).toBeGreaterThanOrEqual(0);   // session.end exists
-    expect(startIdx).toBeGreaterThanOrEqual(0);  // session.start exists
-    expect(endIdx).toBeLessThan(startIdx);        // end BEFORE start
+    expect(endIdx).toBeGreaterThanOrEqual(0); // session.end exists
+    expect(startIdx).toBeGreaterThanOrEqual(0); // session.start exists
+    expect(endIdx).toBeLessThan(startIdx); // end BEFORE start
 
     // 3.12: The new session.start carries a DIFFERENT session.id than session.end
-    const endSid   = getAttr(allLogs[endIdx]?.attributes,   'session.id') as string;
-    const startSid = getAttr(allLogs[startIdx]?.attributes, 'session.id') as string;
+    const endSid = getAttr(allLogs[endIdx]?.attributes, "session.id") as string;
+    const startSid = getAttr(
+      allLogs[startIdx]?.attributes,
+      "session.id",
+    ) as string;
     expect(endSid).toBe(oldSid);
     expect(startSid).not.toBe(oldSid);
   });
 
   // 3.14 — session.end does NOT fire on in-app SPA navigation
-  test('3.14: session.end does NOT fire on in-app SPA navigation', async ({ page, otlp }) => {
-    await page.goto('/');
-    await otlp.waitForLog('session.start');
+  test("3.14: session.end does NOT fire on in-app SPA navigation", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
     otlp.reset();
 
     // Navigate through multiple SPA routes
-    await page.getByRole('link', { name: /products/i }).first().click();
-    await page.waitForURL('**/products');
-    await page.getByRole('link', { name: /cart/i }).first().click();
-    await page.waitForURL('**/cart');
+    await page
+      .getByRole("link", { name: /products/i })
+      .first()
+      .click();
+    await page.waitForURL("**/products");
+    await page.getByRole("link", { name: /cart/i }).first().click();
+    await page.waitForURL("**/cart");
     await page.waitForTimeout(600);
 
-    expect(findAllLogs(otlp.captured, 'session.end').length).toBe(0);
+    expect(findAllLogs(otlp.captured, "session.end").length).toBe(0);
   });
 
   // 3.13 — very short session (immediate pagehide) still emits session.end with duration >= 0
-  test('3.13: very short session emits session.end with non-negative duration_ms', async ({ page, otlp }) => {
-    await page.goto('/');
-    const startLog = await otlp.waitForLog('session.start');
-    const sid = getAttr(startLog.attributes, 'session.id') as string;
+  test("3.13: very short session emits session.end with non-negative duration_ms", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    const startLog = await otlp.waitForLog("session.start");
+    const sid = getAttr(startLog.attributes, "session.id") as string;
     otlp.reset();
 
     // Immediately dispatch pagehide — session was very short (< 1s)
     await page.evaluate(() => {
       window.dispatchEvent(
-        new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }),
+        new PageTransitionEvent("pagehide", {
+          persisted: false,
+          bubbles: true,
+        }),
       );
     });
 
-    const endLog = await otlp.waitForLog('session.end', 3_000);
+    const endLog = await otlp.waitForLog("session.end", 3_000);
     expect(endLog).toBeDefined();
-    expect(getAttr(endLog.attributes, 'session.id')).toBe(sid);
+    expect(getAttr(endLog.attributes, "session.id")).toBe(sid);
 
-    const durationMs = getAttr(endLog.attributes, 'session.duration_ms') as number;
+    const durationMs = getAttr(
+      endLog.attributes,
+      "session.duration_ms",
+    ) as number;
     // Duration must exist and be non-negative milliseconds
     expect(durationMs).toBeGreaterThanOrEqual(0);
     // For a < 2s session at most ~2000 ms
@@ -1528,25 +1763,31 @@ test.describe('@M1 Area 3 session lifecycle', () => {
   });
 
   // 3.15 — consent DENIED: no session.start and no session.end emitted
-  test('3.15: consent DENIED — no session.start or session.end emitted', async ({ page, otlp }) => {
+  test("3.15: consent DENIED — no session.start or session.end emitted", async ({
+    page,
+    otlp,
+  }) => {
     // ?pulse_consent=denied → App.tsx passes PulseDataCollectionConsent.DENIED to PulseWeb.start()
     // The SDK returns early without installing any instrumentations, so no signals fire.
-    await page.goto('/?pulse_consent=denied');
+    await page.goto("/?pulse_consent=denied");
     await page.waitForTimeout(800);
 
-    expect(findAllLogs(otlp.captured, 'session.start').length).toBe(0);
-    expect(findAllLogs(otlp.captured, 'session.end').length).toBe(0);
+    expect(findAllLogs(otlp.captured, "session.start").length).toBe(0);
+    expect(findAllLogs(otlp.captured, "session.end").length).toBe(0);
 
     // Trigger pagehide — still no session.end (SDK never started)
     await page.evaluate(() => {
       window.dispatchEvent(
-        new PageTransitionEvent('pagehide', { persisted: false, bubbles: true }),
+        new PageTransitionEvent("pagehide", {
+          persisted: false,
+          bubbles: true,
+        }),
       );
     });
     await page.waitForTimeout(300);
 
-    expect(findAllLogs(otlp.captured, 'session.start').length).toBe(0);
-    expect(findAllLogs(otlp.captured, 'session.end').length).toBe(0);
+    expect(findAllLogs(otlp.captured, "session.start").length).toBe(0);
+    expect(findAllLogs(otlp.captured, "session.end").length).toBe(0);
   });
 });
 
@@ -1613,5 +1854,739 @@ test.describe("@M1 resource attributes", () => {
     expect(projectId).toBeTruthy();
     // project.id must be derived from the API key — must not be empty
     expect((projectId as string).length).toBeGreaterThan(0);
+  });
+});
+
+// ─── Seeded remote config: metricsToAdd, filters, feature gate (crosswalk gaps) ─
+
+test.describe("@M1 remote config + export gate (seeded localStorage)", () => {
+  test("metricsToAdd counter appears on /v1/metrics after span export", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 801,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToDrop: [],
+        attributesToAdd: [],
+        filters: { mode: "BLACKLIST", values: [] },
+        metricsToAdd: [
+          {
+            name: "e2e_derived_span_total",
+            target: { type: "name" },
+            condition: {
+              name: ".*",
+              props: [],
+              scopes: ["TRACES"],
+              sdks: ["pulse_web_js"],
+            },
+            type: { type: "counter" },
+          },
+        ],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForSpanByName("sdk.init", 15_000);
+    const dp = await otlp.waitForMetric("e2e_derived_span_total", 25_000);
+    const v = dp.asInt ?? dp.asDouble;
+    expect(v).toBeDefined();
+    expect(Number(v)).toBeGreaterThanOrEqual(1);
+  });
+
+  test("custom_events sessionSampleRate 0 blocks trackEvent from OTLP", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 802,
+      features: [
+        {
+          featureName: "custom_events",
+          sessionSampleRate: 0,
+          sdks: ["pulse_web_js"],
+        },
+      ],
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.getByRole("link", { name: /shop now/i }).click();
+    await waitPastSeededSignalsBatchWindow(page);
+    expect(findAllLogsByBody(otlp.captured, "shop_now_click").length).toBe(0);
+  });
+
+  test("signals.filters BLACKLIST drops matching custom_event logs at export", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 803,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToDrop: [],
+        attributesToAdd: [],
+        filters: {
+          mode: "BLACKLIST",
+          values: [
+            {
+              name: "^shop_now_click$",
+              props: [],
+              scopes: ["LOGS"],
+              sdks: ["pulse_web_js"],
+            },
+          ],
+        },
+        metricsToAdd: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.getByRole("link", { name: /shop now/i }).click();
+    await waitPastSeededSignalsBatchWindow(page);
+    expect(findAllLogsByBody(otlp.captured, "shop_now_click").length).toBe(0);
+  });
+
+  test("PENDING consent → SDK does not init and zero OTLP", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/?pulse_consent=pending");
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(3000);
+    expect(otlp.captured.length).toBe(0);
+    const inited = await page.evaluate(() => {
+      const w = window as unknown as {
+        PulseWeb?: { isInitialized: () => boolean };
+      };
+      return w.PulseWeb?.isInitialized?.() ?? false;
+    });
+    expect(inited).toBe(false);
+  });
+
+  test("attributesToAdd from remote config appears on session.start at export", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 804,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToDrop: [],
+        attributesToAdd: [
+          {
+            values: [
+              {
+                name: "pulse.e2e.attr",
+                value: "from-seed",
+                type: "STRING",
+              },
+            ],
+            condition: {
+              name: "^session\\.start$",
+              props: [],
+              scopes: ["logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+        ],
+        filters: { mode: "BLACKLIST", values: [] },
+        metricsToAdd: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    const log = await otlp.waitForLog("session.start");
+    expect(getAttr(log.attributes, "pulse.e2e.attr")).toBe("from-seed");
+  });
+
+  test("attributesToDrop removes keys matched by rule on session.start at export", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 805,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToAdd: [
+          {
+            values: [
+              {
+                name: "pulse.e2e.droptest",
+                value: "to-be-removed",
+                type: "STRING",
+              },
+            ],
+            condition: {
+              name: "^session\\.start$",
+              props: [],
+              scopes: ["logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+        ],
+        attributesToDrop: [
+          {
+            values: ["pulse\\.e2e\\.droptest"],
+            condition: {
+              name: "^session\\.start$",
+              props: [],
+              scopes: ["logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+        ],
+        filters: { mode: "BLACKLIST", values: [] },
+        metricsToAdd: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    const log = await otlp.waitForLog("session.start");
+    expect(getAttr(log.attributes, "pulse.e2e.droptest")).toBeUndefined();
+  });
+
+  test("WHITELIST filter drops custom trackEvent bodies not in allowlist", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 806,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToDrop: [],
+        attributesToAdd: [],
+        filters: {
+          mode: "WHITELIST",
+          values: demoE2eWhitelistFilterValues(),
+        },
+        metricsToAdd: [],
+      },
+      features: [
+        {
+          featureName: "custom_events",
+          sessionSampleRate: 1,
+          sdks: ["pulse_web_js"],
+        },
+      ],
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent("e2e_whitelist_probe");
+    });
+    await waitPastSeededSignalsBatchWindow(page);
+    expect(findAllLogsByBody(otlp.captured, "e2e_whitelist_probe").length).toBe(
+      0,
+    );
+  });
+
+  test("multiple attributesToAdd entries all apply on session.start", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 807,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToDrop: [],
+        attributesToAdd: [
+          {
+            values: [
+              {
+                name: "pulse.e2e.multi_a",
+                value: "a",
+                type: "STRING",
+              },
+            ],
+            condition: {
+              name: "^session\\.start$",
+              props: [],
+              scopes: ["logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+          {
+            values: [
+              {
+                name: "pulse.e2e.multi_b",
+                value: "b",
+                type: "STRING",
+              },
+            ],
+            condition: {
+              name: "^session\\.start$",
+              props: [],
+              scopes: ["logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+        ],
+        filters: { mode: "BLACKLIST", values: [] },
+        metricsToAdd: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    const log = await otlp.waitForLog("session.start");
+    expect(getAttr(log.attributes, "pulse.e2e.multi_a")).toBe("a");
+    expect(getAttr(log.attributes, "pulse.e2e.multi_b")).toBe("b");
+  });
+
+  test("multiple attributesToDrop rules remove different keys on session.start", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 808,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToAdd: [
+          {
+            values: [
+              {
+                name: "pulse.e2e.drop_a",
+                value: "x",
+                type: "STRING",
+              },
+              {
+                name: "pulse.e2e.drop_b",
+                value: "y",
+                type: "STRING",
+              },
+            ],
+            condition: {
+              name: "^session\\.start$",
+              props: [],
+              scopes: ["logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+        ],
+        attributesToDrop: [
+          {
+            values: ["pulse\\.e2e\\.drop_a"],
+            condition: {
+              name: "^session\\.start$",
+              props: [],
+              scopes: ["logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+          {
+            values: ["pulse\\.e2e\\.drop_b"],
+            condition: {
+              name: "^session\\.start$",
+              props: [],
+              scopes: ["logs"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+        ],
+        filters: { mode: "BLACKLIST", values: [] },
+        metricsToAdd: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    const log = await otlp.waitForLog("session.start");
+    expect(getAttr(log.attributes, "pulse.e2e.drop_a")).toBeUndefined();
+    expect(getAttr(log.attributes, "pulse.e2e.drop_b")).toBeUndefined();
+  });
+
+  test("explicit empty metricsToAdd attributesToAdd attributesToDrop still exports session.start", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 809,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToAdd: [],
+        attributesToDrop: [],
+        filters: { mode: "BLACKLIST", values: [] },
+        metricsToAdd: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    const log = await otlp.waitForLog("session.start");
+    expect(getAttr(log.attributes, "session.id")).toBeTruthy();
+  });
+
+  test("two metricsToAdd counters both increment from sdk.init span export", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 810,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToDrop: [],
+        attributesToAdd: [],
+        filters: { mode: "BLACKLIST", values: [] },
+        metricsToAdd: [
+          {
+            name: "e2e_derived_alpha_total",
+            target: { type: "name" },
+            condition: {
+              name: ".*",
+              props: [],
+              scopes: ["TRACES"],
+              sdks: ["pulse_web_js"],
+            },
+            type: { type: "counter" },
+          },
+          {
+            name: "e2e_derived_beta_total",
+            target: { type: "name" },
+            condition: {
+              name: ".*",
+              props: [],
+              scopes: ["TRACES"],
+              sdks: ["pulse_web_js"],
+            },
+            type: { type: "counter" },
+          },
+        ],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForSpanByName("sdk.init", 15_000);
+    const a = await otlp.waitForMetric("e2e_derived_alpha_total", 25_000);
+    const b = await otlp.waitForMetric("e2e_derived_beta_total", 25_000);
+    expect(Number(a.asInt ?? a.asDouble)).toBeGreaterThanOrEqual(1);
+    expect(Number(b.asInt ?? b.asDouble)).toBeGreaterThanOrEqual(1);
+  });
+
+  test("BLACKLIST with multiple filter values drops each matching log body", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 811,
+      signals: {
+        scheduleDurationMs: 5000,
+        attributesToDrop: [],
+        attributesToAdd: [],
+        filters: {
+          mode: "BLACKLIST",
+          values: [
+            {
+              name: "^e2e_blk_one$",
+              props: [],
+              scopes: ["LOGS"],
+              sdks: ["pulse_web_js"],
+            },
+            {
+              name: "^e2e_blk_two$",
+              props: [],
+              scopes: ["LOGS"],
+              sdks: ["pulse_web_js"],
+            },
+          ],
+        },
+        metricsToAdd: [],
+      },
+      features: [
+        {
+          featureName: "custom_events",
+          sessionSampleRate: 1,
+          sdks: ["pulse_web_js"],
+        },
+      ],
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent("e2e_blk_one");
+      p.trackEvent("e2e_blk_two");
+      p.trackEvent("e2e_blk_ok");
+    });
+    await expect
+      .poll(() => findAllLogsByBody(otlp.captured, "e2e_blk_ok").length, {
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(0);
+    expect(findAllLogsByBody(otlp.captured, "e2e_blk_one").length).toBe(0);
+    expect(findAllLogsByBody(otlp.captured, "e2e_blk_two").length).toBe(0);
+  });
+
+  test("session.start exports when default session rate is 0 and platform web rule sets rate 1", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 812,
+      sampling: {
+        default: { sessionSampleRate: 0 },
+        rules: [
+          {
+            name: "app_version",
+            value: "^9",
+            sdks: ["pulse_web_js"],
+            sessionSampleRate: 0,
+          },
+          {
+            name: "platform",
+            value: "web",
+            sdks: ["pulse_web_js"],
+            sessionSampleRate: 1,
+          },
+        ],
+        signalsToSample: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    const svcVer = String(
+      getResourceAttr(otlp.captured, "service.version") ?? "",
+    );
+    expect(/^9/.test(svcVer)).toBe(false);
+    expect(getResourceAttr(otlp.captured, "platform")).toBe("web");
+  });
+
+  test("sampling: platform web rule at sessionSampleRate 0 yields no session.start after batch window", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 813,
+      sampling: {
+        default: { sessionSampleRate: 1 },
+        rules: [
+          {
+            name: "platform",
+            value: "web",
+            sdks: ["pulse_web_js"],
+            sessionSampleRate: 0,
+          },
+        ],
+        signalsToSample: [],
+      },
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await expect
+      .poll(
+        async () =>
+          (await page.evaluate(() => {
+            const w = window as unknown as {
+              PulseWeb?: { isInitialized: () => boolean };
+            };
+            return w.PulseWeb?.isInitialized?.() ?? false;
+          }))
+            ? true
+            : false,
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+    await waitPastSeededSignalsBatchWindow(page);
+    expect(findAllLogs(otlp.captured, "session.start").length).toBe(0);
+  });
+
+  test("signalsToSample: rate 0 for one log body only blocks that body", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 814,
+      sampling: {
+        default: { sessionSampleRate: 1 },
+        rules: [],
+        signalsToSample: [
+          {
+            sampleRate: 0,
+            condition: {
+              name: "^e2e_sample_blocked$",
+              props: [],
+              scopes: ["LOGS"],
+              sdks: ["pulse_web_js"],
+            },
+          },
+        ],
+      },
+      features: [
+        {
+          featureName: "custom_events",
+          sessionSampleRate: 1,
+          sdks: ["pulse_web_js"],
+        },
+      ],
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent("e2e_sample_blocked");
+      p.trackEvent("e2e_sample_ok");
+    });
+    await expect
+      .poll(() => findAllLogsByBody(otlp.captured, "e2e_sample_ok").length, {
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(0);
+    expect(findAllLogsByBody(otlp.captured, "e2e_sample_blocked").length).toBe(
+      0,
+    );
+  });
+
+  test("combined feature rates: js_crash off + custom_events on in one config", async ({
+    page,
+    otlp,
+  }) => {
+    const cfg = minimalPulseSdkConfig({
+      version: 815,
+      features: [
+        {
+          featureName: "js_crash",
+          sessionSampleRate: 0,
+          sdks: ["pulse_web_js"],
+        },
+        {
+          featureName: "custom_events",
+          sessionSampleRate: 1,
+          sdks: ["pulse_web_js"],
+        },
+      ],
+    });
+    await seedPulseSdkConfig(page, cfg);
+    await blockActiveConfigFetch(page);
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+    await page.evaluate(() => {
+      queueMicrotask(() => {
+        throw new Error("e2e_should_not_export_crash");
+      });
+    });
+    await waitPastSeededSignalsBatchWindow(page);
+    expect(
+      findAllLogs(otlp.captured, "device.crash").filter((lr) =>
+        String(getAttr(lr.attributes, "exception.message") ?? "").includes(
+          "e2e_should_not_export_crash",
+        ),
+      ).length,
+    ).toBe(0);
+
+    otlp.reset();
+    await page.evaluate(() => {
+      const p = (window as unknown as Record<string, unknown>)["PulseWeb"] as {
+        trackEvent: (name: string) => void;
+      };
+      p.trackEvent("e2e_feature_combo_ok");
+    });
+    await expect
+      .poll(
+        () => findAllLogsByBody(otlp.captured, "e2e_feature_combo_ok").length,
+        {
+          timeout: 20_000,
+        },
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("disk buffering query flag → SDK initializes and session.start exports", async ({
+    page,
+    otlp,
+  }) => {
+    test.setTimeout(45_000);
+    await page.goto("/?pulse_disk=1");
+    const log = await otlp.waitForLog("session.start", 30_000);
+    expect(getAttr(log.attributes, "session.id")).toBeTruthy();
+    const inited = await page.evaluate(() => {
+      const w = window as unknown as {
+        PulseWeb?: { isInitialized: () => boolean };
+      };
+      return w.PulseWeb?.isInitialized?.() ?? false;
+    });
+    expect(inited).toBe(true);
+  });
+});
+
+test.describe("@M1 disk buffer replay", () => {
+  test("non-retryable logs export failure buffers payload; reload replays to OTLP", async ({
+    page,
+    otlp,
+  }) => {
+    test.setTimeout(60_000);
+    let logPosts = 0;
+    await page.route("**/v1/logs", async (route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: { ...E2E_OTLP_CORS } });
+        return;
+      }
+      logPosts += 1;
+      if (logPosts === 1) {
+        await route.fulfill({
+          status: 400,
+          headers: { ...E2E_OTLP_CORS },
+          body: "{}",
+        });
+        return;
+      }
+      const buf = route.request().postDataBuffer();
+      if (buf) {
+        try {
+          const body = JSON.parse(buf.toString("utf-8")) as Record<
+            string,
+            unknown
+          >;
+          otlp.captured.push({ type: "logs", body } as never);
+        } catch {
+          /* ignore */
+        }
+      }
+      await route.fulfill({
+        status: 200,
+        headers: { ...E2E_OTLP_CORS },
+        body: '{"partialSuccess":{}}',
+      });
+    });
+
+    await page.goto("/?pulse_disk=1");
+    await page.waitForTimeout(3500);
+
+    otlp.reset();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect
+      .poll(() => findAllLogs(otlp.captured, "session.start").length, {
+        timeout: 25_000,
+      })
+      .toBeGreaterThanOrEqual(1);
   });
 });

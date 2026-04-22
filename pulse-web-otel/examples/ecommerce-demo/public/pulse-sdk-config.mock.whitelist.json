@@ -1,0 +1,47 @@
+{
+  "version": 101,
+  "description": "Alternate mock — WHITELIST: only session.start + session.end custom-event bodies export (copy to pulse-sdk-config.mock.json or point VITE_PULSE_MOCK_SDK_CONFIG_PATH here).",
+  "sampling": {
+    "default": { "sessionSampleRate": 1 },
+    "rules": [],
+    "signalsToSample": []
+  },
+  "signals": {
+    "scheduleDurationMs": 5000,
+    "attributesToDrop": [],
+    "attributesToAdd": [],
+    "filters": {
+      "mode": "WHITELIST",
+      "values": [
+        {
+          "name": "^session\\.start$",
+          "props": [],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        },
+        {
+          "name": "^session\\.end$",
+          "props": [],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        }
+      ]
+    },
+    "metricsToAdd": []
+  },
+  "interaction": { "beforeInitQueueSize": 5000 },
+  "features": [
+    {
+      "featureName": "custom_events",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    }
+  ]
+}
