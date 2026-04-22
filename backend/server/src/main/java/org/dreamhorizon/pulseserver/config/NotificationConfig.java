@@ -106,6 +106,7 @@ public class NotificationConfig {
   @AllArgsConstructor
   public static class IncidentConfig {
     private String defaultSlackChannelId;
+    private String onCallProvider = "GO_ALERT";
     private GoAlertConfig goAlert;
   }
 
@@ -115,6 +116,7 @@ public class NotificationConfig {
   public static class GoAlertConfig {
     private String goAlertUrl;
     private String goAlertApiKey;
+    private String goAlertUserApiKey;
     private String goAlertServiceId;
     private String slackBotToken;
   }

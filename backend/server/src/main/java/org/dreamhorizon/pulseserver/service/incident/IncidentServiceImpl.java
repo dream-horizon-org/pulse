@@ -23,6 +23,7 @@ import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificati
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationEventName;
+import org.dreamhorizon.pulseserver.service.oncall.OnCallService;
 
 @Slf4j
 @Singleton
@@ -34,7 +35,7 @@ public class IncidentServiceImpl implements IncidentService {
   private final IncidentDao incidentDao;
   private final NotificationService notificationService;
   private final NotificationConfig notificationConfig;
-  private final GoAlertService goAlertService;
+  private final OnCallService onCallService;
 
   // ===================== List =====================
 
@@ -58,7 +59,7 @@ public class IncidentServiceImpl implements IncidentService {
     IncidentRow row = RestIncidentMapper.INSTANCE.toIncidentRow(request, projectId);
 
     return incidentDao.insertIncident(row)
-        .flatMap(saved -> goAlertService.getOnCallUserNames()
+        .flatMap(saved -> onCallService.getOnCallSlackMentions()
             .onErrorReturnItem("N/A")
             .flatMap(onCallNames -> {
               Map<String, Object> params = buildIncidentParams(saved);
@@ -110,7 +111,7 @@ public class IncidentServiceImpl implements IncidentService {
             return Completable.error(new RuntimeException(
                 "Cannot acknowledge incident " + incidentId + ": not in OPEN state"));
           }
-          return goAlertService.getOnCallUserNames()
+          return onCallService.getOnCallSlackMentions()
               .onErrorReturnItem("N/A")
               .flatMapCompletable(onCallNames -> {
                 Map<String, Object> params = buildIncidentParams(incident);
@@ -162,7 +163,7 @@ public class IncidentServiceImpl implements IncidentService {
             return Completable.error(new RuntimeException(
                 "Cannot recover incident " + incidentId + ": not in ACKNOWLEDGED state"));
           }
-          return goAlertService.getOnCallUserNames()
+          return onCallService.getOnCallSlackMentions()
               .onErrorReturnItem("N/A")
               .flatMapCompletable(onCallNames -> {
                 Map<String, Object> params = buildIncidentParams(incident);
@@ -214,7 +215,7 @@ public class IncidentServiceImpl implements IncidentService {
             return Completable.error(new RuntimeException(
                 "Cannot close incident " + incidentId + ": not in RECOVERED state"));
           }
-          return goAlertService.getOnCallUserNames()
+          return onCallService.getOnCallSlackMentions()
               .onErrorReturnItem("N/A")
               .flatMapCompletable(onCallNames -> {
                 Map<String, Object> params = buildIncidentParams(incident);

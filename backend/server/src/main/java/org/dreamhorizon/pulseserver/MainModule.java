@@ -35,9 +35,13 @@ import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
-import org.dreamhorizon.pulseserver.service.incident.GoAlertService;
 import org.dreamhorizon.pulseserver.service.incident.IncidentService;
 import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
+import org.dreamhorizon.pulseserver.service.oncall.GoAlertOnCallProvider;
+import org.dreamhorizon.pulseserver.service.oncall.NoOpOnCallProvider;
+import org.dreamhorizon.pulseserver.service.oncall.OnCallProvider;
+import org.dreamhorizon.pulseserver.service.oncall.OnCallProviderType;
+import org.dreamhorizon.pulseserver.service.oncall.OnCallService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
@@ -157,10 +161,35 @@ public class MainModule extends VertxAbstractModule {
           return null;
     }).in(Singleton.class);
 
-    bind(GoAlertService.class).in(Singleton.class);
+    bindOnCallProvider();
+    bind(OnCallService.class).in(Singleton.class);
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
 
     bindNotificationFeature();
+  }
+
+  private void bindOnCallProvider() {
+    bind(OnCallProvider.class).toProvider(() -> {
+      var notifConfig = SharedDataUtils.get(vertx,
+          org.dreamhorizon.pulseserver.config.NotificationConfig.class);
+      String providerName = notifConfig != null
+          && notifConfig.getIncidentConfig() != null
+          && notifConfig.getIncidentConfig().getOnCallProvider() != null
+          ? notifConfig.getIncidentConfig().getOnCallProvider()
+          : "GO_ALERT";
+      OnCallProviderType type;
+      try {
+        type = OnCallProviderType.valueOf(providerName);
+      } catch (IllegalArgumentException e) {
+        log.warn("Unknown onCallProvider '{}', falling back to NONE", providerName);
+        type = OnCallProviderType.NONE;
+      }
+      return switch (type) {
+        case GO_ALERT -> new GoAlertOnCallProvider(
+            SharedDataUtils.get(vertx, WebClient.class), notifConfig);
+        case NONE -> new NoOpOnCallProvider();
+      };
+    }).in(Singleton.class);
   }
 
   private void bindNotificationFeature() {
