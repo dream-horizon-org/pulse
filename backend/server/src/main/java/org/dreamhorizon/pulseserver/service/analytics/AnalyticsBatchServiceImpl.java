@@ -81,9 +81,9 @@ public final class AnalyticsBatchServiceImpl implements AnalyticsBatchService {
               jobType, jobType.getJobNamePrefix(), sparkConfig.getJobJarPath(),
               mainClass, null, List.of());
         })
-        .switchIfEmpty(submitSparkJob(
+        .switchIfEmpty(Single.defer(() -> submitSparkJob(
             jobType, jobType.getJobNamePrefix(), sparkConfig.getJobJarPath(),
-            mainClass, null, List.of()));
+            mainClass, null, List.of())));
   }
 
   @Override
