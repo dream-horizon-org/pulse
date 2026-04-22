@@ -12,7 +12,7 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./db/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../backend/db/dev/mysql/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
