@@ -48,14 +48,11 @@ class AiSseProxyHandler {
     String projectId = ctx.request().getHeader(Constants.HEADER_PROJECT_ID);
 
     if (authHeader == null || !authHeader.startsWith(Constants.BEARER_PREFIX)) {
-      respond(ctx, ServiceError.UNAUTHORISED.getHttpStatusCode(), "Missing auth token");
+      respond(ctx, ServiceError.UNAUTHORISED);
       return;
     }
     if (projectId == null || projectId.isBlank()) {
-      respond(
-          ctx,
-          ServiceError.INCORRECT_OR_MISSING_HEADER_PARAMETERS.getHttpStatusCode(),
-          "Missing X-Project-ID");
+      respond(ctx, ServiceError.INCORRECT_OR_MISSING_HEADER_PARAMETERS);
       return;
     }
 
@@ -82,7 +79,7 @@ class AiSseProxyHandler {
     ApplicationConfig config = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
     String base = config.getAiServiceUrl();
     if (base == null || base.isBlank()) {
-      respond(ctx, Status.SERVICE_UNAVAILABLE.getStatusCode(), "AI service URL is not configured");
+      respond(ctx, ServiceError.AI_SERVICE_NOT_CONFIGURED);
       return;
     }
 
@@ -91,7 +88,7 @@ class AiSseProxyHandler {
     try {
       URI.create(absoluteUrl);
     } catch (IllegalArgumentException e) {
-      respond(ctx, Status.BAD_GATEWAY.getStatusCode(), "Bad AI service URL");
+      respond(ctx, ServiceError.AI_PROXY_BAD_GATEWAY);
       return;
     }
 
@@ -127,9 +124,9 @@ class AiSseProxyHandler {
               if (status < 200 || status >= 300) {
                 if (!response.ended()) {
                   response
-                      .setStatusCode(status)
+                      .setStatusCode(ServiceError.AI_PROXY_BAD_GATEWAY.getHttpStatusCode())
                       .putHeader(Constants.HEADER_CONTENT_TYPE, JSON_CONTENT_TYPE)
-                      .end(jsonError("AI service returned " + status));
+                      .end(ServiceError.AI_PROXY_BAD_GATEWAY.toJson());
                 }
                 return;
               }
@@ -167,23 +164,19 @@ class AiSseProxyHandler {
             err -> {
               if (!response.ended()) {
                 response
-                    .setStatusCode(Status.BAD_GATEWAY.getStatusCode())
+                    .setStatusCode(ServiceError.AI_PROXY_BAD_GATEWAY.getHttpStatusCode())
                     .putHeader(Constants.HEADER_CONTENT_TYPE, JSON_CONTENT_TYPE)
-                    .end(jsonError("AI service unavailable"));
+                    .end(ServiceError.AI_PROXY_BAD_GATEWAY.toJson());
               }
             });
   }
 
-  private void respond(RoutingContext ctx, int statusCode, String message) {
+  private void respond(RoutingContext ctx, ServiceError serviceError) {
     if (!ctx.response().ended()) {
       ctx.response()
-          .setStatusCode(statusCode)
+          .setStatusCode(serviceError.getHttpStatusCode())
           .putHeader(Constants.HEADER_CONTENT_TYPE, JSON_CONTENT_TYPE)
-          .end(jsonError(message));
+          .end(serviceError.toJson());
     }
-  }
-
-  private static String jsonError(String message) {
-    return "{\"" + Constants.ERROR_KEY + "\":\"" + message.replace("\"", "\\\"") + "\"}";
   }
 }

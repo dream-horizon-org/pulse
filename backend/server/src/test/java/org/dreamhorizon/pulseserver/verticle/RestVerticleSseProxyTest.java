@@ -7,6 +7,8 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.plugins.RxJavaPlugins;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
@@ -19,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
@@ -53,6 +56,7 @@ class RestVerticleSseProxyTest {
 
   @BeforeEach
   void setUp() throws Exception {
+    RxJavaPlugins.setIoSchedulerHandler(schedule -> Schedulers.trampoline());
     coreVertx = Vertx.vertx();
     rxVertx = io.vertx.rxjava3.core.Vertx.newInstance(coreVertx);
     doNothing().when(alertEvaluationService).registerConsumers();
@@ -80,6 +84,7 @@ class RestVerticleSseProxyTest {
       coreVertx = null;
     }
     setStaticGuiceInjector(null);
+    RxJavaPlugins.reset();
   }
 
   /** Sets {@code GuiceInjector.guiceInjector} static field directly, bypassing initialization. */
@@ -182,7 +187,11 @@ class RestVerticleSseProxyTest {
               .blockingGet();
 
       assertThat(resp.statusCode()).isEqualTo(401);
-      assertThat(resp.bodyAsString()).contains("Missing auth token");
+      assertThat(
+              new JsonObject(resp.bodyAsString())
+                  .getJsonObject(Constants.ERROR_KEY)
+                  .getString("message"))
+          .isEqualTo(ServiceError.UNAUTHORISED.getErrorMessage());
     }
 
     @Test
@@ -213,7 +222,11 @@ class RestVerticleSseProxyTest {
               .blockingGet();
 
       assertThat(resp.statusCode()).isEqualTo(401);
-      assertThat(resp.bodyAsString()).contains("Invalid token");
+      assertThat(
+              new JsonObject(resp.bodyAsString())
+                  .getJsonObject(Constants.ERROR_KEY)
+                  .getString("message"))
+          .isEqualTo(ServiceError.UNAUTHORISED.getErrorMessage());
     }
 
     @Test
@@ -244,12 +257,21 @@ class RestVerticleSseProxyTest {
               .blockingGet();
 
       assertThat(resp.statusCode()).isEqualTo(400);
-      assertThat(resp.bodyAsString()).contains("Missing X-Project-ID");
+      assertThat(
+              new JsonObject(resp.bodyAsString())
+                  .getJsonObject(Constants.ERROR_KEY)
+                  .getString("message"))
+          .isEqualTo(ServiceError.INCORRECT_OR_MISSING_HEADER_PARAMETERS.getErrorMessage());
     }
 
     @Test
     void shouldReturn403WhenOpenFgaDenies() throws Exception {
-      when(openFgaService.checkPermission(eq("u1"), eq("can_view"), eq("project"), eq("p9")))
+      when(
+              openFgaService.checkPermission(
+                  eq("u1"),
+                  eq(Constants.PERMISSION_CAN_VIEW),
+                  eq(Constants.RESOURCE_TYPE_PROJECT),
+                  eq("p9")))
           .thenReturn(Single.just(false));
 
       int aiPort = startFakeAi(resp -> resp.setStatusCode(200).end());
@@ -279,7 +301,11 @@ class RestVerticleSseProxyTest {
               .blockingGet();
 
       assertThat(resp.statusCode()).isEqualTo(403);
-      assertThat(resp.bodyAsString()).contains("Access denied");
+      assertThat(
+              new JsonObject(resp.bodyAsString())
+                  .getJsonObject(Constants.ERROR_KEY)
+                  .getString("message"))
+          .isEqualTo(ServiceError.FORBIDDEN.getErrorMessage());
     }
   }
 
@@ -288,7 +314,12 @@ class RestVerticleSseProxyTest {
 
     @Test
     void shouldStreamSseChunksWhenUpstreamReturns2xx() throws Exception {
-      when(openFgaService.checkPermission(any(), eq("can_view"), eq("project"), any()))
+      when(
+              openFgaService.checkPermission(
+                  any(),
+                  eq(Constants.PERMISSION_CAN_VIEW),
+                  eq(Constants.RESOURCE_TYPE_PROJECT),
+                  any()))
           .thenReturn(Single.just(true));
 
       int aiPort =
@@ -334,7 +365,12 @@ class RestVerticleSseProxyTest {
 
     @Test
     void shouldReturnJsonWhenUpstreamReturns5xx() throws Exception {
-      when(openFgaService.checkPermission(any(), eq("can_view"), eq("project"), any()))
+      when(
+              openFgaService.checkPermission(
+                  any(),
+                  eq(Constants.PERMISSION_CAN_VIEW),
+                  eq(Constants.RESOURCE_TYPE_PROJECT),
+                  any()))
           .thenReturn(Single.just(true));
 
       int aiPort =
@@ -371,7 +407,16 @@ class RestVerticleSseProxyTest {
 
       assertThat(httpResp.statusCode()).isEqualTo(500);
       assertThat(httpResp.getHeader("Content-Type")).contains("application/json");
-      assertThat(httpResp.bodyAsString()).contains("AI service returned 500");
+      assertThat(
+              new JsonObject(httpResp.bodyAsString())
+                  .getJsonObject(Constants.ERROR_KEY)
+                  .getString("message"))
+          .isEqualTo(ServiceError.INTERNAL_SERVER_ERROR.getErrorMessage());
+      assertThat(
+              new JsonObject(httpResp.bodyAsString())
+                  .getJsonObject(Constants.ERROR_KEY)
+                  .getString("code"))
+          .isEqualTo("500");
     }
   }
 }

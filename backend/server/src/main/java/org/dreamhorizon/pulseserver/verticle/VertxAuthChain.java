@@ -62,7 +62,7 @@ class VertxAuthChain {
                 vertx.runOnContext(
                     v -> {
                       if (!allowed) {
-                        rejectWith(ctx, ServiceError.FORBIDDEN.getHttpStatusCode(), "Access denied");
+                        rejectWith(ctx, ServiceError.FORBIDDEN);
                         return;
                       }
                       onAllowed.run();
@@ -71,23 +71,20 @@ class VertxAuthChain {
                 vertx.runOnContext(
                     v -> {
                       if (err instanceof JwtException) {
-                        rejectWith(ctx, ServiceError.UNAUTHORISED.getHttpStatusCode(), "Invalid token");
+                        rejectWith(ctx, ServiceError.UNAUTHORISED);
                       } else {
                         log.error("Auth check failed", err);
-                        rejectWith(
-                            ctx,
-                            ServiceError.INTERNAL_SERVER_ERROR.getHttpStatusCode(),
-                            "Auth check failed");
+                        rejectWith(ctx, ServiceError.INTERNAL_SERVER_ERROR);
                       }
                     }));
   }
 
-  private void rejectWith(RoutingContext ctx, int statusCode, String message) {
+  private void rejectWith(RoutingContext ctx, ServiceError serviceError) {
     if (!ctx.response().ended()) {
       ctx.response()
-          .setStatusCode(statusCode)
+          .setStatusCode(serviceError.getHttpStatusCode())
           .putHeader(Constants.HEADER_CONTENT_TYPE, JSON_CONTENT_TYPE)
-          .end("{\"" + Constants.ERROR_KEY + "\":\"" + message.replace("\"", "\\\"") + "\"}");
+          .end(serviceError.toJson());
     }
   }
 }
