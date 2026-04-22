@@ -69,7 +69,7 @@ public class PulseSdkConfigRetrofitClient(
         }
 
     private companion object {
-        private const val TAG = "PulseSdkConfigRetrofitClient"
+        private const val TAG = "SdkConfigRetrofitClient"
     }
 
     public fun newInstance(url: String): PulseSdkConfigRetrofitClient =

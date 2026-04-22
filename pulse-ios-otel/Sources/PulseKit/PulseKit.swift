@@ -123,12 +123,8 @@ public class Pulse {
     private init() {}
 
     public func initialize(
-        endpointBaseUrl: String,
         apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
-        configEndpointUrl: String? = nil,
-        customEventCollectorUrl: String? = nil,
-        endpointHeaders: [String: String]? = nil,
         globalAttributes: [String: AttributeValue]? = nil,
         resource: ((inout [String: AttributeValue]) -> Void)? = nil,
         configuration: ((inout PulseKitConfiguration) -> Void)? = nil,
@@ -161,9 +157,12 @@ public class Pulse {
             _dataCollectionState = dataCollectionState
             consentStateLock.unlock()
 
-            // Merge apiKey with endpointHeaders for all API calls (config endpoint—default or custom—and OTLP)
+            let projectId = Self.extractProjectID(from: apiKey)
+            let endpointBaseUrl = PulseHostConfiguration.baseUrl(apiKey: apiKey)
+            let resolvedConfigEndpointUrl = PulseHostConfiguration.activeConfigUrl(apiKey: apiKey, projectId: projectId)
+
             let apiKeyHeader = [PulseAttributes.apiKeyHeaderKey: apiKey]
-            let endpointHeadersWithProject = (endpointHeaders ?? [:]).merging(apiKeyHeader) { _, new in new }
+            let endpointHeadersWithProject = apiKeyHeader
 
             // Config: load from persistence (sync)
             let useLocalMockConfig = false
@@ -177,7 +176,6 @@ public class Pulse {
                 PulseLogger.log("No persisted config, using defaults.")
             }
 
-            let resolvedConfigEndpointUrl = configEndpointUrl ?? Self.defaultConfigEndpointUrl(from: endpointBaseUrl)
             configCoordinator.startBackgroundFetch(
                 configEndpointUrl: resolvedConfigEndpointUrl,
                 endpointHeaders: endpointHeadersWithProject,
@@ -195,7 +193,8 @@ public class Pulse {
             }()
             _sdkName = PulseSdkName.from(telemetrySdkName: telemetrySdkName ?? PulseAttributes.PulseSdkNames.iosSwift)
             guard let currentSdkName = _sdkName else { return }
-            if let sdkConfig = configStorageQueue.sync(execute: { _currentSdkConfig }) {
+            let persistedConfig = configStorageQueue.sync(execute: { _currentSdkConfig })
+            if let sdkConfig = persistedConfig {
                 let interactionConfigUrl = sdkConfig.interaction.configUrl
                 config.interaction { $0.setConfigUrl { interactionConfigUrl } }
                 let processors = PulseSamplingSignalProcessors(sdkConfig: sdkConfig, currentSdkName: currentSdkName)
@@ -235,11 +234,14 @@ public class Pulse {
                 }
 
                 applyClickFeatureConfig(from: sdkConfig, to: &config, currentSdkName: currentSdkName)
+            } else {
+                let derivedInteractionUrl = PulseHostConfiguration.interactionConfigUrl(apiKey: apiKey, projectId: projectId)
+                config.interaction { $0.setConfigUrl { derivedInteractionUrl } }
             }
 
             let (tracerProvider, loggerProvider, openTelemetry) = buildOpenTelemetrySDK(
                 endpointBaseUrl: endpointBaseUrl,
-                customEventCollectorUrl: customEventCollectorUrl,
+                customEventCollectorUrl: nil,
                 endpointHeaders: endpointHeadersWithProject,
                 resource: resource,
                 config: config,
@@ -434,14 +436,13 @@ public class Pulse {
 
         // URL resolution (see expectations in PulseKit README):
         // Traces/Logs/Metrics: config present → use full path from config; else → baseUrl + /v1/{traces|logs|metrics}
-        // customEventCollectorUrl: config present → from config; else user-provided; else baseUrl + /v1/logs
         let base = Self.normalizedBaseUrl(endpointBaseUrl)
         let tracesUrl = currentSdkConfig.map { URL(string: $0.signals.spanCollectorUrl)! }
             ?? URL(string: "\(base)/v1/traces")!
         let logsUrl = currentSdkConfig.map { URL(string: $0.signals.logsCollectorUrl)! }
             ?? URL(string: "\(base)/v1/logs")!
         let customEventUrl = currentSdkConfig.map { URL(string: $0.signals.customEventCollectorUrl)! }
-            ?? (customEventCollectorUrl.flatMap { URL(string: $0) } ?? URL(string: "\(base)/v1/logs")!)
+            ?? URL(string: "\(base)/v1/logs")!
         let otlpSpanExporter = OtlpHttpTraceExporter(endpoint: tracesUrl, envVarHeaders: envVarHeaders)
         let spanExporterAfterBeforeSend: SpanExporter = beforeSendSpan.map {
             BeforeSendSpanExporter(callback: $0, delegate: otlpSpanExporter)
