@@ -11,6 +11,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -93,22 +94,30 @@ class ClickHouseBatchServiceImplTest {
             .startTime(null)
             .endTime(null)
             .expiry(null)
-            .createdAt(null)
+            .createdAt(LocalDateTime.now(ZoneOffset.UTC))
             .updatedAt(null)
             .createdBy(null)
             .latestJobStatus(null)
             .totalCount(0L)
             .build();
     when(funnelDefinitionDao.listAllAuto()).thenReturn(Single.just(List.of(def)));
-    LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
     when(analyticsJobDao.getLatestJobByType(AnalyticsJobType.FUNNELS_DAILY))
-        .thenReturn(
-            Maybe.just(
-                AnalyticsJobEntity.builder()
-                    .id(1L)
-                    .jobType(AnalyticsJobType.FUNNELS_DAILY)
-                    .createdAt(now)
-                    .build()));
+        .thenAnswer(
+            inv -> {
+              LocalDate today = LocalDate.now(ZoneOffset.UTC);
+              AnalyticsJobEntity latest =
+                  new AnalyticsJobEntity(
+                      1L,
+                      AnalyticsJobType.FUNNELS_DAILY,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      today.atTime(12, 0));
+              return Maybe.just(latest);
+            });
 
     assertThat(service.triggerFunnelsBatch().blockingGet()).isFalse();
   }
