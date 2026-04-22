@@ -12,6 +12,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -86,20 +87,23 @@ class RoutingAnalyticsBatchServiceTest {
   @Test
   void triggerFunnelsBatch_routesToSparkWhenNotClickHouse() {
     when(config.isClickHouseEngine()).thenReturn(false);
-    LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-    AnalyticsJobEntity latest =
-        new AnalyticsJobEntity(
-            1L,
-            AnalyticsJobType.FUNNELS_DAILY,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            now);
     when(sparkAnalyticsJobDao.getLatestJobByType(AnalyticsJobType.FUNNELS_DAILY))
-        .thenReturn(Maybe.just(latest));
+        .thenAnswer(
+            inv -> {
+              LocalDate today = LocalDate.now(ZoneOffset.UTC);
+              AnalyticsJobEntity latest =
+                  new AnalyticsJobEntity(
+                      1L,
+                      AnalyticsJobType.FUNNELS_DAILY,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      today.atTime(12, 0));
+              return Maybe.just(latest);
+            });
 
     assertThat(service.triggerFunnelsBatch().blockingGet()).isFalse();
     verify(sparkAnalyticsJobDao).getLatestJobByType(AnalyticsJobType.FUNNELS_DAILY);

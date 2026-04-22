@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.dreamhorizon.pulseserver.config.SparkConfig;
@@ -53,20 +54,25 @@ class AnalyticsBatchServiceImplTest {
 
   @Test
   void triggerFunnelsBatch_skipsWhenJobAlreadyRanToday() {
-    LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-    AnalyticsJobEntity latest =
-        new AnalyticsJobEntity(
-            1L,
-            AnalyticsJobType.FUNNELS_DAILY,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            now);
+    // Build createdAt when the DAO is invoked (during blockingGet), not at test start, so it
+    // always matches LocalDate.now(UTC) inside the service even if CI pauses across UTC midnight.
     when(analyticsJobDao.getLatestJobByType(AnalyticsJobType.FUNNELS_DAILY))
-        .thenReturn(Maybe.just(latest));
+        .thenAnswer(
+            inv -> {
+              LocalDate today = LocalDate.now(ZoneOffset.UTC);
+              AnalyticsJobEntity latest =
+                  new AnalyticsJobEntity(
+                      1L,
+                      AnalyticsJobType.FUNNELS_DAILY,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      today.atTime(12, 0));
+              return Maybe.just(latest);
+            });
 
     assertThat(service.triggerFunnelsBatch().blockingGet()).isFalse();
     verify(sparkJobService, never()).submitJob(any());
