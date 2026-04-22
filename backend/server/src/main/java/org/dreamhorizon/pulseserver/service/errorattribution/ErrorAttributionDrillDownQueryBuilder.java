@@ -63,10 +63,33 @@ public final class ErrorAttributionDrillDownQueryBuilder {
       ErrorAttributionDrillDownSignal signal,
       DrillDownQueryParams params) {
     return switch (signal) {
-      case crash -> buildStack(projectId, interactionName, startInclusive, endExclusive, "device.crash", false, params);
-      case anr -> buildStack(projectId, interactionName, startInclusive, endExclusive, "device.anr", false, params);
+      case crash ->
+          buildStack(
+              projectId,
+              interactionName,
+              startInclusive,
+              endExclusive,
+              ClickhouseConstants.CH_PULSE_TYPE_DEVICE_CRASH,
+              false,
+              params);
+      case anr ->
+          buildStack(
+              projectId,
+              interactionName,
+              startInclusive,
+              endExclusive,
+              ClickhouseConstants.CH_PULSE_TYPE_DEVICE_ANR,
+              false,
+              params);
       case non_fatal ->
-          buildStack(projectId, interactionName, startInclusive, endExclusive, "non_fatal", true, params);
+          buildStack(
+              projectId,
+              interactionName,
+              startInclusive,
+              endExclusive,
+              ClickhouseConstants.CH_PULSE_TYPE_NON_FATAL,
+              true,
+              params);
       case api -> buildApi(projectId, interactionName, startInclusive, endExclusive, params);
     };
   }
@@ -131,17 +154,23 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + "'"
             + " AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS is_low, "
+            + " AND "
+            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
+            + ") AS is_low, "
             + "minIf(Timestamp, PulseType = '"
             + interactionType
             + "' AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_ts, "
+            + " AND "
+            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
+            + ") AS poor_ts, "
             + "maxIf(greatest(0, toInt64(ifNull(Duration, 0))), PulseType = '"
             + interactionType
             + "' AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_max_duration_ns "
+            + " AND "
+            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
+            + ") AS poor_max_duration_ns "
             + "FROM "
             + traces
             + " WHERE ProjectId = :"
@@ -278,13 +307,11 @@ public final class ErrorAttributionDrillDownQueryBuilder {
     String traces = ClickhouseConstants.OTEL_TRACES_TABLE;
     String interactionType = InteractionTelemetryConstants.INTERACTION_PULSE_TYPE;
 
-    String urlExpr = "ifNull(SpanAttributes['http.url'], '')";
-    String gqlNameExpr = "ifNull(SpanAttributes['graphql.operation.name'], '')";
-    String gqlTypeExpr = "ifNull(SpanAttributes['graphql.operation.type'], '')";
-    String methodExpr =
-        "ifNull(SpanAttributes['http.request.method'], ifNull(SpanAttributes['http.method'], ''))";
-    String statusCodeExpr =
-        "ifNull(SpanAttributes['http.response.status_code'], ifNull(SpanAttributes['http.status_code'], ''))";
+    String urlExpr = ClickhouseConstants.CH_SPAN_HTTP_URL_EXPR;
+    String gqlNameExpr = ClickhouseConstants.CH_SPAN_GRAPHQL_OPERATION_NAME_EXPR;
+    String gqlTypeExpr = ClickhouseConstants.CH_SPAN_GRAPHQL_OPERATION_TYPE_EXPR;
+    String methodExpr = ClickhouseConstants.CH_SPAN_HTTP_METHOD_EXPR;
+    String statusCodeExpr = ClickhouseConstants.CH_SPAN_HTTP_STATUS_CODE_EXPR;
 
     String sql =
         "WITH "
@@ -314,17 +341,23 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + "'"
             + " AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS is_low, "
+            + " AND "
+            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
+            + ") AS is_low, "
             + "minIf(Timestamp, PulseType = '"
             + interactionType
             + "' AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_ts, "
+            + " AND "
+            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
+            + ") AS poor_ts, "
             + "maxIf(greatest(0, toInt64(ifNull(Duration, 0))), PulseType = '"
             + interactionType
             + "' AND SpanName = :"
             + p1
-            + " AND ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor') AS poor_max_duration_ns "
+            + " AND "
+            + ClickhouseConstants.CH_SPAN_USER_CATEGORY_IS_POOR
+            + ") AS poor_max_duration_ns "
             + "FROM "
             + traces
             + " WHERE ProjectId = :"
@@ -364,8 +397,12 @@ public final class ErrorAttributionDrillDownQueryBuilder {
             + "AND Timestamp < toDateTime64(:"
             + p3
             + ", 9, 'UTC') "
-            + "AND PulseType LIKE 'network.%' "
-            + "AND StatusCode = 'Error' "
+            + "AND "
+            + ClickhouseConstants.CH_PULSE_TYPE_NETWORK_LIKE_PREDICATE
+            + " "
+            + "AND "
+            + ClickhouseConstants.CH_STATUS_CODE_EQUALS_ERROR
+            + " "
             + "GROUP BY SessionId, drill_url, drill_gql_name, drill_gql_type, drill_http_method, drill_http_status "
             + "), "
             + "key_stats AS ( "
