@@ -64,7 +64,7 @@ public class RcaReportProcessor {
                 .markFailed(
                     job.jobId(),
                     job.projectId(),
-                    job.type(),
+                    job.entityType(),
                     job.entityKey(),
                     job.date(),
                     truncateMessage(ar.cause().getMessage()))
@@ -108,7 +108,7 @@ public class RcaReportProcessor {
             .markFailed(
                 job.jobId(),
                 job.projectId(),
-                job.type(),
+                job.entityType(),
                 job.entityKey(),
                 job.date(),
                 truncateMessage(
@@ -120,7 +120,7 @@ public class RcaReportProcessor {
 
       finalizeSuccessfulRcaProxyResult(proxyResult, enrichment, job).toCompletableFuture().join();
       jobDao
-          .markCompleted(job.jobId(), job.projectId(), job.type(), job.entityKey(), job.date())
+          .markCompleted(job.jobId(), job.projectId(), job.entityType(), job.entityKey(), job.date())
           .blockingAwait();
     } catch (Exception e) {
       log.error("RCA job {} failed", job.jobId(), e);
@@ -128,7 +128,7 @@ public class RcaReportProcessor {
           .markFailed(
               job.jobId(),
               job.projectId(),
-              job.type(),
+              job.entityType(),
               job.entityKey(),
               job.date(),
               truncateMessage(e.getMessage()))
@@ -151,7 +151,7 @@ public class RcaReportProcessor {
         requestBody,
         objectRoot,
         job.projectId(),
-        job.type(),
+        job.entityType(),
         job.entityKey(),
         job.date(),
         forceRootCauseRefresh);
@@ -227,7 +227,7 @@ public class RcaReportProcessor {
     Completable putOp =
         rcaReportCacheDao.put(
             job.projectId(),
-            job.type(),
+            job.entityType(),
             job.entityKey(),
             job.date(),
             updated.getBufferedBody());

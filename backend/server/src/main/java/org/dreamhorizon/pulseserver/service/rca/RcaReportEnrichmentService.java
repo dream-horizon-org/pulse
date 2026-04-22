@@ -49,7 +49,7 @@ public class RcaReportEnrichmentService {
     working.remove(REGENERATE_FIELD);
     String fallbackBody = parsed.rawBody();
     String projectId = parsed.projectId();
-    RcaType type = parsed.type();
+    RcaType type = parsed.entityType();
     String entityKey = parsed.entityKey();
     LocalDate date = parsed.date();
     Instant windowEndExclusive = Instant.now();

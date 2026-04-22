@@ -99,7 +99,7 @@ class RcaReportJobDaoTest {
 
       assertThat(created.jobId()).isEqualTo(JOB_ID);
       assertThat(created.projectId()).isEqualTo(PROJECT);
-      assertThat(created.type()).isEqualTo(TYPE);
+      assertThat(created.entityType()).isEqualTo(TYPE);
       assertThat(created.entityKey()).isEqualTo(ENTITY_KEY);
       assertThat(created.date()).isEqualTo(DATE);
       assertThat(created.status()).isEqualTo(RcaJobStatus.PENDING);

@@ -9,7 +9,7 @@ import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
  */
 public record RcaCacheKey(
     String projectId,
-    RcaType type,
+    RcaType entityType,
     String entityKey,
     LocalDate date,
     boolean regenerate,

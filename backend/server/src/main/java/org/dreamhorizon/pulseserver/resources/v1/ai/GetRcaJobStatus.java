@@ -80,9 +80,6 @@ public class GetRcaJobStatus {
   }
 
   private static RcaType resolveRcaType(String rcaTypeParam) {
-    if (rcaTypeParam == null || rcaTypeParam.isBlank()) {
-      return RcaType.INTERACTION; // Default type for backward compatibility
-    }
     try {
       return RcaType.valueOf(rcaTypeParam.trim().toUpperCase());
     } catch (IllegalArgumentException e) {

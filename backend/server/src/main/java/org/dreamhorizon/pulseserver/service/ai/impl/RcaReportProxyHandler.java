@@ -84,7 +84,7 @@ final class RcaReportProxyHandler {
     log.info(
         "RCA POST received project={} type={} entity={} date={} regenerate={}",
         keyParts.projectId(),
-        keyParts.type(),
+        keyParts.entityType(),
         keyParts.entityKey(),
         keyParts.date(),
         keyParts.regenerate());
@@ -137,18 +137,18 @@ final class RcaReportProxyHandler {
     CompletableFuture<AiProxyUpstreamResult> resultFuture = new CompletableFuture<>();
     log.info(
         "RCA MySQL cache lookup starting type={} entity={} date={}",
-        keyParts.type(),
+        keyParts.entityType(),
         keyParts.entityKey(),
         keyParts.date());
     rcaReportCacheDao
-        .get(keyParts.projectId(), keyParts.type(), keyParts.entityKey(), keyParts.date())
+        .get(keyParts.projectId(), keyParts.entityType(), keyParts.entityKey(), keyParts.date())
         // Never block Vert.x / JAX-RS I/O thread on MySQL pool subscription.
         .subscribeOn(Schedulers.io())
         .subscribe(
             hit -> {
               log.info(
                   "RCA cache hit type={} entity={} date={}",
-                  keyParts.type(),
+                  keyParts.entityType(),
                   keyParts.entityKey(),
                   keyParts.date());
               resultFuture.complete(
@@ -164,7 +164,7 @@ final class RcaReportProxyHandler {
             () -> {
               log.info(
                   "RCA cache miss, async job path type={} entity={} date={}",
-                  keyParts.type(),
+                  keyParts.entityType(),
                   keyParts.entityKey(),
                   keyParts.date());
               dispatchAsyncRca(parsed, authorization, rawQuery, keyParts, createdByOrNull)
@@ -190,14 +190,14 @@ final class RcaReportProxyHandler {
     RcaCacheKey key =
         new RcaCacheKey(
             keyParts.projectId(),
-            keyParts.type(),
+            keyParts.entityType(),
             keyParts.entityKey(),
             keyParts.date(),
             keyParts.regenerate(),
             parsed.rawBody());
     log.info(
         "RCA createOrGetJob starting type={} entity={} date={}",
-        keyParts.type(),
+        keyParts.entityType(),
         keyParts.entityKey(),
         keyParts.date());
     rcaReportJobService
@@ -211,7 +211,7 @@ final class RcaReportProxyHandler {
                   HTTP_ACCEPTED,
                   dispatch.job().jobId(),
                   dispatch.shouldEnqueueWorker(),
-                  keyParts.type(),
+                  keyParts.entityType(),
                   keyParts.entityKey());
               if (dispatch.shouldEnqueueWorker()) {
                 rcaReportProcessor.enqueueProcess(
@@ -262,7 +262,7 @@ final class RcaReportProxyHandler {
   }
 
   private record RcaCacheKeyParts(
-      String projectId, RcaType type, String entityKey, LocalDate date, boolean regenerate) {}
+      String projectId, RcaType entityType, String entityKey, LocalDate date, boolean regenerate) {}
 
   /** Parsed JSON body and cache key after {@link #validateRcaReportPost} succeeds. */
   private record ParsedRcaPost(String rawBody, ObjectNode bodyRoot, RcaCacheKeyParts keyParts) {}

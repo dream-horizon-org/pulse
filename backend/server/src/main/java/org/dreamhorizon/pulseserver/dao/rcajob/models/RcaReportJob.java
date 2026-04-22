@@ -12,7 +12,7 @@ import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 public record RcaReportJob(
     String jobId,
     String projectId,
-    RcaType type,
+    RcaType entityType,
     String entityKey,
     LocalDate date,
     RcaJobStatus status,
