@@ -1,6 +1,6 @@
 import { PulseLogLevel } from './PulseLogLevel';
 
-const TAG = '[PulseSDK]';
+const TAG = 'PulseSDK';
 
 let currentLevel: PulseLogLevel = PulseLogLevel.NONE;
 
