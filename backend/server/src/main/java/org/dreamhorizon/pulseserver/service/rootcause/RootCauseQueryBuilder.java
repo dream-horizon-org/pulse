@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.dreamhorizon.pulseserver.constant.ClickhouseConstants;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionTelemetryConstants;
@@ -18,6 +19,10 @@ import org.dreamhorizon.pulseserver.service.interaction.InteractionTelemetryCons
  * Includes problematic count (error OR poor) for segment selection.
  */
 public class RootCauseQueryBuilder {
+
+  /** Valid dimension column names for RCA queries. Used to prevent SQL injection. */
+  private static final Set<String> VALID_DIMENSION_COLUMNS =
+      Set.of("Platform", "OsVersion", "AppVersion", "DeviceModel", "NetworkProvider", "GeoState");
 
   /**
    * Builds the common WHERE clause for interaction traces in the time window.
@@ -142,6 +147,11 @@ public class RootCauseQueryBuilder {
     if (dimensionColumns == null || dimensionColumns.isEmpty()) {
       throw new IllegalArgumentException("dimensionColumns must be non-empty for segment query");
     }
+    for (String dim : dimensionColumns) {
+      if (!VALID_DIMENSION_COLUMNS.contains(dim)) {
+        throw new IllegalArgumentException("Invalid dimension column: " + dim);
+      }
+    }
     BindAccumulator acc = new BindAccumulator();
     String select = buildSelectClauseWithProblematicAndGroupBy(dimensionColumns);
     String where =
@@ -173,6 +183,9 @@ public class RootCauseQueryBuilder {
       Instant endExclusive,
       String dimensionColumn,
       Map<String, String> dimensionFilters) {
+    if (!VALID_DIMENSION_COLUMNS.contains(dimensionColumn)) {
+      throw new IllegalArgumentException("Invalid dimension column: " + dimensionColumn);
+    }
     BindAccumulator acc = new BindAccumulator();
     String select =
         dimensionColumn + ", " + RootCauseMetricsRegistry.getProblematicCountExpression() + " AS problematic_count";

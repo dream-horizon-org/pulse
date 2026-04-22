@@ -257,6 +257,8 @@ public class MainVerticle extends AbstractVerticle {
             RootCauseConfig.DEFAULT_LOOKBACK_DAYS))
         .maxSegments(rootCauseJson.getInteger("maxSegments",
             RootCauseConfig.DEFAULT_MAX_SEGMENTS))
+        .minSegmentVolumePct(rootCauseJson.getDouble("minSegmentVolumePct",
+            RootCauseConfig.DEFAULT_MIN_SEGMENT_VOLUME_PCT))
         .hybridDimensionOrderingEnabled(rootCauseJson.getBoolean("hybridDimensionOrderingEnabled",
             RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED));
 
