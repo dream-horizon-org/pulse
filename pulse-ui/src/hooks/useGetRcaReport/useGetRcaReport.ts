@@ -35,9 +35,12 @@ const UNEXPECTED_RCA_POST_ERROR = new Error(
   "Unexpected RCA response from server",
 );
 
-const KNOWN_RCA_JOB_STATUSES = new Set<string>(
-  ["PENDING", "PROCESSING", "COMPLETED", "FAILED"] satisfies RcaJobStatus[],
-);
+const KNOWN_RCA_JOB_STATUSES = new Set<string>([
+  "PENDING",
+  "PROCESSING",
+  "COMPLETED",
+  "FAILED",
+] satisfies RcaJobStatus[]);
 
 export function normalizeRcaJobStatus(status: unknown): RcaNormalizedJobStatus {
   if (typeof status !== "string") {
@@ -60,11 +63,11 @@ function buildProjectHeaders(projectId: string): Record<string, string> {
 }
 
 function buildPostBody(
-  interactionName: string,
+  entityKey: string,
   date: string | null | undefined,
-): { interactionName: string; date?: string } {
-  const body: { interactionName: string; date?: string } = {
-    interactionName,
+): { entityKey: string; date?: string } {
+  const body: { entityKey: string; date?: string } = {
+    entityKey,
   };
   if (isValidRcaDateParam(date)) {
     body.date = date;
@@ -73,7 +76,7 @@ function buildPostBody(
 }
 
 async function requestRcaReportPost(
-  interactionName: string,
+  entityKey: string,
   date: string | null | undefined,
   projectId: string,
 ): Promise<ApiResponse<RcaReportResponse | RcaJobResponse>> {
@@ -84,7 +87,7 @@ async function requestRcaReportPost(
     url,
     init: {
       method: POST_RCA_REPORT_ROUTE.method,
-      body: JSON.stringify(buildPostBody(interactionName, date)),
+      body: JSON.stringify(buildPostBody(entityKey, date)),
       headers,
     },
     unwrapped: true,
@@ -111,12 +114,12 @@ async function requestRcaJobGet(
 }
 
 async function requestRcaStatusGet(
-  interactionName: string,
+  entityKey: string,
   date: string | null | undefined,
   projectId: string,
 ): Promise<ApiResponse<RcaJobResponse>> {
   const apiBaseUrl = getApiBaseUrl();
-  const url = `${apiBaseUrl}${GET_RCA_STATUS_ROUTE.apiPath(interactionName, date)}`;
+  const url = `${apiBaseUrl}${GET_RCA_STATUS_ROUTE.apiPath(entityKey, date)}`;
   const headers = buildProjectHeaders(projectId);
   return makeRequest<RcaJobResponse>({
     url,
@@ -183,7 +186,7 @@ function normalizeJobPayload(
 }
 
 /**
- * Fetches the AI-generated RCA report for an interaction.
+ * Fetches the AI-generated RCA report for an entity.
  * POST /v1/ai/rca/report; on 202 polls GET /v1/ai-rca/job/{jobId} until
  * COMPLETED or FAILED. On 200 returns cached report immediately.
  *
@@ -191,7 +194,7 @@ function normalizeJobPayload(
  *   initial POST query so a new RCA flow starts (use after FAILED or to force a fresh POST).
  */
 export function useGetRcaReport({
-  interactionName,
+  entityKey,
   date,
   enabled = true,
   projectId,
@@ -202,7 +205,7 @@ export function useGetRcaReport({
     projectId != null && String(projectId).trim() !== ""
       ? String(projectId).trim()
       : "";
-  const baseEnabled = enabled && !!interactionName && trimmedProjectId !== "";
+  const baseEnabled = enabled && !!entityKey && trimmedProjectId !== "";
 
   const [pollJobId, setPollJobId] = useState<string | null>(null);
   const autoRetryCompletedMissRef = useRef(false);
@@ -210,12 +213,12 @@ export function useGetRcaReport({
   useEffect(() => {
     setPollJobId(null);
     autoRetryCompletedMissRef.current = false;
-  }, [interactionName, date, trimmedProjectId, requestSession]);
+  }, [entityKey, date, trimmedProjectId, requestSession]);
 
   const postReportQuery = useQuery({
     queryKey: [
       POST_RCA_REPORT_ROUTE.key,
-      interactionName,
+      entityKey,
       date ?? null,
       trimmedProjectId,
       "post",
@@ -224,22 +227,18 @@ export function useGetRcaReport({
     queryFn: async (): Promise<
       ApiResponse<RcaReportResponse | RcaJobResponse>
     > => {
-      if (!interactionName) {
+      if (!entityKey) {
         return {
           data: null,
           error: {
             code: "400",
-            message: "Interaction name required",
+            message: "Entity key required",
             cause: "",
           },
           status: 400,
         };
       }
-      return requestRcaReportPost(
-        interactionName,
-        date ?? null,
-        trimmedProjectId,
-      );
+      return requestRcaReportPost(entityKey, date ?? null, trimmedProjectId);
     },
     enabled: baseEnabled && pollJobId === null,
     retry: false,
@@ -325,8 +324,8 @@ export function useGetRcaReport({
       autoRetryCompletedMissRef.current = true;
       void retry();
     }
-  // retry is stable (useCallback), jobSnapshot identity changes on each new poll result
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // retry is stable (useCallback), jobSnapshot identity changes on each new poll result
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobSnapshot]);
 
   const mergedData = useMemo(():
@@ -366,27 +365,27 @@ export function useGetRcaReport({
   const staleCachePollQuery = useQuery({
     queryKey: [
       GET_RCA_STATUS_ROUTE.key,
-      interactionName,
+      entityKey,
       date ?? null,
       trimmedProjectId,
       "cache-stale-poll",
       requestSession,
     ],
     queryFn: async (): Promise<ApiResponse<RcaJobResponse>> => {
-      if (!interactionName) {
+      if (!entityKey) {
         return {
           data: null,
           error: {
             code: "400",
-            message: "Interaction name required",
+            message: "Entity key required",
             cause: "",
           },
           status: 400,
         };
       }
-      return requestRcaStatusGet(interactionName, date ?? null, trimmedProjectId);
+      return requestRcaStatusGet(entityKey, date ?? null, trimmedProjectId);
     },
-    enabled: baseEnabled && !!interactionName && hasDisplayableCompletedReport,
+    enabled: baseEnabled && !!entityKey && hasDisplayableCompletedReport,
     refetchInterval: RCA_STALE_CACHE_POLL_MS,
     retry: false,
   });
@@ -429,7 +428,9 @@ export function useGetRcaReport({
     }
     const job = polled.data as RcaJobResponse;
     const statusStr = normalizeRcaJobStatus(job.status);
-    return (statusStr === "PENDING" || statusStr === "PROCESSING") && !!job.jobId;
+    return (
+      (statusStr === "PENDING" || statusStr === "PROCESSING") && !!job.jobId
+    );
   }, [hasDisplayableCompletedReport, staleCachePollQuery.data]);
 
   const isAsyncBootstrapping = pollJobId === null && postReportQuery.isLoading;
@@ -475,7 +476,7 @@ export function useGetRcaReport({
     await queryClient.invalidateQueries({
       queryKey: [
         POST_RCA_REPORT_ROUTE.key,
-        interactionName,
+        entityKey,
         date ?? null,
         trimmedProjectId,
         "post",
@@ -487,7 +488,7 @@ export function useGetRcaReport({
     pollJobId,
     queryClient,
     trimmedProjectId,
-    interactionName,
+    entityKey,
     date,
     requestSession,
   ]);
@@ -501,7 +502,7 @@ export function useGetRcaReport({
       queryClient.removeQueries({
         queryKey: [
           POST_RCA_REPORT_ROUTE.key,
-          interactionName,
+          entityKey,
           date ?? null,
           trimmedProjectId,
           "post",
@@ -510,7 +511,7 @@ export function useGetRcaReport({
       });
       setPollJobId(id);
     },
-    [queryClient, interactionName, date, trimmedProjectId, requestSession],
+    [queryClient, entityKey, date, trimmedProjectId, requestSession],
   );
 
   const normalizedJobStatus =

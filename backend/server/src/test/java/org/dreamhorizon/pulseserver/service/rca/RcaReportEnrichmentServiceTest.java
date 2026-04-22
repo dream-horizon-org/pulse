@@ -88,7 +88,7 @@ class RcaReportEnrichmentServiceTest {
                     .build()));
 
     ObjectNode body = objectMapper.createObjectNode();
-    body.put("interactionName", "ix");
+    body.put("entityKey", "ix");
     body.put("date", "2025-06-01");
     RcaParsedReportBody parsed =
         new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
@@ -118,7 +118,7 @@ class RcaReportEnrichmentServiceTest {
           .thenReturn(Single.just(rootCause));
 
       ObjectNode body = objectMapper.createObjectNode();
-      body.put("interactionName", "ix");
+      body.put("entityKey", "ix");
       RcaParsedReportBody parsed =
           new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
@@ -152,7 +152,7 @@ class RcaReportEnrichmentServiceTest {
                       .build()));
 
       ObjectNode body = objectMapper.createObjectNode();
-      body.put("interactionName", "ix");
+      body.put("entityKey", "ix");
       RcaParsedReportBody parsed =
           new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
@@ -201,7 +201,7 @@ class RcaReportEnrichmentServiceTest {
                       .build()));
 
       ObjectNode body = objectMapper.createObjectNode();
-      body.put("interactionName", "ix");
+      body.put("entityKey", "ix");
       RcaParsedReportBody parsed =
           new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
@@ -266,7 +266,7 @@ class RcaReportEnrichmentServiceTest {
           .thenReturn(Single.error(new RuntimeException("evidence query failed")));
 
       ObjectNode body = objectMapper.createObjectNode();
-      body.put("interactionName", "ix");
+      body.put("entityKey", "ix");
       RcaParsedReportBody parsed =
           new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
@@ -284,7 +284,7 @@ class RcaReportEnrichmentServiceTest {
           .thenReturn(Single.just(RootCauseResult.builder().segments(List.of()).build()));
 
       ObjectNode body = objectMapper.createObjectNode();
-      body.put("interactionName", "ix");
+      body.put("entityKey", "ix");
       RcaParsedReportBody parsed =
           new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
@@ -306,7 +306,7 @@ class RcaReportEnrichmentServiceTest {
           .thenReturn(Single.just(RootCauseResult.builder().segments(List.of()).build()));
 
       ObjectNode body = objectMapper.createObjectNode();
-      body.put("interactionName", "ix");
+      body.put("entityKey", "ix");
       body.put("regenerate", true);
       RcaParsedReportBody parsed =
           new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, true);
@@ -340,7 +340,7 @@ class RcaReportEnrichmentServiceTest {
               Single.just(SessionEvidenceResult.builder().sessions(List.of()).build()));
 
       ObjectNode body = objectMapper.createObjectNode();
-      body.put("interactionName", "ix");
+      body.put("entityKey", "ix");
       RcaParsedReportBody parsed =
           new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 
@@ -369,7 +369,7 @@ class RcaReportEnrichmentServiceTest {
               Single.just(SessionEvidenceResult.builder().sessions(List.of()).build()));
 
       ObjectNode body = objectMapper.createObjectNode();
-      body.put("interactionName", "ix");
+      body.put("entityKey", "ix");
       RcaParsedReportBody parsed =
           new RcaParsedReportBody(body.toString(), body, "p1", RcaType.INTERACTION, "ix", DATE, false);
 

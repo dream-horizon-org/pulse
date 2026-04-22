@@ -15,7 +15,7 @@ import type { UseRegenerateRcaReportParams } from "./useRegenerateRcaReport.inte
 
 /**
  * Recomputes ClickHouse segments and regenerates the AI RCA report for the key.
- * POST /v1/ai/rca/report with { interactionName, date?, regenerate: true }.
+ * POST /v1/ai/rca/report with { entityKey, date?, regenerate: true }.
  * Bodies are unwrapped with {@link unwrapRcaReportPostApiBody}; on 202 use
  * {@link getJobIdFromRcaPostResponse} from `rcaResponseUnwrap` to read `jobId`.
  */
@@ -24,18 +24,18 @@ export const useRegenerateRcaReport = () => {
 
   return useMutation({
     mutationFn: async ({
-      interactionName,
+      entityKey,
       date,
       projectId,
     }: UseRegenerateRcaReportParams) => {
       const apiBaseUrl = getApiBaseUrl();
       const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
       const body: {
-        interactionName: string;
+        entityKey: string;
         date?: string;
         regenerate: boolean;
       } = {
-        interactionName,
+        entityKey,
         regenerate: true,
       };
       if (isValidRcaDateParam(date)) {
@@ -62,7 +62,7 @@ export const useRegenerateRcaReport = () => {
         queryClient.invalidateQueries({
           queryKey: [
             POST_RCA_REPORT_ROUTE.key,
-            variables.interactionName,
+            variables.entityKey,
             variables.date ?? null,
             variables.projectId,
           ],
@@ -74,7 +74,7 @@ export const useRegenerateRcaReport = () => {
         queryClient.invalidateQueries({
           queryKey: [
             POST_RCA_REPORT_ROUTE.key,
-            variables.interactionName,
+            variables.entityKey,
             variables.date ?? null,
             variables.projectId,
           ],

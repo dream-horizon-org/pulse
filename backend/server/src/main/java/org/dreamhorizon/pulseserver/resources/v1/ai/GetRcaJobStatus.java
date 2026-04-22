@@ -56,14 +56,11 @@ public class GetRcaJobStatus {
   @RequiresPermission("can_view")
   public CompletionStage<Response<GetRcaJobResponse>> peekRcaStatus(
       @QueryParam("rcaType") String rcaTypeParam,
-      @QueryParam("entityKey") String entityKeyParam,
-      @QueryParam("interactionName") String interactionName,
+      @QueryParam("entityKey") String entityKey,
       @QueryParam("date") String dateParam,
       @HeaderParam(PROJECT_ID_HEADER) String projectId) {
 
-    // Support both new (rcaType + entityKey) and legacy (interactionName) parameters
     RcaType type = resolveRcaType(rcaTypeParam);
-    String entityKey = resolveEntityKey(entityKeyParam, interactionName);
 
     if (entityKey == null || entityKey.isBlank()
         || projectId == null || projectId.isBlank()) {
@@ -86,14 +83,6 @@ public class GetRcaJobStatus {
       log.warn("Invalid RCA type '{}', defaulting to INTERACTION", rcaTypeParam);
       return RcaType.INTERACTION;
     }
-  }
-
-  private static String resolveEntityKey(String entityKeyParam, String interactionName) {
-    if (entityKeyParam != null && !entityKeyParam.isBlank()) {
-      return entityKeyParam;
-    }
-    // Fall back to legacy interactionName parameter
-    return interactionName;
   }
 
   private static LocalDate resolveDate(final String dateParam) {

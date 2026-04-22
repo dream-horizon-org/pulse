@@ -33,7 +33,6 @@ final class RcaReportProxyHandler {
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String TYPE_FIELD = "rcaType";
   private static final String ENTITY_KEY_FIELD = "entityKey";
-  private static final String INTERACTION_NAME_FIELD = "interactionName";
   private static final String DATE_FIELD = "date";
   private static final String REGENERATE_FIELD = "regenerate";
   private static final int HTTP_ACCEPTED = 202;
@@ -298,7 +297,6 @@ final class RcaReportProxyHandler {
       // Extract or default the RCA type
       RcaType type = extractRcaType(objectRoot);
 
-      // Extract entityKey (supports both entityKey and legacy interactionName)
       String entityKey = extractEntityKey(objectRoot);
       boolean entityMissing = entityKey == null || entityKey.isBlank();
       if (entityMissing) {
@@ -338,13 +336,8 @@ final class RcaReportProxyHandler {
   }
 
   private static String extractEntityKey(ObjectNode objectRoot) {
-    // Prefer entityKey field, fall back to legacy interactionName
     JsonNode entityNode = objectRoot.get(ENTITY_KEY_FIELD);
     if (entityNode == null || entityNode.isNull()) {
-      JsonNode legacyNode = objectRoot.get(INTERACTION_NAME_FIELD);
-      if (legacyNode != null && !legacyNode.isNull()) {
-        return legacyNode.asText().trim();
-      }
       return null;
     }
     return entityNode.asText().trim();
