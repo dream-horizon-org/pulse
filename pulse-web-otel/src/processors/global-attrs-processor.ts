@@ -7,6 +7,7 @@ import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { SessionProvider } from "../session";
 import { getOrCreateInstallationId } from "../session";
 import type { PulseWebConfig } from "../config";
+import { computeAspectRatio } from "../resource";
 
 type NetworkConnection = {
   type?: string;
@@ -74,11 +75,21 @@ export class PulseGlobalAttributesProcessor
 {
   private manualScreenName: string | null = null;
   private manualScreenNamePath: string | null = null;
+  private readonly screenAspectRatio: string;
 
   constructor(
     private readonly sessionProvider: SessionProvider,
     private readonly config: PulseWebConfig,
-  ) {}
+    private readonly meteringSessionId: string = "",
+  ) {
+    if (typeof screen !== "undefined") {
+      const w = screen.width ?? 0;
+      const h = screen.height ?? 0;
+      this.screenAspectRatio = computeAspectRatio(w, h);
+    } else {
+      this.screenAspectRatio = "0:0";
+    }
+  }
 
   setScreenName(name: string): void {
     this.manualScreenName = name;
@@ -113,11 +124,15 @@ export class PulseGlobalAttributesProcessor
     const screenName = this.getCurrentScreenName();
     const network = getNetworkConnection();
 
+    const installationId = getOrCreateInstallationId();
     const attrs: Record<string, string | number | boolean> = {
       "session.id": sessionId,
       "window.id": this.sessionProvider.getWindowId(),
-      "installation.id": getOrCreateInstallationId(),
+      "installation.id": installationId,
+      "app.installation.id": installationId,
       "screen.name": screenName,
+      "device.screen.aspect_ratio": this.screenAspectRatio,
+      "pulse.metering.session.id": this.meteringSessionId,
       platform: "web",
     };
 

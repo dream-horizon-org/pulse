@@ -163,6 +163,7 @@ class PulseWebSDK implements SdkContext {
     this.globalAttrsProcessor = new PulseGlobalAttributesProcessor(
       this.sessionProvider,
       configWithUrl,
+      meteringSessionId,
     );
 
     const spanProcessors = [
