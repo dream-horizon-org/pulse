@@ -56,7 +56,6 @@ class ClickHouseBatchServiceImplTest {
         new ClickHouseBatchServiceImpl(
             analyticsJobDao, computeService, funnelDefinitionDao, journeyDao, analyticsEngineConfig);
     RxJavaPlugins.setIoSchedulerHandler(s -> Schedulers.trampoline());
-    when(analyticsEngineConfig.getBatchProjectConcurrency()).thenReturn(2);
   }
 
   @AfterEach

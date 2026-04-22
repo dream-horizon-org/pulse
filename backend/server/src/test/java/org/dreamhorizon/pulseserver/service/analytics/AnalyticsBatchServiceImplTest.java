@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -44,21 +45,26 @@ class AnalyticsBatchServiceImplTest {
   @BeforeEach
   void setUp() {
     service = new AnalyticsBatchServiceImpl(sparkConfig, sparkJobService, analyticsJobDao);
-    when(sparkConfig.getJobJarPath()).thenReturn("/jar.jar");
-    when(sparkConfig.getFunnelsMainClass()).thenReturn("Funnels");
-    when(sparkConfig.getJourneysMainClass()).thenReturn("Journeys");
-    when(sparkConfig.getEventsMainClass()).thenReturn("Events");
+    lenient().when(sparkConfig.getJobJarPath()).thenReturn("/jar.jar");
+    lenient().when(sparkConfig.getFunnelsMainClass()).thenReturn("Funnels");
+    lenient().when(sparkConfig.getJourneysMainClass()).thenReturn("Journeys");
+    lenient().when(sparkConfig.getEventsMainClass()).thenReturn("Events");
   }
 
   @Test
   void triggerFunnelsBatch_skipsWhenJobAlreadyRanToday() {
     LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
     AnalyticsJobEntity latest =
-        AnalyticsJobEntity.builder()
-            .id(1L)
-            .jobType(AnalyticsJobType.FUNNELS_DAILY)
-            .createdAt(now)
-            .build();
+        new AnalyticsJobEntity(
+            1L,
+            AnalyticsJobType.FUNNELS_DAILY,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            now);
     when(analyticsJobDao.getLatestJobByType(AnalyticsJobType.FUNNELS_DAILY))
         .thenReturn(Maybe.just(latest));
 
