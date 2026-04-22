@@ -15,14 +15,13 @@ export class MockConfigManager {
     // This prevents mocks from silently activating in any environment (dev or otherwise) when
     // the env var is absent or unset.
     const mockServerEnabled = process.env.REACT_APP_USE_MOCK_SERVER === "true";
-    const isDevelopment = process.env.NODE_ENV === "development";
 
     this.config = {
       enabled: mockServerEnabled,
       delay: parseInt(process.env.REACT_APP_MOCK_DELAY || "500"),
       errorRate: parseFloat(process.env.REACT_APP_MOCK_ERROR_RATE || "0.1"),
       enableLogging:
-        process.env.REACT_APP_MOCK_LOGGING === "true" || isDevelopment,
+        process.env.REACT_APP_MOCK_LOGGING === "true" || mockServerEnabled,
     };
   }
 

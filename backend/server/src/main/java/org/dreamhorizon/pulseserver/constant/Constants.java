@@ -7,6 +7,7 @@ public final class Constants {
 
   public static final String MYSQL_WRITER_HOST = "mysql_writer_host";
   public static final String MYSQL_READER_HOST = "mysql_reader_host";
+  public static final String MYSQL_PORT = "mysql_port";
   public static final String MYSQL_DATABASE = "mysql_database";
   public static final String MYSQL_USER = "mysql_user";
   public static final String MYSQL_PASSWORD = "mysql_password";

@@ -36,6 +36,10 @@ public enum ServiceError implements RestError {
   USER_NOT_FOUND("400", "User not found", 400),
   DUPLICATE_CHANNEL_TYPE("409", "A channel of this type already exists for the project", 409),
   MEMBER_ALREADY_EXISTS("409", "User is already a member", 409),
+  FUNNEL_NOT_FOUND("BE1010", "Funnel not found", 404),
+  FUNNEL_CREATION_FAILED("BE1011", "Funnel creation failed", 400),
+  JOURNEY_NOT_FOUND("BE1012", "Journey not found", 404),
+  JOURNEY_CREATION_FAILED("BE1013", "Journey creation failed", 400),
   DUPLICATE_SUGGESTED_INTERACTION("409", "An interaction with the same event sequence already exists", 409),
   /** Pulse AI URL missing — Vert.x SSE proxy and related native routes. */
   AI_SERVICE_NOT_CONFIGURED("BE1010", "Something went wrong", 503),
@@ -78,7 +82,7 @@ public enum ServiceError implements RestError {
   }
 
   public WebApplicationException getCustomException(
-      String errorMessage, String errorCause, int httpStatusCode) {
+    String errorMessage, String errorCause, int httpStatusCode) {
     errorMessage = errorMessage == null ? this.errorMessage : errorMessage;
     errorCause = errorCause == null ? this.errorMessage : errorCause;
     httpStatusCode = httpStatusCode == 0 ? this.httpStatusCode : httpStatusCode;
@@ -86,27 +90,27 @@ public enum ServiceError implements RestError {
     log.info("message {} cause {} code {}", errorMessage, errorCause, httpStatusCode);
     String errCode = Integer.toString(httpStatusCode);
     Response response =
-        Response.status(httpStatusCode)
-            .header("Content-Type", "application/json")
-            .entity(new ExceptionResponseEntity(errCode, errorMessage, errorCause))
-            .build();
+      Response.status(httpStatusCode)
+        .header("Content-Type", "application/json")
+        .entity(new ExceptionResponseEntity(errCode, errorMessage, errorCause))
+        .build();
     log.info("response {}", response);
     return new WebApplicationException(errorCause, response);
   }
 
   public WebApplicationException getCustomNotFoundException(
-      String errorMessage, String errorCause, int httpStatusCode) {
+    String errorMessage, String errorCause, int httpStatusCode) {
     errorMessage = errorMessage == null ? this.errorMessage : errorMessage;
     errorCause = errorCause == null ? this.errorMessage : errorCause;
     String customCause =
-        "Value of "
-            + errorCause.substring(errorCause.indexOf("\"") + 1, errorCause.lastIndexOf("\""))
-            + " is invalid";
+      "Value of "
+        + errorCause.substring(errorCause.indexOf("\"") + 1, errorCause.lastIndexOf("\""))
+        + " is invalid";
     Response response =
-        Response.status(httpStatusCode)
-            .header("Content-Type", "application/json")
-            .entity(new ExceptionResponseEntity(this.errorCode, errorMessage, customCause))
-            .build();
+      Response.status(httpStatusCode)
+        .header("Content-Type", "application/json")
+        .entity(new ExceptionResponseEntity(this.errorCode, errorMessage, customCause))
+        .build();
     return new WebApplicationException(errorCause, response);
   }
 
