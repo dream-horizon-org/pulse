@@ -405,18 +405,18 @@ class RestVerticleSseProxyTest {
               .timeout(15, TimeUnit.SECONDS)
               .blockingGet();
 
-      assertThat(httpResp.statusCode()).isEqualTo(500);
+      assertThat(httpResp.statusCode()).isEqualTo(ServiceError.AI_PROXY_BAD_GATEWAY.getHttpStatusCode());
       assertThat(httpResp.getHeader("Content-Type")).contains("application/json");
       assertThat(
               new JsonObject(httpResp.bodyAsString())
                   .getJsonObject(Constants.ERROR_KEY)
                   .getString("message"))
-          .isEqualTo(ServiceError.INTERNAL_SERVER_ERROR.getErrorMessage());
+          .isEqualTo(ServiceError.AI_PROXY_BAD_GATEWAY.getErrorMessage());
       assertThat(
               new JsonObject(httpResp.bodyAsString())
                   .getJsonObject(Constants.ERROR_KEY)
                   .getString("code"))
-          .isEqualTo("500");
+          .isEqualTo(ServiceError.AI_PROXY_BAD_GATEWAY.getErrorCode());
     }
   }
 }
