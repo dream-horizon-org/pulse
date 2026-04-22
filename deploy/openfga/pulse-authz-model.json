@@ -23,6 +23,15 @@
     {
       "type": "tenant",
       "relations": {
+        "system_parent": {
+          "this": {}
+        },
+        "superadmin": {
+          "tupleToUserset": {
+            "tupleset": {"relation": "system_parent"},
+            "computedUserset": {"relation": "superadmin"}
+          }
+        },
         "admin": {
           "this": {}
         },
@@ -32,29 +41,51 @@
         "belongs_to": {
           "union": {
             "child": [
+              {"computedUserset": {"relation": "superadmin"}},
               {"computedUserset": {"relation": "admin"}},
               {"computedUserset": {"relation": "member"}}
             ]
           }
         },
         "can_manage_tenant": {
-          "computedUserset": {"relation": "admin"}
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "admin"}}
+            ]
+          }
         },
         "can_manage_projects": {
-          "computedUserset": {"relation": "admin"}
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "admin"}}
+            ]
+          }
         },
         "can_invite_users": {
-          "computedUserset": {"relation": "admin"}
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "admin"}}
+            ]
+          }
         },
         "can_view_tenant": {
           "computedUserset": {"relation": "belongs_to"}
         },
         "can_accept_tnc": {
-          "computedUserset": {"relation": "admin"}
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "admin"}}
+            ]
+          }
         }
       },
       "metadata": {
         "relations": {
+          "system_parent": {"directly_related_user_types": [{"type": "system"}]},
           "admin": {"directly_related_user_types": [{"type": "user"}]},
           "member": {"directly_related_user_types": [{"type": "user"}]}
         }
