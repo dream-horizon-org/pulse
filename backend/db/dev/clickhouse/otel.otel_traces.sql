@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS otel.otel_traces_local
+CREATE TABLE IF NOT EXISTS otel.otel_traces
 ON CLUSTER 'pulse-clickhouse'
 (
     Timestamp          DateTime64(9, 'UTC')                              CODEC(DoubleDelta, ZSTD(1)),
@@ -59,11 +59,6 @@ ORDER BY (ProjectId, PulseType, SpanName, Timestamp)
 TTL toDateTime(Timestamp) + INTERVAL 7  DAY TO VOLUME 'cold',
     toDateTime(Timestamp) + INTERVAL 90 DAY DELETE
 SETTINGS index_granularity = 8192, storage_policy = 'tiered';
-
-CREATE TABLE IF NOT EXISTS otel.otel_traces
-ON CLUSTER 'pulse-clickhouse'
-AS otel.otel_traces_local
-ENGINE = Distributed('pulse-clickhouse', otel, otel_traces_local, cityHash64(TraceId));
 
 
 -- Optional follow-up (NOT applied): network-span hot columns.
