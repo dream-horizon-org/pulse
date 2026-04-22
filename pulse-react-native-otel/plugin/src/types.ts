@@ -121,7 +121,15 @@ export type PulseNativeInitFields = {
   globalAttributes?: PulseAttributes;
 };
 
-export interface PulseAndroidSection extends PulseNativeInitFields {
+/**
+ * This interface includes all those instrumentations which requires additional dependencies to be added to the project.
+ */
+export interface PulseAndroidBuildOptions {
+  okHttpInstrumentation?: boolean;
+}
+
+export interface PulseAndroidSection
+  extends PulseNativeInitFields, PulseAndroidBuildOptions {
   instrumentation?: PulseAndroidInstrumentationProps;
   
   /** Version for `com.android.tools:desugar_jdk_libs`. Default: `2.1.4`.*/

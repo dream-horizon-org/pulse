@@ -1,10 +1,12 @@
 import { PluginError } from '@expo/config-plugins';
 
 import type {
+  PulseAndroidBuildOptions,
   PulseDataCollectionState,
   PulseNativeInitFields,
   PulsePluginProps,
   PulsePlatformInitProps,
+  PulseAndroidSection,
   ResolvedAndroidPulseProps,
   ResolvedIosPulseProps,
 } from './types';
@@ -94,9 +96,30 @@ export function assertPulsePluginProps(
     );
   }
 
+  if (p.android != null && typeof p.android === 'object') {
+    const v = (p.android as Record<string, unknown>).okHttpInstrumentation;
+    if (v !== undefined && typeof v !== 'boolean') {
+      throw new PluginError(
+        'Pulse config plugin: "android.okHttpInstrumentation" must be a boolean when set.',
+        'INVALID_PLUGIN_TYPE'
+      );
+    }
+  }
+
   const typed = props as PulsePluginProps;
   resolveAndroidProps(typed);
   resolveIosProps(typed);
+}
+
+/**
+ * Fills in defaults for `android` Gradle options (e.g. `okHttpInstrumentation` defaults to `false`).
+ */
+export function resolveAndroidBuildFlags(
+  section?: PulseAndroidSection
+): Required<PulseAndroidBuildOptions> {
+  return {
+    okHttpInstrumentation: section?.okHttpInstrumentation === true,
+  };
 }
 
 export function resolveAndroidProps(
