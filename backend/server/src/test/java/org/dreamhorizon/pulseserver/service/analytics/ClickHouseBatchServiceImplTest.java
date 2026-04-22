@@ -11,6 +11,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -94,7 +95,7 @@ class ClickHouseBatchServiceImplTest {
             .startTime(null)
             .endTime(null)
             .expiry(null)
-            .createdAt(LocalDateTime.now(ZoneOffset.UTC))
+            .createdAt(Instant.now())
             .updatedAt(null)
             .createdBy(null)
             .latestJobStatus(null)
