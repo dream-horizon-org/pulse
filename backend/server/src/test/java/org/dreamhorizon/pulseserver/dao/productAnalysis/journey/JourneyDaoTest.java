@@ -176,7 +176,7 @@ class JourneyDaoTest {
     @Test
     void shouldReturnRowCount() {
       setupWriter();
-      when(rowSet.rowCount()).thenReturn(1L);
+      when(rowSet.rowCount()).thenReturn(1);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       Integer result = dao.update(1L, PROJECT, buildInputRow()).blockingGet();
@@ -189,7 +189,7 @@ class JourneyDaoTest {
     @Test
     void shouldReturnRowCount() {
       setupWriter();
-      when(rowSet.rowCount()).thenReturn(1L);
+      when(rowSet.rowCount()).thenReturn(1);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       Integer result = dao.delete(PROJECT, 1L).blockingGet();
