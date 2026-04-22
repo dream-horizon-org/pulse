@@ -75,7 +75,7 @@ public class SessionReplayApiClient(
     ) : IOException("HTTP $code: $message${if (responseBody.isNotEmpty()) " — $responseBody" else ""}")
 
     private companion object {
-        private const val REPLAY_LOG_TAG = "PulseSessionReplay"
+        private const val REPLAY_LOG_TAG = "SessionReplay"
         private const val MAX_ERROR_BODY_LOG = 1024
         private const val MAX_REQUEST_LOG = 800
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()

@@ -915,15 +915,42 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
 
 -- ============================================================================
 -- RCA REPORT CACHE (AI-generated report per project / interaction / date)
--- Staleness: user-driven regenerate in app; table stores latest report per key.
+-- ============================================================================
+-- RCA REPORT CACHE (stores latest report per entity; staleness is user-driven)
+-- Supports: INTERACTION, SESSION, SCREEN, and future RCA types
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS rca_report_cache (
     project_id VARCHAR(64) NOT NULL,
-    interaction_name VARCHAR(255) NOT NULL,
+    rca_type VARCHAR(32) NOT NULL,      -- INTERACTION, SESSION, SCREEN, etc.
+    entity_key VARCHAR(255) NOT NULL, -- interactionName, sessionId, screenName, etc.
     date DATE NOT NULL,
     report_body LONGTEXT NOT NULL,
     cached_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (project_id, interaction_name, date)
+    PRIMARY KEY (project_id, rca_type, entity_key, date)
+);
+
+-- ============================================================================
+-- RCA REPORT JOBS (async report generation; no FK to rca_report_cache)
+-- Deduplication: uk_active_job on (project_id, rca_type, entity_key, date, status)
+-- Supports: INTERACTION, SESSION, SCREEN, and future RCA types
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS rca_report_jobs (
+    job_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    rca_type VARCHAR(32) NOT NULL,      -- INTERACTION, SESSION, SCREEN, etc.
+    entity_key VARCHAR(255) NOT NULL,   -- interactionName, sessionId, screenName, etc.
+    date DATE NOT NULL,
+    status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    error_message TEXT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    started_at DATETIME(6) NULL,
+    completed_at DATETIME(6) NULL,
+    created_by VARCHAR(255) NULL,
+    worker_instance_id VARCHAR(64) NULL,
+    PRIMARY KEY (job_id),
+    UNIQUE KEY uk_active_job (project_id, rca_type, entity_key, date, status),
+    INDEX idx_lookup (project_id, rca_type, entity_key, date),
+    INDEX idx_status_created (status, created_at)
 );
 
 -- Event Definitions catalog (project-scoped)
@@ -979,16 +1006,22 @@ CREATE TABLE IF NOT EXISTS usage_limit_notifications (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
     thresholds_notified JSON NOT NULL DEFAULT ('{}'),
+    project_usage_limit_id BIGINT NOT NULL COMMENT 'FK to project_usage_limits row version at first notification for the month',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    UNIQUE KEY uk_project_month (project_id, (DATE_FORMAT(created_at, '%Y-%m'))),
+
     INDEX idx_created_at (created_at),
+    INDEX idx_project_usage_limit (project_usage_limit_id),
     
     CONSTRAINT fk_usage_notif_project 
         FOREIGN KEY (project_id) 
         REFERENCES projects(project_id) 
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_usage_notif_limit
+        FOREIGN KEY (project_usage_limit_id)
+        REFERENCES project_usage_limits(project_usage_limit_id)
+        ON DELETE RESTRICT
 );
 
 -- Display summary

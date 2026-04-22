@@ -23,11 +23,10 @@ function mergePlatformInit(
   root: PulsePluginProps,
   section?: PulseNativeInitFields
 ): PulsePlatformInitProps {
-  const endpointBaseUrl = section?.endpointBaseUrl ?? root.endpointBaseUrl;
   const apiKey = section?.apiKey ?? root.apiKey;
-  if (!endpointBaseUrl?.trim() || !apiKey?.trim()) {
+  if (!apiKey?.trim()) {
     throw new PluginError(
-      'Pulse config plugin: each platform needs non-empty endpointBaseUrl and apiKey after merging top-level defaults with the "android" / "ios" block for that platform.',
+      'Pulse config plugin: each platform needs non-empty apiKey after merging top-level defaults with the "android" / "ios" block for that platform.',
       'INVALID_PLUGIN_TYPE'
     );
   }
@@ -36,13 +35,8 @@ function mergePlatformInit(
     'dataCollectionState (merge top-level with platform "android" / "ios")'
   );
   return {
-    endpointBaseUrl,
     apiKey,
     dataCollectionState,
-    endpointHeaders: section?.endpointHeaders ?? root.endpointHeaders,
-    configEndpointUrl: section?.configEndpointUrl ?? root.configEndpointUrl,
-    customEventCollectorUrl:
-      section?.customEventCollectorUrl ?? root.customEventCollectorUrl,
     globalAttributes: section?.globalAttributes,
   };
 }
@@ -59,14 +53,7 @@ export function assertPulsePluginProps(
   }
   const p = props as Record<string, unknown>;
 
-  const rootEndpoint = p.endpointBaseUrl;
   const rootApiKey = p.apiKey;
-  if (typeof rootEndpoint !== 'string' || rootEndpoint.trim() === '') {
-    throw new PluginError(
-      'Pulse config plugin: top-level "endpointBaseUrl" is required (non-empty string). Override per platform under "android" / "ios" if needed.',
-      'INVALID_PLUGIN_TYPE'
-    );
-  }
   if (typeof rootApiKey !== 'string' || rootApiKey.trim() === '') {
     throw new PluginError(
       'Pulse config plugin: top-level "apiKey" is required (non-empty string). Override per platform under "android" / "ios" if needed.',

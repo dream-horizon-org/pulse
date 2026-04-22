@@ -23,6 +23,8 @@ export enum ATTRIBUTE_KEYS {
   HTTP_REQUEST_TYPE = 'http.request.type',
   HTTP_REQUEST_HEADER = 'http.request.header',
   HTTP_RESPONSE_HEADER = 'http.response.header',
+  HTTP_REQUEST_BODY_SIZE = 'http.request.body.size',
+  HTTP_RESPONSE_BODY_SIZE = 'http.response.body.size',
   ERROR_MESSAGE = 'error.message',
   ERROR_STACK = 'error.stack',
 }

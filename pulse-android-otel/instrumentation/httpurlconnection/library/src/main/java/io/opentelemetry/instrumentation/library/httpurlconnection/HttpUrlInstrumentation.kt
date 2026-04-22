@@ -70,7 +70,7 @@ class HttpUrlInstrumentation : AndroidInstrumentation {
         }
 
     private var peerServiceMapping: Map<String, String> = emptyMap()
-    private var shouldEmitExperimentalHttpClientMetrics = false
+    private var shouldEmitExperimentalHttpClientMetrics = true
 
     /**
      * The interval duration in milli seconds that the runnable from

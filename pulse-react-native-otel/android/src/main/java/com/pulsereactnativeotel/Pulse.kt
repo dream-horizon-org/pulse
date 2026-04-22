@@ -7,11 +7,7 @@ import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import com.pulse.semconv.PulseAttributes
-import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
-import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
-import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
-import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.resources.ResourceBuilder
@@ -28,20 +24,11 @@ public object Pulse {
     @JvmStatic
     public fun initialize(
         application: Application,
-        endpointBaseUrl: String,
         apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
-        endpointHeaders: Map<String, String> = emptyMap(),
-        spanEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forTraces(endpointBaseUrl, endpointHeaders),
-        logEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forLogs(endpointBaseUrl, endpointHeaders),
-        metricEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forMetrics(endpointBaseUrl, endpointHeaders),
-        customEventConnectivity: EndpointConnectivity = logEndpointConnectivity,
-        configEndpointUrl: String? = null,
         resource: (ResourceBuilder.() -> Unit)? = null,
-        sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         beforeSendData: PulseBeforeSendData? = null,
-        diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     ) {
         val rnTracerProviderCustomizer = BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
@@ -52,7 +39,7 @@ public object Pulse {
             loggerProviderBuilder.addLogRecordProcessor(ReactNativeScreenAttributesLogRecordProcessor())
         }
 
-        // Set telemetry.sdk.name for React Native SDK (read in OpenTelemetryRumInitializer for sampling)
+        // Set telemetry.sdk.name for the React Native SDK (read in OpenTelemetryRumInitializer for sampling)
         val rnResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_RN)
             resource?.invoke(this)
@@ -60,22 +47,13 @@ public object Pulse {
 
         sdkInternal.initialize(
             application = application,
-            endpointBaseUrl = endpointBaseUrl,
             apiKey = apiKey,
             dataCollectionState = dataCollectionState,
-            endpointHeaders = endpointHeaders,
-            spanEndpointConnectivity = spanEndpointConnectivity,
-            logEndpointConnectivity = logEndpointConnectivity,
-            metricEndpointConnectivity = metricEndpointConnectivity,
-            customEventConnectivity = customEventConnectivity,
-            configEndpointUrl = configEndpointUrl,
             resource = rnResource,
-            sessionConfig = sessionConfig,
             globalAttributes = globalAttributes,
-            diskBuffering = diskBuffering,
+            instrumentations = instrumentations,
             tracerProviderCustomizer = rnTracerProviderCustomizer,
             loggerProviderCustomizer = rnLoggerProviderCustomizer,
-            instrumentations = instrumentations,
             beforeSendData = beforeSendData,
         )
     }
