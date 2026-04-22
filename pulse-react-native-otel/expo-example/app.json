@@ -58,7 +58,8 @@
               "crash": { "enabled": true },
               "slowRendering": { "enabled": false },
               "fragment": { "enabled": true }
-            }
+            },
+            "coreLibraryDesugarVersion": "2.1.4"
           },
           "ios": {
             "instrumentation": {

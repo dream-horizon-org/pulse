@@ -117,6 +117,7 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     expect(a.dataCollectionState).toBe('PENDING');
     expect(a.globalAttributes).toEqual({ p: 'a' });
     expect(a.instrumentation).toEqual({ activity: { enabled: true } });
+    expect(a.coreLibraryDesugarVersion).toBe('2.1.4');
 
     const i = resolveIosProps(props);
     expect(i.apiKey).toBe('key');
@@ -141,5 +142,14 @@ describe('resolveAndroidProps / resolveIosProps', () => {
         android: { apiKey: 'ka' },
       } as PulsePluginProps)
     ).toThrow(PluginError);
+  });
+
+  it('uses android.coreLibraryDesugarVersion when set', () => {
+    const props: PulsePluginProps = {
+      apiKey: 'key',
+      dataCollectionState: 'PENDING',
+      android: { coreLibraryDesugarVersion: '2.0.4' },
+    };
+    expect(resolveAndroidProps(props).coreLibraryDesugarVersion).toBe('2.0.4');
   });
 });
