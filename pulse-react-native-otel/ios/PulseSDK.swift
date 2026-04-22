@@ -9,12 +9,8 @@ public class PulseSDK: NSObject {
     // MARK: - Swift API
   
     public static func initialize(
-        endpointBaseUrl: String,
         apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
-        configEndpointUrl: String? = nil,
-        customEventCollectorUrl: String? = nil,
-        endpointHeaders: [String: String]? = nil,
         globalAttributes: [String: AttributeValue]? = nil,
         resource: ((inout [String: AttributeValue]) -> Void)? = nil,
         configuration: ((inout PulseKitConfiguration) -> Void)? = nil,
@@ -66,12 +62,8 @@ public class PulseSDK: NSObject {
         }
 
         Pulse.shared.initialize(
-            endpointBaseUrl: endpointBaseUrl,
             apiKey: apiKey,
             dataCollectionState: dataCollectionState,
-            configEndpointUrl: configEndpointUrl,
-            customEventCollectorUrl: customEventCollectorUrl,
-            endpointHeaders: endpointHeaders,
             globalAttributes: convertedAttributes,
             resource: rnResource,
             configuration: configuration,

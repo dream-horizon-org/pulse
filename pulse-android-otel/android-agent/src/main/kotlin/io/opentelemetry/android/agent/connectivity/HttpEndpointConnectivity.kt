@@ -24,11 +24,6 @@ class HttpEndpointConnectivity(
             baseUrl: String,
             headers: Map<String, String> = emptyMap(),
         ): HttpEndpointConnectivity = HttpEndpointConnectivity(baseUrl.trimEnd('/') + "/v1/metrics", headers)
-
-        fun forCustomEvents(
-            baseUrl: String,
-            headers: Map<String, String> = emptyMap(),
-        ): HttpEndpointConnectivity = HttpEndpointConnectivity(baseUrl.trimEnd('/') + "/v1/custom-events", headers)
     }
 
     override fun getUrl(): String = url

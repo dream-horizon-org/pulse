@@ -6,7 +6,6 @@ import {
   PULSE_IMPORT,
   PULSE_DATA_COLLECTION_CONSENT_IMPORT,
   ATTRIBUTES_IMPORT,
-  PULSE_HTTP_ENDPOINT_CONNECTIVITY_IMPORT,
   buildPulseInitializationCode,
 } from './utils';
 import type { ResolvedAndroidPulseProps } from './types';
@@ -17,16 +16,8 @@ export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
 ) => {
   return withMainApplication(config, (modConfig) => {
     try {
-      const {
-        endpointBaseUrl,
-        apiKey,
-        dataCollectionState,
-        endpointHeaders,
-        configEndpointUrl,
-        customEventCollectorUrl,
-        globalAttributes,
-        instrumentation,
-      } = props;
+      const { apiKey, dataCollectionState, globalAttributes, instrumentation } =
+        props;
 
       // 1. Add import statements
       modConfig.modResults.contents = mergeContents({
@@ -58,24 +49,9 @@ export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
         }).contents;
       }
 
-      if (customEventCollectorUrl?.trim()) {
-        modConfig.modResults.contents = mergeContents({
-          src: modConfig.modResults.contents,
-          newSrc: PULSE_HTTP_ENDPOINT_CONNECTIVITY_IMPORT,
-          tag: 'pulse-http-endpoint-connectivity-import',
-          comment: '//',
-          anchor: /import\s+com\.pulsereactnativeotel\.Pulse/,
-          offset: 1,
-        }).contents;
-      }
-
       const initCode = buildPulseInitializationCode({
-        endpointBaseUrl,
         apiKey,
         dataCollectionState,
-        endpointHeaders,
-        configEndpointUrl,
-        customEventCollectorUrl,
         globalAttributes,
         instrumentation,
       });

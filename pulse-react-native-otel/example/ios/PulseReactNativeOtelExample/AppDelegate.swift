@@ -30,14 +30,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       "global.bool": AttributeValue.bool(true),
     ]
 
-    // Demonstrates every `PulseSDK.initialize` parameter (each forwards into PulseKit; RN merges screen processors).
+    // Collector URLs are derived from `apiKey` (same as Android); RN merges screen processors into OTEL.
     PulseSDK.initialize(
-      endpointBaseUrl: "http://127.0.0.1:4318",
       apiKey: "default-project_devkey01",
       dataCollectionState: .allowed,
-      configEndpointUrl: "http://127.0.0.1:8080/v1/configs/active/",
-      customEventCollectorUrl: "http://127.0.0.1:4318/v1/logs",
-      endpointHeaders: ["X-RN-Example-App": "true"],
       globalAttributes: globalAttributes,
       resource: { attributes in
         attributes["app.rn_example.resource"] = AttributeValue.string("PulseReactNativeOtelExample")

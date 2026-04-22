@@ -5,6 +5,7 @@ import type {
   NavigationRoute,
   NavigationContainer,
 } from './navigation.interface';
+import { PulseLogger } from '../PulseLogger';
 import { LOG_TAGS } from './utils';
 
 export interface ScreenSessionState {
@@ -35,7 +36,7 @@ export function createScreenSessionTracker(
     });
     state.currentScreenKey = route.key;
     state.currentSessionRouteName = route.name;
-    console.log(`${LOG_TAGS.SCREEN_SESSION} ${route.name} started`);
+    PulseLogger.debug(`${LOG_TAGS.SCREEN_SESSION} ${route.name} started`);
   };
 
   const endScreenSession = (): void => {
@@ -43,7 +44,7 @@ export function createScreenSessionTracker(
       const logName = state.currentSessionRouteName;
       state.screenSessionSpan.end();
       if (logName) {
-        console.log(`${LOG_TAGS.SCREEN_SESSION} ${logName} ended`);
+        PulseLogger.debug(`${LOG_TAGS.SCREEN_SESSION} ${logName} ended`);
       }
       state.screenSessionSpan = undefined;
       state.currentScreenKey = undefined;
