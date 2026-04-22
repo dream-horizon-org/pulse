@@ -2,12 +2,14 @@ package org.dreamhorizon.pulseserver.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import dev.openfga.sdk.api.client.OpenFgaClient;
+import dev.openfga.sdk.api.client.model.ClientWriteRequest;
 import dev.openfga.sdk.api.client.model.ClientCheckResponse;
 import dev.openfga.sdk.api.client.model.ClientListObjectsResponse;
 import dev.openfga.sdk.api.client.model.ClientReadResponse;
@@ -15,18 +17,25 @@ import dev.openfga.sdk.api.client.model.ClientWriteResponse;
 import dev.openfga.sdk.api.model.Tuple;
 import dev.openfga.sdk.api.model.TupleKey;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -38,12 +47,18 @@ class OpenFgaServiceTest {
   @Mock
   OpenFgaClient mockClient;
 
+  @Mock
+  TenantDao mockTenantDao;
+
+  @Mock
+  ProjectDao mockProjectDao;
+
   @BeforeEach
   void setUp() throws Exception {
     OpenFgaConfig config = OpenFgaConfig.builder()
         .enabled(false)
         .build();
-    service = new OpenFgaService(config);
+    service = new OpenFgaService(config, null, null);
   }
 
   @Nested
@@ -289,6 +304,31 @@ class OpenFgaServiceTest {
     }
   }
 
+  @Nested
+  class SuperadminApisWhenDisabled {
+
+    @Test
+    void shouldReturnFalseForIsSuperAdmin() {
+      service.isSuperAdmin("any").test().assertValue(false);
+    }
+
+    @Test
+    void shouldReturnEmptySuperAdmins() {
+      service.getSuperAdmins().test().assertValue(Set::isEmpty);
+    }
+
+    @Test
+    void shouldCompleteLinkTenantToSystemWithoutClient() {
+      service.linkTenantToSystem("tenant-x").test().assertComplete();
+    }
+
+    @Test
+    void shouldCompleteAssignAndRevokeSuperAdmin() {
+      service.assignSuperAdmin("u1").test().assertComplete();
+      service.revokeSuperAdmin("u1").test().assertComplete();
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════════
   // ENABLED MODE TESTS (mocked OpenFgaClient)
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -301,13 +341,17 @@ class OpenFgaServiceTest {
     @BeforeEach
     void setUpEnabled() throws Exception {
       OpenFgaConfig config = OpenFgaConfig.builder().enabled(false).build();
-      enabledService = new OpenFgaService(config);
+      enabledService = new OpenFgaService(config, mockTenantDao, mockProjectDao);
       java.lang.reflect.Field clientField = OpenFgaService.class.getDeclaredField("client");
       clientField.setAccessible(true);
       clientField.set(enabledService, mockClient);
       java.lang.reflect.Field enabledField = OpenFgaService.class.getDeclaredField("enabled");
       enabledField.setAccessible(true);
       enabledField.set(enabledService, true);
+
+      ClientCheckResponse defaultDeny = mock(ClientCheckResponse.class);
+      lenient().when(defaultDeny.getAllowed()).thenReturn(false);
+      lenient().when(mockClient.check(any())).thenReturn(CompletableFuture.completedFuture(defaultDeny));
     }
 
     @Nested
@@ -512,6 +556,124 @@ class OpenFgaServiceTest {
 
         Completable result = enabledService.linkProjectToTenant("proj_123", "tenant1");
         result.test().assertComplete();
+      }
+    }
+
+    @Nested
+    class LinkTenantToSystemEnabled {
+
+      @Test
+      void shouldWriteSystemParentTuple() throws Exception {
+        when(mockClient.write(any())).thenReturn(CompletableFuture.completedFuture(mock(ClientWriteResponse.class)));
+
+        enabledService.linkTenantToSystem("acme").blockingAwait();
+
+        ArgumentCaptor<ClientWriteRequest> captor = ArgumentCaptor.forClass(ClientWriteRequest.class);
+        verify(mockClient).write(captor.capture());
+        var writes = captor.getValue().getWrites();
+        assertThat(writes).hasSize(1);
+        assertThat(writes.get(0).getUser()).isEqualTo(Constants.OPENFGA_OBJECT_SYSTEM_PULSE);
+        assertThat(writes.get(0).getRelation()).isEqualTo(Constants.RELATION_SYSTEM_PARENT);
+        assertThat(writes.get(0).getObject()).isEqualTo("tenant:acme");
+      }
+    }
+
+    @Nested
+    class IsSuperAdminEnabled {
+
+      @Test
+      void shouldReturnTrueWhenCheckAllows() throws Exception {
+        ClientCheckResponse allow = mock(ClientCheckResponse.class);
+        when(allow.getAllowed()).thenReturn(true);
+        when(mockClient.check(any())).thenReturn(CompletableFuture.completedFuture(allow));
+
+        assertThat(enabledService.isSuperAdmin("u1").blockingGet()).isTrue();
+      }
+
+      @Test
+      void shouldReturnFalseWhenCheckDenies() {
+        assertThat(enabledService.isSuperAdmin("u1").blockingGet()).isFalse();
+      }
+    }
+
+    @Nested
+    class AssignAndRevokeSuperAdminEnabled {
+
+      @Test
+      void shouldWriteSuperadminTupleOnAssign() throws Exception {
+        when(mockClient.write(any())).thenReturn(CompletableFuture.completedFuture(mock(ClientWriteResponse.class)));
+
+        enabledService.assignSuperAdmin("alice").blockingAwait();
+
+        ArgumentCaptor<ClientWriteRequest> captor = ArgumentCaptor.forClass(ClientWriteRequest.class);
+        verify(mockClient).write(captor.capture());
+        var writes = captor.getValue().getWrites();
+        assertThat(writes).hasSize(1);
+        assertThat(writes.get(0).getUser()).isEqualTo("user:alice");
+        assertThat(writes.get(0).getRelation()).isEqualTo(Constants.RELATION_SUPERADMIN);
+        assertThat(writes.get(0).getObject()).isEqualTo(Constants.OPENFGA_OBJECT_SYSTEM_PULSE);
+      }
+
+      @Test
+      void shouldInvokeWriteOnRevoke() throws Exception {
+        when(mockClient.write(any())).thenReturn(CompletableFuture.completedFuture(mock(ClientWriteResponse.class)));
+
+        enabledService.revokeSuperAdmin("bob").blockingAwait();
+
+        verify(mockClient).write(any());
+      }
+    }
+
+    @Nested
+    class GetSuperAdminsEnabled {
+
+      @Test
+      void shouldParseUserIdsFromReadTuples() throws Exception {
+        Tuple t1 = new Tuple();
+        t1.setKey(new TupleKey().user("user:u1").relation("superadmin")._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE));
+        Tuple t2 = new Tuple();
+        t2.setKey(new TupleKey().user("user:u2").relation("superadmin")._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE));
+        ClientReadResponse readResponse = mock(ClientReadResponse.class);
+        when(readResponse.getTuples()).thenReturn(List.of(t1, t2));
+        when(mockClient.read(any())).thenReturn(CompletableFuture.completedFuture(readResponse));
+
+        assertThat(enabledService.getSuperAdmins().blockingGet()).containsExactlyInAnyOrder("u1", "u2");
+      }
+    }
+
+    @Nested
+    class GetUserTenantsSuperadminFallback {
+
+      @Test
+      void shouldReturnAllTenantIdsFromDbWhenSuperadmin() throws Exception {
+        ClientCheckResponse allow = mock(ClientCheckResponse.class);
+        when(allow.getAllowed()).thenReturn(true);
+        when(mockClient.check(any())).thenReturn(CompletableFuture.completedFuture(allow));
+        when(mockTenantDao.getAllTenants()).thenReturn(Flowable.just(
+            Tenant.builder().tenantId("t1").name("A").build(),
+            Tenant.builder().tenantId("t2").name("B").build()));
+
+        List<String> result = enabledService.getUserTenants("sa1").blockingGet();
+
+        assertThat(result).containsExactlyInAnyOrder("t1", "t2");
+        verify(mockClient, never()).listObjects(any());
+      }
+    }
+
+    @Nested
+    class GetUserProjectsSuperadminFallback {
+
+      @Test
+      void shouldReturnAllActiveProjectIdsFromDbWhenSuperadmin() throws Exception {
+        ClientCheckResponse allow = mock(ClientCheckResponse.class);
+        when(allow.getAllowed()).thenReturn(true);
+        when(mockClient.check(any())).thenReturn(CompletableFuture.completedFuture(allow));
+        when(mockProjectDao.getAllActiveProjectIds()).thenReturn(Single.just(List.of("p1", "p2")));
+
+        List<String> result = enabledService.getUserProjects("sa1").blockingGet();
+
+        assertThat(result).containsExactlyInAnyOrder("p1", "p2");
+        verify(mockClient, never()).listObjects(any());
       }
     }
 
