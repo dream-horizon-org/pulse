@@ -42,6 +42,9 @@ public class ProjectQueries {
   public static final String GET_PROJECT_IDS_BY_TENANT_ID =
       "SELECT project_id FROM projects WHERE tenant_id = ? AND is_active = TRUE";
 
+  public static final String GET_ALL_ACTIVE_PROJECT_IDS =
+      "SELECT project_id FROM projects WHERE is_active = TRUE";
+
   public static final String COUNT_PROJECTS_BY_TENANT_ID =
       "SELECT COUNT(*) as count FROM projects WHERE tenant_id = ? AND is_active = TRUE";
 
