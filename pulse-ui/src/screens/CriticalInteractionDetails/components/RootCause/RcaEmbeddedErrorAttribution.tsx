@@ -27,12 +27,15 @@ function formatCachedAt(iso: string | null | undefined): string | null {
 type RcaEmbeddedErrorAttributionProps = {
   data: ErrorAttributionResponse;
   projectId: string;
+  /** When set, the main section title row is omitted (parent renders one combined RCA heading). */
+  hideSectionTitle?: boolean;
 };
 
 /** Error distribution merged into cached RCA JSON (`report.structured.errorAttribution`). */
 export function RcaEmbeddedErrorAttribution({
   data,
   projectId,
+  hideSectionTitle = false,
 }: RcaEmbeddedErrorAttributionProps) {
   const [searchParams] = useSearchParams();
   const linkSuffix = useMemo(() => {
@@ -52,25 +55,31 @@ export function RcaEmbeddedErrorAttribution({
 
   return (
     <Stack gap="sm">
-      <div className={rcaClasses.segmentsSectionTitleRow}>
-        <Stack gap={4}>
-          <Group gap="sm" wrap="wrap" align="center">
-            <Text fw={700} size="md" tt="uppercase" c="gray.7">
-              {ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}
-            </Text>
-            {related.length > 0 ? (
-              <Badge size="sm" variant="light" color="gray">
-                {related.length}
-              </Badge>
+      {!hideSectionTitle ? (
+        <div className={rcaClasses.segmentsSectionTitleRow}>
+          <Stack gap={4}>
+            <Group gap="sm" wrap="wrap" align="center">
+              <Text fw={700} size="md" tt="uppercase" c="gray.7">
+                {ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE}
+              </Text>
+              {related.length > 0 ? (
+                <Badge size="sm" variant="light" color="gray">
+                  {related.length}
+                </Badge>
+              ) : null}
+            </Group>
+            {cachedAtLabel ? (
+              <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
+                Cached {cachedAtLabel}
+              </Text>
             ) : null}
-          </Group>
-          {cachedAtLabel ? (
-            <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
-              Cached {cachedAtLabel}
-            </Text>
-          ) : null}
-        </Stack>
-      </div>
+          </Stack>
+        </div>
+      ) : cachedAtLabel ? (
+        <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
+          Cached {cachedAtLabel}
+        </Text>
+      ) : null}
 
       {related.length === 0 ? (
         <Card

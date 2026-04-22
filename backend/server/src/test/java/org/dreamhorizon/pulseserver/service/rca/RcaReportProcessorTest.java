@@ -36,7 +36,6 @@ import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiUpstreamProxyExecutor;
-import org.dreamhorizon.pulseserver.service.errorattribution.RcaReportErrorAttributionMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +60,6 @@ class RcaReportProcessorTest {
   @Mock private RcaReportCacheDao cacheDao;
   @Mock private RootCauseService rootCauseService;
   @Mock private RcaReportEnrichmentService enrichmentService;
-  @Mock private RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger;
   @Mock private WebClient webClient;
   @Mock private HttpRequest<Buffer> httpRequest;
 
@@ -79,13 +77,8 @@ class RcaReportProcessorTest {
             rootCauseService,
             RootCauseConfig.withDefaults(null),
             new RcaRelatedHeatmapsMerger(new ObjectMapper()),
-            rcaReportErrorAttributionMerger,
             enrichmentService,
             upstream);
-
-    doNothing()
-        .when(rcaReportErrorAttributionMerger)
-        .mergeInto(any(), anyString(), anyString(), any(), any(), anyInt());
     when(webClient.postAbs(anyString())).thenReturn(httpRequest);
     when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
     when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);

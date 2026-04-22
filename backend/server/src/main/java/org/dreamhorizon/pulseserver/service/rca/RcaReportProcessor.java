@@ -18,12 +18,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaJobStatus;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaReportJobDao;
-import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiUpstreamProxyExecutor;
-import org.dreamhorizon.pulseserver.service.errorattribution.RcaReportErrorAttributionMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RcaRelatedHeatmapsMerger;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
@@ -44,7 +42,6 @@ public class RcaReportProcessor {
   private final RootCauseService rootCauseService;
   private final RootCauseConfig rootCauseConfig;
   private final RcaRelatedHeatmapsMerger rcaRelatedHeatmapsMerger;
-  private final RcaReportErrorAttributionMerger rcaReportErrorAttributionMerger;
   private final RcaReportEnrichmentService enrichmentService;
   private final AiUpstreamProxyExecutor upstream;
 
@@ -196,39 +193,23 @@ public class RcaReportProcessor {
                   } catch (Exception e) {
                     log.warn("Failed to merge RCA related heatmaps: {}", e.getMessage());
                   }
-                  mergeErrorAttributionIfInteraction(root, job, enrichment);
                   persistMergedRootOrFallback(root, body, result, job, done);
                 },
                 err -> done.completeExceptionally(err));
         return done;
       }
 
-      mergeErrorAttributionIfInteraction(root, job, enrichment);
       try {
         String merged = objectMapper.writeValueAsString(root);
         return persistBufferedRcaReport(merged, result, job);
       } catch (Exception e) {
-        log.warn("Failed to serialize RCA with error attribution: {}", e.getMessage());
+        log.warn("Failed to serialize RCA after heatmap merge: {}", e.getMessage());
         return persistBufferedRcaReport(body, result, job);
       }
     } catch (Exception e) {
       log.warn("Failed to parse RCA body for post-AI merges: {}", e.getMessage());
       return persistBufferedRcaReport(body, result, job);
     }
-  }
-
-  private void mergeErrorAttributionIfInteraction(
-      final ObjectNode root, final RcaReportJob job, final RcaEnrichmentOutcome enrichment) {
-    if (job.type() != RcaType.INTERACTION) {
-      return;
-    }
-    rcaReportErrorAttributionMerger.mergeInto(
-        root,
-        job.projectId(),
-        job.entityKey(),
-        enrichment.anchorDate(),
-        enrichment.windowEndExclusive(),
-        rootCauseConfig.getLookbackDays());
   }
 
   private void persistMergedRootOrFallback(
