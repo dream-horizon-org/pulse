@@ -60,6 +60,13 @@ public final class Constants {
   public static final String RESOURCE_TYPE_SYSTEM = "system";
   public static final String RESOURCE_SYSTEM_PULSE = "pulse";
 
+  /** OpenFGA object id for the Pulse system resource (tuples use type:id form). */
+  public static final String OPENFGA_OBJECT_SYSTEM_PULSE =
+      RESOURCE_TYPE_SYSTEM + ":" + RESOURCE_SYSTEM_PULSE;
+
+  public static final String RELATION_SUPERADMIN = "superadmin";
+  public static final String RELATION_SYSTEM_PARENT = "system_parent";
+
   /**
    * {@link io.vertx.rxjava3.ext.web.client.WebClient} stored in {@link
    * org.dreamhorizon.pulseserver.vertx.SharedDataUtils} and bound in Guice with {@link
