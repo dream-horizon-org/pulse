@@ -44,6 +44,25 @@ export function buildHeatmapS3ObjectKey(params: {
   return parts.join("/");
 }
 
+/**
+ * UTC calendar date for S3 object tag `date` (yyyy-MM-dd). Same semantics as session-replay key folder date.
+ */
+export function utcDateTagYyyyMmDdFromMillis(metaTimestampMs: number): string {
+  return DateTime.fromMillis(metaTimestampMs, { zone: "utc" }).toFormat(
+    "yyyy-MM-dd",
+  );
+}
+
+/**
+ * S3 `Tagging` header: `project_id` + `date` (must match session-replay-ingestion exactly).
+ */
+export function buildIngestionS3ObjectTagging(
+  projectId: string,
+  dateUtcYyyyMmDd: string,
+): string {
+  return `project_id=${encodeURIComponent(projectId)}&date=${encodeURIComponent(dateUtcYyyyMmDd)}`;
+}
+
 export function appVersionForPath(
   appVersion: string | null | undefined,
 ): string {

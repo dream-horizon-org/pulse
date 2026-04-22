@@ -10,14 +10,15 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.v1.projects.models.CreateProjectRequest;
 import org.dreamhorizon.pulseserver.resources.v1.projects.models.ProjectResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.ProjectService;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 /**
  * REST resource for project management.
@@ -117,6 +118,7 @@ public class ProjectResource {
      */
     @GET
     @Path("/{projectId}")
+    @RequiresPermission("can_view")
     public CompletionStage<Response<ProjectResponse>> getProject(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {

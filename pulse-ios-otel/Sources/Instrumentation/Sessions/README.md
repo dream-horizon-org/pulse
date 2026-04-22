@@ -21,7 +21,6 @@ Session instrumentation is configured via the `instrumentations` closure in your
 import PulseKit
 
 Pulse.shared.initialize(
-    endpointBaseUrl: "https://your-endpoint.com",
     apiKey: "your-api-key",
     dataCollectionState: .allowed,
     instrumentations: { config in

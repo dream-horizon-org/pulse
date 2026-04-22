@@ -14,14 +14,12 @@ The sampling feature is implemented in this directory and integrates with the re
 
 **Config endpoint**
 
-- By default, the SDK derives the config URL from `endpointBaseUrl`: it replaces port `4318` with `8080` and appends `/v1/configs/active/`.
-- To use a different config endpoint, pass `configEndpointUrl`:
+- The SDK resolves the active config URL from the API key (dev vs prod). Per-signal collector URLs and feature flags still come from the **fetched** `PulseSdkConfig` when the backend provides them.
 
 ```swift
-PulseKit.shared.initialize(
-    endpointBaseUrl: "https://your-collector.com",
+Pulse.shared.initialize(
     apiKey: "your-api-key",
-    configEndpointUrl: "https://config.example.com/v1/configs/active/"
+    dataCollectionState: .allowed
 )
 ```
 
@@ -99,22 +97,22 @@ Default session sample rate in `[0, 1]` when **no rule** matches.
 
 Ordered rules; **first match wins**. Each rule is evaluated only if the current SDK is in `sdks`; then the device attribute value is matched against `value` (regex). Implemented in `PulseSessionConfigParser` and `PulseSessionSamplingRule.matches(deviceContext:)`.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | enum | Device attribute: `os_version`, `app_version`, `country`, `platform`, `state` |
-| `value` | string | Regex pattern to match the attribute value |
-| `sdks` | array | SDKs this rule applies to (e.g. `["pulse_ios_swift", "pulse_ios_rn"]`) |
-| `sessionSampleRate` | float | Rate to use when this rule matches |
+| Field               | Type   | Description                                                                   |
+| ------------------- | ------ | ----------------------------------------------------------------------------- |
+| `name`              | enum   | Device attribute: `os_version`, `app_version`, `country`, `platform`, `state` |
+| `value`             | string | Regex pattern to match the attribute value                                    |
+| `sdks`              | array  | SDKs this rule applies to (e.g. `["pulse_ios_swift", "pulse_ios_rn"]`)        |
+| `sessionSampleRate` | float  | Rate to use when this rule matches                                            |
 
 **Device attributes (iOS)** – provided by `PulseDeviceContext`:
 
-| name | Source |
-|------|--------|
-| `os_version` | `UIDevice.current.systemVersion` (e.g. "18.4") |
-| `app_version` | `CFBundleShortVersionString` or `CFBundleVersion` |
-| `country` | `Locale.current.region?.identifier` (e.g. "IN", "US") |
-| `platform` | `"pulse_ios_swift"` (native iOS) |
-| `state` | Not implemented; returns nil; rule does not match |
+| name          | Source                                                |
+| ------------- | ----------------------------------------------------- |
+| `os_version`  | `UIDevice.current.systemVersion` (e.g. "18.4")        |
+| `app_version` | `CFBundleShortVersionString` or `CFBundleVersion`     |
+| `country`     | `Locale.current.region?.identifier` (e.g. "IN", "US") |
+| `platform`    | `"pulse_ios_swift"` (native iOS)                      |
+| `state`       | Not implemented; returns nil; rule does not match     |
 
 **SDK names:** `pulse_ios_swift`, `pulse_ios_rn`, `pulse_android_java`, `pulse_android_rn` (see `PulseSdkName`).
 
@@ -139,9 +137,9 @@ When the session is **not** sampled, only signals matching `alwaysSend` conditio
 
 Controls which signals are exported (sampled sessions and critical-event-only sessions). Implemented in `PulseSamplingSignalProcessors` via `PulseSignalMatcher`.
 
-| mode | Behaviour |
-|------|------------|
-| `whitelist` | Export only signals that match at least one condition |
+| mode        | Behaviour                                              |
+| ----------- | ------------------------------------------------------ |
+| `whitelist` | Export only signals that match at least one condition  |
 | `blacklist` | Export all signals except those matching any condition |
 
 Each condition has `name` (regex), `props` (attribute key/value pairs), `scopes`, and `sdks`. Within one condition: AND. Between conditions: whitelist = OR; blacklist = export if none match. Empty `values` with whitelist = export all; with blacklist = export none.
@@ -176,12 +174,12 @@ The API accepts both `shouldAddPropNameAsSuffix` and `addPropNameAsSuffix`; the 
 
 **Metric type × shouldAddPropNameAsSuffix behavior**
 
-| Type | shouldAddPropNameAsSuffix: false | shouldAddPropNameAsSuffix: true |
-|------|----------------------------------|---------------------------------|
-| **Counter** | One metric `<name>`. Each match adds 1 (counts occurrences). E.g. 3 spans with `http.duration` → `http_req_count` = 3. | One metric per attr key `<name>.<key>`. Each match adds 1. E.g. spans with `http.method` (GET) and `http.status_code` (200) → `http_count.http.method` = 1, `http_count.http.status_code` = 1. If 2 spans have `http.method` → `http_count.http.method` = 2. |
-| **Gauge** | One metric `<name>`. Each match records the attr value (e.g. battery level). Multiple values from different spans/logs all feed the same gauge. | One metric per attr key `<name>.<key>`. E.g. `battery_level.battery.percent` and `battery_level.battery.temp` if condition matches both keys. |
-| **Histogram** | One metric `<name>`. Each match records the attr value as a bucket entry. E.g. 3 spans with `http.duration`: 100, 200, 300 → one histogram with 3 observations. | One metric per attr key `<name>.<key>`. E.g. `http_duration.http.duration` (same as false if only one key matches). If condition matches `http.duration` and `response.size` → `latency.http.duration` and `latency.response.size`. |
-| **Sum** | One metric `<name>`. Each match adds the attr value. E.g. 3 spans with `bytes_sent`: 100, 200, 50 → sum = 350. | One metric per attr key `<name>.<key>`. E.g. `bytes.http.request.content_length` and `bytes.http.response.content_length`. |
+| Type          | shouldAddPropNameAsSuffix: false                                                                                                                                | shouldAddPropNameAsSuffix: true                                                                                                                                                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Counter**   | One metric `<name>`. Each match adds 1 (counts occurrences). E.g. 3 spans with `http.duration` → `http_req_count` = 3.                                          | One metric per attr key `<name>.<key>`. Each match adds 1. E.g. spans with `http.method` (GET) and `http.status_code` (200) → `http_count.http.method` = 1, `http_count.http.status_code` = 1. If 2 spans have `http.method` → `http_count.http.method` = 2. |
+| **Gauge**     | One metric `<name>`. Each match records the attr value (e.g. battery level). Multiple values from different spans/logs all feed the same gauge.                 | One metric per attr key `<name>.<key>`. E.g. `battery_level.battery.percent` and `battery_level.battery.temp` if condition matches both keys.                                                                                                                |
+| **Histogram** | One metric `<name>`. Each match records the attr value as a bucket entry. E.g. 3 spans with `http.duration`: 100, 200, 300 → one histogram with 3 observations. | One metric per attr key `<name>.<key>`. E.g. `http_duration.http.duration` (same as false if only one key matches). If condition matches `http.duration` and `response.size` → `latency.http.duration` and `latency.response.size`.                          |
+| **Sum**       | One metric `<name>`. Each match adds the attr value. E.g. 3 spans with `bytes_sent`: 100, 200, 50 → sum = 350.                                                  | One metric per attr key `<name>.<key>`. E.g. `bytes.http.request.content_length` and `bytes.http.response.content_length`.                                                                                                                                   |
 
 **Examples**
 
@@ -205,15 +203,15 @@ Features not in the list are treated as disabled. Example names: `ios_crash`, `i
 
 ## Multiple conditions – OR vs first match
 
-| Feature | Semantics |
-|---------|-----------|
-| **sampling.rules** | **First match wins** – rules evaluated in order; first matching rule supplies the session sample rate. |
-| **signals.filters** (whitelist) | **OR** – export if the signal matches at least one condition. |
-| **signals.filters** (blacklist) | **None match** – export if the signal matches no condition. |
-| **criticalEventPolicies.alwaysSend** | **OR** – export if the signal matches any condition. |
-| **attributesToDrop** | **OR** – all matching conditions contribute; dropped keys are unioned. |
-| **attributesToAdd** | **OR** – all matching entries add their attributes. |
-| **SelectedLogExporter / SelectedSpanExporter** | **First match wins** – first (condition, exporter) that matches is used; order in config matters. |
+| Feature                                        | Semantics                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **sampling.rules**                             | **First match wins** – rules evaluated in order; first matching rule supplies the session sample rate. |
+| **signals.filters** (whitelist)                | **OR** – export if the signal matches at least one condition.                                          |
+| **signals.filters** (blacklist)                | **None match** – export if the signal matches no condition.                                            |
+| **criticalEventPolicies.alwaysSend**           | **OR** – export if the signal matches any condition.                                                   |
+| **attributesToDrop**                           | **OR** – all matching conditions contribute; dropped keys are unioned.                                 |
+| **attributesToAdd**                            | **OR** – all matching entries add their attributes.                                                    |
+| **SelectedLogExporter / SelectedSpanExporter** | **First match wins** – first (condition, exporter) that matches is used; order in config matters.      |
 
 ---
 
@@ -234,12 +232,12 @@ Features not in the list are treated as disabled. Example names: `ios_crash`, `i
 
 ### Summary
 
-| Scenario | Behaviour |
-|----------|-----------|
-| No config in storage | Use init defaults; no sampling |
-| Config in storage | Use it for this launch |
+| Scenario                        | Behaviour                          |
+| ------------------------------- | ---------------------------------- |
+| No config in storage            | Use init defaults; no sampling     |
+| Config in storage               | Use it for this launch             |
 | Fetch fails (network, 4xx, 5xx) | Keep existing config; no overwrite |
-| Fetch returns same version | No persist |
-| Fetch returns new version | Persist; use on next launch |
+| Fetch returns same version      | No persist                         |
+| Fetch returns new version       | Persist; use on next launch        |
 
 Config is always applied on **next** launch; the running app does not switch mid-session.

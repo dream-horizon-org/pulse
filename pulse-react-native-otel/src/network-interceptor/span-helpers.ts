@@ -9,6 +9,10 @@ import { extractHttpAttributes } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
 import { ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import { normalizeHeaderName } from './header-helper';
+import {
+  getHeaderCaseInsensitive,
+  parseContentLength,
+} from './content-length-parser';
 import { PulseLogger } from '../PulseLogger';
 import { redactUrl } from '../redaction';
 
@@ -33,6 +37,20 @@ export function setNetworkSpanAttributes(
 
   if (endContext.status) {
     attributes[ATTRIBUTE_KEYS.HTTP_STATUS_CODE] = endContext.status;
+  }
+
+  const requestBodyLen =
+    startContext.requestBodyContentLength ??
+    parseContentLength(
+      getHeaderCaseInsensitive(startContext.requestHeaders, 'content-length')
+    );
+  if (requestBodyLen !== undefined) {
+    attributes[ATTRIBUTE_KEYS.HTTP_REQUEST_BODY_SIZE] = requestBodyLen;
+  }
+
+  if (endContext.responseBodyContentLength !== undefined) {
+    attributes[ATTRIBUTE_KEYS.HTTP_RESPONSE_BODY_SIZE] =
+      endContext.responseBodyContentLength;
   }
 
   if (endContext.state === 'error' && endContext.error) {
@@ -101,10 +119,11 @@ export function completeNetworkSpan(
   isError: boolean
 ): void {
   try {
-    setNetworkSpanAttributes(span, startContext, endContext);
-    PulseLogger.debug(
-      `Network span completed: ${redactUrl(startContext.url)} [${endContext.status ?? 0}]`
-    );
+    const attributes = setNetworkSpanAttributes(span, startContext, endContext);
+    PulseLogger.debug('Network span completed', {
+      spanId: span.spanId,
+      spanAttributes: attributes,
+    });
   } catch (e) {
     PulseLogger.error(`Failed to set span attributes: ${e}`);
   }

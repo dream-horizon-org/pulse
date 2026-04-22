@@ -14,7 +14,9 @@ import { KafkaOffsetManager } from "./kafka/offset-manager";
 import {
   appVersionForPath,
   buildHeatmapS3ObjectKey,
+  buildIngestionS3ObjectTagging,
   heatmapJsonBody,
+  utcDateTagYyyyMmDdFromMillis,
 } from "./s3-key";
 import { createS3Client, putJsonWithRetry } from "./s3-upload";
 import type { Config } from "./config";
@@ -259,6 +261,10 @@ export class HeatmapScreenshotConsumer {
             Key: key,
             Body: body,
             ContentType: "application/json",
+            Tagging: buildIngestionS3ObjectTagging(
+              parsed.project_id,
+              utcDateTagYyyyMmDdFromMillis(extracted.meta.timestamp),
+            ),
           });
 
           if (!ok) {

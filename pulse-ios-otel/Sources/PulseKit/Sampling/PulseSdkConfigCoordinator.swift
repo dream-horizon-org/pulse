@@ -38,7 +38,7 @@ public final class PulseSdkConfigCoordinator {
     /// Dispatchers.IO, fetch via PulseSdkConfigRestProvider, persist only if newConfig != null && newConfig.version != currentVersion.
     /// When useLocalMockConfig is true, skips network fetch entirely.
     /// - Parameters:
-    ///   - configEndpointUrl: Final config URL (already resolved by PulseKit from endpointBaseUrl when nil; e.g. `{base:8080}/v1/configs/active/`).
+    ///   - configEndpointUrl: Final config URL (resolved from API key / project id in `Pulse.shared.initialize`).
     ///   - endpointHeaders: Headers sent with the GET request (e.g. X-API-KEY / api key).
     ///   - currentConfigVersion: Version of the config already loaded at init (avoids loading from storage again).
     public func startBackgroundFetch(

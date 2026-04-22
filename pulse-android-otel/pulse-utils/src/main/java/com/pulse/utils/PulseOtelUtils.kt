@@ -97,6 +97,9 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
         }
     }
 
+@PublishedApi
+internal const val TAG: String = "PulseSdk"
+
 public fun Map<String, Any?>.toAttributes(): Attributes = (Attributes.builder() putAttributesFrom this).build()
 
 public fun Attributes.filterNot(predicate: (AttributeKey<*>) -> Boolean): Attributes = this.toBuilder().removeIf(predicate).build()

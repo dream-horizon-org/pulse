@@ -35,16 +35,9 @@
       [
         "@dreamhorizonorg/pulse-react-native",
         {
-          "endpointBaseUrl": "http://127.0.0.1:4318",
           "apiKey": "default-project_devkey01",
           "dataCollectionState": "ALLOWED",
-          "endpointHeaders": {
-            "Header": "Value"
-          },
           "android": {
-            "endpointBaseUrl": "http://10.0.2.2:4318",
-            "configEndpointUrl": "http://10.0.2.2:8080/v1/configs/active/",
-            "customEventCollectorUrl": "http://10.0.2.2:4318/v1/logs",
             "globalAttributes": {
               "string": "value",
               "numberFloatNegative": -9.05,
@@ -58,41 +51,20 @@
               "platform": "android"
             },
             "instrumentation": {
-              "interaction": {
-                "url": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
-                "enabled": true
-              },
-              "activity": {
-                "enabled": true
-              },
-              "network": {
-                "enabled": true
-              },
-              "anr": {
-                "enabled": false
-              },
-              "crash": {
-                "enabled": true
-              },
-              "slowRendering": {
-                "enabled": false
-              },
-              "fragment": {
-                "enabled": true
-              }
+              "interaction": { "enabled": true },
+              "activity": { "enabled": true },
+              "network": { "enabled": true },
+              "anr": { "enabled": false },
+              "crash": { "enabled": true },
+              "slowRendering": { "enabled": false },
+              "fragment": { "enabled": true }
             }
           },
           "ios": {
-            "endpointBaseUrl": "http://127.0.0.1:4318",
-            "configEndpointUrl": "http://127.0.0.1:8080/v1/configs/active/",
-            "customEventCollectorUrl": "http://127.0.0.1:4318/v1/logs",
             "instrumentation": {
-              "urlSession": { "enabled": true, "excludeOtlpEndpoints": true },
+              "urlSession": { "enabled": true },
               "sessions": { "enabled": true },
-              "interaction": {
-                "enabled": true,
-                "configUrl": "http://127.0.0.1:8080/v1/interactions/all-active-interactions/"
-              },
+              "interaction": { "enabled": true },
               "location": { "enabled": true },
               "crash": { "enabled": true },
               "appLifecycle": { "enabled": true },
