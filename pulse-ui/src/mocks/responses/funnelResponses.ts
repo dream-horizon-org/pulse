@@ -519,7 +519,11 @@ const MOCK_FUNNEL_EVENTS = [
  * Mock filter keys returned by GET /v1/funnels/filters.
  * These are server-side keys; the UI maps them to display labels via FILTER_KEY_LABEL_MAP.
  */
-const MOCK_FUNNEL_FILTER_KEYS: string[] = ["os_name", "os_version", "app_version"];
+const MOCK_FUNNEL_FILTER_KEYS: string[] = [
+  "os_name",
+  "os_version",
+  "app_version",
+];
 
 /**
  * Mock values for each filter key returned by GET /v1/funnels/filters/{filterKey}/values.
@@ -543,7 +547,13 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "IN_PROGRESS" | "WARN" | "PENDING" | "FAILED" | "COMPLETED";
+  status:
+    | "ACTIVE"
+    | "IN_PROGRESS"
+    | "WARN"
+    | "PENDING"
+    | "FAILED"
+    | "COMPLETED";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
@@ -935,11 +945,6 @@ function mockResourceListing(
     pool = pool.filter((row) => row.kind === kindParam);
   }
 
-  const filterOptions = {
-    creators: Array.from(new Set(pool.map((i) => i.createdBy))).sort(),
-    tags: Array.from(new Set(pool.flatMap((i) => i.tags))).sort(),
-  };
-
   let items = [...pool];
 
   if (search) {
@@ -961,7 +966,10 @@ function mockResourceListing(
   if (tagFilters.length) {
     items = items.filter((row) => tagFilters.some((t) => row.tags.includes(t)));
   }
-  if (stepOrderType === StepOrderType.ORDERED || stepOrderType === StepOrderType.UNORDERED) {
+  if (
+    stepOrderType === StepOrderType.ORDERED ||
+    stepOrderType === StepOrderType.UNORDERED
+  ) {
     items = items.filter(
       (row) => row.kind === "FUNNEL" && row.stepOrderType === stepOrderType,
     );
@@ -982,9 +990,9 @@ function mockResourceListing(
 
   const start = (page - 1) * pageSize;
   // Strip internal `kind` field — real server doesn't return it
-  const paginatedItems = items.slice(start, start + pageSize).map(
-    ({ kind: _kind, ...rest }) => rest,
-  );
+  const paginatedItems = items
+    .slice(start, start + pageSize)
+    .map(({ kind: _kind, ...rest }) => rest);
 
   return {
     data: {
@@ -1174,10 +1182,15 @@ export function handleFunnelEndpoints(
   }
 
   // GET /v1/funnels/filters/{filterKey}/values (check before /filters to avoid prefix match)
-  const filterValuesMatch = pathOnly.match(/\/v1\/funnels\/filters\/([^/]+)\/values$/);
+  const filterValuesMatch = pathOnly.match(
+    /\/v1\/funnels\/filters\/([^/]+)\/values$/,
+  );
   if (method === "GET" && filterValuesMatch) {
     const filterKey = decodeURIComponent(filterValuesMatch[1]);
-    return { data: { values: MOCK_FUNNEL_FILTER_VALUES[filterKey] ?? [] }, status: 200 };
+    return {
+      data: { values: MOCK_FUNNEL_FILTER_VALUES[filterKey] ?? [] },
+      status: 200,
+    };
   }
 
   // GET /v1/funnels/filters — returns only the list of filter key strings
@@ -1253,7 +1266,6 @@ export function handleFunnelEndpoints(
     const groupBy = body.groupBy || "OS";
     return { data: { groups: MOCK_GROUPED_DATA[groupBy] || [] }, status: 200 };
   }
-
 
   if (pathname.includes("/v1/journey/explore") && method === "POST") {
     let body: any = {};
