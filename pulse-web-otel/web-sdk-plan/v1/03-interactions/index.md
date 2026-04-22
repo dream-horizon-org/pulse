@@ -10,6 +10,7 @@
 
 | # | Doc | What It Does |
 |---|---|---|
+| — | [M2 implementation plan (Android parity)](./IMPLEMENTATION-PLAN-M2-ANDROID-PARITY.md) | End-to-end plan, parity matrix, flow diagram, gaps vs `matching.md` / `span.md` |
 | 03.1 | [Config Fetcher](./config.md) | Fetches interaction definitions from CDN, parses JSON |
 | 03.2 | [Matching Algorithm](./matching.md) | State machine, sequence matching, timeout, blacklists |
 | 03.3 | [Span Output](./span.md) | APDEX calculation, user category, OTel span creation |

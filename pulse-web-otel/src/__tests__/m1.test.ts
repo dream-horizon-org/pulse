@@ -596,7 +596,7 @@ describe("M1 — FeatureGate", () => {
     expect(gate.isEnabled("web_vitals")).toBe(true);
   });
 
-  it("returns false when sessionSampleRate is 0", () => {
+  it("returns false when sessionSampleRate is not 1 (Android getEnabledFeatures parity)", () => {
     const config: PulseSdkConfig = {
       ...DEFAULT_SDK_CONFIG,
       features: [
@@ -610,6 +610,34 @@ describe("M1 — FeatureGate", () => {
 
     const gate = new FeatureGate(config);
     expect(gate.isEnabled("session")).toBe(false);
+  });
+
+  it("returns false for fractional sessionSampleRate", () => {
+    const config: PulseSdkConfig = {
+      ...DEFAULT_SDK_CONFIG,
+      features: [
+        {
+          featureName: "web_vitals",
+          sessionSampleRate: 0.25,
+          sdks: ["pulse_web_js"],
+        },
+      ],
+    };
+    expect(new FeatureGate(config).isEnabled("web_vitals")).toBe(false);
+  });
+
+  it("returns true when sessionSampleRate is exactly 1", () => {
+    const config: PulseSdkConfig = {
+      ...DEFAULT_SDK_CONFIG,
+      features: [
+        {
+          featureName: "session",
+          sessionSampleRate: 1,
+          sdks: ["pulse_web_js"],
+        },
+      ],
+    };
+    expect(new FeatureGate(config).isEnabled("session")).toBe(true);
   });
 });
 

@@ -1,9 +1,26 @@
 # Pulse Web SDK — M1 Implementation
 
 Package: `@dreamhorizon/pulse-web`  
-Status: **M1 foundation shipped in tree — 115 Vitest tests (`src/__tests__/m1.test.ts`) + 63 Playwright tests (`examples/ecommerce-demo/e2e/m1.spec.ts`; run with `--project=chromium` as needed)**
+Status: **M1 foundation shipped in tree — 166 Vitest tests (`src/__tests__/*.test.ts`) + 63 Playwright tests (`examples/ecommerce-demo/e2e/m1.spec.ts`; run with `--project=chromium` as needed)**
 
 This document is the **living record of what the code does today**, how it was tested, and **gaps vs** `web-sdk-plan/v1/MILESTONES.md` / `WEB-SDK-AGENT-CONTEXT.md`. It is updated alongside implementation (last reviewed from codebase + internal code review pass).
+
+---
+
+## Ground rule — match Android SDK core logic
+
+**Product behavior should align with `pulse-android-otel`, not only with milestone text.** Milestones and phase docs can lag; when they conflict with Android, implementation and tests should follow Android unless we document a deliberate browser-only difference.
+
+**Planned convergence (non-exhaustive):**
+
+| Area | Android reference | Web today | Target |
+|------|-------------------|-----------|--------|
+| Session sampling | `PulseSamplingSignalProcessors` — filters at **export** | **`ExportSamplingGate` + `Sampled*Exporter` wrappers** in `createProviders` — same idea: filter batch before OTLP; `sessionSampleRate: 0` ⇒ empty batch ⇒ no HTTP **(implemented)** |
+| Sampling rules | `PulseSessionConfigParser` + contextual `matches` + `signalsToSample` | First `sampling.rules[]` entry whose `sdks` includes `pulse_web_js` | Match Android rule precedence and per-signal `signalsToSample` when config shape is shared |
+| Signal filter | Full pipeline in sampling processors + config | Logs partial; traces limited | Match Android `SignalFilterProcessor` / attr add-drop behavior per scope |
+| Intentional web-only | — | keepalive JSON log flush on `pagehide`, protobuf default, IndexedDB replay | Keep; document in this table |
+
+See also: `web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md` → **Ground rule — parity with Android SDK**.
 
 ---
 
@@ -13,14 +30,14 @@ The **M1 milestone table** in `MILESTONES.md` lists foundation only (session ske
 
 | Area | Strict M1 wording | In repo now |
 |------|-------------------|-------------|
-| Remote config + sampling + signal filter + feature gate | M2 table in milestones | **Wired in `sdk.ts`** — `FeatureGate`, `PulseSamplingProcessor`, `SignalFilterProcessor`, `SdkConfigFetcher` |
+| Remote config + sampling + signal filter + feature gate | M2 table in milestones | **Wired in `sdk.ts`** — `FeatureGate`, **`ExportSamplingGate`** (export-time), `SignalFilterProcessor`, `SdkConfigFetcher` |
 | Custom events / manual errors | Useful for demo + parity | **`PulseWeb.trackEvent`**, **`reportException`**, **`trackNonFatal`**, **`reportDeviceCrash`** on core export path |
 | React | M2 `PulseProvider` | **M1 doc / demo:** `PulseErrorBoundary` only (`src/integrations/react/`), separate `@dreamhorizon/pulse-web/react` entry |
 
 **Spec deltas to track (not bugs by default):**
 
 1. **OTLP wire format:** `createProviders` uses **protobuf** unless `config.export.format === 'json'` (`src/exporters.ts`) — aligned with `MILESTONES.md`.
-2. **Sampling:** `PulseSamplingProcessor` sets `pulse.sampled: false` when the session draw fails; signals **still export** unless the collector/backend drops unsampled data. This is **not** the same as “zero bytes on `sessionSampleRate: 0`” (an M2 exit criterion).
+2. **Sampling:** **Export-time** via `ExportSamplingGate` + `SampledSpanExporter` / `SampledLogRecordExporter` / `SampledPushMetricExporter` + keepalive path filtering — aligned with Android “drop before OTLP”. Session draw uses **one** `Math.random()` per SDK init (same random for per-signal `signalsToSample` rates).
 3. **`session` feature flag:** Remote config can disable the `session` feature → `SessionInstrumentation` never installs → no `session.start` / `session.end`. Confirm product intent (identity vs optional telemetry).
 4. **`beforeSend`:** Declared on `PulseWebConfig` but **not invoked** anywhere in the pipeline yet (planned for M3 in milestones).
 5. **`session.start` on reload:** When the SDK **reuses** a session (`SessionProvider` clone/reuse path), `emitInitialSession` may skip a new `session.start` — compare to exit-criteria wording “on init” if dashboards expect one start per navigation.
@@ -40,7 +57,7 @@ PulseWeb.start(config)
   │  Step 3.5: getOrCreateInstallationId() [3-tier persistence]     │
   │  Step 4: buildResource() → OTEL Resource                        │
   │  Step 5: SdkConfigFetcher.loadCached() → PulseSdkConfig        │
-  │  Step 6: FeatureGate + PulseSamplingProcessor + SignalFilterProcessor │
+  │  Step 6: FeatureGate + ExportSamplingGate (export) + SignalFilterProcessor │
   │  Step 7: GlobalAttributesProcessor (+ optional LogRecordLifecycleDebug) │
   │  Step 8: createProviders() → TracerProvider, LoggerProvider,    │
   │          MeterProvider (PeriodicExportingMetricReader)           │
@@ -63,14 +80,14 @@ PulseWeb.start(config)
   │    url.path, platform='web', browser.name, os.name, etc.)            │
   │          │                                                           │
   │          ▼                                                           │
-  │  PulseSamplingProcessor (applies remote config sample rate)          │
-  │          │                                                           │
-  │          ▼                                                           │
-  │  SignalFilterProcessor (gates per signal type from remote config)    │
+  │  SignalFilterProcessor (attr add/drop + log drop gates from remote)  │
   │          │                                                           │
   │          ▼                                                           │
   │  BatchSpanProcessor / BatchLogRecordProcessor                        │
   │  (delay: 5s default / 200ms test mode; queue: 2048; batch: 512)      │
+  │          │                                                           │
+  │          ▼                                                           │
+  │  Sampled* exporters (session + signalsToSample + critical bypass)   │
   │          │                                                           │
   │          ▼                                                           │
   │  PulseBrowser* exporters (JSON or protobuf via otlp-transformer)     │
@@ -91,6 +108,18 @@ PulseWeb.start(config)
           ├── Traces + metrics: `forceFlush()` on providers (XHR/protobuf path for normal batches unchanged)
           └── `SessionProvider` emits `session.end` (`session.duration_ms`, `session.end_reason`, etc.)
 ```
+
+### Remote config and sampling refresh (M1 behavior)
+
+`SdkConfigFetcher.loadCached()` supplies merged config at `PulseWeb.start()`. **`fetchInBackground()` does not rebuild `FeatureGate` or `ExportSamplingGate`**, so feature flags and export-time sampling stay fixed until a **full page reload**. Treat live gate updates as follow-on product work, not an undocumented bug.
+
+### Session rules vs Android `Context`
+
+Web picks the first `sampling.rules[]` entry whose `sdks` includes `pulse_web_js` (`resolveSessionSamplingRate`). Android matches rules against app **`Context`** keys. **`platform`** rules match Pulse RUM **`platform` = `web`**. **`app_version`**, **`os_version`**, **`network`**, and **`device`** use the browser-side mappings in **`web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md`** (including `service.version` at init for `app_version`). **`country`**, **`state`**, and other names still use the **legacy user-agent regex** path until mapped.
+
+### Critical policies — Android audit
+
+`criticalSessionPolicies` / `criticalEventPolicies` appear on Android’s **remote JSON model** (`PulseSamplingConfig.kt`). In-repo **`PulseSamplingSignalProcessors.sampleSession` does not read `alwaysSend` / critical policies** on the sampled export path. The **Web** SDK applies `alwaysSend` in `ExportSamplingGate` as a **session bypass** — document as a deliberate delta until Android wires the same behavior.
 
 ---
 
@@ -114,7 +143,11 @@ PulseWeb.start(config)
 | `exporters/pulse-retrying-transport.ts` | Retry wrapper |
 | `exporters/wrap-log-exporter-lifecycle-debug.ts` | Debug wrapper for log exporter |
 | `processors/global-attrs-processor.ts` | Dynamic attrs on spans/logs + metric helper |
-| `processors/sampling-processor.ts` | Session sampling decision → `pulse.sampled` |
+| `sampling/export-sampling-gate.ts` | `ExportSamplingGate` — session draw + `signalsToSample` + critical bypass |
+| `sampling/sampling-exporters.ts` | `SampledSpanExporter`, `SampledLogRecordExporter`, `SampledPushMetricExporter` |
+| `types/sampling.ts` | `PulseSignalScope` |
+| `utils/sampling-signal-match.ts` | `pulseSignalConditionMatches`, `attrsToStringMap` |
+| `utils/session-sampling-rate.ts` | `resolveSessionSamplingRate`, `sessionRuleMatchesWeb`, `logRecordBodyAsString`, critical policies |
 | `processors/signal-filter-processor.ts` | Remote signal rules (log-focused) |
 | `processors/log-record-lifecycle-debug-processor.ts` | Optional pipeline debug |
 | `persistence/indexed-db.ts` | `IdbSignalBuffer` |
@@ -246,7 +279,7 @@ Remote config `features[]` array controls per-signal enable/disable by `featureN
 | Processor                   | Role                                                                                                                                                                                                                                                      |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GlobalAttributesProcessor` | Injects `session.id`, `installation.id`, `screen.name`, `url.path`, `page.url`, `browser.name`, `browser.version`, `os.name`, `os.version`, `device.type`, `network.connection.type`, `rum.sdk.version`, `project.id`, `platform=web` on every span + log |
-| `PulseSamplingProcessor`    | One draw at construction: if unsampled, sets `pulse.sampled=false` on spans/logs — **does not drop export**; backend/collector must interpret if “no billing” is required                                                                               |
+| *(removed)* `PulseSamplingProcessor` | Replaced by **export-time** sampling (see `sampling/*`) — no `pulse.sampled` tag-only path                                                                 |
 | `SignalFilterProcessor`     | Remote `signals` config: log attribute drops / log drops; **trace span attribute drops are not implemented** (`onEnd` is a no-op for mutation — see source comment)                                                                                      |
 
 
@@ -273,9 +306,9 @@ Remote config `features[]` array controls per-signal enable/disable by `featureN
 
 ## What Has Been Tested
 
-### Unit tests (`src/__tests__/m1.test.ts`) — **115** tests
+### Unit tests (`src/__tests__/`) — **166** tests (`m1.test.ts`, `integration-simplified-init.test.ts`, `export-sampling-gate.test.ts`, `merge-pulse-sdk-config.test.ts`, `metrics-to-add.test.ts`, `sampling-signal-match.test.ts`, `session-sampling-rate.test.ts`, `signal-filter-processor.test.ts`)
 
-Suites include (non-exhaustive): **Installation ID** (storage tiers + extended cases), **Session Provider** (rotation, BFCache, max lifetime, page-hidden timeout, clone flag), **Config validation**, **Resource builder**, **SDK singleton / consent**, **resolveConfigUrl**, **SdkConfigFetcher**, **FeatureGate**, **wasNewInstallation**, **computeAspectRatio**, **GlobalAttributesProcessor**, **SessionInstrumentation events**, **SDK public API** (`trackEvent` / `reportException` / `trackNonFatal` / `reportDeviceCrash`), **sampling/filter processors**, and more.
+Suites include (non-exhaustive): **Installation ID**, **Session Provider**, **Config validation**, **Resource builder**, **SDK singleton / consent**, **SdkConfigFetcher**, **mergePulseSdkConfig** / critical-policy normalization, **FeatureGate**, **ExportSamplingGate** (session rate 0, critical bypass, `signalsToSample`), **`sessionRuleMatchesWeb` / `resolveSessionSamplingRate`** (platform = `web`, UNKNOWN), **`pulseSignalConditionMatches`** (invalid-regex fallback), **GlobalAttributesProcessor**, **SessionInstrumentation**, **SDK public API**, **SignalFilterProcessor**, and more.
 
 **Note:** `m1.test.ts` mocks `../exporters`; deep transport behavior is covered mainly by E2E and manual checks.
 
@@ -388,7 +421,7 @@ Filter M1-focused groups: `yarn e2e --grep "@M1"` from `examples/ecommerce-demo/
 
 ```bash
 cd pulse-web-otel
-yarn test:run          # single run — 115 tests in m1.test.ts
+yarn test:run          # single run — all src/__tests__/**/*.test.ts
 yarn test              # watch mode
 ```
 
@@ -443,7 +476,7 @@ Structured pass over `src/` (init, session, exporters, persistence, processors, 
 | Priority | Topic | Detail |
 |----------|--------|--------|
 | ~~P1~~ | Default OTLP format | **Resolved:** omitted `export.format` ⇒ protobuf (`src/exporters.ts`). |
-| P1 | Sampling vs “zero export” | `PulseSamplingProcessor` only marks `pulse.sampled=false`. **Verify** collector/backend drops or ignores unsampled signals if billing depends on it. |
+| ~~P1~~ | Sampling vs Android | **Resolved:** `ExportSamplingGate` + sampled exporters mirror Android export-time filter (`sessionSampleRate: 0` ⇒ no OTLP). |
 | P1 | Remote `session` feature off | Disables **all** session instrumentation including `session.start` / `session.end`. Confirm this is intended when `session` feature is disabled in remote config. |
 | P1 | `getPreviousSessionId()` | Reads `localStorage['pulse_prev_session_id']` but **nothing in-repo writes that key** — `session.previousSessionId` on `session.start` is usually empty unless extended later. |
 | P2 | Keepalive log export success | `KeepaliveFetchLogExporter` treats fulfilled `fetch` as success; **non-2xx** may still dequeue — verify retry expectations. |
@@ -459,7 +492,7 @@ Structured pass over `src/` (init, session, exporters, persistence, processors, 
 
 ### Verification checklist (engineering)
 
-1. Backend/collector: behavior for `pulse.sampled=false`.
+1. E2E: confirm `sessionSampleRate: 0` yields zero OTLP intercepts (sampling is client-side).
 2. Intended `session.start` behavior on reload when session is reused.
 3. OTel SDK version: does `setAttribute(key, undefined)` actually drop keys in `SignalFilterProcessor`?
 
@@ -473,7 +506,7 @@ Structured pass over `src/` (init, session, exporters, persistence, processors, 
 | Browser gzip                           | **Done (M1)** | `src/utils/otlp-gzip.ts` + transport wrapper; use `export.compression: 'none'` when `CompressionStream` is missing or for tests        |
 | `beforeSend` hook                      | **Not wired** | Declared on `PulseWebConfig`; no processor/exporter calls it yet (M3 plan)                                                               |
 | Default protobuf on wire              | **Done**      | Omitted `export.format` uses protobuf; `export.format: 'json'` for dev/tests                                                           |
-| Sampling stops export                 | **No**        | Only attribute `pulse.sampled`; export still runs                                                                                       |
+| Sampling vs Android                   | **Done**      | `ExportSamplingGate` + sampled span/log/metric exporters + keepalive log filter                                                        |
 | `pulse_prev_session_id` persistence   | **Unused**    | Reader exists; writer not implemented — previous session id on logs stays empty unless added later                                       |
 | Web Vitals / clicks / network / nav    | M3            | Only `src/instrumentations/session.ts` exists today; other instrumentations are **not** in this package tree yet (per milestones)       |
 | React `PulseProvider` / SSR guard       | M2            | Not in package; `PulseErrorBoundary` + `@dreamhorizon/pulse-web/react` only                                                              |

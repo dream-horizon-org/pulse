@@ -2,7 +2,15 @@
 // fetches fresh config in the background from /v1/configs/active.
 // See: web-sdk-plan/v1/01-foundation/sdk-config.md
 
-import type { PulseSdkConfig } from "./types/remote-config";
+import type {
+  PulseAttributesToAddEntry,
+  PulseAttributesToDropEntry,
+  PulseMetricsToAddEntry,
+  PulseMetricsToAddTarget,
+  PulseSdkConfig,
+  PulseSignalMatchCondition,
+  PulseSignalsToSampleEntry,
+} from "./types/remote-config";
 
 export type {
   PulseAttributeValue,
@@ -14,12 +22,165 @@ export type {
   PulseSdkConfig,
   PulseSdkName,
   PulseSessionSamplingRule,
+  PulseMetricsToAddEntry,
+  PulseMetricsToAddTarget,
+  PulseMetricsType,
   PulseSignalConfig,
   PulseSignalFilter,
   PulseSignalMatchCondition,
 } from "./types/remote-config";
 
 const SDK_CONFIG_CACHE_KEY = "pulse_sdk_config";
+
+function normalizeMatchProp(p: {
+  key?: string;
+  name?: string;
+  value?: string | null;
+}): { key: string; value: string } {
+  return {
+    key: p.key ?? p.name ?? "",
+    value: p.value ?? "",
+  };
+}
+
+/** Dashboard / server JSON often uses lowercase scopes; OTEL matcher expects Android enums. */
+export function normalizeSignalMatchCondition(
+  c: PulseSignalMatchCondition,
+): PulseSignalMatchCondition {
+  const scopes = (c.scopes ?? [])
+    .map((s) => String(s).toUpperCase())
+    .filter(
+      (u): u is "LOGS" | "TRACES" | "METRICS" =>
+        u === "LOGS" || u === "TRACES" || u === "METRICS",
+    );
+  const rawProps = (c.props ?? []) as Array<{
+    key?: string;
+    name?: string;
+    value?: string | null;
+  }>;
+  return {
+    ...c,
+    props: rawProps.map(normalizeMatchProp),
+    scopes,
+  };
+}
+
+function normalizePulseMetricsToAddTarget(
+  t: PulseMetricsToAddTarget,
+): PulseMetricsToAddTarget {
+  if (t.type === "attribute") {
+    return {
+      ...t,
+      condition: normalizeSignalMatchCondition(t.condition),
+    };
+  }
+  return t;
+}
+
+function normalizeMetricsToAddEntry(
+  e: PulseMetricsToAddEntry,
+): PulseMetricsToAddEntry {
+  return {
+    ...e,
+    condition: normalizeSignalMatchCondition(
+      e.condition ?? {
+        name: ".*",
+        props: [],
+        scopes: [],
+        sdks: [],
+      },
+    ),
+    target: normalizePulseMetricsToAddTarget(e.target),
+    attributesToPick: (e.attributesToPick ?? []).map(
+      normalizeSignalMatchCondition,
+    ),
+  };
+}
+
+function normalizeMetricsToAdd(
+  entries: PulseMetricsToAddEntry[] | undefined,
+): PulseMetricsToAddEntry[] {
+  return (entries ?? []).map(normalizeMetricsToAddEntry);
+}
+
+function normalizeAttributesToDrop(
+  entries: PulseAttributesToDropEntry[],
+): PulseAttributesToDropEntry[] {
+  return entries.map((e) => ({
+    ...e,
+    condition: normalizeSignalMatchCondition(e.condition),
+  }));
+}
+
+function normalizeAttributesToAdd(
+  entries: PulseAttributesToAddEntry[],
+): PulseAttributesToAddEntry[] {
+  return entries.map((e) => ({
+    ...e,
+    condition: normalizeSignalMatchCondition(e.condition),
+  }));
+}
+
+/** Merge server JSON with defaults; normalize Android `criticalSessionPolicies` key. */
+export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
+  const samplingIn = raw.sampling ?? DEFAULT_SDK_CONFIG.sampling;
+  const {
+    criticalSessionPolicies: _criticalSession,
+    criticalEventPolicies: _criticalEvent,
+    ...samplingRest
+  } = samplingIn;
+  const criticalMerged = _criticalEvent ?? _criticalSession;
+  const signalsIn = raw.signals ?? DEFAULT_SDK_CONFIG.signals;
+  const filtersMerged = {
+    ...DEFAULT_SDK_CONFIG.signals.filters,
+    ...signalsIn.filters,
+  };
+  return {
+    ...DEFAULT_SDK_CONFIG,
+    ...raw,
+    sampling: {
+      ...DEFAULT_SDK_CONFIG.sampling,
+      ...samplingRest,
+      default: {
+        ...DEFAULT_SDK_CONFIG.sampling.default,
+        ...samplingIn.default,
+      },
+      rules: samplingIn.rules ?? [],
+      signalsToSample: (samplingIn.signalsToSample ?? []).map(
+        (e: PulseSignalsToSampleEntry) => ({
+          ...e,
+          condition: normalizeSignalMatchCondition(e.condition),
+        }),
+      ),
+      ...(criticalMerged
+        ? {
+            criticalEventPolicies: {
+              alwaysSend: (criticalMerged.alwaysSend ?? []).map(
+                normalizeSignalMatchCondition,
+              ),
+            },
+          }
+        : {}),
+    },
+    signals: {
+      ...DEFAULT_SDK_CONFIG.signals,
+      ...signalsIn,
+      attributesToDrop: normalizeAttributesToDrop(
+        signalsIn.attributesToDrop ?? [],
+      ),
+      attributesToAdd: normalizeAttributesToAdd(
+        signalsIn.attributesToAdd ?? [],
+      ),
+      filters: {
+        ...filtersMerged,
+        values: (filtersMerged.values ?? []).map(normalizeSignalMatchCondition),
+      },
+      metricsToAdd: normalizeMetricsToAdd(signalsIn.metricsToAdd),
+    },
+    interaction: raw.interaction ?? DEFAULT_SDK_CONFIG.interaction,
+    features: raw.features ?? [],
+  };
+}
 
 /** Temporary dev tracing — grep `PulseWeb:sdkConfig` or `sdkConfigDevLog` to remove. */
 function sdkConfigDevLog(
@@ -35,12 +196,17 @@ function sdkConfigDevLog(
 
 export const DEFAULT_SDK_CONFIG: PulseSdkConfig = {
   version: -1,
-  sampling: { default: { sessionSampleRate: 1.0 }, rules: [] },
+  sampling: {
+    default: { sessionSampleRate: 1.0 },
+    rules: [],
+    signalsToSample: [],
+  },
   signals: {
     scheduleDurationMs: 5000,
     attributesToDrop: [],
     attributesToAdd: [],
     filters: { mode: "BLACKLIST", values: [] },
+    metricsToAdd: [],
   },
   interaction: { beforeInitQueueSize: 5000 },
   features: [],
@@ -126,7 +292,7 @@ export class SdkConfigFetcher {
       } else {
         const parsed: unknown = JSON.parse(raw);
         if (isValidSdkConfig(parsed)) {
-          this.config = parsed;
+          this.config = mergePulseSdkConfig(parsed);
           source = "localStorage_valid";
         } else {
           source = "localStorage_invalid_shape";
@@ -184,7 +350,7 @@ export class SdkConfigFetcher {
 
       // Only update and persist if version has changed
       if (data.version !== this.config.version) {
-        this.config = data;
+        this.config = mergePulseSdkConfig(data);
         sdkConfigDevLog("fetchInBackground applied new version (in-memory)", {
           previousVersion,
           newVersion: data.version,
@@ -193,7 +359,10 @@ export class SdkConfigFetcher {
 
         if (typeof window !== "undefined") {
           try {
-            localStorage.setItem(SDK_CONFIG_CACHE_KEY, JSON.stringify(data));
+            localStorage.setItem(
+              SDK_CONFIG_CACHE_KEY,
+              JSON.stringify(this.config),
+            );
             sdkConfigDevLog("fetchInBackground persisted localStorage", {
               key: SDK_CONFIG_CACHE_KEY,
               version: data.version,

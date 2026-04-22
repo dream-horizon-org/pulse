@@ -31,9 +31,38 @@ export interface PulseFeatureConfig {
 
 export interface PulseSignalMatchCondition {
   name: string;
+  /** Attribute key/value regexes; backend JSON may use `name` instead of `key` on each prop — normalized at merge. */
   props: Array<{ key: string; value: string }>;
   scopes: Array<"LOGS" | "TRACES" | "METRICS">;
   sdks: PulseSdkName[];
+}
+
+/** Polymorphic `signals.metricsToAdd[].target` — JSON discriminator `type`. */
+export type PulseMetricsToAddTarget =
+  | { type: "name" }
+  | {
+      type: "attribute";
+      condition: PulseSignalMatchCondition;
+      shouldAddPropNameAsSuffix?: boolean;
+    };
+
+/** Polymorphic `signals.metricsToAdd[].type` — JSON discriminator `type`. */
+export type PulseMetricsType =
+  | { type: "counter" }
+  | { type: "gauge"; isFraction: boolean }
+  | {
+      type: "histogram";
+      bucket?: number[] | null;
+      isFraction: boolean;
+    }
+  | { type: "sum"; isFraction: boolean; isMonotonic: boolean };
+
+export interface PulseMetricsToAddEntry {
+  name: string;
+  target: PulseMetricsToAddTarget;
+  condition: PulseSignalMatchCondition;
+  type: PulseMetricsType;
+  attributesToPick?: PulseSignalMatchCondition[];
 }
 
 export interface PulseAttributeValue {
@@ -65,12 +94,24 @@ export interface PulseSignalConfig {
   attributesToDrop: PulseAttributesToDropEntry[];
   attributesToAdd: PulseAttributesToAddEntry[];
   filters: PulseSignalFilter;
+  /** Derived OTel metrics from matching spans/logs at export time (Android parity). */
+  metricsToAdd: PulseMetricsToAddEntry[];
+}
+
+/** Per-signal sampling override (Android `signalsToSample`). */
+export interface PulseSignalsToSampleEntry {
+  condition: PulseSignalMatchCondition;
+  sampleRate: number;
 }
 
 export interface PulseSamplingConfig {
   default: { sessionSampleRate: number };
   rules: PulseSessionSamplingRule[];
+  /** Android JSON key — same as `criticalEventPolicies` when present. */
+  criticalSessionPolicies?: { alwaysSend: PulseSignalMatchCondition[] };
   criticalEventPolicies?: { alwaysSend: PulseSignalMatchCondition[] };
+  /** Android `signalsToSample` — optional per-signal rates after attr pipeline. */
+  signalsToSample?: PulseSignalsToSampleEntry[];
 }
 
 export interface PulseSessionSamplingRule {

@@ -45,10 +45,18 @@ pulse-web-otel/
 │   ├── version.ts                    # __SDK_VERSION__ placeholder
 │   ├── persistence/
 │   │   └── indexed-db.ts             # IndexedDB signal buffer (drain on init)
+│   ├── sampling/                     # Export-time session sampling (Android parity)
+│   │   ├── export-sampling-gate.ts   # ExportSamplingGate orchestration
+│   │   ├── sampling-exporters.ts     # Sampled + MetricsToAdd span/log wrappers (export order)
+│   │   ├── metrics-to-add-recorder.ts
+│   │   ├── metrics-to-add-apply.ts
+│   │   └── sanitize-instrumentation-name.ts
+│   ├── types/sampling.ts             # PulseSignalScope
+│   ├── utils/sampling-signal-match.ts # pulseSignalConditionMatches (Android matcher)
+│   ├── utils/session-sampling-rate.ts # resolveSessionSamplingRate, log body, critical list
 │   ├── processors/
 │   │   ├── global-attrs-processor.ts # Injects session.id, screen.name, url.path etc.
-│   │   ├── sampling-processor.ts     # Session-level sample rate
-│   │   └── signal-filter-processor.ts# Attribute drop/add, signal blacklist
+│   │   └── signal-filter-processor.ts # Attribute drop/add (processor); signal BLACKLIST/WHITELIST in export gate
 │   ├── instrumentations/
 │   │   ├── session.ts                # session.start / session.end
 │   │   ├── errors.ts                 # device.crash + non_fatal
@@ -101,6 +109,18 @@ Every signal must carry these attrs. Deviating breaks the Pulse dashboard.
 
 ---
 
+## Ground rule — parity with Android SDK
+
+**Core product logic should mimic `pulse-android-otel` as closely as browser constraints allow.** That includes sampling (session draw + export-time behavior), remote config interpretation, signal filtering/add/drop semantics, and session identity semantics. When `MILESTONES.md` or phase docs disagree with Android, **treat Android as the source of truth** unless there is an explicit, documented browser-only exception (e.g. CORS, `fetch({ keepalive })` on unload, no `Context` for rule matching — then document the smallest intentional delta).
+
+Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcessors`), `pulse-android-sdk-internal` exporter wiring, session + semconv modules.
+
+**Session sampling rules (web vs Android):** `web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md` — which `sampling.rules[].name` values are implemented on web, which still only match `navigator.userAgent`, and how the Pulse dashboard should author rules for `pulse_web_js`.
+
+**Remote config at runtime:** `SdkConfigFetcher.loadCached()` (plus merge) feeds `FeatureGate` and `ExportSamplingGate` at `PulseWeb.start()`. **`fetchInBackground()` persists newer JSON to storage but does not rebuild those gates** — sampling and feature flags stay as at cold start until a **full page reload** (documented M1 scope).
+
+---
+
 ## Key Decisions
 
 - **Session replay is opt-in** — rrweb adds ~50 KB; not imported by default
@@ -120,8 +140,11 @@ Every signal must carry these attrs. Deviating breaks the Pulse dashboard.
 | Verification queries (ClickHouse SQL) | `web-sdk-plan/v1/MILESTONES.md` — inside each milestone's testing scope |
 | Foundation detail | `web-sdk-plan/v1/01-foundation/index.md` |
 | Instrumentation specs | `web-sdk-plan/v1/02-instrumentations/<signal>.md` |
-| Interactions spec | `web-sdk-plan/v1/03-interactions/` |
+| Interactions spec | `web-sdk-plan/v1/03-interactions/` · M2 parity plan: `v1/03-interactions/IMPLEMENTATION-PLAN-M2-ANDROID-PARITY.md` |
 | Framework integrations | `web-sdk-plan/v1/04-frameworks/` |
 | Build / distribution | `web-sdk-plan/v1/05-build-distribution/` |
 | V2 features | `web-sdk-plan/v2/` |
 | Phase dependencies | `web-sdk-plan/00-orchestrator.md` |
+| Session sampling rules (web vs Android, dashboard) | `web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md` |
+| `metricsToAdd` (product + backend + Web gap) | `web-sdk-plan/METRICS-TO-ADD.md` |
+| `metricsToAdd` Web implementation plan | `web-sdk-plan/METRICS-TO-ADD-WEB-PLAN.md` |

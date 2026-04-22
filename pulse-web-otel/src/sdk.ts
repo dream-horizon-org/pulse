@@ -21,7 +21,6 @@ import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
 import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
-import { PulseSamplingProcessor } from "./processors/sampling-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
 import { createProviders } from "./exporters";
 import { InstrumentationRegistry } from "./instrumentation-registry";
@@ -33,6 +32,7 @@ import { IdbSignalBuffer } from "./persistence/indexed-db";
 import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { PulseWebSemconv } from "./semconv";
 import { errorFilenameFromStack } from "./utils/error-stack";
+import { ExportSamplingGate } from "./sampling/export-sampling-gate";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -147,17 +147,16 @@ class PulseWebSDK implements SdkContext {
     this.configFetcher = new SdkConfigFetcher(
       endpointBaseUrl,
       projectId,
-      undefined,
+      configWithUrl.configEndpointUrl,
       configWithUrl.apiKey,
     );
     const sdkConfig = this.configFetcher.loadCached();
 
     const gate = new FeatureGate(sdkConfig);
     this.gate = gate;
-    const samplingProcessor = new PulseSamplingProcessor(
-      sdkConfig,
-      "pulse_web_js",
-    );
+    const samplingGate = new ExportSamplingGate(sdkConfig, "pulse_web_js", {
+      serviceVersion: configWithUrl.serviceVersion,
+    });
     const filterProcessor = new SignalFilterProcessor(sdkConfig.signals);
 
     this.globalAttrsProcessor = new PulseGlobalAttributesProcessor(
@@ -166,18 +165,13 @@ class PulseWebSDK implements SdkContext {
       meteringSessionId,
     );
 
-    const spanProcessors = [
-      this.globalAttrsProcessor,
-      samplingProcessor,
-      filterProcessor,
-    ];
+    const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
     const logLifecycle = configWithUrl.debugLogRecordLifecycle === true;
     const logProcessors = [
       ...(logLifecycle
         ? [new LogRecordLifecycleDebugProcessor("ingress")]
         : []),
       this.globalAttrsProcessor,
-      samplingProcessor,
       filterProcessor,
       ...(logLifecycle
         ? [new LogRecordLifecycleDebugProcessor("pre_batch")]
@@ -196,6 +190,9 @@ class PulseWebSDK implements SdkContext {
       // Inject the same global attributes into metric data points at export time.
       getMetricGlobalAttrs: () =>
         this.globalAttrsProcessor.getCommonAttrsForMetrics(),
+      samplingGate,
+      metricsToAdd: sdkConfig.signals.metricsToAdd,
+      metricsToAddSdkName: "pulse_web_js" as const,
       ...(diskEnabled
         ? { diskBuffer: { enabled: true, buffer: idbBuffer } }
         : {}),

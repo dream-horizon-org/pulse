@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
+import { mockSdkConfigAbsoluteUrl } from "./maybeLoadMockPulseSdkConfig";
 
 const Home = lazy(() => import("./routes/Home"));
 const Products = lazy(() => import("./routes/Products"));
@@ -106,16 +107,29 @@ export default function App() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
+    const enableDiskBuffer =
+      import.meta.env["VITE_PULSE_DISK_BUFFER"] === "true" ||
+      searchParams.get("pulse_disk") === "1";
+
+    const dataCollectionState =
+      consentParam === "denied"
+        ? PulseDataCollectionConsent.DENIED
+        : consentParam === "pending"
+          ? PulseDataCollectionConsent.PENDING
+          : PulseDataCollectionConsent.ALLOWED;
+
+    const useMockSdkConfig =
+      import.meta.env["VITE_PULSE_MOCK_SDK_CONFIG"] === "true";
 
     PulseWeb.start({
       endpointBaseUrl: import.meta.env["VITE_PULSE_ENDPOINT_BASE_URL"],
       apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
-      dataCollectionState:
-        consentParam === "denied"
-          ? PulseDataCollectionConsent.DENIED
-          : PulseDataCollectionConsent.ALLOWED,
+      ...(useMockSdkConfig
+        ? { configEndpointUrl: mockSdkConfigAbsoluteUrl() }
+        : {}),
+      dataCollectionState,
       export: {
         format:
           (import.meta.env["VITE_PULSE_FORMAT"] as
@@ -135,6 +149,15 @@ export default function App() {
       },
       debugLogRecordLifecycle:
         import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true",
+      ...(enableDiskBuffer
+        ? {
+            diskBuffering: {
+              enabled: true,
+              maxAgeMs: 86_400_000,
+              maxSizeBytes: 5_000_000,
+            },
+          }
+        : {}),
     });
 
     // Expose for E2E shutdown test (m1.spec.ts)

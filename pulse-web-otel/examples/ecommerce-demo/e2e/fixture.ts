@@ -73,6 +73,7 @@ interface OtlpMetric {
   name: string;
   gauge?: { dataPoints: OtlpDataPoint[] };
   sum?: { dataPoints: OtlpDataPoint[] };
+  histogram?: { dataPoints: OtlpDataPoint[] };
 }
 
 export type CapturedRequest =
@@ -181,7 +182,12 @@ export function findAllMetricPoints(
       for (const sm of rm.scopeMetrics) {
         for (const m of sm.metrics) {
           if (m.name === metricName) {
-            for (const dp of m.gauge?.dataPoints ?? m.sum?.dataPoints ?? []) {
+            const dps =
+              m.gauge?.dataPoints ??
+              m.sum?.dataPoints ??
+              m.histogram?.dataPoints ??
+              [];
+            for (const dp of dps) {
               out.push(dp);
             }
           }
