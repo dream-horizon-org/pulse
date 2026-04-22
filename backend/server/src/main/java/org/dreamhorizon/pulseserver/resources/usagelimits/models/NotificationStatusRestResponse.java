@@ -22,6 +22,12 @@ public class NotificationStatusRestResponse {
   
   @JsonProperty("thresholdsNotified")
   private JsonNode thresholdsNotified;
+
+  @JsonProperty("projectUsageLimitId")
+  private Long projectUsageLimitId;
+
+  @JsonProperty("notificationActive")
+  private Boolean notificationActive;
   
   @JsonProperty("createdAt")
   private Instant createdAt;

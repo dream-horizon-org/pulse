@@ -4,12 +4,14 @@ export interface RequestStartContext {
   type: 'fetch' | 'xmlhttprequest';
   baseUrl?: string;
   requestHeaders?: Record<string, string>;
+  requestBodyContentLength?: number;
 }
 
 export interface RequestEndContextSuccess {
   status: number;
   state: 'success';
   responseHeaders?: Record<string, string>;
+  responseBodyContentLength?: number;
 }
 
 export interface RequestEndContextError {
@@ -17,6 +19,7 @@ export interface RequestEndContextError {
   status?: number;
   error?: Error;
   responseHeaders?: Record<string, string>;
+  responseBodyContentLength?: number;
 }
 
 export type RequestEndContext =

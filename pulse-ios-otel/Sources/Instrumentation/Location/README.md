@@ -29,7 +29,6 @@ It is **off** by default. Turn it on (or leave it off) in the `instrumentations`
 
 ```swift
 Pulse.shared.initialize(
-    endpointBaseUrl: "https://your-backend.com",
     apiKey: "your-api-key",
     dataCollectionState: .allowed,
     instrumentations: { config in

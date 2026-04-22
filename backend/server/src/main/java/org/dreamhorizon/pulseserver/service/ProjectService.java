@@ -16,6 +16,7 @@ import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.ProjectQueries;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
 import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
 import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
@@ -77,6 +78,12 @@ public class ProjectService {
 
     // 1. Pre-transaction: Generate projectId
     String projectId = generateProjectId(name);
+    if (collidesWithReservedDevProjectIdPrefix(projectId)) {
+      return Single.error(
+          ServiceError.INVALID_NAME_SUPPLIED.getCustomException(
+              "A project with that name already exists",
+              "That name is already in use. Please choose a different project name."));
+    }
 
     Project project = Project.builder()
         .projectId(projectId)
@@ -231,6 +238,15 @@ public class ProjectService {
   private String generateProjectId(String projectName) {
     String sanitized = projectName.replaceAll("\\s+", "-");
     return sanitized + "-" + SecureRandomUtil.generateAlphanumeric(PROJECT_ID_RANDOM_LENGTH);
+  }
+
+  /**
+   * API keys are {@code {projectId}_{secret}}; dev keys for the seeded project use prefix
+   * {@code default-project_}. SaaS-generated ids must not start with that prefix or they collide
+   * with dev-mode key shape (seed / {@code DevModeInitService}, not {@code #generateProjectId}).
+   */
+  private static boolean collidesWithReservedDevProjectIdPrefix(String projectId) {
+    return projectId != null && projectId.startsWith("default-project_");
   }
 
   // ==================== NESTED CLASSES ====================

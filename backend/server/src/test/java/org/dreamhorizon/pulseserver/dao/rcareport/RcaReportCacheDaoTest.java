@@ -17,6 +17,7 @@ import io.vertx.rxjava3.sqlclient.Tuple;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +35,8 @@ import org.mockito.quality.Strictness;
 class RcaReportCacheDaoTest {
 
   private static final String PROJECT = "p1";
-  private static final String INTERACTION = "checkout";
+  private static final RcaType TYPE = RcaType.INTERACTION;
+  private static final String ENTITY_KEY = "checkout";
   private static final LocalDate DATE = LocalDate.of(2025, 5, 1);
 
   @Mock
@@ -82,7 +84,7 @@ class RcaReportCacheDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       RcaReportCacheHit hit =
-          dao.get(PROJECT, INTERACTION, DATE).blockingGet();
+          dao.get(PROJECT, TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(hit).isNull();
     }
@@ -101,7 +103,7 @@ class RcaReportCacheDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       RcaReportCacheHit hit =
-          dao.get(PROJECT, INTERACTION, DATE).blockingGet();
+          dao.get(PROJECT, TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(hit.reportBody()).isEqualTo("{\"report\":1}");
       assertThat(hit.cachedAt())
@@ -121,7 +123,7 @@ class RcaReportCacheDaoTest {
       when(rowSet.size()).thenReturn(1);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      RcaReportCacheHit hit = dao.get(PROJECT, INTERACTION, DATE).blockingGet();
+      RcaReportCacheHit hit = dao.get(PROJECT, TYPE, ENTITY_KEY, DATE).blockingGet();
 
       assertThat(hit).isNull();
     }
@@ -132,7 +134,7 @@ class RcaReportCacheDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(new RuntimeException("db down")));
 
-      TestObserver<RcaReportCacheHit> observer = dao.get(PROJECT, INTERACTION, DATE).test();
+      TestObserver<RcaReportCacheHit> observer = dao.get(PROJECT, TYPE, ENTITY_KEY, DATE).test();
 
       observer.assertError(RuntimeException.class);
     }
@@ -145,7 +147,7 @@ class RcaReportCacheDaoTest {
     void shouldSkipWriteWhenBodyBlank() {
       setupWriter();
 
-      dao.put(PROJECT, INTERACTION, DATE, "   ").blockingAwait();
+      dao.put(PROJECT, TYPE, ENTITY_KEY, DATE, "   ").blockingAwait();
 
       verify(writerPool, org.mockito.Mockito.never()).preparedQuery(anyString());
     }
@@ -156,7 +158,7 @@ class RcaReportCacheDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(0);
 
-      dao.put(PROJECT, INTERACTION, DATE, "{\"x\":1}").blockingAwait();
+      dao.put(PROJECT, TYPE, ENTITY_KEY, DATE, "{\"x\":1}").blockingAwait();
 
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("INSERT INTO rca_report_cache"));
     }
@@ -165,7 +167,7 @@ class RcaReportCacheDaoTest {
     void shouldCompleteWithoutWriteWhenReportBodyNull() {
       setupWriter();
 
-      dao.put(PROJECT, INTERACTION, DATE, null).blockingAwait();
+      dao.put(PROJECT, TYPE, ENTITY_KEY, DATE, null).blockingAwait();
 
       verify(writerPool, org.mockito.Mockito.never()).preparedQuery(anyString());
     }
@@ -176,7 +178,7 @@ class RcaReportCacheDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(new RuntimeException("write failed")));
 
-      dao.put(PROJECT, INTERACTION, DATE, "{\"x\":1}").test().assertError(RuntimeException.class);
+      dao.put(PROJECT, TYPE, ENTITY_KEY, DATE, "{\"x\":1}").test().assertError(RuntimeException.class);
 
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("INSERT INTO rca_report_cache"));
     }

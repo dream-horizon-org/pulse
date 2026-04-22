@@ -56,15 +56,16 @@ public class MainApplication extends Launcher {
   }
 
   protected Module[] getGoogleGuiceModules(Vertx vertx) {
-    return new Module[]{
-      new MainModule(vertx),
-      new ConfigModule(vertx),
-      new ValidationModule(),
-      new UploadInteractionDetailModule(vertx),
-      new InteractionModule(),
-      new HeatmapModule(),
-      new QueryEngineModule(),
-      new EventDefinitionModule()
+    return new Module[] {
+        new MainModule(vertx),
+        new RcaModule(),
+        new ConfigModule(vertx),
+        new ValidationModule(),
+        new UploadInteractionDetailModule(vertx),
+        new InteractionModule(),
+        new HeatmapModule(),
+        new QueryEngineModule(),
+        new EventDefinitionModule()
     };
   }
 }

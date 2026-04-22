@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import reactor.core.publisher.Mono;
 import static org.mockito.Mockito.doReturn;
@@ -36,6 +37,7 @@ import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseReadClient;
+import jakarta.ws.rs.WebApplicationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -172,6 +174,23 @@ class ProjectServiceTest {
       verify(openFgaService).assignProjectRole(eq("user-1"), anyString(), eq("admin"));
       verify(openFgaService).linkProjectToTenant(anyString(), eq("tenant-1"));
       verify(notificationService).createDefaultPlatformMappings(anyString());
+    }
+
+    @Test
+    void shouldRejectProjectNameThatProducesSdkDevKeyPrefixCollision() {
+      ReqUserInfo userInfo =
+          ReqUserInfo.builder()
+              .userId("user-1")
+              .email("user@example.com")
+              .name("Test User")
+              .build();
+
+      projectService
+          .createProject("tenant-1", "default-project_ mobile app", "desc", userInfo)
+          .test()
+          .assertFailure(WebApplicationException.class);
+
+      verifyNoInteractions(mysqlClient);
     }
 
     @Test

@@ -1,0 +1,49 @@
+---
+# configure-broker.yml
+#
+# Configures Kafka (KRaft combined mode) on one or more broker hosts.
+# Safe to run multiple times — all tasks are idempotent.
+#
+# Required extra_vars:
+#   kraft_cluster_id   – from SSM /pulse/kafka/production/kraft_cluster_id
+#   num_brokers        – total number of brokers in the cluster
+#   route53_zone_name  – e.g. pulse.local
+#
+# Optional extra_vars:
+#   process_roles  – "broker,controller" (default) or "broker"
+#   target_hosts   – inventory group to target (default: kafka_brokers)
+
+- name: Configure Kafka brokers
+  hosts: "{{ target_hosts | default('kafka_brokers') }}"
+  become: true
+  vars:
+    process_roles: "broker,controller"
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: true
+    - name: restart kafka
+      systemd:
+        name: kafka
+        state: restarted
+
+  tasks:
+    - name: Configure broker
+      include_tasks: tasks/configure-broker-tasks.yml
+
+    # Create topics — runs only on node 1, idempotent
+    - name: Create Kafka topics
+      shell: |
+        "{{ kafka_dir }}/bin/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 \
+          --create --if-not-exists \
+          --topic "{{ item.name }}" \
+          --partitions {{ item.partitions }} \
+          --replication-factor {{ replication_factor }} \
+          --config retention.ms={{ retention_ms }} \
+          --config compression.type={{ compression_type }} \
+          --config min.insync.replicas={{ min_insync_replicas }}
+      loop: "{{ kafka_topics }}"
+      when: node_id | int == 1
+      changed_when: true
