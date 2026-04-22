@@ -14,3 +14,55 @@ CREATE TABLE IF NOT EXISTS otel.event_catalog_entries
 ON CLUSTER 'pulse-clickhouse'
 AS otel.event_catalog_entries_local
 ENGINE = Distributed('pulse-clickhouse', otel, event_catalog_entries_local, cityHash64(ProjectId));
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_event
+ON CLUSTER `pulse-clickhouse`
+TO otel.event_catalog_entries_local
+AS
+SELECT
+    ProjectId,
+    CAST('EVENT' AS LowCardinality(String)) AS FilterKey,
+    Body AS FilterValue
+FROM otel.otel_logs_local
+WHERE ProjectId != ''
+  AND PulseType = 'custom_event'
+  AND Body != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_app_build_name
+ON CLUSTER `pulse-clickhouse`
+TO otel.event_catalog_entries_local
+AS
+SELECT
+    ProjectId,
+    CAST('APP_BUILD_NAME' AS LowCardinality(String)) AS FilterKey,
+    ResourceAttributes['app.build_name'] AS FilterValue
+FROM otel.otel_logs_local
+WHERE ProjectId != ''
+  AND PulseType = 'custom_event'
+  AND ifNull(ResourceAttributes['app.build_name'], '') != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_os_version
+ON CLUSTER `pulse-clickhouse`
+TO otel.event_catalog_entries_local
+AS
+SELECT
+    ProjectId,
+    CAST('OS_VERSION' AS LowCardinality(String)) AS FilterKey,
+    ResourceAttributes['os.version'] AS FilterValue
+FROM otel.otel_logs_local
+WHERE ProjectId != ''
+  AND PulseType = 'custom_event'
+  AND ifNull(ResourceAttributes['os.version'], '') != '';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_os_name
+ON CLUSTER `pulse-clickhouse`
+TO otel.event_catalog_entries_local
+AS
+SELECT
+    ProjectId,
+    CAST('OS_NAME' AS LowCardinality(String)) AS FilterKey,
+    ResourceAttributes['os.name'] AS FilterValue
+FROM otel.otel_logs_local
+WHERE ProjectId != ''
+  AND PulseType = 'custom_event'
+  AND ifNull(ResourceAttributes['os.name'], '') != '';

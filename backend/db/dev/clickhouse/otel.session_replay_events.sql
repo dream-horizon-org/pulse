@@ -18,3 +18,31 @@ ENGINE = AggregatingMergeTree
 PARTITION BY (toYYYYMMDD(MinFirstTimestamp))
 ORDER BY (ProjectId, SessionId)
 SETTINGS merge_with_ttl_timeout = 86400, index_granularity = 8192;
+
+
+CREATE MATERIALIZED VIEW otel.session_replay_events_mv TO otel.session_replay_events
+(
+    `SessionId` String,
+    `ProjectId` LowCardinality(String),
+    `UserId` String,
+    `MinFirstTimestamp` DateTime64(6, 'UTC'),
+    `MaxLastTimestamp` DateTime64(6, 'UTC'),
+    `BlockUrls` Array(String),
+    `BlockFirstTimestamps` Array(DateTime64(6, 'UTC')),
+    `BlockLastTimestamps` Array(DateTime64(6, 'UTC')),
+    `SnapshotSource` AggregateFunction(argMin, String, DateTime64(6, 'UTC'))
+)
+AS SELECT
+            SessionId,
+            ProjectId,
+            any(UserId) AS UserId,
+            min(FirstTimestamp) AS MinFirstTimestamp,
+            max(LastTimestamp) AS MaxLastTimestamp,
+            groupArray(BlockUrl) AS BlockUrls,
+            groupArray(FirstTimestamp) AS BlockFirstTimestamps,
+            groupArray(LastTimestamp) AS BlockLastTimestamps,
+            argMinState(SnapshotSource, FirstTimestamp) AS SnapshotSource
+   FROM otel.kafka_session_replay_events
+   GROUP BY
+            SessionId,
+            ProjectId

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.project_monthly_usage_local
-    ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-clickhouse'
 (
     project_id    String                              CODEC(ZSTD(1)),
     month         Date                                CODEC(Delta, ZSTD(1)),
@@ -18,3 +18,69 @@ CREATE TABLE IF NOT EXISTS otel.project_monthly_usage
 ON CLUSTER 'pulse-clickhouse'
 AS otel.project_monthly_usage_local
 ENGINE = Distributed('pulse-clickhouse', otel, project_monthly_usage_local, cityHash64(project_id));
+
+
+CREATE MATERIALIZED VIEW otel.project_monthly_logs_mv TO otel.project_monthly_usage
+    ON CLUSTER 'pulse-clickhouse'
+(
+    `project_id` LowCardinality(String),
+    `month` Date,
+    `source` String,
+    `event_count` UInt64,
+    `session_count` AggregateFunction(uniqCombined64, String)
+)
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+   FROM otel.otel_logs_local
+   GROUP BY
+    project_id,
+    month,
+    source
+
+
+CREATE MATERIALIZED VIEW otel.project_monthly_traces_mv TO otel.project_monthly_usage
+    ON CLUSTER 'pulse-clickhouse'
+(
+    `project_id` LowCardinality(String),
+    `month` Date,
+    `source` String,
+    `event_count` UInt64,
+    `session_count` AggregateFunction(uniqCombined64, String)
+)
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+   FROM otel.otel_traces_local
+   GROUP BY
+    project_id,
+    month,
+    source
+
+
+CREATE MATERIALIZED VIEW otel.project_monthly_stack_traces_events_mv TO otel.project_monthly_usage
+    ON CLUSTER 'pulse-clickhouse'
+(
+    `project_id` LowCardinality(String),
+    `month` Date,
+    `source` String,
+    `event_count` UInt64,
+    `session_count` AggregateFunction(uniqCombined64, String)
+)
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+   FROM otel.stack_trace_events_local
+   GROUP BY
+    project_id,
+    month,
+    source
