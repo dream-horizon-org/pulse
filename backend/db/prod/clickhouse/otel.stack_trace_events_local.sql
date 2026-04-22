@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS otel.stack_trace_events
+CREATE TABLE otel.stack_trace_events_local
 ON CLUSTER 'pulse-clickhouse'
 (
     Timestamp DateTime64(9, 'UTC') CODEC(DoubleDelta, ZSTD(1)) COMMENT 'event time (ns precision, store UTC)',
@@ -42,10 +42,16 @@ ON CLUSTER 'pulse-clickhouse'
     INDEX idx_platform         Platform           TYPE set(8)             GRANULARITY 1,
     INDEX idx_os_version       OsVersion          TYPE set(256)           GRANULARITY 1,
     INDEX idx_timestamp        Timestamp          TYPE minmax             GRANULARITY 1
-)
+    )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/stack_trace_events_local', '{replica}')
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (ProjectId, GroupId, ExceptionType, Timestamp)
 TTL toDateTime(Timestamp) + toIntervalDay(7)  TO VOLUME 'cold',
     toDateTime(Timestamp) + toIntervalDay(90) DELETE
 SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+
+
+CREATE TABLE IF NOT EXISTS otel.stack_trace_events
+ON CLUSTER 'pulse-clickhouse'
+AS otel.stack_trace_events_local
+    ENGINE = Distributed('pulse-clickhouse', otel, stack_trace_events_local, cityHash64(TraceId));

@@ -1,5 +1,5 @@
-CREATE TABLE IF NOT EXISTS otel.root_cause_cache
-    ON CLUSTER 'pulse-clickhouse'
+CREATE TABLE otel.root_cause_cache_local
+ON CLUSTER 'pulse-clickhouse'
 (
     ProjectId         LowCardinality(String) CODEC(ZSTD(1)),
     interaction_name  LowCardinality(String) CODEC(ZSTD(1)),
@@ -20,3 +20,9 @@ ORDER BY (ProjectId, interaction_name, date, mode)
 TTL toDateTime(date) + toIntervalDay(7)  TO VOLUME 'cold',
     toDateTime(date) + toIntervalDay(90) DELETE
 SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+
+
+CREATE TABLE IF NOT EXISTS otel.root_cause_cache
+ON CLUSTER 'pulse-clickhouse'
+AS otel.root_cause_cache_local
+    ENGINE = Distributed('pulse-clickhouse', otel, root_cause_cache_local, cityHash64((ProjectId, interaction_name)));

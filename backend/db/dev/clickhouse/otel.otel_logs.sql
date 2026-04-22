@@ -1,5 +1,4 @@
 CREATE TABLE IF NOT EXISTS otel.otel_logs
-ON CLUSTER 'pulse-clickhouse'
 (
     `Timestamp`           DateTime64(9)                         CODEC(DoubleDelta, ZSTD(1)),
     `TraceId`             String                                CODEC(ZSTD(3)),
@@ -39,7 +38,7 @@ ON CLUSTER 'pulse-clickhouse'
     INDEX idx_span_id       SpanId         TYPE bloom_filter(0.001) GRANULARITY 4,
     INDEX idx_severity_num  SeverityNumber TYPE set(32)              GRANULARITY 1
 )
-ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/otel_logs_local', '{replica}')
+ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (ProjectId, PulseType, EventName, Timestamp)
 TTL

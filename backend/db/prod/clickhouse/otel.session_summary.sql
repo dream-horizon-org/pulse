@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS otel.session_summary
+CREATE TABLE otel.session_summary_local
 ON CLUSTER 'pulse-clickhouse'
 (
     ProjectId           LowCardinality(String) CODEC(ZSTD(1)),
@@ -30,10 +30,16 @@ ON CLUSTER 'pulse-clickhouse'
     INDEX idx_crash_count crashCount  TYPE minmax             GRANULARITY 1,
     INDEX idx_anr_count   anrCount    TYPE minmax             GRANULARITY 1,
     INDEX idx_nonfatal    nonFatal    TYPE minmax             GRANULARITY 1
-)
+    )
 ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/{shard}/otel/session_summary', '{replica}')
 PARTITION BY (toYYYYMMDD(startTime))
 ORDER BY (ProjectId, sessionId)
 TTL toDateTime(startTime) + toIntervalDay(7)  TO VOLUME 'cold',
     toDateTime(startTime) + toIntervalDay(90) DELETE
 SETTINGS index_granularity = 8192, storage_policy = 'tiered';
+
+
+CREATE TABLE IF NOT EXISTS otel.session_summary
+ON CLUSTER 'pulse-clickhouse'
+AS otel.session_summary_local
+    ENGINE = Distributed('pulse-clickhouse', otel, session_summary_local, cityHash64(sessionId));

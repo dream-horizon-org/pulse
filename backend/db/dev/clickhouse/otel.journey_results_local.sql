@@ -1,5 +1,4 @@
 CREATE TABLE IF NOT EXISTS otel.journey_results
-ON CLUSTER 'pulse-clickhouse'
 (
     JourneyId  UInt64                 COMMENT 'MySQL journey.id'                        CODEC(T64, ZSTD(1)),
     ProjectId  LowCardinality(String) COMMENT 'Project ID'                              CODEC(ZSTD(1)),
@@ -16,7 +15,7 @@ ON CLUSTER 'pulse-clickhouse'
     INDEX idx_created_at  CreatedAt  TYPE minmax GRANULARITY 1,
     INDEX idx_direction   Direction  TYPE set(2) GRANULARITY 1
 )
-ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/journey_results_local', '{replica}')
+ENGINE = MergeTree
 PARTITION BY toYYYYMM(toDate(RunTime))
 PRIMARY KEY (ProjectId, JourneyId, RunTime)
 ORDER BY (ProjectId, JourneyId, RunTime, Direction, PosFrom, EventFrom, PosTo, EventTo)

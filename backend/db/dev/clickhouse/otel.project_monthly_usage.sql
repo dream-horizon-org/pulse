@@ -1,5 +1,4 @@
 CREATE TABLE IF NOT EXISTS otel.project_monthly_usage
-    ON CLUSTER 'pulse-clickhouse'
 (
     project_id    String                              CODEC(ZSTD(1)),
     month         Date                                CODEC(Delta, ZSTD(1)),
@@ -7,7 +6,7 @@ CREATE TABLE IF NOT EXISTS otel.project_monthly_usage
     event_count   SimpleAggregateFunction(sum, UInt64)                      CODEC(T64, ZSTD(1)),
     session_count AggregateFunction(uniqCombined64, String)                 CODEC(ZSTD(1))
     )
-ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/{shard}/otel/project_monthly_usage', '{replica}')
+ENGINE = AggregatingMergeTree
 PARTITION BY toYYYYMM(month)
 ORDER BY (project_id, month, source)
 TTL toDateTime(month) + toIntervalDay(30) TO VOLUME 'cold'

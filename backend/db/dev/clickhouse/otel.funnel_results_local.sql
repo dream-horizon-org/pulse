@@ -1,5 +1,4 @@
 CREATE TABLE IF NOT EXISTS otel.funnel_results
-ON CLUSTER 'pulse-clickhouse'
 (
     FunnelId           UInt64                 COMMENT 'MySQL funnel.id'                                      CODEC(T64, ZSTD(1)),
     ProjectId          LowCardinality(String) COMMENT 'Project ID (proj-xxx)'                                CODEC(ZSTD(1)),
@@ -17,7 +16,7 @@ ON CLUSTER 'pulse-clickhouse'
     INDEX idx_created_at  CreatedAt  TYPE minmax              GRANULARITY 1,
     INDEX idx_step_name   StepName   TYPE bloom_filter(0.01)  GRANULARITY 1
     )
-ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/funnel_results_local', '{replica}')
+ENGINE = MergeTree
 PARTITION BY toYYYYMM(toDate(RunTime))
 ORDER BY (ProjectId, FunnelId, RunTime, StepIndex)
 TTL toDateTime(RunTime) + toIntervalDay(7)  TO VOLUME 'cold',
