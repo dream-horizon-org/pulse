@@ -294,8 +294,14 @@ final class RcaReportProxyHandler {
         return new RcaPostValidation.Invalid(errorResponse);
       }
 
-      // Extract or default the RCA type
       RcaType type = extractRcaType(objectRoot);
+      boolean typeMissing = type == null;
+      if (typeMissing) {
+        AiProxyUpstreamResult errorResponse =
+            badRequest(
+                ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS, "rcaType is required");
+        return new RcaPostValidation.Invalid(errorResponse);
+      }
 
       String entityKey = extractEntityKey(objectRoot);
       boolean entityMissing = entityKey == null || entityKey.isBlank();
@@ -324,14 +330,14 @@ final class RcaReportProxyHandler {
   private static RcaType extractRcaType(ObjectNode objectRoot) {
     JsonNode typeNode = objectRoot.get(TYPE_FIELD);
     if (typeNode == null || typeNode.isNull()) {
-      return RcaType.INTERACTION; // Default type for backward compatibility
+      return null;
     }
     String typeStr = typeNode.asText().trim().toUpperCase();
     try {
       return RcaType.valueOf(typeStr);
     } catch (IllegalArgumentException e) {
-      log.warn("Invalid RCA type '{}', defaulting to INTERACTION", typeStr);
-      return RcaType.INTERACTION;
+      log.warn("Invalid RCA type '{}'", typeStr);
+      return null;
     }
   }
 
