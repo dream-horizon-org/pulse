@@ -1,4 +1,6 @@
-// M1: PulseWebSDK — full 10-step init sequence (singleton). Optional async IndexedDB drain when diskBuffering enabled.
+// M1: PulseWebSDK — minimal init sequence matching Android's public API surface.
+// Endpoint URL, wire format, compression, batch config, and disk buffering are
+// hardcoded internally — not exposed in PulseWebConfig (mirrors Android SDK).
 
 import { trace } from "@opentelemetry/api";
 import type { Tracer } from "@opentelemetry/api";
@@ -22,14 +24,12 @@ import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
+import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { createProviders } from "./exporters";
 import { InstrumentationRegistry } from "./instrumentation-registry";
 import type { SdkContext } from "./instrumentation-registry";
 import { extractProjectId } from "./resource";
 import { isDataCollectionAllowed } from "./consent";
-import { drainBufferedOtlpExports } from "./persistence/drain-buffered-exports";
-import { IdbSignalBuffer } from "./persistence/indexed-db";
-import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { PulseWebSemconv } from "./semconv";
 import { errorFilenameFromStack } from "./utils/error-stack";
 import { ExportSamplingGate } from "./sampling/export-sampling-gate";
@@ -67,63 +67,24 @@ class PulseWebSDK implements SdkContext {
     // Step 1: Validate config
     validateConfig(config);
 
-    // Step 1.5: Resolve endpointBaseUrl from apiKey if not provided
-    const endpointBaseUrl = resolveEndpointBaseUrl(
-      config.apiKey,
-      config.endpointBaseUrl,
-    );
-    const configWithUrl: PulseWebConfig = {
-      ...config,
-      endpointBaseUrl: endpointBaseUrl,
-    };
+    // Step 1.5: Resolve endpointBaseUrl from apiKey (internal — not a public config field)
+    const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey);
 
     // Consent gate — DENIED or PENDING → no-op, zero signals emitted
-    if (!isDataCollectionAllowed(configWithUrl.dataCollectionState)) return;
-    this.config = configWithUrl;
+    if (!isDataCollectionAllowed(config.dataCollectionState)) return;
+    this.config = config;
 
-    const disk = configWithUrl.diskBuffering;
-    const diskEnabled = disk?.enabled === true;
-    const idbBuffer = new IdbSignalBuffer(disk?.maxAgeMs, disk?.maxSizeBytes);
     const meteringSessionId = crypto.randomUUID();
-
-    if (diskEnabled) {
-      this._starting = true;
-      void drainBufferedOtlpExports({
-        tracesUrl: `${endpointBaseUrl}/v1/traces`,
-        logsUrl: `${endpointBaseUrl}/v1/logs`,
-        metricsUrl: `${endpointBaseUrl}/v1/metrics`,
-        apiKey: configWithUrl.apiKey,
-        meteringSessionId,
-        buffer: idbBuffer,
-      })
-        .catch(() => {})
-        .finally(() => {
-          this._starting = false;
-          void this.finishStart(
-            configWithUrl,
-            endpointBaseUrl,
-            idbBuffer,
-            meteringSessionId,
-          );
-        });
-      return;
-    }
 
     // Set _starting before the async finishStart so the singleton guard blocks
     // any duplicate start() calls that arrive during the 200ms OS-version await.
     this._starting = true;
-    void this.finishStart(
-      configWithUrl,
-      endpointBaseUrl,
-      idbBuffer,
-      meteringSessionId,
-    );
+    void this.finishStart(config, endpointBaseUrl, meteringSessionId);
   }
 
   private async finishStart(
-    configWithUrl: PulseWebConfig,
+    config: PulseWebConfig,
     endpointBaseUrl: string,
-    idbBuffer: IdbSignalBuffer,
     meteringSessionId: string,
   ): Promise<void> {
     if (this._initialized || this._shuttingDown) {
@@ -145,63 +106,58 @@ class PulseWebSDK implements SdkContext {
       this._starting = false;
       return;
     }
-    const resource = buildResource(configWithUrl, resolvedOsVersion);
+    const resource = buildResource(config, resolvedOsVersion);
 
     // Step 4: Load cached SDK config
-    const projectId = extractProjectId(configWithUrl.apiKey);
+    const projectId = extractProjectId(config.apiKey);
     this.configFetcher = new SdkConfigFetcher(
       endpointBaseUrl,
       projectId,
-      configWithUrl.configEndpointUrl,
-      configWithUrl.apiKey,
+      undefined,
+      config.apiKey,
     );
     const sdkConfig = this.configFetcher.loadCached();
 
     const gate = new FeatureGate(sdkConfig);
     this.gate = gate;
     const samplingGate = new ExportSamplingGate(sdkConfig, "pulse_web_js", {
-      serviceVersion: configWithUrl.serviceVersion,
+      serviceVersion: config.serviceVersion,
     });
     const filterProcessor = new SignalFilterProcessor(sdkConfig.signals);
 
     this.globalAttrsProcessor = new PulseGlobalAttributesProcessor(
       this.sessionProvider,
-      configWithUrl,
+      config,
       meteringSessionId,
     );
 
     const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
-    const logLifecycle = configWithUrl.debugLogRecordLifecycle === true;
+
+    const debugLifecycle = config.debugLogRecordLifecycle === true;
+    const ingressDebugProc = debugLifecycle
+      ? new LogRecordLifecycleDebugProcessor("ingress")
+      : null;
+    const preBatchDebugProc = debugLifecycle
+      ? new LogRecordLifecycleDebugProcessor("pre_batch")
+      : null;
     const logProcessors = [
-      ...(logLifecycle
-        ? [new LogRecordLifecycleDebugProcessor("ingress")]
-        : []),
+      ...(ingressDebugProc ? [ingressDebugProc] : []),
       this.globalAttrsProcessor,
       filterProcessor,
-      ...(logLifecycle
-        ? [new LogRecordLifecycleDebugProcessor("pre_batch")]
-        : []),
+      ...(preBatchDebugProc ? [preBatchDebugProc] : []),
     ];
-
-    const diskEnabled = configWithUrl.diskBuffering?.enabled === true;
 
     const exporterConfig = {
       endpointBaseUrl,
-      apiKey: configWithUrl.apiKey,
+      apiKey: config.apiKey,
       meteringSessionId,
-      format: configWithUrl.export?.format,
-      compression: configWithUrl.export?.compression,
-      batchOptions: configWithUrl.export?.batch,
+      useProtobuf: config.export?.format === "protobuf",
       // Inject the same global attributes into metric data points at export time.
       getMetricGlobalAttrs: () =>
         this.globalAttrsProcessor.getCommonAttrsForMetrics(),
       samplingGate,
       metricsToAdd: sdkConfig.signals.metricsToAdd,
       metricsToAddSdkName: "pulse_web_js" as const,
-      ...(diskEnabled
-        ? { diskBuffer: { enabled: true, buffer: idbBuffer } }
-        : {}),
-      debugLogRecordLifecycle: configWithUrl.debugLogRecordLifecycle === true,
     };
 
     const bundle = createProviders(
@@ -225,7 +181,7 @@ class PulseWebSDK implements SdkContext {
     this.registry = new InstrumentationRegistry(
       this as SdkContext,
       gate,
-      configWithUrl.instrumentations,
+      config.instrumentations,
     );
     this.registry.installAll();
 
@@ -284,14 +240,6 @@ class PulseWebSDK implements SdkContext {
   trackEvent(name: string, attrs?: Record<string, unknown>): void {
     if (!this._initialized) return;
     if (!this.gate.isEnabled("custom_events")) return;
-    if (this.config.debugLogRecordLifecycle === true) {
-      console.log("[PulseWeb:logLifecycle]", {
-        phase: "api",
-        where: "PulseWeb.trackEvent → logger.emit",
-        body: name,
-        attrs,
-      });
-    }
     this.logger.emit({
       body: name,
       attributes: {

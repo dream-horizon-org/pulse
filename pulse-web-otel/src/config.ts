@@ -16,14 +16,14 @@ export interface InstrumentationConfig {
 export interface PulseWebConfig {
   // Required
   apiKey: string;
-  serviceName: string;
-  endpointBaseUrl?: string;
+  dataCollectionState: PulseDataCollectionConsent;
 
   // Optional — identity
+  /** Defaults to window.location.hostname if absent. */
+  serviceName?: string;
   serviceVersion?: string;
 
   // Optional — privacy
-  dataCollectionState?: PulseDataCollectionConsent;
   beforeSend?: (signal: unknown) => unknown | null;
 
   // Optional — custom attributes stamped on every signal
@@ -32,41 +32,27 @@ export interface PulseWebConfig {
   // Optional — route → screen name mapping (used by navigation instrumentation)
   routePatterns?: Array<{ pattern: string; name: string }>;
 
-  // Optional — export tuning
-  export?: {
-    format?: "json" | "protobuf";
-    compression?: "gzip" | "none";
-    batch?: {
-      scheduledDelayMillis?: number;
-      maxQueueSize?: number;
-      maxExportBatchSize?: number;
-    };
-  };
-
-  // Optional — offline / retry persistence
-  diskBuffering?: {
-    enabled?: boolean;
-    maxSizeBytes?: number;
-    maxAgeMs?: number;
-  };
-
   // Optional — per-instrumentation toggles
   instrumentations?: InstrumentationConfig;
 
   /**
-   * When true, logs each log record lifecycle: pipeline ingress, post pre-batch
-   * (before BatchLogRecordProcessor queue), and each OTLP log batch at export.
+   * Wire format for OTLP export.
+   * "json"  → application/json (DevTools-readable)
+   * "protobuf" → application/x-protobuf (more compact)
+   */
+  export?: {
+    format?: "json" | "protobuf";
+  };
+
+  /**
+   * When true, logs each log record through the processor chain to the browser console.
+   * Leave false (or omit) in production.
    */
   debugLogRecordLifecycle?: boolean;
-
-  /** Override SDK config fetch URL (defaults derived from endpointBaseUrl + project id). */
-  configEndpointUrl?: string;
 }
 
 export function validateConfig(config: PulseWebConfig): void {
   if (!config.apiKey) throw new Error("[PulseWeb] apiKey is required");
-  if (!config.serviceName)
-    throw new Error("[PulseWeb] serviceName is required");
 }
 
 const PULSE_PROD_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com";
@@ -83,7 +69,7 @@ export function isLocalEnvironment(apiKey: string): boolean {
  * Mirrors Android's PulseEndpointUtils.getBaseUrl().
  * Local: http://localhost:4318
  * Prod: https://pulse-otel-collector.pulse-ux.com
- * Explicit override always wins.
+ * Internal only — not part of the public config surface.
  */
 export function resolveEndpointBaseUrl(
   apiKey: string,

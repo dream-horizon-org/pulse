@@ -19,6 +19,7 @@ import {
   validateConfig,
   isLocalEnvironment,
   resolveEndpointBaseUrl,
+  PulseDataCollectionConsent,
 } from "../config";
 import {
   buildResource,
@@ -93,9 +94,9 @@ function msToNs(ms: number): number {
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   return {
-    endpointBaseUrl: "https://collector.example.com",
     apiKey: "proj_abc_supersecretkey",
     serviceName: "test-app",
+    dataCollectionState: PulseDataCollectionConsent.ALLOWED,
     ...overrides,
   };
 }
@@ -299,15 +300,12 @@ describe("M1 — Config validation", () => {
     );
   });
 
-  it("throws when serviceName is missing", () => {
-    expect(() => validateConfig(makeConfig({ serviceName: "" }))).toThrow(
-      "[PulseWeb] serviceName is required",
-    );
-  });
-
-  it("does not throw when endpointBaseUrl is missing (it's optional)", () => {
+  it("does not throw when serviceName is absent (it's optional — auto-derived)", () => {
     expect(() =>
-      validateConfig({ apiKey: "mykey", serviceName: "test-app" }),
+      validateConfig({
+        apiKey: "mykey",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      }),
     ).not.toThrow();
   });
 
@@ -864,7 +862,7 @@ describe("M1 — Session Provider (extended)", () => {
     let capturedEnd: { sessionId?: string; durationNs?: number } = {};
     provider.onSessionChange((e) => {
       if (e.type === "end") {
-        capturedEnd = { sessionId: e.sessionId, durationNs: e.durationMs ?? 0 };
+        capturedEnd = { sessionId: e.sessionId, durationNs: e.durationNs ?? 0 };
       }
     });
 
