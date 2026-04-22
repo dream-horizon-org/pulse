@@ -6,12 +6,14 @@ export interface FunnelStep {
   pulseType?: string;
 }
 
+export type FunnelMode = "UNIQUE_USERS" | "SESSIONS";
+
 export interface FunnelRequestBody {
   steps: FunnelStep[];
   timeRange: TimeRange;
   filters?: FilterField[];
   groupBy?: string;
-  mode: "UNIQUE_USERS" | "SESSIONS";
+  mode: FunnelMode;
   windowSeconds?: number;
 }
 
@@ -34,33 +36,6 @@ export interface FunnelStepHealth {
   crashRate: number;
   anrRate: number;
   nonFatalRate: number;
-}
-
-// Sessions drill-down
-export interface FunnelSessionDetail {
-  sessionId: string;
-  userId: string;
-  eventName: string;
-  exceptionType: string;
-  exceptionMessage: string;
-  title: string;
-  screenName: string;
-  timestamp: string;
-  groupId: string;
-  platform: string;
-  appVersion: string;
-  deviceModel: string;
-}
-
-export interface FunnelSessionsRequestBody {
-  steps: FunnelStep[];
-  timeRange: TimeRange;
-  filters?: FilterField[];
-  mode: "UNIQUE_USERS" | "SESSIONS";
-  windowSeconds?: number;
-  stepLevel: number;
-  issueType?: "ALL" | "CRASH" | "ANR" | "NON_FATAL";
-  limit?: number;
 }
 
 // Grouped funnel
@@ -104,14 +79,6 @@ export interface JourneyLink {
 export interface JourneyResponse {
   nodes: JourneyNode[];
   links: JourneyLink[];
-}
-
-export interface JourneyRequestBody {
-  direction: "START" | "END";
-  anchorEvent: string;
-  depth: number;
-  timeRange: TimeRange;
-  filters?: FilterField[];
 }
 
 // Funnel events list
