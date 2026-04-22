@@ -153,6 +153,16 @@ echo "  ✓ Project parent relationships written (or already exist)"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Step 3b: Link tenants to system (superadmin bridge via system_parent)
+# ═══════════════════════════════════════════════════════════════════════════════
+echo "Step 3b: Linking seed tenants to system (superadmin bridge)..."
+write_tuple "system:pulse" "system_parent" "tenant:default"
+write_tuple "system:pulse" "system_parent" "tenant:fancode"
+write_tuple "system:pulse" "system_parent" "tenant:dream11"
+echo "  ✓ system_parent tuples written (or already exist)"
+echo ""
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Step 4: Write Sample User Roles (IDEMPOTENT)
 # ═══════════════════════════════════════════════════════════════════════════════
 echo "Step 4: Writing sample user roles..."
