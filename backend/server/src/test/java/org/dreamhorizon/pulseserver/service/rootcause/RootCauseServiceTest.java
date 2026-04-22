@@ -908,6 +908,148 @@ class RootCauseServiceTest {
   }
 
   @Nested
+  class HybridDimensionOrdering {
+
+    @Test
+    void shouldOrderStrongSignalsByMaxDescThenBaseOrderForTies() {
+      List<String> base =
+          List.of("Platform", "OsVersion", "AppVersion", "DeviceModel");
+      Map<String, Long> maxes =
+          Map.of(
+              "Platform", 4200L,
+              "OsVersion", 3200L,
+              "AppVersion", 3900L,
+              "DeviceModel", 2800L);
+      double threshold = 3750;
+      assertThat(RootCauseService.hybridDimensionOrderFromPrecomputedMaxes(base, maxes, threshold))
+          .containsExactly("Platform", "AppVersion", "OsVersion", "DeviceModel");
+    }
+
+    @Test
+    void shouldReturnBaseOrderWhenNoDimensionReachesStrongSignalThreshold() {
+      List<String> base = List.of("A", "B", "C");
+      Map<String, Long> maxes = Map.of("A", 10L, "B", 20L, "C", 15L);
+      assertThat(RootCauseService.hybridDimensionOrderFromPrecomputedMaxes(base, maxes, 75))
+          .containsExactly("A", "B", "C");
+    }
+
+    @Test
+    void shouldTieBreakEqualMaxStrongSignalsByBaseOrderIndex() {
+      List<String> base = List.of("Platform", "OsVersion", "AppVersion");
+      Map<String, Long> maxes = Map.of("Platform", 100L, "OsVersion", 50L, "AppVersion", 100L);
+      assertThat(RootCauseService.hybridDimensionOrderFromPrecomputedMaxes(base, maxes, 75))
+          .containsExactly("Platform", "AppVersion", "OsVersion");
+    }
+
+    @Test
+    void shouldTreatExactThresholdAsStrongSignal() {
+      List<String> base = List.of("A", "B");
+      Map<String, Long> maxes = Map.of("A", 75L, "B", 74L);
+      assertThat(RootCauseService.hybridDimensionOrderFromPrecomputedMaxes(base, maxes, 75))
+          .containsExactly("A", "B");
+    }
+
+    @Test
+    void shouldPlaceSingleStrongSignalFirstThenRestInBaseOrder() {
+      List<String> base = List.of("Platform", "OsVersion", "AppVersion");
+      Map<String, Long> maxes = Map.of("Platform", 100L, "OsVersion", 40L, "AppVersion", 50L);
+      assertThat(RootCauseService.hybridDimensionOrderFromPrecomputedMaxes(base, maxes, 75))
+          .containsExactly("Platform", "OsVersion", "AppVersion");
+    }
+
+    @Test
+    void shouldPickHigherMaxDimensionFirstWhenHybridOrderingEnabled() {
+      when(rootCauseConfig.isHybridDimensionOrderingEnabled()).thenReturn(true);
+      when(rootCauseConfig.getMaxSegments()).thenReturn(1);
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (q.contains(" AS volume")) {
+                  Map<String, Object> row = segmentMetricRow();
+                  row.put("AppVersion", "2.0");
+                  return Single.just(singleRowTableResponse(row));
+                }
+                if (q.contains("GROUP BY Platform") && !q.contains("AND Platform =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("Platform", "Android", "problematic_count", 80L)));
+                }
+                if (q.contains("GROUP BY OsVersion") && !q.contains("AND OsVersion =")) {
+                  return Single.just(
+                      singleRowTableResponse(Map.of("OsVersion", "14", "problematic_count", 40L)));
+                }
+                if (q.contains("GROUP BY AppVersion") && !q.contains("AND AppVersion =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("AppVersion", "2.0", "problematic_count", 100L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getSegments()).hasSize(1);
+      assertThat(result.getSegments().get(0).getLabel()).isEqualTo("AppVersion: 2.0");
+      verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldKeepStaticFirstDimensionWhenHybridOrderingDisabled() {
+      when(rootCauseConfig.isHybridDimensionOrderingEnabled()).thenReturn(false);
+      when(rootCauseConfig.getMaxSegments()).thenReturn(1);
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.empty()));
+
+      Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
+      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+          .thenAnswer(
+              inv -> {
+                String q = inv.getArgument(1, String.class);
+                if (!q.contains("GROUP BY")) {
+                  return Single.just(singleRowTableResponse(baseline));
+                }
+                if (q.contains(" AS volume")) {
+                  Map<String, Object> row = segmentMetricRow();
+                  row.put("Platform", "Android");
+                  return Single.just(singleRowTableResponse(row));
+                }
+                if (q.contains("GROUP BY Platform") && !q.contains("AND Platform =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("Platform", "Android", "problematic_count", 80L)));
+                }
+                if (q.contains("GROUP BY OsVersion") && !q.contains("AND OsVersion =")) {
+                  return Single.just(
+                      singleRowTableResponse(Map.of("OsVersion", "14", "problematic_count", 40L)));
+                }
+                if (q.contains("GROUP BY AppVersion") && !q.contains("AND AppVersion =")) {
+                  return Single.just(
+                      singleRowTableResponse(
+                          Map.of("AppVersion", "2.0", "problematic_count", 100L)));
+                }
+                return Single.just(emptyTableResponse());
+              });
+
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet();
+
+      assertThat(result.getMode()).isEqualTo(RootCauseAnalysisMode.HIERARCHICAL);
+      assertThat(result.getSegments()).hasSize(1);
+      assertThat(result.getSegments().get(0).getLabel()).isEqualTo("Platform: Android");
+    }
+  }
+
+  @Nested
   class DistinctScreensForInteraction {
 
     @Test

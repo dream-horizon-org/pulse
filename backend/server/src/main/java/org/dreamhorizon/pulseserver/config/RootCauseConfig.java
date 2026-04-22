@@ -18,6 +18,11 @@ public class RootCauseConfig {
   public static final int DEFAULT_LOOKBACK_DAYS = 7;
   /** Default maximum segments in the result (hierarchy + flat combined). */
   public static final int DEFAULT_MAX_SEGMENTS = 4;
+  /**
+   * When true, RCA pre-computes max problematic count per dimension and reorders dimensions (strong
+   * signals first) before segmentation. Default off for gradual rollout.
+   */
+  public static final boolean DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED = false;
   /** Default dimension order for tie-breaking and flat segments. */
   public static final List<String> DEFAULT_DIMENSION_ORDER = List.of(
       "Platform", "OsVersion", "AppVersion", "DeviceModel", "NetworkProvider", "GeoState");
@@ -25,6 +30,7 @@ public class RootCauseConfig {
   private int similarityThresholdPct;
   private int lookbackDays;
   private int maxSegments;
+  private boolean hybridDimensionOrderingEnabled;
   private List<String> dimensionOrder;
 
   /**
@@ -40,6 +46,7 @@ public class RootCauseConfig {
           .similarityThresholdPct(DEFAULT_SIMILARITY_THRESHOLD_PCT)
           .lookbackDays(DEFAULT_LOOKBACK_DAYS)
           .maxSegments(DEFAULT_MAX_SEGMENTS)
+          .hybridDimensionOrderingEnabled(DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED)
           .dimensionOrder(DEFAULT_DIMENSION_ORDER)
           .build();
     }
@@ -61,6 +68,7 @@ public class RootCauseConfig {
         .similarityThresholdPct(similarityThresholdPct)
         .lookbackDays(lookbackDays)
         .maxSegments(maxSegments)
+        .hybridDimensionOrderingEnabled(from.hybridDimensionOrderingEnabled)
         .dimensionOrder(dimensionOrder)
         .build();
   }

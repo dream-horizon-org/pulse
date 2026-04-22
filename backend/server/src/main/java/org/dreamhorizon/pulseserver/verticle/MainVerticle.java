@@ -256,7 +256,9 @@ public class MainVerticle extends AbstractVerticle {
         .lookbackDays(rootCauseJson.getInteger("lookbackDays",
             RootCauseConfig.DEFAULT_LOOKBACK_DAYS))
         .maxSegments(rootCauseJson.getInteger("maxSegments",
-            RootCauseConfig.DEFAULT_MAX_SEGMENTS));
+            RootCauseConfig.DEFAULT_MAX_SEGMENTS))
+        .hybridDimensionOrderingEnabled(rootCauseJson.getBoolean("hybridDimensionOrderingEnabled",
+            RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED));
 
     final Object dimensionOrderValue = rootCauseJson.getValue("dimensionOrder");
     final boolean hasCustomDimensionOrder = dimensionOrderValue != null;

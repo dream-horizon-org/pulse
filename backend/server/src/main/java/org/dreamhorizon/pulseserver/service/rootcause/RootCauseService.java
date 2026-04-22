@@ -8,6 +8,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -236,21 +238,126 @@ public class RootCauseService {
       long totalProblematic
   ) {
     double threshold = totalProblematic * (config.getSimilarityThresholdPct() / 100.0);
-    List<String> dimOrder = config.getDimensionOrder();
     int maxSegments = config.getMaxSegments();
 
-    return pickFirstDimension(projectId, interactionName, window, dimOrder, threshold, totalProblematic)
-        .flatMap(optFirst -> {
-          if (optFirst.isEmpty()) {
-            return buildFlatSegments(projectId, interactionName, window, baseline, dimOrder, maxSegments)
-                .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.FLAT));
+    Single<List<String>> dimOrderSingle =
+        config.isHybridDimensionOrderingEnabled()
+            ? computeHybridDimensionOrder(
+                projectId, interactionName, window, config.getDimensionOrder(), threshold)
+            : Single.just(config.getDimensionOrder());
+
+    return dimOrderSingle.flatMap(
+        dimOrder ->
+            pickFirstDimension(projectId, interactionName, window, dimOrder, threshold, totalProblematic)
+                .flatMap(
+                    optFirst -> {
+                      if (optFirst.isEmpty()) {
+                        return buildFlatSegments(
+                                projectId, interactionName, window, baseline, dimOrder, maxSegments)
+                            .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.FLAT));
+                      }
+                      FirstDimensionPick first = optFirst.get();
+                      return buildHierarchyThenFlat(
+                              projectId,
+                              interactionName,
+                              window,
+                              baseline,
+                              dimOrder,
+                              maxSegments,
+                              totalProblematic,
+                              threshold,
+                              first.dimOrderIndex(),
+                              List.of(first.path()))
+                          .map(
+                              segments ->
+                                  new SegmentsWithMode(segments, RootCauseAnalysisMode.HIERARCHICAL));
+                    }));
+  }
+
+  /**
+   * Hybrid order: dimensions whose max bucket count is at or above {@code strongSignalThreshold}
+   * first (descending max, then {@code baseOrder} for ties), then the rest in {@code baseOrder}.
+   *
+   * <p>Package-private for unit tests.
+   */
+  static List<String> hybridDimensionOrderFromPrecomputedMaxes(
+      List<String> baseOrder,
+      Map<String, Long> dimMaxProblematicByDimension,
+      double strongSignalThreshold) {
+    List<String> strongSignals =
+        dimMaxProblematicByDimension.entrySet().stream()
+            .filter(e -> e.getValue() >= strongSignalThreshold)
+            .sorted(
+                Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
+                    .thenComparing(e -> baseOrderRank(baseOrder, e.getKey())))
+            .map(Map.Entry::getKey)
+            .toList();
+    List<String> reordered = new ArrayList<>(strongSignals);
+    for (String dim : baseOrder) {
+      if (!reordered.contains(dim)) {
+        reordered.add(dim);
+      }
+    }
+    return reordered;
+  }
+
+  private static int baseOrderRank(List<String> baseOrder, String dimension) {
+    int idx = baseOrder.indexOf(dimension);
+    return idx >= 0 ? idx : Integer.MAX_VALUE;
+  }
+
+  private Single<List<String>> computeHybridDimensionOrder(
+      String projectId,
+      String interactionName,
+      RootCauseQueryBuilder.Window window,
+      List<String> baseOrder,
+      double strongSignalThreshold) {
+    if (baseOrder.isEmpty()) {
+      return Single.just(List.of());
+    }
+    List<Single<Map.Entry<String, Long>>> maxQueries =
+        baseOrder.stream()
+            .map(
+                dim ->
+                    getMaxProblematicForDimension(projectId, interactionName, window, dim)
+                        .map(max -> Map.entry(dim, max)))
+            .toList();
+    return Single.zip(
+        maxQueries,
+        results -> {
+          Map<String, Long> dimMaxMap = new HashMap<>();
+          for (Object r : results) {
+            @SuppressWarnings("unchecked")
+            Map.Entry<String, Long> e = (Map.Entry<String, Long>) r;
+            dimMaxMap.put(e.getKey(), e.getValue());
           }
-          FirstDimensionPick first = optFirst.get();
-          return buildHierarchyThenFlat(
-                  projectId, interactionName, window, baseline, dimOrder, maxSegments,
-                  totalProblematic, threshold, first.dimOrderIndex(), List.of(first.path()))
-              .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.HIERARCHICAL));
+          List<String> order =
+              hybridDimensionOrderFromPrecomputedMaxes(baseOrder, dimMaxMap, strongSignalThreshold);
+          log.debug("RCA hybrid dimension order interactionName={}: {}", interactionName, order);
+          return order;
         });
+  }
+
+  private Single<Long> getMaxProblematicForDimension(
+      String projectId,
+      String interactionName,
+      RootCauseQueryBuilder.Window window,
+      String dimension) {
+    RootCauseQuerySpec spec =
+        RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+            projectId,
+            interactionName,
+            window.startInclusive,
+            window.endExclusive,
+            dimension,
+            null);
+    return executeQuery(projectId, spec)
+        .map(
+            rows ->
+                rows.stream()
+                    .mapToLong(r -> NumberCoercionUtils.toLong(r.get("problematic_count")))
+                    .max()
+                    .orElse(0L));
   }
 
   private Single<Optional<FirstDimensionPick>> pickFirstDimension(
