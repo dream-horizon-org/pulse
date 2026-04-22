@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.clickhouse.client.api.Client;
+import com.clickhouse.client.api.DataStreamWriter;
 import com.clickhouse.client.api.insert.InsertResponse;
 import com.clickhouse.client.api.insert.InsertSettings;
 import com.clickhouse.client.api.query.QueryResponse;
@@ -16,12 +17,10 @@ import com.clickhouse.data.ClickHouseFormat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
-import java.io.OutputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -141,13 +140,12 @@ class ClickhouseWriteClientTest {
   class Insert {
 
     @Test
-    @SuppressWarnings("unchecked")
     void shouldReturnResponseOnSuccessfulInsert() {
       InsertResponse mockResponse = mock(InsertResponse.class);
       CompletableFuture<InsertResponse> future = CompletableFuture.completedFuture(mockResponse);
       when(mockUnderlyingClient.insert(
           anyString(),
-          any(Consumer.class),
+          any(DataStreamWriter.class),
           any(ClickHouseFormat.class),
           any(InsertSettings.class)))
           .thenReturn(future);
@@ -166,19 +164,18 @@ class ClickhouseWriteClientTest {
 
       verify(mockUnderlyingClient).insert(
           eq("otel.stack_trace_events"),
-          any(Consumer.class),
+          any(DataStreamWriter.class),
           eq(ClickHouseFormat.JSONEachRow),
           any(InsertSettings.class));
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void shouldPropagateErrorOnInsertFailure() {
       CompletableFuture<InsertResponse> future = new CompletableFuture<>();
       future.completeExceptionally(new RuntimeException("insert failed"));
       when(mockUnderlyingClient.insert(
           anyString(),
-          any(Consumer.class),
+          any(DataStreamWriter.class),
           any(ClickHouseFormat.class),
           any(InsertSettings.class)))
           .thenReturn(future);
@@ -191,15 +188,14 @@ class ClickhouseWriteClientTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void shouldInvokeWriterLambdaToSerializeEvents() throws Exception {
-      // Capture the body Consumer to invoke it against a dummy OutputStream. This exercises the
+      // Capture the DataStreamWriter to invoke it against a dummy OutputStream. This exercises the
       // NDJSON serialization path (lines inside the lambda).
       InsertResponse mockResponse = mock(InsertResponse.class);
       CompletableFuture<InsertResponse> future = CompletableFuture.completedFuture(mockResponse);
 
-      org.mockito.ArgumentCaptor<Consumer<OutputStream>> captor =
-          org.mockito.ArgumentCaptor.forClass(Consumer.class);
+      org.mockito.ArgumentCaptor<DataStreamWriter> captor =
+          org.mockito.ArgumentCaptor.forClass(DataStreamWriter.class);
 
       when(mockUnderlyingClient.insert(
           anyString(),
@@ -215,7 +211,7 @@ class ClickhouseWriteClientTest {
       writeClient.insert(events).test().awaitDone(5, TimeUnit.SECONDS).assertComplete();
 
       java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-      captor.getValue().accept(out);
+      captor.getValue().onOutput(out);
 
       String ndjson = out.toString(java.nio.charset.StandardCharsets.UTF_8);
       assertThat(ndjson).contains("\"Title\":\"A\"");
