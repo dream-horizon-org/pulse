@@ -40,12 +40,26 @@ public enum ServiceError implements RestError {
   FUNNEL_CREATION_FAILED("BE1011", "Funnel creation failed", 400),
   JOURNEY_NOT_FOUND("BE1012", "Journey not found", 404),
   JOURNEY_CREATION_FAILED("BE1013", "Journey creation failed", 400),
-  DUPLICATE_SUGGESTED_INTERACTION("409", "An interaction with the same event sequence already exists", 409);
+  DUPLICATE_SUGGESTED_INTERACTION("409", "An interaction with the same event sequence already exists", 409),
+  /** Pulse AI URL missing — Vert.x SSE proxy and related native routes. */
+  AI_SERVICE_NOT_CONFIGURED("BE1010", "Something went wrong", 503),
+  /** Pulse AI upstream unreachable, bad URL, or proxy failure — Vert.x SSE proxy. */
+  AI_PROXY_BAD_GATEWAY("BE1011", "Something went wrong", 502);
 
   private static final Logger log = LoggerFactory.getLogger(ServiceError.class);
   final String errorCode;
   final String errorMessage;
   final int httpStatusCode;
+
+  /**
+   * JSON error body for native Vert.x handlers — same {@code {"error":{"code","message","cause"}}}
+   * shape as {@link ExceptionResponseEntity} so clients parse both paths identically.
+   */
+  public String toJson() {
+    return "{\"error\":{\"code\":\"" + errorCode
+        + "\",\"message\":\"" + errorMessage
+        + "\",\"cause\":\"" + errorMessage + "\"}}";
+  }
 
   public WebApplicationException getException() {
     return getCustomException(null, null, 0);

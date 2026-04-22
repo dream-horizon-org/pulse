@@ -37,6 +37,7 @@ import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
+import org.dreamhorizon.pulseserver.vertx.AiStreamingHttpClient;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 @Slf4j
@@ -45,6 +46,7 @@ public class MainVerticle extends AbstractVerticle {
   private WebClient webClient;
   /** Long read/idle timeouts for {@code /v1/ai/*} proxy (SSE); not shared with general WebClient. */
   private WebClient aiProxyWebClient;
+  private AiStreamingHttpClient aiStreamingHttpClientHolder;
   private MysqlClient mysqlClient;
 
   @Override
@@ -137,6 +139,12 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
           SharedDataUtils.put(vertx.getDelegate(), aiProxyWebClient, Constants.WEB_CLIENT_AI_PROXY);
+          this.aiStreamingHttpClientHolder =
+              AiStreamingHttpClient.create(vertx.getDelegate(), webClientConfig);
+          SharedDataUtils.put(
+              vertx.getDelegate(),
+              this.aiStreamingHttpClientHolder,
+              Constants.HTTP_CLIENT_AI_STREAMING);
 
           // Validate startup configuration after all configs are loaded
           ApplicationConfig loadedAppConfig = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
@@ -346,6 +354,9 @@ public class MainVerticle extends AbstractVerticle {
     this.webClient.close();
     if (this.aiProxyWebClient != null) {
       this.aiProxyWebClient.close();
+    }
+    if (this.aiStreamingHttpClientHolder != null) {
+      this.aiStreamingHttpClientHolder.client().close();
     }
     return mysqlClient.rxClose();
   }
