@@ -12,7 +12,6 @@ import {
   PulseErrorBoundary,
 } from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
-import { mockSdkConfigAbsoluteUrl } from "./maybeLoadMockPulseSdkConfig";
 
 const Home = lazy(() => import("./routes/Home"));
 const Products = lazy(() => import("./routes/Products"));
@@ -111,9 +110,6 @@ export default function App() {
   const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
-    const enableDiskBuffer =
-      import.meta.env["VITE_PULSE_DISK_BUFFER"] === "true" ||
-      searchParams.get("pulse_disk") === "1";
 
     const dataCollectionState =
       consentParam === "denied"
@@ -122,46 +118,20 @@ export default function App() {
           ? PulseDataCollectionConsent.PENDING
           : PulseDataCollectionConsent.ALLOWED;
 
-    const useMockSdkConfig =
-      import.meta.env["VITE_PULSE_MOCK_SDK_CONFIG"] === "true";
+    const formatEnv = import.meta.env["VITE_PULSE_FORMAT"] as
+      | "json"
+      | "protobuf"
+      | undefined;
+    const debugLifecycle =
+      import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true";
 
     return {
-      endpointBaseUrl: import.meta.env["VITE_PULSE_ENDPOINT_BASE_URL"],
       apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
-      ...(useMockSdkConfig
-        ? { configEndpointUrl: mockSdkConfigAbsoluteUrl() }
-        : {}),
       dataCollectionState,
-      export: {
-        format:
-          (import.meta.env["VITE_PULSE_FORMAT"] as
-            | "json"
-            | "protobuf"
-            | undefined) ?? "protobuf",
-        compression:
-          (import.meta.env["VITE_PULSE_COMPRESSION"] as
-            | "gzip"
-            | "none"
-            | undefined) ?? "gzip",
-        batch: {
-          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
-            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
-            : 5000,
-        },
-      },
-      debugLogRecordLifecycle:
-        import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true",
-      ...(enableDiskBuffer
-        ? {
-            diskBuffering: {
-              enabled: true,
-              maxAgeMs: 86_400_000,
-              maxSizeBytes: 5_000_000,
-            },
-          }
-        : {}),
+      ...(formatEnv ? { export: { format: formatEnv } } : {}),
+      ...(debugLifecycle ? { debugLogRecordLifecycle: true } : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

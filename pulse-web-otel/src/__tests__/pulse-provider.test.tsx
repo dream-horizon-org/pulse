@@ -47,6 +47,7 @@ vi.mock("../exporters", () => {
 });
 
 import type { PulseWebConfig } from "../config";
+import { PulseDataCollectionConsent } from "../config";
 import {
   PulseProvider,
   usePulse,
@@ -57,9 +58,9 @@ import { PulseWeb } from "../sdk";
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   return {
-    endpointBaseUrl: "https://collector.example.com",
     apiKey: "proj_abc_supersecretkey",
     serviceName: "test-app",
+    dataCollectionState: PulseDataCollectionConsent.ALLOWED,
     ...overrides,
   };
 }
@@ -389,7 +390,7 @@ describe("PulseProvider — invalid config (-v)", () => {
     render(
       // Wrap in ErrorBoundary so React doesn't surface the error as uncaught
       <PulseErrorBoundary fallback={<div data-testid="caught" />}>
-        <PulseProvider config={{ apiKey: "", serviceName: "app", endpointBaseUrl: "https://x.com" }}>
+        <PulseProvider config={{ apiKey: "", serviceName: "app", dataCollectionState: PulseDataCollectionConsent.ALLOWED }}>
           <div />
         </PulseProvider>
       </PulseErrorBoundary>,

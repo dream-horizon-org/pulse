@@ -1,356 +1,194 @@
 /**
- * Integration test: Simplified SDK initialization (API key only)
+ * Config surface tests — verifies Web SDK matches Android's minimal public API.
  *
- * Tests:
- * 1. Dev mode (devkey) — resolves localhost:4318 automatically
- * 2. Prod mode — requires explicit endpointBaseUrl
- * 3. Data flow to mock ClickHouse in both modes
+ * Android exposes: apiKey (required), dataCollectionState (required),
+ * serviceName (optional/auto-derived), serviceVersion (optional),
+ * globalAttributes, beforeSend, instrumentations.
+ *
+ * Everything else (endpointBaseUrl, export format/compression/batch,
+ * diskBuffering, configEndpointUrl, debugLogRecordLifecycle) is internal-only.
  */
 
+// Mock @opentelemetry/api-logs to avoid real OTLP network calls
+vi.mock("@opentelemetry/api-logs", () => ({
+  logs: {
+    getLogger: vi.fn().mockReturnValue({ emit: vi.fn() }),
+    setGlobalLoggerProvider: vi.fn(),
+  },
+}));
+
+// Mock exporters to avoid real OTLP network calls in tests
+vi.mock("../exporters", () => {
+  const mockProvider = {
+    addSpanProcessor: vi.fn(),
+    getTracer: vi.fn().mockReturnValue({
+      startSpan: vi.fn().mockReturnValue({
+        setAttribute: vi.fn(),
+        end: vi.fn(),
+      }),
+    }),
+    forceFlush: vi.fn().mockResolvedValue(undefined),
+    shutdown: vi.fn().mockResolvedValue(undefined),
+    register: vi.fn(),
+  };
+  const mockLoggerProvider = {
+    addLogRecordProcessor: vi.fn(),
+    getLogger: vi.fn().mockReturnValue({ emit: vi.fn() }),
+    forceFlush: vi.fn().mockResolvedValue(undefined),
+    shutdown: vi.fn().mockResolvedValue(undefined),
+  };
+  const mockMeterProvider = {
+    addMetricReader: vi.fn(),
+    getMeter: vi.fn().mockReturnValue({}),
+    forceFlush: vi.fn().mockResolvedValue(undefined),
+    shutdown: vi.fn().mockResolvedValue(undefined),
+  };
+  return {
+    createProviders: vi.fn().mockReturnValue({
+      tracerProvider: mockProvider,
+      loggerProvider: mockLoggerProvider,
+      meterProvider: mockMeterProvider,
+      cleanup: vi.fn(),
+    }),
+  };
+});
+
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { PulseWeb } from "../sdk";
+import { PulseDataCollectionConsent } from "../types/config";
 import { resolveEndpointBaseUrl, isLocalEnvironment } from "../config";
 
-// Mock ClickHouse exporter
-class MockClickHouseExporter {
-  private spans: any[] = [];
-  private logs: any[] = [];
-  private baseUrl: string;
-
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
-  }
-
-  exportSpan(span: any) {
-    console.log(`[Mock CH] Exporting span to ${this.baseUrl}: ${span.name}`);
-    this.spans.push({
-      ...span,
-      exportedAt: Date.now(),
-      destination: this.baseUrl,
-    });
-  }
-
-  exportLog(log: any) {
-    console.log(`[Mock CH] Exporting log to ${this.baseUrl}: ${log.body}`);
-    this.logs.push({
-      ...log,
-      exportedAt: Date.now(),
-      destination: this.baseUrl,
-    });
-  }
-
-  getExportedSpans() {
-    return this.spans;
-  }
-
-  getExportedLogs() {
-    return this.logs;
-  }
-
-  reset() {
-    this.spans = [];
-    this.logs = [];
-  }
-}
-
-describe("Simplified SDK Initialization Integration Tests", () => {
-  let devExporter: MockClickHouseExporter;
-  let prodExporter: MockClickHouseExporter;
-
+describe("Config surface — matches Android minimal API", () => {
   beforeEach(() => {
-    devExporter = new MockClickHouseExporter("http://localhost:8080");
-    prodExporter = new MockClickHouseExporter(
-      "https://collector.prod.example.com",
+    vi.clearAllMocks();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({}),
+      }),
+    );
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  afterEach(async () => {
+    await PulseWeb.shutdown();
+    vi.unstubAllGlobals();
+  });
+
+  // TC-C1
+  it("TC-C1: start() requires apiKey — throws if missing", () => {
+    expect(() =>
+      PulseWeb.start({
+        apiKey: "",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      }),
+    ).toThrow("[PulseWeb] apiKey is required");
+  });
+
+  // TC-C2
+  it("TC-C2: dataCollectionState DENIED → SDK does not initialize (matches Android)", () => {
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.DENIED,
+    });
+    expect(PulseWeb.isInitialized()).toBe(false);
+  });
+
+  // TC-C3
+  it("TC-C3: dataCollectionState PENDING → SDK does not initialize (matches Android)", () => {
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.PENDING,
+    });
+    expect(PulseWeb.isInitialized()).toBe(false);
+  });
+
+  // TC-C4
+  it("TC-C4: ALLOWED with only apiKey + dataCollectionState → initializes (serviceName auto-derived)", async () => {
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+    });
+    // finishStart is async (awaits OS version resolution); flush microtasks.
+    await Promise.resolve();
+    expect(PulseWeb.isInitialized()).toBe(true);
+  });
+
+  // TC-C5
+  it("TC-C5: endpointBaseUrl auto-derives for dev key — not a public config field", () => {
+    // TypeScript type should not have endpointBaseUrl — verified at type level
+    // Runtime: resolveEndpointBaseUrl used internally
+    expect(resolveEndpointBaseUrl("default-project_devkey01")).toBe(
+      "http://localhost:4318",
+    );
+    expect(resolveEndpointBaseUrl("myapp-123_prodkey456")).toBe(
+      "https://pulse-otel-collector.pulse-ux.com",
     );
   });
 
-  afterEach(() => {
-    devExporter.reset();
-    prodExporter.reset();
+  // TC-C6
+  it("TC-C6: isLocalEnvironment detects dev keys correctly", () => {
+    expect(isLocalEnvironment("default-project_abc")).toBe(true);
+    expect(isLocalEnvironment("Test-myapp_abc")).toBe(true);
+    expect(isLocalEnvironment("myapp-prod_key123")).toBe(false);
   });
 
-  describe("Development Mode (default-project / Test- keys)", () => {
-    it("should detect default-project_ prefix", () => {
-      expect(isLocalEnvironment("default-project_abc123")).toBe(true);
-      expect(isLocalEnvironment("Test-myapp_abc123")).toBe(true);
-      expect(isLocalEnvironment("myproject-123_prodkey456")).toBe(false);
-    });
-
-    it("should resolve localhost:4318 for default-project key without endpointBaseUrl", () => {
-      const devKey = "default-project_devkey01";
-      const url = resolveEndpointBaseUrl(devKey);
-      expect(url).toBe("http://localhost:4318");
-    });
-
-    it("should export spans to localhost in dev mode", () => {
-      const devKey = "default-project_devkey01";
-      const baseUrl = resolveEndpointBaseUrl(devKey);
-
-      // Create mock SDK init config
-      const devConfig = {
-        apiKey: devKey,
-        serviceName: "test-app-dev",
-        endpointBaseUrl: baseUrl, // Should be http://localhost:4318
-      };
-
-      expect(devConfig.endpointBaseUrl).toBe("http://localhost:4318");
-
-      // Simulate span export
-      const mockSpan = {
-        name: "http.request",
-        traceId: "trace-001",
-        spanId: "span-001",
-        duration: 150,
-        attributes: {
-          "http.method": "GET",
-          "http.url": "/api/products",
-          "http.status_code": 200,
-        },
-      };
-
-      devExporter.exportSpan(mockSpan);
-      const exported = devExporter.getExportedSpans();
-
-      expect(exported).toHaveLength(1);
-      expect(exported[0].name).toBe("http.request");
-      expect(exported[0].destination).toBe("http://localhost:8080");
-    });
-
-    it("should export logs to localhost in dev mode", () => {
-      const devKey = "default-project_devkey01";
-      const baseUrl = resolveEndpointBaseUrl(devKey);
-
-      // Mock config
-      const devConfig = {
-        apiKey: devKey,
-        serviceName: "test-app-dev",
-        endpointBaseUrl: baseUrl,
-      };
-
-      // Simulate log export (session.start)
-      const mockLog = {
-        body: "session.start",
-        severity: "INFO",
-        attributes: {
-          "pulse.type": "session.start",
-          "session.id": "session-123",
-          "installation.id": "inst-456",
-          platform: "web",
-        },
-      };
-
-      devExporter.exportLog(mockLog);
-      const exported = devExporter.getExportedLogs();
-
-      expect(exported).toHaveLength(1);
-      expect(exported[0].body).toBe("session.start");
-      expect(exported[0].destination).toBe("http://localhost:8080");
-      expect(exported[0].attributes["platform"]).toBe("web");
-    });
-
-    it("should override localhost with explicit endpointBaseUrl in dev mode", () => {
-      const devKey = "default-project_devkey01";
-      const explicitUrl = "http://custom-collector:4318";
-      const url = resolveEndpointBaseUrl(devKey, explicitUrl);
-
-      expect(url).toBe(explicitUrl);
-    });
+  // TC-C7
+  it("TC-C7: serviceName optional — SDK starts without it", async () => {
+    expect(() =>
+      PulseWeb.start({
+        apiKey: "default-project_devkey01",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      }),
+    ).not.toThrow();
+    await Promise.resolve();
+    expect(PulseWeb.isInitialized()).toBe(true);
   });
 
-  describe("Production Mode (non-devkey)", () => {
-    it("should NOT detect devkey in production apiKey", () => {
-      const prodKey = "myproject-123_prodkey456";
-      expect(isLocalEnvironment(prodKey)).toBe(false);
+  // TC-C8
+  it("TC-C8: globalAttributes passed through to processor", async () => {
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      globalAttributes: { "app.env": "test", "tenant.id": "t1" },
     });
-
-    it("should return prod URL for production keys without endpointBaseUrl", () => {
-      const prodKey = "myproject-123_prodkey456";
-      const url = resolveEndpointBaseUrl(prodKey);
-      expect(url).toBe("https://pulse-otel-collector.pulse-ux.com");
-    });
-
-    it("should use provided endpointBaseUrl for production", () => {
-      const prodKey = "myproject-123_prodkey456";
-      const prodUrl = "https://collector.prod.example.com";
-      const url = resolveEndpointBaseUrl(prodKey, prodUrl);
-
-      expect(url).toBe(prodUrl);
-    });
-
-    it("should export spans to production collector", () => {
-      const prodKey = "myproject-123_prodkey456";
-      const prodUrl = "https://collector.prod.example.com";
-
-      // Create mock SDK init config for prod
-      const prodConfig = {
-        apiKey: prodKey,
-        serviceName: "test-app-prod",
-        endpointBaseUrl: prodUrl,
-      };
-
-      expect(prodConfig.endpointBaseUrl).toBe(prodUrl);
-
-      // Simulate span export
-      const mockSpan = {
-        name: "http.request",
-        traceId: "trace-002",
-        spanId: "span-002",
-        duration: 200,
-        attributes: {
-          "http.method": "POST",
-          "http.url": "/api/checkout",
-          "http.status_code": 201,
-        },
-      };
-
-      prodExporter.exportSpan(mockSpan);
-      const exported = prodExporter.getExportedSpans();
-
-      expect(exported).toHaveLength(1);
-      expect(exported[0].name).toBe("http.request");
-      expect(exported[0].destination).toBe(
-        "https://collector.prod.example.com",
-      );
-    });
-
-    it("should export logs to production collector", () => {
-      const prodKey = "myproject-123_prodkey456";
-      const prodUrl = "https://collector.prod.example.com";
-
-      const prodConfig = {
-        apiKey: prodKey,
-        serviceName: "test-app-prod",
-        endpointBaseUrl: prodUrl,
-      };
-
-      // Simulate log export (error)
-      const mockLog = {
-        body: "Payment processing failed",
-        severity: "ERROR",
-        attributes: {
-          "pulse.type": "non_fatal",
-          "exception.type": "PaymentError",
-          "exception.message": "Card declined",
-          "non_fatal.is_manual": false,
-        },
-      };
-
-      prodExporter.exportLog(mockLog);
-      const exported = prodExporter.getExportedLogs();
-
-      expect(exported).toHaveLength(1);
-      expect(exported[0].body).toBe("Payment processing failed");
-      expect(exported[0].destination).toBe(
-        "https://collector.prod.example.com",
-      );
-      expect(exported[0].attributes["pulse.type"]).toBe("non_fatal");
-    });
+    await new Promise((r) => setTimeout(r, 50));
+    const attrs = PulseWeb.globalAttrsProcessor?.getCommonAttrsForMetrics();
+    expect(attrs?.["app.env"]).toBe("test");
+    expect(attrs?.["tenant.id"]).toBe("t1");
   });
 
-  describe("Data Flow Verification", () => {
-    it("should flow multiple signals through dev mode without data loss", () => {
-      const devKey = "default-project_devkey789";
-      const baseUrl = resolveEndpointBaseUrl(devKey);
-
-      expect(baseUrl).toBe("http://localhost:4318");
-
-      // Simulate real-world signal flow
-      const signals = [
-        // Session start
-        {
-          type: "log",
-          body: "session.start",
-          attributes: { "pulse.type": "session.start", "session.id": "s1" },
-        },
-        // Navigation
-        {
-          type: "span",
-          name: "screen_session",
-          attributes: { "screen.name": "/products", duration_ms: 1500 },
-        },
-        // HTTP request
-        {
-          type: "span",
-          name: "http",
-          attributes: { "http.method": "GET", "http.status_code": 200 },
-        },
-        // Click
-        {
-          type: "span",
-          name: "app.click",
-          attributes: { "view.target.class_name": "product-card" },
-        },
-        // Session end
-        {
-          type: "log",
-          body: "session.end",
-          attributes: { "pulse.type": "session.end", "session.id": "s1" },
-        },
-      ];
-
-      signals.forEach((sig) => {
-        if (sig.type === "log") {
-          devExporter.exportLog(sig);
-        } else {
-          devExporter.exportSpan(sig);
-        }
-      });
-
-      const allExported = [
-        ...devExporter.getExportedLogs(),
-        ...devExporter.getExportedSpans(),
-      ];
-
-      expect(allExported).toHaveLength(5);
-      allExported.forEach((signal) => {
-        expect(signal.destination).toBe("http://localhost:8080");
-      });
+  // TC-C9
+  it("TC-C9: second start() is no-op (singleton guard — matches Android)", async () => {
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
     });
+    await Promise.resolve();
+    expect(PulseWeb.isInitialized()).toBe(true);
+    // Second call with different key should be ignored
+    expect(() =>
+      PulseWeb.start({
+        apiKey: "different_key",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      }),
+    ).not.toThrow();
+    expect(PulseWeb.isInitialized()).toBe(true);
+  });
 
-    it("should flow multiple signals through prod mode without data loss", () => {
-      const prodKey = "ecommerce-app_prodkey789";
-      const baseUrl = resolveEndpointBaseUrl(
-        prodKey,
-        "https://collector.prod.example.com",
-      );
-
-      expect(baseUrl).toBe("https://collector.prod.example.com");
-
-      // Simulate production signal flow
-      const signals = [
-        {
-          type: "log",
-          body: "session.start",
-          attributes: { "pulse.type": "session.start" },
-        },
-        {
-          type: "span",
-          name: "http",
-          attributes: { "http.method": "GET", "http.status_code": 200 },
-        },
-        {
-          type: "log",
-          body: "session.end",
-          attributes: { "pulse.type": "session.end" },
-        },
-      ];
-
-      signals.forEach((sig) => {
-        if (sig.type === "log") {
-          prodExporter.exportLog(sig);
-        } else {
-          prodExporter.exportSpan(sig);
-        }
-      });
-
-      const allExported = [
-        ...prodExporter.getExportedLogs(),
-        ...prodExporter.getExportedSpans(),
-      ];
-
-      expect(allExported).toHaveLength(3);
-      allExported.forEach((signal) => {
-        expect(signal.destination).toBe("https://collector.prod.example.com");
-      });
-    });
+  // TC-C10
+  it("TC-C10: dev key resolves localhost — prod key resolves prod URL", () => {
+    expect(resolveEndpointBaseUrl("default-project_devkey01")).toBe(
+      "http://localhost:4318",
+    );
+    expect(resolveEndpointBaseUrl("Test-myapp_abc123")).toBe(
+      "http://localhost:4318",
+    );
+    expect(resolveEndpointBaseUrl("ecommerce-app_prod123")).toBe(
+      "https://pulse-otel-collector.pulse-ux.com",
+    );
   });
 });
