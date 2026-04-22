@@ -23,7 +23,7 @@ public class AnalyticsEngineConfig {
    * Number of project-level batch queries that may run concurrently against ClickHouse.
    * Mandatory in production when computeEngine is "clickhouse".
    */
-  private int batchProjectConcurrency;
+  private Integer batchProjectConcurrency;
 
   /**
    * Returns true when the compute engine is configured to use ClickHouse.
