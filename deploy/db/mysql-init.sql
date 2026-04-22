@@ -926,6 +926,18 @@ CREATE TABLE IF NOT EXISTS rca_report_cache (
     PRIMARY KEY (project_id, interaction_name, date)
 );
 
+-- Screen RCA narrative cache (AI summary per project / screen / UTC calendar window / payload hash)
+CREATE TABLE IF NOT EXISTS screen_rca_narrative_cache (
+    project_id VARCHAR(64) NOT NULL,
+    screen_name VARCHAR(512) NOT NULL,
+    window_start_date DATE NOT NULL COMMENT 'UTC calendar date of request start instant',
+    window_end_date DATE NOT NULL COMMENT 'UTC calendar date of request end instant (same semantics as body end)',
+    payload_fingerprint CHAR(64) NOT NULL COMMENT 'SHA-256 hex of rootCausePayload JSON',
+    report_body MEDIUMTEXT NOT NULL,
+    cached_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (project_id, screen_name, window_start_date, window_end_date, payload_fingerprint)
+);
+
 -- Event Definitions catalog (project-scoped)
 CREATE TABLE IF NOT EXISTS event_definitions (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,

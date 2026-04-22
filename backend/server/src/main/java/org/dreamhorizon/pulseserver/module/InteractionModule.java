@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.module;
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import org.dreamhorizon.pulseserver.dao.rootcause.RootCauseCacheDao;
+import org.dreamhorizon.pulseserver.dao.rootcause.ScreenRootCauseCacheDao;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.impl.ConfigServiceImpl;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
@@ -25,6 +26,7 @@ public class InteractionModule extends AbstractModule {
     bind(ConfigService.class).to(ConfigServiceImpl.class)
         .in(Singleton.class);
     bind(RootCauseCacheDao.class).in(Singleton.class);
+    bind(ScreenRootCauseCacheDao.class).in(Singleton.class);
     bind(RootCauseService.class).in(Singleton.class);
     bind(ScreenRcaService.class).in(Singleton.class);
     bind(SessionEvidenceService.class).to(SessionEvidenceServiceImpl.class).in(Singleton.class);

@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
+import org.dreamhorizon.pulseserver.dao.rcareport.ScreenRcaNarrativeCacheDao;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
@@ -73,6 +74,9 @@ class AiProxyServiceImplTest {
   private RcaReportCacheDao rcaReportCacheDao;
 
   @Mock
+  private ScreenRcaNarrativeCacheDao screenRcaNarrativeCacheDao;
+
+  @Mock
   private SessionEvidenceService sessionEvidenceService;
 
   private ObjectMapper objectMapper;
@@ -82,6 +86,12 @@ class AiProxyServiceImplTest {
     objectMapper = new ObjectMapper();
     lenient()
         .when(rcaReportCacheDao.put(any(), any(), any(), any()))
+        .thenReturn(Completable.complete());
+    lenient()
+        .when(screenRcaNarrativeCacheDao.get(any(), any(), any(), any(), any()))
+        .thenReturn(Maybe.empty());
+    lenient()
+        .when(screenRcaNarrativeCacheDao.put(any(), any(), any(), any(), any(), any()))
         .thenReturn(Completable.complete());
     lenient().when(webClient.getAbs(anyString())).thenReturn(httpRequest);
     lenient().when(webClient.postAbs(anyString())).thenReturn(httpRequest);
@@ -97,7 +107,12 @@ class AiProxyServiceImplTest {
 
   private AiProxyServiceImpl fullPipelineService() {
     return new AiProxyServiceImpl(
-        webClient, AI_SERVICE_URL, objectMapper, rootCauseService, rcaReportCacheDao,
+        webClient,
+        AI_SERVICE_URL,
+        objectMapper,
+        rootCauseService,
+        rcaReportCacheDao,
+        screenRcaNarrativeCacheDao,
         sessionEvidenceService);
   }
 
@@ -133,6 +148,11 @@ class AiProxyServiceImplTest {
     return "{\"interactionName\":\"checkout\",\"date\":\"2025-03-10\"}";
   }
 
+  private String screenRcaRequestBody() {
+    return "{\"screenName\":\"Home\",\"start\":\"2025-03-10T00:00:00Z\","
+        + "\"end\":\"2025-03-11T00:00:00Z\",\"rootCausePayload\":{}}";
+  }
+
   @Nested
   class RcaPipelineDisabled {
 
@@ -156,6 +176,26 @@ class AiProxyServiceImplTest {
       verify(webClient).postAbs(urlCaptor.capture());
       assertThat(urlCaptor.getValue()).isEqualTo(AI_SERVICE_URL + "/rca/report");
       verify(httpRequest).timeout(AiProxyServiceImpl.AI_PROXY_UPSTREAM_TIMEOUT_MS);
+    }
+
+    @Test
+    void shouldTreatScreenRcaReportAsPlainProxyWhenDepsNotInjected() {
+      AiProxyServiceImpl service = new AiProxyServiceImpl(webClient, AI_SERVICE_URL);
+      String body = screenRcaRequestBody();
+      HttpResponse<Buffer> upstreamResponse =
+          mockBufferedResponse(200, "application/json", "{\"narrative\":\"x\"}");
+      stubSendReturns(upstreamResponse);
+
+      AiProxyUpstreamResult result =
+          awaitResult(service.proxy("POST", "rca/screen-report", null, body, AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      assertThat(result.getBufferedBody()).contains("narrative");
+      verify(screenRcaNarrativeCacheDao, never()).get(any(), any(), any(), any(), any());
+
+      ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+      verify(webClient).postAbs(urlCaptor.capture());
+      assertThat(urlCaptor.getValue()).isEqualTo(AI_SERVICE_URL + "/rca/screen-report");
     }
   }
 
@@ -474,6 +514,83 @@ class AiProxyServiceImplTest {
       assertThat(out.path("report").asText()).isEqualTo("fresh");
       assertThat(out.path("cached").asBoolean()).isTrue();
       verify(rcaReportCacheDao, timeout(3000)).put(any(), any(), any(), anyString());
+    }
+  }
+
+  @Nested
+  class ScreenRcaNarrativePipelineEnabled {
+
+    @Test
+    void shouldReturnMysqlHitWithoutCallingUpstream() throws Exception {
+      when(
+              screenRcaNarrativeCacheDao.get(
+                  eq(PROJECT_ID),
+                  eq("Home"),
+                  eq(LocalDate.of(2025, 3, 10)),
+                  eq(LocalDate.of(2025, 3, 11)),
+                  anyString()))
+          .thenReturn(
+              Maybe.just(
+                  new RcaReportCacheHit(
+                      "{\"narrative\":\"cached\"}", Instant.parse("2025-03-10T08:30:00Z"))));
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/screen-report", null, screenRcaRequestBody(), AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      JsonNode node = objectMapper.readTree(result.getBufferedBody());
+      assertThat(node.path("narrative").asText()).isEqualTo("cached");
+      assertThat(node.path("cached").asBoolean()).isTrue();
+      assertThat(node.path("cachedAt").asText()).isEqualTo("2025-03-10T08:30:00Z");
+
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
+    }
+
+    @Test
+    void shouldCallUpstreamAndPutWhenMysqlMisses() throws Exception {
+      HttpResponse<Buffer> upstreamResponse =
+          mockBufferedResponse(200, "application/json", "{\"narrative\":\"fresh\"}");
+      stubSendReturns(upstreamResponse);
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/screen-report", null, screenRcaRequestBody(), AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      JsonNode out = objectMapper.readTree(result.getBufferedBody());
+      assertThat(out.path("narrative").asText()).isEqualTo("fresh");
+      assertThat(out.path("cached").asBoolean()).isTrue();
+      assertThat(out.path("cachedAt").asText()).isNotBlank();
+
+      verify(httpRequest, times(1)).rxSendBuffer(any(Buffer.class));
+      verify(screenRcaNarrativeCacheDao, timeout(3000))
+          .put(
+              eq(PROJECT_ID),
+              eq("Home"),
+              eq(LocalDate.of(2025, 3, 10)),
+              eq(LocalDate.of(2025, 3, 11)),
+              anyString(),
+              anyString());
+    }
+
+    @Test
+    void shouldRejectWhenScreenNameMissing() throws Exception {
+      String body =
+          "{\"start\":\"2025-03-10T00:00:00Z\",\"end\":\"2025-03-11T00:00:00Z\","
+              + "\"rootCausePayload\":{}}";
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/screen-report", null, body, AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(400);
+      JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
+      assertThat(envelope.path("error").path("message").asText()).isEqualTo("screenName is required");
+      verify(screenRcaNarrativeCacheDao, never()).get(any(), any(), any(), any(), any());
     }
   }
 

@@ -6,6 +6,8 @@ import io.reactivex.rxjava3.core.Single;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
+import org.dreamhorizon.pulseserver.dao.rootcause.ScreenRootCauseCacheDao;
+import org.dreamhorizon.pulseserver.dao.rootcause.models.ScreenRootCauseCacheRow;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.error.ServiceError;
@@ -24,10 +28,12 @@ import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMo
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
 /**
  * Screen-scoped RCA over {@code app.click} logs (same segmentation algorithm as {@link RootCauseService},
- * driver metric {@link ScreenRcaQueryBuilder#BAD_FRUSTRATION}). No ClickHouse cache table.
+ * driver metric {@link ScreenRcaQueryBuilder#BAD_FRUSTRATION}). Read-through cache in {@code
+ * otel.screen_root_cause_cache} keyed by project, screen, and UTC calendar dates of the window.
  */
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -38,13 +44,21 @@ public class ScreenRcaService {
 
   private final RootCauseConfig config;
   private final ClickhouseQueryService clickhouseQueryService;
+  private final ScreenRootCauseCacheDao screenRootCauseCacheDao;
+  private final ObjectMapperUtil objectMapperUtil;
 
   /**
    * Legacy window: anchor day + configured lookback days ending at {@code windowEndExclusiveUtc}
    * (same as interaction RCA).
+   *
+   * @param forceRefresh when true, skips {@code screen_root_cause_cache} read and recomputes
    */
   public Single<RootCauseResult> getScreenRootCause(
-      String projectId, String screenName, LocalDate anchorDateUtc, Instant windowEndExclusiveUtc) {
+      String projectId,
+      String screenName,
+      LocalDate anchorDateUtc,
+      Instant windowEndExclusiveUtc,
+      boolean forceRefresh) {
     final RootCauseQueryBuilder.Window window;
     try {
       window =
@@ -52,15 +66,21 @@ public class ScreenRcaService {
     } catch (IllegalArgumentException e) {
       return Single.error(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(e.getMessage()));
     }
-    return compute(projectId, screenName, window);
+    return readThroughCache(projectId, screenName, window, forceRefresh);
   }
 
   /**
    * Explicit {@code [startInclusive, endExclusive)} window (e.g. UI date range). Ignores lookback; still uses
    * {@link RootCauseConfig} for segmentation thresholds and dimension order.
+   *
+   * @param forceRefresh when true, skips {@code screen_root_cause_cache} read and recomputes
    */
   public Single<RootCauseResult> getScreenRootCause(
-      String projectId, String screenName, Instant startInclusive, Instant endExclusive) {
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      boolean forceRefresh) {
     Duration span = Duration.between(startInclusive, endExclusive);
     if (span.compareTo(MAX_EXPLICIT_WINDOW) > 0) {
       return Single.error(
@@ -73,7 +93,76 @@ public class ScreenRcaService {
     } catch (IllegalArgumentException e) {
       return Single.error(ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(e.getMessage()));
     }
-    return compute(projectId, screenName, window);
+    return readThroughCache(projectId, screenName, window, forceRefresh);
+  }
+
+  private static LocalDate utcCalendarDate(Instant instant) {
+    return instant.atZone(ZoneOffset.UTC).toLocalDate();
+  }
+
+  private Single<RootCauseResult> readThroughCache(
+      String projectId, String screenName, RootCauseQueryBuilder.Window window, boolean forceRefresh) {
+    LocalDate windowStartDate = utcCalendarDate(window.startInclusive);
+    LocalDate windowEndDate = utcCalendarDate(window.endExclusive);
+    if (forceRefresh) {
+      return computeAndPersistCache(projectId, screenName, window, windowStartDate, windowEndDate);
+    }
+    return screenRootCauseCacheDao
+        .findByKey(projectId, screenName, windowStartDate, windowEndDate)
+        .flatMap(
+            opt -> {
+              if (opt.isEmpty()) {
+                return computeAndPersistCache(projectId, screenName, window, windowStartDate, windowEndDate);
+              }
+              try {
+                ScreenRootCauseCacheRow row = opt.get();
+                RootCauseResult parsed =
+                    objectMapperUtil.readValue(row.getResultJson(), RootCauseResult.class);
+                Instant cachedAt =
+                    row.getCachedAt() != null
+                        ? row.getCachedAt().atZone(ZoneOffset.UTC).toInstant()
+                        : Instant.now();
+                return Single.just(parsed.toBuilder().cachedAt(cachedAt).build());
+              } catch (Exception e) {
+                log.warn(
+                    "screen_root_cause_cache invalid row for project={}, screen={}, {}..{}: {}",
+                    projectId,
+                    screenName,
+                    windowStartDate,
+                    windowEndDate,
+                    e.getMessage());
+                return computeAndPersistCache(projectId, screenName, window, windowStartDate, windowEndDate);
+              }
+            });
+  }
+
+  private Single<RootCauseResult> computeAndPersistCache(
+      String projectId,
+      String screenName,
+      RootCauseQueryBuilder.Window window,
+      LocalDate windowStartDate,
+      LocalDate windowEndDate) {
+    return compute(projectId, screenName, window)
+        .flatMap(
+            result -> {
+              String json = objectMapperUtil.writeValueAsString(result);
+              LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+              return screenRootCauseCacheDao
+                  .upsert(
+                      projectId,
+                      screenName,
+                      windowStartDate,
+                      windowEndDate,
+                      window.startInclusive,
+                      window.endExclusive,
+                      json,
+                      now)
+                  .andThen(
+                      Single.just(
+                          result.toBuilder()
+                              .cachedAt(now.atZone(ZoneOffset.UTC).toInstant())
+                              .build()));
+            });
   }
 
   private Single<RootCauseResult> compute(

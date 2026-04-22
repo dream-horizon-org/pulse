@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.resources.screen;
 
 import com.google.inject.Inject;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -46,7 +47,8 @@ public class ScreenRcaController {
       @QueryParam("date") String dateParam,
       @QueryParam("asOf") String asOfParam,
       @QueryParam("start") String startParam,
-      @QueryParam("end") String endParam) {
+      @QueryParam("end") String endParam,
+      @DefaultValue("false") @QueryParam("regenerate") boolean regenerate) {
     String projectId = ProjectContext.requireProjectId();
 
     boolean hasStart = startParam != null && !startParam.isBlank();
@@ -66,7 +68,8 @@ public class ScreenRcaController {
       } catch (WebApplicationException e) {
         return CompletableFuture.failedFuture(e);
       }
-      return screenRcaService.getScreenRootCause(projectId, screenName, startInclusive, endExclusive)
+      return screenRcaService.getScreenRootCause(
+              projectId, screenName, startInclusive, endExclusive, regenerate)
           .map(this::toRootCauseRestResponse)
           .to(RestResponse.jaxrsRestHandler());
     }
@@ -80,7 +83,8 @@ public class ScreenRcaController {
       return CompletableFuture.failedFuture(e);
     }
 
-    return screenRcaService.getScreenRootCause(projectId, screenName, date, windowEndExclusiveUtc)
+    return screenRcaService.getScreenRootCause(
+            projectId, screenName, date, windowEndExclusiveUtc, regenerate)
         .map(this::toRootCauseRestResponse)
         .to(RestResponse.jaxrsRestHandler());
   }

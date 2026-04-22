@@ -239,3 +239,19 @@ ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/otel.root_caus
 PARTITION BY toYYYYMM(date)
 ORDER BY (ProjectId, interaction_name, date)
 SETTINGS index_granularity = 8192;
+
+CREATE TABLE IF NOT EXISTS otel.screen_root_cause_cache ON CLUSTER 'pulse-clickhouse'
+(
+    `ProjectId`          LowCardinality(String) CODEC(ZSTD(1)),
+    `screen_name`        LowCardinality(String) CODEC(ZSTD(1)),
+    `window_start_date`  Date COMMENT 'UTC calendar date of query start (inclusive instant)' CODEC(ZSTD(1)),
+    `window_end_date`    Date COMMENT 'UTC calendar date of query end (exclusive instant)' CODEC(ZSTD(1)),
+    `window_start_utc`   DateTime64(3, 'UTC') COMMENT 'Inclusive lower bound used at compute' CODEC(ZSTD(1)),
+    `window_end_utc`     DateTime64(3, 'UTC') COMMENT 'Exclusive upper bound used at compute' CODEC(ZSTD(1)),
+    `result_json`        String COMMENT 'JSON RootCauseResult' CODEC(ZSTD(1)),
+    `cached_at`          DateTime64(3, 'UTC') CODEC(ZSTD(1))
+)
+ENGINE = ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/otel.screen_root_cause_cache', '{replica}', cached_at)
+PARTITION BY toYYYYMM(window_start_date)
+ORDER BY (ProjectId, screen_name, window_start_date, window_end_date)
+SETTINGS index_granularity = 8192;

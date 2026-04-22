@@ -100,7 +100,7 @@ Each project has dedicated ClickHouse credentials (stored in MySQL `clickhouse_p
 1. **ClickHouse user**: `project_{sanitized_project_id}`
 2. **Row policy**: One permissive policy on `otel.*`, named `policy_{sanitized_project_id}`, filtering by `ProjectId` (covers `root_cause_cache` and all other `otel` tables)
 3. **SELECT grants**: On `otel.*`
-4. **INSERT grant**: On `otel.root_cause_cache` for cache upserts (project-scoped CH user)
+4. **INSERT grant**: On `otel.root_cause_cache` for interaction RCA cache upserts (project-scoped CH user). `otel.screen_root_cause_cache` is written by the server using the global ClickHouse pool (`ClickhouseReadClient` credentials); SQL literals include `ProjectId`, so per-project **INSERT** on that table is not required.
 
 The policy uses `AS PERMISSIVE` on the whole database; with a single policy per user, effective access is still rows where `ProjectId` matches that project. (Other policies on the same user combine per ClickHouse permissive/restrictive rules.)
 
