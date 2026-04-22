@@ -8,7 +8,9 @@ import org.apache.spark.sql.types.DataTypes;
 import org.dreamhorizon.pulsespark.model.FunnelDefinition;
 import org.dreamhorizon.pulsespark.model.FunnelFilter;
 import org.dreamhorizon.pulsespark.model.FunnelResult;
+import org.dreamhorizon.pulsespark.model.FunnelSessionState;
 import org.dreamhorizon.pulsespark.model.FunnelStep;
+import org.dreamhorizon.pulsespark.model.FunnelUserState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +68,9 @@ public class FunnelComputeJob {
                 var results = computeFunnel(raw, funnel, runTime, startEpoch, endEpoch);
                 ch.insertFunnelResults(results);
                 log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
+                // Emit per-session bridge + (optional) per-user rollup so downstream
+                // drop-off attribution has a SessionId anchor into OTel tables.
+                emitBridgeAndRollup(raw, funnel, runTime, startEpoch, endEpoch, ch);
             } finally {
                 raw.unpersist();
             }
@@ -105,6 +110,7 @@ public class FunnelComputeJob {
                     var results = computeFunnel(raw, funnel, runTime, null, null);
                     ch.insertFunnelResults(results);
                     log.info("Funnel {}: wrote {} result rows", funnel.id(), results.size());
+                    emitBridgeAndRollup(raw, funnel, runTime, null, null, ch);
                 } catch (Exception e) {
                     log.error("Funnel {} failed: {}", funnel.id(), e.getMessage(), e);
                     throw e;
@@ -325,6 +331,236 @@ public class FunnelComputeJob {
 
         bestAttempt.unpersist();
         return medians;
+    }
+
+    /**
+     * Writes {@code funnel_session_state} and (for UNIQUE_USERS funnels)
+     * {@code funnel_user_state} rows for the given run.
+     *
+     * <p>The bridge is <b>always computed per-session</b>, regardless of the funnel's
+     * {@code mode}. OTel signals (crashes, traces, replay) are inherently per-session
+     * in time — a per-user rollup has no single moment to anchor to. For UNIQUE_USERS
+     * funnels we derive a per-user row from the session bridge by picking each user's
+     * canonical session (the one that reached the furthest step; most recent ts on ties).
+     *
+     * <p>Unordered funnels currently skip bridge emission — the "farthest-step"
+     * concept is well-defined for ordered sequences but needs a separate semantic for
+     * any-order funnels. Tracked as a follow-up.
+     */
+    private static void emitBridgeAndRollup(Dataset<Row> raw, FunnelDefinition funnel,
+                                            String runTime,
+                                            Long startEpochSeconds, Long endEpochSeconds,
+                                            ClickHouseClient ch) {
+        if (funnel.isUnordered()) {
+            log.info("Funnel {} is UNORDERED — skipping bridge/rollup emission", funnel.id());
+            return;
+        }
+
+        var steps = funnel.steps();
+        int numSteps = steps.size();
+        if (numSteps == 0) {
+            return;
+        }
+        long windowSecs = funnel.windowSeconds();
+
+        // Apply the same window/date filter + global filters that computeFunnel uses so the
+        // bridge cohort matches the aggregate counts in funnel_results exactly.
+        Dataset<Row> df;
+        if (startEpochSeconds != null && endEpochSeconds != null) {
+            df = raw.filter(
+                    unix_timestamp(col("timestamp")).geq(lit(startEpochSeconds))
+                            .and(unix_timestamp(col("timestamp")).leq(lit(endEpochSeconds)))
+            );
+        } else {
+            var endDate   = LocalDate.parse(runTime.substring(0, 10));
+            var startDate = endDate.minusDays(funnel.dateRange() - 1L);
+            df = raw.filter(
+                    col("timestamp").cast(DataTypes.DateType).geq(lit(startDate.toString()))
+                            .and(col("timestamp").cast(DataTypes.DateType).leq(lit(endDate.toString())))
+            );
+        }
+        df = applyFilters(df, funnel.globalFilters()).cache();
+
+        try {
+            // Traversal identical to computeFunnel's ordered path, but identity is ALWAYS
+            // session_id — the bridge is a per-session structure even for UNIQUE_USERS funnels.
+            Dataset<Row> current = stepEvents(df, steps.get(0), "session_id")
+                    .select(col("identity"), col("ts").alias("ts0"), col("ts").alias("ts_prev"))
+                    .cache();
+
+            // perStep[i] = distinct (session_id, ts0, ts_at_step_i) that reached step i
+            List<Dataset<Row>> perStep = new ArrayList<>(numSteps);
+            perStep.add(current.select(
+                    col("identity"),
+                    col("ts0"),
+                    col("ts0").alias("ts_at_step")
+            ));
+
+            for (int i = 1; i < numSteps; i++) {
+                Dataset<Row> stepEvts = stepEvents(df, steps.get(i), "session_id")
+                        .select(col("identity").alias("id_i"), col("ts").alias("ts_i"));
+
+                Column joinCond = col("prev.identity").equalTo(col("next.id_i"))
+                        .and(col("next.ts_i").gt(col("prev.ts_prev")))
+                        .and(col("next.ts_i").leq(col("prev.ts0").plus(windowSecs)));
+
+                Dataset<Row> prevCache = current;
+                current = current.alias("prev")
+                        .join(stepEvts.alias("next"), joinCond, "inner")
+                        .groupBy(col("prev.identity").as("identity"), col("prev.ts0").as("ts0"))
+                        .agg(min(col("next.ts_i")).alias("ts_prev"))
+                        .cache();
+                prevCache.unpersist();
+
+                perStep.add(current.select(
+                        col("identity"),
+                        col("ts0"),
+                        col("ts_prev").alias("ts_at_step")
+                ));
+
+                if (current.rdd().isEmpty()) {
+                    break;
+                }
+            }
+            current.unpersist();
+
+            // Union perStep with step_idx label, then pick each session's best attempt:
+            // max(step_idx), most recent ts_at_step, earliest ts0 on further ties.
+            Dataset<Row> unionAll = null;
+            for (int i = 0; i < perStep.size(); i++) {
+                Dataset<Row> withIdx = perStep.get(i).withColumn("step_idx", lit(i));
+                unionAll = (unionAll == null) ? withIdx : unionAll.union(withIdx);
+            }
+            if (unionAll == null) {
+                log.warn("Funnel {}: no session reached step 0 — skipping bridge", funnel.id());
+                return;
+            }
+
+            WindowSpec bestWin = Window.partitionBy("identity")
+                    .orderBy(col("step_idx").desc(), col("ts_at_step").desc(), col("ts0").asc());
+            Dataset<Row> bestPerSession = unionAll
+                    .withColumn("_rn", row_number().over(bestWin))
+                    .filter(col("_rn").equalTo(1))
+                    .drop("_rn")
+                    .cache();
+
+            // Join back to raw to hydrate dimension carryover (screen, app version, etc.)
+            // at the exact moment of the furthest-step event, plus user_id.
+            Dataset<Row> hydrated = bestPerSession.alias("b")
+                    .join(
+                            df.alias("d"),
+                            col("b.identity").equalTo(col("d.session_id"))
+                                    .and(unix_timestamp(col("d.timestamp")).equalTo(col("b.ts_at_step"))),
+                            "left"
+                    )
+                    .select(
+                            col("b.identity").alias("session_id"),
+                            col("b.ts0").alias("ts0"),
+                            col("b.ts_at_step").alias("ts_at_step"),
+                            col("b.step_idx").alias("step_idx"),
+                            coalesce(col("d.user_id"), lit("")).alias("user_id"),
+                            coalesce(col("d.screen_name"), lit("")).alias("screen"),
+                            coalesce(col("d.app_build_name"), lit("")).alias("app_version"),
+                            coalesce(col("d.os_name"), lit("")).alias("os_name"),
+                            coalesce(col("d.os_version"), lit("")).alias("os_version"),
+                            coalesce(col("d.device_manufacturer"), lit("")).alias("platform"),
+                            coalesce(col("d.device_model_identifier"), lit("")).alias("device_model"),
+                            coalesce(col("d.network_carrier_icc"), lit("")).alias("network_provider")
+                    )
+                    .dropDuplicates("session_id")
+                    .cache();
+
+            int finalStepIdx = numSteps - 1;
+            List<Row> collected = hydrated.collectAsList();
+            bestPerSession.unpersist();
+            hydrated.unpersist();
+
+            List<FunnelSessionState> bridgeRows = new ArrayList<>(collected.size());
+            for (Row r : collected) {
+                int maxStep = r.getAs("step_idx");
+                long ts0 = r.getAs("ts0");
+                long tsAt = r.getAs("ts_at_step");
+                int dropoff = maxStep >= finalStepIdx ? -1 : maxStep + 1;
+                bridgeRows.add(new FunnelSessionState(
+                        funnel.id(), funnel.projectId(), runTime,
+                        r.<String>getAs("session_id"),
+                        r.<String>getAs("user_id"),
+                        maxStep,
+                        steps.get(maxStep).eventName(),
+                        tsAt,
+                        dropoff,
+                        Math.max(0, tsAt - ts0),
+                        r.<String>getAs("screen"),
+                        "", // TraceIdAtDropoff — not in vector-log parquet yet; hydrate via OTel join if needed
+                        r.<String>getAs("app_version"),
+                        r.<String>getAs("os_name"),
+                        r.<String>getAs("os_version"),
+                        r.<String>getAs("platform"),
+                        r.<String>getAs("device_model"),
+                        r.<String>getAs("network_provider"),
+                        "" // GeoCountry — not yet carried on vector-log parquet
+                ));
+            }
+            ch.insertFunnelSessionState(bridgeRows);
+            log.info("Funnel {}: wrote {} session_state rows", funnel.id(), bridgeRows.size());
+
+            // Only UNIQUE_USERS funnels get the user rollup. For SESSIONS funnels, the
+            // side-panel joins directly on funnel_session_state.
+            if (!"SESSIONS".equalsIgnoreCase(funnel.mode())) {
+                List<FunnelUserState> userRows = rollupToUsers(bridgeRows, finalStepIdx);
+                ch.insertFunnelUserState(userRows);
+                log.info("Funnel {}: wrote {} user_state rows", funnel.id(), userRows.size());
+            }
+        } finally {
+            df.unpersist();
+        }
+    }
+
+    /**
+     * Groups session-bridge rows by {@code userId} and picks the canonical session per user:
+     * max reached step, most recent {@code lastReachedAt} on ties. Empty user IDs (anonymous
+     * sessions) are skipped — the user rollup is only meaningful for identified users.
+     */
+    private static List<FunnelUserState> rollupToUsers(List<FunnelSessionState> sessionRows, int finalStepIdx) {
+        Map<String, FunnelSessionState> bestByUser = new HashMap<>();
+        Map<String, Integer> attemptsByUser = new HashMap<>();
+        for (var s : sessionRows) {
+            if (s.userId() == null || s.userId().isEmpty()) continue;
+            attemptsByUser.merge(s.userId(), 1, Integer::sum);
+            var incumbent = bestByUser.get(s.userId());
+            if (incumbent == null
+                    || s.lastReachedStep() > incumbent.lastReachedStep()
+                    || (s.lastReachedStep() == incumbent.lastReachedStep()
+                            && s.lastReachedAtEpochSec() > incumbent.lastReachedAtEpochSec())) {
+                bestByUser.put(s.userId(), s);
+            }
+        }
+
+        var out = new ArrayList<FunnelUserState>(bestByUser.size());
+        for (var entry : bestByUser.entrySet()) {
+            var canonical = entry.getValue();
+            int maxStep = canonical.lastReachedStep();
+            int dropoff = maxStep >= finalStepIdx ? -1 : maxStep + 1;
+            out.add(new FunnelUserState(
+                    canonical.funnelId(), canonical.projectId(), canonical.runTime(),
+                    entry.getKey(),
+                    maxStep,
+                    dropoff,
+                    canonical.sessionId(),
+                    canonical.lastReachedAtEpochSec(),
+                    canonical.traceIdAtDropoff(),
+                    canonical.screenAtDropoff(),
+                    canonical.appVersion(),
+                    canonical.osName(),
+                    canonical.osVersion(),
+                    canonical.platform(),
+                    canonical.deviceModel(),
+                    canonical.networkProvider(),
+                    canonical.geoCountry(),
+                    attemptsByUser.getOrDefault(entry.getKey(), 1)
+            ));
+        }
+        return out;
     }
 
     private static Dataset<Row> stepEvents(Dataset<Row> df, FunnelStep step, String identityCol) {

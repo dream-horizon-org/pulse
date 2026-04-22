@@ -28,7 +28,7 @@
 
         <!-- Use an older version until https://issues.apache.org/jira/browse/MRESOURCES-237 -->
         <maven.resources.plugin.version>2.7</maven.resources.plugin.version>
-        <kotlin.version>2.2.20</kotlin.version>
+        <kotlin.version>2.1.0</kotlin.version>
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
     </properties>
 

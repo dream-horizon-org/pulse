@@ -1024,6 +1024,16 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnels/tags`,
     method: API_METHODS.GET,
   },
+  FUNNEL_DROPOFF: {
+    key: "FUNNEL_DROPOFF",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_DROPOFF_EVIDENCE: {
+    key: "FUNNEL_DROPOFF_EVIDENCE",
+    apiPath: `/v1/funnels`,
+    method: API_METHODS.GET,
+  },
   GET_TNC_STATUS: {
     key: "GET_TNC_STATUS",
     apiPath: `/v1/tnc/status`,

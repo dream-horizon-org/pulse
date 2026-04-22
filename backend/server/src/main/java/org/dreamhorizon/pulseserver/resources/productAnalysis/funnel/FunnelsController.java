@@ -14,8 +14,11 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.models.FunnelJourn
 import org.dreamhorizon.pulseserver.resources.productAnalysis.models.ReplaceEntityTagsRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
+import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelDropoffService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletionStage;
 
 @Slf4j
@@ -26,6 +29,7 @@ import java.util.concurrent.CompletionStage;
 public class FunnelsController {
 
   private final FunnelService funnelService;
+  private final FunnelDropoffService funnelDropoffService;
 
   /**
    * Distinct funnel/journey tag labels in the project ({@code funnel_journey_tag}). Literal path
@@ -97,6 +101,58 @@ public class FunnelsController {
    * Replaces all tags for the funnel (empty {@code tags} clears them). Mappings:
    * {@code funnel_journey_tag}.
    */
+  /**
+   * Ranked drop-off causes for one step of the funnel (side-panel payload).
+   * {@code runTime} is optional; when absent the service picks the latest run.
+   */
+  @GET
+  @RequiresPermission("can_view")
+  @Path("/{id: \\d+}/dropoffs/{stepIndex: \\d+}")
+  public CompletionStage<Response<FunnelDropoffResponse>> getFunnelDropoff(
+    @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
+    @PathParam("id") long id,
+    @PathParam("stepIndex") int stepIndex,
+    @QueryParam("runTime") String runTime) {
+    return funnelDropoffService
+      .getDropoff(projectId, id, stepIndex, runTime)
+      .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Loads per-session evidence for a cause the user picked in the side-panel. The
+   * query parameter {@code sessionIds} is CSV — typically 5 IDs copied from the
+   * cause's {@code exampleSessionIds}.
+   */
+  @GET
+  @RequiresPermission("can_view")
+  @Path("/{id: \\d+}/dropoffs/{stepIndex: \\d+}/evidence")
+  public CompletionStage<Response<FunnelDropoffEvidenceResponse>> getFunnelDropoffEvidence(
+    @HeaderParam("X-Project-Id") @NotBlank(message = "X-Project-Id header is required") String projectId,
+    @PathParam("id") long id,
+    @PathParam("stepIndex") int stepIndex,
+    @QueryParam("runTime") String runTime,
+    @QueryParam("sessionIds") String sessionIdsCsv) {
+    List<String> sessionIds = parseCsv(sessionIdsCsv);
+    return funnelDropoffService
+      .getEvidence(projectId, id, stepIndex, runTime, sessionIds)
+      .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private static List<String> parseCsv(String csv) {
+    if (csv == null || csv.isBlank()) {
+      return Collections.emptyList();
+    }
+    String[] parts = csv.split(",");
+    List<String> out = new java.util.ArrayList<>(parts.length);
+    for (String p : parts) {
+      String t = p.trim();
+      if (!t.isEmpty()) {
+        out.add(t);
+      }
+    }
+    return out;
+  }
+
   @PUT
   @RequiresPermission("can_edit")
   @Path("/{id}/tags")

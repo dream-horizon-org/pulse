@@ -38,6 +38,8 @@ public enum ServiceError implements RestError {
   MEMBER_ALREADY_EXISTS("409", "User is already a member", 409),
   FUNNEL_NOT_FOUND("BE1010", "Funnel not found", 404),
   FUNNEL_CREATION_FAILED("BE1011", "Funnel creation failed", 400),
+  FUNNEL_STEP_OUT_OF_RANGE("BE1014", "Funnel step index out of range", 400),
+  FUNNEL_DROPOFF_UNAVAILABLE("BE1015", "Funnel drop-off data not yet available", 404),
   JOURNEY_NOT_FOUND("BE1012", "Journey not found", 404),
   JOURNEY_CREATION_FAILED("BE1013", "Journey creation failed", 400),
   DUPLICATE_SUGGESTED_INTERACTION("409", "An interaction with the same event sequence already exists", 409),

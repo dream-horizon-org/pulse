@@ -111,3 +111,5 @@ export { FILTER_MAPPING, EVENT_TYPE } from "./hooks.interface";
 
 // Funnel hooks
 export * from "./useGetFunnelData";
+export * from "./useFunnelDropoff";
+export * from "./useFunnelDropoffEvidence";

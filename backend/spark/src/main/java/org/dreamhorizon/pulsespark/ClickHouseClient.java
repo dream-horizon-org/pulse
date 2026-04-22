@@ -10,6 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import org.dreamhorizon.pulsespark.model.FunnelResult;
+import org.dreamhorizon.pulsespark.model.FunnelSessionState;
+import org.dreamhorizon.pulsespark.model.FunnelUserState;
 import org.dreamhorizon.pulsespark.model.JourneyTransition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,6 +86,75 @@ public class ClickHouseClient {
     }
     execute("insertJourneyResults", sb.toString());
     log.info("Inserted {} journey_result rows", rows.size());
+  }
+
+  /**
+   * Chunked insert into {@code otel.funnel_session_state} — one row per session that
+   * entered the funnel. Uses {@link #bulkInsert} under the hood so large cohorts
+   * (millions of rows) don't balloon into a single HTTP POST.
+   */
+  public void insertFunnelSessionState(List<FunnelSessionState> rows) {
+    if (rows.isEmpty()) {
+      log.warn("insertFunnelSessionState: no rows to insert");
+      return;
+    }
+    var columnList =
+        "FunnelId,ProjectId,RunTime,SessionId,UserId,"
+            + "LastReachedStep,LastReachedStepName,LastReachedAt,"
+            + "DropoffStep,TimeToDropoffSec,ScreenAtDropoff,TraceIdAtDropoff,"
+            + "AppVersion,OsName,OsVersion,Platform,DeviceModel,NetworkProvider,GeoCountry";
+    var values = new java.util.ArrayList<String>(rows.size());
+    for (var r : rows) {
+      values.add(String.format(
+          "('%d','%s','%s','%s','%s',%d,'%s',toDateTime64(%d,3,'UTC'),%d,%d,'%s','%s',"
+              + "'%s','%s','%s','%s','%s','%s','%s')",
+          r.funnelId(), esc(r.projectId()), esc(r.runTime()),
+          esc(r.sessionId()), esc(r.userId()),
+          r.lastReachedStep(), esc(r.lastReachedStepName()),
+          r.lastReachedAtEpochSec(),
+          r.dropoffStep(), r.timeToDropoffSec(),
+          esc(r.screenAtDropoff()), esc(r.traceIdAtDropoff()),
+          esc(r.appVersion()), esc(r.osName()), esc(r.osVersion()),
+          esc(r.platform()), esc(r.deviceModel()),
+          esc(r.networkProvider()), esc(r.geoCountry())
+      ));
+    }
+    bulkInsert("funnel_session_state", columnList, values, 5000);
+    log.info("Inserted {} funnel_session_state rows", rows.size());
+  }
+
+  /**
+   * Chunked insert into {@code otel.funnel_user_state} — per-user rollup with a
+   * canonical-session anchor. Only produced for funnels whose {@code mode} is
+   * {@code UNIQUE_USERS}; SESSIONS mode funnels skip this call entirely.
+   */
+  public void insertFunnelUserState(List<FunnelUserState> rows) {
+    if (rows.isEmpty()) {
+      log.warn("insertFunnelUserState: no rows to insert");
+      return;
+    }
+    var columnList =
+        "FunnelId,ProjectId,RunTime,UserId,MaxReachedStep,DropoffStep,"
+            + "CanonicalSessionId,CanonicalLastReachedAt,CanonicalTraceIdAtDropoff,"
+            + "CanonicalScreenAtDropoff,AppVersion,OsName,OsVersion,Platform,DeviceModel,"
+            + "NetworkProvider,GeoCountry,SessionAttempts";
+    var values = new java.util.ArrayList<String>(rows.size());
+    for (var r : rows) {
+      values.add(String.format(
+          "('%d','%s','%s','%s',%d,%d,'%s',toDateTime64(%d,3,'UTC'),'%s','%s',"
+              + "'%s','%s','%s','%s','%s','%s','%s',%d)",
+          r.funnelId(), esc(r.projectId()), esc(r.runTime()),
+          esc(r.userId()), r.maxReachedStep(), r.dropoffStep(),
+          esc(r.canonicalSessionId()), r.canonicalLastReachedAtEpochSec(),
+          esc(r.canonicalTraceIdAtDropoff()), esc(r.canonicalScreenAtDropoff()),
+          esc(r.appVersion()), esc(r.osName()), esc(r.osVersion()),
+          esc(r.platform()), esc(r.deviceModel()),
+          esc(r.networkProvider()), esc(r.geoCountry()),
+          r.sessionAttempts()
+      ));
+    }
+    bulkInsert("funnel_user_state", columnList, values, 5000);
+    log.info("Inserted {} funnel_user_state rows", rows.size());
   }
 
   public void bulkInsert(String table, String columnList, List<String> valueRows, int chunkSize) {

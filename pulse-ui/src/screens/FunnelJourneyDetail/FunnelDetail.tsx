@@ -25,6 +25,7 @@ import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
 import { FunnelVisualization } from "../FunnelJourneyCreate/components/FunnelVisualization";
 import { FunnelDataTable } from "../FunnelJourneyCreate/components/FunnelDataTable";
+import { DropoffPanel } from "../../components/DropoffPanel";
 import {
   FunnelMode,
   FunnelType,
@@ -91,6 +92,8 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
     detail.windowSeconds ? String(detail.windowSeconds) : "86400",
   );
   const [, setShouldFetch] = useState(false);
+  /** Zero-based step whose drop-off side-panel is currently open (null when closed). */
+  const [dropoffStepIndex, setDropoffStepIndex] = useState<number | null>(null);
 
   const { data: eventsData } = useGetFunnelEvents();
   const availableEvents = eventsData?.data?.events ?? [];
@@ -357,6 +360,13 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
                 conversionTrend={0}
                 medianTimes={funnelResult.steps.map((s: any) => s.medianStepSeconds ?? null)}
                 mode={analysisMode}
+                onStepDropoffClick={(idx) => setDropoffStepIndex(idx)}
+              />
+              <DropoffPanel
+                opened={dropoffStepIndex !== null}
+                onClose={() => setDropoffStepIndex(null)}
+                funnelId={detail.id != null ? String(detail.id) : undefined}
+                stepIndex={dropoffStepIndex ?? undefined}
               />
               <FunnelDataTable
                 steps={funnelResult.steps}

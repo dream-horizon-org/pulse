@@ -53,8 +53,18 @@ public final class ClickHouseFunnelComputeDao {
    * {@code now64(3)} per branch yields slightly different millisecond values and causes
    * {@code max(RunTime)} to match only the last-evaluated branch.
    */
-  private static String runTimeLiteral() {
+  static String runTimeLiteral() {
     return "toDateTime64('" + RUN_TIME_FMT.format(Instant.now()) + "', 3, 'UTC')";
+  }
+
+  /**
+   * Exposes a fresh {@code RunTime} literal so callers can share the SAME run stamp across the
+   * {@code funnel_results} insert and the accompanying {@code funnel_session_state} /
+   * {@code funnel_user_state} inserts. All three tables must agree on {@code RunTime} so the
+   * drop-off DAO can join them by {@code MAX(RunTime)} per funnel.
+   */
+  public static String newRunTimeLiteral() {
+    return runTimeLiteral();
   }
 
   /**
@@ -64,10 +74,18 @@ public final class ClickHouseFunnelComputeDao {
    * all other values use {@link #buildInsertSqlChain(FunnelDefinitionRow)}.
    */
   public static String buildInsertSqlForDefinition(FunnelDefinitionRow def) {
+    return buildInsertSqlForDefinition(def, runTimeLiteral());
+  }
+
+  /**
+   * Overload that lets the caller pin the {@code RunTime} literal so the accompanying bridge
+   * inserts can share it.
+   */
+  public static String buildInsertSqlForDefinition(FunnelDefinitionRow def, String runTime) {
     if (isUnorderedFunnel(def)) {
-      return buildInsertSqlUnordered(def);
+      return buildInsertSqlUnordered(def, runTime);
     }
-    return buildInsertSqlChain(def);
+    return buildInsertSqlChain(def, runTime);
   }
 
   /**
@@ -94,6 +112,11 @@ public final class ClickHouseFunnelComputeDao {
    * @return the INSERT SQL, or an empty string if the funnel has no steps
    */
   public static String buildInsertSqlChain(FunnelDefinitionRow def) {
+    return buildInsertSqlChain(def, runTimeLiteral());
+  }
+
+  /** Overload for a caller-supplied {@code RunTime} literal; see {@link #newRunTimeLiteral()}. */
+  public static String buildInsertSqlChain(FunnelDefinitionRow def, String runTime) {
     List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
     if (steps.isEmpty()) {
       return "";
@@ -104,7 +127,6 @@ public final class ClickHouseFunnelComputeDao {
     long windowSeconds = def.getWindowSeconds();
     long funnelId = def.getId();
     String projectId = def.getProjectId();
-    String runTime = runTimeLiteral();
 
     String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
     String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
@@ -271,6 +293,11 @@ public final class ClickHouseFunnelComputeDao {
    * <p>Median step duration is always {@code NULL} for unordered funnels.
    */
   public static String buildInsertSqlUnordered(FunnelDefinitionRow def) {
+    return buildInsertSqlUnordered(def, runTimeLiteral());
+  }
+
+  /** Overload for a caller-supplied {@code RunTime} literal; see {@link #newRunTimeLiteral()}. */
+  public static String buildInsertSqlUnordered(FunnelDefinitionRow def, String runTime) {
     List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
     if (steps.isEmpty()) {
       return "";
@@ -294,7 +321,7 @@ public final class ClickHouseFunnelComputeDao {
         .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
         .collect(Collectors.joining("\n      "));
 
-    String stepRows = buildUnorderedStepRows(steps, funnelId, projectId, runTimeLiteral());
+    String stepRows = buildUnorderedStepRows(steps, funnelId, projectId, runTime);
 
     StringBuilder sql = new StringBuilder(2048);
     sql.append("INSERT INTO otel.funnel_results\n")
@@ -341,6 +368,257 @@ public final class ClickHouseFunnelComputeDao {
 
     return sql.toString();
   }
+
+  // ── Drop-off bridge emission ─────────────────────────────────────────────────
+
+  /**
+   * Builds the INSERT SQL that populates {@code otel.funnel_session_state} — the per-session
+   * drop-off bridge — for one ORDERED funnel. Returns empty for unordered or zero-step
+   * funnels (matches Spark's {@code emitBridgeAndRollup} behaviour).
+   *
+   * <p>Semantics mirror {@link #buildInsertSqlChain(FunnelDefinitionRow, String)} but the
+   * identity is ALWAYS {@code SessionId} — the bridge is per-session even for UNIQUE_USERS
+   * funnels so OTel signals (crash / trace / replay) have a single concrete moment to anchor
+   * to. Dimension carryover (screen, app version, OS, device, trace id) is hydrated by a
+   * final left-join back to {@code otel.otel_logs} at the exact event timestamp of the
+   * session's furthest-reached step.
+   *
+   * <p>Every row is stamped with the caller-supplied {@code runTime} so the downstream
+   * drop-off DAO can match bridge rows to their {@code funnel_results} run by {@code MAX(RunTime)}.
+   */
+  public static String buildSessionStateInsertSql(FunnelDefinitionRow def, String runTime) {
+    if (isUnorderedFunnel(def)) {
+      // Unordered funnels have no well-defined "furthest-step" anchor — skip, as Spark does.
+      return "";
+    }
+    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
+    if (steps.isEmpty()) {
+      return "";
+    }
+    List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
+
+    int stepCount = steps.size();
+    long windowSeconds = def.getWindowSeconds();
+    long funnelId = def.getId();
+    String projectId = def.getProjectId();
+
+    String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
+        def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
+    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
+
+    String eventNameInClause = steps.stream()
+        .map(s -> "'" + escape(s.getEventName()) + "'")
+        .collect(Collectors.joining(", "));
+    String additionalFilters = filters.stream()
+        .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
+        .collect(Collectors.joining("\n      "));
+
+    StringBuilder sql = new StringBuilder(4096);
+    sql.append("INSERT INTO otel.funnel_session_state\n")
+        .append("  (FunnelId, ProjectId, RunTime, SessionId, UserId,\n")
+        .append("   LastReachedStep, LastReachedStepName, LastReachedAt,\n")
+        .append("   DropoffStep, TimeToDropoffSec, ScreenAtDropoff, TraceIdAtDropoff,\n")
+        .append("   AppVersion, OsName, OsVersion, Platform, DeviceModel, NetworkProvider, GeoCountry)\n")
+        .append("WITH\n");
+
+    // step_events: identity is ALWAYS SessionId for bridge emission, regardless of funnel mode.
+    // Skip rows with empty SessionId — they can't be correlated back to OTel signals.
+    sql.append("  step_events AS (\n")
+        .append("    SELECT SessionId AS uid,\n")
+        .append("           toDateTime(Timestamp) AS FunnelTs,\n")
+        .append("           EventName\n")
+        .append("    FROM otel.otel_logs\n")
+        .append("    WHERE ProjectId = '").append(projectId).append("'\n")
+        .append("      AND PulseType = 'custom_event'\n")
+        .append("      AND SessionId != ''\n")
+        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("      AND EventName IN (").append(eventNameInClause).append(")\n");
+    if (!additionalFilters.isBlank()) {
+      sql.append("      ").append(additionalFilters).append("\n");
+    }
+    sql.append("  ),\n");
+
+    // attempts / s1..s(N-1): identical chain walk to buildInsertSqlChain.
+    sql.append("  attempts AS (\n")
+        .append("    SELECT uid, FunnelTs AS t0\n")
+        .append("    FROM step_events\n")
+        .append("    WHERE EventName = '").append(escape(steps.get(0).getEventName())).append("'\n")
+        .append("  )");
+
+    for (int i = 1; i < stepCount; i++) {
+      String prevCte = i == 1 ? "attempts" : ("s" + (i - 1));
+      String prevAlias = i == 1 ? "a" : ("s" + (i - 1));
+      String stepName = escape(steps.get(i).getEventName());
+
+      sql.append(",\n  s").append(i).append(" AS (\n")
+          .append("    SELECT ").append(prevAlias).append(".uid, ").append(prevAlias).append(".t0");
+      for (int j = 1; j < i; j++) {
+        sql.append(", ").append(prevAlias).append(".t").append(j);
+      }
+      sql.append(",\n           minOrNullIf(e.FunnelTs, e.FunnelTs >= ").append(prevAlias).append(".t")
+          .append(i - 1).append(" AND e.FunnelTs <= ").append(prevAlias).append(".t0 + INTERVAL ")
+          .append(windowSeconds).append(" SECOND) AS t").append(i).append("\n")
+          .append("    FROM ").append(prevCte).append(" AS ").append(prevAlias).append("\n")
+          .append("    LEFT JOIN step_events e\n")
+          .append("      ON e.uid = ").append(prevAlias).append(".uid\n")
+          .append("     AND e.EventName = '").append(stepName).append("'\n")
+          .append("    GROUP BY ").append(prevAlias).append(".uid, ").append(prevAlias).append(".t0");
+      for (int j = 1; j < i; j++) {
+        sql.append(", ").append(prevAlias).append(".t").append(j);
+      }
+      sql.append("\n  )");
+    }
+
+    // scored: depth = 1..N for each attempt.
+    String lastChainCte = stepCount == 1 ? "attempts" : ("s" + (stepCount - 1));
+    sql.append(",\n  scored AS (\n")
+        .append("    SELECT uid, t0");
+    for (int i = 1; i < stepCount; i++) {
+      sql.append(", t").append(i);
+    }
+    if (stepCount == 1) {
+      sql.append(", 1 AS depth\n");
+    } else {
+      sql.append(",\n           multiIf(\n");
+      for (int i = stepCount - 1; i >= 1; i--) {
+        sql.append("             t").append(i).append(" IS NOT NULL, ").append(i + 1).append(",\n");
+      }
+      sql.append("             1\n")
+          .append("           ) AS depth\n");
+    }
+    sql.append("    FROM ").append(lastChainCte).append("\n")
+        .append("  ),\n");
+
+    // winners: pick the deepest attempt per session (earliest t0 breaks ties).
+    sql.append("  winners AS (\n")
+        .append("    SELECT uid,\n")
+        .append("      argMax(tuple(t0");
+    for (int i = 1; i < stepCount; i++) {
+      sql.append(", t").append(i);
+    }
+    sql.append("), tuple(depth, -toInt64(toUnixTimestamp(t0)))) AS chain,\n")
+        .append("      max(depth) AS winning_depth\n")
+        .append("    FROM scored\n")
+        .append("    GROUP BY uid\n")
+        .append("  ),\n");
+
+    // anchors: extract LastReachedAt (= chain[winning_depth]) and t0 (= chain[1]).
+    sql.append("  anchors AS (\n")
+        .append("    SELECT uid AS SessionId,\n")
+        .append("           toUInt8(winning_depth - 1) AS LastReachedStep,\n")
+        .append("           tupleElement(chain, 1) AS T0,\n")
+        .append("           multiIf(\n");
+    for (int k = stepCount; k >= 2; k--) {
+      sql.append("             winning_depth = ").append(k)
+          .append(", tupleElement(chain, ").append(k).append("),\n");
+    }
+    sql.append("             tupleElement(chain, 1)\n")
+        .append("           ) AS LastReachedAt\n")
+        .append("    FROM winners\n")
+        .append("  )\n");
+
+    // Hydrate dimensions by joining back to otel_logs on (SessionId, Timestamp).
+    // Using any() (not argMax) — all rows in the group share the same timestamp.
+    sql.append("SELECT toUInt64(").append(funnelId).append("),\n")
+        .append("       '").append(projectId).append("',\n")
+        .append("       ").append(runTime).append(",\n")
+        .append("       a.SessionId,\n")
+        .append("       any(l.UserId) AS UserId,\n")
+        .append("       a.LastReachedStep,\n")
+        .append("       multiIf(\n");
+    for (int i = 0; i < stepCount; i++) {
+      sql.append("         a.LastReachedStep = ").append(i)
+          .append(", '").append(escape(steps.get(i).getEventName())).append("',\n");
+    }
+    sql.append("         ''\n")
+        .append("       ) AS LastReachedStepName,\n")
+        .append("       toDateTime64(a.LastReachedAt, 3, 'UTC') AS LastReachedAt,\n")
+        .append("       toInt8(if(a.LastReachedStep >= ").append(stepCount - 1)
+        .append(", -1, a.LastReachedStep + 1)) AS DropoffStep,\n")
+        .append("       toInt64(toUnixTimestamp(a.LastReachedAt) - toUnixTimestamp(a.T0)) AS TimeToDropoffSec,\n")
+        .append("       any(ifNull(l.LogAttributes['screen.name'], '')) AS ScreenAtDropoff,\n")
+        .append("       any(l.TraceId) AS TraceIdAtDropoff,\n")
+        .append("       any(l.AppVersion) AS AppVersion,\n")
+        .append("       any(l.Platform)   AS OsName,\n")
+        .append("       any(l.OsVersion)  AS OsVersion,\n")
+        .append("       any(l.Platform)   AS Platform,\n")
+        .append("       any(l.DeviceModel) AS DeviceModel,\n")
+        .append("       any(l.NetworkProvider) AS NetworkProvider,\n")
+        .append("       any(l.GeoCountry) AS GeoCountry\n")
+        .append("FROM anchors a\n")
+        .append("LEFT JOIN otel.otel_logs l\n")
+        .append("  ON l.ProjectId = '").append(projectId).append("'\n")
+        .append(" AND l.SessionId = a.SessionId\n")
+        .append(" AND toDateTime(l.Timestamp) = a.LastReachedAt\n")
+        .append("GROUP BY a.SessionId, a.LastReachedStep, a.LastReachedAt, a.T0\n");
+
+    return sql.toString();
+  }
+
+  /**
+   * Builds the INSERT SQL that populates {@code otel.funnel_user_state} — the per-user rollup —
+   * by reading from the just-written {@code funnel_session_state} rows for the same
+   * {@code (ProjectId, FunnelId, RunTime)}. Must be executed AFTER
+   * {@link #buildSessionStateInsertSql(FunnelDefinitionRow, String)}.
+   *
+   * <p>Only meaningful for {@code UNIQUE_USERS} funnels; returns empty for SESSIONS funnels
+   * (matches Spark).
+   *
+   * <p>Canonical session per user = furthest step, latest timestamp on ties (implemented via
+   * {@code argMax(..., (LastReachedStep, LastReachedAt))}).
+   */
+  public static String buildUserStateInsertSql(FunnelDefinitionRow def, String runTime) {
+    if (isUnorderedFunnel(def)) {
+      return "";
+    }
+    if ("SESSIONS".equalsIgnoreCase(def.getMode())) {
+      return "";
+    }
+    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
+    if (steps.isEmpty()) {
+      return "";
+    }
+
+    long funnelId = def.getId();
+    String projectId = def.getProjectId();
+
+    StringBuilder sql = new StringBuilder(1024);
+    sql.append("INSERT INTO otel.funnel_user_state\n")
+        .append("  (FunnelId, ProjectId, RunTime, UserId,\n")
+        .append("   MaxReachedStep, DropoffStep,\n")
+        .append("   CanonicalSessionId, CanonicalLastReachedAt, CanonicalTraceIdAtDropoff,\n")
+        .append("   CanonicalScreenAtDropoff,\n")
+        .append("   AppVersion, OsName, OsVersion, Platform, DeviceModel, NetworkProvider, GeoCountry,\n")
+        .append("   SessionAttempts)\n")
+        .append("SELECT toUInt64(").append(funnelId).append("),\n")
+        .append("       '").append(projectId).append("',\n")
+        .append("       ").append(runTime).append(",\n")
+        .append("       UserId,\n")
+        .append("       toUInt8(max(LastReachedStep)) AS MaxReachedStep,\n")
+        .append("       toInt8(if(sum(DropoffStep = -1) > 0, -1, max(LastReachedStep) + 1)) AS DropoffStep,\n")
+        .append("       argMax(SessionId, (LastReachedStep, LastReachedAt)) AS CanonicalSessionId,\n")
+        .append("       argMax(LastReachedAt, (LastReachedStep, LastReachedAt)) AS CanonicalLastReachedAt,\n")
+        .append("       argMax(TraceIdAtDropoff, (LastReachedStep, LastReachedAt)) AS CanonicalTraceIdAtDropoff,\n")
+        .append("       argMax(ScreenAtDropoff, (LastReachedStep, LastReachedAt)) AS CanonicalScreenAtDropoff,\n")
+        .append("       argMax(AppVersion, (LastReachedStep, LastReachedAt)),\n")
+        .append("       argMax(OsName, (LastReachedStep, LastReachedAt)),\n")
+        .append("       argMax(OsVersion, (LastReachedStep, LastReachedAt)),\n")
+        .append("       argMax(Platform, (LastReachedStep, LastReachedAt)),\n")
+        .append("       argMax(DeviceModel, (LastReachedStep, LastReachedAt)),\n")
+        .append("       argMax(NetworkProvider, (LastReachedStep, LastReachedAt)),\n")
+        .append("       argMax(GeoCountry, (LastReachedStep, LastReachedAt)),\n")
+        .append("       toUInt32(count()) AS SessionAttempts\n")
+        .append("FROM otel.funnel_session_state\n")
+        .append("WHERE ProjectId = '").append(projectId).append("'\n")
+        .append("  AND FunnelId = ").append(funnelId).append("\n")
+        .append("  AND RunTime = ").append(runTime).append("\n")
+        .append("  AND UserId != ''\n")
+        .append("GROUP BY UserId\n");
+
+    return sql.toString();
+  }
+
+  // ── Legacy windowFunnel builders (kept as backup) ────────────────────────────
 
   /**
    * Builds the INSERT SQL for a single funnel definition. Used on the on-save path (both AUTO and

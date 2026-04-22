@@ -28,7 +28,7 @@ public class MainApplication extends Launcher {
   @Override
   public void beforeStartingVertx(VertxOptions vertxOptions) {
     vertxOptions
-      .setEventLoopPoolSize(getNumOfCores())
+      .setEventLoopPoolSize(2)
       .setPreferNativeTransport(true)
       .setFileSystemOptions(new FileSystemOptions().setClassPathResolvingEnabled(true))
       .setWorkerPoolSize(10);
@@ -56,16 +56,16 @@ public class MainApplication extends Launcher {
   }
 
   protected Module[] getGoogleGuiceModules(Vertx vertx) {
-    return new Module[] {
-        new MainModule(vertx),
-        new RcaModule(),
-        new ConfigModule(vertx),
-        new ValidationModule(),
-        new UploadInteractionDetailModule(vertx),
-        new InteractionModule(),
-        new HeatmapModule(),
-        new QueryEngineModule(),
-        new EventDefinitionModule()
+    return new Module[]{
+      new MainModule(vertx),
+      new RcaModule(),
+      new ConfigModule(vertx),
+      new ValidationModule(),
+      new UploadInteractionDetailModule(vertx),
+      new InteractionModule(),
+      new HeatmapModule(),
+      new QueryEngineModule(),
+      new EventDefinitionModule()
     };
   }
 }

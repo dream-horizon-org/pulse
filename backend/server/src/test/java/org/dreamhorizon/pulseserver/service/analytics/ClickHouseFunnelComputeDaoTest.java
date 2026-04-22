@@ -535,4 +535,132 @@ class ClickHouseFunnelComputeDaoTest {
           .doesNotContain("quantileExactIf(0.5)");
     }
   }
+
+  @Nested
+  class BuildSessionStateInsertSql {
+
+    private static final String RUN_TIME = "toDateTime64('2026-04-23 10:00:00.000', 3, 'UTC')";
+
+    @Test
+    void shouldReturnEmptyForUnorderedFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().stepOrderType("UNORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForZeroStepFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().stepsJson("[]").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldTargetFunnelSessionStateTable() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("INSERT INTO otel.funnel_session_state");
+    }
+
+    @Test
+    void shouldAlwaysGroupBySessionIdRegardlessOfFunnelMode() {
+      // UNIQUE_USERS funnel must still emit per-session bridge rows.
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("SELECT SessionId AS uid")
+          .contains("AND SessionId != ''");
+    }
+
+    @Test
+    void shouldFilterByProjectAndPulseType() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("ProjectId = '" + PROJECT_ID + "'")
+          .contains("PulseType = 'custom_event'");
+    }
+
+    @Test
+    void shouldHydrateDimensionsViaLeftJoinOnOtelLogs() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("LEFT JOIN otel.otel_logs l")
+          .contains("l.SessionId = a.SessionId")
+          .contains("any(l.AppVersion)")
+          .contains("any(l.TraceId)")
+          .contains("any(l.Platform)");
+    }
+
+    @Test
+    void shouldEmitDropoffStepAsNegativeOneForConverters() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().stepOrderType("ORDERED").build(), RUN_TIME);
+      // stepCount = 3, final index = 2 → converters have LastReachedStep >= 2 → DropoffStep = -1
+      assertThat(sql).contains("a.LastReachedStep >= 2, -1, a.LastReachedStep + 1");
+    }
+
+    @Test
+    void shouldStampEveryRowWithSharedRunTime() {
+      String sql = ClickHouseFunnelComputeDao.buildSessionStateInsertSql(
+          baseRow().stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains(RUN_TIME);
+    }
+  }
+
+  @Nested
+  class BuildUserStateInsertSql {
+
+    private static final String RUN_TIME = "toDateTime64('2026-04-23 10:00:00.000', 3, 'UTC')";
+
+    @Test
+    void shouldReturnEmptyForSessionsMode() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("SESSIONS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyForUnorderedFunnels() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("UNORDERED").build(), RUN_TIME);
+      assertThat(sql).isEmpty();
+    }
+
+    @Test
+    void shouldTargetFunnelUserStateTable() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("INSERT INTO otel.funnel_user_state");
+    }
+
+    @Test
+    void shouldReadFromFunnelSessionStateScopedToSameRun() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("FROM otel.funnel_session_state")
+          .contains("ProjectId = '" + PROJECT_ID + "'")
+          .contains("FunnelId = 42")
+          .contains("RunTime = " + RUN_TIME)
+          .contains("UserId != ''");
+    }
+
+    @Test
+    void shouldPickCanonicalSessionByFurthestStepAndLatestTimestamp() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql)
+          .contains("argMax(SessionId, (LastReachedStep, LastReachedAt)) AS CanonicalSessionId")
+          .contains("argMax(LastReachedAt, (LastReachedStep, LastReachedAt))");
+    }
+
+    @Test
+    void shouldSetDropoffStepToNegativeOneWhenAnySessionConverted() {
+      String sql = ClickHouseFunnelComputeDao.buildUserStateInsertSql(
+          baseRow().mode("UNIQUE_USERS").stepOrderType("ORDERED").build(), RUN_TIME);
+      assertThat(sql).contains("if(sum(DropoffStep = -1) > 0, -1, max(LastReachedStep) + 1)");
+    }
+  }
 }
