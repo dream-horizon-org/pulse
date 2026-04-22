@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import org.dreamhorizon.pulseserver.resources.dev.models.DevSparkJobTriggerRequest;
 import org.dreamhorizon.pulseserver.service.spark.models.SparkJobRequest;
 import org.dreamhorizon.pulseserver.service.spark.models.SparkJobResponse;
 import org.junit.jupiter.api.Nested;
@@ -15,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Exercises Lombok-generated builders/getters and small pieces of logic for
- * service-layer product-analysis & spark models.
+ * service-layer product-analysis helpers and Spark job DTOs.
  */
 class ProductAnalysisServiceCoverageTest {
 
@@ -100,97 +99,6 @@ class ProductAnalysisServiceCoverageTest {
       assertThat(resp.getEntryPoint()).isEqualTo("s3://x");
       assertThat(resp.getMainClass()).isEqualTo("C");
       assertThat(resp.getSubmittedAt()).isEqualTo("2024-01-01T00:00:00Z");
-    }
-  }
-
-  @Nested
-  class DevSparkJobTriggerRequestModel {
-
-    @Test
-    void shouldBuildAndReadAllFields() {
-      DevSparkJobTriggerRequest r = DevSparkJobTriggerRequest.builder()
-          .entryPoint("s3://jar")
-          .mainClass("com.Main")
-          .jobName("job")
-          .applicationArguments(List.of("--x", "1"))
-          .secretsName("s")
-          .awsRegion("us-east-1")
-          .mode("daily")
-          .s3BucketPrefix("s3://bucket/")
-          .build();
-
-      assertThat(r.getEntryPoint()).isEqualTo("s3://jar");
-      assertThat(r.getMainClass()).isEqualTo("com.Main");
-      assertThat(r.getJobName()).isEqualTo("job");
-      assertThat(r.getApplicationArguments()).containsExactly("--x", "1");
-      assertThat(r.getSecretsName()).isEqualTo("s");
-      assertThat(r.getAwsRegion()).isEqualTo("us-east-1");
-      assertThat(r.getMode()).isEqualTo("daily");
-      assertThat(r.getS3BucketPrefix()).isEqualTo("s3://bucket/");
-    }
-
-    @Test
-    void shouldResolveArgumentsFromExplicitListWhenProvided() {
-      DevSparkJobTriggerRequest r = DevSparkJobTriggerRequest.builder()
-          .entryPoint("jar")
-          .mainClass("C")
-          .applicationArguments(List.of("x", "y"))
-          .secretsName("ignored")
-          .build();
-      assertThat(r.resolveApplicationArguments()).containsExactly("x", "y");
-    }
-
-    @Test
-    void shouldResolveArgumentsFromExplicitEmptyListAsIs() {
-      DevSparkJobTriggerRequest r = DevSparkJobTriggerRequest.builder()
-          .entryPoint("jar")
-          .mainClass("C")
-          .applicationArguments(List.of())
-          .build();
-      assertThat(r.resolveApplicationArguments()).isEmpty();
-    }
-
-    @Test
-    void shouldResolveArgumentsFromStructuredFields() {
-      DevSparkJobTriggerRequest r = DevSparkJobTriggerRequest.builder()
-          .entryPoint("jar")
-          .mainClass("C")
-          .secretsName("  sec  ")
-          .awsRegion("us-east-1")
-          .mode("daily")
-          .s3BucketPrefix("s3://x")
-          .build();
-      assertThat(r.resolveApplicationArguments()).containsExactly(
-          "--secrets_name", "sec",
-          "--aws_region", "us-east-1",
-          "--mode", "daily",
-          "--s3_bucket_prefix", "s3://x");
-    }
-
-    @Test
-    void shouldResolveArgumentsToNullWhenNothingSet() {
-      DevSparkJobTriggerRequest r = DevSparkJobTriggerRequest.builder()
-          .entryPoint("jar").mainClass("C").build();
-      assertThat(r.resolveApplicationArguments()).isNull();
-    }
-
-    @Test
-    void shouldSupportNoArgsAndSetters() {
-      DevSparkJobTriggerRequest r = new DevSparkJobTriggerRequest();
-      r.setEntryPoint("jar");
-      r.setMainClass("C");
-      assertThat(r.getEntryPoint()).isEqualTo("jar");
-      assertThat(r.getMainClass()).isEqualTo("C");
-      assertThat(r.toString()).isNotNull();
-    }
-
-    @Test
-    void shouldSupportAllArgsAndEquality() {
-      DevSparkJobTriggerRequest a = new DevSparkJobTriggerRequest(
-          "jar", "C", "j", List.of(), null, null, null, null);
-      DevSparkJobTriggerRequest b = new DevSparkJobTriggerRequest(
-          "jar", "C", "j", List.of(), null, null, null, null);
-      assertThat(a).isEqualTo(b).hasSameHashCodeAs(b);
     }
   }
 }
