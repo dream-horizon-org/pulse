@@ -79,7 +79,16 @@ class RcaReportErrorAttributionMergerTest {
     assertThat(structured.path("errorAttribution").path("relatedAttributions").get(0).path("groupId").asText())
         .isEqualTo("g1");
     verify(errorAttributionService)
-        .getErrorAttributionWithOptionalDrillDown(eq(PROJECT), eq(INTERACTION), any(), any(), any());
+        .getErrorAttributionWithOptionalDrillDown(
+            eq(PROJECT),
+            eq(INTERACTION),
+            any(),
+            any(),
+            eq(
+                List.of(
+                    ErrorAttributionDrillDownSignal.anr,
+                    ErrorAttributionDrillDownSignal.non_fatal,
+                    ErrorAttributionDrillDownSignal.api)));
   }
 
   @Test

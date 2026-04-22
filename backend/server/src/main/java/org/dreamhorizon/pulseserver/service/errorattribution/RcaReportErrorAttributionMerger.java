@@ -16,8 +16,8 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 
 /**
  * Injects {@code errorAttribution} into {@code report.structured} on successful RCA POST responses,
- * using the same interaction window as {@link RootCauseQueryBuilder.Window} and the same drill
- * the same four drill signals as the former REST drill path (crash, anr, non_fatal, api).
+ * using the same interaction window as {@link RootCauseQueryBuilder.Window} and drill-down for
+ * {@link #CANONICAL_DRILL_SIGNALS} (crash is omitted from RCA merge for now; re-add there to enable).
  *
  * <p>Runs independently of whether RCA segments exist (unlike heatmap merge). Failures are logged
  * and skipped so the RCA response still persists.
@@ -27,10 +27,12 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public final class RcaReportErrorAttributionMerger {
 
-  /** Matches {@code pulse-ui} {@code ErrorAttribution.tsx} {@code ALL_DRILL_SIGNALS} order. */
+  /**
+   * Drill signals run for RCA-embedded error attribution (stable order). Crash is intentionally
+   * excluded; add {@link ErrorAttributionDrillDownSignal#crash} back when product should include it.
+   */
   private static final List<ErrorAttributionDrillDownSignal> CANONICAL_DRILL_SIGNALS =
       List.of(
-          ErrorAttributionDrillDownSignal.crash,
           ErrorAttributionDrillDownSignal.anr,
           ErrorAttributionDrillDownSignal.non_fatal,
           ErrorAttributionDrillDownSignal.api);
