@@ -10,13 +10,17 @@
         "superadmin": {
           "this": {}
         },
+        "internal_viewer": {
+          "this": {}
+        },
         "can_upload_tnc": {
           "computedUserset": {"relation": "superadmin"}
         }
       },
       "metadata": {
         "relations": {
-          "superadmin": {"directly_related_user_types": [{"type": "user"}]}
+          "superadmin": {"directly_related_user_types": [{"type": "user"}]},
+          "internal_viewer": {"directly_related_user_types": [{"type": "user"}]}
         }
       }
     },
@@ -32,6 +36,12 @@
             "computedUserset": {"relation": "superadmin"}
           }
         },
+        "internal_viewer": {
+          "tupleToUserset": {
+            "tupleset": {"relation": "system_parent"},
+            "computedUserset": {"relation": "internal_viewer"}
+          }
+        },
         "admin": {
           "this": {}
         },
@@ -42,6 +52,7 @@
           "union": {
             "child": [
               {"computedUserset": {"relation": "superadmin"}},
+              {"computedUserset": {"relation": "internal_viewer"}},
               {"computedUserset": {"relation": "admin"}},
               {"computedUserset": {"relation": "member"}}
             ]
