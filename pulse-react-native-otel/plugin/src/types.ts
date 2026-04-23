@@ -131,7 +131,7 @@ export interface PulseAndroidBuildOptions {
 export interface PulseAndroidSection
   extends PulseNativeInitFields, PulseAndroidBuildOptions {
   instrumentation?: PulseAndroidInstrumentationProps;
-  
+
   /** Version for `com.android.tools:desugar_jdk_libs`. Default: `2.1.4`.*/
   coreLibraryDesugarVersion?: string;
 }

@@ -9,7 +9,6 @@ import type { ExpoConfig } from '@expo/config-types';
 import {
   PULSE_BYTE_BUDDY_GRADLE_PLUGIN,
   PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION,
-  PULSE_OKHTTP3_VERSION,
 } from './androidBuildConstants';
 import type { PulseAndroidBuildOptions } from './types';
 
