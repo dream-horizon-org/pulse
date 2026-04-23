@@ -28,6 +28,8 @@ class ApplicationConfigTest {
         config.resolveUsageCreditsSyncIntervalSeconds());
     assertEquals(ApplicationConfig.DEFAULT_API_KEYS_SYNC_INTERVAL_SECONDS,
         config.resolveApiKeysSyncIntervalSeconds());
+    assertEquals(ApplicationConfig.DEFAULT_USAGE_LIMIT_NOTIFICATION_INTERVAL_SECONDS,
+        config.resolveUsageLimitNotificationIntervalSeconds());
   }
 
   @Test
@@ -35,10 +37,13 @@ class ApplicationConfigTest {
     ApplicationConfig config = new ApplicationConfig();
     config.setUsageCreditsSyncIntervalSeconds(1);
     config.setApiKeysSyncIntervalSeconds(2);
+    config.setUsageLimitNotificationIntervalSeconds(1);
     assertEquals(ApplicationConfig.MIN_SYNC_INTERVAL_SECONDS,
         config.resolveUsageCreditsSyncIntervalSeconds());
     assertEquals(ApplicationConfig.MIN_SYNC_INTERVAL_SECONDS,
         config.resolveApiKeysSyncIntervalSeconds());
+    assertEquals(ApplicationConfig.MIN_SYNC_INTERVAL_SECONDS,
+        config.resolveUsageLimitNotificationIntervalSeconds());
   }
 }
 

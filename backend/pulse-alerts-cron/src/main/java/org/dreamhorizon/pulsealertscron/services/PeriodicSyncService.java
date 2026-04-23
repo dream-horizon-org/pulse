@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulsealertscron.services;
 
-import com.google.inject.Inject;
 import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +13,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class PeriodicSyncService {
   private final Vertx vertx;
   private final DataSyncService dataSyncService;
-  private final UsageLimitNotificationService notificationService;
 
   private Long usageLimitsTimerId;
   private Long apiKeysTimerId;
@@ -28,16 +26,15 @@ public class PeriodicSyncService {
   /** Ensures at most one {@link DataSyncService#syncApiKeys()} runs at a time (avoids overlapping POSTs). */
   private final AtomicBoolean apiKeysSyncInFlight = new AtomicBoolean(false);
 
-  private static final long NOTIFICATION_INTERVAL_SECONDS =  24 * 60 * 60; // 24 hours
+  /** Ensures at most one usage-limit notifications enqueue runs at a time (avoids overlapping POSTs). */
+  private final AtomicBoolean usageLimitNotificationsSyncInFlight = new AtomicBoolean(false);
 
-  @Inject
   public PeriodicSyncService(Vertx vertx, WebClient webClient, ApplicationConfig config) {
     this.vertx = vertx;
     this.applicationConfig = config;
 
     PulseServerApiClient apiClient = new PulseServerApiClient(webClient, config);
     this.dataSyncService = new DataSyncService(apiClient);
-    this.notificationService = new UsageLimitNotificationService(apiClient);
   }
 
   /**
@@ -48,6 +45,7 @@ public class PeriodicSyncService {
 
     long usageIntervalSec = applicationConfig.resolveUsageCreditsSyncIntervalSeconds();
     long apiKeysIntervalSec = applicationConfig.resolveApiKeysSyncIntervalSeconds();
+    long notificationIntervalSec = applicationConfig.resolveUsageLimitNotificationIntervalSeconds();
 
     // Usage credits → Redis (pulse-server async 202 + dedupe); interval from app config
     log.info("Starting usage credits Redis enqueue sync (interval: {} seconds)", usageIntervalSec);
@@ -64,13 +62,14 @@ public class PeriodicSyncService {
     });
     log.info("API keys sync timer started, id={}", apiKeysTimerId);
 
-    // Start usage notification processing (1 hour)
-    log.info("📧 Starting Usage Notification processing (interval: {} seconds)", NOTIFICATION_INTERVAL_SECONDS);
-    executeNotificationProcessing();
-    this.notificationTimerId = vertx.setPeriodic(NOTIFICATION_INTERVAL_SECONDS * 1000, id -> {
-      executeNotificationProcessing();
+    log.info(
+        "Starting usage-limit notifications enqueue (interval: {} seconds)",
+        notificationIntervalSec);
+    executeUsageLimitNotifications();
+    this.notificationTimerId = vertx.setPeriodic(notificationIntervalSec * 1000, id -> {
+      executeUsageLimitNotifications();
     });
-    log.info("✅ Usage Notification processing started with timer ID: {}", notificationTimerId);
+    log.info("Usage-limit notifications timer started, id={}", notificationTimerId);
   }
 
   /**
@@ -93,7 +92,7 @@ public class PeriodicSyncService {
 
     if (notificationTimerId != null) {
       vertx.cancelTimer(notificationTimerId);
-      log.info("✅ Cancelled notification timer: {}", notificationTimerId);
+      log.info("✅ Cancelled usage-limit notifications timer: {}", notificationTimerId);
       notificationTimerId = null;
     }
 
@@ -132,11 +131,19 @@ public class PeriodicSyncService {
         );
   }
 
-  private void executeNotificationProcessing() {
-    notificationService.processNotifications()
+  private void executeUsageLimitNotifications() {
+    if (!usageLimitNotificationsSyncInFlight.compareAndSet(false, true)) {
+      log.info("{} Skipping usage-limit notifications enqueue: previous run still in progress",
+          Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX);
+      return;
+    }
+    dataSyncService.processUsageLimitNotifications()
+        .doFinally(() -> usageLimitNotificationsSyncInFlight.set(false))
         .subscribe(
-            () -> log.info("✅ Usage notification processing completed successfully"),
-            error -> log.error("❌ Usage notification processing failed", error)
+            () -> log.info("{} Usage-limit notifications enqueue cycle completed (HTTP layer)",
+                Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX),
+            error -> log.error("{} Usage-limit notifications enqueue cycle failed",
+                Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX, error)
         );
   }
 }

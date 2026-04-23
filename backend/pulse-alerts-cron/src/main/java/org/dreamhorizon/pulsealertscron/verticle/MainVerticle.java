@@ -54,10 +54,11 @@ public class MainVerticle extends AbstractVerticle {
 
           log.info(
               "Loaded ApplicationConfig: pulseServerUrl={} usageCreditsSyncIntervalSeconds={} "
-                  + "apiKeysSyncIntervalSeconds={}",
+                  + "apiKeysSyncIntervalSeconds={} usageLimitNotificationIntervalSeconds={}",
               this.applicationConfig.getPulseServerUrl(),
               this.applicationConfig.resolveUsageCreditsSyncIntervalSeconds(),
-              this.applicationConfig.resolveApiKeysSyncIntervalSeconds());
+              this.applicationConfig.resolveApiKeysSyncIntervalSeconds(),
+              this.applicationConfig.resolveUsageLimitNotificationIntervalSeconds());
           return config;
         })
         .doOnSuccess(config -> {

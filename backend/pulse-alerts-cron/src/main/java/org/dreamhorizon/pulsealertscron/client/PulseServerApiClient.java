@@ -23,6 +23,8 @@ public class PulseServerApiClient {
 
   private static final String SYNC_USAGE_CREDITS_TO_REDIS_PATH = "/internal/v1/projects/limits/sync-to-redis";
   private static final String SYNC_API_KEYS_TO_REDIS_PATH = "/internal/v1/api-keys/sync-to-redis";
+  private static final String PROCESS_USAGE_LIMIT_NOTIFICATIONS_PATH =
+      "/internal/v1/projects/limits/process-usage-notifications";
   private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
   private static final String MARK_NOTIFICATIONS_PATH = "/internal/v1/projects/%s/limits/notifications";
   private static final String SEND_NOTIFICATION_PATH = "/v1/notifications/send";
@@ -103,6 +105,56 @@ public class PulseServerApiClient {
           return Completable.complete();
         })
         .doOnError(error -> log.error("Error calling API key Redis sync", error));
+  }
+
+  /**
+   * Enqueues usage-limit notification processing on pulse-server (async 202 + cron_jobs_history).
+   */
+  public Completable processUsageLimitNotifications() {
+    String url = apiBaseUrl + PROCESS_USAGE_LIMIT_NOTIFICATIONS_PATH;
+    log.info("Calling pulse-server usage-limit notifications batch: {}", url);
+
+    return webClient
+        .postAbs(url)
+        .putHeader("Authorization", "Bearer " + serviceJwt)
+        .timeout(REQUEST_TIMEOUT_MS)
+        .rxSend()
+        .flatMapCompletable(
+            response -> {
+              int statusCode = response.statusCode();
+              String body = response.bodyAsString();
+              if (statusCode != 200 && statusCode != 202) {
+                String errorMsg =
+                    String.format("API returned status %d: %s", statusCode, body);
+                log.error(
+                    "{} Failed usage-limit notifications enqueue: {}",
+                    Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX,
+                    errorMsg);
+                return Completable.error(new RuntimeException(errorMsg));
+              }
+              CronRedisSyncJobAcceptedDto.tryParse(body)
+                  .ifPresentOrElse(
+                      ack ->
+                          log.info(
+                              "{} Usage-limit notifications HTTP {} — jobId={} deduplicated={} jobType={}",
+                              Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX,
+                              statusCode,
+                              ack.getJobId(),
+                              ack.isDeduplicated(),
+                              ack.getJobType()),
+                      () ->
+                          log.info(
+                              "{} Usage-limit notifications HTTP {} (no job envelope in body)",
+                              Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX,
+                              statusCode));
+              return Completable.complete();
+            })
+        .doOnError(
+            error ->
+                log.error(
+                    "{} Error calling usage-limit notifications enqueue",
+                    Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX,
+                    error));
   }
 
   /**

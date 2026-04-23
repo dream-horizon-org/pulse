@@ -31,13 +31,18 @@ class CronRedisMaterializationJobServiceTest {
   private KongApiKeyRedisSyncService kongApiKeyRedisSyncService;
   @Mock
   private KongUsageCreditsRedisSyncService kongUsageCreditsRedisSyncService;
+  @Mock
+  private UsageLimitNotificationProcessService usageLimitNotificationProcessService;
 
   private CronRedisMaterializationJobService service;
 
   @BeforeEach
   void setUp() {
     service = new CronRedisMaterializationJobService(
-        cronJobHistoryDao, kongApiKeyRedisSyncService, kongUsageCreditsRedisSyncService);
+        cronJobHistoryDao,
+        kongApiKeyRedisSyncService,
+        kongUsageCreditsRedisSyncService,
+        usageLimitNotificationProcessService);
   }
 
   @Test
@@ -74,5 +79,40 @@ class CronRedisMaterializationJobServiceTest {
     assertThat(body.isDeduplicated()).isFalse();
     verify(kongUsageCreditsRedisSyncService, timeout(5_000)).syncUsageCreditsToRedis();
     verify(cronJobHistoryDao, timeout(5_000)).markCompleted(2L);
+  }
+
+  @Test
+  void shouldReturnDeduplicatedUsageLimitNotificationsJobWithoutRunningProcess() {
+    when(cronJobHistoryDao.enqueueOrDeduplicate(
+        eq(CronJobType.USAGE_LIMIT_NOTIFICATIONS),
+        any(),
+        eq(CronRedisMaterializationJobService.STALE_IN_PROGRESS_RECLAIMED)))
+        .thenReturn(Single.just(new CronJobEnqueueResult(11L, true)));
+
+    CronRedisSyncJobAcceptedRestResponse body = service.acceptUsageLimitNotifications().blockingGet();
+
+    assertThat(body.getJobId()).isEqualTo(11L);
+    assertThat(body.isDeduplicated()).isTrue();
+    assertThat(body.getJobType()).isEqualTo(CronJobType.USAGE_LIMIT_NOTIFICATIONS);
+    verify(usageLimitNotificationProcessService, never()).processUsageLimitNotifications();
+  }
+
+  @Test
+  void shouldRunUsageLimitNotificationsWhenNotDeduplicated() {
+    when(cronJobHistoryDao.enqueueOrDeduplicate(
+        eq(CronJobType.USAGE_LIMIT_NOTIFICATIONS),
+        any(),
+        eq(CronRedisMaterializationJobService.STALE_IN_PROGRESS_RECLAIMED)))
+        .thenReturn(Single.just(new CronJobEnqueueResult(3L, false)));
+    when(usageLimitNotificationProcessService.processUsageLimitNotifications())
+        .thenReturn(Completable.complete());
+    when(cronJobHistoryDao.markCompleted(3L)).thenReturn(Completable.complete());
+
+    CronRedisSyncJobAcceptedRestResponse body = service.acceptUsageLimitNotifications().blockingGet();
+
+    assertThat(body.getJobId()).isEqualTo(3L);
+    assertThat(body.isDeduplicated()).isFalse();
+    verify(usageLimitNotificationProcessService, timeout(5_000)).processUsageLimitNotifications();
+    verify(cronJobHistoryDao, timeout(5_000)).markCompleted(3L);
   }
 }

@@ -42,6 +42,7 @@ import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
  * - GET /internal/v1/projects/limits - Get all active project limits
  * - POST /internal/v1/projects/limits/sync-to-redis - Enqueue async ClickHouse + limits → Kong Redis credits (HTTP 202)
  * - GET /internal/v1/projects/limits/notifications-due - Get usage notifications due
+ * - POST /internal/v1/projects/limits/process-usage-notifications - Enqueue async usage notifications batch (HTTP 202)
  * - PUT /internal/v1/projects/{projectId}/limits - Set custom limits
  * - POST /internal/v1/projects/{projectId}/limits/reset - Reset to tier defaults
  * - GET /internal/v1/projects/{projectId}/limits/history - Get limit change history
@@ -124,6 +125,22 @@ public class InternalUsageLimitsController {
     return usageLimitService.getUsageNotifications()
         .map(mapper::toUsageNotificationResponse)
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  /**
+   * Enqueues usage-limit email notifications (get due, send, mark). Returns HTTP 202; work is async
+   * with {@code cron_jobs_history} (same pattern as {@code /limits/sync-to-redis}).
+   */
+  @POST
+  @Path("/limits/process-usage-notifications")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<CronRedisSyncJobAcceptedRestResponse>> processUsageLimitNotifications() {
+    return cronRedisMaterializationJobService
+        .acceptUsageLimitNotifications()
+        .to(
+            RestResponse.jaxrsRestHandler(
+                jakarta.ws.rs.core.Response.Status.ACCEPTED.getStatusCode()));
   }
 
   /**

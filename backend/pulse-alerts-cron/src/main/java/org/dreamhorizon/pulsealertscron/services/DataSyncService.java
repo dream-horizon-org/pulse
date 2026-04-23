@@ -49,4 +49,30 @@ public class DataSyncService {
           log.error("API keys sync failed after {}ms", duration, error);
         });
   }
+
+  public Completable processUsageLimitNotifications() {
+    log.info("{} Starting usage-limit notifications enqueue", Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX);
+    long startTime = System.currentTimeMillis();
+
+    return apiClient
+        .processUsageLimitNotifications()
+        .doOnComplete(
+            () -> {
+              long duration = System.currentTimeMillis() - startTime;
+              log.info(
+                  "{} Usage-limit notifications POST finished in {}ms (pulse-server runs async; "
+                      + "see pulse-server logs / cron_jobs_history)",
+                  Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX,
+                  duration);
+            })
+        .doOnError(
+            error -> {
+              long duration = System.currentTimeMillis() - startTime;
+              log.error(
+                  "{} Usage-limit notifications enqueue failed after {}ms",
+                  Constants.USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX,
+                  duration,
+                  error);
+            });
+  }
 }

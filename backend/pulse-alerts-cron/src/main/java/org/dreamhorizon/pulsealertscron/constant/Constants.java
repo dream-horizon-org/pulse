@@ -5,6 +5,8 @@ public final class Constants {
   public static final String USAGE_LIMITS_SYNC_LOG_PREFIX = "[UsageLimitsSync]";
   /** Log prefix for API key → pulse-server Redis sync; use with {@code grep '[ApiKeysSync]'} */
   public static final String API_KEYS_SYNC_LOG_PREFIX = "[ApiKeysSync]";
+  /** Log prefix for usage-limit notification batch (server-side async + cron_jobs_history). */
+  public static final String USAGE_LIMIT_NOTIFICATIONS_SYNC_LOG_PREFIX = "[UsageLimitNotifications]";
 
   public static final String ERROR_INIT_MESSAGE = "Error while configuring alerts while initialising the service : ";
   public static final String ALERTS_FETCHED_MESSAGE = "Alerts fetched successfully from db: ";

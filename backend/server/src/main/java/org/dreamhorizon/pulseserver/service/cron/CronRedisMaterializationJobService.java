@@ -24,6 +24,7 @@ public class CronRedisMaterializationJobService {
   private final CronJobHistoryDao cronJobHistoryDao;
   private final KongApiKeyRedisSyncService kongApiKeyRedisSyncService;
   private final KongUsageCreditsRedisSyncService kongUsageCreditsRedisSyncService;
+  private final UsageLimitNotificationProcessService usageLimitNotificationProcessService;
 
   public Single<CronRedisSyncJobAcceptedRestResponse> acceptApiKeysSyncToRedis() {
     return enqueueAndMaybeRun(
@@ -35,6 +36,12 @@ public class CronRedisMaterializationJobService {
     return enqueueAndMaybeRun(
         CronJobType.USAGE_CREDITS_TO_REDIS,
         this::runUsageCreditsJob);
+  }
+
+  public Single<CronRedisSyncJobAcceptedRestResponse> acceptUsageLimitNotifications() {
+    return enqueueAndMaybeRun(
+        CronJobType.USAGE_LIMIT_NOTIFICATIONS,
+        this::runUsageLimitNotificationsJob);
   }
 
   private Single<CronRedisSyncJobAcceptedRestResponse> enqueueAndMaybeRun(
@@ -79,6 +86,27 @@ public class CronRedisMaterializationJobService {
             () -> log.info("cron_jobs_history job {} ({}) completed", jobId, CronJobType.USAGE_CREDITS_TO_REDIS),
             err -> {
               log.error("cron_jobs_history job {} ({}) failed", jobId, CronJobType.USAGE_CREDITS_TO_REDIS, err);
+              cronJobHistoryDao
+                  .markFailed(jobId, err.getMessage() != null ? err.getMessage() : err.getClass().getName())
+                  .subscribe(
+                      () -> { },
+                      markErr -> log.error("Failed to mark job {} FAILED after error", jobId, markErr));
+            });
+  }
+
+  private void runUsageLimitNotificationsJob(long jobId) {
+    usageLimitNotificationProcessService
+        .processUsageLimitNotifications()
+        .andThen(cronJobHistoryDao.markCompleted(jobId))
+        .subscribe(
+            () ->
+                log.info(
+                    "cron_jobs_history job {} ({}) completed",
+                    jobId,
+                    CronJobType.USAGE_LIMIT_NOTIFICATIONS),
+            err -> {
+              log.error(
+                  "cron_jobs_history job {} ({}) failed", jobId, CronJobType.USAGE_LIMIT_NOTIFICATIONS, err);
               cronJobHistoryDao
                   .markFailed(jobId, err.getMessage() != null ? err.getMessage() : err.getClass().getName())
                   .subscribe(
