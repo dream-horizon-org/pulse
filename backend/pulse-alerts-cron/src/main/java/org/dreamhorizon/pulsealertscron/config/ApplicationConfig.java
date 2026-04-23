@@ -22,7 +22,10 @@ public class ApplicationConfig {
   
   private String redisHost;
   private Integer redisPort;
-  
+
+  /** Maps from HOCON {@code dashboardBaseUrl} / env {@code CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL}. */
+  private String dashboardBaseUrl;
+
   // Batch job configuration
   private String batchFunnelsEndpoint = "/internal/analytics/funnels";
   private String batchJourneysEndpoint = "/internal/analytics/journeys"; 

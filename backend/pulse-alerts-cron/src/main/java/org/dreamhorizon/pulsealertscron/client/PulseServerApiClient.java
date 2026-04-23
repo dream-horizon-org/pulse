@@ -2,7 +2,6 @@ package org.dreamhorizon.pulsealertscron.client;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -13,6 +12,7 @@ import org.dreamhorizon.pulsealertscron.dto.response.ApiKeysResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageLimitsApiResponse;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageNotificationDto;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageNotificationResponse;
+import org.dreamhorizon.pulsealertscron.util.DashboardUrlResolver;
 
 import java.util.List;
 
@@ -22,14 +22,13 @@ public class PulseServerApiClient {
   private final String apiBaseUrl;
   private final String serviceJwt;
   private final ApplicationConfig config;
-  
+
   private static final String ACTIVE_LIMITS_PATH = "/internal/v1/projects/limits";
   private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
   private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
   private static final String MARK_NOTIFICATIONS_PATH = "/internal/v1/projects/%s/limits/notifications";
   private static final String SEND_NOTIFICATION_PATH = "/v1/notifications/send";
   private static final long REQUEST_TIMEOUT_MS = 30000;
-  private static final String DEFAULT_DASHBOARD_URL = "https://pulse-ux.com";
 
   @Inject
   public PulseServerApiClient(WebClient webClient, ApplicationConfig config) {
@@ -266,7 +265,7 @@ public class PulseServerApiClient {
         .put("notifyFor", notification.getNotifyFor())
         .put("eventsPercentageDisplay", eventsDisplay)
         .put("sessionsPercentageDisplay", sessionsDisplay)
-        .put("dashboardUrl", DEFAULT_DASHBOARD_URL);
+        .put("dashboardUrl", DashboardUrlResolver.resolve(config.getDashboardBaseUrl()));
     if (notification.getTenantId() != null && !notification.getTenantId().isBlank()) {
       params.put("tenantId", notification.getTenantId());
     }
