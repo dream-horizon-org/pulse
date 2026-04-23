@@ -95,6 +95,27 @@ internal class ComposeInstrumentationTest {
     fun setup() {
         openTelemetryRule = OpenTelemetryRule.create()
         MockKAnnotations.init(this, relaxUnitFun = true)
+        ComposeClasspathProbe.composeUiPresenceOverride = null
+    }
+
+    @Test
+    fun install_skips_when_compose_ui_not_on_classpath() {
+        ComposeClasspathProbe.composeUiPresenceOverride = false
+        try {
+            val installationContext =
+                InstallationContext(
+                    application,
+                    openTelemetryRule.openTelemetry,
+                    mockk<SessionProvider>(),
+                )
+            every { application.registerActivityLifecycleCallbacks(any()) } returns Unit
+
+            ComposeClickInstrumentation().install(installationContext)
+
+            verify(exactly = 0) { application.registerActivityLifecycleCallbacks(any()) }
+        } finally {
+            ComposeClasspathProbe.composeUiPresenceOverride = null
+        }
     }
 
     @Test

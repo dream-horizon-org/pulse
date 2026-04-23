@@ -38,6 +38,8 @@ dependencies {
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.semconv.incubating)
     implementation(libs.kotlin.serialisation)
+    implementation(projects.instrumentation.viewClick)
+    implementation(projects.instrumentation.compose.click)
     testImplementation(testFixtures(projects.pulseUtils))
     testImplementation(testFixtures(projects.pulseSamplingModels))
     testImplementation(libs.okhttp.mockwebserver)
