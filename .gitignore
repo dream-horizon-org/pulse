@@ -23,6 +23,8 @@ lib/
 terraform.rc
 env.json
 
+docs/
+**/.idea
 docs/api
 docs/architecture
 graphify-out/

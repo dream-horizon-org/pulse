@@ -30,7 +30,7 @@ alwaysApply: false
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
 
-**clickhouse-init:** mounts `clickhouse-otel-schema.sql`, session replay + session-summary MV, `clickhouse-event-catalog-schema.sql`, `clickhouse-funnel-results-schema.sql`, `clickhouse-journey-results-schema.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
+**clickhouse-init:** mounts `clickhouse-otel-schema.sql`, session replay + session-summary MV, `event-catalog-entries.sql`, `funnel-results.sql`, `journey-results.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
 
 **Pulse AI:** `pulse-ai-agent` is part of the default deploy stack (`docker compose up`). Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini; the process starts without it but model/API calls fail. **Standalone** AI-only dev: `pulse_ai/docker-compose.yml` + `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
