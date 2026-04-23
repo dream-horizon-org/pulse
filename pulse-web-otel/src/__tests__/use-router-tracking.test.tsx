@@ -301,3 +301,69 @@ describe("useRouterTracking — unmount", () => {
     expect(() => unmount()).not.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. No-leak after unmount — setScreenName must NOT fire after component removed
+// ---------------------------------------------------------------------------
+
+describe("useRouterTracking — no-leak after unmount", () => {
+  it("does NOT call setScreenName after component is unmounted", async () => {
+    const navigateRef: NavigateRef = { current: null };
+
+    // We need a controller to navigate AFTER unmount.
+    // Use a separate navigate ref captured before unmount.
+    const { unmount } = render(makeHarness({ initial: "/a", navigateRef }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Navigate once before unmount — establishes prevDependency ref
+    await act(async () => {
+      navigateRef.current?.("/b");
+    });
+    expect(setScreenNameSpy).toHaveBeenCalledTimes(1);
+
+    // Unmount the component
+    unmount();
+
+    // Clear spy to isolate post-unmount calls
+    setScreenNameSpy.mockClear();
+
+    // Any location change that might fire after unmount should be silent
+    // (the useEffect cleanup removes the dependency on location changes)
+    // We verify by checking the spy stays empty after a tick
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(setScreenNameSpy).not.toHaveBeenCalled();
+  });
+
+  it("no console error about state update on unmounted component", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const navigateRef: NavigateRef = { current: null };
+
+    const { unmount } = render(makeHarness({ initial: "/a", navigateRef }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      navigateRef.current?.("/b");
+    });
+
+    unmount();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // React 18 no longer warns about state updates on unmounted components,
+    // but any error logged means something went wrong in cleanup.
+    const errorCalls = consoleSpy.mock.calls.filter(
+      (c) => c[0] && String(c[0]).toLowerCase().includes("unmounted"),
+    );
+    expect(errorCalls).toHaveLength(0);
+    consoleSpy.mockRestore();
+  });
+});

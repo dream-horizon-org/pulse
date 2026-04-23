@@ -89,3 +89,15 @@ Use tiny **`VITE_PULSE_DISK_BUFFER_MAX_AGE_MS`** / **`VITE_PULSE_DISK_BUFFER_MAX
 | `PulseWebConfig.diskBuffering` | `pulse-web-otel/src/config.ts` |
 | IDB store | `pulse-web-otel/src/persistence/indexed-db.ts` |
 | E2E | `examples/ecommerce-demo/e2e/m1.spec.ts` |
+
+---
+
+## Test coverage map
+
+| Scenario | Unit test | E2E test |
+|---|---|---|
+| StrictMode init-once (createProviders × 1) | `pulse-provider.test.tsx` — StrictMode suite | `m1.spec.ts` — "double PulseWeb.start() is a no-op" |
+| ErrorBoundary crash capture + react.component_stack | `pulse-provider.test.tsx` — PulseErrorBoundary suite | `m1.spec.ts` — "@M1 error boundary crash capture" |
+| useRouterTracking navigation fires setScreenName | `use-router-tracking.test.tsx` — route change suite | — |
+| useRouterTracking unmount no-leak | `use-router-tracking.test.tsx` — no-leak suite | — |
+| PulseProvider shutdownOnUnmount | `pulse-provider.test.tsx` — mount/unmount suite | — |

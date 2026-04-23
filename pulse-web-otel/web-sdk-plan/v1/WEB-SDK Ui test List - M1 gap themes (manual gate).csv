@@ -213,3 +213,33 @@ Area 15 — Update Demo App (PulseProvider / PulseErrorBoundary / useRouterTrack
 3. Wait 5 seconds",Zero console errors; no red entries related to PulseWeb or OTEL,Pass,"Browser verified 2026-04-23: zero console errors on load. Only 2 React Router v6→v7 migration warnings (not errors, not our code).",Positive
 15.10,SDK accessible via window.PulseWeb after PulseProvider mounts (+v),"1. Load app
 2. DevTools console: window.PulseWeb",PulseWeb object present with start/shutdown/trackEvent/setScreenName methods,Pass,"Browser verified 2026-04-23: window.PulseWeb present with _providerCleanup and isInitialized=true. trackEvent/setScreenName callable. Unit test: App.test.tsx.",Positive
+
+Area 16 — StrictMode init-once / ErrorBoundary crash capture / useRouterTracking no-leak,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+16.1,StrictMode init-once — exactly one session.start (+v),"1. Clear localStorage; reload localhost:5173/
+2. Wait 3s for batch
+3. Query ClickHouse: SELECT PulseType FROM otel.otel_logs WHERE ServiceName='ecommerce-demo' AND PulseType='session.start' AND Timestamp > now()-INTERVAL 5 MINUTE",Exactly 1 session.start row,Pass,"ClickHouse verified 2026-04-23: exactly 1 session.start at 12:25:26 after localStorage clear + reload. No duplicate from StrictMode. Unit test: pulse-provider.test.tsx StrictMode suite.",Positive
+16.2,StrictMode — SDK stays initialized after fake-unmount (+v),"1. Load app
+2. DevTools console: window.PulseWeb.isInitialized()",Returns true; no shutdown triggered by StrictMode double-invoke,Pass,"Browser verified 2026-04-23: isInitialized()=true immediately after load. Unit test: pulse-provider.test.tsx — 'StrictMode fake-unmount does not prematurely shutdown the SDK'.",Positive
+16.3,StrictMode — no double rum.sdk.init.started events (+v),"1. Clear localStorage; reload
+2. Query ClickHouse: SELECT count() FROM otel.otel_logs WHERE PulseType='rum.sdk.init.started' AND Timestamp > now()-INTERVAL 2 MINUTE",Count=1 per page load,Pass,"ClickHouse verified 2026-04-23: 1 rum.sdk.init.started at 12:25:26 for the cleared-cache reload. Unit test: pulse-provider.test.tsx — createProviders called exactly once.",Positive
+16.4,ErrorBoundary crash capture — device.crash in stack_trace_events (+v),"1. Navigate to /error-demo
+2. Click 'Throw in render'
+3. Query ClickHouse: SELECT ExceptionMessage FROM otel.stack_trace_events ORDER BY Timestamp DESC LIMIT 3","Row with ExceptionMessage='Intentional render error from ErrorDemo' present",Pass,"ClickHouse verified 2026-04-23: row at 12:26:18 with ExceptionMessage='Intentional render error from ErrorDemo'. Unit test: pulse-provider.test.tsx PulseErrorBoundary suite.",Positive
+16.5,ErrorBoundary — react.component_stack attribute present (+v),"1. Install spy on window.PulseWeb.reportDeviceCrash
+2. Click 'Throw in render' on /error-demo
+3. Inspect captured attrs['react.component_stack']",react.component_stack is a non-empty string containing component names (RenderBomb / PulseErrorBoundary / ErrorDemo),Pass,"Browser verified 2026-04-23: react.component_stack captured with full stack: RenderBomb → PulseErrorBoundary → div → ErrorDemo → AppRoutes. Non-empty. Unit test: pulse-provider.test.tsx.",Positive
+16.6,ErrorBoundary — exception.message matches thrown error (+v),"1. Spy on reportDeviceCrash
+2. Trigger render error
+3. Check captured message","message='Intentional render error from ErrorDemo'",Pass,Browser verified 2026-04-23: spy captured message='Intentional render error from ErrorDemo'. Matches thrown error exactly. Unit test: pulse-provider.test.tsx.,Positive
+16.7,useRouterTracking — setScreenName fires on each SPA nav (+v),"1. Install spy on window.PulseWeb.setScreenName
+2. SPA-click Products → Cart → Checkout
+3. Check spy calls","spy captures ['/products','/cart','/checkout'] in exact order; no duplicates",Pass,"Browser verified 2026-04-23: spy captured ['/products','/cart','/checkout'] in exact order after SPA clicks. No StrictMode duplicates. Unit test: use-router-tracking.test.tsx.",Positive
+16.8,useRouterTracking — no spurious setScreenName from StrictMode or stale effects (+v),"1. Install spy; clear it after initial navs
+2. Navigate Home → fresh route
+3. Count spy calls",Exactly 1 call per unique route change; no extra calls from StrictMode or stale effects,Pass,"Browser verified 2026-04-23: navigated Home (/) after clearing spy — exactly 1 call for '/'. No duplicates from StrictMode. Unit test: use-router-tracking.test.tsx no-leak suite.",Positive
+16.9,useRouterTracking — screen.name in ClickHouse per nav (+v),"1. Navigate Home → Products → Cart
+2. Query ClickHouse: SELECT LogAttributes['screen.name'] AS sn, count() FROM otel.otel_logs WHERE ServiceName='ecommerce-demo' AND sn!='' AND Timestamp > now()-INTERVAL 5 MINUTE GROUP BY sn",/products and / rows present with non-zero counts,Pass,"ClickHouse verified 2026-04-23: screen.name counts — /=6, /products=4, /error-demo=1. All routes confirmed in otel_logs in last 5 minutes.",Positive
+16.10,No console errors after StrictMode double-mount (+v),"1. Hard reload
+2. DevTools Console → filter Errors
+3. Wait 3s",Zero console errors; no [PulseWeb] error messages,Pass,Browser verified 2026-04-23: zero console errors on load. read_console_messages(onlyErrors=true) returned empty. Unit test: pulse-provider.test.tsx.,Positive

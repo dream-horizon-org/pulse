@@ -234,6 +234,46 @@ describe("PulseProvider — StrictMode safety", () => {
     expect(shutdownSpy).toHaveBeenCalledTimes(1);
     shutdownSpy.mockRestore();
   });
+
+  it("StrictMode double-mount: createProviders (expensive init) called exactly once", async () => {
+    const { createProviders } = await import("../exporters");
+    const createSpy = vi.mocked(createProviders);
+    createSpy.mockClear();
+
+    render(
+      <StrictMode>
+        <PulseProvider config={makeConfig()}>
+          <div />
+        </PulseProvider>
+      </StrictMode>,
+    );
+    await act(async () => {
+      await flushMicrotasks();
+    });
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(PulseWeb.isInitialized()).toBe(true);
+  });
+
+  it("StrictMode fake-unmount does not prematurely shutdown the SDK", async () => {
+    const shutdownSpy = vi.spyOn(PulseWeb, "shutdown");
+
+    render(
+      <StrictMode>
+        <PulseProvider config={makeConfig()} shutdownOnUnmount={false}>
+          <div />
+        </PulseProvider>
+      </StrictMode>,
+    );
+    await act(async () => {
+      await flushMicrotasks();
+    });
+
+    // After StrictMode fake-unmount/remount the SDK must still be running
+    expect(PulseWeb.isInitialized()).toBe(true);
+    expect(shutdownSpy).not.toHaveBeenCalled();
+    shutdownSpy.mockRestore();
+  });
 });
 
 // ---------------------------------------------------------------------------
