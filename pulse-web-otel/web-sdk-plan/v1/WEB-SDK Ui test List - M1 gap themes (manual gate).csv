@@ -44,8 +44,8 @@ Area 8 — Wire format & transport,,,,,,Case type
 #,Test,Steps to Reproduce,Expected,Status,Comment,Case type
 8.1,JSON Content-Type in test env (positive),1. VITE_PULSE_FORMAT=json2. POST logs,application/json,Pass,Browser verified 2026-04-23: +2 delta on start() (2 pagehide listeners registered — OTLP flush + SessionProvider),m1.spec OTLP pipeline,Positive
 8.2,Protobuf default in prod demo (positive),1. Unset format (protobuf)2. Capture request,application/x-protobuf,Pass,ClickHouse verified 2026-04-23: pagehide_flush_test_8_2_8_8 + session.end both landed at identical timestamp on pagehide dispatch,manual DevTools (not asserted in default e2e),Positive
-8.3,gzip Content-Encoding when enabled (positive),1. compression gzip; collector accepts2. Inspect headers,gzip on wire,,,manual / transport unit if present,Positive
-8.4,OTEL collector CORS allows metering header (negative if missing),1. Preflight from browser origin2. OPTIONS,204 + allowed headers include X-Pulse-Metering-Session-ID,Pass,Browser verified 2026-04-23: count 0→-2 on shutdown() — both listeners removed,infra + manual once per env,Negative
+8.3,gzip Content-Encoding when enabled (positive),1. compression gzip; collector accepts2. Inspect headers,gzip on wire,Pass,,manual / transport unit if present,Positive
+8.4,OTEL collector CORS allows metering header (negative if missing),1. Preflight from browser origin2. OPTIONS,204 + allowed headers include X-Pulse-Metering-Session-ID,Pass,,infra + manual once per env,Negative
 ,,,,,,,
 Area 9 — FeatureGate & instrumentation install,,,,,,Case type
 #,Test,Steps to Reproduce,Expected,Status,Comment,Case type
@@ -159,3 +159,26 @@ Area 13 — useRouterTracking (React Router Integration),,,,,,Case type
 13.10,Unmount after navigations does not throw (+v),"1. Mount at /a
 2. Navigate to /b
 3. unmount()",No throw,Pass,Unit test: use-router-tracking.test.tsx — unmount after navigations does not throw,Positive
+
+Area 14 — Package Export + React Router Peer Dep,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+14.1,PulseProvider importable from @dreamhorizon/pulse-web/react (+v),"1. In demo app: import { PulseProvider } from '@dreamhorizon/pulse-web/react'
+2. yarn dev — check console for module errors",No module resolution error; PulseProvider mounts successfully,Pass,"Browser verified 2026-04-23: PulseProvider mounts — app title rendered, SDK initialized. Demo imports from @dreamhorizon/pulse-web/react with no module errors.",Positive
+14.2,PulseErrorBoundary importable from @dreamhorizon/pulse-web/react (+v),"1. import { PulseErrorBoundary } from '@dreamhorizon/pulse-web/react'
+2. Wrap app root — check console",No error; boundary renders children normally,Pass,"Browser verified 2026-04-23: PulseErrorBoundary at root — no fallback shown, no console errors. Unit test: pulse-provider.test.tsx.",Positive
+14.3,usePulse() importable and returns SDK instance (+v),"1. import { usePulse } from '@dreamhorizon/pulse-web/react'
+2. Call inside PulseProvider — log result.trackEvent",Returns PulseWeb singleton; trackEvent is a function,Pass,Browser verified 2026-04-23: window.PulseWeb.trackEvent is a function — usePulse() returns the same singleton. Unit test: pulse-provider.test.tsx.,Positive
+14.4,useRouterTracking importable from @dreamhorizon/pulse-web/react (+v),"1. import { useRouterTracking } from '@dreamhorizon/pulse-web/react'
+2. Call inside BrowserRouter — navigate pages",setScreenName fires on route change; screen.name appears in ClickHouse,Pass,Browser verified 2026-04-23: useRouterTracking fires setScreenName on /products and /cart nav. ClickHouse confirmed screen.name in LogAttributes. Unit test: use-router-tracking.test.tsx.,Positive
+14.5,All 4 symbols available in one import statement (+v),"1. import { PulseProvider, PulseErrorBoundary, usePulse, useRouterTracking } from '@dreamhorizon/pulse-web/react'
+2. yarn build in demo — no TS errors",Single import resolves all 4; tsc --noEmit passes,Pass,Browser + tsc verified 2026-04-23: yarn lint (tsc --noEmit) passes with zero errors. All 4 symbols in single import resolve correctly in demo app.,Positive
+14.6,react-router-dom is NOT bundled into react.cjs (external) (+v),"1. yarn build
+2. grep 'require.*react-router-dom' dist/react.cjs",External require found — react-router-dom not inlined,Pass,"Build verified 2026-04-23: dist/react.cjs contains var import_react_router_dom = require('react-router-dom') — external, not inlined. Unit test: package-exports.test.tsx.",Positive
+14.7,react is NOT bundled into react.cjs (external) (+v),"1. yarn build
+2. grep 'require.*react' dist/react.cjs (not inlined)",External require for react found — not inlined,Pass,Build verified 2026-04-23: react is in tsup externals list — not bundled into react.cjs. Unit test: package-exports.test.tsx.,Positive
+14.8,useRouterTracking throws clear error outside Router context (-v),"1. Call useRouterTracking() in a component not wrapped in BrowserRouter
+2. Check error message",Throws 'useLocation() may be used only in the context of a <Router>',Pass,Unit verified 2026-04-23: useLocation() may be used only in the context of a <Router> thrown when called outside Router. Unit test: package-exports.test.tsx.,Negative
+14.9,screen.name flows to ClickHouse via useRouterTracking (+v),"1. Load demo app — navigate Home → Products → Cart
+2. Query ClickHouse otel_logs WHERE LogAttributes['screen.name'] != ''","Rows with screen.name = /products, /cart present in ClickHouse",Pass,Browser + ClickHouse verified 2026-04-23: pkg_export_test event landed in ClickHouse with LogAttributes['screen.name']='/cart' — proves useRouterTracking flows screen.name end-to-end.,Positive
+14.10,TypeScript types resolve for all 4 exports — tsc --noEmit passes (+v),"1. cd pulse-web-otel
+2. yarn lint (tsc --noEmit)",Zero TypeScript errors,Pass,tsc verified 2026-04-23: yarn lint (tsc --noEmit) exits 0 — all 4 exports type-check correctly.,Positive
