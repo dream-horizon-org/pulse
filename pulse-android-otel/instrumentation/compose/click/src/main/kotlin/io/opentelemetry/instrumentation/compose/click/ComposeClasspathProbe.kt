@@ -13,7 +13,6 @@ package io.opentelemetry.instrumentation.compose.click
  * cached after the first probe.
  */
 internal object ComposeClasspathProbe {
-
     /** When non-null, [isComposeUiPresent] returns this value (tests only). */
     @Volatile
     internal var composeUiPresenceOverride: Boolean? = null
