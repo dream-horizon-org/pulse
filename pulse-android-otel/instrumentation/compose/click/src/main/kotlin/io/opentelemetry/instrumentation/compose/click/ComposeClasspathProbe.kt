@@ -15,18 +15,18 @@ package io.opentelemetry.instrumentation.compose.click
 internal object ComposeClasspathProbe {
     /** When non-null, [isComposeUiPresent] returns this value (tests only). */
     @Volatile
-    internal var composeUiPresenceOverride: Boolean? = null
+    internal var isComposeUiPresentTestOverride: Boolean? = null
 
     private val lock = Any()
 
     @Volatile
-    private var cachedPresent: Boolean? = null
+    private var isComposeUiPresentCached: Boolean? = null
 
     fun isComposeUiPresent(): Boolean {
-        composeUiPresenceOverride?.let { return it }
+        isComposeUiPresentTestOverride?.let { return it }
         synchronized(lock) {
-            cachedPresent?.let { return it }
-            val present =
+            isComposeUiPresentCached?.let { return it }
+            val isPresent =
                 try {
                     Class.forName(ANDROID_COMPOSE_VIEW_CLASS_NAME)
                     true
@@ -35,8 +35,8 @@ internal object ComposeClasspathProbe {
                 } catch (_: Throwable) {
                     false
                 }
-            cachedPresent = present
-            return present
+            isComposeUiPresentCached = isPresent
+            return isPresent
         }
     }
 
