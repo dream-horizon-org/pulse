@@ -62,9 +62,9 @@ public class RootCauseQueryBuilder {
   }
 
   /**
-   * Distinct non-empty {@code screen.name} values for spans matching {@code pulse.interaction.name}
-   * (session listing semantics), same time window as RCA heatmap filters. One row with column
-   * {@code screens}.
+   * Non-empty {@code screen.name} values for spans matching {@code pulse.interaction.name} (session
+   * listing semantics), same time window as RCA heatmap filters. One row with column {@code screens}:
+   * distinct names ordered by descending span count, then ascending name for ties.
    */
   public static RootCauseQuerySpec buildDistinctScreensForInteractionQuery(
       String projectId, String interactionName, Window window) {
@@ -107,11 +107,17 @@ public class RootCauseQueryBuilder {
             + " AND Timestamp < toDateTime64(:"
             + p3
             + ", 9, 'UTC')";
-    String sql =
-        "SELECT arraySort(groupUniqArray(nullIf(trimBoth(SpanAttributes['screen.name']), ''))) AS screens FROM "
+    String spanRows =
+        "SELECT nullIf(trimBoth(SpanAttributes['screen.name']), '') AS screen_name FROM "
             + ClickhouseConstants.OTEL_TRACES_TABLE
             + " WHERE "
             + where;
+    String sql =
+        "SELECT arrayMap(x -> x.2, arraySort(x -> (x.1, x.2), groupArray(tuple(-toInt64(cnt), screen_name)))) AS screens FROM ("
+            + "SELECT screen_name, count() AS cnt FROM ("
+            + spanRows
+            + ") AS interaction_spans WHERE screen_name != '' GROUP BY screen_name"
+            + ") AS per_screen";
     return acc.toSpec(sql);
   }
 

@@ -3,9 +3,11 @@ package org.dreamhorizon.pulseserver.module;
 import com.google.inject.AbstractModule;
 import io.vertx.core.Vertx;
 import com.google.inject.Singleton;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
@@ -26,6 +28,12 @@ public class ConfigModule extends AbstractModule {
     bind(ClickhouseConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, ClickhouseConfig.class));
     bind(AthenaConfig.class).toProvider(() -> SharedDataUtils.get(vertx, AthenaConfig.class));
+    bind(EmrServerlessConfig.class)
+        .toProvider(() -> SharedDataUtils.get(vertx, EmrServerlessConfig.class));
+    bind(org.dreamhorizon.pulseserver.config.SparkConfig.class)
+        .toProvider(() -> SharedDataUtils.get(vertx, org.dreamhorizon.pulseserver.config.SparkConfig.class));
+    bind(AnalyticsEngineConfig.class)
+        .toProvider(() -> SharedDataUtils.get(vertx, AnalyticsEngineConfig.class));
     bind(NotificationConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, NotificationConfig.class));
     bind(AiProxyService.class).to(AiProxyServiceImpl.class).in(Singleton.class);

@@ -23,9 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.AnalyticsEngineConfig;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
@@ -35,6 +37,7 @@ import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
+import org.dreamhorizon.pulseserver.vertx.AiStreamingHttpClient;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 @Slf4j
@@ -43,6 +46,7 @@ public class MainVerticle extends AbstractVerticle {
   private WebClient webClient;
   /** Long read/idle timeouts for {@code /v1/ai/*} proxy (SSE); not shared with general WebClient. */
   private WebClient aiProxyWebClient;
+  private AiStreamingHttpClient aiStreamingHttpClientHolder;
   private MysqlClient mysqlClient;
 
   @Override
@@ -67,6 +71,21 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
           JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
+          JsonObject emrServerlessJson = config.getJsonObject("emrServerless", new JsonObject());
+          EmrServerlessConfig emrServerlessConfig = EmrServerlessConfig.fromJsonObject(emrServerlessJson);
+          SharedDataUtils.put(vertx.getDelegate(), emrServerlessConfig);
+          
+          JsonObject sparkJson = config.getJsonObject("spark", new JsonObject());
+          SharedDataUtils.put(vertx.getDelegate(), sparkJson.mapTo(org.dreamhorizon.pulseserver.config.SparkConfig.class));
+
+          JsonObject analyticsEngineJson = config.getJsonObject("analyticsEngine", new JsonObject());
+          AnalyticsEngineConfig analyticsEngineConfig = analyticsEngineJson.mapTo(AnalyticsEngineConfig.class);
+          SharedDataUtils.put(vertx.getDelegate(), analyticsEngineConfig);
+          
+          log.info(
+              "EMR Serverless config: enabled={} region={}",
+              emrServerlessConfig.isEnabled(),
+              emrServerlessConfig.getEffectiveRegion());
                     JsonObject notificationConfig =
                             config.getJsonObject("notification", new JsonObject());
                     SharedDataUtils.put(
@@ -120,11 +139,18 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
           SharedDataUtils.put(vertx.getDelegate(), aiProxyWebClient, Constants.WEB_CLIENT_AI_PROXY);
+          this.aiStreamingHttpClientHolder =
+              AiStreamingHttpClient.create(vertx.getDelegate(), webClientConfig);
+          SharedDataUtils.put(
+              vertx.getDelegate(),
+              this.aiStreamingHttpClientHolder,
+              Constants.HTTP_CLIENT_AI_STREAMING);
 
           // Validate startup configuration after all configs are loaded
           ApplicationConfig loadedAppConfig = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
           ClickhouseConfig loadedChConfig = SharedDataUtils.get(vertx.getDelegate(), ClickhouseConfig.class);
-          StartupConfigValidator.validate(loadedAppConfig, loadedChConfig);
+          StartupConfigValidator.validate(
+              loadedAppConfig, loadedChConfig, emrServerlessConfig, analyticsEngineConfig);
 
           return config;
         })
@@ -332,6 +358,9 @@ public class MainVerticle extends AbstractVerticle {
     this.webClient.close();
     if (this.aiProxyWebClient != null) {
       this.aiProxyWebClient.close();
+    }
+    if (this.aiStreamingHttpClientHolder != null) {
+      this.aiStreamingHttpClientHolder.client().close();
     }
     return mysqlClient.rxClose();
   }
