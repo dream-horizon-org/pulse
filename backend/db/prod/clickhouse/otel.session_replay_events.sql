@@ -1,3 +1,21 @@
+CREATE TABLE IF NOT EXISTS otel.kafka_session_replay_events
+    ON CLUSTER 'pulse-clickhouse'
+(
+    `SessionId`       String,
+    `ProjectId`       LowCardinality(String),
+    `UserId`          String,
+    `FirstTimestamp`  DateTime64(6, 'UTC'),
+    `LastTimestamp`   DateTime64(6, 'UTC'),
+    `BlockUrl`        String,
+    `SnapshotSource`  LowCardinality(String)
+) ENGINE = Kafka()
+SETTINGS
+    kafka_broker_list = 'kafka:9092',
+    kafka_topic_list = 'clickhouse_session_replay_events',
+    kafka_group_name = 'pulse_ch_session_replay_consumer',
+    kafka_format = 'JSONEachRow',
+    kafka_num_consumers = 1;
+
 CREATE TABLE otel.session_replay_events_local
 ON CLUSTER 'pulse-clickhouse'
 (
