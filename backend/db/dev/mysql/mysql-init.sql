@@ -1006,16 +1006,22 @@ CREATE TABLE IF NOT EXISTS usage_limit_notifications (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
     thresholds_notified JSON NOT NULL DEFAULT ('{}'),
+    project_usage_limit_id BIGINT NOT NULL COMMENT 'FK to project_usage_limits row version at first notification for the month',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    UNIQUE KEY uk_project_month (project_id, (DATE_FORMAT(created_at, '%Y-%m'))),
+
     INDEX idx_created_at (created_at),
+    INDEX idx_project_usage_limit (project_usage_limit_id),
     
     CONSTRAINT fk_usage_notif_project 
         FOREIGN KEY (project_id) 
         REFERENCES projects(project_id) 
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_usage_notif_limit
+        FOREIGN KEY (project_usage_limit_id)
+        REFERENCES project_usage_limits(project_usage_limit_id)
+        ON DELETE RESTRICT
 );
 
 CREATE TABLE cron_jobs_history (
