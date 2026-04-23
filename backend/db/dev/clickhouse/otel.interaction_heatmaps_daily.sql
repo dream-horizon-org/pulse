@@ -1,20 +1,23 @@
 CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily
 (
-    `Date` Date,
-    `ProjectId` LowCardinality(String),
-    `ScreenName` LowCardinality(String),
-    `AppVersion` LowCardinality(String),
-    `Platform` LowCardinality(String),
-    `GeographicalRegion` LowCardinality(String),
-    `Breakpoint` LowCardinality(String),
-    `XBin` Float32,
-    `YBin` Float32,
-    `WeightNormal` UInt64,
-    `WeightRage` UInt64,
-    `WeightDead` UInt64
-    )
-    ENGINE = SummingMergeTree()
-    ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin);
+  `Date`               Date                         CODEC(DoubleDelta, ZSTD(1)),
+  `ProjectId`          LowCardinality(String)       CODEC(ZSTD(1)),
+  `ScreenName`         LowCardinality(String)       CODEC(ZSTD(1)),
+  `AppVersion`         LowCardinality(String)       CODEC(ZSTD(1)),
+  `Platform`           LowCardinality(String)       CODEC(ZSTD(1)),
+  `GeographicalRegion` LowCardinality(String)       CODEC(ZSTD(1)),
+  `Breakpoint`         LowCardinality(String)       CODEC(ZSTD(1)),
+  `XBin`               Float32                      CODEC(Gorilla, ZSTD(1)),
+  `YBin`               Float32                      CODEC(Gorilla, ZSTD(1)),
+  `WeightNormal`       UInt64                       CODEC(T64, ZSTD(1)),
+  `WeightRage`         UInt64                       CODEC(T64, ZSTD(1)),
+  `WeightDead`         UInt64                       CODEC(T64, ZSTD(1)),
+  )
+  ENGINE = SummingMergeTree()
+  PARTITION BY toYYYYMM(Date)
+  PRIMARY KEY (Date, ProjectId, ScreenName)
+  ORDER BY (Date, ProjectId, ScreenName, AppVersion, Platform, GeographicalRegion, Breakpoint, XBin, YBin);
+SETTINGS index_granularity = 8192;
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.interaction_heatmaps_daily_mv
