@@ -117,7 +117,10 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     expect(a.dataCollectionState).toBe('PENDING');
     expect(a.globalAttributes).toEqual({ p: 'a' });
     expect(a.instrumentation).toEqual({ activity: { enabled: true } });
-    expect(a.coreLibraryDesugarVersion).toBe('2.1.4');
+    expect(a.coreLibraryDesugaring).toEqual({
+      enabled: false,
+      version: '2.1.4',
+    });
 
     const i = resolveIosProps(props);
     expect(i.apiKey).toBe('key');
@@ -144,12 +147,27 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     ).toThrow(PluginError);
   });
 
-  it('uses android.coreLibraryDesugarVersion when set', () => {
+  it('uses android.coreLibraryDesugaring when enabled with optional version', () => {
     const props: PulsePluginProps = {
       apiKey: 'key',
       dataCollectionState: 'PENDING',
-      android: { coreLibraryDesugarVersion: '2.0.4' },
+      android: { coreLibraryDesugaring: { enabled: true, version: '2.0.4' } },
     };
-    expect(resolveAndroidProps(props).coreLibraryDesugarVersion).toBe('2.0.4');
+    expect(resolveAndroidProps(props).coreLibraryDesugaring).toEqual({
+      enabled: true,
+      version: '2.0.4',
+    });
+  });
+
+  it('defaults desugar version when enabled without version', () => {
+    const props: PulsePluginProps = {
+      apiKey: 'key',
+      dataCollectionState: 'PENDING',
+      android: { coreLibraryDesugaring: { enabled: true } },
+    };
+    expect(resolveAndroidProps(props).coreLibraryDesugaring).toEqual({
+      enabled: true,
+      version: '2.1.4',
+    });
   });
 });

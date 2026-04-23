@@ -2,6 +2,7 @@ import type { ConfigPlugin } from '@expo/config-plugins';
 import { withAppBuildGradle, withMainApplication } from '@expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 
+import { mergePulseCoreLibraryDesugaringCompileOptions } from './androidDesugarGradleMerge';
 import {
   PULSE_IMPORT,
   PULSE_DATA_COLLECTION_CONSENT_IMPORT,
@@ -75,21 +76,18 @@ export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
 
   config = withAppBuildGradle(config, (modConfig) => {
     try {
-      const { coreLibraryDesugarVersion } = props;
-      const desugarDep = `    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:${coreLibraryDesugarVersion}'\n`;
-      const compileOpts = `    compileOptions {
-        coreLibraryDesugaringEnabled true
-    }
-`;
+      const { coreLibraryDesugaring } = props;
+      if (!coreLibraryDesugaring.enabled) {
+        return modConfig;
+      }
 
-      modConfig.modResults.contents = mergeContents({
-        src: modConfig.modResults.contents,
-        newSrc: compileOpts,
-        tag: 'pulse-android-core-library-desugaring',
-        comment: '//',
-        anchor: /defaultConfig\s*\{/,
-        offset: 0,
-      }).contents;
+      const version = coreLibraryDesugaring.version;
+      const desugarDep = `    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:${version}'\n`;
+
+      modConfig.modResults.contents =
+        mergePulseCoreLibraryDesugaringCompileOptions(
+          modConfig.modResults.contents
+        );
 
       modConfig.modResults.contents = mergeContents({
         src: modConfig.modResults.contents,

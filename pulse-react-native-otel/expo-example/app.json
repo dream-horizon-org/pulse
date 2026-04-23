@@ -59,7 +59,9 @@
               "slowRendering": { "enabled": false },
               "fragment": { "enabled": true }
             },
-            "coreLibraryDesugarVersion": "2.1.4"
+            "coreLibraryDesugaring": {
+              "enabled": true
+            }
           },
           "ios": {
             "instrumentation": {
