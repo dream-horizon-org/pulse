@@ -65,6 +65,7 @@ public final class Constants {
       RESOURCE_TYPE_SYSTEM + ":" + RESOURCE_SYSTEM_PULSE;
 
   public static final String RELATION_SUPERADMIN = "superadmin";
+  public static final String RELATION_INTERNAL_VIEWER = "internal_viewer";
   public static final String RELATION_SYSTEM_PARENT = "system_parent";
 
   /**
