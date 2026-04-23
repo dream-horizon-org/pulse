@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 /// REST API implementation of InteractionConfigFetcher
 /// Fetches interaction configurations from a remote server using URLSession
@@ -24,9 +27,9 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
 
     public func getConfigs() async throws -> [InteractionConfig]? {
         let urlString = urlProvider()
-        print("[Pulse] Interaction: requesting config from endpoint: \(urlString)")
+        PulseLogger.debug("Interaction: requesting config from endpoint: \(PulseRedaction.redactUrl(urlString))")
         guard let url = URL(string: urlString) else {
-            print("[Pulse] Interaction: invalid config URL (skipping fetch)")
+            PulseLogger.warn("Interaction: invalid config URL (skipping fetch)")
             return nil
         }
 
@@ -41,17 +44,14 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
             return nil
         }
 
-        // Check HTTP status code
         guard (200...299).contains(httpResponse.statusCode) else {
-            print("[Pulse] Interaction: config endpoint returned HTTP \(httpResponse.statusCode), response preview: \(String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode>")")
+            PulseLogger.warn("Interaction: config endpoint returned HTTP \(httpResponse.statusCode)")
             return nil
         }
 
-        // Check Content-Type header to ensure it's JSON
         if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type"),
            !contentType.contains("application/json") && !contentType.contains("text/json") {
-            let preview = String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode>"
-            print("[Pulse] Interaction: config endpoint returned non-JSON Content-Type: \(contentType). Endpoint: \(urlString). Response preview: \(preview)")
+            PulseLogger.warn("Interaction: config endpoint returned non-JSON Content-Type: \(contentType)")
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(
                     codingPath: [],
@@ -60,20 +60,19 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
             )
         }
 
-        // Try to decode JSON (API returns a raw array of interaction configs, no data/error wrapper)
         do {
             let configs = try JSONDecoder().decode([InteractionConfig].self, from: data)
-            print("[Pulse] Interaction: config fetched successfully, \(configs.count) interaction(s) present")
+            PulseLogger.debug("Interaction: config fetched successfully, \(configs.count) interaction(s) present")
             return configs
         } catch {
-            // Log endpoint and raw response for debugging decode failures
-            let responsePreview = String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode as UTF-8>"
             let decodeDetail = (error as? DecodingError).map { describe($0) } ?? error.localizedDescription
-            print("[Pulse] Interaction: decode failed. Endpoint: \(urlString). HTTP status: \(httpResponse.statusCode). Decode error: \(decodeDetail). Response body (first 500 chars): \(responsePreview)")
+            PulseLogger.warn("Interaction: decode failed. HTTP status: \(httpResponse.statusCode). Decode error: \(decodeDetail)")
+            let responsePreview = String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode as UTF-8>"
+            PulseLogger.verbose("Interaction: decode failure response body (first 500 chars): \(responsePreview)")
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(
                     codingPath: [],
-                    debugDescription: "Failed to decode JSON response. Response preview: \(responsePreview). Original error: \(error.localizedDescription). This might indicate the endpoint URL is incorrect or the server returned an error page."
+                    debugDescription: "Failed to decode JSON response. Original error: \(error.localizedDescription). This might indicate the endpoint URL is incorrect or the server returned an error page."
                 )
             )
         }

@@ -14,6 +14,7 @@ let package = Package(
     .visionOS(.v1)
   ],
   products: [
+    .library(name: "PulseLogging", targets: ["PulseLogging"]),
     .library(name: "SwiftMetricsShim", targets: ["SwiftMetricsShim"]),
     .library(name: "PrometheusExporter", targets: ["PrometheusExporter"]),
     .library(name: "OpenTelemetryProtocolExporter", targets: ["OpenTelemetryProtocolExporterGrpc"]),
@@ -36,6 +37,11 @@ let package = Package(
     .package(url: "https://github.com/SDWebImage/libwebp-Xcode.git", from: "1.5.0"),
   ],
   targets: [
+    .target(
+      name: "PulseLogging",
+      dependencies: [],
+      path: "Sources/PulseLogging"
+    ),
     .target(
       name: "SharedTestUtils",
       dependencies: [],
@@ -62,6 +68,7 @@ let package = Package(
     .target(
       name: "PrometheusExporter",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
         .product(name: "NIO", package: "swift-nio"),
         .product(name: "NIOHTTP1", package: "swift-nio")
@@ -80,6 +87,7 @@ let package = Package(
     .target(
       name: "OpenTelemetryProtocolExporterHttp",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
         "OpenTelemetryProtocolExporterCommon"
       ],
@@ -88,6 +96,7 @@ let package = Package(
     .target(
       name: "OpenTelemetryProtocolExporterGrpc",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
         "OpenTelemetryProtocolExporterCommon",
         .product(name: "GRPC", package: "grpc-swift")
@@ -254,6 +263,7 @@ extension Package {
         .target(
           name: "PulseKit",
           dependencies: [
+            "PulseLogging",
             .product(name: "OpenTelemetryApi", package: "opentelemetry-swift-core"),
             .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
             .product(name: "StdoutExporter", package: "opentelemetry-swift-core"),

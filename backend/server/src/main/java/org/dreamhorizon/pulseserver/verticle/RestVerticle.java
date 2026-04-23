@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.verticle;
 
 import com.dream11.rest.AbstractRestVerticle;
 import com.dream11.rest.ClassInjector;
+import com.dream11.rest.filter.RequestResponseFilter;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.rxjava3.ext.web.Router;
@@ -9,16 +10,17 @@ import io.vertx.rxjava3.ext.web.handler.BodyHandler;
 import io.vertx.rxjava3.ext.web.handler.CorsHandler;
 import io.vertx.rxjava3.ext.web.handler.ResponseContentTypeHandler;
 import io.vertx.rxjava3.ext.web.handler.StaticHandler;
-import com.dream11.rest.filter.RequestResponseFilter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.filter.StreamingSafeLoggerFilter;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertEvaluationService;
 
 public class RestVerticle extends AbstractRestVerticle {
   private static final String PACKAGE_NAME = "org.dreamhorizon.pulseserver";
+  private static final String JSON_CONTENT_TYPE = "application/json";
 
   protected RestVerticle(HttpServerOptions httpServerOptions) {
     super(PACKAGE_NAME, httpServerOptions);
@@ -52,7 +54,6 @@ public class RestVerticle extends AbstractRestVerticle {
     AlertEvaluationService alertEvaluationService = GuiceInjector.getGuiceInjector().getInstance(AlertEvaluationService.class);
     alertEvaluationService.registerConsumers();
 
-
     final Set<String> allowedHeaders = new HashSet<>();
     allowedHeaders.add("x-requested-with");
     allowedHeaders.add("Access-Control-Allow-Origin");
@@ -80,6 +81,11 @@ public class RestVerticle extends AbstractRestVerticle {
         .allowCredentials(true)
         .allowedMethods(allowedMethods)
         .allowedHeaders(allowedHeaders));
+
+    // Exact-match native Vert.x route for SSE. Registered before the JAX-RS scanner so it takes
+    // priority over AiProxyController's wildcard @Path("/{path:.*}"). Do not reorder.
+    AiSseProxyHandler sseHandler = new AiSseProxyHandler(vertx);
+    router.post(Constants.AI_RUN_SSE_PATH).handler(sseHandler::handle);
 
     return router;
   }

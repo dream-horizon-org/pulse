@@ -37,7 +37,7 @@ public class InteractionManager
         @Suppress("SuspendFunSwallowedCancellation")
         public fun init(): Job {
             return launch(ioDispatcher) {
-                logDebug { "Initializing with endpoint: $interactionFetcher" }
+                logVerbose { "Initializing with endpoint: $interactionFetcher" }
 
                 val interactionConfigs =
                     interactionConfigs ?: PulseNetworkingUtils
@@ -50,14 +50,14 @@ public class InteractionManager
                             interactionFetcher.getConfigs()
                         }.onFailure { error ->
                             currentCoroutineContext().ensureActive()
-                            logDebug { "Failed to fetch interactions: ${error.message ?: "no-msg"}" }
+                            logVerbose { "Failed to fetch interactions: ${error.message ?: "no-msg"}" }
                             return@launch
                         }.getOrNull() ?: run {
-                        logDebug { "No interaction configs received" }
+                        logVerbose { "No interaction configs received" }
                         return@launch
                     }
 
-                logDebug { "Loaded ${interactionConfigs.size} interaction(s)" }
+                logVerbose { "Loaded ${interactionConfigs.size} interaction(s)" }
 
                 interactionTrackers =
                     interactionConfigs
@@ -69,13 +69,13 @@ public class InteractionManager
                     .map { interactionEventsTracker ->
                         launch(defaultDispatcher + CoroutineName("interactionTracker=${interactionEventsTracker.name}")) {
                             eventQueue.localEventsFlow.collect {
-                                logDebug { "calling checkAndAdd with ${it.name}" }
+                                logVerbose { "calling checkAndAdd with ${it.name}" }
                                 interactionEventsTracker.checkAndAdd(it, this)
                             }
                         }
                         launch(defaultDispatcher + CoroutineName("interactionMarkerTracker=${interactionEventsTracker.name}")) {
                             eventQueue.localMarkerEventsFlow.collect {
-                                logDebug { "calling addMarker with ${it.name}" }
+                                logVerbose { "calling addMarker with ${it.name}" }
                                 interactionEventsTracker.addMarker(it)
                             }
                         }
@@ -94,7 +94,7 @@ public class InteractionManager
                     }
                 }
 
-                logDebug { "Initialization complete" }
+                logVerbose { "Initialization complete" }
             }
         }
 

@@ -14,7 +14,6 @@ import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -92,6 +91,18 @@ public class TenantMemberService {
                             "User %s already has role '%s'. To change their role, use the update member role option.",
                             email, existingRole.get());
                         return Single.error(ServiceError.MEMBER_ALREADY_EXISTS.getCustomException(message, cause));
+                    }
+                    return Single.just(ctx);
+                }))
+            // Cross-tenant validation: block if user already belongs to a different tenant
+            .flatMap(ctx -> openFgaService.getUserTenants(ctx.newUser.getUserId())
+                .flatMap(existingTenants -> {
+                    if (existingTenants != null && !existingTenants.isEmpty()
+                            && !existingTenants.contains(tenantId)) {
+                        log.warn("Cross-tenant membership blocked: user={} already in tenants={}, target tenant={}",
+                            ctx.newUser.getUserId(), existingTenants, tenantId);
+                        return Single.error(new IllegalStateException(
+                            "User already belongs to a different organization and cannot be added to this one."));
                     }
                     return Single.just(ctx);
                 }))
@@ -404,11 +415,19 @@ public class TenantMemberService {
             .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
             .flatMap(tenant -> userService.getOrCreateUser(email, email)
                 .map(user -> new InternalAddContext(tenant, user)))
-            // Check if user already has a tenant role
-            .flatMap(ctx -> openFgaService.getUserTenantRole(ctx.user.getUserId(), tenantId)
-                .flatMap(existingRole -> {
-                    if (existingRole.isPresent()) {
-                        log.debug("User already has tenant role '{}', skipping auto-add", existingRole.get());
+            // Cross-tenant validation + same-tenant short-circuit (replaces getUserTenantRole)
+            .flatMap(ctx -> openFgaService.getUserTenants(ctx.user.getUserId())
+                .flatMap(existingTenants -> {
+                    if (existingTenants != null && !existingTenants.isEmpty()
+                            && !existingTenants.contains(tenantId)) {
+                        log.warn("Cross-tenant membership blocked in internal add: user={} already in tenants={}, target tenant={}",
+                            ctx.user.getUserId(), existingTenants, tenantId);
+                        return Single.error(new IllegalStateException(
+                            "User already belongs to a different organization and cannot be added to this one."));
+                    }
+                    if (existingTenants != null && existingTenants.contains(tenantId)) {
+                        log.debug("User already in tenant, skipping auto-add: user={}, tenant={}",
+                            ctx.user.getUserId(), tenantId);
                         return Single.just(ctx.user);
                     }
                     // Assign member role in OpenFGA
