@@ -37,12 +37,27 @@ export interface RcaSessionReplayEvidenceCardProps {
   sessionId: string;
   segmentTitle: string;
   projectId?: string | null;
+  /** When multiple evidence cards, disambiguate without showing raw session IDs. */
+  evidenceOrdinal?: number;
+  evidenceSessionCount?: number;
+}
+
+function recordedSessionTitle(
+  count: number | undefined,
+  ordinal: number | undefined,
+): string {
+  if (count != null && count > 1 && ordinal != null && ordinal >= 1) {
+    return `Recorded session (${ordinal}/${count})`;
+  }
+  return "Recorded session";
 }
 
 export function RcaSessionReplayEvidenceCard({
   sessionId,
   segmentTitle,
   projectId,
+  evidenceOrdinal,
+  evidenceSessionCount,
 }: RcaSessionReplayEvidenceCardProps) {
   const { data: session, isLoading, error } = useGetSessionDetail(sessionId);
   const href = buildSessionReplayEvidenceHref(projectId, sessionId);
@@ -54,6 +69,7 @@ export function RcaSessionReplayEvidenceCard({
       : segmentTitle.trim() !== ""
         ? segmentTitle.trim()
         : "—";
+  const titleText = recordedSessionTitle(evidenceSessionCount, evidenceOrdinal);
 
   return (
     <Card
@@ -85,8 +101,9 @@ export function RcaSessionReplayEvidenceCard({
         size="sm"
         mb={6}
         lineClamp={2}
+        title={sessionId}
       >
-        {sessionId}
+        {titleText}
       </Text>
 
       <Box mb="sm">
