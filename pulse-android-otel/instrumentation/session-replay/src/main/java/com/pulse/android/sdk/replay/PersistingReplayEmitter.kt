@@ -4,7 +4,7 @@ import com.pulse.android.sdk.replay.events.ReplayCustomEventData
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -119,12 +119,12 @@ public class PersistingReplayEmitter(
                         }.entries
                         .joinToString(", ") { "${it.key}(${it.value.size})" }
                 val eventWord = if (events.size == 1) "event" else "events"
-                PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                     "[Replay flow] Batch persisted to disk (${events.size} $eventWord) — " +
                         "event types: [$eventTypesSummary] — queue size: $queueSize, flush at: $flushAt"
                 }
                 if (queueSize >= flushAt) {
-                    PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                    PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                         "[Replay flow] Queue reached flush threshold ($flushAt) → triggering flush"
                     }
                     flushIfNeeded()
@@ -148,7 +148,7 @@ public class PersistingReplayEmitter(
                 val files = listCachedReplayFiles()
                 if (files.isEmpty()) return@launch
                 logger("Sending ${files.size} cached replay batches from previous run ($flushAt per request)")
-                PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                     "[Replay flow] sendCachedEvents: found ${files.size} cached batch(es) from previous run"
                 }
                 sendCachedFileChunksSequentially(files)
@@ -178,7 +178,7 @@ public class PersistingReplayEmitter(
                     List(n) { deque.removeFirst() }
                 }
             if (toSend.isEmpty()) return
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+            PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (max per upload: $flushAt)"
             }
             val fileToContent =
@@ -188,7 +188,7 @@ public class PersistingReplayEmitter(
                 }
             if (fileToContent.isEmpty()) return
             val payload = buildBatchPayload(fileToContent.map { it.second })
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+            PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Flush → combining ${fileToContent.size} batch(es) " +
                     "into single request (${payload.length} bytes) → sending to backend"
             }
@@ -197,7 +197,7 @@ public class PersistingReplayEmitter(
                     if (!shutDown.get()) fileToContent.forEach { (file) -> file.delete() }
                 },
                 onFailure = { t ->
-                    PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
+                    PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
                         "[Replay flow] Flush send failed, re-queuing ${fileToContent.size} batch(es) for retry"
                     }
                     logger("Flush send failed: ${t.message.orEmpty()}")
@@ -264,7 +264,7 @@ public class PersistingReplayEmitter(
                 }
             if (fileToContent.isEmpty()) continue
             val payload = buildBatchPayload(fileToContent.map { it.second })
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+            PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Cached chunk ${idx + 1}/${chunks.size} → ${fileToContent.size} batch(es) " +
                     "(${payload.length} bytes) → backend"
             }
@@ -273,7 +273,7 @@ public class PersistingReplayEmitter(
                     if (!shutDown.get()) fileToContent.forEach { (file) -> file.delete() }
                 },
                 onFailure = { t ->
-                    PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
+                    PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
                         "[Replay flow] Cached send failed, remaining batch(es) will be retried on next launch"
                     }
                     logger("Send cached replay failed: ${t.message.orEmpty()}")

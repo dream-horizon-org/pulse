@@ -14,7 +14,7 @@ import com.pulse.android.sdk.replay.internal.pipeline.SnapshotPipeline
 import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener.Companion.onNextDraw
 import com.pulse.android.sdk.replay.internal.scheduling.ViewTreeSnapshotStatus
 import com.pulse.android.sdk.replay.internal.scheduling.isAliveAndAttachedToWindow
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import curtains.Curtains
 import curtains.OnRootViewsChangedListener
 import curtains.onDecorViewReady
@@ -52,7 +52,7 @@ public class SessionReplayIntegration(
 ) : SessionReplayController {
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val logger: (String) -> Unit = { msg ->
-        PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { msg }
+        PulseLogger.logDebug(ReplayConstants.REPLAY_LOG_TAG) { msg }
     }
     private val clock: Clock = Clock.getDefault()
     private val decorViews: MutableMap<View, ViewTreeSnapshotStatus> =
@@ -95,7 +95,9 @@ public class SessionReplayIntegration(
                 }
             }
         } catch (e: Throwable) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay OnRootViewsChangedListener failed: $e" }
+            PulseLogger.logWarn(
+                ReplayConstants.REPLAY_LOG_TAG,
+            ) { "Session Replay OnRootViewsChangedListener failed: ${e.javaClass.simpleName}" }
         }
     }
 
@@ -141,13 +143,17 @@ public class SessionReplayIntegration(
                                 )
                             }
                         } catch (e: Throwable) {
-                            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay mask collection failed: $e" }
+                            PulseLogger.logWarn(
+                                ReplayConstants.REPLAY_LOG_TAG,
+                            ) { "Session Replay mask collection failed: ${e.javaClass.simpleName}" }
                         }
                     }
                 }
             decorViews[decorView] = ViewTreeSnapshotStatus(listener, viewMaskCache)
         } catch (e: Throwable) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay setupDecorViewCapture failed: $e" }
+            PulseLogger.logWarn(
+                ReplayConstants.REPLAY_LOG_TAG,
+            ) { "Session Replay setupDecorViewCapture failed: ${e.javaClass.simpleName}" }
         }
     }
 
@@ -264,7 +270,9 @@ public class SessionReplayIntegration(
         try {
             Curtains.onRootViewsChangedListeners += onRootViewsChangedListener
         } catch (e: Throwable) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay setup failed: $e" }
+            PulseLogger.logWarn(
+                ReplayConstants.REPLAY_LOG_TAG,
+            ) { "Session Replay setup failed: ${e.javaClass.simpleName}" }
         }
     }
 
@@ -274,7 +282,9 @@ public class SessionReplayIntegration(
             val snapshot = synchronized(decorViews) { decorViews.entries.toList() }
             snapshot.forEach { (view, status) -> clearViewListeners(view, status) }
         } catch (e: Throwable) {
-            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay uninstall failed: $e" }
+            PulseLogger.logWarn(
+                ReplayConstants.REPLAY_LOG_TAG,
+            ) { "Session Replay uninstall failed: ${e.javaClass.simpleName}" }
         }
         isSessionReplayActive = false
         drawCounter.incrementAndGet()

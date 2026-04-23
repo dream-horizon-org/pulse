@@ -4,34 +4,33 @@
  * Generates realistic mock responses for different API endpoints
  */
 
-import { MockResponse, MockRequest } from "./types";
-import { MockDataStore } from "./MockDataStore";
-import { MockConfigManager } from "./MockConfig";
-import { generateDataQueryMockResponseV2 } from "./v2";
-import { mockJobResponses } from "./responses/jobResponses";
+import { AI_API_PATHS } from "../constants/aiApiPaths";
+import {MockRequest, MockResponse} from "./types";
+import {MockDataStore} from "./MockDataStore";
+import {MockConfigManager} from "./MockConfig";
+import {generateDataQueryMockResponseV2} from "./v2";
+import {mockJobResponses} from "./responses/jobResponses";
+import {handleBreadcrumbsRequest} from "./responses/breadcrumbResponses";
+import {handleFunnelEndpoints} from "./responses/funnelResponses";
 import {
-  mockNotificationChannels,
-  mockAlertSeverities,
-  mockAlertScopes,
-  mockAlertMetrics,
   mockAlertFilters,
+  mockAlertMetrics,
+  mockAlertScopes,
+  mockAlertSeverities,
   mockAlertTags,
+  mockNotificationChannels,
 } from "./responses/alertResponses";
 import {
-  mockTableMetadata,
-  generateMockQueryResults,
-  createQueryJob,
-  getQueryJobStatus,
-  shouldReturnImmediate,
-  generateMockQueryHistory,
   cancelQueryJob,
+  createQueryJob,
   generateAiQueryResponse,
+  generateMockQueryHistory,
+  generateMockQueryResults,
+  getQueryJobStatus,
+  mockTableMetadata,
+  shouldReturnImmediate,
 } from "./responses/realtimeQueryResponses";
-import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
-import {
-  heatmapMockCompare,
-  resolveHeatmapData,
-} from "./responses/heatmapMockFixtures";
+import {heatmapMockCompare, resolveHeatmapData,} from "./responses/heatmapMockFixtures";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -117,9 +116,9 @@ export class MockResponseGenerator {
     await this.delay(this.config.getDelay() + heatmapExtraMs);
 
     // Simulate random errors
-    if (this.config.shouldSimulateError()) {
-      return this.generateErrorResponse();
-    }
+    // if (this.config.shouldSimulateError()) {
+    //   return this.generateErrorResponse();
+    // }
 
     // Route to appropriate handler based on path and method
     return this.routeRequest(pathname, method, request);
@@ -139,6 +138,78 @@ export class MockResponseGenerator {
         cause: "Random error simulation",
       },
     };
+  }
+
+  /**
+   * SSE stream for POST /v1/ai/run_sse — matches pulse_ai `data: {json}\n\n` lines and terminal `data: [DONE]\n\n`.
+   * Invoked from the mock server when `REACT_APP_USE_MOCK_SERVER=true` and the UI calls the streaming AI endpoint.
+   */
+  async buildRunSseMockResponse(request: MockRequest): Promise<Response> {
+    const url = this.parseURL(request.url);
+    const pathname = url.pathname;
+    const method = request.method.toUpperCase();
+
+    if (method !== "POST" || !pathname.endsWith(AI_API_PATHS.RUN_SSE)) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (this.config.shouldLog()) {
+      console.log("[Mock Server] SSE run_sse (streaming mock)", pathname);
+    }
+
+    await this.delay(Math.min(this.config.getDelay(), 500));
+
+    const encoder = new TextEncoder();
+    const chunkGapMs = 100;
+    const sseLine = (payload: Record<string, unknown>) =>
+      `data: ${JSON.stringify(payload)}\n\n`;
+
+    const payloads: string[] = [
+      sseLine({
+        type: "meta",
+        user_event_id: "mock-user-event",
+        assistant_event_id: "mock-assistant-event",
+        invocation_id: "mock-invocation",
+      }),
+      sseLine({ type: "text", content: "Mock " }),
+      sseLine({ type: "text", content: "streaming " }),
+      sseLine({ type: "text", content: "response " }),
+      sseLine({ type: "text", content: "from the dev mock server." }),
+      "data: [DONE]\n\n",
+    ];
+
+    const self = this;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        void (async () => {
+          try {
+            for (const chunk of payloads) {
+              await self.delay(chunkGapMs);
+              controller.enqueue(encoder.encode(chunk));
+            }
+            controller.close();
+          } catch (e) {
+            controller.error(
+              e instanceof Error ? e : new Error(String(e)),
+            );
+          }
+        })();
+      },
+    });
+
+    return new Response(stream, {
+      status: 200,
+      statusText: "OK",
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
   }
 
   private createMockJWTToken(payload: any): string {
@@ -368,6 +439,12 @@ export class MockResponseGenerator {
       pathname.includes("/validateQuery")
     ) {
       return this.handleQueryEndpoints(pathname, method, request);
+    }
+
+    // Funnel/journey APIs (before /events catch-all). Client uses singular collection
+    // paths GET /v1/funnels and /v1/journeys (see funnels.service); plural also supported in mocks.
+    if (pathname.includes("/v1/funnels") || pathname.includes("/v1/journeys")) {
+      return handleFunnelEndpoints(pathname, method, request);
     }
 
     // Event endpoints
@@ -1057,7 +1134,6 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
- 
   private handleV1SessionReplayEndpoints(
     pathname: string,
     method: string,
@@ -7403,7 +7479,10 @@ ${
             },
           };
         }
-        if (body.screenName === "__error__" || body.compare?.screenName === "__error__") {
+        if (
+          body.screenName === "__error__" ||
+          body.compare?.screenName === "__error__"
+        ) {
           return {
             data: null,
             status: 500,
@@ -7414,7 +7493,10 @@ ${
             },
           };
         }
-        const data = heatmapMockCompare(body.screenName, body.compare.screenName);
+        const data = heatmapMockCompare(
+          body.screenName,
+          body.compare.screenName,
+        );
         return { data, status: 200, error: undefined };
       } catch (e: unknown) {
         return {

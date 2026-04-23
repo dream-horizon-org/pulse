@@ -8,6 +8,8 @@
  * Based on: https://github.com/facebook/react-native/blob/v0.80.0/packages/react-native/Libraries/Blob/URL.js
  */
 
+import { PulseLogger } from '../PulseLogger';
+
 export class SearchParams {
   private params: Map<string, string> = new Map();
 
@@ -47,8 +49,7 @@ export class SearchParams {
         }
       }
     } catch (e) {
-      // If decoding fails, params remain empty
-      console.warn('[Pulse] Query parameter parsing failed:', e);
+      PulseLogger.warn(`Query parameter parsing failed: ${e}`);
     }
   }
 
@@ -158,8 +159,7 @@ export function parseUrl(url: string): ParsedUrl | null {
       searchParams: searchParams,
     };
   } catch (e) {
-    // Any unexpected error during parsing - return null
-    console.warn('[Pulse] URL parsing failed:', e);
+    PulseLogger.warn(`URL parsing failed: ${e}`);
     return null;
   }
 }
@@ -214,8 +214,7 @@ export function extractHttpAttributes(url: string): {
 
     return attributes;
   } catch (e) {
-    // Absolutely ensure this function never throws
-    console.warn('[Pulse] Failed to extract HTTP attributes from URL:', e);
+    PulseLogger.warn(`Failed to extract HTTP attributes from URL: ${e}`);
     return {};
   }
 }

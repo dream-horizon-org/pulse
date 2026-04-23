@@ -4,6 +4,9 @@
 //
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import SwiftProtobuf
 #if canImport(OpenTelemetryProtocolExporterCommon)
 import OpenTelemetryProtocolExporterCommon
@@ -95,7 +98,7 @@ public class OtlpHttpExporterBase {
       // but it doesn't matter here
       request.httpBody = compressedData
     } catch {
-      print("Error serializing body: \(error)")
+      PulseLogger.warn("Error serializing body: \(error.localizedDescription)")
     }
     return request
   }

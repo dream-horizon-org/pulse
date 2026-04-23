@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetryApi
 import OpenTelemetrySdk
 
@@ -168,7 +171,7 @@ public class URLSessionInstrumentation {
     ].forEach {
       let selector = $0
       guard let original = class_getInstanceMethod(cls, selector) else {
-        print("injectInto \(selector.description) failed")
+        PulseLogger.warn("URLSession swizzle failed: \(selector.description)")
         return
       }
       var originalIMP: IMP?
@@ -299,7 +302,7 @@ public class URLSessionInstrumentation {
     ].forEach {
       let selector = $0
       guard let original = class_getInstanceMethod(cls, selector) else {
-        print("injectInto \(selector.description) failed")
+        PulseLogger.warn("URLSession swizzle failed: \(selector.description)")
         return
       }
       var originalIMP: IMP?
@@ -389,7 +392,7 @@ public class URLSessionInstrumentation {
     ].forEach {
       let selector = $0
       guard let original = class_getInstanceMethod(cls, selector) else {
-        print("injectInto \(selector.description) failed")
+        PulseLogger.warn("URLSession swizzle failed: \(selector.description)")
         return
       }
       var originalIMP: IMP?
