@@ -146,7 +146,7 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 
 **`beforeSendData` (Android parity):** Public config key matches Android. Wired at export via `BeforeSend*Exporter` in `src/exporters/before-send-exporters.ts`; types `PulseWebBeforeSendConfig` / `PulseWebBeforeSendCallbacks` in `src/before-send.ts`. Semantics + main-thread contract → `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
 
-**Init config parity (Android vs Web):** `PulseSDK.initialize` (`pulse-android-otel/pulse-android-sdk/.../PulseSDK.kt`) vs `PulseWeb.start` / `PulseWebConfig` (`pulse-web-otel/src/config.ts`, `src/types/config.ts`). Deeper rollout notes → `web-sdk-plan/v1/01-foundation/init-config-android-parity-plan.md`.
+**Init config parity (Android vs Web):** `PulseSDK.initialize` (`pulse-android-otel/pulse-android-sdk/.../PulseSDK.kt`) vs `PulseWeb.start` / `PulseWebConfig` (`pulse-web-otel/src/config.ts`; consent enum `PulseDataCollectionConsent` in `src/types/config.ts`). Deeper rollout notes → `web-sdk-plan/v1/01-foundation/init-config-android-parity-plan.md`.
 
 | Area | Android (`initialize`) | Web (`PulseWebConfig`) | Parity |
 |------|--------------------------|-------------------------|--------|
@@ -158,7 +158,7 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 | **Global attrs** | `globalAttributes: (() -> Attributes)?` | `globalAttributes?: Record<string, string \| number \| boolean>` | **Partial** — same role; shape differs |
 | **Export-time hooks** | `beforeSendData: PulseBeforeSendData?` | `beforeSendData?: PulseWebBeforeSendConfig` | **Full** (key + hook semantics) |
 | **SDK logging** | `logLevel: PulseLogLevel = NONE` | `logLevel?: PulseLogLevel` (default `NONE` when omitted) | **Full** |
-| **Instrumentations** | `instrumentations: (InstrumentationConfiguration.() -> Unit)?` (DSL) | `instrumentations?: InstrumentationConfig` (boolean map + session timeouts in `types/config`) | **Partial** — per-module on/off; different surface |
+| **Instrumentations** | `instrumentations: (InstrumentationConfiguration.() -> Unit)?` (DSL) | `instrumentations?: InstrumentationConfig` in `config.ts` (boolean map + optional session timeout fields) | **Partial** — per-module on/off; different surface |
 | **OTLP wire format** | Not on this `initialize` signature | `export?: { format?: "json" \| "protobuf" }` | **Web-only** (browser) |
 | **Failed-export buffering** | Default-on in stack; not this arity | `diskBuffering?: PulseWebDiskBufferingConfig` | **Partial** — same role; web exposes tuning |
 | **Routing / screen naming** | Activity / fragment / nav DSL | `routePatterns?` | **Web-only** (SPA) |

@@ -16,7 +16,15 @@ export interface InstrumentationConfig {
   clicks?: { enabled: boolean };
   webVitals?: { enabled: boolean };
   navigation?: { enabled: boolean };
-  session?: { enabled: boolean };
+  session?: {
+    enabled: boolean;
+    /** Rotate session after this many ms of inactivity. Default: 30 min. */
+    inactivityTimeoutMs?: number;
+    /** Hard max session lifetime in ms regardless of activity. Default: 4 hours. */
+    maxSessionLifetimeMs?: number;
+    /** Rotate session after page has been hidden for this many ms. Default: 15 min. */
+    pageHiddenTimeoutMs?: number;
+  };
   interactions?: { enabled: boolean };
   sessionReplay?: { enabled: boolean };
 }
@@ -45,12 +53,6 @@ export interface PulseWebConfig {
   /** Defaults to window.location.hostname if absent. */
   serviceName?: string;
   serviceVersion?: string;
-    // Optional — per-instrumentation toggles
-    instrumentations?: InstrumentationConfig;
-
-  // Optional — privacy (Android `beforeSendData` / PulseBeforeSendData parity — see before-send.ts)
-  beforeSendData?: PulseWebBeforeSendConfig;
-
 
   // Optional — custom attributes stamped on every signal
   globalAttributes?: Record<string, string | number | boolean>;
@@ -62,10 +64,14 @@ export interface PulseWebConfig {
    */
   resourceAttributes?: Record<string, string | number | boolean>;
 
+  // Optional — privacy (Android `beforeSendData` / PulseBeforeSendData parity — see before-send.ts)
+  beforeSendData?: PulseWebBeforeSendConfig;
+
+  // Optional — per-instrumentation toggles
+  instrumentations?: InstrumentationConfig;
+
   // Optional — route → screen name mapping (used by navigation instrumentation)
   routePatterns?: Array<{ pattern: string; name: string }>;
-
-
 
   /**
    * Wire format for OTLP export.
@@ -78,19 +84,15 @@ export interface PulseWebConfig {
 
   /**
    * SDK internal diagnostics (Android / RN parity). Omitted or {@link PulseLogLevel.NONE} → no
-   * Pulse console output. Use {@link PulseLogLevel.DEBUG} for sampling + remote-config traces and
-   * log-record lifecycle processors.
+   * Pulse console output. Use {@link PulseLogLevel.DEBUG} for sampling + remote-config traces.
    */
   logLevel?: PulseLogLevel;
 
   /**
-   * Failed exports may be written to IndexedDB and replayed on the next load (same role as
-   * Android {@code DiskBufferingConfig}). **Default is on** (omit this field or omit {@code enabled}).
-   * Set {@code enabled: false} to disable. Optional {@code maxAgeMs} / {@code maxCacheSizeBytes} tune the store.
-   *
-   * **Vite (internal):** optional {@code VITE_PULSE_DISK_BUFFER_MAX_AGE_MS} and
-   * {@code VITE_PULSE_DISK_BUFFER_MAX_SIZE_BYTES} override defaults when buffering is active (same
-   * pattern as {@code VITE_PULSE_BATCH_DELAY_MS} for batching).
+   * Buffer failed OTLP exports in IndexedDB and retry on next load (Android disk buffering parity).
+   * On by default; set {@code enabled: false} to turn off. Tune with {@code maxAgeMs} /
+   * {@code maxCacheSizeBytes}. In Vite builds, {@code VITE_PULSE_DISK_BUFFER_MAX_AGE_MS} and
+   * {@code VITE_PULSE_DISK_BUFFER_MAX_SIZE_BYTES} can override defaults when buffering is active.
    */
   diskBuffering?: PulseWebDiskBufferingConfig;
 }

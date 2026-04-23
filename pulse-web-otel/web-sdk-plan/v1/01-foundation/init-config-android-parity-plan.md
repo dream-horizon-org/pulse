@@ -1,6 +1,6 @@
 # Web init config — Android parity plan (`beforeSendData`, `logLevel`, `resource`)
 
-**Status:** Planning (no implementation commitment in this doc).  
+**Status:** Tracks A–C implemented in `pulse-web-otel`; this doc kept for rationale, merge contract, and file map.  
 **Audience:** Web SDK implementers, docs, integrators comparing Android and web.  
 **Related:** [`before-send-web-android-parity.md`](./before-send-web-android-parity.md) (semantics and pipeline; this doc focuses on **public config shape** and **logging / resource gaps**).
 
@@ -31,13 +31,13 @@ Android has **no** second boolean for “lifecycle debug”; integrators use **`
 
 ### 2.2 Web (`PulseWebConfig` / `PulseWeb.start`)
 
-Source: `pulse-web-otel/src/types/config.ts`, `src/before-send.ts`, `src/resource.ts`, `src/sdk.ts`.
+Source: `pulse-web-otel/src/config.ts` (public `PulseWebConfig`, `InstrumentationConfig`, `PulseWebDiskBufferingConfig`, `validateConfig`), `src/types/config.ts` (**`PulseDataCollectionConsent` only**), `src/before-send.ts`, `src/resource.ts`, `src/sdk.ts`.
 
-| Concern | Web today |
-|--------|-----------|
+| Concern | Web (shipped) |
+|--------|----------------|
 | Export-time scrub / drop | Config field **`beforeSendData?: PulseWebBeforeSendConfig`** — same **key** as Android. Object callbacks use Android method names (`beforeSend`, `beforeSendSpan`, …). Semantics → `before-send-web-android-parity.md`. |
-| SDK internal logging | No `logLevel`. Legacy **`debugLogRecordLifecycle?: boolean`** toggles log-record lifecycle processors (`log-record-lifecycle-debug-processor.ts`, `wrap-log-exporter-lifecycle-debug.ts`). Several modules use raw **`console.log` / `console.warn`** (e.g. `remote-config.ts`, `export-sampling-gate.ts`) with no shared level policy. **Plan:** remove the boolean; add **`logLevel: PulseLogLevel`** and **`PulseWebLogger`** only. |
-| Resource | **`buildResource(config, osVersion)`** only — fixed attribute set from config + UA + browser APIs. No user hook to extend or override the built `Resource`. |
+| SDK internal logging | **`logLevel?: PulseLogLevel`** (default **`NONE`** when omitted) and **`PulseWebLogger`**; diagnostics routed through the logger (Android / RN parity). **`debugLogRecordLifecycle`** removed. |
+| Resource | **`resourceAttributes?: Record<...>`** merged under the built-in resource (**Pulse wins** on reserved keys); see §6. |
 | Extra attrs | `globalAttributes?: Record<...>` + `PulseGlobalAttributesProcessor` (already documented elsewhere). |
 
 ### 2.3 Cross-SDK precedent (React Native)
@@ -150,7 +150,7 @@ The **severity** column above is which **`PulseWebLogger.*` method** to call in 
 | Action | Path / area |
 |--------|-------------|
 | Add | `src/pulse-log-level.ts`, `src/pulse-web-logger.ts` |
-| Change | `src/types/config.ts`, `src/config.ts`, `src/sdk.ts` |
+| Change | `src/config.ts`, `src/types/config.ts` (consent enum only), `src/sdk.ts` |
 | Change | `remote-config.ts`, `config-fetcher.ts` (fetch failures, invalid schema — today `console.warn`), `export-sampling-gate.ts`, processors/exporters touched by lifecycle |
 | Remove field + branches | `debugLogRecordLifecycle` from config types, `validateConfig`, `sdk.ts` |
 | Delete or fold | `log-record-lifecycle-debug-processor.ts`, `wrap-log-exporter-lifecycle-debug.ts` if superseded by logger-gated path |
@@ -212,7 +212,7 @@ const finalResource = userLayer.merge(pulseLayer); // pulseLayer wins overlaps
 
 | Area | Likely files |
 |------|----------------|
-| Config types | `src/types/config.ts`, `src/config.ts` (`validateConfig`) |
+| Config types | `src/config.ts` — `PulseWebConfig`, `InstrumentationConfig`, `PulseWebDiskBufferingConfig`, `validateConfig`; `src/types/config.ts` — `PulseDataCollectionConsent` only |
 | `beforeSendData` wiring | `src/before-send.ts`, `src/sdk.ts`, `src/exporters.ts`, `src/types/exporters.ts` |
 | Logging | §5.6: `pulse-log-level.ts`, `pulse-web-logger.ts`; `config-fetcher.ts`; strip `debugLogRecordLifecycle`; route all SDK diagnostics through logger; delete or fold lifecycle-only modules |
 | Resource | `resourceAttributes` on config; `src/resource.ts` + `src/sdk.ts`: `new Resource(attrs).merge(buildResource(...))` per §6.3; tests |
@@ -236,3 +236,4 @@ const finalResource = userLayer.merge(pulseLayer); // pulseLayer wins overlaps
 | 2026-04-23 | **Track A:** `PulseWebConfig` / `ExporterConfig` use **`beforeSendData` only** (no `beforeSend` config key); plan §4/§7/§9 updated accordingly. |
 | 2026-04-23 | **Track C:** **C1 only** (`resourceAttributes`); drop public **`Resource`** on config (OTel version coupling). Merge: `userLayer.merge(pulseLayer)` so **Pulse wins** on conflicts; document reserved keys (`project.id`, `rum.sdk.name`, `platform`). |
 | 2026-04-23 | **Track B code:** `PulseLogLevel`, `PulseWebLogger`, `logLevel` on `PulseWebConfig`; removed `debugLogRecordLifecycle`; sampling + sdkConfig + lifecycle use logger. |
+| 2026-04-23 | **Doc:** public config types live in `src/config.ts` only; `src/types/config.ts` is consent enum only. Updated §2.2 snapshot, §5.6 / §8 file map, `WEB-SDK-AGENT-CONTEXT.md` parity pointers. |
