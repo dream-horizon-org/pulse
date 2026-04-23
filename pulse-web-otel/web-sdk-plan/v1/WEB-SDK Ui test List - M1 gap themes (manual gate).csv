@@ -134,3 +134,28 @@ Area 11 — SDK Lifecycle / pagehide Cleanup,,,,,,Case type
 11.10,pagehide listener does NOT fire on SPA navigation,"1. Load app
 2. Navigate Home → /products → /cart → /checkout via pushState
 3. Watch Network — no pagehide should fire",No OTLP keepalive flush during in-app navigation — pagehide is unload-only,Pass,Browser-verified: 3 pushState navigations produced zero extra /v1/logs flush. Only regular batch timer requests observed.,Negative
+
+Area 13 — useRouterTracking (React Router Integration),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+13.1,skipInitial=true (default) suppresses initial setScreenName call (+v),"1. Mount useRouterTracking() inside MemoryRouter at /foo
+2. Await microtasks",setScreenName NOT called,Pass,Unit test: use-router-tracking.test.tsx — does NOT call setScreenName on first mount (skipInitial defaults to true),Positive
+13.2,skipInitial=false fires setScreenName on first mount (+v),"1. Mount useRouterTracking({ skipInitial: false }) at /foo
+2. Await microtasks",setScreenName called once with /foo,Pass,Unit test: use-router-tracking.test.tsx — calls setScreenName on first mount when skipInitial is false,Positive
+13.3,Route change fires setScreenName with new pathname (+v),"1. Mount at /foo, skip initial
+2. Click Products nav link (SPA navigation)",setScreenName called once with /products,Pass,Browser verified 2026-04-23: spy confirmed setScreenName('/products') on SPA nav. ClickHouse: screen.name=/products in otel_logs. Unit test: use-router-tracking.test.tsx,Positive
+13.4,Same pathname navigation → no duplicate signal (-v),"1. Navigate to /products
+2. Click Products link again (same route)",setScreenName NOT called again,Pass,Browser verified 2026-04-23: spy count stayed at 1 after clicking same link — no duplicate call. Unit test: use-router-tracking.test.tsx,Negative
+13.5,Query-string-only change ignored by default (-v),"1. On /error-demo
+2. pushState to /error-demo?q=1",setScreenName NOT called,Pass,Browser verified 2026-04-23: spy count unchanged after adding ?q=1 via history.pushState. Unit test: use-router-tracking.test.tsx,Negative
+13.6,includeSearch=true fires setScreenName with pathname+search (+v),"1. Mount useRouterTracking({ includeSearch: true }) at /x
+2. navigate('/x?q=1')",setScreenName called with /x?q=1,Pass,Unit test: use-router-tracking.test.tsx — fires setScreenName with pathname+search when includeSearch is true,Positive
+13.7,Custom format fn overrides screen name (+v),"1. Mount with format: (loc) => 'app:' + loc.pathname
+2. navigate('/bar')",setScreenName called with app:/bar,Pass,Unit test: use-router-tracking.test.tsx — passes the formatted screen name to setScreenName,Positive
+13.8,StrictMode double-mount fires setScreenName exactly once per real navigation (+v),"1. App runs in StrictMode (React dev)
+2. Navigate /products → /cart → /checkout → /error-demo
+3. Check spy call count",Each nav fires exactly 1 call — no duplicates from StrictMode fake unmount/remount,Pass,Browser verified 2026-04-23: 4 sequential navs produced exactly 4 spy calls — no StrictMode duplicates. Unit test: prevDependency ref fix confirmed. Bug fix: isFirstRun ref persisted across fake unmount → replaced with prevDependency pattern.,Positive
+13.9,Multiple sequential navigations each fire once (+v),"1. Mount at /
+2. Navigate /products → /cart → /checkout → /error-demo via nav links","setScreenName called 4× in order: /products, /cart, /checkout, /error-demo",Pass,"Browser verified 2026-04-23: spy recorded ['/products','/cart','/checkout','/error-demo'] in exact order. ClickHouse: screen.name=/error-demo confirmed. Unit test: use-router-tracking.test.tsx",Positive
+13.10,Unmount after navigations does not throw (+v),"1. Mount at /a
+2. Navigate to /b
+3. unmount()",No throw,Pass,Unit test: use-router-tracking.test.tsx — unmount after navigations does not throw,Positive
