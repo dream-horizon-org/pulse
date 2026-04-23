@@ -43,6 +43,12 @@ export interface PulseWebConfig {
   serviceName?: string;
   serviceVersion?: string;
   globalAttributes?: Record<string, string | number | boolean>;
+
+  /**
+   * Extra OTEL resource attributes. Merged before the SDK resource; Pulse reserved keys win.
+   */
+  resourceAttributes?: Record<string, string | number | boolean>;
+
   beforeSendData?: PulseWebBeforeSendConfig;
   instrumentations?: InstrumentationConfig;
 

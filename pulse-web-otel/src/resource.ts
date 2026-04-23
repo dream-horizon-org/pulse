@@ -85,3 +85,18 @@ export function buildResource(
 
   return new Resource(attrs);
 }
+
+/**
+ * Merges optional user {@link PulseWebConfig.resourceAttributes} with {@link buildResource}.
+ * In OTel JS, {@code left.merge(right)} keeps {@code right} on attribute key conflicts — so
+ * **Pulse-built attributes win** over user-supplied duplicates (e.g. {@code project.id},
+ * {@code rum.sdk.name}, {@code platform}).
+ */
+export function buildMergedResource(
+  config: PulseWebConfig,
+  osVersion: string,
+): Resource {
+  const userLayer = new Resource(config.resourceAttributes ?? {});
+  const pulseLayer = buildResource(config, osVersion);
+  return userLayer.merge(pulseLayer);
+}

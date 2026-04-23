@@ -20,7 +20,7 @@ import {
   getOrCreateInstallationId,
   wasNewInstallation,
 } from "./session";
-import { buildResource } from "./resource";
+import { buildMergedResource } from "./resource";
 import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
 import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
 import { FeatureGate } from "./feature-gate";
@@ -112,7 +112,7 @@ class PulseWebSDK implements SdkContext {
       this._starting = false;
       return;
     }
-    const resource = buildResource(config, resolvedOsVersion);
+    const resource = buildMergedResource(config, resolvedOsVersion);
 
     // Step 4: Load cached SDK config
     const projectId = extractProjectId(config.apiKey);

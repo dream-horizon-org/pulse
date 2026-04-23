@@ -50,6 +50,13 @@ export interface PulseWebConfig {
   // Optional — custom attributes stamped on every signal
   globalAttributes?: Record<string, string | number | boolean>;
 
+  /**
+   * Extra OTEL resource attributes (e.g. {@code deployment.environment}). Merged under the
+   * built-in resource; **Pulse keys win on conflict** ({@code project.id}, {@code rum.sdk.name},
+   * {@code platform}, etc.).
+   */
+  resourceAttributes?: Record<string, string | number | boolean>;
+
   // Optional — route → screen name mapping (used by navigation instrumentation)
   routePatterns?: Array<{ pattern: string; name: string }>;
 
