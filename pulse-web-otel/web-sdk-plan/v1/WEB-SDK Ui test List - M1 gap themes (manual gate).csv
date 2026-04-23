@@ -194,9 +194,9 @@ Area 15 — Update Demo App (PulseProvider / PulseErrorBoundary / useRouterTrack
 15.3,PulseErrorBoundary fallback renders on child crash (+v),"1. Navigate to /error-demo
 2. Click 'Trigger Render Error'
 3. Observe UI",Error boundary fallback UI shown (not a white screen); no unhandled error in console,Pass,"Browser verified 2026-04-23: fallback rendered 'Render error caught by PulseErrorBoundary' with error message. No white screen. Unit test: App.test.tsx.",Positive
-15.4,PulseErrorBoundary forwards crash to backend via reportDeviceCrash (+v),"1. Trigger render error on /error-demo
+15.4,PulseErrorBoundary forwards crash to stack_trace_events via reportDeviceCrash (+v),"1. Trigger render error on /error-demo
 2. Confirm reportDeviceCrash spy fired; XHR sent to /v1/logs (200)
-3. Note: device.crash routed to pulse-server (not otel_logs) by collector","reportDeviceCrash spy captures error message; XHR POST 200 to OTEL collector; collector routes device.crash → otlphttp/pulse (pulse-server) by design",Pass,"Browser verified 2026-04-23: spy __crashCalls=['Intentional render error from ErrorDemo']; XHR binary POST → 200; OTEL collector otel-collector.yaml routes pulse.type=device.crash to logs/to-backend (not otel_logs). Architecture confirmed.",Positive
+3. Query ClickHouse: SELECT EventName, ExceptionMessage, Timestamp FROM otel.stack_trace_events ORDER BY Timestamp DESC LIMIT 10","reportDeviceCrash spy captures error message; XHR POST 200; row appears in otel.stack_trace_events with ExceptionMessage matching the thrown error",Pass,"Browser + BE verified 2026-04-23: spy captured 'Intentional render error from ErrorDemo'; XHR 200; collector routes device.crash → pulse-server → otel.stack_trace_events. ClickHouse confirmed row at 11:45:35 with ExceptionMessage='Intentional render error from ErrorDemo'.",Positive
 15.5,useRouterTracking fires setScreenName on route change (+v),"1. DevTools: spy on window.PulseWeb.setScreenName
 2. Click nav links Home → Products → Cart
 3. Log spy calls","setScreenName called with '/', '/products', '/cart' in order",Pass,"Browser verified 2026-04-23: spy captured ['/products','/cart','/checkout'] in exact order after SPA clicks. No duplicates. Unit test: App.test.tsx.",Positive
