@@ -192,10 +192,15 @@ export function createProviders(
   const metricsUrl =
     config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
 
-  // Disk buffer is disabled — hardcoded (mirrors Android internal).
+  const disk = config.diskBuffering;
+  const diskEnabled = disk?.enabled !== false;
+  const idbBuffer = new IdbSignalBuffer(
+    disk?.maxAgeMs,
+    disk?.maxCacheSizeBytes,
+  );
   const pulseDisk = {
-    enabled: false,
-    buffer: new IdbSignalBuffer(),
+    enabled: diskEnabled,
+    buffer: idbBuffer,
   };
 
   const innerTraceExporter = new PulseBrowserTraceExporter(
@@ -328,5 +333,11 @@ export function createProviders(
     cleanup = () => window.removeEventListener("pagehide", pagehideHandler);
   }
 
-  return { tracerProvider, loggerProvider, meterProvider, cleanup };
+  return {
+    tracerProvider,
+    loggerProvider,
+    meterProvider,
+    cleanup,
+    ...(diskEnabled ? { idbSignalBuffer: idbBuffer } : {}),
+  };
 }

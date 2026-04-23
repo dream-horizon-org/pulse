@@ -6,7 +6,9 @@
  * globalAttributes, beforeSend, instrumentations.
  *
  * Everything else (endpointBaseUrl, export format/compression/batch,
- * diskBuffering, configEndpointUrl, debugLogRecordLifecycle) is internal-only.
+ * configEndpointUrl) is internal-only. `diskBuffering` defaults on (Android parity); optional
+ * `debugLogRecordLifecycle`
+ * are public toggles.
  */
 
 // Mock @opentelemetry/api-logs to avoid real OTLP network calls
@@ -106,6 +108,21 @@ describe("Config surface — matches Android minimal API", () => {
     expect(PulseWeb.isInitialized()).toBe(false);
   });
 
+  // Public config includes `beforeSend` (Android parity); pipeline hook not wired on web yet.
+  it("TC-C3a: beforeSend is accepted but never invoked after start + log emits", async () => {
+    const beforeSend = vi.fn((_signal: unknown) => null);
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      beforeSend,
+    });
+    await Promise.resolve();
+    expect(PulseWeb.isInitialized()).toBe(true);
+    PulseWeb.trackEvent("before_send_probe_event");
+    PulseWeb.trackNonFatal("before_send_probe_non_fatal");
+    expect(beforeSend).not.toHaveBeenCalled();
+  });
+
   // TC-C4
   it("TC-C4: ALLOWED with only apiKey + dataCollectionState → initializes (serviceName auto-derived)", async () => {
     PulseWeb.start({
@@ -190,5 +207,31 @@ describe("Config surface — matches Android minimal API", () => {
     expect(resolveEndpointBaseUrl("ecommerce-app_prod123")).toBe(
       "https://pulse-otel-collector.pulse-ux.com",
     );
+  });
+
+  // TC-C11
+  it("TC-C11: explicit diskBuffering tuning is valid public config (Android parity)", async () => {
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      diskBuffering: {
+        enabled: true,
+        maxAgeMs: 3_600_000,
+        maxCacheSizeBytes: 5_000_000,
+      },
+    });
+    await Promise.resolve();
+    expect(PulseWeb.isInitialized()).toBe(true);
+  });
+
+  // TC-C12
+  it("TC-C12: diskBuffering invalid maxAgeMs throws at start()", () => {
+    expect(() =>
+      PulseWeb.start({
+        apiKey: "default-project_devkey01",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+        diskBuffering: { maxAgeMs: 0 },
+      }),
+    ).toThrow("[PulseWeb] diskBuffering.maxAgeMs");
   });
 });

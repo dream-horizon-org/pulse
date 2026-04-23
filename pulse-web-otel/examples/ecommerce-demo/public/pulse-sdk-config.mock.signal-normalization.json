@@ -1,6 +1,6 @@
 {
-  "version": 102,
-  "description": "Manual WHITELIST: signals.filters mode WHITELIST with a single rule matching log body ^session\\.start$ only. session.end, trackEvent (custom_event), non_fatal, etc. are dropped at export. Use: VITE_PULSE_MOCK_SDK_CONFIG=true and VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.whitelist.json",
+  "version": 107,
+  "description": "Manual scope + metricsToAdd + trace attr drop. (1) attributesToDrop uses lowercase scopes [\"traces\"] only → mergePulseSdkConfig → TRACES; SignalFilterProcessor onStart matches sdk.init. (2) metricsToAdd: top props use backend \"name\" not \"key\"; target.type attribute nested condition uses lowercase \"traces\" + props \"name\" → merged props[].key + nested scopes normalized. (3) Same attributesToDrop entry: values [\"^screen\\\\.\"] drops screen.* keys on sdk.init after global attrs (screen.name removed in mutable span). Path: VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.signal-normalization.json",
   "sampling": {
     "default": { "sessionSampleRate": 1 },
     "rules": [],
@@ -9,38 +9,54 @@
   },
   "signals": {
     "scheduleDurationMs": 5000,
-    "attributesToDrop": [],
-    "attributesToAdd": [],
-    "filters": {
-      "mode": "WHITELIST",
-      "values": [
-        {
-          "name": "^session\\.start$",
+    "attributesToDrop": [
+      {
+        "values": ["^screen\\."],
+        "condition": {
+          "name": "^sdk\\.init$",
           "props": [],
-          "scopes": ["logs"],
-          "sdks": ["pulse_web_js"]
-        },
-        {
-          "name": "^session\\.end$",
-          "props": [],
-          "scopes": ["logs"],
-          "sdks": ["pulse_web_js"]
-        },
-        {
-          "name": ".*",
-          "props": [{ "key": "pulse\\.type", "value": "non_fatal" }],
-          "scopes": ["logs"],
+          "scopes": ["traces"],
           "sdks": ["pulse_web_js"]
         }
-      ]
-    },
-    "metricsToAdd": []
+      }
+    ],
+    "attributesToAdd": [],
+    "filters": { "mode": "BLACKLIST", "values": [] },
+    "metricsToAdd": [
+      {
+        "name": "manual_mock_sdk_init_metric_total",
+        "target": {
+          "type": "attribute",
+          "condition": {
+            "name": ".*",
+            "props": [{ "name": "pulse\\.type", "value": "^sdk\\.init$" }],
+            "scopes": ["traces"],
+            "sdks": ["pulse_web_js"]
+          }
+        },
+        "condition": {
+          "name": "^sdk\\.init$",
+          "props": [{ "name": "platform", "value": "^web$" }],
+          "scopes": ["traces"],
+          "sdks": ["pulse_web_js"]
+        },
+        "type": { "type": "counter" },
+        "attributesToPick": [
+          {
+            "name": ".*",
+            "props": [{ "name": "session\\.id", "value": ".+" }],
+            "scopes": ["traces"],
+            "sdks": ["pulse_web_js"]
+          }
+        ]
+      }
+    ]
   },
   "interaction": { "beforeInitQueueSize": 5000 },
   "features": [
     {
       "featureName": "session",
-      "sessionSampleRate": 1,
+      "sessionSampleRate": 0,
       "sdks": ["pulse_web_js"],
       "config": null
     },

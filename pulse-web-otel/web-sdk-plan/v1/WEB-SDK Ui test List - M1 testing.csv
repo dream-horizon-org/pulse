@@ -1,0 +1,262 @@
+Area 1 — Installation ID & Session ID,,,,,,
+#,Test,Steps to Reproduce,Expected,Status,Comment,
+1.1,Installation ID is created on first load,"1. Open DevTools → Application → Local Storage → http://localhost:3002
+2. Clear pulse_installation_id if present
+3. Hard-reload (Cmd+Shift+R)
+4. Check Local Storage again",pulse_installation_id key exists with a UUID value,Pass,,
+1.2,Installation ID survives page reload,"1. Note the pulse_installation_id value in Local Storage
+2. Press Cmd+R (normal reload)
+3. Check Local Storage again",Same UUID — unchanged,Pass,,
+1.3,Installation ID survives tab close + reopen,"1. Note the pulse_installation_id value
+2. Close the tab (Cmd+W)
+3. Open a new tab → http://localhost:3002
+4. Check Local Storage",Same UUID — unchanged,Pass,,
+1.4,Installation ID is a valid UUID v4 format,"1. Open DevTools → Application → Local Storage
+2. Copy the value of pulse_installation_id
+3. Validate format: 8-4-4-4-12 hex chars with dashes","Matches pattern xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx where y = 8, 9, a, or b",Pass,,
+1.5,Installation ID is different in Incognito mode,"1. Note pulse_installation_id in normal tab
+2. Open a new Incognito window → http://localhost:3002
+3. Check Local Storage in incognito tab",A different UUID — incognito has isolated localStorage,Pass,,
+1.6,Installation ID is NOT shared across different browsers,"1. Note pulse_installation_id in Chrome
+2. Open http://localhost:3002 in Safari/Firefox
+3. Check Local Storage in that browser",A different UUID — each browser has its own isolated localStorage,Pass,,
+1.7,Installation ID is reset when localStorage is cleared,"1. Note pulse_installation_id
+2. DevTools → Application → Local Storage → right-click → Clear
+3. Reload page
+4. Check Local Storage",A new different UUID is generated — identity reset,Pass,,
+1.8,Installation ID is the same across all tabs in same browser,"1. Note pulse_installation_id in Tab 1
+2. Open a new tab (Cmd+T), Cmd+click link, or duplicate — all scenarios
+3. Check pulse_installation_id in new tab",Same UUID in all tabs — localStorage is shared across tabs,Pass,,
+1.9a,Fallback: Installation ID uses sessionStorage when localStorage is blocked,"Step 1: Open DevTools Application Tab
+Press F12 to open Developer Tools
+Click on the Application tab
+On the left sidebar, expand Storage section
+Step 2: Block localStorage
+In the left sidebar under Storage, find Local Storage
+Expand Local Storage to see http://localhost:3002
+Right-click on http://localhost:3002
+Select Clear to empty localStorage
+Then look for an ""X"" or delete button to remove the storage entry entirely
+Alternative: Just leave it empty from Step 4
+Step 3: Make localStorage Inaccessible
+This is the crucial part—we need localStorage to throw an error when accessed:
+
+Option A: Using Chrome DevTools (Recommended)
+
+Go to DevTools → Application tab
+On the left, click Storage → Local Storage
+Click on http://localhost:3002
+In the main panel, you'll see a table of key-value pairs
+Delete all entries by selecting each and pressing Delete
+Now open Console tab (in the same DevTools window)
+Paste this code and press Enter:",installation.id falls back to sessionStorage when localStorage throws,Blocked,,
+1.9b ,Fallback: Installation ID uses in-memory when both storage layers are blocked,"Step 1: Open DevTools Application Tab
+Press F12 to open Developer Tools
+Click on the Application tab
+On the left sidebar, expand Storage section
+Step 2: Clear Both Storage Layers
+In the left sidebar, click Local Storage → http://localhost:3002
+Select all entries (Ctrl+A or Cmd+A)
+Press Delete to clear localStorage
+Repeat for Session Storage:
+Click Session Storage → http://localhost:3002
+Select all entries and delete
+Step 3: Block localStorage
+Open Console tab in DevTools
+Paste and run this code:
+Object.defineProperty(window, 'localStorage', {
+  get: function() {
+    throw new DOMException('localStorage is not available', 'SecurityError');
+  },
+  configurable: true
+});",installation.id falls back to in-memory when both localStorage and sessionStorage are blocke,Blocked,,
+1.1,Session ID is created on first load,"1. Open DevTools → Application → Local Storage → http://localhost:3002
+2. Clear pulse_session_id if present
+3. Hard-reload
+4. Check Local Storage",pulse_session_id key exists with a UUID value,Pass,Session data is stored in localStorage (shared across tabs),
+1.11,Session ID persists during SPA in-app navigation,"1. Note pulse_session_id in Local Storage
+2. Click through: Home → Products → Cart → Checkout
+3. Check pulse_session_id after each navigation",Same UUID throughout — in-app routing must NOT create a new session,Pass,,
+1.12,Session last-active timestamp updates on interaction,"1. Open DevTools → Application → Local Storage
+2. Note value of pulse_session_ts
+3. Click anywhere on the page
+4. Check pulse_session_ts again",Timestamp is updated to a more recent value,Pass,,
+1.13,Session ID survives page reload,"1. Note pulse_session_id in Local Storage
+2. Press Cmd+R (normal reload)
+3. Check Local Storage",Same UUID — page reload reuses the existing session,Pass,✅ Fixed — reload now reuses session (PostHog model),
+1.14,Session ID is the SAME across tabs opened via Cmd+T,"1. Note pulse_session_id in Local Storage in Tab 1
+2. Open Cmd+T → navigate to http://localhost:3002
+3. Check pulse_session_id in Local Storage in the new tab",Same UUID — localStorage is shared across all tabs in the same browser,Pass,✅ Fixed — session now in localStorage. Previously was different (sessionStorage).,
+1.15,Session ID is the SAME when tab opened via Cmd+click,"1. Note pulse_session_id in Tab 1
+2. Cmd+click any link (opens new tab)
+3. Check pulse_session_id in Local Storage in the new tab","Same UUID — localStorage shared, same session continues",Pass,✅ Fixed — same mechanism as Cmd+T. Previously marked as likely FAIL.,
+1.16,Session ID IS inherited when tab is duplicated,"1. Note pulse_session_id in Tab 1
+2. Right-click tab → Duplicate
+3. Check pulse_session_id in duplicated tab",Same UUID — duplicate tab inherits session via both localStorage and sessionStorage,Pass,"✅ PostHog model: clone → same session.id, new window.id",
+1.17,Session ID IS inherited when opened via window.open(),"1. Run in console: window.open('http://localhost:3002')
+2. Check pulse_session_id in Local Storage in the new tab",Same UUID — localStorage is shared,Pass,✅ Same as Cmd+T / Cmd+click,
+1.18,Session ID is a valid UUID v4 format,"1. Open DevTools → Application → Local Storage
+2. Copy value of pulse_session_id
+3. Validate format",Matches UUID v4 pattern xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx,Pass,,
+1.19,New session created after 30-min inactivity,"1. Note current pulse_session_id
+2. Run in console: localStorage.setItem('pulse_session_ts', String(Date.now() - 31 * 60 * 1000))
+3. Click anywhere on the page
+4. Check pulse_session_id and pulse_session_ts",New session UUID + pulse_session_ts resets to now,Pass,,
+1.2,Two sessions in same tab produce different session IDs,"1. Note pulse_session_id
+2. Run: localStorage.setItem('pulse_session_ts', String(Date.now() - 31 * 60 * 1000))
+3. Click anywhere → note new pulse_session_id
+4. Repeat once more",All three session IDs are unique UUIDs,Pass,,
+1.21,Session ID is different in Incognito window,"1. Note pulse_session_id in normal tab
+2. Open an Incognito window → http://localhost:3002
+3. Check pulse_session_id",A different UUID — incognito has isolated localStorage,Pass,Negative case: Incognito breaks localStorage sharing,
+1.22,Session ID is NOT shared across different browsers,"1. Note pulse_session_id in Chrome
+2. Open http://localhost:3002 in Firefox/Safari
+3. Check pulse_session_id",A different UUID — each browser has isolated localStorage,Pass,Negative case,
+1.23,Session rotates after 4-hour max lifetime,"1. Run in console: localStorage.setItem('pulse_session_start', String(Date.now() - 4 * 60 * 60 * 1000 - 1000))
+2. Click anywhere
+3. Check pulse_session_id",New UUID — 4-hour hard cap rotates session regardless of activity,Pass,Edge case: max lifetime,
+1.24,Session rotates after 15-min page-hidden timeout,"1. Note pulse_session_id
+2. Hide page for 15+ min (switch tab, or simulate via DevTools → Sensors → Force hidden for long duration)
+3. Return to tab
+4. Check pulse_session_id",New UUID — session rotated after 15 min in background,Partial Pass,15-min page-hidden timeout requires real time or complex DevTools simulation,
+1.25,window.id is unique per browser tab,"1. Open Tab 1 → DevTools → Network → inspect any /v1/traces payload → note window.id
+2. Open a second tab (Cmd+T) → same site
+3. Inspect window.id in Tab 2 payload","Two different UUIDs — window.id is always unique per tab/page-load, never persisted",Pass,,
+1.26,"Duplicate tab: same session.id, different window.id","1. Note pulse_session_id in Local Storage AND window.id from a /v1/traces payload in Tab 1
+2. Right-click tab → Duplicate
+3. In duplicated tab: check pulse_session_id (Local Storage) AND window.id (network payload)",session.id is the SAME in both tabs. window.id is DIFFERENT,Pass,PostHog model: session.id = user journey; window.id = which tab within that journey,
+1.27,window.id changes on page reload,"1. Note window.id from a /v1/traces payload
+2. Reload the page (Cmd+R)
+3. Inspect window.id in next /v1/traces payload","Different UUID — window.id is in-memory only, regenerated on every page load",Pass,"Edge case: reload = same session.id, new window.id",
+,,,,,,
+Area 2 — Global & Resource Attributes,,,,,,
+#,Test,Steps to Reproduce,Expected,Status,Comment,
+2.1,Resource attributes appear on the first OTLP call,"1. Hard-reload http://localhost:3002
+2. Open DevTools → Network → filter by v1/logs
+3. Wait up to 3s for the first batch
+4. Click the request → Payload",A /v1/logs call appears within 3s of page load,Pass,,
+2.2,screen.name resolves from URL path,"1. Navigate to /products
+2. Open DevTools → Network → find the /v1/traces request
+3. Inspect payload","screen.name = ""products"" on the span",Pass,,
+2.3,screen.name strips numeric IDs from path,"1. Navigate to any product detail page e.g. /products/123
+2. Inspect /v1/traces payload","screen.name = ""products"" — NOT ""products/123""",Pass,,
+2.4,url.path updates on navigation,"1. Trigger a span on /products — note url.path
+2. Navigate to /cart
+3. Trigger another span — inspect new payload","Second span has url.path = ""/cart""",Pass,,
+2.5,session.id is on every OTLP call,"1. Open DevTools → Network
+2. Let the app run for one batch cycle (3s)
+3. Inspect any /v1/logs or /v1/traces request payload",Every span/log record contains session.id matching the value in Session Storage,Pass,,
+2.6,installation.id is on every OTLP call,"1. Open DevTools → Network
+2. Inspect any /v1/logs or /v1/traces request payload",Every span/log record contains installation.id matching pulse_installation_id in Local Storage,Pass,,
+2.7,X-API-KEY header is on every OTLP request,"1. Hard-reload
+2. DevTools → Network → filter v1/
+3. Click any request → Headers tab","X-API-KEY: DEV_MODE_API_KEY present on every /v1/traces, /v1/logs, /v1/metrics request",Pass,,
+2.8,X-Pulse-Metering-Session-ID header is stable within a page load,"1. Inspect headers on first /v1/logs request
+2. Trigger more OTLP calls
+3. Compare header across requests",Same UUID on every request within a page load — stable for SDK lifetime,Pass,,
+2.9,platform = 'web' is on every signal,"1. Inspect any /v1/traces or /v1/logs payload
+2. Check attributes",platform = 'web' present on every single span and log record — never missing,Pass,,
+2.1,browser.name and browser.version are correct,"1. Inspect resource attributes in any OTLP payload
+2. Compare to navigator.userAgent","e.g. browser.name = ""Chrome"", browser.version = ""124.x""",Pass,,
+2.11,os.name and os.version are correct,1. Inspect resource attributes in OTLP payload,"e.g. os.name = ""macOS"", os.version = ""14.x""",Pass,,
+2.12,device.type is correct,1. Inspect resource attributes,"device.type = ""desktop"" on a laptop/desktop browser",Pass,,
+2.13,rum.sdk.version is present and non-empty,1. Inspect resource attributes,A semver string — never undefined or empty,Pass,,
+2.14,service.name matches configured value,1. Inspect resource attributes,"service.name = ""ecommerce-demo"" (matches VITE_PULSE_SERVICE_NAME)",Pass,,
+2.15,project.id is correctly extracted from API key,"1. Inspect resource attributes
+2. API key is DEV_MODE_API_KEY","project.id = ""DEV_MODE"" — extracted from the prefix before the first underscore",Pass,,
+2.16,screen.name for root path / resolves correctly,"1. Stay on Home page /
+2. Trigger a span
+3. Inspect payload","screen.name = ""/"" or ""home"" — not empty or undefined",Pass,,
+2.17,screen.name strips UUIDs from path,"1. Navigate to a URL with a UUID segment e.g. /products/550e8400-e29b-41d4-a716-446655440000
+2. Trigger a span","UUID is stripped — screen.name = ""products"" not the full UUID path",Pass,,
+2.18,screen.name manual override via PulseWeb.setScreenName(),"1. In console: PulseWeb.setScreenName('custom-screen')
+2. Trigger a span","screen.name = ""custom-screen"" on that span",Pass,,
+2.19,Manual screen.name override persists across pings,"1. Set PulseWeb.setScreenName('my-screen')
+2. Trigger two spans","Both spans have screen.name = ""my-screen""",Pass,,
+2.2,screen.name resets to URL-based value after navigation,"1. Set PulseWeb.setScreenName('my-screen')
+2. Navigate to /cart
+3. Trigger a span","screen.name = ""cart"" — manual override cleared on navigation",fixed,,
+2.21,screen.name is present on log records (not just spans),1. Inspect a /v1/logs payload,screen.name attribute present on log records too — not just traces,Pass,,
+2.22,"page.url contains full URL, url.path contains only path",1. Inspect any OTLP payload while on /products,"page.url = ""http://localhost:3002/products"", url.path = ""/products"" — two separate attributes",Pass,,
+2.23,All global attributes are present on /v1/metrics calls too,"1. Wait for a metrics flush
+2. Inspect /v1/metrics payload","session.id, installation.id, screen.name, platform all present — not just on traces/logs",fixed,"⏳ TODO / NOT YET IMPLEMENTED
+Identified gap: sdk.ts:104-113 shows global attributes processor only applied to spans/logs, NOT metrics
+Root cause: Metrics use PeriodicExportingMetricReader (no processor pipeline)
+Action taken: Added test to m3.spec.ts but marked as SKIPPED with implementation notes
+Required fix: Implement MetricReader wrapper to inject dynamic global attributes before export
+Conclusion: Needs implementation to pass","fix added, passing now"
+2.24,os version value was going wrong,Go to Demo app and make sure to trigger logs and traces and check the spanLogs and trace Logs,correct os version should get triggered,fixed,,
+2.25,window.id is present on every OTLP call,1. Inspect any /v1/traces or /v1/logs payload,"window.id attribute present on every span and log record — UUID format, same value within one tab, different across tabs",Pass,,
+,,,,,,
+Area 3 — Session Start / Session End( E2E only passes Chromium + Firefox since Playwright can't read XHR bodies in WebKit),,,,,,
+#,Test,Steps to Reproduce,Expected,Status,Comment,
+3.1,session.start fires once on first load,"1. Hard-reload http://localhost:3002
+2. Open DevTools → Network → filter v1/logs
+3. Wait for first batch (up to 3s)
+4. Search payload for session.start","Exactly one log record with body = ""session.start""",Pass,,
+3.2,session.start does NOT fire again on navigation,"1. After first load (session.start already sent)
+2. Navigate to /products, /cart, /checkout
+3. Watch Network → /v1/logs across multiple batches",No additional session.start records in any subsequent batch,Pass,,
+3.3,session.end fires when tab is closed,"1. Open http://localhost:3002
+2. Open DevTools → Network (keep it open)
+3. Close the tab
+4. Reopen DevTools from browser history or check ClickHouse","A /v1/logs request is sent on close containing body = ""session.end"" with session.duration_ms attribute",Pass,,
+3.4,session.end does NOT fire on BFCache restore,"1. Navigate from http://localhost:3002 to an external site
+2. Press browser Back button to return
+3. Watch Network tab for any /v1/logs call immediately on return",No session.end on BFCache restore — session continues with same session.id,Pass,,
+3.5,session.start does NOT fire twice in React StrictMode,session.start does NOT fire twice in React StrictMode,Exactly ONE session.start — not two,Pass,,
+3.6,New session after 30-min inactivity,"1. Note current pulse_session_id in Session Storage
+2. In console: sessionStorage.setItem('pulse_session_ts', String(Date.now() - 31 * 60 * 1000))
+3. Click anywhere on the page
+4. Check Session Storage",pulse_session_id has a NEW UUID; a new session.start log fires in the next /v1/logs batch,Pass,,
+3.7,session.start does NOT fire on page reload,"1. Hard-reload page once (session.start fires)
+2. Reload again (Cmd+R)
+3. Watch /v1/logs across batches after second reload",No new session.start on second reload — page reload reuses the existing session silently,fixed,✅ Fixed — reload now reuses session. session.start only fires for first SDK init on a fresh session,
+3.8,session.end fires on page reload (pagehide),"1. Let page load fully
+2. Press Cmd+R
+3. Watch for /v1/logs beacon just before reload",session.end fires with reason = page_unload via pagehide. After reload the same session resumes — no new session.start is emitted,fixed,"pagehide always fires session.end; the same session is then reused silently after reload
+session.end on real browser reload is unreliable because the XHR request gets cancelled during page unload. The OTel exporter falls back to XHR (instead of sendBeacon) when custom headers are set. Fix: use fetch with keepalive: true in the pagehide flush",
+3.9,"session.start fires on duplicate tab (shared session, new tab)","1. Let Tab 1 load fully (session.start sent)
+2. Right-click → Duplicate
+3. Watch /v1/logs in the duplicated tab","No new session.start in the duplicated tab — session is inherited and reused (same session.id, new window.id)",fixed,✅ PostHog model — clone inherits session silently,
+3.1,session.start fires in a new tab independently,"1. Open http://localhost:3002 via Cmd+T (fresh tab)
+2. Watch /v1/logs",A fresh session.start fires — new tab has empty sessionStorage so a new session is created,Pass,,
+3.11,Session rotation fires session.end then session.start,"1. Simulate 31-min idle via console
+2. Click anywhere to trigger rotation
+3. Watch /v1/logs next batch",Two log records: session.end for old session AND session.start for new session — in that order,Pass,,
+3.12,session.end + session.start reference different session IDs during rotation,"1. Same as 3.11
+2. Compare session.id attribute on both records","session.end has old UUID, session.start has new UUID — they are different",Pass,,
+3.13,Very short session still emits session.end,"1. Hard-reload
+2. Immediately close the tab (within 1–2 seconds)",session.end fires with session.duration_ms > 0 even for sub-5s sessions,Pass,,
+3.14,session.end does NOT fire on in-app navigation,"1. Load page, wait for first batch
+2. Navigate: Home → Products → Cart → Checkout
+3. Watch all /v1/logs batches during navigation",Zero session.end records during SPA navigation — only fires on tab close or inactivity timeout,Pass,,
+3.15,No session.start / session.end when consent is DENIED,"1. Load: http://localhost:3002?pulse_consent=denied
+2. Watch Network for any OTLP calls",No OTLP calls at all — consent denied blocks all signal emission,Pass,,
+,,,,,,
+SDK Config Simplifications,,,,,,
+#,Test,Steps to Reproduce,Expected,Status,Comment,
+1,Dev mode auto-resolves endpointBaseUrl from devkey,"Set VITE_PULSE_API_KEY=myapp-dev123_devkey456, omit VITE_PULSE_ENDPOINT_BASE_URL, start demo app","SDK detects _devkey in apiKey, auto-resolves to http://localhost:4318",Pass,Verified via network tab — /v1/traces POST to localhost:4318 returned 200,
+2,Prod mode requires explicit endpointBaseUrl,Set VITE_PULSE_API_KEY=myapp-prod789_prodkey123 with no endpointBaseUrl in config,"SDK throws: ""Production deployments require endpointBaseUrl""",Pass,Verified via unit test + resolveEndpointBaseUrl() logic,
+3,Prod mode works with explicit endpointBaseUrl,"Set VITE_PULSE_API_KEY=myapp-prod789_prodkey123, VITE_PULSE_ENDPOINT_BASE_URL=http://localhost:4318, start demo app","SDK uses provided URL, sends signals to localhost:4318",Pass,/v1/traces + /v1/logs both returned 200 in browser network tab,
+4,projectId extracted correctly from dev key,Load demo with apiKey=myapp-dev123_devkey456,ProjectId = myapp-dev123 (everything before last _),Pass,ClickHouse query confirmed ProjectId=myapp-dev123 in both otel_traces and otel_logs,
+5,projectId extracted correctly from prod key,Load demo with apiKey=myapp-prod789_prodkey123,ProjectId = myapp-prod789,Pass,ClickHouse confirmed ProjectId=myapp-prod789,
+6,Spans reach ClickHouse in dev mode,"Load app with devkey, navigate Home → Products → Product detail",sdk.init span stored in otel.otel_traces with correct service + project,Pass,"ClickHouse returned sdk.init, ecommerce-demo-dev, myapp-dev123",
+7,Logs reach ClickHouse in dev mode,"Add to cart, navigate pages, trigger errors","session.end, add_to_cart, error_demo_throw_promise in otel.otel_logs",fixed,All 3 log types confirmed in ClickHouse within 5 min window,
+8,Error signals captured in dev mode,"Click ""Reject unhandled promise"" + ""Report exception"" on /error-demo",non_fatal / error log sent to OTEL and stored in ClickHouse,Pass,error_demo_throw_promise log visible in ClickHouse,
+9,Spans reach ClickHouse in prod mode,"Load app with prodkey + explicit URL, navigate to product detail",sdk.init span in otel_traces with ProjectId=myapp-prod789,Pass,ClickHouse confirmed 3 sdk.init spans for prod project,
+10,Session lifecycle logs in prod mode,"Navigate between pages, trigger page unload",session.end log in otel.otel_logs with correct project,Pass,session.end for myapp-prod789 confirmed in ClickHouse,
+11,Config URL resolves to :8080 from :4318,SDK init with endpointBaseUrl=http://localhost:4318,Config fetched from http://localhost:8080/v1/configs/active/,fixed,Verified via resolveConfigUrl() unit test + no config fetch errors in console,
+12,No SDK errors on init (dev mode),"Load demo with devkey, check browser console",No [PulseWeb] errors or uncaught exceptions,Pass,Console scan returned no Pulse/SDK errors,
+13,apiKey missing entirely,PulseWeb.start({ serviceName: 'app' }) — no apiKey,Throws [PulseWeb] apiKey is required,Pass,"Only unit test, no manual browser test",
+14,serviceName missing,PulseWeb.start({ apiKey: 'myapp_devkey123' }) — no serviceName,Throws [PulseWeb] serviceName is required,Pass,Only unit test,
+15,Prod key with no endpointBaseUrl at runtime,"Set prod apiKey, omit URL, load browser","SDK throws, app does NOT initialize, no signals sent",Pass,"Only unit tested, never verified in browser",
+16,apiKey with devkey but explicit URL provided,"apiKey=proj_devkey123, endpointBaseUrl=https://custom:4318",Explicit URL takes precedence over auto-resolve,Pass,,
+17,apiKey with devkey substring in project name (false positive),apiKey=mydevkeyproject-123_abc — devkey in project name not suffix,Should NOT auto-resolve (only _devkey suffix counts),Pass,Regex could false-positive here,
+18,Malformed apiKey (no underscore),apiKey=nokeyformat,extractProjectId returns full key as fallback,Pass,Only unit tested,
+19,OTEL collector down (dev mode),Start app with devkey but kill OTEL collector,"SDK should fail silently, no crash",Pass,,
+20,Double PulseWeb.start() call,Call start() twice with different configs,"Second call is no-op, first config wins",InProgress,Singleton guard exists but not manually verified,
+21,dataCollectionState: DENIED,"Set consent to denied, load app","Zero signals sent to OTEL, nothing in ClickHouse",Failed,,
+22,dataCollectionState: PENDING,"Set consent to pending, load app","Zero signals, SDK exits early",Not Picked,,
+23,Empty string apiKey,apiKey: '',Throws [PulseWeb] apiKey is required,Not Picked,,
+24,apiKey with only _devkey (no project prefix),apiKey=_devkey123,extractProjectId returns empty string — undefined behavior,Not Picked,"Edge case — lastIndexOf('_') returns 0, fallback doesn't trigger",

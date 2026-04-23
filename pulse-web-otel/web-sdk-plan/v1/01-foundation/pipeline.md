@@ -114,13 +114,13 @@ interface BufferedSignal {
 
 ```typescript
 PulseWebConfig.diskBuffering = {
-  enabled:       false,       // opt-in (default off)
-  maxSizeBytes:  5_242_880,   // 5 MB
-  maxAgeMs:      86_400_000,  // 24h
+  enabled:       false,       // set false to opt out (default is on — Android OTel parity)
+  maxCacheSizeBytes:  5_242_880,   // optional cap (see SDK defaults)
+  maxAgeMs:      86_400_000,  // optional max row age (see SDK defaults)
 }
 ```
 
-Disabled by default — opt-in. IndexedDB access is async; the decorator wraps the sync OTel exporter interface with a fire-and-forget write (errors silently swallowed to not affect signal flow).
+**Default is on** (same as Android when `PulseSDK.initialize` does not pass a disk lambda: `DiskBufferingConfigurationSpec.isEnabled` defaults to `true`). IndexedDB access is async; the decorator wraps the sync OTel exporter interface with a fire-and-forget write (errors silently swallowed to not affect signal flow).
 
 ---
 
@@ -163,10 +163,10 @@ Applied to all OTLP export requests when `CompressionStream` is available. Falls
 - [ ] `pagehide` triggers `forceFlush()` before tab closes
 
 **Persistence**
-- [ ] Failed export writes payload to IndexedDB (when `diskBuffering.enabled: true`)
+- [ ] Failed export writes payload to IndexedDB (default: buffering on; same as Android OTel default)
 - [ ] On next `start()`, IndexedDB buffer is drained before normal operation
 - [ ] Entries older than 24h are pruned on drain
-- [ ] `diskBuffering.enabled: false` (default) skips all IndexedDB writes
+- [ ] `diskBuffering.enabled: false` skips all IndexedDB writes
 
 **Payload & Compression**
 - [ ] Default export uses `Content-Type: application/json`

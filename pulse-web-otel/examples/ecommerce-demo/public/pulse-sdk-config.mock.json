@@ -1,20 +1,20 @@
 {
   "version": 100,
-  "description": "ecommerce-demo mock — session rules, signalsToSample, BLACKLIST filters, attributes add/drop, metricsToAdd, critical alwaysSend. Toggle VITE_PULSE_MOCK_SDK_CONFIG=false to use your own pulse_sdk_config.",
+  "description": "Manual filter/sampling mock. Session rules: platform 0 then device 1 (first match wins). Session mocks: session-app-version, session-fallback-default. critical-session-key; signal-normalization.json (lowercase scopes, metricsToAdd name→key, screen.* drop on sdk.init). BLACKLIST custom_event; whitelist/bad-regex; alwaysSend+device.crash. Toggle VITE_PULSE_MOCK_SDK_CONFIG=false for server config.",
   "sampling": {
-    "default": { "sessionSampleRate": 0 },
+    "default": { "sessionSampleRate": 1 },
     "rules": [
-      {
-        "name": "platform",
-        "value": "web",
-        "sdks": ["pulse_web_js"],
-        "sessionSampleRate": 1
-      },
       {
         "name": "device",
         "value": "^(desktop|mobile|tablet)$",
         "sdks": ["pulse_web_js"],
-        "sessionSampleRate": 0.85
+        "sessionSampleRate": 1
+      },
+      {
+        "name": "platform",
+        "value": "web",
+        "sdks": ["pulse_web_js"],
+        "sessionSampleRate": 0
       }
     ],
     "signalsToSample": [
@@ -46,7 +46,7 @@
         }
       }
     ],
-    "criticalEventPolicies": {
+    "criticalSessionPolicies": {
       "alwaysSend": [
         {
           "name": ".*",
@@ -99,6 +99,18 @@
         {
           "name": "^mock_filter_blocked$",
           "props": [],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        },
+        {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "^custom_eventkk$" }],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        },
+        {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "^device\\.crash$" }],
           "scopes": ["logs"],
           "sdks": ["pulse_web_js"]
         }
