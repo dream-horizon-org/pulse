@@ -118,7 +118,7 @@ export interface InstrumentationConfig {
   clicks?:         { enabled: boolean };
   webVitals?:      { enabled: boolean };
   navigation?:     { enabled: boolean };
-  session?:        { enabled: boolean; inactivityTimeoutMs?: number };
+  session?:        { enabled: boolean };
   interactions?:   { enabled: boolean };
   sessionReplay?:  { enabled: boolean };  // opt-in, default false
 }
