@@ -146,6 +146,26 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 
 **`beforeSendData` (Android parity):** Public config key matches Android. Wired at export via `BeforeSend*Exporter` in `src/exporters/before-send-exporters.ts`; types `PulseWebBeforeSendConfig` / `PulseWebBeforeSendCallbacks` in `src/before-send.ts`. Semantics + main-thread contract → `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
 
+**Init config parity (Android vs Web):** `PulseSDK.initialize` (`pulse-android-otel/pulse-android-sdk/.../PulseSDK.kt`) vs `PulseWeb.start` / `PulseWebConfig` (`pulse-web-otel/src/config.ts`, `src/types/config.ts`). Deeper rollout notes → `web-sdk-plan/v1/01-foundation/init-config-android-parity-plan.md`.
+
+| Area | Android (`initialize`) | Web (`PulseWebConfig`) | Parity |
+|------|--------------------------|-------------------------|--------|
+| **API key** | `apiKey` | `apiKey` | **Full** |
+| **Consent** | `dataCollectionState` | `dataCollectionState` | **Full** |
+| **Process / app context** | `application: Application` (required) | Implicit (`window` / document) | **N/A** (platform) |
+| **Service identity** | Usually via `resource { }` / attrs | `serviceName?`, `serviceVersion?` (+ internal `buildResource`) | **Partial** — same intent; web uses fields + internal resource |
+| **Extra resource attrs** | `resource: (ResourceBuilder.() -> Unit)?` | `resourceAttributes?: Record<...>` merged under Pulse resource; **Pulse wins** on key conflicts | **Partial** — behavioral; no public OTel `Resource` on web (avoids version coupling) |
+| **Global attrs** | `globalAttributes: (() -> Attributes)?` | `globalAttributes?: Record<string, string \| number \| boolean>` | **Partial** — same role; shape differs |
+| **Export-time hooks** | `beforeSendData: PulseBeforeSendData?` | `beforeSendData?: PulseWebBeforeSendConfig` | **Full** (key + hook semantics) |
+| **SDK logging** | `logLevel: PulseLogLevel = NONE` | `logLevel?: PulseLogLevel` (default `NONE` when omitted) | **Full** |
+| **Instrumentations** | `instrumentations: (InstrumentationConfiguration.() -> Unit)?` (DSL) | `instrumentations?: InstrumentationConfig` (boolean map + session timeouts in `types/config`) | **Partial** — per-module on/off; different surface |
+| **OTLP wire format** | Not on this `initialize` signature | `export?: { format?: "json" \| "protobuf" }` | **Web-only** (browser) |
+| **Failed-export buffering** | Default-on in stack; not this arity | `diskBuffering?: PulseWebDiskBufferingConfig` | **Partial** — same role; web exposes tuning |
+| **Routing / screen naming** | Activity / fragment / nav DSL | `routePatterns?` | **Web-only** (SPA) |
+| **Ingest / collector URL** | Not on `PulseSDK` snippet (internal / other API) | From `apiKey` via `resolveEndpointBaseUrl` (not on `PulseWebConfig`) | **Partial** — both SDK-fixed; web not on config object |
+
+**Summary:** four **Full** (apiKey, consent, `beforeSendData`, `logLevel`); five **Partial**; two **Web-only**; one **N/A**.
+
 ---
 
 ## Key Decisions
