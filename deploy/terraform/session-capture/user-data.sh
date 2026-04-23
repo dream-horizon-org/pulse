@@ -8,8 +8,10 @@ export HOME=/home/admin
 cd "$HOME" || cd /root
 
 echo "Installing dependencies..."
-sudo apt-get update -qq
-sudo apt-get install -y -qq unzip curl
+# Disable broken PPA and update
+sudo rm -f /etc/apt/sources.list.d/deadsnakes-ppa-*.list || true
+sudo apt-get update -qq 2>/dev/null || true
+sudo apt-get install -y -qq unzip curl 2>/dev/null || true
 
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
