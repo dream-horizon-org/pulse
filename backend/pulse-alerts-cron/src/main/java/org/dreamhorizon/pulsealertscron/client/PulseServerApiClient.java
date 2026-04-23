@@ -2,6 +2,7 @@ package org.dreamhorizon.pulsealertscron.client;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -20,7 +21,8 @@ public class PulseServerApiClient {
   private final WebClient webClient;
   private final String apiBaseUrl;
   private final String serviceJwt;
-
+  private final ApplicationConfig config;
+  
   private static final String ACTIVE_LIMITS_PATH = "/internal/v1/projects/limits";
   private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
   private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
@@ -34,6 +36,7 @@ public class PulseServerApiClient {
     this.webClient = webClient;
     this.apiBaseUrl = config.getPulseServerUrl();
     this.serviceJwt = config.getServiceJwtSecret();
+    this.config = config;
   }
 
   public Single<UsageLimitsApiResponse.Response> getActiveLimits() {
@@ -107,6 +110,50 @@ public class PulseServerApiClient {
     );
   }
 
+  public Completable triggerFunnelBatch() {
+    String endpoint = apiBaseUrl + config.getBatchFunnelsEndpoint();
+    return triggerBatchJob("FUNNELS_DAILY", endpoint);
+  }
+
+  public Completable triggerJourneyBatch() {
+    String endpoint = apiBaseUrl + config.getBatchJourneysEndpoint();
+    return triggerBatchJob("JOURNEYS_DAILY", endpoint);
+  }
+
+  public Completable triggerEventsBatch() {
+    String endpoint = apiBaseUrl + config.getBatchEventsEndpoint();
+    return triggerBatchJob("EVENTS_INCREMENTAL", endpoint);
+  }
+
+  private Completable triggerBatchJob(String jobType, String endpoint) {
+    log.info("[triggerBatchJob] Triggering {} batch job at: {}", jobType, endpoint);
+    
+    return Single.defer(() ->
+        webClient
+            .postAbs(endpoint)
+            .putHeader("Authorization", "Bearer " + serviceJwt)
+            .putHeader("Content-Type", "application/json")
+            .timeout(REQUEST_TIMEOUT_MS)
+            .rxSend()
+            .map(response -> {
+                int statusCode = response.statusCode();
+                if (statusCode < 200 || statusCode >= 300) {
+                    String errorMsg = String.format(
+                        "Batch job %s failed with status %d: %s",
+                        jobType, statusCode, response.bodyAsString()
+                    );
+                    log.error("[triggerBatchJob] {}", errorMsg);
+                    throw new RuntimeException(errorMsg);
+                }
+                log.info("[triggerBatchJob] Successfully triggered {} batch job", jobType);
+                return response;
+            })
+            .doOnError(error ->
+                log.error("[triggerBatchJob] Error triggering {} batch job", jobType, error)
+            )
+    ).ignoreElement();
+  }
+
   /**
    * Get usage notifications that need to be sent.
    * Calls the analysis endpoint that checks all projects.
@@ -163,23 +210,34 @@ public class PulseServerApiClient {
             .putHeader("Content-Type", "application/json")
             .timeout(REQUEST_TIMEOUT_MS)
             .rxSendJsonObject(body)
+            .doOnSuccess(response -> log.info(
+                "Mark thresholds HTTP response received: project={} status={} (timeout={}ms)",
+                projectId, response.statusCode(), REQUEST_TIMEOUT_MS))
             .map(response -> {
               int statusCode = response.statusCode();
               
               if (statusCode != 200) {
+                String responseBody = response.bodyAsString();
                 String errorMsg = String.format(
                     "Failed to mark notifications: status %d: %s",
                     statusCode,
-                    response.bodyAsString()
+                    responseBody
                 );
-                log.error("❌ Failed to mark notifications: status {}: {}",statusCode, response.bodyAsString());
+                log.error(
+                    "❌ Failed to mark notifications: status {} body={}",
+                    statusCode,
+                    responseBody);
                 throw new RuntimeException(errorMsg);
               }
-              
               log.info("✅ Marked thresholds {} as notified for project {}", thresholds, projectId);
               return response;
             })
-    ).ignoreElement();
+    ).doOnError(error -> log.error(
+        "Mark thresholds request failed: project={} url={}",
+        projectId,
+        url,
+        error))
+        .ignoreElement();
   }
 
 
@@ -241,16 +299,21 @@ public class PulseServerApiClient {
               int statusCode = response.statusCode();
               
               if (statusCode != 200 && statusCode != 201) {
-                log.error("❌ Failed to send notification: status {}: {}",
-                    statusCode, response.bodyAsString());
+                String responseBody = response.bodyAsString();
+                log.error("❌ Failed to send notification: status {} body={}", statusCode, responseBody);
                 throw new RuntimeException("Failed to send notification");
               }
-              
+
               log.info("✅ Notification sent successfully for project {} - {}% ({}) using template {}",
                   notification.getProjectId(), notification.getThreshold(), notification.getNotifyFor(), notification.getTemplateName());
               return response;
             })
-    ).ignoreElement();
+    ).doOnError(error -> log.error(
+        "Send usage-limit notification request failed: project={} url={}",
+        notification.getProjectId(),
+        apiBaseUrl + SEND_NOTIFICATION_PATH,
+        error))
+        .ignoreElement();
   }
 }
 

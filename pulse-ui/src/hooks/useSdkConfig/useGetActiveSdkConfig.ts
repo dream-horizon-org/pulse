@@ -29,6 +29,6 @@ export const useGetActiveSdkConfig = ({
     },
     enabled,
     refetchOnWindowFocus: false,
-    staleTime: 60000, // 1 minute
+    staleTime: 0,
   });
 };

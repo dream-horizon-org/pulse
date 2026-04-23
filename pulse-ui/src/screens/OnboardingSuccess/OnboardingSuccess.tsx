@@ -12,7 +12,6 @@ import {
   Tabs,
   Code,
   Select,
-  Badge,
   Alert,
   Loader,
   Center,
@@ -282,7 +281,7 @@ Pulse.initialize({
               fw={700}
               size="32px"
             >
-              🎉 Project "{projectName}" Created Successfully!
+              <span aria-hidden="true">🎉 </span>Project "{projectName}" Created Successfully!
             </Text>
             <Text
               className={classes.subtitle}
@@ -319,7 +318,9 @@ Pulse.initialize({
                   complete the SDK initialization steps below to start viewing
                   analytics in your dashboard.{" "}
                   <Text component="span" fw={700} c="white">
-                    Without SDK setup, your dashboard will be empty.
+                    Data typically appears within 2–5 minutes of SDK
+                    initialization. If nothing shows up after 10 minutes,
+                    double-check your API key and network connection.
                   </Text>
                 </Text>
               </Alert>
@@ -343,7 +344,7 @@ Pulse.initialize({
             <Group mb="md">
               <IconKey size={24} style={{ color: "#0ec9c2" }} />
               <Text fw={600} size="lg">
-                SDK Initialization
+                Your API Key
               </Text>
             </Group>
             <Text size="sm" c="dimmed" mb="md">
@@ -427,11 +428,8 @@ Pulse.initialize({
             <Group mb="md">
               <IconUsers size={24} style={{ color: "#0ec9c2" }} />
               <Text fw={600} size="lg">
-                Invite Your Team
+                Invite Your Team (Optional)
               </Text>
-              <Badge variant="light" color="blue" size="sm">
-                Optional
-              </Badge>
             </Group>
             <Text size="sm" c="dimmed" mb="md">
               Collaborate with your team by inviting members to this project.
@@ -441,7 +439,7 @@ Pulse.initialize({
               <InviteCollaboratorsInput
                 value={inviteEmails}
                 onChange={setInviteEmails}
-                label="Emails"
+                label="Invite by Email"
                 placeholder="Enter email addresses separated by commas (e.g., john@example.com, jane@example.com)"
                 description="Add comma separated email addresses to invite multiple team members at once"
               />
@@ -477,7 +475,7 @@ Pulse.initialize({
                   disabled={inviteEmails.length === 0 || inviting}
                   loading={inviting}
                 >
-                  Send Invitation{inviteEmails.length > 1 ? "s" : ""}
+                  Send Invites
                 </Button>
               </Group>
             </Stack>

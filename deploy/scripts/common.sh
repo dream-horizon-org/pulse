@@ -32,6 +32,7 @@ CONTAINER_MINIO="pulse-minio"
 CONTAINER_MINIO_INIT="pulse-minio-init"
 CONTAINER_SESSION_CAPTURE="pulse-session-capture"
 CONTAINER_SESSION_INGESTION="pulse-session-replay-ingestion"
+CONTAINER_HEATMAP_INGESTION="pulse-heatmap-screenshot-ingestion"
 
 # Ordered list (start order)
 ALL_CONTAINERS=(
@@ -44,6 +45,7 @@ ALL_CONTAINERS=(
     "$CONTAINER_OTEL_COLLECTOR"
     "$CONTAINER_SESSION_CAPTURE"
     "$CONTAINER_SESSION_INGESTION"
+    "$CONTAINER_HEATMAP_INGESTION"
     "$CONTAINER_SERVER"
     "$CONTAINER_AI"
     "$CONTAINER_UI"
@@ -67,6 +69,7 @@ IMAGE_AI="pulse-ai-agent:local"
 IMAGE_ALERTS_CRON="pulse-alerts-cron:local"
 IMAGE_SESSION_CAPTURE="pulse-session-capture:local"
 IMAGE_SESSION_INGESTION="pulse-session-replay-ingestion:local"
+IMAGE_HEATMAP_INGESTION="pulse-heatmap-screenshot-ingestion:local"
 
 # ---------------------------------------------------------------------------
 # Constants -- Network & Volumes
@@ -242,6 +245,9 @@ load_env() {
     export MINIO_ROOT_USER="${MINIO_ROOT_USER:-pulse_minio}"
     export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-pulse_minio_secret}"
     export SESSION_REPLAY_S3_BUCKET="${SESSION_REPLAY_S3_BUCKET:-session-recordings}"
+    export HEATMAP_S3_BUCKET="${HEATMAP_S3_BUCKET:-heatmap-assets}"
+    export HEATMAP_S3_ENDPOINT="${HEATMAP_S3_ENDPOINT:-http://minio:9000}"
+    export HEATMAP_S3_REGION="${HEATMAP_S3_REGION:-us-east-1}"
 
     # ClickHouse / OTEL
     export OTEL_CLICKHOUSE_DATABASE="${OTEL_CLICKHOUSE_DATABASE:-otel}"
@@ -276,6 +282,16 @@ load_env() {
     export CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE="${CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE:-pulse_athena_db}"
     export CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION="${CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION:-s3://puls-otel-config/}"
     export CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID="${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID:-}"
+    export CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED="${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED:-false}"
+    export CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION="${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION:-ap-south-1}"
+    export CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID="${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID:-}"
+    export CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN="${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN:-}"
+    export CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH="${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH:-s3://pulse-deployment-config/spark/pulse-spark-jobs-1.0-SNAPSHOT.jar}"
+    export CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS="${CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}"
+    export CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS="${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}"
+    export CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS="${CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}"
+    export ANALYTICS_COMPUTE_ENGINE="${ANALYTICS_COMPUTE_ENGINE:-spark}"
+    export ANALYTICS_BATCH_PROJECT_CONCURRENCY="${ANALYTICS_BATCH_PROJECT_CONCURRENCY:-4}"
     export CONFIG_SERVICE_APPLICATION_PULSESERVERURL="${CONFIG_SERVICE_APPLICATION_PULSESERVERURL:-http://pulse-server:8080}"
     export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
     export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
@@ -314,7 +330,9 @@ validate_env_against_example_and_compose() {
     _validate_env_collect_env_keys() {
         local file="$1"
         local keys=""
-        while IFS= read -r line; do
+        # Use "|| [ -n "$line" ]" so the last line is not dropped when the file
+        # has no trailing newline (common after pasting long AWS_SESSION_TOKEN).
+        while IFS= read -r line || [ -n "$line" ]; do
             line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             [ -z "$line" ] && continue
             [[ "$line" =~ ^# ]] && continue

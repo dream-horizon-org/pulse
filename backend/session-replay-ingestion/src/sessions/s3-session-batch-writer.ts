@@ -10,6 +10,13 @@ import {
     WriteSessionResult,
 } from './session-batch-file-storage'
 
+/**
+ * S3 `Tagging` header: `project_id` + `date` (must match heatmap-screenshot-ingestion exactly).
+ */
+function buildIngestionS3ObjectTagging(projectId: string, dateUtcYyyyMmDd: string): string {
+    return `project_id=${encodeURIComponent(projectId)}&date=${encodeURIComponent(dateUtcYyyyMmDd)}`
+}
+
 class S3SessionBatchFileWriter implements SessionBatchFileWriter {
     private stream: PassThrough
     private uploadPromise: Promise<CompleteMultipartUploadCommandOutput>
@@ -24,10 +31,12 @@ class S3SessionBatchFileWriter implements SessionBatchFileWriter {
         private readonly s3: S3Client,
         private readonly bucket: string,
         private readonly prefix: string,
+        private readonly projectId: string,
         private readonly timeout: number
     ) {
         this.stream = new PassThrough()
-        this.key = this.generateKey()
+        const { key, dateUtcYyyyMmDd } = this.generateKeyAndDate()
+        this.key = key
         this.uploadStartTime = Date.now()
 
         console.log(`[S3BatchWriter] Opening stream for ${this.key}`)
@@ -39,6 +48,7 @@ class S3SessionBatchFileWriter implements SessionBatchFileWriter {
                 Key: this.key,
                 Body: this.stream,
                 ContentType: 'application/octet-stream',
+                Tagging: buildIngestionS3ObjectTagging(this.projectId, dateUtcYyyyMmDd),
             },
         })
 
@@ -143,12 +153,15 @@ class S3SessionBatchFileWriter implements SessionBatchFileWriter {
         })
     }
 
-    private generateKey(): string {
+    private generateKeyAndDate(): { key: string; dateUtcYyyyMmDd: string } {
         const now = new Date()
-        const datePrefix = now.toISOString().slice(0, 10) // yyyy-MM-dd
+        const dateUtcYyyyMmDd = now.toISOString().slice(0, 10) // yyyy-MM-dd UTC
         const timestamp = now.getTime()
         const suffix = randomBytes(8).toString('hex')
-        return `${this.prefix}/${datePrefix}/${timestamp}-${suffix}`
+        return {
+            key: `${this.prefix}/${this.projectId}/${dateUtcYyyyMmDd}/${timestamp}-${suffix}`,
+            dateUtcYyyyMmDd,
+        }
     }
 }
 
@@ -165,8 +178,8 @@ export class S3SessionBatchFileStorage implements SessionBatchFileStorage {
         console.log(`[S3Storage] Created storage: bucket=${bucket}, prefix=${prefix}`)
     }
 
-    public newBatch(): SessionBatchFileWriter {
-        return new S3SessionBatchFileWriter(this.s3, this.bucket, this.prefix, this.timeout)
+    public newBatch(projectId: string): SessionBatchFileWriter {
+        return new S3SessionBatchFileWriter(this.s3, this.bucket, this.prefix, projectId, this.timeout)
     }
 
     public async checkHealth(): Promise<boolean> {

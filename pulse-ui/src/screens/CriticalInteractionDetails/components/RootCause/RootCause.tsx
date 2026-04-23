@@ -1,24 +1,29 @@
-import { Box, Button, Modal, Skeleton, Stack, Text } from "@mantine/core";
+import { Alert, Box, Button, Stack, Text } from "@mantine/core";
+import { LoaderWithMessage } from "../../../../components/LoaderWithMessage";
 import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
-import { useRegenerateRcaReport } from "../../../../hooks/useRegenerateRcaReport/useRegenerateRcaReport";
-import { isRcaStructuredReportV1WithContent } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
+import { getJobIdFromRcaPostResponse } from "../../../../helpers/rcaResponseUnwrap";
+import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import {
-  ROOT_CAUSE_GENERATION_NOTICE_MODAL_DELAY_MS,
-  ROOT_CAUSE_MESSAGES,
-} from "./RootCause.constants";
+  extractStructuredReport,
+  isRcaStructuredReportV1WithContent,
+} from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
+import { useRegenerateRcaReport } from "../../../../hooks/useRegenerateRcaReport/useRegenerateRcaReport";
+import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
 import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
 
 dayjs.extend(utc);
+dayjs.extend(relativeTime);
 
 const RCA_HTTP_STATUS = {
   OK: 200,
+  ACCEPTED: 202,
   NOT_FOUND: 404,
   BAD_GATEWAY: 502,
   SERVICE_UNAVAILABLE: 503,
@@ -34,32 +39,48 @@ function formatRcaReportCachedAt(
   return parsed.isValid() ? parsed.format("MMM D, YYYY [at] h:mm A") : null;
 }
 
+function formatRcaReportGeneratedAgo(
+  iso: string | null | undefined,
+): string | null {
+  if (iso == null || String(iso).trim() === "") return null;
+  const parsed = dayjs(iso);
+  return parsed.isValid() ? parsed.fromNow() : null;
+}
+
 export function RootCause({
   interactionName,
   date,
   projectId,
 }: RootCauseProps) {
-  const [userDismissedGenerationNotice, setUserDismissedGenerationNotice] =
-    useState(false);
-  const [
-    isGenerationNoticeModalDelayElapsed,
-    setIsGenerationNoticeModalDelayElapsed,
-  ] = useState(false);
   const regenerateDebounceTimerRef = useRef<number | null>(null);
+  const [rcaRequestSession, setRcaRequestSession] = useState(0);
 
   const effectiveProjectId = projectId ?? null;
   const {
     data: reportResponse,
-    isLoading: reportLoading,
     isFetching: reportFetching,
     isError: reportError,
-    refetch: refetchReport,
     error: reportErrorDetail,
+    isRcaQueuePending,
+    isProcessing: isRcaProcessing,
+    isCompleted: isRcaJobCompleted,
+    isUnknown: isRcaJobUnknown,
+    isFailed: isRcaFailed,
+    errorMessage: rcaErrorMessage,
+    isJoiningExistingJob,
+    retry: retryRcaJob,
+    isRetrying,
+    beginFollowingJob,
+    staleRegenerationDetected,
+    stalePollAsyncJobDetected,
+    isAsyncBootstrapping,
+    isAwaitingPollPayload,
   } = useGetRcaReport({
     interactionName,
     date: date ?? null,
     enabled: !!interactionName,
     projectId: effectiveProjectId,
+    requestSession: rcaRequestSession,
   });
 
   const regenerateRcaReport = useRegenerateRcaReport();
@@ -68,50 +89,39 @@ export function RootCause({
     effectiveProjectId != null ? String(effectiveProjectId).trim() : "";
   const isProjectIdMissing = trimmedProjectId === "";
 
-  const isAwaitingFirstReportResponse =
-    reportFetching && reportResponse === undefined;
   const reportPayload = reportResponse?.data ?? null;
-  const hasStructuredV1Content = isRcaStructuredReportV1WithContent(
-    reportPayload?.report?.structured,
-  );
+  const structuredReport = extractStructuredReport(reportPayload?.report);
+  const hasStructuredV1Content =
+    isRcaStructuredReportV1WithContent(structuredReport);
   const reportStatus = reportResponse?.status;
   const isReportHttpOk = reportStatus === RCA_HTTP_STATUS.OK;
   const showReport =
     isReportHttpOk && reportPayload != null && hasStructuredV1Content;
 
+  const isCompletedButInvalid = isRcaJobCompleted && !hasStructuredV1Content;
   const hasNonSuccessResponse =
     reportResponse != null &&
     reportStatus !== undefined &&
     reportStatus !== RCA_HTTP_STATUS.OK;
   const shouldShowError = reportError || hasNonSuccessResponse;
+
   const isRetryInFlight = reportFetching && shouldShowError;
-  const isRegenerateReportInFlight = regenerateRcaReport.isPending;
-  const showLoadingUi =
-    !isProjectIdMissing &&
-    (reportLoading ||
-      isAwaitingFirstReportResponse ||
-      isRetryInFlight ||
-      isRegenerateReportInFlight);
 
-  useEffect(() => {
-    const loadingFinished = !showLoadingUi;
-    if (loadingFinished) {
-      setUserDismissedGenerationNotice(false);
-    }
-  }, [showLoadingUi]);
+  const isRegenerateMutating = regenerateRcaReport.isPending;
 
-  useEffect(() => {
-    if (!showLoadingUi) {
-      setIsGenerationNoticeModalDelayElapsed(false);
-      return;
-    }
-    const timerId = window.setTimeout(() => {
-      setIsGenerationNoticeModalDelayElapsed(true);
-    }, ROOT_CAUSE_GENERATION_NOTICE_MODAL_DELAY_MS);
-    return () => {
-      window.clearTimeout(timerId);
-    };
-  }, [showLoadingUi]);
+  /**
+   * Show async generation UI when a job is in progress.
+   * Modal only shows when generation was explicitly triggered (regenerate or cache miss).
+   */
+  const showAsyncGenerationUi =
+    !isRcaFailed &&
+    !showReport &&
+    (isAsyncBootstrapping ||
+      isAwaitingPollPayload ||
+      isRcaQueuePending ||
+      isRcaProcessing ||
+      isRegenerateMutating ||
+      (reportFetching && reportResponse === undefined));
 
   useEffect(() => {
     return () => {
@@ -124,29 +134,45 @@ export function RootCause({
   const handleRegenerate = useCallback(() => {
     const isInteractionNameInvalid = !interactionName;
     if (isInteractionNameInvalid) return;
+    if (regenerateRcaReport.isPending) {
+      return;
+    }
 
     if (regenerateDebounceTimerRef.current !== null) {
       window.clearTimeout(regenerateDebounceTimerRef.current);
     }
 
     regenerateDebounceTimerRef.current = window.setTimeout(() => {
-      regenerateRcaReport.mutate({
-        interactionName,
-        date: date ?? null,
-        projectId: trimmedProjectId,
-      });
+      regenerateRcaReport.mutate(
+        {
+          interactionName,
+          date: date ?? null,
+          projectId: trimmedProjectId,
+        },
+        {
+          onSuccess: (res) => {
+            if (res.status === RCA_HTTP_STATUS.ACCEPTED) {
+              const jobId = getJobIdFromRcaPostResponse(res);
+              if (jobId) {
+                beginFollowingJob(jobId);
+              }
+              return;
+            }
+            if (res.status === RCA_HTTP_STATUS.OK) {
+              setRcaRequestSession((s) => s + 1);
+            }
+          },
+        },
+      );
       regenerateDebounceTimerRef.current = null;
     }, REGENERATE_DEBOUNCE_MS);
-  }, [interactionName, date, trimmedProjectId, regenerateRcaReport]);
-
-  const isGenerationNoticeModalOpen =
-    showLoadingUi &&
-    !userDismissedGenerationNotice &&
-    isGenerationNoticeModalDelayElapsed;
-
-  const handleDismissGenerationNotice = () => {
-    setUserDismissedGenerationNotice(true);
-  };
+  }, [
+    interactionName,
+    date,
+    trimmedProjectId,
+    regenerateRcaReport,
+    beginFollowingJob,
+  ]);
 
   if (isProjectIdMissing) {
     return (
@@ -161,70 +187,188 @@ export function RootCause({
     );
   }
 
-  if (showLoadingUi) {
+  if (isRcaJobUnknown) {
     return (
-      <>
-        <Modal
-          opened={isGenerationNoticeModalOpen}
-          onClose={handleDismissGenerationNotice}
-          title={ROOT_CAUSE_MESSAGES.REPORT_GENERATION_MODAL_TITLE}
-          centered
+      <Box className={classes.container}>
+        <Alert
+          color="red"
+          title="Unexpected response"
+          variant="light"
+          maw={520}
+          mx="auto"
+          mt="xl"
         >
-          <Stack gap="md">
-            <Text size="sm">
-              {ROOT_CAUSE_MESSAGES.REPORT_GENERATION_MODAL_BODY}
-            </Text>
-            <Button variant="light" onClick={handleDismissGenerationNotice}>
-              {ROOT_CAUSE_MESSAGES.REPORT_GENERATION_MODAL_GOT_IT}
-            </Button>
-          </Stack>
-        </Modal>
-        <Box className={classes.container}>
-          <div className={classes.skeletonWrapper}>
-            <Skeleton height={24} width={200} mb="md" />
-            <Skeleton height={120} mb="md" />
-            <Skeleton height={120} mb="md" />
-            <Skeleton height={120} />
-          </div>
-        </Box>
-      </>
+          <Text size="sm" mb="sm">{ROOT_CAUSE_MESSAGES.RCA_UNKNOWN_JOB_STATUS}</Text>
+          <Button
+            leftSection={<IconRefresh size={14} />}
+            variant="subtle"
+            color="red"
+            size="xs"
+            pl={0}
+            onClick={() => {
+              void retryRcaJob();
+            }}
+          >
+            {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (isCompletedButInvalid) {
+    return (
+      <Box className={classes.container}>
+        <Alert
+          color="red"
+          title="Report could not be displayed"
+          variant="light"
+          maw={520}
+          mx="auto"
+          mt="xl"
+        >
+          <Text size="sm" mb="sm">
+            {ROOT_CAUSE_MESSAGES.RCA_COMPLETED_INVALID_REPORT}
+          </Text>
+          <Button
+            leftSection={<IconRefresh size={14} />}
+            variant="subtle"
+            color="red"
+            size="xs"
+            pl={0}
+            loading={isRetrying}
+            onClick={() => {
+              void retryRcaJob();
+            }}
+          >
+            Retry
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (isRcaFailed) {
+    return (
+      <Box className={classes.container}>
+        <Alert
+          color="red"
+          title="Report generation failed"
+          variant="light"
+          maw={520}
+          mx="auto"
+          mt="xl"
+        >
+          <Text size="sm" mb="sm">
+            {rcaErrorMessage?.trim() ? rcaErrorMessage : ROOT_CAUSE_MESSAGES.GENERIC_ERROR}
+          </Text>
+          <Button
+            leftSection={<IconRefresh size={14} />}
+            variant="subtle"
+            color="red"
+            size="xs"
+            pl={0}
+            loading={isRetrying}
+            onClick={() => {
+              void retryRcaJob();
+            }}
+          >
+            Retry
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (showAsyncGenerationUi) {
+    return (
+      <Box className={classes.container}>
+        <Stack align="center" gap="md" className={classes.stateMessage}>
+          {isJoiningExistingJob ? (
+            <Alert color="blue" variant="light" maw={520} w="100%">
+              {ROOT_CAUSE_MESSAGES.RCA_JOINING_JOB}
+            </Alert>
+          ) : null}
+          <LoaderWithMessage
+            loadingMessage={ROOT_CAUSE_MESSAGES.RCA_WAITING_IN_QUEUE}
+          />
+        </Stack>
+      </Box>
     );
   }
 
   if (showReport && reportPayload) {
     const cachedAtFormatted = formatRcaReportCachedAt(reportPayload.cachedAt);
+    const relativeGeneratedAt = formatRcaReportGeneratedAgo(
+      reportPayload.cachedAt,
+    );
     return (
-      <RcaReportView
-        report={reportPayload.report ?? {}}
-        cachedAt={cachedAtFormatted}
-        onRegenerate={handleRegenerate}
-      />
+      <Stack gap="md" className={classes.container}>
+        {staleRegenerationDetected ? (
+          <Alert color="yellow" variant="light">
+            <Stack gap="sm" align="flex-start">
+              <Text size="sm">
+                {ROOT_CAUSE_MESSAGES.RCA_STALE_REPORT_BANNER}
+              </Text>
+              <Button
+                size="xs"
+                variant="light"
+                onClick={() => {
+                  void retryRcaJob();
+                }}
+              >
+                {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
+              </Button>
+            </Stack>
+          </Alert>
+        ) : null}
+        {stalePollAsyncJobDetected ? (
+          <Alert color="blue" variant="light">
+            <Stack gap="sm" align="flex-start">
+              <Text size="sm">
+                {ROOT_CAUSE_MESSAGES.RCA_STALE_ASYNC_ACTIVITY}
+              </Text>
+              <Button
+                size="xs"
+                variant="light"
+                onClick={() => {
+                  void retryRcaJob();
+                }}
+              >
+                {ROOT_CAUSE_MESSAGES.RCA_STALE_REFRESH}
+              </Button>
+            </Stack>
+          </Alert>
+        ) : null}
+        <RcaReportView
+          report={reportPayload.report ?? {}}
+          cachedAt={cachedAtFormatted}
+          relativeGeneratedAt={relativeGeneratedAt}
+          onRegenerate={handleRegenerate}
+          projectId={trimmedProjectId || null}
+        />
+      </Stack>
     );
   }
 
-  const refetch = () => {
-    refetchReport();
-  };
-
   const is404 = reportStatus === RCA_HTTP_STATUS.NOT_FOUND;
-  const isAiUpstreamError =
-    reportStatus === RCA_HTTP_STATUS.BAD_GATEWAY ||
-    reportStatus === RCA_HTTP_STATUS.SERVICE_UNAVAILABLE;
 
   if (shouldShowError) {
-    const message = is404
-      ? ROOT_CAUSE_MESSAGES.FEATURE_OR_NO_DATA
-      : isAiUpstreamError
-        ? ROOT_CAUSE_MESSAGES.GENERIC_ERROR
-        : (reportErrorDetail?.message ??
-          reportResponse?.error?.message ??
-          ROOT_CAUSE_MESSAGES.GENERIC_ERROR);
-    const messageLower = message.toLowerCase();
+    const errorMessage = reportErrorDetail?.message || "";
+    const responseErrorMessage = reportResponse?.error?.message || "";
     const isTimeout =
-      messageLower.includes("timeout") || message === "Request Timeout";
-    const displayMessage = isTimeout
-      ? ROOT_CAUSE_MESSAGES.REQUEST_TIMEOUT
-      : message;
+      errorMessage.toLowerCase().includes("timeout") ||
+      responseErrorMessage.toLowerCase().includes("timeout");
+    const isRequestTimeoutMessage =
+      errorMessage === "Request Timeout" ||
+      responseErrorMessage === "Request Timeout";
+    const shouldShowTimeoutMessage = isTimeout || isRequestTimeoutMessage;
+
+    const displayMessage = is404
+      ? ROOT_CAUSE_MESSAGES.FEATURE_OR_NO_DATA
+      : shouldShowTimeoutMessage
+        ? ROOT_CAUSE_MESSAGES.REQUEST_TIMEOUT
+        : ROOT_CAUSE_MESSAGES.GENERIC_ERROR;
     return (
       <Box className={classes.container}>
         <Stack align="center" gap="md" className={classes.stateMessage}>
@@ -236,7 +380,8 @@ export function RootCause({
             className={classes.retryButton}
             leftSection={<IconRefresh size={16} />}
             variant="light"
-            onClick={() => refetch()}
+            loading={isRetryInFlight}
+            onClick={() => void retryRcaJob()}
           >
             Retry
           </Button>

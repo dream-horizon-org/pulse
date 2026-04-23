@@ -1,9 +1,10 @@
 {
   "name": "pulse-client",
-  "version": "0.1.15-SNAPSHOT",
+  "version": "0.1.19-SNAPSHOT",
   "private": true,
   "dependencies": {
     "@babel/core": "^7.16.0",
+    "@dagrejs/dagre": "^3.0.0",
     "@hello-pangea/dnd": "^16.6.0",
     "@mantine/core": "^7.11.1",
     "@mantine/dates": "^7.11.1",
@@ -33,6 +34,7 @@
     "@types/node": "^20.10.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
+    "@xyflow/react": "^12.10.2",
     "axios": "^1.7.2",
     "babel-jest": "^27.4.2",
     "babel-loader": "^8.2.3",
@@ -56,6 +58,7 @@
     "firebase": "^11.0.0",
     "flame-chart-js": "^3.3.0",
     "fs-extra": "^10.0.0",
+    "heatmap.js": "2.0.5",
     "html-webpack-plugin": "^5.5.0",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^27.4.3",

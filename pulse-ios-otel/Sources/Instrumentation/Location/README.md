@@ -29,8 +29,8 @@ It is **off** by default. Turn it on (or leave it off) in the `instrumentations`
 
 ```swift
 Pulse.shared.initialize(
-    endpointBaseUrl: "https://your-backend.com",
     apiKey: "your-api-key",
+    dataCollectionState: .allowed,
     instrumentations: { config in
         config.location { $0.enabled(true) }   // omit or use enabled(false) to keep geo attributes disabled
     }

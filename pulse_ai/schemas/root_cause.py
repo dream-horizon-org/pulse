@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RootCauseSegmentSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    
     label: str
     dimensions: dict[str, str] | None = None
     metrics: dict[str, int | float | str]
     deltas: dict[str, float]
+    exampleSessionIds: list[str] | None = Field(None, alias="exampleSessionIds")
 
 
 class RootCausePayloadSchema(BaseModel):

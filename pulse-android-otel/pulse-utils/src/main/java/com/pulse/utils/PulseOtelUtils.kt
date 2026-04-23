@@ -1,6 +1,6 @@
 package com.pulse.utils
 
-import android.util.Log
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.sdk.trace.ReadableSpan
@@ -26,44 +26,38 @@ public object PulseOtelUtils {
 
     public fun isDebug(): Boolean = BuildConfig.DEBUG
 
-    @PublishedApi
-    internal inline fun getTag(tag: () -> String): String = "$TAG:${tag()}"
+    /**
+     * Sanitizes the instrumentation name as per the SdkMeter.VALID_INSTRUMENT_NAME_PATTERN.
+     */
+    public fun sanitizeInstrumentationName(
+        name: String,
+        fallbackChar: Char = '_',
+    ): String {
+        // Replace every non-supported character with _
+        // Supported characters: alphanumeric, _, ., -, /
+        val sanitized =
+            name
+                .map { char ->
+                    when {
+                        char.isLetterOrDigit() -> char
+                        char == '_' || char == '.' || char == '-' || char == '/' -> char
+                        else -> fallbackChar
+                    }
+                }.joinToString("")
 
-    public inline fun logError(
-        tag: String,
-        throwable: Throwable,
-        body: () -> String,
-    ) {
-        if (isDebug()) Log.e(getTag { tag }, body(), throwable)
-    }
+        val withLetterStart =
+            if (sanitized.isNotEmpty() && sanitized[0].isLetter()) {
+                sanitized
+            } else {
+                "m$sanitized"
+            }
 
-    public inline fun logError(
-        tag: String,
-        body: () -> String,
-    ) {
-        if (isDebug()) Log.e(getTag { tag }, body())
-    }
-
-    public inline fun logDebug(
-        tag: String,
-        body: () -> String,
-    ) {
-        if (isDebug()) Log.d(getTag { tag }, body())
-    }
-
-    public inline fun logWarn(
-        tag: String,
-        body: () -> String,
-    ) {
-        if (isDebug()) Log.w(getTag { tag }, body())
-    }
-
-    public inline fun logWarn(
-        tag: String,
-        throwable: Throwable?,
-        body: () -> String,
-    ) {
-        if (isDebug()) Log.w(getTag { tag }, body(), throwable)
+        // Ensure it's 255 or fewer characters
+        return if (withLetterStart.length <= 255) {
+            withLetterStart
+        } else {
+            withLetterStart.take(255)
+        }
     }
 }
 
@@ -74,6 +68,10 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
             when (value) {
                 is Attributes -> {
                     putAll(value)
+                }
+
+                is Int -> {
+                    put(key, value.toLong())
                 }
 
                 is Long -> {
@@ -100,11 +98,13 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
     }
 
 @PublishedApi
-internal const val TAG: String = "PulseOtelSdk"
+internal const val TAG: String = "PulseSdk"
 
 public fun Map<String, Any?>.toAttributes(): Attributes = (Attributes.builder() putAttributesFrom this).build()
 
-public fun Attributes.toMap(): Map<String, Any?> = this.asMap().mapKeys { it.key.key }
+public fun Attributes.filterNot(predicate: (AttributeKey<*>) -> Boolean): Attributes = this.toBuilder().removeIf(predicate).build()
+
+public fun Attributes.filter(predicate: (AttributeKey<*>) -> Boolean): Attributes = this.toBuilder().removeIf { !predicate(it) }.build()
 
 internal val regexCache = ConcurrentHashMap<String, ThreadLocal<Matcher>>()
 

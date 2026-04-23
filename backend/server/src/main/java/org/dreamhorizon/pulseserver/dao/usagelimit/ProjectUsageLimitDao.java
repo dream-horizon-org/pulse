@@ -3,10 +3,13 @@ package org.dreamhorizon.pulseserver.dao.usagelimit;
 import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.NOTIFICATION_CREATED_AT;
 import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.PROJECT_ID;
 import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.PROJECT_NAME;
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.NOTIFICATION_ROW_ACTIVE;
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.NOTIFICATION_PROJECT_USAGE_LIMIT_ID;
 import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.THRESHOLDS_NOTIFIED;
 import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.ID;
 import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.CREATED_AT;
 import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.UPDATED_AT;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.DEACTIVATE_ACTIVE_NOTIFICATIONS_FOR_PROJECT;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.CHECK_ACTIVE_LIMIT_EXISTS;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ACTIVE_LIMIT_BY_PROJECT_ID;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ALL_ACTIVE_LIMITS;
@@ -201,6 +204,7 @@ public class ProjectUsageLimitDao {
   /**
    * Updates usage limits for a project by soft-deleting the current active record
    * and creating a new one with the updated limits.
+   * Deactivates all active {@code usage_limit_notifications} rows for this project.
    */
   public Single<ProjectUsageLimit> updateUsageLimits(
       String projectId,
@@ -208,7 +212,17 @@ public class ProjectUsageLimitDao {
       String performedBy,
       String disabledReason) {
     return softDeleteActiveLimit(projectId, performedBy, disabledReason)
+        .andThen(deactivateActiveNotificationsForProject(projectId))
         .andThen(createUsageLimit(projectId, newUsageLimitsJson, performedBy));
+  }
+
+  private Completable deactivateActiveNotificationsForProject(String projectId) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool.preparedQuery(DEACTIVATE_ACTIVE_NOTIFICATIONS_FOR_PROJECT)
+        .rxExecute(Tuple.of(projectId))
+        .ignoreElement()
+        .doOnError(error ->
+            log.error("Failed to deactivate usage_limit_notifications for project: {}", projectId, error));
   }
 
   private ProjectUsageLimit mapRowToUsageLimit(Row row) {
@@ -242,6 +256,19 @@ public class ProjectUsageLimitDao {
     String projectName = row.getColumnIndex(PROJECT_NAME) >= 0
         ? row.getString(PROJECT_NAME) : null;
 
+    Long notificationProjectUsageLimitId = null;
+    if (row.getColumnIndex(NOTIFICATION_PROJECT_USAGE_LIMIT_ID) >= 0) {
+      Object nuid = row.getValue(NOTIFICATION_PROJECT_USAGE_LIMIT_ID);
+      if (nuid != null) {
+        notificationProjectUsageLimitId = ((Number) nuid).longValue();
+      }
+    }
+
+    Boolean notificationRowActive = null;
+    if (row.getColumnIndex(NOTIFICATION_ROW_ACTIVE) >= 0) {
+      notificationRowActive = row.getBoolean(NOTIFICATION_ROW_ACTIVE);
+    }
+
     return ProjectUsageLimit.builder()
         .projectUsageLimitId(row.getLong("project_usage_limit_id"))
         .projectId(row.getString("project_id"))
@@ -256,6 +283,8 @@ public class ProjectUsageLimitDao {
         .disabledReason(row.getString("disabled_reason"))
         .createdBy(row.getString("created_by"))
         .thresholdsNotified(thresholdsNotified)
+        .notificationProjectUsageLimitId(notificationProjectUsageLimitId)
+        .notificationRowActive(notificationRowActive)
         .notificationCreatedAt(row.getLocalDateTime(NOTIFICATION_CREATED_AT) != null
             ? row.getLocalDateTime(NOTIFICATION_CREATED_AT).toInstant(ZoneOffset.UTC)
             : null)
@@ -266,21 +295,31 @@ public class ProjectUsageLimitDao {
   /**
    * Mark thresholds as notified for the current month.
    * Creates a new row if one doesn't exist for this month, otherwise updates existing row.
+   *
+   * @param projectUsageLimitId active {@code project_usage_limits} row to reference (frozen for the month on insert)
    */
-  public Single<NotificationRecord> markThresholdsNotified(String projectId, List<Integer> thresholds) {
+  public Single<NotificationRecord> markThresholdsNotified(
+      String projectId, List<Integer> thresholds, long projectUsageLimitId) {
     MySQLPool pool = mysqlClient.getWriterPool();
     Instant now = Instant.now();
-    
+    log.info("usage_limit_notifications markThresholdsNotified start — projectId={} thresholds={}", projectId,
+        thresholds);
+
     return pool.preparedQuery(GET_NOTIFICATION_FOR_CURRENT_MONTH)
         .rxExecute(Tuple.of(projectId))
         .flatMap(result -> {
           if (result.size() > 0) {
+            log.info("usage_limit_notifications updating existing row for current month — projectId={}", projectId);
             return updateExistingNotification(pool, result.iterator().next(), thresholds, now);
-          } else {
-            return createNewNotification(pool, projectId, thresholds, now);
           }
+          log.info("usage_limit_notifications inserting new row for current month — projectId={}", projectId);
+          return createNewNotification(pool, projectId, thresholds, projectUsageLimitId, now);
         })
-        .doOnError(error -> log.error("Failed to mark thresholds notified for project: {}", projectId, error));
+        .doOnError(error -> log.error(
+            "Failed to mark thresholds notified for project: {} thresholds: {}",
+            projectId,
+            thresholds,
+            error));
   }
 
   private Single<NotificationRecord> updateExistingNotification(
@@ -308,12 +347,20 @@ public class ProjectUsageLimitDao {
       
       String updatedJson = objectMapper.writeValueAsString(updatedNode);
       
+      Boolean rowActive = existingRow.getColumnIndex("is_active") >= 0
+          ? existingRow.getBoolean("is_active") : null;
+
+      Long projectUsageLimitId = existingRow.getColumnIndex("project_usage_limit_id") >= 0
+          ? existingRow.getLong("project_usage_limit_id") : null;
+
       return pool.preparedQuery(UPDATE_NOTIFICATION)
           .rxExecute(Tuple.of(updatedJson, id))
           .map(result -> NotificationRecord.builder()
               .id(id)
               .projectId(projectId)
+              .projectUsageLimitId(projectUsageLimitId)
               .thresholdsNotified(updatedNode)
+              .notificationRowActive(rowActive)
               .createdAt(existingRow.getLocalDateTime(CREATED_AT) != null
                   ? existingRow.getLocalDateTime(CREATED_AT).toInstant(ZoneOffset.UTC) : null)
               .updatedAt(now)
@@ -324,33 +371,38 @@ public class ProjectUsageLimitDao {
   }
 
   private Single<NotificationRecord> createNewNotification(
-      MySQLPool pool, String projectId, List<Integer> thresholds, Instant now) {
+      MySQLPool pool,
+      String projectId,
+      List<Integer> thresholds,
+      long projectUsageLimitId,
+      Instant now) {
     try {
       ObjectNode notificationNode = objectMapper.createObjectNode();
       for (Integer threshold : thresholds) {
         notificationNode.put(String.valueOf(threshold), now.toString());
       }
-      
+
       String notificationJson = objectMapper.writeValueAsString(notificationNode);
-      
+
       return pool.preparedQuery(INSERT_NOTIFICATION)
-          .rxExecute(Tuple.of(projectId, notificationJson))
-          .flatMap(result -> {
-            return pool.preparedQuery(GET_NOTIFICATION_FOR_CURRENT_MONTH)
-                .rxExecute(Tuple.of(projectId))
-                .map(rows -> {
-                  Row row = rows.iterator().next();
-                  return NotificationRecord.builder()
-                      .id(row.getLong(ID))
-                      .projectId(projectId)
-                      .thresholdsNotified(notificationNode)
-                      .createdAt(row.getLocalDateTime(CREATED_AT) != null
-                          ? row.getLocalDateTime(CREATED_AT).toInstant(ZoneOffset.UTC) : null)
-                      .updatedAt(row.getLocalDateTime(UPDATED_AT) != null
-                          ? row.getLocalDateTime(UPDATED_AT).toInstant(ZoneOffset.UTC) : null)
-                      .build();
-                });
-          });
+          .rxExecute(Tuple.of(projectId, notificationJson, projectUsageLimitId))
+          .flatMap(result -> pool.preparedQuery(GET_NOTIFICATION_FOR_CURRENT_MONTH)
+              .rxExecute(Tuple.of(projectId))
+              .map(rows -> {
+                Row row = rows.iterator().next();
+                Boolean active = row.getColumnIndex("is_active") >= 0 ? row.getBoolean("is_active") : true;
+                return NotificationRecord.builder()
+                    .id(row.getLong(ID))
+                    .projectId(projectId)
+                    .projectUsageLimitId(projectUsageLimitId)
+                    .thresholdsNotified(notificationNode)
+                    .notificationRowActive(active)
+                    .createdAt(row.getLocalDateTime(CREATED_AT) != null
+                        ? row.getLocalDateTime(CREATED_AT).toInstant(ZoneOffset.UTC) : null)
+                    .updatedAt(row.getLocalDateTime(UPDATED_AT) != null
+                        ? row.getLocalDateTime(UPDATED_AT).toInstant(ZoneOffset.UTC) : null)
+                    .build();
+              }));
     } catch (JsonProcessingException e) {
       return Single.error(new RuntimeException("Failed to create notification JSON", e));
     }
@@ -363,7 +415,10 @@ public class ProjectUsageLimitDao {
   public static class NotificationRecord {
     private Long id;
     private String projectId;
+    /** Referenced {@code project_usage_limits} row (notification month snapshot). */
+    private Long projectUsageLimitId;
     private JsonNode thresholdsNotified;
+    private Boolean notificationRowActive;
     private Instant createdAt;
     private Instant updatedAt;
   }

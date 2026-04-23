@@ -37,6 +37,7 @@ export * from "./useGetDataQuery";
 export * from "./useGetErrorRate";
 export * from "./useGetEventProps";
 export * from "./useGetGraphDataFromJobId";
+export * from "./useHeatmapData";
 export * from "./useGetInteractionDetails";
 export * from "./useGetInteractionDetailsGraphs";
 export * from "./useGetInteractionListFilters";
@@ -56,6 +57,7 @@ export * from "./useGetScreensHealthData";
 export * from "./useGetSessionData";
 export * from "./useGetSessionReplays";
 export * from "./useGetSpanDetails";
+export * from "./useGetSuggestedInteractions";
 export * from "./useGetSuggestedQueries";
 export * from "./useGetTelemetryFilters";
 export * from "./useGetTopInteractionsHealthData";
@@ -72,6 +74,7 @@ export * from "./useResumeAlert";
 export * from "./useRunUniversalQuery";
 export * from "./useSdkConfig";
 export * from "./useSessionReplayFromActiveConfig";
+export * from "./useHeatmapFromActiveConfig";
 export * from "./useSnoozeAlert";
 export * from "./useSubmitQuery";
 export * from "./useUniversalQueryTableColumns";
@@ -105,3 +108,6 @@ export * from "./useUserProjects";
 
 // Re-export constants from hooks.interface
 export { FILTER_MAPPING, EVENT_TYPE } from "./hooks.interface";
+
+// Funnel hooks
+export * from "./useGetFunnelData";

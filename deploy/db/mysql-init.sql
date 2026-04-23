@@ -235,6 +235,55 @@ VALUES
 ), 0, 'system', 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
+-- Suggested interactions table (AI-mined interaction patterns)
+CREATE TABLE suggested_interaction (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL,
+    events_json JSON NOT NULL COMMENT 'Array of event objects with name and props',
+    total_occurrences INT NOT NULL DEFAULT 0,
+    unique_sessions INT NOT NULL DEFAULT 0,
+    session_pct DOUBLE NOT NULL DEFAULT 0,
+    mean_span_s DOUBLE NOT NULL DEFAULT 0,
+    median_span_s DOUBLE NOT NULL DEFAULT 0,
+    p95_span_s DOUBLE NOT NULL DEFAULT 0,
+    cv DOUBLE NOT NULL DEFAULT 0,
+    edges_json JSON COMMENT 'Array of edge objects with timing stats between consecutive events',
+    status VARCHAR(25) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    decided_by VARCHAR(255) NULL,
+    decided_at TIMESTAMP NULL,
+    INDEX idx_suggested_project_status (project_id, status),
+    CONSTRAINT fk_suggested_interaction_project FOREIGN KEY (project_id)
+        REFERENCES projects(project_id) ON DELETE CASCADE
+);
+
+-- Seed suggested interactions for default-project
+INSERT INTO suggested_interaction (project_id, events_json, total_occurrences, unique_sessions, session_pct, mean_span_s, median_span_s, p95_span_s, cv, edges_json)
+VALUES (
+  'default-project',
+  '[{"name":"Go shopping","props":[],"isBlacklisted":false},{"name":"Telescope selected","props":[],"isBlacklisted":false}]',
+  8420, 6120, 72.5, 0.72, 0.68, 2.1, 0.12,
+  '[{"from":"Go shopping","to":"Telescope selected","mean_gap_s":0.72,"median_gap_s":0.68,"cv":0.12,"p5_s":0.31,"p95_s":2.1}]'
+);
+
+-- 2. Two events, one has a prop
+INSERT INTO suggested_interaction (project_id, events_json, total_occurrences, unique_sessions, session_pct, mean_span_s, median_span_s, p95_span_s, cv, edges_json)
+VALUES (
+  'default-project',
+  '[{"name":"Go shopping","props":[{"name":"platform","value":"iOS","operator":"EQUALS"}],"isBlacklisted":false},{"name":"Add to cart","props":[],"isBlacklisted":false}]',
+  5200, 3800, 45.2, 1.1, 0.95, 3.5, 0.18,
+  '[{"from":"Go shopping","to":"Add to cart","mean_gap_s":1.1,"median_gap_s":0.95,"cv":0.18,"p5_s":0.4,"p95_s":3.5}]'
+);
+
+-- 3. Three events, multiple props
+INSERT INTO suggested_interaction (project_id, events_json, total_occurrences, unique_sessions, session_pct, mean_span_s, median_span_s, p95_span_s, cv, edges_json)
+VALUES (
+  'default-project',
+  '[{"name":"Login","props":[{"name":"auth_method","value":"SSO","operator":"EQUALS"}],"isBlacklisted":false},{"name":"Dashboard loaded","props":[],"isBlacklisted":false},{"name":"Report exported","props":[{"name":"format","value":"PDF","operator":"EQUALS"}],"isBlacklisted":false}]',
+  3100, 2200, 33.8, 2.5, 2.1, 6.8, 0.22,
+  '[{"from":"Login","to":"Dashboard loaded","mean_gap_s":1.2,"median_gap_s":1.0,"cv":0.15,"p5_s":0.5,"p95_s":3.0},{"from":"Dashboard loaded","to":"Report exported","mean_gap_s":1.3,"median_gap_s":1.1,"cv":0.2,"p5_s":0.4,"p95_s":3.8}]'
+);
+
 
 -- Symbol files table with project_id in composite primary key
 CREATE TABLE symbol_files (
@@ -274,18 +323,11 @@ CREATE TABLE pulse_sdk_configs (
 --       "sessionSampleRate": 1
 --     },
 --     "rules": [],
---     "criticalEventPolicies": {
---       "alwaysSend": []
---     },
 --     "criticalSessionPolicies": {
 --       "alwaysSend": []
 --     }
 --   },
 --   "signals": {
---     "filters": {
---       "mode": "blacklist",
---       "values": []
---     },
 --     "scheduleDurationMs": 5000,
 --     "logsCollectorUrl": "http://10.0.2.2:4318/v1/logs",
 --     "metricCollectorUrl": "http://10.0.2.2:4318/v1/metrics",
@@ -873,15 +915,42 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
 
 -- ============================================================================
 -- RCA REPORT CACHE (AI-generated report per project / interaction / date)
--- Staleness: user-driven regenerate in app; table stores latest report per key.
+-- ============================================================================
+-- RCA REPORT CACHE (stores latest report per entity; staleness is user-driven)
+-- Supports: INTERACTION, SESSION, SCREEN, and future RCA types
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS rca_report_cache (
     project_id VARCHAR(64) NOT NULL,
-    interaction_name VARCHAR(255) NOT NULL,
+    rca_type VARCHAR(32) NOT NULL,      -- INTERACTION, SESSION, SCREEN, etc.
+    entity_key VARCHAR(255) NOT NULL, -- interactionName, sessionId, screenName, etc.
     date DATE NOT NULL,
     report_body LONGTEXT NOT NULL,
     cached_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (project_id, interaction_name, date)
+    PRIMARY KEY (project_id, rca_type, entity_key, date)
+);
+
+-- ============================================================================
+-- RCA REPORT JOBS (async report generation; no FK to rca_report_cache)
+-- Deduplication: uk_active_job on (project_id, rca_type, entity_key, date, status)
+-- Supports: INTERACTION, SESSION, SCREEN, and future RCA types
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS rca_report_jobs (
+    job_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    rca_type VARCHAR(32) NOT NULL,      -- INTERACTION, SESSION, SCREEN, etc.
+    entity_key VARCHAR(255) NOT NULL,   -- interactionName, sessionId, screenName, etc.
+    date DATE NOT NULL,
+    status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    error_message TEXT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    started_at DATETIME(6) NULL,
+    completed_at DATETIME(6) NULL,
+    created_by VARCHAR(255) NULL,
+    worker_instance_id VARCHAR(64) NULL,
+    PRIMARY KEY (job_id),
+    UNIQUE KEY uk_active_job (project_id, rca_type, entity_key, date, status),
+    INDEX idx_lookup (project_id, rca_type, entity_key, date),
+    INDEX idx_status_created (status, created_at)
 );
 
 -- Event Definitions catalog (project-scoped)
@@ -937,17 +1006,116 @@ CREATE TABLE IF NOT EXISTS usage_limit_notifications (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
     thresholds_notified JSON NOT NULL DEFAULT ('{}'),
+    project_usage_limit_id BIGINT NOT NULL COMMENT 'FK to project_usage_limits row version at first notification for the month',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    UNIQUE KEY uk_project_month (project_id, (DATE_FORMAT(created_at, '%Y-%m'))),
+
     INDEX idx_created_at (created_at),
+    INDEX idx_project_usage_limit (project_usage_limit_id),
     
     CONSTRAINT fk_usage_notif_project 
         FOREIGN KEY (project_id) 
         REFERENCES projects(project_id) 
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fk_usage_notif_limit
+        FOREIGN KEY (project_usage_limit_id)
+        REFERENCES project_usage_limits(project_usage_limit_id)
+        ON DELETE RESTRICT
 );
+
+-- ============================================================================
+-- funnel / journey (align with V11__redesign_funnel_journey_spark_jobs.sql;
+-- no FOREIGN KEY on project_id — local init allows rows before projects exists)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS funnel (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id        VARCHAR(64)  NOT NULL,
+    name              VARCHAR(255) NOT NULL,
+    description       TEXT         NULL,
+    funnel_type       VARCHAR(32)  NOT NULL DEFAULT 'AUTO'     COMMENT 'AUTO | ONCE',
+    step_order_type   VARCHAR(32)  NOT NULL DEFAULT 'ORDERED'  COMMENT 'ORDERED | UNORDERED',
+    steps_json        JSON         NOT NULL                    COMMENT 'Array of { eventName, stepFilters? }',
+    window_seconds    BIGINT       NOT NULL DEFAULT 86400,
+    mode              VARCHAR(32)  NOT NULL DEFAULT 'UNIQUE_USERS' COMMENT 'UNIQUE_USERS | SESSIONS',
+    filters_json      JSON         NULL,
+    date_range        INT          NULL DEFAULT 7          COMMENT 'Lookback days for bulk Spark run',
+    start_time        TIMESTAMP    NULL                        COMMENT 'On-demand: analysis window start',
+    end_time          TIMESTAMP    NULL                        COMMENT 'On-demand: analysis window end',
+    expiry            TIMESTAMP    NULL                        COMMENT 'AUTO funnels skip after this date',
+    created_at        TIMESTAMP    NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP    NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by        VARCHAR(255) NULL,
+
+    INDEX idx_funnel_project (project_id),
+    INDEX idx_funnel_updated (updated_at),
+    INDEX idx_funnel_project_updated (project_id, updated_at),
+    FULLTEXT INDEX idx_funnel_name_fts (name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Saved funnel definitions for Spark computation and dashboard';
+
+CREATE TABLE IF NOT EXISTS journey (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id        VARCHAR(64)  NOT NULL,
+    name              VARCHAR(255) NOT NULL,
+    description       TEXT         NULL,
+    anchor_event      VARCHAR(255) NOT NULL                    COMMENT 'Anchor event for path traversal',
+    direction         VARCHAR(32)  NOT NULL                    COMMENT 'START | END',
+    depth             INT          NOT NULL DEFAULT 5          COMMENT 'Number of event levels from anchor',
+    mode              VARCHAR(32)  NOT NULL DEFAULT 'UNIQUE_USERS' COMMENT 'UNIQUE_USERS | SESSIONS',
+    filters_json      JSON         NULL,
+    start_time        TIMESTAMP    NULL,
+    end_time          TIMESTAMP    NULL,
+    journey_type      VARCHAR(32)  NOT NULL DEFAULT 'AUTO'     COMMENT 'AUTO | ONCE',
+    expiry            TIMESTAMP    NULL,
+    date_range        INT          NOT NULL DEFAULT 7,
+    created_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by        VARCHAR(255) NULL,
+
+    INDEX idx_journey_project (project_id),
+    INDEX idx_journey_updated (updated_at),
+    INDEX idx_journey_project_updated (project_id, updated_at),
+    INDEX idx_journey_anchor_event (anchor_event),
+    INDEX idx_journey_direction (direction),
+    FULLTEXT INDEX idx_journey_name_fts (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Saved journey definitions for event path exploration and dashboard';
+
+-- funnel_journey_tag (align with V12__create_funnel_journey_tag.sql; no FK on project_id)
+CREATE TABLE IF NOT EXISTS funnel_journey_tag (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id    VARCHAR(64)  NOT NULL,
+    entity_type   VARCHAR(16)  NOT NULL COMMENT 'FUNNEL | JOURNEY',
+    entity_id     BIGINT       NOT NULL COMMENT 'funnel.id or journey.id',
+    tag           VARCHAR(128) NOT NULL,
+    created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_funnel_journey_tag (project_id, entity_type, entity_id, tag),
+    KEY idx_funnel_journey_tag_entity (project_id, entity_type, entity_id),
+    KEY idx_funnel_journey_tag_tag (project_id, tag)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Tag mappings for saved funnels and journeys';
+
+-- ============================================================================
+-- analytics_jobs (keep DDL in sync with V11__redesign_funnel_journey_spark_jobs.sql)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS analytics_jobs (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    job_type       VARCHAR(32)  NOT NULL COMMENT 'FUNNEL | JOURNEY | BULK_FUNNEL | BULK_JOURNEY | EVENT_CATALOG',
+    reference_id   BIGINT       NULL     COMMENT 'funnel.id or journey.id; NULL for bulk jobs',
+    job_id         VARCHAR(255) NULL     COMMENT 'EMR/Glue job run id',
+    status         VARCHAR(32)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING | RUNNING | SUCCEEDED | FAILED',
+    error_message  TEXT         NULL,
+    started_at     TIMESTAMP    NULL,
+    completed_at   TIMESTAMP    NULL,
+    created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_analysis_job_entity (job_type, reference_id),
+    INDEX idx_analysis_job_status (status),
+    INDEX idx_analysis_job_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Analytics job status (EMR Spark, ClickHouse compute, etc.)';
 
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;

@@ -3,17 +3,14 @@ package org.dreamhorizon.pulseserver.service.ai.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,24 +24,25 @@ import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaJobStatus;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
+import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
-import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
-import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
-import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
-import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
-import org.dreamhorizon.pulseserver.service.rootcause.models.SessionEvidenceResult;
+import org.dreamhorizon.pulseserver.service.rca.RcaCacheKey;
+import org.dreamhorizon.pulseserver.service.rca.RcaJobDispatch;
+import org.dreamhorizon.pulseserver.service.rca.RcaReportJobService;
+import org.dreamhorizon.pulseserver.service.rca.RcaReportProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -67,13 +65,13 @@ class AiProxyServiceImplTest {
   private HttpRequest<Buffer> httpRequest;
 
   @Mock
-  private RootCauseService rootCauseService;
-
-  @Mock
   private RcaReportCacheDao rcaReportCacheDao;
 
   @Mock
-  private SessionEvidenceService sessionEvidenceService;
+  private RcaReportJobService rcaReportJobService;
+
+  @Mock
+  private RcaReportProcessor rcaReportProcessor;
 
   private ObjectMapper objectMapper;
 
@@ -81,29 +79,51 @@ class AiProxyServiceImplTest {
   void setUp() {
     objectMapper = new ObjectMapper();
     lenient()
-        .when(rcaReportCacheDao.put(any(), any(), any(), any()))
+        .when(rcaReportCacheDao.put(any(), any(), any(), any(), any()))
         .thenReturn(Completable.complete());
     lenient().when(webClient.getAbs(anyString())).thenReturn(httpRequest);
     lenient().when(webClient.postAbs(anyString())).thenReturn(httpRequest);
     lenient().when(webClient.putAbs(anyString())).thenReturn(httpRequest);
     lenient().when(webClient.deleteAbs(anyString())).thenReturn(httpRequest);
     lenient().when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
-    lenient().when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
-    when(rootCauseService.fetchDistinctScreensForInteraction(anyString(), anyString(), any()))
-        .thenReturn(Single.just(List.of()));
-    lenient().when(sessionEvidenceService.getSessionEvidence(anyString(), anyString(), any(), any(), any(), any(), anyInt()))
-        .thenReturn(Single.just(SessionEvidenceResult.builder().sessions(List.of()).build()));
+    lenient().when(httpRequest.timeout(any(Long.class))).thenReturn(httpRequest);
+    lenient()
+        .when(rcaReportJobService.createOrGetJob(any(), any()))
+        .thenAnswer(
+            inv -> {
+              RcaCacheKey key = inv.getArgument(0);
+              RcaReportJob job = samplePendingJob();
+              // key may be null when Mockito captures invocations during re-stubbing
+              String body = key != null ? key.requestBody() : "{}";
+              boolean regenerate = key != null && key.regenerate();
+              return Single.just(new RcaJobDispatch(job, true, body, regenerate));
+            });
+  }
+
+  private RcaReportJob samplePendingJob() {
+    return new RcaReportJob(
+        "rca-job-unit",
+        PROJECT_ID,
+        RcaType.INTERACTION,
+        "checkout",
+        ANALYSIS_DATE,
+        RcaJobStatus.PENDING,
+        null,
+        Instant.parse("2025-03-10T10:00:00Z"),
+        null,
+        null,
+        null,
+        null);
   }
 
   private AiProxyServiceImpl fullPipelineService() {
     return new AiProxyServiceImpl(
-        webClient, AI_SERVICE_URL, objectMapper, rootCauseService, rcaReportCacheDao,
-        sessionEvidenceService);
+        webClient, AI_SERVICE_URL, objectMapper, rcaReportCacheDao, rcaReportJobService,
+        rcaReportProcessor);
   }
 
   private HttpResponse<Buffer> mockBufferedResponse(int status, String contentType, String body) {
-    HttpResponse<Buffer> response =
-        org.mockito.Mockito.mock(HttpResponse.class);
+    HttpResponse<Buffer> response = org.mockito.Mockito.mock(HttpResponse.class);
     when(response.getHeader("Content-Type")).thenReturn(contentType);
     when(response.statusCode()).thenReturn(status);
     String payload = body == null ? "" : body;
@@ -149,8 +169,8 @@ class AiProxyServiceImplTest {
 
       assertThat(result.getStatusCode()).isEqualTo(200);
       assertThat(result.getBufferedBody()).contains("ok");
-      verify(rootCauseService, never()).getRootCause(any(), any(), any(), any(), anyBoolean());
-      verify(rcaReportCacheDao, never()).get(any(), any(), any());
+      verify(rcaReportJobService, never()).createOrGetJob(any(), any());
+      verify(rcaReportCacheDao, never()).get(any(), any(), any(), any());
 
       ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
       verify(webClient).postAbs(urlCaptor.capture());
@@ -164,7 +184,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldReturnMysqlHitWithoutCallingUpstream() throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(
               Maybe.just(
                   new RcaReportCacheHit("{\"fromDb\":1}", Instant.parse("2025-03-10T08:30:00Z"))));
@@ -182,12 +202,12 @@ class AiProxyServiceImplTest {
 
       verify(httpRequest, never()).rxSend();
       verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
-      verify(rootCauseService, never()).getRootCause(any(), any(), any(), any(), anyBoolean());
+      verify(rcaReportJobService, never()).createOrGetJob(any(), any());
     }
 
     @Test
     void shouldReturnMysqlHitUnchangedWhenBodyIsNotJsonObject() {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.just(new RcaReportCacheHit("[1,2]", null)));
 
       AiProxyUpstreamResult result =
@@ -214,10 +234,10 @@ class AiProxyServiceImplTest {
       JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
       assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1002");
       assertThat(envelope.path("error").path("message").asText())
-          .isEqualTo("interactionName is required");
+          .isEqualTo("entityKey is required");
 
-      verify(rcaReportCacheDao, never()).get(any(), any(), any());
-      verify(rootCauseService, never()).getRootCause(any(), any(), any(), any(), anyBoolean());
+      verify(rcaReportCacheDao, never()).get(any(), any(), any(), any());
+      verify(rcaReportJobService, never()).createOrGetJob(any(), any());
       verify(httpRequest, never()).rxSend();
       verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
     }
@@ -232,7 +252,8 @@ class AiProxyServiceImplTest {
       assertThat(result.getStatusCode()).isEqualTo(400);
       JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
       assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1002");
-      assertThat(envelope.path("error").path("message").asText()).isEqualTo("Request body is required");
+      assertThat(envelope.path("error").path("message").asText())
+          .isEqualTo("Request body is required");
 
       verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
     }
@@ -255,7 +276,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldFailWithDatabaseErrorWhenMysqlGetErrors() throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.error(new RuntimeException("connection refused")));
 
       AiProxyUpstreamResult result =
@@ -269,109 +290,51 @@ class AiProxyServiceImplTest {
       assertThat(envelope.path("error").path("message").asText()).isEqualTo("Database Error");
 
       verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
-      verify(rootCauseService, never()).getRootCause(any(), any(), any(), any(), anyBoolean());
+      verify(rcaReportJobService, never()).createOrGetJob(any(), any());
     }
 
     @Test
-    void shouldCallGetRootCauseAndUpstreamWhenMysqlMisses() throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+    void shouldReturn202AndEnqueueWorkerWhenMysqlMisses() throws Exception {
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.empty());
-      RootCauseResult rc =
-          RootCauseResult.builder()
-              .everythingGood(true)
-              .baseline(Map.of())
-              .segments(List.of())
-              .build();
-      when(rootCauseService.getRootCause(
-              eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), any(Instant.class), eq(false)))
-          .thenReturn(Single.just(rc));
-      HttpResponse<Buffer> upstreamResponse =
-          mockBufferedResponse(200, "application/json", "{\"report\":\"ai\"}");
-      stubSendReturns(upstreamResponse);
 
       AiProxyUpstreamResult result =
           awaitResult(
               fullPipelineService()
                   .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
 
-      assertThat(result.getStatusCode()).isEqualTo(200);
+      assertThat(result.getStatusCode()).isEqualTo(202);
       JsonNode out = objectMapper.readTree(result.getBufferedBody());
-      assertThat(out.path("report").asText()).isEqualTo("ai");
-      assertThat(out.path("cached").asBoolean()).isTrue();
-      assertThat(out.path("cachedAt").asText()).isNotBlank();
+      assertThat(out.path("jobId").asText()).isEqualTo("rca-job-unit");
+      assertThat(out.path("pollUrl").asText()).contains("/v1/ai-rca/job/rca-job-unit");
 
-      verify(rootCauseService, times(1))
-          .getRootCause(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), any(Instant.class), eq(false));
-      verify(httpRequest, times(1)).rxSendBuffer(any(Buffer.class));
-      ArgumentCaptor<String> putBody = ArgumentCaptor.forClass(String.class);
-      verify(rcaReportCacheDao, timeout(3000))
-          .put(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), putBody.capture());
-      JsonNode stored = objectMapper.readTree(putBody.getValue());
-      assertThat(stored.path("report").asText()).isEqualTo("ai");
-      assertThat(stored.path("cached").asBoolean()).isTrue();
+      verify(rcaReportJobService, times(1)).createOrGetJob(any(), any());
+      verify(rcaReportProcessor, times(1))
+          .enqueueProcess(any(), anyString(), anyBoolean(), eq(AUTH), eq(null));
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
     }
 
     @Test
-    void shouldMergeRelatedHeatmapsWhenMysqlMissesAndUpstreamReturnsStructuredSegments()
-        throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+    void shouldReturn202WhenMysqlMissesEvenForStructuredUpstreamScenario() throws Exception {
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.empty());
-      RootCauseSegment seg =
-          RootCauseSegment.builder()
-              .dimensions(Map.of("Platform", "Android", "AppVersion", "2.0.0"))
-              .build();
-      RootCauseResult rc =
-          RootCauseResult.builder()
-              .baseline(Map.of())
-              .segments(List.of(seg))
-              .build();
-      when(rootCauseService.getRootCause(
-              eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), any(Instant.class), eq(false)))
-          .thenReturn(Single.just(rc));
-      when(rootCauseService.fetchDistinctScreensForInteraction(
-              eq(PROJECT_ID), eq("checkout"), any()))
-          .thenReturn(Single.just(List.of("home", "cart")));
-      String upstreamJson =
-          "{\"report\":{\"structured\":{\"segments\":[{\"rank\":1,\"title\":\"Platform Android\"}]}}}";
-      HttpResponse<Buffer> upstreamResponse =
-          mockBufferedResponse(200, "application/json", upstreamJson);
-      stubSendReturns(upstreamResponse);
 
       AiProxyUpstreamResult result =
           awaitResult(
               fullPipelineService()
                   .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
 
-      assertThat(result.getStatusCode()).isEqualTo(200);
-      ArgumentCaptor<String> putBody = ArgumentCaptor.forClass(String.class);
-      verify(rcaReportCacheDao, timeout(3000))
-          .put(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), putBody.capture());
-      JsonNode stored = objectMapper.readTree(putBody.getValue());
-      JsonNode related =
-          stored.path("report").path("structured").path("segments").get(0).path("related_heatmaps");
-      assertThat(related.path("screens").get(0).asText()).isEqualTo("home");
-      assertThat(related.path("screens").get(1).asText()).isEqualTo("cart");
-      JsonNode hf = related.path("heatmap_filters");
-      assertThat(hf.path("platform").asText()).isEqualTo("Android");
-      assertThat(hf.path("app_version").asText()).isEqualTo("2.0.0");
-      assertThat(hf.path("from_date").asText()).matches("\\d{4}-\\d{2}-\\d{2}");
-      assertThat(hf.path("to_date").asText()).matches("\\d{4}-\\d{2}-\\d{2}");
+      assertThat(result.getStatusCode()).isEqualTo(202);
+      verify(rcaReportProcessor, times(1))
+          .enqueueProcess(any(), anyString(), anyBoolean(), eq(AUTH), eq(null));
     }
 
     @Test
-    void shouldReturnStandardErrorEnvelopeWhenCachePutFailsAfterSuccessfulUpstream()
-        throws Exception {
-      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+    void shouldReturn500WhenJobCreationFailsAfterMysqlMiss() throws Exception {
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq(RcaType.INTERACTION), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.empty());
-      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
-          .thenReturn(
-              Single.just(
-                  RootCauseResult.builder().segments(List.of()).baseline(Map.of()).build()));
-      HttpResponse<Buffer> upstreamResponse =
-          mockBufferedResponse(200, "application/json", "{\"report\":\"ai\"}");
-      stubSendReturns(upstreamResponse);
-      when(rcaReportCacheDao.put(any(), any(), any(), any()))
-          .thenThrow(new RuntimeException("put failed"));
+      when(rcaReportJobService.createOrGetJob(any(), any()))
+          .thenReturn(Single.error(new RuntimeException("job insert failed")));
 
       AiProxyUpstreamResult result =
           awaitResult(
@@ -381,57 +344,39 @@ class AiProxyServiceImplTest {
       assertThat(result.getStatusCode()).isEqualTo(500);
       JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
       assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1007");
-      assertThat(envelope.path("error").path("message").asText())
-          .isEqualTo("Internal error generating RCA report");
+      verify(rcaReportProcessor, never())
+          .enqueueProcess(any(), any(), anyBoolean(), any(), any());
     }
 
     @Test
-    void shouldSkipMysqlPutWhenUpstreamReturnsError() {
-      when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
-      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
-          .thenReturn(
-              Single.just(
-                  RootCauseResult.builder().segments(List.of()).baseline(Map.of()).build()));
-      HttpResponse<Buffer> errorResponse =
-          mockBufferedResponse(500, "application/json", "{\"error\":\"x\"}");
-      stubSendReturns(errorResponse);
+    void shouldReturn202WithoutMysqlPutFromProxyThread() throws Exception {
+      when(rcaReportCacheDao.get(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       awaitResult(
           fullPipelineService()
               .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
 
-      verify(rcaReportCacheDao, never()).put(any(), any(), any(), any());
+      verify(rcaReportCacheDao, never()).put(any(), any(), any(), any(), any());
+      verify(rcaReportProcessor, times(1))
+          .enqueueProcess(any(), anyString(), anyBoolean(), eq(AUTH), eq(null));
     }
 
     @Test
-    void shouldStillProxyWhenRootCauseFetchFails() {
-      when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
-      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
-          .thenReturn(Single.error(new RuntimeException("clickhouse down")));
-      HttpResponse<Buffer> upstreamResponse = mockBufferedResponse(200, "application/json", "{}");
-      stubSendReturns(upstreamResponse);
+    void shouldReturn202WhenMysqlMissesWithoutCallingUpstreamInProxyThread() {
+      when(rcaReportCacheDao.get(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       AiProxyUpstreamResult result =
           awaitResult(
               fullPipelineService()
                   .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
 
-      assertThat(result.getStatusCode()).isEqualTo(200);
-      verify(rootCauseService, times(1))
-          .getRootCause(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), any(Instant.class), eq(false));
-      verify(httpRequest, times(1)).rxSendBuffer(any(Buffer.class));
+      assertThat(result.getStatusCode()).isEqualTo(202);
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
     }
 
     @Test
-    void shouldRequeryMysqlAndUpstreamOnEachRequestWhenDaoMisses() {
-      when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
-      when(rootCauseService.getRootCause(any(), any(), any(), any(), anyBoolean()))
-          .thenReturn(
-              Single.just(
-                  RootCauseResult.builder().segments(List.of()).baseline(Map.of()).build()));
-      HttpResponse<Buffer> upstreamResponse =
-          mockBufferedResponse(200, "application/json", "{\"once\":true}");
-      stubSendReturns(upstreamResponse);
+    void shouldRequeryMysqlAndEnqueueOnEachRequestWhenDaoMisses() {
+      when(rcaReportCacheDao.get(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       AiProxyServiceImpl service = fullPipelineService();
       String body = rcaRequestBody();
@@ -439,41 +384,47 @@ class AiProxyServiceImplTest {
       awaitResult(service.proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
       awaitResult(service.proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
 
-      verify(rootCauseService, times(2)).getRootCause(any(), any(), any(), any(), eq(false));
-      verify(httpRequest, times(2)).rxSendBuffer(any(Buffer.class));
-      verify(rcaReportCacheDao, times(2)).get(PROJECT_ID, "checkout", ANALYSIS_DATE);
+      verify(rcaReportJobService, times(2)).createOrGetJob(any(), any());
+      verify(rcaReportProcessor, times(2))
+          .enqueueProcess(any(), anyString(), anyBoolean(), eq(AUTH), eq(null));
+      verify(rcaReportCacheDao, times(2)).get(PROJECT_ID, RcaType.INTERACTION, "checkout", ANALYSIS_DATE);
     }
 
     @Test
-    void shouldSkipMysqlAndForceRootCauseWhenRegenerateTrue() throws Exception {
+    void shouldSkipMysqlAndPassRegenerateOnJobWhenRegenerateTrue() throws Exception {
       String body = "{\"interactionName\":\"checkout\",\"date\":\"2025-03-10\",\"regenerate\":true}";
-      when(rootCauseService.getRootCause(
-              eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), any(Instant.class), eq(true)))
-          .thenReturn(
-              Single.just(
-                  RootCauseResult.builder().segments(List.of()).baseline(Map.of()).build()));
-      HttpResponse<Buffer> upstreamResponse =
-          mockBufferedResponse(200, "application/json", "{\"report\":\"fresh\"}");
-      stubSendReturns(upstreamResponse);
 
       AiProxyUpstreamResult result =
           awaitResult(
               fullPipelineService().proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
 
-      verify(rcaReportCacheDao, never()).get(any(), any(), any());
-      verify(rootCauseService, times(1))
-          .getRootCause(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), any(Instant.class), eq(true));
-      ArgumentCaptor<Buffer> bufCaptor = ArgumentCaptor.forClass(Buffer.class);
-      verify(httpRequest, times(1)).rxSendBuffer(bufCaptor.capture());
-      String sent = bufCaptor.getValue().toString();
-      assertThat(sent).contains("rootCausePayload");
-      assertThat(sent).doesNotContain("regenerate");
+      verify(rcaReportCacheDao, never()).get(any(), any(), any(), any());
+      ArgumentCaptor<RcaCacheKey> keyCaptor = ArgumentCaptor.forClass(RcaCacheKey.class);
+      verify(rcaReportJobService).createOrGetJob(keyCaptor.capture(), any());
+      assertThat(keyCaptor.getValue().regenerate()).isTrue();
+      assertThat(keyCaptor.getValue().requestBody()).isEqualTo(body);
 
-      assertThat(result.getStatusCode()).isEqualTo(200);
-      JsonNode out = objectMapper.readTree(result.getBufferedBody());
-      assertThat(out.path("report").asText()).isEqualTo("fresh");
-      assertThat(out.path("cached").asBoolean()).isTrue();
-      verify(rcaReportCacheDao, timeout(3000)).put(any(), any(), any(), anyString());
+      assertThat(result.getStatusCode()).isEqualTo(202);
+      verify(rcaReportProcessor, times(1))
+          .enqueueProcess(any(), anyString(), anyBoolean(), eq(AUTH), eq(null));
+    }
+
+    @Test
+    void shouldPassUserEmailHeaderToCreateOrGetJob() throws Exception {
+      when(rcaReportCacheDao.get(any(), any(), any(), any())).thenReturn(Maybe.empty());
+
+      awaitResult(
+          fullPipelineService()
+              .proxy(
+                  "POST",
+                  "rca/report",
+                  null,
+                  rcaRequestBody(),
+                  AUTH,
+                  PROJECT_ID,
+                  "reporter@example.com"));
+
+      verify(rcaReportJobService).createOrGetJob(any(), eq("reporter@example.com"));
     }
   }
 
@@ -504,10 +455,9 @@ class AiProxyServiceImplTest {
       AiProxyUpstreamResult result =
           awaitResult(service.proxy("GET", "health", null, null, AUTH, PROJECT_ID));
 
-      assertThat(result.getStatusCode()).isEqualTo(502);
-      assertThat(result.getBufferedBody()).contains("unavailable");
-      verifyNoInteractions(rootCauseService);
+      assertThat(result.getStatusCode()).isEqualTo(ServiceError.AI_PROXY_BAD_GATEWAY.getHttpStatusCode());
+      assertThat(result.getBufferedBody()).contains(ServiceError.AI_PROXY_BAD_GATEWAY.getErrorMessage());
+      verifyNoInteractions(rcaReportJobService);
     }
   }
-
 }

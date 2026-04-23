@@ -3,7 +3,10 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Expo config plugin to add mavenLocal() to build.gradle
+ * expo-example only: adds `mavenLocal()` to the generated Android root `build.gradle`
+ * so Gradle can resolve Pulse Android artifacts you published locally. Not part of
+ * the published npm package. Remove this plugin from `app.json` to use only
+ * Maven Central (hosted) dependencies from `pulse-react-native-otel/android/build.gradle`.
  */
 const withMavenLocal = (config) => {
   // Add mavenLocal() to both buildscript and allprojects repositories in root build.gradle

@@ -5,14 +5,18 @@ export const PULSE_DATA_COLLECTION_CONSENT_IMPORT =
 export const ATTRIBUTES_IMPORT =
   'import io.opentelemetry.api.common.Attributes\nimport io.opentelemetry.api.common.AttributeKey\n';
 
-import type { PulsePluginProps, PulseAttributes } from './types';
-
-function buildEndpointHeadersMap(headers: Record<string, string>): string {
-  const entries = Object.entries(headers).map(([k, v]) => {
-    return '"' + k + '" to "' + v + '"';
-  });
-  return `mapOf(${entries.join(', ')})`;
+function escapeKotlinString(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, '\\$');
 }
+
+import type {
+  PulseAndroidInstrumentationProps,
+  PulseAttributes,
+  PulseDataCollectionState,
+} from './types';
 
 function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
   const puts: string[] = [];
@@ -67,40 +71,20 @@ function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
 }
 
 export function buildPulseInitializationCode(options: {
-  endpointBaseUrl: string;
   apiKey: string;
-  dataCollectionState?: PulsePluginProps['dataCollectionState'];
-  endpointHeaders?: Record<string, string>;
-  configEndpointUrl?: string;
-  globalAttributes?: PulsePluginProps['globalAttributes'];
-  instrumentation?: PulsePluginProps['instrumentation'];
+  dataCollectionState: PulseDataCollectionState;
+  globalAttributes?: PulseAttributes;
+  instrumentation?: PulseAndroidInstrumentationProps;
 }): string {
-  const {
-    endpointBaseUrl,
-    apiKey,
-    dataCollectionState,
-    endpointHeaders,
-    configEndpointUrl,
-    globalAttributes,
-    instrumentation,
-  } = options;
+  const { apiKey, dataCollectionState, globalAttributes, instrumentation } =
+    options;
   const params: string[] = [];
 
-  params.push(`apiKey = "${apiKey}"`);
+  params.push(`apiKey = "${escapeKotlinString(apiKey)}"`);
 
   params.push(
-    `dataCollectionState = PulseDataCollectionConsent.${dataCollectionState ?? 'PENDING'}`
+    `dataCollectionState = PulseDataCollectionConsent.${dataCollectionState}`
   );
-
-  if (endpointHeaders && Object.keys(endpointHeaders).length > 0) {
-    params.push(
-      `endpointHeaders = ${buildEndpointHeadersMap(endpointHeaders)}`
-    );
-  }
-
-  if (configEndpointUrl) {
-    params.push(`configEndpointUrl = "${configEndpointUrl}"`);
-  }
 
   const attributesLambda = globalAttributes
     ? buildGlobalAttributesLambda(globalAttributes)
@@ -114,38 +98,34 @@ export function buildPulseInitializationCode(options: {
   // in their native MainApplication.kt instead of through this plugin.
   params.push('beforeSendData = null');
 
-  let code = `\n    Pulse.initialize(\n      this,\n      "${endpointBaseUrl}",\n      ${params.join(',\n      ')}\n    ) {\n`;
+  let code = `\n    Pulse.initialize(\n      this,\n      ${params.join(',\n      ')}\n    ) {\n`;
 
   if (instrumentation?.interaction !== undefined) {
-    if (instrumentation.interaction.url) {
-      code += `      interaction { enabled(${instrumentation.interaction.enabled}); setConfigUrl { "${instrumentation.interaction.url}" } }\n`;
-    } else {
-      code += `      interaction { enabled(${instrumentation.interaction.enabled}) }\n`;
-    }
+    code += `      interaction { enabled(${instrumentation.interaction.enabled}) }\n`;
   }
 
-  if (instrumentation?.activity !== undefined) {
-    code += `      activity { enabled(${instrumentation.activity}) }\n`;
+  if (instrumentation?.activity?.enabled !== undefined) {
+    code += `      activity { enabled(${instrumentation.activity.enabled}) }\n`;
   }
 
-  if (instrumentation?.network !== undefined) {
-    code += `      networkMonitoring { enabled(${instrumentation.network}) }\n`;
+  if (instrumentation?.network?.enabled !== undefined) {
+    code += `      networkMonitoring { enabled(${instrumentation.network.enabled}) }\n`;
   }
 
-  if (instrumentation?.anr !== undefined) {
-    code += `      anrReporter { enabled(${instrumentation.anr}) }\n`;
+  if (instrumentation?.anr?.enabled !== undefined) {
+    code += `      anrReporter { enabled(${instrumentation.anr.enabled}) }\n`;
   }
 
-  if (instrumentation?.slowRendering !== undefined) {
-    code += `      slowRenderingReporter { enabled(${instrumentation.slowRendering}) }\n`;
+  if (instrumentation?.slowRendering?.enabled !== undefined) {
+    code += `      slowRenderingReporter { enabled(${instrumentation.slowRendering.enabled}) }\n`;
   }
 
-  if (instrumentation?.fragment !== undefined) {
-    code += `      fragment { enabled(${instrumentation.fragment}) }\n`;
+  if (instrumentation?.fragment?.enabled !== undefined) {
+    code += `      fragment { enabled(${instrumentation.fragment.enabled}) }\n`;
   }
 
-  if (instrumentation?.crash !== undefined) {
-    code += `      crashReporter { enabled(${instrumentation.crash}) }\n`;
+  if (instrumentation?.crash?.enabled !== undefined) {
+    code += `      crashReporter { enabled(${instrumentation.crash.enabled}) }\n`;
   }
 
   code += '    }\n';

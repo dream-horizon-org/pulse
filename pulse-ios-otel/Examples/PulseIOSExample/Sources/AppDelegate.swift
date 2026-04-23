@@ -23,9 +23,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         ]
         
         Pulse.shared.initialize(
-            endpointBaseUrl: "http://127.0.0.1:4318",
             apiKey: "default-project_devkey01",
-            endpointHeaders: nil,
+            dataCollectionState: .allowed,
             globalAttributes: globalAttributes,
             instrumentations: { config in
                 // Enable UIKit tap instrumentation with context capture
@@ -50,13 +49,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                     }
                 }
             },
-            dataCollectionState: .allowed
+            logLevel: .debug
         )
         window = UIWindow(frame: UIScreen.main.bounds)
         let mainViewController = MainViewController()
         window?.rootViewController = UINavigationController(rootViewController: mainViewController)
         window?.makeKeyAndVisible()
-        print("SDK Initialised")
+        // Demo only: not using PulseLogger (package-internal). Initialization logs come from SDK when logLevel != .none.
+        print("SDK initialised (Pulse iOS example)")
         return true
     }
 }

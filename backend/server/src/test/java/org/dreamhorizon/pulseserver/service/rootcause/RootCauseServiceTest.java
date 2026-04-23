@@ -34,7 +34,8 @@ import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -76,7 +77,7 @@ class RootCauseServiceTest {
         .thenReturn(Completable.complete());
     service =
         new RootCauseService(
-            rootCauseConfig, clickhouseQueryService, cacheDao, new ObjectMapperUtil());
+            rootCauseConfig, clickhouseQueryService, cacheDao, new ObjectMapperUtil(ObjectMapperFactory.get()));
   }
 
   private static GetQueryDataResponseDto<GetRawUserEventsResponseDto> emptyTableResponse() {
@@ -992,6 +993,8 @@ class RootCauseServiceTest {
       assertThat(spec.sql()).contains("pulse.interaction.name");
       assertThat(spec.sql()).contains("screen.name");
       assertThat(spec.sql()).doesNotContain("SpanName");
+      assertThat(spec.sql()).contains("count()");
+      assertThat(spec.sql()).contains("GROUP BY screen_name");
       assertThat(spec.bindValues()).hasSize(4);
     }
   }

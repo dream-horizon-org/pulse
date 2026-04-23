@@ -7,9 +7,13 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 /// Remote config structure for click instrumentation, parsed from backend feature config JSON.
 internal struct ClickFeatureRemoteConfig: Decodable {
+    let captureContext: Bool?
     let rage: RageConfig?
 
     struct RageConfig: Decodable {
@@ -44,7 +48,7 @@ internal struct ClickFeatureRemoteConfig: Decodable {
               let jsonData = try? JSONSerialization.data(withJSONObject: anyDict),
               let decoded = try? JSONDecoder().decode(ClickFeatureRemoteConfig.self, from: jsonData) else {
             // Silent nil return: log warning to surface misconfiguration
-            PulseLogger.log("Failed to parse click feature config from backend; using SDK defaults")
+            PulseLogger.warn("Failed to parse click feature config from backend; using SDK defaults")
             return nil
         }
 

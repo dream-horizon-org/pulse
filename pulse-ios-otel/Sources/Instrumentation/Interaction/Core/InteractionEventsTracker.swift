@@ -106,7 +106,9 @@ internal final class InteractionEventsTracker {
                         interactionId: ongoing.interactionId,
                         interactionConfig: interactionConfig,
                         localEvents: localEvents,
-                        localMarkers: localMarkers
+                        localMarkers: localMarkers,
+                        ongoingIndex: ongoing.index,
+                        errorType: .sequenceViolation
                     )
                     interactionRunningStatus = errorStatus
 
@@ -185,7 +187,9 @@ internal final class InteractionEventsTracker {
                         interactionId: current.interactionId,
                         interactionConfig: self.interactionConfig,
                         localEvents: self.localEvents,
-                        localMarkers: self.localMarkers
+                        localMarkers: self.localMarkers,
+                        ongoingIndex: current.index,
+                        errorType: .timeout
                     )
 
                     self.isInteractionClosed = true
@@ -201,14 +205,39 @@ internal final class InteractionEventsTracker {
         interactionId: String,
         interactionConfig: InteractionConfig,
         localEvents: [InteractionLocalEvent],
-        localMarkers: [InteractionLocalEvent]
+        localMarkers: [InteractionLocalEvent],
+        ongoingIndex: Int,
+        errorType: InteractionErrorType
     ) -> InteractionRunningStatus {
+        let buildError: InteractionUtil.InteractionBuildError
+        switch errorType {
+        case .timeout:
+            let nextEventName: String? =
+                ongoingIndex + 1 < interactionConfig.events.count
+                ? interactionConfig.events[ongoingIndex + 1].name
+                : nil
+            buildError = InteractionUtil.InteractionBuildError(
+                type: .timeout,
+                timeoutExpectedEventName: nextEventName
+            )
+        case .sequenceViolation:
+            let expectedEventName: String? =
+                ongoingIndex + 1 < interactionConfig.events.count
+                ? interactionConfig.events[ongoingIndex + 1].name
+                : nil
+            buildError = InteractionUtil.InteractionBuildError(
+                type: .sequenceViolation,
+                sequenceViolationExpectedEventName: expectedEventName,
+                sequenceViolationReceivedEventName: localEvents.last?.name
+            )
+        }
+
         let errorInteraction = InteractionUtil.buildPulseInteraction(
             interactionId: interactionId,
             interactionConfig: interactionConfig,
             events: localEvents,
             localMarkers: localMarkers,
-            isSuccessInteraction: false
+            error: buildError
         )
 
         if case .ongoingMatch(let ongoing) = interactionRunningStatus {

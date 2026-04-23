@@ -1,30 +1,24 @@
 import type { ConfigPlugin } from '@expo/config-plugins';
-import { withMainApplication } from '@expo/config-plugins';
+import { withAppBuildGradle, withMainApplication } from '@expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 
+import { mergePulseCoreLibraryDesugaringCompileOptions } from './androidDesugarGradleMerge';
 import {
   PULSE_IMPORT,
   PULSE_DATA_COLLECTION_CONSENT_IMPORT,
   ATTRIBUTES_IMPORT,
   buildPulseInitializationCode,
 } from './utils';
-import type { PulsePluginProps } from './types';
+import type { ResolvedAndroidPulseProps } from './types';
 
-export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
+export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
   config,
-  props: PulsePluginProps
+  props: ResolvedAndroidPulseProps
 ) => {
-  return withMainApplication(config, (modConfig) => {
+  config = withMainApplication(config, (modConfig) => {
     try {
-      const {
-        endpointBaseUrl,
-        apiKey,
-        dataCollectionState,
-        endpointHeaders,
-        configEndpointUrl,
-        globalAttributes,
-        instrumentation,
-      } = props;
+      const { apiKey, dataCollectionState, globalAttributes, instrumentation } =
+        props;
 
       // 1. Add import statements
       modConfig.modResults.contents = mergeContents({
@@ -57,11 +51,8 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
       }
 
       const initCode = buildPulseInitializationCode({
-        endpointBaseUrl,
         apiKey,
         dataCollectionState,
-        endpointHeaders,
-        configEndpointUrl,
         globalAttributes,
         instrumentation,
       });
@@ -82,4 +73,37 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
       return modConfig;
     }
   });
+
+  config = withAppBuildGradle(config, (modConfig) => {
+    try {
+      const { coreLibraryDesugaring } = props;
+      if (!coreLibraryDesugaring.enabled) {
+        return modConfig;
+      }
+
+      const version = coreLibraryDesugaring.version;
+      const desugarDep = `    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:${version}'\n`;
+
+      modConfig.modResults.contents =
+        mergePulseCoreLibraryDesugaringCompileOptions(
+          modConfig.modResults.contents
+        );
+
+      modConfig.modResults.contents = mergeContents({
+        src: modConfig.modResults.contents,
+        newSrc: desugarDep,
+        tag: 'pulse-android-desugar-jdk-libs',
+        comment: '//',
+        anchor: /dependencies\s*\{/,
+        offset: 1,
+      }).contents;
+
+      return modConfig;
+    } catch (error) {
+      console.error('Error modifying app build.gradle:', error);
+      return modConfig;
+    }
+  });
+
+  return config;
 };

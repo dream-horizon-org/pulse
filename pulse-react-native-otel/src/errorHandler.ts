@@ -1,9 +1,10 @@
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
-import { getIsShutdown, getIsStarted } from './config';
+import { getIsShutdown, getIsStarted } from './sessionState';
 import { mergeWithGlobalAttributes } from './globalAttributes';
 import { isSupportedPlatform } from './initialization';
 import { extractErrorDetails } from './utility';
 import type { PulseAttributes } from './pulse.interface';
+import { PulseLogger } from './PulseLogger';
 
 let previousErrorHandler: ((error: Error, isFatal?: boolean) => void) | null =
   null;
@@ -48,7 +49,9 @@ function handleGlobalError(error: Error, isFatal?: boolean): void {
 
   const { message, stackTrace, errorType } = extractErrorDetails(error);
   reportToOpenTelemetry(message, stackTrace, isFatal || false, errorType);
-  console.error('[Pulse RN Crash]', 'Fatal:', isFatal, 'Error:', error);
+  PulseLogger.error(
+    `Crash — fatal: ${!!isFatal}, error: ${error.message ?? error}`
+  );
   if (previousErrorHandler && typeof previousErrorHandler === 'function') {
     try {
       if (isFatal) {
@@ -59,7 +62,7 @@ function handleGlobalError(error: Error, isFatal?: boolean): void {
         previousErrorHandler(error, isFatal);
       }
     } catch (handlerError) {
-      console.error('[Pulse RN] Previous error handler threw:', handlerError);
+      PulseLogger.error(`Previous error handler threw: ${handlerError}`);
     }
   }
 }
@@ -99,14 +102,14 @@ export function reportException(
 
 function initializeErrorHandler(): void {
   if (isInitialized) {
-    console.warn('[Pulse RN] Error handler already initialized. Skipping.');
+    PulseLogger.warn('Error handler already initialized. Skipping.');
     return;
   }
   handlingFatal = false;
 
   if (!ErrorUtils) {
-    console.warn(
-      '[Pulse RN] ErrorUtils not available; cannot install global error handler.'
+    PulseLogger.warn(
+      'ErrorUtils not available; cannot install global error handler.'
     );
     PulseReactNativeOtel.trackEvent(
       'ErrorUtils not found. Cannot install global error handler.',
@@ -119,12 +122,12 @@ function initializeErrorHandler(): void {
 
   if (currentHandler) {
     previousErrorHandler = currentHandler;
-    console.log(
-      '[Pulse RN] Previous error handler detected (likely React Native default) - will be preserved'
+    PulseLogger.debug(
+      'Previous error handler detected (likely React Native default) — will be preserved'
     );
   } else {
-    console.log(
-      '[Pulse RN] No previous error handler detected (unusual in React Native)'
+    PulseLogger.debug(
+      'No previous error handler detected (unusual in React Native)'
     );
   }
 
@@ -133,26 +136,22 @@ function initializeErrorHandler(): void {
   isInitialized = true;
   handlingFatal = false;
 
-  console.log('[Pulse RN] Error handler initialized successfully');
+  PulseLogger.info('Error handler initialized successfully');
 }
 
 function disableErrorHandler(): void {
   if (!isInitialized) {
-    console.warn(
-      '[Pulse RN] Error handler not initialized. Nothing to disable.'
-    );
+    PulseLogger.warn('Error handler not initialized. Nothing to disable.');
     return;
   }
 
   if (previousErrorHandler) {
     ErrorUtils.setGlobalHandler(previousErrorHandler);
-    console.log(
-      '[Pulse RN] Error handler disabled. Previous handler restored.'
-    );
+    PulseLogger.debug('Error handler disabled. Previous handler restored.');
   } else {
     ErrorUtils.setGlobalHandler(null as any);
-    console.log(
-      '[Pulse RN] Error handler disabled. Restored to React Native default.'
+    PulseLogger.debug(
+      'Error handler disabled. Restored to React Native default.'
     );
   }
 

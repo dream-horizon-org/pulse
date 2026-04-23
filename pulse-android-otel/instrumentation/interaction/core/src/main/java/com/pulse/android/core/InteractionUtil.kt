@@ -3,8 +3,15 @@ package com.pulse.android.core
 import com.pulse.android.remote.models.InteractionAttrsEntry
 import com.pulse.android.remote.models.InteractionConfig
 import com.pulse.android.remote.models.InteractionEvent
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import java.util.Locale
+
+internal data class InteractionBuildError(
+    val type: InteractionErrorType,
+    val timeoutExpectedEventName: String? = null,
+    val sequenceViolationExpectedEventName: String? = null,
+    val sequenceViolationReceivedEventName: String? = null,
+)
 
 internal object InteractionUtil {
     /**
@@ -32,13 +39,13 @@ internal object InteractionUtil {
         }
 
         var newInteractionStatus: MatchResult? = null
-        logDebug { "localEvents = ${localEvents.joinToString { it.name }}" }
+        logVerbose { "localEvents = ${localEvents.joinToString { it.name }}" }
         var localEventIndex = 0
         while (localEventIndex < localEvents.size) {
             val localEvent = localEvents[localEventIndex]
 
             if (isMatchOnGoing && localEvent matchesAny interactionConfig.globalBlacklistedEvents) {
-                logDebug { "blacklisted event(${localEvent.name}) found" }
+                logVerbose { "blacklisted event(${localEvent.name}) found" }
                 return MatchResult(
                     shouldTakeFirstEvent = false,
                     shouldResetList = true,
@@ -48,12 +55,12 @@ internal object InteractionUtil {
 
             val configEvent = interactionConfig.events[configEventIndex]
 
-            logDebug { "localEvent:${localEvent.name} from localEventIndex = $localEventIndex," }
+            logVerbose { "localEvent:${localEvent.name} from localEventIndex = $localEventIndex," }
             val isMatch = localEvent matches configEvent
             newInteractionStatus =
                 if (isMatch) {
                     if (configEvent.isBlacklisted) {
-                        logDebug { "localEvent:${localEvent.name} is blacklisted" }
+                        logVerbose { "localEvent:${localEvent.name} is blacklisted" }
                         MatchResult(
                             shouldTakeFirstEvent = false,
                             shouldResetList = true,
@@ -62,14 +69,14 @@ internal object InteractionUtil {
                     } else {
                         stepWiseTimeInNano.add(localEvent)
                         configEventIndex++
-                        logDebug {
+                        logVerbose {
                             "localEvent:${localEvent.name} is match and not a blacklisted match, " +
                                 "matched at index = ${configEventIndex - 1}, " +
                                 "config(w/o blacklisted) = ${interactionConfig.eventsSize}"
                         }
 
                         if (configEventIndex == interactionConfig.eventsSize) {
-                            logDebug { "localEvent:${localEvent.name} is final match" }
+                            logVerbose { "localEvent:${localEvent.name} is final match" }
                             isMatchOnGoing = false
                             MatchResult(
                                 shouldTakeFirstEvent = false,
@@ -85,7 +92,6 @@ internal object InteractionUtil {
                                                 interactionConfig = interactionConfig,
                                                 events = stepWiseTimeInNano,
                                                 localMarkers = localMarkers,
-                                                isSuccessInteraction = true,
                                             ),
                                     ),
                             )
@@ -124,7 +130,12 @@ internal object InteractionUtil {
                                         interactionConfig = interactionConfig,
                                         events = stepWiseTimeInNano,
                                         localMarkers = localMarkers,
-                                        isSuccessInteraction = false,
+                                        error =
+                                            InteractionBuildError(
+                                                type = InteractionErrorType.SEQUENCE_VIOLATION,
+                                                sequenceViolationExpectedEventName = configEvent.name,
+                                                sequenceViolationReceivedEventName = localEvent.name,
+                                            ),
                                     ),
                             ),
                     )
@@ -183,19 +194,41 @@ internal object InteractionUtil {
         }
     }
 
+    private fun interactionErrorMessage(error: InteractionBuildError): String =
+        when (error.type) {
+            InteractionErrorType.TIMEOUT -> {
+                if (error.timeoutExpectedEventName != null) {
+                    """Timed out while waiting for event "${error.timeoutExpectedEventName}"."""
+                } else {
+                    "Timed out before the next expected event arrived."
+                }
+            }
+            InteractionErrorType.SEQUENCE_VIOLATION -> {
+                if (error.sequenceViolationExpectedEventName != null && error.sequenceViolationReceivedEventName != null) {
+                    """Expected event "${error.sequenceViolationExpectedEventName}", received "${error.sequenceViolationReceivedEventName}"."""
+                } else {
+                    "An event did not match the next expected event in this interaction."
+                }
+            }
+        }
+
     internal fun buildPulseInteraction(
         interactionId: String,
         interactionConfig: InteractionConfig,
         events: List<InteractionLocalEvent>,
         localMarkers: List<InteractionLocalEvent>,
-        isSuccessInteraction: Boolean,
+        error: InteractionBuildError? = null,
     ): Interaction {
+        require(events.isNotEmpty()) { "buildPulseInteraction requires at least one event" }
         val interactionName = interactionConfig.name
         val interactionConfigId = interactionConfig.id
         val lastEventTimeInNano = events.last().timeInNano
+        val errorType = error?.type
+
+        val errorMessage = error?.let { interactionErrorMessage(it) }
 
         val (timeDifferenceInNano, timeCategory, upTimeIndex) =
-            if (isSuccessInteraction) {
+            if (errorType == null) {
                 val timeDifferenceInNano = lastEventTimeInNano - events.first().timeInNano
                 val timeDifferenceInMs = timeDifferenceInNano / 1000_000
                 val lowerLimitInMs = interactionConfig.uptimeLowerLimitInMs
@@ -233,19 +266,33 @@ internal object InteractionUtil {
             } else {
                 Triple(null, null, null)
             }
-        val maps =
-            mapOf(
-                InteractionConstant.NAME to interactionName,
-                InteractionConstant.CONFIG_ID to interactionConfigId,
-                InteractionConstant.LAST_EVENT_TIME_IN_NANO to lastEventTimeInNano,
-                // making a copy so that any changes to stepWiseTimeInNano doesn't effect the stored value
-                InteractionConstant.LOCAL_EVENTS to events.toList(),
-                InteractionConstant.MARKER_EVENTS to localMarkers.toList(),
-                InteractionConstant.APDEX_SCORE to upTimeIndex,
-                InteractionConstant.USER_CATEGORY to timeCategory?.categoryName,
-                InteractionConstant.TIME_TO_COMPLETE_IN_NANO to timeDifferenceInNano,
-                InteractionConstant.IS_ERROR to !isSuccessInteraction,
+
+        val timeInMsDiffPair =
+            computeInteractionTimeSpanInNanos(
+                events = events,
+                timeOutInMs = interactionConfig.thresholdInMs,
+                errorType = errorType,
             )
+
+        val maps =
+            buildMap {
+                put(InteractionConstant.NAME, interactionName)
+                put(InteractionConstant.CONFIG_ID, interactionConfigId)
+                put(InteractionConstant.LAST_EVENT_TIME_IN_NANO, lastEventTimeInNano)
+                put(InteractionConstant.LOCAL_EVENTS, events.toList())
+                put(
+                    InteractionConstant.MARKER_EVENTS,
+                    timeInMsDiffPair?.let {
+                        localMarkers.getEventsBetween(it.first, it.second)
+                    } ?: localMarkers.toList(),
+                )
+                put(InteractionConstant.APDEX_SCORE, upTimeIndex)
+                put(InteractionConstant.USER_CATEGORY, timeCategory?.categoryName)
+                put(InteractionConstant.TIME_TO_COMPLETE_IN_NANO, timeDifferenceInNano)
+                put(InteractionConstant.IS_ERROR, errorType != null)
+                put(InteractionConstant.ERROR_TYPE, errorType?.code)
+                put(InteractionConstant.ERROR_MESSAGE, errorMessage)
+            }
 
         return Interaction(
             id = interactionId,
@@ -267,8 +314,8 @@ internal object InteractionUtil {
     )
 }
 
-internal inline fun logDebug(body: () -> String) {
-    PulseOtelUtils.logDebug(InteractionConstant.LOG_TAG, body)
+internal inline fun logVerbose(body: () -> String) {
+    PulseLogger.logVerbose(InteractionConstant.LOG_TAG, body)
 }
 
 /**
@@ -280,11 +327,39 @@ public class Interaction internal constructor(
     public val props: Map<String, Any?> = emptyMap(),
 )
 
+private fun computeInteractionTimeSpanInNanos(
+    events: List<InteractionLocalEvent>,
+    timeOutInMs: Long,
+    errorType: InteractionErrorType?,
+): Pair<Long, Long>? {
+    if (errorType != null) {
+        val steps = events
+        if (steps.isEmpty()) return null
+        val firstNs = steps.first().timeInNano
+        val lastNs = steps.last().timeInNano
+        val thresholdNs = timeOutInMs * 1_000_000L
+        return firstNs to
+            if (errorType == InteractionErrorType.TIMEOUT) {
+                firstNs + thresholdNs + (lastNs - firstNs)
+            } else {
+                lastNs
+            }
+    }
+    return events.getTimeSpanInNanos(timeOutInMs)
+}
+
 @Suppress("UNCHECKED_CAST")
-internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
-    val steps = events
+internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? =
+    computeInteractionTimeSpanInNanos(
+        events = events,
+        timeOutInMs = timeOutInMs,
+        errorType = InteractionErrorType.fromCode(errorTypeCode),
+    )
+
+internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
+    val steps = this
     if (steps.isEmpty()) {
-        PulseOtelUtils.logError(
+        PulseLogger.logError(
             tag = InteractionConstant.LOG_TAG,
             throwable = IllegalStateException("getTimeSpanInNanos: Events size is 0)"),
         ) {
@@ -297,6 +372,14 @@ internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>
     }
     return steps.first().timeInNano to steps.last().timeInNano
 }
+
+internal fun List<InteractionLocalEvent>.getEventsBetween(
+    startInNanoInclusive: Long,
+    endInNanoInclusive: Long,
+): List<InteractionLocalEvent> =
+    this.filter {
+        it.timeInNano in startInNanoInclusive..endInNanoInclusive
+    }
 
 public fun Interaction.getTimeSpanInNanos(interactionStatus: InteractionRunningStatus.OngoingMatch): Pair<Long, Long>? =
     this.getTimeSpanInNanos(timeOutInMs = interactionStatus.interactionConfig.thresholdInMs)
@@ -322,3 +405,9 @@ public val Interaction.isErrored: Boolean
                 ?: error("InteractionConstant.IS_ERROR is missing or not of correct type")
         return isError
     }
+
+public val Interaction.errorTypeCode: String?
+    get() = props[InteractionConstant.ERROR_TYPE] as? String
+
+public val Interaction.errorMessage: String?
+    get() = props[InteractionConstant.ERROR_MESSAGE] as? String

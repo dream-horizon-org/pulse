@@ -33,7 +33,6 @@ class RcaStructuredSegmentV1(BaseModel):
     rank: int = Field(ge=1, description="1-based rank among segments")
     title: str
     metrics: list[RcaStructuredMetricRowV1]
-    impact: str | None = None
     insights: str | None = None
     affected_sessions: list[str] | None = None
 

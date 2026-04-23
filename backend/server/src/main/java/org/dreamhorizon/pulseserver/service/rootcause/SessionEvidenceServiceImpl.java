@@ -59,8 +59,13 @@ public class SessionEvidenceServiceImpl implements SessionEvidenceService {
         .doOnSuccess(response -> 
             log.info("ClickHouse returned response for session evidence"))
         .map(this::parseSessionEvidenceResponse)
-        .doOnSuccess(result ->
-            log.info("Parsed session evidence result: {} sessions", result.getSessions().size()))
+        .doOnSuccess(result -> {
+            log.info("Parsed session evidence result: {} sessions", result.getSessions().size());
+            if (!result.getSessions().isEmpty()) {
+              log.info("Session IDs: {}", 
+                  result.getSessions().stream().map(s -> s.getSessionId()).toList());
+            }
+        })
         .onErrorResumeNext(
             error -> {
               log.error(

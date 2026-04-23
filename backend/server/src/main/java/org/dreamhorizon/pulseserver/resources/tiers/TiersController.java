@@ -11,6 +11,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.tiers.models.TierPublicListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tiers.models.TierPublicRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -27,6 +28,7 @@ import org.dreamhorizon.pulseserver.service.tier.TierService;
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Path("/v1/tiers")
+@RequiresPermission("can_view")
 public class TiersController {
 
   private static final TierMapper mapper = TierMapper.INSTANCE;

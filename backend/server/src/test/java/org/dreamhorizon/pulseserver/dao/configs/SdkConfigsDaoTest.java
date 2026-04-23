@@ -14,7 +14,6 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.PropertyKind;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.PreparedQuery;
-import io.vertx.rxjava3.sqlclient.PropertyKind;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowIterator;
 import io.vertx.rxjava3.sqlclient.RowSet;
@@ -29,14 +28,13 @@ import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterConfig;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 import org.dreamhorizon.pulseserver.tenant.Tenant;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
-import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
+import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -80,7 +78,7 @@ class SdkConfigsDaoTest {
 
   @BeforeEach
   void setUp() {
-    objectMapper = new ObjectMapperUtil();
+    objectMapper = new ObjectMapperUtil(ObjectMapperFactory.get());
     sdkConfigsDao = new SdkConfigsDao(d11MysqlClient, objectMapper);
     TenantContext.setTenant(Tenant.builder()
         .tenantId("test")
@@ -104,7 +102,7 @@ class SdkConfigsDaoTest {
       // Given
       long version = 1L;
       String configJson =
-          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+          "{\"sampling\":{},\"signals\":{\"scheduleDurationMs\":5000},\"interaction\":{},\"features\":[]}";
       String description = "Test Config";
 
       Row mockRow = mock(Row.class);
@@ -147,7 +145,7 @@ class SdkConfigsDaoTest {
       // Given
       long version = 1L;
       String configJson =
-          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+          "{\"sampling\":{},\"signals\":{\"scheduleDurationMs\":5000},\"interaction\":{},\"features\":[]}";
 
       Row mockRow = mock(Row.class);
       when(mockRow.getValue("config_json")).thenReturn(configJson);
@@ -222,11 +220,11 @@ class SdkConfigsDaoTest {
   class TestGetLatestConfig {
 
     @Test
-    void shouldGetLatestConfigWithBlacklistMode() {
+    void shouldGetLatestConfigWithSignalsScheduleDuration() {
       // Given
       long version = 5L;
       String configJson =
-          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+          "{\"sampling\":{},\"signals\":{\"scheduleDurationMs\":5000},\"interaction\":{},\"features\":[]}";
       String description = "Latest Config";
 
       // Mock for GET_LATEST_VERSION query
@@ -266,15 +264,15 @@ class SdkConfigsDaoTest {
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getSignals().getFilters().getMode()).isEqualTo(FilterMode.blacklist);
+      assertThat(result.getSignals().getScheduleDurationMs()).isEqualTo(5000);
     }
 
     @Test
-    void shouldGetLatestConfigWithWhitelistMode() {
+    void shouldGetLatestConfigWithDifferentScheduleDuration() {
       // Given
       long version = 5L;
       String configJson =
-          "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
+          "{\"sampling\":{},\"signals\":{\"scheduleDurationMs\":10000},\"interaction\":{},\"features\":[]}";
       String description = "Latest Config";
 
       Row versionRow = mock(Row.class);
@@ -312,7 +310,7 @@ class SdkConfigsDaoTest {
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getSignals().getFilters().getMode()).isEqualTo(FilterMode.whitelist);
+      assertThat(result.getSignals().getScheduleDurationMs()).isEqualTo(10000);
     }
 
     @Test
@@ -357,52 +355,8 @@ class SdkConfigsDaoTest {
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getSignals().getFilters()).isNull();
-    }
-
-    @Test
-    void shouldGetLatestConfigWithNullFilterMode() {
-      // Given
-      long version = 5L;
-      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"values\":[]}},\"interaction\":{},\"features\":[]}";
-      String description = "Config With Null Mode";
-
-      Row versionRow = mock(Row.class);
-      when(versionRow.getValue("version")).thenReturn(version);
-
-      RowSet<Row> versionRowSet = mock(RowSet.class);
-      when(versionRowSet.size()).thenReturn(1);
-      RowIterator<Row> versionIterator = mock(RowIterator.class);
-      when(versionRowSet.iterator()).thenReturn(versionIterator);
-      when(versionIterator.next()).thenReturn(versionRow);
-
-      Row configRow = mock(Row.class);
-      when(configRow.getValue("config_json")).thenReturn(configJson);
-      when(configRow.getValue("version")).thenReturn(version);
-      when(configRow.getValue("description")).thenReturn(description);
-
-      RowSet<Row> configRowSet = mock(RowSet.class);
-      when(configRowSet.size()).thenReturn(1);
-      RowIterator<Row> configIterator = mock(RowIterator.class);
-      when(configRowSet.iterator()).thenReturn(configIterator);
-      when(configIterator.next()).thenReturn(configRow);
-
-      PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
-      PreparedQuery<RowSet<Row>> configByVersionQuery = mock(PreparedQuery.class);
-
-      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
-      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
-      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(versionRowSet));
-      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
-      when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
-
-      // When
-      PulseConfig result = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).blockingGet();
-
-      // Then
-      assertThat(result).isNotNull();
-      assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getSignals().getFilters().getMode()).isNull();
+      assertThat(result.getSignals()).isNotNull();
+      assertThat(result.getSignals().getScheduleDurationMs()).isEqualTo(0);
     }
 
     @Test
@@ -505,10 +459,6 @@ class SdkConfigsDaoTest {
               .metricCollectorUrl("http://metrics.example.com")
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
-              .filters(FilterConfig.builder()
-                  .mode(FilterMode.blacklist)
-                  .values(List.of())
-                  .build())
               .build())
           .interaction(InteractionConfig.builder()
               .collectorUrl("http://interaction.example.com")
@@ -575,7 +525,7 @@ class SdkConfigsDaoTest {
           .user("test_user")
           .sampling(SamplingConfig.builder().build())
           .signals(SignalsConfig.builder()
-              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .scheduleDurationMs(5000)
               .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())
@@ -627,7 +577,7 @@ class SdkConfigsDaoTest {
           .user("test_user")
           .sampling(SamplingConfig.builder().build())
           .signals(SignalsConfig.builder()
-              .filters(FilterConfig.builder().mode(FilterMode.whitelist).values(List.of()).build())
+              .scheduleDurationMs(5000)
               .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())
@@ -678,7 +628,7 @@ class SdkConfigsDaoTest {
           .user("test_user")
           .sampling(SamplingConfig.builder().build())
           .signals(SignalsConfig.builder()
-              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .scheduleDurationMs(5000)
               .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())
@@ -725,7 +675,7 @@ class SdkConfigsDaoTest {
           .user("test_user")
           .sampling(SamplingConfig.builder().build())
           .signals(SignalsConfig.builder()
-              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .scheduleDurationMs(5000)
               .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())
@@ -945,7 +895,7 @@ class SdkConfigsDaoTest {
           .user("admin")
           .sampling(SamplingConfig.builder().build())
           .signals(SignalsConfig.builder()
-              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .scheduleDurationMs(5000)
               .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())

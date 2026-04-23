@@ -18,6 +18,11 @@ import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import { getMetricValueTone } from "./rcaMetricTone";
 import rcaClasses from "./RcaReportView.module.css";
 import rootCauseClasses from "./RootCause.module.css";
+import { RcaRelatedHeatmapCard } from "./RcaRelatedHeatmapCard";
+import { RcaSessionReplayEvidenceCard } from "./RcaSessionReplayEvidenceCard";
+
+/** Max heatmap tiles per segment (evidence strip). */
+const HEATMAP_EVIDENCE_MAX = 2;
 
 const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
   const tone = getMetricValueTone(
@@ -85,10 +90,12 @@ const RcaStructuredReportV1View = ({
   structured,
   cachedAt,
   onRegenerate,
+  projectId,
 }: {
   structured: RcaStructuredReportV1;
   cachedAt?: string | null;
   onRegenerate?: () => void;
+  projectId?: string | null;
 }) => {
   const executiveSummaryText = structured.executive_summary?.trim() ?? "";
   const hasExecutiveSummary = executiveSummaryText !== "";
@@ -102,6 +109,8 @@ const RcaStructuredReportV1View = ({
 
   const hasRegenerate = typeof onRegenerate === "function";
   const showAsOf = cachedAt != null && cachedAt !== "";
+  const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
+  const hasProjectForHeatmaps = trimmedProjectId !== "";
 
   return (
     <Box className={rootCauseClasses.container}>
@@ -175,6 +184,26 @@ const RcaStructuredReportV1View = ({
                   const insightsText = segment.insights?.trim() ?? "";
                   const hasInsights = insightsText !== "";
                   const metrics = segment.metrics ?? [];
+                  const sessionIds = (segment.affected_sessions ?? []).filter(
+                    (id) => String(id).trim() !== "",
+                  );
+                  const heatmapScreensRaw = (
+                    segment.related_heatmaps?.screens ?? []
+                  )
+                    .map((s) => String(s).trim())
+                    .filter((s) => s !== "");
+                  const heatmapScreens = heatmapScreensRaw.slice(
+                    0,
+                    HEATMAP_EVIDENCE_MAX,
+                  );
+                  const heatmapFilters =
+                    segment.related_heatmaps?.heatmap_filters;
+                  const heatmapCards =
+                    hasProjectForHeatmaps && heatmapScreens.length > 0;
+                  const evidenceCount =
+                    sessionIds.length +
+                    (heatmapCards ? heatmapScreens.length : 0);
+                  const showEvidenceStrip = evidenceCount > 0;
                   return (
                     <Card
                       key={`rca-segment-${rank}-${segment.title}-${index}`}
@@ -297,43 +326,56 @@ const RcaStructuredReportV1View = ({
                           </Text>
                         </div>
                       )}
-                      {/* TODO: Fix session evidence mapping - temporarily disabled pending backend verification */}
-                      {/* {segment.affected_sessions &&
-                        segment.affected_sessions.length > 0 && (
-                          <Box
-                            mt="md"
-                            pt="md"
-                            style={{
-                              borderTop:
-                                "1px solid var(--mantine-color-gray-2)",
-                            }}
-                          >
-                            <Text size="xs" fw={600} c="dimmed" mb="md">
-                              Related Session Replays
-                            </Text>
-                            <SimpleGrid
-                              cols={{
-                                base: 1,
-                                sm: 2,
-                                md: 2,
-                              }}
-                              spacing="sm"
+                      {showEvidenceStrip ? (
+                        <Box className={rcaClasses.evidenceSection}>
+                          <div className={rcaClasses.evidenceSectionTitleRow}>
+                            <Text
+                              className={rcaClasses.evidenceTitle}
+                              fw={700}
+                              size="sm"
+                              tt="uppercase"
                             >
-                              {segment.affected_sessions.map((sessionId) => (
-                                <SessionCard
-                                  key={sessionId}
+                              Evidence
+                            </Text>
+                            <Badge
+                              size="sm"
+                              variant="light"
+                              color="teal"
+                              circle
+                              className={rcaClasses.evidenceCountBadge}
+                            >
+                              {evidenceCount}
+                            </Badge>
+                          </div>
+                          <Box className={rcaClasses.evidenceCardRow}>
+                            {sessionIds.map((sessionId, sessionIdx) => (
+                              <Box
+                                key={sessionId}
+                                className={rcaClasses.evidenceCardSlot}
+                              >
+                                <RcaSessionReplayEvidenceCard
                                   sessionId={sessionId}
-                                  onNavigate={(id) => {
-                                    window.open(
-                                      `/session-replay/${id}`,
-                                      "_blank",
-                                    );
-                                  }}
+                                  segmentTitle={segment.title}
+                                  projectId={trimmedProjectId || null}
+                                  evidenceOrdinal={sessionIdx + 1}
+                                  evidenceSessionCount={sessionIds.length}
                                 />
-                              ))}
-                            </SimpleGrid>
+                              </Box>
+                            ))}
+                            {heatmapCards
+                              ? heatmapScreens.map((screen) => (
+                                  <RcaRelatedHeatmapCard
+                                    key={`heatmap-${rank}-${screen}`}
+                                    projectId={trimmedProjectId}
+                                    screenName={screen}
+                                    segmentTitle={segment.title}
+                                    heatmapFilters={heatmapFilters}
+                                  />
+                                ))
+                              : null}
                           </Box>
-                        )} */}
+                        </Box>
+                      ) : null}
                     </Card>
                   );
                 })}
@@ -377,6 +419,7 @@ export const RcaReportView = ({
   report,
   cachedAt,
   onRegenerate,
+  projectId,
 }: RcaReportViewProps) => {
   const structured = report.structured;
   const isValidStructured = structured != null && structured.version === 1;
@@ -402,6 +445,7 @@ export const RcaReportView = ({
       structured={structured}
       cachedAt={cachedAt}
       onRegenerate={onRegenerate}
+      projectId={projectId}
     />
   );
 };

@@ -119,6 +119,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               url: `${API_BASE_URL}${API_ROUTES.GET_PROJECT.apiPath.replace(":projectId", targetProjectId)}`,
               init: {
                 method: API_ROUTES.GET_PROJECT.method,
+                headers: {
+                  // Same as useGetProject: bootstrap fetch runs before pulse_project_context exists.
+                  "X-Project-ID": targetProjectId,
+                },
               },
             }),
           // Force fresh fetch - don't use stale cache
@@ -147,6 +151,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
         // Invalidate all project-related queries to ensure fresh data
         queryClient.invalidateQueries({ queryKey: ["project"] });
+
+        // Invalidate SDK config caches so consumers get fresh data for this project
+        queryClient.invalidateQueries({
+          queryKey: [API_ROUTES.GET_ACTIVE_SDK_CONFIG.key],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [API_ROUTES.GET_ALL_SDK_CONFIGS.key],
+        });
 
         // Determine what route we're currently on and where we should go
         const currentPath = location.pathname;

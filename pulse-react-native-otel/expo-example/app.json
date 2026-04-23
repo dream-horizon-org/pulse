@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "expo-example",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -20,37 +21,77 @@
       "package": "com.example.expoexample"
     },
     "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
+      ],
+      "./plugins/withPulseKitLocalPod",
       "./plugins/withMavenLocal",
       [
         "@dreamhorizonorg/pulse-react-native",
         {
-          "endpointBaseUrl": "http://10.0.2.2:4318",
-          "apiKey": "project-123",
-          "endpointHeaders": {
-            "Header": "Value"
-          },
-          "globalAttributes": {
-            "string": "value",
-            "numberFloatNegative": -9.05,
-            "boolean": true,
-            "emptyString": "",
-            "emptyArray": [],
-            "stringArray": ["a", "b", "c"],
-            "numberArrayMixed": [1, 2.5, 3],
-            "booleanArray": [true, false, true],
-            "null": null
-          },
-          "instrumentation": {
-            "interaction": {
-              "url": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
-              "enabled": true
+          "apiKey": "default-project_devkey01",
+          "dataCollectionState": "ALLOWED",
+          "android": {
+            "globalAttributes": {
+              "string": "value",
+              "numberFloatNegative": -9.05,
+              "boolean": true,
+              "emptyString": "",
+              "emptyArray": [],
+              "stringArray": ["a", "b", "c"],
+              "numberArrayMixed": [1, 2.5, 3],
+              "booleanArray": [true, false, true],
+              "null": null,
+              "platform": "android"
             },
-            "activity": true,
-            "network": true,
-            "anr": false,
-            "crash": true,
-            "slowRendering": false,
-            "fragment": true
+            "instrumentation": {
+              "interaction": { "enabled": true },
+              "activity": { "enabled": true },
+              "network": { "enabled": true },
+              "anr": { "enabled": false },
+              "crash": { "enabled": true },
+              "slowRendering": { "enabled": false },
+              "fragment": { "enabled": true }
+            },
+            "coreLibraryDesugaring": {
+              "enabled": true
+            }
+          },
+          "ios": {
+            "instrumentation": {
+              "urlSession": { "enabled": true },
+              "sessions": { "enabled": true },
+              "interaction": { "enabled": true },
+              "location": { "enabled": true },
+              "crash": { "enabled": true },
+              "appLifecycle": { "enabled": true },
+              "screenLifecycle": { "enabled": true },
+              "appStartup": { "enabled": true },
+              "uiKitTap": { "enabled": true, "captureContext": true }
+            },
+            "configuration": {
+              "includeScreenAttributes": true,
+              "includeNetworkAttributes": true,
+              "includeGlobalAttributes": true
+            },
+            "globalAttributes": {
+              "string": "value",
+              "numberFloatNegative": -9.05,
+              "boolean": true,
+              "emptyString": "",
+              "emptyArray": [],
+              "stringArray": ["a", "b", "c"],
+              "numberArrayMixed": [1, 2.5, 3],
+              "booleanArray": [true, false, true],
+              "null": null,
+              "platform": "ios"
+            }
           }
         }
       ]
