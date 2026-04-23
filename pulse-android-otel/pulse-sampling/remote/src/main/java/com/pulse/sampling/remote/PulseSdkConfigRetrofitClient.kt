@@ -1,7 +1,7 @@
 package com.pulse.sampling.remote
 
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseNetworkingUtils
-import com.pulse.utils.PulseOtelUtils
 import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.serialization.json.Json
 import okhttp3.Call
@@ -31,7 +31,7 @@ public class PulseSdkConfigRetrofitClient(
     }
 
     private fun buildOkHttpClient(): OkHttpClient =
-        if (okhttpClient.cache != null && PulseOtelUtils.isDebug()) {
+        if (okhttpClient.cache != null) {
             val builder = okhttpClient.newBuilder()
             builder.eventListener(
                 object : EventListener() {
@@ -40,8 +40,8 @@ public class PulseSdkConfigRetrofitClient(
                         cachedResponse: Response,
                     ) {
                         super.cacheConditionalHit(call, cachedResponse)
-                        PulseOtelUtils.logDebug(TAG) {
-                            "checking cache for url = ${call.request().url}"
+                        PulseLogger.logDebug(TAG) {
+                            "checking cache for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }
 
@@ -50,15 +50,15 @@ public class PulseSdkConfigRetrofitClient(
                         response: Response,
                     ) {
                         super.cacheHit(call, response)
-                        PulseOtelUtils.logDebug(TAG) {
-                            "cacheHit for url = ${call.request().url}"
+                        PulseLogger.logDebug(TAG) {
+                            "cacheHit for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }
 
                     override fun cacheMiss(call: Call) {
                         super.cacheMiss(call)
-                        PulseOtelUtils.logDebug(TAG) {
-                            "cacheMiss for url = ${call.request().url}"
+                        PulseLogger.logDebug(TAG) {
+                            "cacheMiss for url = ${PulseNetworkingUtils.redactUrl(call.request().url.toString())}"
                         }
                     }
                 },

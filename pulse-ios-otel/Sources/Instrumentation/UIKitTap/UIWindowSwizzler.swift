@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 #if os(iOS) || os(tvOS)
 import UIKit
 import ObjectiveC
@@ -31,10 +34,10 @@ internal class UIWindowSwizzler {
     // its start position, it is treated as a scroll/pan and NOT reported as a tap.
     private static let tapSlopDistance: CGFloat = 10
 
-    /// One line per view while walking superviews: `isClickTarget` result (grep Xcode console for `Pulse/UIKitTap`).
+    /// One line per view while walking superviews: `isClickTarget` result (grep Console for subsystem `com.pulse.sdk`, category `PulseSDK`).
     private static func logIsClickTarget(depth: Int, view: UIView, result: Bool) {
         let cls = NSStringFromClass(type(of: view))
-        print("[Pulse UIKitTap] isClickTarget depth=\(depth) class=\(cls) -> \(result)")
+        PulseLogger.verbose("[UIKitTap] isClickTarget depth=\(depth) class=\(cls) -> \(result)")
     }
 
     static func swizzle(logger: OpenTelemetryApi.Logger, captureContext: Bool, rageConfig: RageConfig) {
@@ -51,10 +54,10 @@ internal class UIWindowSwizzler {
             onRage: { emitter?.emitRageClick($0) },
             onEmit: { [weak emitter] click in
                 if click.hasTarget {
-                    print("[Pulse UIKitTap] emit good click (buffer delivered) x=\(click.x) y=\(click.y)")
+                    PulseLogger.debug("[UIKitTap] emit good click (buffer delivered) x=\(click.x) y=\(click.y)")
                     emitter?.emitGoodClick(click)
                 } else {
-                    print("[Pulse UIKitTap] emit dead click (buffer delivered, no click target) x=\(click.x) y=\(click.y)")
+                    PulseLogger.debug("[UIKitTap] emit dead click (buffer delivered, no click target) x=\(click.x) y=\(click.y)")
                     emitter?.emitDeadClick(click)
                 }
             }
@@ -139,9 +142,9 @@ internal class UIWindowSwizzler {
             viewportHeightPt: Int(window.bounds.height)
         )
 
-        // `onEmit` (good/dead otel) runs later when the buffer evicts or flushes — log now so Xcode console matches this touch.
+        // `onEmit` (good/dead otel) runs later when the buffer evicts or flushes — log now so console matches this touch.
         let kind = pending.hasTarget ? "good" : "dead"
-        print("[Pulse UIKitTap] record click (will emit \(kind)) x=\(pending.x) y=\(pending.y) hasTarget=\(pending.hasTarget)")
+        PulseLogger.debug("[UIKitTap] record click (will emit \(kind)) x=\(pending.x) y=\(pending.y) hasTarget=\(pending.hasTarget)")
 
         buffer?.record(pending)
     }

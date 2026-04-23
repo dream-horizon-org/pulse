@@ -49,7 +49,7 @@ public enum PulseMockConfigProvider {
                 customEventCollectorUrl: "http://127.0.0.1:4318/v1/logs",
                 attributesToDrop: [],
                 attributesToAdd: [],
-                metricsToAdd: makeMockMetricsToAdd(activeCase: active),
+                metricsToAdd: makeMockMetricsToAdd(activeCase: active)
             ),
             interaction: PulseInteractionConfig(
                 collectorUrl: "http://127.0.0.1:8080/v1/interaction-configs/",

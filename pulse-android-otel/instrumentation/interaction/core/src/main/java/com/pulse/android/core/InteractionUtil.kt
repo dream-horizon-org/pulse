@@ -3,7 +3,7 @@ package com.pulse.android.core
 import com.pulse.android.remote.models.InteractionAttrsEntry
 import com.pulse.android.remote.models.InteractionConfig
 import com.pulse.android.remote.models.InteractionEvent
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import java.util.Locale
 
 internal data class InteractionBuildError(
@@ -39,13 +39,13 @@ internal object InteractionUtil {
         }
 
         var newInteractionStatus: MatchResult? = null
-        logDebug { "localEvents = ${localEvents.joinToString { it.name }}" }
+        logVerbose { "localEvents = ${localEvents.joinToString { it.name }}" }
         var localEventIndex = 0
         while (localEventIndex < localEvents.size) {
             val localEvent = localEvents[localEventIndex]
 
             if (isMatchOnGoing && localEvent matchesAny interactionConfig.globalBlacklistedEvents) {
-                logDebug { "blacklisted event(${localEvent.name}) found" }
+                logVerbose { "blacklisted event(${localEvent.name}) found" }
                 return MatchResult(
                     shouldTakeFirstEvent = false,
                     shouldResetList = true,
@@ -55,12 +55,12 @@ internal object InteractionUtil {
 
             val configEvent = interactionConfig.events[configEventIndex]
 
-            logDebug { "localEvent:${localEvent.name} from localEventIndex = $localEventIndex," }
+            logVerbose { "localEvent:${localEvent.name} from localEventIndex = $localEventIndex," }
             val isMatch = localEvent matches configEvent
             newInteractionStatus =
                 if (isMatch) {
                     if (configEvent.isBlacklisted) {
-                        logDebug { "localEvent:${localEvent.name} is blacklisted" }
+                        logVerbose { "localEvent:${localEvent.name} is blacklisted" }
                         MatchResult(
                             shouldTakeFirstEvent = false,
                             shouldResetList = true,
@@ -69,14 +69,14 @@ internal object InteractionUtil {
                     } else {
                         stepWiseTimeInNano.add(localEvent)
                         configEventIndex++
-                        logDebug {
+                        logVerbose {
                             "localEvent:${localEvent.name} is match and not a blacklisted match, " +
                                 "matched at index = ${configEventIndex - 1}, " +
                                 "config(w/o blacklisted) = ${interactionConfig.eventsSize}"
                         }
 
                         if (configEventIndex == interactionConfig.eventsSize) {
-                            logDebug { "localEvent:${localEvent.name} is final match" }
+                            logVerbose { "localEvent:${localEvent.name} is final match" }
                             isMatchOnGoing = false
                             MatchResult(
                                 shouldTakeFirstEvent = false,
@@ -314,8 +314,8 @@ internal object InteractionUtil {
     )
 }
 
-internal inline fun logDebug(body: () -> String) {
-    PulseOtelUtils.logDebug(InteractionConstant.LOG_TAG, body)
+internal inline fun logVerbose(body: () -> String) {
+    PulseLogger.logVerbose(InteractionConstant.LOG_TAG, body)
 }
 
 /**
@@ -359,7 +359,7 @@ internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>
 internal fun List<InteractionLocalEvent>.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
     val steps = this
     if (steps.isEmpty()) {
-        PulseOtelUtils.logError(
+        PulseLogger.logError(
             tag = InteractionConstant.LOG_TAG,
             throwable = IllegalStateException("getTimeSpanInNanos: Events size is 0)"),
         ) {

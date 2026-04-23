@@ -5,7 +5,7 @@ package com.pulse.android.sdk.replay
  * - [MASK_TAG]: mask this view (e.g. tag = "pulse-mask" or contentDescription contains it).
  * - [UNMASK_TAG]: do not mask this view, override global config.
  *
- * [REPLAY_LOG_TAG]: tag for PulseOtelUtils logging (logcat filter: PulseSessionReplay).
+ * [REPLAY_LOG_TAG]: tag for PulseLogger logging (logcat filter: PulseSessionReplay).
  */
 public object ReplayConstants {
     public const val MASK_TAG: String = "pulse-mask"

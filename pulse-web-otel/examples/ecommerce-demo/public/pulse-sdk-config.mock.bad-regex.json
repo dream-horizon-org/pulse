@@ -1,0 +1,130 @@
+{
+  "version": 103,
+  "description": "Manual invalid-regex edge: condition.name is invalid RegExp (e.g. unclosed '['). safeRegex() falls back to literal — does not match normal log bodies / span names. Expect session.start, trackEvent, etc. still in OTLP; OTEL diag may warn. Do not use WHITELIST with only a broken rule (nothing matches list → all dropped by design). Path: VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.bad-regex.json",
+  "sampling": {
+    "default": { "sessionSampleRate": 1 },
+    "rules": [],
+    "signalsToSample": [
+      {
+        "sampleRate": 0,
+        "condition": {
+          "name": "[unclosed-bracket-is-invalid-regex",
+          "props": [],
+          "scopes": ["logs", "traces"],
+          "sdks": ["pulse_web_js"]
+        }
+      }
+    ],
+    "criticalSessionPolicies": { "alwaysSend": [] }
+  },
+  "signals": {
+    "scheduleDurationMs": 5000,
+    "attributesToDrop": [],
+    "attributesToAdd": [],
+    "filters": {
+      "mode": "BLACKLIST",
+      "values": [
+        {
+          "name": "[also-invalid-for-name-regex",
+          "props": [],
+          "scopes": ["logs", "traces"],
+          "sdks": ["pulse_web_js"]
+        }
+      ]
+    },
+    "metricsToAdd": []
+  },
+  "interaction": { "beforeInitQueueSize": 5000 },
+  "features": [
+    {
+      "featureName": "session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "js_crash",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "custom_events",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "click",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_instrumentation",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "web_vitals",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "screen_session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "long_task",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "visibility",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "interaction",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "session_replay",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_change",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "resource_timing",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "websocket",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "bfcache",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    }
+  ]
+}

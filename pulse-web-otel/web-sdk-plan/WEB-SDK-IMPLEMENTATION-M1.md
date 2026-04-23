@@ -119,7 +119,7 @@ Web picks the first `sampling.rules[]` entry whose `sdks` includes `pulse_web_js
 
 ### Critical policies — Android audit
 
-`criticalSessionPolicies` / `criticalEventPolicies` appear on Android’s **remote JSON model** (`PulseSamplingConfig.kt`). In-repo **`PulseSamplingSignalProcessors.sampleSession` does not read `alwaysSend` / critical policies** on the sampled export path. The **Web** SDK applies `alwaysSend` in `ExportSamplingGate` as a **session bypass** — document as a deliberate delta until Android wires the same behavior.
+`criticalSessionPolicies` (same key on pulse-server `SamplingConfig` and Android `PulseSamplingConfig`) supplies `alwaysSend`. In-repo **`PulseSamplingSignalProcessors.sampleSession` does not read `alwaysSend` / critical policies** on the sampled export path. The **Web** SDK applies `alwaysSend` in `ExportSamplingGate` as a **session bypass** — document as a deliberate delta until Android wires the same behavior.
 
 ---
 
@@ -168,7 +168,7 @@ Web picks the first `sampling.rules[]` entry whose `sdks` includes `pulse_web_js
 | Singleton guard                | `PulseWebSDK.getInstance()` — `start()` is a no-op if already initialized. Handles React StrictMode double-invoke.                                                                     |
 | Config validation              | `validateConfig()` throws on missing `endpointBaseUrl`, `apiKey`, `serviceName`                                                                                                        |
 | Consent gate                   | `PulseDataCollectionConsent.DENIED` or `PENDING` → zero signals, zero network calls                                                                                                    |
-| Disk buffering (opt-in)        | `diskBuffering.enabled` → async `drainBufferedOtlpExports()` replays IndexedDB rows against `/v1/*`, then normal init (`finishStart`). Shared `IdbSignalBuffer` passed into exporters. |
+| Disk buffering (default on)  | Matches Android OTel default: buffering **on** unless `diskBuffering.enabled: false`. `drainBufferedOtlpExports()` replays IndexedDB rows against `/v1/*` before normal init (`finishStart`). Shared `IdbSignalBuffer` passed into exporters. |
 | Init sequence                  | Validate → consent → (optional drain) → session → install ID → resource → remote config → processors → providers → instruments → background fetch → `sdk.init` + first-install log     |
 | Metering session ID            | `crypto.randomUUID()` — stable UUID per page load, sent as `X-Pulse-Metering-Session-ID` on every OTLP request (mirrors Android)                                                       |
 | `sdk.init` span                | Short-lived span on every successful init — `pulse.type` = SDK init (`semconv`); used as pipeline heartbeat in M1 exit criteria (naming differs from literal string “heartbeat”)          |
@@ -255,7 +255,7 @@ Exports use **custom browser classes** (`PulseBrowserTraceExporter`, `PulseBrows
 
 `window` `pagehide` (`persisted=false`) registers `forceFlush()` on trace, log, and meter providers inside `createProviders()`.
 
-**Disk buffering (`config.diskBuffering`):** When `enabled`, failed export payloads are stored in IndexedDB (`src/persistence/indexed-db.ts`). On the next `start()`, `drainBufferedOtlpExports` (`src/persistence/drain-buffered-exports.ts`) replays stored envelopes with `**fetch`** (separate from live-export XHR), then deletes rows on HTTP 2xx. Optional `maxSizeBytes` / `maxAgeMs` prune the store.
+**Disk buffering (`config.diskBuffering`):** **On by default** (Android parity). Failed export payloads are stored in IndexedDB (`src/persistence/indexed-db.ts`) unless `enabled: false`. On the next `start()`, `drainBufferedOtlpExports` (`src/persistence/drain-buffered-exports.ts`) replays stored envelopes with `**fetch`** (separate from live-export XHR), then deletes rows on HTTP 2xx. Optional `maxCacheSizeBytes` / `maxAgeMs` prune the store.
 
 ### 6. Remote Config (`src/remote-config.ts`)
 

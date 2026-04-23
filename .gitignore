@@ -23,4 +23,8 @@ lib/
 terraform.rc
 env.json
 
-docs/
+docs/api
+docs/architecture
+graphify-out/
+CLAUDE.md
+backend/server/src/test/graphify-out/

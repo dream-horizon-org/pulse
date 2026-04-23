@@ -3,9 +3,9 @@
  * before React mounts so {@code SdkConfigFetcher.loadCached()} and export gates
  * see the same config as Playwright {@code seedPulseSdkConfig}.
  *
- * {@code configEndpointUrl} in App.tsx should point at the same file so
- * {@code fetchInBackground} can refresh version without overwriting with a
- * different server (still does not rebuild gates mid-session).
+ * Background refresh still calls the real {@code /v1/configs/active/} URL
+ * (gates are not rebuilt mid-session). For strict mock-only fetches, block
+ * that route in Playwright or accept a one-time server merge into localStorage.
  */
 
 const STORAGE_KEY = "pulse_sdk_config";
