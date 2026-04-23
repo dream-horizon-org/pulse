@@ -23,6 +23,14 @@ export interface InstrumentationConfig {
   sessionReplay?: { enabled: boolean };
 }
 
+/** @see `PulseWebDiskBufferingConfig` in config.ts — duplicated for doc parity with Android. */
+export interface PulseWebDiskBufferingConfig {
+  /** Default true (matches Android OTel RUM disk spec default). */
+  enabled?: boolean;
+  maxAgeMs?: number;
+  maxCacheSizeBytes?: number;
+}
+
 export interface PulseWebConfig {
   // Required — same as Android
   apiKey: string;
@@ -55,4 +63,6 @@ export interface PulseWebConfig {
    * Leave false (or omit) in production.
    */
   debugLogRecordLifecycle?: boolean;
+
+  diskBuffering?: PulseWebDiskBufferingConfig;
 }

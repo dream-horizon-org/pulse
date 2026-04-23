@@ -22,7 +22,7 @@ export const PULSE_SDK_CONFIG_STORAGE_KEY = "pulse_sdk_config";
 export const MINIMAL_SIGNAL_SCHEDULE_DURATION_MS = 5000;
 
 /**
- * WHITELIST entries so the ecommerce demo can boot and emit core lifecycle + sdk.init when
+ * WHITELIST entries so the ecommerce demo can boot and emit core lifecycle logs when
  * {@code signals.filters.mode} is {@code WHITELIST}. Keep in sync with demo-required signals.
  */
 export function demoE2eWhitelistFilterValues(): Array<{
@@ -45,9 +45,9 @@ export function demoE2eWhitelistFilterValues(): Array<{
       sdks: ["pulse_web_js"],
     },
     {
-      name: "^sdk\\.init$",
+      name: "^rum\\.sdk\\.init\\.",
       props: [],
-      scopes: ["traces"],
+      scopes: ["logs"],
       sdks: ["pulse_web_js"],
     },
   ];

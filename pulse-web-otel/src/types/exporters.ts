@@ -5,6 +5,7 @@ import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 
 import type { ExportSamplingGate } from "../sampling/export-sampling-gate";
 import type { PulseMetricsToAddEntry, PulseSdkName } from "./remote-config";
+import type { IdbSignalBuffer } from "../persistence/indexed-db";
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
@@ -26,6 +27,16 @@ export interface ExporterConfig {
    */
   metricsToAdd?: PulseMetricsToAddEntry[];
   metricsToAddSdkName?: PulseSdkName;
+
+  /**
+   * Failed OTLP payloads may persist via `IdbSignalBuffer` when `enabled` is not `false`
+   * (default-on, same as Android OTel disk spec). Omitted in tests that mock `createProviders` whole.
+   */
+  diskBuffering?: {
+    enabled: boolean;
+    maxAgeMs?: number;
+    maxCacheSizeBytes?: number;
+  };
 }
 
 export interface ProviderBundle {
@@ -34,4 +45,6 @@ export interface ProviderBundle {
   meterProvider: MeterProvider;
   /** Removes the pagehide listener registered by createProviders. Call in shutdown(). */
   cleanup: () => void;
+  /** Set when disk buffering is enabled — used for startup drain of prior-session rows. */
+  idbSignalBuffer?: IdbSignalBuffer;
 }

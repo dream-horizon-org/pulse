@@ -7,6 +7,7 @@ import type {
   PulseAttributesToDropEntry,
   PulseMetricsToAddEntry,
   PulseMetricsToAddTarget,
+  PulseSamplingConfig,
   PulseSdkConfig,
   PulseSignalMatchCondition,
   PulseSignalsToSampleEntry,
@@ -121,15 +122,17 @@ function normalizeAttributesToAdd(
   }));
 }
 
-/** Merge server JSON with defaults; normalize Android `criticalSessionPolicies` key. */
+/** Merge server JSON with defaults; normalizes `sampling.criticalSessionPolicies` (pulse-server / Android JSON key). */
 export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
   const samplingIn = raw.sampling ?? DEFAULT_SDK_CONFIG.sampling;
   const {
-    criticalSessionPolicies: _criticalSession,
-    criticalEventPolicies: _criticalEvent,
+    criticalSessionPolicies: _csp,
+    criticalEventPolicies: _legacyEventKey,
     ...samplingRest
-  } = samplingIn;
-  const criticalMerged = _criticalEvent ?? _criticalSession;
+  } = samplingIn as PulseSamplingConfig & {
+    criticalEventPolicies?: { alwaysSend?: PulseSignalMatchCondition[] };
+  };
+  void _legacyEventKey;
   const signalsIn = raw.signals ?? DEFAULT_SDK_CONFIG.signals;
   const filtersMerged = {
     ...DEFAULT_SDK_CONFIG.signals.filters,
@@ -152,10 +155,10 @@ export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
           condition: normalizeSignalMatchCondition(e.condition),
         }),
       ),
-      ...(criticalMerged
+      ...(_csp !== undefined
         ? {
-            criticalEventPolicies: {
-              alwaysSend: (criticalMerged.alwaysSend ?? []).map(
+            criticalSessionPolicies: {
+              alwaysSend: (_csp.alwaysSend ?? []).map(
                 normalizeSignalMatchCondition,
               ),
             },

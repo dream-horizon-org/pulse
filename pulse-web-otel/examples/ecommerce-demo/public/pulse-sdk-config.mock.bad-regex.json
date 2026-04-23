@@ -1,10 +1,20 @@
 {
-  "version": 102,
-  "description": "Manual WHITELIST: signals.filters mode WHITELIST with a single rule matching log body ^session\\.start$ only. session.end, trackEvent (custom_event), non_fatal, etc. are dropped at export. Use: VITE_PULSE_MOCK_SDK_CONFIG=true and VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.whitelist.json",
+  "version": 103,
+  "description": "Manual invalid-regex edge: condition.name is invalid RegExp (e.g. unclosed '['). safeRegex() falls back to literal — does not match normal log bodies / span names. Expect session.start, trackEvent, etc. still in OTLP; OTEL diag may warn. Do not use WHITELIST with only a broken rule (nothing matches list → all dropped by design). Path: VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.bad-regex.json",
   "sampling": {
     "default": { "sessionSampleRate": 1 },
     "rules": [],
-    "signalsToSample": [],
+    "signalsToSample": [
+      {
+        "sampleRate": 0,
+        "condition": {
+          "name": "[unclosed-bracket-is-invalid-regex",
+          "props": [],
+          "scopes": ["logs", "traces"],
+          "sdks": ["pulse_web_js"]
+        }
+      }
+    ],
     "criticalSessionPolicies": { "alwaysSend": [] }
   },
   "signals": {
@@ -12,24 +22,12 @@
     "attributesToDrop": [],
     "attributesToAdd": [],
     "filters": {
-      "mode": "WHITELIST",
+      "mode": "BLACKLIST",
       "values": [
         {
-          "name": "^session\\.start$",
+          "name": "[also-invalid-for-name-regex",
           "props": [],
-          "scopes": ["logs"],
-          "sdks": ["pulse_web_js"]
-        },
-        {
-          "name": "^session\\.end$",
-          "props": [],
-          "scopes": ["logs"],
-          "sdks": ["pulse_web_js"]
-        },
-        {
-          "name": ".*",
-          "props": [{ "key": "pulse\\.type", "value": "non_fatal" }],
-          "scopes": ["logs"],
+          "scopes": ["logs", "traces"],
           "sdks": ["pulse_web_js"]
         }
       ]
