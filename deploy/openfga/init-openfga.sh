@@ -195,6 +195,10 @@ write_tuple "user:mock-user-2" "member" "tenant:default"
 write_tuple "user:mock-user-1" "admin" "project:default-project"
 write_tuple "user:mock-user-2" "viewer" "project:default-project"
 
+# Seed a dev internal_viewer for local testing (cross-tenant read-only)
+write_tuple "user:dev-viewer@dreamhorizon.org" "internal_viewer" "system:pulse"
+echo "  ✓ Dev internal_viewer seeded (or already exists)"
+
 echo "  ✓ Mock user roles written (or already exist)"
 echo ""
 
