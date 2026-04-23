@@ -1,5 +1,6 @@
 import { PluginError } from '@expo/config-plugins';
 
+import { PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION } from './androidBuildConstants';
 import type {
   PulseAndroidBuildOptions,
   PulseDataCollectionState,
@@ -10,8 +11,6 @@ import type {
   ResolvedAndroidPulseProps,
   ResolvedIosPulseProps,
 } from './types';
-
-const DEFAULT_CORE_LIBRARY_DESUGAR_VERSION = '2.1.4';
 
 function parseConsent(value: unknown, label: string): PulseDataCollectionState {
   if (value === 'PENDING' || value === 'ALLOWED' || value === 'DENIED') {
@@ -130,7 +129,7 @@ export function resolveAndroidProps(
   const coreLibraryDesugarVersion =
     rawVersion && rawVersion.length > 0
       ? rawVersion
-      : DEFAULT_CORE_LIBRARY_DESUGAR_VERSION;
+      : PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION;
   return {
     ...merged,
     instrumentation: props.android?.instrumentation,
