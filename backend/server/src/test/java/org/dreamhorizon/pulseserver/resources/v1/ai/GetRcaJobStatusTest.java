@@ -88,7 +88,7 @@ class GetRcaJobStatusTest {
     @Test
     void shouldReturn404WhenInteractionNameIsNull() {
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus(null, null, null, "2025-06-01", "proj-1");
+          controller.peekRcaStatus(null, null, "2025-06-01", "proj-1");
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -97,7 +97,7 @@ class GetRcaJobStatusTest {
     @Test
     void shouldReturn404WhenInteractionNameIsBlank() {
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus(null, null, "   ", "2025-06-01", "proj-1");
+          controller.peekRcaStatus(null, "   ", "2025-06-01", "proj-1");
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -106,7 +106,7 @@ class GetRcaJobStatusTest {
     @Test
     void shouldReturn404WhenProjectIdIsNull() {
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus(null, null, "checkout", "2025-06-01", null);
+          controller.peekRcaStatus(null, "checkout", "2025-06-01", null);
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -115,7 +115,7 @@ class GetRcaJobStatusTest {
     @Test
     void shouldReturn404WhenProjectIdIsBlank() {
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus(null, null, "checkout", "2025-06-01", "  ");
+          controller.peekRcaStatus(null, "checkout", "2025-06-01", "  ");
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -130,7 +130,7 @@ class GetRcaJobStatusTest {
           .thenReturn(Maybe.just(jobResponse));
 
       Response<GetRcaJobResponse> response =
-          await(controller.peekRcaStatus(null, null, "checkout", "2025-06-01", "proj-1"));
+          await(controller.peekRcaStatus(null, "checkout", "2025-06-01", "proj-1"));
 
       assertThat(response.getData().getStatus()).isEqualTo("COMPLETED");
       assertThat(response.getData().getCached()).isTrue();
@@ -141,7 +141,7 @@ class GetRcaJobStatusTest {
       when(rcaReportJobService.peekStatus(any(), any(), any(), any())).thenReturn(Maybe.empty());
 
       CompletionStage<Response<GetRcaJobResponse>> stage =
-          controller.peekRcaStatus(null, null, "checkout", "2025-06-01", "proj-1");
+          controller.peekRcaStatus(null, "checkout", "2025-06-01", "proj-1");
 
       assertThatThrownBy(() -> stage.toCompletableFuture().get(5, TimeUnit.SECONDS))
           .isInstanceOf(ExecutionException.class);
@@ -154,7 +154,7 @@ class GetRcaJobStatusTest {
           .thenReturn(Maybe.just(jobResponse));
 
       Response<GetRcaJobResponse> response =
-          await(controller.peekRcaStatus(null, null, "checkout", null, "proj-1"));
+          await(controller.peekRcaStatus(null, "checkout", null, "proj-1"));
 
       assertThat(response.getData().getStatus()).isEqualTo("PENDING");
     }
@@ -166,7 +166,7 @@ class GetRcaJobStatusTest {
           .thenReturn(Maybe.just(jobResponse));
 
       Response<GetRcaJobResponse> response =
-          await(controller.peekRcaStatus(null, null, "checkout", "not-a-date", "proj-1"));
+          await(controller.peekRcaStatus(null, "checkout", "not-a-date", "proj-1"));
 
       assertThat(response.getData().getStatus()).isEqualTo("PENDING");
     }
