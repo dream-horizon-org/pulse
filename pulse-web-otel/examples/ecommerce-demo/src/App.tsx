@@ -10,6 +10,7 @@ import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
 import {
   PulseProvider,
   PulseErrorBoundary,
+  useRouterTracking,
 } from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
@@ -74,6 +75,7 @@ function NavBar() {
 }
 
 function AppRoutes() {
+  useRouterTracking({ skipInitial: false });
   return (
     <>
       <NavBar />

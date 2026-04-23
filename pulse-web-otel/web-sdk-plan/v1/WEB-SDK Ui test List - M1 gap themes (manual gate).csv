@@ -93,3 +93,25 @@ Area 12 — PulseProvider / PulseErrorBoundary (React integration),,,,,,Case typ
 12.17,PulseErrorBoundary function fallback (render prop) receives error + reset (+v),"1. render boundary with fallback=(err,reset)=>...2. Child throws3. Assert err.message and typeof reset",fallback receives the Error object and a callable reset function,Pass,Unit test: pulse-provider.test.tsx — function fallback receives error and reset callback | Browser verified 2026-04-22: function fallback shown with error.message + Reset button (reset callable),Positive
 12.18,PulseErrorBoundary renders null when no fallback and child throws (-v),1. render PulseErrorBoundary with no fallback prop2. Child throws3. Assert container.firstChild === null,container is empty (null rendered),Pass,Unit test: pulse-provider.test.tsx — renders null when no fallback provided and child throws | Source-verified 2026-04-22: PulseErrorBoundary.tsx line 46 returns null when hasError && !fallback,Negative
 12.19,PulseErrorBoundary reset() clears error state (-v),1. render boundary with function fallback that captures reset2. Child throws — fallback shown3. call reset()4. Assert boundary attempted re-render (no crash in reset mechanism),reset() clears hasError state; boundary attempts to re-render children,Pass,Unit test: pulse-provider.test.tsx — reset() clears the error state and re-renders children | Browser verified 2026-04-22: reset() fired — reportDeviceCrash called 2x (boundary re-rendered after reset),Negative
+13.1,skipInitial=true (default) suppresses initial setScreenName call (+v),"1. Mount useRouterTracking() inside MemoryRouter at /foo
+2. Await microtasks",setScreenName NOT called,Pass,"Unit test: does NOT call setScreenName on first mount (skipInitial defaults to true) | Browser verified 2026-04-23: SDK initialized, no setScreenName fired on /; confirmed via globalAttrsProcessor.manualScreenName=null on initial load",Positive
+13.2,skipInitial=false fires setScreenName on first mount (+v),"1. Mount useRouterTracking({ skipInitial: false }) at /foo
+2. Await microtasks",setScreenName called once with /foo,Pass,Unit test: calls setScreenName on first mount when skipInitial is false,Positive
+13.3,Route change fires setScreenName with new pathname (+v),"1. Mount at /foo, skip initial
+2. navigate('/bar')",setScreenName called once with /bar,Pass,"Unit test: fires setScreenName once when navigating to a new path | Browser+ClickHouse verified 2026-04-23: navigate /products → screen.name=""/products"" in CH otel_logs (event: verify_screen_products). navigate /cart → screen.name=""/cart"" in CH.",Positive
+13.4,Same pathname navigation → no duplicate signal (-v),"1. Mount at /a
+2. navigate('/a')",setScreenName NOT called,Pass,Unit test: does NOT fire when navigating to the same pathname | Browser verified 2026-04-23: same-pathname navigate does not re-trigger setScreenName (prevDependency guard). ClickHouse: no duplicate event.,Negative
+13.5,Query-string-only change ignored by default (-v),"1. Mount at /x
+2. navigate('/x?q=1')",setScreenName NOT called,Pass,Unit test: does NOT fire on query-string-only changes by default,Negative
+13.6,includeSearch=true fires setScreenName with pathname+search (+v),"1. Mount useRouterTracking({ includeSearch: true }) at /x
+2. navigate('/x?q=1')",setScreenName called with /x?q=1,Pass,Unit test: fires setScreenName with pathname+search when includeSearch is true | Browser: includeSearch not triggered in smoke test (source-verified).,Positive
+13.7,Custom format fn overrides screen name (+v),"1. Mount with format: (loc) => 'app:' + loc.pathname
+2. navigate('/bar')",setScreenName called with app:/bar,Pass,Unit test: passes the formatted screen name to setScreenName,Positive
+13.8,StrictMode double-mount fires setScreenName exactly once per real navigation (+v),"1. Wrap harness in <StrictMode>
+2. Mount at /foo — await
+3. navigate('/bar')",Initial mount: 0 calls. After nav: 1 call with /bar,Pass,Unit test: fires exactly once per real route change under StrictMode. Bug fixed: isFirstRun ref persisted across StrictMode fake unmount → replaced with prevDependency ref pattern | Browser verified 2026-04-23: app runs under React 18 StrictMode; screen.name updates exactly once per real nav; no duplicate entries in ClickHouse.,Positive
+13.9,Multiple sequential navigations each fire once (+v),"1. Mount at /a
+2. Navigate /b → /c → /d","setScreenName called 3× in order: /b, /c, /d",Pass,Unit test: fires setScreenName for each distinct pathname in sequence | Browser+ClickHouse verified 2026-04-23: sequential /products → /cart each produced correct screen.name in CH otel_logs.,Positive
+13.10,Unmount after navigations does not throw (+v),"1. Mount at /a
+2. Navigate to /b
+3. unmount()",No throw,Pass,Unit test: unmount after navigations does not throw,Positive
