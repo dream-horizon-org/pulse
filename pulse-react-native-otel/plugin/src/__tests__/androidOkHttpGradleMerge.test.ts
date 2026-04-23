@@ -46,9 +46,8 @@ describe('mergePulseOkHttpByteBuddyClasspath', () => {
 `;
     const out = mergePulseOkHttpByteBuddyClasspath(already, '1.17.8');
     expect(out).toEqual(already);
-    expect(warn).toHaveBeenCalled();
-    expect(String(warn.mock.calls[0][0])).toMatch(
-      /skipping Pulse classpath merge/i
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/skipping Pulse classpath merge/i)
     );
   });
 
@@ -113,9 +112,8 @@ describe('mergePulseOkHttpAppGradle', () => {
     )}`;
     const out = mergePulseOkHttpAppGradle(manual, '0.0.10-alpha');
     expect(out).toEqual(manual);
-    expect(warn).toHaveBeenCalled();
-    expect(String(warn.mock.calls[0][0])).toMatch(
-      /skipping Pulse OkHttp Gradle edits/i
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/skipping Pulse OkHttp Gradle edits/i)
     );
     expect(out).not.toContain(
       `@generated begin ${PULSE_OKHTTP_TAG_OKHTTP_DEPS}`
