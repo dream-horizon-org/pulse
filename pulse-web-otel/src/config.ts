@@ -13,17 +13,32 @@ export interface InstrumentationConfig {
   sessionReplay?: { enabled: boolean };
 }
 
+/**
+ * Durable buffering for failed OTLP exports (IndexedDB).
+ * Matches Android OTel RUM: {@code DiskBufferingConfigurationSpec} defaults {@code isEnabled = true},
+ * and {@code PulseSDK.initialize} does not pass a disk lambda — so disk buffering is **on by default**.
+ * Set {@code enabled: false} to disable (no IndexedDB writes / drain).
+ */
+export interface PulseWebDiskBufferingConfig {
+  /** Default {@code true}. Set {@code false} to turn off disk buffering entirely. */
+  enabled?: boolean;
+  /** Max row age before prune (ms). Default 24h. */
+  maxAgeMs?: number;
+  /** Approximate cap on total buffered payload bytes. Default 10 MiB. */
+  maxCacheSizeBytes?: number;
+}
+
 export interface PulseWebConfig {
   // Required
   apiKey: string;
-  serviceName: string;
-  endpointBaseUrl?: string;
+  dataCollectionState: PulseDataCollectionConsent;
 
   // Optional — identity
+  /** Defaults to window.location.hostname if absent. */
+  serviceName?: string;
   serviceVersion?: string;
 
   // Optional — privacy
-  dataCollectionState?: PulseDataCollectionConsent;
   beforeSend?: (signal: unknown) => unknown | null;
 
   // Optional — custom attributes stamped on every signal
@@ -32,41 +47,58 @@ export interface PulseWebConfig {
   // Optional — route → screen name mapping (used by navigation instrumentation)
   routePatterns?: Array<{ pattern: string; name: string }>;
 
-  // Optional — export tuning
-  export?: {
-    format?: "json" | "protobuf";
-    compression?: "gzip" | "none";
-    batch?: {
-      scheduledDelayMillis?: number;
-      maxQueueSize?: number;
-      maxExportBatchSize?: number;
-    };
-  };
-
-  // Optional — offline / retry persistence
-  diskBuffering?: {
-    enabled?: boolean;
-    maxSizeBytes?: number;
-    maxAgeMs?: number;
-  };
-
   // Optional — per-instrumentation toggles
   instrumentations?: InstrumentationConfig;
 
   /**
-   * When true, logs each log record lifecycle: pipeline ingress, post pre-batch
-   * (before BatchLogRecordProcessor queue), and each OTLP log batch at export.
+   * Wire format for OTLP export.
+   * "json"  → application/json (DevTools-readable)
+   * "protobuf" → application/x-protobuf (more compact)
+   */
+  export?: {
+    format?: "json" | "protobuf";
+  };
+
+  /**
+   * When true, logs each log record through the processor chain to the browser console.
+   * Leave false (or omit) in production.
    */
   debugLogRecordLifecycle?: boolean;
 
-  /** Override SDK config fetch URL (defaults derived from endpointBaseUrl + project id). */
-  configEndpointUrl?: string;
+  /**
+   * Failed exports may be written to IndexedDB and replayed on the next load (same role as
+   * Android {@code DiskBufferingConfig}). **Default is on** (omit this field or omit {@code enabled}).
+   * Set {@code enabled: false} to disable. Optional {@code maxAgeMs} / {@code maxCacheSizeBytes} tune the store.
+   *
+   * **Vite (internal):** optional {@code VITE_PULSE_DISK_BUFFER_MAX_AGE_MS} and
+   * {@code VITE_PULSE_DISK_BUFFER_MAX_SIZE_BYTES} override defaults when buffering is active (same
+   * pattern as {@code VITE_PULSE_BATCH_DELAY_MS} for batching).
+   */
+  diskBuffering?: PulseWebDiskBufferingConfig;
 }
 
 export function validateConfig(config: PulseWebConfig): void {
   if (!config.apiKey) throw new Error("[PulseWeb] apiKey is required");
-  if (!config.serviceName)
-    throw new Error("[PulseWeb] serviceName is required");
+  const diskOn = config.diskBuffering?.enabled !== false;
+  const disk = config.diskBuffering;
+  if (diskOn && disk !== undefined) {
+    if (
+      disk.maxAgeMs !== undefined &&
+      (!Number.isFinite(disk.maxAgeMs) || disk.maxAgeMs <= 0)
+    ) {
+      throw new Error(
+        "[PulseWeb] diskBuffering.maxAgeMs must be a positive finite number",
+      );
+    }
+    if (
+      disk.maxCacheSizeBytes !== undefined &&
+      (!Number.isFinite(disk.maxCacheSizeBytes) || disk.maxCacheSizeBytes <= 0)
+    ) {
+      throw new Error(
+        "[PulseWeb] diskBuffering.maxCacheSizeBytes must be a positive finite number",
+      );
+    }
+  }
 }
 
 const PULSE_PROD_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com";
@@ -83,7 +115,7 @@ export function isLocalEnvironment(apiKey: string): boolean {
  * Mirrors Android's PulseEndpointUtils.getBaseUrl().
  * Local: http://localhost:4318
  * Prod: https://pulse-otel-collector.pulse-ux.com
- * Explicit override always wins.
+ * Internal only — not part of the public config surface.
  */
 export function resolveEndpointBaseUrl(
   apiKey: string,

@@ -1,0 +1,1 @@
+export { useGetFunnelsList } from "./useGetFunnelsList";

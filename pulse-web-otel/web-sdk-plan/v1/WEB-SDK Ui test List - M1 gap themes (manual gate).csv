@@ -100,3 +100,38 @@ Area 10 — Known limitations & regression guards,,,,,,Case type
 2. Emit log",Callback never runs (until implemented),,,manual grep / contract test when M3 adds,Negative
 10.3,PENDING consent blocks init (negative),"1. dataCollectionState PENDING
 2. start()",isInitialized false; zero OTLP,,,m3 consent + manual CSV row 22 parity,Negative
+,,,,,,,
+Area 11 — SDK Lifecycle / pagehide Cleanup,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+11.1,pagehide listeners registered on start(),"1. Open http://localhost:3002
+2. Patch window.addEventListener to count pagehide calls
+3. Reload
+4. Inspect counter","Exactly 2 pagehide listeners registered (1 from createProviders OTLP flush + 1 from SessionProvider session tracking)",Pass,"Browser-verified: tracking confirmed 2 adds per start(). Spec previously said 1 — corrected after browser verification.",Positive
+11.2,Signals flush when tab closed (persisted=false),"1. Load app — wait for session.start
+2. Open DevTools → Network
+3. dispatch pagehide(persisted=false) or close tab
+4. Check Network / ClickHouse",/v1/logs POST fires immediately via keepalive fetch with session.end in payload,Pass,Browser-verified: /v1/logs POST 200 fired immediately on pagehide(persisted=false) dispatch.,Positive
+11.3,BFCache: pagehide with persisted=true does NOT flush,"1. Load http://localhost:3002
+2. dispatch pagehide(persisted=true)
+3. Watch Network for 1s",No OTLP request at all — if(!e.persisted) guard suppresses flush,Pass,Browser-verified: zero network requests after pagehide(persisted=true). Guard confirmed.,Negative
+11.4,shutdown() removes pagehide listeners,"1. Patch removeEventListener to count pagehide removals
+2. await PulseWeb.shutdown()
+3. Check removal count",Both pagehide listeners removed (count=2) — isInitialized() false,Pass,"Browser-verified: pagehideRemoved=2 after shutdown. Unit test sdk-lifecycle #4 (cleanupFn called). Core fix of Task 1.",Positive
+11.5,start() → shutdown() → start() has exactly N listeners,"1. start() → pagehideAdded=2
+2. shutdown() → pagehideRemoved=2 net=0
+3. start() → pagehideAdded=2 again net=0",Net listener count is always 0 after a complete cycle — no accumulation,Pass,Browser-verified over 1 cycle. Unit test sdk-lifecycle #2.,Positive
+11.6,3× restart cycles — no listener accumulation,"1. Repeat start → shutdown 3 times
+2. After each start: net = pagehideAdded - pagehideRemoved
+3. After each shutdown: net drops back",Always net=0 during active / net=-N after shutdown — never grows beyond N per cycle,Pass,"Browser-verified: 3 cycles all showed net=0 post-start, net=-2 post-shutdown. Unit test sdk-lifecycle #3.",Positive
+11.7,shutdown() before start() is a no-op,"1. Hard-reload
+2. Before SDK auto-inits: await PulseWeb.shutdown()
+3. Check console for errors",No error thrown — returns silently; isInitialized() stays false,Pass,Unit test sdk-lifecycle #1. Guard: !_initialized && !_starting both false → return.,Negative
+11.8,Signals flush after re-init cycle,"1. start() → shutdown() → start()
+2. dispatch pagehide(persisted=false)
+3. Check Network",/v1/logs POST fires — new pagehide listener from re-init works correctly,Pass,Browser-verified: /v1/logs POST 200 after shutdown→start→pagehide cycle. Unit test sdk-lifecycle #2.,Positive
+11.9,No pagehide listener in SSR / headless (window undefined),"1. Import SDK in Node.js / SSR context
+2. Call start()
+3. No window available",No error thrown — typeof window guard prevents addEventListener call; cleanup defaults to no-op,Pass,"Source-verified: cleanup = () => {} default before if(typeof window !== undefined) gate in exporters.ts and session.ts.",Edge
+11.10,pagehide listener does NOT fire on SPA navigation,"1. Load app
+2. Navigate Home → /products → /cart → /checkout via pushState
+3. Watch Network — no pagehide should fire",No OTLP keepalive flush during in-app navigation — pagehide is unload-only,Pass,Browser-verified: 3 pushState navigations produced zero extra /v1/logs flush. Only regular batch timer requests observed.,Negative

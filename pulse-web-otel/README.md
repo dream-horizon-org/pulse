@@ -49,6 +49,10 @@ yarn workspace ecommerce-demo e2e --grep "@M1"
 
 Live exit criteria: `web-sdk-plan/v1/MILESTONES.md`
 
+### Init OTLP logs (`rum.sdk.init.*`)
+
+Android emits a full set of init milestone **logs** (`rum.sdk.init.started`, net, ANR/jank monitors, crash reporter, span exporter, …). Web currently emits **`rum.sdk.init.started`** and **`rum.sdk.init.span.exporter`**; the rest are documented with Android parity status in **`web-sdk-plan/WEB-SDK-AGENT-CONTEXT.md`** (section *Init telemetry vs Android*).
+
 ## Ecommerce demo routes
 
 | Route | What it exercises |

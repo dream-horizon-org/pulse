@@ -4,6 +4,9 @@
 //
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetryApi
 import OpenTelemetrySdk
 #if canImport(OpenTelemetryProtocolExporterCommon)
@@ -110,7 +113,7 @@ public class OtlpHttpMetricExporter: OtlpHttpExporterBase, MetricExporter {
         self?.exporterLock.withLockVoid {
           self?.pendingMetrics.append(contentsOf: sendingMetrics)
         }
-        print(error)
+        PulseLogger.debug("Metric export failed: \(error.localizedDescription)")
       }
     }
 
@@ -139,7 +142,7 @@ public class OtlpHttpMetricExporter: OtlpHttpExporterBase, MetricExporter {
           self?.exporterMetrics?.addSuccess(value: pendingMetrics.count)
         case let .failure(error):
           self?.exporterMetrics?.addFailed(value: pendingMetrics.count)
-          print(error)
+          PulseLogger.debug("Metric flush failed: \(error.localizedDescription)")
           exporterResult = .failure
         }
         semaphore.signal()

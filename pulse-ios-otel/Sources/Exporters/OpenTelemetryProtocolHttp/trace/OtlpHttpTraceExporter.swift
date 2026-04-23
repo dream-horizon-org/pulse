@@ -4,6 +4,9 @@
 //
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetryApi
 import OpenTelemetrySdk
 #if canImport(OpenTelemetryProtocolExporterCommon)
@@ -81,7 +84,7 @@ public class OtlpHttpTraceExporter: OtlpHttpExporterBase, SpanExporter {
         self?.exporterLock.withLockVoid {
           self?.pendingSpans.append(contentsOf: sendingSpans)
         }
-        print(error)
+        PulseLogger.debug("Trace export failed: \(error.localizedDescription)")
       }
     }
     return .success
@@ -109,7 +112,7 @@ public class OtlpHttpTraceExporter: OtlpHttpExporterBase, SpanExporter {
           self?.exporterMetrics?.addSuccess(value: pendingSpans.count)
         case let .failure(error):
           self?.exporterMetrics?.addFailed(value: pendingSpans.count)
-          print(error)
+          PulseLogger.debug("Trace flush failed: \(error.localizedDescription)")
           resultValue = .failure
         }
         semaphore.signal()

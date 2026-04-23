@@ -13,6 +13,7 @@ import {
   getHeaderCaseInsensitive,
   parseContentLength,
 } from './content-length-parser';
+import { PulseLogger } from '../PulseLogger';
 
 export function setNetworkSpanAttributes(
   span: Span,
@@ -118,12 +119,11 @@ export function completeNetworkSpan(
 ): void {
   try {
     const attributes = setNetworkSpanAttributes(span, startContext, endContext);
-    console.log('[Pulse] Network span completed', {
-      spanId: span.spanId,
-      spanAttributes: attributes,
-    });
+    PulseLogger.debug(
+      `Network span completed spanId=${span.spanId} spanAttributes=${JSON.stringify(attributes)}`
+    );
   } catch (e) {
-    console.error('[Pulse] Failed to set span attributes:', e);
+    PulseLogger.error(`Failed to set span attributes: ${e}`);
   }
 
   span.end(isError ? SpanStatusCode.ERROR : SpanStatusCode.UNSET);

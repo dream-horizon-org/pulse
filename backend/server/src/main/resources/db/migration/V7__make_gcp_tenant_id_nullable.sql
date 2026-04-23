@@ -7,6 +7,6 @@ ALTER TABLE tenants
   MODIFY COLUMN domain_name VARCHAR(32) NULL;
 
 -- Add comment explaining these are deprecated
-ALTER TABLE tenants 
+ALTER TABLE tenants
   MODIFY COLUMN gcp_tenant_id VARCHAR(32) NULL COMMENT 'Deprecated - Firebase tenant ID, will be removed in future version',
   MODIFY COLUMN domain_name VARCHAR(32) NULL COMMENT 'Deprecated - Domain name for Firebase tenants, will be removed in future version';

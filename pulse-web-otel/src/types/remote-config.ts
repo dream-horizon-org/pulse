@@ -107,9 +107,8 @@ export interface PulseSignalsToSampleEntry {
 export interface PulseSamplingConfig {
   default: { sessionSampleRate: number };
   rules: PulseSessionSamplingRule[];
-  /** Android JSON key — same as `criticalEventPolicies` when present. */
+  /** Matches pulse-server `SamplingConfig.criticalSessionPolicies` — `alwaysSend` bypasses session sampling / runs before signal filters in `ExportSamplingGate`. */
   criticalSessionPolicies?: { alwaysSend: PulseSignalMatchCondition[] };
-  criticalEventPolicies?: { alwaysSend: PulseSignalMatchCondition[] };
   /** Android `signalsToSample` — optional per-signal rates after attr pipeline. */
   signalsToSample?: PulseSignalsToSampleEntry[];
 }

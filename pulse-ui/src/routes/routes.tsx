@@ -35,6 +35,9 @@ import { SessionReplay } from "../screens/SessionReplay";
 import { SessionReplayInsights } from "../screens/SessionReplayInsights";
 import { SessionReplaySessions } from "../screens/SessionReplaySessions";
 import { SessionReplayDetail } from "../screens/SessionReplayDetail";
+import { CreateFunnel, CreateJourney } from "../screens/FunnelJourneyCreate";
+import { FunnelsList, JourneysList } from "../screens/FunnelJourneyListing";
+import { FunnelDetail, JourneyDetail } from "../screens/FunnelJourneyDetail";
 import { SessionReplayRouteGuard } from "../components/SessionReplayRouteGuard";
 
 function SessionReplaySessionsGuarded() {
@@ -245,5 +248,29 @@ export const ROUTES = {
   SUPPORT_QUERIES: {
     ...ROUTE_PATHS.SUPPORT_QUERIES,
     element: SupportQueries,
+  },
+  FUNNELS_LIST: {
+    ...ROUTE_PATHS.FUNNELS_LIST,
+    element: FunnelsList,
+  },
+  JOURNEYS_LIST: {
+    ...ROUTE_PATHS.JOURNEYS_LIST,
+    element: JourneysList,
+  },
+  FUNNELS_CREATE: {
+    ...ROUTE_PATHS.FUNNELS_CREATE,
+    element: CreateFunnel,
+  },
+  JOURNEYS_CREATE: {
+    ...ROUTE_PATHS.JOURNEYS_CREATE,
+    element: CreateJourney,
+  },
+  FUNNEL_DETAIL: {
+    ...ROUTE_PATHS.FUNNEL_DETAIL,
+    element: FunnelDetail,
+  },
+  JOURNEY_DETAIL: {
+    ...ROUTE_PATHS.JOURNEY_DETAIL,
+    element: JourneyDetail,
   },
 };

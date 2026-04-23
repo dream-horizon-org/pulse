@@ -95,11 +95,11 @@ export interface PulseWebConfig {
     };
   };
 
-  // Optional — persistence
+  // Optional — persistence (default on — Android OTel DiskBufferingConfigurationSpec parity)
   diskBuffering?: {
-    enabled?: boolean;                  // default: false
-    maxSizeBytes?: number;              // default: 5_242_880 (5 MB)
-    maxAgeMs?: number;                  // default: 86_400_000 (24h)
+    enabled?: boolean;                  // default: true; set false to disable IndexedDB buffer
+    maxCacheSizeBytes?: number;         // SDK default (see constants/disk-buffer.ts)
+    maxAgeMs?: number;                  // SDK default (see constants/disk-buffer.ts)
   };
 
   // Optional — instrumentation toggles
