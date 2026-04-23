@@ -14,7 +14,40 @@ class RootCauseConfigTest {
     assertThat(config.getSimilarityThresholdPct()).isEqualTo(75);
     assertThat(config.getLookbackDays()).isEqualTo(7);
     assertThat(config.getMaxSegments()).isEqualTo(4);
+    assertThat(config.getMinPoorSessionsForErrorAttribution())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION);
+    assertThat(config.getMinTreatedSessionsForIssueAttribution())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION);
+    assertThat(config.getMinControlSessionsForIssueAttribution())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION);
+    assertThat(config.getIssueDrillDownLimit()).isEqualTo(RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT);
+    assertThat(config.getIssueDrillDownCandidateLimit())
+        .isEqualTo(RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT);
+    assertThat(config.getMinRiskRatioForIssueAttribution())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION);
+    assertThat(config.getIssueMustPrecedePoor()).isTrue();
     assertThat(config.getDimensionOrder()).contains("Platform");
+  }
+
+  @Test
+  void minRiskRatioUnsetNegativeUsesDefault() {
+    RootCauseConfig raw =
+        RootCauseConfig.builder().minRiskRatioForIssueAttribution(-1.0d).build();
+    assertThat(RootCauseConfig.withDefaults(raw).getMinRiskRatioForIssueAttribution())
+        .isEqualTo(RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION);
+  }
+
+  @Test
+  void minRiskRatioZeroPreservedAsDisabledAtRuntime() {
+    RootCauseConfig raw = RootCauseConfig.builder().minRiskRatioForIssueAttribution(0.0d).build();
+    assertThat(RootCauseConfig.withDefaults(raw).getMinRiskRatioForIssueAttribution()).isZero();
+  }
+
+  @Test
+  void issueDrillDownCandidateLimitNonPositiveUsesDefault() {
+    RootCauseConfig raw = RootCauseConfig.builder().issueDrillDownCandidateLimit(0).build();
+    assertThat(RootCauseConfig.withDefaults(raw).getIssueDrillDownCandidateLimit())
+        .isEqualTo(RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT);
   }
 
   @Test

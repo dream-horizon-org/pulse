@@ -95,6 +95,18 @@
         </dependency>
 
         <dependency>
+            <groupId>commons-collections</groupId>
+            <artifactId>commons-collections</artifactId>
+            <version>3.2.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>2.2.20</version>
+        </dependency>
+
+        <dependency>
             <groupId>me.escoffier.vertx</groupId>
             <artifactId>vertx-completable-future</artifactId>
             <version>0.1.2</version>
@@ -196,10 +208,10 @@
             <version>5.10.2</version>
             <scope>test</scope>
         </dependency>
-        <!-- Mockito core for mocking -->
+        <!-- mockito-inline enables mocking final classes (e.g. RcaReportErrorAttributionMerger). -->
         <dependency>
             <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
+            <artifactId>mockito-inline</artifactId>
             <version>4.11.0</version>
             <scope>test</scope>
         </dependency>
@@ -209,6 +221,12 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <version>4.11.0</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.mockito</groupId>
+                    <artifactId>mockito-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -340,6 +358,12 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>athena</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>emrserverless</artifactId>
             <version>${awssdk.version}</version>
         </dependency>
 
@@ -555,7 +579,8 @@
                         <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
                         <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
                     </annotationProcessors>
-                    <generatedSourcesDirectory>${project.basedir}/src/main/generated</generatedSourcesDirectory>
+                    <generatedSourcesDirectory>${project.build.directory}/generated-sources/annotations
+                    </generatedSourcesDirectory>
                     <compilerArgs>
                         <arg>-Acodegen.output=${project.basedir}/src/main</arg>
                     </compilerArgs>
@@ -690,7 +715,9 @@
                                 <exclude>org/dreamhorizon/pulseserver/errorgrouping/IosLlvmSymbolicator.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
-                                <exclude>org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class</exclude>
+                                <exclude>
+                                    org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class
+                                </exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -721,7 +748,9 @@
                                 <exclude>org/dreamhorizon/pulseserver/errorgrouping/IosLlvmSymbolicator.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
-                                <exclude>org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class</exclude>
+                                <exclude>
+                                    org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class
+                                </exclude>
                             </excludes>
                             <rules>
                                 <rule>

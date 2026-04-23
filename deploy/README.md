@@ -438,6 +438,7 @@ curl http://localhost:8888/metrics
 **Key Environment Variables:**
 - See `.env.example` for complete list
 - All variables prefixed with `CONFIG_SERVICE_APPLICATION_*`
+- **pulse-server** also reads **`ANALYTICS_COMPUTE_ENGINE`** and **`ANALYTICS_BATCH_PROJECT_CONCURRENCY`** (see `backend/server/src/main/resources/conf/analytics-engine-default.conf`) for funnel/journey batch routing (Spark vs ClickHouse)
 - All variables prefixed with `VAULT_SERVICE_*`
 - `GOOGLE_OAUTH_ENABLED`: Common variable to enable/disable Google OAuth (shared with frontend)
 
