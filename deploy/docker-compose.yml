@@ -547,6 +547,8 @@ services:
       - AI_SERVICE_URL=${AI_SERVICE_URL:-http://pulse-ai-agent:8000}
       # Root Cause Analysis (local dev: set ROOT_CAUSE_ENABLED=true to enable)
       - ROOT_CAUSE_ENABLED=${ROOT_CAUSE_ENABLED:-false}
+      # Track B error attribution: lower for local demos (default 1000 matches prod gate)
+      - ROOT_CAUSE_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION=${ROOT_CAUSE_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION:-1000}
       # Incident Configuration
       - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
       - GOALERT_URL=${GOALERT_URL:-}

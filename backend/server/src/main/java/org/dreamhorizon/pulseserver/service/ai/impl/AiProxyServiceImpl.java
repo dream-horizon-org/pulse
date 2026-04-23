@@ -2,12 +2,9 @@ package org.dreamhorizon.pulseserver.service.ai.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
