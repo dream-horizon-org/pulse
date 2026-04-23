@@ -2,7 +2,6 @@ import { PluginError } from '@expo/config-plugins';
 
 import {
   assertPulsePluginProps,
-  resolveAndroidBuildFlags,
   resolveAndroidProps,
   resolveIosProps,
 } from '../resolvePluginProps';
@@ -97,14 +96,36 @@ describe('assertPulsePluginProps', () => {
     ).toThrow(/android/);
   });
 
-  it('rejects non-boolean android.okHttpInstrumentation', () => {
+  it('rejects non-object android.okHttpInstrumentation', () => {
     expect(() =>
       assertPulsePluginProps({
         apiKey: 'k',
         dataCollectionState: 'PENDING',
-        android: { okHttpInstrumentation: 'yes' as unknown as boolean },
-      } as PulsePluginProps)
+        android: { okHttpInstrumentation: true as unknown as object },
+      } as unknown as PulsePluginProps)
     ).toThrow(/okHttpInstrumentation/);
+  });
+
+  it('rejects invalid android.okHttpInstrumentation object fields', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        android: { okHttpInstrumentation: { enabled: 'yes' } },
+      } as unknown as PulsePluginProps)
+    ).toThrow(/okHttpInstrumentation\.enabled/);
+  });
+
+  it('rejects non-string android.okHttpInstrumentation.byteBuddyGradlePluginVersion', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        android: {
+          okHttpInstrumentation: { byteBuddyGradlePluginVersion: 1 },
+        },
+      } as unknown as PulsePluginProps)
+    ).toThrow(/byteBuddyGradlePluginVersion/);
   });
 });
 
@@ -131,6 +152,11 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     expect(a.coreLibraryDesugaring).toEqual({
       enabled: false,
       version: '2.1.4',
+    });
+    expect(a.okHttpInstrumentation).toEqual({
+      enabled: false,
+      libraryVersion: '0.0.10-alpha',
+      byteBuddyGradlePluginVersion: '1.17.8',
     });
 
     const i = resolveIosProps(props);
@@ -183,16 +209,67 @@ describe('resolveAndroidProps / resolveIosProps', () => {
   });
 });
 
-describe('resolveAndroidBuildFlags', () => {
-  it('is false when android section has no okHttp flag', () => {
-    expect(resolveAndroidBuildFlags({})).toEqual({
-      okHttpInstrumentation: false,
+describe('resolveAndroidProps okHttpInstrumentation', () => {
+  const base: PulsePluginProps = {
+    apiKey: 'key',
+    dataCollectionState: 'PENDING',
+  };
+
+  it('defaults okHttp when android has no okHttp block', () => {
+    expect(resolveAndroidProps(base).okHttpInstrumentation).toEqual({
+      enabled: false,
+      libraryVersion: '0.0.10-alpha',
+      byteBuddyGradlePluginVersion: '1.17.8',
     });
   });
 
-  it('enables when okHttpInstrumentation is true', () => {
-    expect(resolveAndroidBuildFlags({ okHttpInstrumentation: true })).toEqual({
-      okHttpInstrumentation: true,
+  it('enables when okHttpInstrumentation.enabled is true', () => {
+    expect(
+      resolveAndroidProps({
+        ...base,
+        android: { okHttpInstrumentation: { enabled: true } },
+      }).okHttpInstrumentation
+    ).toEqual({
+      enabled: true,
+      libraryVersion: '0.0.10-alpha',
+      byteBuddyGradlePluginVersion: '1.17.8',
+    });
+  });
+
+  it('uses explicit libraryVersion and byteBuddyGradlePluginVersion', () => {
+    expect(
+      resolveAndroidProps({
+        ...base,
+        android: {
+          okHttpInstrumentation: {
+            enabled: true,
+            libraryVersion: '  0.0.9-alpha  ',
+            byteBuddyGradlePluginVersion: ' 1.17.0 ',
+          },
+        },
+      }).okHttpInstrumentation
+    ).toEqual({
+      enabled: true,
+      libraryVersion: '0.0.9-alpha',
+      byteBuddyGradlePluginVersion: '1.17.0',
+    });
+  });
+
+  it('enabled false leaves Gradle flag off but still resolves version strings', () => {
+    expect(
+      resolveAndroidProps({
+        ...base,
+        android: {
+          okHttpInstrumentation: {
+            enabled: false,
+            libraryVersion: '0.0.9-alpha',
+          },
+        },
+      }).okHttpInstrumentation
+    ).toEqual({
+      enabled: false,
+      libraryVersion: '0.0.9-alpha',
+      byteBuddyGradlePluginVersion: '1.17.8',
     });
   });
 });

@@ -3,7 +3,6 @@ import { createRunOncePlugin, type ConfigPlugin } from '@expo/config-plugins';
 import type { PulsePluginProps } from './types';
 import {
   assertPulsePluginProps,
-  resolveAndroidBuildFlags,
   resolveAndroidProps,
   resolveIosProps,
 } from './resolvePluginProps';
@@ -23,9 +22,8 @@ const withPulsePlugin: ConfigPlugin<PulsePluginProps> = (
   config = withAndroidPulse(config, android);
   config = withIosPulse(config, ios);
 
-  // Android only: address additional dependencies required for instrumentations. for eg: OkHttp/Byte Buddy instrumentation.
-  const buildFlags = resolveAndroidBuildFlags(props.android);
-  config = withAndroidBuildFeatures(config, buildFlags);
+  // Android only: OkHttp / Byte Buddy Gradle wiring (resolved with android props, same pass as desugaring).
+  config = withAndroidBuildFeatures(config, android.okHttpInstrumentation);
 
   return config;
 };
