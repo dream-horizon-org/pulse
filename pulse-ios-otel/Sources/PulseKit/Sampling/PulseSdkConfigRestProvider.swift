@@ -14,6 +14,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 /// Size of the config API response cache in bytes.
 private let configCacheSizeBytes: Int = 10 * 1024 * 1024
@@ -64,7 +67,7 @@ public final class PulseSdkConfigRestProvider {
         guard let url = urlProvider() else {
             return nil
         }
-        PulseLogger.log("Config fetch started: \(url.absoluteString)")
+        PulseLogger.debug("Config fetch started: \(PulseRedaction.redactUrl(url.absoluteString))")
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -78,7 +81,7 @@ public final class PulseSdkConfigRestProvider {
         do {
             (data, response) = try await urlSession.data(for: request)
         } catch {
-            PulseLogger.log("Config fetch: network error \(error.localizedDescription)")
+            PulseLogger.warn("Config fetch: network error \(PulseRedaction.classifyError(error))")
             return nil
         }
 
@@ -86,17 +89,17 @@ public final class PulseSdkConfigRestProvider {
             return nil
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            PulseLogger.log("Config fetch: API error HTTP \(httpResponse.statusCode)")
+            PulseLogger.warn("Config fetch: API error HTTP \(httpResponse.statusCode)")
             return nil
         }
 
         do {
             let config = try PulseSdkConfigRestProvider.decoder.decode(PulseSdkConfig.self, from: data)
-            PulseLogger.log("Config fetch done (version \(config.version)).")
+            PulseLogger.debug("Config fetch done (version \(config.version)).")
             return config
         } catch {
             let decodeDetail = (error as? DecodingError).map { Self.describeDecodingError($0) } ?? String(describing: error)
-            PulseLogger.log("Config fetch: response decode failed. \(decodeDetail)")
+            PulseLogger.warn("Config fetch: response decode failed. \(decodeDetail)")
             return nil
         }
     }

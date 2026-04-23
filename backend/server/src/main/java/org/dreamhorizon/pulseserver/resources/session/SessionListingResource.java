@@ -10,6 +10,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.session.models.FilterConfigResponse;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionListingRequest;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionListingResponse;
@@ -32,6 +33,7 @@ public class SessionListingResource {
     @Path("/listing")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RequiresPermission("can_view")
     public CompletionStage<Response<SessionListingResponse>> getSessionListing(SessionListingRequest request) {
         return sessionListingService.getSessionListing(request)
                 .to(RestResponse.jaxrsRestHandler());
@@ -40,6 +42,7 @@ public class SessionListingResource {
     @GET
     @Path("/filters")
     @Produces(MediaType.APPLICATION_JSON)
+    @RequiresPermission("can_view")
     public CompletionStage<Response<FilterConfigResponse>> getFilters() {
         return Single.just(filterConfigService.getFilterConfig())
                 .to(RestResponse.jaxrsRestHandler());

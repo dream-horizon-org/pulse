@@ -26,7 +26,6 @@ export interface PulseInstrumentationEnabled {
 /** Android interaction block; `url` → Kotlin `setConfigUrl`. */
 export interface PulseAndroidInteractionInstrumentation {
   enabled: boolean;
-  url?: string;
 }
 
 /** Android `Pulse.initialize { … }` (under `android` only). */
@@ -40,10 +39,9 @@ export interface PulseAndroidInstrumentationProps {
   fragment?: PulseInstrumentationEnabled;
 }
 
-/** iOS interaction; `configUrl` → Swift `setConfigUrl`. */
+/** iOS interaction toggles; interaction config URL comes from remote SDK config. */
 export interface PulseIosInteractionInstrumentation {
   enabled?: boolean;
-  configUrl?: string;
 }
 
 export interface PulseIosUIKitTapRage {
@@ -84,11 +82,6 @@ export interface PulseIosSessionReplayInstrumentation {
 /** iOS URL session instrumentation (`URLSessionInstrumentationConfig`). */
 export interface PulseIosUrlSessionInstrumentation {
   enabled?: boolean;
-  /**
-   * When true, emits `excludeOtlpEndpoints(baseUrl:)` using merged init `endpointBaseUrl`
-   * (PulseKit merges with per-request `shouldInstrument` internally).
-   */
-  excludeOtlpEndpoints?: boolean;
 }
 
 /** iOS sessions instrumentation (`SessionsInstrumentationConfig`); times are seconds. */
@@ -121,20 +114,22 @@ export interface PulseIosKitConfigurationProps {
   includeGlobalAttributes?: boolean;
 }
 
-/** Per-platform overrides; merged with top-level init (endpoint + apiKey + dataCollectionState required after merge). */
+/** Per-platform overrides; merged with top-level `apiKey` + `dataCollectionState` (both required after merge). */
 export type PulseNativeInitFields = {
-  endpointBaseUrl?: string;
   apiKey?: string;
   dataCollectionState?: PulseDataCollectionState;
-  endpointHeaders?: Record<string, string>;
-  configEndpointUrl?: string;
-  /** Full URL for custom events (iOS `PulseSDK.initialize`; Android `HttpEndpointConnectivity`). */
-  customEventCollectorUrl?: string;
   globalAttributes?: PulseAttributes;
 };
 
+export interface PulseAndroidCoreLibraryDesugaring {
+  enabled?: boolean;
+  /** `com.android.tools:desugar_jdk_libs` version; used only when `enabled` is true. Default `2.1.4`. */
+  version?: string;
+}
+
 export interface PulseAndroidSection extends PulseNativeInitFields {
   instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugaring?: PulseAndroidCoreLibraryDesugaring;
 }
 
 export interface PulseIosSection extends PulseNativeInitFields {
@@ -144,17 +139,18 @@ export interface PulseIosSection extends PulseNativeInitFields {
 
 /** Merged init passed to native codegen. */
 export interface PulsePlatformInitProps {
-  endpointBaseUrl: string;
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
-  endpointHeaders?: Record<string, string>;
-  configEndpointUrl?: string;
-  customEventCollectorUrl?: string;
   globalAttributes?: PulseAttributes;
 }
 
 export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
   instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugaring: {
+    enabled: boolean;
+    /** Meaningful when `enabled`; always set for stable plugin internals. */
+    version: string;
+  };
 };
 
 export type ResolvedIosPulseProps = PulsePlatformInitProps & {
@@ -163,17 +159,13 @@ export type ResolvedIosPulseProps = PulsePlatformInitProps & {
 };
 
 /**
- * Expo config plugin props. Top-level `endpointBaseUrl`, `apiKey`, and `dataCollectionState` required.
+ * Expo config plugin props. Top-level `apiKey` and `dataCollectionState` are required.
  * `android` / `ios`: optional init overrides, `globalAttributes`, `instrumentation`; iOS also `configuration`.
  * Do not put `globalAttributes`, `instrumentation`, or `configuration` at the top level.
  */
 export interface PulsePluginProps {
-  endpointBaseUrl: string;
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
-  endpointHeaders?: Record<string, string>;
-  configEndpointUrl?: string;
-  customEventCollectorUrl?: string;
 
   android?: PulseAndroidSection;
   ios?: PulseIosSection;

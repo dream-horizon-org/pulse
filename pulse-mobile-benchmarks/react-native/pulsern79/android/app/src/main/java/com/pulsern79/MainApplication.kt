@@ -43,7 +43,6 @@ class MainApplication : Application(), ReactApplication {
     // Initialize Pulse Android SDK as early as possible
     Pulse.initialize(
       application = this,
-      endpointBaseUrl = "http://10.0.2.2:4318",
       apiKey = "default-project_devkey01",
       dataCollectionState = PulseDataCollectionConsent.ALLOWED,
       globalAttributes = {
