@@ -3,7 +3,7 @@
  *
  * Android exposes: apiKey (required), dataCollectionState (required),
  * serviceName (optional/auto-derived), serviceVersion (optional),
- * globalAttributes, beforeSend (validated here; export wiring tested in before-send-exporter.test.ts),
+ * globalAttributes, beforeSendData (validated here; export wiring tested in before-send-exporter.test.ts),
  * instrumentations.
  *
  * Everything else (endpointBaseUrl, export format/compression/batch,
@@ -109,27 +109,27 @@ describe("Config surface — matches Android minimal API", () => {
     expect(PulseWeb.isInitialized()).toBe(false);
   });
 
-  // beforeSend is validated at start; full export wiring is unit-tested in before-send-exporter.test.ts
+  // beforeSendData is validated at start; full export wiring is unit-tested in before-send-exporter.test.ts
   // (this suite mocks createProviders so hooks never run here).
-  it("TC-C3a: invalid beforeSend callback object throws at start()", () => {
+  it("TC-C3a: invalid beforeSendData callback object throws at start()", () => {
     expect(() =>
       PulseWeb.start({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-        beforeSend: { beforeSend: "not-a-fn" } as never,
+        beforeSendData: { beforeSend: "not-a-fn" } as never,
       }),
     ).toThrow(
-      "[PulseWeb] beforeSend.beforeSend must be a function when provided",
+      "[PulseWeb] beforeSendData.beforeSend must be a function when provided",
     );
   });
 
-  it("TC-C3b: beforeSend function and callback object are accepted when valid", async () => {
+  it("TC-C3b: beforeSendData function and callback object are accepted when valid", async () => {
     const fn = vi.fn((s: unknown) => s);
     expect(() =>
       PulseWeb.start({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-        beforeSend: fn,
+        beforeSendData: fn,
       }),
     ).not.toThrow();
     await Promise.resolve();
@@ -138,7 +138,7 @@ describe("Config surface — matches Android minimal API", () => {
       PulseWeb.start({
         apiKey: "default-project_devkey01",
         dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-        beforeSend: {
+        beforeSendData: {
           beforeSendSpan: (span) => span,
         },
       }),

@@ -60,8 +60,8 @@ pulse-web-otel/
 │   ├── config.ts                     # PulseWebConfig interface + validation
 │   ├── session.ts                    # Session ID + installation ID (3-tier storage)
 │   ├── resource.ts                   # OTEL Resource builder (static browser attrs)
-│   ├── exporters.ts                  # OTLP exporters + BatchProcessor; beforeSend wrappers
-│   ├── before-send.ts                # beforeSend config types + resolve/validate
+│   ├── exporters.ts                  # OTLP exporters + BatchProcessor; beforeSendData / BeforeSend* wrappers
+│   ├── before-send.ts                # beforeSendData config types + resolve/validate
 │   ├── exporters/before-send-exporters.ts  # BeforeSend span/log/metric exporters (Android parity)
 │   ├── consent.ts                    # PulseDataCollectionConsent guard
 │   ├── remote-config.ts              # SDK Config fetcher (sampling, feature gates)
@@ -144,7 +144,7 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 
 **Remote config at runtime:** `SdkConfigFetcher.loadCached()` (plus merge) feeds `FeatureGate` and `ExportSamplingGate` at `PulseWeb.start()`. **`fetchInBackground()` persists newer JSON to storage but does not rebuild those gates** — sampling and feature flags stay as at cold start until a **full page reload** (documented M1 scope).
 
-**`beforeSend` (Android parity):** Wired at export via `BeforeSend*Exporter` in `src/exporters/before-send-exporters.ts`; config types `PulseWebBeforeSendConfig` / `PulseWebBeforeSendCallbacks` in `src/before-send.ts`. Semantics + main-thread contract → `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
+**`beforeSendData` (Android parity):** Public config key matches Android. Wired at export via `BeforeSend*Exporter` in `src/exporters/before-send-exporters.ts`; types `PulseWebBeforeSendConfig` / `PulseWebBeforeSendCallbacks` in `src/before-send.ts`. Semantics + main-thread contract → `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
 
 ---
 
@@ -175,4 +175,4 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 | Session sampling rules (web vs Android, dashboard) | `web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md` |
 | `metricsToAdd` (product + backend + Web gap) | `web-sdk-plan/METRICS-TO-ADD.md` |
 | `metricsToAdd` Web implementation plan | `web-sdk-plan/METRICS-TO-ADD-WEB-PLAN.md` |
-| `beforeSend` parity, main-thread contract, export order vs Android | `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md` |
+| `beforeSendData` / export hooks parity, main-thread contract, export order vs Android | `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md` |

@@ -1,5 +1,5 @@
 /**
- * `beforeSend` — Android {@code PulseBeforeSendData} parity (generic → typed; {@code null} = drop).
+ * {@code PulseWebConfig.beforeSendData} — Android {@code PulseBeforeSendData} parity (generic → typed; {@code null} = drop).
  * Runs on the **main thread** at OTLP export batch time; see
  * `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
  */
@@ -103,7 +103,7 @@ export function validateBeforeSendConfig(
   if (typeof input === "function") return;
   if (typeof input !== "object" || input === null) {
     throw new Error(
-      "[PulseWeb] beforeSend must be a function or a callback object",
+      "[PulseWeb] beforeSendData must be a function or a callback object",
     );
   }
   const o = input as Record<string, unknown>;
@@ -116,7 +116,7 @@ export function validateBeforeSendConfig(
     const v = o[key];
     if (v !== undefined && typeof v !== "function") {
       throw new Error(
-        `[PulseWeb] beforeSend.${key} must be a function when provided`,
+        `[PulseWeb] beforeSendData.${key} must be a function when provided`,
       );
     }
   }

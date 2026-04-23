@@ -76,7 +76,7 @@ export interface PulseWebConfig {
 
   // Optional — privacy & consent
   dataCollectionState?: PulseDataCollectionConsent;  // default: ALLOWED
-  beforeSend?: (signal: unknown) => unknown | null;  // return null to drop signal
+  beforeSendData?: (signal: unknown) => unknown | null;  // return null to drop signal
 
   // Optional — custom attributes on every signal
   globalAttributes?: Record<string, string | number | boolean>;

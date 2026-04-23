@@ -139,7 +139,7 @@ PulseWeb.start({
   globalAttributes: { environment: 'production' },
 
   // Before-send hook (same as mobile)
-  beforeSend: (signal) => signal,  // return null to drop
+  beforeSendData: (signal) => signal,  // return null to drop
 
   // Remote config
   configEndpointUrl: 'https://ingest.pulse.io',

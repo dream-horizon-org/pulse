@@ -43,7 +43,7 @@ export interface PulseWebConfig {
   serviceName?: string;
   serviceVersion?: string;
   globalAttributes?: Record<string, string | number | boolean>;
-  beforeSend?: PulseWebBeforeSendConfig;
+  beforeSendData?: PulseWebBeforeSendConfig;
   instrumentations?: InstrumentationConfig;
 
   // Web-specific only (no Android equivalent)

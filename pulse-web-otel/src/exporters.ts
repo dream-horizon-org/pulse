@@ -213,7 +213,7 @@ export function createProviders(
     buffer: idbBuffer,
   };
 
-  const beforeSend = config.beforeSend;
+  const beforeSendData = config.beforeSendData;
 
   const innerTraceExporter = new PulseBrowserTraceExporter(
     { url: tracesUrl, headers },
@@ -237,8 +237,8 @@ export function createProviders(
       getMeter: () => meterForDerivedMetrics!,
     });
   }
-  if (beforeSend && hasBeforeSendForSpans(beforeSend)) {
-    traceExporter = new BeforeSendSpanExporter(traceExporter, beforeSend);
+  if (beforeSendData && hasBeforeSendForSpans(beforeSendData)) {
+    traceExporter = new BeforeSendSpanExporter(traceExporter, beforeSendData);
   }
   const batchSpanProcessor = new BatchSpanProcessor(
     traceExporter,
@@ -283,10 +283,10 @@ export function createProviders(
       getMeter: () => meterForDerivedMetrics!,
     });
   }
-  if (beforeSend && hasBeforeSendForLogs(beforeSend)) {
+  if (beforeSendData && hasBeforeSendForLogs(beforeSendData)) {
     logExporterHead = new BeforeSendLogRecordExporter(
       logExporterHead,
-      beforeSend,
+      beforeSendData,
     );
   }
 
@@ -324,8 +324,11 @@ export function createProviders(
       config.getMetricGlobalAttrs,
     );
   }
-  if (beforeSend && hasBeforeSendForMetrics(beforeSend)) {
-    metricExporter = new BeforeSendMetricExporter(metricExporter, beforeSend);
+  if (beforeSendData && hasBeforeSendForMetrics(beforeSendData)) {
+    metricExporter = new BeforeSendMetricExporter(
+      metricExporter,
+      beforeSendData,
+    );
   }
 
   const metricReader = new PeriodicExportingMetricReader({

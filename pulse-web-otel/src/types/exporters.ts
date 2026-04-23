@@ -39,8 +39,8 @@ export interface ExporterConfig {
     maxCacheSizeBytes?: number;
   };
 
-  /** Android-style export-time hooks; optional. */
-  beforeSend?: ResolvedBeforeSend;
+  /** Resolved Android-style export-time hooks (`PulseWebConfig.beforeSendData`); optional. */
+  beforeSendData?: ResolvedBeforeSend;
 }
 
 export interface ProviderBundle {

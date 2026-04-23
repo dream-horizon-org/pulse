@@ -163,7 +163,7 @@ Publish:
 - `screen.name` resolution chain complete (manual → pattern → heuristic → raw path)
 - `PulseWeb.setScreenName()` public API
 - `PulseWeb.trackEvent()` public API (needed for custom events + interaction trigger)
-- `beforeSend` hook plumbed through (signal-level filtering for app developers) — spec: `v1/01-foundation/before-send-web-android-parity.md`
+- `beforeSendData` hook plumbed through (signal-level filtering for app developers) — spec: `v1/01-foundation/before-send-web-android-parity.md`
 - Consent guard (`DENIED` → zero signals) verified across all 6 instrumentations
 
 **What ships:** SDK now captures what matters. Teams using M2's React integration automatically get all instrumentations. Dashboard shows crashes, API calls, page loads, web vitals.

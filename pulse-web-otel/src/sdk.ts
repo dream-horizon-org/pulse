@@ -155,7 +155,7 @@ class PulseWebSDK implements SdkContext {
 
     const diskOn = config.diskBuffering?.enabled !== false;
     const disk = config.diskBuffering;
-    const beforeSendResolved = resolveBeforeSend(config.beforeSend);
+    const beforeSendResolved = resolveBeforeSend(config.beforeSendData);
     const exporterConfig = {
       endpointBaseUrl,
       apiKey: config.apiKey,
@@ -176,7 +176,7 @@ class PulseWebSDK implements SdkContext {
             ),
           }
         : { enabled: false },
-      ...(beforeSendResolved ? { beforeSend: beforeSendResolved } : {}),
+      ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
     };
 
     const bundle = createProviders(

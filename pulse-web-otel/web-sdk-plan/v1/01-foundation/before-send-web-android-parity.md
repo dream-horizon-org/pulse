@@ -1,6 +1,6 @@
 # `beforeSend` — Web ↔ Android parity, main-thread semantics, implementation plan
 
-**Status:** **Wired** in `src/exporters.ts` via `BeforeSendSpanExporter` / `BeforeSendLogRecordExporter` / `BeforeSendMetricExporter` (`src/exporters/before-send-exporters.ts`). Public config: `PulseWebBeforeSendConfig` in `src/before-send.ts` (function or callback object). Validation: `validateBeforeSendConfig` from `validateConfig()`. Unit tests: `src/__tests__/before-send-exporter.test.ts`.
+**Status:** **Wired** in `src/exporters.ts` via `BeforeSendSpanExporter` / `BeforeSendLogRecordExporter` / `BeforeSendMetricExporter` (`src/exporters/before-send-exporters.ts`). Public config key: **`PulseWebConfig.beforeSendData`** (`PulseWebBeforeSendConfig` in `src/before-send.ts` — function or callback object). Validation: `validateBeforeSendConfig` from `validateConfig()`. Unit tests: `src/__tests__/before-send-exporter.test.ts`.
 
 **Export chain (batch / reader → wire)** — `beforeSend` is **outermost** (runs first on each flush), **before** export-time sampling / metrics-to-add / global metric attrs / browser+disk:
 
@@ -72,7 +72,7 @@ These are **different stages**; both coexist.
 | Stage | Owner | When | Role |
 |--------|--------|------|------|
 | Span / log **processors** (e.g. `PulseGlobalAttributesProcessor`, `SignalFilterProcessor`) | SDK + **remote config** (`SdkConfigFetcher` / `PulseSignalConfig`) | During span/log lifecycle (`onStart` / `onEnd` / `onEmit` as applicable) | Fleet rules: inject/drop attributes, pattern-based key drops, etc. |
-| **`beforeSend`** | **App** (`PulseWeb.start` config) | **Exporter** `export()` on a **batch** of OTLP-ready items | Last-mile app policy: scrub, drop routes, etc. |
+| **Hooks from `beforeSendData`** | **App** (`PulseWeb.start` → `PulseWebConfig.beforeSendData`) | **Exporter** `export()` on a **batch** of OTLP-ready items | Last-mile app policy: scrub, drop routes, etc. |
 
 **Documented order for a signal that is eventually exported:**
 
@@ -90,7 +90,7 @@ These are **different stages**; both coexist.
 
 ### 4.1 Public API (TypeScript)
 
-**Today:** `beforeSend?: (signal: unknown) => unknown | null`.
+**Today:** `PulseWebConfig.beforeSendData?: PulseWebBeforeSendConfig` — either a **single function** `(signal: unknown) => unknown | null` **or** a **callback object** (Android `PulseBeforeSendData` shape).
 
 **Parity target:** Support the same **two-level** pattern as Android:
 
@@ -105,7 +105,7 @@ Accept either a **single function** (current) **or** a **callback object** (Andr
 
 1. **Exporter wrappers:** `src/exporters/before-send-exporters.ts` — generic → type guard → typed hook; `null` / wrong type drops.
 
-2. **`createProviders` (`src/exporters.ts`)** — `ResolvedBeforeSend` on `ExporterConfig`; `sdk.ts` passes `resolveBeforeSend(config.beforeSend)`. Wrappers are **outermost** on the span/log/metric heads (see table above).
+2. **`createProviders` (`src/exporters.ts`)** — `ResolvedBeforeSend` on `ExporterConfig.beforeSendData`; `sdk.ts` passes `resolveBeforeSend(config.beforeSendData)`. Wrappers are **outermost** on the span/log/metric heads (see table above).
 
 3. **Disk buffer** — `beforeSend` runs **before** `PulseBrowser*` exporters, so dropped signals are **not** written to IndexedDB.
 
@@ -114,7 +114,7 @@ Accept either a **single function** (current) **or** a **callback object** (Andr
 ### 4.3 Tests & docs
 
 - `src/__tests__/before-send-exporter.test.ts` — span/log/metric exporter behavior + `validateBeforeSendConfig`.
-- `src/__tests__/integration-simplified-init.test.ts` — invalid `beforeSend` throws; valid function / object accepted (`createProviders` still mocked in that suite).
+- `src/__tests__/integration-simplified-init.test.ts` — invalid `beforeSendData` throws; valid function / object accepted (`createProviders` still mocked in that suite).
 - Plan / agent context links maintained from `pipeline.md` and `WEB-SDK-AGENT-CONTEXT.md`.
 
 ### 4.4 Non-goals (this milestone)
@@ -128,7 +128,7 @@ Accept either a **single function** (current) **or** a **callback object** (Andr
 
 | Topic | Android | Web (target parity) |
 |--------|---------|---------------------|
-| Hook surface | `PulseBeforeSendData` class methods | Callback object + optional legacy single function |
+| Hook surface | `PulseBeforeSendData` class methods | Callback object or single function (`PulseWebBeforeSendConfig`) on **`beforeSendData`** |
 | Invocation | Exporter `export`, per batch item | Same |
 | Order | Generic → typed; `null` drops | Same |
 | Wrong type after generic | Drop | Same |

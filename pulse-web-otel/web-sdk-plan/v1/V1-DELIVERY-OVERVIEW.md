@@ -170,7 +170,7 @@ flowchart TD
 | Navigation | `screen_load`, `screen_interactive`, `screen_session` | Navigation Timing API + History API patching |
 | Session signals | `session.start`, `session.end` | Already wired in M1; this milestone polishes edge cases (BFCache, rotation) |
 
-**SDK changes needed alongside instrumentations:** Global attributes processor; `screen.name` resolution chain; `PulseWeb.setScreenName()` / `trackEvent()`; `beforeSend`; consent `DENIED` across all six.
+**SDK changes needed alongside instrumentations:** Global attributes processor; `screen.name` resolution chain; `PulseWeb.setScreenName()` / `trackEvent()`; `beforeSendData`; consent `DENIED` across all six.
 
 **What ships:** Updated alpha. Dashboard shows crashes, API calls, page loads, web vitals for apps on M2 integration path.
 

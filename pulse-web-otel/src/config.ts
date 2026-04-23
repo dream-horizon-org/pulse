@@ -44,8 +44,8 @@ export interface PulseWebConfig {
   serviceName?: string;
   serviceVersion?: string;
 
-  // Optional — privacy (Android PulseBeforeSendData parity — see before-send.ts)
-  beforeSend?: PulseWebBeforeSendConfig;
+  // Optional — privacy (Android `beforeSendData` / PulseBeforeSendData parity — see before-send.ts)
+  beforeSendData?: PulseWebBeforeSendConfig;
 
   // Optional — custom attributes stamped on every signal
   globalAttributes?: Record<string, string | number | boolean>;
@@ -85,7 +85,7 @@ export interface PulseWebConfig {
 
 export function validateConfig(config: PulseWebConfig): void {
   if (!config.apiKey) throw new Error("[PulseWeb] apiKey is required");
-  validateBeforeSendConfig(config.beforeSend);
+  validateBeforeSendConfig(config.beforeSendData);
   const diskOn = config.diskBuffering?.enabled !== false;
   const disk = config.diskBuffering;
   if (diskOn && disk !== undefined) {
@@ -108,7 +108,8 @@ export function validateConfig(config: PulseWebConfig): void {
   }
 }
 
-const PULSE_PROD_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com";
+export const PULSE_PROD_ENDPOINT_URL =
+  "https://pulse-otel-collector.pulse-ux.com";
 
 /**
  * Mirrors Android's PulseSDKInternal.isApiLocalDev().
