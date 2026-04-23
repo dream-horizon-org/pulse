@@ -179,6 +179,7 @@ public class RcaReportEnrichmentService {
                               .label(s.getLabel())
                               .dimensions(s.getDimensions())
                               .metrics(s.getMetrics())
+                              .deltas(s.getDeltas())
                               .exampleSessionIds(null)
                               .build())
                   .collect(Collectors.toList());

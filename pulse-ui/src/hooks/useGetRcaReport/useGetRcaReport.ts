@@ -8,6 +8,7 @@ import {
 import {
   RCA_JOB_POLL_MS,
   RCA_STALE_CACHE_POLL_MS,
+  RCA_TYPE,
 } from "../../screens/CriticalInteractionDetails/components/RootCause/RootCause.constants";
 import { makeRequest } from "../../helpers/makeRequest";
 import type { ApiResponse } from "../../helpers/makeRequest";
@@ -65,8 +66,9 @@ function buildProjectHeaders(projectId: string): Record<string, string> {
 function buildPostBody(
   entityKey: string,
   date: string | null | undefined,
-): { entityKey: string; date?: string } {
-  const body: { entityKey: string; date?: string } = {
+): { rcaType: string; entityKey: string; date?: string } {
+  const body: { rcaType: string; entityKey: string; date?: string } = {
+    rcaType: RCA_TYPE.INTERACTION,
     entityKey,
   };
   if (isValidRcaDateParam(date)) {

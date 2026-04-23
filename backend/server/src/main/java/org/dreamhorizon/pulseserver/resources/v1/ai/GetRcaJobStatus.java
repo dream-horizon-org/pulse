@@ -62,7 +62,8 @@ public class GetRcaJobStatus {
 
     RcaType type = resolveRcaType(rcaTypeParam);
 
-    if (entityKey == null || entityKey.isBlank()
+    if (type == null
+        || entityKey == null || entityKey.isBlank()
         || projectId == null || projectId.isBlank()) {
       return Maybe.<GetRcaJobResponse>error(ServiceError.NOT_FOUND.getException())
           .toSingle()
@@ -77,11 +78,14 @@ public class GetRcaJobStatus {
   }
 
   private static RcaType resolveRcaType(String rcaTypeParam) {
+    if (rcaTypeParam == null || rcaTypeParam.isBlank()) {
+      return null;
+    }
     try {
       return RcaType.valueOf(rcaTypeParam.trim().toUpperCase());
     } catch (IllegalArgumentException e) {
-      log.warn("Invalid RCA type '{}', defaulting to INTERACTION", rcaTypeParam);
-      return RcaType.INTERACTION;
+      log.warn("Invalid RCA type '{}'", rcaTypeParam);
+      return null;
     }
   }
 

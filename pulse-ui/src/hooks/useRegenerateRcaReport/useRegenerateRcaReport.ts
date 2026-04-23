@@ -7,6 +7,7 @@ import {
   unwrapRcaReportPostApiBody,
 } from "../../helpers/rcaResponseUnwrap";
 import { getApiBaseUrl } from "../../utils";
+import { RCA_TYPE } from "../../screens/CriticalInteractionDetails/components/RootCause/RootCause.constants";
 import type {
   RcaJobResponse,
   RcaReportResponse,
@@ -31,10 +32,12 @@ export const useRegenerateRcaReport = () => {
       const apiBaseUrl = getApiBaseUrl();
       const url = `${apiBaseUrl}${POST_RCA_REPORT_ROUTE.apiPath}`;
       const body: {
+        rcaType: string;
         entityKey: string;
         date?: string;
         regenerate: boolean;
       } = {
+        rcaType: RCA_TYPE.INTERACTION,
         entityKey,
         regenerate: true,
       };

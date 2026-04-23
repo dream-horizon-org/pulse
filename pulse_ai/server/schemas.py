@@ -8,7 +8,8 @@ from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 
 
 class RcaReportRequest(BaseModel):
-    interactionName: str
+    entityKey: str
+    rcaType: str
     date: str | None = None
     rootCausePayload: dict[str, Any] | None = None
     # Set by pulse-ui via pulse-server when forcing refresh; ignored by the pipeline.
