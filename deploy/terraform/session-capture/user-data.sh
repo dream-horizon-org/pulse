@@ -45,8 +45,30 @@ RUST_LOG=${rust_log}
 EOF
 sudo chmod 644 /etc/pulse/capture.env
 
+echo "Creating systemd service file..."
+sudo tee /etc/systemd/system/pulse-session-capture.service >/dev/null <<'SVCEOF'
+[Unit]
+Description=Pulse Session Capture Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/etc/pulse/capture.env
+ExecStart=/usr/local/bin/pulse-session-capture
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+sudo systemctl daemon-reload
 echo "Starting pulse-session-capture service..."
-sudo systemctl restart pulse-session-capture
+sudo systemctl enable pulse-session-capture
+sudo systemctl start pulse-session-capture
 
 sleep 3
 
