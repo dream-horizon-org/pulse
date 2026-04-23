@@ -182,3 +182,33 @@ Area 14 — Package Export + React Router Peer Dep,,,,,,Case type
 2. Query ClickHouse otel_logs WHERE LogAttributes['screen.name'] != ''","Rows with screen.name = /products, /cart present in ClickHouse",Pass,Browser + ClickHouse verified 2026-04-23: pkg_export_test event landed in ClickHouse with LogAttributes['screen.name']='/cart' — proves useRouterTracking flows screen.name end-to-end.,Positive
 14.10,TypeScript types resolve for all 4 exports — tsc --noEmit passes (+v),"1. cd pulse-web-otel
 2. yarn lint (tsc --noEmit)",Zero TypeScript errors,Pass,tsc verified 2026-04-23: yarn lint (tsc --noEmit) exits 0 — all 4 exports type-check correctly.,Positive
+
+Area 15 — Update Demo App (PulseProvider / PulseErrorBoundary / useRouterTracking wiring),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+15.1,PulseProvider mounts on app load — no manual PulseWeb.start() call (+v),"1. yarn demo (ecommerce-demo)
+2. Open DevTools → Sources: search App.tsx for PulseWeb.start
+3. Check Network for /v1/logs after page load",No PulseWeb.start() call in source; SDK initializes via PulseProvider; session.start log posted to /v1/logs,Not Picked,,Positive
+15.2,No double init under React StrictMode (+v),"1. Load app in dev mode (React.StrictMode active)
+2. DevTools console: window.PulseWeb.isInitialized()
+3. Count session.start events in Network",Exactly one session.start; isInitialized() returns true; no double init errors,Not Picked,,Positive
+15.3,PulseErrorBoundary fallback renders on child crash (+v),"1. Navigate to /error-demo
+2. Click 'Trigger Render Error'
+3. Observe UI",Error boundary fallback UI shown (not a white screen); no unhandled error in console,Not Picked,,Positive
+15.4,PulseErrorBoundary forwards crash to ClickHouse via reportDeviceCrash (+v),"1. Trigger render error on /error-demo
+2. Query ClickHouse: SELECT LogAttributes FROM otel.otel_logs WHERE LogAttributes['event.name'] = 'device.crash' ORDER BY Timestamp DESC LIMIT 5",device.crash event row present in ClickHouse with error message,Not Picked,,Positive
+15.5,useRouterTracking fires setScreenName on route change (+v),"1. DevTools: spy on window.PulseWeb.setScreenName
+2. Click nav links Home → Products → Cart
+3. Log spy calls","setScreenName called with '/', '/products', '/cart' in order",Not Picked,,Positive
+15.6,screen.name flows to ClickHouse after SPA navigation (+v),"1. Navigate Home → Products → Cart
+2. Query ClickHouse: SELECT LogAttributes['screen.name'] FROM otel.otel_logs WHERE ServiceName='ecommerce-demo' ORDER BY Timestamp DESC LIMIT 10","screen.name = '/products', '/cart' rows appear in ClickHouse",Not Picked,,Positive
+15.7,?pulse_consent=denied prevents SDK init (+v),"1. Load app with ?pulse_consent=denied
+2. DevTools Network — check for /v1/logs
+3. Console: window.PulseWeb?.isInitialized()",No network requests to /v1/logs; isInitialized() returns false or window.PulseWeb undefined,Not Picked,,Negative
+15.8,?pulse_disk=0 disables IndexedDB buffer (+v),"1. Load app with ?pulse_disk=0
+2. DevTools → Application → IndexedDB
+3. Check for pulse_signal_buffer store",No pulse_signal_buffer IndexedDB store created; buffering disabled,Not Picked,,Negative
+15.9,No console errors on clean app load (+v),"1. Hard reload (Cmd+Shift+R)
+2. Open DevTools Console — filter Errors
+3. Wait 5 seconds",Zero console errors; no red entries related to PulseWeb or OTEL,Not Picked,,Positive
+15.10,SDK accessible via window.PulseWeb after PulseProvider mounts (+v),"1. Load app
+2. DevTools console: window.PulseWeb",PulseWeb object present with start/shutdown/trackEvent/setScreenName methods,Not Picked,,Positive
