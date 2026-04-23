@@ -14,9 +14,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseWriteClient;
 import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
-import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,11 +37,14 @@ class RootCauseCacheDaoTest {
   @Mock
   private ClickhouseQueryService clickhouseQueryService;
 
+  @Mock
+  private ClickhouseWriteClient clickhouseWriteClient;
+
   private RootCauseCacheDao dao;
 
   @BeforeEach
   void setUp() {
-    dao = new RootCauseCacheDao(clickhouseQueryService);
+    dao = new RootCauseCacheDao(clickhouseQueryService, clickhouseWriteClient);
   }
 
   @Nested
@@ -118,12 +120,7 @@ class RootCauseCacheDaoTest {
 
     @Test
     void shouldExecuteInsertStatement() {
-      GetQueryDataResponseDto<GetRawUserEventsResponseDto> ok =
-          GetQueryDataResponseDto.<GetRawUserEventsResponseDto>builder()
-              .jobComplete(true)
-              .build();
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
-          .thenReturn(Single.just(ok));
+      when(clickhouseWriteClient.executeSql(any())).thenReturn(Single.just(true));
 
       dao.upsert(
               PROJECT,
@@ -136,15 +133,15 @@ class RootCauseCacheDaoTest {
               LocalDateTime.of(2025, 4, 1, 12, 0))
           .blockingAwait();
 
-      ArgumentCaptor<QueryConfiguration> captor = ArgumentCaptor.forClass(QueryConfiguration.class);
-      verify(clickhouseQueryService).executeQueryOrCreateJob(captor.capture());
-      assertThat(captor.getValue().getQuery()).startsWith(RootCauseCacheQueries.INSERT_INTO_ROOT_CAUSE_CACHE + "(");
-      assertThat(captor.getValue().getQuery()).contains("'proj-a'");
+      ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+      verify(clickhouseWriteClient).executeSql(captor.capture());
+      assertThat(captor.getValue()).startsWith(RootCauseCacheQueries.INSERT_INTO_ROOT_CAUSE_CACHE + "(");
+      assertThat(captor.getValue()).contains("'proj-a'");
     }
 
     @Test
     void shouldPropagateErrorsFromClickhouse() {
-      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class)))
+      when(clickhouseWriteClient.executeSql(any()))
           .thenReturn(Single.error(new RuntimeException("clickhouse down")));
 
       io.reactivex.rxjava3.observers.TestObserver<Void> observer = new io.reactivex.rxjava3.observers.TestObserver<>();

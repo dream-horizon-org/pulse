@@ -95,6 +95,18 @@
         </dependency>
 
         <dependency>
+            <groupId>commons-collections</groupId>
+            <artifactId>commons-collections</artifactId>
+            <version>3.2.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>2.2.20</version>
+        </dependency>
+
+        <dependency>
             <groupId>me.escoffier.vertx</groupId>
             <artifactId>vertx-completable-future</artifactId>
             <version>0.1.2</version>
@@ -351,6 +363,12 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
+            <artifactId>emrserverless</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
             <artifactId>ses</artifactId>
             <version>${awssdk.version}</version>
         </dependency>
@@ -561,7 +579,8 @@
                         <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
                         <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
                     </annotationProcessors>
-                    <generatedSourcesDirectory>${project.basedir}/src/main/generated</generatedSourcesDirectory>
+                    <generatedSourcesDirectory>${project.build.directory}/generated-sources/annotations
+                    </generatedSourcesDirectory>
                     <compilerArgs>
                         <arg>-Acodegen.output=${project.basedir}/src/main</arg>
                     </compilerArgs>
@@ -696,7 +715,9 @@
                                 <exclude>org/dreamhorizon/pulseserver/errorgrouping/IosLlvmSymbolicator.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
-                                <exclude>org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class</exclude>
+                                <exclude>
+                                    org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class
+                                </exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -727,7 +748,9 @@
                                 <exclude>org/dreamhorizon/pulseserver/errorgrouping/IosLlvmSymbolicator.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
-                                <exclude>org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class</exclude>
+                                <exclude>
+                                    org/dreamhorizon/pulseserver/dao/sessionreplay/query/SessionReplayQueries.class
+                                </exclude>
                             </excludes>
                             <rules>
                                 <rule>

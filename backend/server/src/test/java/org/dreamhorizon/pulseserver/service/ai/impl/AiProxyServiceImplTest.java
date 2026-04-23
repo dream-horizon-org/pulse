@@ -42,6 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -454,8 +455,8 @@ class AiProxyServiceImplTest {
       AiProxyUpstreamResult result =
           awaitResult(service.proxy("GET", "health", null, null, AUTH, PROJECT_ID));
 
-      assertThat(result.getStatusCode()).isEqualTo(502);
-      assertThat(result.getBufferedBody()).contains("unavailable");
+      assertThat(result.getStatusCode()).isEqualTo(ServiceError.AI_PROXY_BAD_GATEWAY.getHttpStatusCode());
+      assertThat(result.getBufferedBody()).contains(ServiceError.AI_PROXY_BAD_GATEWAY.getErrorMessage());
       verifyNoInteractions(rcaReportJobService);
     }
   }
