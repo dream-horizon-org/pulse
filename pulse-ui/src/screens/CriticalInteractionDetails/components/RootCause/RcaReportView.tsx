@@ -15,7 +15,6 @@ import type {
   RcaStructuredMetricRowV1,
   RcaStructuredReportV1,
 } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
-import { extractStructuredReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import type { RcaReportViewProps } from "./RcaReportView.interface";
 import { ERROR_ATTRIBUTION_MESSAGES } from "../ErrorAttribution/ErrorAttribution.constants";
 import { RcaEmbeddedErrorAttribution } from "./RcaEmbeddedErrorAttribution";
@@ -111,13 +110,11 @@ const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
 const RcaStructuredReportV1View = ({
   structured,
   cachedAt,
-  relativeGeneratedAt,
   onRegenerate,
   projectId,
 }: {
   structured: RcaStructuredReportV1;
   cachedAt?: string | null;
-  relativeGeneratedAt?: string | null;
   onRegenerate?: () => void;
   projectId?: string | null;
 }) => {
@@ -140,9 +137,7 @@ const RcaStructuredReportV1View = ({
   );
 
   const hasRegenerate = typeof onRegenerate === "function";
-  const relative =
-    relativeGeneratedAt != null && String(relativeGeneratedAt).trim() !== "";
-  const showAsOf = !relative && cachedAt != null && cachedAt !== "";
+  const showAsOf = cachedAt != null && cachedAt !== "";
   const trimmedProjectId = projectId != null ? String(projectId).trim() : "";
   const hasProjectForHeatmaps = trimmedProjectId !== "";
   const showDrill = hasEmbeddedErrorAttribution && hasProjectForHeatmaps;
@@ -153,7 +148,7 @@ const RcaStructuredReportV1View = ({
   return (
     <Box className={rootCauseClasses.container}>
       <Box className={rcaClasses.reportShell}>
-        {(showAsOf || relative || hasRegenerate) && (
+        {(showAsOf || hasRegenerate) && (
           <Group
             className={rcaClasses.reportHeaderRow}
             justify="space-between"
@@ -161,11 +156,7 @@ const RcaStructuredReportV1View = ({
             wrap="wrap"
             gap="sm"
           >
-            {relative ? (
-              <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
-                Generated {relativeGeneratedAt}
-              </Text>
-            ) : showAsOf ? (
+            {showAsOf ? (
               <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
                 Report as of {cachedAt}
               </Text>
@@ -221,6 +212,8 @@ const RcaStructuredReportV1View = ({
               <Stack gap="md">
                 {segments.map((segment, index) => {
                   const rank = segment.rank ?? index + 1;
+                  const impactText = segment.impact?.trim() ?? "";
+                  const hasImpact = impactText !== "";
                   const insightsText = segment.insights?.trim() ?? "";
                   const hasInsights = insightsText !== "";
                   const metrics = segment.metrics ?? [];
@@ -346,6 +339,16 @@ const RcaStructuredReportV1View = ({
                           </Table.ScrollContainer>
                         </div>
                       ) : null}
+                      {hasImpact && (
+                        <div className={rcaClasses.impactCallout}>
+                          <Text size="xs" fw={600} c="dimmed" mb={6}>
+                            Impact
+                          </Text>
+                          <Text size="sm" lh={1.6}>
+                            {impactText}
+                          </Text>
+                        </div>
+                      )}
                       {hasInsights && (
                         <div className={rcaClasses.insightsCallout}>
                           <Text size="xs" fw={600} c="dimmed" mb={6}>
@@ -378,7 +381,7 @@ const RcaStructuredReportV1View = ({
                             </Badge>
                           </div>
                           <Box className={rcaClasses.evidenceCardRow}>
-                            {sessionIds.map((sessionId) => (
+                            {sessionIds.map((sessionId, sessionIdx) => (
                               <Box
                                 key={sessionId}
                                 className={rcaClasses.evidenceCardSlot}
@@ -387,6 +390,8 @@ const RcaStructuredReportV1View = ({
                                   sessionId={sessionId}
                                   segmentTitle={segment.title}
                                   projectId={trimmedProjectId || null}
+                                  evidenceOrdinal={sessionIdx + 1}
+                                  evidenceSessionCount={sessionIds.length}
                                 />
                               </Box>
                             ))}
@@ -518,11 +523,11 @@ const RcaStructuredReportV1View = ({
 export const RcaReportView = ({
   report,
   cachedAt,
-  relativeGeneratedAt,
   onRegenerate,
   projectId,
 }: RcaReportViewProps) => {
-  const structured = extractStructuredReport(report);
+  const structured = report.structured;
+  const isValidStructured = structured != null && structured.version === 1;
   const executiveSummaryText = structured?.executive_summary?.trim() ?? "";
   const hasSegmentOrRec =
     (structured?.segments?.length ?? 0) > 0 ||
@@ -538,13 +543,10 @@ export const RcaReportView = ({
     ((drill.relatedAttributions?.length ?? 0) > 0 ||
       (drill.disclaimer?.trim() ?? "") !== "");
   const hasRenderableContent =
-    structured != null &&
-    (executiveSummaryText !== "" ||
-      hasSegmentOrRec ||
-      hasAttributionNlp ||
-      hasDrillOnly);
+    isValidStructured && (executiveSummaryText !== "" || hasSegmentOrRec || hasAttributionNlp || hasDrillOnly);
 
-  if (!hasRenderableContent || structured == null) {
+
+  if (!hasRenderableContent || structured == null || structured.version !== 1) {
     return (
       <Box className={rootCauseClasses.container}>
         <Text className={rootCauseClasses.stateMessage}>
@@ -558,7 +560,6 @@ export const RcaReportView = ({
     <RcaStructuredReportV1View
       structured={structured}
       cachedAt={cachedAt}
-      relativeGeneratedAt={relativeGeneratedAt}
       onRegenerate={onRegenerate}
       projectId={projectId}
     />

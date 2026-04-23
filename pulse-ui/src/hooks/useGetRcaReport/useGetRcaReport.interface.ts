@@ -37,6 +37,8 @@ export type RcaStructuredSegmentV1 = {
   rank: number;
   title: string;
   metrics: RcaStructuredMetricRowV1[];
+  /** Short user-impact line shown in segment callout when present. */
+  impact?: string | null;
   insights?: string | null;
   affected_sessions?: string[] | null;
   related_heatmaps?: RcaRelatedHeatmapsV1 | null;
