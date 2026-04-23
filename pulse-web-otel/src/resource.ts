@@ -40,8 +40,14 @@ export function buildResource(
   const parsedUA = parseUserAgent();
   const installationId = getOrCreateInstallationId();
 
+  const serviceName =
+    config.serviceName ||
+    (typeof window !== "undefined"
+      ? window.location.hostname || "web-app"
+      : "web-app");
+
   const attrs: Record<string, string | number | boolean> = {
-    "service.name": config.serviceName,
+    "service.name": serviceName,
     "service.version": config.serviceVersion ?? "0.0.0",
     platform: "web",
     "rum.sdk.name": "pulse_web_js",

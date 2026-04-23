@@ -11,6 +11,7 @@ import com.google.inject.Inject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseWriteClient;
 import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
@@ -22,6 +23,7 @@ public class RootCauseCacheDao {
   private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
 
   private final ClickhouseQueryService clickhouseQueryService;
+  private final ClickhouseWriteClient clickhouseWriteClient;
 
   /**
    * Reads the latest cache row by (projectId, interactionName, date).
@@ -71,10 +73,8 @@ public class RootCauseCacheDao {
         baselineJson,
         segmentsJson,
         cachedAt);
-    QueryConfiguration config = QueryConfiguration.newQuery(query)
-        .projectId(projectId)
-        .build();
-    return clickhouseQueryService.executeQueryOrCreateJob(config)
+    return clickhouseWriteClient
+        .executeSql(query)
         .ignoreElement()
         .onErrorResumeNext(e -> {
           log.error("Root cause cache upsert failed: {}", e.getMessage());

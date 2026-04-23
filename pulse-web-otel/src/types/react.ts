@@ -24,3 +24,19 @@ export interface PulseProviderProps {
    */
   shutdownOnUnmount?: boolean;
 }
+
+/** Subset of `react-router-dom`'s Location we use — avoids a hard import. */
+export interface PulseLocationLike {
+  pathname: string;
+  search: string;
+  hash: string;
+}
+
+export interface UseRouterTrackingOptions {
+  /** Custom screen name builder — receives the current location. */
+  format?: (location: PulseLocationLike) => string;
+  /** Include `location.search` in the dependency key (default: false). */
+  includeSearch?: boolean;
+  /** Skip the very first render's call (default: true). */
+  skipInitial?: boolean;
+}

@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator, Sequence
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, Request
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import Runner
 from google.genai.types import Content, Part
 
@@ -125,6 +126,7 @@ async def stream_adk_run_as_sse(
             session_id=session_id,
             new_message=new_message,
             state_delta=state_delta,
+            run_config=RunConfig(streaming_mode=StreamingMode.SSE),
         ):
             if not user_meta_sent:
                 user_meta_sent = True

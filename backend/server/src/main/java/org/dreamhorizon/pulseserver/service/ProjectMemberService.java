@@ -5,7 +5,6 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -459,25 +458,31 @@ public class ProjectMemberService {
     
     /**
      * Ensure user is in the parent tenant.
-     * If not, add them as a member automatically using the internal bypass method.
+     * Blocks if user already belongs to a different tenant (cross-tenant enforcement).
+     * If the user has no tenant, adds them as a member automatically using the internal bypass method.
      * This allows project admins to add users to projects without needing tenant admin permissions.
      */
     private Completable ensureUserInTenant(User user, String tenantId, String addedBy) {
-        return openFgaService.getUserTenantRole(user.getUserId(), tenantId)
-            .flatMapCompletable(roleOpt -> {
-                if (roleOpt.isPresent()) {
-                    // User already in tenant
-                    log.debug("User already in tenant: user={}, tenant={}, role={}", 
-                        user.getUserId(), tenantId, roleOpt.get());
-                    return Completable.complete();
-                } else {
-                    // Add user to tenant as member using internal method (bypasses auth check)
-                    log.info("Auto-adding user to tenant as member: user={}, tenant={}, triggeredBy={}", 
-                        user.getUserId(), tenantId, addedBy);
-                    return tenantMemberService.addUserToTenantInternal(
-                        tenantId, user.getEmail()
-                    ).ignoreElement();
+        return openFgaService.getUserTenants(user.getUserId())
+            .flatMapCompletable(existingTenants -> {
+                if (existingTenants != null && !existingTenants.isEmpty()
+                        && !existingTenants.contains(tenantId)) {
+                    log.warn("Cross-tenant membership blocked in project add: user={} already in tenants={}, target tenant={}",
+                        user.getUserId(), existingTenants, tenantId);
+                    return Completable.error(new IllegalStateException(
+                        "User belongs to a different organization and cannot be added to this project."));
                 }
+                if (existingTenants != null && existingTenants.contains(tenantId)) {
+                    // User already in this tenant
+                    log.debug("User already in tenant: user={}, tenant={}", user.getUserId(), tenantId);
+                    return Completable.complete();
+                }
+                // Not in any tenant — auto-add as member
+                log.info("Auto-adding user to tenant as member: user={}, tenant={}, triggeredBy={}",
+                    user.getUserId(), tenantId, addedBy);
+                return tenantMemberService.addUserToTenantInternal(
+                    tenantId, user.getEmail()
+                ).ignoreElement();
             });
     }
     

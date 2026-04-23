@@ -1,6 +1,6 @@
 // OTLP HTTP exporters (traces/logs/metrics) + batching + pagehide flush.
-// Browser JSON or protobuf via @opentelemetry/otlp-transformer; optional gzip (CompressionStream);
-// optional IndexedDB persistence on export failure (diskBuffering).
+// Wire format: JSON (application/json) — browser DevTools readable + E2E test compatible.
+// Compression: none — hardcoded internally; no user-facing config.
 // Log export on pagehide uses fetch({ keepalive: true }) with JSON OTLP (see KeepaliveFetchLogExporter)
 // because XHR-based sends from PulseBrowserLogExporter are cancelled during unload.
 // See: web-sdk-plan/v1/01-foundation/pipeline.md
@@ -42,7 +42,6 @@ import {
   PulseBrowserLogExporter,
   createPulseBrowserMetricExporter,
 } from "./exporters/pulse-browser-otlp-exporters";
-import { wrapLogExporterLifecycleDebug } from "./exporters/wrap-log-exporter-lifecycle-debug";
 import { DEFAULT_BATCH_OPTIONS } from "./constants/exporters";
 import type { ExportSamplingGate } from "./sampling/export-sampling-gate";
 import {
@@ -52,15 +51,16 @@ import {
   SampledPushMetricExporter,
   SampledSpanExporter,
 } from "./sampling/sampling-exporters";
-// Note: CompressionAlgorithm is Node-only in @opentelemetry/otlp-exporter-base 0.53.
-// Browser gzip for the normal path is handled by PulseBrowser* exporters + otlp-transport.
+
+// Compression is hardcoded off — not exposed in public config (mirrors Android internals)
+const USE_GZIP = false; // no compression — keep it simple and compatible
 
 /**
  * Wraps a {@link LogRecordExporter} and, when `_pagehide` is set to true, replaces the
  * normal export (XHR / custom transport from {@link PulseBrowserLogExporter}) with a
  * `fetch` call using `keepalive: true`.
  *
- * Normal batches still use the inner exporter (gzip, protobuf, disk buffer as configured).
+ * Normal batches still use the inner exporter.
  * The pagehide path sends JSON OTLP (`application/json`) without gzip so the body stays
  * small and compatible with keepalive limits.
  */
@@ -184,35 +184,30 @@ export function createProviders(
     "X-Pulse-Metering-Session-ID": config.meteringSessionId,
   };
 
-  const batchOptions = {
-    ...DEFAULT_BATCH_OPTIONS,
-    ...config.batchOptions,
-  };
+  const useProtobuf = config.useProtobuf ?? false;
+  const batchOptions = { ...DEFAULT_BATCH_OPTIONS };
 
   const tracesUrl = config.tracesUrl ?? `${config.endpointBaseUrl}/v1/traces`;
   const logsUrl = config.logsUrl ?? `${config.endpointBaseUrl}/v1/logs`;
   const metricsUrl =
     config.metricsUrl ?? `${config.endpointBaseUrl}/v1/metrics`;
 
-  // Protobuf on the wire by default (matches MILESTONES / collector). Use `format: 'json'` for dev.
-  const useProtobuf = config.format !== "json";
-  const useGzip = config.compression !== "none";
-  const diskOpts = config.diskBuffer;
-  if (diskOpts?.enabled === true && !diskOpts.buffer) {
-    throw new Error(
-      "[PulseWeb] diskBuffer.buffer is required when diskBuffering.enabled",
-    );
-  }
+  const disk = config.diskBuffering;
+  const diskEnabled = disk?.enabled !== false;
+  const idbBuffer = new IdbSignalBuffer(
+    disk?.maxAgeMs,
+    disk?.maxCacheSizeBytes,
+  );
   const pulseDisk = {
-    enabled: diskOpts?.enabled === true,
-    buffer: diskOpts?.buffer ?? new IdbSignalBuffer(),
+    enabled: diskEnabled,
+    buffer: idbBuffer,
   };
 
   const innerTraceExporter = new PulseBrowserTraceExporter(
     { url: tracesUrl, headers },
     {
       useProtobuf,
-      useGzip,
+      useGzip: USE_GZIP,
       diskBuffer: pulseDisk,
       signalKind: "trace",
     },
@@ -244,7 +239,7 @@ export function createProviders(
     { url: logsUrl, headers },
     {
       useProtobuf,
-      useGzip,
+      useGzip: USE_GZIP,
       diskBuffer: pulseDisk,
       signalKind: "log",
     },
@@ -273,13 +268,8 @@ export function createProviders(
     });
   }
 
-  const logExporter =
-    config.debugLogRecordLifecycle === true
-      ? wrapLogExporterLifecycleDebug(logExporterHead)
-      : logExporterHead;
-
   const batchLogProcessor = new BatchLogRecordProcessor(
-    logExporter,
+    logExporterHead,
     batchOptions,
   );
 
@@ -289,21 +279,11 @@ export function createProviders(
   }
   loggerProvider.addLogRecordProcessor(batchLogProcessor);
 
-  if (config.debugLogRecordLifecycle === true) {
-    console.log("[PulseWeb:logLifecycle]", {
-      phase: "batch_config",
-      scheduledDelayMillis: batchOptions.scheduledDelayMillis,
-      maxQueueSize: batchOptions.maxQueueSize,
-      maxExportBatchSize: batchOptions.maxExportBatchSize,
-      note: "BatchLogRecordProcessor keeps a private in-memory queue; export runs on the timer, when the queue fills a batch slice, or on forceFlush (e.g. pagehide).",
-    });
-  }
-
   const rawMetricExporter = createPulseBrowserMetricExporter(
     { url: metricsUrl, headers },
     {
       useProtobuf,
-      useGzip,
+      useGzip: USE_GZIP,
       diskBuffer: pulseDisk,
       signalKind: "metric",
     },
@@ -353,5 +333,11 @@ export function createProviders(
     cleanup = () => window.removeEventListener("pagehide", pagehideHandler);
   }
 
-  return { tracerProvider, loggerProvider, meterProvider, cleanup };
+  return {
+    tracerProvider,
+    loggerProvider,
+    meterProvider,
+    cleanup,
+    ...(diskEnabled ? { idbSignalBuffer: idbBuffer } : {}),
+  };
 }

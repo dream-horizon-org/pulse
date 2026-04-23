@@ -19,6 +19,7 @@ import {
   validateConfig,
   isLocalEnvironment,
   resolveEndpointBaseUrl,
+  PulseDataCollectionConsent,
 } from "../config";
 import {
   buildResource,
@@ -93,9 +94,9 @@ function msToNs(ms: number): number {
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   return {
-    endpointBaseUrl: "https://collector.example.com",
     apiKey: "proj_abc_supersecretkey",
     serviceName: "test-app",
+    dataCollectionState: PulseDataCollectionConsent.ALLOWED,
     ...overrides,
   };
 }
@@ -299,15 +300,12 @@ describe("M1 — Config validation", () => {
     );
   });
 
-  it("throws when serviceName is missing", () => {
-    expect(() => validateConfig(makeConfig({ serviceName: "" }))).toThrow(
-      "[PulseWeb] serviceName is required",
-    );
-  });
-
-  it("does not throw when endpointBaseUrl is missing (it's optional)", () => {
+  it("does not throw when serviceName is absent (it's optional — auto-derived)", () => {
     expect(() =>
-      validateConfig({ apiKey: "mykey", serviceName: "test-app" }),
+      validateConfig({
+        apiKey: "mykey",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      }),
     ).not.toThrow();
   });
 
@@ -2141,6 +2139,38 @@ describe("M1 — SDK public API signals", () => {
     vi.unstubAllGlobals();
   });
 
+  it("emits rum.sdk.init.started then rum.sdk.init.span.exporter on LoggerProvider (Android parity)", async () => {
+    const emitSpy = vi.fn();
+    const { createProviders } = await import("../exporters");
+    vi.mocked(createProviders).mockReturnValueOnce(
+      makeMockBundle(emitSpy) as unknown as ReturnType<typeof createProviders>,
+    );
+
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.start(makeConfig());
+    await Promise.resolve();
+    // finishStart awaits getOsVersionAsync (≤200ms race).
+    await new Promise((r) => setTimeout(r, 250));
+
+    const bodies = emitSpy.mock.calls.map(
+      (c) => (c[0] as { body?: string }).body ?? "",
+    );
+    const idxStarted = bodies.indexOf("rum.sdk.init.started");
+    const idxExporter = bodies.indexOf("rum.sdk.init.span.exporter");
+    expect(idxStarted).toBeGreaterThanOrEqual(0);
+    expect(idxExporter).toBeGreaterThanOrEqual(0);
+    expect(idxStarted).toBeLessThan(idxExporter);
+
+    const exporterCall = emitSpy.mock.calls[idxExporter]?.[0] as {
+      attributes: Record<string, unknown>;
+    };
+    expect(String(exporterCall.attributes["span.exporter"])).toContain(
+      "/v1/traces",
+    );
+    // session.start uses `logs.getLogger` from the top-level api-logs mock (setGlobalLoggerProvider is a noop here),
+    // so it does not appear on this provider emitSpy — order vs session.start is covered in E2E.
+  });
+
   it("reportException emits log with body = error message", async () => {
     const emitSpy = vi.fn();
     // Override the module-level vi.mock for this one call
@@ -2154,7 +2184,7 @@ describe("M1 — SDK public API signals", () => {
     // finishStart is async (awaits OS version resolution); flush microtasks.
     await Promise.resolve();
 
-    // Clear calls from sdk.init and session.start that happen during start()
+    // Clear calls from session.start that happen during start()
     emitSpy.mockClear();
 
     PulseWeb.reportException(new Error("something broke"));

@@ -10,9 +10,9 @@ import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
 import {
   PulseProvider,
   PulseErrorBoundary,
+  useRouterTracking,
 } from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
-import { mockSdkConfigAbsoluteUrl } from "./maybeLoadMockPulseSdkConfig";
 
 const Home = lazy(() => import("./routes/Home"));
 const Products = lazy(() => import("./routes/Products"));
@@ -75,6 +75,7 @@ function NavBar() {
 }
 
 function AppRoutes() {
+  useRouterTracking({ skipInitial: false });
   return (
     <>
       <NavBar />
@@ -111,9 +112,12 @@ export default function App() {
   const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
-    const enableDiskBuffer =
-      import.meta.env["VITE_PULSE_DISK_BUFFER"] === "true" ||
-      searchParams.get("pulse_disk") === "1";
+
+    // Disk buffering defaults on (Android parity). Opt out with ?pulse_disk=0 or VITE_PULSE_DISK_BUFFER=false.
+    const diskOffQuery = searchParams.get("pulse_disk") === "0";
+    const diskOffEnv = import.meta.env["VITE_PULSE_DISK_BUFFER"] === "false";
+    const diskBuffering =
+      diskOffQuery || diskOffEnv ? { enabled: false as const } : undefined;
 
     const dataCollectionState =
       consentParam === "denied"
@@ -122,24 +126,29 @@ export default function App() {
           ? PulseDataCollectionConsent.PENDING
           : PulseDataCollectionConsent.ALLOWED;
 
-    const useMockSdkConfig =
-      import.meta.env["VITE_PULSE_MOCK_SDK_CONFIG"] === "true";
+    const formatEnv = import.meta.env["VITE_PULSE_FORMAT"] as
+      | "json"
+      | "protobuf"
+      | undefined;
+    const debugLifecycle =
+      import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true";
+
+    const serviceVersionRaw = import.meta.env["VITE_PULSE_SERVICE_VERSION"] as
+      | string
+      | undefined;
+    const serviceVersion =
+      serviceVersionRaw && String(serviceVersionRaw).trim() !== ""
+        ? String(serviceVersionRaw).trim()
+        : undefined;
 
     return {
-      endpointBaseUrl: import.meta.env["VITE_PULSE_ENDPOINT_BASE_URL"],
       apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
-      ...(useMockSdkConfig
-        ? { configEndpointUrl: mockSdkConfigAbsoluteUrl() }
-        : {}),
+      ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
       export: {
-        format:
-          (import.meta.env["VITE_PULSE_FORMAT"] as
-            | "json"
-            | "protobuf"
-            | undefined) ?? "protobuf",
+        format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
         compression:
           (import.meta.env["VITE_PULSE_COMPRESSION"] as
             | "gzip"
@@ -151,17 +160,8 @@ export default function App() {
             : 5000,
         },
       },
-      debugLogRecordLifecycle:
-        import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true",
-      ...(enableDiskBuffer
-        ? {
-            diskBuffering: {
-              enabled: true,
-              maxAgeMs: 86_400_000,
-              maxSizeBytes: 5_000_000,
-            },
-          }
-        : {}),
+      debugLogRecordLifecycle: debugLifecycle,
+      ...(diskBuffering !== undefined ? { diskBuffering } : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

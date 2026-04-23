@@ -58,7 +58,7 @@ describe("ExportSamplingGate", () => {
         default: { sessionSampleRate: 0 },
         rules: [],
         signalsToSample: [],
-        criticalEventPolicies: {
+        criticalSessionPolicies: {
           alwaysSend: [
             {
               name: ".*",
@@ -172,7 +172,7 @@ describe("ExportSamplingGate", () => {
         default: { sessionSampleRate: 1 },
         rules: [],
         signalsToSample: [],
-        criticalEventPolicies: {
+        criticalSessionPolicies: {
           alwaysSend: [
             {
               name: ".*",

@@ -32,6 +32,8 @@
     "lint": "tsc --noEmit",
     "size-limit": "size-limit",
     "demo": "yarn workspace ecommerce-demo dev",
+    "demo:build": "yarn build && yarn workspace ecommerce-demo build",
+    "demo:preview": "yarn demo:build && yarn workspace ecommerce-demo preview",
     "demo:install": "yarn install",
     "demo:test": "yarn workspace ecommerce-demo e2e:report"
   },

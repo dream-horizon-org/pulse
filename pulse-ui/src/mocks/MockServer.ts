@@ -56,6 +56,52 @@ export class MockServer {
   }
 
   /**
+   * POST /v1/ai/run_sse — returns a real SSE {@link Response} body stream (not JSON-wrapped).
+   */
+  async handleRunSseRequest(
+    url: string,
+    init?: RequestInit,
+  ): Promise<Response> {
+    if (!this.isEnabled()) {
+      throw new Error("Mock server is not enabled");
+    }
+
+    const body = init?.body;
+    const bodyStr =
+      typeof body === "string"
+        ? body
+        : body == null
+          ? undefined
+          : String(body);
+
+    const mockRequest: MockRequest = {
+      url,
+      method: init?.method ?? "POST",
+      body: bodyStr,
+      headers: this.headersInitToRecord(init?.headers),
+    };
+
+    return this.responseGenerator.buildRunSseMockResponse(mockRequest);
+  }
+
+  private headersInitToRecord(
+    h?: HeadersInit,
+  ): Record<string, string> | undefined {
+    if (h === undefined || h === null) return undefined;
+    if (h instanceof Headers) {
+      const out: Record<string, string> = {};
+      h.forEach((value, key) => {
+        out[key] = value;
+      });
+      return out;
+    }
+    if (Array.isArray(h)) {
+      return Object.fromEntries(h);
+    }
+    return { ...(h as Record<string, string>) };
+  }
+
+  /**
    * Convert mock response to fetch Response object
    */
   private createFetchResponse(mockResponse: MockResponse, unwrapped?: boolean): Response {
