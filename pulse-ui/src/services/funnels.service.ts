@@ -47,6 +47,20 @@ export enum StepOrderType {
   UNORDERED = "UNORDERED",
 }
 
+/**
+ * Analysis grouping key used by both ClickHouse and Spark funnel compute.
+ *
+ * UNIQUE_USERS groups events by materialized `UserId` (with the canonical
+ * user.id → app.installation.id fallback applied at ingest) and is the default.
+ * SESSIONS groups by `SessionId` — conversion then represents the fraction of
+ * sessions (not users) that reached each step. A user with multiple sessions
+ * contributes one bucket per session.
+ */
+export enum FunnelMode {
+  UNIQUE_USERS = "UNIQUE_USERS",
+  SESSIONS = "SESSIONS",
+}
+
 /** Computed status returned by the server for funnels and journeys. */
 export type AnalysisStatus =
   | "ACTIVE"
@@ -143,7 +157,7 @@ export type FunnelDetail = {
   steps: FunnelStep[];
   filters?: FilterField[];
   windowSeconds: number;
-  mode?: string;
+  mode?: FunnelMode;
   dateRangeDays?: number;
   startTime?: string;
   endTime?: string;
@@ -208,8 +222,11 @@ export interface CreateFunnelRequestBody {
   steps: FunnelStep[];
   /** Maximum seconds a user has to complete the funnel after entering step 1. */
   windowSeconds: number;
-  /** Analysis mode (e.g. UNIQUE_USERS). Defaults to UNIQUE_USERS on create. */
-  mode?: string;
+  /**
+   * Analysis grouping key. UNIQUE_USERS counts distinct users per step;
+   * SESSIONS counts distinct sessions. Defaults to UNIQUE_USERS on create.
+   */
+  mode?: FunnelMode;
   /** Audience filters applied when computing conversion. */
   filters?: FunnelFilter[];
   /**
