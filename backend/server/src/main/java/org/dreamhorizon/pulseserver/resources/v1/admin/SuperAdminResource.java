@@ -13,6 +13,9 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,8 +29,8 @@ import org.dreamhorizon.pulseserver.resources.v1.admin.models.SuperAdminsListRes
 import org.dreamhorizon.pulseserver.rest.exception.ForbiddenOperationException;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
+import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
-import org.dreamhorizon.pulseserver.util.JwtUtils;
 
 /**
  * Grant, revoke, and list OpenFGA superadmins on {@code system:pulse}. Caller must already be a superadmin.
@@ -39,6 +42,7 @@ import org.dreamhorizon.pulseserver.util.JwtUtils;
 public class SuperAdminResource {
 
   private final Provider<OpenFgaService> openFgaServiceProvider;
+  private final JwtService jwtService;
 
   private OpenFgaService requireOpenFga() {
     OpenFgaService fga = openFgaServiceProvider.get();
@@ -55,7 +59,33 @@ public class SuperAdminResource {
     if (authorization == null || !authorization.startsWith("Bearer ")) {
       throw ServiceError.UNAUTHORISED.getCustomException("Missing or invalid Authorization header");
     }
-    return authorization.substring("Bearer ".length());
+    return authorization.substring("Bearer ".length()).trim();
+  }
+
+  /**
+   * Caller identity from cryptographically verified JWT only (same boundary as {@code AuthorizationFilter}).
+   */
+  private String verifiedCallerUserId(String authorization) {
+    String token = bearerToken(authorization);
+    final Claims claims;
+    try {
+      claims = jwtService.verifyToken(token);
+    } catch (ExpiredJwtException e) {
+      log.debug("Expired JWT for superadmin resource");
+      throw ServiceError.UNAUTHORISED.getCustomException("Token expired", "Please log in again");
+    } catch (JwtException e) {
+      log.debug("Invalid JWT for superadmin resource: {}", e.getMessage());
+      throw ServiceError.UNAUTHORISED.getCustomException("Invalid authentication token", "Please log in again");
+    } catch (Exception e) {
+      log.error("Unexpected error verifying JWT for superadmin resource", e);
+      throw ServiceError.UNAUTHORISED.getCustomException("Authentication failed", "Unable to verify token");
+    }
+    String userId = claims.getSubject();
+    if (userId == null || userId.isBlank()) {
+      throw ServiceError.UNAUTHORISED.getCustomException(
+          "Invalid authentication token", "Token subject is missing");
+    }
+    return userId;
   }
 
   @GET
@@ -63,7 +93,7 @@ public class SuperAdminResource {
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     return Single.defer(() -> {
       OpenFgaService fga = requireOpenFga();
-      String callerUserId = JwtUtils.extractUserId(bearerToken(authorization));
+      String callerUserId = verifiedCallerUserId(authorization);
       return fga.isSuperAdmin(callerUserId)
           .flatMap(isSa -> {
             if (!Boolean.TRUE.equals(isSa)) {
@@ -86,7 +116,7 @@ public class SuperAdminResource {
       GrantSuperAdminRequest body) {
     return Single.defer(() -> {
       OpenFgaService fga = requireOpenFga();
-      String callerUserId = JwtUtils.extractUserId(bearerToken(authorization));
+      String callerUserId = verifiedCallerUserId(authorization);
 
       if (body == null || StringUtils.isBlank(body.getUserId())) {
         return Single.error(
@@ -118,7 +148,7 @@ public class SuperAdminResource {
       @PathParam("userId") String targetUserId) {
     return Single.defer(() -> {
       OpenFgaService fga = requireOpenFga();
-      String callerUserId = JwtUtils.extractUserId(bearerToken(authorization));
+      String callerUserId = verifiedCallerUserId(authorization);
 
       if (StringUtils.isBlank(targetUserId)) {
         return Single.error(
