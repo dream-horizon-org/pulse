@@ -24,6 +24,7 @@ export type ExportSamplingGateInit = {
 
 export class ExportSamplingGate {
   private readonly sessionRandomValue: number;
+  private readonly sessionSamplingRate: number;
   private readonly shouldSampleThisSession: boolean;
   private readonly signalsToSample: PulseSignalsToSampleEntry[];
 
@@ -36,14 +37,30 @@ export class ExportSamplingGate {
     const sessionRate = resolveSessionSamplingRate(config, sdkName, {
       serviceVersion: init?.serviceVersion,
     });
+    this.sessionSamplingRate = sessionRate;
     this.shouldSampleThisSession = this.sessionRandomValue < sessionRate;
     this.signalsToSample = config.sampling.signalsToSample ?? [];
+
+    console.log("[PulseWeb:sampling:init]", {
+      sdkName: this.sdkName,
+      sessionRandomDraw: this.sessionRandomValue,
+      resolvedSessionSampleRate: this.sessionSamplingRate,
+      sessionKept: this.shouldSampleThisSession,
+      rule: "draw < resolvedSessionSampleRate",
+      signalsToSampleEntries: this.signalsToSample.length,
+    });
   }
 
   private shouldSampleByRate(rate: number): boolean {
     return this.sessionRandomValue < clamp01(rate);
   }
 
+  private logSampling(payload: Record<string, unknown>): void {
+    console.log("[PulseWeb:sampling]", {
+      sessionRandomDraw: this.sessionRandomValue,
+      ...payload,
+    });
+  }
   private isAlwaysSend(
     scope: PulseSignalScope,
     signalName: string,
@@ -84,10 +101,33 @@ export class ExportSamplingGate {
     signalName: string,
     attrs: Attributes | Readonly<Attributes> | undefined,
   ): boolean {
-    if (this.isAlwaysSend(scope, signalName, attrs)) return true;
+    const pulseType =
+      attrs &&
+      typeof (attrs as Record<string, unknown>)["pulse.type"] === "string"
+        ? String((attrs as Record<string, unknown>)["pulse.type"])
+        : undefined;
 
-    if (this.signalBlockedByPulseFilters(scope, signalName, attrs))
+    if (this.isAlwaysSend(scope, signalName, attrs)) {
+      this.logSampling({
+        phase: "export",
+        scope,
+        signalName,
+        pulseType,
+        path: "criticalSessionPolicies.alwaysSend",
+      });
+      return true;
+    }
+
+    if (this.signalBlockedByPulseFilters(scope, signalName, attrs)) {
+      this.logSampling({
+        phase: "drop",
+        scope,
+        signalName,
+        pulseType,
+        path: "signals.filters",
+      });
       return false;
+    }
 
     const matched = this.signalsToSample.find((entry) =>
       pulseSignalConditionMatches(
@@ -99,8 +139,34 @@ export class ExportSamplingGate {
       ),
     );
     if (matched !== undefined) {
-      return this.shouldSampleByRate(matched.sampleRate);
+      const threshold = clamp01(matched.sampleRate);
+      const kept = this.shouldSampleByRate(matched.sampleRate);
+      this.logSampling({
+        phase: kept ? "export" : "drop",
+        scope,
+        signalName,
+        pulseType,
+        path: "signalsToSample",
+        matchedSampleRate: matched.sampleRate,
+        effectiveThreshold: threshold,
+        rule: "sessionRandomDraw < effectiveThreshold",
+        compared: `${this.sessionRandomValue} < ${threshold}`,
+        kept,
+      });
+      return kept;
     }
+
+    this.logSampling({
+      phase: this.shouldSampleThisSession ? "export" : "drop",
+      scope,
+      signalName,
+      pulseType,
+      path: "session",
+      resolvedSessionSampleRate: this.sessionSamplingRate,
+      rule: "sessionRandomDraw < resolvedSessionSampleRate",
+      compared: `${this.sessionRandomValue} < ${this.sessionSamplingRate}`,
+      kept: this.shouldSampleThisSession,
+    });
     return this.shouldSampleThisSession;
   }
 

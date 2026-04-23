@@ -1,6 +1,8 @@
 // M1: PulseWebSDK — minimal init sequence matching Android's public API surface.
-// Endpoint URL, wire format, compression, batch config, and disk buffering are
-// hardcoded internally — not exposed in PulseWebConfig (mirrors Android SDK).
+// Endpoint URL, wire format, compression, and batch timing are fixed internally.
+// `diskBuffering` mirrors Android `DiskBufferingConfig`: **on by default** (PulseSDK does not expose
+// a disk toggle; OTel `DiskBufferingConfigurationSpec` defaults `isEnabled = true`). Pass
+// `diskBuffering: { enabled: false }` to disable IndexedDB replay.
 
 import { trace } from "@opentelemetry/api";
 import type { Tracer } from "@opentelemetry/api";
@@ -33,6 +35,11 @@ import { isDataCollectionAllowed } from "./consent";
 import { PulseWebSemconv } from "./semconv";
 import { errorFilenameFromStack } from "./utils/error-stack";
 import { ExportSamplingGate } from "./sampling/export-sampling-gate";
+import { drainBufferedOtlpExports } from "./persistence/drain-buffered-exports";
+import {
+  resolveDiskBufferMaxAgeMs,
+  resolveDiskBufferMaxCacheSizeBytes,
+} from "./constants/disk-buffer";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -147,6 +154,8 @@ class PulseWebSDK implements SdkContext {
       ...(preBatchDebugProc ? [preBatchDebugProc] : []),
     ];
 
+    const diskOn = config.diskBuffering?.enabled !== false;
+    const disk = config.diskBuffering;
     const exporterConfig = {
       endpointBaseUrl,
       apiKey: config.apiKey,
@@ -158,6 +167,15 @@ class PulseWebSDK implements SdkContext {
       samplingGate,
       metricsToAdd: sdkConfig.signals.metricsToAdd,
       metricsToAddSdkName: "pulse_web_js" as const,
+      diskBuffering: diskOn
+        ? {
+            enabled: true,
+            maxAgeMs: resolveDiskBufferMaxAgeMs(disk?.maxAgeMs),
+            maxCacheSizeBytes: resolveDiskBufferMaxCacheSizeBytes(
+              disk?.maxCacheSizeBytes,
+            ),
+          }
+        : { enabled: false },
     };
 
     const bundle = createProviders(
@@ -166,6 +184,18 @@ class PulseWebSDK implements SdkContext {
       spanProcessors,
       logProcessors,
     );
+
+    if (bundle.idbSignalBuffer) {
+      void drainBufferedOtlpExports({
+        buffer: bundle.idbSignalBuffer,
+        apiKey: config.apiKey,
+        meteringSessionId,
+        tracesUrl: `${endpointBaseUrl}/v1/traces`,
+        logsUrl: `${endpointBaseUrl}/v1/logs`,
+        metricsUrl: `${endpointBaseUrl}/v1/metrics`,
+      });
+    }
+
     this.tracerProvider = bundle.tracerProvider;
     this.loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
@@ -177,6 +207,8 @@ class PulseWebSDK implements SdkContext {
 
     this.logger = this.loggerProvider.getLogger("pulse-web");
     this.tracer = this.tracerProvider.getTracer("pulse-web");
+
+    this.emitSdkInitializationLogRecords(endpointBaseUrl);
 
     this.registry = new InstrumentationRegistry(
       this as SdkContext,
@@ -190,12 +222,6 @@ class PulseWebSDK implements SdkContext {
 
     this._initialized = true;
     this._starting = false;
-
-    // os.version is already resolved before we built the Resource, so emit immediately.
-    const initSpan = this.tracer.startSpan("sdk.init");
-    initSpan.setAttribute("pulse.type", "sdk.init");
-    initSpan.setAttribute("platform", "web");
-    initSpan.end();
 
     // Emit app.installation.start on first-ever install — mirrors Android.
     if (wasNewInstallation()) {
@@ -301,6 +327,43 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.NON_FATAL_TYPE]: name,
         [PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]: true,
         ...(attrs as Record<string, string | number | boolean>),
+      },
+    });
+  }
+
+  /**
+   * Android parity: {@code SdkInitializationEvents} emits OTel log records named
+   * {@code rum.sdk.init.*} via the {@code otel.initialization.events} logger scope.
+   * Web emits a minimal subset after providers are registered, before instrumentations
+   * install (so {@code session.start} follows these in the pipeline).
+   */
+  private emitSdkInitializationLogRecords(endpointBaseUrl: string): void {
+    if (this.loggerProvider === undefined) return;
+
+    const K = PulseWebSemconv.AttributeKey;
+    const R = PulseWebSemconv.RumSdkInit;
+    const initLogger = this.loggerProvider.getLogger(
+      "otel.initialization.events",
+    );
+
+    initLogger.emit({
+      body: R.STARTED,
+      attributes: {
+        [K.PULSE_TYPE]: R.STARTED,
+      },
+    });
+
+    const spanExporterHint = [
+      `OtlpHttpJson`,
+      `traces=${endpointBaseUrl}/v1/traces`,
+      `logs=${endpointBaseUrl}/v1/logs`,
+      `metrics=${endpointBaseUrl}/v1/metrics`,
+    ].join("; ");
+    initLogger.emit({
+      body: R.SPAN_EXPORTER,
+      attributes: {
+        [K.PULSE_TYPE]: R.SPAN_EXPORTER,
+        "span.exporter": spanExporterHint,
       },
     });
   }

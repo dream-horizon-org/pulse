@@ -7,6 +7,7 @@ public final class Constants {
 
   public static final String MYSQL_WRITER_HOST = "mysql_writer_host";
   public static final String MYSQL_READER_HOST = "mysql_reader_host";
+  public static final String MYSQL_PORT = "mysql_port";
   public static final String MYSQL_DATABASE = "mysql_database";
   public static final String MYSQL_USER = "mysql_user";
   public static final String MYSQL_PASSWORD = "mysql_password";
@@ -52,6 +53,7 @@ public final class Constants {
   public static final String GCP_ENGINE = "gcp";
 
   // OpenFGA Permissions
+  public static final String PERMISSION_CAN_VIEW = "can_view";
   public static final String PERMISSION_CAN_UPLOAD_TNC = "can_upload_tnc";
   public static final String PERMISSION_CAN_ACCEPT_TNC = "can_accept_tnc";
 
@@ -59,6 +61,46 @@ public final class Constants {
   public static final String RESOURCE_TYPE_TENANT = "tenant";
   public static final String RESOURCE_TYPE_SYSTEM = "system";
   public static final String RESOURCE_SYSTEM_PULSE = "pulse";
+  public static final String RESOURCE_TYPE_PROJECT = "project";
+
+  // HTTP header names (reused across Vert.x routes and JAX-RS controllers)
+  public static final String HEADER_AUTHORIZATION = "Authorization";
+  public static final String HEADER_PROJECT_ID = "X-Project-ID";
+  public static final String HEADER_CONTENT_TYPE = "Content-Type";
+  public static final String HEADER_CACHE_CONTROL = "Cache-Control";
+  public static final String HEADER_CONNECTION = "Connection";
+  public static final String HEADER_X_ACCEL_BUFFERING = "X-Accel-Buffering";
+
+  /** Token prefix for Bearer auth. Includes trailing space. */
+  public static final String BEARER_PREFIX = "Bearer ";
+
+  /**
+   * {@code Content-Type} for SSE streams returned by {@link
+   * org.dreamhorizon.pulseserver.verticle.RestVerticle} when proxying Pulse AI {@code run_sse}.
+   */
+  public static final String CONTENT_TYPE_TEXT_EVENT_STREAM = "text/event-stream";
+
+  /** {@code Cache-Control} for proxied SSE so intermediaries do not buffer or cache the stream. */
+  public static final String SSE_PROXY_CACHE_CONTROL = "no-cache";
+
+  /** {@code Connection} for long-lived proxied SSE responses. */
+  public static final String SSE_PROXY_CONNECTION = "keep-alive";
+
+  /**
+   * Value for {@link #HEADER_X_ACCEL_BUFFERING} on proxied SSE (disables nginx response buffering).
+   */
+  public static final String SSE_PROXY_X_ACCEL_BUFFERING = "no";
+
+  // AI streaming endpoint
+  /** Vert.x route path for the SSE proxy. Must match the ADK {@code /run_sse} path. */
+  public static final String AI_RUN_SSE_PATH = "/v1/ai/run_sse";
+
+  /**
+   * Per-request upstream timeout (ms) for calls to the Pulse AI service. Shared between
+   * the Vert.x SSE proxy and the JAX-RS {@code @Timeout} annotation on
+   * {@code AiProxyController}.
+   */
+  public static final long AI_UPSTREAM_TIMEOUT_MS = 120_000L;
 
   /**
    * {@link io.vertx.rxjava3.ext.web.client.WebClient} stored in {@link
@@ -66,4 +108,12 @@ public final class Constants {
    * com.google.inject.name.Named} for long-timeout outbound calls to Pulse AI (SSE / run_sse).
    */
   public static final String WEB_CLIENT_AI_PROXY = "aiProxy";
+
+  /**
+   * {@link org.dreamhorizon.pulseserver.vertx.AiStreamingHttpClient} stored in {@link
+   * org.dreamhorizon.pulseserver.vertx.SharedDataUtils} for true chunk-by-chunk SSE proxying to the
+   * Pulse AI service (core {@link io.vertx.core.http.HttpClient} with {@code ReadStream<Buffer>},
+   * not {@link io.vertx.rxjava3.ext.web.client.WebClient}).
+   */
+  public static final String HTTP_CLIENT_AI_STREAMING = "aiStreaming";
 }

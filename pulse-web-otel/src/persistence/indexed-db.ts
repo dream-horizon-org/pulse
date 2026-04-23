@@ -1,4 +1,4 @@
-// IndexedDB signal buffer — failed OTLP exports (opt-in via diskBuffering).
+// IndexedDB signal buffer — failed OTLP exports (on by default; disable via `diskBuffering.enabled: false`).
 
 import type {
   BufferedOtlpEnvelope,
@@ -12,12 +12,14 @@ export type {
   BufferedSignalType,
 } from "../types/persistence";
 
+import {
+  DEFAULT_DISK_BUFFER_MAX_AGE_MS,
+  DEFAULT_DISK_BUFFER_MAX_CACHE_SIZE_BYTES,
+} from "../constants/disk-buffer";
+
 const DB_NAME = "pulse_signal_buffer";
 const DB_VERSION = 2;
 const STORE_NAME = "signals";
-
-const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -56,8 +58,9 @@ export class IdbSignalBuffer {
   private readonly maxSizeBytes: number;
 
   constructor(maxAgeMs?: number, maxSizeBytes?: number) {
-    this.maxAgeMs = maxAgeMs ?? DEFAULT_MAX_AGE_MS;
-    this.maxSizeBytes = maxSizeBytes ?? DEFAULT_MAX_SIZE_BYTES;
+    this.maxAgeMs = maxAgeMs ?? DEFAULT_DISK_BUFFER_MAX_AGE_MS;
+    this.maxSizeBytes =
+      maxSizeBytes ?? DEFAULT_DISK_BUFFER_MAX_CACHE_SIZE_BYTES;
   }
 
   async write(

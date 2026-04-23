@@ -125,6 +125,9 @@ services:
       - ../backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
       - ../backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro
       - ../backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro
+      - ../backend/ingestion/clickhouse-event-catalog-schema.sql:/init/clickhouse-event-catalog-schema.sql:ro
+      - ../backend/ingestion/clickhouse-funnel-results-schema.sql:/init/clickhouse-funnel-results-schema.sql:ro
+      - ../backend/ingestion/clickhouse-journey-results-schema.sql:/init/clickhouse-journey-results-schema.sql:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
@@ -165,12 +168,12 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 30s
-    
+
       # MinIO (S3-compatible storage for session recordings)
   minio:
     image: minio/minio:latest
@@ -188,7 +191,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -234,7 +237,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3400/healthcheck"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3400/healthcheck" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -365,17 +368,21 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID}
-        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL:-http://localhost:8080}
+        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL}
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
         REACT_APP_ROOT_CAUSE_ENABLED: ${REACT_APP_ROOT_CAUSE_ENABLED:-false}
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
-        REACT_APP_FIREBASE_PROJECT_ID: ${REACT_APP_FIREBASE_PROJECT_ID}
+        REACT_APP_FIREBASE_PROJECT_ID: ${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
+        REACT_APP_FIREBASE_STORAGE_BUCKET: ${REACT_APP_FIREBASE_STORAGE_BUCKET}
+        REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
         REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
-        REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER:-false}
-        REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY:-500}
-        REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE:-0}
-        REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING:-false}
+        REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER}
+        REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY}
+        REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE}
+        REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING}
+        REACT_APP_FIREBASE_AUTH_EMULATOR: ${REACT_APP_FIREBASE_AUTH_EMULATOR}
+        REACT_APP_FIREBASE_AUTH_EMULATOR_URL: ${REACT_APP_FIREBASE_AUTH_EMULATOR_URL}
         REACT_APP_GCP_MULTI_TENANT_ENABLED: ${REACT_APP_GCP_MULTI_TENANT_ENABLED:-true}
     container_name: pulse-ui
     ports:
@@ -397,15 +404,9 @@ services:
 
   # Vector Service (Data Collector) - optional: set VECTOR_ENABLED=true in .env to enable
   vector:
+    image: 650012445044.dkr.ecr.ap-south-1.amazonaws.com/pulse-vector:latest
     profiles:
       - vector
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/parth-modh/vector
-        VECTOR_REF: forked/multi-bucket
-        DEBIAN_VERSION: "12"
     container_name: vector
     command: [ ]
     environment:
@@ -444,6 +445,7 @@ services:
       # MySQL Database Configuration
       - MYSQL_WRITER_HOST=mysql
       - MYSQL_READER_HOST=mysql
+      - MYSQL_PORT=3306
       - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
       - MYSQL_USER=${MYSQL_USER:-pulse_user}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
@@ -460,6 +462,17 @@ services:
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
       - DEV_MODE_API_KEY=${DEV_MODE_API_KEY:-default-project_devkey01}
       - CONFIG_REPLAY_API_BASE_URL=${CONFIG_REPLAY_API_BASE_URL}
+
+      # Spark Job Configuration
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH:-s3://pulse-deployment-config/spark/pulse-spark-jobs-1.0-SNAPSHOT.jar}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
+
+      # Product analytics batch engine (conf/analytics-engine-default.conf): spark | clickhouse
+      - ANALYTICS_COMPUTE_ENGINE=${ANALYTICS_COMPUTE_ENGINE:-clickhouse}
+      # Max concurrent per-project ClickHouse batch queries when ANALYTICS_COMPUTE_ENGINE=clickhouse (prod requires > 0)
+      - ANALYTICS_BATCH_PROJECT_CONCURRENCY=${ANALYTICS_BATCH_PROJECT_CONCURRENCY:-1}
 
       # ClickHouse Database Configuration
       - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -479,7 +492,7 @@ services:
       - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
-     
+
       # Session Replay S3 (MinIO in dev)
       - SESSION_REPLAY_S3_BUCKET=${SESSION_REPLAY_S3_BUCKET:-session-recordings}
       - SESSION_REPLAY_S3_ENDPOINT=${SESSION_REPLAY_S3_ENDPOINT:-http://minio:9000}
@@ -497,22 +510,28 @@ services:
       - HEATMAP_SCREENSHOTS_S3_PREFIX=${HEATMAP_SCREENSHOTS_S3_PREFIX:-heatmap-screenshots}
 
       # CloudFront Configuration
-      - CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID:-NONE}
+      - CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID:-NONE}
       - CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH:-/config/pulse-config.json}
       - INTERACTION_CLOUDFRONT_ASSET_PATH=${INTERACTION_CLOUDFRONT_ASSET_PATH:-/config/interaction-config.json}
 
-      # OpenTelemetry Configuration (defaults for local dev)
-      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL:-http://localhost:4318/v1/traces}
-      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL:-http://localhost:4318/v1/logs}
-      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL:-http://localhost:4318/v1/metrics}
-      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL:-http://localhost:4318/v1/traces}
-      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL:-http://localhost:4318/v1/logs}
+      # OpenTelemetry Configuration
+      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL}
+      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL}
+      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}
+      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}
+      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}
       # Query Engine Configuration
       - CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE:-athena}
       # Athena Configuration (only used when QUERY_ENGINE=athena)
       - CONFIG_SERVICE_APPLICATION_ATHENA_REGION=${CONFIG_SERVICE_APPLICATION_ATHENA_REGION:-ap-south-1}
       - CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE=${CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE:-pulse_athena_db}
       - CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION=${CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION:-s3://puls-otel-config/}
+
+      # EMR Serverless (optional; leave unset for local Docker — disabled in emr-serverless-default.conf)
+      - CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED:-false}
+      - CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION:-ap-south-1}
+      - CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID:-}
+      - CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN:-}
       # GCP Configuration (only used when QUERY_ENGINE=gcp)
       - CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID=${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
       # - CONFIG_SERVICE_APPLICATION_GCP_DATASET=${CONFIG_SERVICE_APPLICATION_GCP_DATASET}
@@ -598,6 +617,13 @@ services:
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPASSWORD=pulse_password
       - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-redis}
       - CONFIG_SERVICE_APPLICATION_REDISPORT=${REDIS_PORT:-6379}
+      
+      # Batch job configuration
+      - CONFIG_SERVICE_APPLICATION_BATCHFUNNELSENDPOINT=${CONFIG_SERVICE_APPLICATION_BATCHFUNNELSENDPOINT:-/internal/analytics/funnels}
+      - CONFIG_SERVICE_APPLICATION_BATCHJOURNEYSENDPOINT=${CONFIG_SERVICE_APPLICATION_BATCHJOURNEYSENDPOINT:-/internal/analytics/journeys}
+      - CONFIG_SERVICE_APPLICATION_BATCHEVENTSENDPOINT=${CONFIG_SERVICE_APPLICATION_BATCHEVENTSENDPOINT:-/internal/analytics/events}
+      - CONFIG_SERVICE_APPLICATION_BATCHSCHEDULETIME=${CONFIG_SERVICE_APPLICATION_BATCHSCHEDULETIME:-02:00}
+      - CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED=${CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED:-true}
     networks:
       - pulse-network
     depends_on:
@@ -608,7 +634,7 @@ services:
       clickhouse:
         condition: service_healthy
       minio-init:
-        condition: service_completed_successfully  
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:4000/healthcheck" ]
@@ -634,7 +660,7 @@ volumes:
   pulse-ai-sessions:
     driver: local
   kafka-data:
-    driver: local    
+    driver: local
   minio-data:
-    driver: local  
+    driver: local
 

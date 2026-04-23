@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetryApi
 import OpenTelemetrySdk
 #if os(iOS) || os(tvOS)
@@ -15,14 +18,6 @@ internal enum PulseKitConstants {
 }
 
 public class Pulse {
-    /// When true, wraps the metric exporter with PulseLoggingMetricExporter to print exported metrics in the console.
-    /// Automatically true in Debug builds, false in Release.
-    #if DEBUG
-    private static let enableMetricExportLogging = true
-    #else
-    private static let enableMetricExportLogging = false
-    #endif
-
     public static let shared = Pulse()
 
     // Thread-safe initialization
@@ -133,18 +128,20 @@ public class Pulse {
         beforeSendLog: BeforeSendLogCallback? = nil,
         beforeSendMetric: BeforeSendMetricCallback? = nil,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = nil,
-        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil
+        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil,
+        logLevel: PulseLogLevel = .none
     ) {
         initializationQueue.sync {
+            PulseLogger.currentLevel = logLevel
             guard !_isShutdown else { return }
             guard !_isInitialized else {
-                PulseLogger.log("Already initialized, skipping.")
+                PulseLogger.info("Already initialized, skipping.")
                 return
             }
-            PulseLogger.log("Initializing...")
+            PulseLogger.info("Initializing...")
             if dataCollectionState == .denied {
                 _dataCollectionState = dataCollectionState
-                PulseLogger.log("Initialization skipped: started with DENIED consent.")
+                PulseLogger.info("Initialization skipped: started with DENIED consent.")
                 return
             }
 
@@ -171,9 +168,9 @@ public class Pulse {
                 _currentSdkConfig = configCoordinator.loadCurrentConfig()
             }
             if let v = _currentSdkConfig?.version {
-                PulseLogger.log("Config loaded from persistence (version \(v)).")
+                PulseLogger.info("Config loaded from persistence (version \(v)).")
             } else {
-                PulseLogger.log("No persisted config, using defaults.")
+                PulseLogger.info("No persisted config, using defaults.")
             }
 
             configCoordinator.startBackgroundFetch(
@@ -295,9 +292,9 @@ public class Pulse {
             _isInitialized = true
             let configVersion = configStorageQueue.sync { _currentSdkConfig?.version }
             if let v = configVersion {
-                PulseLogger.log("Initialized with config v\(v).")
+                PulseLogger.info("Initialized with config v\(v).")
             } else {
-                PulseLogger.log("Initialized (using defaults, no config).")
+                PulseLogger.info("Initialized (using defaults, no config).")
             }
         }
     }
@@ -312,7 +309,7 @@ public class Pulse {
         let enabledFeatures = Set(features)
         for feature in PulseFeatureName.allCases {
             let isEnabled = enabledFeatures.contains(feature)
-            PulseLogger.log("\(isEnabled ? "Enabling" : "Disabling") feature: \(feature)")
+            PulseLogger.debug("\(isEnabled ? "Enabling" : "Disabling") feature: \(feature)")
             switch feature {
             case .java_crash: break
             case .js_crash: break
@@ -476,8 +473,8 @@ public class Pulse {
             finalLogExporter = logsExporter
         }
 
-        // Metric pipeline: OtlpHttpMetricExporter -> BeforeSendMetricExporter? -> PulseLoggingMetricExporter? -> SampledMetricExporter? -> PersistenceMetricExporter -> ConsentMetricExporter -> PeriodicMetricReader -> MeterProviderSdk
-        // PulseLoggingMetricExporter is behind enableMetricExportLogging (dev-only) to avoid prod logs.
+        // Metric pipeline: OtlpHttpMetricExporter -> BeforeSendMetricExporter? -> PulseLoggingMetricExporter -> SampledMetricExporter? -> PersistenceMetricExporter -> ConsentMetricExporter -> PeriodicMetricReader -> MeterProviderSdk
+        // PulseLoggingMetricExporter only emits when PulseLogger.verbose would (same as debug vs release: controlled solely by logLevel).
         // ConsentMetricExporter wraps persistence so pending consent does not write metrics to disk.
         let metricsUrl = currentSdkConfig.map { URL(string: $0.signals.metricCollectorUrl)! }
             ?? URL(string: "\(base)/v1/metrics")!
@@ -486,9 +483,7 @@ public class Pulse {
             BeforeSendMetricExporter(callback: $0, delegate: otlpMetricExporter)
         } ?? otlpMetricExporter
         let baseMetricExporterForPipeline: MetricExporter =
-            Self.enableMetricExportLogging
-                ? PulseLoggingMetricExporter(delegate: metricExporterAfterBeforeSend)
-                : metricExporterAfterBeforeSend
+            PulseLoggingMetricExporter(delegate: metricExporterAfterBeforeSend)
 
         let finalMetricExporter: MetricExporter
         if let processors = _samplingSignalProcessors {
@@ -992,7 +987,7 @@ internal enum BatchProcessorDefaults {
     static let exportTimeout: TimeInterval = 30
 }
 
-// MARK: - Debug Metric Logging (remove before release)
+// MARK: - Metric export logging (PulseLogger.verbose only; same pipeline in Debug and Release)
 
 internal class PulseLoggingMetricExporter: MetricExporter {
     private let delegate: MetricExporter
@@ -1002,12 +997,12 @@ internal class PulseLoggingMetricExporter: MetricExporter {
     }
 
     func export(metrics: [MetricData]) -> ExportResult {
-        if !metrics.isEmpty {
-            print("┌─── [PulseMetrics] Exporting \(metrics.count) metric(s) ───")
+        if !metrics.isEmpty, PulseLogger.currentLevel <= .verbose {
+            PulseLogger.verbose("┌─── [PulseMetrics] Exporting \(metrics.count) metric(s) ───")
             for metric in metrics {
-                print("│ Name: \(metric.name)")
-                print("│ Type: \(metric.type) | Unit: \(metric.unit) | Monotonic: \(metric.isMonotonic)")
-                print("│ Scope: \(metric.instrumentationScopeInfo.name)")
+                PulseLogger.verbose("│ Name: \(metric.name)")
+                PulseLogger.verbose("│ Type: \(metric.type) | Unit: \(metric.unit) | Monotonic: \(metric.isMonotonic)")
+                PulseLogger.verbose("│ Scope: \(metric.instrumentationScopeInfo.name)")
                 for point in metric.data.points {
                     let attrs = point.attributes.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
                     let valueStr: String
@@ -1021,11 +1016,11 @@ internal class PulseLoggingMetricExporter: MetricExporter {
                     default:
                         valueStr = "(unknown point type)"
                     }
-                    print("│   Point: value=\(valueStr) | attrs=[\(attrs)]")
+                    PulseLogger.verbose("│   Point: value=\(valueStr) | attrs=[\(attrs)]")
                 }
-                print("│")
+                PulseLogger.verbose("│")
             }
-            print("└─── [PulseMetrics] Exported ───")
+            PulseLogger.verbose("└─── [PulseMetrics] Exported ───")
         }
         return delegate.export(metrics: metrics)
     }

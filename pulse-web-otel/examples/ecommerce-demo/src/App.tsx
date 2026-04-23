@@ -113,6 +113,12 @@ export default function App() {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
 
+    // Disk buffering defaults on (Android parity). Opt out with ?pulse_disk=0 or VITE_PULSE_DISK_BUFFER=false.
+    const diskOffQuery = searchParams.get("pulse_disk") === "0";
+    const diskOffEnv = import.meta.env["VITE_PULSE_DISK_BUFFER"] === "false";
+    const diskBuffering =
+      diskOffQuery || diskOffEnv ? { enabled: false as const } : undefined;
+
     const dataCollectionState =
       consentParam === "denied"
         ? PulseDataCollectionConsent.DENIED
@@ -127,13 +133,35 @@ export default function App() {
     const debugLifecycle =
       import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true";
 
+    const serviceVersionRaw = import.meta.env["VITE_PULSE_SERVICE_VERSION"] as
+      | string
+      | undefined;
+    const serviceVersion =
+      serviceVersionRaw && String(serviceVersionRaw).trim() !== ""
+        ? String(serviceVersionRaw).trim()
+        : undefined;
+
     return {
       apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
+      ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
-      ...(formatEnv ? { export: { format: formatEnv } } : {}),
-      ...(debugLifecycle ? { debugLogRecordLifecycle: true } : {}),
+      export: {
+        format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
+        compression:
+          (import.meta.env["VITE_PULSE_COMPRESSION"] as
+            | "gzip"
+            | "none"
+            | undefined) ?? "gzip",
+        batch: {
+          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
+            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
+            : 5000,
+        },
+      },
+      debugLogRecordLifecycle: debugLifecycle,
+      ...(diskBuffering !== undefined ? { diskBuffering } : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
