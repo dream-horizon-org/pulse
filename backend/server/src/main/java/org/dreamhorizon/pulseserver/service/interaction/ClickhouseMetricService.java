@@ -214,7 +214,11 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     if (!Strings.isEmpty(orderByClause)) {
       query += String.format(" order by %s", orderByClause);
     }
-    query += String.format(" limit %d", Objects.requireNonNullElse(request.getLimit(), 100));
+    int limit = Objects.requireNonNullElse(request.getLimit(), 100);
+    query += String.format(" limit %d", limit);
+    if (request.getOffset() != null && request.getOffset() > 0) {
+      query += String.format(" offset %d", request.getOffset());
+    }
 
     String whereClause = where.toString();
 
