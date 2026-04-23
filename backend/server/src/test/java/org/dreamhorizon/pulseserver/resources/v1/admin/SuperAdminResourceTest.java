@@ -1,21 +1,24 @@
 package org.dreamhorizon.pulseserver.resources.v1.admin;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.inject.Provider;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.security.SignatureException;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import jakarta.ws.rs.WebApplicationException;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.resources.v1.admin.models.GrantSuperAdminRequest;
 import org.dreamhorizon.pulseserver.resources.v1.admin.models.SuperAdminsListResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
+import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -27,14 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith({MockitoExtension.class, VertxExtension.class})
 class SuperAdminResourceTest {
 
-  private static final String JWT_CALLER = minimalJwt("caller-1");
-
-  static String minimalJwt(String sub) {
-    String header = Base64.getUrlEncoder().withoutPadding().encodeToString("{}".getBytes(StandardCharsets.UTF_8));
-    String payload = Base64.getUrlEncoder().withoutPadding().encodeToString(
-        ("{\"sub\":\"" + sub + "\"}").getBytes(StandardCharsets.UTF_8));
-    return "Bearer " + header + "." + payload + ".x";
-  }
+  private static final String JWT_CALLER = "Bearer signed-token";
 
   @Mock
   Provider<OpenFgaService> openFgaProvider;
@@ -42,14 +38,26 @@ class SuperAdminResourceTest {
   @Mock
   OpenFgaService openFga;
 
+  @Mock
+  JwtService jwtService;
+
+  @Mock
+  Claims verifiedClaims;
+
   SuperAdminResource resource;
 
   @BeforeEach
   void setUp() {
-    resource = new SuperAdminResource(openFgaProvider);
+    resource = new SuperAdminResource(openFgaProvider, jwtService);
+  }
+
+  private void withVerifiedJwt(String subject) {
+    when(verifiedClaims.getSubject()).thenReturn(subject);
+    when(jwtService.verifyToken("signed-token")).thenReturn(verifiedClaims);
   }
 
   private void withEnabledOpenFga() {
+    withVerifiedJwt("caller-1");
     when(openFgaProvider.get()).thenReturn(openFga);
     when(openFga.isEnabled()).thenReturn(true);
   }
@@ -76,6 +84,27 @@ class SuperAdminResourceTest {
             Throwable e = unwrap(err);
             assertThat(e).isInstanceOf(WebApplicationException.class);
             assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(503);
+            verify(jwtService, org.mockito.Mockito.never()).verifyToken(anyString());
+          });
+          tc.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldReturn401WhenJwtSignatureInvalid(io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(v -> {
+        when(openFgaProvider.get()).thenReturn(openFga);
+        when(openFga.isEnabled()).thenReturn(true);
+        when(jwtService.verifyToken("signed-token")).thenThrow(new SignatureException("bad sig"));
+        CompletionStage<Response<SuperAdminsListResponse>> cs = resource.list(JWT_CALLER);
+        cs.whenComplete((resp, err) -> {
+          tc.verify(() -> {
+            assertThat(resp).isNull();
+            assertThat(err).isNotNull();
+            Throwable e = unwrap(err);
+            assertThat(e).isInstanceOf(WebApplicationException.class);
+            assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(401);
           });
           tc.completeNow();
         });
