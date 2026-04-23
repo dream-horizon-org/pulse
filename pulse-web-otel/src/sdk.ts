@@ -40,6 +40,7 @@ import {
   resolveDiskBufferMaxAgeMs,
   resolveDiskBufferMaxCacheSizeBytes,
 } from "./constants/disk-buffer";
+import { resolveBeforeSend } from "./before-send";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -70,10 +71,8 @@ class PulseWebSDK implements SdkContext {
 
   start(config: PulseWebConfig): void {
     if (this._initialized || this._shuttingDown || this._starting) return;
-
     // Step 1: Validate config
     validateConfig(config);
-
     // Step 1.5: Resolve endpointBaseUrl from apiKey (internal — not a public config field)
     const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey);
 
@@ -156,6 +155,7 @@ class PulseWebSDK implements SdkContext {
 
     const diskOn = config.diskBuffering?.enabled !== false;
     const disk = config.diskBuffering;
+    const beforeSendResolved = resolveBeforeSend(config.beforeSend);
     const exporterConfig = {
       endpointBaseUrl,
       apiKey: config.apiKey,
@@ -176,6 +176,7 @@ class PulseWebSDK implements SdkContext {
             ),
           }
         : { enabled: false },
+      ...(beforeSendResolved ? { beforeSend: beforeSendResolved } : {}),
     };
 
     const bundle = createProviders(

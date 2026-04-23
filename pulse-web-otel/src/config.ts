@@ -1,6 +1,12 @@
 import { PulseDataCollectionConsent } from "./types/config";
+import type { PulseWebBeforeSendConfig } from "./before-send";
+import { validateBeforeSendConfig } from "./before-send";
 
 export { PulseDataCollectionConsent } from "./types/config";
+export type {
+  PulseWebBeforeSendCallbacks,
+  PulseWebBeforeSendConfig,
+} from "./before-send";
 
 export interface InstrumentationConfig {
   errors?: { enabled: boolean };
@@ -38,8 +44,8 @@ export interface PulseWebConfig {
   serviceName?: string;
   serviceVersion?: string;
 
-  // Optional — privacy
-  beforeSend?: (signal: unknown) => unknown | null;
+  // Optional — privacy (Android PulseBeforeSendData parity — see before-send.ts)
+  beforeSend?: PulseWebBeforeSendConfig;
 
   // Optional — custom attributes stamped on every signal
   globalAttributes?: Record<string, string | number | boolean>;
@@ -79,6 +85,7 @@ export interface PulseWebConfig {
 
 export function validateConfig(config: PulseWebConfig): void {
   if (!config.apiKey) throw new Error("[PulseWeb] apiKey is required");
+  validateBeforeSendConfig(config.beforeSend);
   const diskOn = config.diskBuffering?.enabled !== false;
   const disk = config.diskBuffering;
   if (diskOn && disk !== undefined) {

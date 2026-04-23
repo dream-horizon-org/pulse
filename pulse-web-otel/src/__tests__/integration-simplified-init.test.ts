@@ -3,7 +3,8 @@
  *
  * Android exposes: apiKey (required), dataCollectionState (required),
  * serviceName (optional/auto-derived), serviceVersion (optional),
- * globalAttributes, beforeSend, instrumentations.
+ * globalAttributes, beforeSend (validated here; export wiring tested in before-send-exporter.test.ts),
+ * instrumentations.
  *
  * Everything else (endpointBaseUrl, export format/compression/batch,
  * configEndpointUrl) is internal-only. `diskBuffering` defaults on (Android parity); optional
@@ -108,19 +109,42 @@ describe("Config surface — matches Android minimal API", () => {
     expect(PulseWeb.isInitialized()).toBe(false);
   });
 
-  // Public config includes `beforeSend` (Android parity); pipeline hook not wired on web yet.
-  it("TC-C3a: beforeSend is accepted but never invoked after start + log emits", async () => {
-    const beforeSend = vi.fn((_signal: unknown) => null);
-    PulseWeb.start({
-      apiKey: "default-project_devkey01",
-      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
-      beforeSend,
-    });
+  // beforeSend is validated at start; full export wiring is unit-tested in before-send-exporter.test.ts
+  // (this suite mocks createProviders so hooks never run here).
+  it("TC-C3a: invalid beforeSend callback object throws at start()", () => {
+    expect(() =>
+      PulseWeb.start({
+        apiKey: "default-project_devkey01",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+        beforeSend: { beforeSend: "not-a-fn" } as never,
+      }),
+    ).toThrow(
+      "[PulseWeb] beforeSend.beforeSend must be a function when provided",
+    );
+  });
+
+  it("TC-C3b: beforeSend function and callback object are accepted when valid", async () => {
+    const fn = vi.fn((s: unknown) => s);
+    expect(() =>
+      PulseWeb.start({
+        apiKey: "default-project_devkey01",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+        beforeSend: fn,
+      }),
+    ).not.toThrow();
+    await Promise.resolve();
+    await PulseWeb.shutdown();
+    expect(() =>
+      PulseWeb.start({
+        apiKey: "default-project_devkey01",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+        beforeSend: {
+          beforeSendSpan: (span) => span,
+        },
+      }),
+    ).not.toThrow();
     await Promise.resolve();
     expect(PulseWeb.isInitialized()).toBe(true);
-    PulseWeb.trackEvent("before_send_probe_event");
-    PulseWeb.trackNonFatal("before_send_probe_non_fatal");
-    expect(beforeSend).not.toHaveBeenCalled();
   });
 
   // TC-C4

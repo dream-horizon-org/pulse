@@ -14,6 +14,7 @@
 | Identity management | Installation ID (3-tier storage), Session Provider (ID + rotation) | [identity.md](./identity.md) |
 | OTEL Resource & global attributes | Static browser attributes + dynamic per-signal attributes | [resource.md](./resource.md) |
 | Export pipeline | OTLP exporters, batching, IndexedDB persistence, gzip compression | [pipeline.md](./pipeline.md) |
+| `beforeSend` parity & main-thread semantics | Android-aligned hook plan, performance contract, pipeline precedence | [before-send-web-android-parity.md](./before-send-web-android-parity.md) |
 | SDK lifecycle | Singleton, shutdown API, instrumentation registry | [sdk-lifecycle.md](./sdk-lifecycle.md) |
 | Session instrumentation | `session.start` / `session.end` signal emission | [session.md](./session.md) |
 | Remote SDK config | Sampling, feature gates, signal filters, attribute manipulation | [sdk-config.md](./sdk-config.md) |

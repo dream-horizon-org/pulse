@@ -39,7 +39,7 @@ The **M1 milestone table** in `MILESTONES.md` lists foundation only (session ske
 1. **OTLP wire format:** `createProviders` uses **protobuf** unless `config.export.format === 'json'` (`src/exporters.ts`) — aligned with `MILESTONES.md`.
 2. **Sampling:** **Export-time** via `ExportSamplingGate` + `SampledSpanExporter` / `SampledLogRecordExporter` / `SampledPushMetricExporter` + keepalive path filtering — aligned with Android “drop before OTLP”. Session draw uses **one** `Math.random()` per SDK init (same random for per-signal `signalsToSample` rates).
 3. **`session` feature flag:** Remote config can disable the `session` feature → `SessionInstrumentation` never installs → no `session.start` / `session.end`. Confirm product intent (identity vs optional telemetry).
-4. **`beforeSend`:** Declared on `PulseWebConfig` but **not invoked** anywhere in the pipeline yet (planned for M3 in milestones).
+4. **`beforeSend`:** **Wired** at OTLP export (exporter wrappers; Android `PulseBeforeSend*` parity). Config: function or `PulseWebBeforeSendCallbacks` object — see `src/before-send.ts`, `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
 5. **`session.start` on reload:** When the SDK **reuses** a session (`SessionProvider` clone/reuse path), `emitInitialSession` may skip a new `session.start` — compare to exit-criteria wording “on init” if dashboards expect one start per navigation.
 
 ---
@@ -504,7 +504,7 @@ Structured pass over `src/` (init, session, exporters, persistence, processors, 
 | Item                                   | Status        | Notes                                                                                                                                     |
 | -------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Browser gzip                           | **Done (M1)** | `src/utils/otlp-gzip.ts` + transport wrapper; use `export.compression: 'none'` when `CompressionStream` is missing or for tests        |
-| `beforeSend` hook                      | **Not wired** | Declared on `PulseWebConfig`; no processor/exporter calls it yet (M3 plan)                                                               |
+| `beforeSend` hook                      | **Wired**     | Exporter batch hooks in `before-send-exporters.ts`; spec `v1/01-foundation/before-send-web-android-parity.md`                             |
 | Default protobuf on wire              | **Done**      | Omitted `export.format` uses protobuf; `export.format: 'json'` for dev/tests                                                           |
 | Sampling vs Android                   | **Done**      | `ExportSamplingGate` + sampled span/log/metric exporters + keepalive log filter                                                        |
 | `pulse_prev_session_id` persistence   | **Unused**    | Reader exists; writer not implemented — previous session id on logs stays empty unless added later                                       |

@@ -8,6 +8,14 @@
 
 ---
 
+## Main thread, batching, and `beforeSend`
+
+Browser JS has **no background “export thread”** by default: span/log **processors**, **batch flush**, **OTLP serialization**, and any future **`beforeSend`** hook run on the **main thread** (same event loop as UI) unless we explicitly move work to a Web Worker (not current scope). That makes **`beforeSend` CPU cost stricter than Android** in user-visible impact — same guidance as Android (“don’t block export”), plus **avoid janking the page**.
+
+**Pipeline order vs remote rules:** Remote-driven **`SignalFilterProcessor`** runs as a **processor** earlier; app **`beforeSend`** runs at **exporter batch export** (after batching, aligned with Android’s `PulseBeforeSend*Exporter` pattern). Full semantics, Sentry-style industry context, wrong-type drop rule, and **implementation plan** → **[before-send-web-android-parity.md](./before-send-web-android-parity.md)**.
+
+---
+
 ## 5. OTLP Exporter Setup
 
 The web SDK uses the same OTLP endpoints as the mobile SDKs — no backend changes required (only CORS headers need to be enabled — see [sdk-lifecycle.md](./sdk-lifecycle.md)).

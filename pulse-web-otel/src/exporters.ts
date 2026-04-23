@@ -51,6 +51,16 @@ import {
   SampledPushMetricExporter,
   SampledSpanExporter,
 } from "./sampling/sampling-exporters";
+import {
+  hasBeforeSendForLogs,
+  hasBeforeSendForMetrics,
+  hasBeforeSendForSpans,
+} from "./before-send";
+import {
+  BeforeSendLogRecordExporter,
+  BeforeSendMetricExporter,
+  BeforeSendSpanExporter,
+} from "./exporters/before-send-exporters";
 
 // Compression is hardcoded off — not exposed in public config (mirrors Android internals)
 const USE_GZIP = false; // no compression — keep it simple and compatible
@@ -203,6 +213,8 @@ export function createProviders(
     buffer: idbBuffer,
   };
 
+  const beforeSend = config.beforeSend;
+
   const innerTraceExporter = new PulseBrowserTraceExporter(
     { url: tracesUrl, headers },
     {
@@ -212,9 +224,10 @@ export function createProviders(
       signalKind: "trace",
     },
   );
-  let traceExporter: SpanExporter = config.samplingGate
-    ? new SampledSpanExporter(innerTraceExporter, config.samplingGate)
-    : innerTraceExporter;
+  let traceExporter: SpanExporter = innerTraceExporter;
+  if (config.samplingGate) {
+    traceExporter = new SampledSpanExporter(traceExporter, config.samplingGate);
+  }
   const metricsEntries = config.metricsToAdd ?? [];
   let meterForDerivedMetrics: Meter | undefined;
   if (metricsEntries.length > 0 && config.metricsToAddSdkName) {
@@ -223,6 +236,9 @@ export function createProviders(
       sdkName: config.metricsToAddSdkName,
       getMeter: () => meterForDerivedMetrics!,
     });
+  }
+  if (beforeSend && hasBeforeSendForSpans(beforeSend)) {
+    traceExporter = new BeforeSendSpanExporter(traceExporter, beforeSend);
   }
   const batchSpanProcessor = new BatchSpanProcessor(
     traceExporter,
@@ -267,6 +283,12 @@ export function createProviders(
       getMeter: () => meterForDerivedMetrics!,
     });
   }
+  if (beforeSend && hasBeforeSendForLogs(beforeSend)) {
+    logExporterHead = new BeforeSendLogRecordExporter(
+      logExporterHead,
+      beforeSend,
+    );
+  }
 
   const batchLogProcessor = new BatchLogRecordProcessor(
     logExporterHead,
@@ -289,16 +311,22 @@ export function createProviders(
     },
   );
 
-  const sampledMetric = config.samplingGate
-    ? new SampledPushMetricExporter(rawMetricExporter, config.samplingGate)
-    : rawMetricExporter;
-
-  const metricExporter: PushMetricExporter = config.getMetricGlobalAttrs
-    ? new GlobalAttributeInjectingMetricExporter(
-        sampledMetric,
-        config.getMetricGlobalAttrs,
-      )
-    : sampledMetric;
+  let metricExporter: PushMetricExporter = rawMetricExporter;
+  if (config.samplingGate) {
+    metricExporter = new SampledPushMetricExporter(
+      metricExporter,
+      config.samplingGate,
+    );
+  }
+  if (config.getMetricGlobalAttrs) {
+    metricExporter = new GlobalAttributeInjectingMetricExporter(
+      metricExporter,
+      config.getMetricGlobalAttrs,
+    );
+  }
+  if (beforeSend && hasBeforeSendForMetrics(beforeSend)) {
+    metricExporter = new BeforeSendMetricExporter(metricExporter, beforeSend);
+  }
 
   const metricReader = new PeriodicExportingMetricReader({
     exporter: metricExporter,

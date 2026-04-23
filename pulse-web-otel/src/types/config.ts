@@ -1,3 +1,5 @@
+import type { PulseWebBeforeSendConfig } from "../before-send";
+
 export enum PulseDataCollectionConsent {
   ALLOWED = "ALLOWED",
   DENIED = "DENIED",
@@ -41,7 +43,7 @@ export interface PulseWebConfig {
   serviceName?: string;
   serviceVersion?: string;
   globalAttributes?: Record<string, string | number | boolean>;
-  beforeSend?: (signal: unknown) => unknown | null;
+  beforeSend?: PulseWebBeforeSendConfig;
   instrumentations?: InstrumentationConfig;
 
   // Web-specific only (no Android equivalent)
