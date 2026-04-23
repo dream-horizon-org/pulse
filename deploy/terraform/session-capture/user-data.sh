@@ -7,6 +7,10 @@ echo "Starting session-capture user-data at $(date)"
 export HOME=/home/admin
 cd "$HOME" || cd /root
 
+echo "Installing dependencies..."
+sudo apt-get update -qq
+sudo apt-get install -y -qq unzip curl
+
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-session-capture"

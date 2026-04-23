@@ -51,29 +51,29 @@ pipeline {
             }
         }
 
-        stage('Bump version for next development') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-                        def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
-                        sh """
-                            #!/bin/bash -el
-                            CARGO="${WORKSPACE}/backend/session-capture-service/Cargo.toml"
-                            sed -i.bak -E 's/^version = "[^"]+"/version = "${nextVersion}"/' "\$CARGO"
-                            rm -f "\$CARGO.bak"
+        // stage('Bump version for next development') {
+        //     steps {
+        //         script {
+        //             withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+        //                 def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
+        //                 sh """
+        //                     #!/bin/bash -el
+        //                     CARGO="${WORKSPACE}/backend/session-capture-service/Cargo.toml"
+        //                     sed -i.bak -E 's/^version = "[^"]+"/version = "${nextVersion}"/' "\$CARGO"
+        //                     rm -f "\$CARGO.bak"
 
-                            git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
-                            git config user.name "${GITBOT_USERNAME}"
+        //                     git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+        //                     git config user.name "${GITBOT_USERNAME}"
 
-                            git add backend/session-capture-service/Cargo.toml
-                            git commit -m "chore: bump pulse-session-capture version to ${nextVersion}"
+        //                     git add backend/session-capture-service/Cargo.toml
+        //                     git commit -m "chore: bump pulse-session-capture version to ${nextVersion}"
 
-                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
-                        """
-                    }
-                }
-            }
-        }
+        //                     git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     post {
