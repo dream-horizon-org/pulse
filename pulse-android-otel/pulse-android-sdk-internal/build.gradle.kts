@@ -33,7 +33,10 @@ dependencies {
     implementation(projects.instrumentation.location.locationProcessors)
     implementation(projects.instrumentation.sessionReplay)
     implementation(platform(libs.opentelemetry.platform.alpha))
-    implementation(libs.opentelemetry.exporter.otlp)
+    implementation(libs.opentelemetry.exporter.otlp) {
+        // See android-agent: avoid okhttp-jvm on Android consumer classpaths (duplicate okhttp3.*).
+        exclude(group = "com.squareup.okhttp3", module = "okhttp-jvm")
+    }
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.semconv.incubating)
