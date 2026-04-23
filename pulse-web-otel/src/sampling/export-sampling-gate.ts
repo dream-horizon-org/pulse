@@ -8,7 +8,10 @@ import type { ResourceMetrics } from "@opentelemetry/sdk-metrics";
 
 import type { PulseSdkConfig, PulseSdkName } from "../types/remote-config";
 import type { PulseSignalsToSampleEntry } from "../types/remote-config";
-import type { PulseSignalScope } from "../types/sampling";
+import type {
+  ExportSamplingGateInit,
+  PulseSignalScope,
+} from "../types/sampling";
 import { pulseSignalConditionMatches } from "../utils/sampling-signal-match";
 import {
   clamp01,
@@ -18,10 +21,7 @@ import {
 } from "../utils/session-sampling-rate";
 import { PulseWebLogger } from "../pulse-web-logger";
 
-export type ExportSamplingGateInit = {
-  /** Same string as OTEL resource `service.version` (PulseWebConfig.serviceVersion). */
-  serviceVersion?: string;
-};
+export type { ExportSamplingGateInit } from "../types/sampling";
 
 export class ExportSamplingGate {
   private readonly sessionRandomValue: number;

@@ -10,7 +10,7 @@ export type {
 export type {
   PulseWebBeforeSendCallbacks,
   PulseWebBeforeSendConfig,
-} from "./before-send";
+} from "./types/before-send";
 export { PulseLogLevel } from "./pulse-log-level";
 
 export function validateConfig(config: PulseWebConfig): void {

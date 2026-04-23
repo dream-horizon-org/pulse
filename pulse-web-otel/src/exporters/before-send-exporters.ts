@@ -10,7 +10,7 @@ import type {
   ResourceMetrics,
 } from "@opentelemetry/sdk-metrics";
 
-import type { ResolvedBeforeSend } from "../before-send";
+import type { ResolvedBeforeSend } from "../types/before-send";
 import {
   isReadableLogRecord,
   isReadableSpan,

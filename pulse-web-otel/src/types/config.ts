@@ -1,4 +1,4 @@
-import type { PulseWebBeforeSendConfig } from "../before-send";
+import type { PulseWebBeforeSendConfig } from "./before-send";
 import type { PulseLogLevel } from "../pulse-log-level";
 
 /** Consent for telemetry collection (Android `dataCollectionState` parity). */
