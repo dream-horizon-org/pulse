@@ -86,9 +86,9 @@ public class RootCauseService {
   }
 
   /**
-   * Distinct non-empty {@code screen.name} values for spans with {@code pulse.interaction.name}
-   * matching {@code interactionName} in the RCA window (aligned with session listing). On ClickHouse
-   * error returns an empty list.
+   * Non-empty {@code screen.name} values for spans with {@code pulse.interaction.name} matching
+   * {@code interactionName} in the RCA window (aligned with session listing), ordered by descending
+   * span count per screen (then name for ties). On ClickHouse error returns an empty list.
    */
   public Single<List<String>> fetchDistinctScreensForInteraction(
       String projectId, String interactionName, RootCauseQueryBuilder.Window window) {
