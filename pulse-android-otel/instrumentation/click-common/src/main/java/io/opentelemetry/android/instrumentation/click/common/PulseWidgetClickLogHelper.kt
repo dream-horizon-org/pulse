@@ -6,7 +6,7 @@
 package io.opentelemetry.android.instrumentation.click.common
 
 import com.pulse.semconv.PulseAttributes
-import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseLogger
 import io.opentelemetry.api.logs.LogRecordBuilder
 
 /**
@@ -26,7 +26,7 @@ object PulseWidgetClickLogHelper {
         rageCount: Int? = null,
         logTag: String = DEFAULT_LOG_TAG,
     ) {
-        PulseOtelUtils.logDebug(logTag) {
+        PulseLogger.logDebug(logTag) {
             buildString {
                 append("click.type=$clickType")
                 rageCount?.let { append(" is_rage=true count=$it") }
