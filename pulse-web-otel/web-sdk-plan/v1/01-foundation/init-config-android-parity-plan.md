@@ -10,7 +10,7 @@
 
 Pulse positions mobile and web SDKs as **one product surface**. Integrators reading `PulseSDK.initialize` on Android expect the same **named knobs** on `PulseWeb.start` / `PulseWebConfig` where the platform allows parity.
 
-**Export-time hooks:** Web `PulseWebConfig` uses **`beforeSendData`** (same key name as Android). **Logging / resource** still have gaps documented below (`logLevel`, resource injection). Web also carried a legacy **`debugLogRecordLifecycle`** boolean; that flag is **dropped** in favor of **`logLevel`** only.
+**Export-time hooks:** Web `PulseWebConfig` uses **`beforeSendData`** (same key name as Android). **`resourceAttributes`** + merge are **implemented** (§6). **`logLevel`** + **`PulseWebLogger`** are **implemented** (§5); legacy **`debugLogRecordLifecycle`** removed from config.
 
 ---
 
@@ -235,3 +235,4 @@ const finalResource = userLayer.merge(pulseLayer); // pulseLayer wins overlaps
 | 2026-04-23 | §5.4.1: **`NONE` = fully silent** (including ERROR-tier messages); Android parity. §5.6: add `config-fetcher.ts`. §9: drop resolved NONE/ERROR question. |
 | 2026-04-23 | **Track A:** `PulseWebConfig` / `ExporterConfig` use **`beforeSendData` only** (no `beforeSend` config key); plan §4/§7/§9 updated accordingly. |
 | 2026-04-23 | **Track C:** **C1 only** (`resourceAttributes`); drop public **`Resource`** on config (OTel version coupling). Merge: `userLayer.merge(pulseLayer)` so **Pulse wins** on conflicts; document reserved keys (`project.id`, `rum.sdk.name`, `platform`). |
+| 2026-04-23 | **Track B code:** `PulseLogLevel`, `PulseWebLogger`, `logLevel` on `PulseWebConfig`; removed `debugLogRecordLifecycle`; sampling + sdkConfig + lifecycle use logger. |

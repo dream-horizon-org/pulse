@@ -174,7 +174,7 @@ Web picks the first `sampling.rules[]` entry whose `sdks` includes `pulse_web_js
 | `sdk.init` span                | Short-lived span on every successful init — `pulse.type` = SDK init (`semconv`); used as pipeline heartbeat in M1 exit criteria (naming differs from literal string “heartbeat”)          |
 | `pulse.app.installation.start` | Log emitted on first-ever install only — detected via `wasNewInstallation()`                                                                                                           |
 | `shutdown()`                   | Awaits `forceFlush()` on all three providers, `InstrumentationRegistry.uninstallAll()`, `SessionProvider.shutdown()`                                                                      |
-| Debug: log record lifecycle    | `config.debugLogRecordLifecycle === true` → `LogRecordLifecycleDebugProcessor` stages + optional `wrapLogExporterLifecycleDebug` on the log exporter; **verbose `console.log`** — dev only |
+| Debug: log record lifecycle    | `logLevel <= DEBUG` → `LogRecordLifecycleDebugProcessor` stages; messages via **`PulseWebLogger`** (no console when `NONE`) |
 
 
 ### 2. Public API (`src/sdk.ts`)

@@ -8,7 +8,7 @@
  *
  * Everything else (endpointBaseUrl, export format/compression/batch,
  * configEndpointUrl) is internal-only. `diskBuffering` defaults on (Android parity); optional
- * `debugLogRecordLifecycle`
+ * `logLevel` (see PulseLogLevel)
  * are public toggles.
  */
 

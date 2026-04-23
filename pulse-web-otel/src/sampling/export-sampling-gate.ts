@@ -16,6 +16,7 @@ import {
   logRecordBodyAsString,
   resolveSessionSamplingRate,
 } from "../utils/session-sampling-rate";
+import { PulseWebLogger } from "../pulse-web-logger";
 
 export type ExportSamplingGateInit = {
   /** Same string as OTEL resource `service.version` (PulseWebConfig.serviceVersion). */
@@ -41,14 +42,16 @@ export class ExportSamplingGate {
     this.shouldSampleThisSession = this.sessionRandomValue < sessionRate;
     this.signalsToSample = config.sampling.signalsToSample ?? [];
 
-    console.log("[PulseWeb:sampling:init]", {
-      sdkName: this.sdkName,
-      sessionRandomDraw: this.sessionRandomValue,
-      resolvedSessionSampleRate: this.sessionSamplingRate,
-      sessionKept: this.shouldSampleThisSession,
-      rule: "draw < resolvedSessionSampleRate",
-      signalsToSampleEntries: this.signalsToSample.length,
-    });
+    PulseWebLogger.debug(
+      `[sampling:init] ${JSON.stringify({
+        sdkName: this.sdkName,
+        sessionRandomDraw: this.sessionRandomValue,
+        resolvedSessionSampleRate: this.sessionSamplingRate,
+        sessionKept: this.shouldSampleThisSession,
+        rule: "draw < resolvedSessionSampleRate",
+        signalsToSampleEntries: this.signalsToSample.length,
+      })}`,
+    );
   }
 
   private shouldSampleByRate(rate: number): boolean {
@@ -56,10 +59,12 @@ export class ExportSamplingGate {
   }
 
   private logSampling(payload: Record<string, unknown>): void {
-    console.log("[PulseWeb:sampling]", {
-      sessionRandomDraw: this.sessionRandomValue,
-      ...payload,
-    });
+    PulseWebLogger.debug(
+      `[sampling] ${JSON.stringify({
+        sessionRandomDraw: this.sessionRandomValue,
+        ...payload,
+      })}`,
+    );
   }
   private isAlwaysSend(
     scope: PulseSignalScope,

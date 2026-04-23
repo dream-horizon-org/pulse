@@ -141,6 +141,9 @@ PulseWeb.start({
   // Before-send hook (same as mobile)
   beforeSendData: (signal) => signal,  // return null to drop
 
+  // SDK diagnostics (Android / RN parity); NONE = silent
+  logLevel: PulseLogLevel.NONE,
+
   // Remote config
   configEndpointUrl: 'https://ingest.pulse.io',
 })

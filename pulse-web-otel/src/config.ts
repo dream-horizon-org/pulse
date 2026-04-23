@@ -1,12 +1,14 @@
 import { PulseDataCollectionConsent } from "./types/config";
 import type { PulseWebBeforeSendConfig } from "./before-send";
 import { validateBeforeSendConfig } from "./before-send";
+import { PulseLogLevel } from "./pulse-log-level";
 
 export { PulseDataCollectionConsent } from "./types/config";
 export type {
   PulseWebBeforeSendCallbacks,
   PulseWebBeforeSendConfig,
 } from "./before-send";
+export { PulseLogLevel };
 
 export interface InstrumentationConfig {
   errors?: { enabled: boolean };
@@ -43,9 +45,12 @@ export interface PulseWebConfig {
   /** Defaults to window.location.hostname if absent. */
   serviceName?: string;
   serviceVersion?: string;
+    // Optional — per-instrumentation toggles
+    instrumentations?: InstrumentationConfig;
 
   // Optional — privacy (Android `beforeSendData` / PulseBeforeSendData parity — see before-send.ts)
   beforeSendData?: PulseWebBeforeSendConfig;
+
 
   // Optional — custom attributes stamped on every signal
   globalAttributes?: Record<string, string | number | boolean>;
@@ -60,8 +65,7 @@ export interface PulseWebConfig {
   // Optional — route → screen name mapping (used by navigation instrumentation)
   routePatterns?: Array<{ pattern: string; name: string }>;
 
-  // Optional — per-instrumentation toggles
-  instrumentations?: InstrumentationConfig;
+
 
   /**
    * Wire format for OTLP export.
@@ -73,10 +77,11 @@ export interface PulseWebConfig {
   };
 
   /**
-   * When true, logs each log record through the processor chain to the browser console.
-   * Leave false (or omit) in production.
+   * SDK internal diagnostics (Android / RN parity). Omitted or {@link PulseLogLevel.NONE} → no
+   * Pulse console output. Use {@link PulseLogLevel.DEBUG} for sampling + remote-config traces and
+   * log-record lifecycle processors.
    */
-  debugLogRecordLifecycle?: boolean;
+  logLevel?: PulseLogLevel;
 
   /**
    * Failed exports may be written to IndexedDB and replayed on the next load (same role as

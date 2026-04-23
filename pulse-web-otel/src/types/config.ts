@@ -1,4 +1,5 @@
 import type { PulseWebBeforeSendConfig } from "../before-send";
+import type { PulseLogLevel } from "../pulse-log-level";
 
 export enum PulseDataCollectionConsent {
   ALLOWED = "ALLOWED",
@@ -65,12 +66,8 @@ export interface PulseWebConfig {
     format?: "json" | "protobuf";
   };
 
-  /**
-   * When true, logs each log record through the processor chain to the browser console.
-   * Useful for debugging signal flow: API emit → processors → batch export.
-   * Leave false (or omit) in production.
-   */
-  debugLogRecordLifecycle?: boolean;
+  /** SDK internal log verbosity (Android / RN parity). */
+  logLevel?: PulseLogLevel;
 
   diskBuffering?: PulseWebDiskBufferingConfig;
 }
