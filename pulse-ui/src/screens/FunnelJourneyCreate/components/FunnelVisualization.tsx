@@ -5,6 +5,7 @@ import {
   IconTrendingUp,
 } from "@tabler/icons-react";
 import { FunnelStepResult } from "../../../hooks/useGetFunnelData";
+import { FunnelMode } from "../../../services/funnels.service";
 import { formatDuration } from "../FunnelJourneyCreate.util";
 import classes from "../FunnelCreate.module.css";
 
@@ -13,6 +14,11 @@ interface FunnelVisualizationProps {
   totalConversionRate: number;
   conversionTrend: number;
   medianTimes: (number | null)[];
+  /**
+   * Analysis grouping key for this funnel. Drives the drop-off tooltip wording
+   * ("users" vs "sessions"). Defaults to UNIQUE_USERS when omitted.
+   */
+  mode?: FunnelMode;
 }
 
 const SLOW_THRESHOLD_SECONDS = 30;
@@ -22,7 +28,9 @@ export function FunnelVisualization({
   totalConversionRate,
   conversionTrend,
   medianTimes,
+  mode = FunnelMode.UNIQUE_USERS,
 }: FunnelVisualizationProps) {
+  const subjectPlural = mode === FunnelMode.SESSIONS ? "sessions" : "users";
   const maxCompleted = steps.length > 0 ? steps[0].count : 1;
   const isPositiveTrend = conversionTrend >= 0;
 
@@ -89,7 +97,7 @@ export function FunnelVisualization({
                   </Box>
                   {dropoffPct > 0 && (
                     <Tooltip
-                      label={`${dropoffCount.toLocaleString()} users dropped off at Step ${index + 1}`}
+                      label={`${dropoffCount.toLocaleString()} ${subjectPlural} dropped off at Step ${index + 1}`}
                       position="top"
                       withArrow
                     >

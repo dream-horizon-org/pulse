@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionWithDrillDown;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
@@ -51,6 +53,9 @@ class RcaReportEnrichmentServiceTest {
   @Mock
   private SessionEvidenceService sessionEvidenceService;
 
+  @Mock
+  private ErrorAttributionService errorAttributionService;
+
   private RcaReportEnrichmentService service;
 
   private ObjectMapper objectMapper;
@@ -58,8 +63,16 @@ class RcaReportEnrichmentServiceTest {
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-    RootCauseConfig config = RootCauseConfig.withDefaults(null);
-    service = new RcaReportEnrichmentService(objectMapper, rootCauseService, sessionEvidenceService, config);
+    service =
+        new RcaReportEnrichmentService(
+            objectMapper,
+            rootCauseService,
+            sessionEvidenceService,
+            errorAttributionService,
+            RootCauseConfig.withDefaults(null));
+    when(errorAttributionService.getErrorAttributionWithOptionalDrillDown(
+            any(), any(), any(), any(), any()))
+        .thenReturn(Single.just(new ErrorAttributionWithDrillDown(List.of(), 2.0)));
   }
 
   @Test
@@ -251,6 +264,7 @@ class RcaReportEnrichmentServiceTest {
 
       assertThat(outcome.enrichmentOk()).isFalse();
       assertThat(outcome.body()).isEqualTo(rawBody);
+      verifyNoInteractions(errorAttributionService);
     }
 
     @Test
@@ -269,6 +283,7 @@ class RcaReportEnrichmentServiceTest {
       assertThat(outcome.enrichmentOk()).isFalse();
       assertThat(outcome.body()).isEqualTo(rawBody);
       assertThat(outcome.rootCause()).isNull();
+      verifyNoInteractions(errorAttributionService);
     }
 
     @Test
@@ -321,6 +336,7 @@ class RcaReportEnrichmentServiceTest {
 
       assertThat(outcome.enrichmentOk()).isTrue();
       verifyNoInteractions(sessionEvidenceService);
+      assertThat(outcome.body()).contains("errorAttributionPayload");
     }
   }
 

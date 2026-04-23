@@ -391,10 +391,12 @@ export function RootCause({ entityKey, date, projectId }: RootCauseProps) {
   }
 
   return (
-    <Box className={classes.container}>
-      <Text className={classes.stateMessage}>
-        {ROOT_CAUSE_MESSAGES.NO_DATA}
-      </Text>
-    </Box>
+    <Stack gap="xl">
+      <Box className={classes.container}>
+        <Text className={classes.stateMessage}>
+          {ROOT_CAUSE_MESSAGES.NO_DATA}
+        </Text>
+      </Box>
+    </Stack>
   );
 }

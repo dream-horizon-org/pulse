@@ -267,6 +267,7 @@ async def generate_root_cause_report(
             payload=payload,
             interaction_name=request.entityKey,
             example_session_ids=example_sessions,
+            error_attribution_payload=request.errorAttributionPayload,
         )
     except RootCauseFetchError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error

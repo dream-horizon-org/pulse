@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -20,6 +21,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRcaDrillSignals;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRestResponseMapper;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
@@ -29,8 +34,9 @@ import org.dreamhorizon.pulseserver.service.rootcause.models.SessionEvidenceResu
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 
 /**
- * Builds the RCA POST body with {@code rootCausePayload} and per-segment session evidence (same
- * pipeline as the legacy synchronous {@code RcaReportProxyHandler} path).
+ * Builds the RCA POST body with {@code rootCausePayload}, optional {@code errorAttributionPayload},
+ * and per-segment session evidence (same pipeline as the legacy synchronous {@code
+ * RcaReportProxyHandler} path).
  */
 @Slf4j
 @Singleton
@@ -39,10 +45,12 @@ public class RcaReportEnrichmentService {
 
   private static final String REGENERATE_FIELD = "regenerate";
   private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
+  private static final String ERROR_ATTRIBUTION_PAYLOAD_FIELD = "errorAttributionPayload";
 
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
   private final SessionEvidenceService sessionEvidenceService;
+  private final ErrorAttributionService errorAttributionService;
   private final RootCauseConfig rootCauseConfig;
 
   /**
@@ -258,6 +266,39 @@ public class RcaReportEnrichmentService {
     Map<String, Object> sanitized = new HashMap<>(metrics);
     sanitized.remove("problematic_count");
     return sanitized;
+  }
+
+  /**
+   * Fetches error-attribution drill bundle for the RCA window (same {@link RootCauseQueryBuilder.Window}
+   * as root cause) and attaches JSON to {@code working}. On failure, omits the payload key; enrichment
+   * still completes.
+   */
+  private void fetchErrorAttributionForEnrichment(
+      String projectId,
+      String entityKey,
+      LocalDate anchorDate,
+      Instant windowEndExclusive,
+      ObjectNode working) {
+    try {
+      RootCauseQueryBuilder.Window window =
+          new RootCauseQueryBuilder.Window(
+              anchorDate, rootCauseConfig.getLookbackDays(), windowEndExclusive);
+      var bundle =
+          errorAttributionService
+              .getErrorAttributionWithOptionalDrillDown(
+                  projectId,
+                  entityKey,
+                  window.startInclusive,
+                  window.endExclusive,
+                  ErrorAttributionRcaDrillSignals.CANONICAL_FOR_RCA)
+              .subscribeOn(Schedulers.io())
+              .blockingGet();
+      working.set(
+          ERROR_ATTRIBUTION_PAYLOAD_FIELD,
+          objectMapper.valueToTree(ErrorAttributionRestResponseMapper.fromBundle(bundle)));
+    } catch (Exception e) {
+      log.warn("RCA enrichment error attribution failed: {}", e.getMessage());
+    }
   }
 
   private Map<String, Double> extractSegmentMetrics(Map<String, Object> metrics) {

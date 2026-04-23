@@ -24,13 +24,12 @@ import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rootcause.RootCauseCacheDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
-import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
+import org.dreamhorizon.pulseserver.util.ClickhouseQueryRowUtils;
 import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
 @Slf4j
@@ -652,27 +651,7 @@ public class RootCauseService {
   private Single<List<Map<String, Object>>> executeQuery(String projectId, RootCauseQuerySpec spec) {
     return clickhouseQueryService
         .executeRootCauseQuery(projectId, spec.sql(), spec.bindNames(), spec.bindValues())
-        .map(this::rowsToMaps);
-  }
-
-  private List<Map<String, Object>> rowsToMaps(GetQueryDataResponseDto<GetRawUserEventsResponseDto> response) {
-    if (!response.isJobComplete() || response.getData() == null) {
-      return List.of();
-    }
-    GetRawUserEventsResponseDto data = response.getData();
-    List<String> names = data.getSchema().getFields().stream()
-        .map(GetRawUserEventsResponseDto.Field::getName)
-        .toList();
-    List<Map<String, Object>> out = new ArrayList<>();
-    for (GetRawUserEventsResponseDto.Row row : data.getRows()) {
-      Map<String, Object> m = new LinkedHashMap<>();
-      for (int i = 0; i < names.size(); i++) {
-        Object v = i < row.getRowFields().size() ? row.getRowFields().get(i).getValue() : null;
-        m.put(names.get(i), v);
-      }
-      out.add(m);
-    }
-    return out;
+        .map(ClickhouseQueryRowUtils::rowsToMaps);
   }
 
   private static Map<String, Object> toBaselineMap(Map<String, Object> row) {
