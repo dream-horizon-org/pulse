@@ -59,7 +59,12 @@ vi.mock("../exporters", () => {
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { PulseWeb } from "../sdk";
 import { PulseDataCollectionConsent } from "../types/config";
-import { resolveEndpointBaseUrl, isLocalEnvironment } from "../config";
+import {
+  resolveEndpointBaseUrl,
+  isLocalEnvironment,
+  PulseLogLevel,
+} from "../config";
+import { PulseWebLogger } from "../pulse-web-logger";
 
 describe("Config surface — matches Android minimal API", () => {
   beforeEach(() => {
@@ -257,5 +262,41 @@ describe("Config surface — matches Android minimal API", () => {
         diskBuffering: { maxAgeMs: 0 },
       }),
     ).toThrow("[PulseWeb] diskBuffering.maxAgeMs");
+  });
+
+  it("TC-C13: logLevel from config is applied to PulseWebLogger", async () => {
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      logLevel: PulseLogLevel.INFO,
+    });
+    await Promise.resolve();
+    expect(PulseWebLogger.getLevel()).toBe(PulseLogLevel.INFO);
+  });
+
+  it("TC-C14: shutdown resets PulseWebLogger to NONE", async () => {
+    PulseWeb.start({
+      apiKey: "default-project_devkey01",
+      dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+      logLevel: PulseLogLevel.DEBUG,
+    });
+    await Promise.resolve();
+    expect(PulseWebLogger.getLevel()).toBe(PulseLogLevel.DEBUG);
+    await PulseWeb.shutdown();
+    expect(PulseWebLogger.getLevel()).toBe(PulseLogLevel.NONE);
+  });
+
+  it("TC-C15: resourceAttributes accepted at start (merge in finishStart)", async () => {
+    expect(() =>
+      PulseWeb.start({
+        apiKey: "default-project_devkey01",
+        dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+        resourceAttributes: {
+          "deployment.environment": "e2e",
+        },
+      }),
+    ).not.toThrow();
+    await Promise.resolve();
+    expect(PulseWeb.isInitialized()).toBe(true);
   });
 });
