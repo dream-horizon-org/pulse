@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Load Rust environment
+export HOME=/home/admin
+. $HOME/.cargo/env
+
 while getopts v: flag; do
   case "${flag}" in
     v) VERSION=${OPTARG} ;;
