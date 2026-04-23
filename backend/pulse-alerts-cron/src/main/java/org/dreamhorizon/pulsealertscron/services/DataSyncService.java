@@ -22,8 +22,11 @@ public class DataSyncService {
     return apiClient.syncUsageCreditsToRedis()
         .doOnComplete(() -> {
           long duration = System.currentTimeMillis() - startTime;
-          log.info("{} Usage processing completed in {}ms (pulse-server wrote Redis)",
-              Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, duration);
+          log.info(
+              "{} Usage credits sync request finished in {}ms (pulse-server enqueues async work; "
+                  + "see pulse-server logs / cron_jobs_history for completion)",
+              Constants.USAGE_LIMITS_SYNC_LOG_PREFIX,
+              duration);
         })
         .doOnError(error -> {
           long duration = System.currentTimeMillis() - startTime;

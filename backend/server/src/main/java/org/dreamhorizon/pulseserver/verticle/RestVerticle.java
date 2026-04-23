@@ -13,6 +13,7 @@ import com.dream11.rest.filter.RequestResponseFilter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.dreamhorizon.pulseserver.filter.PulseResponseHttpStatusFilter;
 import org.dreamhorizon.pulseserver.filter.StreamingSafeLoggerFilter;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertEvaluationService;
@@ -38,6 +39,7 @@ public class RestVerticle extends AbstractRestVerticle {
   protected List<Class<?>> getProviders() {
     List<Class<?>> providers = super.getProviders();
     providers.removeIf(clazz -> RequestResponseFilter.class.isAssignableFrom(clazz));
+    providers.add(PulseResponseHttpStatusFilter.class);
     providers.add(StreamingSafeLoggerFilter.class);
     return providers;
   }

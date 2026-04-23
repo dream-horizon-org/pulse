@@ -4,11 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
-import org.dreamhorizon.pulseserver.constant.Constants;
-import org.dreamhorizon.pulseserver.resources.apikeys.models.ApiKeyRedisSyncRestResponse;
+import org.dreamhorizon.pulseserver.constant.CronJobType;
+import org.dreamhorizon.pulseserver.resources.internal.models.CronRedisSyncJobAcceptedRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.apikey.ProjectApiKeyService;
-import org.dreamhorizon.pulseserver.service.kong.KongApiKeyRedisSyncService;
+import org.dreamhorizon.pulseserver.service.cron.CronRedisMaterializationJobService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,24 +21,30 @@ class InternalApiKeysControllerTest {
   @Mock
   private ProjectApiKeyService apiKeyService;
   @Mock
-  private KongApiKeyRedisSyncService kongApiKeyRedisSyncService;
+  private CronRedisMaterializationJobService cronRedisMaterializationJobService;
 
   private InternalApiKeysController controller;
 
   @BeforeEach
   void setUp() {
-    controller = new InternalApiKeysController(apiKeyService, kongApiKeyRedisSyncService);
+    controller = new InternalApiKeysController(apiKeyService, cronRedisMaterializationJobService);
   }
 
   @Test
-  void shouldReturnSyncSummaryWhenKongSyncSucceeds() throws Exception {
-    when(kongApiKeyRedisSyncService.syncValidApiKeysToRedis()).thenReturn(Single.just(5));
+  void shouldReturnAcceptedPayloadWhenEnqueueSucceeds() throws Exception {
+    when(cronRedisMaterializationJobService.acceptApiKeysSyncToRedis()).thenReturn(
+        Single.just(CronRedisSyncJobAcceptedRestResponse.builder()
+            .jobId(42L)
+            .deduplicated(false)
+            .jobType(CronJobType.API_KEYS_TO_REDIS)
+            .build()));
 
-    Response<ApiKeyRedisSyncRestResponse> response =
+    Response<CronRedisSyncJobAcceptedRestResponse> response =
         controller.syncApiKeysToRedis().toCompletableFuture().get();
 
-    assertThat(response.getData().getKeysSynced()).isEqualTo(5);
-    assertThat(response.getData().getRedisKey()).isEqualTo(Constants.KONG_API_KEY_MAP_REDIS_KEY);
-    assertThat(response.getData().getDurationMs()).isGreaterThanOrEqualTo(0L);
+    assertThat(response.getHttpStatusCode()).isEqualTo(202);
+    assertThat(response.getData().getJobId()).isEqualTo(42L);
+    assertThat(response.getData().isDeduplicated()).isFalse();
+    assertThat(response.getData().getJobType()).isEqualTo(CronJobType.API_KEYS_TO_REDIS);
   }
 }

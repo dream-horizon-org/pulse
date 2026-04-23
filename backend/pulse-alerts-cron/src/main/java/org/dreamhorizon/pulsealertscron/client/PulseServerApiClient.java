@@ -8,6 +8,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
+import org.dreamhorizon.pulsealertscron.constant.Constants;
+import org.dreamhorizon.pulsealertscron.dto.response.CronRedisSyncJobAcceptedDto;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageNotificationDto;
 import org.dreamhorizon.pulsealertscron.dto.response.UsageNotificationResponse;
 
@@ -48,15 +50,27 @@ public class PulseServerApiClient {
         .rxSend()
         .flatMapCompletable(response -> {
           int statusCode = response.statusCode();
-          if (statusCode != 200) {
+          String body = response.bodyAsString();
+          if (statusCode != 200 && statusCode != 202) {
             String errorMsg = String.format(
                 "API returned status %d: %s",
                 statusCode,
-                response.bodyAsString());
-            log.error("Failed usage credits Redis sync: {}", errorMsg);
+                body);
+            log.error("{} Failed usage credits Redis sync: {}", Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, errorMsg);
             return Completable.error(new RuntimeException(errorMsg));
           }
-          log.info("Usage credits Redis sync completed successfully via pulse-server");
+          CronRedisSyncJobAcceptedDto.tryParse(body).ifPresentOrElse(
+              ack -> log.info(
+                  "{} Usage credits → Redis sync HTTP {} — jobId={} deduplicated={} jobType={}",
+                  Constants.USAGE_LIMITS_SYNC_LOG_PREFIX,
+                  statusCode,
+                  ack.getJobId(),
+                  ack.isDeduplicated(),
+                  ack.getJobType()),
+              () -> log.info(
+                  "{} Usage credits → Redis sync HTTP {} (no job envelope in body; legacy or empty)",
+                  Constants.USAGE_LIMITS_SYNC_LOG_PREFIX,
+                  statusCode));
           return Completable.complete();
         })
         .doOnError(error -> log.error("Error calling usage credits Redis sync", error));
@@ -76,7 +90,7 @@ public class PulseServerApiClient {
         .rxSend()
         .flatMapCompletable(response -> {
           int statusCode = response.statusCode();
-          if (statusCode != 200) {
+          if (statusCode != 200 && statusCode != 202) {
             String errorMsg = String.format(
                 "API returned status %d: %s",
                 statusCode,
@@ -84,7 +98,8 @@ public class PulseServerApiClient {
             log.error("Failed API key Redis sync: {}", errorMsg);
             return Completable.error(new RuntimeException(errorMsg));
           }
-          log.info("API key Redis sync completed successfully via pulse-server");
+          log.info("API key Redis sync accepted or completed via pulse-server (status {})",
+              statusCode);
           return Completable.complete();
         })
         .doOnError(error -> log.error("Error calling API key Redis sync", error));

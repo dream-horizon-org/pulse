@@ -20,19 +20,20 @@ public class PeriodicSyncService {
   private Long apiKeysTimerId;
   private Long notificationTimerId;
 
+  private final ApplicationConfig applicationConfig;
+
   /** Ensures at most one {@link DataSyncService#processUsageLimits()} runs at a time (avoids overlapping POSTs). */
   private final AtomicBoolean usageLimitsSyncInFlight = new AtomicBoolean(false);
 
   /** Ensures at most one {@link DataSyncService#syncApiKeys()} runs at a time (avoids overlapping POSTs). */
   private final AtomicBoolean apiKeysSyncInFlight = new AtomicBoolean(false);
 
-  private static final long USAGE_LIMITS_INTERVAL_SECONDS = 5; // 5 seconds
-  private static final long API_KEYS_INTERVAL_SECONDS = 10 * 60; // 10 minutes
   private static final long NOTIFICATION_INTERVAL_SECONDS =  24 * 60 * 60; // 24 hours
 
   @Inject
   public PeriodicSyncService(Vertx vertx, WebClient webClient, ApplicationConfig config) {
     this.vertx = vertx;
+    this.applicationConfig = config;
 
     PulseServerApiClient apiClient = new PulseServerApiClient(webClient, config);
     this.dataSyncService = new DataSyncService(apiClient);
@@ -45,21 +46,23 @@ public class PeriodicSyncService {
   public void start() {
     log.info("🚀 Starting Periodic Sync Service");
 
-    // Start usage limits sync (5 seconds)
-    log.info("📊 Starting Usage Limits sync (interval: {} seconds)", USAGE_LIMITS_INTERVAL_SECONDS);
+    long usageIntervalSec = applicationConfig.resolveUsageCreditsSyncIntervalSeconds();
+    long apiKeysIntervalSec = applicationConfig.resolveApiKeysSyncIntervalSeconds();
+
+    // Usage credits → Redis (pulse-server async 202 + dedupe); interval from app config
+    log.info("Starting usage credits Redis enqueue sync (interval: {} seconds)", usageIntervalSec);
     executeUsageLimitsSync();
-    this.usageLimitsTimerId = vertx.setPeriodic(USAGE_LIMITS_INTERVAL_SECONDS * 1000, id -> {
+    this.usageLimitsTimerId = vertx.setPeriodic(usageIntervalSec * 1000, id -> {
       executeUsageLimitsSync();
     });
-    log.info("✅ Usage Limits sync started with timer ID: {}", usageLimitsTimerId);
+    log.info("Usage credits sync timer started, id={}", usageLimitsTimerId);
 
-    // Start API keys sync (10 minutes)
-    log.info("🔑 Starting API Keys sync (interval: {} seconds)", API_KEYS_INTERVAL_SECONDS);
+    log.info("Starting API keys Redis enqueue sync (interval: {} seconds)", apiKeysIntervalSec);
     executeApiKeysSync();
-    this.apiKeysTimerId = vertx.setPeriodic(API_KEYS_INTERVAL_SECONDS * 1000, id -> {
+    this.apiKeysTimerId = vertx.setPeriodic(apiKeysIntervalSec * 1000, id -> {
       executeApiKeysSync();
     });
-    log.info("✅ API Keys sync started with timer ID: {}", apiKeysTimerId);
+    log.info("API keys sync timer started, id={}", apiKeysTimerId);
 
     // Start usage notification processing (1 hour)
     log.info("📧 Starting Usage Notification processing (interval: {} seconds)", NOTIFICATION_INTERVAL_SECONDS);
@@ -106,9 +109,9 @@ public class PeriodicSyncService {
     dataSyncService.processUsageLimits()
         .doFinally(() -> usageLimitsSyncInFlight.set(false))
         .subscribe(
-            () -> log.info("{} Usage limits sync completed successfully",
+            () -> log.info("{} Usage credits sync cycle completed (HTTP layer)",
                 Constants.USAGE_LIMITS_SYNC_LOG_PREFIX),
-            error -> log.error("{} Usage limits sync failed",
+            error -> log.error("{} Usage credits sync cycle failed",
                 Constants.USAGE_LIMITS_SYNC_LOG_PREFIX, error)
         );
   }
