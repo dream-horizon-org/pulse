@@ -3,6 +3,8 @@ package com.pulse.android.sdk.internal.beforesend
 import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.models.PulseMetricData
 import com.pulse.android.api.otel.models.copy
+import com.pulse.utils.PulseLogger
+import com.pulse.utils.RedactionUtils
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.common.export.MemoryMode
 import io.opentelemetry.sdk.metrics.Aggregation
@@ -21,14 +23,21 @@ internal class PulseBeforeSendMetricExporter(
 
     override fun export(metrics: Collection<MetricData>): CompletableResultCode {
         val pulseMetrics =
-            metrics
-                .mapNotNull { metric ->
-                    val pulseMetric =
-                        metric as? PulseMetricData ?: metric.copy()
-                    val afterGeneric = beforeSendData.beforeSend(pulseMetric) ?: return@mapNotNull null
-                    if (afterGeneric !is PulseMetricData) return@mapNotNull null
-                    beforeSendData.beforeSendMetric(afterGeneric)
+            try {
+                metrics
+                    .mapNotNull { metric ->
+                        val pulseMetric =
+                            metric as? PulseMetricData ?: metric.copy()
+                        val afterGeneric = beforeSendData.beforeSend(pulseMetric) ?: return@mapNotNull null
+                        if (afterGeneric !is PulseMetricData) return@mapNotNull null
+                        beforeSendData.beforeSendMetric(afterGeneric)
+                    }
+            } catch (t: Throwable) {
+                PulseLogger.logError(TAG, t) {
+                    "sdk.beforesend.error signal=metric error_class=${RedactionUtils.classifyError(t)}"
                 }
+                return CompletableResultCode.ofFailure()
+            }
         return if (pulseMetrics.isEmpty()) {
             CompletableResultCode.ofSuccess()
         } else {
@@ -44,4 +53,8 @@ internal class PulseBeforeSendMetricExporter(
         instrumentType: InstrumentType,
         aggregation: Aggregation,
     ): DefaultAggregationSelector? = delegate.with(instrumentType, aggregation)
+
+    private companion object {
+        private const val TAG = "BeforeSend"
+    }
 }

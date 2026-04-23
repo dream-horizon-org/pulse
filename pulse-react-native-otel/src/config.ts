@@ -53,6 +53,9 @@ const defaultConfig: Required<PulseConfig> = {
 
 let currentConfig: PulseConfig = { ...defaultConfig };
 
+/** Last JS-side consent passed to native (for diagnostic logs only). */
+let lastDataCollectionConsent: PulseDataCollectionConsent | null = null;
+
 function configure(config: PulseConfig): void {
   currentConfig = {
     ...currentConfig,
@@ -103,9 +106,16 @@ export function start(options?: PulseConfig): void {
     return;
   }
   if (getIsStarted()) {
-    PulseLogger.info('SDK already started.');
+    PulseLogger.debug('sdk.init skipped reason=already_started');
     return;
   }
+
+  const startedAtMs =
+    typeof globalThis !== 'undefined' &&
+    globalThis.performance != null &&
+    typeof globalThis.performance.now === 'function'
+      ? globalThis.performance.now()
+      : Date.now();
 
   markPulseSessionStarted();
   PulseLogger.setLevel(options?.logLevel ?? PulseLogLevel.NONE);
@@ -132,6 +142,24 @@ export function start(options?: PulseConfig): void {
   };
 
   configure(config);
+
+  const endedAtMs =
+    typeof globalThis !== 'undefined' &&
+    globalThis.performance != null &&
+    typeof globalThis.performance.now === 'function'
+      ? globalThis.performance.now()
+      : Date.now();
+  const durationMs = Math.round(endedAtMs - startedAtMs);
+  const featuresEnabled =
+    features != null
+      ? Object.entries(features)
+          .filter(([, v]) => v === true)
+          .map(([k]) => k)
+          .join(',')
+      : '';
+  PulseLogger.info(
+    `sdk.init success=true duration_ms=${durationMs} sdk_version=react-native features_enabled=${featuresEnabled}`
+  );
 }
 
 export function shutdown(): void {
@@ -144,6 +172,7 @@ export function shutdown(): void {
   uninstallNavigationIntegration();
   PulseReactNativeOtel.shutdown();
   markPulseSessionShutdown();
+  PulseLogger.info('sdk.shutdown graceful=true');
 }
 
 /**
@@ -153,6 +182,9 @@ export function setDataCollectionState(
   state: PulseDataCollectionConsent
 ): void {
   if (!isSupportedPlatform()) return;
+  const from = lastDataCollectionConsent ?? 'unset';
+  PulseLogger.info(`sdk.consent.changed from=${from} to=${state}`);
+  lastDataCollectionConsent = state;
   PulseReactNativeOtel.setDataCollectionState(state);
 }
 

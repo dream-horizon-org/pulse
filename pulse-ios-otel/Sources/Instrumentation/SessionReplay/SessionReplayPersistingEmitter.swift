@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 internal final class SessionReplayPersistingEmitter {
 
@@ -159,6 +162,9 @@ internal final class SessionReplayPersistingEmitter {
                 }
 
                 guard let encrypted = self.encryption.encrypt(jsonData) else {
+                    PulseLogger.error(
+                        "sdk.replay.encrypt_failure error_class=encrypt_returned_nil"
+                    )
                     return
                 }
 
@@ -181,6 +187,10 @@ internal final class SessionReplayPersistingEmitter {
                     self.flushIfNeeded()
                 }
             } catch {
+                let errClass = PulseErrorClassification.classify(error)
+                PulseLogger.error(
+                    "sdk.replay.persist_failure error_class=\(errClass)"
+                )
             }
         }
     }
@@ -283,6 +293,10 @@ internal final class SessionReplayPersistingEmitter {
                     }
                 }
             } catch {
+                let errClass = PulseErrorClassification.classify(error)
+                PulseLogger.error(
+                    "sdk.replay.persist_failure error_class=\(errClass)"
+                )
             }
         }
     }
@@ -414,6 +428,9 @@ internal final class SessionReplayPersistingEmitter {
             return json
         }
 
+        PulseLogger.error(
+            "sdk.replay.persist_failure error_class=decode_failed"
+        )
         throw NSError(
             domain: "com.pulse.sessionreplay",
             code: -1,
@@ -440,6 +457,10 @@ internal final class SessionReplayPersistingEmitter {
 
                 self.evictOldestFilesIfNeeded()
             } catch {
+                let errClass = PulseErrorClassification.classify(error)
+                PulseLogger.error(
+                    "sdk.replay.persist_failure error_class=\(errClass)"
+                )
             }
         }
     }

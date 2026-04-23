@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetrySdk
 
 // protocol for exporters that can be decorated with `PersistenceExporterDecorator`
@@ -42,6 +45,8 @@ class PersistenceExporterDecorator<T>
 
         return decoratedExporter.export(values: exportables)
       } catch {
+        PulseLogger.error(
+          "sdk.disk.read_failure signal=persistence error_class=decode_failed corrupted=true")
         return DataExportStatus(needsRetry: false)
       }
     }

@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetrySdk
 
 private let consentMetricBufferLimit = 5000
@@ -74,7 +77,11 @@ internal final class ConsentMetricExporter: MetricExporter {
 
     func clearBuffer() {
         queue.sync {
+            let n = buffer.count
             buffer.removeAll()
+            if n > 0 {
+                PulseLogger.warn("sdk.consent.data_dropped signal=metrics dropped_count=\(n)")
+            }
         }
     }
 }

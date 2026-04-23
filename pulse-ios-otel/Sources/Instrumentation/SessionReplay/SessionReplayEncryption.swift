@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import Foundation
 import CryptoKit
+import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import Security
 
 internal protocol SessionReplayStorageEncryption {
@@ -27,16 +30,33 @@ internal final class DefaultSessionReplayEncryption: SessionReplayStorageEncrypt
     func encrypt(_ plaintext: Data) -> Data? {
         do {
             let sealedBox = try AES.GCM.seal(plaintext, using: key)
-            guard let combined = sealedBox.combined else { return nil }
+            guard let combined = sealedBox.combined else {
+                PulseLogger.error(
+                    "sdk.replay.encrypt_failure error_class=seal_combined_nil"
+                )
+                return nil
+            }
             return combined
         } catch {
+            let errClass = PulseErrorClassification.classify(error)
+            PulseLogger.error(
+                "sdk.replay.encrypt_failure error_class=\(errClass)"
+            )
             return nil
         }
     }
 
     func decrypt(_ ciphertext: Data) throws -> Data {
-        let sealedBox = try AES.GCM.SealedBox(combined: ciphertext)
-        return try AES.GCM.open(sealedBox, using: key)
+        do {
+            let sealedBox = try AES.GCM.SealedBox(combined: ciphertext)
+            return try AES.GCM.open(sealedBox, using: key)
+        } catch {
+            let errClass = PulseErrorClassification.classify(error)
+            PulseLogger.error(
+                "sdk.replay.decrypt_failure error_class=\(errClass)"
+            )
+            throw error
+        }
     }
 
     private static func getOrCreateKey() -> SymmetricKey {

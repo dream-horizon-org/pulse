@@ -4,8 +4,11 @@
  */
 
 import Foundation
-import OpenTelemetrySdk
 import OpenTelemetryApi
+import OpenTelemetrySdk
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 private let consentSpanBufferLimit = 5000
 
@@ -74,7 +77,11 @@ internal final class ConsentSpanProcessor: SpanProcessor {
 
     func clearBuffer() {
         queue.sync {
+            let n = buffer.count
             buffer.removeAll()
+            if n > 0 {
+                PulseLogger.warn("sdk.consent.data_dropped signal=spans dropped_count=\(n)")
+            }
         }
     }
 }

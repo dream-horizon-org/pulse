@@ -104,6 +104,8 @@ public class OtlpHttpMetricExporter: OtlpHttpExporterBase, MetricExporter {
     exporterMetrics?.addSeen(value: sendingMetrics.count)
     var request = createRequest(body: body, endpoint: endpoint)
     request.timeoutInterval = min(TimeInterval.greatestFiniteMagnitude, config.timeout)
+    let t0 = Date()
+    let batchSize = sendingMetrics.count
     httpClient.send(request: request) { [weak self] result in
       switch result {
       case .success:
@@ -113,7 +115,10 @@ public class OtlpHttpMetricExporter: OtlpHttpExporterBase, MetricExporter {
         self?.exporterLock.withLockVoid {
           self?.pendingMetrics.append(contentsOf: sendingMetrics)
         }
-        PulseLogger.debug("Metric export failed: \(error.localizedDescription)")
+        let latencyMs = Int(Date().timeIntervalSince(t0) * 1000)
+        let errClass = PulseErrorClassification.classify(error)
+        PulseLogger.warn(
+          "sdk.export signal=metrics success=false latency_ms=\(latencyMs) batch_size=\(batchSize) error_class=\(errClass)")
       }
     }
 
@@ -140,9 +145,8 @@ public class OtlpHttpMetricExporter: OtlpHttpExporterBase, MetricExporter {
         switch result {
         case .success:
           self?.exporterMetrics?.addSuccess(value: pendingMetrics.count)
-        case let .failure(error):
+        case .failure:
           self?.exporterMetrics?.addFailed(value: pendingMetrics.count)
-          PulseLogger.debug("Metric flush failed: \(error.localizedDescription)")
           exporterResult = .failure
         }
         semaphore.signal()

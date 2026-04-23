@@ -113,6 +113,7 @@ let package = Package(
     .target(
       name: "PersistenceExporter",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
       ],
       path: "Sources/Exporters/Persistence",

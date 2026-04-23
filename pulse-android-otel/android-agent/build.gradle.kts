@@ -35,6 +35,7 @@ dependencies {
     // Pulse dependencies for SDK name detection
     implementation(projects.pulseSamplingModels)
     implementation(projects.pulseSemconv)
+    implementation(projects.pulseUtils)
 
     testImplementation(libs.robolectric)
 }

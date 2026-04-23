@@ -5,7 +5,9 @@
 
 package io.opentelemetry.android.instrumentation.network
 
+import com.pulse.utils.PulseLogger
 import io.opentelemetry.android.common.internal.features.networkattributes.data.CurrentNetwork
+import io.opentelemetry.android.common.internal.features.networkattributes.data.NetworkState
 import io.opentelemetry.android.internal.services.applifecycle.ApplicationStateListener
 import io.opentelemetry.android.internal.services.network.CurrentNetworkProvider
 import io.opentelemetry.android.internal.services.network.NetworkChangeListener
@@ -16,6 +18,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.function.Consumer
 
 val NETWORK_STATUS_KEY: AttributeKey<String> = AttributeKey.stringKey("network.status")
+
+private const val NETWORK_HEALTH_TAG = "NetworkChange"
 
 internal class NetworkApplicationListener(
     private val currentNetworkProvider: CurrentNetworkProvider,
@@ -51,6 +55,19 @@ internal class NetworkApplicationListener(
         override fun onNetworkChange(currentNetwork: CurrentNetwork) {
             if (!shouldEmitChangeEvents.get()) {
                 return
+            }
+            val connected = currentNetwork.state != NetworkState.NO_NETWORK_AVAILABLE
+            val type =
+                when (currentNetwork.state) {
+                    NetworkState.NO_NETWORK_AVAILABLE -> "none"
+                    NetworkState.TRANSPORT_WIFI -> "wifi"
+                    NetworkState.TRANSPORT_CELLULAR -> "cellular"
+                    NetworkState.TRANSPORT_WIRED -> "wired"
+                    NetworkState.TRANSPORT_VPN -> "vpn"
+                    NetworkState.TRANSPORT_UNKNOWN -> "unknown"
+                }
+            PulseLogger.logInfo(NETWORK_HEALTH_TAG) {
+                "sdk.network.status_changed connected=$connected type=$type"
             }
             val attributesBuilder = Attributes.builder()
             additionalExtractors.forEach(

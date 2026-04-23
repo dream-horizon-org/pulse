@@ -64,10 +64,10 @@ public final class PulseSdkConfigRestProvider {
     /// Call from a background queue (do not block main thread).
     /// - Returns: Decoded config if HTTP 2xx and decode succeeds; nil on network error, non-2xx, or decode failure.
     public func provide() async -> PulseSdkConfig? {
+        let started = Date()
         guard let url = urlProvider() else {
             return nil
         }
-        PulseLogger.debug("Config fetch started: \(PulseRedaction.redactUrl(url.absoluteString))")
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -81,41 +81,40 @@ public final class PulseSdkConfigRestProvider {
         do {
             (data, response) = try await urlSession.data(for: request)
         } catch {
-            PulseLogger.warn("Config fetch: network error \(PulseRedaction.classifyError(error))")
+            let durationMs = Int(Date().timeIntervalSince(started) * 1000)
+            let errClass = PulseRedaction.classifyError(error)
+            PulseLogger.warn(
+                "sdk.config.fetch success=false duration_ms=\(durationMs) http_status=error config_version=none error_class=\(errClass)"
+            )
             return nil
         }
 
+        let durationMs = Int(Date().timeIntervalSince(started) * 1000)
         guard let httpResponse = response as? HTTPURLResponse else {
+            PulseLogger.warn(
+                "sdk.config.fetch success=false duration_ms=\(durationMs) http_status=error config_version=none"
+            )
             return nil
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            PulseLogger.warn("Config fetch: API error HTTP \(httpResponse.statusCode)")
+            PulseLogger.warn(
+                "sdk.config.fetch success=false duration_ms=\(durationMs) http_status=\(httpResponse.statusCode) config_version=none"
+            )
             return nil
         }
 
         do {
             let config = try PulseSdkConfigRestProvider.decoder.decode(PulseSdkConfig.self, from: data)
-            PulseLogger.debug("Config fetch done (version \(config.version)).")
+            PulseLogger.info(
+                "sdk.config.fetch success=true duration_ms=\(durationMs) http_status=ok config_version=\(config.version)"
+            )
             return config
         } catch {
-            let decodeDetail = (error as? DecodingError).map { Self.describeDecodingError($0) } ?? String(describing: error)
-            PulseLogger.warn("Config fetch: response decode failed. \(decodeDetail)")
+            let errClass = PulseRedaction.classifyError(error)
+            PulseLogger.warn(
+                "sdk.config.fetch success=false duration_ms=\(durationMs) http_status=\(httpResponse.statusCode) config_version=none error_class=\(errClass)"
+            )
             return nil
-        }
-    }
-
-    private static func describeDecodingError(_ error: DecodingError) -> String {
-        switch error {
-        case .keyNotFound(let key, let context):
-            return "keyNotFound(\(key.stringValue)) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
-        case .typeMismatch(let type, let context):
-            return "typeMismatch(\(type)) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
-        case .valueNotFound(let type, let context):
-            return "valueNotFound(\(type)) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
-        case .dataCorrupted(let context):
-            return "dataCorrupted: \(context.debugDescription)"
-        @unknown default:
-            return error.localizedDescription
         }
     }
 }

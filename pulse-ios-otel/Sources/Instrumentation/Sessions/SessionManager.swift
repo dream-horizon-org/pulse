@@ -5,6 +5,9 @@
 
 import Foundation
 import OpenTelemetryApi
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -119,6 +122,13 @@ public class SessionManager {
     if session != nil, let endEventName = configuration.endEventName, !sessionExpiredInBackground {
         SessionEventInstrumentation.addSession(session: session!, eventType: .end, eventName: endEventName, endTimestamp: session?.expireTime)
     }
+
+    if let prev = previousId, !prev.isEmpty {
+      let prefix = String(prev.prefix(8))
+      PulseLogger.info("sdk.session event=end session_id_prefix=\(prefix)")
+    }
+    let newPrefix = String(newId.prefix(8))
+    PulseLogger.info("sdk.session event=start session_id_prefix=\(newPrefix)")
 
     session = Session(
       id: newId,
