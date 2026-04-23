@@ -126,8 +126,12 @@ export interface PulseAndroidCoreLibraryDesugaring {
   /** `com.android.tools:desugar_jdk_libs` version; used only when `enabled` is true. Default `2.1.4`. */
   version?: string;
 }
+export interface PulseAndroidBuildOptions {
+  okHttpInstrumentation?: boolean;
+}
 
-export interface PulseAndroidSection extends PulseNativeInitFields {
+export interface PulseAndroidSection
+  extends PulseNativeInitFields, PulseAndroidBuildOptions {
   instrumentation?: PulseAndroidInstrumentationProps;
   coreLibraryDesugaring?: PulseAndroidCoreLibraryDesugaring;
 }

@@ -1,15 +1,16 @@
 import { PluginError } from '@expo/config-plugins';
 
 import type {
+  PulseAndroidBuildOptions,
   PulseDataCollectionState,
   PulseNativeInitFields,
   PulsePluginProps,
   PulsePlatformInitProps,
+  PulseAndroidSection,
   ResolvedAndroidPulseProps,
   ResolvedIosPulseProps,
 } from './types';
-
-const DEFAULT_CORE_LIBRARY_DESUGAR_VERSION = '2.1.4';
+import { PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION } from './androidBuildConstants';
 
 function parseConsent(value: unknown, label: string): PulseDataCollectionState {
   if (value === 'PENDING' || value === 'ALLOWED' || value === 'DENIED') {
@@ -94,6 +95,16 @@ export function assertPulsePluginProps(
     );
   }
 
+  if (p.android != null && typeof p.android === 'object') {
+    const v = (p.android as Record<string, unknown>).okHttpInstrumentation;
+    if (v !== undefined && typeof v !== 'boolean') {
+      throw new PluginError(
+        'Pulse config plugin: "android.okHttpInstrumentation" must be a boolean when set.',
+        'INVALID_PLUGIN_TYPE'
+      );
+    }
+  }
+
   const typed = props as PulsePluginProps;
 
   if (typed.android?.coreLibraryDesugaring !== undefined) {
@@ -123,6 +134,17 @@ export function assertPulsePluginProps(
   resolveIosProps(typed);
 }
 
+/**
+ * Fills in defaults for `android` Gradle options (e.g. `okHttpInstrumentation` defaults to `false`).
+ */
+export function resolveAndroidBuildFlags(
+  section?: PulseAndroidSection
+): Required<PulseAndroidBuildOptions> {
+  return {
+    okHttpInstrumentation: section?.okHttpInstrumentation === true,
+  };
+}
+
 export function resolveAndroidProps(
   props: PulsePluginProps
 ): ResolvedAndroidPulseProps {
@@ -133,7 +155,7 @@ export function resolveAndroidProps(
   const version =
     rawVersion && rawVersion.length > 0
       ? rawVersion
-      : DEFAULT_CORE_LIBRARY_DESUGAR_VERSION;
+      : PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION;
   return {
     ...merged,
     instrumentation: props.android?.instrumentation,

@@ -2,6 +2,7 @@ import { PluginError } from '@expo/config-plugins';
 
 import {
   assertPulsePluginProps,
+  resolveAndroidBuildFlags,
   resolveAndroidProps,
   resolveIosProps,
 } from '../resolvePluginProps';
@@ -95,6 +96,16 @@ describe('assertPulsePluginProps', () => {
       })
     ).toThrow(/android/);
   });
+
+  it('rejects non-boolean android.okHttpInstrumentation', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        android: { okHttpInstrumentation: 'yes' as unknown as boolean },
+      } as PulsePluginProps)
+    ).toThrow(/okHttpInstrumentation/);
+  });
 });
 
 describe('resolveAndroidProps / resolveIosProps', () => {
@@ -168,6 +179,20 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     expect(resolveAndroidProps(props).coreLibraryDesugaring).toEqual({
       enabled: true,
       version: '2.1.4',
+    });
+  });
+});
+
+describe('resolveAndroidBuildFlags', () => {
+  it('is false when android section has no okHttp flag', () => {
+    expect(resolveAndroidBuildFlags({})).toEqual({
+      okHttpInstrumentation: false,
+    });
+  });
+
+  it('enables when okHttpInstrumentation is true', () => {
+    expect(resolveAndroidBuildFlags({ okHttpInstrumentation: true })).toEqual({
+      okHttpInstrumentation: true,
     });
   });
 });
