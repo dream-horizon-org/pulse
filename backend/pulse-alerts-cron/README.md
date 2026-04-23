@@ -298,6 +298,54 @@ CONFIG_SERVICE_APPLICATION_PULSESERVERURL=http://localhost:8080
 CONFIG_SERVICE_APPLICATION_SHUTDOWNGRACEPERIOD=5
 ```
 
+**Service JWT Secret** (for internal API authentication)
+
+```bash
+CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET=your-jwt-secret
+```
+
+### Daily Batch Jobs Configuration
+
+The service supports daily batch job scheduling for funnel and journey analytics processing.
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `CONFIG_SERVICE_APPLICATION_BATCHFUNNELSENDPOINT` | `/internal/analytics/funnels` | Endpoint for funnel batch jobs |
+| `CONFIG_SERVICE_APPLICATION_BATCHJOURNEYSENDPOINT` | `/internal/analytics/journeys` | Endpoint for journey batch jobs |
+| `CONFIG_SERVICE_APPLICATION_BATCHEVENTSENDPOINT` | `/internal/analytics/events` | Endpoint for events batch jobs |
+| `CONFIG_SERVICE_APPLICATION_BATCHSCHEDULETIME` | `02:00` | Daily execution time in HH:mm UTC format |
+| `CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED` | `true` | Enable/disable daily batch jobs |
+
+**Example Configuration:**
+
+```bash
+# Enable daily batch jobs at 3:30 AM UTC
+CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED=true
+CONFIG_SERVICE_APPLICATION_BATCHSCHEDULETIME=03:30
+
+# Custom batch endpoints (optional)
+CONFIG_SERVICE_APPLICATION_BATCHFUNNELSENDPOINT=/internal/v2/analytics/funnels
+CONFIG_SERVICE_APPLICATION_BATCHJOURNEYSENDPOINT=/internal/v2/analytics/journeys
+CONFIG_SERVICE_APPLICATION_BATCHEVENTSENDPOINT=/internal/v2/analytics/events
+```
+
+### Redis Configuration
+
+```bash
+CONFIG_SERVICE_APPLICATION_REDISHOST=localhost
+CONFIG_SERVICE_APPLICATION_REDISPORT=6379
+```
+
+### ClickHouse Configuration
+
+```bash
+CONFIG_SERVICE_APPLICATION_CLICKHOUSEHOST=localhost
+CONFIG_SERVICE_APPLICATION_CLICKHOUSEPORT=8123
+CONFIG_SERVICE_APPLICATION_CLICKHOUSEDATABASE=otel
+CONFIG_SERVICE_APPLICATION_CLICKHOUSEUSERNAME=default
+CONFIG_SERVICE_APPLICATION_CLICKHOUSEPASSWORD=
+```
+
 ### MySQL Configuration (for health checks)
 
 ```bash

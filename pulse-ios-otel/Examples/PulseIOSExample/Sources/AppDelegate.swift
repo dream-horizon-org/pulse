@@ -48,13 +48,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                         localConfig.replayEndpointBaseUrl = "http://127.0.0.1:3400"
                     }
                 }
-            }
+            },
+            logLevel: .debug
         )
         window = UIWindow(frame: UIScreen.main.bounds)
         let mainViewController = MainViewController()
         window?.rootViewController = UINavigationController(rootViewController: mainViewController)
         window?.makeKeyAndVisible()
-        print("SDK Initialised")
+        // Demo only: not using PulseLogger (package-internal). Initialization logs come from SDK when logLevel != .none.
+        print("SDK initialised (Pulse iOS example)")
         return true
     }
 }
