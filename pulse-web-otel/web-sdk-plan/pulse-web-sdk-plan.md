@@ -303,7 +303,7 @@ Same concept as Android's `SlowRenderingInstrumentation`:
 
 ### What Interactions Are
 
-Interactions track **multi-step user journeys** defined on the server. Example: `checkout_started` → `payment_initiated` → `payment_success`. The SDK fetches the sequence definition from a CDN config, then matches incoming `trackEvent()` calls against it in real-time. When a full sequence is matched, an OTel span is emitted with APDEX score, duration category (Excellent/Good/Average/Poor), and error status.
+Interactions track **multi-step user journeys** defined on the server. Example: `checkout_started` → `payment_initiated` → `payment_success`. The SDK fetches the sequence definition from the **same interaction-config JSON endpoint as Android** (collector-hosted in prod; REST in local dev), then matches incoming `trackEvent()` calls against it in real-time. When a full sequence is matched, an OTel span is emitted with APDEX score, duration category (Excellent/Good/Average/Poor), and error status.
 
 **Why this matters for web:** Funnels and user flows are arguably more important on web than mobile (checkout flows, onboarding, search → product → cart → purchase). This should be in v1.
 
@@ -313,7 +313,7 @@ Interactions track **multi-step user journeys** defined on the server. Example: 
 
 ```
 InteractionInstrumentation (web)
-├── InteractionConfigFetcher     → fetch() from CloudFront CDN
+├── InteractionConfigFetcher     → fetch() interaction-config JSON (local REST vs prod collector)
 ├── InteractionManager           → one InteractionEventsTracker per config
 │   └── InteractionEventsTracker → state machine, runs matchSequence()
 │       └── InteractionUtil      → pure matching algorithm (TypeScript port)
@@ -323,9 +323,9 @@ InteractionInstrumentation (web)
     → Export via existing OTLP exporter
 ```
 
-The same CDN URL that iOS/Android fetch from works unchanged for web:
+The prod URL shape matches Android `PulseEndpointUtils.getInteractionConfigUrl()` (non-local branch):
 ```
-GET https://cdn.pulse.io/config/projects/{projectId}/interaction-config.json
+GET https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/interaction-config.json
 ```
 
 ---
@@ -333,13 +333,9 @@ GET https://cdn.pulse.io/config/projects/{projectId}/interaction-config.json
 ### 2.5.2 Config Fetching
 
 ```typescript
-// Same endpoint as mobile — no backend changes needed
-async function fetchInteractionConfigs(
-  configUrl: string,
-  headers: Record<string, string>
-): Promise<InteractionConfig[]> {
-  const url = `${configUrl}/config/projects/${projectId}/interaction-config.json`;
-  const res = await fetch(url, { headers });
+// Conceptual — real code lives in src/interactions/config-fetcher.ts
+async function fetchInteractionConfigs(url: string, headers: Record<string, string>): Promise<InteractionConfig[]> {
+  const res = await fetch(url, { headers, cache: 'no-store' });
   if (!res.ok) return [];
   return res.json();
 }

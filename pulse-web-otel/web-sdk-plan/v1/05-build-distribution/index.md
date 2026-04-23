@@ -19,7 +19,7 @@
 
 **Out:**
 - NPM organisation setup (assumed to exist)
-- CloudFront distribution provisioning (assumed to exist; same CDN as interaction configs)
+- CloudFront distribution provisioning (assumed to exist; hosts the **Web SDK bundle** — not the interaction definitions JSON)
 
 ---
 

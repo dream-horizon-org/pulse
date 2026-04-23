@@ -108,7 +108,7 @@ export function validateConfig(config: PulseWebConfig): void {
   }
 }
 
-const PULSE_PROD_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com";
+export const PULSE_PROD_ENDPOINT_URL = "https://pulse-otel-collector.pulse-ux.com";
 
 /**
  * Mirrors Android's PulseSDKInternal.isApiLocalDev().

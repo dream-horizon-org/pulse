@@ -1,9 +1,11 @@
 # 03.2 — Interaction Matching Algorithm
 
-**Goal:** Implement a pure state-machine that consumes `trackEvent()` calls, matches them against interaction step sequences from config, and transitions interactions from IDLE → ONGOING → COMPLETED/ERROR — the direct TypeScript port of the Android `InteractionMatcher`.
+**Goal:** Implement a pure, synchronous state machine that consumes `trackEvent()` calls, matches them against interaction step sequences from config, and transitions interactions from IDLE → ONGOING → COMPLETED/ERROR — the TypeScript port of Android `InteractionEventsTracker` + `InteractionUtil`.
 
-**File:** `src/interactions/interaction-matcher.ts`
-**Android equivalent:** `InteractionMatcher.kt`, `InteractionTracker.kt`
+**Files:** `src/interactions/interaction-models.ts` (types) · `src/interactions/interaction-tracker.ts` (per-config tracker) · `src/interactions/interaction-coordinator.ts` (fan-out)  
+**Android equivalents:** `InteractionEventsTracker.kt` · `InteractionUtil.kt` · `InteractionManager.kt`
+
+> **Source of truth:** Android `InteractionEventsTracker` + `InteractionUtil`. When this doc disagrees with Android behavior, follow Android.
 
 ---
 
@@ -18,14 +20,15 @@
                                    ▼
                     ┌─────────────────────────────────┐
                     │         ONGOING                  │
-                    │  Collecting steps, timer running │
+                    │  Inter-step timer running        │
                     └───┬────────────┬────────────────┘
                         │            │
-              all required     timeout_ms exceeded
-              steps matched    OR unrecoverable error
+              all required     inter-step timer expired
+              steps matched    OR globalBlacklisted event
+                        │     OR SEQUENCE_VIOLATION
                         │            │
                         ▼            ▼
-               COMPLETED          ERROR
+               COMPLETED         ERROR (emits error span)
 ```
 
 ### State Definitions
@@ -33,202 +36,362 @@
 | State | Description |
 |---|---|
 | `IDLE` | No active tracking; waiting for first step |
-| `ONGOING` | First step matched; collecting subsequent steps |
+| `ONGOING` | First step matched; inter-step timer running |
 | `COMPLETED` | All required steps matched in order |
-| `ERROR` | Timed out or explicitly aborted |
+| `ERROR` | Inter-step timer expired, blacklisted event received, or sequence violation |
+
+---
+
+## Key Behavioral Rules (Android Parity)
+
+### 1. Inter-step timer — not a whole-flow timer
+
+The timeout (`thresholdInMs`) is **not** a whole-flow timer. It **resets after every step match**:
+
+- On step match → `clearTimeout` existing timer, set new `setTimeout(thresholdInMs + 10)`
+- On expiry → emit **error interaction span** with `errorType: 'TIMEOUT'`
+- A single first-step match with no follow-up will time out after `thresholdInMs`, not after some total-flow budget
+
+Android reference: `InteractionEventsTracker.launchResetTimer()` — cancels and replaces the coroutine Job on each call.
+
+### 2. Global blacklist event resets the ongoing match — no error span
+
+If an event whose name is in `config.globalBlacklistedEvents` arrives while `ONGOING`:
+1. **Reset** the tracker to `IDLE` (no error span emitted)
+2. Clear the inter-step timer
+
+The event is NOT just skipped — the entire ongoing match is silently discarded.
+
+Android reference: `InteractionEventsTracker.checkAndAdd()` checks `globalBlacklistedEvents` before any other logic.
+
+### 3. Sequence violation → error interaction span
+
+If an `ONGOING` tracker receives an event that:
+- Is NOT the next expected step
+- Is NOT in `globalBlacklistedEvents`
+- Does NOT match the first step of this interaction (see rule 4)
+
+Then: emit **error interaction span** with `errorType: 'SEQUENCE_VIOLATION'`, reset to `IDLE`.
+
+Android reference: `InteractionEventsTracker.createErrorInteraction('SEQUENCE_VIOLATION')`.
+
+### 4. `shouldTakeFirstEvent` — overlapping restart
+
+When `ONGOING` and a non-matching event arrives, before declaring a violation, check:
+
+> Does this event match the **first required step** of this interaction?
+
+If yes: the user restarted the flow mid-sequence.
+- Emit a **`SEQUENCE_VIOLATION` error span** for the abandoned match
+- Start a **fresh match** from this event (it becomes step 1 of the new attempt)
+
+If no: emit `SEQUENCE_VIOLATION` and go `IDLE` (no restart).
+
+Android reference: `InteractionUtil.matchSequence()` returns `MatchResult.shouldTakeFirstEvent` — the caller then re-runs `startInteraction` with the same event.
+
+### 5. Synchronous fan-out — no async
+
+Unlike Android (Kotlin Coroutines + `StateFlow`), web is **synchronous on the main thread**:
+- `InteractionCoordinator.onTrackEvent()` loops synchronously over all `InteractionTracker` instances
+- `InteractionTracker.checkAndAdd()` is synchronous — span emission callbacks fire synchronously
+- Only `setTimeout`/`clearTimeout` are async (for inter-step timeout detection only)
+- No event queues, no microtask tricks
+
+This means `PulseWeb.trackEvent()` is a synchronous call that may synchronously emit a span. That is correct and expected.
+
+### 6. Timestamp parameter
+
+`PulseWeb.trackEvent(name, attrs?, timestampMs?)`:
+- `timestampMs` — optional Unix epoch ms; mirrors Android `addEvent(name, params, eventTimeInNano)` defaulting to `System.currentTimeMillis() * 1_000_000`
+- Default: `Date.now()` if not provided
+- Used for span event timestamps and `pulse.interaction.complete_time` calculation (converted to nanos at span build: `durationMs * 1_000_000`)
+
+---
+
+## TypeScript Types
+
+```typescript
+// src/interactions/interaction-models.ts
+
+export type PropertyOperator =
+  | 'EQUALS'
+  | 'NOT_EQUALS'
+  | 'CONTAINS'
+  | 'NOT_CONTAINS'
+  | 'STARTS_WITH'
+  | 'ENDS_WITH';
+
+export interface PropertyFilter {
+  key: string;
+  value: string;
+  operator: PropertyOperator;
+}
+
+export interface InteractionEvent {
+  name: string;
+  required: boolean;
+  isBlacklisted?: boolean;
+  props?: PropertyFilter[];
+}
+
+export interface InteractionConfig {
+  id: string;
+  name: string;
+  events: InteractionEvent[];
+  thresholdInMs: number;             // inter-step timeout (not whole-flow)
+  uptimeLowerLimitInMs: number;      // ≤ this → Excellent
+  uptimeMidLimitInMs: number;        // ≤ this → Good
+  uptimeUpperLimitInMs: number;      // ≤ this → Average; above → Poor
+  globalBlacklistedEvents: string[];
+}
+
+export type MatchErrorType = 'TIMEOUT' | 'SEQUENCE_VIOLATION';
+
+export interface InteractionResult {
+  configId: string;
+  configName: string;
+  interactionId: string;
+  events: Array<{ name: string; timestampMs: number }>;
+  startTimeMs: number;
+  endTimeMs: number;
+  isError: false;
+}
+
+export interface InteractionErrorResult {
+  configId: string;
+  configName: string;
+  interactionId: string;
+  events: Array<{ name: string; timestampMs: number }>;
+  startTimeMs: number;
+  endTimeMs: number;
+  isError: true;
+  errorType: MatchErrorType;
+  errorMessage: string;
+}
+
+export type AnyInteractionResult = InteractionResult | InteractionErrorResult;
+```
 
 ---
 
 ## Implementation
 
+### `InteractionTracker` (per-config)
+
 ```typescript
-// src/interactions/interaction-matcher.ts
+// src/interactions/interaction-tracker.ts
 
-export type InteractionState = 'IDLE' | 'ONGOING' | 'COMPLETED' | 'ERROR';
-
-interface ActiveInteraction {
-  definition: InteractionDefinition;
-  state: InteractionState;
-  startTime: number;              // performance.now() at first step
-  stepsCompleted: string[];       // event names matched so far
-  nextRequiredIndex: number;      // index into definition.steps for next required step
-  timeoutHandle: ReturnType<typeof setTimeout>;
-}
-
-export class InteractionMatcher {
-  private active = new Map<string, ActiveInteraction>();  // keyed by interaction.id
+export class InteractionTracker {
+  private ongoing = false;
+  private stepIndex = 0;
+  private interactionId = '';
+  private matchedEvents: Array<{ name: string; timestampMs: number }> = [];
+  private startTimeMs = 0;
+  private interStepTimerId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
-    private readonly onComplete: (result: InteractionResult) => void,
-    private readonly onError: (result: InteractionResult) => void,
+    private readonly config: InteractionConfig,
+    private readonly onResult: (result: AnyInteractionResult) => void,
   ) {}
 
-  /** Called when config is loaded or refreshed */
-  updateConfig(config: InteractionConfig): void {
-    // Cancel interactions that no longer exist in config
-    for (const [id, active] of this.active) {
-      if (!config.interactions.find(i => i.id === id)) {
-        this.abort(id, 'config_updated');
-      }
+  checkAndAdd(eventName: string, props: Record<string, unknown>, timestampMs: number): void {
+    // Rule 2: global blacklist always takes priority
+    if (this.config.globalBlacklistedEvents.includes(eventName)) {
+      if (this.ongoing) this.resetToIdle();
+      return;
     }
-  }
 
-  /** Main entry point — called by PulseSDK.trackEvent() */
-  trackEvent(eventName: string, attributes: Record<string, unknown>, config: InteractionConfig): void {
-    for (const definition of config.interactions) {
-      this.processEvent(definition, eventName, attributes);
-    }
-  }
-
-  // ─── Private ──────────────────────────────────────────────────────────────
-
-  private processEvent(
-    definition: InteractionDefinition,
-    eventName: string,
-    attributes: Record<string, unknown>,
-  ): void {
-    const active = this.active.get(definition.id);
-
-    if (!active) {
-      // IDLE — check if this event matches the first required step
-      const firstRequired = definition.steps.find(s => s.required);
-      if (firstRequired && this.stepMatches(firstRequired, eventName, attributes)) {
-        this.startInteraction(definition, eventName);
+    if (!this.ongoing) {
+      const first = this.findFirstRequired();
+      if (first && this.eventMatches(first, eventName, props)) {
+        this.startMatch(eventName, timestampMs);
       }
       return;
     }
 
-    if (active.state !== 'ONGOING') return;
+    // ONGOING: find the next required step
+    const nextExpected = this.config.events[this.stepIndex];
+    if (!nextExpected) return;
 
-    // Find the next expected step
-    const currentStep = definition.steps[active.nextRequiredIndex];
-    if (!currentStep) return;
+    if (this.eventMatches(nextExpected, eventName, props)) {
+      // Step matches — advance
+      this.matchedEvents.push({ name: eventName, timestampMs });
+      this.stepIndex = this.advanceToNextRequired(this.stepIndex + 1);
+      this.resetInterStepTimer();
 
-    if (this.stepMatches(currentStep, eventName, attributes)) {
-      active.stepsCompleted.push(eventName);
-      active.nextRequiredIndex = this.nextRequiredStepIndex(definition, active.nextRequiredIndex + 1);
-
-      if (active.nextRequiredIndex >= definition.steps.length) {
-        // All required steps matched
-        this.completeInteraction(active);
+      if (this.stepIndex >= this.config.events.length) {
+        this.completeMatch(timestampMs);
       }
+    } else {
+      // Rule 4: does this event restart the flow? (shouldTakeFirstEvent)
+      const first = this.findFirstRequired();
+      if (first && this.eventMatches(first, eventName, props)) {
+        // Emit violation for the abandoned match, then restart from this event
+        this.emitError(
+          'SEQUENCE_VIOLATION',
+          `Flow restarted: expected ${nextExpected.name}, got ${eventName}`,
+          timestampMs,
+        );
+        this.startMatch(eventName, timestampMs);
+        return;
+      }
+      // Rule 3: true sequence violation
+      this.emitError(
+        'SEQUENCE_VIOLATION',
+        `Expected ${nextExpected.name}, got ${eventName}`,
+        timestampMs,
+      );
     }
   }
 
-  private startInteraction(definition: InteractionDefinition, firstEvent: string): void {
-    const timeoutHandle = setTimeout(() => {
-      this.failInteraction(definition.id, 'timeout');
-    }, definition.timeout_ms);
-
-    this.active.set(definition.id, {
-      definition,
-      state: 'ONGOING',
-      startTime: performance.now(),
-      stepsCompleted: [firstEvent],
-      nextRequiredIndex: this.nextRequiredStepIndex(definition, 1),
-      timeoutHandle,
-    });
+  shutdown(): void {
+    this.clearInterStepTimer();
+    this.resetToIdle();
   }
 
-  private completeInteraction(active: ActiveInteraction): void {
-    clearTimeout(active.timeoutHandle);
-    active.state = 'COMPLETED';
+  // ─── Private ──────────────────────────────────────────────────────────────
 
-    const duration = performance.now() - active.startTime;
-    this.onComplete({
-      interaction: active.definition,
-      state: 'COMPLETED',
-      duration,
-      stepsCompleted: active.stepsCompleted,
-      errorReason: null,
-    });
-
-    this.active.delete(active.definition.id);
+  private startMatch(firstEvent: string, timestampMs: number): void {
+    this.ongoing = true;
+    this.interactionId = crypto.randomUUID();
+    this.startTimeMs = timestampMs;
+    this.matchedEvents = [{ name: firstEvent, timestampMs }];
+    this.stepIndex = this.advanceToNextRequired(1);
+    this.resetInterStepTimer();
   }
 
-  private failInteraction(id: string, reason: string): void {
-    const active = this.active.get(id);
-    if (!active) return;
-
-    clearTimeout(active.timeoutHandle);
-    active.state = 'ERROR';
-
-    const duration = performance.now() - active.startTime;
-    this.onError({
-      interaction: active.definition,
-      state: 'ERROR',
-      duration,
-      stepsCompleted: active.stepsCompleted,
-      errorReason: reason,
-    });
-
-    this.active.delete(id);
+  private completeMatch(endTimeMs: number): void {
+    this.clearInterStepTimer();
+    const result: AnyInteractionResult = {
+      configId: this.config.id,
+      configName: this.config.name,
+      interactionId: this.interactionId,
+      events: [...this.matchedEvents],
+      startTimeMs: this.startTimeMs,
+      endTimeMs,
+      isError: false,
+    };
+    this.resetToIdle();
+    this.onResult(result);
   }
 
-  private abort(id: string, reason: string): void {
-    this.failInteraction(id, reason);
+  private emitError(type: MatchErrorType, message: string, endTimeMs: number): void {
+    this.clearInterStepTimer();
+    const result: AnyInteractionResult = {
+      configId: this.config.id,
+      configName: this.config.name,
+      interactionId: this.interactionId,
+      events: [...this.matchedEvents],
+      startTimeMs: this.startTimeMs,
+      endTimeMs,
+      isError: true,
+      errorType: type,
+      errorMessage: message,
+    };
+    this.resetToIdle();
+    this.onResult(result);
   }
 
-  /** Check if an event + attributes match a step definition */
-  private stepMatches(
-    step: InteractionStep,
-    eventName: string,
-    attributes: Record<string, unknown>,
-  ): boolean {
-    if (step.event_name !== eventName) return false;
-    if (!step.attributes) return true;
-
-    // All defined attribute filters must match
-    return Object.entries(step.attributes).every(
-      ([key, expected]) => attributes[key] === expected
-    );
+  private resetToIdle(): void {
+    this.ongoing = false;
+    this.stepIndex = 0;
+    this.matchedEvents = [];
+    this.interactionId = '';
+    this.clearInterStepTimer();
   }
 
-  /** Find the index of the next required step at or after `fromIndex` */
-  private nextRequiredStepIndex(definition: InteractionDefinition, fromIndex: number): number {
-    for (let i = fromIndex; i < definition.steps.length; i++) {
-      if (definition.steps[i].required) return i;
+  // Rule 1: inter-step timer resets on every step advance
+  private resetInterStepTimer(): void {
+    this.clearInterStepTimer();
+    this.interStepTimerId = setTimeout(() => {
+      this.emitError(
+        'TIMEOUT',
+        `No next step within ${this.config.thresholdInMs}ms`,
+        Date.now(),
+      );
+    }, this.config.thresholdInMs + 10);
+  }
+
+  private clearInterStepTimer(): void {
+    if (this.interStepTimerId !== null) {
+      clearTimeout(this.interStepTimerId);
+      this.interStepTimerId = null;
     }
-    return definition.steps.length; // past the end = all required steps done
+  }
+
+  private findFirstRequired(): InteractionEvent | undefined {
+    return this.config.events.find(e => e.required && !e.isBlacklisted);
+  }
+
+  private advanceToNextRequired(fromIndex: number): number {
+    for (let i = fromIndex; i < this.config.events.length; i++) {
+      if (this.config.events[i].required) return i;
+    }
+    return this.config.events.length;
+  }
+
+  private eventMatches(expected: InteractionEvent, name: string, props: Record<string, unknown>): boolean {
+    if (expected.name !== name) return false;
+    if (!expected.props || expected.props.length === 0) return true;
+    return expected.props.every(f => this.propMatches(f, props));
+  }
+
+  private propMatches(filter: PropertyFilter, props: Record<string, unknown>): boolean {
+    const actual = String(props[filter.key] ?? '');
+    const expected = filter.value;
+    switch (filter.operator) {
+      case 'EQUALS':       return actual === expected;
+      case 'NOT_EQUALS':   return actual !== expected;
+      case 'CONTAINS':     return actual.includes(expected);
+      case 'NOT_CONTAINS': return !actual.includes(expected);
+      case 'STARTS_WITH':  return actual.startsWith(expected);
+      case 'ENDS_WITH':    return actual.endsWith(expected);
+    }
   }
 }
+```
 
-export interface InteractionResult {
-  interaction: InteractionDefinition;
-  state: 'COMPLETED' | 'ERROR';
-  duration: number;               // ms (performance.now() difference)
-  stepsCompleted: string[];
-  errorReason: string | null;
+### `InteractionCoordinator` (fan-out)
+
+```typescript
+// src/interactions/interaction-coordinator.ts
+
+export class InteractionCoordinator {
+  private trackers: InteractionTracker[] = [];
+
+  setConfigs(configs: InteractionConfig[], onResult: (r: AnyInteractionResult) => void): void {
+    this.shutdown();
+    this.trackers = configs.map(cfg => new InteractionTracker(cfg, onResult));
+  }
+
+  /** Synchronous fan-out — called from PulseWeb.trackEvent() */
+  onTrackEvent(name: string, props: Record<string, unknown> = {}, timestampMs = Date.now()): void {
+    for (const tracker of this.trackers) {
+      tracker.checkAndAdd(name, props, timestampMs);
+    }
+  }
+
+  shutdown(): void {
+    for (const t of this.trackers) t.shutdown();
+    this.trackers = [];
+  }
 }
 ```
 
 ---
 
-## Step Matching Rules
+## Property Operator Reference
 
-1. **Event name must match exactly** — case-sensitive string comparison
-2. **Attribute filters are AND conditions** — all specified attributes must match
-3. **Required vs optional steps** — optional steps are skipped if not received; required steps must appear in order
-4. **Ordering is strict for required steps** — step 3 cannot be matched before step 1 and 2
-5. **Optional steps between required ones** — may or may not appear; the matcher advances past them
+All comparisons are **case-sensitive string comparisons** (mirrors Android). Non-string prop values are coerced to `String` before matching.
 
-### Example: Optional Step Handling
-
-```
-Definition steps: [cart_viewed (R), promo_applied (O), checkout_started (R), order_placed (R)]
-
-Events received:  cart_viewed → checkout_started → order_placed
-Result: COMPLETED (promo_applied was optional, correctly skipped)
-
-Events received:  cart_viewed → promo_applied → order_placed
-Result: ERROR (checkout_started was required, timed out waiting)
-```
-
----
-
-## Concurrent Interactions
-
-Multiple interactions can be ONGOING simultaneously (e.g. a user navigating through two parallel flows). The `active` map holds one entry per `definition.id`. Receiving an event that matches multiple interactions' current step advances both independently.
+| Operator | Meaning | Example: `key='type'`, `value='shirt'` |
+|---|---|---|
+| `EQUALS` | Exact match | `'shirt' === 'shirt'` → pass |
+| `NOT_EQUALS` | Any other value | `'shoe' !== 'shirt'` → pass |
+| `CONTAINS` | Substring present | `'premium_shirt'.includes('shirt')` → pass |
+| `NOT_CONTAINS` | Substring absent | `'jacket'.includes('shirt')` → fail |
+| `STARTS_WITH` | Prefix match | `'shirt_slim'.startsWith('shirt')` → pass |
+| `ENDS_WITH` | Suffix match | `'slim_shirt'.endsWith('shirt')` → pass |
 
 ---
 
@@ -236,82 +399,120 @@ Multiple interactions can be ONGOING simultaneously (e.g. a user navigating thro
 
 | Case | Handling |
 |---|---|
-| Same event matches first step of two interactions | Both start simultaneously |
-| `trackEvent()` called before config loads | Config is null; matcher is a no-op until `updateConfig()` is called |
-| Interaction times out | `failInteraction('timeout')` clears timer and calls `onError` |
-| User closes tab mid-interaction | Timeout fires if tab is reopened within `timeout_ms`; otherwise interaction is dropped |
-| Config refresh invalidates in-progress interaction | `abort('config_updated')` emits ERROR result |
-| Step with attribute filter receives event without that attribute | `attributes[key] === expected` — if attribute is missing, `undefined !== expected` → no match |
+| Event in `globalBlacklistedEvents` while ONGOING | Reset to IDLE silently — no error span |
+| Expected next step doesn't arrive within `thresholdInMs` | Error span with `TIMEOUT`; reset to IDLE |
+| Wrong event during ONGOING (not first-step, not blacklisted) | Error span with `SEQUENCE_VIOLATION`; reset to IDLE |
+| Wrong event = first step of this interaction | Emit `SEQUENCE_VIOLATION` for old match; restart fresh from this event |
+| `trackEvent()` before config loads | Coordinator has no trackers → no-op |
+| Config refresh | `setConfigs()` calls `shutdown()` on existing trackers (clears their timers) before creating new ones |
+| `PulseWeb.shutdown()` | `InteractionCoordinator.shutdown()` → each `tracker.shutdown()` → all `clearTimeout` fired |
+| Page hidden mid-interaction | No special handling at matching layer; timer keeps running (browser allows `setTimeout` in hidden pages) |
+| User provides `timestampMs` | Used for event timestamp and span duration; defaults to `Date.now()` |
 
 ---
 
 ## Testing
 
-### Unit Tests (Vitest)
-
 ```typescript
-it('transitions IDLE → ONGOING on first required step', () => {
-  const matcher = new InteractionMatcher(vi.fn(), vi.fn());
-  matcher.updateConfig(mockConfig);
-  matcher.trackEvent('cart_viewed', {}, mockConfig);
-  // No assertion on external state — verify via onComplete/onError callbacks
-});
+describe('InteractionTracker — Android parity', () => {
+  it('inter-step timer resets on each step, not just at start', () => {
+    vi.useFakeTimers();
+    const onResult = vi.fn();
+    const tracker = new InteractionTracker({ ...mockConfig, thresholdInMs: 1000 }, onResult);
 
-it('completes interaction when all required steps matched', () => {
-  const onComplete = vi.fn();
-  const matcher = new InteractionMatcher(onComplete, vi.fn());
-  matcher.updateConfig(mockConfig);  // checkout_flow with 3 required steps
+    tracker.checkAndAdd('step_1', {}, 0);
+    vi.advanceTimersByTime(900);                    // still within threshold
+    tracker.checkAndAdd('step_2', {}, 900);         // advance; timer RESETS
+    vi.advanceTimersByTime(900);                    // 900ms after step_2 — still within threshold
+    expect(onResult).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(200);                    // 1100ms after step_2 → timeout
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({ isError: true, errorType: 'TIMEOUT' })
+    );
+    vi.useRealTimers();
+  });
 
-  matcher.trackEvent('cart_viewed', {}, mockConfig);
-  matcher.trackEvent('checkout_started', {}, mockConfig);
-  matcher.trackEvent('order_placed', {}, mockConfig);
+  it('global blacklist event resets match silently', () => {
+    const onResult = vi.fn();
+    const config = { ...mockConfig, globalBlacklistedEvents: ['cancel'] };
+    const tracker = new InteractionTracker(config, onResult);
 
-  expect(onComplete).toHaveBeenCalledOnce();
-  expect(onComplete.mock.calls[0][0].state).toBe('COMPLETED');
-  expect(onComplete.mock.calls[0][0].stepsCompleted).toEqual([
-    'cart_viewed', 'checkout_started', 'order_placed',
-  ]);
-});
+    tracker.checkAndAdd('step_1', {}, 0);
+    tracker.checkAndAdd('cancel', {}, 100);         // blacklisted → silent reset
+    expect(onResult).not.toHaveBeenCalled();
 
-it('errors on timeout', async () => {
-  vi.useFakeTimers();
-  const onError = vi.fn();
-  const matcher = new InteractionMatcher(vi.fn(), onError);
-  matcher.updateConfig(mockConfig);  // timeout_ms: 5000
+    // Fresh start possible after reset
+    tracker.checkAndAdd('step_1', {}, 200);
+    tracker.checkAndAdd('step_2', {}, 300);
+    expect(onResult).toHaveBeenCalledWith(expect.objectContaining({ isError: false }));
+  });
 
-  matcher.trackEvent('cart_viewed', {}, mockConfig);  // starts interaction
-  vi.advanceTimersByTime(6000);
+  it('sequence violation emits error span', () => {
+    const onResult = vi.fn();
+    const tracker = new InteractionTracker(mockConfig, onResult);
 
-  expect(onError).toHaveBeenCalledOnce();
-  expect(onError.mock.calls[0][0].errorReason).toBe('timeout');
-  vi.useRealTimers();
-});
+    tracker.checkAndAdd('step_1', {}, 0);
+    tracker.checkAndAdd('wrong_event', {}, 100);
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({ isError: true, errorType: 'SEQUENCE_VIOLATION' })
+    );
+  });
 
-it('skips optional steps correctly', () => {
-  const onComplete = vi.fn();
-  const matcher = new InteractionMatcher(onComplete, vi.fn());
-  matcher.updateConfig(mockConfigWithOptionalStep);
+  it('first-step during ongoing emits violation then restarts', () => {
+    const onResult = vi.fn();
+    const tracker = new InteractionTracker(mockConfig, onResult);
 
-  matcher.trackEvent('cart_viewed', {}, mockConfigWithOptionalStep);    // required
-  // promo_applied (optional) — skipped
-  matcher.trackEvent('checkout_started', {}, mockConfigWithOptionalStep); // required
-  matcher.trackEvent('order_placed', {}, mockConfigWithOptionalStep);     // required
+    tracker.checkAndAdd('step_1', {}, 0);           // starts match
+    tracker.checkAndAdd('step_1', {}, 100);         // first step again → emit violation, restart
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({ isError: true, errorType: 'SEQUENCE_VIOLATION' })
+    );
+    onResult.mockClear();
 
-  expect(onComplete).toHaveBeenCalledOnce();
-});
+    tracker.checkAndAdd('step_2', {}, 200);         // continues the restarted match
+    expect(onResult).toHaveBeenCalledWith(expect.objectContaining({ isError: false }));
+  });
 
-it('matches step attributes exactly', () => {
-  const onComplete = vi.fn();
-  const matcher = new InteractionMatcher(onComplete, vi.fn());
-  const config = mockConfigWithAttrFilter; // step requires { channel: 'organic' }
+  it('CONTAINS operator matches substring', () => {
+    const config = {
+      ...mockConfig,
+      events: [{
+        name: 'purchase', required: true,
+        props: [{ key: 'category', value: 'electronics', operator: 'CONTAINS' as const }],
+      }],
+    };
+    const onResult = vi.fn();
+    const tracker = new InteractionTracker(config, onResult);
 
-  matcher.trackEvent('checkout_started', { channel: 'paid' }, config);   // wrong attr
-  matcher.trackEvent('checkout_started', { channel: 'organic' }, config); // correct
+    tracker.checkAndAdd('purchase', { category: 'premium_electronics' }, 0);
+    expect(onResult).toHaveBeenCalledWith(expect.objectContaining({ isError: false }));
+  });
 
-  // Only the second event starts the interaction
-  // ... then complete it
-  matcher.trackEvent('order_placed', {}, config);
-  expect(onComplete).toHaveBeenCalledOnce();
+  it('shutdown clears inter-step timer', () => {
+    vi.useFakeTimers();
+    const onResult = vi.fn();
+    const tracker = new InteractionTracker(mockConfig, onResult);
+    tracker.checkAndAdd('step_1', {}, 0);
+    tracker.shutdown();
+    vi.advanceTimersByTime(10_000);
+    expect(onResult).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('coordinator fan-out: single event advances all matching trackers', () => {
+    const onA = vi.fn();
+    const onB = vi.fn();
+    const coordinator = new InteractionCoordinator();
+    coordinator.setConfigs([configA, configB], result => {
+      if (result.configId === 'flow_a') onA(result);
+      else onB(result);
+    });
+
+    coordinator.onTrackEvent('shared_first_step', {});
+    coordinator.onTrackEvent('step_a_final', {});      // completes A only
+    expect(onA).toHaveBeenCalledWith(expect.objectContaining({ isError: false }));
+    expect(onB).not.toHaveBeenCalled();               // B still waiting
+  });
 });
 ```
 
@@ -319,12 +520,13 @@ it('matches step attributes exactly', () => {
 
 ## Done Criteria
 
-- [ ] `trackEvent()` starts an interaction when the first required step matches
-- [ ] All required steps matched in order → `COMPLETED` result
-- [ ] Timeout exceeded → `ERROR` result with `errorReason: 'timeout'`
-- [ ] Optional steps correctly skipped
-- [ ] Attribute filters applied (AND logic)
-- [ ] Multiple concurrent interactions tracked independently
-- [ ] Config refresh aborts active interactions no longer in config
-- [ ] Duration measured accurately with `performance.now()`
+- [ ] Inter-step timer resets on each step advance (not whole-flow timer)
+- [ ] Global blacklist event → silent reset to IDLE, no error span emitted
+- [ ] Sequence violation → error span with `errorType: 'SEQUENCE_VIOLATION'`
+- [ ] First-step event during ongoing → emit violation for old match, restart fresh
+- [ ] All 6 property operators implemented (`EQUALS`/`NOT_EQUALS`/`CONTAINS`/`NOT_CONTAINS`/`STARTS_WITH`/`ENDS_WITH`)
+- [ ] `shutdown()` clears all `setTimeout` handles
+- [ ] Synchronous fan-out from `InteractionCoordinator.onTrackEvent()`
+- [ ] `timestampMs` param on `onTrackEvent` (defaults to `Date.now()`)
+- [ ] Config update calls `shutdown()` on existing trackers before creating new ones
 - [ ] All unit tests passing

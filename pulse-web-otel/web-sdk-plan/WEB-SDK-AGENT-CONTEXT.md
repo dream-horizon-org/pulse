@@ -125,6 +125,7 @@ Every signal must carry these attrs. Deviating breaks the Pulse dashboard.
 | `screen_load` | span | `screen.name`, `ttfb_ms`, `fcp_ms`, `load.duration_ms` |
 | `screen_interactive` | span | `screen.name`, `tti_ms` |
 | `screen_session` | span | `screen.name`, `previous_screen.name`, `duration_ms` |
+| `interaction` | span | `pulse.interaction.id`, `pulse.interaction.name`, `pulse.interaction.config.id`, `pulse.interaction.config.name`, `pulse.interaction.complete_time` (nanos), `pulse.interaction.apdex_score`, `pulse.interaction.user_category` (`Excellent`/`Good`/`Average`/`Poor`), `pulse.interaction.is_error` (bool), `pulse.interaction.error.type`, `pulse.interaction.error.message` |
 
 ---
 

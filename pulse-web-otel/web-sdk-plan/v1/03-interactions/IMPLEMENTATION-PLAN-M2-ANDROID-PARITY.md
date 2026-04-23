@@ -71,34 +71,37 @@ flowchart TB
 
 ---
 
-## 4. Parity matrix: Android / backend / web phase docs
+## 4. Parity matrix: Android / backend / web (current state)
 
-| Topic | Android | Backend (e.g. `ClickhouseConstants`, session DAOs) | Web `03-interactions` drafts | Action |
-|--------|---------|---------------------------------------------------|------------------------------|--------|
-| Span attribute keys | `pulse.interaction.*` (`InteractionConstant`) | `SpanAttributes['pulse.interaction.*']` | `interaction.*` without `pulse.` | Implement and document **`pulse.interaction.*` only**. |
-| `user_category` | `Excellent`, `Good`, `Average`, `Poor` | Aggregations count those strings | `satisfied` / `tolerating` / `frustrated` | **Port Android** `TimeCategory` + `uptimeLower/Mid/Upper` bucketing. |
-| Score field | `pulse.interaction.apdex_score` as `upTimeIndex` (0.0–1.0) | Same | Simplified 1.0 / 0.5 / 0.0 from generic APDEX | **Port** `InteractionUtil.buildPulseInteraction` scoring. |
-| Duration | `pulse.interaction.complete_time` (nanos) | Used in queries | `interaction.duration` (ms) in examples | **Align names and units** with Android. |
-| Errors | `pulse.interaction.is_error`, `pulse.interaction.error.type`, `pulse.interaction.error.message` | Used | `interaction.status` / `interaction.error_reason` only | **Emit Android’s three fields**; add milestone note if status string is still desired for debugging. |
-| Config / display name | `pulse.interaction.config.id`, `pulse.interaction.config.name`, runtime `pulse.interaction.id` | — | Partial | **Emit** on web. |
-| Step timeline | Span **events** per matched local event; markers from log pipeline | Session views | JSON string of step names only in draft | **Span events** for steps; markers **M2:** optional hook; **M3+:** wire log types mirroring Android `InteractionLogListener`. |
-| Property filters | Operators: EQUALS, NOTEQUALS, CONTAINS, NOTCONTAINS, STARTSWITH, ENDSWITH | Same config shape from API | `attributes[key] === expected` | **Implement full operator set**. |
-| Blacklists | `globalBlacklistedEvents`; per-event `isBlacklisted` | Same JSON | Omitted in simplified matcher | **Implement**; global blacklist during ongoing match resets per Android. |
-| Wrong event while ongoing | `SEQUENCE_VIOLATION` → error interaction | — | Draft matcher often ignores | **Emit error interaction** per Android. |
-| Config URL | e.g. `InteractionConfigRestFetcher` → `/v1/interaction-configs/` | Server-owned | CDN `{cdn}/interactions/{projectId}.json` in examples | **Pick one delivery mechanism** for web (REST with auth vs CDN) that serves the **same schema** as mobile; document in `config.md`. |
-| Markers | Logs with selected `pulse.type` → `addMarkerEvent` | — | N/A until instrumentations | Document **deferred** until M3 logs exist or stub interface. |
+> This table shows the **current correct web implementation** vs Android reference. All gaps listed here have been fixed in `matching.md`, `span.md`, `config.md`, and `WEB-SDK-AGENT-CONTEXT.md`.
+
+| Topic | Android | Backend | Web (current — correct) | Status |
+|--------|---------|---------|--------------------------|--------|
+| Span attribute keys | `pulse.interaction.*` (`InteractionConstant`) | `SpanAttributes[‘pulse.interaction.*’]` | `pulse.interaction.*` — all keys prefixed | ✅ Fixed |
+| `user_category` | `Excellent`, `Good`, `Average`, `Poor` | Aggregations count those strings | `Excellent` / `Good` / `Average` / `Poor` | ✅ Fixed |
+| Score field | `pulse.interaction.apdex_score` (0.0–1.0) | Same | `pulse.interaction.apdex_score`; 4-bucket scoring via `uptimeLower/Mid/Upper` | ✅ Fixed |
+| Duration | `pulse.interaction.complete_time` (nanos) | Used in queries | `pulse.interaction.complete_time` in nanos (`ms * 1_000_000`) | ✅ Fixed |
+| Errors | `pulse.interaction.is_error` (bool), `pulse.interaction.error.type`, `pulse.interaction.error.message` | Used | All three fields emitted | ✅ Fixed |
+| Config / display name | `pulse.interaction.config.id`, `pulse.interaction.config.name`, runtime `pulse.interaction.id` | — | All three emitted | ✅ Fixed |
+| Step timeline | Span **events** per matched step | Session views | Span events via `span.addEvent()` | ✅ Fixed |
+| Property filters | Operators: `EQUALS`, `NOT_EQUALS`, `CONTAINS`, `NOT_CONTAINS`, `STARTS_WITH`, `ENDS_WITH` | Same config shape from API | Full operator set implemented in `InteractionTracker.propMatches()` | ✅ Fixed |
+| Blacklists | `globalBlacklistedEvents`; per-event `isBlacklisted` | Same JSON | Both in `InteractionConfig` schema; global blacklist resets ongoing match | ✅ Fixed |
+| Wrong event while ongoing | `SEQUENCE_VIOLATION` → error interaction | — | `SEQUENCE_VIOLATION` error span emitted; see `shouldTakeFirstEvent` rule | ✅ Fixed |
+| Config URL | REST `/v1/interaction-configs/` (local dev) + prod `.../interaction-config.json` on `pulse-otel-collector.pulse-ux.com` | Server-owned | Same URL strategy as Android `PulseEndpointUtils.getInteractionConfigUrl()` — REST+`X-API-KEY` when `isLocalEnvironment(apiKey)` (Android `isApiLocalDev` parity); otherwise prod collector path — same JSON array schema | ✅ Decided |
+| Timeout behavior | Timeout → error interaction span | — | Error span with `TIMEOUT` (Android parity) | ✅ Decided |
+| Markers | Logs with selected `pulse.type` → `addMarkerEvent` | — | Deferred to M3 (depends on log instrumentations) | 🔜 M3 |
 
 ---
 
 ## 5. Workstreams (recommended order)
 
-1. **Models + validation** — Parse and validate server payload; invalid file → empty trackers, log once.
-2. **Config fetcher** — Implement cache, refresh, `onChange`, SSR guard; align URL and headers with backend/CDN decision.
-3. **Matching engine** — Port `InteractionUtil.matchSequence` + `InteractionEventsTracker` behaviour (including reset and `shouldTakeFirstEvent` paths), not only the shortened `InteractionMatcher` sample in `matching.md`.
-4. **Span builder** — Span name = interaction config name; root span (`setNoParent` equivalent in JS SDK); attributes from `InteractionConstant`; `addEvent` for each step; `StatusCode.ERROR` when `isErrored`.
-5. **SDK wiring** — After consent + `FeatureGate.isEnabled('interaction')`, start coordinator; every `trackEvent` forwards to coordinator **in addition** to existing custom log path; apply `ExportSamplingGate` per `SAMPLING-RULES-WEB-PARITY.md`; clear timers on `shutdown` / destroy.
-6. **Milestone wording** — `MILESTONES.md` test “timeout → no span emitted” **conflicts** with Android (timeout → **error** interaction span). Resolve by aligning milestone with Android **or** explicitly documenting web-only behaviour and dashboard impact.
-7. **Doc corrections** — Update [`span.md`](./span.md), [`matching.md`](./matching.md), and [`WEB-SDK-AGENT-CONTEXT.md`](../../WEB-SDK-AGENT-CONTEXT.md) data contract table to list `pulse.type: interaction` and real `pulse.interaction.*` keys so future work does not reintroduce wrong enums.
+1. **Models + validation** — Parse and validate server payload (JSON array of `InteractionConfig`); invalid/empty response → empty coordinator, log once.
+2. **Config fetcher** — Implement cache, refresh, `onChange`, SSR guard; use prod collector JSON (Android prod branch) or REST+`X-API-KEY` (local ingest) per `config.md` URL strategy.
+3. **Matching engine** — Implement `InteractionTracker` + `InteractionCoordinator` per `matching.md`: inter-step timer, global blacklist reset, sequence violation error span, `shouldTakeFirstEvent` restart, all 6 operators.
+4. **Span builder** — Implement `InteractionSpanBuilder` per `span.md`: `ROOT_CONTEXT`, all `pulse.interaction.*` attributes, nanos for `complete_time`, span events for steps, `Excellent/Good/Average/Poor` categories.
+5. **SDK wiring** — After consent + `FeatureGate.isEnabled('interaction')`, start coordinator; `PulseWeb.trackEvent(name, attrs?, timestampMs?)` forwards to coordinator **in addition** to existing custom log path; apply `ExportSamplingGate`; call `coordinator.shutdown()` in `PulseWeb.shutdown()`.
+6. ~~**Milestone wording** — Resolved: `MILESTONES.md` test case 2 updated to Android parity (timeout → error span).~~ ✅ Done
+7. ~~**Doc corrections** — Resolved: `span.md`, `matching.md`, `WEB-SDK-AGENT-CONTEXT.md` all updated with correct `pulse.interaction.*` keys and vocabulary.~~ ✅ Done
 
 ---
 
@@ -113,11 +116,25 @@ flowchart TB
 
 ---
 
-## 7. Self-review notes (gaps caught in planning)
+## 7. Self-review notes
 
-1. **Contract:** Phase docs used wrong attribute prefix and wrong `user_category` vocabulary vs `ClickhouseConstants` and Android — fixed in this plan (§4).
-2. **Behaviour:** Draft matcher omitted blacklists, operators, inter-step timeout, sequence violation, span events — implementation must follow Android core, not draft pseudo-code alone.
-3. **Ops / product:** Config URL divergence; M2 timeout span wording vs Android; markers depend on M3 logs; feature gate + sampling must gate interaction spans.
+### Resolved decisions (previously blocking)
+
+1. **Config URL** — Prod uses the same collector-hosted JSON path as Android: `https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/interaction-config.json`. Local/dev uses REST `/v1/interaction-configs/` with `X-API-KEY`. Web chooses local vs prod using `isLocalEnvironment(apiKey)` (Android `isApiLocalDev` parity). The REST host is still derived from the browser’s resolved OTLP `endpointBaseUrl` via `:4318 → :8080` rewrite (web-only transport detail).
+
+2. **Timeout behavior** — **Android parity**: inter-step timer expiry → emit **error interaction span** with `pulse.interaction.is_error = true`, `pulse.interaction.error.type = 'TIMEOUT'`. `MILESTONES.md` test case 2 updated to match. "No span on timeout" was wrong.
+
+3. **`trackEvent` timestamp** — **Android parity**: `PulseWeb.trackEvent(name, attrs?, timestampMs?)` adds optional `timestampMs` (Unix epoch ms, defaults to `Date.now()`). Mirrors Android `addEvent(eventName, params, eventTimeInNano)` defaulting to `System.currentTimeMillis() * 1_000_000`.
+
+### Remaining notes
+
+4. **Contract fixed:** All sub-docs now use `pulse.interaction.*` prefix and `Excellent`/`Good`/`Average`/`Poor` vocabulary — `matching.md`, `span.md`, `WEB-SDK-AGENT-CONTEXT.md`, `MILESTONES.md` all updated.
+
+5. **Behaviour fixed:** `matching.md` rewritten to include inter-step timer (not whole-flow), global blacklist reset, sequence violation error span, `shouldTakeFirstEvent` overlapping restart, full operator set, synchronous fan-out.
+
+6. **Markers:** Deferred to M3 (depends on log instrumentations). No stub needed at M2 — `InteractionCoordinator` has no marker path until M3.
+
+7. **`pulse.internal.*` on exports:** Processor layer (global-attrs) must not stamp interaction spans with internal-only keys. Interaction spans flow through the same `BeforeSendSpanExporter` as all spans — no special case needed.
 
 ---
 

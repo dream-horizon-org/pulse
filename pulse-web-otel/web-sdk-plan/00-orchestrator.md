@@ -43,7 +43,7 @@ This document is the single source of truth for the Web SDK project. It tracks p
 
 | Doc | File | Responsibility |
 |---|---|---|
-| [config](./v1/03-interactions/config.md) | `src/interactions/config-fetcher.ts` | CDN config fetch + cache |
+| [config](./v1/03-interactions/config.md) | `src/interactions/config-fetcher.ts` | Interaction config fetch + cache (local REST vs prod collector JSON) |
 | [matching](./v1/03-interactions/matching.md) | `src/interactions/interaction-matcher.ts` | State machine, step matching |
 | [span](./v1/03-interactions/span.md) | `src/interactions/interaction-span.ts` | APDEX scoring, span output |
 

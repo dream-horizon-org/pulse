@@ -204,9 +204,9 @@ PulseWeb.trackEvent('event_name', props)
 
 | Doc | File | What It Does |
 |---|---|---|
-| `03.1` | `src/interactions/config-fetcher.ts` | CDN config fetch at init, JSON parse, in-memory cache |
+| `03.1` | `src/interactions/config-fetcher.ts` | Interaction config fetch at init (local REST vs prod collector JSON), JSON parse, in-memory cache |
 | `03.2` | `src/interactions/interaction-matcher.ts` | State machine, step sequence matching, timeout handling |
-| `03.3` | `src/interactions/interaction-span.ts` | APDEX scoring (Satisfied / Tolerating / Frustrated), span creation |
+| `03.3` | `src/interactions/interaction-span-builder.ts` | Time category + APDEX score (`Excellent` / `Good` / `Average` / `Poor`), span creation |
 
 ### Signal Output
 

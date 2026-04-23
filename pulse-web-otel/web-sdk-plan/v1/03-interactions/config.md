@@ -1,168 +1,142 @@
 # 03.1 — Interaction Config Fetcher
 
-**Goal:** Fetch and cache the interaction definition JSON from CloudFront CDN at SDK init, refresh in the background every 30 minutes, and expose the config to the interaction matching engine (03.2).
+**Goal:** Fetch and cache the interaction definition JSON at SDK init, refresh in the background every 30 minutes, and expose the config to the matching engine (03.2).
 
-**File:** `src/interactions/config-fetcher.ts`
-**Android equivalent:** `InteractionConfigFetcher.kt` — exact port with `fetch()` replacing Retrofit
+**File:** `src/interactions/config-fetcher.ts`  
+**Android equivalent:** `PulseEndpointUtils.getInteractionConfigUrl()` + `InteractionConfigRestFetcher.kt` — port with `fetch()` replacing Retrofit
+
+---
+
+## Config URL Strategy
+
+| Environment | URL | Auth |
+|---|---|---|
+| **Local / dev ingest** | `{endpointBaseUrl-derived backendUrl}/v1/interaction-configs/` | `X-API-KEY` |
+| **Prod** | `https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/interaction-config.json` | None |
+
+The resolver chooses **local vs prod using the API key**, mirroring Android’s `isApiLocalDev(apiKey)` signal:
+
+- **Local/dev keys:** `isLocalEnvironment(apiKey)` is `true` (same regex family as Android: `default-project_*` and `Test-*_*`).
+- **Prod keys:** `isLocalEnvironment(apiKey)` is `false`.
+
+For the **local branch**, the REST base URL is still derived from the browser’s resolved OTLP `endpointBaseUrl` (typically `http://localhost:4318`) by rewriting `:4318 → :8080` (same pattern used elsewhere in the web SDK for “collector URL → backend URL”).
+
+Both branches return the **same JSON schema**: a flat JSON array of `InteractionConfig` objects.
+
+> **Note (browser vs Android):** Android hardcodes `http://10.0.2.2:8080/...` for emulator REST. Web uses the browser’s `endpointBaseUrl` to compute the backend host, but the **local/prod decision** is keyed off the **API key** (Android parity).
 
 ---
 
 ## Config Schema
 
-The server delivers an array of interaction definitions:
+The server delivers a **JSON array** of `InteractionConfig` objects (not wrapped in a container object):
 
 ```typescript
+// Types live in src/interactions/interaction-models.ts
+
+type PropertyOperator = 'EQUALS' | 'NOT_EQUALS' | 'CONTAINS' | 'NOT_CONTAINS' | 'STARTS_WITH' | 'ENDS_WITH';
+
+interface PropertyFilter {
+  key: string;
+  value: string;
+  operator: PropertyOperator;
+}
+
+interface InteractionEvent {
+  name: string;                      // Must match PulseWeb.trackEvent() call
+  required: boolean;                 // false = optional step
+  isBlacklisted?: boolean;           // per-event blacklist flag
+  props?: PropertyFilter[];          // property filters (AND logic)
+}
+
 interface InteractionConfig {
-  interactions: InteractionDefinition[];
-}
-
-interface InteractionDefinition {
-  id: string;                     // e.g. "checkout_flow"
-  name: string;                   // Human-readable label
-  steps: InteractionStep[];       // Ordered steps to match
-  timeout_ms: number;             // Max time to complete (ms)
-  apdex_threshold_ms: number;     // Satisfactory duration threshold
-}
-
-interface InteractionStep {
-  event_name: string;             // Must match PulseSDK.trackEvent() call
-  attributes?: Record<string, string | number | boolean>;  // Optional filter
-  required: boolean;              // If false, step is optional
+  id: string;
+  name: string;
+  events: InteractionEvent[];
+  thresholdInMs: number;             // inter-step timeout (not whole-flow)
+  uptimeLowerLimitInMs: number;      // ≤ this → Excellent
+  uptimeMidLimitInMs: number;        // ≤ this → Good
+  uptimeUpperLimitInMs: number;      // ≤ this → Average; above → Poor
+  globalBlacklistedEvents: string[]; // event names that reset any ongoing match
 }
 ```
 
-### Example Config
+### Example Config (JSON array)
 
 ```json
-{
-  "interactions": [
-    {
-      "id": "checkout_flow",
-      "name": "Checkout Flow",
-      "timeout_ms": 120000,
-      "apdex_threshold_ms": 5000,
-      "steps": [
-        { "event_name": "cart_viewed",     "required": true },
-        { "event_name": "checkout_started","required": true },
-        { "event_name": "payment_entered", "required": false },
-        { "event_name": "order_placed",    "required": true }
-      ]
-    }
-  ]
-}
+[
+  {
+    "id": "checkout_flow",
+    "name": "Checkout Flow",
+    "thresholdInMs": 5000,
+    "uptimeLowerLimitInMs": 2000,
+    "uptimeMidLimitInMs": 5000,
+    "uptimeUpperLimitInMs": 10000,
+    "globalBlacklistedEvents": ["cancel_checkout", "session_timeout"],
+    "events": [
+      { "name": "cart_viewed",      "required": true },
+      { "name": "promo_applied",    "required": false },
+      { "name": "checkout_started", "required": true,
+        "props": [{ "key": "channel", "value": "organic", "operator": "EQUALS" }] },
+      { "name": "payment_entered",  "required": false },
+      { "name": "order_placed",     "required": true }
+    ]
+  }
+]
 ```
 
 ---
 
-## Implementation
+## Implementation (current code shape)
 
-```typescript
-// src/interactions/config-fetcher.ts
+The implementation is split into:
 
-const CACHE_KEY = 'pulse_interaction_config';
-const REFRESH_INTERVAL_MS = 30 * 60 * 1000;  // 30 minutes
+1. **`resolveInteractionConfigRequest(endpointBaseUrl, { apiKey })`**
+   - Computes `{ enabled, url, headers }` for the fetcher.
+   - **Local vs prod** uses `isLocalEnvironment(apiKey)` (Android `isApiLocalDev` parity).
+   - **Prod** uses `PULSE_PROD_ENDPOINT_URL` exported from `src/config.ts` (same host string as Android `PULSE_ENDPOINT_URL`).
+2. **`InteractionConfigFetcher`**
+   - `init()` loads cache (only when enabled), fetches, persists, schedules refresh.
+   - Validates JSON shape before calling `setConfigs()` / writing cache.
+   - `destroy()` clears the refresh timer.
 
-export class InteractionConfigFetcher {
-  private config: InteractionConfig | null = null;
-  private refreshTimer?: ReturnType<typeof setTimeout>;
-  private listeners: Array<(config: InteractionConfig) => void> = [];
+Key behaviors:
 
-  constructor(
-    private readonly configUrl: string,   // e.g. https://cdn.pulse.io/config/{projectId}.json
-    private readonly projectId: string,
-  ) {}
-
-  async init(): Promise<void> {
-    // 1. Load from cache immediately (non-blocking for app startup)
-    this.loadFromCache();
-
-    // 2. Fetch fresh config in background
-    await this.refresh();
-
-    // 3. Schedule periodic refresh
-    this.scheduleRefresh();
-  }
-
-  getConfig(): InteractionConfig | null {
-    return this.config;
-  }
-
-  /** Subscribe to config updates (called when fresh config arrives) */
-  onChange(listener: (config: InteractionConfig) => void): void {
-    this.listeners.push(listener);
-  }
-
-  destroy(): void {
-    if (this.refreshTimer) clearTimeout(this.refreshTimer);
-  }
-
-  // ─── Private ──────────────────────────────────────────────────────────────
-
-  private async refresh(): Promise<void> {
-    try {
-      const response = await fetch(this.configUrl, {
-        headers: { 'x-pulse-project-id': this.projectId },
-        cache: 'no-store',   // Always get fresh from CloudFront
-      });
-
-      if (!response.ok) {
-        console.warn(`[Pulse] Config fetch failed: ${response.status}`);
-        return;
-      }
-
-      const json: InteractionConfig = await response.json();
-      this.setConfig(json);
-      this.saveToCache(json);
-    } catch (err) {
-      // Network failure — keep using cached config
-      console.warn('[Pulse] Config fetch error:', err);
-    }
-  }
-
-  private setConfig(config: InteractionConfig): void {
-    this.config = config;
-    this.listeners.forEach(fn => fn(config));
-  }
-
-  private loadFromCache(): void {
-    try {
-      const raw = localStorage.getItem(CACHE_KEY);
-      if (raw) {
-        this.config = JSON.parse(raw) as InteractionConfig;
-      }
-    } catch {
-      // Corrupt cache — ignore
-    }
-  }
-
-  private saveToCache(config: InteractionConfig): void {
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(config));
-    } catch {
-      // localStorage full or blocked (private browsing) — no-op
-    }
-  }
-
-  private scheduleRefresh(): void {
-    this.refreshTimer = setTimeout(() => {
-      this.refresh().then(() => this.scheduleRefresh());
-    }, REFRESH_INTERVAL_MS);
-  }
-}
-```
+- **SSR-safe:** no `localStorage` / `fetch` on `typeof window === 'undefined'`.
+- **Soft failure:** network / non-2xx responses log a warning and keep cached configs (if any).
+- **Schema validation:** invalid payloads are ignored (prevents poisoning trackers with partial objects).
 
 ---
 
-## Config URL Construction
+## Config URL Construction (reference)
 
 ```typescript
-// In SDK init
-const configUrl = `${config.cdnBaseUrl}/interactions/${config.projectId}.json`;
+// src/interactions/config-fetcher.ts (conceptual)
+
+import { PULSE_PROD_ENDPOINT_URL, isLocalEnvironment } from '../config';
+import { extractProjectId } from '../resource';
+
+export function resolveInteractionConfigRequest(
+  endpointBaseUrl: string,
+  config: { apiKey: string },
+) {
+  if (isLocalEnvironment(config.apiKey)) {
+    const backendUrl = endpointBaseUrl.replace(':4318', ':8080').replace(/\/$/, '');
+    return {
+      enabled: true,
+      url: `${backendUrl}/v1/interaction-configs/`,
+      headers: { 'X-API-KEY': config.apiKey },
+    };
+  }
+
+  const projectId = extractProjectId(config.apiKey);
+  return {
+    enabled: true,
+    url: `${PULSE_PROD_ENDPOINT_URL}/config/projects/${projectId}/interaction-config.json`,
+    headers: {},
+  };
+}
 ```
-
-Example: `https://cdn.pulse.io/interactions/proj_abc123.json`
-
-The CDN CloudFront distribution is already used by the Android/iOS SDKs for the same purpose — no infrastructure change needed.
 
 ---
 
@@ -170,13 +144,13 @@ The CDN CloudFront distribution is already used by the Android/iOS SDKs for the 
 
 | Case | Handling |
 |---|---|
-| First load — no cache, network slow | SDK starts with `config: null`; interaction matching is a no-op until config arrives |
-| Corrupt localStorage cache | `JSON.parse` catch block discards it; fresh fetch proceeds |
-| localStorage blocked (private browsing, storage quota) | Caught and ignored; always falls back to in-memory |
-| CDN returns 404 (project has no interactions) | Treated as empty config `{ interactions: [] }` |
-| CDN returns 5xx | Logs warning; keeps using cached config |
-| Config changes between refreshes | `onChange` listeners are called with new config; existing in-progress interactions continue using old config until completed or timed out |
-| SSR (server-side rendering) | Guard with `typeof window !== 'undefined'` before accessing `localStorage` and `fetch` |
+| First load — no cache, network slow | Matching is a no-op until a valid config arrives |
+| Corrupt localStorage cache | Parse/validation rejects it; fetch may replace |
+| localStorage blocked (private browsing, storage quota) | Caught and ignored; in-memory still works for the current page |
+| Prod returns 404 | Treated as empty array `[]` after JSON parse (coordinator has no trackers) |
+| Prod returns 5xx | Logs warning; keeps using cached config (if any) |
+| Config changes between refreshes | `onChange` listeners receive the new array; in-flight matching behavior is owned by the coordinator (03.2) |
+| SSR (server-side rendering) | No `localStorage` access without `window` |
 
 ---
 
@@ -184,62 +158,29 @@ The CDN CloudFront distribution is already used by the Android/iOS SDKs for the 
 
 ### Unit Tests (Vitest)
 
-```typescript
-it('loads config from cache on init', async () => {
-  localStorage.setItem('pulse_interaction_config', JSON.stringify(mockConfig));
-  vi.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify(mockConfig)));
+Prefer constructing the fetcher with a **mock `fetch`** injected via `new InteractionConfigFetcher(request, mockFetch)` (the real constructor supports this for tests).
 
-  const fetcher = new InteractionConfigFetcher('https://cdn.test/config.json', 'proj_test');
-  await fetcher.init();
+Minimum cases:
 
-  expect(fetcher.getConfig()?.interactions).toHaveLength(1);
-});
-
-it('calls onChange listeners when fresh config arrives', async () => {
-  const newConfig = { interactions: [{ id: 'new_flow' }] };
-  vi.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify(newConfig)));
-
-  const fetcher = new InteractionConfigFetcher('https://cdn.test/config.json', 'proj_test');
-  const received: InteractionConfig[] = [];
-  fetcher.onChange(cfg => received.push(cfg));
-  await fetcher.init();
-
-  expect(received).toHaveLength(1);
-  expect(received[0].interactions[0].id).toBe('new_flow');
-});
-
-it('handles fetch failure gracefully', async () => {
-  localStorage.setItem('pulse_interaction_config', JSON.stringify(mockConfig));
-  vi.spyOn(global, 'fetch').mockRejectedValueOnce(new Error('network error'));
-
-  const fetcher = new InteractionConfigFetcher('https://cdn.test/config.json', 'proj_test');
-  await expect(fetcher.init()).resolves.not.toThrow();
-  // Should still return cached config
-  expect(fetcher.getConfig()).not.toBeNull();
-});
-
-it('saves fresh config to localStorage', async () => {
-  const freshConfig = { interactions: [{ id: 'flow_a' }] };
-  vi.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify(freshConfig)));
-
-  const fetcher = new InteractionConfigFetcher('https://cdn.test/config.json', 'proj_test');
-  await fetcher.init();
-
-  const stored = JSON.parse(localStorage.getItem('pulse_interaction_config')!);
-  expect(stored.interactions[0].id).toBe('flow_a');
-});
-```
+- loads configs from cache on `init()` (local mode)
+- calls `onChange` when fresh config arrives
+- handles fetch failure without throwing (keeps stale cache)
+- rejects invalid JSON shape (does not call `onChange` with garbage)
+- `destroy()` clears refresh timer (no timeout callbacks after shutdown)
 
 ---
 
 ## Done Criteria
 
-- [ ] Config fetched from CDN on `init()` with correct project ID header
-- [ ] Cached config loaded immediately from `localStorage` before network round-trip
+- [ ] **Local ingest:** config fetched from REST (`/v1/interaction-configs/` + `X-API-KEY`) when `isLocalEnvironment(apiKey)` is true (Android `isApiLocalDev` parity)
+- [ ] **Prod:** config fetched from `https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/interaction-config.json` (Android `PulseEndpointUtils` prod branch parity)
+- [ ] Response parsed as `InteractionConfig[]` (flat JSON array, not wrapped object)
+- [ ] Cached config loaded immediately from `localStorage` before network round-trip (**only when fetcher is enabled**)
 - [ ] Fresh config saved to `localStorage` after successful fetch
-- [ ] `onChange` listeners notified when new config arrives
+- [ ] `onChange` listeners notified when new config arrives (receives `InteractionConfig[]`)
 - [ ] Network errors do not throw — fall back silently to cached config
 - [ ] `localStorage` errors do not throw (private browsing, quota exceeded)
 - [ ] Config refresh scheduled every 30 minutes
 - [ ] `destroy()` clears the refresh timer
+- [ ] SSR guard: no `localStorage` or `fetch` access when `typeof window === 'undefined'`
 - [ ] All unit tests passing

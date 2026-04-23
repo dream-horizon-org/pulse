@@ -62,6 +62,7 @@ export const PulseWebSemconv = {
     DEVICE_CRASH: "device.crash",
     SESSION_START: "session.start",
     SESSION_END: "session.end",
+    INTERACTION: "interaction",
   },
   LogBody: {
     SESSION_START: "session.start",
@@ -75,5 +76,23 @@ export const PulseWebSemconv = {
   RumSdkInit: {
     STARTED: "rum.sdk.init.started",
     SPAN_EXPORTER: "rum.sdk.init.span.exporter",
+  },
+  InteractionAttributeKey: {
+    ID: "pulse.interaction.id",
+    NAME: "pulse.interaction.name",
+    CONFIG_ID: "pulse.interaction.config.id",
+    CONFIG_NAME: "pulse.interaction.config.name",
+    COMPLETE_TIME: "pulse.interaction.complete_time",
+    APDEX_SCORE: "pulse.interaction.apdex_score",
+    USER_CATEGORY: "pulse.interaction.user_category",
+    IS_ERROR: "pulse.interaction.is_error",
+    ERROR_TYPE: "pulse.interaction.error.type",
+    ERROR_MESSAGE: "pulse.interaction.error.message",
+  },
+  InteractionUserCategory: {
+    EXCELLENT: "Excellent",
+    GOOD: "Good",
+    AVERAGE: "Average",
+    POOR: "Poor",
   },
 } as const;

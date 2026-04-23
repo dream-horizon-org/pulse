@@ -66,9 +66,9 @@ Interactions don't depend on auto-instrumentations — they hook into manual `tr
 
 | Area                | What gets built                                                                         |
 | ------------------- | --------------------------------------------------------------------------------------- |
-| Config Fetcher      | CDN fetch at init, JSON parse, in-memory cache, graceful failure                        |
+| Config Fetcher      | Interaction config fetch at init (local REST vs prod collector JSON), JSON parse, in-memory cache, graceful failure |
 | Matching Algorithm  | State machine (IDLE → ONGOING → COMPLETED/ERROR), step sequence, timeout, blacklists    |
-| Span + APDEX Output | APDEX scoring (Satisfied/Tolerating/Frustrated), OTel span with full attribute contract |
+| Span + APDEX Output | APDEX scoring (`Excellent`/`Good`/`Average`/`Poor` per Android `TimeCategory`), OTel span with `pulse.interaction.*` attribute contract |
 
 
 **From Phase 4 — SDK Config (all):**
@@ -109,9 +109,9 @@ Interactions don't depend on auto-instrumentations — they hook into manual `tr
 Interactions:
 1. Call trackEvent('step_1') → trackEvent('step_2') matching config
    → interaction span in ClickHouse with correct APDEX score
-2. Timeout mid-sequence → no crash, no span emitted
+2. Timeout mid-sequence → error interaction span with `pulse.interaction.is_error = true`, `pulse.interaction.error.type = 'TIMEOUT'` (Android parity)
 3. Two concurrent interactions → both tracked independently
-4. CDN config fetch fails → SDK still works, interactions disabled silently
+4. Interaction config fetch fails → SDK still works, interactions disabled silently
 
 SDK Config:
 5. Set sessionSampleRate: 0 in remote config → no signals exported
@@ -130,7 +130,7 @@ Publish:
 
 **Exit criteria:**
 
-- Interaction span with correct `user_category` and APDEX visible in Interactions dashboard
+- Interaction span with `pulse.interaction.user_category` ∈ {`Excellent`,`Good`,`Average`,`Poor`} and `pulse.interaction.apdex_score` visible in Interactions dashboard
 - Config fetch failure → no crash, tracking disabled gracefully
 - `sessionSampleRate: 0` → zero signals exported
 - React app tracks route changes without manual wiring
