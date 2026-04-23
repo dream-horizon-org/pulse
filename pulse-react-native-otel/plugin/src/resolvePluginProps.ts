@@ -9,6 +9,8 @@ import type {
   ResolvedIosPulseProps,
 } from './types';
 
+const DEFAULT_CORE_LIBRARY_DESUGAR_VERSION = '2.1.4';
+
 function parseConsent(value: unknown, label: string): PulseDataCollectionState {
   if (value === 'PENDING' || value === 'ALLOWED' || value === 'DENIED') {
     return value;
@@ -93,6 +95,30 @@ export function assertPulsePluginProps(
   }
 
   const typed = props as PulsePluginProps;
+
+  if (typed.android?.coreLibraryDesugaring !== undefined) {
+    const d = typed.android.coreLibraryDesugaring;
+    if (typeof d !== 'object' || d === null) {
+      throw new PluginError(
+        'Pulse config plugin: "android.coreLibraryDesugaring" must be an object when set.',
+        'INVALID_PLUGIN_TYPE'
+      );
+    }
+    const o = d as Record<string, unknown>;
+    if (o.enabled !== undefined && typeof o.enabled !== 'boolean') {
+      throw new PluginError(
+        'Pulse config plugin: "android.coreLibraryDesugaring.enabled" must be a boolean when set.',
+        'INVALID_PLUGIN_TYPE'
+      );
+    }
+    if (o.version !== undefined && typeof o.version !== 'string') {
+      throw new PluginError(
+        'Pulse config plugin: "android.coreLibraryDesugaring.version" must be a string when set.',
+        'INVALID_PLUGIN_TYPE'
+      );
+    }
+  }
+
   resolveAndroidProps(typed);
   resolveIosProps(typed);
 }
@@ -101,9 +127,20 @@ export function resolveAndroidProps(
   props: PulsePluginProps
 ): ResolvedAndroidPulseProps {
   const merged = mergePlatformInit(props, props.android);
+  const desugaring = props.android?.coreLibraryDesugaring;
+  const enabled = desugaring?.enabled === true;
+  const rawVersion = desugaring?.version?.trim();
+  const version =
+    rawVersion && rawVersion.length > 0
+      ? rawVersion
+      : DEFAULT_CORE_LIBRARY_DESUGAR_VERSION;
   return {
     ...merged,
     instrumentation: props.android?.instrumentation,
+    coreLibraryDesugaring: {
+      enabled,
+      version,
+    },
   };
 }
 

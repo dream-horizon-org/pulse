@@ -121,8 +121,15 @@ export type PulseNativeInitFields = {
   globalAttributes?: PulseAttributes;
 };
 
+export interface PulseAndroidCoreLibraryDesugaring {
+  enabled?: boolean;
+  /** `com.android.tools:desugar_jdk_libs` version; used only when `enabled` is true. Default `2.1.4`. */
+  version?: string;
+}
+
 export interface PulseAndroidSection extends PulseNativeInitFields {
   instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugaring?: PulseAndroidCoreLibraryDesugaring;
 }
 
 export interface PulseIosSection extends PulseNativeInitFields {
@@ -139,6 +146,11 @@ export interface PulsePlatformInitProps {
 
 export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
   instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugaring: {
+    enabled: boolean;
+    /** Meaningful when `enabled`; always set for stable plugin internals. */
+    version: string;
+  };
 };
 
 export type ResolvedIosPulseProps = PulsePlatformInitProps & {
