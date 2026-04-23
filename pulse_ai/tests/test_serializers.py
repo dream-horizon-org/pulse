@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from pulse_ai.constants import REPORT_AGENT_NAME
+from pulse_ai.agents.settings import REPORT_AGENT_NAME
 from pulse_ai.server.serializers import events_to_messages
 
 

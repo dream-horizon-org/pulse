@@ -8,11 +8,8 @@ Single-agent architecture:
 
 from google.adk.agents.llm_agent import LlmAgent
 
-from pulse_ai.constants import (
-    AGENT_MODEL,
-    RCA_AGENT_NAME,
-)
-from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
+from ..settings import AGENT_MODEL, RCA_AGENT_NAME
+from ..shared.schemas.rca_structured_v1 import RcaStructuredReportV1
 from .prompts import build_rca_prompt
 
 rca_agent = LlmAgent(

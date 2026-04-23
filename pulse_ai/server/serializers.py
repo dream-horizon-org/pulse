@@ -11,7 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from pulse_ai.constants import DEFAULT_TITLE, REPORT_AGENT_NAME, TITLE_MAX_LENGTH
+from pulse_ai.agents.settings import REPORT_AGENT_NAME
+from pulse_ai.constants import DEFAULT_TITLE, TITLE_MAX_LENGTH
 
 
 class DeltaTracker:

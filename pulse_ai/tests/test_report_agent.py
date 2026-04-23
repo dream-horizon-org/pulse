@@ -12,6 +12,8 @@ import json
 
 import pytest
 
+from pulse_ai.agents.settings import EM_AGENT_NAME
+
 
 # ──────────────────────────────────────────────────────────────
 # 1. Constants — new exports
@@ -21,17 +23,17 @@ class TestConstants:
     """Verify AGENT_MODEL and REPORT_AGENT_NAME are available."""
 
     def test_agent_model_exists(self):
-        from pulse_ai.constants import AGENT_MODEL
+        from pulse_ai.agents.settings import AGENT_MODEL
         assert AGENT_MODEL is not None
         assert isinstance(AGENT_MODEL, str)
 
     def test_agent_model_default_value(self):
-        from pulse_ai.constants import AGENT_MODEL, DEFAULT_MODEL
+        from pulse_ai.agents.settings import AGENT_MODEL, DEFAULT_MODEL
         # When AGENT_MODEL env var is not set, should equal DEFAULT_MODEL
         assert AGENT_MODEL == DEFAULT_MODEL
 
     def test_report_agent_name_exists(self):
-        from pulse_ai.constants import REPORT_AGENT_NAME
+        from pulse_ai.agents.settings import REPORT_AGENT_NAME
         assert REPORT_AGENT_NAME == "ReportAgent"
 
 
@@ -257,7 +259,7 @@ class TestRootAgentRestructure:
     def test_first_sub_agent_is_em(self):
         from pulse_ai.agent import root_agent
         em = root_agent.sub_agents[0]
-        assert em.name == "em_agent"
+        assert em.name == EM_AGENT_NAME
 
     def test_second_sub_agent_is_report(self):
         from pulse_ai.agent import root_agent
@@ -267,9 +269,9 @@ class TestRootAgentRestructure:
     def test_em_agent_has_tools(self):
         from pulse_ai.agent import root_agent
         em = root_agent.sub_agents[0]
-        # EM agent should have 7 tools: 2 config + 4 analytics + 1 utility
+        # EM agent: 3 config + 4 analytics + 1 utility (calculate)
         assert em.tools is not None
-        assert len(em.tools) == 7
+        assert len(em.tools) == 8
 
     def test_em_agent_has_callable_instruction(self):
         from pulse_ai.agent import root_agent

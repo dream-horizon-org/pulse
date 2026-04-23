@@ -8,7 +8,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-from pulse_ai.constants import (
+from ..settings import (
     BACKEND_REQUEST_TIMEOUT_SECONDS,
     PULSE_TOOL_SESSION_MISSING_BEARER,
     PULSE_TOOL_SESSION_MISSING_PROJECT,

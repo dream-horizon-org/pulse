@@ -6,10 +6,10 @@ Supports: list, detail, evaluation_history, available_scopes.
 
 from google.adk.tools import ToolContext
 
-from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
-from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC
-from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
+from ....client.pulse_client import PulseClient
+from ....tool_session_auth import pulse_tool_session_auth_error
+from ...templates.base import TIME_RANGE_DOC
+from ...transformers.response_transformer import parse_error_response
 
 VALID_SCOPES = ("list", "detail", "evaluation_history", "available_scopes")
 

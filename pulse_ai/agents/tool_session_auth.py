@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pulse_ai.constants import (
+from .settings import (
     PULSE_TOOL_SESSION_MISSING_BEARER,
     PULSE_TOOL_SESSION_MISSING_CONTEXT,
     PULSE_TOOL_SESSION_MISSING_PROJECT,

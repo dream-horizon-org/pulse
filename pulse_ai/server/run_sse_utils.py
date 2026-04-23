@@ -14,7 +14,8 @@ from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import Runner
 from google.genai.types import Content, Part
 
-from pulse_ai.constants import APP_NAME, REPORT_AGENT_NAME
+from pulse_ai.agents.settings import REPORT_AGENT_NAME
+from pulse_ai.constants import APP_NAME
 from pulse_ai.server.serializers import DeltaTracker, extract_content_blocks
 
 if TYPE_CHECKING:

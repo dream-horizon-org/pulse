@@ -24,7 +24,7 @@ from .run_sse_utils import (
     stream_adk_run_as_sse,
     user_content_from_parts,
 )
-from pulse_ai.schemas import RootCausePayloadSchema
+from pulse_ai.agents.shared.schemas import RootCausePayloadSchema
 from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
 from .schemas import RcaReportRequest, RcaReportResponse

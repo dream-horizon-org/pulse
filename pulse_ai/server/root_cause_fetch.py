@@ -6,14 +6,14 @@ import json
 from datetime import UTC, datetime
 from urllib.parse import quote
 
-from pulse_ai.client.pulse_client import PulseClient
+from pulse_ai.agents.client.pulse_client import PulseClient
 from pulse_ai.constants import (
     HTTP_BAD_GATEWAY,
     HTTP_TIMEOUT_GATEWAY,
     ROOT_CAUSE_FETCH_DATE_QUERY_PARAM,
     ROOT_CAUSE_FETCH_PATH_TEMPLATE,
 )
-from pulse_ai.schemas import RootCausePayloadSchema
+from pulse_ai.agents.shared.schemas import RootCausePayloadSchema
 
 
 class RootCauseFetchError(Exception):
@@ -59,7 +59,7 @@ async def fetch_root_cause_payload(
     ``authorization`` must be a non-empty ``Authorization`` header value (e.g. ``Bearer <jwt>``).
     ``project_id`` is sent as ``X-Project-ID`` so pulse-server can authorize via OpenFGA.
 
-    Uses :class:`~pulse_ai.client.pulse_client.PulseClient` (same stack as EM tools).
+    Uses :class:`~pulse_ai.agents.client.pulse_client.PulseClient` (same stack as EM tools).
     """
     encoded_interaction = quote(interaction_name, safe="")
     path = ROOT_CAUSE_FETCH_PATH_TEMPLATE.format(interaction=encoded_interaction)

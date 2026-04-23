@@ -243,8 +243,8 @@ def test_compute_time_range_invalid_enum():
     """Unknown time_range enum raises ValueError."""
     from pulse_ai.agents.em.templates.base import compute_time_range
 
-    with pytest.raises(ValueError, match="last_99d"):
-        compute_time_range("last_99d")
+    with pytest.raises(ValueError, match="Unknown time_range"):
+        compute_time_range("last_foo")
 
 
 @freeze_time("2026-03-09T12:00:00Z")

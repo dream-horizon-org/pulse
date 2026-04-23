@@ -83,11 +83,17 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and paste your GOOGLE_API_KEY
 
-# 4. Start the ADK web UI
-adk web
+# 4. Start the ADK web UI (from this directory, use "." not "agents")
+adk web .
 ```
 
-The agent will be available at **http://localhost:8000**.
+The agent will be available at **http://localhost:8000** (default ADK port; use `--port` if needed).
+
+Do **not** run `adk web agents` — that points ADK at the inner `agents/` folder and breaks discovery. Use **`adk web .`** from `pulse_ai/`; then pick **`agents`** (full EM→Report pipeline), **`em`**, **`report`**, or **`rca`** in the UI.
+
+`agents/__init__.py` adjusts ``sys.path`` when needed so ``import pulse_ai`` works under ADK; you can still use ``PYTHONPATH=.. adk web .`` if you prefer.
+
+From the monorepo root: `export PYTHONPATH="${PWD}"` then `adk web pulse_ai` (with venv activated).
 
 ## Quick Start (Docker)
 

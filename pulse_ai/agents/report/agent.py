@@ -1,6 +1,6 @@
 from google.adk.agents.llm_agent import LlmAgent
 
-from pulse_ai.constants import AGENT_MODEL, REPORT_AGENT_NAME
+from ..settings import AGENT_MODEL, REPORT_AGENT_NAME
 from .prompts import build_report_prompt
 from .tools import create_chart, create_table
 

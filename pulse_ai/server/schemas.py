@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
+from pulse_ai.agents.shared.schemas.rca_structured_v1 import RcaStructuredReportV1
 
 
 class RcaReportRequest(BaseModel):

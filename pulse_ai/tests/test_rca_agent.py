@@ -8,7 +8,7 @@ Tests cover:
 
 import pytest
 
-from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
+from pulse_ai.agents.shared.schemas.rca_structured_v1 import RcaStructuredReportV1
 
 
 # ──────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ class TestRcaAgentWiring:
 
     def test_rca_agent_model(self):
         from pulse_ai.agents.rca import rca_agent
-        from pulse_ai.constants import AGENT_MODEL
+        from pulse_ai.agents.settings import AGENT_MODEL
         assert rca_agent.model == AGENT_MODEL
 
     def test_rca_agent_name(self):

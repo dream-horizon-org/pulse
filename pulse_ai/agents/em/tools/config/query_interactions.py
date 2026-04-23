@@ -6,9 +6,9 @@ Supports: list, detail, filters, telemetry_filters.
 import logging
 from google.adk.tools import ToolContext
 
-from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
-from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
+from ....client.pulse_client import PulseClient
+from ....tool_session_auth import pulse_tool_session_auth_error
+from ...transformers.response_transformer import parse_error_response
 
 VALID_SCOPES = ("list", "detail", "filters", "telemetry_filters")
 
@@ -19,7 +19,7 @@ async def query_interactions(
     page: int = 0,
     size: int = 10,
     name: str = None,
-    status: str = "RUNNING",
+    status: str | None = "RUNNING",
     tool_context: ToolContext = None,
 ) -> dict:
     """Read interaction configuration data.
@@ -29,8 +29,15 @@ async def query_interactions(
         interaction_name: The interaction name (required for scope="detail")
         page: Page number for pagination (scope="list", default 0)
         size: Number of results per page (scope="list", default 10)
-        name: Search interactions by name (scope="list")
-        status: Filter by status: RUNNING or STOPPED (scope="list", default RUNNING)
+        name: For scope="list" only. Substring filter sent as the ``name`` query
+            param on ``GET /v1/interactions``; the server matches interaction
+            names with a substring (LIKE) search. Use when the exact registered
+            name is unknown, typically **before** scope="detail" or analytics
+            tools. Prefer ``search_interactions`` for discoverability.
+        status: For scope="list" only. ``RUNNING`` or ``STOPPED`` filters the
+            list. Default ``RUNNING`` preserves previous behavior when omitted.
+            Pass ``None`` to omit the status query param (no status filter —
+            both RUNNING and STOPPED).
     """
     # Validate scope
     if scope not in VALID_SCOPES:
@@ -56,7 +63,9 @@ async def query_interactions(
         project_id=project_id,
     ) as client:
         if scope == "list":
-            params = {"page": page, "size": size, "status": status}
+            params = {"page": page, "size": size}
+            if status is not None:
+                params["status"] = status
             if name:
                 params["name"] = name
             response = await client.request("GET", "/v1/interactions", params=params)

@@ -14,8 +14,8 @@ from pulse_ai.constants import (
     RCA_PIPELINE_TIMEOUT_SECONDS,
     USER_ID_RCA,
 )
-from pulse_ai.schemas import RootCausePayloadSchema
-from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
+from pulse_ai.agents.shared.schemas import RootCausePayloadSchema
+from pulse_ai.agents.shared.schemas.rca_structured_v1 import RcaStructuredReportV1
 from pulse_ai.server.schemas import ReportPayloadSchema, RcaReportResponse
 
 logger = logging.getLogger(__name__)

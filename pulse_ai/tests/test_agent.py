@@ -31,6 +31,14 @@ class TestBuildSystemPrompt:
         assert "interaction" in prompt.lower()
         assert "alert" in prompt.lower()
 
+    @freeze_time("2026-03-09T14:30:00Z")
+    def test_prompt_contains_name_resolution_block(self):
+        from pulse_ai.agents.em.prompts import build_system_prompt
+
+        prompt = build_system_prompt(None)
+        assert "NAME RESOLUTION" in prompt
+        assert "search_interactions" in prompt
+
 
 class TestAgentWiring:
     """Verify root_agent is a SequentialAgent with em_agent + report_agent."""
@@ -45,9 +53,15 @@ class TestAgentWiring:
 
     def test_em_agent_has_tools(self):
         from pulse_ai.agents.em import em_agent
-        # Should have 7 tools: 2 config + 4 analytics + 1 utility (calculate)
+        # 3 config + 4 analytics + 1 utility (calculate)
         assert em_agent.tools is not None
-        assert len(em_agent.tools) == 7
+        assert len(em_agent.tools) == 8
+
+    def test_search_interactions_exported_from_tools_package(self):
+        from pulse_ai.agents.em import tools as em_tools
+
+        assert hasattr(em_tools, "search_interactions")
+        assert callable(em_tools.search_interactions)
 
     def test_em_agent_has_callable_instruction(self):
         from pulse_ai.agents.em import em_agent

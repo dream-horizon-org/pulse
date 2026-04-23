@@ -35,6 +35,7 @@ htmlcov/
 .coverage
 .coverage.*
 coverage.xml
-
+.adk/
+agents/.adk
 # Logs
 *.log

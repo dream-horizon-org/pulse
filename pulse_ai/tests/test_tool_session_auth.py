@@ -1,13 +1,13 @@
-"""Tests for pulse_ai.tool_session_auth."""
+"""Tests for pulse_ai.agents.tool_session_auth."""
 
 from google.adk.sessions.state import State
 
-from pulse_ai.constants import (
+from pulse_ai.agents.settings import (
     PULSE_TOOL_SESSION_MISSING_BEARER,
     PULSE_TOOL_SESSION_MISSING_CONTEXT,
     PULSE_TOOL_SESSION_MISSING_PROJECT,
 )
-from pulse_ai.tool_session_auth import pulse_tool_session_auth_error
+from pulse_ai.agents.tool_session_auth import pulse_tool_session_auth_error
 
 
 def test_pulse_tool_session_auth_error_none_context():

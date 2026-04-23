@@ -64,6 +64,73 @@ async def test_query_interactions_list_sends_query_params(pulse_tool_context):
     assert "name=Contest" in str(request.url)
 
 
+@respx.mock
+@pytest.mark.asyncio
+async def test_query_interactions_list_omits_status_when_none(pulse_tool_context):
+    """scope=list with status=None does not send a status query param."""
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
+
+    route = respx.get("http://localhost:8080/v1/interactions").mock(
+        return_value=httpx.Response(200, json={"data": [], "error": None})
+    )
+
+    await query_interactions(
+        scope="list",
+        status=None,
+        name="Foo",
+        tool_context=pulse_tool_context,
+    )
+
+    assert route.called
+    request = route.calls[0].request
+    url = str(request.url)
+    assert "name=Foo" in url
+    assert "status=" not in url
+
+
+# ===================================================================
+# search_interactions
+# ===================================================================
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_search_interactions_delegates_name_no_status_by_default(
+    pulse_tool_context,
+):
+    """search_interactions calls list API with name=; default leaves status unset."""
+    from pulse_ai.agents.em.tools.config.search_interactions import search_interactions
+
+    route = respx.get("http://localhost:8080/v1/interactions").mock(
+        return_value=httpx.Response(200, json={"data": [], "error": None})
+    )
+
+    await search_interactions(search_query="Contest", tool_context=pulse_tool_context)
+
+    assert route.called
+    request = route.calls[0].request
+    url = str(request.url)
+    assert "name=Contest" in url
+    assert "status=" not in url
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_search_interactions_blank_query_no_http(pulse_tool_context):
+    """Blank search_query returns validation error; no outbound HTTP (respx strict)."""
+    from pulse_ai.agents.em.tools.config.search_interactions import search_interactions
+
+    result = await search_interactions(
+        search_query="",
+        tool_context=pulse_tool_context,
+    )
+
+    assert result["status"] == "error"
+    assert "search_query" in result["message"].lower() or "non-blank" in result[
+        "message"
+    ].lower()
+
+
 # ===================================================================
 # query_interactions — scope="detail"
 # ===================================================================

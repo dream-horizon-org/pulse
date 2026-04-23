@@ -1,16 +1,17 @@
 """EM Agent — Engineering Manager persona for Pulse observability.
 
 Uses a callable instruction (Mechanism B) to inject the current UTC
-timestamp into the system prompt, and 7 MCP tools for data analysis.
+timestamp into the system prompt, and 8 MCP tools for data analysis.
 """
 
 from dotenv import load_dotenv
 from google.adk.agents.llm_agent import Agent
 
-from pulse_ai.constants import AGENT_MODEL, EM_AGENT_NAME
+from ..settings import AGENT_MODEL, EM_AGENT_NAME
 from .prompts import build_system_prompt
 from .tools import (
     query_interactions,
+    search_interactions,
     query_alerts,
     query_interaction_health,
     query_interaction_metrics,
@@ -29,6 +30,7 @@ em_agent = Agent(
     output_key='engineering_manager_result',
     tools=[
         query_interactions,
+        search_interactions,
         query_alerts,
         query_interaction_health,
         query_interaction_metrics,
