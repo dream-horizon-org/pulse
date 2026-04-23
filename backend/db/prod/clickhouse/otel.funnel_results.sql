@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.funnel_results_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     FunnelId           UInt64                 COMMENT 'MySQL funnel.id'                                      CODEC(T64, ZSTD(1)),
     ProjectId          LowCardinality(String) COMMENT 'Project ID (proj-xxx)'                                CODEC(ZSTD(1)),
@@ -26,6 +26,6 @@ SETTINGS index_granularity = 8192, storage_policy = 'tiered';
 
 
 CREATE TABLE IF NOT EXISTS otel.funnel_results
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 AS otel.funnel_results_local
-ENGINE = Distributed('pulse-clickhouse', otel, funnel_results_local, cityHash64((ProjectId, FunnelId)));
+ENGINE = Distributed('pulse-ch', otel, funnel_results_local, cityHash64((ProjectId, FunnelId)));

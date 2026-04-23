@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.otel_traces_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     Timestamp          DateTime64(9, 'UTC')                              CODEC(DoubleDelta, ZSTD(1)),
     TraceId            String                                            CODEC(ZSTD(1)),
@@ -68,14 +68,14 @@ TTL toDateTime(Timestamp) + INTERVAL 7  DAY TO VOLUME 'cold',
 SETTINGS index_granularity = 8192, storage_policy = 'tiered';
 
 CREATE TABLE IF NOT EXISTS otel.otel_traces
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 AS otel.otel_traces_local
-ENGINE = Distributed('pulse-clickhouse', otel, otel_traces_local, cityHash64(TraceId));
+ENGINE = Distributed('pulse-ch', otel, otel_traces_local, cityHash64(TraceId));
 
 
 -- Optional follow-up (NOT applied): network-span hot columns.
 -- Apply separately if you proceed with the network-query optimization:
---   ALTER TABLE otel.otel_traces_local ON CLUSTER 'pulse-clickhouse'
+--   ALTER TABLE otel.otel_traces_local ON CLUSTER 'pulse-ch'
 --     ADD COLUMN HttpUrl        String                 MATERIALIZED ifNull(SpanAttributes['http.url'], ifNull(SpanAttributes['url.full'], '')) CODEC(ZSTD(3)),
 --     ADD COLUMN HttpHost       LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['net.peer.name'], ifNull(SpanAttributes['server.address'], '')) CODEC(ZSTD(1)),
 --     ADD COLUMN HttpMethod     LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['http.method'], ifNull(SpanAttributes['http.request.method'], '')) CODEC(ZSTD(1)),

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.kafka_session_replay_events
-    ON CLUSTER 'pulse-clickhouse'
+    ON CLUSTER 'pulse-ch'
 (
     `SessionId`       String,
     `ProjectId`       LowCardinality(String),
@@ -17,7 +17,7 @@ SETTINGS
     kafka_num_consumers = 1;
 
 CREATE TABLE otel.session_replay_events_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     SessionId            String                 CODEC(ZSTD(1)),
     ProjectId            LowCardinality(String) CODEC(ZSTD(1)),
@@ -42,13 +42,13 @@ SETTINGS merge_with_ttl_timeout = 86400, index_granularity = 8192, storage_polic
 
 
 CREATE TABLE IF NOT EXISTS otel.session_replay_events
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 AS otel.session_replay_events_local
-    ENGINE = Distributed('pulse-clickhouse', otel, session_replay_events_local, cityHash64(SessionId));
+    ENGINE = Distributed('pulse-ch', otel, session_replay_events_local, cityHash64(SessionId));
 
 
 CREATE MATERIALIZED VIEW otel.session_replay_events_mv TO otel.session_replay_events
-       ON CLUSTER 'pulse-clickhouse'
+       ON CLUSTER 'pulse-ch'
 (
     `SessionId` String,
     `ProjectId` LowCardinality(String),

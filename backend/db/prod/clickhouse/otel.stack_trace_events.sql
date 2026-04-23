@@ -1,5 +1,5 @@
 CREATE TABLE otel.stack_trace_events_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     Timestamp DateTime64(9, 'UTC') CODEC(DoubleDelta, ZSTD(1)) COMMENT 'event time (ns precision, store UTC)',
     EventName LowCardinality(String) CODEC(ZSTD(1)),
@@ -52,6 +52,6 @@ SETTINGS index_granularity = 8192, storage_policy = 'tiered';
 
 
 CREATE TABLE IF NOT EXISTS otel.stack_trace_events
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 AS otel.stack_trace_events_local
-    ENGINE = Distributed('pulse-clickhouse', otel, stack_trace_events_local, cityHash64(TraceId));
+    ENGINE = Distributed('pulse-ch', otel, stack_trace_events_local, cityHash64(TraceId));

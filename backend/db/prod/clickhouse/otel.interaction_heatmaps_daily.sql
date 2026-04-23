@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily_local
-  ON CLUSTER 'pulse-clickhouse'
+  ON CLUSTER 'pulse-ch'
 (
   `Date`               Date                         CODEC(DoubleDelta, ZSTD(1)),
   `ProjectId`          LowCardinality(String)       CODEC(ZSTD(1)),
@@ -27,9 +27,9 @@ SETTINGS
     index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.interaction_heatmaps_daily
-  ON CLUSTER 'pulse-clickhouse'
+  ON CLUSTER 'pulse-ch'
 AS otel.interaction_heatmaps_daily_local
-  ENGINE = Distributed('pulse-clickhouse', otel, interaction_heatmaps_daily_local, cityHash64(ProjectId));
+  ENGINE = Distributed('pulse-ch', otel, interaction_heatmaps_daily_local, cityHash64(ProjectId));
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.interaction_heatmaps_daily_mv

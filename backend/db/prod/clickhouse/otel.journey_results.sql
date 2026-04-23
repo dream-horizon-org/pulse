@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.journey_results_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     JourneyId  UInt64                 COMMENT 'MySQL journey.id'                        CODEC(T64, ZSTD(1)),
     ProjectId  LowCardinality(String) COMMENT 'Project ID'                              CODEC(ZSTD(1)),
@@ -26,6 +26,6 @@ SETTINGS index_granularity = 8192, storage_policy = 'tiered';
 
 
 CREATE TABLE IF NOT EXISTS otel.journey_results
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 AS otel.journey_results_local
-ENGINE = Distributed('pulse-clickhouse', otel, journey_results_local, cityHash64((ProjectId, JourneyId)));
+ENGINE = Distributed('pulse-ch', otel, journey_results_local, cityHash64((ProjectId, JourneyId)));

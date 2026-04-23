@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.event_catalog_entries_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     ProjectId    LowCardinality(String) COMMENT 'Project ID'                                                  CODEC(ZSTD(1)),
     FilterKey    LowCardinality(String) COMMENT 'Filter dimension — EVENT | APP_BUILD_NAME | OS_NAME | OS_VERSION' CODEC(ZSTD(1)),
@@ -11,13 +11,13 @@ SETTINGS index_granularity = 8192;
 
 
 CREATE TABLE IF NOT EXISTS otel.event_catalog_entries
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 AS otel.event_catalog_entries_local
-ENGINE = Distributed('pulse-clickhouse', otel, event_catalog_entries_local, cityHash64(ProjectId));
+ENGINE = Distributed('pulse-ch', otel, event_catalog_entries_local, cityHash64(ProjectId));
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_event
-ON CLUSTER `pulse-clickhouse`
-TO otel.event_catalog_entries_local
+ON CLUSTER `pulse-ch`
+TO otel.event_catalog_entries
 AS
 SELECT
     ProjectId,
@@ -29,8 +29,8 @@ WHERE ProjectId != ''
   AND Body != '';
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_app_build_name
-ON CLUSTER `pulse-clickhouse`
-TO otel.event_catalog_entries_local
+ON CLUSTER `pulse-ch`
+TO otel.event_catalog_entries
 AS
 SELECT
     ProjectId,
@@ -42,8 +42,8 @@ WHERE ProjectId != ''
   AND ifNull(ResourceAttributes['app.build_name'], '') != '';
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_os_version
-ON CLUSTER `pulse-clickhouse`
-TO otel.event_catalog_entries_local
+ON CLUSTER `pulse-ch`
+TO otel.event_catalog_entries
 AS
 SELECT
     ProjectId,
@@ -55,8 +55,8 @@ WHERE ProjectId != ''
   AND ifNull(ResourceAttributes['os.version'], '') != '';
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.event_catalog_entries_mv_os_name
-ON CLUSTER `pulse-clickhouse`
-TO otel.event_catalog_entries_local
+ON CLUSTER `pulse-ch`
+TO otel.event_catalog_entries
 AS
 SELECT
     ProjectId,

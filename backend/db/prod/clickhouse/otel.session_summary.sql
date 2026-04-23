@@ -1,5 +1,5 @@
 CREATE TABLE otel.session_summary_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     ProjectId           LowCardinality(String) CODEC(ZSTD(1)),
     sessionId           String                 CODEC(ZSTD(1)),
@@ -40,13 +40,13 @@ SETTINGS index_granularity = 8192, storage_policy = 'tiered';
 
 
 CREATE TABLE IF NOT EXISTS otel.session_summary
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 AS otel.session_summary_local
-    ENGINE = Distributed('pulse-clickhouse', otel, session_summary_local, cityHash64(sessionId));
+    ENGINE = Distributed('pulse-ch', otel, session_summary_local, cityHash64(sessionId));
 
 
 CREATE MATERIALIZED VIEW otel.session_crash_mv TO otel.session_summary
-       ON CLUSTER 'pulse-clickhouse'
+       ON CLUSTER 'pulse-ch'
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,
@@ -71,7 +71,7 @@ AS SELECT
             SessionId
 
 CREATE MATERIALIZED VIEW otel.session_summary_mv TO otel.session_summary
-       ON CLUSTER 'pulse-clickhouse'
+       ON CLUSTER 'pulse-ch'
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,
@@ -121,7 +121,7 @@ AS SELECT
 
 
 CREATE MATERIALIZED VIEW otel.session_summary_replay_mv TO otel.session_summary
-       ON CLUSTER 'pulse-clickhouse'
+       ON CLUSTER 'pulse-ch'
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,

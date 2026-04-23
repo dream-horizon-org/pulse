@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.otel_metrics_summary_local
-  ON CLUSTER 'pulse-clickhouse'
+  ON CLUSTER 'pulse-ch'
 (
   `ResourceAttributes`        Map(LowCardinality(String), String) CODEC(ZSTD(3)),
   `ResourceSchemaUrl`         String                              CODEC(ZSTD(1)),
@@ -50,9 +50,9 @@ SETTINGS
     index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.otel_metrics_summary
-  ON CLUSTER 'pulse-clickhouse'
+  ON CLUSTER 'pulse-ch'
 AS otel.otel_metrics_summary_local
-  ENGINE = Distributed('pulse-clickhouse', otel, otel_metrics_summary_local, cityHash64((ProjectId, MetricName)));
+  ENGINE = Distributed('pulse-ch', otel, otel_metrics_summary_local, cityHash64((ProjectId, MetricName)));
 
 
 -- Unified read surface for performance queries (METRICS dataType); underlying tables receive collector INSERTs

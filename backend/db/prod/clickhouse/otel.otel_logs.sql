@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.otel_logs_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     `Timestamp`           DateTime64(9)                         CODEC(DoubleDelta, ZSTD(1)),
     `TraceId`             String                                CODEC(ZSTD(3)),
@@ -62,6 +62,6 @@ SETTINGS
     storage_policy     = 'tiered';
 
 CREATE TABLE IF NOT EXISTS otel.otel_logs
-ON CLUSTER `pulse-clickhouse`
+ON CLUSTER `pulse-ch`
 AS otel.otel_logs_local
-ENGINE = Distributed(`pulse-clickhouse`, otel, otel_logs_local, cityHash64(TraceId));
+ENGINE = Distributed(`pulse-ch`, otel, otel_logs_local, cityHash64(TraceId));

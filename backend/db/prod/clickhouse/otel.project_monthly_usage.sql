@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS otel.project_monthly_usage_local
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 (
     project_id    String                              CODEC(ZSTD(1)),
     month         Date                                CODEC(Delta, ZSTD(1)),
@@ -15,13 +15,13 @@ SETTINGS index_granularity = 8192, storage_policy = 'tiered';
 
 
 CREATE TABLE IF NOT EXISTS otel.project_monthly_usage
-ON CLUSTER 'pulse-clickhouse'
+ON CLUSTER 'pulse-ch'
 AS otel.project_monthly_usage_local
-ENGINE = Distributed('pulse-clickhouse', otel, project_monthly_usage_local, cityHash64(project_id));
+ENGINE = Distributed('pulse-ch', otel, project_monthly_usage_local, cityHash64(project_id));
 
 
 CREATE MATERIALIZED VIEW otel.project_monthly_logs_mv TO otel.project_monthly_usage
-    ON CLUSTER 'pulse-clickhouse'
+    ON CLUSTER 'pulse-ch'
 (
     `project_id` LowCardinality(String),
     `month` Date,
@@ -43,7 +43,7 @@ AS SELECT
 
 
 CREATE MATERIALIZED VIEW otel.project_monthly_traces_mv TO otel.project_monthly_usage
-    ON CLUSTER 'pulse-clickhouse'
+    ON CLUSTER 'pulse-ch'
 (
     `project_id` LowCardinality(String),
     `month` Date,
@@ -65,7 +65,7 @@ AS SELECT
 
 
 CREATE MATERIALIZED VIEW otel.project_monthly_stack_traces_events_mv TO otel.project_monthly_usage
-    ON CLUSTER 'pulse-clickhouse'
+    ON CLUSTER 'pulse-ch'
 (
     `project_id` LowCardinality(String),
     `month` Date,
