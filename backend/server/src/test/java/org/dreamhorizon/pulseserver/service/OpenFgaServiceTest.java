@@ -5,10 +5,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import dev.openfga.sdk.api.client.OpenFgaClient;
+import dev.openfga.sdk.api.client.model.ClientCheckRequest;
 import dev.openfga.sdk.api.client.model.ClientWriteRequest;
 import dev.openfga.sdk.api.client.model.ClientCheckResponse;
 import dev.openfga.sdk.api.client.model.ClientListObjectsResponse;
@@ -326,6 +328,26 @@ class OpenFgaServiceTest {
     void shouldCompleteAssignAndRevokeSuperAdmin() {
       service.assignSuperAdmin("u1").test().assertComplete();
       service.revokeSuperAdmin("u1").test().assertComplete();
+    }
+  }
+
+  @Nested
+  class InternalViewerApisWhenDisabled {
+
+    @Test
+    void shouldReturnFalseForIsInternalViewer() {
+      service.isInternalViewer("any").test().assertValue(false);
+    }
+
+    @Test
+    void shouldReturnEmptyInternalViewers() {
+      service.getInternalViewers().test().assertValue(Set::isEmpty);
+    }
+
+    @Test
+    void shouldCompleteAssignAndRevokeInternalViewer() {
+      service.assignInternalViewerRole("u1").test().assertComplete();
+      service.revokeInternalViewerRole("u1").test().assertComplete();
     }
   }
 
@@ -674,6 +696,125 @@ class OpenFgaServiceTest {
 
         assertThat(result).containsExactlyInAnyOrder("p1", "p2");
         verify(mockClient, never()).listObjects(any());
+      }
+    }
+
+    @Nested
+    class IsInternalViewerEnabled {
+
+      @Test
+      void shouldReturnTrueWhenCheckAllows() throws Exception {
+        ClientCheckResponse allow = mock(ClientCheckResponse.class);
+        when(allow.getAllowed()).thenReturn(true);
+        when(mockClient.check(any())).thenReturn(CompletableFuture.completedFuture(allow));
+
+        assertThat(enabledService.isInternalViewer("u1").blockingGet()).isTrue();
+      }
+
+      @Test
+      void shouldReturnFalseWhenCheckDenies() {
+        assertThat(enabledService.isInternalViewer("u1").blockingGet()).isFalse();
+      }
+    }
+
+    @Nested
+    class AssignAndRevokeInternalViewerEnabled {
+
+      @Test
+      void shouldWriteInternalViewerTupleOnAssign() throws Exception {
+        when(mockClient.write(any())).thenReturn(CompletableFuture.completedFuture(mock(ClientWriteResponse.class)));
+
+        enabledService.assignInternalViewerRole("alice").blockingAwait();
+
+        ArgumentCaptor<ClientWriteRequest> captor = ArgumentCaptor.forClass(ClientWriteRequest.class);
+        verify(mockClient).write(captor.capture());
+        var writes = captor.getValue().getWrites();
+        assertThat(writes).hasSize(1);
+        assertThat(writes.get(0).getUser()).isEqualTo("user:alice");
+        assertThat(writes.get(0).getRelation()).isEqualTo(Constants.RELATION_INTERNAL_VIEWER);
+        assertThat(writes.get(0).getObject()).isEqualTo(Constants.OPENFGA_OBJECT_SYSTEM_PULSE);
+      }
+
+      @Test
+      void shouldInvokeWriteOnRevoke() throws Exception {
+        when(mockClient.write(any())).thenReturn(CompletableFuture.completedFuture(mock(ClientWriteResponse.class)));
+
+        enabledService.revokeInternalViewerRole("bob").blockingAwait();
+
+        verify(mockClient).write(any());
+      }
+    }
+
+    @Nested
+    class GetInternalViewersEnabled {
+
+      @Test
+      void shouldParseUserIdsFromReadTuples() throws Exception {
+        Tuple t1 = new Tuple();
+        t1.setKey(
+            new TupleKey().user("user:u1").relation(Constants.RELATION_INTERNAL_VIEWER)
+                ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE));
+        Tuple t2 = new Tuple();
+        t2.setKey(
+            new TupleKey().user("user:u2").relation(Constants.RELATION_INTERNAL_VIEWER)
+                ._object(Constants.OPENFGA_OBJECT_SYSTEM_PULSE));
+        ClientReadResponse readResponse = mock(ClientReadResponse.class);
+        when(readResponse.getTuples()).thenReturn(List.of(t1, t2));
+        when(mockClient.read(any())).thenReturn(CompletableFuture.completedFuture(readResponse));
+
+        assertThat(enabledService.getInternalViewers().blockingGet()).containsExactlyInAnyOrder("u1", "u2");
+      }
+    }
+
+    @Nested
+    class GetUserTenantsInternalViewerFallback {
+
+      @Test
+      void shouldReturnAllTenantIdsFromDbWhenInternalViewerOnly() throws Exception {
+        when(mockClient.check(any())).thenAnswer(invocation -> {
+          ClientCheckRequest req = invocation.getArgument(0);
+          ClientCheckResponse r = mock(ClientCheckResponse.class);
+          if (Constants.RELATION_INTERNAL_VIEWER.equals(req.getRelation())) {
+            when(r.getAllowed()).thenReturn(true);
+          } else {
+            when(r.getAllowed()).thenReturn(false);
+          }
+          return CompletableFuture.completedFuture(r);
+        });
+        when(mockTenantDao.getAllTenants()).thenReturn(Flowable.just(
+            Tenant.builder().tenantId("t1").name("A").build(),
+            Tenant.builder().tenantId("t2").name("B").build()));
+
+        List<String> result = enabledService.getUserTenants("iv1").blockingGet();
+
+        assertThat(result).containsExactlyInAnyOrder("t1", "t2");
+        verify(mockClient, never()).listObjects(any());
+        verify(mockClient, times(2)).check(any());
+      }
+    }
+
+    @Nested
+    class GetUserProjectsInternalViewerFallback {
+
+      @Test
+      void shouldReturnAllActiveProjectIdsFromDbWhenInternalViewerOnly() throws Exception {
+        when(mockClient.check(any())).thenAnswer(invocation -> {
+          ClientCheckRequest req = invocation.getArgument(0);
+          ClientCheckResponse r = mock(ClientCheckResponse.class);
+          if (Constants.RELATION_INTERNAL_VIEWER.equals(req.getRelation())) {
+            when(r.getAllowed()).thenReturn(true);
+          } else {
+            when(r.getAllowed()).thenReturn(false);
+          }
+          return CompletableFuture.completedFuture(r);
+        });
+        when(mockProjectDao.getAllActiveProjectIds()).thenReturn(Single.just(List.of("p1", "p2")));
+
+        List<String> result = enabledService.getUserProjects("iv1").blockingGet();
+
+        assertThat(result).containsExactlyInAnyOrder("p1", "p2");
+        verify(mockClient, never()).listObjects(any());
+        verify(mockClient, times(2)).check(any());
       }
     }
 
