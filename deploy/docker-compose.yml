@@ -165,12 +165,12 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 30s
-    
+
       # MinIO (S3-compatible storage for session recordings)
   minio:
     image: minio/minio:latest
@@ -188,7 +188,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -234,7 +234,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3400/healthcheck"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3400/healthcheck" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -454,6 +454,7 @@ services:
       - APP_ENVIRONMENT=${APP_ENVIRONMENT:-dev}
       - CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL=${CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL:-http://pulse-alerts-cron:4000/cron}
       - CONFIG_SERVICE_APPLICATION_SERVICEURL=${CONFIG_SERVICE_APPLICATION_SERVICEURL:-http://pulse-server:8080}
+      - DASHBOARD_BASE_URL=${DASHBOARD_BASE_URL:-http://localhost:3000}
       - CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID=${CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID}
       - CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHENABLED=${GOOGLE_OAUTH_ENABLED:-false}
       - CONFIG_SERVICE_APPLICATION_JWTSECRET=${CONFIG_SERVICE_APPLICATION_JWTSECRET:-dev-secret-key-at-least-32-characters-long-for-local-testing-only}
@@ -479,7 +480,7 @@ services:
       - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
-     
+
       # Session Replay S3 (MinIO in dev)
       - SESSION_REPLAY_S3_BUCKET=${SESSION_REPLAY_S3_BUCKET:-session-recordings}
       - SESSION_REPLAY_S3_ENDPOINT=${SESSION_REPLAY_S3_ENDPOINT:-http://minio:9000}
@@ -608,7 +609,7 @@ services:
       clickhouse:
         condition: service_healthy
       minio-init:
-        condition: service_completed_successfully  
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:4000/healthcheck" ]
@@ -634,7 +635,7 @@ volumes:
   pulse-ai-sessions:
     driver: local
   kafka-data:
-    driver: local    
+    driver: local
   minio-data:
     driver: local  
 

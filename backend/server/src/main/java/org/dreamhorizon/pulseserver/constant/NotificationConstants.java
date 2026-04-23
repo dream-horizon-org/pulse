@@ -82,6 +82,10 @@ public final class NotificationConstants {
     public static final String KEY_AUTHORIZATION = "Authorization";
     public static final String AUTHORIZATION_BEARER_PREFIX = "Bearer ";
 
+    public static final String KEY_ATTACHMENTS = "attachments";
+    public static final String KEY_COLOR = "color";
+    public static final String KEY_MRKDWN_IN = "mrkdwn_in";
+
     public static final Set<String> PERMANENT_ERROR_CODES =
         Set.of(
             "channel_not_found",

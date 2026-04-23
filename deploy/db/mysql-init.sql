@@ -417,6 +417,43 @@ CREATE TABLE notification_channels_old
     INDEX idx_notification_channels_project (project_id),
     CONSTRAINT fk_notification_channels_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS notification_channels (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    config JSON NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
+    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
+);
+
+INSERT INTO notification_channels (project_id, channel_type, name, config) VALUES
+('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
+    'type', 'EMAIL',
+    'fromAddress', 'noreply@pulse-ux.com',
+    'fromName', 'Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE config = config;
+
+CREATE TABLE IF NOT EXISTS channel_event_mapping (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NOT NULL,
+    channel_id BIGINT NOT NULL,
+    event_name VARCHAR(255) NOT NULL,
+    recipient VARCHAR(512) NULL,
+    recipient_name VARCHAR(255) NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_mapping_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    CONSTRAINT fk_mapping_channel FOREIGN KEY (channel_id) REFERENCES notification_channels(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_mapping (channel_id, event_name, recipient_name),
+    INDEX idx_mapping_project_event (project_id, event_name, is_active)
+);
 
 CREATE TABLE alerts (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -427,7 +464,7 @@ CREATE TABLE alerts (
     dimension_filter TEXT,
     condition_expression VARCHAR(255) NOT NULL,
     severity_id INT NOT NULL,
-    notification_channel_id INT NOT NULL,
+    channel_event_mapping_id BIGINT NOT NULL,
     evaluation_period INT NOT NULL,
     evaluation_interval INT NOT NULL,
     last_snoozed_at TIMESTAMP NULL DEFAULT NULL,
@@ -444,7 +481,7 @@ CREATE TABLE alerts (
 
     CONSTRAINT fk_alerts_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     CONSTRAINT fk_alert_severity FOREIGN KEY (severity_id) REFERENCES severity(severity_id),
-    CONSTRAINT fk_alert_notification_channel FOREIGN KEY (notification_channel_id) REFERENCES notification_channels_old(notification_channel_id)
+    CONSTRAINT fk_alert_channel_event_mapping FOREIGN KEY (channel_event_mapping_id) REFERENCES channel_event_mapping(id)
 );
 
 CREATE TABLE alert_scope (
@@ -1159,5 +1196,44 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
     'subject', '[Pulse] Incident INC-{{incidentId}} Closed - {{title}}',
     'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#424242;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Closed</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been formally closed. No further action is required.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">CLOSED</td></tr></table><p style="color:#666;">Thank you for your patience. If you experience further issues, please raise a new incident.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
     'text', '[Pulse] Incident INC-{{incidentId}} Closed\n\nHi {{reporterName}},\n\nYour incident has been formally closed. No further action is required.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nStatus: CLOSED\n\nThank you for your patience. If you experience further issues, please raise a new incident.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- pulse_alert_firing: alert evaluation notifications (AlertEvaluationService params:
+-- alertName, alertId, alertDescription, scopeName, currentReadings, alertCondition,
+-- evaluationStartTime, evaluationEndTime, projectId, alertLink).
+-- Map channel_event_mapping.event_name to pulse_alert_firing for the channel types below.
+-- SLACK_WEBHOOK: text + color only (no blocks) avoids Slack Incoming Webhook invalid_attachments
+-- with legacy attachment payloads from SlackPayloadBuilder.
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('pulse_alert_firing', 'SLACK_WEBHOOK', 1, JSON_OBJECT(
+    'type', 'SLACK_WEBHOOK',
+    'color', '#DC2627',
+    'text', CONCAT(
+        '*[FIRING]* {{alertName}}\n\n',
+        '*Scope:* `{{scopeName}}`\n\n',
+        '*Current Readings:*\n',
+        '{{currentReadings}}',
+        '*Alert Condition:* `{{alertCondition}}`\n\n',
+        '*Evaluation Period:* `{{evaluationStartTime}}` – `{{evaluationEndTime}}`\n',
+        '{{alertLink}}'
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('pulse_alert_firing', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', CONCAT('[FIRING] ', '{{alertName}}'),
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:20px;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);"><tr><td style="background:#DC2627;color:#fff;padding:16px 20px;font-size:18px;font-weight:bold;">[FIRING] {{alertName}}</td></tr><tr><td style="padding:16px 20px;color:#555;font-size:14px;line-height:1.5;">{{alertDescription}}</td></tr><tr><td style="padding:0 20px 8px 20px;font-size:14px;"><strong>Scope</strong><br/><strong style="color:#111;">{{scopeName}}</strong></td></tr><tr><td style="padding:12px 20px;"><div style="background:#FFEBEE;border-left:4px solid #C62828;padding:12px 14px;border-radius:4px;"><div style="color:#B71C1C;font-weight:bold;font-size:14px;margin-bottom:8px;">Current Readings</div><div style="color:#333;font-size:14px;white-space:pre-wrap;">{{currentReadings}}</div></div></td></tr><tr><td style="padding:12px 20px;font-size:14px;"><strong>Alert Condition</strong><br/><span style="display:inline-block;background:#f0f0f0;padding:6px 10px;border-radius:4px;font-family:monospace;margin-top:6px;">{{alertCondition}}</span></td></tr><tr><td style="padding:12px 20px 8px 20px;font-size:14px;"><strong>Evaluation Period</strong><br/><code style="background:#f5f5f5;padding:2px 6px;">{{evaluationStartTime}}</code> – <code style="background:#f5f5f5;padding:2px 6px;">{{evaluationEndTime}}</code></td></tr><tr><td style="padding:20px;text-align:center;"><a href="{{alertLink}}" style="display:inline-block;background:#DC2627;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:bold;">View Alert</a></td></tr></table></body></html>',
+    'text', CONCAT(
+        '[FIRING] {{alertName}}\n\n',
+        '{{alertDescription}}\n\n',
+        'Scope: {{scopeName}}\n\n',
+        '{{currentReadings}}\n',
+        'Alert Condition: {{alertCondition}}\n',
+        'Evaluation Period: {{evaluationStartTime}} - {{evaluationEndTime}}\n\n',
+        'Open alert: {{alertLink}}'
+    )
 ))
 ON DUPLICATE KEY UPDATE body = VALUES(body);
