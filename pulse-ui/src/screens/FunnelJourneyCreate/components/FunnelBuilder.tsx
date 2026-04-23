@@ -31,7 +31,11 @@ import {
   DATE_RANGE_OPTIONS,
 } from "../FunnelJourneyCreate.util";
 import { useGetTags } from "../../../hooks/useGetFunnelData";
-import { FunnelType, StepOrderType } from "../../../services/funnels.service";
+import {
+  FunnelMode,
+  FunnelType,
+  StepOrderType,
+} from "../../../services/funnels.service";
 import classes from "../FunnelCreate.module.css";
 import createFormClasses from "../FunnelJourneyCreateForm.module.css";
 
@@ -61,6 +65,9 @@ interface FunnelBuilderProps {
   onStepsChange: (steps: BuilderStep[]) => void;
   funnelMode: StepOrderType;
   onFunnelModeChange: (mode: StepOrderType) => void;
+  /** Analysis grouping key (UNIQUE_USERS vs SESSIONS). Defaults to UNIQUE_USERS. */
+  analysisMode: FunnelMode;
+  onAnalysisModeChange: (mode: FunnelMode) => void;
   conversionWindow: string;
   onConversionWindowChange: (value: string) => void;
   onAnalyze: () => void;
@@ -93,6 +100,8 @@ export function FunnelBuilder({
   onStepsChange,
   funnelMode,
   onFunnelModeChange,
+  analysisMode,
+  onAnalysisModeChange,
   conversionWindow,
   onConversionWindowChange,
   onAnalyze,
@@ -412,6 +421,53 @@ export function FunnelBuilder({
       pt={wiz ? 0 : undefined}
       style={wiz ? { borderTop: "none" } : undefined}
     >
+      <Group gap="xs" mb={4}>
+        <Text size="sm" fw={500}>
+          Measure By
+        </Text>
+        <Tooltip
+          label={
+            <Box w={220}>
+              <Text size="xs" fw={600} mb={4}>
+                Unique Users
+              </Text>
+              <Text size="xs" mb={8}>
+                Conversion counts distinct users (user.id, falling back to
+                install id). A user with multiple sessions is counted once.
+              </Text>
+              <Text size="xs" fw={600} mb={4}>
+                Unique Sessions
+              </Text>
+              <Text size="xs">
+                Conversion counts distinct sessions. A user with multiple
+                sessions contributes one bucket per session.
+              </Text>
+            </Box>
+          }
+          position="right"
+          withArrow
+          multiline
+        >
+          <IconInfoCircle
+            size={14}
+            color="#94a3b8"
+            style={{ cursor: "help" }}
+          />
+        </Tooltip>
+      </Group>
+      <SegmentedControl
+        value={analysisMode}
+        onChange={(val) => onAnalysisModeChange(val as FunnelMode)}
+        data={[
+          { label: "Unique Users", value: FunnelMode.UNIQUE_USERS },
+          { label: "Unique Sessions", value: FunnelMode.SESSIONS },
+        ]}
+        size={fieldSize}
+        fullWidth
+        color={accent}
+        mb="md"
+      />
+
       <Text size="sm" fw={500} mb={4}>
         Conversion Window
       </Text>
