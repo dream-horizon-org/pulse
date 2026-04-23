@@ -233,6 +233,9 @@ public class PersistingReplayEmitter(
         val toRemove = files.size - maxBatchSize
         repeat(toRemove) { i ->
             val f = files[i]
+            PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG) {
+                "sdk.replay.queue_overflow reason=disk_file_cap queue_cap=$maxBatchSize file=${f.name}"
+            }
             if (f.delete()) {
                 logger("Replay storage cap: removed oldest batch ${f.name}")
             } else {
@@ -245,6 +248,9 @@ public class PersistingReplayEmitter(
     private fun evictOldestBatchesWhileOverStorageCap() {
         while (deque.size > maxBatchSize) {
             val evicted = deque.removeFirst()
+            PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG) {
+                "sdk.replay.queue_overflow reason=memory_queue_cap queue_cap=$maxBatchSize file=${evicted.name}"
+            }
             if (evicted.delete()) {
                 logger("Replay storage cap: dropped oldest queued batch ${evicted.name}")
             } else {

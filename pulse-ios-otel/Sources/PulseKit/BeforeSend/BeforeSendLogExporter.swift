@@ -29,7 +29,7 @@ internal class BeforeSendLogExporter: LogRecordExporter {
             filtered = try logRecords.compactMap { try callback($0) }
         } catch {
             let errClass = PulseErrorClassification.classify(error)
-            PulseLogger.error("sdk.beforesend.error signal=log error_class=\(errClass)")
+            PulseLogger.error("sdk.beforesend.error signal=log_records error_class=\(errClass)")
             return .failure
         }
         guard !filtered.isEmpty else { return .success }

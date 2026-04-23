@@ -46,8 +46,11 @@ final class OrchestratedFileWriter: FileWriter {
       try file.append(data: data, synchronized: syncOnEnd)
     } catch {
       let errClass = PulseErrorClassification.classify(error)
+      let diskPart =
+        DiskAvailableBytes.forDirectoryURL(orchestrator.persistenceDirectoryURL)
+        .map { " disk_available_bytes=\($0)" } ?? ""
       PulseLogger.error(
-        "sdk.disk.write_failure signal=persistence error_class=\(errClass)")
+        "sdk.disk.write_failure signal=persistence error_class=\(errClass)\(diskPart)")
     }
   }
 

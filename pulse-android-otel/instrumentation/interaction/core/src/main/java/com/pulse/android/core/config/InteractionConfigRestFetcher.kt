@@ -1,9 +1,13 @@
 package com.pulse.android.core.config
 
+import com.pulse.android.core.InteractionConstant
 import com.pulse.android.remote.InteractionApiService
 import com.pulse.android.remote.InteractionRetrofitClient
 import com.pulse.android.remote.models.InteractionConfig
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseNetworkingUtils
+import com.pulse.utils.RedactionUtils
+import kotlinx.serialization.SerializationException
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -21,7 +25,7 @@ public class InteractionConfigRestFetcher(
 
     override suspend fun getConfigs(): List<InteractionConfig> {
         val url = urlProvider()
-        val restResponse =
+        return try {
             restClients
                 .getOrPut(url) {
                     (
@@ -36,6 +40,11 @@ public class InteractionConfigRestFetcher(
                             }
                     ).apiService
                 }.getInteractions(fullFileUrl = url, headers = headers)
-        return restResponse
+        } catch (e: SerializationException) {
+            PulseLogger.logError(InteractionConstant.LOG_TAG, e) {
+                "sdk.interaction.parse_failure error_class=${RedactionUtils.classifyError(e)}"
+            }
+            throw e
+        }
     }
 }

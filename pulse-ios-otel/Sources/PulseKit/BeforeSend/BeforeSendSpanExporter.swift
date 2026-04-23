@@ -30,7 +30,7 @@ internal class BeforeSendSpanExporter: SpanExporter {
             filtered = try spans.compactMap { try callback($0) }
         } catch {
             let errClass = PulseErrorClassification.classify(error)
-            PulseLogger.error("sdk.beforesend.error signal=span error_class=\(errClass)")
+            PulseLogger.error("sdk.beforesend.error signal=span_data error_class=\(errClass)")
             return .failure
         }
         guard !filtered.isEmpty else { return .success }

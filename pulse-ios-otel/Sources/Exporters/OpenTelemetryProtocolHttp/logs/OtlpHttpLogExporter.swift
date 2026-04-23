@@ -90,7 +90,7 @@ public class OtlpHttpLogExporter: OtlpHttpExporterBase, LogRecordExporter {
         let latencyMs = Int(Date().timeIntervalSince(t0) * 1000)
         let errClass = PulseErrorClassification.classify(error)
         PulseLogger.warn(
-          "sdk.export signal=logs success=false latency_ms=\(latencyMs) batch_size=\(batchSize) error_class=\(errClass)")
+          "sdk.export signal=log_records success=false latency_ms=\(latencyMs) batch_size=\(batchSize) error_class=\(errClass)")
       }
     }
 

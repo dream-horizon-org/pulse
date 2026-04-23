@@ -8,6 +8,9 @@
   import Foundation
 
   import Network
+  #if canImport(PulseLogging)
+    import PulseLogging
+  #endif
 
   public class NetworkMonitor: NetworkMonitorProtocol {
     let monitor = NWPathMonitor()
@@ -32,15 +35,23 @@
           availableInterface = .wifi
         }
         self.lock.lock()
+        let previous = self.connection
         switch path.status {
         case .requiresConnection, .satisfied:
           self.connection = availableInterface
         case .unsatisfied:
           self.connection = .unavailable
         @unknown default:
+          self.lock.unlock()
           fatalError()
         }
+        let newConnection = self.connection
         self.lock.unlock()
+        if previous != .unavailable, newConnection == .unavailable {
+          #if canImport(PulseLogging)
+            PulseLogger.info("sdk.network.export_blocked reason=no_network")
+          #endif
+        }
       }
       monitor.pathUpdateHandler = pathHandler
       monitor.start(queue: monitorQueue)

@@ -43,8 +43,11 @@ final class OrchestratedFileReader: FileReader {
         return Batch(data: fileData, file: file)
       } catch {
         let errClass = PulseErrorClassification.classify(error)
+        let diskPart =
+          DiskAvailableBytes.forDirectoryURL(orchestrator.persistenceDirectoryURL)
+          .map { " disk_available_bytes=\($0)" } ?? ""
         PulseLogger.error(
-          "sdk.disk.read_failure signal=persistence error_class=\(errClass) corrupted=false")
+          "sdk.disk.read_failure signal=persistence error_class=\(errClass) corrupted=false\(diskPart)")
         return nil
       }
     }
@@ -62,8 +65,11 @@ final class OrchestratedFileReader: FileReader {
       }
     } catch {
       let errClass = PulseErrorClassification.classify(error)
+      let diskPart =
+        DiskAvailableBytes.forDirectoryURL(orchestrator.persistenceDirectoryURL)
+        .map { " disk_available_bytes=\($0)" } ?? ""
       PulseLogger.error(
-        "sdk.disk.read_failure signal=persistence error_class=\(errClass) corrupted=false")
+        "sdk.disk.read_failure signal=persistence error_class=\(errClass) corrupted=false\(diskPart)")
       return false
     }
     return true

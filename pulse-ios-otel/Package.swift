@@ -247,6 +247,7 @@ extension Package {
         .target(
           name: "MetricKitInstrumentation",
           dependencies: [
+            "PulseLogging",
             .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
           ],
           path: "Sources/Instrumentation/MetricKit",

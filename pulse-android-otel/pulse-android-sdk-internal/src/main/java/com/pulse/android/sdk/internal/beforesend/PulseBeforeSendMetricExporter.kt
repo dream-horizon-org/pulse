@@ -34,7 +34,7 @@ internal class PulseBeforeSendMetricExporter(
                     }
             } catch (t: Throwable) {
                 PulseLogger.logError(TAG, t) {
-                    "sdk.beforesend.error signal=metric error_class=${RedactionUtils.classifyError(t)}"
+                    "sdk.beforesend.error signal=metrics error_class=${RedactionUtils.classifyError(t)}"
                 }
                 return CompletableResultCode.ofFailure()
             }

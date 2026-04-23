@@ -26,7 +26,7 @@ internal class PulseBeforeSendLogExporter(
                     }
             } catch (t: Throwable) {
                 PulseLogger.logError(TAG, t) {
-                    "sdk.beforesend.error signal=log error_class=${RedactionUtils.classifyError(t)}"
+                    "sdk.beforesend.error signal=log_records error_class=${RedactionUtils.classifyError(t)}"
                 }
                 return CompletableResultCode.ofFailure()
             }

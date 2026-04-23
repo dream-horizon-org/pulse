@@ -474,6 +474,9 @@ internal final class SessionReplayPersistingEmitter {
 
             let fm: FileManager = FileManager.default
             for file: URL in filesToRemove {
+                PulseLogger.warn(
+                    "sdk.replay.queue_overflow reason=batch_file_cap queue_cap=\(maxBatchSize) file=\(file.lastPathComponent)"
+                )
                 try? fm.removeItem(at: file)
             }
         }

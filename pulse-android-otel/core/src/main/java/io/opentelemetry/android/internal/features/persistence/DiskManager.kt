@@ -6,6 +6,7 @@
 package io.opentelemetry.android.internal.features.persistence
 
 import android.util.Log
+import com.pulse.utils.DiskFreeSpaceBytes
 import com.pulse.utils.PulseLogger
 import com.pulse.utils.RedactionUtils
 import io.opentelemetry.android.common.RumConstants
@@ -72,8 +73,10 @@ internal class DiskManager(
         private fun ensureExistingOrThrow(dir: File) {
             if (!dir.exists() && !dir.mkdirs()) {
                 val ex = IOException("Could not create dir $dir")
+                val free = DiskFreeSpaceBytes.forPath(dir.parentFile ?: dir)
+                val diskPart = free?.let { " disk_available_bytes=$it" } ?: ""
                 PulseLogger.logError(DISK_HEALTH_TAG, ex) {
-                    "sdk.disk.write_failure signal=persistence error_class=${RedactionUtils.classifyError(ex)}"
+                    "sdk.disk.write_failure signal=persistence error_class=${RedactionUtils.classifyError(ex)}$diskPart"
                 }
                 throw ex
             }

@@ -27,9 +27,12 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
 
     public func getConfigs() async throws -> [InteractionConfig]? {
         let urlString = urlProvider()
-        PulseLogger.debug("Interaction: requesting config from endpoint: \(PulseRedaction.redactUrl(urlString))")
+        let t0 = Date()
+        PulseLogger.debug(
+            "sdk.interaction.config_fetch phase=start endpoint=\(PulseRedaction.redactUrl(urlString))")
         guard let url = URL(string: urlString) else {
-            PulseLogger.warn("Interaction: invalid config URL (skipping fetch)")
+            PulseLogger.warn(
+                "sdk.interaction.config_fetch success=false duration_ms=0 error_class=invalid_url")
             return nil
         }
 
@@ -41,17 +44,25 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
         let (data, response) = try await urlSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            PulseLogger.warn(
+                "sdk.interaction.config_fetch success=false duration_ms=\(ms) error_class=non_http_response")
             return nil
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
-            PulseLogger.warn("Interaction: config endpoint returned HTTP \(httpResponse.statusCode)")
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            PulseLogger.warn(
+                "sdk.interaction.config_fetch success=false duration_ms=\(ms) http_status=\(httpResponse.statusCode)")
             return nil
         }
 
         if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type"),
            !contentType.contains("application/json") && !contentType.contains("text/json") {
-            PulseLogger.warn("Interaction: config endpoint returned non-JSON Content-Type: \(contentType)")
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            PulseLogger.warn(
+                "sdk.interaction.parse_failure duration_ms=\(ms) error_class=non_json_content_type content_type=\(contentType)"
+            )
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(
                     codingPath: [],
@@ -62,11 +73,16 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
 
         do {
             let configs = try JSONDecoder().decode([InteractionConfig].self, from: data)
-            PulseLogger.debug("Interaction: config fetched successfully, \(configs.count) interaction(s) present")
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            PulseLogger.info(
+                "sdk.interaction.config_fetch success=true duration_ms=\(ms) interactions_count=\(configs.count)")
             return configs
         } catch {
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
             let decodeDetail = (error as? DecodingError).map { describe($0) } ?? error.localizedDescription
-            PulseLogger.warn("Interaction: decode failed. HTTP status: \(httpResponse.statusCode). Decode error: \(decodeDetail)")
+            PulseLogger.warn(
+                "sdk.interaction.parse_failure duration_ms=\(ms) http_status=\(httpResponse.statusCode) error_detail=\(decodeDetail)"
+            )
             let responsePreview = String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode as UTF-8>"
             PulseLogger.verbose("Interaction: decode failure response body (first 500 chars): \(responsePreview)")
             throw DecodingError.dataCorrupted(

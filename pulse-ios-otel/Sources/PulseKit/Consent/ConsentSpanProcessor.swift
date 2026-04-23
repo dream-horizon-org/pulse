@@ -80,7 +80,7 @@ internal final class ConsentSpanProcessor: SpanProcessor {
             let n = buffer.count
             buffer.removeAll()
             if n > 0 {
-                PulseLogger.warn("sdk.consent.data_dropped signal=spans dropped_count=\(n)")
+                PulseLogger.warn("sdk.consent.data_dropped signal=span_data dropped_count=\(n)")
             }
         }
     }

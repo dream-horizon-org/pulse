@@ -5,6 +5,7 @@
 
 package io.opentelemetry.android.features.diskbuffering.scheduler
 
+import com.pulse.utils.DiskFreeSpaceBytes
 import com.pulse.utils.PulseLogger
 import com.pulse.utils.RedactionUtils
 import io.opentelemetry.android.features.diskbuffering.SignalFromDiskExporter
@@ -32,8 +33,10 @@ class DefaultExportScheduler(
                 val isExported = exporter.exportBatchOfEach()
             } while (isExported)
         } catch (e: IOException) {
+            val free = DiskFreeSpaceBytes.forDataPartition()
+            val diskPart = free?.let { " disk_available_bytes=$it" } ?: ""
             PulseLogger.logError(TAG, e) {
-                "sdk.disk.read_failure signal=mixed error_class=${RedactionUtils.classifyError(e)} corrupted=false"
+                "sdk.disk.read_failure signal=mixed error_class=${RedactionUtils.classifyError(e)} corrupted=false$diskPart"
             }
         }
     }

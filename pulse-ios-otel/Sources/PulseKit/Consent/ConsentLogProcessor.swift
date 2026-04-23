@@ -72,7 +72,7 @@ internal final class ConsentLogProcessor: LogRecordProcessor {
             let n = buffer.count
             buffer.removeAll()
             if n > 0 {
-                PulseLogger.warn("sdk.consent.data_dropped signal=logs dropped_count=\(n)")
+                PulseLogger.warn("sdk.consent.data_dropped signal=log_records dropped_count=\(n)")
             }
         }
     }

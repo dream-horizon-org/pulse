@@ -96,14 +96,14 @@ internal class DelegatingExporter<D, T>(
                 if (amountToTake < data.size) {
                     val dropped = data.size - amountToTake
                     PulseLogger.logWarn(TAG) {
-                        "sdk.queue log_type=$logTypeToken depth=${buffer.size} overflow=true dropped_count=$dropped"
+                        "sdk.queue signal=$logTypeToken depth=${buffer.size} overflow=true dropped_count=$dropped"
                     }
                 }
 
                 // If all the data was dropped we return an exception
                 if (amountToTake == 0 && data.isNotEmpty()) {
                     PulseLogger.logError(TAG, BufferOverflowException()) {
-                        "sdk.export.drop log_type=$logTypeToken dropped_count=${data.size} reason=queue_full"
+                        "sdk.export.drop signal=$logTypeToken dropped_count=${data.size} reason=queue_full"
                     }
                     CompletableResultCode.ofExceptionalFailure(BufferOverflowException())
                 } else {
@@ -167,13 +167,13 @@ internal class DelegatingExporter<D, T>(
         val ms = durationNs / 1_000_000
         if (result.isSuccess) {
             PulseLogger.logDebug(EXPORT_DIAG_TAG) {
-                "sdk.export log_type=$logTypeToken success=true latency_ms=$ms batch_size=$batchSize"
+                "sdk.export signal=$logTypeToken success=true latency_ms=$ms batch_size=$batchSize"
             }
         } else {
             val err =
                 result.failureThrowable?.let { RedactionUtils.classifyError(it) } ?: "unknown"
             PulseLogger.logWarn(EXPORT_DIAG_TAG) {
-                "sdk.export log_type=$logTypeToken success=false latency_ms=$ms batch_size=$batchSize error_class=$err"
+                "sdk.export signal=$logTypeToken success=false latency_ms=$ms batch_size=$batchSize error_class=$err"
             }
         }
     }

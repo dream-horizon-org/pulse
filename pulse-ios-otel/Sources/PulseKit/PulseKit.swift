@@ -148,6 +148,8 @@ public class Pulse {
                 return
             }
 
+            let initStarted = CFAbsoluteTimeGetCurrent()
+
             _globalAttributes = globalAttributes
             var pulseKitConfig = PulseKitConfiguration()
             configuration?(&pulseKitConfig)
@@ -297,9 +299,18 @@ public class Pulse {
             let configV = configStorageQueue.sync {
                 _currentSdkConfig.map { String($0.version) }
             } ?? "none"
+            let overheadMs = Int((CFAbsoluteTimeGetCurrent() - initStarted) * 1000)
+            PulseLogger.info("sdk.startup.overhead_ms value=\(overheadMs)")
             PulseLogger.info(
                 "sdk.init success=true sdk_version=\(PulseKitConstants.instrumentationVersion) config_version=\(configV)"
             )
+            if let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                let pulseDir = cache.appendingPathComponent("pulse", isDirectory: true)
+                let bytes = DiskUsageBytes.bytesUnderDirectory(pulseDir)
+                if bytes > 0 {
+                    PulseLogger.debug("sdk.disk.usage_bytes path=pulse_cache value=\(bytes)")
+                }
+            }
         }
     }
 

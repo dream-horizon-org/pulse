@@ -48,7 +48,10 @@ internal object PulseSdkConfigRefresher {
                     "oldConfigVersion = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}, " +
                     "shouldUpdate = $isDifferentVersion"
             }
-            if (isDifferentVersion) {
+            if (isDifferentVersion && newConfig != null) {
+                PulseLogger.logInfo(TAG) {
+                    "sdk.sampling.config_mismatch reason=remote_version_diff persisted_version=${currentSdkConfig?.version} fetched_version=${newConfig.version}"
+                }
                 sharedPrefs.edit(commit = true) {
                     putString(
                         prefsKey,

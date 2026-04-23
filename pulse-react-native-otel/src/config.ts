@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { setupErrorHandler, uninstallErrorHandler } from './errorHandler';
 import { isSupportedPlatform } from './initialization';
 import {
@@ -98,7 +99,12 @@ function resolveNavigationState(
 }
 
 export function start(options?: PulseConfig): void {
-  if (!isSupportedPlatform()) return;
+  if (!isSupportedPlatform()) {
+    PulseLogger.warn(
+      `sdk.platform.unsupported reason=unsupported_os os=${Platform.OS}`
+    );
+    return;
+  }
   if (getIsShutdown()) {
     PulseLogger.warn(
       'SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
@@ -181,7 +187,12 @@ export function shutdown(): void {
 export function setDataCollectionState(
   state: PulseDataCollectionConsent
 ): void {
-  if (!isSupportedPlatform()) return;
+  if (!isSupportedPlatform()) {
+    PulseLogger.warn(
+      `sdk.platform.unsupported reason=unsupported_os os=${Platform.OS}`
+    );
+    return;
+  }
   const from = lastDataCollectionConsent ?? 'unset';
   PulseLogger.info(`sdk.consent.changed from=${from} to=${state}`);
   lastDataCollectionConsent = state;

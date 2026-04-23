@@ -28,6 +28,7 @@ import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseDeviceAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
+import com.pulse.utils.DiskUsageBytes
 import com.pulse.utils.PulseLogLevel
 import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseMathUtils
@@ -79,6 +80,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
 import java.util.function.Predicate
+import java.io.File
 import kotlin.system.measureNanoTime
 
 /**
@@ -155,6 +157,19 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             PulseLogger.logInfo(TAG) {
                 "sdk.init success=$success duration_ms=$durationMs sdk_version=${OtelAndroidBuildConfig.OTEL_ANDROID_VERSION} " +
                     "features_enabled=$featuresJoined"
+            }
+            PulseLogger.logInfo(TAG) {
+                "sdk.startup.overhead_ms value=$durationMs"
+            }
+            if (success) {
+                runCatching {
+                    val usage = DiskUsageBytes.forDirectoryRoot(File(application.cacheDir, "opentelemetry"))
+                    if (usage > 0L) {
+                        PulseLogger.logDebug(TAG) {
+                            "sdk.disk.usage_bytes path=opentelemetry_cache value=$usage"
+                        }
+                    }
+                }
             }
         }
         isInitialised = true

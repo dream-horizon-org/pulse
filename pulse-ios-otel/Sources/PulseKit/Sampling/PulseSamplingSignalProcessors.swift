@@ -348,6 +348,11 @@ public final class PulseSamplingSignalProcessors {
                 ) else { return nil }
                 return result
             }
+            if spans.count > filtered.count {
+                let dropped = spans.count - filtered.count
+                PulseLogger.debug(
+                    "sdk.sampling.decision signal_scope=traces exported=\(filtered.count) dropped=\(dropped)")
+            }
             return delegateExporter.export(spans: filtered, explicitTimeout: explicitTimeout)
         }
 
@@ -444,6 +449,11 @@ public final class PulseSamplingSignalProcessors {
                 ) else { return nil }
                 return result
             }
+            if logRecords.count > filtered.count {
+                let dropped = logRecords.count - filtered.count
+                PulseLogger.debug(
+                    "sdk.sampling.decision signal_scope=logs exported=\(filtered.count) dropped=\(dropped)")
+            }
             return delegateExporter.export(logRecords: filtered, explicitTimeout: explicitTimeout)
         }
 
@@ -484,7 +494,6 @@ public final class PulseSamplingSignalProcessors {
         }
 
         public func export(metrics: [MetricData]) -> ExportResult {
-            // Metrics are only derived (metricsToAdd) currently — no sampling, pass through
             return delegateExporter.export(metrics: metrics)
         }
 

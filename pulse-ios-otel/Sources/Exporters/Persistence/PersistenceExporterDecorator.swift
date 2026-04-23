@@ -24,9 +24,11 @@ class PersistenceExporterDecorator<T>
   // used with `DataExportWorker`.
   private class DecoratedDataExporter: DataExporter {
     private let decoratedExporter: T
+    private let persistenceDirectoryURL: URL?
 
-    init(decoratedExporter: T) {
+    init(decoratedExporter: T, persistenceDirectoryURL: URL?) {
       self.decoratedExporter = decoratedExporter
+      self.persistenceDirectoryURL = persistenceDirectoryURL
     }
 
     func export(data: Data) -> DataExportStatus {
@@ -45,8 +47,12 @@ class PersistenceExporterDecorator<T>
 
         return decoratedExporter.export(values: exportables)
       } catch {
+        let diskPart =
+          persistenceDirectoryURL
+          .flatMap { DiskAvailableBytes.forDirectoryURL($0) }
+          .map { " disk_available_bytes=\($0)" } ?? ""
         PulseLogger.error(
-          "sdk.disk.read_failure signal=persistence error_class=decode_failed corrupted=true")
+          "sdk.disk.read_failure signal=persistence error_class=decode_failed corrupted=true\(diskPart)")
         return DataExportStatus(needsRetry: false)
       }
     }
@@ -83,20 +89,24 @@ class PersistenceExporterDecorator<T>
                                  exportCondition: exportCondition,
                                  delay: DataExportDelay(performance: performancePreset))
               },
-              performancePreset: performancePreset)
+              performancePreset: performancePreset,
+              persistenceDirectoryURL: storageURL)
   }
 
   // internal initializer for testing that accepts a worker factory that allows mocking the worker
   init(decoratedExporter: T,
        fileWriter: FileWriter,
        workerFactory createWorker: (DataExporter) -> DataExportWorkerProtocol,
-       performancePreset: PersistencePerformancePreset) {
+       performancePreset: PersistencePerformancePreset,
+       persistenceDirectoryURL: URL? = nil) {
     self.performancePreset = performancePreset
 
     self.fileWriter = fileWriter
 
     worker = createWorker(
-      DecoratedDataExporter(decoratedExporter: decoratedExporter))
+      DecoratedDataExporter(
+        decoratedExporter: decoratedExporter,
+        persistenceDirectoryURL: persistenceDirectoryURL))
   }
 
   public func export(values: [T.SignalType]) throws {

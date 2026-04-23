@@ -89,7 +89,7 @@ public class OtlpHttpTraceExporter: OtlpHttpExporterBase, SpanExporter {
         let latencyMs = Int(Date().timeIntervalSince(t0) * 1000)
         let errClass = PulseErrorClassification.classify(error)
         PulseLogger.warn(
-          "sdk.export signal=spans success=false latency_ms=\(latencyMs) batch_size=\(batchSize) error_class=\(errClass)")
+          "sdk.export signal=span_data success=false latency_ms=\(latencyMs) batch_size=\(batchSize) error_class=\(errClass)")
       }
     }
     return .success

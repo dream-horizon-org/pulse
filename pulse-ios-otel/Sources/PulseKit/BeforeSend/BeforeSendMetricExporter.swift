@@ -29,7 +29,7 @@ internal class BeforeSendMetricExporter: MetricExporter {
             filtered = try metrics.compactMap { try callback($0) }
         } catch {
             let errClass = PulseErrorClassification.classify(error)
-            PulseLogger.error("sdk.beforesend.error signal=metric error_class=\(errClass)")
+            PulseLogger.error("sdk.beforesend.error signal=metrics error_class=\(errClass)")
             return .failure
         }
         guard !filtered.isEmpty else { return .success }

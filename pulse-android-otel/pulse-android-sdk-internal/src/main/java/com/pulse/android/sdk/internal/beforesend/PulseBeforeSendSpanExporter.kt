@@ -26,7 +26,7 @@ internal class PulseBeforeSendSpanExporter(
                     }
             } catch (t: Throwable) {
                 PulseLogger.logError(TAG, t) {
-                    "sdk.beforesend.error signal=span error_class=${RedactionUtils.classifyError(t)}"
+                    "sdk.beforesend.error signal=span_data error_class=${RedactionUtils.classifyError(t)}"
                 }
                 return CompletableResultCode.ofFailure()
             }
