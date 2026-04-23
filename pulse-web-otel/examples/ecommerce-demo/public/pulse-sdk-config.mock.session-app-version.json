@@ -1,9 +1,16 @@
 {
-  "version": 102,
-  "description": "Manual WHITELIST: signals.filters mode WHITELIST with a single rule matching log body ^session\\.start$ only. session.end, trackEvent (custom_event), non_fatal, etc. are dropped at export. Use: VITE_PULSE_MOCK_SDK_CONFIG=true and VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.whitelist.json",
+  "version": 104,
+  "description": "app_version rule: rule.value ^9\\. → sessionSampleRate 0 when service.version matches. Use VITE_PULSE_SERVICE_VERSION=9.0.0 vs 8.0.0; mock path session-app-version.json; clear localStorage pulse_sdk_config between runs.",
   "sampling": {
     "default": { "sessionSampleRate": 1 },
-    "rules": [],
+    "rules": [
+      {
+        "name": "app_version",
+        "value": "^9\\.",
+        "sdks": ["pulse_web_js"],
+        "sessionSampleRate": 0
+      }
+    ],
     "signalsToSample": [],
     "criticalSessionPolicies": { "alwaysSend": [] }
   },
@@ -11,29 +18,7 @@
     "scheduleDurationMs": 5000,
     "attributesToDrop": [],
     "attributesToAdd": [],
-    "filters": {
-      "mode": "WHITELIST",
-      "values": [
-        {
-          "name": "^session\\.start$",
-          "props": [],
-          "scopes": ["logs"],
-          "sdks": ["pulse_web_js"]
-        },
-        {
-          "name": "^session\\.end$",
-          "props": [],
-          "scopes": ["logs"],
-          "sdks": ["pulse_web_js"]
-        },
-        {
-          "name": ".*",
-          "props": [{ "key": "pulse\\.type", "value": "non_fatal" }],
-          "scopes": ["logs"],
-          "sdks": ["pulse_web_js"]
-        }
-      ]
-    },
+    "filters": { "mode": "BLACKLIST", "values": [] },
     "metricsToAdd": []
   },
   "interaction": { "beforeInitQueueSize": 5000 },

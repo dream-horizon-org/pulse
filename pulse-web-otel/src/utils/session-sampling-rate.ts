@@ -151,13 +151,10 @@ export function logRecordBodyAsString(body: ReadableLogRecord["body"]): string {
 export function getCriticalAlwaysSendConditions(
   config: PulseSdkConfig,
 ): PulseSignalMatchCondition[] {
-  const s = config.sampling;
-  const a = s.criticalEventPolicies?.alwaysSend ?? [];
-  const b = s.criticalSessionPolicies?.alwaysSend ?? [];
-  const merged = [...a, ...b];
+  const list = config.sampling.criticalSessionPolicies?.alwaysSend ?? [];
   const seen = new Set<string>();
   const out: PulseSignalMatchCondition[] = [];
-  for (const c of merged) {
+  for (const c of list) {
     const key = JSON.stringify(c);
     if (seen.has(key)) continue;
     seen.add(key);

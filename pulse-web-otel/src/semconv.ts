@@ -56,7 +56,6 @@ export const PulseWebSemconv = {
     EVENT_NAME_CUSTOM_EVENT: "pulse.custom_event",
   },
   PulseType: {
-    SDK_INIT: "sdk.init",
     INSTALLATION_START: "pulse.app.installation.start",
     CUSTOM_EVENT: "custom_event",
     NON_FATAL: "non_fatal",
@@ -69,7 +68,12 @@ export const PulseWebSemconv = {
     SESSION_END: "session.end",
     APP_INSTALLATION_START: "pulse.app.installation.start",
   },
-  SpanName: {
-    SDK_INIT: "sdk.init",
+  /**
+   * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).
+   * Same strings as `io.opentelemetry.android.common.RumConstants.Events` INIT_EVENT_*.
+   */
+  RumSdkInit: {
+    STARTED: "rum.sdk.init.started",
+    SPAN_EXPORTER: "rum.sdk.init.span.exporter",
   },
 } as const;

@@ -43,7 +43,7 @@ interface PulseSamplingConfig {
     sessionSampleRate: number;   // 0.0–1.0 global fallback
   };
   rules: PulseSessionSamplingRule[];
-  criticalEventPolicies?: PulseCriticalEventPolicies;
+  /** Same JSON key as pulse-server `SamplingConfig.criticalSessionPolicies`. */
   criticalSessionPolicies?: PulseCriticalEventPolicies;
 }
 
@@ -320,7 +320,7 @@ export class PulseSamplingProcessor implements SpanProcessor, LogRecordProcessor
   }
 
   private isCritical(span: Span): boolean {
-    const policies = this.config.sampling.criticalEventPolicies?.alwaysSend ?? [];
+    const policies = this.config.sampling.criticalSessionPolicies?.alwaysSend ?? [];
     return policies.some(condition => this.matchesSignal(span, condition));
   }
 
@@ -477,7 +477,7 @@ const DEFAULT_SDK_CONFIG: PulseSdkConfig = {
   sampling: {
     default: { sessionSampleRate: 1.0 },  // 100% sampling by default
     rules: [],
-    criticalEventPolicies: undefined,
+    criticalSessionPolicies: undefined,
   },
   signals: {
     scheduleDurationMs: 5000,
@@ -503,7 +503,7 @@ const DEFAULT_SDK_CONFIG: PulseSdkConfig = {
 | `/v1/configs/active/` returns 404 | Keep using cached; don't overwrite localStorage |
 | Config version unchanged | Skip localStorage write (avoid churn) |
 | `sessionSampleRate: 0` on a feature | Feature completely disabled — instrumentation not installed |
-| `criticalEventPolicies` matches a crash signal | Error always exported even in unsampled session |
+| `criticalSessionPolicies` matches a crash signal | Error always exported even in unsampled session |
 | `scheduleDurationMs` changed remotely | Takes effect on next session (BatchSpanProcessor created with new value) |
 | SSR environment | `localStorage` guarded with `typeof window !== 'undefined'` |
 | localStorage blocked (private browsing) | Caught; falls back to in-memory default for session |

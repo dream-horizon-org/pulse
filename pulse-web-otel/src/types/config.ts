@@ -23,44 +23,46 @@ export interface InstrumentationConfig {
   sessionReplay?: { enabled: boolean };
 }
 
+/** @see `PulseWebDiskBufferingConfig` in config.ts — duplicated for doc parity with Android. */
+export interface PulseWebDiskBufferingConfig {
+  /** Default true (matches Android OTel RUM disk spec default). */
+  enabled?: boolean;
+  maxAgeMs?: number;
+  maxCacheSizeBytes?: number;
+}
+
 export interface PulseWebConfig {
-  endpointBaseUrl: string;
+  // Required — same as Android
   apiKey: string;
-  serviceName: string;
+  dataCollectionState: PulseDataCollectionConsent;
 
+  // Optional — same as Android
+  /** Defaults to window.location.hostname if absent. */
+  serviceName?: string;
   serviceVersion?: string;
-
-  dataCollectionState?: PulseDataCollectionConsent;
-  beforeSend?: (signal: unknown) => unknown | null;
-
   globalAttributes?: Record<string, string | number | boolean>;
-
-  routePatterns?: Array<{ pattern: string; name: string }>;
-
-  configEndpointUrl?: string;
-
-  export?: {
-    /** OTLP body: protobuf by default; set `"json"` for dev / readable exports. */
-    format?: "json" | "protobuf";
-    compression?: "gzip" | "none";
-    batch?: {
-      scheduledDelayMillis?: number;
-      maxQueueSize?: number;
-      maxExportBatchSize?: number;
-    };
-  };
-
-  diskBuffering?: {
-    enabled?: boolean;
-    maxSizeBytes?: number;
-    maxAgeMs?: number;
-  };
-
+  beforeSend?: (signal: unknown) => unknown | null;
   instrumentations?: InstrumentationConfig;
 
+  // Web-specific only (no Android equivalent)
+  routePatterns?: Array<{ pattern: string; name: string }>;
+
   /**
-   * When true, logs each log record lifecycle: pipeline ingress, post pre-batch
-   * (before BatchLogRecordProcessor queue), and each OTLP log batch at export.
+   * Wire format for OTLP export.
+   * "json"  → application/json (DevTools-readable, default for dev keys)
+   * "protobuf" → application/x-protobuf (more compact, default for prod keys)
+   * When omitted, the SDK auto-selects based on the API key prefix.
+   */
+  export?: {
+    format?: "json" | "protobuf";
+  };
+
+  /**
+   * When true, logs each log record through the processor chain to the browser console.
+   * Useful for debugging signal flow: API emit → processors → batch export.
+   * Leave false (or omit) in production.
    */
   debugLogRecordLifecycle?: boolean;
+
+  diskBuffering?: PulseWebDiskBufferingConfig;
 }
