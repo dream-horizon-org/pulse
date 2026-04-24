@@ -42,16 +42,16 @@ pipeline {
         stage('Publish Artifact') {
             steps {
                 script {
-                    sh """
-                            #!/bin/bash -el
-                            # Load Node environment
-                            export NVM_DIR="/home/admin/.nvm"
-                            [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
-                            nvm use 20 || nvm install 20
-                            
-                            chmod +x ./deploy/jenkinsfile/session-replay-ingestion/publish-artifact.sh
-                            ./deploy/jenkinsfile/session-replay-ingestion/publish-artifact.sh -v ${ARTIFACT_VERSION}
-                        """
+                    sh '''
+#!/bin/bash -el
+# Load Node environment
+export NVM_DIR="/home/admin/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm use 20 || nvm install 20
+
+chmod +x ./deploy/jenkinsfile/session-replay-ingestion/publish-artifact.sh
+./deploy/jenkinsfile/session-replay-ingestion/publish-artifact.sh -v ''' + ARTIFACT_VERSION + '''
+'''
                 }
             }
         }
