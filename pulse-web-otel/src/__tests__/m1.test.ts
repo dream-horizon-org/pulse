@@ -80,6 +80,8 @@ vi.mock("../exporters", () => {
       tracerProvider: mockProvider,
       loggerProvider: mockLoggerProvider,
       meterProvider: mockMeterProvider,
+      cleanup: vi.fn(),
+      prepareForDocumentUnload: vi.fn(),
     }),
   };
 });
@@ -2113,6 +2115,7 @@ function makeMockBundle(emitSpy: ReturnType<typeof vi.fn>) {
       shutdown: vi.fn().mockResolvedValue(undefined),
     },
     cleanup: vi.fn(),
+    prepareForDocumentUnload: vi.fn(),
   };
 }
 

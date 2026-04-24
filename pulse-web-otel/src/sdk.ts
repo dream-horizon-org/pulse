@@ -12,10 +12,6 @@ import { metrics } from "@opentelemetry/api";
 import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import type { MeterProvider } from "@opentelemetry/sdk-metrics";
-import type {
-  PulseBrowserTraceExporter,
-  PulseBrowserLogExporter,
-} from "./exporters/pulse-browser-otlp-exporters";
 
 import type { PulseWebConfig } from "./config";
 import {
@@ -66,8 +62,7 @@ class PulseWebSDK implements SdkContext {
   private tracerProvider?: WebTracerProvider;
   private loggerProvider?: LoggerProvider;
   private meterProvider?: MeterProvider;
-  private _traceExporter?: PulseBrowserTraceExporter;
-  private _logExporter?: PulseBrowserLogExporter;
+  private _prepareForDocumentUnload?: () => void;
   private _pagehideListener?: (e: PageTransitionEvent) => void;
   private registry?: InstrumentationRegistry;
   private configFetcher: SdkConfigFetcher = new SdkConfigFetcher("", "");
@@ -213,19 +208,17 @@ class PulseWebSDK implements SdkContext {
     this.tracerProvider = bundle.tracerProvider;
     this.loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
-    this._traceExporter = bundle.traceExporter;
-    this._logExporter = bundle.logExporter;
+    this._prepareForDocumentUnload = bundle.prepareForDocumentUnload;
     this._providerCleanup = bundle.cleanup ?? (() => {});
 
     if (typeof window !== "undefined") {
       this._pagehideListener = (e: PageTransitionEvent) => {
         if (!e.persisted && this._initialized) {
-          // Switch both exporters to keepalive fetch so the flush survives unload.
-          this._logExporter?.switchToKeepalive();
-          this._traceExporter?.switchToKeepalive();
+          this._prepareForDocumentUnload?.();
           void Promise.all([
             this.loggerProvider?.forceFlush(),
             this.tracerProvider?.forceFlush(),
+            this.meterProvider?.forceFlush(),
           ]).catch(() => {});
         }
       };
