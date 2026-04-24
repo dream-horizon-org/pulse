@@ -8,11 +8,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShop } from '../../context/ShopContext';
 import { theme } from '../../shared/theme';
 
+function createTabBarButton(testID: string) {
+  return function TabBarButton(props: BottomTabBarButtonProps) {
+    return <PlatformPressable {...props} testID={testID} />;
+  };
+}
+
+/** Created once at module load so `tabBarButton` props keep stable component identity across renders. */
+const TAB_BAR_BUTTONS = {
+  home: createTabBarButton('home-tab'),
+  browse: createTabBarButton('browse-tab'),
+  wishlist: createTabBarButton('wishlist-tab'),
+  cart: createTabBarButton('cart-tab'),
+  account: createTabBarButton('account-tab'),
+} as const;
+
 export default function TabsLayout() {
   const { cartCount } = useShop();
   const insets = useSafeAreaInsets();
   const androidBar =
-    Platform.OS === 'android' ? RNStatusBar.currentHeight ?? 0 : 0;
+    Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
   const headerStatusBarHeight = Math.max(
     insets.top,
     Constants.statusBarHeight ?? 0,
@@ -20,9 +35,6 @@ export default function TabsLayout() {
   );
   const badge =
     cartCount > 99 ? '99+' : cartCount > 0 ? String(cartCount) : undefined;
-
-  const tabBtn = (testID: string) => (props: BottomTabBarButtonProps) =>
-    <PlatformPressable {...props} testID={testID} />;
 
   return (
     <Tabs
@@ -56,7 +68,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarButton: tabBtn('home-tab'),
+          tabBarButton: TAB_BAR_BUTTONS.home,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" color={color} size={size} />
           ),
@@ -66,7 +78,7 @@ export default function TabsLayout() {
         name="browse"
         options={{
           title: 'Shop',
-          tabBarButton: tabBtn('browse-tab'),
+          tabBarButton: TAB_BAR_BUTTONS.browse,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="grid-outline" color={color} size={size} />
           ),
@@ -76,7 +88,7 @@ export default function TabsLayout() {
         name="wishlist"
         options={{
           title: 'Wishlist',
-          tabBarButton: tabBtn('wishlist-tab'),
+          tabBarButton: TAB_BAR_BUTTONS.wishlist,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="heart-outline" color={color} size={size} />
           ),
@@ -86,7 +98,7 @@ export default function TabsLayout() {
         name="cart"
         options={{
           title: 'Cart',
-          tabBarButton: tabBtn('cart-tab'),
+          tabBarButton: TAB_BAR_BUTTONS.cart,
           tabBarBadge: badge,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cart-outline" color={color} size={size} />
@@ -97,7 +109,7 @@ export default function TabsLayout() {
         name="account"
         options={{
           title: 'Account',
-          tabBarButton: tabBtn('account-tab'),
+          tabBarButton: TAB_BAR_BUTTONS.account,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" color={color} size={size} />
           ),
