@@ -20,8 +20,9 @@ AS otel.project_monthly_usage_local
 ENGINE = Distributed('pulse-ch', otel, project_monthly_usage_local, cityHash64(project_id));
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_logs_mv TO otel.project_monthly_usage
-    ON CLUSTER 'pulse-ch'
+CREATE MATERIALIZED VIEW otel.project_monthly_logs_mv
+    ON CLUSTER 'pulse-ch' -- Clause moved here
+    TO otel.project_monthly_usage
 (
     `project_id` LowCardinality(String),
     `month` Date,
@@ -35,15 +36,16 @@ AS SELECT
     'otel' AS source,
     count() AS event_count,
     uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
-   FROM otel.otel_logs_local
-   GROUP BY
+FROM otel.otel_logs_local
+GROUP BY
     project_id,
     month,
-    source
+    source;
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_traces_mv TO otel.project_monthly_usage
+CREATE MATERIALIZED VIEW otel.project_monthly_traces_mv
     ON CLUSTER 'pulse-ch'
+    TO otel.project_monthly_usage
 (
     `project_id` LowCardinality(String),
     `month` Date,
@@ -64,8 +66,9 @@ AS SELECT
     source
 
 
-CREATE MATERIALIZED VIEW otel.project_monthly_stack_traces_events_mv TO otel.project_monthly_usage
+CREATE MATERIALIZED VIEW otel.project_monthly_stack_traces_events_mv
     ON CLUSTER 'pulse-ch'
+    TO otel.project_monthly_usage
 (
     `project_id` LowCardinality(String),
     `month` Date,
