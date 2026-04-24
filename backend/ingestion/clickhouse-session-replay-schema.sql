@@ -1,20 +1,20 @@
 -- =============================================================================
--- Pulse Session Replay - ClickHouse Schema
+-- Pulse Session Replay - ClickHouse Schema (Replicated Cluster)
 -- =============================================================================
 -- This schema stores session replay metadata with S3 block URLs for byte-range
 -- access. The actual recording data lives in S3 as compressed JSONL.
 --
 -- Data flow:
 --   Node.js Ingestion Consumer → Kafka (clickhouse_session_replay_events)
---   → Kafka Engine Table → Materialized View → AggregatingMergeTree
+--   → Kafka Engine Table → Materialized View → ReplicatedAggregatingMergeTree
 -- =============================================================================
 
--- -----------------------------------------------------------------------------
--- 1. Kafka Engine Table
---    Reads individual block metadata events from Kafka in JSONEachRow format.
---    Each row represents one session block that was flushed to S3.
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS otel.kafka_session_replay_events
+-- Create database if not exists
+CREATE DATABASE IF NOT EXISTS otel ON CLUSTER `pulse-clickhouse`;
+
+-- Local Kafka table (reads from Kafka on each node)
+CREATE TABLE IF NOT EXISTS otel.kafka_session_replay_events_local
+ON CLUSTER `pulse-clickhouse`
 (
     `SessionId`       String,
     `ProjectId`       LowCardinality(String),
@@ -23,23 +23,17 @@ CREATE TABLE IF NOT EXISTS otel.kafka_session_replay_events
     `LastTimestamp`   DateTime64(6, 'UTC'),
     `BlockUrl`        String,
     `SnapshotSource`  LowCardinality(String)
-) ENGINE = Kafka()
-SETTINGS
+) ENGINE = Kafka
+SETTINGS 
     kafka_broker_list = 'pulse-kafka-01.pulse.local:9092,pulse-kafka-02.pulse.local:9092',
     kafka_topic_list = 'clickhouse_session_replay_events',
     kafka_group_name = 'pulse_ch_session_replay_consumer',
     kafka_format = 'JSONEachRow',
     kafka_num_consumers = 2;
 
--- -----------------------------------------------------------------------------
--- 2. Storage Table (AggregatingMergeTree)
---    Stores aggregated session metadata. Multiple blocks for the same session
---    are merged together using SimpleAggregateFunctions:
---      - min/max for timestamps
---      - groupArrayArray to append block URLs and their timestamps
---    This allows late-arriving blocks to be correctly merged.
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS otel.session_replay_events
+-- Storage table (replicated)
+CREATE TABLE IF NOT EXISTS otel.session_replay_events_local
+ON CLUSTER `pulse-clickhouse`
 (
     `SessionId`             String CODEC(ZSTD(1)),
     `ProjectId`             LowCardinality(String) CODEC(ZSTD(1)),
@@ -50,21 +44,22 @@ CREATE TABLE IF NOT EXISTS otel.session_replay_events
     `BlockFirstTimestamps` SimpleAggregateFunction(groupArrayArray, Array(DateTime64(6, 'UTC'))) CODEC(ZSTD(1)),
     `BlockLastTimestamps`  SimpleAggregateFunction(groupArrayArray, Array(DateTime64(6, 'UTC'))) CODEC(ZSTD(1)),
     `SnapshotSource`        AggregateFunction(argMin, LowCardinality(String), DateTime64(6, 'UTC'))
-) ENGINE = AggregatingMergeTree()
+) ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/{shard}/otel/session_replay_events_local', '{replica}')
 PARTITION BY (ProjectId, toYYYYMMDD(MinFirstTimestamp))
 ORDER BY (ProjectId, SessionId)
 TTL toDateTime(MaxLastTimestamp) + INTERVAL 90 DAY
 SETTINGS merge_with_ttl_timeout = 86400;
 
--- -----------------------------------------------------------------------------
--- 3. Materialized View
---    Automatically transforms each Kafka message (individual block metadata)
---    into the aggregated format and inserts into the storage table.
---    GROUP BY session_id, project_id ensures blocks for the same session
---    are aggregated together on merge.
--- -----------------------------------------------------------------------------
+-- Distributed table (queries hit this)
+CREATE TABLE IF NOT EXISTS otel.session_replay_events
+ON CLUSTER `pulse-clickhouse`
+AS otel.session_replay_events_local
+ENGINE = Distributed(`pulse-clickhouse`, otel, session_replay_events_local, cityHash64(SessionId));
+
+-- Materialized view (on each node, reads from Kafka → writes to local table)
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.session_replay_events_mv
-TO otel.session_replay_events
+ON CLUSTER `pulse-clickhouse`
+TO otel.session_replay_events_local
 AS SELECT
     SessionId,
     ProjectId,
@@ -75,5 +70,5 @@ AS SELECT
     groupArray(FirstTimestamp) AS BlockFirstTimestamps,
     groupArray(LastTimestamp)  AS BlockLastTimestamps,
     argMinState(SnapshotSource, FirstTimestamp) AS SnapshotSource
-FROM otel.kafka_session_replay_events
+FROM otel.kafka_session_replay_events_local
 GROUP BY SessionId, ProjectId;
