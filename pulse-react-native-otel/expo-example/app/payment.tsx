@@ -16,7 +16,7 @@ export default function PaymentScreen() {
   const { cart, cartTotal, placeOrder } = useShop();
   const [busy, setBusy] = useState(false);
 
-  const pay = async () => {
+  const pay = async (): Promise<void> => {
     if (cart.length === 0) {
       router.replace('/(tabs)/cart');
       return;
@@ -65,10 +65,9 @@ export default function PaymentScreen() {
         <Text style={styles.summaryText}>Order Summary</Text>
         <Text style={styles.total}>Total: ${cartTotal.toFixed(2)}</Text>
       </View>
-      
       <Pressable
         style={[styles.primary, busy && styles.disabled]}
-        onPress={() => void pay()}
+        onPress={pay}
         disabled={busy}
         testID="place-order-btn"
       >

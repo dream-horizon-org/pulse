@@ -3,6 +3,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useShop } from '../../context/ShopContext';
 
+const OrderLineItem = ({ item }: { item: any }) => (
+  <View style={styles.line}>
+    <Text style={styles.lineTitle} numberOfLines={2}>
+      {item.title} × {item.quantity}
+    </Text>
+    <Text style={styles.linePrice}>
+      ${(item.price * item.quantity).toFixed(2)}
+    </Text>
+  </View>
+);
+
 export default function OrderConfirmationScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const insets = useSafeAreaInsets();
@@ -47,16 +58,7 @@ export default function OrderConfirmationScreen() {
       <FlatList
         data={order.lines}
         keyExtractor={(l) => String(l.productId)}
-        renderItem={({ item }) => (
-          <View style={styles.line}>
-            <Text style={styles.lineTitle} numberOfLines={2}>
-              {item.title} × {item.quantity}
-            </Text>
-            <Text style={styles.linePrice}>
-              ${(item.price * item.quantity).toFixed(2)}
-            </Text>
-          </View>
-        )}
+        renderItem={({ item }) => <OrderLineItem item={item} />}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
       />
       <Pressable

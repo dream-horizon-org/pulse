@@ -21,7 +21,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const submit = async () => {
+  const submit = async (): Promise<void> => {
     setError(null);
     setBusy(true);
     try {
@@ -65,7 +65,7 @@ export default function LoginScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable
         style={[styles.primary, busy && styles.disabled]}
-        onPress={() => void submit()}
+        onPress={submit}
         disabled={busy}
       >
         {busy ? (

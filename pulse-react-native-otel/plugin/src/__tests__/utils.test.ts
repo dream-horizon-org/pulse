@@ -574,7 +574,6 @@ describe('buildPulseInitializationCode', () => {
   describe('timing markers', () => {
     it('should include startup timing markers before and after Pulse.initialize', () => {
       const result = buildPulseInitializationCode({
-        endpointBaseUrl: 'http://localhost:4318',
         apiKey: 'project-123',
         dataCollectionState: 'PENDING',
       });

@@ -33,10 +33,10 @@ export default function CheckoutScreen() {
   return (
     <ScrollView
       style={styles.flex}
-      contentContainerStyle={{
-        padding: 16,
-        paddingBottom: insets.bottom + 24,
-      }}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingBottom: insets.bottom + 24 },
+      ]}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Shipping</Text>
@@ -114,7 +114,9 @@ export default function CheckoutScreen() {
           >
             <View>
               <Text style={styles.methodOptionTitle}>Express shipping</Text>
-              <Text style={styles.methodOptionBody}>Arrives in 2-3 business days</Text>
+              <Text style={styles.methodOptionBody}>
+                Arrives in 2-3 business days
+              </Text>
             </View>
             <Text style={styles.methodOptionPrice}>$9.99</Text>
           </Pressable>
@@ -134,6 +136,7 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#fff' },
+  scrollContent: { padding: 16 },
   title: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
   hint: { fontSize: 14, color: '#64748b', marginBottom: 20, lineHeight: 20 },
   label: { fontSize: 13, fontWeight: '600', marginBottom: 6, color: '#334155' },
