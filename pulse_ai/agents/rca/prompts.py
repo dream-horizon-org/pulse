@@ -74,7 +74,32 @@ Each segment contains ~14 metrics with three values:
 
 ## Analysis Rules
 
+### 0. Segment Eligibility (Pre-Analysis Filter)
+
+**Apply before any analysis. Discard segments that fail either check — do not include them in output.**
+
+**Filter 1 — Minimum Problematic Volume:**
+```
+segment.problematic_count >= 0.10 × segment.baseline_problematic_count
+```
+Segments below this threshold have insufficient data to draw reliable conclusions. Skip entirely.
+
+**Filter 2 — Degradation Signal:**
+At least **one** of the following must be true:
+- `error_rate.value > error_rate.baseline`
+- `poor_user_pct.value > poor_user_pct.baseline`
+
+If neither error rate nor poor user percentage has worsened from baseline, the segment does not represent a regression — discard it regardless of other metric values.
+
+Only segments passing **both** filters proceed to anomaly detection and root cause analysis.
+
 ### 1. Anomaly Detection Thresholds
+
+**Direction check (required):** Before applying any threshold, verify the metric is degrading — i.e., moving in the bad direction from baseline. Only flag a metric if:
+- **APDEX**: `value < baseline`
+- **Error Rate, Poor User %, Crash Rate, ANR Rate, Frozen Frame Rate, Slow Frame Rate, Duration P50, Duration P95**: `value > baseline`
+
+A metric that has improved from baseline must never be flagged as an anomaly, even if its absolute value crosses a threshold.
 
 **Priority**: If thresholds are provided in the input data (e.g., from backend configuration), use those. Otherwise, use the default thresholds below.
 
