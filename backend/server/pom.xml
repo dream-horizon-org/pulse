@@ -124,6 +124,13 @@
             <version>${vertx.version}</version>
         </dependency>
 
+        <!-- Propagates OpenTelemetry context on Vert.x Context (links HTTP + async SQL in one trace with the Java agent). -->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-opentelemetry</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-kafka-client</artifactId>
