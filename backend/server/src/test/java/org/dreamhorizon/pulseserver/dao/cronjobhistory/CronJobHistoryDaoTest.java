@@ -208,7 +208,12 @@ class CronJobHistoryDaoTest {
       dao.markCompleted(5L).blockingAwait();
 
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("COMPLETED"));
-      verify(preparedQuery).rxExecute(Tuple.of(5L));
+      verify(preparedQuery)
+          .rxExecute(
+              argThat(
+                  t ->
+                      t.size() == 1
+                          && t.getLong(0) == 5L));
     }
 
     @Test
