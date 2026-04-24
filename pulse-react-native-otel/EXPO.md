@@ -176,12 +176,11 @@ Omit `version` to use the default `2.1.4`.
 
 ### Android — `android.okHttpInstrumentation` (optional)
 
-React Native on Android uses **OkHttp** for most HTTP traffic. This block exists so **native OkHttp** can be **instrumented for network telemetry** (Pulse's `okhttp3-library` / `okhttp3-agent` plus the **Byte Buddy** Gradle plugin). If you do not need outbound HTTP spans from the native stack, ** Omit the `okHttpInstrumentation` key entirely.
+React Native on Android uses **OkHttp** for most HTTP traffic. This block wires **native OkHttp** instrumentation (Pulse OkHttp artifacts plus the **Byte Buddy** Gradle plugin). If you do not need outbound HTTP spans from the native stack, **omit** the `okHttpInstrumentation` key entirely.
 
 | Field | Type | Default | Description |
 | ----- | ---- | ------- | ----------- |
 | `enabled` | boolean | `false` | When `true`, prebuild merges Byte Buddy + OkHttp instrumentation into Gradle. |
-| `libraryVersion` | string | `0.0.10-alpha` | Version for **both** `okhttp3-library` and `okhttp3-agent` in **`android/app/build.gradle`**. |
 | `byteBuddyGradlePluginVersion` | string | `1.17.8` | Version for `net.bytebuddy:byte-buddy-gradle-plugin` on the **root** `android/build.gradle` `buildscript` classpath. |
 
 **Note:** To prevent duplicate declarations and build conflicts, the plugin **skips** its own injection and logs a **`console.warn`** if it detects that:
@@ -195,7 +194,6 @@ Example:
 "android": {
   "okHttpInstrumentation": {
     "enabled": true,
-    "libraryVersion": "0.0.10-alpha",
     "byteBuddyGradlePluginVersion": "1.17.8"
   }
 }

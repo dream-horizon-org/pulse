@@ -11,7 +11,6 @@ import type {
 import {
   PULSE_BYTE_BUDDY_GRADLE_PLUGIN,
   PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION,
-  PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION,
 } from './androidBuildConstants';
 
 function parseConsent(value: unknown, label: string): PulseDataCollectionState {
@@ -110,15 +109,6 @@ export function assertPulsePluginProps(
         );
       }
       if (
-        o.libraryVersion !== undefined &&
-        typeof o.libraryVersion !== 'string'
-      ) {
-        throw new PluginError(
-          'Pulse config plugin: "android.okHttpInstrumentation.libraryVersion" must be a string when set.',
-          'INVALID_PLUGIN_TYPE'
-        );
-      }
-      if (
         o.byteBuddyGradlePluginVersion !== undefined &&
         typeof o.byteBuddyGradlePluginVersion !== 'string'
       ) {
@@ -178,12 +168,7 @@ export function resolveAndroidProps(
 
   const okHttp = props.android?.okHttpInstrumentation;
   const okHttpEnabled = okHttp?.enabled === true;
-  const rawLib = okHttp?.libraryVersion?.trim();
   const rawBb = okHttp?.byteBuddyGradlePluginVersion?.trim();
-  const libraryVersion =
-    rawLib && rawLib.length > 0
-      ? rawLib
-      : PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION;
   const byteBuddyGradlePluginVersion =
     rawBb && rawBb.length > 0 ? rawBb : PULSE_BYTE_BUDDY_GRADLE_PLUGIN;
 
@@ -196,7 +181,6 @@ export function resolveAndroidProps(
     },
     okHttpInstrumentation: {
       enabled: okHttpEnabled,
-      libraryVersion,
       byteBuddyGradlePluginVersion,
     },
   };

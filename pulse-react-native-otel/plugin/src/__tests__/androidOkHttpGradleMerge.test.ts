@@ -135,7 +135,7 @@ describe('mergePulseOkHttpAppGradle', () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  it('replaces Pulse-tagged OkHttp version when libraryVersion changes', () => {
+  it('replaces Pulse-tagged OkHttp version when target instrumentation version changes', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     const v1 = mergePulseOkHttpAppGradle(APP_MINIMAL, '0.0.9-alpha');
     expect(v1).toContain('okhttp3-library:0.0.9-alpha');

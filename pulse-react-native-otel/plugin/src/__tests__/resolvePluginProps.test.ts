@@ -155,7 +155,6 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     });
     expect(a.okHttpInstrumentation).toEqual({
       enabled: false,
-      libraryVersion: '0.0.10-alpha',
       byteBuddyGradlePluginVersion: '1.17.8',
     });
 
@@ -218,7 +217,6 @@ describe('resolveAndroidProps okHttpInstrumentation', () => {
   it('defaults okHttp when android has no okHttp block', () => {
     expect(resolveAndroidProps(base).okHttpInstrumentation).toEqual({
       enabled: false,
-      libraryVersion: '0.0.10-alpha',
       byteBuddyGradlePluginVersion: '1.17.8',
     });
   });
@@ -231,26 +229,23 @@ describe('resolveAndroidProps okHttpInstrumentation', () => {
       }).okHttpInstrumentation
     ).toEqual({
       enabled: true,
-      libraryVersion: '0.0.10-alpha',
       byteBuddyGradlePluginVersion: '1.17.8',
     });
   });
 
-  it('uses explicit libraryVersion and byteBuddyGradlePluginVersion', () => {
+  it('uses explicit byteBuddyGradlePluginVersion', () => {
     expect(
       resolveAndroidProps({
         ...base,
         android: {
           okHttpInstrumentation: {
             enabled: true,
-            libraryVersion: '  0.0.9-alpha  ',
             byteBuddyGradlePluginVersion: ' 1.17.0 ',
           },
         },
       }).okHttpInstrumentation
     ).toEqual({
       enabled: true,
-      libraryVersion: '0.0.9-alpha',
       byteBuddyGradlePluginVersion: '1.17.0',
     });
   });
@@ -262,13 +257,11 @@ describe('resolveAndroidProps okHttpInstrumentation', () => {
         android: {
           okHttpInstrumentation: {
             enabled: false,
-            libraryVersion: '0.0.9-alpha',
           },
         },
       }).okHttpInstrumentation
     ).toEqual({
       enabled: false,
-      libraryVersion: '0.0.9-alpha',
       byteBuddyGradlePluginVersion: '1.17.8',
     });
   });

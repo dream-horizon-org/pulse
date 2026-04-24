@@ -5,6 +5,7 @@ import {
 import type { ConfigPlugin } from '@expo/config-plugins';
 import type { ExpoConfig } from '@expo/config-types';
 
+import { PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION } from './androidBuildConstants';
 import {
   mergePulseOkHttpAppGradle,
   mergePulseOkHttpByteBuddyClasspath,
@@ -54,7 +55,7 @@ function withPulseAppBuildGradle(
     try {
       mod.modResults.contents = mergePulseOkHttpAppGradle(
         mod.modResults.contents,
-        okHttp.libraryVersion
+        PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION
       );
     } catch (e) {
       console.error(
