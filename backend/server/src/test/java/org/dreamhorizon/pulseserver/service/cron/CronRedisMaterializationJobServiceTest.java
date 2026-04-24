@@ -46,6 +46,40 @@ class CronRedisMaterializationJobServiceTest {
   }
 
   @Test
+  void shouldReturnDeduplicatedApiKeysJobWithoutCallingKong() {
+    when(cronJobHistoryDao.enqueueOrDeduplicate(
+        eq(CronJobType.API_KEYS_TO_REDIS),
+        any(),
+        eq(CronRedisMaterializationJobService.STALE_IN_PROGRESS_RECLAIMED)))
+        .thenReturn(Single.just(new CronJobEnqueueResult(19L, true)));
+
+    CronRedisSyncJobAcceptedRestResponse body = service.acceptApiKeysSyncToRedis().blockingGet();
+
+    assertThat(body.getJobId()).isEqualTo(19L);
+    assertThat(body.isDeduplicated()).isTrue();
+    assertThat(body.getJobType()).isEqualTo(CronJobType.API_KEYS_TO_REDIS);
+    verify(kongApiKeyRedisSyncService, never()).syncValidApiKeysToRedis();
+  }
+
+  @Test
+  void shouldRunApiKeysKongSyncWhenNotDeduplicated() {
+    when(cronJobHistoryDao.enqueueOrDeduplicate(
+        eq(CronJobType.API_KEYS_TO_REDIS),
+        any(),
+        eq(CronRedisMaterializationJobService.STALE_IN_PROGRESS_RECLAIMED)))
+        .thenReturn(Single.just(new CronJobEnqueueResult(4L, false)));
+    when(kongApiKeyRedisSyncService.syncValidApiKeysToRedis()).thenReturn(Single.just(2));
+    when(cronJobHistoryDao.markCompleted(4L)).thenReturn(Completable.complete());
+
+    CronRedisSyncJobAcceptedRestResponse body = service.acceptApiKeysSyncToRedis().blockingGet();
+
+    assertThat(body.getJobId()).isEqualTo(4L);
+    assertThat(body.isDeduplicated()).isFalse();
+    verify(kongApiKeyRedisSyncService, timeout(5_000)).syncValidApiKeysToRedis();
+    verify(cronJobHistoryDao, timeout(5_000)).markCompleted(4L);
+  }
+
+  @Test
   void shouldReturnDeduplicatedUsageCreditsJobWithoutCallingKong() {
     when(cronJobHistoryDao.enqueueOrDeduplicate(
         eq(CronJobType.USAGE_CREDITS_TO_REDIS),
