@@ -27,7 +27,6 @@ import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLim
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ResetLimitsRestRequest;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.SetCustomLimitsRestRequest;
 import org.dreamhorizon.pulseserver.resources.internal.models.CronRedisSyncJobAcceptedRestResponse;
-import org.dreamhorizon.pulseserver.resources.usagelimits.models.UsageNotificationRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
@@ -41,7 +40,6 @@ import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
  * - GET /internal/v1/projects/{projectId}/limits - Get project limits (full info)
  * - GET /internal/v1/projects/limits - Get all active project limits
  * - POST /internal/v1/projects/limits/sync-to-redis - Enqueue async ClickHouse + limits → Kong Redis credits (HTTP 202)
- * - GET /internal/v1/projects/limits/notifications-due - Get usage notifications due
  * - POST /internal/v1/projects/limits/process-usage-notifications - Enqueue async usage notifications batch (HTTP 202)
  * - PUT /internal/v1/projects/{projectId}/limits - Set custom limits
  * - POST /internal/v1/projects/{projectId}/limits/reset - Reset to tier defaults
@@ -110,21 +108,6 @@ public class InternalUsageLimitsController {
         .acceptUsageCreditsSyncToRedis()
         .to(RestResponse.jaxrsRestHandler(
             jakarta.ws.rs.core.Response.Status.ACCEPTED.getStatusCode()));
-  }
-
-  /**
-   * Get usage notifications that need to be sent (internal only).
-   * Analyzes all projects and returns list of notifications due.
-   * Called by alerts-cron to determine which notifications to send.
-   */
-  @GET
-  @Path("/limits/notifications-due")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<UsageNotificationRestResponse>> getUsageNotifications() {
-    return usageLimitService.getUsageNotifications()
-        .map(mapper::toUsageNotificationResponse)
-        .to(RestResponse.jaxrsRestHandler());
   }
 
   /**
