@@ -17,7 +17,9 @@ kotlin {
 
 dependencies {
     implementation(platform(libs.opentelemetry.platform.alpha))
-    implementation(libs.opentelemetry.exporter.otlp)
+    implementation(libs.opentelemetry.exporter.otlp) {
+        exclude(group = "com.squareup.okhttp3", module = "okhttp-jvm")
+    }
     implementation(projects.pulseAndroidApi)
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)

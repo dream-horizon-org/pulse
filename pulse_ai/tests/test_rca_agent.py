@@ -125,6 +125,8 @@ class TestRcaPromptContent:
         assert "executive_summary" in prompt.lower()
         assert "segments" in prompt.lower()
         assert "recommendations" in prompt.lower()
+        assert "error_attribution_insights" in prompt.lower()
+        assert "error_attribution" in prompt.lower()
 
     def test_prompt_mentions_affected_sessions(self):
         """Prompt should reference affected_sessions field."""

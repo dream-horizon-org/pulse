@@ -58,6 +58,9 @@
               "crash": { "enabled": true },
               "slowRendering": { "enabled": false },
               "fragment": { "enabled": true }
+            },
+            "coreLibraryDesugaring": {
+              "enabled": true
             }
           },
           "ios": {

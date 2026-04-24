@@ -118,7 +118,10 @@ public class FunnelComputeJob {
     private static List<FunnelResult> computeFunnel(Dataset<Row> raw, FunnelDefinition funnel,
                                                      String runTime,
                                                      Long startEpochSeconds, Long endEpochSeconds) {
-        var identityCol = "UNIQUE_USERS".equals(funnel.mode()) ? "user_id" : "session_id";
+        // Default to UNIQUE_USERS when mode is null/unknown. Matches ClickhouseAnalyticsQueryUtils
+        // and the DB default ('UNIQUE_USERS' NOT NULL) — only switch to session_id for an explicit
+        // "SESSIONS" mode so a stale/missing mode value never silently changes the denominator.
+        var identityCol = "SESSIONS".equalsIgnoreCase(funnel.mode()) ? "session_id" : "user_id";
         long windowSecs = funnel.windowSeconds();
         var steps       = funnel.steps();
         int numSteps    = steps.size();

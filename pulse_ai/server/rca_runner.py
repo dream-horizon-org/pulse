@@ -35,23 +35,30 @@ def _build_rca_prompt(
     interaction_name: str,
     payload: RootCausePayloadSchema,
     example_session_ids: list[str] | None = None,
+    error_attribution_payload: dict[str, Any] | None = None,
 ) -> str:
     serialized_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
-    
+
+    attribution_block = ""
+    if error_attribution_payload is not None:
+        serialized_attr = json.dumps(error_attribution_payload, ensure_ascii=True)
+        attribution_block = f"\nErrorAttributionPayload(JSON): {serialized_attr}"
+
     sessions_context = ""
     if example_session_ids and len(example_session_ids) > 0:
-        sessions_list = ', '.join([f'"{sid}"' for sid in example_session_ids])
+        sessions_list = ", ".join([f'"{sid}"' for sid in example_session_ids])
         sessions_context = (
             f"\n## Session Evidence\n"
             f"Available sessions for replay: [{sessions_list}]\n"
             f"For each segment, select 1-2 most relevant session IDs that demonstrate the issue.\n"
             f"Include in 'affected_sessions' field as an array (e.g., {{'affected_sessions': ['{example_session_ids[0]}']}})"
         )
-    
+
     return (
         "Generate a root cause analysis report for the given interaction.\n"
         f"Interaction: {interaction_name}\n"
         f"RootCausePayload(JSON): {serialized_payload}"
+        f"{attribution_block}"
         f"{sessions_context}"
     )
 
@@ -111,6 +118,7 @@ async def generate_rca_report(
     payload: RootCausePayloadSchema,
     interaction_name: str,
     example_session_ids: list[str] | None = None,
+    error_attribution_payload: dict[str, Any] | None = None,
 ) -> RcaReportResponse:
     """
     Runs the RCA pipeline with retries and returns typed report response.
@@ -120,10 +128,17 @@ async def generate_rca_report(
     - Raises RcaRunnerError(504) on timeout.
 
     Retry behavior:
-    - Retries up to MAX_RETRIES on schema validation failure.
+    - Runs up to MAX_RETRIES attempts; each failed attempt is usually a Pydantic
+      ``ValidationError`` on ``RcaStructuredReportV1`` (e.g. wrong
+      ``error_attribution_insights`` length or ``signal`` order when attribution JSON was present).
     - Uses fresh session per attempt (LLM is non-deterministic).
     """
-    prompt = _build_rca_prompt(interaction_name, payload, example_session_ids)
+    prompt = _build_rca_prompt(
+        interaction_name,
+        payload,
+        example_session_ids,
+        error_attribution_payload,
+    )
     message = Content.model_validate(
         {"role": "user", "parts": [{"text": prompt}]},
     )

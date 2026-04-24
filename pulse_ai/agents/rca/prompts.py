@@ -166,6 +166,23 @@ Tag insights with severity:
 - **🟡 Medium**: Single warning threshold, low volume or isolated segment
 - **✅ Normal**: No significant anomalies detected
 
+## Error attribution (optional JSON in user message)
+
+When the user message includes **ErrorAttributionPayload(JSON)** after the root-cause block:
+
+- You MUST include top-level **`error_attribution_insights`**: an array of **exactly 3** objects, in this **fixed order**:
+  1. `signal`: `"anr"`
+  2. `signal`: `"non_fatal"`
+  3. `signal`: `"api"`
+- Each object: `signal` (exact string above), `summary` (2–4 sentences), optional `caveat` (short non-causal disclaimer).
+- If a signal has no meaningful drill-down issues in the payload, still emit that row with a **neutral placeholder** summary (e.g. "No notable drill-down patterns for this signal in the supplied window.").
+- **Correlation, not causation** — these drills group sessions by dimensions; they do not prove root cause.
+- You MUST also include top-level **`error_attribution`**: copy the **ErrorAttributionPayload(JSON)** object **faithfully** (same `disclaimer`, `minRiskRatioForIssueAttribution`, `relatedAttributions` rows and numeric fields). Use the same **camelCase** property names as the input (e.g. `sourceSignal`, `rowKind`, `relatedAttributions`). **Do not invent** rows or change counts.
+
+When **ErrorAttributionPayload(JSON)** is **absent**, set both **`error_attribution_insights`** and **`error_attribution`** to `null` (or omit both).
+
+**Schema retries:** The pipeline validates your JSON against the schema. Wrong `signal` strings, wrong array length, or wrong order cause **ValidationError** and a fresh retry (limited attempts). Follow the contract exactly.
+
 ## Output Schema (JSON)
 
 You MUST produce a JSON object matching the RcaStructuredReportV1 schema:
@@ -174,6 +191,27 @@ You MUST produce a JSON object matching the RcaStructuredReportV1 schema:
 {
   "version": 1,
   "executive_summary": "string (up to 4 sentences)",
+  "error_attribution_insights": [
+    {"signal": "anr", "summary": "…", "caveat": "Correlative drill-down only."},
+    {"signal": "non_fatal", "summary": "…"},
+    {"signal": "api", "summary": "…"}
+  ],
+  "error_attribution": {
+    "disclaimer": "string (copy from ErrorAttributionPayload)",
+    "minRiskRatioForIssueAttribution": 2.0,
+    "relatedAttributions": [
+      {
+        "sourceSignal": "anr",
+        "rowKind": "issue",
+        "groupId": "…",
+        "title": "…",
+        "occurrences": 0,
+        "nTreated": 0,
+        "nControl": 0,
+        "rr": 1.5
+      }
+    ]
+  },
   "segments": [
     {
       "rank": 1,
@@ -197,11 +235,17 @@ You MUST produce a JSON object matching the RcaStructuredReportV1 schema:
 }
 ```
 
+When ErrorAttributionPayload(JSON) was **not** provided in the user message, set **`error_attribution_insights`** and **`error_attribution`** to `null` or omit both keys (do not invent drill data).
+
 ### Output Requirements
 
 **version**: Always `1`.
 
 **executive_summary**: Up to 4 sentences summarizing overall health and most critical finding.
+
+**error_attribution_insights**: Required **only** when ErrorAttributionPayload(JSON) appears in the user message — then exactly **3** rows in order **`anr` → `non_fatal` → `api`**, `signal` must match those literals. Otherwise `null`/omitted.
+
+**error_attribution**: Required **whenever** `error_attribution_insights` is non-null — must be a **faithful copy** of the ErrorAttributionPayload object (camelCase keys). When insights are `null`, this field must also be `null`.
 
 **segments**: 
 - **Must contain at least 2 segments** (unless noDataAvailable or everythingGood is true)

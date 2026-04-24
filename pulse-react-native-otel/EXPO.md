@@ -152,6 +152,28 @@ Top-level plugin fields apply to both platforms. Override per OS with **`android
 
 Values: strings, numbers, booleans, or arrays of those types.
 
+### Android — `android.coreLibraryDesugaring` (optional)
+
+| Field     | Type    | Default | Description                                                                                                                                                                                      |
+| --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled` | boolean | `false` | When `true`, the config plugin adds `compileOptions { coreLibraryDesugaringEnabled true }` and `coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:…'` to **`android/app/build.gradle`**. |
+| `version` | string  | `2.1.4` | Desugar JDK libs version; only used when `enabled` is `true`.                                                                                                                                    |
+
+**Note:** Turn **`enabled`** on only when you need it (for example Java 8+ APIs on **older `minSdkVersion`**). Typical case: **`minSdkVersion` below 26** (API 25 and lower). If your Expo / app **`minSdkVersion` is 26 or higher**, you usually **do not** need core library desugaring for this reason—leave it **`false`** to avoid extra desugar work and dependency surface.
+
+Example:
+
+```json
+"android": {
+  "coreLibraryDesugaring": {
+    "enabled": true,
+    "version": "2.1.4"
+  }
+}
+```
+
+Omit `version` to use the default `2.1.4`.
+
 ### iOS — `ios.configuration`
 
 | Key                        | Type    | Description                  |
@@ -277,9 +299,10 @@ Pulse.markContentReady();
 
 `app.json` enables Pulse wiring; **view clicks** still need OTel artifacts in **`android/app/build.gradle`** (after `prebuild`):
 
-````kotlin
+```kotlin
 // XML / classic views (pulse-android-otel/instrumentation/view-click)
-implementation("'org.dreamhorizon.instrumentation:view-click:0.0.8-alpha'")
+implementation("org.dreamhorizon.instrumentation:view-click:0.0.8-alpha")
+```
 
 ### iOS — UIKit taps
 
@@ -290,4 +313,4 @@ Only **`app.json`** — under **`ios.instrumentation.uiKitTap`**, for example:
   "enabled": true,
   "captureContext": true
 }
-````
+```
