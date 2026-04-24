@@ -98,7 +98,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="app-root">
       <FlatList
         data={categories}
         keyExtractor={(item) => item.slug}
@@ -134,12 +134,13 @@ export default function HomeScreen() {
                 </ScrollView>
               </View>
             ) : null}
-            <Text style={styles.heading}>Browse by category</Text>
+            <Text style={styles.heading} testID="app-title">Browse by category</Text>
           </>
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <Pressable
             style={styles.row}
+            testID={`category-${index}`}
             onPress={() =>
               router.push(`/category/${encodeURIComponent(item.slug)}`)
             }

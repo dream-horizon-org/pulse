@@ -1,0 +1,177 @@
+appId: com.example.expoexample
+---
+# Intensive E-Commerce Flow for Comprehensive Performance Benchmarking
+# Simulates: browse → multi-category → product detail → cart → checkout → payment → confirmation → tab switching
+# Duration: ~45-55 seconds per run
+# Metrics: CPU, Memory, FPS, Frame time, Jank
+
+- launchApp
+- waitForAnimationToEnd
+
+# ============================================================================
+# Phase 1: Browse & Category Selection
+# ============================================================================
+- assertVisible:
+    id: app-root
+- assertVisible:
+    id: app-title
+
+- scrollUntilVisible:
+    element:
+      id: category-5
+    direction: DOWN
+
+- scrollUntilVisible:
+    element:
+      id: category-0
+    direction: UP
+
+# ============================================================================
+# Phase 2: Multi-Category Visits (back-navigation + list re-renders)
+# ============================================================================
+- tapOn:
+    id: category-1
+- waitForAnimationToEnd:
+    timeout: 50
+- tapOn:
+    id: back-btn
+- waitForAnimationToEnd:
+    timeout: 50
+
+- tapOn:
+    id: category-2
+- waitForAnimationToEnd:
+    timeout: 50
+- tapOn:
+    id: back-btn
+- waitForAnimationToEnd:
+    timeout: 50
+
+# ============================================================================
+# Phase 3: Select Final Category & Scroll Product List
+# ============================================================================
+- tapOn:
+    id: category-0
+- waitForAnimationToEnd:
+    timeout: 50
+
+- scrollUntilVisible:
+    element:
+      id: product-4
+    direction: DOWN
+
+- scrollUntilVisible:
+    element:
+      id: product-0
+    direction: UP
+
+# ============================================================================
+# Phase 4: Product Detail — Select & Scroll (image + layout stress)
+# ============================================================================
+- assertVisible:
+    id: product-0
+- tapOn:
+    id: product-0
+- waitForAnimationToEnd:
+    timeout: 50
+
+- swipe:
+    direction: DOWN
+    duration: 50
+- swipe:
+    direction: UP
+    duration: 50
+
+# ============================================================================
+# Phase 5: Add to Cart & Go to Bag
+# ============================================================================
+- tapOn:
+    id: add-to-cart-btn
+- waitForAnimationToEnd:
+    timeout: 50
+
+- tapOn:
+    id: view-bag-btn
+- waitForAnimationToEnd:
+    timeout: 50
+
+# ============================================================================
+# Phase 6: Checkout
+# ============================================================================
+- tapOn:
+    id: proceed-to-checkout-btn
+- waitForAnimationToEnd:
+    timeout: 50
+
+# ============================================================================
+# Phase 7: Enter Shipping Details
+# ============================================================================
+- tapOn:
+    id: shipping-name-input
+- waitForAnimationToEnd:
+    timeout: 50
+- inputText: "John Doe"
+
+- tapOn:
+    id: shipping-address-input
+- waitForAnimationToEnd:
+    timeout: 50
+- inputText: "123 Main Street"
+
+- tapOn:
+    id: shipping-email-input
+- waitForAnimationToEnd:
+    timeout: 50
+- inputText: "johndoe@unknown.com"
+
+- hideKeyboard
+- tapOn:
+    point: "50%, 10%"
+- waitForAnimationToEnd:
+    timeout: 50
+
+# ============================================================================
+# Phase 8: Proceed to Payment
+# ============================================================================
+- tapOn:
+    id: continue-to-payment-btn
+- waitForAnimationToEnd:
+    timeout: 50
+
+# ============================================================================
+# Phase 9: Place Order
+# ============================================================================
+- assertVisible:
+    id: order-summary
+
+- tapOn:
+    id: place-order-btn
+- waitForAnimationToEnd:
+    timeout: 50
+
+# ============================================================================
+# Phase 10: Order Confirmation & Return
+# ============================================================================
+- assertVisible:
+    id: order-confirmation-page
+
+- tapOn:
+    id: continue-shopping-final-btn
+- waitForAnimationToEnd:
+    timeout: 50
+
+# ============================================================================
+# Phase 11: Tab Switching (full re-renders + transition animations)
+# ============================================================================
+- tapOn:
+    id: browse-tab
+- waitForAnimationToEnd:
+    timeout: 50
+
+- tapOn:
+    id: wishlist-tab
+- waitForAnimationToEnd:
+    timeout: 50
+
+- tapOn:
+    id: home-tab

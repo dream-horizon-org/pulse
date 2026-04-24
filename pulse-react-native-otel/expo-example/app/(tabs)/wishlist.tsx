@@ -8,7 +8,7 @@ export default function WishlistScreen() {
   const { wishlist, toggleWishlist } = useShop();
 
   return (
-    <View style={styles.flex}>
+    <View style={styles.flex} testID="wishlist-tab">
       <Text style={styles.heading}>Wishlist</Text>
       <FlatList
         data={wishlist}

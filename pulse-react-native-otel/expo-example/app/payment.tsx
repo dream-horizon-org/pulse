@@ -61,10 +61,16 @@ export default function PaymentScreen() {
         No card data is collected. Tap pay to complete your order for{' '}
         <Text style={styles.bold}>${cartTotal.toFixed(2)}</Text>.
       </Text>
+      <View testID="order-summary" style={styles.summary}>
+        <Text style={styles.summaryText}>Order Summary</Text>
+        <Text style={styles.total}>Total: ${cartTotal.toFixed(2)}</Text>
+      </View>
+      
       <Pressable
         style={[styles.primary, busy && styles.disabled]}
         onPress={() => void pay()}
         disabled={busy}
+        testID="place-order-btn"
       >
         {busy ? (
           <ActivityIndicator color="#fff" />
@@ -87,6 +93,15 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', marginBottom: 12 },
   body: { fontSize: 16, color: '#334155', lineHeight: 24, marginBottom: 24 },
   bold: { fontWeight: '800', color: '#0f172a' },
+  input: { height: 0, opacity: 0 },
+  summary: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 20,
+  },
+  summaryText: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  total: { fontSize: 18, fontWeight: '700', color: '#2563eb' },
   primary: {
     backgroundColor: '#16a34a',
     paddingVertical: 14,

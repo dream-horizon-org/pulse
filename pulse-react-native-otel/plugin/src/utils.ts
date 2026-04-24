@@ -147,7 +147,11 @@ export function buildPulseInitializationCode(options: {
   // in their native MainApplication.kt instead of through this plugin.
   params.push('beforeSendData = null');
 
-  let code = `\n    Pulse.initialize(\n      this,\n      "${escapeKotlinString(endpointBaseUrl)}",\n      ${params.join(',\n      ')}\n    ) {\n`;
+  // Use string concatenation (not Kotlin string interpolation) for timing log lines.
+  let code =
+    '\n    val pulseInitT0Ms = System.currentTimeMillis()\n' +
+    '    android.util.Log.i("pulse.expo", "PULSE_INIT_T0_MS=".plus(pulseInitT0Ms))\n' +
+    `    Pulse.initialize(\n      this,\n      "${endpointBaseUrl}",\n      ${params.join(',\n      ')}\n    ) {\n`;
 
   if (instrumentation?.interaction !== undefined) {
     if (instrumentation.interaction.url) {
@@ -181,7 +185,11 @@ export function buildPulseInitializationCode(options: {
     code += `      crashReporter { enabled(${instrumentation.crash.enabled}) }\n`;
   }
 
-  code += '    }\n';
+  code +=
+    '    }\n' +
+    '    val pulseInitT1Ms = System.currentTimeMillis()\n' +
+    '    android.util.Log.i("pulse.expo", "PULSE_INIT_T1_MS=".plus(pulseInitT1Ms))\n' +
+    '    android.util.Log.i("pulse.expo", "PULSE_INIT_DURATION_MS=".plus(pulseInitT1Ms - pulseInitT0Ms))\n';
 
   return code;
 }

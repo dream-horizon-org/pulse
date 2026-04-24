@@ -73,7 +73,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ShopProvider>
         <ToastProvider>
-          <RootNavigation />
+          <View style={{ flex: 1 }} testID="app-root">
+            <RootNavigation />
+          </View>
         </ToastProvider>
       </ShopProvider>
     </SafeAreaProvider>

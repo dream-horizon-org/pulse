@@ -160,6 +160,7 @@ export default function ProductScreen() {
                 });
               })()
             }
+            testID="add-to-cart-btn"
           >
             <Text style={styles.primaryText}>Add to cart</Text>
           </Pressable>
@@ -215,6 +216,7 @@ export default function ProductScreen() {
               <Pressable
                 style={[styles.modalBtn, styles.modalBtnSolid]}
                 onPress={goToCart}
+                testID="view-bag-btn"
               >
                 <Text style={styles.modalBtnSolidText}>View bag</Text>
               </Pressable>

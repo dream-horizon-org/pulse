@@ -1,0 +1,15 @@
+appId: com.example.expoexample
+---
+- launchApp
+- waitForAnimationToEnd
+- assertVisible:
+    id: app-root
+- assertVisible:
+    id: app-title
+- scrollUntilVisible:
+    element:
+      id: category-5
+    direction: DOWN
+- tapOn:
+    id: category-0
+- waitForAnimationToEnd

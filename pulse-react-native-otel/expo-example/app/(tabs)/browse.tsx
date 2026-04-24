@@ -91,7 +91,7 @@ export default function BrowseScreen() {
   }
 
   return (
-    <View style={styles.flex}>
+    <View style={styles.flex} testID="browse-tab">
       <Text style={styles.heading}>All products</Text>
       <TextInput
         style={styles.input}
@@ -163,9 +163,10 @@ export default function BrowseScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <Pressable
             style={styles.card}
+            testID={`product-${index}`}
             onPress={() => router.push(`/product/${item.id}`)}
           >
             <ProductImage uri={item.image} style={styles.thumb} />

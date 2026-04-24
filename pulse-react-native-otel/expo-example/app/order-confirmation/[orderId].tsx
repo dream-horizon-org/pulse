@@ -35,6 +35,7 @@ export default function OrderConfirmationScreen() {
         styles.flex,
         { paddingTop: insets.top, paddingBottom: insets.bottom + 16 },
       ]}
+      testID="order-confirmation-page"
     >
       <Text style={styles.title}>Thank you!</Text>
       <Text style={styles.sub}>Order ID</Text>
@@ -61,6 +62,7 @@ export default function OrderConfirmationScreen() {
       <Pressable
         style={styles.primary}
         onPress={() => router.replace('/(tabs)')}
+        testID="continue-shopping-final-btn"
       >
         <Text style={styles.primaryText}>Continue shopping</Text>
       </Pressable>

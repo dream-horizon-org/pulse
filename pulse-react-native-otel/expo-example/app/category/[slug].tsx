@@ -15,6 +15,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useLocalSearchParams, useRouter } from 'expo-router';
 import { ProductImage } from '../../components/ProductImage';
 import { ApiError, getProductsByCategory } from '../../shared/api';
@@ -48,8 +49,17 @@ export default function CategoryScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: categorySlug ? labelFromCategorySlug(categorySlug) : 'Category',
+      headerLeft: () => (
+        <Pressable
+          onPress={() => router.back()}
+          testID="back-btn"
+          style={styles.headerBack}
+        >
+          <Ionicons name="arrow-back" size={24} color="#0f766e" />
+        </Pressable>
+      ),
     });
-  }, [navigation, categorySlug]);
+  }, [navigation, categorySlug, router]);
 
   const load = useCallback(async () => {
     if (!categorySlug) return;
@@ -171,9 +181,10 @@ export default function CategoryScreen() {
             tintColor={theme.primary}
           />
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <Pressable
             style={styles.card}
+            testID={`product-${index}`}
             onPress={() => router.push(`/product/${item.id}`)}
           >
             <ProductImage uri={item.image} style={styles.thumb} />
@@ -196,6 +207,11 @@ export default function CategoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerBack: {
+    paddingVertical: 8,
+    paddingRight: 12,
+    justifyContent: 'center',
+  },
   flex: { flex: 1, backgroundColor: theme.bg },
   center: {
     flex: 1,

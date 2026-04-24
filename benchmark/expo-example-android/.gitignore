@@ -1,0 +1,4 @@
+*.csv
+*.tsv
+results/
+*.log

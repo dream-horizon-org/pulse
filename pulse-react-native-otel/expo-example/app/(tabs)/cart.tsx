@@ -65,6 +65,7 @@ export default function CartScreen() {
           <Text style={styles.total}>Total: ${cartTotal.toFixed(2)}</Text>
           <Pressable
             style={styles.checkout}
+            testID="proceed-to-checkout-btn"
             onPress={() => router.push('/checkout')}
           >
             <Text style={styles.checkoutText}>Checkout</Text>

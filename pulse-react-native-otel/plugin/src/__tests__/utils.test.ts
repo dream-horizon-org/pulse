@@ -721,7 +721,43 @@ describe('buildPulseInitializationCode', () => {
       expect(result).toMatch(/endpointHeaders\s*=/);
       expect(result).toMatch(/globalAttributes\s*=/);
       expect(result).toMatch(/\)\s*\{/);
-      expect(result).toMatch(/\}\s*$/);
+      // Check for timing markers
+      expect(result).toContain('pulseInitT0Ms');
+      expect(result).toContain('pulseInitT1Ms');
+      expect(result).toContain('PULSE_INIT_DURATION_MS');
+    });
+  });
+
+  describe('timing markers', () => {
+    it('should include startup timing markers before and after Pulse.initialize', () => {
+      const result = buildPulseInitializationCode({
+        endpointBaseUrl: 'http://localhost:4318',
+        apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
+      });
+
+      expect(result).toContain(
+        'val pulseInitT0Ms = System.currentTimeMillis()'
+      );
+      expect(result).toContain(
+        'android.util.Log.d("pulse.expo", "PULSE_INIT_T0_MS='
+      );
+      expect(result).toContain(
+        'val pulseInitT1Ms = System.currentTimeMillis()'
+      );
+      expect(result).toContain(
+        'android.util.Log.d("pulse.expo", "PULSE_INIT_T1_MS='
+      );
+      expect(result).toContain(
+        'android.util.Log.d("pulse.expo", "PULSE_INIT_DURATION_MS='
+      );
+      // Ensure timing markers wrap the Pulse.initialize call
+      expect(result.indexOf('pulseInitT0Ms')).toBeLessThan(
+        result.indexOf('Pulse.initialize')
+      );
+      expect(result.indexOf('Pulse.initialize')).toBeLessThan(
+        result.indexOf('pulseInitT1Ms')
+      );
     });
   });
 
