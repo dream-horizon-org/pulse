@@ -1,0 +1,29 @@
+name: Ingestion SQL lint
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/db/**/clickhouse/**/*.sql'
+      - '.github/workflows/ingestion-sql-lint.yml'
+      - '.github/scripts/lint_otel_clickhouse_project_column.py'
+  pull_request:
+    paths:
+      - 'backend/db/**/clickhouse/**/*.sql'
+      - '.github/workflows/ingestion-sql-lint.yml'
+      - '.github/scripts/lint_otel_clickhouse_project_column.py'
+
+permissions:
+  contents: read
+
+jobs:
+  lint-otel-project-column:
+    name: OTEL ClickHouse ProjectId column lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Lint otel DDL (physical project_id)
+        run: python3 "$GITHUB_WORKSPACE/.github/scripts/lint_otel_clickhouse_project_column.py"

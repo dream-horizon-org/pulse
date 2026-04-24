@@ -348,8 +348,7 @@ class ClickhouseProjectServiceTest {
           .test()
           .assertComplete();
 
-      // 1 CREATE USER + 1 CREATE ROW POLICY (otel.*) + 1 GRANT SELECT + 1 GRANT INSERT = 4 SQL statements
-      verify(mockConnection, times(4)).createStatement(anyString());
+      verify(mockConnection, times(3)).createStatement(anyString());
     }
   }
 

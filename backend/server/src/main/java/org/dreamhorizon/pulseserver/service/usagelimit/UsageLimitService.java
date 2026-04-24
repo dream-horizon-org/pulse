@@ -306,11 +306,14 @@ public class UsageLimitService {
   private ProjectUsageLimitInfo mapToInfo(ProjectUsageLimit limit) {
     Map<String, UsageLimitValue> usageLimits = parseUsageLimits(limit.getUsageLimits());
 
-    // Map notification status
+    // Only include notification status when an active usage_limit_notifications row exists for this month
+    // (join matches uln.is_active = TRUE; no COALESCE — no row => all null).
     NotificationStatus notificationStatus = null;
-    if (limit.getThresholdsNotified() != null) {
+    if (limit.getNotificationCreatedAt() != null) {
       notificationStatus = NotificationStatus.builder()
           .thresholdsNotified(limit.getThresholdsNotified())
+          .projectUsageLimitId(limit.getNotificationProjectUsageLimitId())
+          .notificationActive(limit.getNotificationRowActive())
           .createdAt(limit.getNotificationCreatedAt())
           .build();
     }
@@ -386,9 +389,22 @@ public class UsageLimitService {
 
   /**
    * Mark specific thresholds as notified for the current month.
+   * On first insert, stores a reference to the current active {@code project_usage_limits} row.
    */
   public Single<NotificationStatusResponse> markThresholdsNotified(String projectId, List<Integer> thresholds) {
-    return usageLimitDao.markThresholdsNotified(projectId, thresholds)
+    return usageLimitDao.getActiveLimitByProjectId(projectId)
+        .map(Optional::of)
+        .switchIfEmpty(Maybe.just(Optional.empty()))
+        .toSingle()
+        .flatMap(opt -> {
+          if (opt.isEmpty()) {
+            return Single.error(
+                new IllegalStateException("No active usage limit for project: " + projectId));
+          }
+          ProjectUsageLimit limit = opt.get();
+          return usageLimitDao.markThresholdsNotified(
+              projectId, thresholds, limit.getProjectUsageLimitId());
+        })
         .doOnSuccess(record -> log.info(
             "usage_limit_notifications persisted — projectId={} rowId={} requestedThresholds={} "
                 + "storedKeys={}",
@@ -411,12 +427,13 @@ public class UsageLimitService {
               .projectId(record.getProjectId())
               .month(month)
               .thresholdsNotified(record.getThresholdsNotified())
+              .projectUsageLimitId(record.getProjectUsageLimitId())
+              .notificationActive(record.getNotificationRowActive())
               .createdAt(record.getCreatedAt())
               .updatedAt(record.getUpdatedAt())
               .build();
         });
   }
-
 
   /**
    * Analyzes all projects and determines which usage notifications need to be sent.
@@ -828,6 +845,8 @@ public class UsageLimitService {
     private String projectId;
     private String month;
     private com.fasterxml.jackson.databind.JsonNode thresholdsNotified;
+    private Long projectUsageLimitId;
+    private Boolean notificationActive;
     private java.time.Instant createdAt;
     private java.time.Instant updatedAt;
   }

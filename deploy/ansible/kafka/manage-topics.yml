@@ -1,0 +1,84 @@
+---
+# manage-topics.yml
+#
+# Create a new topic or increase partitions on an existing topic.
+# Runs only on node 1 (which has bootstrap-server access to the full cluster).
+#
+# Required extra_vars:
+#   action      – "create" or "increase-partitions"
+#   topic_name  – name of the topic
+#   partitions  – number of partitions (for create) or new total (for increase)
+#
+# Examples:
+#   # Create a new topic
+#   ansible-playbook manage-topics.yml \
+#     -i inventory/hosts.ini \
+#     -e "action=create topic_name=pulse.events partitions=6"
+#
+#   # Increase partitions (12 → 18, cannot decrease)
+#   ansible-playbook manage-topics.yml \
+#     -i inventory/hosts.ini \
+#     -e "action=increase-partitions topic_name=session_recording_events partitions=12"
+
+- name: Manage Kafka topics
+  hosts: pulse-kafka-01.pulse.local
+  become: true
+
+  tasks:
+    - name: Create new topic
+      shell: |
+        "{{ kafka_dir }}/bin/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 \
+          --create --if-not-exists \
+          --topic "{{ topic_name }}" \
+          --partitions {{ partitions }} \
+          --replication-factor {{ replication_factor }} \
+          --config retention.ms={{ retention_ms }} \
+          --config compression.type={{ compression_type }} \
+          --config min.insync.replicas={{ min_insync_replicas }}
+      when: action == "create"
+      register: create_result
+
+    - name: Print create result
+      debug:
+        var: create_result.stdout
+      when: action == "create"
+
+    - name: Check current partition count before increasing
+      shell: |
+        "{{ kafka_dir }}/bin/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 \
+          --describe --topic "{{ topic_name }}" \
+          | awk -F'PartitionCount: ' 'NR==1{split($2,a,"\t"); print a[1]}'
+      when: action == "increase-partitions"
+      register: current_partitions
+      changed_when: false
+
+    - name: Fail if trying to decrease partitions
+      fail:
+        msg: "Cannot decrease partitions. Current: {{ current_partitions.stdout }}, Requested: {{ partitions }}"
+      when:
+        - action == "increase-partitions"
+        - current_partitions.stdout | int >= partitions | int
+
+    - name: Increase partitions
+      shell: |
+        "{{ kafka_dir }}/bin/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 \
+          --alter \
+          --topic "{{ topic_name }}" \
+          --partitions {{ partitions }}
+      when: action == "increase-partitions"
+      register: alter_result
+
+    - name: Verify final partition count
+      shell: |
+        "{{ kafka_dir }}/bin/kafka-topics.sh" \
+          --bootstrap-server localhost:9092 \
+          --describe --topic "{{ topic_name }}"
+      register: topic_describe
+      changed_when: false
+
+    - name: Print topic details
+      debug:
+        var: topic_describe.stdout_lines

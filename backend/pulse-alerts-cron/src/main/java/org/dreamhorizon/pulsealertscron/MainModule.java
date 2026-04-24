@@ -9,6 +9,7 @@ import com.google.inject.Singleton;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import org.dreamhorizon.pulsealertscron.module.VertxAbstractModule;
+import org.dreamhorizon.pulsealertscron.services.BatchSchedulerService;
 import org.dreamhorizon.pulsealertscron.services.CronManager;
 import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 

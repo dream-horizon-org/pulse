@@ -1,7 +1,6 @@
 # Expo integration
 
-Pulse ships an **Expo config plugin** so Android / iOS native SDKs are wired from **`app.json`**.
----
+## Pulse ships an **Expo config plugin** so Android / iOS native SDKs are wired from **`app.json`**.
 
 ## Quick setup
 
@@ -130,7 +129,7 @@ Top-level plugin fields apply to both platforms. Override per OS with **`android
 | ------------------------- | -------- | ------ | --------------------------------- |
 | `endpointBaseUrl`         | **Yes**  | string | OTLP / Pulse backend URL          |
 | `apiKey`                  | **Yes**  | string | Project API key                   |
-| `dataCollectionState`     | No       | string | `PENDING`, `ALLOWED`, or `DENIED` |
+| `dataCollectionState`     | **Yes**  | string | `PENDING`, `ALLOWED`, or `DENIED` |
 | `endpointHeaders`         | No       | object | Extra HTTP headers                |
 | `configEndpointUrl`       | No       | string | Remote SDK config URL             |
 | `customEventCollectorUrl` | No       | string | Custom events / logs URL          |
@@ -153,6 +152,28 @@ Top-level plugin fields apply to both platforms. Override per OS with **`android
 
 Values: strings, numbers, booleans, or arrays of those types.
 
+### Android — `android.coreLibraryDesugaring` (optional)
+
+| Field     | Type    | Default | Description                                                                                                                                                                                      |
+| --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled` | boolean | `false` | When `true`, the config plugin adds `compileOptions { coreLibraryDesugaringEnabled true }` and `coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:…'` to **`android/app/build.gradle`**. |
+| `version` | string  | `2.1.4` | Desugar JDK libs version; only used when `enabled` is `true`.                                                                                                                                    |
+
+**Note:** Turn **`enabled`** on only when you need it (for example Java 8+ APIs on **older `minSdkVersion`**). Typical case: **`minSdkVersion` below 26** (API 25 and lower). If your Expo / app **`minSdkVersion` is 26 or higher**, you usually **do not** need core library desugaring for this reason—leave it **`false`** to avoid extra desugar work and dependency surface.
+
+Example:
+
+```json
+"android": {
+  "coreLibraryDesugaring": {
+    "enabled": true,
+    "version": "2.1.4"
+  }
+}
+```
+
+Omit `version` to use the default `2.1.4`.
+
 ### iOS — `ios.configuration`
 
 | Key                        | Type    | Description                  |
@@ -167,10 +188,11 @@ Values: strings, numbers, booleans, or arrays of those types.
 
 #### `urlSession`
 
-| Field                  | Type    | Description           |
-| ---------------------- | ------- | --------------------- |
-| `enabled`              | boolean | Instrument URLSession |
-| `excludeOtlpEndpoints` | boolean | Skip your OTLP host   |
+| Field     | Type    | Description           |
+| --------- | ------- | --------------------- |
+| `enabled` | boolean | Instrument URLSession |
+
+OTLP export URLs on the collector origin are skipped automatically in PulseKit (no Expo field).
 
 #### `sessions`
 
@@ -183,10 +205,11 @@ Values: strings, numbers, booleans, or arrays of those types.
 
 #### `interaction`
 
-| Field       | Type    | Description       |
-| ----------- | ------- | ----------------- |
-| `enabled`   | boolean | Interactions      |
-| `configUrl` | string  | Remote config URL |
+| Field     | Type    | Description  |
+| --------- | ------- | ------------ |
+| `enabled` | boolean | Interactions |
+
+Interaction config URL comes from remote SDK config, not `app.json`.
 
 #### `uiKitTap`
 
@@ -278,7 +301,8 @@ Pulse.markContentReady();
 
 ```kotlin
 // XML / classic views (pulse-android-otel/instrumentation/view-click)
-implementation("'org.dreamhorizon.instrumentation:view-click:0.0.8-alpha'")
+implementation("org.dreamhorizon.instrumentation:view-click:0.0.8-alpha")
+```
 
 ### iOS — UIKit taps
 

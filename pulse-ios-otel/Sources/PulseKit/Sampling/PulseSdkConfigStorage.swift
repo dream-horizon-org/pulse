@@ -6,6 +6,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 /// Storage for persisted SDK config. Uses a single UserDefaults instance (either a named suite or standard).
 /// All access is serialized on a dedicated queue for thread safety.
@@ -44,7 +47,7 @@ public final class PulseSdkConfigStorage {
             do {
                 return try PulseSdkConfigStorage.jsonDecoder.decode(PulseSdkConfig.self, from: jsonData)
             } catch {
-                PulseLogger.log("Config: load from persistence decode failed (using defaults).")
+                PulseLogger.warn("Config: load from persistence decode failed (using defaults).")
                 return nil
             }
         }

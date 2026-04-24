@@ -20,15 +20,15 @@ import ReactAppDependencyProvider
 describe('buildSwiftPulseSdkInitialization', () => {
   it('generates minimal call with defaults', () => {
     const code = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://127.0.0.1:4318',
       apiKey: 'key_1',
+      dataCollectionState: 'PENDING',
     });
     expect(code).toContain('PulseSDK.initialize(');
-    expect(code).toContain('endpointBaseUrl: "http://127.0.0.1:4318"');
     expect(code).toContain('apiKey: "key_1"');
     expect(code).toContain('dataCollectionState: .pending');
-    expect(code).toContain('configEndpointUrl: nil');
-    expect(code).toContain('endpointHeaders: nil');
+    expect(code).not.toContain('endpointBaseUrl');
+    expect(code).not.toContain('configEndpointUrl');
+    expect(code).not.toContain('endpointHeaders');
     expect(code).toContain('globalAttributes: nil');
     expect(code).toContain('configuration: nil');
     expect(code).toContain('instrumentations: nil');
@@ -36,8 +36,8 @@ describe('buildSwiftPulseSdkInitialization', () => {
 
   it('embeds ios.configuration into PulseKitConfiguration closure', () => {
     const code = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://x',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       configuration: {
         includeScreenAttributes: false,
         includeNetworkAttributes: true,
@@ -52,14 +52,12 @@ describe('buildSwiftPulseSdkInitialization', () => {
 
   it('maps consent states', () => {
     const allowed = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://x',
       apiKey: 'k',
       dataCollectionState: 'ALLOWED',
     });
     expect(allowed).toContain('dataCollectionState: .allowed');
 
     const denied = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://x',
       apiKey: 'k',
       dataCollectionState: 'DENIED',
     });
@@ -68,33 +66,16 @@ describe('buildSwiftPulseSdkInitialization', () => {
 
   it('escapes quotes in strings', () => {
     const code = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://host/path?q="x"',
       apiKey: 'k"y',
+      dataCollectionState: 'PENDING',
     });
     expect(code).toContain('\\"');
   });
 
-  it('includes configEndpointUrl, customEventCollectorUrl, and endpointHeaders', () => {
-    const code = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://localhost:4318',
-      apiKey: 'p',
-      configEndpointUrl: 'http://localhost:8080/v1/configs/active/',
-      customEventCollectorUrl: 'http://localhost:4318/v1/logs',
-      endpointHeaders: { 'X-Custom': '1' },
-    });
-    expect(code).toContain(
-      'configEndpointUrl: "http://localhost:8080/v1/configs/active/"'
-    );
-    expect(code).toContain(
-      'customEventCollectorUrl: "http://localhost:4318/v1/logs"'
-    );
-    expect(code).toContain('"X-Custom": "1"');
-  });
-
   it('includes globalAttributes with OpenTelemetry types', () => {
     const code = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://x',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       globalAttributes: {
         s: 'a',
         n: 3,
@@ -112,24 +93,22 @@ describe('buildSwiftPulseSdkInitialization', () => {
 
   it('embeds ios.instrumentation into PulseSDK.initialize', () => {
     const code = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://x',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       instrumentation: {
         screenLifecycle: { enabled: true },
-        interaction: { enabled: true, configUrl: 'https://cfg.example/v1' },
+        interaction: { enabled: true },
       },
     });
     expect(code).toContain('instrumentations: { config in');
     expect(code).toContain('config.screenLifecycle { $0.enabled(true) }');
-    expect(code).toContain(
-      'config.interaction { $0.enabled(true); $0.setConfigUrl { "https://cfg.example/v1" } }'
-    );
+    expect(code).toContain('config.interaction { $0.enabled(true) }');
   });
 
   it('embeds sessionReplay configure flush and scale fields', () => {
     const code = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://x',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
       instrumentation: {
         sessionReplay: {
           enabled: true,
@@ -148,62 +127,44 @@ describe('buildSwiftPulseSdkInitialization', () => {
 });
 
 describe('buildSwiftInstrumentationsArg', () => {
-  const base = 'http://otel.example';
-
   it('returns nil for undefined, empty object, or no effective fields', () => {
-    expect(buildSwiftInstrumentationsArg(undefined, base)).toBe('nil');
-    expect(buildSwiftInstrumentationsArg({}, base)).toBe('nil');
+    expect(buildSwiftInstrumentationsArg(undefined)).toBe('nil');
+    expect(buildSwiftInstrumentationsArg({})).toBe('nil');
   });
 
   it('emits screenLifecycle enabled closure', () => {
-    const arg = buildSwiftInstrumentationsArg(
-      {
-        screenLifecycle: { enabled: false },
-      },
-      base
-    );
+    const arg = buildSwiftInstrumentationsArg({
+      screenLifecycle: { enabled: false },
+    });
     expect(arg).toContain('{ config in');
     expect(arg).toContain('config.screenLifecycle { $0.enabled(false) }');
   });
 
   it('emits simple toggles from { enabled } objects', () => {
-    const arg = buildSwiftInstrumentationsArg(
-      {
-        urlSession: { enabled: true },
-        crash: { enabled: false },
-      },
-      base
-    );
+    const arg = buildSwiftInstrumentationsArg({
+      urlSession: { enabled: true },
+      crash: { enabled: false },
+    });
     expect(arg).toContain('config.urlSession { $0.enabled(true) }');
     expect(arg).toContain('config.crash { $0.enabled(false) }');
   });
 
-  it('emits urlSession excludeOtlpEndpoints with merged base URL', () => {
-    const arg = buildSwiftInstrumentationsArg(
-      {
-        urlSession: { enabled: true, excludeOtlpEndpoints: true },
-      },
-      'http://127.0.0.1:4318'
-    );
-    expect(arg).toContain('config.urlSession { u in');
-    expect(arg).toContain('u.enabled(true)');
-    expect(arg).toContain(
-      'u.excludeOtlpEndpoints(baseUrl: "http://127.0.0.1:4318")'
-    );
+  it('emits urlSession enabled closure', () => {
+    const arg = buildSwiftInstrumentationsArg({
+      urlSession: { enabled: true },
+    });
+    expect(arg).toContain('config.urlSession { $0.enabled(true) }');
   });
 
   it('emits sessions maxLifetime and shouldPersist', () => {
-    const arg = buildSwiftInstrumentationsArg(
-      {
-        sessions: {
-          enabled: true,
-          maxLifetimeSeconds: 3600,
-          backgroundInactivityTimeoutSeconds: 120,
-          shouldPersist: false,
-        },
+    const arg = buildSwiftInstrumentationsArg({
+      sessions: {
+        enabled: true,
+        maxLifetimeSeconds: 3600,
+        backgroundInactivityTimeoutSeconds: 120,
+        shouldPersist: false,
       },
-      base
-    );
+    });
     expect(arg).toContain('config.sessions { s in');
     expect(arg).toContain('s.maxLifetime(3600)');
     expect(arg).toContain('s.backgroundInactivityTimeout(120)');
@@ -254,8 +215,8 @@ describe('Expo AppDelegate merge (fixtures)', () => {
 
   it('merges initialization after reactNativeFactory assignment', () => {
     const init = buildSwiftPulseSdkInitialization({
-      endpointBaseUrl: 'http://127.0.0.1:4318',
       apiKey: 'k',
+      dataCollectionState: 'PENDING',
     });
     const out = mergeContents({
       src: EXPO_APP_DELEGATE_SNIPPET,

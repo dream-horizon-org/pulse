@@ -52,4 +52,11 @@ public class ApplicationConfig {
     }
     return Math.max(MIN_SYNC_INTERVAL_SECONDS, usageLimitNotificationIntervalSeconds);
   }
+  
+  // Batch job configuration
+  private String batchFunnelsEndpoint = "/internal/analytics/funnels";
+  private String batchJourneysEndpoint = "/internal/analytics/journeys"; 
+  private String batchEventsEndpoint = "/internal/analytics/events";
+  private String batchScheduleTime = "02:00"; // UTC time in HH:mm format
+  private boolean batchJobsEnabled = true;
 }

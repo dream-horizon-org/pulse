@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetrySdk
 import OpenTelemetryProtocolExporterCommon
 
@@ -32,7 +35,7 @@ public class OtlpTraceJsonExporter: SpanExporter {
         let span = try JSONDecoder().decode(OtlpSpan.self, from: jsonData)
         exportedSpans.append(span)
       } catch {
-        print("Decode Error: \(error)")
+        PulseLogger.debug("Trace JSON decode error: \(error.localizedDescription)")
       }
       return .success
     } catch {

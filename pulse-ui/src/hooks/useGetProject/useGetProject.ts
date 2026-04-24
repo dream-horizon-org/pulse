@@ -25,6 +25,11 @@ export const useGetProject = ({
         url: `${API_BASE_URL}${route.apiPath.replace(":projectId", projectId)}`,
         init: {
           method: route.method,
+          headers: {
+            // OpenFGA + TenantFilter require X-Project-ID; sessionStorage may be empty
+            // before setProject (e.g. navigateToProject, deep link) so URL id must be sent.
+            "X-Project-ID": projectId,
+          },
         },
       });
     },

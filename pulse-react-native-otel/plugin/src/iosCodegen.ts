@@ -24,21 +24,6 @@ function escapeSwiftString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function buildSwiftEndpointHeadersLiteral(
-  headers: Record<string, string>
-): string {
-  const entries = Object.entries(headers).filter(
-    ([, v]) => v !== undefined && v !== ''
-  );
-  if (entries.length === 0) {
-    return 'nil';
-  }
-  const lines = entries.map(
-    ([k, v]) => `      "${escapeSwiftString(k)}": "${escapeSwiftString(v)}"`
-  );
-  return `[\n${lines.join(',\n')}\n    ]`;
-}
-
 function buildSwiftGlobalAttributesLiteral(
   attributes: PulseAttributes
 ): string {
@@ -104,8 +89,8 @@ function buildSwiftGlobalAttributesLiteral(
   return `[\n${lines.join(',\n')}\n    ]`;
 }
 
-function swiftConsentCase(state: PulseDataCollectionState | undefined): string {
-  switch (state ?? 'PENDING') {
+function swiftConsentCase(state: PulseDataCollectionState): string {
+  switch (state) {
     case 'ALLOWED':
       return 'allowed';
     case 'DENIED':
@@ -172,36 +157,12 @@ function emitIosInstrumentationEnabled(
 
 function emitIosUrlSession(
   body: string[],
-  cfg: PulseIosUrlSessionInstrumentation | undefined,
-  endpointBaseUrl: string
+  cfg: PulseIosUrlSessionInstrumentation | undefined
 ): void {
-  if (cfg === undefined) {
+  if (cfg === undefined || cfg.enabled === undefined) {
     return;
   }
-  const useExclude = cfg.excludeOtlpEndpoints === true;
-  const hasEnabled = cfg.enabled !== undefined;
-  if (!useExclude && hasEnabled) {
-    body.push(`      config.urlSession { $0.enabled(${cfg.enabled}) }`);
-    return;
-  }
-  if (!useExclude && !hasEnabled) {
-    return;
-  }
-  const lines: string[] = [];
-  if (cfg.enabled !== undefined) {
-    lines.push(`u.enabled(${cfg.enabled})`);
-  }
-  if (useExclude) {
-    lines.push(
-      `u.excludeOtlpEndpoints(baseUrl: "${escapeSwiftString(endpointBaseUrl)}")`
-    );
-  }
-  if (lines.length === 0) {
-    return;
-  }
-  body.push(
-    `      config.urlSession { u in\n        ${lines.join('\n        ')}\n      }`
-  );
+  body.push(`      config.urlSession { $0.enabled(${cfg.enabled}) }`);
 }
 
 function emitIosSessions(
@@ -249,9 +210,6 @@ function emitIosInteraction(
   const parts: string[] = [];
   if (cfg.enabled !== undefined) {
     parts.push(`$0.enabled(${cfg.enabled})`);
-  }
-  if (cfg.configUrl !== undefined && cfg.configUrl !== '') {
-    parts.push(`$0.setConfigUrl { "${escapeSwiftString(cfg.configUrl)}" }`);
   }
   if (parts.length > 0) {
     body.push(`      config.interaction { ${parts.join('; ')} }`);
@@ -370,14 +328,13 @@ function emitIosSessionReplay(
 
 /** Swift `instrumentations:` closure or `nil`. */
 export function buildSwiftInstrumentationsArg(
-  inst: PulseIosInstrumentationProps | undefined,
-  endpointBaseUrl: string
+  inst: PulseIosInstrumentationProps | undefined
 ): string {
   if (!inst) {
     return 'nil';
   }
   const body: string[] = [];
-  emitIosUrlSession(body, inst.urlSession, endpointBaseUrl);
+  emitIosUrlSession(body, inst.urlSession);
   emitIosSessions(body, inst.sessions);
   emitIosInstrumentationEnabled(body, 'signPost', inst.signPost);
   emitIosInteraction(body, inst.interaction);
@@ -399,54 +356,30 @@ export function buildSwiftPulseSdkInitialization(
   props: ResolvedIosPulseProps
 ): string {
   const {
-    endpointBaseUrl,
     apiKey,
     dataCollectionState,
-    endpointHeaders,
-    configEndpointUrl,
-    customEventCollectorUrl,
     globalAttributes,
     configuration,
     instrumentation,
   } = props;
-
-  const endpointHeadersArg =
-    endpointHeaders && Object.keys(endpointHeaders).length > 0
-      ? buildSwiftEndpointHeadersLiteral(endpointHeaders)
-      : 'nil';
 
   const globalAttrsArg =
     globalAttributes && Object.keys(globalAttributes).length > 0
       ? buildSwiftGlobalAttributesLiteral(globalAttributes)
       : 'nil';
 
-  const configUrlArg = configEndpointUrl
-    ? `"${escapeSwiftString(configEndpointUrl)}"`
-    : 'nil';
-
-  const customEventUrlArg = customEventCollectorUrl?.trim()
-    ? `"${escapeSwiftString(customEventCollectorUrl.trim())}"`
-    : 'nil';
-
   const consent = swiftConsentCase(dataCollectionState);
   const configurationArg = buildSwiftConfigurationArg(configuration);
-  const instrumentationsArg = buildSwiftInstrumentationsArg(
-    instrumentation,
-    endpointBaseUrl
-  );
+  const instrumentationsArg = buildSwiftInstrumentationsArg(instrumentation);
 
   return `
     PulseSDK.initialize(
-      endpointBaseUrl: "${escapeSwiftString(endpointBaseUrl)}",
       apiKey: "${escapeSwiftString(apiKey)}",
-      configEndpointUrl: ${configUrlArg},
-      customEventCollectorUrl: ${customEventUrlArg},
-      endpointHeaders: ${endpointHeadersArg},
+      dataCollectionState: .${consent},
       globalAttributes: ${globalAttrsArg},
       resource: nil,
       configuration: ${configurationArg},
       instrumentations: ${instrumentationsArg},
-      dataCollectionState: .${consent},
       beforeSendSpan: nil,
       beforeSendLog: nil,
       beforeSendMetric: nil,

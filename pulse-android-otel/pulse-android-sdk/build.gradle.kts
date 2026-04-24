@@ -19,6 +19,7 @@ dependencies {
     api(projects.instrumentation.sessionReplay)
     api(projects.instrumentation.viewClick)
     api(projects.instrumentation.compose.click)
+    api(projects.pulseUtils)
     implementation(projects.pulseAndroidSdkInternal)
     implementation(platform(libs.opentelemetry.platform.alpha))
     implementation(libs.opentelemetry.api)

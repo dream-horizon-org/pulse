@@ -25,6 +25,7 @@ import org.dreamhorizon.pulsealertscron.config.ConfigUtils;
 import org.dreamhorizon.pulsealertscron.constant.Constants;
 import org.dreamhorizon.pulsealertscron.guice.GuiceInjector;
 import org.dreamhorizon.pulsealertscron.services.AlertsService;
+import org.dreamhorizon.pulsealertscron.services.BatchSchedulerService;
 import org.dreamhorizon.pulsealertscron.services.CronManager;
 import org.dreamhorizon.pulsealertscron.services.PeriodicSyncService;
 import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
@@ -35,6 +36,7 @@ public class MainVerticle extends AbstractVerticle {
   private WebClient webClient;
   private ApplicationConfig applicationConfig;
   private PeriodicSyncService periodicSyncService;
+  private BatchSchedulerService batchSchedulerService;
 
   private static final AtomicBoolean alertCronMethodCalled = new AtomicBoolean(false);
 
@@ -93,6 +95,7 @@ public class MainVerticle extends AbstractVerticle {
   private void initCrons() {
     this.initAlertsFromDbOnce();
     this.initPeriodicSync();
+    this.initBatchScheduler();
   }
 
   private void initPeriodicSync() {
@@ -102,6 +105,16 @@ public class MainVerticle extends AbstractVerticle {
       this.periodicSyncService.start();
     } catch (Exception e) {
       log.error("❌ Failed to initialize Periodic Sync Service", e);
+    }
+  }
+
+  private void initBatchScheduler() {
+    log.info("[initBatchScheduler] Initializing Batch Scheduler Service...");
+    try {
+      this.batchSchedulerService = GuiceInjector.getGuiceInjector().getInstance(BatchSchedulerService.class);
+      this.batchSchedulerService.start();
+    } catch (Exception e) {
+      log.error("[initBatchScheduler] Failed to initialize Batch Scheduler Service", e);
     }
   }
 
@@ -139,13 +152,22 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public Completable rxStop() {
+    log.info("[rxStop] Stopping MainVerticle...");
+    
+    // Stop batch scheduler
+    if (batchSchedulerService != null) {
+      batchSchedulerService.stop();
+    }
+    
+    // Stop periodic sync
     if (periodicSyncService != null) {
       periodicSyncService.stop();
     }
+    
     if (webClient != null) {
       webClient.close();
     }
     return Completable.complete()
-        .doOnComplete(() -> log.info("MainVerticle stopped successfully"));
+        .doOnComplete(() -> log.info("[rxStop] MainVerticle stopped successfully"));
   }
 }

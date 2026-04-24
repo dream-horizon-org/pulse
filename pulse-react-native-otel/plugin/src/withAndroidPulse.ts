@@ -1,12 +1,12 @@
 import type { ConfigPlugin } from '@expo/config-plugins';
-import { withMainApplication } from '@expo/config-plugins';
+import { withAppBuildGradle, withMainApplication } from '@expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 
+import { mergePulseCoreLibraryDesugaringCompileOptions } from './androidDesugarGradleMerge';
 import {
   PULSE_IMPORT,
   PULSE_DATA_COLLECTION_CONSENT_IMPORT,
   ATTRIBUTES_IMPORT,
-  PULSE_HTTP_ENDPOINT_CONNECTIVITY_IMPORT,
   buildPulseInitializationCode,
 } from './utils';
 import type { ResolvedAndroidPulseProps } from './types';
@@ -15,18 +15,10 @@ export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
   config,
   props: ResolvedAndroidPulseProps
 ) => {
-  return withMainApplication(config, (modConfig) => {
+  config = withMainApplication(config, (modConfig) => {
     try {
-      const {
-        endpointBaseUrl,
-        apiKey,
-        dataCollectionState,
-        endpointHeaders,
-        configEndpointUrl,
-        customEventCollectorUrl,
-        globalAttributes,
-        instrumentation,
-      } = props;
+      const { apiKey, dataCollectionState, globalAttributes, instrumentation } =
+        props;
 
       // 1. Add import statements
       modConfig.modResults.contents = mergeContents({
@@ -58,24 +50,9 @@ export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
         }).contents;
       }
 
-      if (customEventCollectorUrl?.trim()) {
-        modConfig.modResults.contents = mergeContents({
-          src: modConfig.modResults.contents,
-          newSrc: PULSE_HTTP_ENDPOINT_CONNECTIVITY_IMPORT,
-          tag: 'pulse-http-endpoint-connectivity-import',
-          comment: '//',
-          anchor: /import\s+com\.pulsereactnativeotel\.Pulse/,
-          offset: 1,
-        }).contents;
-      }
-
       const initCode = buildPulseInitializationCode({
-        endpointBaseUrl,
         apiKey,
         dataCollectionState,
-        endpointHeaders,
-        configEndpointUrl,
-        customEventCollectorUrl,
         globalAttributes,
         instrumentation,
       });
@@ -96,4 +73,37 @@ export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
       return modConfig;
     }
   });
+
+  config = withAppBuildGradle(config, (modConfig) => {
+    try {
+      const { coreLibraryDesugaring } = props;
+      if (!coreLibraryDesugaring.enabled) {
+        return modConfig;
+      }
+
+      const version = coreLibraryDesugaring.version;
+      const desugarDep = `    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:${version}'\n`;
+
+      modConfig.modResults.contents =
+        mergePulseCoreLibraryDesugaringCompileOptions(
+          modConfig.modResults.contents
+        );
+
+      modConfig.modResults.contents = mergeContents({
+        src: modConfig.modResults.contents,
+        newSrc: desugarDep,
+        tag: 'pulse-android-desugar-jdk-libs',
+        comment: '//',
+        anchor: /dependencies\s*\{/,
+        offset: 1,
+      }).contents;
+
+      return modConfig;
+    } catch (error) {
+      console.error('Error modifying app build.gradle:', error);
+      return modConfig;
+    }
+  });
+
+  return config;
 };

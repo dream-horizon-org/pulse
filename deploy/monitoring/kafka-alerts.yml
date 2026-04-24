@@ -1,0 +1,240 @@
+---
+# Kafka Prometheus Alert Rules
+#
+# Place this file in your Prometheus rules directory and add to prometheus.yml:
+#   rule_files:
+#     - /etc/prometheus/rules/kafka-alerts.yml
+
+groups:
+  - name: kafka.nodes
+    rules:
+
+      # ----------------------------------------------------------------
+      # Disk — most common cause of broker outages
+      # ----------------------------------------------------------------
+      - alert: KafkaDiskSpaceWarning
+        expr: >
+          (node_filesystem_avail_bytes{job="kafka-nodes", mountpoint="/var/lib/kafka"}
+          / node_filesystem_size_bytes{job="kafka-nodes", mountpoint="/var/lib/kafka"}) < 0.25
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka disk space low on {{ $labels.broker }}"
+          description: "Less than 25% disk space remaining on /var/lib/kafka on {{ $labels.broker }}."
+
+      - alert: KafkaDiskSpaceCritical
+        expr: >
+          (node_filesystem_avail_bytes{job="kafka-nodes", mountpoint="/var/lib/kafka"}
+          / node_filesystem_size_bytes{job="kafka-nodes", mountpoint="/var/lib/kafka"}) < 0.10
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka disk space critical on {{ $labels.broker }}"
+          description: "Less than 10% disk space remaining on /var/lib/kafka on {{ $labels.broker }}. Broker will stop accepting writes."
+
+      # ----------------------------------------------------------------
+      # CPU and memory
+      # ----------------------------------------------------------------
+      - alert: KafkaHighCPU
+        expr: >
+          100 - (avg by (broker) (rate(node_cpu_seconds_total{job="kafka-nodes", mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.broker }}"
+          description: "CPU usage is above 85% on {{ $labels.broker }} for 10 minutes."
+
+      - alert: KafkaHighMemory
+        expr: >
+          (1 - (node_memory_MemAvailable_bytes{job="kafka-nodes"}
+          / node_memory_MemTotal_bytes{job="kafka-nodes"})) > 0.90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.broker }}"
+          description: "Memory usage is above 90% on {{ $labels.broker }}."
+
+      # ----------------------------------------------------------------
+      # Node availability
+      # ----------------------------------------------------------------
+      - alert: KafkaNodeDown
+        expr: up{job="kafka-nodes"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka node unreachable ({{ $labels.broker }})"
+          description: "node_exporter on {{ $labels.broker }} has been unreachable for more than 1 minute."
+
+  - name: kafka.broker
+    rules:
+
+      # ----------------------------------------------------------------
+      # Broker availability
+      # ----------------------------------------------------------------
+      - alert: KafkaBrokerDown
+        expr: up{job="kafka"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka broker down ({{ $labels.broker }})"
+          description: "Broker {{ $labels.broker }} has been unreachable for more than 1 minute."
+
+      # ----------------------------------------------------------------
+      # Partition health — most critical alerts
+      # ----------------------------------------------------------------
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Under-replicated partitions on {{ $labels.broker }}"
+          description: "{{ $value }} partitions are under-replicated on {{ $labels.broker }} for more than 5 minutes."
+
+      - alert: KafkaOfflinePartitions
+        expr: kafka_controller_kafkacontroller_offlinepartitionscount > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Offline partitions detected"
+          description: "{{ $value }} partitions are offline. Immediate action required."
+
+      - alert: KafkaUnderMinISR
+        expr: kafka_server_replicamanager_underminisrpartitioncount > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Partitions below min ISR on {{ $labels.broker }}"
+          description: "{{ $value }} partitions are below min.insync.replicas on {{ $labels.broker }}. Produce with acks=all will fail."
+
+      # ----------------------------------------------------------------
+      # Controller health
+      # ----------------------------------------------------------------
+      - alert: KafkaNoActiveController
+        expr: sum(kafka_controller_kafkacontroller_activecontrollercount) by (cluster) != 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka has no active controller"
+          description: "Active controller count is {{ $value }}. Expected exactly 1."
+
+      - alert: KafkaUncleanLeaderElection
+        expr: rate(kafka_controller_controllerstats_uncleanleaderelectionspersec_rate[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Unclean leader election on {{ $labels.broker }}"
+          description: "Unclean leader election detected — possible data loss."
+
+      # ----------------------------------------------------------------
+      # ISR changes — indicator of instability
+      # ----------------------------------------------------------------
+      - alert: KafkaISRShrinking
+        expr: rate(kafka_server_replicamanager_isrshrinkspersec_rate[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ISR shrinking on {{ $labels.broker }}"
+          description: "ISR is shrinking on {{ $labels.broker }} — a follower is falling behind."
+
+      # ----------------------------------------------------------------
+      # Broker saturation
+      # ----------------------------------------------------------------
+      - alert: KafkaRequestHandlerHighLoad
+        expr: kafka_server_kafkarequesthandlerpool_requesthandleravgidlepercent < 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request handler load on {{ $labels.broker }}"
+          description: "Request handler idle ratio is {{ $value | humanizePercentage }} on {{ $labels.broker }}. Broker may be overloaded."
+
+      - alert: KafkaNetworkProcessorHighLoad
+        expr: kafka_network_socketserver_networkprocessoravgidlepercent < 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High network processor load on {{ $labels.broker }}"
+          description: "Network processor idle ratio is {{ $value | humanizePercentage }} on {{ $labels.broker }}."
+
+      # ----------------------------------------------------------------
+      # JVM health
+      # ----------------------------------------------------------------
+      - alert: KafkaHighJVMHeapUsage
+        expr: >
+          java_lang_memory_heapmemoryusage_used_bytes
+          /
+          java_lang_memory_heapmemoryusage_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap usage on {{ $labels.broker }}"
+          description: "JVM heap is {{ $value | humanizePercentage }} on {{ $labels.broker }}. Risk of GC pressure or OOM."
+
+      - alert: KafkaOfflineLogDirectory
+        expr: kafka_log_logmanager_offlinelogdirectorycount > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Offline log directory on {{ $labels.broker }}"
+          description: "{{ $value }} log directories are offline on {{ $labels.broker }}. Data may be inaccessible."
+
+  - name: kafka.consumer
+    rules:
+
+      # ----------------------------------------------------------------
+      # Consumer group lag — most important for data freshness
+      # ----------------------------------------------------------------
+      - alert: KafkaConsumerGroupLagHigh
+        expr: kafka_consumergroup_lag > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer lag high — {{ $labels.consumergroup }} on {{ $labels.topic }}"
+          description: "Consumer group {{ $labels.consumergroup }} is {{ $value }} messages behind on topic {{ $labels.topic }} (partition {{ $labels.partition }})."
+
+      - alert: KafkaConsumerGroupLagCritical
+        expr: kafka_consumergroup_lag > 100000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Consumer lag critical — {{ $labels.consumergroup }} on {{ $labels.topic }}"
+          description: "Consumer group {{ $labels.consumergroup }} is {{ $value }} messages behind on topic {{ $labels.topic }}. Data freshness severely impacted."
+
+      - alert: KafkaConsumerGroupLagGrowing
+        expr: >
+          rate(kafka_consumergroup_lag[10m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer lag growing — {{ $labels.consumergroup }} on {{ $labels.topic }}"
+          description: "Consumer group {{ $labels.consumergroup }} lag is continuously growing on topic {{ $labels.topic }}. Consumer may be stuck or too slow."
+
+      - alert: KafkaConsumerGroupNotConsuming
+        expr: >
+          kafka_consumergroup_lag > 0
+          and
+          rate(kafka_consumergroup_current_offset[5m]) == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Consumer group stopped — {{ $labels.consumergroup }}"
+          description: "Consumer group {{ $labels.consumergroup }} has lag on topic {{ $labels.topic }} but offset has not advanced in 10 minutes. Consumer may be down."

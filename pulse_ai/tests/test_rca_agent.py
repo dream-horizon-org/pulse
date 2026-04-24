@@ -1,13 +1,14 @@
-"""Tests for RCA agent and pipeline — TDD RED phase.
+"""Tests for RCA agent — Single-agent architecture.
 
 Tests cover:
-1. RCA agent wiring (model, output_key, no tools, callable instruction)
-2. RCA prompt content (hierarchy analysis, correlation, threshold flags)
-3. RCA pipeline structure (SequentialAgent with rca_agent + rca_formatter_agent)
-4. Report agent genericization (callable prompt reads from EM state key)
+1. RCA agent wiring (model, output_key, output_schema, no tools, callable instruction)
+2. RCA prompt content (hierarchy analysis, correlation, threshold flags, structured output)
+3. Report agent genericization (callable prompt reads from EM state key)
 """
 
 import pytest
+
+from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 
 
 # ──────────────────────────────────────────────────────────────
@@ -44,11 +45,16 @@ class TestRcaAgentWiring:
 
     def test_rca_agent_name(self):
         from pulse_ai.agents.rca import rca_agent
-        assert rca_agent.name == "RcaAnalyzerAgent"
+        assert rca_agent.name == "RcaAgent"
 
     def test_rca_agent_output_key(self):
         from pulse_ai.agents.rca import rca_agent
-        assert rca_agent.output_key == "rca_analysis_result"
+        assert rca_agent.output_key == "rca_structured_report"
+
+    def test_rca_agent_output_schema(self):
+        """RCA agent produces structured JSON via output_schema."""
+        from pulse_ai.agents.rca import rca_agent
+        assert rca_agent.output_schema == RcaStructuredReportV1
 
     def test_rca_agent_no_tools(self):
         """RCA agent is a pure reasoning agent — no tools needed."""
@@ -63,6 +69,11 @@ class TestRcaAgentWiring:
         from pulse_ai.agents.rca import rca_agent
         assert rca_agent.description is not None
         assert "root cause" in rca_agent.description.lower()
+
+    def test_rca_agent_include_contents(self):
+        """RCA agent needs access to full conversation history for payload metrics."""
+        from pulse_ai.agents.rca import rca_agent
+        assert rca_agent.include_contents == "default"
 
 
 # ──────────────────────────────────────────────────────────────
@@ -80,9 +91,9 @@ class TestRcaPromptContent:
         prompt = self._get_prompt()
         assert "root cause" in prompt.lower()
 
-    def test_prompt_mentions_segment_hierarchy(self):
+    def test_prompt_mentions_segment(self):
         prompt = self._get_prompt()
-        assert "segment" in prompt.lower() or "hierarchy" in prompt.lower()
+        assert "segment" in prompt.lower()
 
     def test_prompt_mentions_correlation(self):
         prompt = self._get_prompt()
@@ -107,50 +118,29 @@ class TestRcaPromptContent:
         found = sum(1 for m in metrics if m in prompt.lower())
         assert found >= 3, f"Expected at least 3 key metrics mentioned, found {found}"
 
+    def test_prompt_mentions_output_schema(self):
+        """Prompt should reference structured JSON output schema."""
+        prompt = self._get_prompt()
+        assert "version" in prompt.lower()
+        assert "executive_summary" in prompt.lower()
+        assert "segments" in prompt.lower()
+        assert "recommendations" in prompt.lower()
+        assert "error_attribution_insights" in prompt.lower()
+        assert "error_attribution" in prompt.lower()
 
-# ──────────────────────────────────────────────────────────────
-# 3. RCA pipeline structure
-# ──────────────────────────────────────────────────────────────
+    def test_prompt_mentions_affected_sessions(self):
+        """Prompt should reference affected_sessions field."""
+        prompt = self._get_prompt()
+        assert "affected_sessions" in prompt.lower()
 
-class TestRcaPipeline:
-    """Verify rca_pipeline is a SequentialAgent with rca_agent + rca_formatter_agent."""
-
-    def test_rca_pipeline_exists(self):
-        from pulse_ai.agents.rca import rca_pipeline_agent
-        assert rca_pipeline_agent is not None
-
-    def test_rca_pipeline_is_sequential(self):
-        from google.adk.agents.sequential_agent import SequentialAgent
-        from pulse_ai.agents.rca import rca_pipeline_agent
-        assert isinstance(rca_pipeline_agent, SequentialAgent)
-
-    def test_rca_pipeline_name(self):
-        from pulse_ai.agents.rca import rca_pipeline_agent
-        assert rca_pipeline_agent.name == "RcaPipeline"
-
-    def test_rca_pipeline_has_two_sub_agents(self):
-        from pulse_ai.agents.rca import rca_pipeline_agent
-        assert rca_pipeline_agent.sub_agents is not None
-        assert len(rca_pipeline_agent.sub_agents) == 2
-
-    def test_rca_pipeline_first_agent_is_rca(self):
-        from pulse_ai.agents.rca import rca_pipeline_agent
-        first = rca_pipeline_agent.sub_agents[0]
-        assert first.name == "RcaAnalyzerAgent"
-
-    def test_rca_pipeline_second_agent_is_formatter(self):
-        from pulse_ai.agents.rca import rca_pipeline_agent
-        second = rca_pipeline_agent.sub_agents[1]
-        assert second.name == "RcaFormatterAgent"
-
-    def test_rca_pipeline_has_description(self):
-        from pulse_ai.agents.rca import rca_pipeline_agent
-        assert rca_pipeline_agent.description is not None
-        assert "rca" in rca_pipeline_agent.description.lower()
+    def test_prompt_mentions_example_session_ids(self):
+        """Prompt should reference exampleSessionIds from payload."""
+        prompt = self._get_prompt()
+        assert "examplesessionids" in prompt.lower() or "example_session_ids" in prompt.lower()
 
 
 # ──────────────────────────────────────────────────────────────
-# 4. Report agent genericization — callable prompt with multi-key state
+# 3. Report agent genericization — callable prompt with multi-key state
 # ──────────────────────────────────────────────────────────────
 
 class TestReportAgentGeneric:
@@ -190,7 +180,7 @@ class TestReportAgentGeneric:
 
 
 # ──────────────────────────────────────────────────────────────
-# 5. RCA analyzer prompt must NOT contain "Instructions for Report Agent"
+# 4. RCA prompt must NOT contain "Instructions for Report Agent"
 # ──────────────────────────────────────────────────────────────
 
 class TestRcaAnalyzerPromptClean:
@@ -212,22 +202,20 @@ class TestRcaAnalyzerPromptClean:
         prompt = self._get_rca_prompt()
         assert "do not include:" not in prompt.lower()
 
-    def test_rca_prompt_output_sections_are_only_rca_analysis_and_executive_summary(self):
-        """The prompt's output format must define exactly 2 sections:
-        'RCA Analysis' and 'Executive Summary'. No extra instructions block."""
-        prompt = self._get_rca_prompt()
-        # Both mandatory sections must still exist
-        assert "rca analysis" in prompt.lower()
-        assert "executive summary" in prompt.lower()
+    def test_rca_prompt_has_json_output_instructions(self):
+        """The prompt must define structured JSON output format."""
+        from pulse_ai.agents.rca.prompts import build_rca_prompt
+        prompt = build_rca_prompt(None)
+        assert "output schema" in prompt.lower() or "json" in prompt.lower()
 
 
 # ──────────────────────────────────────────────────────────────
-# 6. root_agent must be the EM pipeline (not rca_pipeline)
+# 5. root_agent must be the EM pipeline (not rca agent)
 # ──────────────────────────────────────────────────────────────
 
 class TestRootAgentIsEmPipeline:
     """Verify root_agent is the EM SequentialAgent pipeline,
-    not rca_pipeline. The rca_pipeline is run separately via rca_runner."""
+    not rca_agent. The rca_agent is run separately via rca_runner."""
 
     def test_root_agent_name_is_root_agent(self):
         from pulse_ai.agent import root_agent
@@ -235,12 +223,12 @@ class TestRootAgentIsEmPipeline:
 
     def test_root_agent_first_sub_agent_is_em(self):
         from pulse_ai.agent import root_agent
-        assert root_agent.sub_agents[0].name == "em_agent"
+        assert root_agent.sub_agents[0].name == "EMAgent"
 
     def test_root_agent_second_sub_agent_is_report(self):
         from pulse_ai.agent import root_agent
         assert root_agent.sub_agents[1].name == "ReportAgent"
 
-    def test_root_agent_is_not_rca_pipeline(self):
+    def test_root_agent_is_not_rca_agent(self):
         from pulse_ai.agent import root_agent
-        assert root_agent.name != "rca_pipeline"
+        assert root_agent.name != "RcaAgent"
