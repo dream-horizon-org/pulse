@@ -10,6 +10,7 @@ import type {
   PulseBrowserTraceExporter,
   PulseBrowserLogExporter,
 } from "../exporters/pulse-browser-otlp-exporters";
+import type { ResolvedBeforeSend } from "./before-send";
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
@@ -41,6 +42,9 @@ export interface ExporterConfig {
     maxAgeMs?: number;
     maxCacheSizeBytes?: number;
   };
+
+  /** Resolved Android-style export-time hooks (`PulseWebConfig.beforeSendData`); optional. */
+  beforeSendData?: ResolvedBeforeSend;
 }
 
 export interface ProviderBundle {

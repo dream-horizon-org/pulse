@@ -12,6 +12,7 @@ import type {
   PulseSignalMatchCondition,
   PulseSignalsToSampleEntry,
 } from "./types/remote-config";
+import { PulseWebLogger } from "./pulse-web-logger";
 
 export type {
   PulseAttributeValue,
@@ -185,15 +186,20 @@ export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
   };
 }
 
-/** Temporary dev tracing — grep `PulseWeb:sdkConfig` or `sdkConfigDevLog` to remove. */
 function sdkConfigDevLog(
   phase: string,
   detail?: Record<string, unknown>,
 ): void {
   if (detail === undefined) {
-    console.log("[PulseWeb:sdkConfig]", phase);
+    PulseWebLogger.debug(`[sdkConfig] ${phase}`);
   } else {
-    console.log("[PulseWeb:sdkConfig]", phase, detail);
+    let encoded: string;
+    try {
+      encoded = JSON.stringify(detail);
+    } catch {
+      encoded = String(detail);
+    }
+    PulseWebLogger.debug(`[sdkConfig] ${phase} ${encoded}`);
   }
 }
 

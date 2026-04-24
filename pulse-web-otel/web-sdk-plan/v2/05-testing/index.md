@@ -72,7 +72,7 @@ vi.stubGlobal('navigator', {
 |---|---|
 | `session.ts` | Installation ID persistence; session ID rotation after 30 min; new session on first call |
 | `resource.ts` | All resource attributes present; `project.id` extracted correctly; fallback for missing UA |
-| `config.ts` | Invalid config throws; defaults applied; `beforeSend` returning null drops signal |
+| `config.ts` | Invalid config throws; defaults applied; `beforeSendData` returning null drops signal |
 | `sdk.ts` | Double `start()` is no-op; `shutdown()` flushes; consent DENIED drops all signals |
 | `instrumentations/errors.ts` | `window.onerror` → `device.crash` log record with stack; `unhandledrejection` → `non_fatal` |
 | `instrumentations/network.ts` | Pulse OTLP endpoints excluded from tracing; GraphQL op name extracted |

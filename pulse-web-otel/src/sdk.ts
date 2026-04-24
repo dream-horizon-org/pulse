@@ -18,13 +18,18 @@ import type {
 } from "./exporters/pulse-browser-otlp-exporters";
 
 import type { PulseWebConfig } from "./config";
-import { resolveEndpointBaseUrl, validateConfig } from "./config";
+import {
+  resolveEndpointBaseUrl,
+  validateConfig,
+  PulseLogLevel,
+} from "./config";
+import { PulseWebLogger } from "./pulse-web-logger";
 import {
   SessionProvider,
   getOrCreateInstallationId,
   wasNewInstallation,
 } from "./session";
-import { buildResource } from "./resource";
+import { buildMergedResource } from "./resource";
 import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
 import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
 import { FeatureGate } from "./feature-gate";
@@ -44,6 +49,7 @@ import {
   resolveDiskBufferMaxAgeMs,
   resolveDiskBufferMaxCacheSizeBytes,
 } from "./constants/disk-buffer";
+import { resolveBeforeSend } from "./before-send";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -77,10 +83,9 @@ class PulseWebSDK implements SdkContext {
 
   start(config: PulseWebConfig): void {
     if (this._initialized || this._shuttingDown || this._starting) return;
-
     // Step 1: Validate config
     validateConfig(config);
-
+    PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
     // Step 1.5: Resolve endpointBaseUrl from apiKey (internal — not a public config field)
     const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey);
 
@@ -120,7 +125,7 @@ class PulseWebSDK implements SdkContext {
       this._starting = false;
       return;
     }
-    const resource = buildResource(config, resolvedOsVersion);
+    const resource = buildMergedResource(config, resolvedOsVersion);
 
     // Step 4: Load cached SDK config
     const projectId = extractProjectId(config.apiKey);
@@ -147,11 +152,11 @@ class PulseWebSDK implements SdkContext {
 
     const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
 
-    const debugLifecycle = config.debugLogRecordLifecycle === true;
-    const ingressDebugProc = debugLifecycle
+    const lifecycleDebug = PulseWebLogger.getLevel() <= PulseLogLevel.DEBUG;
+    const ingressDebugProc = lifecycleDebug
       ? new LogRecordLifecycleDebugProcessor("ingress")
       : null;
-    const preBatchDebugProc = debugLifecycle
+    const preBatchDebugProc = lifecycleDebug
       ? new LogRecordLifecycleDebugProcessor("pre_batch")
       : null;
     const logProcessors = [
@@ -163,6 +168,7 @@ class PulseWebSDK implements SdkContext {
 
     const diskOn = config.diskBuffering?.enabled !== false;
     const disk = config.diskBuffering;
+    const beforeSendResolved = resolveBeforeSend(config.beforeSendData);
     const exporterConfig = {
       endpointBaseUrl,
       apiKey: config.apiKey,
@@ -183,6 +189,7 @@ class PulseWebSDK implements SdkContext {
             ),
           }
         : { enabled: false },
+      ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
     };
 
     const bundle = createProviders(
@@ -281,6 +288,7 @@ class PulseWebSDK implements SdkContext {
 
     this._initialized = false;
     this._shuttingDown = false;
+    PulseWebLogger.setLevel(PulseLogLevel.NONE);
     // _starting already reset above
   }
 

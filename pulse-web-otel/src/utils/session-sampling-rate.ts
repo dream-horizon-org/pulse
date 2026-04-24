@@ -3,13 +3,13 @@
 import type { ReadableLogRecord } from "@opentelemetry/sdk-logs";
 
 import { PulseWebSemconv } from "../semconv";
-import type { ParsedUA } from "../types/ua";
 import type {
   PulseSdkConfig,
   PulseSdkName,
   PulseSessionSamplingRule,
   PulseSignalMatchCondition,
 } from "../types/remote-config";
+import type { SessionSamplingRuleMatchContext } from "../types/sampling";
 import { parseUserAgent } from "./ua-parser";
 
 const RUM_PLATFORM_WEB = PulseWebSemconv.FixedValue.PLATFORM_WEB;
@@ -43,13 +43,7 @@ export function clamp01(r: number): number {
   return r;
 }
 
-/** Values aligned with RUM resource / global attrs where applicable (snapshot at match time). */
-export interface SessionSamplingRuleMatchContext {
-  serviceVersion: string;
-  parsedUa: ParsedUA;
-  networkType: string;
-  networkEffectiveType: string;
-}
+export type { SessionSamplingRuleMatchContext } from "../types/sampling";
 
 export function buildSessionSamplingRuleMatchContext(
   serviceVersion?: string,
