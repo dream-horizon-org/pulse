@@ -134,7 +134,9 @@ export default function HomeScreen() {
                 </ScrollView>
               </View>
             ) : null}
-            <Text style={styles.heading} testID="app-title">Browse by category</Text>
+            <Text style={styles.heading} testID="app-title">
+              Browse by category
+            </Text>
           </>
         }
         renderItem={({ item, index }) => (

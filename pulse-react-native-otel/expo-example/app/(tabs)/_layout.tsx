@@ -21,9 +21,9 @@ export default function TabsLayout() {
   const badge =
     cartCount > 99 ? '99+' : cartCount > 0 ? String(cartCount) : undefined;
 
-  const tabBtn =
-    (testID: string) => (props: BottomTabBarButtonProps) =>
-      <PlatformPressable {...props} testID={testID} />;
+  const tabBtn = (testID: string) => (props: BottomTabBarButtonProps) => (
+    <PlatformPressable {...props} testID={testID} />
+  );
 
   return (
     <Tabs

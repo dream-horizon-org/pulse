@@ -10,7 +10,10 @@ export default function AccountScreen() {
   const signedIn = Boolean(token && username);
 
   return (
-    <View style={[styles.flex, { paddingBottom: insets.bottom + 16 }]} testID="account-tab">
+    <View
+      style={[styles.flex, { paddingBottom: insets.bottom + 16 }]}
+      testID="account-tab"
+    >
       <Text style={styles.heading}>Account</Text>
       {signedIn ? (
         <View style={styles.card}>
