@@ -238,39 +238,48 @@ public class RootCauseService {
   ) {
     double threshold = totalProblematic * (config.getSimilarityThresholdPct() / 100.0);
     int maxSegments = config.getMaxSegments();
+    boolean hybridEnabled = config.isHybridDimensionOrderingEnabled();
+
+    log.debug("[RCA-SEGMENT] Algorithm start: interaction={}, totalProblematic={}, threshold={} ({}%), maxSegments={}, hybridEnabled={}",
+        interactionName, totalProblematic, threshold, config.getSimilarityThresholdPct(), maxSegments, hybridEnabled);
 
     Single<List<String>> dimOrderSingle =
-        config.isHybridDimensionOrderingEnabled()
+        hybridEnabled
             ? computeHybridDimensionOrder(
                 projectId, interactionName, window, config.getDimensionOrder(), threshold)
             : Single.just(config.getDimensionOrder());
 
     return dimOrderSingle.flatMap(
-        dimOrder ->
-            pickFirstDimension(projectId, interactionName, window, dimOrder, threshold, totalProblematic)
-                .flatMap(
-                    optFirst -> {
-                      if (optFirst.isEmpty()) {
-                        return buildFlatSegments(
-                                projectId, interactionName, window, baseline, dimOrder, maxSegments)
-                            .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.FLAT));
-                      }
-                      FirstDimensionPick first = optFirst.get();
-                      return buildHierarchyThenFlat(
-                              projectId,
-                              interactionName,
-                              window,
-                              baseline,
-                              dimOrder,
-                              maxSegments,
-                              totalProblematic,
-                              threshold,
-                              first.dimOrderIndex(),
-                              List.of(first.path()))
-                          .map(
-                              segments ->
-                                  new SegmentsWithMode(segments, RootCauseAnalysisMode.HIERARCHICAL));
-                    }));
+        dimOrder -> {
+          log.info("[RCA-SEGMENT] Dimension order: {} (hybridEnabled={})", dimOrder, hybridEnabled);
+          return pickFirstDimension(projectId, interactionName, window, dimOrder, threshold, totalProblematic)
+              .flatMap(
+                  optFirst -> {
+                    if (optFirst.isEmpty()) {
+                      log.debug("[RCA-SEGMENT] No first dimension picked, falling to flat mode");
+                      return buildFlatSegments(
+                              projectId, interactionName, window, baseline, dimOrder, maxSegments)
+                          .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.FLAT));
+                    }
+                    FirstDimensionPick first = optFirst.get();
+                    log.debug("[RCA-SEGMENT] First dimension picked: index={}, dim={}, value={}",
+                        first.dimOrderIndex(), first.path().dimension(), first.path().value());
+                    return buildHierarchyThenFlat(
+                            projectId,
+                            interactionName,
+                            window,
+                            baseline,
+                            dimOrder,
+                            maxSegments,
+                            totalProblematic,
+                            threshold,
+                            first.dimOrderIndex(),
+                            List.of(first.path()))
+                        .map(
+                            segments ->
+                                new SegmentsWithMode(segments, RootCauseAnalysisMode.HIERARCHICAL));
+                  });
+        });
   }
 
   /**
@@ -314,6 +323,7 @@ public class RootCauseService {
     if (baseOrder.isEmpty()) {
       return Single.just(List.of());
     }
+    log.debug("[RCA-SEGMENT] Hybrid order computation start: interaction={}, threshold={}", interactionName, strongSignalThreshold);
     List<Single<Map.Entry<String, Long>>> maxQueries =
         baseOrder.stream()
             .map(
@@ -332,7 +342,8 @@ public class RootCauseService {
           }
           List<String> order =
               hybridDimensionOrderFromPrecomputedMaxes(baseOrder, dimMaxMap, strongSignalThreshold);
-          log.debug("RCA hybrid dimension order interactionName={}: {}", interactionName, order);
+          log.debug("[RCA-SEGMENT] Hybrid order computed: baseOrder={}, dimMaxMap={}, threshold={}, finalOrder={}",
+              baseOrder, dimMaxMap, strongSignalThreshold, order);
           return order;
         });
   }
@@ -367,6 +378,8 @@ public class RootCauseService {
       double threshold,
       long totalProblematic
   ) {
+    log.debug("[RCA-SEGMENT] pickFirstDimension start: interaction={}, dimOrder={}, threshold={}, totalProblematic={}",
+        interactionName, dimOrder, threshold, totalProblematic);
     return Observable.range(0, dimOrder.size())
         .concatMapMaybe(i -> {
           String dim = dimOrder.get(i);
@@ -374,13 +387,20 @@ public class RootCauseService {
               projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
           return executeQuery(projectId, q)
               .flatMapMaybe(rows -> {
+                log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: rowsCount={}, evaluating threshold={}", dim, rows.size(), threshold);
                 Optional<SegmentPath> path = pickClosestToTotal(rows, dim, totalProblematic, threshold);
+                if (path.isPresent()) {
+                  log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: PICKED value={}, dimension={}", dim, path.get().value(), path.get().dimension());
+                } else {
+                  log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: NO PICK (no value met threshold)", dim);
+                }
                 return path.map(p -> Maybe.just(new FirstDimensionPick(i, p))).orElseGet(Maybe::empty);
               });
         })
         .firstElement()
         .map(Optional::of)
-        .defaultIfEmpty(Optional.empty());
+        .defaultIfEmpty(Optional.empty())
+        .doOnSuccess(result -> log.debug("[RCA-SEGMENT] pickFirstDimension result: {}", result));
   }
 
   private Single<List<RootCauseSegment>> buildFlatSegments(
@@ -608,20 +628,31 @@ public class RootCauseService {
       long totalProblematic,
       double threshold
   ) {
+    log.debug("[RCA-SEGMENT] pickClosestToTotal: dimension={}, rows={}, totalProblematic={}, threshold={}",
+        dimensionColumn, rows.size(), totalProblematic, threshold);
     SegmentPath best = null;
     long bestDiff = Long.MAX_VALUE;
+    int considered = 0;
+    int skipped = 0;
     for (Map<String, Object> row : rows) {
       long count = NumberCoercionUtils.toLong(row.get("problematic_count"));
+      Object val = row.get(dimensionColumn);
       if (count < threshold) {
+        skipped++;
+        log.debug("[RCA-SEGMENT] pickClosestToTotal: SKIP value={}, count={} < threshold={}", val, count, threshold);
         continue;
       }
+      considered++;
       long diff = Math.abs(count - totalProblematic);
+      log.debug("[RCA-SEGMENT] pickClosestToTotal: CONSIDER value={}, count={}, diff={}, bestDiff={}", val, count, diff, bestDiff);
       if (diff < bestDiff) {
         bestDiff = diff;
-        Object val = row.get(dimensionColumn);
         best = new SegmentPath(dimensionColumn, val != null ? val.toString() : "", false);
+        log.debug("[RCA-SEGMENT] pickClosestToTotal: NEW BEST value={}, count={}, diff={}", val, count, diff);
       }
     }
+    log.debug("[RCA-SEGMENT] pickClosestToTotal result: dimension={}, considered={}, skipped={}, picked={}",
+        dimensionColumn, considered, skipped, best != null ? best.value() : "NONE");
     return Optional.ofNullable(best);
   }
 

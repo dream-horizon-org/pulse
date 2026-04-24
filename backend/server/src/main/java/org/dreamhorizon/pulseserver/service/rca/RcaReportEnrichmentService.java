@@ -96,7 +96,7 @@ public class RcaReportEnrichmentService {
               JsonNode resultNode = objectMapper.valueToTree(sanitizedResult);
               working.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
 
-              List<RootCauseSegment> segments = rootCauseResult.getSegments();
+              List<RootCauseSegment> segments = sanitizedResult.getSegments();
 
               if (segments.isEmpty()) {
                 return serializeEnrichedBody(working, rootCauseResult, date, windowEndExclusive)
