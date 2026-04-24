@@ -60,7 +60,9 @@ pulse-web-otel/
 │   ├── config.ts                     # PulseWebConfig interface + validation
 │   ├── session.ts                    # Session ID + installation ID (3-tier storage)
 │   ├── resource.ts                   # OTEL Resource builder (static browser attrs)
-│   ├── exporters.ts                  # OTLP exporters + BatchProcessor + gzip
+│   ├── exporters.ts                  # OTLP exporters + BatchProcessor; beforeSendData / BeforeSend* wrappers
+│   ├── before-send.ts                # beforeSendData config types + resolve/validate
+│   ├── exporters/before-send-exporters.ts  # BeforeSend span/log/metric exporters (Android parity)
 │   ├── consent.ts                    # PulseDataCollectionConsent guard
 │   ├── remote-config.ts              # SDK Config fetcher (sampling, feature gates)
 │   ├── feature-gate.ts               # Per-instrumentation enable/disable
@@ -142,6 +144,28 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 
 **Remote config at runtime:** `SdkConfigFetcher.loadCached()` (plus merge) feeds `FeatureGate` and `ExportSamplingGate` at `PulseWeb.start()`. **`fetchInBackground()` persists newer JSON to storage but does not rebuild those gates** — sampling and feature flags stay as at cold start until a **full page reload** (documented M1 scope).
 
+**`beforeSendData` (Android parity):** Public config key matches Android. Wired at export via `BeforeSend*Exporter` in `src/exporters/before-send-exporters.ts`; types `PulseWebBeforeSendConfig` / `PulseWebBeforeSendCallbacks` in `src/before-send.ts`. Semantics + main-thread contract → `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
+
+**Init config parity (Android vs Web):** `PulseSDK.initialize` (`pulse-android-otel/pulse-android-sdk/.../PulseSDK.kt`) vs `PulseWeb.start` / `PulseWebConfig` — types in `pulse-web-otel/src/types/config.ts` (`PulseWebConfig`, `InstrumentationConfig`, `PulseDataCollectionConsent`, …); `src/config.ts` re-exports for the package surface and implements `validateConfig` / endpoint helpers. Deeper rollout notes → `web-sdk-plan/v1/01-foundation/init-config-android-parity-plan.md`.
+
+| Area | Android (`initialize`) | Web (`PulseWebConfig`) | Parity |
+|------|--------------------------|-------------------------|--------|
+| **API key** | `apiKey` | `apiKey` | **Full** |
+| **Consent** | `dataCollectionState` | `dataCollectionState` | **Full** |
+| **Process / app context** | `application: Application` (required) | Implicit (`window` / document) | **N/A** (platform) |
+| **Service identity** | Usually via `resource { }` / attrs | `serviceName?`, `serviceVersion?` (+ internal `buildResource`) | **Partial** — same intent; web uses fields + internal resource |
+| **Extra resource attrs** | `resource: (ResourceBuilder.() -> Unit)?` | `resourceAttributes?: Record<...>` merged under Pulse resource; **Pulse wins** on key conflicts | **Partial** — behavioral; no public OTel `Resource` on web (avoids version coupling) |
+| **Global attrs** | `globalAttributes: (() -> Attributes)?` | `globalAttributes?: Record<string, string \| number \| boolean>` | **Partial** — same role; shape differs |
+| **Export-time hooks** | `beforeSendData: PulseBeforeSendData?` | `beforeSendData?: PulseWebBeforeSendConfig` | **Full** (key + hook semantics) |
+| **SDK logging** | `logLevel: PulseLogLevel = NONE` | `logLevel?: PulseLogLevel` (default `NONE` when omitted) | **Full** |
+| **Instrumentations** | `instrumentations: (InstrumentationConfiguration.() -> Unit)?` (DSL) | `instrumentations?: InstrumentationConfig` in `types/config.ts` (per-module `{ enabled }`; re-exported from `config.ts`) | **Partial** — per-module on/off; different surface |
+| **OTLP wire format** | Not on this `initialize` signature | `export?: { format?: "json" \| "protobuf" }` | **Web-only** (browser) |
+| **Failed-export buffering** | Default-on in stack; not this arity | `diskBuffering?: PulseWebDiskBufferingConfig` | **Partial** — same role; web exposes tuning |
+| **Routing / screen naming** | Activity / fragment / nav DSL | `routePatterns?` | **Web-only** (SPA) |
+| **Ingest / collector URL** | Not on `PulseSDK` snippet (internal / other API) | From `apiKey` via `resolveEndpointBaseUrl` (not on `PulseWebConfig`) | **Partial** — both SDK-fixed; web not on config object |
+
+**Summary:** four **Full** (apiKey, consent, `beforeSendData`, `logLevel`); five **Partial**; two **Web-only**; one **N/A**.
+
 ---
 
 ## Key Decisions
@@ -171,3 +195,4 @@ Primary Android references: `pulse-sampling/` (e.g. `PulseSamplingSignalProcesso
 | Session sampling rules (web vs Android, dashboard) | `web-sdk-plan/SAMPLING-RULES-WEB-PARITY.md` |
 | `metricsToAdd` (product + backend + Web gap) | `web-sdk-plan/METRICS-TO-ADD.md` |
 | `metricsToAdd` Web implementation plan | `web-sdk-plan/METRICS-TO-ADD-WEB-PLAN.md` |
+| `beforeSendData` / export hooks parity, main-thread contract, export order vs Android | `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md` |

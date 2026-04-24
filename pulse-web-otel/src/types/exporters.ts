@@ -6,6 +6,7 @@ import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 import type { ExportSamplingGate } from "../sampling/export-sampling-gate";
 import type { PulseMetricsToAddEntry, PulseSdkName } from "./remote-config";
 import type { IdbSignalBuffer } from "../persistence/indexed-db";
+import type { ResolvedBeforeSend } from "./before-send";
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
@@ -37,6 +38,9 @@ export interface ExporterConfig {
     maxAgeMs?: number;
     maxCacheSizeBytes?: number;
   };
+
+  /** Resolved Android-style export-time hooks (`PulseWebConfig.beforeSendData`); optional. */
+  beforeSendData?: ResolvedBeforeSend;
 }
 
 export interface ProviderBundle {

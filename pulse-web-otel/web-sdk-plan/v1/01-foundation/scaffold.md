@@ -76,7 +76,7 @@ export interface PulseWebConfig {
 
   // Optional — privacy & consent
   dataCollectionState?: PulseDataCollectionConsent;  // default: ALLOWED
-  beforeSend?: (signal: unknown) => unknown | null;  // return null to drop signal
+  beforeSendData?: (signal: unknown) => unknown | null;  // return null to drop signal
 
   // Optional — custom attributes on every signal
   globalAttributes?: Record<string, string | number | boolean>;
@@ -118,7 +118,7 @@ export interface InstrumentationConfig {
   clicks?:         { enabled: boolean };
   webVitals?:      { enabled: boolean };
   navigation?:     { enabled: boolean };
-  session?:        { enabled: boolean; inactivityTimeoutMs?: number };
+  session?:        { enabled: boolean };
   interactions?:   { enabled: boolean };
   sessionReplay?:  { enabled: boolean };  // opt-in, default false
 }

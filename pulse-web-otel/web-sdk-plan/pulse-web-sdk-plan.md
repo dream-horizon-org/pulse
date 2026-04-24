@@ -139,7 +139,10 @@ PulseWeb.start({
   globalAttributes: { environment: 'production' },
 
   // Before-send hook (same as mobile)
-  beforeSend: (signal) => signal,  // return null to drop
+  beforeSendData: (signal) => signal,  // return null to drop
+
+  // SDK diagnostics (Android / RN parity); NONE = silent
+  logLevel: PulseLogLevel.NONE,
 
   // Remote config
   configEndpointUrl: 'https://ingest.pulse.io',
@@ -169,6 +172,8 @@ The OTEL Resource populates the ClickHouse `DeviceModel`, `OsVersion`, `Platform
   'installation.id': getOrCreateInstallationId(),  // localStorage
 }
 ```
+
+**User extensions (`resourceAttributes`):** `PulseWebConfig.resourceAttributes` is a plain `Record` merged **before** the built-in resource. On key conflicts, **Pulse wins** (same idea as Android’s `ResourceBuilder` running first, then SDK defaults overwriting) — e.g. `project.id`, `rum.sdk.name`, and `platform` always come from the SDK. No public `Resource` object on config (avoids `@opentelemetry/resources` version lock-in across the app boundary). See `web-sdk-plan/v1/01-foundation/init-config-android-parity-plan.md` §6.
 
 ### 1.4 Session Management
 
