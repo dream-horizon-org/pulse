@@ -13,7 +13,7 @@ public final class FunnelResultsQueries {
   /**
    * Latest run for a funnel: all steps ordered by {@code StepIndex}.
    *
-   * <p>Physical columns are PascalCase per {@code clickhouse-funnel-results-schema.sql}. Aliases
+   * <p>Physical columns are PascalCase per {@code funnel-results.sql}. Aliases
    * match {@link FunnelResultRow}.
    */
   public static String buildLatestResultsSql(String projectId, long funnelId) {
@@ -58,21 +58,21 @@ public final class FunnelResultsQueries {
       + "l.conversionPct AS conversionPct, "
       + "round(l.conversionPct - coalesce(p.conversionPct, l.conversionPct), 1) AS conversionTrend "
       + "FROM ("
-      +   "SELECT funnelId, conversionPct FROM ("
-      +     "SELECT FunnelId AS funnelId, ConversionPct AS conversionPct, "
-      +     "dense_rank() OVER (PARTITION BY FunnelId ORDER BY RunTime DESC) AS run_rank, "
-      +     "row_number() OVER (PARTITION BY FunnelId, RunTime ORDER BY StepIndex DESC) AS step_rank "
-      +     "FROM otel.funnel_results "
-      +     "WHERE ProjectId = '" + pid + "' AND FunnelId IN (" + ids + ")"
-      +   ") WHERE run_rank = 1 AND step_rank = 1"
+      + "SELECT funnelId, conversionPct FROM ("
+      + "SELECT FunnelId AS funnelId, ConversionPct AS conversionPct, "
+      + "dense_rank() OVER (PARTITION BY FunnelId ORDER BY RunTime DESC) AS run_rank, "
+      + "row_number() OVER (PARTITION BY FunnelId, RunTime ORDER BY StepIndex DESC) AS step_rank "
+      + "FROM otel.funnel_results "
+      + "WHERE ProjectId = '" + pid + "' AND FunnelId IN (" + ids + ")"
+      + ") WHERE run_rank = 1 AND step_rank = 1"
       + ") l LEFT JOIN ("
-      +   "SELECT funnelId, conversionPct FROM ("
-      +     "SELECT FunnelId AS funnelId, ConversionPct AS conversionPct, "
-      +     "dense_rank() OVER (PARTITION BY FunnelId ORDER BY RunTime DESC) AS run_rank, "
-      +     "row_number() OVER (PARTITION BY FunnelId, RunTime ORDER BY StepIndex DESC) AS step_rank "
-      +     "FROM otel.funnel_results "
-      +     "WHERE ProjectId = '" + pid + "' AND FunnelId IN (" + ids + ")"
-      +   ") WHERE run_rank = 2 AND step_rank = 1"
+      + "SELECT funnelId, conversionPct FROM ("
+      + "SELECT FunnelId AS funnelId, ConversionPct AS conversionPct, "
+      + "dense_rank() OVER (PARTITION BY FunnelId ORDER BY RunTime DESC) AS run_rank, "
+      + "row_number() OVER (PARTITION BY FunnelId, RunTime ORDER BY StepIndex DESC) AS step_rank "
+      + "FROM otel.funnel_results "
+      + "WHERE ProjectId = '" + pid + "' AND FunnelId IN (" + ids + ")"
+      + ") WHERE run_rank = 2 AND step_rank = 1"
       + ") p ON l.funnelId = p.funnelId";
   }
 

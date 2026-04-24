@@ -15,7 +15,10 @@ dependencies {
     implementation(projects.common)
     implementation(projects.session)
     implementation(projects.services)
-    implementation(libs.opentelemetry.exporter.otlp)
+    implementation(libs.opentelemetry.exporter.otlp) {
+        // OTel Java uses okhttp-jvm; Android must use okhttp only or duplicate classes with pulse-utils.
+        exclude(group = "com.squareup.okhttp3", module = "okhttp-jvm")
+    }
 
     // Default instrumentations:
     api(projects.instrumentation.activity)
