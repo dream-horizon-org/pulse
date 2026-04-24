@@ -338,6 +338,8 @@ export function createProviders(
     loggerProvider,
     meterProvider,
     cleanup,
+    traceExporter: innerTraceExporter,
+    logExporter: baseLogExporter,
     ...(diskEnabled ? { idbSignalBuffer: idbBuffer } : {}),
   };
 }

@@ -6,6 +6,10 @@ import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 import type { ExportSamplingGate } from "../sampling/export-sampling-gate";
 import type { PulseMetricsToAddEntry, PulseSdkName } from "./remote-config";
 import type { IdbSignalBuffer } from "../persistence/indexed-db";
+import type {
+  PulseBrowserTraceExporter,
+  PulseBrowserLogExporter,
+} from "../exporters/pulse-browser-otlp-exporters";
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
@@ -47,4 +51,8 @@ export interface ProviderBundle {
   cleanup: () => void;
   /** Set when disk buffering is enabled — used for startup drain of prior-session rows. */
   idbSignalBuffer?: IdbSignalBuffer;
+  /** Exposed so sdk.ts can call switchToKeepalive() on pagehide for trace spans. */
+  traceExporter?: PulseBrowserTraceExporter;
+  /** Exposed so sdk.ts can call switchToKeepalive() on pagehide for logs. */
+  logExporter?: PulseBrowserLogExporter;
 }

@@ -168,6 +168,9 @@ export class SessionProvider {
   /** Reentrancy guard: prevent nested getSessionId() calls from triggering another rotation */
   private _rotatingSession = false;
 
+  /** Dedup guard: tracks which session ID has already had session.end emitted. */
+  private _emittedEndForSession: string | null = null;
+
   /** Timestamp when page was hidden (ms), or null if not hidden */
   _hiddenAtMs: number | null = null;
 
@@ -329,6 +332,7 @@ export class SessionProvider {
     } catch {
       // ignore storage errors
     }
+    this._emittedEndForSession = null;
   }
 
   private _clearSession(): void {
@@ -378,7 +382,8 @@ export class SessionProvider {
 
   private _emitSessionEndSkipClear(reason: SessionEndReason): void {
     const sessionId = this._readSessionId();
-    if (!sessionId) return;
+    if (!sessionId || this._emittedEndForSession === sessionId) return;
+    this._emittedEndForSession = sessionId;
 
     const startTs = this._readSessionStart();
     const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
@@ -396,7 +401,8 @@ export class SessionProvider {
 
   private _emitSessionEnd(reason: SessionEndReason): void {
     const sessionId = this._readSessionId();
-    if (!sessionId) return;
+    if (!sessionId || this._emittedEndForSession === sessionId) return;
+    this._emittedEndForSession = sessionId;
 
     const startTs = this._readSessionStart();
     const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
