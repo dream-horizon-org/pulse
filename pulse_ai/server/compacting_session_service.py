@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
+
+from google.adk.sessions import BaseSessionService
 
 from pulse_ai.constants import (
     MAX_WINDOW_SAFETY_CAP,
@@ -32,6 +34,14 @@ from pulse_ai.constants import (
 )
 from pulse_ai.server.compaction_rules import compact_tool_response
 from pulse_ai.server.token_estimator import estimate_tokens_for_event
+
+if TYPE_CHECKING:
+    from google.adk.events.event import Event
+    from google.adk.sessions.base_session_service import (
+        GetSessionConfig,
+        ListSessionsResponse,
+    )
+    from google.adk.sessions.session import Session
 
 _log = logging.getLogger(__name__)
 
@@ -62,10 +72,14 @@ def _has_open_function_call(events: list) -> bool:
     return bool(open_ids)
 
 
-class CompactingSessionService:
-    """Wraps any ADK SessionService to compact old tool responses on get_session."""
+class CompactingSessionService(BaseSessionService):
+    """Wraps any ADK SessionService to compact old tool responses on get_session.
 
-    def __init__(self, inner: Any) -> None:
+    Subclasses ``BaseSessionService`` so ADK ``InvocationContext`` / Runner
+    pydantic validation accepts this wrapper (``is_instance_of`` check).
+    """
+
+    def __init__(self, inner: BaseSessionService) -> None:
         self._inner = inner
 
     # ── Primary override ──────────────────────────────────────────────────────
@@ -76,8 +90,8 @@ class CompactingSessionService:
         app_name: str,
         user_id: str,
         session_id: str,
-        config: Any = None,
-    ) -> Any:
+        config: Optional["GetSessionConfig"] = None,
+    ) -> Optional["Session"]:
         session = await self._inner.get_session(
             app_name=app_name,
             user_id=user_id,
@@ -179,17 +193,39 @@ class CompactingSessionService:
 
     # ── Delegation ────────────────────────────────────────────────────────────
 
-    async def create_session(self, **kwargs: Any) -> Any:
+    async def create_session(
+        self,
+        *,
+        app_name: str,
+        user_id: str,
+        state: Optional[dict[str, Any]] = None,
+        session_id: Optional[str] = None,
+    ) -> "Session":
+        # Omit default None kwargs so mocks and inner services see the same call
+        # shape as direct BaseSessionService callers.
+        kwargs: dict[str, Any] = {"app_name": app_name, "user_id": user_id}
+        if state is not None:
+            kwargs["state"] = state
+        if session_id is not None:
+            kwargs["session_id"] = session_id
         return await self._inner.create_session(**kwargs)
 
-    async def delete_session(self, **kwargs: Any) -> None:
-        return await self._inner.delete_session(**kwargs)
+    async def delete_session(
+        self, *, app_name: str, user_id: str, session_id: str
+    ) -> None:
+        return await self._inner.delete_session(
+            app_name=app_name, user_id=user_id, session_id=session_id
+        )
 
-    async def list_sessions(self, **kwargs: Any) -> Any:
-        return await self._inner.list_sessions(**kwargs)
+    async def list_sessions(
+        self, *, app_name: str, user_id: Optional[str] = None
+    ) -> "ListSessionsResponse":
+        return await self._inner.list_sessions(
+            app_name=app_name, user_id=user_id
+        )
 
-    async def append_event(self, **kwargs: Any) -> Any:
-        return await self._inner.append_event(**kwargs)
+    async def append_event(self, session: "Session", event: "Event") -> "Event":
+        return await self._inner.append_event(session, event)
 
     def __getattr__(self, name: str) -> Any:
         """Delegate any unknown attribute or method to the inner service."""

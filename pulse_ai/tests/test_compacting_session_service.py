@@ -284,3 +284,113 @@ async def test_unknown_attribute_falls_through_to_inner():
     svc = CompactingSessionService(inner)
     result = svc.some_future_method()
     assert result == "ok"
+
+
+# ── Group B: Token budget edge cases ─────────────────────────────────────────
+#
+# These tests verify the `while len(turns) > 1` budget loop in _apply_compaction.
+# Payload sizes are derived from the effective token budget so the tests remain
+# correct if the budget constant changes.
+
+
+def _big_tool_response():
+    """Return a tool response whose JSON representation alone exceeds the
+    effective token budget (_EFFECTIVE_TOKEN_BUDGET).
+
+    We intentionally do NOT compact it (turns are within the K=5 threshold)
+    so the raw payload triggers the budget loop.
+    """
+    from pulse_ai.constants import _FIXED_OVERHEAD_ESTIMATE, TOKEN_BUDGET, CHARS_PER_TOKEN_JSON
+    effective = TOKEN_BUDGET - _FIXED_OVERHEAD_ESTIMATE  # e.g. 33_800
+    # Target: enough chars so (len + overhead) // CHARS_PER_TOKEN_JSON > effective
+    n = (effective + 10_000) * CHARS_PER_TOKEN_JSON  # well over the limit
+    return {"status": "success", "data": [{"payload": "x" * n}]}
+
+
+async def test_budget_drops_second_oldest_turn_leaving_only_pinned():
+    """Two turns: turns[1] alone over budget → only pinned turns[0] survives."""
+    from pulse_ai.server.compacting_session_service import CompactingSessionService
+
+    big = _big_tool_response()
+    events = [
+        _user_event("pinned first question"),
+        _agent_event_with_tool("query_interaction_health", big),
+        _user_event("second question"),
+        _agent_event_with_tool("query_interaction_health", big),
+    ]
+    session = _make_session(events)
+    inner = _make_inner(session)
+    svc = CompactingSessionService(inner)
+    result = await svc.get_session(app_name="a", user_id="u", session_id="s")
+
+    user_events = [e for e in result.events if e.author == "user"]
+    assert len(user_events) == 1
+    assert user_events[0].content.parts[0].text == "pinned first question"
+
+
+async def test_budget_drops_multiple_turns_sequentially():
+    """Three turns where turns[1] and turns[2] are each over budget individually
+    → both are dropped, only pinned turns[0] remains."""
+    from pulse_ai.server.compacting_session_service import CompactingSessionService
+
+    big = _big_tool_response()
+    events = [
+        _user_event("original question"),
+        _agent_event_with_tool("query_interaction_health", big),
+        _user_event("follow-up one"),
+        _agent_event_with_tool("query_interaction_health", big),
+        _user_event("follow-up two"),
+        _agent_event_with_tool("query_interaction_health", big),
+    ]
+    session = _make_session(events)
+    inner = _make_inner(session)
+    svc = CompactingSessionService(inner)
+    result = await svc.get_session(app_name="a", user_id="u", session_id="s")
+
+    user_events = [e for e in result.events if e.author == "user"]
+    assert len(user_events) == 1
+    assert user_events[0].content.parts[0].text == "original question"
+
+
+async def test_budget_not_exceeded_no_turns_dropped():
+    """When total tokens are well under the budget, no turns are dropped."""
+    from pulse_ai.server.compacting_session_service import CompactingSessionService
+
+    # Small tool response — only a handful of tokens per turn
+    small_response = {"status": "success", "data": [{"name": "X", "apdex": 0.9}]}
+    events = [
+        _user_event("q1"),
+        _agent_event_with_tool("query_interaction_health", small_response),
+        _user_event("q2"),
+        _agent_event_with_tool("query_interaction_health", small_response),
+        _user_event("q3"),
+        _agent_event_with_tool("query_interaction_health", small_response),
+    ]
+    session = _make_session(events)
+    inner = _make_inner(session)
+    svc = CompactingSessionService(inner)
+    result = await svc.get_session(app_name="a", user_id="u", session_id="s")
+
+    user_events = [e for e in result.events if e.author == "user"]
+    assert len(user_events) == 3  # all turns kept
+
+
+async def test_budget_loop_terminates_when_only_one_turn_remains():
+    """A single oversized turn: the budget loop must not run (len(turns) > 1 is
+    False) and must not infinite-loop or raise. The turn is returned as-is."""
+    from pulse_ai.server.compacting_session_service import CompactingSessionService
+
+    big = _big_tool_response()
+    events = [
+        _user_event("the only question"),
+        _agent_event_with_tool("query_interaction_health", big),
+    ]
+    session = _make_session(events)
+    inner = _make_inner(session)
+    svc = CompactingSessionService(inner)
+    # Must complete without error or infinite loop
+    result = await svc.get_session(app_name="a", user_id="u", session_id="s")
+
+    user_events = [e for e in result.events if e.author == "user"]
+    assert len(user_events) == 1
+    assert user_events[0].content.parts[0].text == "the only question"
