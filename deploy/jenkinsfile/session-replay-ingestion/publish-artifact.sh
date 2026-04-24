@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# Load NVM environment
+export NVM_DIR="/home/admin/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm use 20 || nvm install 20
+
 while getopts v: flag; do
   case "${flag}" in
     v) VERSION=${OPTARG} ;;
