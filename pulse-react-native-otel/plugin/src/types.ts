@@ -127,9 +127,17 @@ export interface PulseAndroidCoreLibraryDesugaring {
   version?: string;
 }
 
+/** Android OkHttp / Byte Buddy Gradle wiring (under `android` only), parallel to `coreLibraryDesugaring`. */
+export interface PulseAndroidOkHttpInstrumentation {
+  enabled?: boolean;
+  /** `net.bytebuddy:byte-buddy-gradle-plugin` on root `buildscript` classpath; default when omitted: see `androidBuildConstants`. */
+  byteBuddyGradlePluginVersion?: string;
+}
+
 export interface PulseAndroidSection extends PulseNativeInitFields {
   instrumentation?: PulseAndroidInstrumentationProps;
   coreLibraryDesugaring?: PulseAndroidCoreLibraryDesugaring;
+  okHttpInstrumentation?: PulseAndroidOkHttpInstrumentation;
 }
 
 export interface PulseIosSection extends PulseNativeInitFields {
@@ -150,6 +158,11 @@ export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
     enabled: boolean;
     /** Meaningful when `enabled`; always set for stable plugin internals. */
     version: string;
+  };
+  okHttpInstrumentation: {
+    enabled: boolean;
+    /** Meaningful when `enabled`; always set for stable plugin internals (defaults from androidBuildConstants). */
+    byteBuddyGradlePluginVersion: string;
   };
 };
 

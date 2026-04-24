@@ -86,6 +86,7 @@ jobs:
             pulse-react-native-otel/package.json \
             pulse-react-native-otel/android/build.gradle \
             pulse-react-native-otel/example/android/app/build.gradle \
+            pulse-react-native-otel/plugin/src/androidBuildConstants.ts \
             pulse-react-native-otel/PulseReactNativeOtel.podspec \
             pulse-android-otel/gradle.properties \
             pulse-ios-otel/PulseKit.podspec
@@ -116,6 +117,7 @@ jobs:
           - \`pulse-react-native-otel/package.json\`
           - \`pulse-react-native-otel/android/build.gradle\` (if \`android_version\` set)
           - \`pulse-react-native-otel/example/android/app/build.gradle\` (if \`android_version\` set)
+          - \`pulse-react-native-otel/plugin/src/androidBuildConstants.ts\` (if \`android_version\` set)
           - \`pulse-react-native-otel/PulseReactNativeOtel.podspec\` (if \`ios_version\` set)
           - \`pulse-android-otel/gradle.properties\` (if \`bump_android_sdk\`)
           - \`pulse-ios-otel/PulseKit.podspec\` (if \`bump_ios_sdk\`)
