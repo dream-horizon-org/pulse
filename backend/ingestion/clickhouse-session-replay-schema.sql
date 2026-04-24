@@ -27,9 +27,9 @@ ON CLUSTER `pulse-clickhouse`
 SETTINGS 
     kafka_broker_list = 'pulse-kafka-01.pulse.local:9092,pulse-kafka-02.pulse.local:9092',
     kafka_topic_list = 'clickhouse_session_replay_events',
-    kafka_group_name = 'pulse_ch_session_replay_consumer',
+    kafka_group_name = 'pulse_ch_session_replay_final',
     kafka_format = 'JSONEachRow',
-    kafka_num_consumers = 2;
+    kafka_num_consumers = 6;
 
 -- Storage table (replicated)
 CREATE TABLE IF NOT EXISTS otel.session_replay_events_local
