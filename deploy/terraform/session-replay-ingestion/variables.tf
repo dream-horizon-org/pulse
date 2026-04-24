@@ -68,7 +68,7 @@ variable "ec2_security_group_ids" {
 variable "health_check_grace_period_seconds" {
   description = "ASG grace period after instance launch"
   type        = number
-  default     = 120
+  default     = 300
 }
 
 # --- App config (written to /etc/pulse/ingestion.env at boot) ---

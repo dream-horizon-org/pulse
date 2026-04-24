@@ -2,10 +2,26 @@
 set -euo pipefail
 
 exec > >(sudo tee /var/log/user-data.log) 2>&1
-echo "Starting session-ingestion user-data at $(date)"
+echo "Starting session-replay-ingestion user-data at $(date)"
 
 export HOME=/home/admin
 cd "$HOME" || cd /root
+
+echo "Installing dependencies..."
+# Disable broken PPA and update
+sudo rm -f /etc/apt/sources.list.d/deadsnakes-ppa-*.list || true
+sudo apt-get update -qq 2>/dev/null || true
+sudo apt-get install -y -qq unzip curl 2>/dev/null || true
+
+# Install Node + pm2
+echo "Installing Node and PM2..."
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm install 20
+nvm use 20
+npm install -g pm2
+which pm2
 
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
@@ -50,23 +66,23 @@ MAX_BATCH_SIZE_KB=${max_batch_size_kb}
 MAX_BATCH_AGE_MS=${max_batch_age_ms}
 FETCH_BATCH_SIZE=${fetch_batch_size}
 S3_TIMEOUT_MS=${s3_timeout_ms}
+NODE_ENV=production
 EOF
 sudo chmod 644 /etc/pulse/ingestion.env
 
-echo "Starting pulse-session-replay-ingestion service..."
-sudo systemctl restart pulse-session-replay-ingestion
-
-echo "Starting pulse-session-replay-ingestion via pm2..."
+echo "Starting pulse-session-replay-ingestion service with pm2..."
+cd "$INSTALL_DIR"
+# Load env and start with pm2
 set -a; source /etc/pulse/ingestion.env; set +a
-pm2 start "$INSTALL_DIR/dist/index.js" --name "pulse-session-replay-ingestion"
+pm2 start dist/index.js --name "pulse-session-replay-ingestion"
 pm2 save
 
-sleep 5
+sleep 3
 
 if pm2 list | grep -q "pulse-session-replay-ingestion"; then
-  echo "Service started successfully via pm2"
+  echo "Service started successfully"
 else
-  echo "WARNING: pm2 process may not have started. Checking logs:"
+  echo "WARNING: Service may not have started. Checking logs:"
   pm2 logs pulse-session-replay-ingestion --lines 30 --nostream || true
 fi
 

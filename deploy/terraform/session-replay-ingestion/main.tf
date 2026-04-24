@@ -10,7 +10,7 @@ terraform {
 
   backend "s3" {
     bucket       = "pulse-deployment-config"
-    key          = "terraform/production/session-ingestion/terraform.tfstate"
+    key          = "terraform/production/session-replay-ingestion/terraform.tfstate"
     region       = "ap-south-1"
     use_lockfile = true
   }
