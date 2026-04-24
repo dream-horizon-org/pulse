@@ -19,7 +19,6 @@ Pod::Spec.new do |spec|
   }
 
   spec.source_files = [
-    "Sources/PulseLogging/**/*.swift",
     "Sources/PulseKit/**/*.{swift,h,m}",
     "Sources/Instrumentation/Sessions/*.swift",
     "Sources/Instrumentation/Crashes/**/*.{swift,h,m}",

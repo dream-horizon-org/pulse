@@ -18,5 +18,8 @@ public object DiskFreeSpaceBytes {
         }.getOrNull()
 
     @JvmStatic
-    public fun forDataPartition(): Long? = forPath(Environment.getDataDirectory())
+    public fun forDataPartition(): Long? {
+        val dir = Environment.getDataDirectory() ?: return null
+        return forPath(dir)
+    }
 }

@@ -2761,7 +2761,7 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   OpenTelemetry-Swift-Api: 0785e3b9888286449aa297c0b48269797bfcaf7f
   OpenTelemetry-Swift-Sdk: b856396d6147c01829a88ad782f481c0e1cd0966
-  PulseKit: c1619daf45eb88ef72e60cd2f9b032ef56c8aed9
+  PulseKit: 458d000ea203dc0754083b17c4ad46cf0290105b
   PulseReactNativeOtel: eb0d31bb0cd3f4dc9f297356c5686188522ef521
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: c4b9e2fd0ab200e3af72b013ed6113187c607077
