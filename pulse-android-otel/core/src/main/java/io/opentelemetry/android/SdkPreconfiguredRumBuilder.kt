@@ -19,6 +19,7 @@ class SdkPreconfiguredRumBuilder internal constructor(
     private val sessionProvider: SessionProvider,
     private val meteredSessionProvider: SessionProvider?,
     private val config: OtelRumConfig,
+    private val skipNativeDeviceCrashForJavascriptException: Boolean = true,
 ) {
     private var onShutdown: Runnable = Runnable {} // nop
     private val instrumentations = mutableListOf<AndroidInstrumentation>()
@@ -52,7 +53,14 @@ class SdkPreconfiguredRumBuilder internal constructor(
      * @return A new [OpenTelemetryRum] instance.
      */
     fun build(): OpenTelemetryRum {
-        val ctx = InstallationContext(application, sdk, sessionProvider, meteredSessionProvider)
+        val ctx =
+            InstallationContext(
+                application = application,
+                openTelemetry = sdk,
+                sessionProvider = sessionProvider,
+                meteredSessionProvider = meteredSessionProvider,
+                skipNativeDeviceCrashForJavascriptException = skipNativeDeviceCrashForJavascriptException,
+            )
         val enabledInstrumentations = getEnabledInstrumentations()
         val onShutdown: () -> Unit = {
             for (instrumentation in enabledInstrumentations) {

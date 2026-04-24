@@ -113,6 +113,7 @@ public final class OpenTelemetryRumBuilder {
     @Nullable private SessionProvider meteredSessionProvider;
     private boolean shouldStartSendingData = true;
     @Nullable private Runnable setupExportersRunnable = null;
+    private boolean skipNativeDeviceCrashForJavascriptException = true;
 
     private static TextMapPropagator buildDefaultPropagator() {
         return TextMapPropagator.composite(
@@ -142,6 +143,15 @@ public final class OpenTelemetryRumBuilder {
 
     public OpenTelemetryRumBuilder setShouldStartSendingData(boolean shouldStartSendingData) {
         this.shouldStartSendingData = shouldStartSendingData;
+        return this;
+    }
+
+    /**
+     * When true, native device.crash is not emitted for {@code com.facebook.react.common.JavascriptException}.
+     */
+    public OpenTelemetryRumBuilder setSkipNativeDeviceCrashForJavascriptException(
+            boolean skipNativeDeviceCrashForJavascriptException) {
+        this.skipNativeDeviceCrashForJavascriptException = skipNativeDeviceCrashForJavascriptException;
         return this;
     }
 
@@ -361,7 +371,12 @@ public final class OpenTelemetryRumBuilder {
 
         SdkPreconfiguredRumBuilder delegate =
                 new SdkPreconfiguredRumBuilder(
-                                application, sdk, sessionProvider, meteredSessionProvider, config)
+                                application,
+                                sdk,
+                                sessionProvider,
+                                meteredSessionProvider,
+                                config,
+                                skipNativeDeviceCrashForJavascriptException)
                         .setShutdownHook(
                                 () -> {
                                     if (exportScheduleHandler != null) {

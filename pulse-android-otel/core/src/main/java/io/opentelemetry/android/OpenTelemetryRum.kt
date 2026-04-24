@@ -85,6 +85,7 @@ interface OpenTelemetryRum {
          * @param sessionProvider The [SessionProvider] instance.
          * @param meteredSessionProvider Implementation of fixed session for metering purpose
          */
+        @JvmOverloads
         @JvmStatic
         fun builder(
             application: Application,
@@ -92,13 +93,15 @@ interface OpenTelemetryRum {
             config: OtelRumConfig,
             sessionProvider: SessionProvider,
             meteredSessionProvider: SessionProvider? = null,
+            skipNativeDeviceCrashForJavascriptException: Boolean = true,
         ): SdkPreconfiguredRumBuilder =
             SdkPreconfiguredRumBuilder(
-                application,
-                openTelemetrySdk,
-                sessionProvider,
-                meteredSessionProvider,
-                config,
+                application = application,
+                sdk = openTelemetrySdk,
+                sessionProvider = sessionProvider,
+                meteredSessionProvider = meteredSessionProvider,
+                config = config,
+                skipNativeDeviceCrashForJavascriptException = skipNativeDeviceCrashForJavascriptException,
             )
 
         /**
