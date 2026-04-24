@@ -25,11 +25,11 @@ CREATE TABLE IF NOT EXISTS otel.kafka_session_replay_events
     `SnapshotSource`  LowCardinality(String)
 ) ENGINE = Kafka()
 SETTINGS
-    kafka_broker_list = 'kafka:9092',
+    kafka_broker_list = 'pulse-kafka-01.pulse.local:9092,pulse-kafka-02.pulse.local:9092',
     kafka_topic_list = 'clickhouse_session_replay_events',
     kafka_group_name = 'pulse_ch_session_replay_consumer',
     kafka_format = 'JSONEachRow',
-    kafka_num_consumers = 1;
+    kafka_num_consumers = 2;
 
 -- -----------------------------------------------------------------------------
 -- 2. Storage Table (AggregatingMergeTree)
