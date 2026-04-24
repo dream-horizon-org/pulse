@@ -1,0 +1,147 @@
+# Opens a PR against main for @dreamhorizonorg/pulse-react-native release bumps.
+# Inputs: rn_version (required), android_version / ios_version (optional), bump_android_sdk / bump_ios_sdk (also bump monorepo SDK roots).
+# After merge, manually run publish workflows (Android / npm / iOS) as needed. Or run publish to react native workflow to publish rn version to npm
+name: React Native - Create Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      rn_version:
+        description: 'npm package version (pulse-react-native-otel/package.json)'
+        required: true
+        type: string
+      android_version:
+        description: 'RN Android Maven coord (e.g. 0.0.11-alpha). Empty = skip android/build.gradle + example okhttp pins.'
+        required: false
+        default: ''
+        type: string
+      ios_version:
+        description: 'PulseKit CocoaPods version for RN podspec (e.g. 0.0.11-alpha). Empty = skip PulseReactNativeOtel.podspec.'
+        required: false
+        default: ''
+        type: string
+      bump_android_sdk:
+        description: 'Also bump pulse-android-otel/gradle.properties (requires android_version)'
+        required: false
+        type: boolean
+        default: false
+      bump_ios_sdk:
+        description: 'Also bump pulse-ios-otel/PulseKit.podspec spec.version (requires ios_version)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  create-pr:
+    name: Bump React Native (and optional native SDKs) and open PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
+
+      - name: Require default branch (main)
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "Run this workflow from branch main only (selected ref: ${GITHUB_REF_NAME})."
+            exit 1
+          fi
+
+      - name: Apply version bumps
+        env:
+          RN_VERSION: ${{ inputs.rn_version }}
+          ANDROID_VERSION: ${{ inputs.android_version }}
+          IOS_VERSION: ${{ inputs.ios_version }}
+          BUMP_ANDROID_SDK: ${{ inputs.bump_android_sdk }}
+          BUMP_IOS_SDK: ${{ inputs.bump_ios_sdk }}
+        run: bash .github/scripts/bump-rn-release-pr-versions.sh
+
+      - name: Configure Git for commits
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit, push, open PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+          RN_VERSION: ${{ inputs.rn_version }}
+          ANDROID_VERSION: ${{ inputs.android_version }}
+          IOS_VERSION: ${{ inputs.ios_version }}
+          BUMP_ANDROID_SDK: ${{ inputs.bump_android_sdk }}
+          BUMP_IOS_SDK: ${{ inputs.bump_ios_sdk }}
+        run: |
+          set -euo pipefail
+          SLUG="$(echo "$RN_VERSION" | sed 's/[\/ :]/-/g')"
+          BRANCH="release/rn-${SLUG}"
+          TITLE="[release] @dreamhorizonorg/pulse-react-native ${RN_VERSION}"
+          git checkout -b "$BRANCH"
+          git add \
+            pulse-react-native-otel/package.json \
+            pulse-react-native-otel/android/build.gradle \
+            pulse-react-native-otel/example/android/app/build.gradle \
+            pulse-react-native-otel/PulseReactNativeOtel.podspec \
+            pulse-android-otel/gradle.properties \
+            pulse-ios-otel/PulseKit.podspec
+          if git diff --cached --quiet; then
+            echo "No staged changes; aborting."
+            exit 1
+          fi
+          git commit -m "$TITLE"
+          git push --set-upstream origin "$BRANCH"
+          ANDROID_CELL="${ANDROID_VERSION:-_(empty)_}"
+          IOS_CELL="${IOS_VERSION:-_(empty)_}"
+          BODY="$(cat <<EOF
+          ## ${TITLE}
+
+          ### Inputs
+          | Input | Value |
+          |-------|-------|
+          | \`rn_version\` | \`${RN_VERSION}\` |
+          | \`android_version\` | \`${ANDROID_CELL}\` |
+          | \`ios_version\` | \`${IOS_CELL}\` |
+          | \`bump_android_sdk\` | \`${BUMP_ANDROID_SDK}\` |
+          | \`bump_ios_sdk\` | \`${BUMP_IOS_SDK}\` |
+
+          ### Source
+          Workflow run: [\`${GITHUB_RUN_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+
+          ### Likely touched paths
+          - \`pulse-react-native-otel/package.json\`
+          - \`pulse-react-native-otel/android/build.gradle\` (if \`android_version\` set)
+          - \`pulse-react-native-otel/example/android/app/build.gradle\` (if \`android_version\` set)
+          - \`pulse-react-native-otel/PulseReactNativeOtel.podspec\` (if \`ios_version\` set)
+          - \`pulse-android-otel/gradle.properties\` (if \`bump_android_sdk\`)
+          - \`pulse-ios-otel/PulseKit.podspec\` (if \`bump_ios_sdk\`)
+
+          ### After merge
+          Manually run **Publish Android SDK**, **Publish React Native SDK to npm**, and/or **iOS SDK** workflows as needed.
+
+          ### Checklist
+          - [ ] Native coordinate / PulseKit versions match what will be on Maven / CocoaPods for this release
+          EOF
+          )"
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base main \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "$BODY"
+
+      - name: Summary
+        run: |
+          echo "## React Native release PR" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Input | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| rn_version | \`${{ inputs.rn_version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| android_version | \`${{ inputs.android_version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ios_version | \`${{ inputs.ios_version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| bump_android_sdk | \`${{ inputs.bump_android_sdk }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| bump_ios_sdk | \`${{ inputs.bump_ios_sdk }}\` |" >> "$GITHUB_STEP_SUMMARY"
