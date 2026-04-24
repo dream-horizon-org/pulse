@@ -108,7 +108,12 @@ pipeline {
 
 def getVersionFromPackageJson(String path = 'backend/session-replay-ingestion/package.json') {
     return sh(
-            script: "node -p \"require('./${path}').version\"",
+            script: """
+                export NVM_DIR="/home/admin/.nvm"
+                [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+                nvm use 20 || nvm install 20
+                node -p "require('./${path}').version"
+            """,
             returnStdout: true
     ).trim()
 }
