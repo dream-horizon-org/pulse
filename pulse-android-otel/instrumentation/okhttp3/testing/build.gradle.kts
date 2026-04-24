@@ -9,7 +9,9 @@ dependencies {
     byteBuddy(projects.instrumentation.okhttp3.agent)
     implementation(projects.instrumentation.okhttp3.library)
     implementation(libs.okhttp)
-    implementation(libs.opentelemetry.exporter.otlp)
+    implementation(libs.opentelemetry.exporter.otlp) {
+        exclude(group = "com.squareup.okhttp3", module = "okhttp-jvm")
+    }
     androidTestImplementation(libs.okhttp.mockwebserver)
     implementation(projects.testCommon)
 }

@@ -13,7 +13,7 @@ public final class JourneyResultsQueries {
   /**
    * Latest run for a journey and direction (START | END). Rows ordered for stable graph build.
    *
-   * <p>Physical columns are PascalCase per {@code clickhouse-journey-results-schema.sql}. Aliases
+   * <p>Physical columns are PascalCase per {@code journey-results.sql}. Aliases
    * match {@link JourneyResultRow}.
    */
   public static String buildLatestResultsSql(String projectId, long journeyId, String direction) {
