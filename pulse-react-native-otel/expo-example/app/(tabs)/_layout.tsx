@@ -12,7 +12,7 @@ export default function TabsLayout() {
   const { cartCount } = useShop();
   const insets = useSafeAreaInsets();
   const androidBar =
-    Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
+    Platform.OS === 'android' ? RNStatusBar.currentHeight ?? 0 : 0;
   const headerStatusBarHeight = Math.max(
     insets.top,
     Constants.statusBarHeight ?? 0,
@@ -21,9 +21,8 @@ export default function TabsLayout() {
   const badge =
     cartCount > 99 ? '99+' : cartCount > 0 ? String(cartCount) : undefined;
 
-  const tabBtn = (testID: string) => (props: BottomTabBarButtonProps) => (
-    <PlatformPressable {...props} testID={testID} />
-  );
+  const tabBtn = (testID: string) => (props: BottomTabBarButtonProps) =>
+    <PlatformPressable {...props} testID={testID} />;
 
   return (
     <Tabs

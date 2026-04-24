@@ -582,16 +582,16 @@ describe('buildPulseInitializationCode', () => {
         'val pulseInitT0Ms = System.currentTimeMillis()'
       );
       expect(result).toContain(
-        'android.util.Log.d("pulse.expo", "PULSE_INIT_T0_MS='
+        'android.util.Log.i("pulse.expo", "PULSE_INIT_T0_MS='
       );
       expect(result).toContain(
         'val pulseInitT1Ms = System.currentTimeMillis()'
       );
       expect(result).toContain(
-        'android.util.Log.d("pulse.expo", "PULSE_INIT_T1_MS='
+        'android.util.Log.i("pulse.expo", "PULSE_INIT_T1_MS='
       );
       expect(result).toContain(
-        'android.util.Log.d("pulse.expo", "PULSE_INIT_DURATION_MS='
+        'android.util.Log.i("pulse.expo", "PULSE_INIT_DURATION_MS='
       );
       // Ensure timing markers wrap the Pulse.initialize call
       expect(result.indexOf('pulseInitT0Ms')).toBeLessThan(
