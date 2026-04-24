@@ -115,6 +115,7 @@ class CompactingSessionService(BaseSessionService):
         # Group into turns: each turn starts at a "user" event
         turns = self._group_into_turns(compacted_events)
         total_turns = len(turns)
+        tokens_before = sum(estimate_tokens_for_event(e) for e in compacted_events)
 
         # Step 1: Compact tool responses for turns older than TOOL_AGE_THRESHOLD
         n_compacted = 0
@@ -154,13 +155,17 @@ class CompactingSessionService(BaseSessionService):
         # Flatten and attach to session copy
         final_events = [e for t in turns for e in t]
         if n_compacted or len(turns) < total_turns:
+            tokens_after = sum(estimate_tokens_for_event(e) for e in final_events)
             _log.info(
-                "compaction: turns %d→%d, events %d→%d, tool_responses_compacted=%d",
+                "compaction: turns %d→%d, events %d→%d, tool_responses_compacted=%d, tokens %d→%d (saved %d)",
                 total_turns,
                 len(turns),
                 len(events),
                 len(final_events),
                 n_compacted,
+                tokens_before,
+                tokens_after,
+                tokens_before - tokens_after,
             )
         session_copy = copy.copy(session)
         session_copy.events = final_events
