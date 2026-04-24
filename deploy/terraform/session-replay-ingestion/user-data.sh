@@ -82,7 +82,7 @@ sudo -u admin bash -c '
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
   nvm use 20
   set -a; source /etc/pulse/ingestion.env; set +a
-  pm2 start '"'"'"$INSTALL_DIR"'/dist/index.js'"'"' --name "pulse-session-replay-ingestion"
+  pm2 start /opt/pulse-session-replay-ingestion/dist/index.js --name "pulse-session-replay-ingestion"
   pm2 save
   pm2 startup systemd -u admin --hp /home/admin | tail -1 | bash || true
 '
