@@ -25,6 +25,9 @@ public class QueryRequest {
 
   private Integer limit;
 
+  /** Optional row offset for paginated raw selects (e.g. LOGS). */
+  private Integer offset;
+
   private String projectId;
 
   public enum Direction {

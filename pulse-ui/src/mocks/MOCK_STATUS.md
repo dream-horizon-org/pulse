@@ -2,7 +2,7 @@
 
 Last Updated: 2025-03-19
 
-**Coverage**: 67/75 endpoints (89%)
+**Coverage**: 66/75 endpoints (88%)
 
 ### Invite Collaborators (PR #311)
 

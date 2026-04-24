@@ -140,7 +140,6 @@ Notes:
 
 ```swift
 Pulse.shared.initialize(
-    endpointBaseUrl: "...",
     apiKey: "...",
     dataCollectionState: .allowed,
     instrumentations: { config in

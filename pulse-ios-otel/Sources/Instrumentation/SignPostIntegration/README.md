@@ -8,12 +8,12 @@ When using PulseKit, enable or disable SignPost via the `instrumentations` closu
 
 ```swift
 Pulse.shared.initialize(
-    endpointBaseUrl: "https://your-backend.com",
     apiKey: "your-api-key",
-    dataCollectionState: .allowed
-) { config in
-    config.signPost { $0.enabled(true) }   // default: true
-}
+    dataCollectionState: .allowed,
+    instrumentations: { config in
+        config.signPost { $0.enabled(true) }   // default: true
+    }
+)
 ```
 
 ## Version Notice

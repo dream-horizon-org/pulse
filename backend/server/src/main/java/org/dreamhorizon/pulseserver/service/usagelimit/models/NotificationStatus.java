@@ -14,5 +14,7 @@ import java.time.Instant;
 @AllArgsConstructor
 public class NotificationStatus {
   private JsonNode thresholdsNotified;
+  private Long projectUsageLimitId;
+  private Boolean notificationActive;
   private Instant createdAt;
 }

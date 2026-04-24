@@ -1,0 +1,187 @@
+// kafka-add-broker.jenkinsfile
+//
+// Adds a new Kafka broker to the production cluster.
+//
+// Jenkins job parameters:
+//   NUM_BROKERS  – Total broker count AFTER adding (e.g. 3)
+//                  The new node ID is derived from this: node ID = NUM_BROKERS
+
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    // No parameters — broker count is derived from hosts.ini after checkout
+
+    environment {
+        TF_IN_AUTOMATION         = 'true'
+        ROUTE53_ZONE_NAME        = 'pulse.local'
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps { cleanWs() }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Resolve Broker Count') {
+            steps {
+                script {
+                    def current = sh(
+                        script: "grep -c 'node_id=' deploy/ansible/kafka/inventory/hosts.ini",
+                        returnStdout: true
+                    ).trim().toInteger()
+                    env.NUM_BROKERS  = (current + 1).toString()
+                    env.NEW_NODE_ID  = env.NUM_BROKERS
+                    echo "Current brokers: ${current} → adding broker ${env.NEW_NODE_ID} (total after: ${env.NUM_BROKERS})"
+                }
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    cd deploy/terraform/kafka
+                    aws secretsmanager get-secret-value \
+                      --region ap-south-1 \
+                      --secret-id prod/kafka/terraform \
+                      --query 'SecretString' \
+                      --output text > secrets.auto.tfvars.json
+                '''
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh """
+                    cd deploy/terraform/kafka
+                    terraform init
+                    terraform plan -var num_brokers=${env.NUM_BROKERS} -out=tfplan
+                """
+            }
+        }
+
+        stage('Approve') {
+            steps {
+                input message: "Add broker node ${env.NEW_NODE_ID} (num_brokers → ${env.NUM_BROKERS}). Apply?", ok: 'Yes, Add Broker!'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh "cd deploy/terraform/kafka && terraform apply -input=false tfplan"
+            }
+        }
+
+        stage('Wait for Instance Ready') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        NEW_HOST="pulse-kafka-\$(printf '%02d' ${env.NEW_NODE_ID}).${ROUTE53_ZONE_NAME}"
+                        echo "Waiting for \$NEW_HOST to be SSH-reachable..."
+                        for i in \$(seq 1 30); do
+                            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+                                -i "\$SSH_KEY" admin@\$NEW_HOST echo ok 2>/dev/null && break
+                            echo "Attempt \$i: not ready, retrying in 10s..."
+                            sleep 10
+                        done
+                    """
+                }
+            }
+        }
+
+        stage('Fetch KRaft Cluster ID') {
+            steps {
+                sh '''
+                    aws ssm get-parameter \
+                        --region ap-south-1 \
+                        --name "/pulse/kafka/production/kraft_cluster_id" \
+                        --with-decryption \
+                        --query 'Parameter.Value' \
+                        --output text > /tmp/kraft_cluster_id.txt
+                '''
+            }
+        }
+
+        stage('Ansible: Add Broker') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'pulse-prod-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        KRAFT_CLUSTER_ID=\$(cat /tmp/kraft_cluster_id.txt)
+                        NEW_HOST="pulse-kafka-\$(printf '%02d' ${env.NEW_NODE_ID}).${ROUTE53_ZONE_NAME}"
+
+                        /home/admin/.local/bin/ansible-playbook deploy/ansible/kafka/add-broker.yml \
+                            -i deploy/ansible/kafka/inventory/hosts.ini \
+                            --private-key "\$SSH_KEY" \
+                            -e "new_broker_host=\$NEW_HOST" \
+                            -e "new_node_id=${env.NEW_NODE_ID}" \
+                            -e "kraft_cluster_id=\$KRAFT_CLUSTER_ID" \
+                            -e "num_brokers=${env.NUM_BROKERS}" \
+                            -e "route53_zone_name=${ROUTE53_ZONE_NAME}"
+                    """
+                }
+            }
+        }
+
+        stage('Update hosts.ini') {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'd11-horizon-bot', gitToolName: 'Default')]) {
+                    sh """
+                        NEW_HOST="pulse-kafka-\$(printf '%02d' ${env.NEW_NODE_ID}).${ROUTE53_ZONE_NAME}"
+                        HOSTS_FILE="deploy/ansible/kafka/inventory/hosts.ini"
+
+                        # Add new broker to hosts.ini if not already present
+                        if ! grep -q "\$NEW_HOST" "\$HOSTS_FILE"; then
+                            sed -i "/^\\[kafka_brokers:vars\\]/i \$NEW_HOST  node_id=${env.NEW_NODE_ID}" "\$HOSTS_FILE"
+                            echo "Added \$NEW_HOST to \$HOSTS_FILE"
+                        else
+                            echo "\$NEW_HOST already in \$HOSTS_FILE — skipping"
+                        fi
+
+                        git config user.email "jenkins@dream-horizon.org"
+                        git config user.name "Jenkins"
+                        git add "\$HOSTS_FILE"
+                        git diff --cached --quiet || git commit -m "chore: add broker ${env.NEW_NODE_ID} to ansible inventory"
+                        git push origin HEAD:main
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f deploy/terraform/kafka/tfplan deploy/terraform/kafka/secrets.auto.tfvars.json /tmp/kraft_cluster_id.txt'
+        }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                        color: 'good', tokenCredentialId: 'slack-creds', botUser: true,
+                        message: "<!channel> Kafka broker ${env.NEW_NODE_ID} added by ${BUILD_USER_EMAIL}\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+                }
+            }
+        }
+        failure {
+            script {
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: env.DEPLOYMENT_SLACK_CHANNEL,
+                    color: 'danger', tokenCredentialId: 'slack-creds', botUser: true,
+                    message: "<!channel> Kafka add-broker FAILED\n<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>")
+            }
+        }
+    }
+}

@@ -42,7 +42,10 @@ public final class AiProxyUpstreamResult {
   }
 
   public static AiProxyUpstreamResult badGateway() {
-    return buffered(502, "application/json", "{\"error\":\"AI service unavailable\"}");
+    return buffered(
+        502,
+        "application/json",
+        "{\"error\":{\"code\":\"502\",\"message\":\"Something went wrong\",\"cause\":\"Something went wrong\"}}");
   }
 
   /**

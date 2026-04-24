@@ -23,8 +23,6 @@ public final class io/opentelemetry/android/agent/connectivity/HttpEndpointConne
 }
 
 public final class io/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity$Companion {
-	public final fun forCustomEvents (Ljava/lang/String;Ljava/util/Map;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
-	public static synthetic fun forCustomEvents$default (Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity$Companion;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
 	public final fun forLogs (Ljava/lang/String;Ljava/util/Map;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
 	public static synthetic fun forLogs$default (Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity$Companion;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
 	public final fun forMetrics (Ljava/lang/String;Ljava/util/Map;)Lio/opentelemetry/android/agent/connectivity/HttpEndpointConnectivity;
@@ -64,8 +62,7 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/FragmentLi
 }
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/InstrumentationConfiguration {
-	public fun <init> (Lio/opentelemetry/android/config/OtelRumConfig;Ljava/util/Map;)V
-	public synthetic fun <init> (Lio/opentelemetry/android/config/OtelRumConfig;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lio/opentelemetry/android/config/OtelRumConfig;Ljava/util/Map;Lkotlin/jvm/functions/Function0;)V
 	public final fun activity (Lkotlin/jvm/functions/Function1;)V
 	public final fun anrReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun composeClick (Lkotlin/jvm/functions/Function1;)V
@@ -83,7 +80,6 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/Interactio
 	public final fun addAttributesExtractor (Lio/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesExtractor;)V
 	public fun enabled (Z)V
 	public final fun setConfigFetcher (Lcom/pulse/android/core/config/InteractionConfigFetcher;)Lio/opentelemetry/android/agent/dsl/instrumentation/InteractionConfiguration;
-	public final fun setConfigUrl (Lkotlin/jvm/functions/Function0;)Lio/opentelemetry/android/agent/dsl/instrumentation/InteractionConfiguration;
 }
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/NetworkMonitoringConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {

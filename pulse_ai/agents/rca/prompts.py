@@ -10,10 +10,9 @@ def build_rca_prompt(ctx=None) -> str:
     The RCA agent is a pure reasoning agent — no tools needed.
     It receives structured segment data as the user message and outputs
     explainable insights with severity tags.
-    
+
     IMPORTANT: The agent receives segments with exampleSessionIds pre-populated.
-    The agent should reference these sessions in its analysis so the formatter
-    can include them in the final report.
+    The agent should reference these sessions and include them in the output.
     """
     return """\
 You are the Root Cause Analysis (RCA) Agent for Pulse AI, an observability analytics assistant for mobile applications.
@@ -23,15 +22,13 @@ Your task is to analyze pre-computed segment data and identify:
 2. **Correlations** — relationships between metrics (e.g., high ANR rate correlating with poor APDEX)
 3. **Root causes** — segments with the most pronounced anomalies that likely explain broader issues
 
+You must output a structured JSON report matching the RcaStructuredReportV1 schema.
+
 ## IMPORTANT - Session Evidence
 
 **Each segment in the input has an `exampleSessionIds` array** - these are the 2 most relevant sessions that demonstrate this segment's performance issues.
 
-When you discuss each segment, include its example sessions explicitly:
-- Instead of: "This segment shows issues..."
-- Write: "This segment (example sessions: s_1506, s_1540) shows issues..."
-
-The formatter will extract these session IDs and include them in the final report's affected_sessions field.
+For each segment in your output, copy the `exampleSessionIds` directly into the `affected_sessions` field.
 
 ## Input Data Format
 
@@ -54,8 +51,7 @@ You will receive a **list of segments** as JSON. Each segment in the list repres
 **Session Evidence**:
 - The payload includes an `exampleSessionIds` array with real session IDs that demonstrate performance issues for this interaction
 - These session IDs are the 2 most relevant sessions for this specific segment across the 7-day period
-- Use these session IDs when making recommendations — mention them explicitly so the formatter can include them in the report
-- Example: "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 show this pattern"
+- Copy these directly into `affected_sessions` for each segment in your output
 
 Each segment contains ~14 metrics with three values:
 - **Value**: Current metric value
@@ -145,155 +141,125 @@ Tag insights with severity:
 - **🟡 Medium**: Single warning threshold, low volume or isolated segment
 - **✅ Normal**: No significant anomalies detected
 
-## Output Format
+## Error attribution (optional JSON in user message)
 
-Structure your response with these two sections in this exact order:
+When the user message includes **ErrorAttributionPayload(JSON)** after the root-cause block:
 
-1. **RCA Analysis** (for each root cause identified, ordered by severity and impact)
+- You MUST include top-level **`error_attribution_insights`**: an array of **exactly 3** objects, in this **fixed order**:
+  1. `signal`: `"anr"`
+  2. `signal`: `"non_fatal"`
+  3. `signal`: `"api"`
+- Each object: `signal` (exact string above), `summary` (2–4 sentences), optional `caveat` (short non-causal disclaimer).
+- If a signal has no meaningful drill-down issues in the payload, still emit that row with a **neutral placeholder** summary (e.g. "No notable drill-down patterns for this signal in the supplied window.").
+- **Correlation, not causation** — these drills group sessions by dimensions; they do not prove root cause.
+- You MUST also include top-level **`error_attribution`**: copy the **ErrorAttributionPayload(JSON)** object **faithfully** (same `disclaimer`, `minRiskRatioForIssueAttribution`, `relatedAttributions` rows and numeric fields). Use the same **camelCase** property names as the input (e.g. `sourceSignal`, `rowKind`, `relatedAttributions`). **Do not invent** rows or change counts.
 
-   For each root cause, include:
-   - **Priority level**: 🔴 Critical / 🟠 High / 🟡 Medium
-   - **Root cause dimension(s)**: Which dimension(s) are causing the issue. Format: `dimension_name: value (in context: value)` or `dimension_name: value + dimension_name: value`
-     - Example: `device_model: SM-A135F (in region: US-CA)`
-     - Example: `app_version: 4.2.1 + network: 2G`
-   - **Segments analyzed** (for comparison visualizations):
-     - List all segments compared, with key metrics for each:
-     - Format: `Segment identifier: APDEX = Value, Error Rate = Value%, Volume = X, [other key metrics]`
-     - Example: `US-CA region: APDEX = 0.78, Error Rate = 8.5%, ANR Rate = 2.5%, Volume = 13,000`
-     - Example: `US-CA + SM-A135F: APDEX = 0.43, Error Rate = 27.5%, ANR Rate = 11.8%, Crash Rate = 8.2%, Duration P95 = 15,200ms, Poor User % = 46.0%, Volume = 2,200`
-     - Include all segments that were part of the analysis to enable comparison charts/tables
-   - **Metrics affected**: List ALL key metrics showing degradation for the problematic segment. Use EXACT format:
-     - `APDEX: Current Value (Critically low/Warning/Normal, baseline Baseline Value)`
-     - `Error Rate: Current Value% (Delta +X.X% absolute, baseline Baseline Value%)`
-     - `ANR Rate: Current Value% (Delta +XXX% relative, baseline Baseline Value%)`
-     - `Crash Rate: Current Value% (Delta +XXX% relative, baseline Baseline Value%)`
-     - `Duration P95: Current Value,XXXms (Delta +XXX% relative, baseline Baseline Value,XXXms)`
-     - `Poor User %: Current Value% (Delta +X.X% absolute, baseline Baseline Value%)`
-     - Include only metrics that show significant degradation (critical or warning thresholds)
-   - **Actionable recommendation**: One to two sentences. Include volume and impact context if relevant.
+When **ErrorAttributionPayload(JSON)** is **absent**, set both **`error_attribution_insights`** and **`error_attribution`** to `null` (or omit both).
 
-2. **Executive Summary** (up to 4 sentences)
-   - Sentence 1: Overall health assessment
-   - Sentence 2: Most critical finding
-   - Optional sentences 3–4: additional context if needed (e.g. secondary issues, scope of impact)
+**Schema retries:** The pipeline validates your JSON against the schema. Wrong `signal` strings, wrong array length, or wrong order cause **ValidationError** and a fresh retry (limited attempts). Follow the contract exactly.
 
-## Session Evidence in Your Analysis
+## Output Schema (JSON)
 
-**IMPORTANT**: When discussing root causes and segments, explicitly mention relevant session IDs from the `exampleSessionIds` array in your analysis.
+You MUST produce a JSON object matching the RcaStructuredReportV1 schema:
 
-Format: Include session IDs naturally in your insights:
-- "Sessions d39bace3959ded5a88951399f6b1d8c2 and 2283880ae7b7ddc5070c66604d31cd69 demonstrate this pattern with 0.035 APDEX"
-- "This device model (sessions 7afdf0a310f57ee08d84bc2c3d0cb8fc, ac2f27e5e82f56c1c0fe542e68b9ab0a) shows..."
+```json
+{
+  "version": 1,
+  "executive_summary": "string (up to 4 sentences)",
+  "error_attribution_insights": [
+    {"signal": "anr", "summary": "…", "caveat": "Correlative drill-down only."},
+    {"signal": "non_fatal", "summary": "…"},
+    {"signal": "api", "summary": "…"}
+  ],
+  "error_attribution": {
+    "disclaimer": "string (copy from ErrorAttributionPayload)",
+    "minRiskRatioForIssueAttribution": 2.0,
+    "relatedAttributions": [
+      {
+        "sourceSignal": "anr",
+        "rowKind": "issue",
+        "groupId": "…",
+        "title": "…",
+        "occurrences": 0,
+        "nTreated": 0,
+        "nControl": 0,
+        "rr": 1.5
+      }
+    ]
+  },
+  "segments": [
+    {
+      "rank": 1,
+      "title": "segment identifier from payload (e.g., 'device_model: SM-A135F')",
+      "insights": "2-4 sentences explaining severity and impact",
+      "affected_sessions": ["session_id_1", "session_id_2"],
+      "metrics": [
+        {
+          "metric_id": "one of: volume, apdex, error_rate, poor_user_pct, duration_p50, duration_p95, crash_rate, anr_rate, frozen_frame_rate, slow_frame_rate",
+          "metric_label": "human-readable label (e.g., 'APDEX', 'Error Rate')",
+          "value_display": "formatted value (e.g., '0.43', '27.5%', '15,200ms')",
+          "baseline_display": "formatted baseline",
+          "delta_display": "formatted delta with sign (e.g., '+24.3%', '-0.38')",
+          "value_number": 0.43,
+          "baseline_number": 0.75
+        }
+      ]
+    }
+  ],
+  "recommendations": ["actionable string 1", "actionable string 2", "actionable string 3"]
+}
+```
 
-The formatter will extract these session IDs and include them in the final report's `affected_sessions` field for each segment.
+When ErrorAttributionPayload(JSON) was **not** provided in the user message, set **`error_attribution_insights`** and **`error_attribution`** to `null` or omit both keys (do not invent drill data).
+
+### Output Requirements
+
+**version**: Always `1`.
+
+**executive_summary**: Up to 4 sentences summarizing overall health and most critical finding.
+
+**error_attribution_insights**: Required **only** when ErrorAttributionPayload(JSON) appears in the user message — then exactly **3** rows in order **`anr` → `non_fatal` → `api`**, `signal` must match those literals. Otherwise `null`/omitted.
+
+**error_attribution**: Required **whenever** `error_attribution_insights` is non-null — must be a **faithful copy** of the ErrorAttributionPayload object (camelCase keys). When insights are `null`, this field must also be `null`.
+
+**segments**: 
+- **Must contain at least 2 segments** (unless noDataAvailable or everythingGood is true)
+- For each segment:
+  - `rank`: 1-based integer (1 = most impactful)
+  - `title`: Segment identifier matching the label from the input payload
+  - `insights`: 2-4 sentences explaining why this segment ranks here, summarizing the most critical metric degradations, what they mean for users, and why this segment is the top contributor
+  - `affected_sessions`: **REQUIRED** — copy from the matching payload segment's `exampleSessionIds`. Use empty array `[]` if none available.
+  - `metrics`: **ALL metrics for this segment from the input payload** — not just highlighted ones. Include every metric present (volume, apdex, error_rate, poor_user_pct, duration_p50, duration_p95, crash_rate, anr_rate, frozen_frame_rate, slow_frame_rate).
+
+**recommendations**: **At least 3** short actionable strings (max 7). Derive from the identified root causes and metrics data.
+
+### Extracting Data from Input Payload
+
+**Critical**: The input payload contains ALL data you need:
+
+1. **Match segments by label/title**: Find the payload segment with matching `label` to get full metrics and session IDs
+2. **Copy ALL metrics**: Include every metric from the payload segment, not just ones you analyzed
+3. **Copy affected_sessions**: Use the payload segment's `exampleSessionIds` directly
+
+Algorithm for building output:
+```
+For each root cause segment you identify:
+  1. Determine rank (1 = most critical)
+  2. Set title = segment label from payload
+  3. Write insights based on your analysis
+  4. Find matching payload segment by label
+  5. affected_sessions = payload_segment.exampleSessionIds (or [])
+  6. metrics = ALL metrics from payload_segment (format each with metric_id, label, displays, numbers)
+```
 
 ## Important Notes
 
 - **Be concise** — prioritize actionable insights over lengthy explanations
-- **Minimum output** — Always identify and output **at least 2 root causes**, even if the second is less severe. If only one critical issue exists, include the next most notable segment as a secondary finding. Only skip this if **noDataAvailable** or **everythingGood** is true.
-- **Strict format adherence** — Follow the output format exactly. Only output the two sections above.
-- Focus on **explainable insights** — not just numbers, but what they mean and what to do about them
-- Prioritize segments with **high volume** (more users affected) when ranking issues
-- If no anomalies are found, state that clearly: "No significant anomalies detected. All segments are performing within expected thresholds."
+- **Minimum output** — Always identify and output **at least 2 root cause segments**, even if the second is less severe. If only one critical issue exists, include the next most notable segment as a secondary finding. Only skip this if **noDataAvailable** or **everythingGood** is true.
+- **Full metrics** — Include ALL metrics from the payload for each segment, not just ones you analyzed
+- **Session IDs** — Always include `affected_sessions` field (empty array if none). Copy from payload's `exampleSessionIds`.
+- **No invented data** — Ground all values strictly in the input payload
+- **Valid JSON** — Ensure output is valid JSON matching the schema exactly
 - Remember: segments are FLAT and can have varying dimension combinations — compare them directly across the list to find patterns
 - If **noDataAvailable** or **everythingGood** is true in the payload, state that clearly and keep findings minimal.
-"""
-
-
-def build_rca_formatter_prompt(ctx=None) -> str:
-    """Prompt for the RCA Formatter agent.
-
-    Injects the rca_analysis_result from session state so the formatter can
-    convert the RCA agent's text output into a validated RcaStructuredReportV1
-    JSON object via output_schema — no tool call required.
-    """
-    rca_result = None
-    if ctx:
-        raw_state = getattr(ctx, "state", None)
-        if raw_state is not None:
-            try:
-                rca_result = raw_state.get("rca_analysis_result")
-            except Exception:
-                pass
-
-    analysis = rca_result or "No analysis data available."
-
-    return f"""\
-You are the RCA Structured Formatter for Pulse AI.
-
-Your only task is to convert the RCA analysis below into a structured JSON report.
-
-## Session Evidence Handling
-
-CRITICAL: The RootCausePayload in the conversation history contains segments with 
-"exampleSessionIds" arrays pre-populated by the backend.
-
-Also, the RCA analysis may include session IDs mentioned like (example sessions: s_1234, s_5678).
-
-When outputting each segment:
-1. Look for sessions mentioned in the analysis for that segment
-2. Also check the original payload for that segment's exampleSessionIds
-3. Prefer sessions from the original payload if available
-4. Put 1-2 session IDs in the affected_sessions array
-5. Use empty array if no sessions available
-
-**IMPORTANT**: Do not skip the affected_sessions field - it must always be present.
-
-## RCA Analysis
-{analysis}
-
-## Output Schema Instructions
-
-Produce output with exactly these fields:
-
-**version**: always `1`
-
-**executive_summary**: Copy the Executive Summary from the RCA Analysis above verbatim.
-If no explicit summary exists, write a concise summary based on the analysis (up to 4 sentences).
-
-**segments**: Array of the top root cause segments. **Must contain at least 2 segments** — if the RCA analysis only highlighted one, include the next most notable segment from the analysis as rank 2. Only use an empty array if noDataAvailable or everythingGood was explicitly stated. For each segment:
-- `rank`: 1-based integer (1 = most impactful)
-- `title`: segment identifier string from the analysis (e.g. "device_model: SM-A135F", "app_version: 4.2.1 + network: 2G")
-- `impact`: optional short string describing user impact (e.g. "2,200 users affected")
-- `affected_sessions`: **REQUIRED** array of 1-2 session IDs from the exampleSessionIds provided in the payload that best demonstrate this segment's issue. Must always be present (use empty array [] if no sessions are available).
-- `insights`: 2–4 sentences explaining why this segment ranks here. Summarise the most critical metric degradations, what they mean for the user, and why this segment is the top contributor. Example: "This segment shows a critically low APDEX of 0.03 (baseline 0.31), meaning nearly all users experienced poor performance. 89.5% of users fell into the poor experience bucket — more than 4× the baseline. The combination of high poor-user rate and low volume suggests a device-specific regression on the 22101316I model running Android 14."
-- `metrics`: **ALL metrics for this segment from the original RootCausePayload JSON** in the conversation — not just the ones the RCA analysis highlighted. The RCA analysis only calls out significant metrics; the metrics array must include every metric present in the payload for this segment (volume, apdex, error_rate, poor_user_pct, duration_p50, duration_p95, crash_rate, anr_rate, frozen_frame_rate, slow_frame_rate — whichever are present). Each metric row:
-  - `metric_id`: one of `volume`, `apdex`, `error_rate`, `poor_user_pct`, `duration_p50`, `duration_p95`, `crash_rate`, `anr_rate`, `frozen_frame_rate`, `slow_frame_rate`
-  - `metric_label`: human-readable label (e.g. "APDEX", "Error Rate", "Crash Rate", "Volume")
-  - `value_display`: formatted current value string (e.g. "0.43", "27.5%", "15,200ms", "2,200")
-  - `baseline_display`: formatted baseline value in the same unit/format as value_display
-  - `delta_display`: formatted delta with explicit sign (e.g. "+24.3%", "-0.38", "+120%")
-  - `value_number`: numeric current value without units — optional (e.g. 0.43, 27.5, 15200)
-  - `baseline_number`: numeric baseline value without units — optional
-
-**recommendations**: **Must contain at least 3** short actionable strings derived from the analysis (maximum 7). If the analysis provides fewer than 3 explicit recommendations, derive additional ones from the identified root causes and metrics data.
-
-## Extracting Session IDs from Payload
-
-**IMPORTANT**: The `exampleSessionIds` array in each segment of the RootCausePayload contains real session IDs that have been pre-selected by the backend as the most relevant examples for that segment. Use these DIRECTLY.
-
-When extracting segments from the RCA analysis:
-1. **DO NOT** try to extract session IDs from the analysis text. The RCA analyzer may mention session IDs in discussion, but these are EXAMPLES only.
-2. **INSTEAD**: For each segment in your output, find the **corresponding segment in the RootCausePayload** (by matching the title/label)
-3. **Copy the `affected_sessions` directly** from the matched payload segment's `exampleSessionIds` array
-4. If a segment appears in the analysis but doesn't have a direct match in the payload, use an empty array `[]`
-5. **CRITICAL**: Every segment MUST have an `affected_sessions` field — never omit it. Use empty array [] if the payload segment has no sessions.
-
-Algorithm:
-```
-For each segment in analysis output:
-  matched_payload_segment = find payload segment with matching label/title
-  if matched_payload_segment exists and has exampleSessionIds:
-    output_segment.affected_sessions = matched_payload_segment.exampleSessionIds
-  else:
-    output_segment.affected_sessions = []
-```
-
-Example:
-- Payload segment: `{{"label": "OsVersion: 11", "exampleSessionIds": ["s_1506", "s_1540"], ...}}`
-- Analysis mentions: "OsVersion: 11 is the most critical"
-- Output: `{{"title": "OsVersion: 11", "affected_sessions": ["s_1506", "s_1540"], ...}}`
-
-Ground metric values strictly in the original RootCausePayload JSON. Do not invent or omit metrics.
-If no anomalies were found or data is unavailable: use an empty `segments` array and an honest `executive_summary`.
 """
