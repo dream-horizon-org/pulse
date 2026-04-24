@@ -106,7 +106,7 @@ def getVersionFromPackageJson(String path = 'backend/session-replay-ingestion/pa
             script: """
                 export NVM_DIR="/home/admin/.nvm"
                 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
-                nvm use 20 || nvm install 20
+                nvm use 20 --silent || nvm install 20
                 node -p "require('./${path}').version"
             """,
             returnStdout: true
