@@ -16,7 +16,7 @@ import type {
 import { extractStructuredReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import type { RcaReportViewProps } from "./RcaReportView.interface";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
-import { getMetricValueTone } from "./rcaMetricTone";
+import { formatRcaDeltaDisplay, getMetricValueTone } from "./rcaMetricTone";
 import rcaClasses from "./RcaReportView.module.css";
 import rootCauseClasses from "./RootCause.module.css";
 import { RcaRelatedHeatmapCard } from "./RcaRelatedHeatmapCard";
@@ -26,6 +26,7 @@ import { RcaSessionReplayEvidenceCard } from "./RcaSessionReplayEvidenceCard";
 const HEATMAP_EVIDENCE_MAX = 2;
 
 const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
+  const deltaShown = formatRcaDeltaDisplay(row.delta_display);
   const tone = getMetricValueTone(
     row.metric_id,
     row.value_number,
@@ -80,7 +81,7 @@ const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
             tone === "neutral" ? rcaClasses.metricValueNeutral : undefined
           }
         >
-          {row.delta_display}
+          {deltaShown}
         </Text>
       </Table.Td>
     </Table.Tr>

@@ -89,6 +89,25 @@ const parseDeltaPercentLoose = (
   return Number.isFinite(n) ? n : null;
 };
 
+/** Above this absolute delta (%), RCA segment tables show infinity instead of the raw value. */
+export const RCA_DELTA_DISPLAY_INFINITY_THRESHOLD_PCT = 9999;
+
+/**
+ * Formats `delta_display` for the RCA metrics table: huge percent deltas render as ±∞%.
+ * Uses the same loose percent parsing as tone logic (commas, Unicode minus).
+ */
+export const formatRcaDeltaDisplay = (
+  deltaDisplay: string | null | undefined,
+): string => {
+  if (deltaDisplay == null) return "";
+  const raw = String(deltaDisplay);
+  const n = parseDeltaPercentLoose(raw);
+  if (n == null || Math.abs(n) <= RCA_DELTA_DISPLAY_INFINITY_THRESHOLD_PCT) {
+    return raw;
+  }
+  return n > 0 ? "+∞%" : "-∞%";
+};
+
 const toneFromDiff = (
   polarity: MetricPolarity,
   diff: number,
