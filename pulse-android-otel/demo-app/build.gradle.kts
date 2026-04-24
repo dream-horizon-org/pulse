@@ -96,7 +96,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-    implementation(libs.opentelemetry.exporter.otlp)
+    implementation(libs.opentelemetry.exporter.otlp) {
+        exclude(group = "com.squareup.okhttp3", module = "okhttp-jvm")
+    }
 
     testImplementation(libs.bundles.junit)
     androidTestImplementation(libs.androidx.junit)
