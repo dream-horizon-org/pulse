@@ -30,7 +30,6 @@ import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
-import org.dreamhorizon.pulseserver.service.rootcause.models.SessionEvidenceResult;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
 
 /**
@@ -99,7 +98,8 @@ public class RcaReportEnrichmentService {
               List<RootCauseSegment> segments = sanitizedResult.getSegments();
 
               if (segments.isEmpty()) {
-                return serializeEnrichedBody(working, rootCauseResult, date, windowEndExclusive)
+                return serializeEnrichedBody(
+                        working, rootCauseResult, date, windowEndExclusive, projectId, entityKey)
                     .onErrorReturnItem(
                         new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
               }
@@ -113,7 +113,8 @@ public class RcaReportEnrichmentService {
               boolean skipSessionEvidence = isCachedFromStore && allSegmentsHaveSessions;
 
               if (skipSessionEvidence) {
-                return serializeEnrichedBody(working, rootCauseResult, date, windowEndExclusive)
+                return serializeEnrichedBody(
+                        working, rootCauseResult, date, windowEndExclusive, projectId, entityKey)
                     .onErrorReturnItem(
                         new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
               }
@@ -126,7 +127,7 @@ public class RcaReportEnrichmentService {
                           rcPayload.set("segments", objectMapper.valueToTree(enrichedSegments));
                         }
                         return serializeEnrichedBody(
-                            working, rootCauseResult, date, windowEndExclusive);
+                            working, rootCauseResult, date, windowEndExclusive, projectId, entityKey);
                       })
                   .onErrorReturnItem(
                       new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
@@ -203,12 +204,19 @@ public class RcaReportEnrichmentService {
   }
 
   private Single<RcaEnrichmentOutcome> serializeEnrichedBody(
-      ObjectNode working, RootCauseResult rootCauseResult, LocalDate date, Instant windowEnd) {
+      ObjectNode working,
+      RootCauseResult rootCauseResult,
+      LocalDate date,
+      Instant windowEnd,
+      String projectId,
+      String entityKey) {
     return Single.fromCallable(
-        () -> {
-          String enrichedBody = objectMapper.writeValueAsString(working);
-          return new RcaEnrichmentOutcome(enrichedBody, rootCauseResult, date, windowEnd, true);
-        });
+            () -> {
+              fetchErrorAttributionForEnrichment(projectId, entityKey, date, windowEnd, working);
+              String enrichedBody = objectMapper.writeValueAsString(working);
+              return new RcaEnrichmentOutcome(enrichedBody, rootCauseResult, date, windowEnd, true);
+            })
+        .subscribeOn(Schedulers.io());
   }
 
   /**

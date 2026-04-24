@@ -13,6 +13,8 @@ dependencies {
     implementation(projects.instrumentation.okhttp3Websocket.library)
 
     implementation(libs.okhttp)
-    implementation(libs.opentelemetry.exporter.otlp)
+    implementation(libs.opentelemetry.exporter.otlp) {
+        exclude(group = "com.squareup.okhttp3", module = "okhttp-jvm")
+    }
     androidTestImplementation(libs.okhttp.mockwebserver)
 }
