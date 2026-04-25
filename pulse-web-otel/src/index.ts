@@ -6,6 +6,6 @@ export type {
   PulseWebBeforeSendCallbacks,
   PulseWebBeforeSendConfig,
 } from "./config";
-export { PulseDataCollectionConsent } from "./config";
+export { PulseDataCollectionConsent, PulseLogLevel } from "./config";
 export { SDK_VERSION } from "./version";
 export { PulseWebSemconv } from "./semconv";

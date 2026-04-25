@@ -43,7 +43,7 @@ describe("validateBeforeSendConfig", () => {
     expect(() =>
       validateBeforeSendConfig({ beforeSendSpan: 1 } as never),
     ).toThrow(
-      "[PulseWeb] beforeSend.beforeSendSpan must be a function when provided",
+      "[PulseWeb] beforeSendData.beforeSendSpan must be a function when provided",
     );
   });
 });

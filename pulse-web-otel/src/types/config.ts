@@ -1,5 +1,7 @@
-import type { PulseWebBeforeSendConfig } from "../before-send";
+import type { PulseWebBeforeSendConfig } from "./before-send";
+import type { PulseLogLevel } from "../pulse-log-level";
 
+/** Consent for telemetry collection (Android `dataCollectionState` parity). */
 export enum PulseDataCollectionConsent {
   ALLOWED = "ALLOWED",
   DENIED = "DENIED",
@@ -12,59 +14,75 @@ export interface InstrumentationConfig {
   clicks?: { enabled: boolean };
   webVitals?: { enabled: boolean };
   navigation?: { enabled: boolean };
-  session?: {
-    enabled: boolean;
-    /** Rotate session after this many ms of inactivity. Default: 30 min. */
-    inactivityTimeoutMs?: number;
-    /** Hard max session lifetime in ms regardless of activity. Default: 4 hours. */
-    maxSessionLifetimeMs?: number;
-    /** Rotate session after page has been hidden for this many ms. Default: 15 min. */
-    pageHiddenTimeoutMs?: number;
-  };
+  session?: { enabled: boolean };
   interactions?: { enabled: boolean };
   sessionReplay?: { enabled: boolean };
 }
 
-/** @see `PulseWebDiskBufferingConfig` in config.ts — duplicated for doc parity with Android. */
+/**
+ * Durable buffering for failed OTLP exports (IndexedDB).
+ * Matches Android OTel RUM: {@code DiskBufferingConfigurationSpec} defaults {@code isEnabled = true},
+ * and {@code PulseSDK.initialize} does not pass a disk lambda — so disk buffering is **on by default**.
+ * Set {@code enabled: false} to disable (no IndexedDB writes / drain).
+ */
 export interface PulseWebDiskBufferingConfig {
-  /** Default true (matches Android OTel RUM disk spec default). */
+  /** Default {@code true}. Set {@code false} to turn off disk buffering entirely. */
   enabled?: boolean;
+  /** Max row age before prune (ms). Default 24h. */
   maxAgeMs?: number;
+  /** Approximate cap on total buffered payload bytes. Default 10 MiB. */
   maxCacheSizeBytes?: number;
 }
 
 export interface PulseWebConfig {
-  // Required — same as Android
+  // Required
   apiKey: string;
   dataCollectionState: PulseDataCollectionConsent;
 
-  // Optional — same as Android
+  // Optional — identity
   /** Defaults to window.location.hostname if absent. */
   serviceName?: string;
   serviceVersion?: string;
+
+  // Optional — custom attributes stamped on every signal
   globalAttributes?: Record<string, string | number | boolean>;
-  beforeSend?: PulseWebBeforeSendConfig;
+
+  /**
+   * Extra OTEL resource attributes (e.g. {@code deployment.environment}). Merged under the
+   * built-in resource; **Pulse keys win on conflict** ({@code project.id}, {@code rum.sdk.name},
+   * {@code platform}, etc.).
+   */
+  resourceAttributes?: Record<string, string | number | boolean>;
+
+  // Optional — privacy (Android `beforeSendData` / PulseBeforeSendData parity — see before-send.ts)
+  beforeSendData?: PulseWebBeforeSendConfig;
+
+  // Optional — per-instrumentation toggles
   instrumentations?: InstrumentationConfig;
 
-  // Web-specific only (no Android equivalent)
+  // Optional — route → screen name mapping (used by navigation instrumentation)
   routePatterns?: Array<{ pattern: string; name: string }>;
 
   /**
    * Wire format for OTLP export.
-   * "json"  → application/json (DevTools-readable, default for dev keys)
-   * "protobuf" → application/x-protobuf (more compact, default for prod keys)
-   * When omitted, the SDK auto-selects based on the API key prefix.
+   * "json"  → application/json (DevTools-readable)
+   * "protobuf" → application/x-protobuf (more compact)
    */
   export?: {
     format?: "json" | "protobuf";
   };
 
   /**
-   * When true, logs each log record through the processor chain to the browser console.
-   * Useful for debugging signal flow: API emit → processors → batch export.
-   * Leave false (or omit) in production.
+   * SDK internal diagnostics (Android / RN parity). Omitted or {@link PulseLogLevel.NONE} → no
+   * Pulse console output. Use {@link PulseLogLevel.DEBUG} for sampling + remote-config traces.
    */
-  debugLogRecordLifecycle?: boolean;
+  logLevel?: PulseLogLevel;
 
+  /**
+   * Buffer failed OTLP exports in IndexedDB and retry on next load (Android disk buffering parity).
+   * On by default; set {@code enabled: false} to turn off. Tune with {@code maxAgeMs} /
+   * {@code maxCacheSizeBytes}. In Vite builds, {@code VITE_PULSE_DISK_BUFFER_MAX_AGE_MS} and
+   * {@code VITE_PULSE_DISK_BUFFER_MAX_SIZE_BYTES} can override defaults when buffering is active.
+   */
   diskBuffering?: PulseWebDiskBufferingConfig;
 }

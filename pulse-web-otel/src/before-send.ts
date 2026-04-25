@@ -1,5 +1,5 @@
 /**
- * `beforeSend` — Android {@code PulseBeforeSendData} parity (generic → typed; {@code null} = drop).
+ * {@code PulseWebConfig.beforeSendData} — Android {@code PulseBeforeSendData} parity (generic → typed; {@code null} = drop).
  * Runs on the **main thread** at OTLP export batch time; see
  * `web-sdk-plan/v1/01-foundation/before-send-web-android-parity.md`.
  */
@@ -8,31 +8,17 @@ import type { ReadableSpan } from "@opentelemetry/sdk-trace-web";
 import type { ReadableLogRecord } from "@opentelemetry/sdk-logs";
 import type { ResourceMetrics } from "@opentelemetry/sdk-metrics";
 
-/** Optional typed hooks after {@link PulseWebBeforeSendCallbacks.beforeSend} (Android order). */
-export interface PulseWebBeforeSendCallbacks {
-  /**
-   * Generic hook for every signal at export time. Runs first; return {@code null} to drop
-   * (typed hooks are not called). Return a value that is not the expected kind for this
-   * exporter → drop (Android parity).
-   */
-  beforeSend?: (signal: unknown) => unknown | null;
-  beforeSendSpan?: (span: ReadableSpan) => ReadableSpan | null;
-  beforeSendLog?: (log: ReadableLogRecord) => ReadableLogRecord | null;
-  beforeSendMetric?: (metrics: ResourceMetrics) => ResourceMetrics | null;
-}
+import type {
+  PulseWebBeforeSendCallbacks,
+  PulseWebBeforeSendConfig,
+  ResolvedBeforeSend,
+} from "./types/before-send";
 
-/** Single callback (generic only) or full callback object. */
-export type PulseWebBeforeSendConfig =
-  | ((signal: unknown) => unknown | null)
-  | PulseWebBeforeSendCallbacks;
-
-/** Normalized hooks used by exporter wrappers. */
-export interface ResolvedBeforeSend {
-  beforeSend?: (signal: unknown) => unknown | null;
-  beforeSendSpan?: (span: ReadableSpan) => ReadableSpan | null;
-  beforeSendLog?: (log: ReadableLogRecord) => ReadableLogRecord | null;
-  beforeSendMetric?: (metrics: ResourceMetrics) => ResourceMetrics | null;
-}
+export type {
+  PulseWebBeforeSendCallbacks,
+  PulseWebBeforeSendConfig,
+  ResolvedBeforeSend,
+} from "./types/before-send";
 
 export function resolveBeforeSend(
   input: PulseWebBeforeSendConfig | undefined,
@@ -103,7 +89,7 @@ export function validateBeforeSendConfig(
   if (typeof input === "function") return;
   if (typeof input !== "object" || input === null) {
     throw new Error(
-      "[PulseWeb] beforeSend must be a function or a callback object",
+      "[PulseWeb] beforeSendData must be a function or a callback object",
     );
   }
   const o = input as Record<string, unknown>;
@@ -116,7 +102,7 @@ export function validateBeforeSendConfig(
     const v = o[key];
     if (v !== undefined && typeof v !== "function") {
       throw new Error(
-        `[PulseWeb] beforeSend.${key} must be a function when provided`,
+        `[PulseWeb] beforeSendData.${key} must be a function when provided`,
       );
     }
   }
