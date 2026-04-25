@@ -1,0 +1,137 @@
+Area 4 — Export-time sampling (ExportSamplingGate),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+4.1,Session rate 0 drops all spans and logs (positive: gate applies),"1. Serve remote config with sampling.default.sessionSampleRate = 0 and no alwaysSend rules matching normal traffic
+2. Load demo, navigate, trigger trackEvent
+3. Inspect Network: no /v1/traces or /v1/logs bodies contain new spans/logs OR counts stay at gate (zero export)",No OTLP export of user spans/logs for that session draw (sdk.init may still exist depending on timing — document product rule),,,"Use m2.spec sessionSampleRate:0 or mirror in fixture config",Positive
+4.2,Session rate 1 keeps traffic (positive),"1. Remote config sessionSampleRate = 1
+2. Normal usage",Signals export as today,,,m2.spec + default,Positive
+4.3,alwaysSend bypasses session rate 0 (positive / critical path),"1. sessionSampleRate = 0
+2. criticalEventPolicies.alwaysSend includes condition matching a specific log/span (e.g. pulse.type)
+3. Emit matching + non-matching signals",Matching signals exported; others dropped,,,export-sampling-gate.test + manual CH verify,Positive
+4.4,signalsToSample rate &lt; 1 reduces matching signals only (edge),"1. Add signalsToSample entry: condition matches http spans, sampleRate 0
+2. Generate http + non-http spans",Http spans thinned to zero; other spans follow session rate,,,export-sampling-gate.test.ts it uses signalsToSample,Edge
+4.5,signalsToSample with rate 0.5 statistical behavior (edge — flaky),"1. High volume of identical matching spans
+2. sampleRate 0.5",Roughly half exported over many batches (not a single-batch assert),,,Unit uses deterministic gate if available; else manual smoke only,Edge
+4.6,BLACKLIST signal filter drops matching exports (negative for dropped signal),"1. signals.filters mode BLACKLIST, values condition matches custom_event logs
+2. trackEvent",No exported log for blacklisted events,,,export-sampling-gate.test + e2e route with injected config,Negative
+4.7,WHITELIST keeps only matches (negative for non-listed),"1. mode WHITELIST, values only session.start pattern
+2. Emit other logs",Only whitelisted patterns in OTLP batches,,,export-sampling-gate.test,Negative
+4.8,alwaysSend bypasses BLACKLIST (positive),"1. Same as 4.6 but alwaysSend matches the same event",Event still exported,,,export-sampling-gate.test,Positive
+4.9,Invalid regex in condition.name does not drop all traffic (edge),"1. Malformed regex in a filter or match condition
+2. Normal spans",SDK does not silent-fail all exports; matcher falls back (see sampling-signal-match),,,sampling-signal-match.test + diag warning in console,Edge
+4.10,Session sampling uses first matching sampling.rules row for pulse_web_js (positive),"1. Two rules both match web context; different rates
+2. Verify which rate applies",First matching rule rate used (per WEB-SDK-IMPLEMENTATION-M1),,,session-sampling-rate.test + manual,Positive
+4.11,platform rule matches platform=web (positive),"1. Rule name platform value web
+2. Init SDK",Session rate from rule applied,,,session-sampling-rate.test,Positive
+4.12,app_version rule uses service.version from config (positive),"1. Rule app_version regex ^9\. ; serviceVersion 9.0.0 vs 8.0.0 in init context",Rate applies only when version matches,,,session-sampling-rate.test,Positive
+4.13,No rule matches — falls back to default.sessionSampleRate (edge),"1. Rules list only other sdks or impossible name regex
+2. pulse_web_js",Default rate used,,,session-sampling-rate + manual,Edge
+,,,,,,,
+Area 5 — Remote signals config (merge + processor + types),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+5.1,criticalSessionPolicies merges to criticalEventPolicies (positive),"1. JSON uses criticalSessionPolicies key only
+2. loadCached / merge",criticalEventPolicies.alwaysSend populated; old key not left inconsistent,,,merge-pulse-sdk-config.test,Positive
+5.2,Both critical keys present — event wins (edge),"1. Both criticalSessionPolicies and criticalEventPolicies in JSON
+2. Merge",alwaysSend from criticalEventPolicies used,,,merge-pulse-sdk-config.test,Edge
+5.3,Lowercase scopes normalized to TRACES/LOGS/METRICS (positive),"1. attributesToDrop condition scopes [""traces""]
+2. Merge + match",Processor/gate treats as TRACES,,,merge-pulse-sdk-config.test,Positive
+5.4,metricsToAdd entries merge and normalize nested conditions (positive),"1. signals.metricsToAdd with backend prop ""name"" instead of ""key""
+2. mergePulseSdkConfig",props[].key populated; nested target.condition normalized,,,metrics-to-add.test.ts merge test,Positive
+5.5,SignalFilterProcessor drops trace attrs when TRACES condition matches (positive),"1. attributesToDrop for span name sdk.init keys screen.*
+2. Start sdk.init span",Attributes removed on span,,,signal-filter-processor.test,Positive
+5.6,Drop patterns are regex on attribute keys (edge),"1. values [""screen\\..*""]
+2. Span with screen.name + screen.class",Both keys dropped,,,signal-filter-processor.test,Edge
+5.7,attributesToAdd only when full condition matches (negative),"1. attributesToAdd condition requires prop not on span
+2. onStart",No attrs added,,,signal-filter-processor.test,Negative
+5.8,Log attribute drop when LOGS scope matches body (positive),"1. attributesToDrop LOGS condition matches log body
+2. emit log",Dropped attrs on log record,,,signal-filter-processor.test,Positive
+,,,,,,,
+Area 6 — metricsToAdd (derived metrics),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+6.1,Counter increments per matching span before sampling (positive),"1. metricsToAdd counter + condition matches all traces
+2. Export batch with N spans
+3. Inspect /v1/metrics or CH",Counter sum increases by N (or by pre-filter count per product rule),,,metrics-to-add.test + manual CH,Positive
+6.2,Counter does not fire when condition does not match (negative),"1. metricsToAdd name regex ^foo$ only
+2. Only bar spans",No points for that instrument,,,extend unit or manual,Negative
+6.3,target type attribute + suffix (edge),"1. target type attribute shouldAddPropNameAsSuffix true
+2. Span with two matching attrs",Two instruments or two increments per Android semantics — verify names sanitized,,,manual + parity doc,Edge
+6.4,gauge histogram sum types parse only numeric strings (negative),"1. type gauge isFraction false; target name non-numeric
+2. Export",No crash; no invalid record (or no-op),,,metrics-to-add-recorder paths,Negative
+6.5,Log body as signal name for LOGS scope metrics (positive),"1. metricsToAdd condition scopes LOGS matches log body
+2. Emit log",Metric recorded from log batch,,,add unit applyMetricsToAddToLogs or manual,Positive
+,,,,,,,
+Area 7 — SDK lifecycle resilience,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+7.1,PulseWeb.shutdown forceFlush (positive),"1. Load app, generate queued signals
+2. await PulseWeb.shutdown()
+3. Network / CH",Pending batches flushed; no throw,,,m1.spec @M1 SDK shutdown + m1.test shutdown re-init,Positive
+7.2,Second start() no-op (negative: no duplicate providers),"1. start(); start();
+2. Single session.start / stable metering id",No duplicate init side-effects,,,m1.spec double start + m1.test singleton,Negative
+7.3,diskBuffering enabled — failed export persists and drains (positive),"1. Enable diskBuffering; block network then restore
+2. Reload",IDB rows replayed; eventual success,,,No dedicated e2e in list — manual gate + add e2e if critical,Positive
+7.4,diskBuffering maxAge/maxSize prune (edge),"1. Fill buffer beyond limits
+2. Restart",Old rows pruned per config,,,manual / future e2e,Edge
+,,,,,,,
+Area 8 — Wire format & transport,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+8.1,JSON Content-Type in test env (positive),"1. VITE_PULSE_FORMAT=json
+2. POST logs",application/json,,,m1.spec OTLP pipeline,Positive
+8.2,Protobuf default in prod demo (positive),"1. Unset format (protobuf)
+2. Capture request",application/x-protobuf,,,manual DevTools (not asserted in default e2e),Positive
+8.3,gzip Content-Encoding when enabled (positive),"1. compression gzip; collector accepts
+2. Inspect headers",gzip on wire,,,manual / transport unit if present,Positive
+8.4,OTEL collector CORS allows metering header (negative if missing),"1. Preflight from browser origin
+2. OPTIONS",204 + allowed headers include X-Pulse-Metering-Session-ID,,,infra + manual once per env,Negative
+,,,,,,,
+Area 9 — FeatureGate & instrumentation install,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+9.1,Feature absent from remote config defaults enabled (positive),"1. Empty features array or missing feature
+2. gate.isEnabled('click')",true (per implementation doc),,,m1.test FeatureGate default,Positive
+9.2,sessionSampleRate &lt; 1 disables feature (Android parity) (negative),"1. features entry session with sessionSampleRate 0.5
+2. isEnabled('session')",false — SessionInstrumentation not installed,,,m1.test FeatureGate fractional + m2.spec feature disabled,Negative
+9.3,sessionSampleRate exactly 1 enables (edge boundary),"1. sessionSampleRate 1.0",true,,,m1.test FeatureGate exactly 1,Edge
+9.4,custom_events off disables trackEvent path (negative),"1. custom_events feature sessionSampleRate 0 or disabled per product
+2. trackEvent",No log exported,,,m2.spec pattern — align with FeatureGate matrix,Negative
+,,,,,,,
+Area 10 — Known limitations & regression guards,,,,,,Case type
+10.1,Remote config fetch success does NOT hot-reload gates (edge / doc),"1. Bump config version in server while tab open
+2. No reload",FeatureGate and ExportSamplingGate unchanged until reload,,,manual doc check; no automation expected,Edge
+10.2,beforeSend not invoked (negative — future),"1. Set beforeSend on config
+2. Emit log",Callback never runs (until implemented),,,manual grep / contract test when M3 adds,Negative
+10.3,PENDING consent blocks init (negative),"1. dataCollectionState PENDING
+2. start()",isInitialized false; zero OTLP,,,m3 consent + manual CSV row 22 parity,Negative
+,,,,,,,
+Area 11 — SDK Lifecycle / pagehide Cleanup,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+11.1,pagehide listeners registered on start(),"1. Open http://localhost:3002
+2. Patch window.addEventListener to count pagehide calls
+3. Reload
+4. Inspect counter","Exactly 2 pagehide listeners registered (1 from createProviders OTLP flush + 1 from SessionProvider session tracking)",Pass,"Browser-verified: tracking confirmed 2 adds per start(). Spec previously said 1 — corrected after browser verification.",Positive
+11.2,Signals flush when tab closed (persisted=false),"1. Load app — wait for session.start
+2. Open DevTools → Network
+3. dispatch pagehide(persisted=false) or close tab
+4. Check Network / ClickHouse",/v1/logs POST fires immediately via keepalive fetch with session.end in payload,Pass,Browser-verified: /v1/logs POST 200 fired immediately on pagehide(persisted=false) dispatch.,Positive
+11.3,BFCache: pagehide with persisted=true does NOT flush,"1. Load http://localhost:3002
+2. dispatch pagehide(persisted=true)
+3. Watch Network for 1s",No OTLP request at all — if(!e.persisted) guard suppresses flush,Pass,Browser-verified: zero network requests after pagehide(persisted=true). Guard confirmed.,Negative
+11.4,shutdown() removes pagehide listeners,"1. Patch removeEventListener to count pagehide removals
+2. await PulseWeb.shutdown()
+3. Check removal count",Both pagehide listeners removed (count=2) — isInitialized() false,Pass,"Browser-verified: pagehideRemoved=2 after shutdown. Unit test sdk-lifecycle #4 (cleanupFn called). Core fix of Task 1.",Positive
+11.5,start() → shutdown() → start() has exactly N listeners,"1. start() → pagehideAdded=2
+2. shutdown() → pagehideRemoved=2 net=0
+3. start() → pagehideAdded=2 again net=0",Net listener count is always 0 after a complete cycle — no accumulation,Pass,Browser-verified over 1 cycle. Unit test sdk-lifecycle #2.,Positive
+11.6,3× restart cycles — no listener accumulation,"1. Repeat start → shutdown 3 times
+2. After each start: net = pagehideAdded - pagehideRemoved
+3. After each shutdown: net drops back",Always net=0 during active / net=-N after shutdown — never grows beyond N per cycle,Pass,"Browser-verified: 3 cycles all showed net=0 post-start, net=-2 post-shutdown. Unit test sdk-lifecycle #3.",Positive
+11.7,shutdown() before start() is a no-op,"1. Hard-reload
+2. Before SDK auto-inits: await PulseWeb.shutdown()
+3. Check console for errors",No error thrown — returns silently; isInitialized() stays false,Pass,Unit test sdk-lifecycle #1. Guard: !_initialized && !_starting both false → return.,Negative
+11.8,Signals flush after re-init cycle,"1. start() → shutdown() → start()
+2. dispatch pagehide(persisted=false)
+3. Check Network",/v1/logs POST fires — new pagehide listener from re-init works correctly,Pass,Browser-verified: /v1/logs POST 200 after shutdown→start→pagehide cycle. Unit test sdk-lifecycle #2.,Positive
+11.9,No pagehide listener in SSR / headless (window undefined),"1. Import SDK in Node.js / SSR context
+2. Call start()
+3. No window available",No error thrown — typeof window guard prevents addEventListener call; cleanup defaults to no-op,Pass,"Source-verified: cleanup = () => {} default before if(typeof window !== undefined) gate in exporters.ts and session.ts.",Edge
+11.10,pagehide listener does NOT fire on SPA navigation,"1. Load app
+2. Navigate Home → /products → /cart → /checkout via pushState
+3. Watch Network — no pagehide should fire",No OTLP keepalive flush during in-app navigation — pagehide is unload-only,Pass,Browser-verified: 3 pushState navigations produced zero extra /v1/logs flush. Only regular batch timer requests observed.,Negative

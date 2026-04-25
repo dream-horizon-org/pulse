@@ -1,0 +1,180 @@
+Area E1 — Session lifecycle (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E1.1,session.start on first load,Playwright: navigate to demo root; OTLP fixture captures logs,session.start log present with contract attrs,Automated,m1.spec.ts @M1 session lifecycle,Positive
+E1.2,session.end on pagehide (non-BFCache),Dispatch pagehide persisted=false; wait for logs,session.end exported,Automated,m1.spec.ts @M1 session lifecycle,Positive
+E1.3,BFCache pagehide does not emit session.end,Dispatch pagehide persisted=true,no session.end for BFCache path,Automated,m1.spec.ts @M1 session lifecycle,Negative
+E1.4,double PulseWeb.start is no-op,StrictMode + explicit start; count session.start logs,Exactly one session.start,Automated,m1.spec.ts @M1 session lifecycle,Edge
+,,,,,,,
+Area E2 — Installation & session identity (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E2.1,installation.id survives reload,Reload page; compare installation.id on signals,Same installation.id,Automated,m1.spec.ts @M1 identity persistence,Positive
+E2.2,installation.id in localStorage (pulse_installation_id),Read localStorage after session.start,UUID stored and matches signal,Automated,m1.spec.ts @M1 identity persistence,Positive
+E2.3,localStorage throw → sessionStorage fallback,Init script blocks localStorage; capture session.start,Valid installation.id from fallback,Automated,m1.spec.ts @M1 identity persistence,Edge
+E2.4,localStorage + sessionStorage blocked → in-memory,Init script blocks both storages,SDK still emits session.start with installation.id,Automated,m1.spec.ts @M1 identity persistence,Edge
+E2.5,new session.id on fresh context,New browser context; compare session ids,Different session.id per fresh context,Automated,m1.spec.ts @M1 identity persistence,Positive
+,,,,,,,
+Area E3 — OTLP transport contract (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E3.1,x-api-key on logs traces metrics,Route all three OTLP paths; poll until POSTs seen,Every captured request has test-api-key,Automated,m1.spec.ts @M1 OTLP pipeline,Positive
+E3.2,Content-Type JSON on logs traces metrics,Same triple route; read Content-Type headers,application/json on each path that fired,Automated,m1.spec.ts @M1 OTLP pipeline,Positive
+E3.3,Resource attrs platform service.version rum,Capture any signal; read resource attrs,platform=web; service.name and rum.sdk.version set,Automated,m1.spec.ts @M1 OTLP pipeline,Positive
+,,,,,,,
+Area E4 — Shutdown & batching (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E4.1,PulseWeb.shutdown flushes without console errors,Call shutdown from page; collect console errors,No errors (non-favicon),Automated,m1.spec.ts @M1 SDK shutdown,Positive
+E4.2,Multiple trackEvent coalesced in one logs batch,Three trackEvent in one evaluate; wait batch window,Single OTLP logs payload contains all three bodies,Automated,m1.spec.ts @M1 batching,Positive
+E4.3,First export after batch delay not at init,Measure time from navigation to first export,Gap >= configured batch delay,Automated,m1.spec.ts @M1 batching,Positive
+E4.4,pagehide force-flush before batch timer,Long batch delay via query + immediate pagehide,Pending log exported without waiting full delay,Automated,m1.spec.ts @M1 batching,Positive
+E4.5,session.end ordering vs pagehide batch window,pagehide + persisted false; capture logs,session.end ordering per product rules,Automated,m1.spec.ts @M1 batching,Positive
+,,,,,,,
+Area E5 — Payload & data contract (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E5.1,session.start required attrs,waitForLog session.start; assert attrs,Required contract attributes present,Automated,m1.spec.ts @M1 payload attributes,Positive
+E5.2,Global attrs on signals,Capture logs/spans; check common attrs,GlobalAttributesProcessor attrs present,Automated,m1.spec.ts @M1 payload attributes,Positive
+E5.3,Resource service.name platform rum on export,Inspect resource on captured payloads,Values match web harness,Automated,m1.spec.ts @M1 payload attributes,Positive
+E5.4,sdk.init span pulse.type sdk.init,waitForSpanByName sdk.init; attrs,pulse.type=sdk.init,Automated,m1.spec.ts @M1 payload attributes,Positive
+,,,,,,,
+Area E6 — localStorage & remote config HTTP (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E6.1,pulse_installation_id UUID format,Read localStorage after start,Valid UUID string,Automated,m1.spec.ts @M1 localStorage state,Positive
+E6.2,Storage installation.id matches signal,Compare storage vs session.start attr,Strings equal,Automated,m1.spec.ts @M1 localStorage state,Positive
+E6.3,pulse_sdk_config after background fetch (when server OK),Wait after start; read pulse_sdk_config,If present: valid JSON with numeric version,Automated,m1.spec.ts @M1 localStorage state,Positive
+E6.4,Remote config version bump across reloads,Mock active endpoint with version counter; reload twice,localStorage version follows server bumps,Automated,m1.spec.ts @M1 localStorage state,Positive
+E6.5,Active config 404 + empty cache → defaults,Clear pulse_sdk_config; active 404,session.start still exports (defaults),Automated,m1.spec.ts @M1 remote config fetch resilience,Positive
+E6.6,Cached config survives active 404 on reload,Seed v991; active 404; reload,Version stays 991 in localStorage,Automated,m1.spec.ts @M1 remote config fetch resilience,Positive
+,,,,,,,
+Area E7 — Consent (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E7.1,DENIED → isInitialized false,?pulse_consent=denied,PulseWeb.isInitialized() false,Automated,m1.spec.ts @M1 consent,Negative
+E7.2,DENIED → zero OTLP,?pulse_consent=denied; count /v1/ URLs,No OTLP traffic,Automated,m1.spec.ts @M1 consent,Negative
+E7.3,PENDING → no init + zero OTLP (seeded block),?pulse_consent=pending in gated describe,No OTLP; not initialized,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Negative
+,,,,,,,
+Area E8 — Metering & OTLP headers (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E8.1,X-Pulse-Metering-Session-ID on logs traces metrics,Route three OTLP paths; capture POST headers,Non-empty metering header on each kind,Automated,m1.spec.ts @M1 signal headers,Positive
+E8.2,Metering ID stable across multiple exports,Multiple log batches + trackEvent,Single UUID across requests,Automated,m1.spec.ts @M1 signal headers,Positive
+,,,,,,,
+Area E9 — First install log (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E9.1,pulse.app.installation.start on empty storage,Clear storage before goto,Log pulse.app.installation.start emitted,Automated,m1.spec.ts @M1 app.installation.start,Positive
+E9.2,No second installation.start on reload,Second navigation with same installation id,No duplicate install log,Automated,m1.spec.ts @M1 app.installation.start,Negative
+,,,,,,,
+Area E10 — Error / diagnostic APIs (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E10.1,trackNonFatal emits non_fatal,Trigger from error-demo route,non_fatal log with expected attrs,Automated,m1.spec.ts @M1 trackNonFatal,Positive
+E10.2,reportException body = message,Trigger reportException,Log body matches message string,Automated,m1.spec.ts @M1 reportException body,Positive
+,,,,,,,
+Area E11 — window.id (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E11.1,window.id on every signal,Inspect attrs across log types,window.id present,Automated,m1.spec.ts @M1 window.id uniqueness,Positive
+E11.2,window.id unique per load,Two navigations in sequence,Different window.id,Automated,m1.spec.ts @M1 window.id uniqueness,Positive
+E11.3,window.id stable within one load,Multiple events same page,Same window.id,Automated,m1.spec.ts @M1 window.id uniqueness,Positive
+,,,,,,,
+Area E12 — Clone & reload semantics (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E12.1,session.id persisted in localStorage,Read pulse_session_id after start,Value present for cross-tab semantics,Automated,m1.spec.ts @M1 clone detection,Positive
+E12.2,Clone flag via sessionStorage inheritance,Simulated clone init script,Clone detection path does not crash,Automated,m1.spec.ts @M1 clone detection,Edge
+E12.3,Reload reuses session (no new session.start),Reload after session.start,No second session.start; same session id,Automated,m1.spec.ts @M1 reload vs clone detection,Positive
+E12.4,beforeunload clears clone flag,Evaluate beforeunload; read sessionStorage,Clone flag removed; session intact,Automated,m1.spec.ts @M1 reload vs clone detection,Positive
+,,,,,,,
+Area E13 — screen.name & URL attributes (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E13.1,screen.name from /products,/products path,screen.name reflects /products,Automated,m1.spec.ts @M1 screen.name resolution,Positive
+E13.2,Numeric segment stripped,/products/123,Heuristic /products,Automated,m1.spec.ts @M1 screen.name resolution,Positive
+E13.3,Root path screen.name,/,screen.name '/',Automated,m1.spec.ts @M1 screen.name resolution,Positive
+E13.4,UUID segment stripped,/products/<uuid>,Heuristic strips uuid segment,Automated,m1.spec.ts @M1 screen.name resolution,Positive
+E13.5,setScreenName override,Set then trackEvent,Override appears on attrs,Automated,m1.spec.ts @M1 screen.name manual override,Positive
+E13.6,Override persists across events,Two trackEvents after setScreenName,Override on both,Automated,m1.spec.ts @M1 screen.name manual override,Positive
+E13.7,Override cleared after full navigation,Navigate away and back,URL-derived name restored,Automated,m1.spec.ts @M1 screen.name manual override,Positive
+E13.8,Override cleared after SPA nav,Client-side link navigation,Override cleared,Automated,m1.spec.ts @M1 screen.name manual override,Positive
+E13.9,url.path after SPA nav,Click nav link; inspect logs,url.path matches new route,Automated,m1.spec.ts @M1 url attributes,Positive
+E13.10,screen.name on logs not only spans,Inspect log records,screen.name on log attrs,Automated,m1.spec.ts @M1 url attributes,Positive
+E13.11,page.url vs url.path semantics,Inspect both attrs,Full URL vs path-only,Automated,m1.spec.ts @M1 url attributes,Positive
+,,,,,,,
+Area E14 — Session lifecycle matrix Area 3 (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E14.1,3.2 No session.start on SPA-only nav,Client routing without full reload,No new session.start,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Negative
+E14.2,3.6 Inactivity rotation,Clock / storage simulation,new session after inactivity window,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Positive
+E14.3,3.8 pagehide session.end then reload resume,pagehide then reload,session.end then silent reuse,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Positive
+E14.4,3.9 Duplicate page inherits session.id,newPage + pre-seeded session keys,goto / same session.id,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Positive
+E14.5,3.10 Fresh browser context independent session,newContext + goto,new session.id; session.start in fresh context,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Positive
+E14.6,3.11/3.12 Rotation emits session.end then session.start new ids,Force rotation flow,end then start with different session ids,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Positive
+E14.7,3.14 No session.end on SPA-only nav,In-app navigation only,no session.end,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Negative
+E14.8,3.13 Very short session session.end duration non-negative,Brief session then end,duration_ms >= 0,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Edge
+E14.9,3.15 Consent DENIED no session.start or session.end,?pulse_consent=denied in Area 3 block,No session.start or session.end logs,Automated,m1.spec.ts @M1 Area 3 session lifecycle,Negative
+,,,,,,,
+Area E15 — Resource environment (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E15.1,browser.name and browser.version non-empty,Capture resource from export,Both attrs present,Automated,m1.spec.ts @M1 resource attributes,Positive
+E15.2,os.name non-empty,Capture resource,os.name set,Automated,m1.spec.ts @M1 resource attributes,Positive
+E15.3,device.type desktop in Chromium harness,Capture resource,device.type desktop,Automated,m1.spec.ts @M1 resource attributes,Positive
+E15.4,project.id from API key,Capture resource,project.id non-empty,Automated,m1.spec.ts @M1 resource attributes,Positive
+,,,,,,,
+Area E16 — Export gate & remote signals (seeded localStorage) (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E16.1,metricsToAdd counter after sdk.init span,Seed config with metricsToAdd; wait metrics,Named counter data point exported,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.2,custom_events feature rate 0 blocks trackEvent,Seed feature custom_events 0; click Shop Now,No OTLP log body shop_now_click,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Negative
+E16.3,signals.filters BLACKLIST at export,Seed blacklist shop_now_click; click,Body absent from OTLP,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Negative
+E16.4,attributesToAdd on session.start log,Seed attributesToAdd matching session.start,pulse.e2e.attr present on exported log,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.5,attributesToDrop removes matched keys,Seed add+drop pulse.e2e.droptest on session.start,Attr absent after processor,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.6,WHITELIST drops non-listed custom_event bodies,Seed WHITELIST allowlist; trackEvent probe,Probe body not in OTLP,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Negative
+E16.7,Disk buffering smoke (?pulse_disk=1),Load with disk query; wait session.start,SDK inits; session.start exports,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Smoke
+E16.8,Multiple attributesToAdd blocks on session.start,Seed two attributesToAdd rules for ^session.start$; block active fetch; goto /,Exported session.start carries pulse.e2e.multi_a and pulse.e2e.multi_b,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.9,Multiple attributesToDrop rules on session.start,Seed attributesToAdd for drop_a and drop_b then two attributesToDrop rules; goto /,Neither pulse.e2e.drop_a nor pulse.e2e.drop_b on exported session.start,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.10,Explicit empty metricsToAdd attributesToAdd attributesToDrop,Seed signals with all three arrays empty ([]); goto /,session.start exports with session.id present,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.11,Two metricsToAdd counters from sdk.init span export,Seed two counter metricsToAdd on TRACES; wait sdk.init; poll /v1/metrics,Both e2e_derived_alpha_total and e2e_derived_beta_total data points >= 1,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.12,BLACKLIST multiple filter values each drop matching bodies,Seed BLACKLIST with two name patterns; trackEvent three bodies; custom_events rate 1,Matching bodies absent from OTLP; non-listed body present,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.13,Default session rate 0 overridden by platform web rule at rate 1,Default sessionSampleRate 0; rules: app_version ^9 (no match on service.version) then platform web rate 1; assert service.version and platform on resource,session.start in OTLP; service.version does not match ^9; platform=web,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+E16.14,Platform web rule at sessionSampleRate 0 after initialized + batch window,Default sessionSampleRate 1; platform web rule 0; poll isInitialized then wait past signals.scheduleDurationMs,No session.start in captured OTLP,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Negative
+E16.15,signalsToSample rate 0 blocks only matching log body,Seed signalsToSample sampleRate 0 for one custom_event name; trackEvent blocked and ok names,Blocked body absent; other body exported,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Edge
+E16.16,Combined feature rates js_crash off and custom_events on,Seed js_crash sessionSampleRate 0 and custom_events 1; queueMicrotask throw plus trackEvent probe,No device.crash for probe error; custom trackEvent body exported,Automated,m1.spec.ts @M1 remote config + export gate (seeded localStorage),Positive
+,,,,,,,
+Area E17 — Disk buffer replay (M1),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E17.1,Failed logs POST buffered then replayed on reload,First POST 400 with disk; reload; poll captured,session.start appears after replay path,Automated,m1.spec.ts @M1 disk buffer replay,Positive
+,,,,,,,
+Area E18 — M2 E2E (ecommerce-demo),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E18.1,Checkout interaction span APDEX,Complete checkout wizard; wait span,interaction span with user_category + apdex_score,Automated,m2.spec.ts @M2 interaction tracking (requires interaction instrumentation + non-empty interaction-config.json),Positive
+E18.2,Interaction timeout no span,Stop mid checkout; wait timeout,No interaction span; no crash,Automated,m2.spec.ts @M2 interaction tracking,Negative
+E18.3,Rapid checkout Satisfied,Fast checkout steps,user_category Satisfied,Automated,m2.spec.ts @M2 interaction tracking,Positive
+E18.4,interaction-config.json fetch failure graceful,Route 500 for interaction-config,session.start still present,Automated,m2.spec.ts @M2 SDK config + sampling,Positive
+E18.5,Session sample rate 0 zero OTLP,Seed PulseSdkConfig sessionSampleRate 0; block active fetch,No OTLP after navigation,Automated,m2.spec.ts @M2 SDK config + sampling,Negative
+E18.6,js_crash feature off no device.crash log,Seed js_crash rate 0; microtask throw,No device.crash in OTLP,Automated,m2.spec.ts @M2 SDK config + sampling,Negative
+E18.7,React route → screen_session (when nav instr. on),Click Products link; wait span,screen_session with screen.name,Automated,m2.spec.ts @M2 React integration (requires navigation instrumentation),Positive
+E18.8,Deep link screen.name heuristic,/products/123,screen.name products/:id pattern,Automated,m2.spec.ts @M2 React integration (requires navigation instrumentation),Positive
+E18.9,PulseErrorBoundary device.crash,Trigger render error on error-demo,device.crash log with stack,Automated,m2.spec.ts @M2 React integration,Positive
+E18.10,SSR guard no storage undefined crash,Load app; collect console errors,No localStorage undefined errors,Automated,m2.spec.ts @M2 React integration,Positive
+E18.11,DENIED zero OTLP all instrumentations,?pulse_consent=denied,No captured OTLP,Automated,m2.spec.ts @M2 consent gate,Negative
+,,,,,,,
+Area E19 — M3 E2E (ecommerce-demo),,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+E19.1,window.onerror → device.crash,error-demo uncaught button,device.crash with stack + url.path,Automated,m3.spec.ts @M3 errors,Positive
+E19.2,unhandledrejection → non_fatal,error-demo rejection button,non_fatal log,Automated,m3.spec.ts @M3 errors,Positive
+E19.3,Duplicate error deduped,Trigger same error twice,Single log (dedup),Automated,m3.spec.ts @M3 errors,Positive
+E19.4,Cross-origin Script error skipped,Trigger cross-origin error path,No log emitted,Automated,m3.spec.ts @M3 errors,Negative
+E19.5,fetch → http span,Trigger fetch demo,http span with method url status,Automated,m3.spec.ts @M3 network,Positive
+E19.6,Ingest URLs not traced,Navigate; ensure collector calls not as http user spans,Pulse OTLP URLs excluded from user http spans,Automated,m3.spec.ts @M3 network,Negative
+E19.7,GraphQL http span operation name,POST GraphQL from demo,graphql.operation.name on span,Automated,m3.spec.ts @M3 network,Positive
+E19.8,ProductCard click → app.click,Click product card,app.click with coordinates,Automated,m3.spec.ts @M3 clicks,Positive
+E19.9,Rage click detection,Triple fast click rage button,rage_click true,Automated,m3.spec.ts @M3 clicks,Positive
+E19.10,Click log class_name,Inspect click log attrs,view.target.class_name defined,Automated,m3.spec.ts @M3 clicks,Positive
+E19.11,LCP web_vital metric,/products load; wait metric,web_vital with rating + value,Automated,m3.spec.ts @M3 web vitals,Positive
+E19.12,LCP attribution element,When metric.name LCP,lcp.element attr present,Automated,m3.spec.ts @M3 web vitals,Positive
+E19.13,Metrics global attrs injection,Custom counter via meterProvider forceFlush,session.id installation.id screen.name platform on DP,Automated,m3.spec.ts @M3 web vitals,Positive
+E19.14,INP after interaction,test.skip in suite,Manual / future M4,Skipped,m3.spec.ts @M3 web vitals (test.skip),Smoke
+E19.15,screen_load ttfb,/products initial load,screen_load span ttfb_ms >= 0,Automated,m3.spec.ts @M3 navigation,Positive
+E19.16,screen_load load.duration_ms,/products,load.duration_ms > 0,Automated,m3.spec.ts @M3 navigation,Positive
+E19.17,SPA screen_session,/ then client nav to /products,screen_session span,Automated,m3.spec.ts @M3 navigation,Positive
+E19.18,screen_session previous_screen.name,Two-step client nav,previous_screen.name set,Automated,m3.spec.ts @M3 navigation,Positive
+E19.19,Heuristic /products/123,/products/123,screen.name matches products/:id,Automated,m3.spec.ts @M3 navigation > screen.name resolution,Positive
+E19.20,Heuristic slug path,/products/abc-slug-123,screen.name does not contain raw slug,Automated,m3.spec.ts @M3 navigation > screen.name resolution,Positive
+E19.21,DENIED zero all five instrumentations,?pulse_consent=denied,No OTLP from instrumented paths,Automated,m3.spec.ts @M3 consent gate across all instrumentations,Negative
+E19.22,Firefox longtask no-op smoke,firefox project smoke,no uncaught errors from missing API,Automated,m3.spec.ts @M3 graceful no-ops on non-Chrome browsers,Smoke
+,,,,,,,
+Area EX — Explicitly not covered by default M1 E2E harness,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+EX.1,Protobuf OTLP wire format,Use protobuf export + decode in fixture,N/A,Not in default E2E,.env.test forces JSON; add separate Playwright project for proto matrix,Gap
+EX.2,Gzip OTLP bodies,Enable gzip; decode in fixture,N/A,Not in default E2E,.env.test VITE_PULSE_COMPRESSION=none; fixture supports gzip when enabled,Gap
+EX.3,Real window.open clone tab,Open second tab via UI,Clone semantics vs storage simulation,Not in default E2E,m1.spec uses storage pre-seed not real second tab,Gap
+EX.4,Statistical sampling 0.5 volume,High-volume stochastic assert,Approximate half exported,Not in default E2E,Vitest / manual; flaky in single browser run,Gap
