@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InteractionConfig } from "../interactions/interaction-models";
-import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-prop-keys";
+import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-constants";
 import { InteractionCoordinator } from "../interactions/interaction-coordinator";
 
 function flow(name: string, id: string): InteractionConfig {

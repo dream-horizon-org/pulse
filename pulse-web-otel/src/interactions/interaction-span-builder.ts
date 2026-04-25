@@ -6,8 +6,10 @@ import {
 } from "@opentelemetry/api";
 
 import { PulseWebSemconv } from "../semconv";
-import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-prop-keys";
-import { INTERACTION_TIME_CATEGORY } from "../constants/interactions/interaction-time-category";
+import {
+  INTERACTION_PROP_KEYS,
+  INTERACTION_TIME_CATEGORY,
+} from "../constants/interactions/interaction-constants";
 import type {
   InteractionLocalEvent,
   PulseInteraction,

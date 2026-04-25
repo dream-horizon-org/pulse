@@ -12,3 +12,10 @@ export const INTERACTION_PROP_KEYS = {
   ERROR_TYPE: "pulse.interaction.error.type",
   ERROR_MESSAGE: "pulse.interaction.error.message",
 } as const;
+
+export const INTERACTION_TIME_CATEGORY = {
+  EXCELLENT: "Excellent",
+  GOOD: "Good",
+  AVERAGE: "Average",
+  POOR: "Poor",
+} as const;

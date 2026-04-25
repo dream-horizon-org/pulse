@@ -3,7 +3,7 @@ import {
   buildPulseInteraction,
   matchInteractionSequence,
 } from "../interactions/interaction-sequence-matcher";
-import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-prop-keys";
+import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-constants";
 import {
   localEventMatchesConfigEvent,
   matchPropValue,

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ROOT_CONTEXT, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 
 import { InteractionSpanBuilder } from "../interactions/interaction-span-builder";
-import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-prop-keys";
+import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-constants";
 import { PulseWebSemconv } from "../semconv";
 
 function makeSpan() {
