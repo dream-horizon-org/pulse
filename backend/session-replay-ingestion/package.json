@@ -1,6 +1,6 @@
 {
   "name": "pulse-session-replay-ingestion",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "scripts": {
     "build": "tsc",
