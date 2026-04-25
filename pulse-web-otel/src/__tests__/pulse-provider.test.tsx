@@ -42,6 +42,7 @@ vi.mock("../exporters", () => {
       loggerProvider: mockLoggerProvider,
       meterProvider: mockMeterProvider,
       cleanup: vi.fn(),
+      prepareForDocumentUnload: vi.fn(),
     }),
   };
 });
@@ -314,8 +315,14 @@ describe("PulseProvider — config forwarding (+v)", () => {
     const startSpy = vi.spyOn(PulseWeb, "start");
     const cfg = makeConfig({ serviceName: "my-service" });
 
-    render(<PulseProvider config={cfg}><div /></PulseProvider>);
-    await act(async () => { await Promise.resolve(); });
+    render(
+      <PulseProvider config={cfg}>
+        <div />
+      </PulseProvider>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(startSpy).toHaveBeenCalledWith(cfg);
     startSpy.mockRestore();
@@ -327,7 +334,9 @@ describe("PulseProvider — config forwarding (+v)", () => {
         <div data-testid="child">hello</div>
       </PulseProvider>,
     );
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(getByTestId("child").textContent).toBe("hello");
   });
 });
@@ -344,7 +353,10 @@ describe("PulseProvider — SSR guard (+v)", () => {
     // before calling PulseWeb.start(). Tested in Node/SSR environments via
     // the sdk-lifecycle suite (exporters.ts + session.ts both guard window).
     const src = require("fs").readFileSync(
-      require("path").resolve(__dirname, "../integrations/react/PulseProvider.tsx"),
+      require("path").resolve(
+        __dirname,
+        "../integrations/react/PulseProvider.tsx",
+      ),
       "utf8",
     ) as string;
     expect(src).toContain('typeof window === "undefined"');
@@ -370,7 +382,9 @@ describe("PulseProvider — nested provider (-v)", () => {
         </PulseProvider>
       </PulseProvider>,
     );
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(PulseWeb.isInitialized()).toBe(true);
     // createProviders is the expensive init step — must fire exactly once
@@ -390,12 +404,20 @@ describe("PulseProvider — invalid config (-v)", () => {
     render(
       // Wrap in ErrorBoundary so React doesn't surface the error as uncaught
       <PulseErrorBoundary fallback={<div data-testid="caught" />}>
-        <PulseProvider config={{ apiKey: "", serviceName: "app", dataCollectionState: PulseDataCollectionConsent.ALLOWED }}>
+        <PulseProvider
+          config={{
+            apiKey: "",
+            serviceName: "app",
+            dataCollectionState: PulseDataCollectionConsent.ALLOWED,
+          }}
+        >
           <div />
         </PulseProvider>
       </PulseErrorBoundary>,
     );
-    await act(async () => { await flushMicrotasks(); });
+    await act(async () => {
+      await flushMicrotasks();
+    });
     expect(PulseWeb.isInitialized()).toBe(false);
     errSpy.mockRestore();
   });
@@ -445,7 +467,9 @@ describe("PulseErrorBoundary (+v)", () => {
     expect(crashSpy).toHaveBeenCalledOnce();
     const [error, attrs] = crashSpy.mock.calls[0]!;
     expect((error as Error).message).toBe("render bomb");
-    expect((attrs as Record<string, string>)["react.component_stack"]).toBeDefined();
+    expect(
+      (attrs as Record<string, string>)["react.component_stack"],
+    ).toBeDefined();
     crashSpy.mockRestore();
     errSpy.mockRestore();
   });
@@ -499,7 +523,11 @@ describe("PulseErrorBoundary (-v)", () => {
       <PulseErrorBoundary
         fallback={(_err, reset) => {
           capturedReset = reset;
-          return <button data-testid="reset-btn" onClick={reset}>reset</button>;
+          return (
+            <button data-testid="reset-btn" onClick={reset}>
+              reset
+            </button>
+          );
         }}
       >
         <Bomb />
@@ -512,7 +540,9 @@ describe("PulseErrorBoundary (-v)", () => {
 
     // Calling reset clears the error — boundary tries to re-render children
     // (Bomb will throw again, but the reset mechanism itself is exercised)
-    act(() => { capturedReset!(); });
+    act(() => {
+      capturedReset!();
+    });
 
     // After reset the boundary attempted re-render — no crash in the mechanism
     errSpy.mockRestore();

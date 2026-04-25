@@ -62,6 +62,8 @@ class PulseWebSDK implements SdkContext {
   private tracerProvider?: WebTracerProvider;
   private loggerProvider?: LoggerProvider;
   private meterProvider?: MeterProvider;
+  private _prepareForDocumentUnload?: () => void;
+  private _pagehideListener?: (e: PageTransitionEvent) => void;
   private registry?: InstrumentationRegistry;
   private configFetcher: SdkConfigFetcher = new SdkConfigFetcher("", "");
   private gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
@@ -206,7 +208,22 @@ class PulseWebSDK implements SdkContext {
     this.tracerProvider = bundle.tracerProvider;
     this.loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
+    this._prepareForDocumentUnload = bundle.prepareForDocumentUnload;
     this._providerCleanup = bundle.cleanup ?? (() => {});
+
+    if (typeof window !== "undefined") {
+      this._pagehideListener = (e: PageTransitionEvent) => {
+        if (!e.persisted && this._initialized) {
+          this._prepareForDocumentUnload?.();
+          void Promise.all([
+            this.loggerProvider?.forceFlush(),
+            this.tracerProvider?.forceFlush(),
+            this.meterProvider?.forceFlush(),
+          ]).catch(() => {});
+        }
+      };
+      window.addEventListener("pagehide", this._pagehideListener);
+    }
 
     trace.setGlobalTracerProvider(this.tracerProvider);
     logs.setGlobalLoggerProvider(this.loggerProvider);
@@ -246,6 +263,11 @@ class PulseWebSDK implements SdkContext {
     if (!this._initialized && !this._starting) return;
     this._shuttingDown = true;
     this._starting = false; // kill any pending async init
+
+    if (this._pagehideListener && typeof window !== "undefined") {
+      window.removeEventListener("pagehide", this._pagehideListener);
+      this._pagehideListener = undefined;
+    }
 
     this._providerCleanup();
     this.registry?.uninstallAll();

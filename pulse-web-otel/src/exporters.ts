@@ -1,8 +1,7 @@
-// OTLP HTTP exporters (traces/logs/metrics) + batching + pagehide flush.
-// Wire format: JSON (application/json) — browser DevTools readable + E2E test compatible.
-// Compression: none — hardcoded internally; no user-facing config.
-// Log export on pagehide uses fetch({ keepalive: true }) with JSON OTLP (see KeepaliveFetchLogExporter)
-// because XHR-based sends from PulseBrowserLogExporter are cancelled during unload.
+// OTLP HTTP exporters (traces/logs/metrics) + batching; unload prep via ProviderBundle hooks.
+// Default wire format follows `ExporterConfig.useProtobuf` (JSON vs protobuf). Compression: off.
+// On real document unload, `prepareForDocumentUnload` swaps trace + log browser transports to
+// keepalive `fetch` (same pipeline as normal export); see `buildBrowserExportTransport`.
 // See: web-sdk-plan/v1/01-foundation/pipeline.md
 
 import {
@@ -23,16 +22,13 @@ import type { SpanExporter, SpanProcessor } from "@opentelemetry/sdk-trace-web";
 import type {
   LogRecordProcessor,
   LogRecordExporter,
-  ReadableLogRecord,
 } from "@opentelemetry/sdk-logs";
 import type {
   PushMetricExporter,
   ResourceMetrics,
 } from "@opentelemetry/sdk-metrics";
 import type { ExportResult } from "@opentelemetry/core";
-import { ExportResultCode } from "@opentelemetry/core";
 import type { Attributes } from "@opentelemetry/api";
-import { createExportLogsServiceRequest } from "@opentelemetry/otlp-transformer";
 
 import { IdbSignalBuffer } from "./persistence/indexed-db";
 import type { ExporterConfig, ProviderBundle } from "./types/exporters";
@@ -64,79 +60,6 @@ import {
 
 // Compression is hardcoded off — not exposed in public config (mirrors Android internals)
 const USE_GZIP = false; // no compression — keep it simple and compatible
-
-/**
- * Wraps a {@link LogRecordExporter} and, when `_pagehide` is set to true, replaces the
- * normal export (XHR / custom transport from {@link PulseBrowserLogExporter}) with a
- * `fetch` call using `keepalive: true`.
- *
- * Normal batches still use the inner exporter.
- * The pagehide path sends JSON OTLP (`application/json`) without gzip so the body stays
- * small and compatible with keepalive limits.
- */
-class KeepaliveFetchLogExporter implements LogRecordExporter {
-  /** Set to true in the pagehide handler before calling `loggerProvider.forceFlush()`. */
-  _pagehide = false;
-
-  constructor(
-    private readonly inner: LogRecordExporter,
-    private readonly logsUrl: string,
-    private readonly headers: Record<string, string>,
-    private readonly samplingGate?: ExportSamplingGate,
-  ) {}
-
-  export(
-    logs: ReadableLogRecord[],
-    resultCallback: (result: ExportResult) => void,
-  ): void {
-    if (!this._pagehide) {
-      this.inner.export(logs, resultCallback);
-      return;
-    }
-
-    const toSend = this.samplingGate?.filterReadableLogs(logs) ?? logs;
-    if (toSend.length === 0) {
-      resultCallback({ code: ExportResultCode.SUCCESS });
-      return;
-    }
-
-    const body = JSON.stringify(
-      createExportLogsServiceRequest(toSend, {
-        useHex: true,
-        useLongBits: false,
-      }),
-    );
-
-    const fetchHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...this.headers,
-    };
-
-    fetch(this.logsUrl, {
-      method: "POST",
-      keepalive: true,
-      headers: fetchHeaders,
-      body,
-    })
-      .then(() => {
-        resultCallback({ code: ExportResultCode.SUCCESS });
-      })
-      .catch(() => {
-        resultCallback({ code: ExportResultCode.FAILED });
-      });
-  }
-
-  forceFlush(): Promise<void> {
-    const maybeFlush = this.inner as LogRecordExporter & {
-      forceFlush?: () => Promise<void>;
-    };
-    return maybeFlush.forceFlush?.() ?? Promise.resolve();
-  }
-
-  shutdown(): Promise<void> {
-    return this.inner.shutdown();
-  }
-}
 
 /**
  * Wraps any PushMetricExporter and merges dynamic global attributes into every data point.
@@ -268,14 +191,7 @@ export function createProviders(
       config.samplingGate,
     );
   }
-  const keepaliveFetchLogExporter = new KeepaliveFetchLogExporter(
-    logInnerChain,
-    logsUrl,
-    headers,
-    config.samplingGate,
-  );
-  /** Metrics run outside keepalive so pagehide batches still increment derived metrics first. */
-  let logExporterHead: LogRecordExporter = keepaliveFetchLogExporter;
+  let logExporterHead: LogRecordExporter = logInnerChain;
   if (metricsEntries.length > 0 && config.metricsToAddSdkName) {
     logExporterHead = new MetricsToAddLogRecordExporter(logExporterHead, {
       entries: metricsEntries,
@@ -348,27 +264,19 @@ export function createProviders(
     );
   }
 
-  let cleanup = () => {};
-  if (typeof window !== "undefined") {
-    const pagehideHandler = (e: PageTransitionEvent) => {
-      if (!e.persisted) {
-        keepaliveFetchLogExporter._pagehide = true;
-        void loggerProvider.forceFlush().finally(() => {
-          keepaliveFetchLogExporter._pagehide = false;
-        });
-        void tracerProvider.forceFlush();
-        void meterProvider.forceFlush();
-      }
-    };
-    window.addEventListener("pagehide", pagehideHandler);
-    cleanup = () => window.removeEventListener("pagehide", pagehideHandler);
-  }
+  const prepareForDocumentUnload = (): void => {
+    innerTraceExporter.switchToKeepalive();
+    baseLogExporter.switchToKeepalive();
+  };
+
+  const cleanup = () => {};
 
   return {
     tracerProvider,
     loggerProvider,
     meterProvider,
     cleanup,
+    prepareForDocumentUnload,
     ...(diskEnabled ? { idbSignalBuffer: idbBuffer } : {}),
   };
 }
