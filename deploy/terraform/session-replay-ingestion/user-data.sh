@@ -11,7 +11,7 @@ echo "Installing dependencies..."
 # Disable broken PPA and update
 sudo rm -f /etc/apt/sources.list.d/deadsnakes-ppa-*.list || true
 sudo apt-get update -qq 2>/dev/null || true
-sudo apt-get install -y -qq unzip curl 2>/dev/null || true
+sudo apt-get install -y -qq unzip curl build-essential pkg-config libssl-dev libcurl4-openssl-dev libsasl2-dev librdkafka-dev 2>/dev/null || true
 
 # Install Node + pm2 as admin user for persistent SSH sessions
 echo "Installing Node and PM2..."
