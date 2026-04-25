@@ -107,8 +107,9 @@ export class SessionReplayConsumer {
         "group.id": this.config.kafkaGroupId,
         "metadata.broker.list": this.config.kafkaBrokers,
         "enable.auto.commit": true,
-        "enable.auto.offset.store": true,
+        "enable.auto.offset.store": false,
         "session.timeout.ms": 90000,
+        "max.poll.interval.ms": 300000,
         "fetch.min.bytes": 1,
         "fetch.wait.max.ms": 500,
       } as any,
@@ -119,7 +120,15 @@ export class SessionReplayConsumer {
 
     // Create offset manager
     const offsetManager = new KafkaOffsetManager((offsets) => {
-      // Auto-commit is enabled, offsets stored automatically
+      console.log("[Consumer] Storing offsets manually:", offsets);
+      if (this.consumer) {
+        try {
+          this.consumer.offsetsStore(offsets);
+          console.log("[Consumer] Offsets stored successfully");
+        } catch (err) {
+          console.error("[Consumer] Error storing offsets:", err);
+        }
+      }
     }, this.config.kafkaTopic);
 
     // Create batch manager
@@ -140,6 +149,18 @@ export class SessionReplayConsumer {
         const partitions = assignments.map((a) => a.partition);
         console.log(`[Consumer] Partitions revoked: ${partitions.join(", ")}`);
         this.batchManager?.discardPartitions(partitions);
+      }
+    });
+
+    this.consumer.on("offset.commit", (err: any, offsets: any) => {
+      if (err) {
+        console.error("[Consumer] Offset commit FAILED:", {
+          code: err.code,
+          message: err.message,
+          offsets,
+        });
+      } else {
+        console.log("[Consumer] Offset commit SUCCESS:", offsets);
       }
     });
 
