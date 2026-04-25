@@ -28,6 +28,17 @@ mkdir -p "${ROOT_DIR}/artifact"
 
 echo "Building ${APPLICATION_NAME} version ${VERSION}"
 cd "${APP_DIR}"
+
+# Install system librdkafka if not present
+if ! pkg-config --exists librdkafka; then
+  echo "Installing librdkafka-dev..."
+  sudo apt-get update -qq
+  sudo apt-get install -y librdkafka-dev build-essential pkg-config libssl-dev libcurl4-openssl-dev libsasl2-dev
+fi
+
+# Build node-rdkafka against system librdkafka
+export npm_config_build_from_source=true
+export npm_config_librdkafka_root=/usr
 npm install
 npm run build
 npm prune --production
