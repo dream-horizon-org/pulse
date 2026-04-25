@@ -29,31 +29,16 @@ mkdir -p "${ROOT_DIR}/artifact"
 echo "Building ${APPLICATION_NAME} version ${VERSION}"
 cd "${APP_DIR}"
 
-# Build node-rdkafka from source using its bundled librdkafka (statically linked).
-# Do NOT set npm_config_librdkafka_root — using the system librdkafka causes
-# version mismatches between build and deploy hosts (ERR__NOT_IMPLEMENTED at runtime).
-# Build toolchain is still needed for native compilation.
+# build-essential is needed for snappy native addon compilation
 sudo rm -f /etc/apt/sources.list.d/*deadsnakes* 2>/dev/null || true
 sudo apt-get update -qq 2>&1 | grep -v "^E:" || true
-sudo apt-get install -y build-essential pkg-config libssl-dev libcurl4-openssl-dev libsasl2-dev 2>&1 | tail -20
-
-export npm_config_build_from_source=true
+sudo apt-get install -y build-essential 2>&1 | tail -5
 
 echo "=== clearing npm cache ==="
 npm cache clean --force
 
 echo "=== npm install ==="
-npm install --build-from-source 2>&1 | tee npm-install.log
-
-echo "=== checking node-rdkafka.node ==="
-RDKAFKA_NODE=$(find node_modules/node-rdkafka -name "*.node" -type f 2>/dev/null | head -1)
-if [ -n "$RDKAFKA_NODE" ]; then
-  echo "Found: $RDKAFKA_NODE"
-  ldd "$RDKAFKA_NODE" 2>/dev/null || echo "ldd failed"
-else
-  echo "ERROR: node-rdkafka.node not found!"
-  find node_modules -name "*.node" -type f | head -10
-fi
+npm install 2>&1 | tee npm-install.log
 
 echo "=== npm run build ==="
 npm run build

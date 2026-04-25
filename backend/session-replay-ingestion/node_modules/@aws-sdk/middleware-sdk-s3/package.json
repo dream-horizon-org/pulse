@@ -1,0 +1,79 @@
+{
+  "name": "@aws-sdk/middleware-sdk-s3",
+  "version": "3.972.34",
+  "scripts": {
+    "build": "concurrently 'yarn:build:types' 'yarn:build:es' && yarn build:cjs",
+    "build:cjs": "node ../../scripts/compilation/inline middleware-sdk-s3",
+    "build:es": "tsc -p tsconfig.es.json",
+    "build:include:deps": "yarn g:turbo run build -F=\"$npm_package_name\"",
+    "build:types": "tsc -p tsconfig.types.json",
+    "build:types:downlevel": "downlevel-dts dist-types dist-types/ts3.4",
+    "clean": "premove dist-cjs dist-es dist-types tsconfig.cjs.tsbuildinfo tsconfig.es.tsbuildinfo tsconfig.types.tsbuildinfo",
+    "test:types": "tsc -p tsconfig.test.json",
+    "extract:docs": "api-extractor run --local",
+    "test": "yarn g:vitest run",
+    "test:watch": "yarn g:vitest watch",
+    "test:integration": "yarn g:vitest run -c vitest.config.integ.mts && yarn test:types",
+    "test:integration:watch": "yarn g:vitest watch -c vitest.config.integ.mts",
+    "test:e2e": "yarn g:vitest run -c vitest.config.e2e.mts --mode development",
+    "test:e2e:watch": "yarn g:vitest watch -c vitest.config.e2e.mts"
+  },
+  "main": "./dist-cjs/index.js",
+  "module": "./dist-es/index.js",
+  "types": "./dist-types/index.d.ts",
+  "sideEffects": false,
+  "author": {
+    "name": "AWS SDK for JavaScript Team",
+    "url": "https://aws.amazon.com/javascript/"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@aws-sdk/core": "^3.974.5",
+    "@aws-sdk/types": "^3.973.8",
+    "@aws-sdk/util-arn-parser": "^3.972.3",
+    "@smithy/core": "^3.23.17",
+    "@smithy/node-config-provider": "^4.3.14",
+    "@smithy/protocol-http": "^5.3.14",
+    "@smithy/signature-v4": "^5.3.14",
+    "@smithy/smithy-client": "^4.12.13",
+    "@smithy/types": "^4.14.1",
+    "@smithy/util-config-provider": "^4.2.2",
+    "@smithy/util-middleware": "^4.2.14",
+    "@smithy/util-stream": "^4.5.25",
+    "@smithy/util-utf8": "^4.2.2",
+    "tslib": "^2.6.2"
+  },
+  "devDependencies": {
+    "@tsconfig/recommended": "1.0.1",
+    "concurrently": "7.0.0",
+    "downlevel-dts": "0.10.1",
+    "premove": "4.0.0",
+    "typescript": "~5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "typesVersions": {
+    "<4.5": {
+      "dist-types/*": [
+        "dist-types/ts3.4/*"
+      ]
+    }
+  },
+  "files": [
+    "dist-*/**"
+  ],
+  "browser": {
+    "./dist-es/toStream": "./dist-es/toStream.browser"
+  },
+  "react-native": {
+    "./dist-es/toStream": "./dist-es/toStream.browser",
+    "./dist-cjs/toStream": "./dist-cjs/toStream.browser"
+  },
+  "homepage": "https://github.com/aws/aws-sdk-js-v3/tree/main/packages-internal/middleware-sdk-s3",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aws/aws-sdk-js-v3.git",
+    "directory": "packages-internal/middleware-sdk-s3"
+  }
+}
