@@ -83,6 +83,7 @@ pipeline {
 
     post {
         success {
+            echo "Build succeeded. Slack notification disabled."
             // script {
             //     def message = "<!channel> pulse-session-replay-ingestion version *${ARTIFACT_VERSION}* published\n" +
             //             "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
