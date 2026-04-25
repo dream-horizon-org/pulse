@@ -106,8 +106,8 @@ export class SessionReplayConsumer {
       {
         "group.id": this.config.kafkaGroupId,
         "metadata.broker.list": this.config.kafkaBrokers,
-        "enable.auto.commit": false,
-        "enable.auto.offset.store": false,
+        "enable.auto.commit": true,
+        "enable.auto.offset.store": true,
         "session.timeout.ms": 90000,
         "fetch.min.bytes": 1,
         "fetch.wait.max.ms": 500,
@@ -119,9 +119,7 @@ export class SessionReplayConsumer {
 
     // Create offset manager
     const offsetManager = new KafkaOffsetManager((offsets) => {
-      if (this.consumer) {
-        this.consumer.offsetsStore(offsets);
-      }
+      // Auto-commit is enabled, offsets stored automatically
     }, this.config.kafkaTopic);
 
     // Create batch manager
@@ -200,19 +198,6 @@ export class SessionReplayConsumer {
 
         if (this.batchManager!.shouldFlush()) {
           await this.batchManager!.flush();
-          // Commit offsets after successful flush
-          if (this.consumer) {
-            await new Promise<void>((resolve) => {
-              this.consumer!.commit((err) => {
-                if (err) {
-                  console.error("[Consumer] Commit failed:", err);
-                } else {
-                  console.log("[Consumer] Offsets committed");
-                }
-                resolve();
-              });
-            });
-          }
         }
       } catch (error) {
         console.error("[Consumer] Fatal error in consume loop:", error);
