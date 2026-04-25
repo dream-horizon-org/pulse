@@ -39,11 +39,39 @@ if ! pkg-config --exists librdkafka 2>/dev/null; then
 fi
 
 # Build node-rdkafka from source against system librdkafka
+echo "=== npm build configuration ==="
 export npm_config_build_from_source=true
 export npm_config_librdkafka_root=/usr
+export npm_config_loglevel=verbose
+echo "npm_config_build_from_source=$npm_config_build_from_source"
+echo "npm_config_librdkafka_root=$npm_config_librdkafka_root"
+echo "npm_config_loglevel=$npm_config_loglevel"
+
+echo "=== system librdkafka info ==="
+pkg-config --cflags --libs librdkafka || echo "pkg-config query failed"
+ls -la /usr/lib/x86_64-linux-gnu/librdkafka* 2>/dev/null || echo "No system librdkafka found"
+
+echo "=== clearing npm cache ==="
 npm cache clean --force
-npm install --build-from-source
+
+echo "=== npm install with verbose output ==="
+npm install --build-from-source 2>&1 | tee npm-install.log
+
+echo "=== checking node-rdkafka.node linkage ==="
+RDKAFKA_NODE=$(find node_modules/node-rdkafka -name "*.node" -type f 2>/dev/null | head -1)
+if [ -n "$RDKAFKA_NODE" ]; then
+  echo "Found: $RDKAFKA_NODE"
+  ldd "$RDKAFKA_NODE" 2>/dev/null | tee rdkafka-ldd.log || echo "ldd failed (32-bit binary?)"
+  strings "$RDKAFKA_NODE" | grep -i rdkafka | head -20 | tee rdkafka-strings.log || echo "strings grep found nothing"
+else
+  echo "ERROR: node-rdkafka.node not found!"
+  find node_modules -name "*.node" -type f | head -10
+fi
+
+echo "=== npm run build ==="
 npm run build
+
+echo "=== npm prune for production ==="
 npm prune --production
 
 STAGE="${ROOT_DIR}/artifact/${APPLICATION_NAME}"
