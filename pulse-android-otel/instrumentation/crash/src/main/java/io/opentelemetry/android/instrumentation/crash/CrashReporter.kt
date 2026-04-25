@@ -26,7 +26,7 @@ internal class CrashReporter(
     /** Installs the crash reporting instrumentation.  */
     fun install(
         openTelemetry: OpenTelemetrySdk,
-        skipNativeDeviceCrashForJavascriptException: Boolean = true,
+        ignoreJavaScriptExceptions: Boolean = false,
     ) {
         val handler =
             CrashReportingExceptionHandler(
@@ -36,7 +36,7 @@ internal class CrashReporter(
                 postCrashAction = {
                     waitForCrashFlush(openTelemetry)
                 },
-                skipNativeDeviceCrashForJavascriptException = skipNativeDeviceCrashForJavascriptException,
+                ignoreJavaScriptExceptions = ignoreJavaScriptExceptions,
             )
         Thread.setDefaultUncaughtExceptionHandler(handler)
     }

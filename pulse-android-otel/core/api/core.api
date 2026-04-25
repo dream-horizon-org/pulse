@@ -52,7 +52,7 @@ public final class io/opentelemetry/android/OpenTelemetryRumBuilder {
 	public fun setResource (Lio/opentelemetry/sdk/resources/Resource;)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setSessionProvider (Lio/opentelemetry/android/session/SessionProvider;)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setShouldStartSendingData (Z)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
-	public fun setSkipNativeDeviceCrashForJavascriptException (Z)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
+	public fun setIgnoreJavaScriptExceptions (Z)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setupExporters ()V
 }
 

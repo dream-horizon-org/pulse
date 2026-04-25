@@ -16,10 +16,12 @@ class InstallationContext(
     val sessionProvider: SessionProvider,
     val meteredSessionProvider: SessionProvider? = null,
     /**
-     * When true (default), native `device.crash` is not emitted for
-     * `com.facebook.react.common.JavascriptException` (JS error handler reports it; avoids duplicates).
+     * When true, native `device.crash` is not emitted for
+     * `com.facebook.react.common.JavascriptException` — the JS error handler already reports it,
+     * avoiding duplicates. Set to true only for React Native builds; defaults to false so pure
+     * Android Java apps never silently drop crashes.
      */
-    val skipNativeDeviceCrashForJavascriptException: Boolean = true,
+    val ignoreJavaScriptExceptions: Boolean = false,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -28,7 +30,7 @@ class InstallationContext(
             openTelemetry == other.openTelemetry &&
             sessionProvider == other.sessionProvider &&
             meteredSessionProvider == other.meteredSessionProvider &&
-            skipNativeDeviceCrashForJavascriptException == other.skipNativeDeviceCrashForJavascriptException
+            ignoreJavaScriptExceptions == other.ignoreJavaScriptExceptions
     }
 
     override fun hashCode(): Int =
@@ -37,11 +39,11 @@ class InstallationContext(
             openTelemetry,
             sessionProvider,
             meteredSessionProvider,
-            skipNativeDeviceCrashForJavascriptException,
+            ignoreJavaScriptExceptions,
         )
 
     override fun toString(): String =
         "InstallationContext(application=$application, openTelemetry=$openTelemetry, " +
             "sessionProvider=$sessionProvider, meteredSessionProvider=${meteredSessionProvider ?: "null"}, " +
-            "skipNativeDeviceCrashForJavascriptException=$skipNativeDeviceCrashForJavascriptException)"
+            "ignoreJavaScriptExceptions=$ignoreJavaScriptExceptions)"
 }
