@@ -1,0 +1,143 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildPulseInteraction,
+  matchInteractionSequence,
+} from "../interactions/interaction-sequence-matcher";
+import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-prop-keys";
+import {
+  localEventMatchesConfigEvent,
+  matchPropValue,
+} from "../utils/interactions/event-matching";
+import type { InteractionConfig } from "../interactions/interaction-models";
+
+function cfg(over: Partial<InteractionConfig> = {}): InteractionConfig {
+  return {
+    id: "c1",
+    name: "TestFlow",
+    events: [
+      { name: "step_a", required: true },
+      { name: "step_b", required: true },
+    ],
+    thresholdInMs: 1000,
+    uptimeLowerLimitInMs: 5_000,
+    uptimeMidLimitInMs: 15_000,
+    uptimeUpperLimitInMs: 30_000,
+    globalBlacklistedEvents: [],
+    ...over,
+  };
+}
+
+describe("matchPropValue", () => {
+  it("EQUALS is case-sensitive", () => {
+    expect(matchPropValue("Ab", "EQUALS", "Ab")).toBe(true);
+    expect(matchPropValue("ab", "EQUALS", "Ab")).toBe(false);
+  });
+
+  it("supports NOTEQUALS alias", () => {
+    expect(matchPropValue("x", "NOTEQUALS", "y")).toBe(true);
+    expect(matchPropValue("x", "NOT_EQUALS", "x")).toBe(false);
+  });
+
+  it("CONTAINS is case-insensitive", () => {
+    expect(matchPropValue("ell", "CONTAINS", "Hello")).toBe(true);
+  });
+
+  it("STARTS_WITH / ENDS_WITH", () => {
+    expect(matchPropValue("ab", "STARTS_WITH", "abc")).toBe(true);
+    expect(matchPropValue("bc", "ENDS_WITH", "abc")).toBe(true);
+  });
+});
+
+describe("localEventMatchesConfigEvent", () => {
+  it("matches props with operators", () => {
+    const ev = {
+      name: "e",
+      timeInNano: 1,
+      props: { channel: "Organic" },
+    };
+    const ok = localEventMatchesConfigEvent(ev, {
+      name: "e",
+      required: true,
+      props: [{ key: "channel", value: "organic", operator: "EQUALS" }],
+    });
+    expect(ok).toBe(false);
+    const ok2 = localEventMatchesConfigEvent(ev, {
+      name: "e",
+      required: true,
+      props: [{ key: "channel", value: "org", operator: "CONTAINS" }],
+    });
+    expect(ok2).toBe(true);
+  });
+});
+
+describe("matchInteractionSequence", () => {
+  it("completes happy path", () => {
+    const c = cfg();
+    const t0 = 1_000_000_000;
+    const events = [
+      { name: "step_a", timeInNano: t0 },
+      { name: "step_b", timeInNano: t0 + 2e9 },
+    ];
+    const r = matchInteractionSequence("id-1", events, [], c);
+    expect(r).not.toBeNull();
+    expect(r!.shouldResetList).toBe(true);
+    expect(r!.interactionStatus.kind).toBe("ongoing");
+    if (r!.interactionStatus.kind === "ongoing") {
+      expect(r!.interactionStatus.interaction).not.toBeNull();
+      expect(
+        r!.interactionStatus.interaction!.props[INTERACTION_PROP_KEYS.IS_ERROR],
+      ).toBe(false);
+    }
+  });
+
+  it("sequence violation when wrong event during ongoing", () => {
+    const c = cfg();
+    const t0 = 1e12;
+    const events = [
+      { name: "step_a", timeInNano: t0 },
+      { name: "bad", timeInNano: t0 + 1 },
+    ];
+    const r = matchInteractionSequence("id-1", events, [], c);
+    expect(r).not.toBeNull();
+    expect(r!.shouldTakeFirstEvent).toBe(true);
+    if (r!.interactionStatus.kind === "ongoing") {
+      expect(
+        r!.interactionStatus.interaction?.props[INTERACTION_PROP_KEYS.IS_ERROR],
+      ).toBe(true);
+      expect(
+        r!.interactionStatus.interaction?.props[
+          INTERACTION_PROP_KEYS.ERROR_TYPE
+        ],
+      ).toBe("sequence_violation");
+    }
+  });
+
+  it("global blacklist resets ongoing (no interaction payload)", () => {
+    const c = cfg({ globalBlacklistedEvents: ["ad_impression"] });
+    const t0 = 1e12;
+    const events = [
+      { name: "step_a", timeInNano: t0 },
+      { name: "ad_impression", timeInNano: t0 + 1 },
+    ];
+    const r = matchInteractionSequence("id-1", events, [], c);
+    expect(r).not.toBeNull();
+    expect(r!.interactionStatus.kind).toBe("no_ongoing");
+  });
+});
+
+describe("buildPulseInteraction", () => {
+  it("forces error scoring on timeout path", () => {
+    const c = cfg();
+    const t0 = 1e12;
+    const pulse = buildPulseInteraction(
+      "x",
+      c,
+      [{ name: "step_a", timeInNano: t0 }],
+      [],
+      { type: "timeout", timeoutExpectedEventName: "step_b" },
+    );
+    expect(pulse.props[INTERACTION_PROP_KEYS.APDEX_SCORE]).toBeNull();
+    expect(pulse.props[INTERACTION_PROP_KEYS.USER_CATEGORY]).toBeNull();
+    expect(pulse.props[INTERACTION_PROP_KEYS.IS_ERROR]).toBe(true);
+  });
+});
