@@ -1,5 +1,6 @@
 import type { PulseWebConfig } from "../config";
 import { PULSE_PROD_ENDPOINT_URL, isLocalEnvironment } from "../config";
+import { PulseWebLogger } from "../pulse-web-logger";
 import { extractProjectId } from "../resource";
 import type { InteractionConfig, PropertyFilter } from "./interaction-models";
 
@@ -143,7 +144,7 @@ export class InteractionConfigFetcher {
       });
 
       if (!response.ok) {
-        console.warn(
+        PulseWebLogger.warn(
           `[Pulse] Interaction config fetch failed: ${response.status}`,
         );
         return;
@@ -151,7 +152,7 @@ export class InteractionConfigFetcher {
 
       const json: unknown = await response.json();
       if (!isInteractionConfigArray(json)) {
-        console.warn(
+        PulseWebLogger.warn(
           "[Pulse] Interaction config fetch returned invalid schema",
         );
         return;
@@ -160,7 +161,9 @@ export class InteractionConfigFetcher {
       this.setConfigs(json);
       this.saveToCache(json);
     } catch (err) {
-      console.warn("[Pulse] Interaction config fetch error:", err);
+      PulseWebLogger.warn(
+        `[Pulse] Interaction config fetch error: ${String(err)}`,
+      );
     }
   }
 

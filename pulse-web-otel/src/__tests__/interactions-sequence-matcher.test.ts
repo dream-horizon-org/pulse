@@ -38,8 +38,9 @@ describe("matchPropValue", () => {
     expect(matchPropValue("x", "NOT_EQUALS", "x")).toBe(false);
   });
 
-  it("CONTAINS is case-insensitive", () => {
+  it("CONTAINS is case-sensitive", () => {
     expect(matchPropValue("ell", "CONTAINS", "Hello")).toBe(true);
+    expect(matchPropValue("ell", "CONTAINS", "HELLO")).toBe(false);
   });
 
   it("STARTS_WITH / ENDS_WITH", () => {
@@ -64,7 +65,7 @@ describe("localEventMatchesConfigEvent", () => {
     const ok2 = localEventMatchesConfigEvent(ev, {
       name: "e",
       required: true,
-      props: [{ key: "channel", value: "org", operator: "CONTAINS" }],
+      props: [{ key: "channel", value: "Org", operator: "CONTAINS" }],
     });
     expect(ok2).toBe(true);
   });

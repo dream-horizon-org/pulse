@@ -46,6 +46,7 @@ import {
   resolveDiskBufferMaxCacheSizeBytes,
 } from "./constants/disk-buffer";
 import { resolveBeforeSend } from "./before-send";
+import { InteractionFeature } from "./interactions/interaction-feature";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -68,6 +69,7 @@ class PulseWebSDK implements SdkContext {
   private configFetcher: SdkConfigFetcher = new SdkConfigFetcher("", "");
   private gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
   private _providerCleanup: () => void = () => {};
+  private interactionFeature?: InteractionFeature;
 
   static getInstance(): PulseWebSDK {
     if (!PulseWebSDK._instance) {
@@ -232,6 +234,15 @@ class PulseWebSDK implements SdkContext {
     this.logger = this.loggerProvider.getLogger("pulse-web");
     this.tracer = this.tracerProvider.getTracer("pulse-web");
 
+    this.interactionFeature = new InteractionFeature(
+      endpointBaseUrl,
+      config,
+      this.gate,
+      config.instrumentations?.interactions?.enabled ?? true,
+      this.tracer,
+    );
+    void this.interactionFeature.init();
+
     this.emitSdkInitializationLogRecords(endpointBaseUrl);
 
     this.registry = new InstrumentationRegistry(
@@ -271,6 +282,8 @@ class PulseWebSDK implements SdkContext {
 
     this._providerCleanup();
     this.registry?.uninstallAll();
+    this.interactionFeature?.shutdown();
+    this.interactionFeature = undefined;
     this.sessionProvider?.shutdown();
 
     await Promise.all([
@@ -293,19 +306,29 @@ class PulseWebSDK implements SdkContext {
     this.globalAttrsProcessor?.setScreenName(name);
   }
 
-  trackEvent(name: string, attrs?: Record<string, unknown>): void {
+  trackEvent(
+    name: string,
+    attrs?: Record<string, unknown>,
+    timestampMs: number = Date.now(),
+  ): void {
     if (!this._initialized) return;
-    if (!this.gate.isEnabled("custom_events")) return;
-    this.logger.emit({
-      body: name,
-      attributes: {
-        [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
-          PulseWebSemconv.PulseType.CUSTOM_EVENT,
-        [PulseWebSemconv.AttributeKey.EVENT_NAME]:
-          PulseWebSemconv.FixedValue.EVENT_NAME_CUSTOM_EVENT,
-        ...(attrs as Record<string, string | number | boolean>),
-      },
-    });
+
+    if (this.gate.isEnabled("custom_events")) {
+      this.logger.emit({
+        body: name,
+        attributes: {
+          [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
+            PulseWebSemconv.PulseType.CUSTOM_EVENT,
+          [PulseWebSemconv.AttributeKey.EVENT_NAME]:
+            PulseWebSemconv.FixedValue.EVENT_NAME_CUSTOM_EVENT,
+          ...(attrs as Record<string, string | number | boolean>),
+        },
+      });
+    }
+
+    if (isDataCollectionAllowed(this.config.dataCollectionState)) {
+      this.interactionFeature?.trackEvent(name, attrs, timestampMs);
+    }
   }
 
   reportException(error: unknown, attrs?: Record<string, unknown>): void {

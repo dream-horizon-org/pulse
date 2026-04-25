@@ -36,7 +36,9 @@ export function localEventMatchesFirstConfigEvent(
   local: InteractionLocalEvent,
   config: InteractionConfig,
 ): boolean {
-  const first = config.events[0];
+  const first = config.events.find(
+    (event) => event.required && !event.isBlacklisted,
+  );
   if (first == null) return false;
   return localEventMatchesConfigEvent(local, first);
 }

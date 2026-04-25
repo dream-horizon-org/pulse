@@ -22,21 +22,19 @@ export function matchPropValue(
   actualValue: string,
 ): boolean {
   const operator = normalizeOperator(operatorRaw);
-  const actualLower = actualValue.toLowerCase();
-  const expectedLower = expectedValue.toLowerCase();
   switch (operator) {
     case "EQUALS":
       return actualValue === expectedValue;
     case "NOTEQUALS":
       return actualValue !== expectedValue;
     case "CONTAINS":
-      return actualLower.includes(expectedLower);
+      return actualValue.includes(expectedValue);
     case "NOTCONTAINS":
-      return !actualLower.includes(expectedLower);
+      return !actualValue.includes(expectedValue);
     case "STARTSWITH":
-      return actualLower.startsWith(expectedLower);
+      return actualValue.startsWith(expectedValue);
     case "ENDSWITH":
-      return actualLower.endsWith(expectedLower);
+      return actualValue.endsWith(expectedValue);
     default:
       return false;
   }
