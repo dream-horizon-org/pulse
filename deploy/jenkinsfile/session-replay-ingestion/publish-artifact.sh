@@ -38,10 +38,11 @@ if ! pkg-config --exists librdkafka 2>/dev/null; then
   sudo apt-get install -y librdkafka-dev build-essential pkg-config libssl-dev libcurl4-openssl-dev libsasl2-dev 2>&1 | tail -20
 fi
 
-# Build node-rdkafka against system librdkafka
+# Build node-rdkafka from source against system librdkafka
 export npm_config_build_from_source=true
 export npm_config_librdkafka_root=/usr
-npm install
+npm cache clean --force
+npm install --build-from-source
 npm run build
 npm prune --production
 
