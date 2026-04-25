@@ -47,6 +47,11 @@ describe("matchPropValue", () => {
     expect(matchPropValue("ab", "STARTS_WITH", "abc")).toBe(true);
     expect(matchPropValue("bc", "ENDS_WITH", "abc")).toBe(true);
   });
+
+  it("supports NOT_CONTAINS", () => {
+    expect(matchPropValue("xyz", "NOT_CONTAINS", "abc")).toBe(true);
+    expect(matchPropValue("abc", "NOT_CONTAINS", "abc")).toBe(false);
+  });
 });
 
 describe("localEventMatchesConfigEvent", () => {

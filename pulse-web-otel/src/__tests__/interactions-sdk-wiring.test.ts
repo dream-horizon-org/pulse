@@ -7,6 +7,7 @@ vi.mock("@opentelemetry/api-logs", () => ({
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const createProvidersMock = vi.fn();
 vi.mock("../exporters", () => {
   const mockTracerProvider = {
     addSpanProcessor: vi.fn(),
@@ -33,7 +34,7 @@ vi.mock("../exporters", () => {
   };
 
   return {
-    createProviders: vi.fn().mockReturnValue({
+    createProviders: createProvidersMock.mockReturnValue({
       tracerProvider: mockTracerProvider,
       loggerProvider: mockLoggerProvider,
       meterProvider: mockMeterProvider,
@@ -47,15 +48,52 @@ const interactionInit = vi.fn().mockResolvedValue(undefined);
 const interactionTrack = vi.fn();
 const interactionShutdown = vi.fn();
 vi.mock("../interactions/interaction-feature", () => ({
-  InteractionFeature: vi.fn().mockImplementation(() => ({
-    init: interactionInit,
-    trackEvent: interactionTrack,
-    shutdown: interactionShutdown,
-  })),
+  InteractionFeature: vi
+    .fn()
+    .mockImplementation(
+      (
+        _endpoint: string,
+        _config: unknown,
+        gate: { isEnabled: (name: string) => boolean },
+        interactionsEnabledByConfig: boolean,
+      ) => {
+        let active = false;
+        return {
+          init: async () => {
+            active =
+              interactionsEnabledByConfig && gate.isEnabled("interaction");
+            await interactionInit();
+          },
+          trackEvent: (
+            name: string,
+            attrs?: Record<string, unknown>,
+            timestampMs?: number,
+          ) => {
+            if (!active) return;
+            interactionTrack(name, attrs, timestampMs);
+          },
+          shutdown: interactionShutdown,
+        };
+      },
+    ),
 }));
 
 import type { PulseWebConfig } from "../config";
 import { PulseDataCollectionConsent } from "../config";
+import { DEFAULT_SDK_CONFIG } from "../remote-config";
+
+const loadCachedMock = vi.fn().mockReturnValue(DEFAULT_SDK_CONFIG);
+const fetchInBackgroundMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("../remote-config", async () => {
+  const actual = await vi.importActual("../remote-config");
+  return {
+    ...actual,
+    SdkConfigFetcher: vi.fn().mockImplementation(() => ({
+      loadCached: loadCachedMock,
+      fetchInBackground: fetchInBackgroundMock,
+    })),
+  };
+});
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   return {
@@ -70,6 +108,9 @@ beforeEach(() => {
   interactionInit.mockClear();
   interactionTrack.mockClear();
   interactionShutdown.mockClear();
+  createProvidersMock.mockClear();
+  loadCachedMock.mockReturnValue(DEFAULT_SDK_CONFIG);
+  fetchInBackgroundMock.mockClear();
 
   vi.stubGlobal(
     "fetch",
@@ -129,11 +170,10 @@ describe("interactions SDK wiring", () => {
   it("does not forward interaction events when consent is denied", async () => {
     const { PulseWeb } = await import("../sdk");
 
-    PulseWeb.start(makeConfig());
+    PulseWeb.start(
+      makeConfig({ dataCollectionState: PulseDataCollectionConsent.DENIED }),
+    );
     await Promise.resolve();
-    (PulseWeb as unknown as { config: PulseWebConfig }).config = makeConfig({
-      dataCollectionState: PulseDataCollectionConsent.DENIED,
-    });
 
     PulseWeb.trackEvent("checkout_click");
 
@@ -148,5 +188,63 @@ describe("interactions SDK wiring", () => {
     await PulseWeb.shutdown();
 
     expect(interactionShutdown).toHaveBeenCalled();
+  });
+
+  it("does not start interaction forwarding when feature gate disables interaction", async () => {
+    const { PulseWeb } = await import("../sdk");
+    loadCachedMock.mockReturnValue({
+      ...DEFAULT_SDK_CONFIG,
+      features: [
+        {
+          featureName: "interaction",
+          sessionSampleRate: 0,
+          sdks: ["pulse_web_js"],
+        },
+      ],
+    });
+
+    PulseWeb.start(makeConfig());
+    await Promise.resolve();
+    PulseWeb.trackEvent("checkout_click");
+
+    expect(interactionTrack).not.toHaveBeenCalled();
+  });
+
+  it("wires sampling gate from cached config with zero sample rate", async () => {
+    const { PulseWeb } = await import("../sdk");
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.99);
+    loadCachedMock.mockReturnValue({
+      ...DEFAULT_SDK_CONFIG,
+      sampling: {
+        ...DEFAULT_SDK_CONFIG.sampling,
+        default: { sessionSampleRate: 0 },
+        rules: [],
+        signalsToSample: [],
+      },
+    });
+
+    PulseWeb.start(makeConfig());
+    await Promise.resolve();
+
+    const exportersConfig = createProvidersMock.mock.calls.at(-1)?.[0] as {
+      samplingGate: {
+        shouldExportSignal: (
+          scope: "TRACES" | "LOGS" | "METRICS",
+          signalName: string,
+          attrs: Record<string, unknown>,
+        ) => boolean;
+      };
+    };
+
+    const shouldExport =
+      exportersConfig?.samplingGate?.shouldExportSignal?.(
+        "TRACES",
+        "interaction",
+        {
+          "pulse.type": "interaction",
+        },
+      ) ?? true;
+    expect(shouldExport).toBe(false);
+    randomSpy.mockRestore();
   });
 });
