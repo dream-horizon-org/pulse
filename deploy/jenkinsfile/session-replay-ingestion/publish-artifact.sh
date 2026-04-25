@@ -34,7 +34,8 @@ sudo rm -f /etc/apt/sources.list.d/*deadsnakes* 2>/dev/null || true
 sudo apt-get update -qq 2>&1 | grep -v "^E:" || true
 sudo apt-get install -y build-essential 2>&1 | tail -5
 
-echo "=== clearing npm cache ==="
+echo "=== clearing node_modules and npm cache ==="
+rm -rf node_modules
 npm cache clean --force
 
 echo "=== npm install ==="
