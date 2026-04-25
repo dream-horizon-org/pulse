@@ -1,6 +1,6 @@
 {
   "name": "pulse-session-replay-ingestion",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "private": true,
   "scripts": {
     "build": "tsc",
@@ -11,6 +11,7 @@
     "@aws-sdk/client-s3": "^3.1013.0",
     "@aws-sdk/lib-storage": "^3.1013.0",
     "luxon": "^3.4.0",
+    "fzstd": "^0.1.0",
     "kafkajs": "^2.2.4",
     "snappy": "^7.3.3",
     "uuid": "^9.0.0",

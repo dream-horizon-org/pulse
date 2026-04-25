@@ -1,3 +1,17 @@
+import { CompressionCodecs, CompressionTypes } from 'kafkajs'
+import { decompress as zstdDecompress } from 'fzstd'
+
+// Register ZSTD codec — the topic uses ZSTD-compressed messages; KafkaJS
+// doesn't include a ZSTD decoder by default so we register one at startup.
+CompressionCodecs[CompressionTypes.ZSTD] = () => ({
+    compress: async (_encoder: unknown): Promise<Buffer> => {
+        throw new Error('[Codec] ZSTD compression not supported for producing')
+    },
+    decompress: async (buffer: Buffer): Promise<Buffer> => {
+        return Buffer.from(zstdDecompress(new Uint8Array(buffer)))
+    },
+})
+
 import { loadConfig } from './config'
 import { SessionReplayConsumer } from './consumer'
 
