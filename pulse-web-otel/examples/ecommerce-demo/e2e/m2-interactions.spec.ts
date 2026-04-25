@@ -1,4 +1,10 @@
-import { test, expect, findAllSpans, getAttr } from "./fixture";
+import {
+  test,
+  expect,
+  findAllSpans,
+  getAttr,
+  getResourceAttr,
+} from "./fixture";
 import type { Page, Route } from "@playwright/test";
 
 const INTERACTION_CONFIG = [
@@ -44,6 +50,8 @@ test.describe("@M2 interactions e2e", () => {
     await page.getByTestId("checkout-step-3-confirm").click();
 
     const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.type")).toBe("interaction");
+    expect(getResourceAttr(otlp.captured, "platform")).toBe("web");
     expect(getAttr(span.attributes, "pulse.interaction.id")).toBeTruthy();
     expect(getAttr(span.attributes, "pulse.interaction.name")).toBeTruthy();
     expect(
@@ -212,7 +220,6 @@ test.describe("@M2 interactions e2e", () => {
     await page.getByTestId("checkout-step-1-next").click();
     await page.getByTestId("checkout-step-2-next").click();
     await page.getByTestId("checkout-step-3-confirm").click();
-    // Negative assertion: wait a guaranteed interval then confirm nothing arrived.
     await page.waitForTimeout(2000);
     expect(findAllSpans(otlp.captured, "interaction").length).toBe(0);
   });

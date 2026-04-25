@@ -146,4 +146,70 @@ describe("buildPulseInteraction", () => {
     expect(pulse.props[INTERACTION_PROP_KEYS.USER_CATEGORY]).toBeNull();
     expect(pulse.props[INTERACTION_PROP_KEYS.IS_ERROR]).toBe(true);
   });
+
+  it("scores Excellent/Good/Average/Poor bands from duration", () => {
+    const c = cfg({
+      uptimeLowerLimitInMs: 1000,
+      uptimeMidLimitInMs: 3000,
+      uptimeUpperLimitInMs: 6000,
+    });
+    const t0 = 1_000_000_000_000;
+
+    const excellent = buildPulseInteraction(
+      "ex",
+      c,
+      [
+        { name: "step_a", timeInNano: t0 },
+        { name: "step_b", timeInNano: t0 + 500_000_000 },
+      ],
+      [],
+      null,
+    );
+    expect(excellent.props[INTERACTION_PROP_KEYS.USER_CATEGORY]).toBe(
+      "Excellent",
+    );
+    expect(excellent.props[INTERACTION_PROP_KEYS.APDEX_SCORE]).toBe(1.0);
+
+    const good = buildPulseInteraction(
+      "good",
+      c,
+      [
+        { name: "step_a", timeInNano: t0 },
+        { name: "step_b", timeInNano: t0 + 2_500_000_000 },
+      ],
+      [],
+      null,
+    );
+    expect(good.props[INTERACTION_PROP_KEYS.USER_CATEGORY]).toBe("Good");
+    expect(good.props[INTERACTION_PROP_KEYS.APDEX_SCORE]).toBeCloseTo(0.7, 3);
+
+    const average = buildPulseInteraction(
+      "avg",
+      c,
+      [
+        { name: "step_a", timeInNano: t0 },
+        { name: "step_b", timeInNano: t0 + 4_500_000_000 },
+      ],
+      [],
+      null,
+    );
+    expect(average.props[INTERACTION_PROP_KEYS.USER_CATEGORY]).toBe("Average");
+    expect(average.props[INTERACTION_PROP_KEYS.APDEX_SCORE]).toBeCloseTo(
+      0.3,
+      3,
+    );
+
+    const poor = buildPulseInteraction(
+      "poor",
+      c,
+      [
+        { name: "step_a", timeInNano: t0 },
+        { name: "step_b", timeInNano: t0 + 8_000_000_000 },
+      ],
+      [],
+      null,
+    );
+    expect(poor.props[INTERACTION_PROP_KEYS.USER_CATEGORY]).toBe("Poor");
+    expect(poor.props[INTERACTION_PROP_KEYS.APDEX_SCORE]).toBe(0.0);
+  });
 });

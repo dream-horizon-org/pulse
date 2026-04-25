@@ -51,4 +51,43 @@ describe("InteractionCoordinator", () => {
     expect(terminals).toHaveLength(0);
     coord.shutdown();
   });
+
+  it("handles parallel configs and emits both completions", () => {
+    const terminals: Array<{ name: string; isError: boolean }> = [];
+    const coord = new InteractionCoordinator({
+      onInteractionTerminal: (i) =>
+        terminals.push({
+          name: String(i.props[INTERACTION_PROP_KEYS.NAME]),
+          isError: i.props[INTERACTION_PROP_KEYS.IS_ERROR] === true,
+        }),
+    });
+    coord.setConfigs([
+      {
+        ...flow("CheckoutFlow", "cfg_checkout"),
+        events: [
+          { name: "checkout_a", required: true },
+          { name: "checkout_b", required: true },
+        ],
+      },
+      {
+        ...flow("SignupFlow", "cfg_signup"),
+        events: [
+          { name: "signup_a", required: true },
+          { name: "signup_b", required: true },
+        ],
+      },
+    ]);
+
+    coord.trackEvent("checkout_a", undefined, 1000);
+    coord.trackEvent("checkout_b", undefined, 1001);
+    coord.trackEvent("signup_a", undefined, 1002);
+    coord.trackEvent("signup_b", undefined, 1003);
+
+    expect(terminals.map((t) => t.name).sort()).toEqual([
+      "CheckoutFlow",
+      "SignupFlow",
+    ]);
+    expect(terminals.every((t) => !t.isError)).toBe(true);
+    coord.shutdown();
+  });
 });

@@ -115,12 +115,12 @@ describe("InteractionSpanBuilder.emitInteraction", () => {
       string,
       unknown
     >;
-    expect(
-      PulseWebSemconv.InteractionAttributeKey.ERROR_TYPE in attrs,
-    ).toBe(false);
-    expect(
-      PulseWebSemconv.InteractionAttributeKey.ERROR_MESSAGE in attrs,
-    ).toBe(false);
+    expect(PulseWebSemconv.InteractionAttributeKey.ERROR_TYPE in attrs).toBe(
+      false,
+    );
+    expect(PulseWebSemconv.InteractionAttributeKey.ERROR_MESSAGE in attrs).toBe(
+      false,
+    );
   });
 
   it("error: is_error=true → ERROR status, forced poor category, error attrs present", () => {
@@ -203,9 +203,9 @@ describe("InteractionSpanBuilder.emitInteraction", () => {
       string,
       unknown
     >;
-    expect(
-      attrs[PulseWebSemconv.InteractionAttributeKey.COMPLETE_TIME],
-    ).toBe(5_000_000_000);
+    expect(attrs[PulseWebSemconv.InteractionAttributeKey.COMPLETE_TIME]).toBe(
+      5_000_000_000,
+    );
   });
 
   it("fallback timestamps when no local events", () => {
@@ -228,5 +228,22 @@ describe("InteractionSpanBuilder.emitInteraction", () => {
     const startTime = firstCall[1].startTime;
     const endTime = span.end.mock.calls[0]![0] as number;
     expect(endTime).toBeGreaterThan(startTime);
+  });
+
+  it("does not export pulse.internal.* attributes", () => {
+    const span = makeSpan();
+    const tracer = { startSpan: vi.fn().mockReturnValue(span) };
+    const builder = new InteractionSpanBuilder(tracer as never);
+
+    builder.emitInteraction(makeInteraction());
+
+    const attrs = span.setAttributes.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    const internalKeys = Object.keys(attrs).filter((k) =>
+      k.startsWith("pulse.internal."),
+    );
+    expect(internalKeys).toHaveLength(0);
   });
 });

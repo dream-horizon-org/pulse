@@ -1,0 +1,66 @@
+Area I1 — Config fetch and cache,,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+I1.1,Local interaction config fetch success,Unit: run interactions-config-fetcher suite with enabled request and valid JSON,Configs loaded and exposed via getConfigs,Automated,src/__tests__/interactions-config-fetcher.test.ts,Positive
+I1.2,enabled=false skips fetch/cache path,Unit: init fetcher with enabled=false,No fetch call and empty configs,Automated,src/__tests__/interactions-config-fetcher.test.ts,Negative
+I1.3,Non-OK response no crash,Unit: fetch returns 500,Warn logged and init resolves,Automated,src/__tests__/interactions-config-fetcher.test.ts,Negative
+I1.4,Invalid schema no crash,Unit: fetch returns invalid payload shape,Warn logged and configs remain empty,Automated,src/__tests__/interactions-config-fetcher.test.ts,Negative
+I1.5,Corrupt/blocked localStorage no-op,Unit: localStorage getItem throws,Init still resolves and remote config can load,Automated,src/__tests__/interactions-config-fetcher.test.ts,Edge
+I1.6,Refresh timer re-schedules fetch,Unit: fake timers advance 30m window,Second fetch executes by schedule chain,Automated,src/__tests__/interactions-config-fetcher.test.ts,Edge
+I1.7,Cache hit survives refresh failure,Unit: seed cache + failing refresh request,Cached config remains active,Automated,src/__tests__/interactions-config-fetcher.test.ts,Edge
+,,,,,,,
+Area I2 — Matching state machine transitions,,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+I2.1,Happy path sequence completion,Unit: feed required ordered events,Interaction completes with non-error payload,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Positive
+I2.2,Timeout path emits error interaction,Unit: tracker timeout flow with incomplete sequence,Error interaction with timeout type generated,Automated,src/__tests__/interactions-tracker.test.ts,Negative
+I2.3,Sequence violation on wrong in-flight step,Unit: start sequence then send unexpected event,Error interaction emitted with violation behavior,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Negative
+I2.4,Global blacklist during ongoing resets silently,Unit: start sequence then send blacklisted event,State resets with no error interaction payload,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Edge
+I2.5,Coordinator fans out trackEvent to trackers,Unit: set configs and send events,Configured trackers consume events correctly,Automated,src/__tests__/interactions-coordinator.test.ts,Positive
+I2.6,Parallel configs complete independently,Unit: configure two flows and emit interleaved event streams,Both interactions complete and emit terminal payloads,Automated,src/__tests__/interactions-coordinator.test.ts,Edge
+,,,,,,,
+Area I3 — Property operators and filter logic,,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+I3.1,EQUALS is case-sensitive,Unit: compare mixed-case values,Only exact case matches,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Positive
+I3.2,NOT_EQUALS/NOTEQUALS behavior,Unit: validate both aliases,Expected inverse equality behavior,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Positive
+I3.3,CONTAINS is case-sensitive,Unit: contains checks with case variance,Lower/upper mismatch does not match,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Positive
+I3.4,STARTS_WITH and ENDS_WITH support,Unit: prefix/suffix checks,Both operators evaluate correctly,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Positive
+I3.5,NOT_CONTAINS operator support,Unit: compare with and without substring,Returns true only when expected token absent,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Negative
+I3.6,First required non-blacklisted event selection,Unit: config starts with isBlacklisted event then required start event,Matcher ignores blacklisted start and matches first valid required event,Automated,src/__tests__/interactions-events-utils.test.ts,Edge
+,,,,,,,
+Area I4 — Error paths (timeout and sequence violation),,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+I4.1,Timeout emits interaction error span,Playwright: start checkout then wait > threshold,is_error=true and error.type=timeout,Automated,examples/ecommerce-demo/e2e/m2-interactions.spec.ts,Negative
+I4.2,Out-of-order step emits interaction error span,Playwright: strict 2-step config then emit step_3,is_error=true and error.type in expected error set,Automated,examples/ecommerce-demo/e2e/m2-interactions.spec.ts,Negative
+I4.3,Global blacklist path is non-error reset,Playwright: in-flight step then emit ad_impression,No interaction span exported for reset path,Automated,examples/ecommerce-demo/e2e/m2-interactions.spec.ts,Edge
+,,,,,,,
+Area I5 — Span attribute contract and category scoring,,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+I5.1,Span uses ROOT_CONTEXT and INTERNAL kind,Unit: emit interaction via span builder,startSpan called with ROOT_CONTEXT and SpanKind.INTERNAL,Automated,src/__tests__/interactions-span-builder.test.ts,Positive
+I5.2,pulse.type attribute set to interaction,Unit: emit non-error interaction span,span attrs include pulse.type=interaction,Automated,src/__tests__/interactions-span-builder.test.ts,Positive
+I5.3,start/end timestamps from local events,Unit: emit with known local event nanos,startTime and end derived from event timestamps,Automated,src/__tests__/interactions-span-builder.test.ts,Positive
+I5.4,Success path omits error attrs,Unit: emit is_error=false interaction,ERROR_TYPE and ERROR_MESSAGE attrs absent,Automated,src/__tests__/interactions-span-builder.test.ts,Negative
+I5.5,Error path forces poor category and apdex 0,Unit: emit is_error=true timeout interaction,USER_CATEGORY=Poor and APDEX_SCORE=0.0,Automated,src/__tests__/interactions-span-builder.test.ts,Negative
+I5.6,Span events emitted from local timeline,Unit: emit interaction with 2 local events,addEvent called per local event with correct timestamps,Automated,src/__tests__/interactions-span-builder.test.ts,Positive
+I5.7,complete_time nanos invariant in browser payload,Playwright: complete checkout flow,pulse.interaction.complete_time is finite nanos and bounded by span duration,Automated,examples/ecommerce-demo/e2e/m2-interactions.spec.ts,Positive
+I5.8,Positive APDEX band scoring boundaries,Unit: build interactions at 500ms 2500ms 4500ms 8000ms against fixed thresholds,Excellent/Good/Average/Poor categories and expected APDEX values,Automated,src/__tests__/interactions-sequence-matcher.test.ts,Positive
+I5.9,No pulse.internal keys in exported span attrs,Unit: emit span and inspect setAttributes keys,No attribute key starts with pulse.internal.,Automated,src/__tests__/interactions-span-builder.test.ts,Negative
+,,,,,,,
+Area I6 — SDK wiring gating and shutdown cleanup,,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+I6.1,trackEvent forwards to interaction feature,Unit: PulseWeb.start then PulseWeb.trackEvent(name attrs ts),InteractionFeature.trackEvent receives same arguments,Automated,src/__tests__/interactions-sdk-wiring.test.ts,Positive
+I6.2,Feature gate interaction disabled blocks path,Unit: cached config feature interaction rate 0,No interaction forwarding occurs,Automated,src/__tests__/interactions-sdk-wiring.test.ts,Negative
+I6.3,Consent denied blocks forwarding,Unit: start SDK with DENIED consent,No interaction forwarding occurs,Automated,src/__tests__/interactions-sdk-wiring.test.ts,Negative
+I6.4,Sampling drop gate wired from cached config,Unit: sessionSampleRate 0 + random draw 0.99,Sampling gate returns drop for interaction trace export path,Automated,src/__tests__/interactions-sdk-wiring.test.ts,Edge
+I6.5,InteractionFeature config-disabled no-op,Unit: construct InteractionFeature with interactionsEnabledByConfig=false,Fetcher/coordinator not started,Automated,src/__tests__/interaction-feature.test.ts,Negative
+I6.6,InteractionFeature init applies fetched configs,Unit: init feature with gate enabled,coordinator.setConfigs called with fetcher configs,Automated,src/__tests__/interaction-feature.test.ts,Positive
+I6.7,SDK shutdown tears down interaction components,Unit: feature shutdown path and sdk shutdown path,fetcher.destroy and coordinator.shutdown invoked,Automated,src/__tests__/interaction-feature.test.ts; src/__tests__/interactions-sdk-wiring.test.ts,Positive
+,,,,,,,
+Area I8 — Integration pipeline (non-browser),,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+I8.1,Feature pipeline emits real interaction span from events,Unit integration: mock fetch config + real InteractionFeature with tracer stub + trackEvent sequence,Tracer receives terminal interaction span with expected config id and pulse.type,Automated,src/__tests__/interaction-feature-integration.test.ts,Positive
+,,,,,,,
+Area I7 — E2E OTLP parity assertions for interactions,,,,,,,Case type
+#,Test,Steps to Reproduce,Expected,Status,Comment,Case type
+I7.1,Checkout flow exports interaction span contract + platform web,Playwright: run full checkout path,OTLP span has pulse.type=interaction and pulse.interaction contract attrs; resource platform=web,Automated,examples/ecommerce-demo/e2e/m2-interactions.spec.ts,Positive
+I7.2,Two independent interactions each export,Playwright: one-step config then trigger two independent starts,Two interaction spans exported and both non-error,Automated,examples/ecommerce-demo/e2e/m2-interactions.spec.ts,Edge
+I7.3,Config fetch unavailable keeps SDK stable,Playwright: route interaction-config endpoint 503 + execute checkout steps,SDK still emits session.start and exports no interaction span,Automated,examples/ecommerce-demo/e2e/m2-interactions.spec.ts,Edge
+I7.4,Manual dashboard category UX verification,Run checkout variants and inspect Interactions dashboard filters,Categories Excellent/Good/Average/Poor visible and filterable,Manual,Required acceptance gate from plan,Positive
