@@ -109,7 +109,6 @@ export class SessionReplayConsumer {
         "enable.auto.commit": true,
         "enable.auto.offset.store": false,
         "session.timeout.ms": 90000,
-        "max.poll.interval.ms": 300000,
         "fetch.min.bytes": 1,
         "fetch.wait.max.ms": 500,
       } as any,
@@ -120,14 +119,8 @@ export class SessionReplayConsumer {
 
     // Create offset manager
     const offsetManager = new KafkaOffsetManager((offsets) => {
-      console.log("[Consumer] Storing offsets manually:", offsets);
       if (this.consumer) {
-        try {
-          this.consumer.offsetsStore(offsets);
-          console.log("[Consumer] Offsets stored successfully");
-        } catch (err) {
-          console.error("[Consumer] Error storing offsets:", err);
-        }
+        this.consumer.offsetsStore(offsets);
       }
     }, this.config.kafkaTopic);
 
