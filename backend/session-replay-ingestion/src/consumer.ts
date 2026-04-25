@@ -134,15 +134,28 @@ export class SessionReplayConsumer {
       metadataStore,
     });
 
-    // Handle rebalancing
+    // Handle rebalancing.
+    // Registering this listener enables manual rebalance mode — we MUST call
+    // assign()/unassign() ourselves or the consume queue is never set up, which
+    // causes every consume() call to return ERR__NOT_IMPLEMENTED (-170).
     this.consumer.on("rebalance", (err: any, assignments: TopicPartition[]) => {
       if (err.code === ErrorCodes.ERRORS.ERR__ASSIGN_PARTITIONS) {
         const partitions = assignments.map((a) => a.partition);
         console.log(`[Consumer] Partitions assigned: ${partitions.join(", ")}`);
+        try {
+          this.consumer!.assign(assignments);
+        } catch (e) {
+          console.error("[Consumer] assign() failed:", e);
+        }
       } else if (err.code === ErrorCodes.ERRORS.ERR__REVOKE_PARTITIONS) {
         const partitions = assignments.map((a) => a.partition);
         console.log(`[Consumer] Partitions revoked: ${partitions.join(", ")}`);
         this.batchManager?.discardPartitions(partitions);
+        try {
+          this.consumer!.unassign();
+        } catch (e) {
+          console.error("[Consumer] unassign() failed:", e);
+        }
       }
     });
 
