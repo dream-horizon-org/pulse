@@ -101,13 +101,15 @@ export class SessionReplayConsumer {
       this.config.kafkaMetadataTopic,
     );
 
-    // Initialize Kafka consumer
+    // Initialize Kafka consumer.
+    // Use enable.auto.commit=false + explicit commitSync after each batch flush.
+    // The previous combination of enable.auto.commit=true + enable.auto.offset.store=false
+    // triggered ERR__NOT_IMPLEMENTED (-170) from consumer_poll() in librdkafka 2.3.0.
     this.consumer = new Kafka.KafkaConsumer(
       {
         "group.id": this.config.kafkaGroupId,
         "metadata.broker.list": this.config.kafkaBrokers,
-        "enable.auto.commit": true,
-        "enable.auto.offset.store": false,
+        "enable.auto.commit": false,
         "session.timeout.ms": 90000,
         "max.poll.interval.ms": 300000,
         "fetch.min.bytes": 1,
@@ -121,7 +123,11 @@ export class SessionReplayConsumer {
     // Create offset manager
     const offsetManager = new KafkaOffsetManager((offsets) => {
       if (this.consumer) {
-        this.consumer.offsetsStore(offsets);
+        try {
+          this.consumer.commitSync(offsets as any);
+        } catch (e) {
+          console.error("[Consumer] commitSync failed:", e);
+        }
       }
     }, this.config.kafkaTopic);
 
