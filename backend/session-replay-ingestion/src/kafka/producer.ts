@@ -5,7 +5,7 @@ export class KafkaProducer {
     private pending: Array<{ topic: string; messages: Array<{ key: string; value: string }> }> = []
 
     constructor(kafka: Kafka) {
-        this.producer = kafka.producer({ idempotent: true })
+        this.producer = kafka.producer()
     }
 
     public async connect(): Promise<void> {
