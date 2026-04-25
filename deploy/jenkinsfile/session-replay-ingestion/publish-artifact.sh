@@ -30,8 +30,9 @@ echo "Building ${APPLICATION_NAME} version ${VERSION}"
 cd "${APP_DIR}"
 
 # Install system librdkafka if not present
-if ! pkg-config --exists librdkafka; then
+if ! pkg-config --exists librdkafka 2>/dev/null; then
   echo "Installing librdkafka-dev..."
+  sudo apt-get update -qq 2>/dev/null || sudo sed -i '/deadsnakes-ppa/d' /etc/apt/sources.list.d/* 2>/dev/null || true
   sudo apt-get update -qq
   sudo apt-get install -y librdkafka-dev build-essential pkg-config libssl-dev libcurl4-openssl-dev libsasl2-dev
 fi
