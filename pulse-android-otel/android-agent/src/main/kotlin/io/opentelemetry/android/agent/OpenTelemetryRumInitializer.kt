@@ -143,7 +143,7 @@ object OpenTelemetryRumInitializer {
                     if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
                     if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
                     if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
-                    setIgnoreJavaScriptExceptions(shouldIgnoreJavaScriptExceptions)
+                    setShouldIgnoreJavaScriptExceptions(shouldIgnoreJavaScriptExceptions)
                 }
 
         if (shouldStartSendingData) {

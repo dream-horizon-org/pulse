@@ -151,7 +151,7 @@ public final class OpenTelemetryRumBuilder {
      * com.facebook.react.common.JavascriptException}. Should only be set to true for React Native
      * builds where the JS error handler already reports the crash.
      */
-    public OpenTelemetryRumBuilder setIgnoreJavaScriptExceptions(
+    public OpenTelemetryRumBuilder setShouldIgnoreJavaScriptExceptions(
             boolean shouldIgnoreJavaScriptExceptions) {
         this.shouldIgnoreJavaScriptExceptions = shouldIgnoreJavaScriptExceptions;
         return this;

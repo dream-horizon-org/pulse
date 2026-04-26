@@ -31,14 +31,14 @@ public final class CrashInstrumentation {
 
     public private(set) static var isInstalled: Bool = false
 
-    /// UserDefaults key set when the RN JS layer captures a crash.
-    /// Read and cleared on the next launch inside processStoredCrashes() to suppress the
-    /// duplicate native KSCrash report for the same event.
-    static let jsCrashCapturedKey = "com.pulse.sdk.jsCrashCaptured"
+    /// Notification name posted by PulseReactNativeOtelLogger when a JS crash is captured.
+    /// Single source of truth — PulseNotifications.swift in the RN bridge references this constant.
+    public static let jsCrashCapturedNotificationName = "com.pulse.jsCrashCaptured"
 
-    /// Notification name posted by PulseReactNativeOtelLogger when a crash is captured by JS.
-    /// Must match PulseNotifications.swift in the RN bridge.
-    static let jsCrashCapturedNotificationName = "com.pulse.jsCrashCaptured"
+    /// KSCrash userInfo key written when the JS layer captures a crash.
+    /// KSCrash persists userInfo alongside the crash report, so this flag survives
+    /// the crash and is readable in processStoredCrashes() on the next launch.
+    static let jsCrashCapturedUserInfoKey = "pulse_js_crash_captured"
 
     private static var logger: Logger?
     static let reporter = KSCrash.shared
@@ -100,7 +100,7 @@ public final class CrashInstrumentation {
     /// Writes the current session ID into `KSCrash.shared.userInfo`.
     /// KSCrash persists this dict alongside every crash report it writes,
     /// so the session that was active at crash time can be recovered on next launch.
-    static func cacheCrashContext(session: Session? = nil) {
+    static func cacheCrashContext(session: Session? = nil, jsCrashCaptured: Bool = false) {
         var userInfo: [String: Any] = [:]
 
         let sessionManager = SessionManagerProvider.getInstance()
@@ -109,6 +109,12 @@ public final class CrashInstrumentation {
             if let prevId = session.previousId {
                 userInfo[SessionConstants.previousId] = prevId
             }
+        }
+
+        // Preserve the flag across session rotations that fire after a JS crash.
+        let existingFlag = (reporter.userInfo as? [String: Any])?[jsCrashCapturedUserInfoKey] as? Bool ?? false
+        if jsCrashCaptured || existingFlag {
+            userInfo[jsCrashCapturedUserInfoKey] = true
         }
 
         reporter.userInfo = userInfo
@@ -131,15 +137,14 @@ public final class CrashInstrumentation {
         observers.append(sessionObserver)
 
         // When the RN JS error handler captures a crash it posts this notification.
-        // We persist a UserDefaults flag so processStoredCrashes() on the next launch can
-        // suppress the duplicate KSCrash report for the same event.
+        // Write a flag into KSCrash.userInfo so it is persisted atomically with the crash
+        // report. processStoredCrashes() reads it from rawCrash["user"] next launch.
         let jsCrashObserver = NotificationCenter.default.addObserver(
             forName: Notification.Name(jsCrashCapturedNotificationName),
             object: nil,
             queue: nil
         ) { _ in
-            UserDefaults.standard.set(true, forKey: jsCrashCapturedKey)
-            UserDefaults.standard.synchronize()
+            cacheCrashContext(jsCrashCaptured: true)
         }
         observers.append(jsCrashObserver)
     }
@@ -163,14 +168,6 @@ public final class CrashInstrumentation {
         guard let logger = logger,
               let reportStore = reporter.reportStore else { return hadValidCrash }
 
-        // Read and clear the JS crash captured flag unconditionally so it never lingers,
-        // even if KSCrash has no stored reports this launch.
-        let isCaptured = UserDefaults.standard.bool(forKey: jsCrashCapturedKey)
-        if isCaptured {
-            UserDefaults.standard.removeObject(forKey: jsCrashCapturedKey)
-            UserDefaults.standard.synchronize()
-        }
-
         let reportIDs = reportStore.reportIDs
         guard !reportIDs.isEmpty else { return hadValidCrash }
 
@@ -178,7 +175,11 @@ public final class CrashInstrumentation {
             guard let id = reportID as? Int64,
                   let crashReport = reportStore.report(for: id) else { continue }
 
-            if isCaptured {
+            // The JS error handler writes jsCrashCapturedUserInfoKey into KSCrash.userInfo
+            // before the crash, so the flag is stored atomically in rawCrash["user"].
+            let rawCrash = crashReport.value
+            let jsCrashCaptured = (rawCrash[CrashAttributes.userKey] as? [String: Any])?[jsCrashCapturedUserInfoKey] as? Bool ?? false
+            if jsCrashCaptured {
                 reportStore.deleteReport(with: id)
                 continue
             }
