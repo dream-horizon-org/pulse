@@ -183,7 +183,6 @@ public final class CrashInstrumentation {
                 continue
             }
 
-
             reportCrash(crashReport: crashReport, logger: logger)
             reportStore.deleteReport(with: id)
             hadValidCrash = true
