@@ -56,7 +56,7 @@ AS otel.otel_metrics_summary_local
 
 
 -- Unified read surface for performance queries (METRICS dataType); underlying tables receive collector INSERTs
-CREATE VIEW IF NOT EXISTS otel.otel_metrics
+CREATE VIEW IF NOT EXISTS otel.otel_metrics ON CLUSTER 'pulse-ch'
   (
   `Timestamp` DateTime64(9),
   `ServiceName` LowCardinality(String),
@@ -142,6 +142,7 @@ FROM otel.otel_metrics_exp_histogram;
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_summary_mv
+ON CLUSTER 'pulse-ch'
 TO otel.project_monthly_usage
 AS SELECT
             ProjectId AS project_id,

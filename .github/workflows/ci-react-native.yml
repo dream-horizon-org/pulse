@@ -1,4 +1,4 @@
-name: CI - React Native SDK
+name: React Native - Main Orchestrator
 
 on:
   push:

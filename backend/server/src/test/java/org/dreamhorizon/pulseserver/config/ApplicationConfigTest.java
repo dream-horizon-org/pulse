@@ -103,7 +103,9 @@ class ApplicationConfigTest {
             "secret-key"),
         "replayBaseUrl",
         null,
-        null
+        null,
+        "localhost",
+        6379
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());
