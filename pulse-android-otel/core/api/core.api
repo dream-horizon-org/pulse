@@ -52,10 +52,10 @@ public final class io/opentelemetry/android/OpenTelemetryRumBuilder {
 	public fun disposeExporters ()V
 	public fun mergeResource (Lio/opentelemetry/sdk/resources/Resource;)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setExportScheduleHandler (Lio/opentelemetry/android/features/diskbuffering/scheduler/ExportScheduleHandler;)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
-	public fun setShouldIgnoreJavaScriptExceptions (Z)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setMeteredSessionProvider (Lio/opentelemetry/android/session/SessionProvider;)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setResource (Lio/opentelemetry/sdk/resources/Resource;)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setSessionProvider (Lio/opentelemetry/android/session/SessionProvider;)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
+	public fun setShouldIgnoreJavaScriptExceptions (Z)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setShouldStartSendingData (Z)Lio/opentelemetry/android/OpenTelemetryRumBuilder;
 	public fun setupExporters ()V
 }
