@@ -2,10 +2,13 @@
  * Fan-out to per-config InteractionTracker instances.
  * Config refresh replaces all trackers and clears timers (Android InteractionManager init pattern).
  */
+import { PulseWebLogger } from "../pulse-web-logger";
 import type { InteractionConfig } from "./interaction-models";
 import type { InteractionTrackerCallbacks } from "../types/interactions/interaction-runtime";
 import { toInteractionLocalEvent } from "../utils/interactions/local-event-converter";
 import { InteractionTracker } from "./interaction-tracker";
+
+const LIFECYCLE = "[interactions:coordinator]";
 
 export class InteractionCoordinator {
   private trackers: InteractionTracker[] = [];
@@ -18,6 +21,9 @@ export class InteractionCoordinator {
    * Replaces all trackers. Destroys previous timers and buffers (mid-flight refresh).
    */
   setConfigs(configs: readonly InteractionConfig[]): void {
+    PulseWebLogger.debug(
+      `${LIFECYCLE} setConfigs: replacing trackers, flowCount=${configs.length}`,
+    );
     this.destroyTrackers();
     this.trackers = configs.map(
       (cfg) => new InteractionTracker(cfg, this.sharedCallbacks),
@@ -43,6 +49,9 @@ export class InteractionCoordinator {
   }
 
   shutdown(): void {
+    PulseWebLogger.debug(
+      `${LIFECYCLE} shutdown: destroying ${this.trackers.length} tracker(s)`,
+    );
     this.destroyTrackers();
   }
 
