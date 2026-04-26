@@ -90,7 +90,7 @@ services:
 
   # ClickHouse Database (OTEL data only - traces, logs, metrics)
   clickhouse:
-    image: clickhouse/clickhouse-server:24.8
+    image: clickhouse/clickhouse-server:25.3
     container_name: pulse-clickhouse
     ports:
       - "8123:8123"  # HTTP interface
@@ -103,7 +103,7 @@ services:
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/01-clickhouse-otel-schema.sql:ro
-      - ../backend/ingestion/clickhouse-session-replay-schema.sql:/docker-entrypoint-initdb.d/02-clickhouse-session-replay-schema.sql:ro
+      - ../backend/ingestion/clickhouse-session-replay-schema-dev.sql:/docker-entrypoint-initdb.d/02-clickhouse-session-replay-schema.sql:ro
       - ../backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/03-session-summary-mv.sql:ro
     networks:
       - pulse-network
@@ -117,7 +117,7 @@ services:
 
   # ClickHouse Table Initializer (runs once to ensure tables exist)
   clickhouse-init:
-    image: clickhouse/clickhouse-server:24.8
+    image: clickhouse/clickhouse-server:25.3
     container_name: pulse-clickhouse-init
     command: /bin/bash /scripts/init-clickhouse.sh
     volumes:
@@ -144,7 +144,7 @@ services:
 
   # Kafka (KRaft mode, no Zookeeper)
   kafka:
-    image: confluentinc/cp-kafka:7.6.0
+    image: apache/kafka:4.1.2
     container_name: pulse-kafka
     ports:
       - "9092:9092"
@@ -162,13 +162,14 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_NUM_PARTITIONS: 12
       KAFKA_LOG_RETENTION_HOURS: 1
+      KAFKA_COMPRESSION_TYPE: zstd
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
+      test: [ "CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list" ]
       interval: 5s
       timeout: 5s
       retries: 10
