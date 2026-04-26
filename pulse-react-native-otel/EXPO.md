@@ -152,6 +152,53 @@ Top-level plugin fields apply to both platforms. Override per OS with **`android
 
 Values: strings, numbers, booleans, or arrays of those types.
 
+### Android — `android.coreLibraryDesugaring` (optional)
+
+| Field     | Type    | Default | Description                                                                                                                                                                                      |
+| --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled` | boolean | `false` | When `true`, the config plugin adds `compileOptions { coreLibraryDesugaringEnabled true }` and `coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:…'` to **`android/app/build.gradle`**. |
+| `version` | string  | `2.1.4` | Desugar JDK libs version; only used when `enabled` is `true`.                                                                                                                                    |
+
+**Note:** Turn **`enabled`** on only when you need it (for example Java 8+ APIs on **older `minSdkVersion`**). Typical case: **`minSdkVersion` below 26** (API 25 and lower). If your Expo / app **`minSdkVersion` is 26 or higher**, you usually **do not** need core library desugaring for this reason—leave it **`false`** to avoid extra desugar work and dependency surface.
+
+Example:
+
+```json
+"android": {
+  "coreLibraryDesugaring": {
+    "enabled": true,
+    "version": "2.1.4"
+  }
+}
+```
+
+Omit `version` to use the default `2.1.4`.
+
+### Android — `android.okHttpInstrumentation` (optional)
+
+React Native on Android uses **OkHttp** for most HTTP traffic. This block wires **native OkHttp** instrumentation (Pulse OkHttp artifacts plus the **Byte Buddy** Gradle plugin). If you do not need outbound HTTP spans from the native stack, **omit** the `okHttpInstrumentation` key entirely.
+
+| Field | Type | Default | Description |
+| ----- | ---- | ------- | ----------- |
+| `enabled` | boolean | `false` | When `true`, prebuild merges Byte Buddy + OkHttp instrumentation into Gradle. |
+| `byteBuddyGradlePluginVersion` | string | `1.17.8` | Version for `net.bytebuddy:byte-buddy-gradle-plugin` on the **root** `android/build.gradle` `buildscript` classpath. |
+
+**Note:** To prevent duplicate declarations and build conflicts, the plugin **skips** its own injection and logs a **`console.warn`** if it detects that:
+
+- The Byte Buddy **buildscript** classpath is already defined in the **root** `android/build.gradle`, or  
+- **Both** the instrumentation (`okhttp3-library` and `okhttp3-agent`) are already present in **`android/app/build.gradle`**.
+
+Example:
+
+```json
+"android": {
+  "okHttpInstrumentation": {
+    "enabled": true,
+    "byteBuddyGradlePluginVersion": "1.17.8"
+  }
+}
+```
+
 ### iOS — `ios.configuration`
 
 | Key                        | Type    | Description                  |
@@ -277,9 +324,10 @@ Pulse.markContentReady();
 
 `app.json` enables Pulse wiring; **view clicks** still need OTel artifacts in **`android/app/build.gradle`** (after `prebuild`):
 
-````kotlin
+```kotlin
 // XML / classic views (pulse-android-otel/instrumentation/view-click)
-implementation("'org.dreamhorizon.instrumentation:view-click:0.0.8-alpha'")
+implementation("org.dreamhorizon.instrumentation:view-click:0.0.8-alpha")
+```
 
 ### iOS — UIKit taps
 
@@ -290,4 +338,4 @@ Only **`app.json`** — under **`ios.instrumentation.uiKitTap`**, for example:
   "enabled": true,
   "captureContext": true
 }
-````
+```
