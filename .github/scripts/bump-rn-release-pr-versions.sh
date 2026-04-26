@@ -3,6 +3,8 @@
 # Env (required): RN_VERSION
 # Env (optional): ANDROID_VERSION, IOS_VERSION
 # Env (optional): BUMP_ANDROID_SDK, BUMP_IOS_SDK — "true" to also bump monorepo SDK roots.
+# When ANDROID_VERSION is set: android/build.gradle, example app build.gradle, and
+# plugin/src/androidBuildConstants.ts (PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION) are updated.
 set -euo pipefail
 
 # GNU sed (Linux/CI): sed -i <expr> file. BSD sed (macOS): sed -i '' <expr> file.
@@ -57,6 +59,8 @@ if [[ -n "${ANDROID_VERSION:-}" ]]; then
     "$RN_ROOT/example/android/app/build.gradle"
   sed_inplace "s|byteBuddy(\"org.dreamhorizon.instrumentation:okhttp3-agent:[^\"]*\")|byteBuddy(\"org.dreamhorizon.instrumentation:okhttp3-agent:${ANDROID_VERSION}\")|" \
     "$RN_ROOT/example/android/app/build.gradle"
+  sed_inplace "s|^export const PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION = '[^']*';|export const PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION = '${ANDROID_VERSION}';|" \
+    "$RN_ROOT/plugin/src/androidBuildConstants.ts"
 fi
 
 if [[ -n "${IOS_VERSION:-}" ]]; then
