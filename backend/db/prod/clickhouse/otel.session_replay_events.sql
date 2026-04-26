@@ -47,8 +47,9 @@ AS otel.session_replay_events_local
     ENGINE = Distributed('pulse-ch', otel, session_replay_events_local, cityHash64(SessionId));
 
 
-CREATE MATERIALIZED VIEW otel.session_replay_events_mv TO otel.session_replay_events
+CREATE MATERIALIZED VIEW otel.session_replay_events_mv
        ON CLUSTER 'pulse-ch'
+       TO otel.session_replay_events
 (
     `SessionId` String,
     `ProjectId` LowCardinality(String),
