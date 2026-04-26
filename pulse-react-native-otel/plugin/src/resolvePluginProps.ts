@@ -9,8 +9,10 @@ import type {
   ResolvedAndroidPulseProps,
   ResolvedIosPulseProps,
 } from './types';
-
-const DEFAULT_CORE_LIBRARY_DESUGAR_VERSION = '2.1.4';
+import {
+  PULSE_BYTE_BUDDY_GRADLE_PLUGIN,
+  PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION,
+} from './androidBuildConstants';
 
 function parseConsent(value: unknown, label: string): PulseDataCollectionState {
   if (value === 'PENDING' || value === 'ALLOWED' || value === 'DENIED') {
@@ -122,6 +124,35 @@ export function assertPulsePluginProps(
     );
   }
 
+  if (p.android != null && typeof p.android === 'object') {
+    const v = (p.android as Record<string, unknown>).okHttpInstrumentation;
+    if (v === undefined) {
+      // ok
+    } else if (typeof v === 'object' && v !== null) {
+      const o = v as Record<string, unknown>;
+      if (o.enabled !== undefined && typeof o.enabled !== 'boolean') {
+        throw new PluginError(
+          'Pulse config plugin: "android.okHttpInstrumentation.enabled" must be a boolean when set.',
+          'INVALID_PLUGIN_TYPE'
+        );
+      }
+      if (
+        o.byteBuddyGradlePluginVersion !== undefined &&
+        typeof o.byteBuddyGradlePluginVersion !== 'string'
+      ) {
+        throw new PluginError(
+          'Pulse config plugin: "android.okHttpInstrumentation.byteBuddyGradlePluginVersion" must be a string when set.',
+          'INVALID_PLUGIN_TYPE'
+        );
+      }
+    } else {
+      throw new PluginError(
+        'Pulse config plugin: "android.okHttpInstrumentation" must be an object when set (e.g. { "enabled": true }).',
+        'INVALID_PLUGIN_TYPE'
+      );
+    }
+  }
+
   const typed = props as PulsePluginProps;
 
   assertOptionalLogLevel(typed.android?.logLevel, 'android.logLevel');
@@ -159,18 +190,29 @@ export function resolveAndroidProps(
 ): ResolvedAndroidPulseProps {
   const merged = mergePlatformInit(props, props.android);
   const desugaring = props.android?.coreLibraryDesugaring;
-  const enabled = desugaring?.enabled === true;
-  const rawVersion = desugaring?.version?.trim();
-  const version =
-    rawVersion && rawVersion.length > 0
-      ? rawVersion
-      : DEFAULT_CORE_LIBRARY_DESUGAR_VERSION;
+  const desugarEnabled = desugaring?.enabled === true;
+  const rawDesugarVersion = desugaring?.version?.trim();
+  const desugarVersion =
+    rawDesugarVersion && rawDesugarVersion.length > 0
+      ? rawDesugarVersion
+      : PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION;
+
+  const okHttp = props.android?.okHttpInstrumentation;
+  const okHttpEnabled = okHttp?.enabled === true;
+  const rawBb = okHttp?.byteBuddyGradlePluginVersion?.trim();
+  const byteBuddyGradlePluginVersion =
+    rawBb && rawBb.length > 0 ? rawBb : PULSE_BYTE_BUDDY_GRADLE_PLUGIN;
+
   return {
     ...merged,
     instrumentation: props.android?.instrumentation,
     coreLibraryDesugaring: {
-      enabled,
-      version,
+      enabled: desugarEnabled,
+      version: desugarVersion,
+    },
+    okHttpInstrumentation: {
+      enabled: okHttpEnabled,
+      byteBuddyGradlePluginVersion,
     },
   };
 }
