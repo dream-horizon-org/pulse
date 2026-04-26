@@ -7,6 +7,13 @@ import {
   buildSwiftInstrumentationsArg,
   buildSwiftPulseSdkInitialization,
 } from '../iosCodegen';
+import { resolveIosProps } from '../resolvePluginProps';
+import {
+  PULSE_OBJC_PULSE_SWIFT_HEADER,
+  buildObjcPulseSdkInitialization,
+  getAppDelegatePrebuildKind,
+} from '../iosObjcCodegen';
+import type { PulsePluginProps } from '../types';
 
 const EXPO_APP_DELEGATE_SNIPPET = `
 import React
@@ -15,6 +22,23 @@ import ReactAppDependencyProvider
  reactNativeFactory = factory
 
 #if os(iOS)
+`;
+
+const OBJC_APP_DELEGATE_FIXTURE = `
+#import "AppDelegate.h"
+#import <React/RCTBundleURLProvider.h>
+
+@implementation AppDelegate
+
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
+{
+  self.moduleName = @"X";
+  self.initialProps = @{};
+
+  return [super application:application didFinishLaunchingWithOptions:launchOptions];
+}
+
+@end
 `;
 
 describe('buildSwiftPulseSdkInitialization', () => {
@@ -179,7 +203,142 @@ describe('buildSwiftConfigurationArg', () => {
   });
 });
 
+describe('buildObjcPulseSdkInitialization', () => {
+  it('emits pulseInitialize: with nil for empty optional args', () => {
+    const code = buildObjcPulseSdkInitialization({
+      apiKey: 'k1',
+      dataCollectionState: 'PENDING',
+    });
+    expect(code).toMatch(/\[PulseSDK pulseInitialize:/);
+    expect(code).toContain('@"k1"');
+    expect(code).toContain('@"PENDING"');
+    expect(code).toContain('globalAttributes:nil');
+    expect(code).toContain('configuration:nil');
+    expect(code).toContain('instrumentations:nil');
+  });
+
+  it('maps globalAttributes to NSDictionary of PulseAttributeValue', () => {
+    const code = buildObjcPulseSdkInitialization({
+      apiKey: 'k',
+      dataCollectionState: 'ALLOWED',
+      globalAttributes: { env: 'prod', n: 2 },
+    });
+    expect(code).toContain('NSDictionary<NSString*, PulseAttributeValue*');
+    expect(code).toContain('[PulseAttributeValue string:@"prod"]');
+    expect(code).toContain('[PulseAttributeValue int:2]');
+  });
+
+  it('emits instrumentation toggles for ObjC', () => {
+    const code = buildObjcPulseSdkInitialization({
+      apiKey: 'k',
+      dataCollectionState: 'PENDING',
+      instrumentation: {
+        crash: { enabled: true },
+        urlSession: { enabled: false },
+      },
+    });
+    expect(code).toContain('[PulseObjcInstrumentations new]');
+    expect(code).toContain('crash = [PulseObjcEnabledConfig enabled]');
+    expect(code).toContain('urlSession = [PulseObjcEnabledConfig disabled]');
+  });
+
+  it('emits full ios.* from resolveIosProps (app.json-style client payload)', () => {
+    const appJsonStyle: PulsePluginProps = {
+      apiKey: 'default-project_devkey01',
+      dataCollectionState: 'ALLOWED',
+      ios: {
+        instrumentation: {
+          urlSession: { enabled: true },
+          sessions: { enabled: true },
+          interaction: { enabled: true },
+          location: { enabled: true },
+          crash: { enabled: true },
+          appLifecycle: { enabled: true },
+          screenLifecycle: { enabled: true },
+          appStartup: { enabled: true },
+          uiKitTap: { enabled: true, captureContext: true },
+        },
+        configuration: {
+          includeScreenAttributes: true,
+          includeNetworkAttributes: true,
+          includeGlobalAttributes: true,
+        },
+        globalAttributes: {
+          string: 'value',
+          numberFloatNegative: -9.05,
+          boolean: true,
+          emptyString: '',
+          emptyArray: [],
+          stringArray: ['a', 'b', 'c'],
+          numberArrayMixed: [1, 2.5, 3],
+          booleanArray: [true, false, true],
+          null: null,
+          platform: 'ios',
+        },
+      },
+    };
+    const code = buildObjcPulseSdkInitialization(resolveIosProps(appJsonStyle));
+    expect(code).toContain('NSDictionary<NSString*, PulseAttributeValue*');
+    expect(code).toContain('pulseRNKitConfig');
+    expect(code).toContain('includeScreenAttributes = @(YES)');
+    expect(code).toContain('[PulseObjcInstrumentations new]');
+    expect(code).toMatch(/globalAttributes:pulseRNGlobalAttributes/);
+    expect(code).toMatch(/configuration:pulseRNKitConfig/);
+    expect(code).toMatch(/instrumentations:pulseRNInstCfg/);
+  });
+});
+
+describe('getAppDelegatePrebuildKind', () => {
+  it('prefers file extension over language', () => {
+    expect(
+      getAppDelegatePrebuildKind({
+        path: '/ios/AppDelegate.mm',
+        language: 'swift',
+        contents: '',
+      })
+    ).toBe('objc');
+  });
+
+  it('classifies Swift AppDelegate by path or markers', () => {
+    expect(
+      getAppDelegatePrebuildKind({
+        path: '/ios/AppDelegate.swift',
+        contents: '',
+      })
+    ).toBe('swift');
+    expect(
+      getAppDelegatePrebuildKind({
+        contents: EXPO_APP_DELEGATE_SNIPPET,
+      })
+    ).toBe('swift');
+  });
+});
+
 describe('Expo AppDelegate merge (fixtures)', () => {
+  it('merges ObjC Swift header and init into RN AppDelegate template', () => {
+    let src = mergeContents({
+      src: OBJC_APP_DELEGATE_FIXTURE,
+      newSrc: PULSE_OBJC_PULSE_SWIFT_HEADER,
+      tag: 'pulse-ios-objc-pulse-swift-header',
+      comment: '//',
+      anchor: /^#import\s+["<]AppDelegate.h[>"]\s*$/m,
+      offset: 1,
+    }).contents;
+    src = mergeContents({
+      src,
+      newSrc: buildObjcPulseSdkInitialization({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+      }),
+      tag: 'pulse-ios-objc-pulse-initialize',
+      comment: '//',
+      anchor: /^\s*self\.moduleName\s*=\s*@/m,
+      offset: 0,
+    }).contents;
+    expect(src).toContain('#import <PulseReactNativeOtel-Swift.h>');
+    expect(src).toContain('[PulseSDK pulseInitialize:');
+  });
+
   it('merges Pulse import after ReactAppDependencyProvider', () => {
     const out = mergeContents({
       src: EXPO_APP_DELEGATE_SNIPPET,
