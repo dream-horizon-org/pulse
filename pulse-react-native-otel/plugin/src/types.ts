@@ -18,6 +18,12 @@ export type PulseAttributes = Record<
 
 export type PulseDataCollectionState = 'PENDING' | 'ALLOWED' | 'DENIED';
 
+/**
+ * Numeric log verbosity for native init from Expo config (JSON-friendly).
+ * Matches JS `PulseLogLevel` / native ordinals: 0 = VERBOSE … 5 = NONE.
+ */
+export type PulseLogLevelValue = 0 | 1 | 2 | 3 | 4 | 5;
+
 /** Simple on/off for `app.json` instrumentation (Android + iOS). */
 export interface PulseInstrumentationEnabled {
   enabled?: boolean;
@@ -119,6 +125,8 @@ export type PulseNativeInitFields = {
   apiKey?: string;
   dataCollectionState?: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
+  /** Override top-level `logLevel` for this platform when set. */
+  logLevel?: PulseLogLevelValue;
 };
 
 export interface PulseAndroidCoreLibraryDesugaring {
@@ -142,6 +150,7 @@ export interface PulsePlatformInitProps {
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
+  logLevel?: PulseLogLevelValue;
 }
 
 export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
@@ -162,10 +171,12 @@ export type ResolvedIosPulseProps = PulsePlatformInitProps & {
  * Expo config plugin props. Top-level `apiKey` and `dataCollectionState` are required.
  * `android` / `ios`: optional init overrides, `globalAttributes`, `instrumentation`; iOS also `configuration`.
  * Do not put `globalAttributes`, `instrumentation`, or `configuration` at the top level.
+ * Optional `logLevel` (0–5) may be set at the top level and/or overridden per platform.
  */
 export interface PulsePluginProps {
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
+  logLevel?: PulseLogLevelValue;
 
   android?: PulseAndroidSection;
   ios?: PulseIosSection;

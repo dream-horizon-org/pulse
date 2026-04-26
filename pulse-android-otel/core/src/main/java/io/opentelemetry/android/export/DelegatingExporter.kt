@@ -33,6 +33,7 @@ internal class DelegatingExporter<D, T>(
         private const val TAG = "SdkQueue"
         private const val EXPORT_DIAG_TAG = "ExportDiag"
     }
+
     private val lock = Any()
 
     @GuardedBy("lock")
