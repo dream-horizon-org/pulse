@@ -52,20 +52,26 @@ export class InteractionTracker {
   }
 
   checkAndAdd(event: InteractionLocalEvent): void {
+    // Turn global blacklist names into synthetic events so we can match them the same way as flow steps.
     const globalSynthetic = globalBlacklistAsEvents(
       this.interactionConfig.globalBlacklistedEvents,
     );
+    // Only keep events that belong to this interaction's steps or hit the global blacklist set.
     const relevant =
       localMatchesAnyEvent(event, this.interactionConfig.events) ||
       localMatchesAnyEvent(event, globalSynthetic);
     if (!relevant) {
+      // Irrelevant to this flow; do not touch buffer or status.
       return;
     }
 
+    // Insert in timestamp order so the matcher sees a consistent timeline.
     sortedInsertLocalEvent(this.localEvents, event);
 
+    // Stable id for the in-flight interaction, or a fresh id when starting after a closed window.
     const interactionId = this.nextInteractionIdForMatch();
 
+    // Advance / complete / invalidate the sequence from the full buffered history plus markers.
     const seqResult = matchInteractionSequence(
       interactionId,
       this.localEvents,
@@ -74,6 +80,7 @@ export class InteractionTracker {
     );
 
     if (seqResult == null) {
+      // Matcher cannot derive a next state; treat the interaction as finished for this config.
       this.interactionClosed = true;
       return;
     }
@@ -85,6 +92,7 @@ export class InteractionTracker {
     let newStatus: InteractionRunningStatus = interactionStatus;
 
     if (shouldResetList) {
+      // Matcher wants an empty buffer: completion, terminal error, or sequence restart path.
       if (
         shouldTakeFirstEvent &&
         this.localEvents.length > 0 &&
@@ -93,6 +101,7 @@ export class InteractionTracker {
           this.interactionConfig,
         )
       ) {
+        // Wrong order but the last event is a valid step-1: clear everything, keep that event, new id, reopen flow.
         const lastEvent = this.localEvents[this.localEvents.length - 1]!;
         if (interactionStatus.kind !== "ongoing") {
           throw new Error(
@@ -114,19 +123,25 @@ export class InteractionTracker {
         };
         this.interactionClosed = false;
       } else {
+        // Terminal reset: drop buffers, close interaction, surface matcher terminal status only.
         this.interactionClosed = true;
         this.clearStates();
         oldStatus = null;
         newStatus = interactionStatus;
       }
     } else {
+      // In-place progression: buffers stay; status is whatever the matcher returned.
       oldStatus = null;
       newStatus = interactionStatus;
     }
 
+    // Publish one or two statuses (previous terminal + new shell) for consumers that need both.
     this.current = oldStatus != null ? [oldStatus, newStatus] : [newStatus];
+    // Deliver completed / errored PulseInteraction objects when the matcher produced a terminal.
     this.emitTerminals(oldStatus, newStatus);
+    // If still mid-flow with no payload yet, arm timeout for the next expected step.
     this.scheduleTimer(newStatus);
+    // Notify coordinator / feature so spans or UI can follow the latest slice.
     this.callbacks.onStatusesEmitted?.(this.current);
   }
 

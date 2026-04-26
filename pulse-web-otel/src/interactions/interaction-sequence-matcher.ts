@@ -185,7 +185,7 @@ export function matchInteractionSequence(
     isMatchOnGoing = false;
   };
 
-  const globalEvents = globalBlacklistAsEvents(
+  const globalBlacklistedEvents = globalBlacklistAsEvents(
     interactionConfig.globalBlacklistedEvents,
   );
 
@@ -198,7 +198,8 @@ export function matchInteractionSequence(
     }
     const localEvent = localEvents[localEventIndex]!;
 
-    if (isMatchOnGoing && localMatchesAnyEvent(localEvent, globalEvents)) {
+    // return if event matches any global blacklisted event;
+    if (isMatchOnGoing && localMatchesAnyEvent(localEvent, globalBlacklistedEvents)) {
       return {
         shouldTakeFirstEvent: false,
         shouldResetList: true,

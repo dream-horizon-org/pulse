@@ -1,0 +1,224 @@
+[
+  {
+    "id": "checkout-happy",
+    "name": "Checkout Happy Path",
+    "events": [
+      { "name": "checkout_step_1", "required": true },
+      { "name": "checkout_step_2", "required": true },
+      { "name": "checkout_step_3", "required": true }
+    ],
+    "thresholdInMs": 3000,
+    "uptimeLowerLimitInMs": 700,
+    "uptimeMidLimitInMs": 1400,
+    "uptimeUpperLimitInMs": 2500,
+    "globalBlacklistedEvents": ["ad_impression"]
+  },
+  {
+    "id": "cart-open-to-checkout",
+    "name": "Cart Open To Checkout Click",
+    "events": [
+      { "name": "cart_open", "required": true },
+      {
+        "name": "cart_checkout_click",
+        "required": true,
+        "props": [
+          { "key": "item_count", "value": "1", "operator": "NOT_EQUALS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 2500,
+    "uptimeLowerLimitInMs": 500,
+    "uptimeMidLimitInMs": 1000,
+    "uptimeUpperLimitInMs": 1800,
+    "globalBlacklistedEvents": ["device.crash"]
+  },
+  {
+    "id": "product-quick-add",
+    "name": "Product List Quick Add",
+    "events": [
+      {
+        "name": "product_item_visible",
+        "required": true,
+        "props": [
+          { "key": "source", "value": "product_list", "operator": "EQUALS" }
+        ]
+      },
+      {
+        "name": "add_to_cart",
+        "required": true,
+        "props": [
+          { "key": "source", "value": "product_list", "operator": "EQUALS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 2000,
+    "uptimeLowerLimitInMs": 350,
+    "uptimeMidLimitInMs": 900,
+    "uptimeUpperLimitInMs": 1600,
+    "globalBlacklistedEvents": ["error_demo_throw_uncaught"]
+  },
+  {
+    "id": "product-detail-add",
+    "name": "Product Detail Add To Cart",
+    "events": [
+      {
+        "name": "product_detail_open",
+        "required": true,
+        "props": [
+          { "key": "path", "value": "/products/", "operator": "STARTS_WITH" }
+        ]
+      },
+      {
+        "name": "add_to_cart",
+        "required": true,
+        "props": [
+          { "key": "source", "value": "product_detail", "operator": "EQUALS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 3500,
+    "uptimeLowerLimitInMs": 800,
+    "uptimeMidLimitInMs": 1500,
+    "uptimeUpperLimitInMs": 2800,
+    "globalBlacklistedEvents": ["ad_impression"]
+  },
+  {
+    "id": "search-to-product",
+    "name": "Search And Open Product",
+    "events": [
+      {
+        "name": "search_query",
+        "required": true,
+        "props": [{ "key": "query", "value": "shoe", "operator": "CONTAINS" }]
+      },
+      {
+        "name": "product_open",
+        "required": true,
+        "props": [
+          { "key": "path", "value": "/products/", "operator": "STARTS_WITH" }
+        ]
+      }
+    ],
+    "thresholdInMs": 5000,
+    "uptimeLowerLimitInMs": 1000,
+    "uptimeMidLimitInMs": 2200,
+    "uptimeUpperLimitInMs": 4000,
+    "globalBlacklistedEvents": ["error_demo_throw_render"]
+  },
+  {
+    "id": "coupon-apply",
+    "name": "Coupon Apply Flow",
+    "events": [
+      {
+        "name": "cart_coupon_input",
+        "required": true,
+        "props": [
+          { "key": "coupon", "value": "TEST-", "operator": "STARTS_WITH" }
+        ]
+      },
+      {
+        "name": "cart_coupon_apply",
+        "required": true,
+        "props": [
+          { "key": "coupon", "value": "-EXPIRED", "operator": "NOT_CONTAINS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 3000,
+    "uptimeLowerLimitInMs": 700,
+    "uptimeMidLimitInMs": 1300,
+    "uptimeUpperLimitInMs": 2400,
+    "globalBlacklistedEvents": ["error_demo_throw_promise"]
+  },
+  {
+    "id": "checkout-blacklisted-step",
+    "name": "Checkout Blocked By Back Step",
+    "events": [
+      { "name": "checkout_step_1", "required": true },
+      { "name": "checkout_back", "required": true, "isBlacklisted": true },
+      { "name": "checkout_step_2", "required": true }
+    ],
+    "thresholdInMs": 2500,
+    "uptimeLowerLimitInMs": 600,
+    "uptimeMidLimitInMs": 1200,
+    "uptimeUpperLimitInMs": 2200,
+    "globalBlacklistedEvents": ["ad_impression"]
+  },
+  {
+    "id": "checkout-optional-promo",
+    "name": "Checkout With Optional Promo",
+    "events": [
+      { "name": "checkout_step_1", "required": true },
+      {
+        "name": "checkout_promo_shown",
+        "required": false,
+        "isBlacklisted": true
+      },
+      { "name": "checkout_step_2", "required": true },
+      { "name": "checkout_step_3", "required": true }
+    ],
+    "thresholdInMs": 4000,
+    "uptimeLowerLimitInMs": 900,
+    "uptimeMidLimitInMs": 1800,
+    "uptimeUpperLimitInMs": 3200,
+    "globalBlacklistedEvents": ["error_demo_throw_uncaught"]
+  },
+  {
+    "id": "remove-item-sanity",
+    "name": "Cart Remove Item Sanity",
+    "events": [
+      {
+        "name": "cart_remove_item",
+        "required": true,
+        "props": [
+          { "key": "item_name", "value": "Demo", "operator": "ENDS_WITH" }
+        ]
+      },
+      {
+        "name": "cart_checkout_click",
+        "required": true,
+        "props": [
+          { "key": "item_count", "value": "0", "operator": "NOT_EQUALS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 2600,
+    "uptimeLowerLimitInMs": 600,
+    "uptimeMidLimitInMs": 1200,
+    "uptimeUpperLimitInMs": 2100,
+    "globalBlacklistedEvents": ["device.crash"]
+  },
+  {
+    "id": "screen-override-check",
+    "name": "Screen Name Override Followed By Action",
+    "events": [
+      {
+        "name": "override_check",
+        "required": true,
+        "props": [
+          {
+            "key": "screen.name",
+            "value": "custom-screen",
+            "operator": "EQUALS"
+          }
+        ]
+      },
+      {
+        "name": "persist_check_1",
+        "required": true,
+        "props": [
+          {
+            "key": "screen.name",
+            "value": "checkout",
+            "operator": "NOT_EQUALS"
+          }
+        ]
+      }
+    ],
+    "thresholdInMs": 3000,
+    "uptimeLowerLimitInMs": 700,
+    "uptimeMidLimitInMs": 1400,
+    "uptimeUpperLimitInMs": 2500,
+    "globalBlacklistedEvents": ["ad_impression"]
+  }
+]

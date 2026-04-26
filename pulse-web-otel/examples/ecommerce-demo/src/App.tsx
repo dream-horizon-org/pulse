@@ -140,7 +140,8 @@ export default function App() {
         : undefined;
 
     PulseWeb.start({
-      apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
+      apiKey:
+        import.meta.env["VITE_PULSE_API_KEY"] ?? "default-project_devkey01",
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
       ...(serviceVersion !== undefined ? { serviceVersion } : {}),
