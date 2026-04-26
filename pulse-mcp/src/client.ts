@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
-import { Credentials, loadCredentials, refreshAccessToken } from "./auth.js";
+import { Credentials, exchangeApiKeyForTokens, loadCredentials, saveCredentials } from "./auth.js";
 
 export class PulseClient {
   private http: AxiosInstance;
@@ -27,7 +27,9 @@ export class PulseClient {
         if (error.response?.status === 401 && !this.refreshing) {
           this.refreshing = true;
           try {
-            this.creds = await refreshAccessToken(this.baseUrl, this.creds.refreshToken);
+            const apiKey = process.env.PULSE_API_KEY!;
+            this.creds = await exchangeApiKeyForTokens(this.baseUrl, apiKey);
+            saveCredentials(this.creds);
             error.config.headers["Authorization"] = `Bearer ${this.creds.accessToken}`;
             return this.http.request(error.config);
           } finally {

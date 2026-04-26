@@ -4,9 +4,7 @@
   "description": "MCP server for the Pulse mobile observability platform",
   "type": "module",
   "main": "dist/index.js",
-  "bin": {
-    "pulse-mcp": "dist/index.js"
-  },
+  "bin": "dist/index.js",
   "scripts": {
     "prepare": "npm run build",
     "build": "tsc",
@@ -25,5 +23,6 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "packageManager": "yarn@4.12.0+sha256.1fe4e1193cbcd13a48d8f436bb17d3c672b049a5e32a758aab9866a073db1702"
 }

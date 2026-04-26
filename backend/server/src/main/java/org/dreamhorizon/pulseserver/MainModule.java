@@ -39,9 +39,11 @@ import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetry
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
 import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandler;
+import org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyDao;
 import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
 import org.dreamhorizon.pulseserver.service.session.SessionReplayService;
 import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
+import org.dreamhorizon.pulseserver.service.userapikey.UserApiKeyService;
 import org.dreamhorizon.pulseserver.service.spark.impl.SparkJobServiceImpl;
 import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
 import org.dreamhorizon.pulseserver.util.RxObjectMapper;
@@ -96,6 +98,8 @@ public class MainModule extends VertxAbstractModule {
     // === NEW: Multi-tenancy & RBAC DAOs ===
     bind(UserDao.class).in(Singleton.class);
     bind(ProjectDao.class).in(Singleton.class);
+    bind(UserApiKeyDao.class).in(Singleton.class);
+    bind(UserApiKeyService.class).in(Singleton.class);
     bind(ClickhouseProjectCredentialsDao.class).in(Singleton.class);
 
     // === NEW: Utilities ===

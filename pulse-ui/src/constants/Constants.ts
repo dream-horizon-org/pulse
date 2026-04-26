@@ -267,6 +267,11 @@ export const ROUTES: Routes = {
     basePath: "/coming-soon",
     path: "/coming-soon",
   },
+  PERSONAL_TOKENS: {
+    key: "PERSONAL_TOKENS",
+    basePath: "/account/tokens",
+    path: "/account/tokens",
+  },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
     basePath: "/settings",
@@ -1049,6 +1054,21 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "GET_USER_PROJECTS",
     apiPath: `/v1/users/me/projects`,
     method: API_METHODS.GET,
+  },
+  LIST_USER_API_KEYS: {
+    key: "LIST_USER_API_KEYS",
+    apiPath: `/v1/users/me/api-keys`,
+    method: API_METHODS.GET,
+  },
+  CREATE_USER_API_KEY: {
+    key: "CREATE_USER_API_KEY",
+    apiPath: `/v1/users/me/api-keys`,
+    method: API_METHODS.POST,
+  },
+  REVOKE_USER_API_KEY: {
+    key: "REVOKE_USER_API_KEY",
+    apiPath: `/v1/users/me/api-keys/:keyId`,
+    method: API_METHODS.DELETE,
   },
   // Auth API Routes
   LOGIN: {

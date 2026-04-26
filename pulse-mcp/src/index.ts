@@ -12,6 +12,24 @@ import { registerHeatmapTools } from "./tools/heatmap.js";
 import { registerQueryTools } from "./tools/query.js";
 import { registerSdkConfigTools } from "./tools/sdkConfig.js";
 import { registerAnomalyTools } from "./tools/anomaly.js";
+import { registerAppVitalsTools } from "./tools/appVitals.js";
+import { exchangeApiKeyForTokens, saveCredentials } from "./auth.js";
+
+const baseUrl = process.env.PULSE_BASE_URL;
+if (!baseUrl) throw new Error("PULSE_BASE_URL env var is required");
+
+const apiKey = process.env.PULSE_API_KEY;
+if (!apiKey) throw new Error("PULSE_API_KEY env var is required");
+
+try {
+  process.stderr.write("Exchanging API key for tokens...\n");
+  const creds = await exchangeApiKeyForTokens(baseUrl, apiKey);
+  saveCredentials(creds);
+  process.stderr.write("Authentication successful.\n");
+} catch (e) {
+  process.stderr.write(`Failed to exchange API key: ${e}\n`);
+  process.exit(1);
+}
 
 const server = new McpServer({
   name: "pulse-mcp",
@@ -30,6 +48,7 @@ registerHeatmapTools(server);
 registerQueryTools(server);
 registerSdkConfigTools(server);
 registerAnomalyTools(server);
+registerAppVitalsTools(server);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
