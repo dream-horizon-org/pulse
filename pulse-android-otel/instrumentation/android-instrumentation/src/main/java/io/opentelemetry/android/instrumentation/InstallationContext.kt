@@ -21,7 +21,7 @@ class InstallationContext(
      * avoiding duplicates. Set to true only for React Native builds; defaults to false so pure
      * Android Java apps never silently drop crashes.
      */
-    val ignoreJavaScriptExceptions: Boolean = false,
+    val shouldIgnoreJavaScriptExceptions: Boolean = false,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -30,7 +30,7 @@ class InstallationContext(
             openTelemetry == other.openTelemetry &&
             sessionProvider == other.sessionProvider &&
             meteredSessionProvider == other.meteredSessionProvider &&
-            ignoreJavaScriptExceptions == other.ignoreJavaScriptExceptions
+            shouldIgnoreJavaScriptExceptions == other.shouldIgnoreJavaScriptExceptions
     }
 
     override fun hashCode(): Int =
@@ -39,11 +39,11 @@ class InstallationContext(
             openTelemetry,
             sessionProvider,
             meteredSessionProvider,
-            ignoreJavaScriptExceptions,
+            shouldIgnoreJavaScriptExceptions,
         )
 
     override fun toString(): String =
         "InstallationContext(application=$application, openTelemetry=$openTelemetry, " +
             "sessionProvider=$sessionProvider, meteredSessionProvider=${meteredSessionProvider ?: "null"}, " +
-            "ignoreJavaScriptExceptions=$ignoreJavaScriptExceptions)"
+            "shouldIgnoreJavaScriptExceptions=$shouldIgnoreJavaScriptExceptions)"
 }

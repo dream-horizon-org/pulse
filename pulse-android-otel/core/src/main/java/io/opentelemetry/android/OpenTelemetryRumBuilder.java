@@ -113,7 +113,7 @@ public final class OpenTelemetryRumBuilder {
     @Nullable private SessionProvider meteredSessionProvider;
     private boolean shouldStartSendingData = true;
     @Nullable private Runnable setupExportersRunnable = null;
-    private boolean ignoreJavaScriptExceptions = false;
+    private boolean shouldIgnoreJavaScriptExceptions = false;
 
     private static TextMapPropagator buildDefaultPropagator() {
         return TextMapPropagator.composite(
@@ -152,8 +152,8 @@ public final class OpenTelemetryRumBuilder {
      * builds where the JS error handler already reports the crash.
      */
     public OpenTelemetryRumBuilder setIgnoreJavaScriptExceptions(
-            boolean ignoreJavaScriptExceptions) {
-        this.ignoreJavaScriptExceptions = ignoreJavaScriptExceptions;
+            boolean shouldIgnoreJavaScriptExceptions) {
+        this.shouldIgnoreJavaScriptExceptions = shouldIgnoreJavaScriptExceptions;
         return this;
     }
 
@@ -378,7 +378,7 @@ public final class OpenTelemetryRumBuilder {
                                 sessionProvider,
                                 meteredSessionProvider,
                                 config,
-                                ignoreJavaScriptExceptions)
+                                shouldIgnoreJavaScriptExceptions)
                         .setShutdownHook(
                                 () -> {
                                     if (exportScheduleHandler != null) {

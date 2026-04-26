@@ -31,6 +31,15 @@ public final class CrashInstrumentation {
 
     public private(set) static var isInstalled: Bool = false
 
+    /// UserDefaults key set when the RN JS layer captures a crash.
+    /// Read and cleared on the next launch inside processStoredCrashes() to suppress the
+    /// duplicate native KSCrash report for the same event.
+    static let jsCrashCapturedKey = "com.pulse.sdk.jsCrashCaptured"
+
+    /// Notification name posted by PulseReactNativeOtelLogger when a crash is captured by JS.
+    /// Must match PulseNotifications.swift in the RN bridge.
+    static let jsCrashCapturedNotificationName = "com.pulse.jsCrashCaptured"
+
     private static var logger: Logger?
     static let reporter = KSCrash.shared
     static var observers: [NSObjectProtocol] = []
@@ -105,9 +114,10 @@ public final class CrashInstrumentation {
         reporter.userInfo = userInfo
     }
 
-    /// Listens for session rotation so `userInfo` always reflects the active session.
+    /// Listens for session rotation so `userInfo` always reflects the active session,
+    /// and for RN JS fatal crashes so the duplicate native report can be suppressed.
     static func setupNotificationObservers() {
-        let observer = NotificationCenter.default.addObserver(
+        let sessionObserver = NotificationCenter.default.addObserver(
             forName: Notification.Name(SessionConstants.sessionEventNotification),
             object: nil,
             queue: nil
@@ -118,7 +128,20 @@ public final class CrashInstrumentation {
                 }
             }
         }
-        observers.append(observer)
+        observers.append(sessionObserver)
+
+        // When the RN JS error handler captures a crash it posts this notification.
+        // We persist a UserDefaults flag so processStoredCrashes() on the next launch can
+        // suppress the duplicate KSCrash report for the same event.
+        let jsCrashObserver = NotificationCenter.default.addObserver(
+            forName: Notification.Name(jsCrashCapturedNotificationName),
+            object: nil,
+            queue: nil
+        ) { _ in
+            UserDefaults.standard.set(true, forKey: jsCrashCapturedKey)
+            UserDefaults.standard.synchronize()
+        }
+        observers.append(jsCrashObserver)
     }
 
     /// Removes notification observers and resets state.
@@ -140,12 +163,26 @@ public final class CrashInstrumentation {
         guard let logger = logger,
               let reportStore = reporter.reportStore else { return hadValidCrash }
 
+        // Read and clear the JS crash captured flag unconditionally so it never lingers,
+        // even if KSCrash has no stored reports this launch.
+        let isCaptured = UserDefaults.standard.bool(forKey: jsCrashCapturedKey)
+        if isCaptured {
+            UserDefaults.standard.removeObject(forKey: jsCrashCapturedKey)
+            UserDefaults.standard.synchronize()
+        }
+
         let reportIDs = reportStore.reportIDs
         guard !reportIDs.isEmpty else { return hadValidCrash }
 
         for reportID in reportIDs {
             guard let id = reportID as? Int64,
                   let crashReport = reportStore.report(for: id) else { continue }
+
+            if isCaptured {
+                reportStore.deleteReport(with: id)
+                continue
+            }
+
 
             reportCrash(crashReport: crashReport, logger: logger)
             reportStore.deleteReport(with: id)

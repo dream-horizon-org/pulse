@@ -114,7 +114,7 @@ object OpenTelemetryRumInitializer {
                 .setHeaders(metricEndpointConnectivity::getHeaders)
                 .build(),
         rumConfig: OtelRumConfig = OtelRumConfig(),
-        ignoreJavaScriptExceptions: Boolean = false,
+        shouldIgnoreJavaScriptExceptions: Boolean = false,
     ): OpenTelemetryRum {
         val diskBufferingConfigurationSpec = DiskBufferingConfigurationSpec()
         diskBuffering?.invoke(diskBufferingConfigurationSpec)
@@ -143,7 +143,7 @@ object OpenTelemetryRumInitializer {
                     if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
                     if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
                     if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
-                    setIgnoreJavaScriptExceptions(ignoreJavaScriptExceptions)
+                    setIgnoreJavaScriptExceptions(shouldIgnoreJavaScriptExceptions)
                 }
 
         if (shouldStartSendingData) {

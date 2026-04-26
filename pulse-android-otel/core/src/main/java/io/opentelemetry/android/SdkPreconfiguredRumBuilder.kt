@@ -19,7 +19,7 @@ class SdkPreconfiguredRumBuilder internal constructor(
     private val sessionProvider: SessionProvider,
     private val meteredSessionProvider: SessionProvider?,
     private val config: OtelRumConfig,
-    private val ignoreJavaScriptExceptions: Boolean = false,
+    private val shouldIgnoreJavaScriptExceptions: Boolean = false,
 ) {
     private var onShutdown: Runnable = Runnable {} // nop
     private val instrumentations = mutableListOf<AndroidInstrumentation>()
@@ -59,7 +59,7 @@ class SdkPreconfiguredRumBuilder internal constructor(
                 openTelemetry = sdk,
                 sessionProvider = sessionProvider,
                 meteredSessionProvider = meteredSessionProvider,
-                ignoreJavaScriptExceptions = ignoreJavaScriptExceptions,
+                shouldIgnoreJavaScriptExceptions = shouldIgnoreJavaScriptExceptions,
             )
         val enabledInstrumentations = getEnabledInstrumentations()
         val onShutdown: () -> Unit = {

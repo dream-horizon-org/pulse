@@ -93,7 +93,7 @@ interface OpenTelemetryRum {
             config: OtelRumConfig,
             sessionProvider: SessionProvider,
             meteredSessionProvider: SessionProvider? = null,
-            ignoreJavaScriptExceptions: Boolean = false,
+            shouldIgnoreJavaScriptExceptions: Boolean = false,
         ): SdkPreconfiguredRumBuilder =
             SdkPreconfiguredRumBuilder(
                 application = application,
@@ -101,7 +101,7 @@ interface OpenTelemetryRum {
                 sessionProvider = sessionProvider,
                 meteredSessionProvider = meteredSessionProvider,
                 config = config,
-                ignoreJavaScriptExceptions = ignoreJavaScriptExceptions,
+                shouldIgnoreJavaScriptExceptions = shouldIgnoreJavaScriptExceptions,
             )
 
         /**

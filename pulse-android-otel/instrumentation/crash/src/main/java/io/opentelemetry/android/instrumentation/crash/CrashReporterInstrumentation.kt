@@ -29,7 +29,7 @@ class CrashReporterInstrumentation : AndroidInstrumentation {
         // TODO avoid using OpenTelemetrySdk methods, only use the ones from OpenTelemetry api.
         crashReporter.install(
             openTelemetry = ctx.openTelemetry as OpenTelemetrySdk,
-            ignoreJavaScriptExceptions = ctx.ignoreJavaScriptExceptions,
+            shouldIgnoreJavaScriptExceptions = ctx.shouldIgnoreJavaScriptExceptions,
         )
     }
 
