@@ -64,6 +64,7 @@ object OpenTelemetryRumInitializer {
      * @param logRecordExporter To customise [LogRecordExporter] by default it is [OtlpHttpLogRecordExporter]
      * @param metricExporter To customise [MetricExporter] by default it is [OtlpHttpMetricExporter]
      * @param rumConfig [OtelRumConfig] to customise the sdk behaviour
+     * @param shouldIgnoreJavaScriptExceptions When true, native device.crash is not emitted for com.facebook.react.common.JavascriptException
      */
     @Suppress("LongParameterList")
     @JvmStatic
