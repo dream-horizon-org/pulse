@@ -6,9 +6,6 @@
 import Foundation
 import OpenTelemetrySdk
 import OpenTelemetryApi
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 /// Throwing fails the batch and emits `sdk.beforesend.error` (coarse `error_class` only).
 public typealias BeforeSendSpanCallback = (SpanData) throws -> SpanData?

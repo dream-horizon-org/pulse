@@ -14,9 +14,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 /// Size of the config API response cache in bytes.
 private let configCacheSizeBytes: Int = 10 * 1024 * 1024

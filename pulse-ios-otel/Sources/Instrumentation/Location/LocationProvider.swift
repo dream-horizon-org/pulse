@@ -1,8 +1,5 @@
 import Foundation
 import CoreLocation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 /// Provides device location with caching and periodic refresh
 /// Writes cached location to UserDefaults for use by LocationAttributesSpanAppender and LocationAttributesLogRecordProcessor.

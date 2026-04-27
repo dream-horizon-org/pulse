@@ -6,9 +6,6 @@
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetrySdk
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 private let consentSpanBufferLimit = 5000
 

@@ -4,9 +4,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 public enum PulseRedaction {
     public static func redactUrl(_ urlString: String) -> String {

@@ -8,9 +8,6 @@
   import Foundation
 
   import Network
-  #if canImport(PulseLogging)
-    import PulseLogging
-  #endif
 
   public class NetworkMonitor: NetworkMonitorProtocol {
     let monitor = NWPathMonitor()
@@ -48,9 +45,7 @@
         let newConnection = self.connection
         self.lock.unlock()
         if previous != .unavailable, newConnection == .unavailable {
-          #if canImport(PulseLogging)
-            PulseLogger.info("sdk.network.export_blocked reason=no_network")
-          #endif
+        PulseLogger.info("sdk.network.export_blocked reason=no_network")
         }
       }
       monitor.pathUpdateHandler = pathHandler

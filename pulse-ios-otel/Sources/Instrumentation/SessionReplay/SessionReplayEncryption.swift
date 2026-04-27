@@ -5,9 +5,6 @@
 
 import CryptoKit
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 import Security
 
 internal protocol SessionReplayStorageEncryption {

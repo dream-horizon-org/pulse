@@ -4,9 +4,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 internal final class SessionReplayPersistingEmitter {
 

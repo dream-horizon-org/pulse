@@ -4,9 +4,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 import Combine
 
 /// Manages interaction tracking lifecycle

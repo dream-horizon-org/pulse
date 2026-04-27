@@ -4,9 +4,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 /// REST API implementation of InteractionConfigFetcher
 /// Fetches interaction configurations from a remote server using URLSession

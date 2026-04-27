@@ -4,9 +4,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 import OpenTelemetrySdk
 
 private let consentMetricBufferLimit = 5000

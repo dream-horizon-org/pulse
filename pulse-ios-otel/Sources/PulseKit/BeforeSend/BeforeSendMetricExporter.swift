@@ -5,9 +5,6 @@
 
 import Foundation
 import OpenTelemetrySdk
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 public typealias BeforeSendMetricCallback = (MetricData) throws -> MetricData?
 

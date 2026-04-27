@@ -5,9 +5,6 @@
 
 import Foundation
 import OpenTelemetryApi
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 #if canImport(UIKit)
 import UIKit
 #endif
