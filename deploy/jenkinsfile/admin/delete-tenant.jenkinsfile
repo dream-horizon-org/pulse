@@ -1,0 +1,148 @@
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        string(
+            name: 'TENANT_ID',
+            description: 'Tenant ID to permanently delete (e.g. tenant-abc-123). All projects for this tenant MUST be deleted first via the delete-project job.'
+        )
+        booleanParam(
+            name: 'DRY_RUN',
+            defaultValue: true,
+            description: 'Print what would be deleted without making any changes. Uncheck to execute.'
+        )
+    }
+
+    environment {
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    echo "Fetching DB ops credentials from AWS Secrets Manager..."
+                    SECRETS=$(aws secretsmanager get-secret-value \
+                        --region ap-south-1 \
+                        --secret-id prod/pulse-db-ops/creds \
+                        --query 'SecretString' \
+                        --output text)
+
+                    echo "$SECRETS" | jq -r '
+                        "MYSQL_HOST="          + .mysql_host,
+                        "MYSQL_PORT="          + (.mysql_port // "3306"),
+                        "MYSQL_USER="          + .mysql_user,
+                        "MYSQL_PASSWORD="      + .mysql_password,
+                        "MYSQL_DATABASE="      + (.mysql_database // "pulse_db"),
+                        "OPENFGA_API_URL="     + .openfga_api_url,
+                        "OPENFGA_STORE_ID="    + .openfga_store_id
+                    ' > .db-ops-env
+                '''
+            }
+        }
+
+        stage('Preflight (Dry Run)') {
+            environment {
+                TENANT_ID = "${params.TENANT_ID}"
+                DRY_RUN   = 'true'
+            }
+            steps {
+                sh '''
+                    set -a; source .db-ops-env; set +a
+                    chmod +x deploy/scripts/delete-tenant.sh
+                    deploy/scripts/delete-tenant.sh
+                '''
+            }
+        }
+
+        stage('Approval') {
+            when {
+                expression { return !params.DRY_RUN }
+            }
+            steps {
+                input(
+                    message: "Review the preflight output above.\n\nThis will PERMANENTLY delete tenant '${params.TENANT_ID}' — MySQL row and all OpenFGA tuples. This cannot be undone.\n\nProceed?",
+                    ok: 'Yes, Delete!'
+                )
+            }
+        }
+
+        stage('Execute Deletion') {
+            when {
+                expression { return !params.DRY_RUN }
+            }
+            environment {
+                TENANT_ID = "${params.TENANT_ID}"
+                DRY_RUN   = 'false'
+            }
+            steps {
+                sh '''
+                    set -a; source .db-ops-env; set +a
+                    deploy/scripts/delete-tenant.sh
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f .db-ops-env || true'
+        }
+        success {
+            script {
+                if (!params.DRY_RUN) {
+                    wrap([$class: 'BuildUser']) {
+                        def message = "Tenant deletion completed by ${BUILD_USER_EMAIL}\n" +
+                            "- Tenant: *${params.TENANT_ID}*\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                        slackSend(
+                            teamDomain: 'dreamsports.enterprise',
+                            channel: "${env.DEPLOYMENT_SLACK_CHANNEL}",
+                            color: 'good',
+                            message: message,
+                            tokenCredentialId: 'slack-creds',
+                            botUser: true
+                        )
+                    }
+                }
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> Tenant deletion FAILED\n" +
+                    "- Tenant: *${params.TENANT_ID}*\n" +
+                    "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                slackSend(
+                    teamDomain: 'dreamsports.enterprise',
+                    channel: "${env.DEPLOYMENT_SLACK_CHANNEL}",
+                    color: 'danger',
+                    message: message,
+                    tokenCredentialId: 'slack-creds',
+                    botUser: true
+                )
+            }
+        }
+    }
+}
