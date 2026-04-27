@@ -194,7 +194,7 @@ class RcaReportJobDaoTest {
       assertThat(job).isNotNull();
       assertThat(job.status()).isEqualTo(RcaJobStatus.PENDING);
       verify(readerPool)
-          .preparedQuery(org.mockito.Mockito.contains("status IN ('PENDING', 'PROCESSING')"));
+          .preparedQuery(org.mockito.Mockito.contains("status IN (?, ?)"));
     }
   }
 

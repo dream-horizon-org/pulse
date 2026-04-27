@@ -223,8 +223,8 @@ class AiProxyServiceImplTest {
     }
 
     @Test
-    void shouldRejectRcaReportWhenInteractionNameMissing() throws Exception {
-      String body = "{\"date\":\"2025-03-10\"}";
+    void shouldRejectRcaReportWhenEntityKeyMissing() throws Exception {
+      String body = "{\"rcaType\":\"INTERACTION\",\"date\":\"2025-03-10\"}";
 
       AiProxyUpstreamResult result =
           awaitResult(
