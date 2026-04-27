@@ -249,9 +249,11 @@ merge_prometheus() {
   sed "s|127.0.0.1:8889|${OTEL_PROMETHEUS_SCRAPE_TARGET}|g" \
     "${SNIPPET_DIR}/otel-scrape-job.yaml" >"${snippet_tmp}"
 
+  # Use select()+length instead of any(;) — the semicolon form of any() is
+  # unreliable across some yq v4 builds and throws "bad expression" errors.
   local has_job
-  has_job="$(yq 'any(.scrape_configs[]?; .job_name == "otel_collector")' "${prom}" | head -1 | tr -d '\r\n')"
-  if [[ "${has_job}" == "true" ]]; then
+  has_job="$(yq '[.scrape_configs[]? | select(.job_name == "otel_collector")] | length' "${prom}" | tr -d '\r\n')"
+  if [[ "${has_job}" -gt 0 ]] 2>/dev/null; then
     log "prometheus: scrape job otel_collector already present, skipping append"
   else
     log "prometheus: appending scrape job otel_collector → ${OTEL_PROMETHEUS_SCRAPE_TARGET}"
@@ -261,21 +263,18 @@ merge_prometheus() {
 
   local rule_path="$PULSE_OTEL_RULES_DEST"
   local has_rule
-  has_rule="$(yq --arg p "${rule_path}" '(.rule_files // []) | any(. == $p)' "${prom}" | head -1 | tr -d '\r\n')"
-  if [[ "${has_rule}" == "true" ]]; then
+  # Same fix: select()+length instead of any(. == $p)
+  has_rule="$(yq "[(.rule_files // [])[] | select(. == \"${rule_path}\")] | length" "${prom}" | tr -d '\r\n')"
+  if [[ "${has_rule}" -gt 0 ]] 2>/dev/null; then
     log "prometheus: rule_files already references ${rule_path}"
   else
-    # Fix: also check if an existing glob in rule_files already covers the path
-    # (e.g. "rules/*.yml") — if so, inserting the explicit path causes duplicate
-    # rule group loads and Prometheus will log a warning on reload.
-    local rules_dir
-    rules_dir="$(dirname "${rule_path}")"
+    # Also check if an existing glob in rule_files already covers the path
+    # (e.g. "rules/*.yml") — inserting an explicit path when a glob covers it
+    # causes duplicate rule group loads and a Prometheus warning on reload.
     local glob_covers=false
     while IFS= read -r glob_entry; do
-      # strip quotes that yq may emit
       glob_entry="${glob_entry//\"/}"
       glob_entry="${glob_entry//\'/}"
-      # use bash glob matching
       # shellcheck disable=SC2053
       if [[ "${rule_path}" == ${glob_entry} ]]; then
         glob_covers=true
