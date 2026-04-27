@@ -18,6 +18,43 @@ public class RootCauseConfig {
   public static final int DEFAULT_LOOKBACK_DAYS = 7;
   /** Default maximum segments in the result (hierarchy + flat combined). */
   public static final int DEFAULT_MAX_SEGMENTS = 4;
+  /**
+   * Minimum Poor sessions in the analysis window required before Track B emits joint winners and
+   * clears {@code trackBInsufficientData}. Production default; override lower for local/dev demos.
+   */
+  public static final int DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION = 1000;
+  /**
+   * Minimum treated sessions (sessions in {@code U} with the issue or endpoint) before a drill-down
+   * row is returned; reduces noisy per-issue p1/p2/RR.
+   */
+  public static final int DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION = 5;
+  /**
+   * When {@code > 0}, drill-down rows must also have at least this many control sessions (sessions in
+   * {@code U} without the issue). {@code 0} disables the gate.
+   */
+  public static final int DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION = 0;
+  /** Default cap on drill-down rows per signal (Mode A ranking). */
+  public static final int DEFAULT_ISSUE_DRILL_DOWN_LIMIT = 5;
+  /**
+   * Per-signal ClickHouse row cap before merge / RR threshold filter; should be ≥ {@link
+   * #DEFAULT_ISSUE_DRILL_DOWN_LIMIT}.
+   */
+  public static final int DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT = 30;
+  /**
+   * Minimum finite RR for a drill-down row to appear in the merged “related” list. Values in {@code
+   * [0, 1]} disable the RR floor at runtime. Use {@code < 0} in raw config (e.g. JSON key absent) so
+   * {@link #withDefaults(RootCauseConfig)} applies this default; {@code 0.0} explicitly disables the
+   * floor.
+   */
+  public static final double DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION = 2.0;
+  /**
+   * When {@code true}, issue drill-down counts a session toward {@code n_treated_low} only if the
+   * first issue (or first network error for {@code api}) occurs strictly before the earliest Poor
+   * interaction span in the analysis window. Use {@link Boolean} wrapper so JSON can explicitly set
+   * {@code false}; omitted / {@code null} in {@link #withDefaults(RootCauseConfig)} uses {@link
+   * #DEFAULT_ISSUE_MUST_PRECEDE_POOR}.
+   */
+  public static final boolean DEFAULT_ISSUE_MUST_PRECEDE_POOR = true;
   /** Default dimension order for tie-breaking and flat segments. */
   public static final List<String> DEFAULT_DIMENSION_ORDER = List.of(
       "Platform", "OsVersion", "AppVersion", "DeviceModel", "NetworkProvider", "GeoState");
@@ -25,6 +62,32 @@ public class RootCauseConfig {
   private int similarityThresholdPct;
   private int lookbackDays;
   private int maxSegments;
+  private int minPoorSessionsForErrorAttribution;
+  /** Issue / endpoint drill-down: minimum {@code n_treated} in universe {@code U}. */
+  private int minTreatedSessionsForIssueAttribution;
+  /** Issue / endpoint drill-down: optional minimum {@code n_control}; {@code 0} = disabled. */
+  private int minControlSessionsForIssueAttribution;
+  /** Issue / endpoint drill-down: max rows per signal after ranking. */
+  private int issueDrillDownLimit;
+  /**
+   * Per-signal SQL {@code LIMIT} before merge; {@code <= 0} in raw input → default in {@link
+   * #withDefaults}. Builder default {@code 0} means “unset” before {@link #withDefaults}.
+   */
+  @Builder.Default
+  private int issueDrillDownCandidateLimit = 0;
+  /**
+   * Minimum finite RR for merged related list; {@code < 0} in raw input → default in {@link
+   * #withDefaults}; {@code [0, 1]} = RR floor off at runtime. Builder default {@code -1} = unset
+   * before {@link #withDefaults}.
+   */
+  @Builder.Default
+  private double minRiskRatioForIssueAttribution = -1.0d;
+  /**
+   * Drill-down temporal guard (Variant A): {@code null} in raw config → {@link
+   * #DEFAULT_ISSUE_MUST_PRECEDE_POOR} after {@link #withDefaults(RootCauseConfig)}; explicit {@code
+   * false} disables; {@code true} enables.
+   */
+  private Boolean issueMustPrecedePoor;
   private List<String> dimensionOrder;
 
   /**
@@ -40,6 +103,13 @@ public class RootCauseConfig {
           .similarityThresholdPct(DEFAULT_SIMILARITY_THRESHOLD_PCT)
           .lookbackDays(DEFAULT_LOOKBACK_DAYS)
           .maxSegments(DEFAULT_MAX_SEGMENTS)
+          .minPoorSessionsForErrorAttribution(DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION)
+          .minTreatedSessionsForIssueAttribution(DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION)
+          .minControlSessionsForIssueAttribution(DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION)
+          .issueDrillDownLimit(DEFAULT_ISSUE_DRILL_DOWN_LIMIT)
+          .issueDrillDownCandidateLimit(DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT)
+          .minRiskRatioForIssueAttribution(DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION)
+          .issueMustPrecedePoor(DEFAULT_ISSUE_MUST_PRECEDE_POOR)
           .dimensionOrder(DEFAULT_DIMENSION_ORDER)
           .build();
     }
@@ -53,6 +123,32 @@ public class RootCauseConfig {
     final int maxSegments = from.maxSegments <= 0
         ? DEFAULT_MAX_SEGMENTS
         : from.maxSegments;
+    final int minPoorSessionsForErrorAttribution =
+        from.minPoorSessionsForErrorAttribution <= 0
+            ? DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION
+            : from.minPoorSessionsForErrorAttribution;
+    final int minTreatedSessionsForIssueAttribution =
+        from.minTreatedSessionsForIssueAttribution <= 0
+            ? DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION
+            : from.minTreatedSessionsForIssueAttribution;
+    final int minControlSessionsForIssueAttribution =
+        from.minControlSessionsForIssueAttribution < 0
+            ? DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION
+            : from.minControlSessionsForIssueAttribution;
+    final int issueDrillDownLimit =
+        from.issueDrillDownLimit <= 0 ? DEFAULT_ISSUE_DRILL_DOWN_LIMIT : from.issueDrillDownLimit;
+    final int issueDrillDownCandidateLimit =
+        from.issueDrillDownCandidateLimit <= 0
+            ? DEFAULT_ISSUE_DRILL_DOWN_CANDIDATE_LIMIT
+            : from.issueDrillDownCandidateLimit;
+    final double minRiskRatioForIssueAttribution =
+        from.minRiskRatioForIssueAttribution < 0
+            ? DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION
+            : from.minRiskRatioForIssueAttribution;
+    final boolean issueMustPrecedePoor =
+        from.getIssueMustPrecedePoor() == null
+            ? DEFAULT_ISSUE_MUST_PRECEDE_POOR
+            : Boolean.TRUE.equals(from.getIssueMustPrecedePoor());
     final List<String> dimensionOrder = (from.dimensionOrder == null || from.dimensionOrder.isEmpty())
         ? DEFAULT_DIMENSION_ORDER
         : from.dimensionOrder;
@@ -61,6 +157,13 @@ public class RootCauseConfig {
         .similarityThresholdPct(similarityThresholdPct)
         .lookbackDays(lookbackDays)
         .maxSegments(maxSegments)
+        .minPoorSessionsForErrorAttribution(minPoorSessionsForErrorAttribution)
+        .minTreatedSessionsForIssueAttribution(minTreatedSessionsForIssueAttribution)
+        .minControlSessionsForIssueAttribution(minControlSessionsForIssueAttribution)
+        .issueDrillDownLimit(issueDrillDownLimit)
+        .issueDrillDownCandidateLimit(issueDrillDownCandidateLimit)
+        .minRiskRatioForIssueAttribution(minRiskRatioForIssueAttribution)
+        .issueMustPrecedePoor(issueMustPrecedePoor)
         .dimensionOrder(dimensionOrder)
         .build();
   }

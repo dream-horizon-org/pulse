@@ -6,6 +6,7 @@ import {
   resolveAndroidProps,
   resolveIosProps,
 } from './resolvePluginProps';
+import { withAndroidBuildFeatures } from './withAndroidBuildFeatures';
 import { withAndroidPulse } from './withAndroidPulse';
 import { withIosPulse } from './withIosPulse';
 
@@ -20,6 +21,9 @@ const withPulsePlugin: ConfigPlugin<PulsePluginProps> = (
   const ios = resolveIosProps(props);
   config = withAndroidPulse(config, android);
   config = withIosPulse(config, ios);
+
+  // Android only: OkHttp / Byte Buddy Gradle wiring (resolved with android props, same pass as desugaring).
+  config = withAndroidBuildFeatures(config, android.okHttpInstrumentation);
 
   return config;
 };

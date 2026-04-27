@@ -4,6 +4,7 @@ import type {
   ReadableLogRecord,
 } from "@opentelemetry/sdk-logs";
 import type { LogBody } from "@opentelemetry/api-logs";
+import { PulseWebLogger } from "../pulse-web-logger";
 
 function bodyPreview(body: LogBody | undefined): string {
   if (body === undefined) return "";
@@ -32,12 +33,14 @@ export function wrapLogExporterLifecycleDebug(
         body: bodyPreview(lr.body),
         pulseType: (lr.attributes as Record<string, unknown>)["pulse.type"],
       }));
-      console.log("[PulseWeb:logLifecycle]", {
-        phase: "export",
-        recordCount: logs.length,
-        previewFirstN: records,
-        truncatedList: logs.length > maxPreview,
-      });
+      PulseWebLogger.debug(
+        `[logLifecycle] ${JSON.stringify({
+          phase: "export",
+          recordCount: logs.length,
+          previewFirstN: records,
+          truncatedList: logs.length > maxPreview,
+        })}`,
+      );
       inner.export(logs, resultCallback);
     },
     shutdown(): Promise<void> {

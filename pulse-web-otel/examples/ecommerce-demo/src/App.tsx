@@ -6,7 +6,11 @@ import {
   Link,
   useLocation,
 } from "react-router-dom";
-import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import {
+  PulseWeb,
+  PulseDataCollectionConsent,
+  PulseLogLevel,
+} from "@dreamhorizon/pulse-web";
 import {
   PulseProvider,
   PulseErrorBoundary,
@@ -161,6 +165,8 @@ export default function App() {
         },
       },
       debugLogRecordLifecycle: debugLifecycle,
+      ...(formatEnv ? { export: { format: formatEnv } } : {}),
+      ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
