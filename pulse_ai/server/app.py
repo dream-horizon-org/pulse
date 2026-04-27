@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
 from pydantic import BaseModel
 
 from pulse_ai.agent import root_agent
@@ -79,10 +80,12 @@ runner = Runner(
     session_service=_compacting_session_service,
 )
 
+_rca_session_service = InMemorySessionService()
+
 rca_runner = Runner(
     agent=rca_agent,
     app_name=APP_NAME,
-    session_service=session_service,   # RCA is one-shot — no compaction needed
+    session_service=_rca_session_service,  # RCA is one-shot — ephemeral, no DB needed
     auto_create_session=True,
 )
 
