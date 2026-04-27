@@ -34,7 +34,7 @@ class DefaultExportScheduler(
             } while (isExported)
         } catch (e: IOException) {
             val free = DiskFreeSpaceBytes.forDataPartition()
-            val diskPart = free?.let { " disk_available_bytes=$it" } ?: ""
+            val diskPart = free?.let { " disk_available_bytes=$it" }.orEmpty()
             PulseLogger.logError(TAG, e) {
                 "sdk.disk.read_failure signal=mixed error_class=${RedactionUtils.classifyError(e)} corrupted=false$diskPart"
             }

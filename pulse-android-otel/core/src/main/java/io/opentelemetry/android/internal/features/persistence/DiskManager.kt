@@ -74,7 +74,7 @@ internal class DiskManager(
             if (!dir.exists() && !dir.mkdirs()) {
                 val ex = IOException("Could not create dir $dir")
                 val free = DiskFreeSpaceBytes.forPath(dir.parentFile ?: dir)
-                val diskPart = free?.let { " disk_available_bytes=$it" } ?: ""
+                val diskPart = free?.let { " disk_available_bytes=$it" }.orEmpty()
                 PulseLogger.logError(DISK_HEALTH_TAG, ex) {
                     "sdk.disk.write_failure signal=persistence error_class=${RedactionUtils.classifyError(ex)}$diskPart"
                 }

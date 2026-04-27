@@ -7,13 +7,13 @@ public final class com/pulse/utils/BuildConfig {
 
 public final class com/pulse/utils/DiskFreeSpaceBytes {
 	public static final field INSTANCE Lcom/pulse/utils/DiskFreeSpaceBytes;
-	public final fun forDataPartition ()Ljava/lang/Long;
-	public final fun forPath (Ljava/io/File;)Ljava/lang/Long;
+	public static final fun forDataPartition ()Ljava/lang/Long;
+	public static final fun forPath (Ljava/io/File;)Ljava/lang/Long;
 }
 
 public final class com/pulse/utils/DiskUsageBytes {
 	public static final field INSTANCE Lcom/pulse/utils/DiskUsageBytes;
-	public final fun forDirectoryRoot (Ljava/io/File;)J
+	public static final fun forDirectoryRoot (Ljava/io/File;)J
 }
 
 public final class com/pulse/utils/PulseCoroutineUtilsKt {

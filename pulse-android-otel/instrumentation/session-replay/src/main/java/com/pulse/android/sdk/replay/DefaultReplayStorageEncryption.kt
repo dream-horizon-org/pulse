@@ -2,10 +2,10 @@ package com.pulse.android.sdk.replay
 
 import android.content.Context
 import android.util.Base64
-import com.pulse.utils.PulseLogger
-import com.pulse.utils.RedactionUtils
 import androidx.annotation.WorkerThread
 import androidx.core.content.edit
+import com.pulse.utils.PulseLogger
+import com.pulse.utils.RedactionUtils
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -48,8 +48,8 @@ public class DefaultReplayStorageEncryption(
     }
 
     @WorkerThread
-    override fun encrypt(plaintext: ByteArray): ByteArray {
-        return try {
+    override fun encrypt(plaintext: ByteArray): ByteArray =
+        try {
             val cipher = encryptCipher.get() ?: Cipher.getInstance(TRANSFORMATION)
             val iv = ByteArray(GCM_IV_LENGTH).also { secureRandom.nextBytes(it) }
             cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
@@ -61,11 +61,10 @@ public class DefaultReplayStorageEncryption(
             }
             throw t
         }
-    }
 
     @WorkerThread
-    override fun decrypt(ciphertext: ByteArray): ByteArray {
-        return try {
+    override fun decrypt(ciphertext: ByteArray): ByteArray =
+        try {
             if (ciphertext.size <= GCM_IV_LENGTH) {
                 throw IllegalArgumentException("Ciphertext too short")
             }
@@ -80,7 +79,6 @@ public class DefaultReplayStorageEncryption(
             }
             throw t
         }
-    }
 
     private fun getOrCreateKey(context: Context): SecretKey {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

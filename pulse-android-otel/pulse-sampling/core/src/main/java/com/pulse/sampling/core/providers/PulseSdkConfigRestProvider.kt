@@ -63,13 +63,16 @@ public class PulseSdkConfigRestProvider(
                 )
             }
         val durationMs = (System.nanoTime() - startNs) / 1_000_000
-        val transportOk = restResponseResult.isSuccess
-        val httpStatus = if (transportOk) "ok" else "error"
+        val isTransportOk = restResponseResult.isSuccess
+        val httpStatus = if (isTransportOk) "ok" else "error"
         val errClass =
-            restResponseResult.exceptionOrNull()?.let { RedactionUtils.classifyError(it) } ?: ""
+            restResponseResult
+                .exceptionOrNull()
+                ?.let { RedactionUtils.classifyError(it) }
+                .orEmpty()
 
         val resolved: PulseSdkConfig? =
-            if (transportOk) {
+            if (isTransportOk) {
                 val config = restResponseResult.getOrThrow()
                 if (config.version >= 0) {
                     config
@@ -82,9 +85,9 @@ public class PulseSdkConfigRestProvider(
                 null
             }
 
-        val versionStr = resolved?.version?.toString() ?: "none"
-        val configOk = resolved != null
-        if (configOk) {
+        val versionStr = resolved?.run { version.toString() } ?: "none"
+        val isConfigOk = resolved != null
+        if (isConfigOk) {
             PulseLogger.logInfo(TAG) {
                 "sdk.config.fetch success=true duration_ms=$durationMs http_status=$httpStatus config_version=$versionStr"
             }

@@ -56,7 +56,7 @@ internal class NetworkApplicationListener(
             if (!shouldEmitChangeEvents.get()) {
                 return
             }
-            val connected = currentNetwork.state != NetworkState.NO_NETWORK_AVAILABLE
+            val isConnected = currentNetwork.state != NetworkState.NO_NETWORK_AVAILABLE
             val type =
                 when (currentNetwork.state) {
                     NetworkState.NO_NETWORK_AVAILABLE -> "none"
@@ -67,7 +67,7 @@ internal class NetworkApplicationListener(
                     NetworkState.TRANSPORT_UNKNOWN -> "unknown"
                 }
             PulseLogger.logInfo(NETWORK_HEALTH_TAG) {
-                "sdk.network.status_changed connected=$connected type=$type"
+                "sdk.network.status_changed connected=$isConnected type=$type"
             }
             val attributesBuilder = Attributes.builder()
             additionalExtractors.forEach(

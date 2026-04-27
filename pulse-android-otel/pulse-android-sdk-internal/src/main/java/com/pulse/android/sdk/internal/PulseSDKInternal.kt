@@ -34,7 +34,6 @@ import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseMathUtils
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
-import io.opentelemetry.android.BuildConfig as OtelAndroidBuildConfig
 import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
@@ -76,12 +75,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
 import java.util.function.Predicate
-import java.io.File
 import kotlin.system.measureNanoTime
+import io.opentelemetry.android.BuildConfig as OtelAndroidBuildConfig
 
 /**
  * Internal PulseSDK implementation. This is internal module so API compatibility and behaviour is not guaranteed.
@@ -148,20 +148,18 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             )
         }.also { ns ->
             val durationMs = ns / 1_000_000
+            val enabledFeatures = pulseSamplingProcessors?.getEnabledFeatures()
             val featuresJoined =
-                pulseSamplingProcessors
-                    ?.getEnabledFeatures()
-                    ?.joinToString(",") { it.name.lowercase() }
-                    .orEmpty()
-            val success = otelInstance != null
+                enabledFeatures?.joinToString(",") { it.name.lowercase() }.orEmpty()
+            val isInitSuccess = otelInstance != null
             PulseLogger.logInfo(TAG) {
-                "sdk.init success=$success duration_ms=$durationMs sdk_version=${OtelAndroidBuildConfig.OTEL_ANDROID_VERSION} " +
+                "sdk.init success=$isInitSuccess duration_ms=$durationMs sdk_version=${OtelAndroidBuildConfig.OTEL_ANDROID_VERSION} " +
                     "features_enabled=$featuresJoined"
             }
             PulseLogger.logInfo(TAG) {
                 "sdk.startup.overhead_ms value=$durationMs"
             }
-            if (success) {
+            if (isInitSuccess) {
                 runCatching {
                     val usage = DiskUsageBytes.forDirectoryRoot(File(application.cacheDir, "opentelemetry"))
                     if (usage > 0L) {
@@ -771,7 +769,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         }
 
         val prev = oldState
-        PulseLogger.logInfo(TAG) { "sdk.consent.changed from=$prev to=$newState" }
+        PulseLogger.logInfo(TAG) {
+            "sdk.consent.changed from=${prev?.name ?: "null"} to=${newState.name}"
+        }
 
         when (newState) {
             PulseDataCollectionConsent.PENDING -> {
