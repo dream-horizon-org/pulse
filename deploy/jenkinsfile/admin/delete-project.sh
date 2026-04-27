@@ -1,6 +1,7 @@
 #!/bin/bash
 # Deletes all data for a single project from MySQL, ClickHouse, and OpenFGA.
 # Set DRY_RUN=true (default) to preview; DRY_RUN=false to execute.
+# Invoked from deploy/jenkinsfile/admin/delete-project.jenkinsfile
 set -euo pipefail
 
 # ── Required env vars ────────────────────────────────────────────────────────
