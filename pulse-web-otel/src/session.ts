@@ -85,13 +85,11 @@ function trySessionStorage(op: () => string | null): string | null {
 
 /** Last persisted user id from localStorage (`pulse_user_id`). */
 export function getPersistedUserId(): string | null {
-  if (typeof localStorage === "undefined") return null;
   return tryLocalStorage(() => localStorage.getItem(USER_ID_KEY));
 }
 
 /** Persist user id; `null` clears storage (logout). */
 export function persistUserId(id: string | null): void {
-  if (typeof localStorage === "undefined") return;
   try {
     if (id === null || id === "") {
       localStorage.removeItem(USER_ID_KEY);
@@ -105,7 +103,6 @@ export function persistUserId(id: string | null): void {
 
 /** Parsed user properties blob; invalid JSON → `{}`. */
 export function getPersistedUserProperties(): Record<string, string> {
-  if (typeof localStorage === "undefined") return {};
   const raw = tryLocalStorage(() => localStorage.getItem(USER_PROPS_KEY));
   if (raw === null || raw === "") return {};
   try {
@@ -125,7 +122,6 @@ export function getPersistedUserProperties(): Record<string, string> {
 
 /** Replace persisted user properties JSON; empty object removes the key. */
 export function persistUserProperties(props: Record<string, string>): void {
-  if (typeof localStorage === "undefined") return;
   try {
     if (Object.keys(props).length === 0) {
       localStorage.removeItem(USER_PROPS_KEY);

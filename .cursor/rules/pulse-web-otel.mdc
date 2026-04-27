@@ -142,3 +142,40 @@ Use repo Conventional Commits with scope **`web-sdk`**, e.g. `feat(web-sdk): …
 - Exporting internals from `index.ts` to “make tests easier” — test via public API or keep tests colocated with `vi.mock` on the module under test.
 - Skipping **`afterEach`** cleanup when using spies, fake timers, or `localStorage`.
 - Large demo-only logic inside **`src/`** — demo stays under **`examples/ecommerce-demo/`**.
+
+---
+
+## Merged Guardrails (authoritative)
+
+### Core safety
+- Preserve public API signatures unless the task explicitly requires a breaking change.
+- Do not change `pulse.type`, semantic attribute keys, or telemetry contract shape without synchronized tests + docs.
+- Keep `platform = web` resource attribute present on exported telemetry.
+
+### Instrumentation lifecycle sanity
+- Use deterministic setup/teardown for instrumentation-like components.
+- Shutdown must clean listeners, timers, and references.
+- Avoid duplicate initialization paths for the same feature.
+
+### Config + gate discipline
+- Respect both local enable flags and remote feature gates.
+- Keep gate checks centralized and test-covered.
+- New gate/config behavior requires explicit on/off tests.
+
+### Demo app + E2E awareness
+- Treat `examples/ecommerce-demo/` as behavior reference and regression detector.
+- If SDK behavior changes, verify selectors/flows in demo E2E before claiming success.
+
+### Android parity guard
+- For equivalent features, keep behavior parity with Android SDK by default.
+- Flag any intentional divergence explicitly in docs/tests.
+
+### Graphify-out + cached graph context
+- Use generated Graphify artifacts as source context:
+  - `pulse-web-otel/graphify-out/GRAPH_REPORT.md`
+  - `pulse-web-otel/graphify-out/graph.json`
+- Maintain `pulse-web-otel/web-sdk-plan/agent-runtime/graph-cache.md` as concise cached digest for quick reasoning.
+
+### Append-only test run reporting
+- Always append test run outcomes to `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`.
+- Keep entry minimal: timestamp, command, files/suites, passed, failed, failed test files/specs.
