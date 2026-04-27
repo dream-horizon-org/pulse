@@ -36,6 +36,10 @@ import { useExceptionListData } from "../AppVitals/components/ExceptionTable/hoo
 import { InteractionDetailsFilters } from "../CriticalInteractionDetails/components/InteractionDetailsFilters";
 import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
 import { useHeatmapFromActiveConfig } from "../../hooks";
+import { ScreenRootCause } from "./components/ScreenRootCause";
+
+const isScreenRootCauseEnabled =
+  process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
 export function ScreenDetail(_props: ScreenDetailProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -196,6 +200,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     const t = searchParams.get("tab");
     if (t === "heatmap" && heatmapEnabledFromActiveConfig) {
       setActiveTab("heatmap");
+    } else if (t === "root-cause" && isScreenRootCauseEnabled) {
+      setActiveTab("root-cause");
     }
   }, [searchParams, heatmapEnabledFromActiveConfig]);
 
@@ -204,6 +210,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     const next = new URLSearchParams(searchParams);
     if (value === "heatmap") {
       next.set("tab", "heatmap");
+    } else if (value === "root-cause") {
+      next.set("tab", "root-cause");
     } else {
       next.delete("tab");
     }
@@ -256,6 +264,9 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
           <Tabs.Tab value="performance">Performance & Stability</Tabs.Tab>
           <Tabs.Tab value="network">Network</Tabs.Tab>
+          {isScreenRootCauseEnabled && (
+            <Tabs.Tab value="root-cause">Root Cause</Tabs.Tab>
+          )}
           {!heatmapConfigLoading && heatmapEnabledFromActiveConfig && (
             <Tabs.Tab value="heatmap">Heatmap</Tabs.Tab>
           )}
@@ -478,6 +489,17 @@ export function ScreenDetail(_props: ScreenDetailProps) {
             }, [appVersion, osVersion, device])}
           />
         </Tabs.Panel>
+
+        {isScreenRootCauseEnabled && (
+          <Tabs.Panel value="root-cause">
+            <ScreenRootCause
+              screenName={decodedScreenName}
+              windowStartIso={formattedStartTime}
+              windowEndIso={formattedEndTime}
+              projectId={projectId}
+            />
+          </Tabs.Panel>
+        )}
 
         {/* Heatmap Tab */}
         {!heatmapConfigLoading && heatmapEnabledFromActiveConfig && (
