@@ -5,7 +5,7 @@
 
     <groupId>org.dreamhorizon</groupId>
     <artifactId>pulse-server</artifactId>
-    <version>1.13-SNAPSHOT</version>
+    <version>1.14-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>pulse-server</name>
 
@@ -128,6 +128,12 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-opentelemetry</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-redis-client</artifactId>
             <version>${vertx.version}</version>
         </dependency>
 

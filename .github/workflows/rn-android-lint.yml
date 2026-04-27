@@ -1,3 +1,4 @@
+name: React Native - Android Lint
 on:
   workflow_call:
 
