@@ -81,11 +81,9 @@ dependencies {
     // These are sourced from local project dirs. See settings.gradle.kts for the
     // configured substitutions.
     implementation(libs.pulse.android.sdk)    //parent dir
-    implementation(libs.pulse.instrumentation.compose.click)
     implementation(libs.pulse.instrumentation.sessions)
     implementation(libs.pulse.instrumentation.activity)
     implementation(libs.pulse.instrumentation.fragment)
-    implementation(libs.pulse.instrumentation.view.click)
     implementation(libs.pulse.instrumentation.slowrendering)
     implementation(libs.pulse.instrumentation.locationLibrary)
     implementation(libs.androidx.core.ktx)
@@ -98,7 +96,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-    implementation(libs.opentelemetry.exporter.otlp)
+    implementation(libs.opentelemetry.exporter.otlp) {
+        exclude(group = "com.squareup.okhttp3", module = "okhttp-jvm")
+    }
 
     testImplementation(libs.bundles.junit)
     androidTestImplementation(libs.androidx.junit)

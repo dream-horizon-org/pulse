@@ -7,10 +7,56 @@ import lombok.experimental.UtilityClass;
 public class ClickhouseConstants {
 
   public final String OTEL_TRACES_TABLE = "otel.otel_traces";
+  /** Crash / ANR / non-fatal events (session-level flags for diagnostics). */
+  public final String STACK_TRACE_EVENTS_TABLE = "otel.stack_trace_events";
   /** OTLP logs (e.g. {@code app.click}) stored in ClickHouse. */
   public final String OTEL_LOGS_TABLE = "otel.otel_logs";
   public final DateTimeFormatter CLICKHOUSE_TIMESTAMP_LITERAL =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+  /**
+   * Normalized {@code pulse.interaction.user_category} span attribute (empty string if unset).
+   * Used by category metrics and error-attribution drill SQL.
+   */
+  public final String CH_SPAN_USER_CATEGORY_RAW =
+      "ifNull(SpanAttributes['pulse.interaction.user_category'], '')";
+
+  /** Predicate: interaction span tagged Poor (Track B / segment selection / drill-down). */
+  public final String CH_SPAN_USER_CATEGORY_IS_POOR = CH_SPAN_USER_CATEGORY_RAW + " = 'Poor'";
+
+  /** {@code SpanAttributes} read helpers for HTTP / GraphQL (OTEL semconv fallbacks). */
+  public final String CH_SPAN_HTTP_URL_EXPR = "ifNull(SpanAttributes['http.url'], '')";
+
+  public final String CH_SPAN_GRAPHQL_OPERATION_NAME_EXPR =
+      "ifNull(SpanAttributes['graphql.operation.name'], '')";
+
+  public final String CH_SPAN_GRAPHQL_OPERATION_TYPE_EXPR =
+      "ifNull(SpanAttributes['graphql.operation.type'], '')";
+
+  /**
+   * Prefer {@code http.request.method}, fall back to {@code http.method} (legacy / alternate
+   * exporters).
+   */
+  public final String CH_SPAN_HTTP_METHOD_EXPR =
+      "ifNull(SpanAttributes['http.request.method'], ifNull(SpanAttributes['http.method'], ''))";
+
+  /**
+   * Prefer {@code http.response.status_code}, fall back to {@code http.status_code}.
+   */
+  public final String CH_SPAN_HTTP_STATUS_CODE_EXPR =
+      "ifNull(SpanAttributes['http.response.status_code'], ifNull(SpanAttributes['http.status_code'], ''))";
+
+  /** {@code otel_traces.PulseType} filter for network spans (error-attribution API drill). */
+  public final String CH_PULSE_TYPE_NETWORK_LIKE_PREDICATE = "PulseType LIKE 'network.%'";
+
+  /** {@code StatusCode} value for failed client spans in drill / metrics. */
+  public final String CH_STATUS_CODE_EQUALS_ERROR = "StatusCode = 'Error'";
+
+  /** {@code stack_trace_events} / trace {@code PulseType} literals for stack drill signals. */
+  public final String CH_PULSE_TYPE_DEVICE_CRASH = "device.crash";
+
+  public final String CH_PULSE_TYPE_DEVICE_ANR = "device.anr";
+  public final String CH_PULSE_TYPE_NON_FATAL = "non_fatal";
 
   public final String CH_APDEX_SELECT_CLAUSE =
       "avgIf(toFloat64OrNull(SpanAttributes['pulse.interaction.apdex_score']), StatusCode != 'Error')";
@@ -26,15 +72,16 @@ public class ClickhouseConstants {
   public final String CH_TIME_BUCKET_SELECT_CLAUSE = "toDateTime(intDiv(toUnixTimestamp(%s, 'UTC'), %s) * %s,'UTC')";
 
   public final String SUC_IN_CNT = "countIf(StatusCode != 'Error')";
-  public final String ERR_IN_CNT = "countIf(StatusCode = 'Error')";
-  public final String ERR_DIST_USERS = "uniqCombined64If(nullIf(UserId, ''), StatusCode = 'Error')";
-  public final String EXCELLENT_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Excellent')";
-  public final String GOOD_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Good')";
-  public final String AVERAGE_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Average')";
-  public final String POOR_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')";
+  public final String ERR_IN_CNT = "countIf(" + CH_STATUS_CODE_EQUALS_ERROR + ")";
+  public final String ERR_DIST_USERS =
+      "uniqCombined64If(nullIf(UserId, ''), " + CH_STATUS_CODE_EQUALS_ERROR + ")";
+  public final String EXCELLENT_CAT = "countIf(" + CH_SPAN_USER_CATEGORY_RAW + " = 'Excellent')";
+  public final String GOOD_CAT = "countIf(" + CH_SPAN_USER_CATEGORY_RAW + " = 'Good')";
+  public final String AVERAGE_CAT = "countIf(" + CH_SPAN_USER_CATEGORY_RAW + " = 'Average')";
+  public final String POOR_CAT = "countIf(" + CH_SPAN_USER_CATEGORY_IS_POOR + ")";
   /** Count of spans that are error OR poor (union); used for root cause segment selection. */
   public final String PROBLEMATIC_COUNT =
-      "countIf(StatusCode = 'Error' OR ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')";
+      "countIf(" + CH_STATUS_CODE_EQUALS_ERROR + " OR " + CH_SPAN_USER_CATEGORY_IS_POOR + ")";
 
   // Network metrics for interactions flow (uses Events.Name)
   public final String NET_0 = "sum(arrayCount(x -> x = 'network.0', Events.Name))";

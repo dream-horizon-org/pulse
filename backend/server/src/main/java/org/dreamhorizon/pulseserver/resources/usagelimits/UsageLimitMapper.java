@@ -73,6 +73,8 @@ public abstract class UsageLimitMapper {
     }
     return NotificationStatusRestDto.builder()
         .thresholdsNotified(notificationStatus.getThresholdsNotified())
+        .projectUsageLimitId(notificationStatus.getProjectUsageLimitId())
+        .notificationActive(notificationStatus.getNotificationActive())
         .createdAt(notificationStatus.getCreatedAt())
         .build();
   }
@@ -159,6 +161,8 @@ public abstract class UsageLimitMapper {
         .projectId(response.getProjectId())
         .month(response.getMonth())
         .thresholdsNotified(response.getThresholdsNotified())
+        .projectUsageLimitId(response.getProjectUsageLimitId())
+        .notificationActive(response.getNotificationActive())
         .createdAt(response.getCreatedAt())
         .updatedAt(response.getUpdatedAt())
         .build();

@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 #if os(iOS) || os(tvOS)
 import UIKit
 import ObjectiveC
@@ -21,7 +24,7 @@ internal class UIWindowSwizzler {
     private static var emitter: ClickEventEmitter?
     private static var appLifecycleObserver: NSObjectProtocol?
 
-    // Label extraction constants 
+    // Label extraction constants
     private static let maxLabelSegments = 5
     private static let maxLabelLength = 200
     private static let labelDelimiter = " | "
@@ -30,8 +33,12 @@ internal class UIWindowSwizzler {
     // Scroll vs tap detection: if a touch moves more than this many points from
     // its start position, it is treated as a scroll/pan and NOT reported as a tap.
     private static let tapSlopDistance: CGFloat = 10
-    // Touch start positions keyed by UITouch identity — always accessed on main thread.
-    private static var touchStartLocations: [ObjectIdentifier: CGPoint] = [:]
+
+    /// One line per view while walking superviews: `isClickTarget` result (grep Console for subsystem `com.pulse.sdk`, category `PulseSDK`).
+    private static func logIsClickTarget(depth: Int, view: UIView, result: Bool) {
+        let cls = NSStringFromClass(type(of: view))
+        PulseLogger.verbose("[UIKitTap] isClickTarget depth=\(depth) class=\(cls) -> \(result)")
+    }
 
     static func swizzle(logger: OpenTelemetryApi.Logger, captureContext: Bool, rageConfig: RageConfig) {
         swizzleLock.lock()
@@ -47,8 +54,10 @@ internal class UIWindowSwizzler {
             onRage: { emitter?.emitRageClick($0) },
             onEmit: { [weak emitter] click in
                 if click.hasTarget {
+                    PulseLogger.debug("[UIKitTap] emit good click (buffer delivered) x=\(click.x) y=\(click.y)")
                     emitter?.emitGoodClick(click)
                 } else {
+                    PulseLogger.debug("[UIKitTap] emit dead click (buffer delivered, no click target) x=\(click.x) y=\(click.y)")
                     emitter?.emitDeadClick(click)
                 }
             }
@@ -79,43 +88,19 @@ internal class UIWindowSwizzler {
                 return
             }
 
-            // Track touch start positions for scroll vs tap detection.
-            for touch in touches where touch.phase == .began {
-                touchStartLocations[ObjectIdentifier(touch)] = touch.location(in: window)
-            }
-            // Clean up cancelled touches (system interruption, incoming call, etc.)
-            for touch in touches where touch.phase == .cancelled {
-                touchStartLocations.removeValue(forKey: ObjectIdentifier(touch))
-            }
-
             let clickTarget: (view: UIView?, location: CGPoint)? = {
                 guard let touch = touches.first(where: { $0.phase == .ended }) else { return nil }
+                guard let hitView = touch.view else { return nil }
                 let endLocation = touch.location(in: window)
-                let key = ObjectIdentifier(touch)
-                defer { touchStartLocations.removeValue(forKey: key) }
-
-                // Scroll vs tap guard
-                if let startLocation = touchStartLocations[key] {
-                    let dx = endLocation.x - startLocation.x
-                    let dy = endLocation.y - startLocation.y
-                    let distSq = dx * dx + dy * dy
-                    guard distSq <= tapSlopDistance * tapSlopDistance else {
-                        return nil
-                    }
-                }
-
-                let target = findClickTarget(in: window, at: endLocation)
-
+                let target = findClickTarget(in: window, at: endLocation, for: hitView)
                 return (target, endLocation)
             }()
 
-            // Dispatch the original touch event
             if let imp = originalIMP {
                 let fn = unsafeBitCast(imp, to: (@convention(c) (UIWindow, Selector, UIEvent) -> Void).self)
                 fn(window, #selector(UIWindow.sendEvent(_:)), event)
             }
 
-            // Emit after dispatch so touch responsiveness is not affected
             if let (target, location) = clickTarget {
                 emitClickEvent(target: target, at: location, in: window)
             }
@@ -157,18 +142,23 @@ internal class UIWindowSwizzler {
             viewportHeightPt: Int(window.bounds.height)
         )
 
+        // `onEmit` (good/dead otel) runs later when the buffer evicts or flushes — log now so console matches this touch.
+        let kind = pending.hasTarget ? "good" : "dead"
+        PulseLogger.debug("[UIKitTap] record click (will emit \(kind)) x=\(pending.x) y=\(pending.y) hasTarget=\(pending.hasTarget)")
+
         buffer?.record(pending)
     }
 
     // MARK: - Hit Testing
 
-    private static func findClickTarget(in window: UIWindow, at point: CGPoint) -> UIView? {
-        guard let hitView = window.hitTest(point, with: nil) else { return nil }
-        // Walk up to find the most meaningful interactable ancestor (same pipeline for UIKit and SwiftUI-backed UI).
+    private static func findClickTarget(in window: UIWindow, at point: CGPoint, for hitView: UIView) -> UIView? {
         var candidate: UIView? = hitView
+        var depth = 0
         while let view = candidate {
-            if isClickTarget(view) { return view }
+            let ok = isClickTarget(view)
+            if ok { return view }
             candidate = view.superview
+            depth += 1
         }
         return nil
     }
@@ -183,9 +173,12 @@ internal class UIWindowSwizzler {
         if traits.contains(.button) || traits.contains(.link) {
             return true
         }
+        // NOTE: Hack to identify clickable view specific in react native app
+        if Pulse.shared.sdkName == .pulse_ios_rn && view.isAccessibilityElement {
+            return true
+        }
         return false
     }
-
     /// Gestures that indicate intentional on-view actions. Excludes `UIPanGestureRecognizer`
     /// so scroll views, maps, and drag surfaces are not logged on every small touch movement.
     private static func hasDiscreteTappableGestureRecognizer(_ view: UIView) -> Bool {
@@ -272,7 +265,6 @@ internal class UIWindowSwizzler {
         buffer = nil
         emitter = nil
         logger = nil
-        touchStartLocations.removeAll()
 
         if let observer = appLifecycleObserver {
             NotificationCenter.default.removeObserver(observer)

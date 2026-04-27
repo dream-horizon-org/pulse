@@ -3,13 +3,17 @@ import type {
   RequestStartContext,
   RequestEndContext,
 } from './network.interface';
-import type { Span } from '../index';
-import { Pulse, SpanStatusCode } from '../index';
+import { startSpan, SpanStatusCode, type Span } from '../trace';
 import type { PulseAttributes } from '../pulse.interface';
 import { extractHttpAttributes } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
 import { ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import { normalizeHeaderName } from './header-helper';
+import {
+  getHeaderCaseInsensitive,
+  parseContentLength,
+} from './content-length-parser';
+import { PulseLogger } from '../PulseLogger';
 
 export function setNetworkSpanAttributes(
   span: Span,
@@ -32,6 +36,20 @@ export function setNetworkSpanAttributes(
 
   if (endContext.status) {
     attributes[ATTRIBUTE_KEYS.HTTP_STATUS_CODE] = endContext.status;
+  }
+
+  const requestBodyLen =
+    startContext.requestBodyContentLength ??
+    parseContentLength(
+      getHeaderCaseInsensitive(startContext.requestHeaders, 'content-length')
+    );
+  if (requestBodyLen !== undefined) {
+    attributes[ATTRIBUTE_KEYS.HTTP_REQUEST_BODY_SIZE] = requestBodyLen;
+  }
+
+  if (endContext.responseBodyContentLength !== undefined) {
+    attributes[ATTRIBUTE_KEYS.HTTP_RESPONSE_BODY_SIZE] =
+      endContext.responseBodyContentLength;
   }
 
   if (endContext.state === 'error' && endContext.error) {
@@ -88,7 +106,7 @@ export function createNetworkSpan(
   );
   const attributes = { ...baseAttributes, ...graphqlAttributes };
 
-  const span = Pulse.startSpan(spanName, { attributes });
+  const span = startSpan(spanName, { attributes });
 
   return span;
 }
@@ -101,12 +119,11 @@ export function completeNetworkSpan(
 ): void {
   try {
     const attributes = setNetworkSpanAttributes(span, startContext, endContext);
-    console.log('[Pulse] Network span completed', {
-      spanId: span.spanId,
-      spanAttributes: attributes,
-    });
+    PulseLogger.debug(
+      `Network span completed spanId=${span.spanId} spanAttributes=${JSON.stringify(attributes)}`
+    );
   } catch (e) {
-    console.error('[Pulse] Failed to set span attributes:', e);
+    PulseLogger.error(`Failed to set span attributes: ${e}`);
   }
 
   span.end(isError ? SpanStatusCode.ERROR : SpanStatusCode.UNSET);

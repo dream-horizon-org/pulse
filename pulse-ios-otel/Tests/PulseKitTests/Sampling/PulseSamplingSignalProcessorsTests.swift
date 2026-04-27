@@ -17,7 +17,7 @@ final class PulseSamplingSignalProcessorsTests: XCTestCase {
         let config = makeSdkConfig(
             features: [
                 PulseFeatureConfig(featureName: .interaction, sessionSampleRate: 1, sdks: [.pulse_ios_swift]),
-                PulseFeatureConfig(featureName: .network_instrumentation, sessionSampleRate: 0.5, sdks: [.pulse_ios_swift]),
+                PulseFeatureConfig(featureName: .ios_network, sessionSampleRate: 0.5, sdks: [.pulse_ios_swift]),
                 PulseFeatureConfig(featureName: .custom_events, sessionSampleRate: 1, sdks: [.pulse_ios_swift])
             ]
         )
@@ -31,7 +31,7 @@ final class PulseSamplingSignalProcessorsTests: XCTestCase {
         XCTAssertEqual(enabled.count, 2)
         XCTAssertTrue(enabled.contains(.interaction))
         XCTAssertTrue(enabled.contains(.custom_events))
-        XCTAssertFalse(enabled.contains(.network_instrumentation))
+        XCTAssertFalse(enabled.contains(.ios_network))
     }
 
     func testGetEnabledFeaturesExcludesOtherSdks() {
@@ -250,6 +250,111 @@ final class PulseSamplingSignalProcessorsTests: XCTestCase {
         XCTAssertNotNil(exported.attributes["keep"], "keep should remain")
     }
 
+    func testSampledSpanExporterDropsAttributesWhenAttributesToDropHasEmptyConditionName() {
+        let dropCondition = PulseSignalMatchCondition(
+            name: "",
+            props: [],
+            scopes: [.traces],
+            sdks: [.pulse_ios_swift]
+        )
+        let attributesToDrop = [
+            PulseAttributesToDropEntry(values: ["toDrop"], condition: dropCondition)
+        ]
+        let config = makeSdkConfigWithAttributesToDrop(attributesToDrop)
+        let mockExporter = MockSpanExporter()
+        let processors = PulseSamplingSignalProcessors(
+            sdkConfig: config,
+            currentSdkName: .pulse_ios_swift,
+            sessionParser: AlwaysOnSessionParser(),
+            randomGenerator: { 0 }
+        )
+        let sampledExporter = processors.makeSampledSpanExporter(delegateExporter: mockExporter)
+        let span = createTestSpan(
+            name: "unrelated_span_name",
+            attributes: [
+                "toDrop": AttributeValue.string("secret"),
+                "keep": AttributeValue.string("visible")
+            ]
+        )
+        _ = sampledExporter.export(spans: [span], explicitTimeout: nil)
+        XCTAssertEqual(mockExporter.exportedSpans.count, 1)
+        let exported = mockExporter.exportedSpans[0]
+        XCTAssertNil(exported.attributes["toDrop"])
+        XCTAssertNotNil(exported.attributes["keep"])
+    }
+
+    func testSampledSpanExporterAttributesToDropEmptyNameWithPropsOnlyWhenPropsMatch() {
+        let dropCondition = PulseSignalMatchCondition(
+            name: "",
+            props: [PulseProp(name: "route", value: "home")],
+            scopes: [.traces],
+            sdks: [.pulse_ios_swift]
+        )
+        let attributesToDrop = [
+            PulseAttributesToDropEntry(values: ["toDrop"], condition: dropCondition)
+        ]
+        let config = makeSdkConfigWithAttributesToDrop(attributesToDrop)
+        let mockExporter = MockSpanExporter()
+        let processors = PulseSamplingSignalProcessors(
+            sdkConfig: config,
+            currentSdkName: .pulse_ios_swift,
+            sessionParser: AlwaysOnSessionParser(),
+            randomGenerator: { 0 }
+        )
+        let sampledExporter = processors.makeSampledSpanExporter(delegateExporter: mockExporter)
+        let spanNoMatch = createTestSpan(
+            name: "any",
+            attributes: [
+                "toDrop": AttributeValue.string("x"),
+                "keep": AttributeValue.string("y")
+            ]
+        )
+        _ = sampledExporter.export(spans: [spanNoMatch], explicitTimeout: nil)
+        XCTAssertNotNil(mockExporter.exportedSpans[0].attributes["toDrop"], "props mismatch → no drop")
+
+        mockExporter.exportedSpans.removeAll()
+        let spanMatch = createTestSpan(
+            name: "other_name",
+            attributes: [
+                "toDrop": AttributeValue.string("x"),
+                "route": AttributeValue.string("home"),
+                "keep": AttributeValue.string("y")
+            ]
+        )
+        _ = sampledExporter.export(spans: [spanMatch], explicitTimeout: nil)
+        XCTAssertNil(mockExporter.exportedSpans[0].attributes["toDrop"])
+        XCTAssertNotNil(mockExporter.exportedSpans[0].attributes["keep"])
+    }
+
+    func testSampledSpanExporterAddsAttributesWhenAttributesToAddHasEmptyConditionName() {
+        let addCondition = PulseSignalMatchCondition(
+            name: "",
+            props: [],
+            scopes: [.traces],
+            sdks: [.pulse_ios_swift]
+        )
+        let attributesToAdd = [
+            PulseAttributesToAddEntry(
+                values: [PulseAttributeValue(name: "added", value: "yes", type: .string)],
+                condition: addCondition
+            )
+        ]
+        let config = makeSdkConfigWithAttributesToAdd(attributesToAdd)
+        let mockExporter = MockSpanExporter()
+        let processors = PulseSamplingSignalProcessors(
+            sdkConfig: config,
+            currentSdkName: .pulse_ios_swift,
+            sessionParser: AlwaysOnSessionParser(),
+            randomGenerator: { 0 }
+        )
+        let sampledExporter = processors.makeSampledSpanExporter(delegateExporter: mockExporter)
+        let span = createTestSpan(name: "any_span", attributes: [:])
+        _ = sampledExporter.export(spans: [span], explicitTimeout: nil)
+        XCTAssertEqual(mockExporter.exportedSpans.count, 1)
+        let exported = mockExporter.exportedSpans[0]
+        XCTAssertEqual(exported.attributes["added"], AttributeValue.string("yes"))
+    }
+
     // MARK: - Helpers
 
     private func makeSdkConfig(
@@ -327,6 +432,34 @@ final class PulseSamplingSignalProcessorsTests: XCTestCase {
                 customEventCollectorUrl: "https://custom",
                 attributesToDrop: attributesToDrop,
                 attributesToAdd: [],
+                metricsToAdd: []
+            ),
+            interaction: PulseInteractionConfig(
+                collectorUrl: "https://interaction",
+                configUrl: "https://config",
+                beforeInitQueueSize: 100
+            ),
+            features: []
+        )
+    }
+
+    private func makeSdkConfigWithAttributesToAdd(_ attributesToAdd: [PulseAttributesToAddEntry]) -> PulseSdkConfig {
+        PulseSdkConfig(
+            version: 1,
+            description: "test",
+            sampling: PulseSamplingConfig(
+                default: PulseDefaultSamplingConfig(sessionSampleRate: 0.5),
+                rules: [],
+                signalsToSample: []
+            ),
+            signals: PulseSignalConfig(
+                scheduleDurationMs: 60_000,
+                logsCollectorUrl: "https://logs",
+                metricCollectorUrl: "https://metrics",
+                spanCollectorUrl: "https://spans",
+                customEventCollectorUrl: "https://custom",
+                attributesToDrop: [],
+                attributesToAdd: attributesToAdd,
                 metricsToAdd: []
             ),
             interaction: PulseInteractionConfig(

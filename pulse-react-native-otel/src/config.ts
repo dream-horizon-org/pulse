@@ -15,19 +15,29 @@ import PulseReactNativeOtel, {
 } from './NativePulseReactNativeOtel';
 import type { PulseFeatureConfig } from './pulse.interface';
 import { PULSE_FEATURE_NAMES } from './pulse.constants';
+import {
+  getIsShutdown,
+  getIsStarted,
+  markPulseSessionStarted,
+  markPulseSessionShutdown,
+} from './sessionState';
+import { getFeaturesFromRemoteConfig } from './remoteFeatures';
+import type { NetworkHeaderConfig } from './network-interceptor/headerConfigStore';
+import { PulseLogLevel } from './PulseLogLevel';
+import { PulseLogger } from './PulseLogger';
 
 export { PulseDataCollectionConsent };
-
-export type NetworkHeaderConfig = {
-  requestHeaders?: string[];
-  responseHeaders?: string[];
-};
+export type { NetworkHeaderConfig } from './network-interceptor/headerConfigStore';
+export { getIsShutdown, getIsStarted } from './sessionState';
+export { getFeaturesFromRemoteConfig } from './remoteFeatures';
+export { PulseLogLevel };
 
 export type PulseConfig = {
   autoDetectExceptions?: boolean;
   autoDetectNavigation?: boolean;
   autoDetectNetwork?: boolean;
   networkHeaders?: NetworkHeaderConfig;
+  logLevel?: PulseLogLevel;
 };
 
 const defaultConfig: Required<PulseConfig> = {
@@ -38,40 +48,10 @@ const defaultConfig: Required<PulseConfig> = {
     requestHeaders: [],
     responseHeaders: [],
   },
+  logLevel: PulseLogLevel.NONE,
 };
 
 let currentConfig: PulseConfig = { ...defaultConfig };
-
-/** After shutdown, start() and initialize are no-ops; re-initialization is not supported. */
-let isShutdown = false;
-
-/** True only after start() has been called at least once. Integrations (e.g. navigation) are no-ops until then. */
-let isStarted = false;
-
-// Cache for features from remote SDK config
-let cachedFeatures: PulseFeatureConfig;
-
-export function getIsShutdown(): boolean {
-  return isShutdown;
-}
-
-/** True only after start() has been called at least once. Public APIs (trackEvent, reportException, startSpan, etc.) no-op until then. */
-export function getIsStarted(): boolean {
-  return isStarted;
-}
-
-/**
- * Gets all features from the remote SDK config.
- * @returns Record of feature names to their enabled status, or null if config not available or start() not called
- */
-export function getFeaturesFromRemoteConfig(): PulseFeatureConfig {
-  if (cachedFeatures !== undefined) {
-    return cachedFeatures;
-  }
-
-  cachedFeatures = PulseReactNativeOtel.getAllFeatures();
-  return cachedFeatures;
-}
 
 function configure(config: PulseConfig): void {
   currentConfig = {
@@ -106,7 +86,7 @@ function resolveNavigationState(
 ): boolean {
   if (features !== undefined && features !== null) {
     const hasAny =
-      features[PULSE_FEATURE_NAMES.SCREEN_SESSION] === true ||
+      features[PULSE_FEATURE_NAMES.RN_SCREEN_SESSION] === true ||
       features[PULSE_FEATURE_NAMES.RN_SCREEN_LOAD] === true ||
       features[PULSE_FEATURE_NAMES.RN_SCREEN_INTERACTIVE] === true;
     return hasAny ?? optionValue;
@@ -116,18 +96,19 @@ function resolveNavigationState(
 
 export function start(options?: PulseConfig): void {
   if (!isSupportedPlatform()) return;
-  if (isShutdown) {
-    console.log(
-      '[Pulse] SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
+  if (getIsShutdown()) {
+    PulseLogger.warn(
+      'SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
     );
     return;
   }
-  if (isStarted) {
-    console.log('[Pulse] SDK already started.');
+  if (getIsStarted()) {
+    PulseLogger.info('SDK already started.');
     return;
   }
 
-  isStarted = true;
+  markPulseSessionStarted();
+  PulseLogger.setLevel(options?.logLevel ?? PulseLogLevel.NONE);
   const features = getFeaturesFromRemoteConfig();
   const config: PulseConfig = {
     autoDetectExceptions: resolveFeatureState(
@@ -141,7 +122,7 @@ export function start(options?: PulseConfig): void {
     ),
     autoDetectNetwork: resolveFeatureState(
       features,
-      PULSE_FEATURE_NAMES.NETWORK_INSTRUMENTATION,
+      PULSE_FEATURE_NAMES.RN_NETWORK,
       options?.autoDetectNetwork ?? defaultConfig.autoDetectNetwork
     ),
     networkHeaders: options?.networkHeaders ?? {
@@ -154,15 +135,15 @@ export function start(options?: PulseConfig): void {
 }
 
 export function shutdown(): void {
-  if (isShutdown) {
-    console.warn('[Pulse] SDK already shut down.');
+  if (getIsShutdown()) {
+    PulseLogger.warn('SDK already shut down.');
     return;
   }
   uninstallErrorHandler();
   uninstallNetworkInterceptor();
   uninstallNavigationIntegration();
   PulseReactNativeOtel.shutdown();
-  isShutdown = true;
+  markPulseSessionShutdown();
 }
 
 /**
@@ -184,26 +165,26 @@ export function createNavigationIntegrationWithConfig(
       markContentReady: () => {},
     };
   }
-  if (!isStarted) {
+  if (!getIsStarted()) {
     return {
       registerNavigationContainer: (_: unknown) => () => {},
       markContentReady: () => {},
     };
   }
-  if (isShutdown) {
+  if (getIsShutdown()) {
     return {
       registerNavigationContainer: (_: unknown) => () => {},
       markContentReady: () => {},
     };
   }
   if (!currentConfig.autoDetectNavigation) {
-    console.warn(
-      '[Pulse Navigation] auto-detection disabled via Pulse.start; createNavigationIntegration() returning no-op.'
+    PulseLogger.warn(
+      'Navigation auto-detection disabled via Pulse.start; createNavigationIntegration() returning no-op.'
     );
     const noop: ReactNavigationIntegration = {
       registerNavigationContainer: (_: unknown) => () => {
-        console.warn(
-          '[Pulse Navigation] auto-detection disabled via Pulse.start; registerNavigationContainer() returning no-op.'
+        PulseLogger.warn(
+          'Navigation auto-detection disabled via Pulse.start; registerNavigationContainer() returning no-op.'
         );
       },
       markContentReady: () => {},

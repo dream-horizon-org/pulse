@@ -6,6 +6,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 import OpenTelemetryApi
 import OpenTelemetrySdk
 import Security
@@ -256,7 +259,7 @@ public final class PulseSamplingSignalProcessors {
             let signalName = name ?? "?"
             switch entry.target {
             case .name:
-                PulseLogger.log("Metric derived: \(entry.name) <- \(signalKind) \"\(signalName)\"")
+                PulseLogger.verbose("Metric derived: \(entry.name) <- \(signalKind) \"\(signalName)\"")
                 recorder(name ?? "", nil, pointAttributes)
             case .attribute(let attrCondition, let addPropNameAsSuffix):
                 for (attrKey, attrValue) in props {
@@ -266,7 +269,7 @@ public final class PulseSamplingSignalProcessors {
                     if keyMatches {
                         let suffix = addPropNameAsSuffix ? attrKey : nil
                         let metricName = suffix.map { "\(entry.name).\($0)" } ?? entry.name
-                        PulseLogger.log("Metric derived: \(metricName) <- \(signalKind) \"\(signalName)\" (attr: \(attrKey))")
+                        PulseLogger.verbose("Metric derived: \(metricName) <- \(signalKind) \"\(signalName)\" (attr: \(attrKey))")
                         recorder(attrValue, suffix, pointAttributes)
                     }
                 }
@@ -791,6 +794,7 @@ private final class SamplingRegexCache {
     private let lock = NSLock()
 
     func matches(string: String, pattern: String) -> Bool {
+        if pattern.isEmpty { return true }
         let effectivePattern = normalizedSignalNamePattern(pattern)
         let regex: NSRegularExpression? = lock.withLock {
             if let cached = cache[effectivePattern] { return cached }

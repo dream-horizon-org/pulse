@@ -1,12 +1,20 @@
 import { startSpan, trackSpan } from './trace';
 import { reportException } from './errorHandler';
 import { trackEvent } from './events';
-import { start, shutdown, setDataCollectionState } from './config';
+import {
+  start,
+  shutdown,
+  setDataCollectionState,
+  createNavigationIntegrationWithConfig,
+} from './config';
 import { isInitialized } from './initialization';
 import { setGlobalAttribute } from './globalAttributes';
 import { setUserId, setUserProperty, setUserProperties } from './user';
 import { ErrorBoundary, withErrorBoundary } from './errorBoundary';
-import { useNavigationTracking, markContentReady } from './navigation';
+import { markContentReady } from './navigation';
+import { useNavigationTracking as useNavigationTrackingBase } from './navigation/useNavigationTracking';
+import type { RefObject } from 'react';
+import type { NavigationIntegrationOptions } from './navigation';
 import { PulseMask, PulseUnmask } from './sessionReplay';
 
 export type { Span } from './trace';
@@ -19,10 +27,23 @@ export type {
   NavigationIntegrationOptions,
 } from './navigation';
 
+export function useNavigationTracking(
+  navigationRef: RefObject<any>,
+  options?: NavigationIntegrationOptions
+): () => void {
+  return useNavigationTrackingBase(
+    navigationRef,
+    options,
+    createNavigationIntegrationWithConfig
+  );
+}
+
 export type { ErrorBoundaryProps, FallbackRender } from './errorBoundary';
 
 export { SpanStatusCode } from './trace';
 export { PulseDataCollectionConsent } from './NativePulseReactNativeOtel';
+export { PulseLogLevel } from './PulseLogLevel';
+export { PulseLogger } from './PulseLogger';
 
 export const Pulse = {
   start,

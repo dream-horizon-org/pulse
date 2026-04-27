@@ -1,4 +1,4 @@
-name: Publish React Native SDK to npm
+name: React Native - Publish to npm
 
 on:
   workflow_dispatch:

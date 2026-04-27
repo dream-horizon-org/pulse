@@ -12,7 +12,7 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 | Directory | Service | Tech | Port |
 |-----------|---------|------|------|
 | `backend/server/` | REST API | Java 17, Vert.x 4.5, Guice, Maven | 8080 |
-| `backend/pulse-alerts-cron/` | Alert evaluation cron | Java/Vert.x | 4000 |
+| `backend/pulse-alerts-cron/` | Alert evaluation cron + daily batch jobs | Java/Vert.x | 4000 |
 | `backend/ingestion/` | OTEL Collector configs + ClickHouse schema | YAML/SQL | — |
 | `backend/session-capture-service/` | Session replay HTTP ingest (Rust) | Rust | 3400 |
 | `backend/session-replay-ingestion/` | Kafka → S3 + ClickHouse consumer | Node.js | — |
@@ -31,11 +31,12 @@ Mobile SDKs → OTEL Collector (4317/4318) → ClickHouse (otel DB)
 Mobile SDKs → Session capture API (:3400) → Kafka → Session replay ingestion → MinIO (S3) + ClickHouse
 Custom Events → Vector (14317/14318) → S3 (Parquet) → Athena / BigQuery  [Vector optional: service is commented out in `deploy/docker-compose.yml` by default; uncomment + VECTOR_ENABLED=true]
 Session replay / heatmap → Kafka → pulse-heatmap-screenshot-ingestion → S3 bucket `heatmap-assets` (keys under `heatmap-screenshots/`); optional external Redis for quota / dedupe
+pulse-alerts-cron → pulse-server internal JWT routes → Redis materialization for Kong (API key map, per-project usage credits); ClickHouse for monthly usage is queried by pulse-server, not by cron
 ```
 
 ## Databases
 
-- **MySQL 8** (`pulse_db`): metadata — interactions, alerts, configs, symbol files, athena jobs
+- **MySQL 8** (`pulse_db`): metadata — interactions, alerts, configs, symbol files, athena jobs, analytics_jobs
 - **ClickHouse 24.8** (`otel`): analytics — `otel_traces`, `otel_logs`, OTLP metrics (`otel_metrics_gauge`, `otel_metrics_sum`, `otel_metrics_summary`, `otel_metrics_histogram`, `otel_metrics_exp_histogram`, unified read view `otel_metrics`), `stack_trace_events`, `project_monthly_usage` (+ MVs), `root_cause_cache` (RCA cache; column `ProjectId`), `interaction_heatmaps_daily` (heatmap table + MV defined in `clickhouse-otel-schema.sql`)
 
 ## Auth
