@@ -33,6 +33,11 @@ const SESSION_START_KEY = "pulse_session_start";
 // If flag is present on init → tab was cloned (duplicated tab) → session reused.
 const SESSION_CLONE_FLAG_KEY = "pulse_session_clone_flag";
 
+/** Android parity: persisted logged-in user id (localStorage). */
+const USER_ID_KEY = "pulse_user_id";
+/** Android parity: JSON map of user properties → `pulse.user.*` attributes. */
+const USER_PROPS_KEY = "pulse_user_properties";
+
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_MAX_SESSION_LIFETIME_MS = 4 * 60 * 60 * 1000; // 4 hours
 const DEFAULT_PAGE_HIDDEN_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
@@ -75,6 +80,60 @@ function trySessionStorage(op: () => string | null): string | null {
   } catch (err: unknown) {
     swallowStorageError("installationId:sessionStorage", err);
     return null;
+  }
+}
+
+/** Last persisted user id from localStorage (`pulse_user_id`). */
+export function getPersistedUserId(): string | null {
+  if (typeof localStorage === "undefined") return null;
+  return tryLocalStorage(() => localStorage.getItem(USER_ID_KEY));
+}
+
+/** Persist user id; `null` clears storage (logout). */
+export function persistUserId(id: string | null): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    if (id === null || id === "") {
+      localStorage.removeItem(USER_ID_KEY);
+    } else {
+      localStorage.setItem(USER_ID_KEY, id);
+    }
+  } catch (err: unknown) {
+    swallowStorageError("userId:localStorage", err);
+  }
+}
+
+/** Parsed user properties blob; invalid JSON → `{}`. */
+export function getPersistedUserProperties(): Record<string, string> {
+  if (typeof localStorage === "undefined") return {};
+  const raw = tryLocalStorage(() => localStorage.getItem(USER_PROPS_KEY));
+  if (raw === null || raw === "") return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === "string") out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Replace persisted user properties JSON; empty object removes the key. */
+export function persistUserProperties(props: Record<string, string>): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    if (Object.keys(props).length === 0) {
+      localStorage.removeItem(USER_PROPS_KEY);
+    } else {
+      localStorage.setItem(USER_PROPS_KEY, JSON.stringify(props));
+    }
+  } catch (err: unknown) {
+    swallowStorageError("userProps:localStorage", err);
   }
 }
 

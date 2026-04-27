@@ -4,6 +4,7 @@
 
 **Files produced:** `src/session.ts` (Session Provider), `src/utils/installation-id.ts`
 
+
 **Android equivalent:** `InstallationId` + `SessionIdProvider`
 
 ---
@@ -147,6 +148,38 @@ export class SessionProvider {
 
 ---
 
+## User id and user properties (Android parity)
+
+**Public API (on `PulseWeb` singleton):**
+
+| Method | Role |
+|--------|------|
+| `setUserId(id: string \| null)` | Sets OTel `user.id` on all subsequent spans, logs, and metrics. `null` / `""` clears. Persists to `localStorage['pulse_user_id']`. Emits lifecycle logs when the **value changes** (see below). |
+| `setUserProperty(key, value)` | Adds `pulse.user.<key>` = string value; `null` removes that key. Persists the full map to `localStorage['pulse_user_properties']`. |
+| `setUserProperties(props)` | Batch update; `null` removes keys. Same persistence as `setUserProperty`. |
+
+**Storage:**
+
+| Key | Contents |
+|-----|-----------|
+| `pulse_user_id` | Last logged-in user id string; survives reloads when localStorage allowed. |
+| `pulse_user_properties` | JSON object of `{ [key]: string }` mapped to `pulse.user.<key>`. |
+
+On `PulseWeb.start()`, persisted user id + properties are **rehydrated** into the global attributes processor **without** emitting lifecycle logs (cold start restore).
+
+**Lifecycle OTLP logs** (same `pulse.type` / body strings as Android):
+
+| Event | When | Attributes |
+|-------|------|---------------|
+| `pulse.user.session.end` | Previous user id ending (clear or switch) | `pulse.type`, `user.id` = ended user |
+| `pulse.user.session.start` | New non-null user id | `pulse.type`, `user.id`; `pulse.user.previous_id` when switching from another user |
+
+No lifecycle events when `setUserId` is called with the **same** id as currently active, or solely on persistence rehydrate at startup.
+
+**OTel attribute reference:** `user.id`, `pulse.user.<name>`, `pulse.user.previous_id`.
+
+---
+
 ## Done Criteria
 
 - [ ] `installation.id` generated on first load; persists across page reloads from localStorage
@@ -157,3 +190,9 @@ export class SessionProvider {
 - [ ] `pagehide(persisted=true)` does NOT rotate session
 - [ ] `pageshow(persisted=true)` resumes session without emitting `session.start`
 - [ ] Unit tests: installation ID persists across calls; session rotates after gap; new ID on first call
+- [ ] `PulseWeb.setUserId('u1')` → `user.id` = `u1` on subsequent spans/logs/metrics
+- [ ] `PulseWeb.setUserId(null)` → `user.id` absent from subsequent signals
+- [ ] `PulseWeb.setUserId(...)` before `PulseWeb.start()` is a silent no-op
+- [ ] User id persists across reloads; rehydrated on `PulseWeb.start()` without lifecycle logs
+- [ ] User id change emits `pulse.user.session.start` / `pulse.user.session.end` as specified; no-op when same id
+- [ ] `setUserProperty` / `setUserProperties` stamp `pulse.user.*` and persist; `null` removes keys

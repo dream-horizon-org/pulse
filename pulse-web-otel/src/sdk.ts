@@ -23,6 +23,10 @@ import { PulseWebLogger } from "./pulse-web-logger";
 import {
   SessionProvider,
   getOrCreateInstallationId,
+  getPersistedUserId,
+  getPersistedUserProperties,
+  persistUserId,
+  persistUserProperties,
   wasNewInstallation,
 } from "./session";
 import { buildMergedResource } from "./resource";
@@ -145,6 +149,13 @@ class PulseWebSDK implements SdkContext {
       this.sessionProvider,
       config,
       meteringSessionId,
+    );
+
+    const persistedUserId = getPersistedUserId();
+    const persistedUserProps = getPersistedUserProperties();
+    this.globalAttrsProcessor.hydrateUserIdentity(
+      persistedUserId,
+      persistedUserProps,
     );
 
     const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
@@ -304,6 +315,75 @@ class PulseWebSDK implements SdkContext {
 
   setScreenName(name: string): void {
     this.globalAttrsProcessor?.setScreenName(name);
+  }
+
+  /**
+   * Android parity: set logged-in user id on all signals (`user.id`). Persists to localStorage.
+   * Emits `pulse.user.session.end` / `pulse.user.session.start` when the id changes.
+   */
+  setUserId(id: string | null): void {
+    if (!this._initialized || !this.globalAttrsProcessor) return;
+    const nextId = id === "" ? null : id;
+    const oldId = this.globalAttrsProcessor.getUserId();
+    if (oldId === nextId) return;
+    this.globalAttrsProcessor.setUserId(nextId);
+    persistUserId(nextId);
+    if (oldId !== null) {
+      this.emitUserSessionEndLog(oldId);
+    }
+    if (nextId !== null) {
+      this.emitUserSessionStartLog(
+        nextId,
+        oldId !== null ? oldId : undefined,
+      );
+    }
+  }
+
+  /** Android parity: custom user fields as `pulse.user.<name>`. Persists JSON to localStorage. */
+  setUserProperty(key: string, value: string | null): void {
+    if (!this._initialized || !this.globalAttrsProcessor) return;
+    this.globalAttrsProcessor.setUserProperty(key, value);
+    persistUserProperties(this.globalAttrsProcessor.getUserPropertiesSnapshot());
+  }
+
+  /** Batch update user properties; `null` removes a key. */
+  setUserProperties(props: Record<string, string | null>): void {
+    if (!this._initialized || !this.globalAttrsProcessor) return;
+    this.globalAttrsProcessor.setUserProperties(props);
+    persistUserProperties(this.globalAttrsProcessor.getUserPropertiesSnapshot());
+  }
+
+  private emitUserSessionEndLog(userId: string): void {
+    const K = PulseWebSemconv.AttributeKey;
+    const T = PulseWebSemconv.PulseType;
+    const B = PulseWebSemconv.LogBody;
+    this.logger.emit({
+      body: B.USER_SESSION_END,
+      attributes: {
+        [K.PULSE_TYPE]: T.USER_SESSION_END,
+        [K.USER_ID]: userId,
+      },
+    });
+  }
+
+  private emitUserSessionStartLog(
+    userId: string,
+    previousUserId?: string,
+  ): void {
+    const K = PulseWebSemconv.AttributeKey;
+    const T = PulseWebSemconv.PulseType;
+    const B = PulseWebSemconv.LogBody;
+    const attrs: Record<string, string> = {
+      [K.PULSE_TYPE]: T.USER_SESSION_START,
+      [K.USER_ID]: userId,
+    };
+    if (previousUserId !== undefined) {
+      attrs[K.PULSE_USER_PREVIOUS_ID] = previousUserId;
+    }
+    this.logger.emit({
+      body: B.USER_SESSION_START,
+      attributes: attrs,
+    });
   }
 
   trackEvent(

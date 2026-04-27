@@ -42,6 +42,8 @@ export const PulseWebSemconv = {
     NETWORK_EFFECTIVE_TYPE: "network.effective_type",
     NETWORK_RTT: "network.rtt",
     NETWORK_DOWNLINK: "network.downlink",
+    USER_ID: "user.id",
+    PULSE_USER_PREVIOUS_ID: "pulse.user.previous_id",
     EVENT_NAME: "event.name",
     EXCEPTION_TYPE: "exception.type",
     EXCEPTION_MESSAGE: "exception.message",
@@ -62,12 +64,16 @@ export const PulseWebSemconv = {
     DEVICE_CRASH: "device.crash",
     SESSION_START: "session.start",
     SESSION_END: "session.end",
+    USER_SESSION_START: "pulse.user.session.start",
+    USER_SESSION_END: "pulse.user.session.end",
     INTERACTION: "interaction",
   },
   LogBody: {
     SESSION_START: "session.start",
     SESSION_END: "session.end",
     APP_INSTALLATION_START: "pulse.app.installation.start",
+    USER_SESSION_START: "pulse.user.session.start",
+    USER_SESSION_END: "pulse.user.session.end",
   },
   /**
    * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).
