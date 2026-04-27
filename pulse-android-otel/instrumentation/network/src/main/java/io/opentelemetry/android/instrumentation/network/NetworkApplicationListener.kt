@@ -15,9 +15,12 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Consumer
 
 val NETWORK_STATUS_KEY: AttributeKey<String> = AttributeKey.stringKey("network.status")
+val NETWORK_PREVIOUS_CONNECTION_TYPE_KEY: AttributeKey<String> =
+    AttributeKey.stringKey("network.previous.connection.type")
 
 private const val NETWORK_HEALTH_TAG = "NetworkChange"
 
@@ -25,6 +28,7 @@ internal class NetworkApplicationListener(
     private val currentNetworkProvider: CurrentNetworkProvider,
 ) : ApplicationStateListener {
     private val shouldEmitChangeEvents = AtomicBoolean(true)
+    private val previousNetworkRef = AtomicReference<CurrentNetwork?>(null)
 
     fun startMonitoring(
         eventLogger: Logger,
@@ -34,6 +38,7 @@ internal class NetworkApplicationListener(
             TracingNetworkChangeListener(
                 eventLogger,
                 shouldEmitChangeEvents,
+                previousNetworkRef,
                 additionalExtractors,
             ),
         )
@@ -50,6 +55,7 @@ internal class NetworkApplicationListener(
     private class TracingNetworkChangeListener(
         private val eventLogger: Logger,
         private val shouldEmitChangeEvents: AtomicBoolean,
+        private val previousNetworkRef: AtomicReference<CurrentNetwork?>,
         private val additionalExtractors: List<NetworkAttributesExtractor>,
     ) : NetworkChangeListener {
         override fun onNetworkChange(currentNetwork: CurrentNetwork) {
@@ -70,6 +76,13 @@ internal class NetworkApplicationListener(
                 "sdk.network.status_changed connected=$isConnected type=$type"
             }
             val attributesBuilder = Attributes.builder()
+            val previousNetwork = previousNetworkRef.getAndSet(currentNetwork)
+            if (previousNetwork != null) {
+                attributesBuilder.put(
+                    NETWORK_PREVIOUS_CONNECTION_TYPE_KEY,
+                    previousNetwork.state.humanName,
+                )
+            }
             additionalExtractors.forEach(
                 Consumer { extractor: NetworkAttributesExtractor ->
                     extractor(attributesBuilder, currentNetwork)

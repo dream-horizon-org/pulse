@@ -813,6 +813,9 @@ public class Pulse {
             .setEventName("pulse.custom_non_fatal")
             .setAttributes(attributes)
             .emit()
+        if isCrashPulseType(in: attributes) {
+            forceFlushLogs()
+        }
     }
 
     public func trackNonFatal(
@@ -843,6 +846,9 @@ public class Pulse {
             .setEventName("pulse.custom_non_fatal")
             .setAttributes(attributes)
             .emit()
+        if isCrashPulseType(in: attributes) {
+            forceFlushLogs()
+        }
     }
 
     public func trackSpan<T>(
@@ -892,6 +898,17 @@ public class Pulse {
 
     public func isSDKInitialized() -> Bool {
         return isInitialized
+    }
+
+    /// Best-effort flush of batched log records to exporters (including persistence) before the process can exit.
+    private func forceFlushLogs() {
+        guard isActive else { return }
+        _ = _consentLogProcessor?.forceFlush(explicitTimeout: nil)
+    }
+
+    private func isCrashPulseType(in attributes: [String: AttributeValue]) -> Bool {
+        guard let pulseType = attributes[PulseAttributes.pulseType], case .string(let value) = pulseType else { return false }
+        return value == PulseAttributes.PulseTypeValues.crash
     }
 
     public func setUserId(_ id: String?) {
