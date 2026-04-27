@@ -45,12 +45,22 @@ export class InstrumentationRegistry {
     return gateEnabled && configEnabled;
   }
 
+  registerAndInstall(
+    instrumentation: PulseInstrumentation,
+    key?: keyof InstrumentationConfig,
+  ): boolean {
+    if (key !== undefined && !this.shouldInstall(key)) {
+      return false;
+    }
+    instrumentation.install(this.sdk);
+    this.installed.push(instrumentation);
+    return true;
+  }
+
   installAll(): void {
     // M1: Install session instrumentation
     if (this.shouldInstall("session")) {
-      const sessionInstr = new SessionInstrumentation();
-      sessionInstr.install(this.sdk);
-      this.installed.push(sessionInstr);
+      this.registerAndInstall(new SessionInstrumentation());
     }
 
     // M3: will install ErrorsInstrumentation, NetworkInstrumentation,

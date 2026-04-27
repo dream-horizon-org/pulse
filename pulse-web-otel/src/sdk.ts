@@ -50,7 +50,7 @@ import {
   resolveDiskBufferMaxCacheSizeBytes,
 } from "./constants/disk-buffer";
 import { resolveBeforeSend } from "./before-send";
-import { InteractionFeature } from "./interactions/interaction-feature";
+import { InteractionInstrumentation } from "./instrumentations/interaction";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -58,6 +58,7 @@ class PulseWebSDK implements SdkContext {
   private _shuttingDown = false;
   private _starting = false;
 
+  endpointBaseUrl = "";
   sessionProvider!: SessionProvider;
   logger!: Logger;
   tracer!: Tracer;
@@ -71,9 +72,9 @@ class PulseWebSDK implements SdkContext {
   private _pagehideListener?: (e: PageTransitionEvent) => void;
   private registry?: InstrumentationRegistry;
   private configFetcher: SdkConfigFetcher = new SdkConfigFetcher("", "");
-  private gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
+  gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
   private _providerCleanup: () => void = () => {};
-  private interactionFeature?: InteractionFeature;
+  private interactionInstrumentation?: InteractionInstrumentation;
 
   static getInstance(): PulseWebSDK {
     if (!PulseWebSDK._instance) {
@@ -89,6 +90,7 @@ class PulseWebSDK implements SdkContext {
     PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
     // Step 1.5: Resolve endpointBaseUrl from apiKey (internal — not a public config field)
     const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey);
+    this.endpointBaseUrl = endpointBaseUrl;
 
     // Consent gate — DENIED or PENDING → no-op, zero signals emitted
     if (!isDataCollectionAllowed(config.dataCollectionState)) return;
@@ -245,15 +247,6 @@ class PulseWebSDK implements SdkContext {
     this.logger = this.loggerProvider.getLogger("pulse-web");
     this.tracer = this.tracerProvider.getTracer("pulse-web");
 
-    this.interactionFeature = new InteractionFeature(
-      endpointBaseUrl,
-      config,
-      this.gate,
-      config.instrumentations?.interactions?.enabled ?? true,
-      this.tracer,
-    );
-    void this.interactionFeature.init();
-
     this.emitSdkInitializationLogRecords(endpointBaseUrl);
 
     this.registry = new InstrumentationRegistry(
@@ -261,7 +254,12 @@ class PulseWebSDK implements SdkContext {
       gate,
       config.instrumentations,
     );
+    this.interactionInstrumentation = new InteractionInstrumentation();
     this.registry.installAll();
+    this.registry.registerAndInstall(
+      this.interactionInstrumentation,
+      "interactions",
+    );
 
     // Step 10: Fetch fresh config in background.
     void this.configFetcher.fetchInBackground();
@@ -293,8 +291,7 @@ class PulseWebSDK implements SdkContext {
 
     this._providerCleanup();
     this.registry?.uninstallAll();
-    this.interactionFeature?.shutdown();
-    this.interactionFeature = undefined;
+    this.interactionInstrumentation = undefined;
     this.sessionProvider?.shutdown();
 
     await Promise.all([
@@ -407,7 +404,7 @@ class PulseWebSDK implements SdkContext {
     }
 
     if (isDataCollectionAllowed(this.config.dataCollectionState)) {
-      this.interactionFeature?.trackEvent(name, attrs, timestampMs);
+      this.interactionInstrumentation?.trackEvent(name, attrs, timestampMs);
     }
   }
 

@@ -44,38 +44,40 @@ vi.mock("../exporters", () => {
   };
 });
 
-const interactionInit = vi.fn().mockResolvedValue(undefined);
+const interactionInstall = vi.fn();
 const interactionTrack = vi.fn();
 const interactionShutdown = vi.fn();
-vi.mock("../interactions/interaction-feature", () => ({
-  InteractionFeature: vi
+vi.mock("../instrumentations/interaction", () => ({
+  InteractionInstrumentation: vi
     .fn()
-    .mockImplementation(
-      (
-        _endpoint: string,
-        _config: unknown,
-        gate: { isEnabled: (name: string) => boolean },
-        interactionsEnabledByConfig: boolean,
-      ) => {
-        let active = false;
-        return {
-          init: async () => {
-            active =
-              interactionsEnabledByConfig && gate.isEnabled("interaction");
-            await interactionInit();
-          },
-          trackEvent: (
-            name: string,
-            attrs?: Record<string, unknown>,
-            timestampMs?: number,
-          ) => {
-            if (!active) return;
-            interactionTrack(name, attrs, timestampMs);
-          },
-          shutdown: interactionShutdown,
-        };
-      },
-    ),
+    .mockImplementation(() => {
+      let active = false;
+      return {
+        name: "interactions",
+        install: (sdk: {
+          config?: {
+            instrumentations?: {
+              interactions?: { enabled: boolean };
+            };
+          };
+          gate: { isEnabled: (name: string) => boolean };
+        }) => {
+          const enabledByConfig =
+            sdk.config?.instrumentations?.interactions?.enabled ?? true;
+          active = enabledByConfig && sdk.gate.isEnabled("interaction");
+          interactionInstall();
+        },
+        trackEvent: (
+          name: string,
+          attrs?: Record<string, unknown>,
+          timestampMs?: number,
+        ) => {
+          if (!active) return;
+          interactionTrack(name, attrs, timestampMs);
+        },
+        uninstall: interactionShutdown,
+      };
+    }),
 }));
 
 import type { PulseWebConfig } from "../config";
@@ -105,7 +107,7 @@ function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
 }
 
 beforeEach(() => {
-  interactionInit.mockClear();
+  interactionInstall.mockClear();
   interactionTrack.mockClear();
   interactionShutdown.mockClear();
   createProvidersMock.mockClear();
