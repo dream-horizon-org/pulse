@@ -6,7 +6,7 @@
 
 import { trace } from "@opentelemetry/api";
 import type { Tracer } from "@opentelemetry/api";
-import { logs } from "@opentelemetry/api-logs";
+import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 import type { Logger } from "@opentelemetry/api-logs";
 import { metrics } from "@opentelemetry/api";
 import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
@@ -283,6 +283,9 @@ class PulseWebSDK implements SdkContext {
     const err = error instanceof Error ? error : new Error(String(error));
     this.logger.emit({
       body: err.message,
+      timestamp: Date.now(),
+      severityNumber: SeverityNumber.WARN,
+      severityText: "WARN",
       attributes: {
         [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
           PulseWebSemconv.PulseType.NON_FATAL,
@@ -290,6 +293,8 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]: err.message,
         [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: err.stack ?? "",
         [PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]: true,
+        [PulseWebSemconv.AttributeKey.URL_PATH]:
+          typeof window !== "undefined" ? window.location.pathname : "",
         ...(attrs as Record<string, string | number | boolean>),
       },
     });
@@ -304,6 +309,9 @@ class PulseWebSDK implements SdkContext {
     const stack = err.stack ?? "";
     this.logger.emit({
       body: err.message,
+      timestamp: Date.now(),
+      severityNumber: SeverityNumber.FATAL,
+      severityText: "FATAL",
       attributes: {
         [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
           PulseWebSemconv.PulseType.DEVICE_CRASH,
@@ -312,6 +320,8 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: stack,
         [PulseWebSemconv.AttributeKey.ERROR_FILENAME]:
           errorFilenameFromStack(stack),
+        [PulseWebSemconv.AttributeKey.URL_PATH]:
+          typeof window !== "undefined" ? window.location.pathname : "",
         ...(attrs as Record<string, string | number | boolean>),
       },
     });

@@ -6,6 +6,15 @@ vi.mock("@opentelemetry/api-logs", () => ({
     getLogger: vi.fn().mockReturnValue({ emit: vi.fn() }),
     setGlobalLoggerProvider: vi.fn(),
   },
+  SeverityNumber: {
+    UNSPECIFIED: 0,
+    TRACE: 1,
+    DEBUG: 5,
+    INFO: 9,
+    WARN: 13,
+    ERROR: 17,
+    FATAL: 21,
+  },
 }));
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {

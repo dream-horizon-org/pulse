@@ -5,6 +5,7 @@
 import type { PulseWebConfig, InstrumentationConfig } from "./config";
 import type { FeatureGate } from "./feature-gate";
 import { SessionInstrumentation } from "./instrumentations/session";
+import { ErrorInstrumentation } from "./instrumentations/errors";
 import type {
   PulseInstrumentation,
   SdkContext,
@@ -53,8 +54,11 @@ export class InstrumentationRegistry {
       this.installed.push(sessionInstr);
     }
 
-    // M3: will install ErrorsInstrumentation, NetworkInstrumentation,
-    // ClicksInstrumentation, WebVitalsInstrumentation, NavigationInstrumentation, etc.
+    if (this.shouldInstall("errors")) {
+      const errInstr = new ErrorInstrumentation();
+      errInstr.install(this.sdk);
+      this.installed.push(errInstr);
+    }
   }
 
   uninstallAll(): void {

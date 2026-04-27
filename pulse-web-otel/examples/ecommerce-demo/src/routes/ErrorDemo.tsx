@@ -27,8 +27,7 @@ export default function ErrorDemo() {
         Error Demo
       </h2>
       <p style={{ color: "#64748b", marginBottom: 32 }}>
-        Trigger different error types. Uncaught / promise paths emit once M3
-        errors instrumentation ships.
+        Trigger different error types to see them appear in the Pulse dashboard.
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

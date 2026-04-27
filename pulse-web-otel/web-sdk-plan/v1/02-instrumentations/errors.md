@@ -720,6 +720,33 @@ test('Unhandled rejection lands as non_fatal', async ({ page }) => {
 
 ---
 
+## Manual Test Cases
+
+Use the ecommerce demo (`yarn demo`) with the local ingest stack running (`deploy/scripts/start.sh`). Open the **Error Demo** page at `/error-demo`.
+
+| # | Test | Steps to Reproduce | Expected | Status | Comment |
+|---|---|---|---|---|---|
+| 1 | Uncaught JS error emits device.crash | 1. Open `/error-demo` 2. Click **Throw uncaught error** 3. Check Pulse dashboard Crashes tab | Log record appears with `pulse.type = device.crash`, `exception.type = Error`, `exception.message = Demo uncaught error from ErrorDemo`, `error.lineno > 0`, `severityNumber = 21 (FATAL)` | | |
+| 2 | Unhandled promise rejection emits non_fatal | 1. Open `/error-demo` 2. Click **Reject unhandled promise** 3. Check Pulse dashboard Non-Fatals tab | Log record appears with `pulse.type = non_fatal`, `exception.message = Demo unhandled rejection from ErrorDemo`, `non_fatal.is_manual = false`, `severityNumber = 13 (WARN)` | | |
+| 3 | React render error caught by PulseErrorBoundary | 1. Open `/error-demo` 2. Click **Throw in render** 3. Check dashboard | Fallback UI renders on page; log record with `pulse.type = device.crash`, `exception.message = Intentional render error from ErrorDemo` appears in dashboard | | |
+| 4 | Manual reportException emits non_fatal with is_manual true | 1. Open `/error-demo` 2. Click **Report exception** 3. Check dashboard | Log record with `pulse.type = non_fatal`, `non_fatal.is_manual = true`, `exception.message = Manually reported error` | | |
+| 5 | url.path stamped on every error log | 1. Open `/error-demo` 2. Trigger any error type 3. Inspect log record attributes | `url.path = /error-demo` present on every emitted log record | | |
+| 6 | Deduplication — same error within 5s emitted once | 1. Open `/error-demo` 2. Open browser console 3. Run `for(let i=0;i<5;i++) window.dispatchEvent(new ErrorEvent('error',{message:'dup',filename:'x.js',lineno:1,error:new Error('dup')}))` 4. Check dashboard | Exactly 1 log record in dashboard, not 5 | | |
+| 7 | Deduplication window resets after 5s | 1. Trigger uncaught error 2. Wait 6 seconds 3. Trigger the exact same error again 4. Check dashboard | 2 separate log records appear | | |
+| 8 | Two different errors not deduplicated | 1. Open console 2. Dispatch error with message `err-a` 3. Dispatch error with message `err-b` 4. Check dashboard | 2 separate log records appear | | |
+| 9 | battery.percent included on Chrome/Edge | 1. Open in Chrome or Edge 2. Trigger uncaught error 3. Inspect log record attributes | `battery.percent` attribute present with value 0–100 | | Chrome/Edge only; getBattery() API required |
+| 10 | battery.percent absent on Firefox/Safari — error still captured | 1. Open in Firefox or Safari 2. Trigger uncaught error 3. Inspect log record | `battery.percent` attribute absent; all other attributes present; error captured correctly | | Expected — getBattery() not supported in Firefox/Safari |
+| 11 | storage.free included in all modern browsers | 1. Open in any modern browser 2. Trigger uncaught error 3. Inspect attributes | `storage.free` attribute present with value > 0 | | |
+| 12 | Cross-origin script error silently skipped | 1. Add `<script src="https://cross-origin.example.com/throws.js">` to page 2. Script throws 3. Check dashboard | No log record emitted; browser shows `Script error.` in console only | | Security — browser blocks stack for cross-origin scripts |
+| 13 | Error dispatched before SDK init is ignored | 1. Do NOT call `PulseWeb.start()` 2. Dispatch `new ErrorEvent('error', {message:'early', error: new Error('early')})` 3. Check dashboard | No log record emitted | | Listeners not attached before init |
+| 14 | reportException before SDK init is a no-op | 1. Do NOT call `PulseWeb.start()` 2. Call `PulseWeb.reportException(new Error('early'))` 3. Check dashboard | No log record emitted | | SDK guard returns early if not initialized |
+| 15 | String promise rejection reason wrapped in Error | 1. Open console 2. Run `Promise.reject('something went wrong')` 3. Check dashboard | Log record with `exception.type = Error`, `exception.message = something went wrong` | | String wrapped in new Error() |
+| 16 | Undefined rejection reason handled gracefully | 1. Open console 2. Run `Promise.reject(undefined)` 3. Check dashboard | Log record with `exception.message = Unknown rejection` | | |
+| 17 | timestamp reflects exact time of error | 1. Note wall clock time 2. Trigger any error 3. Inspect `timestamp` field in raw OTLP payload | `timestamp` within 1000ms of noted wall clock time | | Exact event time — not batch flush time |
+| 18 | No conflict with pre-existing window.onerror handler | 1. Before calling `PulseWeb.start()` set `window.onerror = () => console.log('existing handler fired')` 2. Start SDK 3. Trigger uncaught error | Console shows `existing handler fired`; Pulse log record also emitted in dashboard | | SDK uses addEventListener — does not overwrite onerror property |
+
+---
+
 ## Done Criteria
 
 - `device.crash` emitted on `window.onerror` with `exception.type`, `exception.message`, `exception.stacktrace`, `error.filename`, `error.lineno`, `error.colno`, `url.path`
