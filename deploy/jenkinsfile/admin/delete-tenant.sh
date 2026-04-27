@@ -91,6 +91,14 @@ delete_openfga_tuples() {
     fi
 }
 
+for _cmd in mysql jq curl; do
+    if ! command -v "$_cmd" &>/dev/null; then
+        err "Required command not on PATH: ${_cmd} (e.g. install mysql client, jq, curl on the Jenkins agent)"
+        exit 127
+    fi
+done
+unset _cmd
+
 # ── Preflight ─────────────────────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
