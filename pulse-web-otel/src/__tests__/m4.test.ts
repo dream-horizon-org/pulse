@@ -38,7 +38,7 @@ const mockGlobalAttrsProcessor = {
 };
 
 const mockSdk = {
-  tracer: {},
+  tracer: { startSpan: mockStartSpan },
   config: {
     routePatterns: [
       { pattern: "/products/:id", name: "ProductDetail" },
@@ -274,6 +274,21 @@ describe("NavigationInstrumentation", () => {
       expect(calls).not.toContain("screen_session");
     });
 
+    it("same-route pushState does NOT emit screen_session", () => {
+      let mockNow = 0;
+      vi.spyOn(performance, "now").mockImplementation(() => mockNow);
+
+      history.replaceState({}, "", "/products");
+      instr.install(mockSdk);
+      mockStartSpan.mockClear();
+
+      mockNow = 200;
+      // pushState to same pathname — should not split the session
+      history.pushState({}, "", "/products");
+
+      expect(getSpanCalls().map(c => c[0])).not.toContain("screen_session");
+    });
+
     it("replaceState does NOT emit screen_session", () => {
       let mockNow = 0;
       vi.spyOn(performance, "now").mockImplementation(() => mockNow);
@@ -300,6 +315,32 @@ describe("NavigationInstrumentation", () => {
 
       const calls = getSpanCalls().map(c => c[0]);
       expect(calls).toContain("screen_session");
+    });
+
+    it("TC18 — hash-only change does NOT emit screen_session", () => {
+      // Hash changes (#section) do not modify pathname so pushState/popstate
+      // are never triggered — the session must not be split.
+      let mockNow = 0;
+      vi.spyOn(performance, "now").mockImplementation(() => mockNow);
+
+      history.replaceState({}, "", "/products");
+      instr.install(mockSdk);
+      mockStartSpan.mockClear();
+
+      // Simulate anchor hash navigation — only hash changes, pathname stays the same
+      mockNow = 300;
+      history.pushState({}, "", "/products#section");
+
+      expect(getSpanCalls().map(c => c[0])).not.toContain("screen_session");
+    });
+
+    it("TC20 — navigation before install emits no spans", () => {
+      // SDK not started — History API never patched, no spans emitted
+      mockStartSpan.mockClear();
+
+      history.pushState({}, "", "/products");
+
+      expect(getSpanCalls()).toHaveLength(0);
     });
   });
 

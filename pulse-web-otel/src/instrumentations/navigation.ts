@@ -2,7 +2,8 @@
 // SPA route changes as spans. Owns screen_load, screen_interactive, screen_session
 // signal types. Android parity: ActivityInstrumentation, FragmentInstrumentation.
 
-import { trace, SpanKind, ROOT_CONTEXT } from "@opentelemetry/api";
+import { SpanKind, ROOT_CONTEXT } from "@opentelemetry/api";
+import type { Tracer } from "@opentelemetry/api";
 import type { PulseInstrumentation, SdkContext } from "../instrumentation-registry";
 import { PulseWebSemconv } from "../semconv";
 
@@ -14,6 +15,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   private lastScreenName = "";
   private routeStartTime = 0; // performance.now() at route start
   private sdk?: SdkContext;
+  private tracer?: Tracer;
 
   // Bound handler refs for cleanup
   private onPopState?: () => void;
@@ -24,6 +26,7 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") return;
     this.sdk = sdk;
+    this.tracer = sdk.tracer;
 
     this.currentRoute = window.location.pathname;
     this.currentScreenName = this.resolveScreenName(this.currentRoute);
@@ -103,8 +106,8 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   }
 
   private emitPageLoadSpans(nav: PerformanceNavigationTiming): void {
-    if (!this.sdk) return;
-    const tracer = trace.getTracer("pulse-web-navigation");
+    if (!this.sdk || !this.tracer) return;
+    const tracer = this.tracer;
     const K = PulseWebSemconv.AttributeKey;
     const T = PulseWebSemconv.PulseType;
 
@@ -159,11 +162,11 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   }
 
   private endCurrentSession(): void {
-    if (!this.sdk || !this.currentRoute) return;
+    if (!this.sdk || !this.tracer || !this.currentRoute) return;
     const duration = performance.now() - this.routeStartTime;
     if (duration < 100) return; // ignore sub-100ms accidental navigations
 
-    const tracer = trace.getTracer("pulse-web-navigation");
+    const tracer = this.tracer;
     const K = PulseWebSemconv.AttributeKey;
     const T = PulseWebSemconv.PulseType;
 
@@ -201,7 +204,11 @@ export class NavigationInstrumentation implements PulseInstrumentation {
 
     history.pushState = function (...args: Parameters<typeof history.pushState>) {
       origPush.apply(history, args);
-      self.onRouteChange(window.location.pathname);
+      // Only treat as a route change if the pathname actually changed.
+      // Same-route pushState (e.g. query-param updates) must not split the session.
+      if (window.location.pathname !== self.currentRoute) {
+        self.onRouteChange(window.location.pathname);
+      }
     };
 
     history.replaceState = function (...args: Parameters<typeof history.replaceState>) {
