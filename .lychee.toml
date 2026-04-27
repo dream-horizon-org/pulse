@@ -27,6 +27,8 @@ exclude = [
   "^https://developer\\.apple\\.com/documentation/",
   # OTel semconv registry paths move between doc releases
   "^https://opentelemetry\\.io/docs/specs/semconv/registry/",
+  # GitHub PR listing pages often return 502 to automated clients
+  "^https://github\\.com/open-telemetry/opentelemetry-android/pulls$",
 ]
 
 exclude_path = [
