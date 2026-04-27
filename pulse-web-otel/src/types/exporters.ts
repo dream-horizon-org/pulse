@@ -6,10 +6,7 @@ import type { WebTracerProvider } from "@opentelemetry/sdk-trace-web";
 import type { ExportSamplingGate } from "../sampling/export-sampling-gate";
 import type { PulseMetricsToAddEntry, PulseSdkName } from "./remote-config";
 import type { IdbSignalBuffer } from "../persistence/indexed-db";
-import type {
-  PulseBrowserTraceExporter,
-  PulseBrowserLogExporter,
-} from "../exporters/pulse-browser-otlp-exporters";
+import type { ResolvedBeforeSend } from "./before-send";
 
 export interface ExporterConfig {
   endpointBaseUrl: string;
@@ -31,7 +28,6 @@ export interface ExporterConfig {
    */
   metricsToAdd?: PulseMetricsToAddEntry[];
   metricsToAddSdkName?: PulseSdkName;
-
   /**
    * Failed OTLP payloads may persist via `IdbSignalBuffer` when `enabled` is not `false`
    * (default-on, same as Android OTel disk spec). Omitted in tests that mock `createProviders` whole.
@@ -41,18 +37,23 @@ export interface ExporterConfig {
     maxAgeMs?: number;
     maxCacheSizeBytes?: number;
   };
+
+  /** Resolved Android-style export-time hooks (`PulseWebConfig.beforeSendData`); optional. */
+  beforeSendData?: ResolvedBeforeSend;
 }
 
 export interface ProviderBundle {
   tracerProvider: WebTracerProvider;
   loggerProvider: LoggerProvider;
   meterProvider: MeterProvider;
-  /** Removes the pagehide listener registered by createProviders. Call in shutdown(). */
+  /** Idempotent teardown from createProviders (e.g. future listeners). Call in shutdown(). */
   cleanup: () => void;
   /** Set when disk buffering is enabled — used for startup drain of prior-session rows. */
   idbSignalBuffer?: IdbSignalBuffer;
-  /** Exposed so sdk.ts can call switchToKeepalive() on pagehide for trace spans. */
-  traceExporter?: PulseBrowserTraceExporter;
-  /** Exposed so sdk.ts can call switchToKeepalive() on pagehide for logs. */
-  logExporter?: PulseBrowserLogExporter;
+  /**
+   * Prepare OTLP export for real document unload: swap trace + log browser transports to
+   * keepalive {@code fetch} (same serializers / wire format as normal export). Call from
+   * {@code pagehide} ({@code !persisted}) before {@code forceFlush}.
+   */
+  prepareForDocumentUnload?: () => void;
 }

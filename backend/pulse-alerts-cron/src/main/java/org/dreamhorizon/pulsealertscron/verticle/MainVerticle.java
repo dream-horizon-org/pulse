@@ -54,7 +54,13 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), this.applicationConfig);
           SharedDataUtils.put(vertx.getDelegate(), this.webClient);
 
-          log.info("Loaded ApplicationConfig: pulseServerUrl={}", this.applicationConfig.getPulseServerUrl());
+          log.info(
+              "Loaded ApplicationConfig: pulseServerUrl={} usageCreditsSyncIntervalSeconds={} "
+                  + "apiKeysSyncIntervalSeconds={} usageLimitNotificationIntervalSeconds={}",
+              this.applicationConfig.getPulseServerUrl(),
+              this.applicationConfig.resolveUsageCreditsSyncIntervalSeconds(),
+              this.applicationConfig.resolveApiKeysSyncIntervalSeconds(),
+              this.applicationConfig.resolveUsageLimitNotificationIntervalSeconds());
           return config;
         })
         .doOnSuccess(config -> {

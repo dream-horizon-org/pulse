@@ -7,6 +7,14 @@ import type {
   SessionEndReason,
   SessionStartReason,
 } from "./types/session";
+import { PulseWebLogger } from "./pulse-web-logger";
+
+/** Storage access can throw (disabled, quota, sandbox). Never break the host app. */
+function swallowStorageError(scope: string, err: unknown): void {
+  const detail =
+    err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  PulseWebLogger.debug(`[session:${scope}] ${detail}`);
+}
 
 export type {
   SessionChangeEvent,
@@ -55,7 +63,8 @@ function generateUUID(): string {
 function tryLocalStorage(op: () => string | null): string | null {
   try {
     return op();
-  } catch {
+  } catch (err: unknown) {
+    swallowStorageError("installationId:localStorage", err);
     return null;
   }
 }
@@ -63,7 +72,8 @@ function tryLocalStorage(op: () => string | null): string | null {
 function trySessionStorage(op: () => string | null): string | null {
   try {
     return op();
-  } catch {
+  } catch (err: unknown) {
+    swallowStorageError("installationId:sessionStorage", err);
     return null;
   }
 }
@@ -295,7 +305,8 @@ export class SessionProvider {
     if (typeof window === "undefined") return null;
     try {
       return localStorage.getItem(SESSION_ID_KEY);
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("readSessionId", err);
       return null;
     }
   }
@@ -306,7 +317,8 @@ export class SessionProvider {
       const ts = localStorage.getItem(SESSION_TS_KEY);
       // Stored as nanoseconds; convert to ms
       return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("readSessionTs", err);
       return 0;
     }
   }
@@ -317,7 +329,8 @@ export class SessionProvider {
       const ts = localStorage.getItem(SESSION_START_KEY);
       // Stored as nanoseconds; convert to ms
       return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("readSessionStart", err);
       return 0;
     }
   }
@@ -329,8 +342,8 @@ export class SessionProvider {
       localStorage.setItem(SESSION_ID_KEY, id);
       localStorage.setItem(SESSION_TS_KEY, String(nowNs));
       localStorage.setItem(SESSION_START_KEY, String(startTs ?? nowNs));
-    } catch {
-      // ignore storage errors
+    } catch (err: unknown) {
+      swallowStorageError("writeSession", err);
     }
     this._emittedEndForSession = null;
   }
@@ -341,15 +354,18 @@ export class SessionProvider {
       localStorage.removeItem(SESSION_ID_KEY);
       localStorage.removeItem(SESSION_TS_KEY);
       localStorage.removeItem(SESSION_START_KEY);
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      swallowStorageError("clearSession", err);
     }
+    // Align dedupe latch with storage: after clear, a new id may emit session.end again.
+    this._emittedEndForSession = null;
   }
 
   private _readCloneFlag(): boolean {
     try {
       return sessionStorage.getItem(SESSION_CLONE_FLAG_KEY) === "1";
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("readCloneFlag", err);
       return false;
     }
   }
@@ -357,16 +373,16 @@ export class SessionProvider {
   private _writeCloneFlag(): void {
     try {
       sessionStorage.setItem(SESSION_CLONE_FLAG_KEY, "1");
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      swallowStorageError("writeCloneFlag", err);
     }
   }
 
   private _removeCloneFlag(): void {
     try {
       sessionStorage.removeItem(SESSION_CLONE_FLAG_KEY);
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      swallowStorageError("removeCloneFlag", err);
     }
   }
 
@@ -401,7 +417,15 @@ export class SessionProvider {
 
   private _emitSessionEnd(reason: SessionEndReason): void {
     const sessionId = this._readSessionId();
-    if (!sessionId || this._emittedEndForSession === sessionId) return;
+    if (!sessionId) return;
+
+    // Dedupe session.end for the same id (e.g. page_unload then shutdown). Shutdown still clears
+    // storage so teardown does not depend on emitting again.
+    if (this._emittedEndForSession === sessionId) {
+      this._clearSession();
+      return;
+    }
+
     this._emittedEndForSession = sessionId;
 
     const startTs = this._readSessionStart();
@@ -539,7 +563,8 @@ export class SessionProvider {
     if (typeof window === "undefined") return "";
     try {
       return localStorage.getItem("pulse_prev_session_id") ?? "";
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("getPreviousSessionId", err);
       return "";
     }
   }
@@ -548,8 +573,8 @@ export class SessionProvider {
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem(SESSION_TS_KEY, String(Date.now() * 1_000_000));
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      swallowStorageError("updateActivityTs", err);
     }
   }
 

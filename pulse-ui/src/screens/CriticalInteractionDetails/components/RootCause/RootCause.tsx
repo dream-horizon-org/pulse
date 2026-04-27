@@ -198,7 +198,9 @@ export function RootCause({
           mx="auto"
           mt="xl"
         >
-          <Text size="sm" mb="sm">{ROOT_CAUSE_MESSAGES.RCA_UNKNOWN_JOB_STATUS}</Text>
+          <Text size="sm" mb="sm">
+            {ROOT_CAUSE_MESSAGES.RCA_UNKNOWN_JOB_STATUS}
+          </Text>
           <Button
             leftSection={<IconRefresh size={14} />}
             variant="subtle"
@@ -260,7 +262,9 @@ export function RootCause({
           mt="xl"
         >
           <Text size="sm" mb="sm">
-            {rcaErrorMessage?.trim() ? rcaErrorMessage : ROOT_CAUSE_MESSAGES.GENERIC_ERROR}
+            {rcaErrorMessage?.trim()
+              ? rcaErrorMessage
+              : ROOT_CAUSE_MESSAGES.GENERIC_ERROR}
           </Text>
           <Button
             leftSection={<IconRefresh size={14} />}
@@ -391,10 +395,12 @@ export function RootCause({
   }
 
   return (
-    <Box className={classes.container}>
-      <Text className={classes.stateMessage}>
-        {ROOT_CAUSE_MESSAGES.NO_DATA}
-      </Text>
-    </Box>
+    <Stack gap="xl">
+      <Box className={classes.container}>
+        <Text className={classes.stateMessage}>
+          {ROOT_CAUSE_MESSAGES.NO_DATA}
+        </Text>
+      </Box>
+    </Stack>
   );
 }

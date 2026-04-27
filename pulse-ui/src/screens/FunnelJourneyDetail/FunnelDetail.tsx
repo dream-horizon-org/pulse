@@ -25,7 +25,12 @@ import funnelClasses from "../FunnelJourneyCreate/FunnelCreate.module.css";
 import { FunnelBuilder } from "../FunnelJourneyCreate/components/FunnelBuilder";
 import { FunnelVisualization } from "../FunnelJourneyCreate/components/FunnelVisualization";
 import { FunnelDataTable } from "../FunnelJourneyCreate/components/FunnelDataTable";
-import { FunnelType, StepOrderType, type CreateFunnelRequestBody } from "../../services/funnels.service";
+import {
+  FunnelMode,
+  FunnelType,
+  StepOrderType,
+  type CreateFunnelRequestBody,
+} from "../../services/funnels.service";
 
 /** Extracts an integer day-count from a preset string like "7d" → 7. */
 function extractDateRangeDays(preset: string): number {
@@ -78,6 +83,9 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
 
   const [funnelMode, setFunnelMode] = useState<StepOrderType>(
     detail.stepOrderType || StepOrderType.ORDERED,
+  );
+  const [analysisMode, setAnalysisMode] = useState<FunnelMode>(
+    (detail.mode as FunnelMode) || FunnelMode.UNIQUE_USERS,
   );
   const [conversionWindow, setConversionWindow] = useState(
     detail.windowSeconds ? String(detail.windowSeconds) : "86400",
@@ -141,6 +149,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
     if (rollingType !== (detail.funnelType || FunnelType.AUTO)) return true;
     if (funnelMode !== (detail.stepOrderType || StepOrderType.ORDERED))
       return true;
+    if (analysisMode !== (detail.mode || FunnelMode.UNIQUE_USERS)) return true;
     if (conversionWindow !== String(detail.windowSeconds || 86400)) return true;
     if (
       expiryDate?.toISOString() !==
@@ -192,6 +201,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
     tags,
     rollingType,
     funnelMode,
+    analysisMode,
     conversionWindow,
     expiryDate,
     customStartDate,
@@ -214,7 +224,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
       steps: apiSteps,
       windowSeconds: parseInt(conversionWindow, 10),
       filters: apiFilters,
-      mode: detail.mode || "UNIQUE_USERS",
+      mode: analysisMode,
       dateRangeDays: extractDateRangeDays(dateRange),
     };
 
@@ -302,6 +312,8 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
               }}
               funnelMode={funnelMode}
               onFunnelModeChange={setFunnelMode}
+              analysisMode={analysisMode}
+              onAnalysisModeChange={setAnalysisMode}
               conversionWindow={conversionWindow}
               onConversionWindowChange={(v) => {
                 setConversionWindow(v);
@@ -344,11 +356,13 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
                 totalConversionRate={funnelResult.overallConversionRate ?? 0}
                 conversionTrend={0}
                 medianTimes={funnelResult.steps.map((s: any) => s.medianStepSeconds ?? null)}
+                mode={analysisMode}
               />
               <FunnelDataTable
                 steps={funnelResult.steps}
                 timeRange={visualizationTimeRange}
                 apiSteps={apiSteps}
+                mode={analysisMode}
               />
             </>
           ) : (

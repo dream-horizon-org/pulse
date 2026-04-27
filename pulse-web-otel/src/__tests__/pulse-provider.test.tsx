@@ -42,6 +42,7 @@ vi.mock("../exporters", () => {
       loggerProvider: mockLoggerProvider,
       meterProvider: mockMeterProvider,
       cleanup: vi.fn(),
+      prepareForDocumentUnload: vi.fn(),
     }),
   };
 });

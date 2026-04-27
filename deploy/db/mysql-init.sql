@@ -1134,7 +1134,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\n{{status}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
-            JSON_OBJECT('type', 'mrkdwn', 'text', '*Email:*\n{{reporterEmail}}')
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Email:*\n{{reporterEmail}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*On-Call:*\n{{onCall}}')
         )),
         JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
         JSON_OBJECT('type', 'divider'),
@@ -1158,7 +1159,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nACKNOWLEDGED'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Acknowledged by:*\n{{actionBy}}'),
-            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*On-Call:*\n{{onCall}}')
         )),
         JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
         JSON_OBJECT('type', 'divider'),
@@ -1182,7 +1184,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nRECOVERED'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Recovered by:*\n{{actionBy}}'),
-            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*On-Call:*\n{{onCall}}')
         )),
         JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
         JSON_OBJECT('type', 'divider'),
@@ -1206,7 +1209,8 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nCLOSED'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
             JSON_OBJECT('type', 'mrkdwn', 'text', '*Closed by:*\n{{actionBy}}'),
-            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*On-Call:*\n{{onCall}}')
         )),
         JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', 'This incident has been resolved and closed. No further action required.'))
     )

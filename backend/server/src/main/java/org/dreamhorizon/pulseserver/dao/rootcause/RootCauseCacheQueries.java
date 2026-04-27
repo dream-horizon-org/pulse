@@ -23,7 +23,7 @@ public final class RootCauseCacheQueries {
 
   /**
    * INSERT target columns; VALUES tuple is built by
-   * {@link #buildInsertQuery(String, String, String, String, String, String, LocalDateTime)}.
+   * {@link #buildInsertQuery(String, String, String, Instant, String, String, String, LocalDateTime)}.
    */
   public static final String INSERT_INTO_ROOT_CAUSE_CACHE =
       "INSERT INTO otel.root_cause_cache (ProjectId, interaction_name, date, window_end_utc, mode, baseline, "

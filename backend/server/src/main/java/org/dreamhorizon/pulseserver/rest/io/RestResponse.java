@@ -15,6 +15,12 @@ public class RestResponse {
         .to(CompletableFutureUtils::fromSingle);
   }
 
+  public static <T> SingleConverter<T, CompletionStage<Response<T>>> jaxrsRestHandler(int successHttpStatus) {
+    return single -> single
+        .map(data -> Response.successfulResponse(data, successHttpStatus))
+        .to(CompletableFutureUtils::fromSingle);
+  }
+
   public static SingleConverter<jakarta.ws.rs.core.Response, CompletionStage<jakarta.ws.rs.core.Response>> toCompletion() {
     return single -> single.to(CompletableFutureUtils::fromSingle);
   }

@@ -6,13 +6,17 @@ import {
   Link,
   useLocation,
 } from "react-router-dom";
-import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
 import {
-  PulseProvider,
+  PulseWeb,
+  PulseDataCollectionConsent,
+  PulseLogLevel,
+} from "@dreamhorizon/pulse-web";
+import { PulseDebugPanel } from "./components/PulseDebugPanel";
+import {
   PulseErrorBoundary,
+  PulseProvider,
   useRouterTracking,
 } from "@dreamhorizon/pulse-web/react";
-import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
 const Home = lazy(() => import("./routes/Home"));
 const Products = lazy(() => import("./routes/Products"));
@@ -161,6 +165,8 @@ export default function App() {
         },
       },
       debugLogRecordLifecycle: debugLifecycle,
+      ...(formatEnv ? { export: { format: formatEnv } } : {}),
+      ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
