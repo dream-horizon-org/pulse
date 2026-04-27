@@ -2,6 +2,7 @@
 #
 # Purpose: bare RN app `pulse-react-native-otel/example` — CocoaPods + xcodebuild (simulator).
 # PulseKit from monorepo `pulse-ios-otel` when Podfile finds sibling PulseKit.podspec (same as local dev).
+name: React Native - Example iOS App Build
 on:
   workflow_call:
 

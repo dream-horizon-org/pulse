@@ -38,6 +38,7 @@
           "apiKey": "default-project_devkey01",
           "dataCollectionState": "ALLOWED",
           "android": {
+            "okHttpInstrumentation": { "enabled": true },
             "globalAttributes": {
               "string": "value",
               "numberFloatNegative": -9.05,

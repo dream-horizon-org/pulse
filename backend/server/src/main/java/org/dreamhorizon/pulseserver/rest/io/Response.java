@@ -27,6 +27,11 @@ public class Response<T> {
     this.data = data;
   }
 
+  Response(T data, int httpStatusCode) {
+    this.data = data;
+    this.httpStatusCode = httpStatusCode;
+  }
+
   Response(Error error, int httpStatusCode) {
     this.error = error;
     this.httpStatusCode = httpStatusCode;
@@ -40,6 +45,10 @@ public class Response<T> {
     return new Response<T>(data);
   }
 
+  public static <T> Response<T> successfulResponse(T data, int httpStatusCode) {
+    return new Response<>(data, httpStatusCode);
+  }
+
   public static Response errorResponse(Error error, int httpStatusCode) {
     return new Response(error, httpStatusCode);
   }
@@ -50,6 +59,11 @@ public class Response<T> {
 
   public Error getError() {
     return error;
+  }
+
+  @JsonIgnore
+  public int getHttpStatusCode() {
+    return httpStatusCode;
   }
 
 }
