@@ -384,4 +384,127 @@ test.describe("@M2 interactions edge cases", () => {
     // Boundary determinism: no degraded category for exact limits.
     expect(categories.has("Poor")).toBe(false);
   });
+
+  test("apdex scoring works for 3-event interaction durations", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "apdex_three_step",
+        name: "Apdex Three Step",
+        events: [
+          { name: "a1", required: true },
+          { name: "a2", required: true },
+          { name: "a3", required: true },
+        ],
+        thresholdInMs: 1200,
+        uptimeLowerLimitInMs: 150,
+        uptimeMidLimitInMs: 300,
+        uptimeUpperLimitInMs: 450,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    const t0 = Date.now();
+    // Excellent (end-start = 80, clearly below lower=150)
+    await emitEvent(page, "a1", undefined, t0);
+    await emitEvent(page, "a2", undefined, t0 + 40);
+    await emitEvent(page, "a3", undefined, t0 + 80);
+    // Good (end-start = 280)
+    await emitEvent(page, "a1", undefined, t0 + 1_000);
+    await emitEvent(page, "a2", undefined, t0 + 1_120);
+    await emitEvent(page, "a3", undefined, t0 + 1_280);
+    // Poor (end-start > upper)
+    await emitEvent(page, "a1", undefined, t0 + 2_000);
+    await emitEvent(page, "a2", undefined, t0 + 2_260);
+    await emitEvent(page, "a3", undefined, t0 + 2_520);
+    await waitForInteractionCount(page, otlp, 3, 12_000);
+
+    const spans = findAllSpans(otlp.captured, "interaction").filter(
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") === "apdex_three_step",
+    );
+    expect(spans.length).toBe(3);
+    const categories = spans.map((span) =>
+      String(getAttr(span.attributes, "pulse.interaction.user_category")),
+    );
+    expect(categories).toContain("Excellent");
+    expect(categories).toContain("Good");
+    expect(categories).toContain("Poor");
+  });
+
+  test("shared prefix branching: e1,e2,e4 is non-terminal; e1,e2,e5 and e1,e2,e3 terminal", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        id: "branch_e123",
+        name: "Branch E123",
+        events: [
+          { name: "e1", required: true },
+          { name: "e2", required: true },
+          { name: "e3", required: true },
+        ],
+        thresholdInMs: 5000,
+      }),
+      makeConfig({
+        id: "branch_e125",
+        name: "Branch E125",
+        events: [
+          { name: "e1", required: true },
+          { name: "e2", required: true },
+          { name: "e5", required: true },
+        ],
+        thresholdInMs: 5000,
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+
+    // Shared prefix + irrelevant e4 should not terminal.
+    await emitEvent(page, "e1");
+    await emitEvent(page, "e2");
+    await emitEvent(page, "e4");
+    await page.waitForTimeout(500);
+    expect(findAllSpans(otlp.captured, "interaction").length).toBe(0);
+
+    // e5 finalizes second branch despite intermediate irrelevant e4.
+    await emitEvent(page, "e5");
+    await waitForInteractionCount(page, otlp, 1, 8_000);
+
+    let spans = findAllSpans(otlp.captured, "interaction");
+    let branch123 = spans.filter(
+      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "branch_e123",
+    );
+    let branch125 = spans.filter(
+      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "branch_e125",
+    );
+    expect(branch125.length).toBeGreaterThanOrEqual(1);
+    expect(
+      branch125.some(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
+      ),
+    ).toBe(true);
+
+    // Fresh second run: e1,e2,e3 finalizes other branch.
+    otlp.reset();
+    await emitEvent(page, "e1");
+    await emitEvent(page, "e2");
+    await emitEvent(page, "e3");
+    await waitForInteractionCount(page, otlp, 1, 8_000);
+    spans = findAllSpans(otlp.captured, "interaction");
+    branch123 = spans.filter(
+      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "branch_e123",
+    );
+    branch125 = spans.filter(
+      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "branch_e125",
+    );
+    expect(branch123.length).toBeGreaterThanOrEqual(1);
+    expect(
+      branch123.some(
+        (s) => getAttr(s.attributes, "pulse.interaction.is_error") === false,
+      ),
+    ).toBe(true);
+  });
 });
