@@ -9,6 +9,8 @@ Audit `.cursor/` configuration files against the codebase source-of-truth files 
     - `backend/ingestion/clickhouse-funnel-journey-replicated-schema.sql` — cluster `funnel_results_local` /
       `journey_results_local` + Distributed tables
     - `backend/ingestion/session-summary-mv.sql` — session summary MV (referenced by init)
+    - `backend/ingestion/clickhouse-event-catalog-schema.sql` — `event_catalog_entries` (init when present)
+    - `deploy/scripts/init-clickhouse.sh` — order of applied SQL in `clickhouse-init`
     - `deploy/.env.example` — environment variable names
     - `deploy/scripts/build.sh` — accepted build targets
     - `deploy/scripts/start.sh` — accepted start targets

@@ -28,8 +28,9 @@ cd deploy
 ./scripts/build.sh cron        # pulse-alerts-cron only
 ./scripts/build.sh capture     # pulse-session-capture only
 ./scripts/build.sh ingestion   # pulse-session-replay-ingestion only
+./scripts/build.sh heatmap-ingestion  # pulse-heatmap-screenshot-ingestion only
 ./scripts/build.sh ai          # pulse-ai-agent only
-./scripts/build.sh all         # same as omitting args: ui + server + cron + capture + ingestion + ai
+./scripts/build.sh all         # same as omitting args: ui + server + cron + capture + ingestion + heatmap-ingestion + ai
 ```
 
 ## Start/Stop

@@ -57,7 +57,19 @@ if echo "$changed_files" | grep -q "^pulse_ai/"; then
 fi
 
 # Check if source-of-truth files changed without .cursor/ updates
-sot_files=("deploy/docker-compose.yml" "backend/ingestion/clickhouse-otel-schema.sql" "backend/ingestion/session-summary-mv.sql" "deploy/.env.example" "deploy/scripts/build.sh" "deploy/scripts/start.sh" "deploy/scripts/common.sh")
+sot_files=(
+  "deploy/docker-compose.yml"
+  "backend/ingestion/clickhouse-otel-schema.sql"
+  "backend/ingestion/session-summary-mv.sql"
+  "backend/ingestion/clickhouse-funnel-results-schema.sql"
+  "backend/ingestion/clickhouse-journey-results-schema.sql"
+  "backend/ingestion/clickhouse-event-catalog-schema.sql"
+  "deploy/scripts/init-clickhouse.sh"
+  "deploy/.env.example"
+  "deploy/scripts/build.sh"
+  "deploy/scripts/start.sh"
+  "deploy/scripts/common.sh"
+)
 sot_changed=false
 for f in "${sot_files[@]}"; do
   if echo "$changed_files" | grep -q "^${f}$"; then

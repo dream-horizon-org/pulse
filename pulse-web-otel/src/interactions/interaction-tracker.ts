@@ -5,8 +5,11 @@
 import type { InteractionConfig } from "./interaction-models";
 import {
   buildPulseInteraction,
+  formatMatchResultForLog,
   matchInteractionSequence,
 } from "./interaction-sequence-matcher";
+import { PulseWebLogger } from "../pulse-web-logger";
+import { INTERACTION_PROP_KEYS } from "../constants/interactions/interaction-constants";
 import type {
   InteractionLocalEvent,
   InteractionRunningStatus,
@@ -20,6 +23,8 @@ import {
   sortedInsertLocalEvent,
 } from "../utils/interactions/interaction-events";
 import { randomInteractionId } from "../utils/interactions/interaction-id";
+
+const LOG = "[interactions:tracker]";
 
 export class InteractionTracker {
   private readonly localEvents: InteractionLocalEvent[] = [];
@@ -67,6 +72,9 @@ export class InteractionTracker {
 
     // Insert in timestamp order so the matcher sees a consistent timeline.
     sortedInsertLocalEvent(this.localEvents, event);
+    PulseWebLogger.verbose(
+      `${LOG} capture configId=${this.interactionConfig.id} event=${event.name} bufferLen=${this.localEvents.length} markers=${this.localMarkers.length}`,
+    );
 
     // Stable id for the in-flight interaction, or a fresh id when starting after a closed window.
     const interactionId = this.nextInteractionIdForMatch();
@@ -80,6 +88,9 @@ export class InteractionTracker {
     );
 
     if (seqResult == null) {
+      PulseWebLogger.debug(
+        `${LOG} match -> close (no derived state) configId=${this.interactionConfig.id}`,
+      );
       // Matcher cannot derive a next state; treat the interaction as finished for this config.
       this.interactionClosed = true;
       return;
@@ -122,6 +133,9 @@ export class InteractionTracker {
           interaction: null,
         };
         this.interactionClosed = false;
+        PulseWebLogger.debug(
+          `${LOG} sequence_violation_restart configId=${this.interactionConfig.id} keptEvent=${lastEvent.name} newInteractionId=${newStatus.interactionId}`,
+        );
       } else {
         // Terminal reset: drop buffers, close interaction, surface matcher terminal status only.
         this.interactionClosed = true;
@@ -142,10 +156,16 @@ export class InteractionTracker {
     // If still mid-flow with no payload yet, arm timeout for the next expected step.
     this.scheduleTimer(newStatus);
     // Notify coordinator / feature so spans or UI can follow the latest slice.
+    PulseWebLogger.debug(
+      `${LOG} after_match ${formatMatchResultForLog(this.interactionConfig.id, { shouldTakeFirstEvent, shouldResetList, interactionStatus: newStatus })}`,
+    );
     this.callbacks.onStatusesEmitted?.(this.current);
   }
 
   destroy(): void {
+    PulseWebLogger.debug(
+      `${LOG} destroy configId=${this.interactionConfig.id}`,
+    );
     this.clearTimer();
     this.clearStates();
     this.interactionClosed = true;
@@ -211,6 +231,11 @@ export class InteractionTracker {
       return;
     }
     const delayMs = this.interactionConfig.thresholdInMs + 10;
+    const expectEvent =
+      this.interactionConfig.events[newValue.index + 1]?.name ?? "—";
+    PulseWebLogger.verbose(
+      `${LOG} arm_inter_step_timer configId=${this.interactionConfig.id} delayMs=${delayMs} expectEvent=${expectEvent}`,
+    );
     this.timer = setTimeout(() => this.onInterStepTimeout(), delayMs);
   }
 
@@ -221,6 +246,11 @@ export class InteractionTracker {
     if (last?.kind !== "ongoing" || last.interaction != null) {
       return;
     }
+    const expectEvent =
+      this.interactionConfig.events[last.index + 1]?.name ?? "—";
+    PulseWebLogger.debug(
+      `${LOG} inter_step_timeout configId=${this.interactionConfig.id} waitedForEvent=${expectEvent}`,
+    );
     const errInteraction = this.createErrorInteraction(
       last,
       this.localEvents,
@@ -245,10 +275,20 @@ export class InteractionTracker {
     newValue: InteractionRunningStatus,
   ): void {
     if (oldValue?.kind === "ongoing" && oldValue.interaction != null) {
+      this.logTerminalEmit("prior_terminal", oldValue.interaction);
       this.callbacks.onInteractionTerminal?.(oldValue.interaction);
     }
     if (newValue.kind === "ongoing" && newValue.interaction != null) {
+      this.logTerminalEmit("current_terminal", newValue.interaction);
       this.callbacks.onInteractionTerminal?.(newValue.interaction);
     }
+  }
+
+  private logTerminalEmit(role: string, interaction: PulseInteraction): void {
+    const isErr = interaction.props[INTERACTION_PROP_KEYS.IS_ERROR] === true;
+    const errType = interaction.props[INTERACTION_PROP_KEYS.ERROR_TYPE];
+    PulseWebLogger.debug(
+      `${LOG} emit ${role} configId=${this.interactionConfig.id} interactionId=${interaction.id} isError=${isErr} errType=${isErr && errType != null ? String(errType) : "—"}`,
+    );
   }
 }

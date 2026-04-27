@@ -12,6 +12,7 @@ import {
   PulseLogLevel,
 } from "@dreamhorizon/pulse-web";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
+import { CartProvider } from "./hooks/useCart";
 
 const Home = lazy(() => import("./routes/Home"));
 const Products = lazy(() => import("./routes/Products"));
@@ -110,6 +111,9 @@ export default function App() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
+    const queryLogLevel = searchParams.get("pulse_log_level");
+    const queryUserEnabled = searchParams.get("pulse_user_enabled");
+    const queryUserId = searchParams.get("pulse_user_id");
 
     // Disk buffering defaults on (Android parity). Opt out with ?pulse_disk=0 or VITE_PULSE_DISK_BUFFER=false.
     const diskOffQuery = searchParams.get("pulse_disk") === "0";
@@ -128,8 +132,25 @@ export default function App() {
       | "json"
       | "protobuf"
       | undefined;
-    const debugLifecycle =
+    const logLevelRaw = (
+      queryLogLevel ?? import.meta.env["VITE_PULSE_LOG_LEVEL"] ?? ""
+    )
+      .toString()
+      .trim()
+      .toLowerCase();
+    const legacyDebugLifecycle =
       import.meta.env["VITE_PULSE_DEBUG_LOG_LIFECYCLE"] === "true";
+    const logLevelMap: Record<string, PulseLogLevel> = {
+      verbose: PulseLogLevel.VERBOSE,
+      debug: PulseLogLevel.DEBUG,
+      info: PulseLogLevel.INFO,
+      warn: PulseLogLevel.WARN,
+      error: PulseLogLevel.ERROR,
+      none: PulseLogLevel.NONE,
+    };
+    const logLevel =
+      logLevelMap[logLevelRaw] ??
+      (legacyDebugLifecycle ? PulseLogLevel.DEBUG : undefined);
 
     const serviceVersionRaw = import.meta.env["VITE_PULSE_SERVICE_VERSION"] as
       | string
@@ -147,9 +168,37 @@ export default function App() {
       ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
       ...(formatEnv ? { export: { format: formatEnv } } : {}),
-      ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
+      ...(logLevel !== undefined ? { logLevel } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
     });
+
+    const envUserEnabled =
+      String(import.meta.env["VITE_PULSE_DEMO_USER_ENABLED"] ?? "")
+        .trim()
+        .toLowerCase() === "true";
+    const userEnabled =
+      queryUserEnabled == null
+        ? envUserEnabled
+        : queryUserEnabled === "1" || queryUserEnabled === "true";
+    if (userEnabled) {
+      const userId =
+        (queryUserId && queryUserId.trim() !== "" ? queryUserId : undefined) ??
+        (import.meta.env["VITE_PULSE_DEMO_USER_ID"] as string | undefined) ??
+        "demo-user-001";
+      PulseWeb.setUserId(userId);
+      const userProps: Record<string, string | null> = {
+        plan: (import.meta.env["VITE_PULSE_DEMO_USER_PLAN"] as string | undefined) ?? "pro",
+        cohort:
+          (import.meta.env["VITE_PULSE_DEMO_USER_COHORT"] as string | undefined) ??
+          "beta",
+        region:
+          (import.meta.env["VITE_PULSE_DEMO_USER_REGION"] as string | undefined) ??
+          "us",
+      };
+      PulseWeb.setUserProperties(userProps);
+    } else {
+      PulseWeb.setUserId(null);
+    }
 
     // Expose for E2E shutdown test (m1.spec.ts)
     (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
@@ -158,8 +207,10 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <AppRoutes />
-      <PulseDebugPanel />
+      <CartProvider>
+        <AppRoutes />
+        <PulseDebugPanel />
+      </CartProvider>
     </BrowserRouter>
   );
 }

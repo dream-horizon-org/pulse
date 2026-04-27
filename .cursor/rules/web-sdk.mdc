@@ -48,6 +48,8 @@ When implementing a specific task, read the matching phase doc for the full spec
 - Mock `window.localStorage`, `navigator`, `crypto.randomUUID` in tests
 - Do not mock the OTLP exporter — use a fake HTTP server (MSW or similar)
 
+**Package-local style, test file layout, and “after every change” checklist:** `.cursor/rules/pulse-web-otel.mdc`.
+
 ### Size Budget
 - Core entry point: < 30 KB gzipped
 - React integration: < 2 KB gzipped (above core)

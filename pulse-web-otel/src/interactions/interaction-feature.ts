@@ -33,9 +33,6 @@ export class InteractionFeature {
     const spanBuilder = new InteractionSpanBuilder(tracer);
     this.coordinator = new InteractionCoordinator({
       onInteractionTerminal: (interaction) => {
-        PulseWebLogger.debug(
-          `${LIFECYCLE} terminal: id=${interaction.id} name=${interaction.name}`,
-        );
         spanBuilder.emitInteraction(interaction);
       },
     });

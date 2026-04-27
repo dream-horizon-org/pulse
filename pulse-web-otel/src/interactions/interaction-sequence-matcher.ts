@@ -20,6 +20,31 @@ import {
   localMatchesAnyEvent,
 } from "../utils/interactions/event-matching";
 import { globalBlacklistAsEvents } from "../utils/interactions/interaction-events";
+import { PulseWebLogger } from "../pulse-web-logger";
+
+const LOG = "[interactions:match]";
+
+/** One-line description for debug logs (tracker + matcher). */
+export function formatMatchResultForLog(
+  configId: string,
+  result: MatchResult | null,
+): string {
+  if (result == null) {
+    return `configId=${configId} result=null (no state derived for buffer)`;
+  }
+  const { shouldTakeFirstEvent, shouldResetList, interactionStatus } = result;
+  if (interactionStatus.kind === "no_ongoing") {
+    return `configId=${configId} takeFirst=${shouldTakeFirstEvent} reset=${shouldResetList} status=no_ongoing`;
+  }
+  const { index, interactionId, interaction: payload } = interactionStatus;
+  if (payload == null) {
+    return `configId=${configId} takeFirst=${shouldTakeFirstEvent} reset=${shouldResetList} status=ongoing index=${index} id=${interactionId} payload=— mid_step`;
+  }
+  const isErr = payload.props[INTERACTION_PROP_KEYS.IS_ERROR] === true;
+  const errType = payload.props[INTERACTION_PROP_KEYS.ERROR_TYPE];
+  const kind = isErr ? `error:${String(errType ?? "?")}` : "success";
+  return `configId=${configId} takeFirst=${shouldTakeFirstEvent} reset=${shouldResetList} status=ongoing index=${index} id=${interactionId} payload=terminal kind=${kind}`;
+}
 
 function interactionErrorMessage(error: InteractionBuildError): string {
   switch (error.type) {
@@ -200,11 +225,15 @@ export function matchInteractionSequence(
 
     // return if event matches any global blacklisted event;
     if (isMatchOnGoing && localMatchesAnyEvent(localEvent, globalBlacklistedEvents)) {
-      return {
+      const out: MatchResult = {
         shouldTakeFirstEvent: false,
         shouldResetList: true,
         interactionStatus: { kind: "no_ongoing", old: null },
       };
+      PulseWebLogger.debug(
+        `${LOG} global_blacklist_during_match event=${localEvent.name} -> ${formatMatchResultForLog(interactionConfig.id, out)}`,
+      );
+      return out;
     }
 
     const configEvent = interactionConfig.events[configEventIndex]!;
@@ -293,5 +322,8 @@ export function matchInteractionSequence(
     resetMatching();
   }
 
+  PulseWebLogger.debug(
+    `${LOG} done bufferLen=${localEvents.length} -> ${formatMatchResultForLog(interactionConfig.id, newInteractionStatus)}`,
+  );
   return newInteractionStatus;
 }

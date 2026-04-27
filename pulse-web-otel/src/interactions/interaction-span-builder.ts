@@ -5,6 +5,7 @@ import {
   type Tracer,
 } from "@opentelemetry/api";
 
+import { PulseWebLogger } from "../pulse-web-logger";
 import { PulseWebSemconv } from "../semconv";
 import {
   INTERACTION_PROP_KEYS,
@@ -14,6 +15,8 @@ import type {
   InteractionLocalEvent,
   PulseInteraction,
 } from "../types/interactions/interaction-runtime";
+
+const LOG = "[interactions:span]";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -53,6 +56,9 @@ export class InteractionSpanBuilder {
     const errorType = asString(p[INTERACTION_PROP_KEYS.ERROR_TYPE]) ?? "";
     const errorMessage = asString(p[INTERACTION_PROP_KEYS.ERROR_MESSAGE]) ?? "";
     const localEvents = toLocalEvents(p[INTERACTION_PROP_KEYS.LOCAL_EVENTS]);
+    PulseWebLogger.debug(
+      `${LOG} emit spanName=${interaction.name} interactionId=${interaction.id} configId=${configId ?? "—"} isError=${isError} errorType=${isError && errorType ? errorType : "—"} localEventCount=${localEvents.length}`,
+    );
 
     const safeDurationNs = completeTimeNs ?? 0;
     const firstEventNs = localEvents[0]?.timeInNano;
