@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense, useMemo } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -7,6 +7,11 @@ import {
   useLocation,
 } from "react-router-dom";
 import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import {
+  PulseProvider,
+  PulseErrorBoundary,
+  useRouterTracking,
+} from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
 const Home = lazy(() => import("./routes/Home"));
@@ -70,6 +75,7 @@ function NavBar() {
 }
 
 function AppRoutes() {
+  useRouterTracking({ skipInitial: false });
   return (
     <>
       <NavBar />
@@ -103,7 +109,7 @@ function AppRoutes() {
 }
 
 export default function App() {
-  useEffect(() => {
+  const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
 
@@ -135,26 +141,65 @@ export default function App() {
         ? String(serviceVersionRaw).trim()
         : undefined;
 
-    PulseWeb.start({
+    return {
       apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
       ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
-      ...(formatEnv ? { export: { format: formatEnv } } : {}),
-      ...(debugLifecycle ? { debugLogRecordLifecycle: true } : {}),
+      export: {
+        format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
+        compression:
+          (import.meta.env["VITE_PULSE_COMPRESSION"] as
+            | "gzip"
+            | "none"
+            | undefined) ?? "gzip",
+        batch: {
+          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
+            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
+            : 5000,
+        },
+      },
+      debugLogRecordLifecycle: debugLifecycle,
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
-    });
-
-    // Expose for E2E shutdown test (m1.spec.ts)
-    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <BrowserRouter>
-      <AppRoutes />
-      <PulseDebugPanel />
-    </BrowserRouter>
+    // shutdownOnUnmount=false: SDK lives for the full page lifetime.
+    // PulseErrorBoundary at root catches any SDK-adjacent render errors.
+    <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
+      <PulseErrorBoundary
+        fallback={(error) => (
+          <div
+            style={{
+              padding: 32,
+              color: "#b91c1c",
+              fontFamily: "monospace",
+              fontSize: 14,
+            }}
+          >
+            <strong>App error caught by PulseErrorBoundary:</strong>
+            <pre>{error.message}</pre>
+          </div>
+        )}
+      >
+        <BrowserRouter>
+          {/* Expose for E2E shutdown test (m1.spec.ts) */}
+          <_PulseWebExpose />
+          <AppRoutes />
+          <PulseDebugPanel />
+        </BrowserRouter>
+      </PulseErrorBoundary>
+    </PulseProvider>
   );
+}
+
+/** Exposes PulseWeb on window for E2E tests. No UI rendered. */
+function _PulseWebExpose(): null {
+  React.useEffect(() => {
+    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+  }, []);
+  return null;
 }

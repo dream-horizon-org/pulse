@@ -1,6 +1,74 @@
 import type { ReactNode } from "react";
+import type { PulseWebConfig } from "../config";
 
 export interface PulseErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
+}
+
+/**
+ * Minimal shape of `react-router-dom`'s location object that
+ * {@link UseRouterTrackingOptions.format} receives. Avoids a hard type
+ * dependency on `react-router-dom` at the public API surface.
+ */
+export interface PulseLocationLike {
+  pathname: string;
+  search: string;
+  hash: string;
+}
+
+export interface UseRouterTrackingOptions {
+  /**
+   * Override how the location is converted to a screen name. Defaults to
+   * `location.pathname` (or `pathname + search` when `includeSearch` is set).
+   */
+  format?: (location: PulseLocationLike) => string;
+  /**
+   * Include the query string in the screen name. Default `false` — query
+   * strings often contain high-cardinality values (ids, tokens) and expand
+   * the screen-name dimension on the dashboard.
+   */
+  includeSearch?: boolean;
+  /**
+   * Skip the very first render. Default `true` — the SDK already emits an
+   * initial `session.start` / `screen.session` on `start()`, and the router
+   * mount would otherwise cause a duplicate signal. Set `false` if you want
+   * the hook to own the first screen name instead.
+   */
+  skipInitial?: boolean;
+}
+
+export interface PulseProviderProps {
+  /**
+   * SDK configuration. Captured on first mount only — subsequent changes are
+   * ignored. To apply a new config, unmount and remount the provider.
+   */
+  config: PulseWebConfig;
+  children: ReactNode;
+  /**
+   * If true (default), the SDK is shut down when the last `PulseProvider`
+   * unmounts. Set to `false` to keep the SDK alive for the full page lifetime
+   * regardless of provider unmounts (recommended for most apps).
+   *
+   * StrictMode's synthetic unmount/remount in dev is handled automatically —
+   * shutdown is deferred by a microtask and cancelled if the provider
+   * re-mounts, so `start()` is never called twice.
+   */
+  shutdownOnUnmount?: boolean;
+}
+
+/** Subset of `react-router-dom`'s Location we use — avoids a hard import. */
+export interface PulseLocationLike {
+  pathname: string;
+  search: string;
+  hash: string;
+}
+
+export interface UseRouterTrackingOptions {
+  /** Custom screen name builder — receives the current location. */
+  format?: (location: PulseLocationLike) => string;
+  /** Include `location.search` in the dependency key (default: false). */
+  includeSearch?: boolean;
+  /** Skip the very first render's call (default: true). */
+  skipInitial?: boolean;
 }

@@ -56,6 +56,8 @@ Milestones ≠ phases. Phases are technical groupings. Milestones are shippable 
 
 ## M2 — Interactions + Interaction Config +SDK Config + React + First Publish
 
+
+
 > **Goal:** The highest-value Pulse-specific feature ships. Teams can track multi-step user journeys, control the SDK remotely, and integrate with React. First npm alpha published.
 
 **Why interactions before instrumentations?**
