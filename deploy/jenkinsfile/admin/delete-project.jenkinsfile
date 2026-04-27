@@ -52,13 +52,14 @@ pipeline {
                 sh '''
                     set -e
                     set +x
+                    cd "${WORKSPACE}"
                     echo "Fetching variables from AWS Secrets Manager..."
                     aws secretsmanager get-secret-value \
                         --region ap-south-1 \
                         --secret-id prod/pulseserver/appenv \
                         --query 'SecretString' \
                         --output text \
-                        | jq -r '(reduce .app_env[] as $item ({}; . * {($item.key): $item.value})) as $e | "MYSQL_HOST=" + ($e.MYSQL_WRITER_HOST // ""), "MYSQL_PORT=" + ($e.MYSQL_PORT // "3306"), "MYSQL_USER=" + ($e.MYSQL_USER // ""), "MYSQL_PASSWORD=" + ($e.MYSQL_PASSWORD // ""), "MYSQL_DATABASE=" + ($e.MYSQL_DATABASE // "pulse_db"), "CH_ADMIN_HOST=" + ($e.CLICKHOUSE_HOST // ""), "CH_ADMIN_PORT=" + ($e.CLICKHOUSE_PORT // "8123"), "CH_ADMIN_USER=" + ($e.CLICKHOUSE_USERNAME // ""), "CH_ADMIN_PASSWORD=" + ($e.CLICKHOUSE_PASSWORD // ""), "CH_CLUSTER_NAME=" + ($e.CLICKHOUSE_CLUSTER_NAME // ""), "OPENFGA_API_URL=" + ($e.OPENFGA_API_URL // ""), "OPENFGA_STORE_ID=" + ($e.OPENFGA_STORE_ID // "")' > .db-ops-env
+                        | jq -r '(reduce .app_env[] as $item ({}; . * {($item.key): $item.value})) as $e | "MYSQL_HOST=" + ($e.MYSQL_WRITER_HOST // ""), "MYSQL_PORT=" + ($e.MYSQL_PORT // "3306"), "MYSQL_USER=" + ($e.MYSQL_USER // ""), "MYSQL_PASSWORD=" + ($e.MYSQL_PASSWORD // ""), "MYSQL_DATABASE=" + ($e.MYSQL_DATABASE // "pulse_db"), "CH_ADMIN_HOST=" + ($e.CLICKHOUSE_HOST // ""), "CH_ADMIN_PORT=" + ($e.CLICKHOUSE_PORT // "8123"), "CH_ADMIN_USER=" + ($e.CLICKHOUSE_USERNAME // ""), "CH_ADMIN_PASSWORD=" + ($e.CLICKHOUSE_PASSWORD // ""), "CH_CLUSTER_NAME=" + ($e.CLICKHOUSE_CLUSTER_NAME // ""), "OPENFGA_API_URL=" + ($e.OPENFGA_API_URL // ""), "OPENFGA_STORE_ID=" + ($e.OPENFGA_STORE_ID // "")' > "${WORKSPACE}/.db-ops-env"
                 '''
             }
         }
@@ -72,7 +73,8 @@ pipeline {
                 sh '''
                     set -e
                     set +x
-                    set -a; . .db-ops-env; set +a
+                    cd "${WORKSPACE}"
+                    set -a; . "${WORKSPACE}/.db-ops-env"; set +a
                     chmod +x deploy/jenkinsfile/admin/delete-project.sh
                     deploy/jenkinsfile/admin/delete-project.sh
                 '''
@@ -103,7 +105,8 @@ pipeline {
                 sh '''
                     set -e
                     set +x
-                    set -a; . .db-ops-env; set +a
+                    cd "${WORKSPACE}"
+                    set -a; . "${WORKSPACE}/.db-ops-env"; set +a
                     deploy/jenkinsfile/admin/delete-project.sh
                 '''
             }
@@ -112,7 +115,7 @@ pipeline {
 
     post {
         always {
-            sh 'rm -f .db-ops-env || true'
+            sh 'rm -f "${WORKSPACE}/.db-ops-env" || true'
         }
     }
 }
