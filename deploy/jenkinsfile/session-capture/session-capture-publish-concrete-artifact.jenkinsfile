@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        node { label 'pulse-artifact-build-default-ec2-fleet' }
+        node { label 'pulse-artifact-arm-build-ec2-fleet' }
     }
 
     options {
@@ -78,12 +78,13 @@ pipeline {
 
     post {
         success {
-            script {
-                def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* published\n" +
-                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-            }
+               echo "Build succeeded. Slack notification disabled."
+//             script {
+//                 def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* published\n" +
+//                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+//                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+//                 slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+//             }
         }
         // failure {
         //     script {
