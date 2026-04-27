@@ -7,6 +7,14 @@ import type {
   SessionEndReason,
   SessionStartReason,
 } from "./types/session";
+import { PulseWebLogger } from "./pulse-web-logger";
+
+/** Storage access can throw (disabled, quota, sandbox). Never break the host app. */
+function swallowStorageError(scope: string, err: unknown): void {
+  const detail =
+    err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  PulseWebLogger.debug(`[session:${scope}] ${detail}`);
+}
 
 export type {
   SessionChangeEvent,
@@ -24,6 +32,11 @@ const SESSION_START_KEY = "pulse_session_start";
 // Written to sessionStorage on init; removed on beforeunload so reload sees it gone.
 // If flag is present on init → tab was cloned (duplicated tab) → session reused.
 const SESSION_CLONE_FLAG_KEY = "pulse_session_clone_flag";
+
+// Tab session key — written to sessionStorage on init and NOT removed on beforeunload.
+// Survives page reload (sessionStorage persists across reload in the same tab).
+// Absent in a brand-new tab (Cmd+T) → session.start must fire.
+const SESSION_TAB_KEY = "pulse_tab_session";
 
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_MAX_SESSION_LIFETIME_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -55,7 +68,8 @@ function generateUUID(): string {
 function tryLocalStorage(op: () => string | null): string | null {
   try {
     return op();
-  } catch {
+  } catch (err: unknown) {
+    swallowStorageError("installationId:localStorage", err);
     return null;
   }
 }
@@ -63,7 +77,8 @@ function tryLocalStorage(op: () => string | null): string | null {
 function trySessionStorage(op: () => string | null): string | null {
   try {
     return op();
-  } catch {
+  } catch (err: unknown) {
+    swallowStorageError("installationId:sessionStorage", err);
     return null;
   }
 }
@@ -168,6 +183,9 @@ export class SessionProvider {
   /** Reentrancy guard: prevent nested getSessionId() calls from triggering another rotation */
   private _rotatingSession = false;
 
+  /** Dedup guard: tracks which session ID has already had session.end emitted. */
+  private _emittedEndForSession: string | null = null;
+
   /** Timestamp when page was hidden (ms), or null if not hidden */
   _hiddenAtMs: number | null = null;
 
@@ -191,6 +209,10 @@ export class SessionProvider {
       // If so, this tab was duplicated (cloned) from another tab → reuse session
       const hasCloneFlag = this._readCloneFlag();
 
+      // Tab session detection: present when this is the same tab reloading.
+      // Absent in a brand-new tab (Cmd+T) because sessionStorage is not inherited.
+      const hasTabSession = this._readTabSession();
+
       // Check for active session in localStorage
       const existingId = this._readSessionId();
       const existingTs = this._readSessionTs();
@@ -204,8 +226,11 @@ export class SessionProvider {
         const lifetimeOk = age <= this.maxSessionLifetimeMs;
 
         if (inactivityOk && lifetimeOk) {
-          // Session is valid — mark as reused (reload or clone)
-          this._sessionReused = true;
+          // Reuse session only when: clone (duplicated tab) OR same-tab reload.
+          // A brand-new tab has neither flag → session.start must fire.
+          if (hasCloneFlag || hasTabSession) {
+            this._sessionReused = true;
+          }
         }
         // If session expired (by inactivity or lifetime), rotation happens lazily in getSessionId()
       }
@@ -213,6 +238,10 @@ export class SessionProvider {
       // Always write the clone flag to sessionStorage so any future clone of THIS tab
       // will detect that it was cloned.
       this._writeCloneFlag();
+
+      // Always write the tab session key so page reloads in this same tab are detected.
+      // This key is intentionally NOT removed on beforeunload (unlike the clone flag).
+      this._writeTabSession();
 
       // Set up beforeunload: remove clone flag so page reload sees it gone
       this.beforeunloadListener = () => {
@@ -292,7 +321,8 @@ export class SessionProvider {
     if (typeof window === "undefined") return null;
     try {
       return localStorage.getItem(SESSION_ID_KEY);
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("readSessionId", err);
       return null;
     }
   }
@@ -303,7 +333,8 @@ export class SessionProvider {
       const ts = localStorage.getItem(SESSION_TS_KEY);
       // Stored as nanoseconds; convert to ms
       return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("readSessionTs", err);
       return 0;
     }
   }
@@ -314,7 +345,8 @@ export class SessionProvider {
       const ts = localStorage.getItem(SESSION_START_KEY);
       // Stored as nanoseconds; convert to ms
       return ts ? Math.floor(parseInt(ts, 10) / 1_000_000) : 0;
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("readSessionStart", err);
       return 0;
     }
   }
@@ -326,9 +358,10 @@ export class SessionProvider {
       localStorage.setItem(SESSION_ID_KEY, id);
       localStorage.setItem(SESSION_TS_KEY, String(nowNs));
       localStorage.setItem(SESSION_START_KEY, String(startTs ?? nowNs));
-    } catch {
-      // ignore storage errors
+    } catch (err: unknown) {
+      swallowStorageError("writeSession", err);
     }
+    this._emittedEndForSession = null;
   }
 
   private _clearSession(): void {
@@ -337,15 +370,18 @@ export class SessionProvider {
       localStorage.removeItem(SESSION_ID_KEY);
       localStorage.removeItem(SESSION_TS_KEY);
       localStorage.removeItem(SESSION_START_KEY);
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      swallowStorageError("clearSession", err);
     }
+    // Align dedupe latch with storage: after clear, a new id may emit session.end again.
+    this._emittedEndForSession = null;
   }
 
   private _readCloneFlag(): boolean {
     try {
       return sessionStorage.getItem(SESSION_CLONE_FLAG_KEY) === "1";
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("readCloneFlag", err);
       return false;
     }
   }
@@ -353,16 +389,33 @@ export class SessionProvider {
   private _writeCloneFlag(): void {
     try {
       sessionStorage.setItem(SESSION_CLONE_FLAG_KEY, "1");
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      swallowStorageError("writeCloneFlag", err);
     }
   }
 
   private _removeCloneFlag(): void {
     try {
       sessionStorage.removeItem(SESSION_CLONE_FLAG_KEY);
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      swallowStorageError("removeCloneFlag", err);
+    }
+  }
+
+  private _readTabSession(): boolean {
+    try {
+      return sessionStorage.getItem(SESSION_TAB_KEY) === "1";
+    } catch (err: unknown) {
+      swallowStorageError("readTabSession", err);
+      return false;
+    }
+  }
+
+  private _writeTabSession(): void {
+    try {
+      sessionStorage.setItem(SESSION_TAB_KEY, "1");
+    } catch (err: unknown) {
+      swallowStorageError("writeTabSession", err);
     }
   }
 
@@ -378,7 +431,8 @@ export class SessionProvider {
 
   private _emitSessionEndSkipClear(reason: SessionEndReason): void {
     const sessionId = this._readSessionId();
-    if (!sessionId) return;
+    if (!sessionId || this._emittedEndForSession === sessionId) return;
+    this._emittedEndForSession = sessionId;
 
     const startTs = this._readSessionStart();
     const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
@@ -397,6 +451,15 @@ export class SessionProvider {
   private _emitSessionEnd(reason: SessionEndReason): void {
     const sessionId = this._readSessionId();
     if (!sessionId) return;
+
+    // Dedupe session.end for the same id (e.g. page_unload then shutdown). Shutdown still clears
+    // storage so teardown does not depend on emitting again.
+    if (this._emittedEndForSession === sessionId) {
+      this._clearSession();
+      return;
+    }
+
+    this._emittedEndForSession = sessionId;
 
     const startTs = this._readSessionStart();
     const durationNs = startTs > 0 ? (Date.now() - startTs) * 1_000_000 : 0;
@@ -533,7 +596,8 @@ export class SessionProvider {
     if (typeof window === "undefined") return "";
     try {
       return localStorage.getItem("pulse_prev_session_id") ?? "";
-    } catch {
+    } catch (err: unknown) {
+      swallowStorageError("getPreviousSessionId", err);
       return "";
     }
   }
@@ -542,8 +606,8 @@ export class SessionProvider {
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem(SESSION_TS_KEY, String(Date.now() * 1_000_000));
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      swallowStorageError("updateActivityTs", err);
     }
   }
 

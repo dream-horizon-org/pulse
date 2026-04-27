@@ -83,9 +83,10 @@ export function createPulseXhrTransport(parameters: {
             error: new Error("XHR request errored"),
           });
         };
-        const contentType =
-          parameters.headers["Content-Type"] ?? "application/json";
-        xhr.send(new Blob([data as BlobPart], { type: contentType }));
+        // Send as Uint8Array (Content-Type already set via setRequestHeader above).
+        // Avoid wrapping in Blob — Playwright webkit cannot read postDataBuffer()
+        // for Blob-bodied XHR requests, breaking E2E test interception.
+        xhr.send(data as XMLHttpRequestBodyInit | null | undefined);
       });
     },
     shutdown() {},
@@ -161,6 +162,40 @@ export function base64ToUint8(b64: string): Uint8Array {
   return out;
 }
 
+export function createPulseFetchTransport(parameters: {
+  url: string;
+  headers: Record<string, string>;
+  keepalive?: boolean;
+}): IExporterTransport {
+  return {
+    send(data: Uint8Array, _timeoutMillis: number): Promise<ExportResponse> {
+      return fetch(parameters.url, {
+        method: "POST",
+        headers: parameters.headers,
+        body: data as BodyInit,
+        keepalive: parameters.keepalive ?? false,
+      })
+        .then((res) => {
+          if (res.ok) return { status: "success" as const };
+          if (RETRYABLE.has(res.status)) return { status: "retryable" as const };
+          return {
+            status: "failure" as const,
+            error: new Error(`Fetch failed: ${res.status}`),
+          };
+        })
+        .catch((err: unknown) => ({
+          status: "failure" as const,
+          error: err instanceof Error ? err : new Error(String(err)),
+        }));
+    },
+    shutdown() {},
+  };
+}
+
+export type BrowserExportTransport = IExporterTransport & {
+  switchToKeepalive(): void;
+};
+
 /**
  * Outermost: retrying. Inner chain should be: persist → gzip → xhr (or persist → xhr).
  */
@@ -175,11 +210,30 @@ export function buildBrowserExportTransport(
       meta: PersistMeta;
     };
   },
-): IExporterTransport {
-  let t: IExporterTransport = createPulseXhrTransport(xhrParams);
+): BrowserExportTransport {
+  // Mutable inner transport — starts as XHR, can switch to keepalive fetch on pagehide.
+  let innerXhr: IExporterTransport = createPulseXhrTransport(xhrParams);
+
+  const switcher: IExporterTransport = {
+    send(data, timeout) { return innerXhr.send(data, timeout); },
+    shutdown() { innerXhr.shutdown(); },
+  };
+
+  let t: IExporterTransport = switcher;
   if (options.useGzip) {
     t = wrapTransportWithGzip(t);
   }
   t = wrapTransportWithDiskPersistence(t, options.diskPersistence);
-  return createPulseRetryingTransport({ transport: t });
+  const retrying = createPulseRetryingTransport({ transport: t });
+
+  return {
+    send: retrying.send.bind(retrying),
+    shutdown: retrying.shutdown.bind(retrying),
+    switchToKeepalive() {
+      innerXhr = createPulseFetchTransport({
+        ...xhrParams,
+        keepalive: true,
+      });
+    },
+  };
 }

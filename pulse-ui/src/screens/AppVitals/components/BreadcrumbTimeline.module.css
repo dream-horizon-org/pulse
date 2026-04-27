@@ -1,21 +1,93 @@
-.eventCount {
-  padding: 8px var(--mantine-spacing-sm) 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--mantine-color-dark-3);
-  letter-spacing: -0.1px;
+.root {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.container {
-  max-height: 420px;
+.panelHeader {
+  flex-shrink: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.06),
+    rgba(14, 201, 194, 0.1)
+  );
+  border-bottom: 1px solid rgba(14, 201, 194, 0.18);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+}
+
+.panelHeaderIcon {
+  color: #0ba09a;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.panelHeaderTitle {
+  color: var(--mantine-color-dark-7);
+  letter-spacing: -0.2px;
+}
+
+.scrollRegion {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+.virtualListInner {
+  width: 100%;
+  position: relative;
   padding: 2px 0 var(--mantine-spacing-xs);
 }
 
-.emptyState {
-  text-align: center;
-  padding: var(--mantine-spacing-xl) var(--mantine-spacing-lg);
-  font-size: 13px;
+.virtualRow {
+  left: 0;
+  width: 100%;
+}
+
+.container {
+  padding: 2px 0 var(--mantine-spacing-xs);
+}
+
+.stateRoot {
+  min-height: 200px;
+}
+
+.emptyIcon {
+  color: rgba(14, 201, 194, 0.55);
+}
+
+.loadMoreFooter {
+  flex-shrink: 0;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md)
+    var(--mantine-spacing-md);
+  background: light-dark(rgba(255, 255, 255, 0.85), rgba(26, 27, 30, 0.5));
+  border-top: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.loadMoreButton {
+  margin-top: var(--mantine-spacing-sm);
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.08),
+    rgba(14, 201, 194, 0.14)
+  ) !important;
+  border: 1px solid rgba(14, 201, 194, 0.25) !important;
+  font-weight: 600;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.loadMoreButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.15);
 }
 
 .timelineItem {
@@ -64,8 +136,13 @@
   border-bottom: 1px solid var(--mantine-color-gray-2);
 }
 
-.timelineItem:last-child .content {
+.contentLast {
   border-bottom: none;
+}
+
+.detailsPanel {
+  margin-top: 4px;
+  padding-bottom: 2px;
 }
 
 .titleRow {
@@ -84,7 +161,9 @@
   height: 16px;
   border-radius: 3px;
   color: var(--mantine-color-dark-3);
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .titleRow:hover .expandIcon {
@@ -123,17 +202,19 @@
 }
 
 .absTime {
-  font-size: 11px;
+  font-size: 11px !important;
   color: var(--mantine-color-dark-3);
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
   white-space: nowrap;
   line-height: 1;
 }
 
 .relativeTime {
-  font-size: 11px;
+  font-size: 11px !important;
   font-weight: 600;
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
   min-width: 56px;
   text-align: right;
   line-height: 1;
@@ -144,7 +225,7 @@
 }
 
 .timeAfter {
-  color: var(--mantine-color-yellow-8);
+  color: var(--mantine-color-yellow-8) !important;
 }
 
 .propsContainer {
@@ -168,20 +249,22 @@
 }
 
 .propKey {
-  font-size: 11px;
+  font-size: 11px !important;
   font-weight: 500;
   color: var(--mantine-color-dark-4);
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
   flex-shrink: 0;
   min-width: 100px;
   line-height: 1.5;
 }
 
 .propValue {
-  font-size: 11px;
+  font-size: 11px !important;
   font-weight: 500;
   color: var(--mantine-color-dark-6);
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
   word-break: break-word;
   line-height: 1.5;
 }

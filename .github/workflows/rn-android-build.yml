@@ -1,3 +1,4 @@
+name: React Native - Android Build
 on:
   workflow_call:
 

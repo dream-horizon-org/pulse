@@ -12,7 +12,13 @@
  *
  * The `waitFor*` helpers poll `captured` on a 100ms interval — no external server needed.
  */
-import { test as base, expect, type Route } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type BrowserContext,
+  type Page,
+  type Route,
+} from "@playwright/test";
 import { gunzipSync } from "zlib";
 
 // ─── OTLP JSON types (minimal — add fields as needed) ────────────────────────
@@ -102,9 +108,9 @@ export function findAllLogs(
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
     if (c.type !== "logs") continue;
-    for (const rl of c.body.resourceLogs) {
-      for (const sl of rl.scopeLogs) {
-        for (const lr of sl.logRecords) {
+    for (const rl of (c.body.resourceLogs ?? [])) {
+      for (const sl of (rl.scopeLogs ?? [])) {
+        for (const lr of (sl.logRecords ?? [])) {
           if (getAttr(lr.attributes, "pulse.type") === pulseType) out.push(lr);
         }
       }
@@ -121,9 +127,9 @@ export function findAllSpans(
   const out: OtlpSpan[] = [];
   for (const c of captured) {
     if (c.type !== "traces") continue;
-    for (const rs of c.body.resourceSpans) {
-      for (const ss of rs.scopeSpans) {
-        for (const sp of ss.spans) {
+    for (const rs of (c.body.resourceSpans ?? [])) {
+      for (const ss of (rs.scopeSpans ?? [])) {
+        for (const sp of (ss.spans ?? [])) {
           if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
         }
       }
@@ -140,9 +146,9 @@ export function findAllSpansByName(
   const out: OtlpSpan[] = [];
   for (const c of captured) {
     if (c.type !== "traces") continue;
-    for (const rs of c.body.resourceSpans) {
-      for (const ss of rs.scopeSpans) {
-        for (const sp of ss.spans) {
+    for (const rs of (c.body.resourceSpans ?? [])) {
+      for (const ss of (rs.scopeSpans ?? [])) {
+        for (const sp of (ss.spans ?? [])) {
           if (sp.name === spanName) out.push(sp);
         }
       }
@@ -159,9 +165,9 @@ export function findAllLogsByBody(
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
     if (c.type !== "logs") continue;
-    for (const rl of c.body.resourceLogs) {
-      for (const sl of rl.scopeLogs) {
-        for (const lr of sl.logRecords) {
+    for (const rl of (c.body.resourceLogs ?? [])) {
+      for (const sl of (rl.scopeLogs ?? [])) {
+        for (const lr of (sl.logRecords ?? [])) {
           if (lr.body?.stringValue === body) out.push(lr);
         }
       }
@@ -178,7 +184,7 @@ export function findAllMetricPoints(
   const out: OtlpDataPoint[] = [];
   for (const c of captured) {
     if (c.type !== "metrics") continue;
-    for (const rm of c.body.resourceMetrics) {
+    for (const rm of (c.body.resourceMetrics ?? [])) {
       for (const sm of rm.scopeMetrics) {
         for (const m of sm.metrics) {
           if (m.name === metricName) {
@@ -206,10 +212,10 @@ export function getResourceAttr(
   for (const c of captured) {
     const resourceList =
       c.type === "logs"
-        ? c.body.resourceLogs.map((r) => r.resource)
+        ? (c.body.resourceLogs ?? []).map((r) => r.resource)
         : c.type === "traces"
-          ? c.body.resourceSpans.map((r) => r.resource)
-          : c.body.resourceMetrics.map((r) => r.resource);
+          ? (c.body.resourceSpans ?? []).map((r) => r.resource)
+          : (c.body.resourceMetrics ?? []).map((r) => r.resource);
     for (const res of resourceList) {
       const val = getAttr(res?.attributes, key);
       if (val !== undefined) return String(val);
@@ -248,6 +254,56 @@ async function pollUntil<T>(
   throw new Error(`Timeout (${timeoutMs}ms) waiting for ${description}`);
 }
 
+/**
+ * Intercept OTLP on a whole {@link BrowserContext} or a single {@link Page}
+ * (same pattern as the `otlp` fixture). Use context-level routing when the test
+ * closes the page under test — `page.route` dies with the page.
+ */
+export async function attachOtlpCapture(
+  target: Page | BrowserContext,
+  captured: CapturedRequest[],
+): Promise<void> {
+  const corsHeaders: Record<string, string> = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Content-Encoding, X-API-KEY, X-Pulse-Metering-Session-ID",
+  };
+
+  const intercept =
+    (type: "logs" | "traces" | "metrics") => async (route: Route) => {
+      if (route.request().method() === "OPTIONS") {
+        await route.fulfill({ status: 204, headers: corsHeaders });
+        return;
+      }
+      const body = decodeBody(route.request().postDataBuffer()) as never;
+      captured.push({ type, body });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: corsHeaders,
+        body: '{"partialSuccess":{}}',
+      });
+    };
+
+  await target.route("**/v1/logs", intercept("logs"));
+  await target.route("**/v1/traces", intercept("traces"));
+  await target.route("**/v1/metrics", intercept("metrics"));
+}
+
+/** Poll `captured` until a log with the given `pulse.type` appears. */
+export async function waitForCapturedLog(
+  captured: CapturedRequest[],
+  pulseType: string,
+  timeoutMs = 8_000,
+): Promise<OtlpLogRecord> {
+  return pollUntil(
+    () => findAllLogs(captured, pulseType)[0],
+    timeoutMs,
+    `log(pulse.type="${pulseType}")`,
+  );
+}
+
 // ─── Fixture type ─────────────────────────────────────────────────────────────
 
 export type OtlpFixture = {
@@ -272,33 +328,7 @@ export type OtlpFixture = {
 export const test = base.extend<{ otlp: OtlpFixture }>({
   otlp: async ({ page }, use) => {
     const captured: CapturedRequest[] = [];
-
-    const corsHeaders: Record<string, string> = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers":
-        "Content-Type, Content-Encoding, X-API-KEY, X-Pulse-Metering-Session-ID",
-    };
-
-    const intercept =
-      (type: "logs" | "traces" | "metrics") => async (route: Route) => {
-        if (route.request().method() === "OPTIONS") {
-          await route.fulfill({ status: 204, headers: corsHeaders });
-          return;
-        }
-        const body = decodeBody(route.request().postDataBuffer()) as never;
-        captured.push({ type, body });
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          headers: corsHeaders,
-          body: '{"partialSuccess":{}}',
-        });
-      };
-
-    await page.route("**/v1/logs", intercept("logs"));
-    await page.route("**/v1/traces", intercept("traces"));
-    await page.route("**/v1/metrics", intercept("metrics"));
+    await attachOtlpCapture(page, captured);
 
     await use({
       captured,

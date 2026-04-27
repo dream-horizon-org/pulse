@@ -3,6 +3,7 @@
 import type { LogRecord, LogRecordProcessor } from "@opentelemetry/sdk-logs";
 import type { LogBody } from "@opentelemetry/api-logs";
 import type { LogRecordLifecyclePhase } from "../types/log-record-lifecycle";
+import { PulseWebLogger } from "../pulse-web-logger";
 
 export type { LogRecordLifecyclePhase } from "../types/log-record-lifecycle";
 
@@ -38,15 +39,17 @@ export class LogRecordLifecycleDebugProcessor implements LogRecordProcessor {
 
   onEmit(logRecord: LogRecord): void {
     const n = ++emitSeq;
-    console.log("[PulseWeb:logLifecycle]", {
-      seq: n,
-      phase: this.phase,
-      note:
-        this.phase === "ingress"
-          ? "Logger pipeline entry (before global attrs)"
-          : "Done pre-batch → BatchLogRecordProcessor will queue (in-memory; flush on timer or forceFlush)",
-      ...summarizeLogRecord(logRecord),
-    });
+    PulseWebLogger.debug(
+      `[logLifecycle] ${JSON.stringify({
+        seq: n,
+        phase: this.phase,
+        note:
+          this.phase === "ingress"
+            ? "Logger pipeline entry (before global attrs)"
+            : "Done pre-batch → BatchLogRecordProcessor will queue (in-memory; flush on timer or forceFlush)",
+        ...summarizeLogRecord(logRecord),
+      })}`,
+    );
   }
 
   forceFlush(): Promise<void> {

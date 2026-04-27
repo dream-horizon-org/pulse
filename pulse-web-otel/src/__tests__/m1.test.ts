@@ -89,6 +89,8 @@ vi.mock("../exporters", () => {
       tracerProvider: mockProvider,
       loggerProvider: mockLoggerProvider,
       meterProvider: mockMeterProvider,
+      cleanup: vi.fn(),
+      prepareForDocumentUnload: vi.fn(),
     }),
   };
 });
@@ -845,6 +847,27 @@ describe("M1 — Session Provider (extended)", () => {
     );
     expect(endReasons).toHaveLength(1);
     expect(endReasons[0]).toBe("page_unload");
+  });
+
+  it("pagehide then shutdown: one session.end (page_unload) and localStorage cleared", () => {
+    const provider = new SessionProvider();
+    currentProvider = provider;
+    provider.getSessionId();
+
+    const endReasons: string[] = [];
+    provider.onSessionChange((e) => {
+      if (e.type === "end") endReasons.push(e.reason);
+    });
+
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
+    expect(endReasons).toEqual(["page_unload"]);
+    expect(window.localStorage.getItem("pulse_session_id")).not.toBeNull();
+
+    provider.shutdown();
+    expect(endReasons).toEqual(["page_unload"]);
+    expect(window.localStorage.getItem("pulse_session_id")).toBeNull();
   });
 
   it("does NOT emit session.end on BFCache pagehide (persisted=true)", () => {
@@ -1786,6 +1809,8 @@ describe("M1 — Session Provider: reload and clone detection (beforeunload flag
       String(msToNs(Date.now() - 5000)),
     );
     // No clone flag — beforeunload removed it before reload
+    // Tab session key IS present — survives reload in the same tab
+    window.sessionStorage.setItem("pulse_tab_session", "1");
 
     const provider = makeProvider();
 
@@ -1800,6 +1825,8 @@ describe("M1 — Session Provider: reload and clone detection (beforeunload flag
       "pulse_session_start",
       String(msToNs(Date.now() - 5000)),
     );
+    // Tab session key IS present — survives reload in the same tab
+    window.sessionStorage.setItem("pulse_tab_session", "1");
 
     const provider = makeProvider();
     const events: SessionChangeEvent[] = [];
@@ -2101,6 +2128,7 @@ function makeMockBundle(emitSpy: ReturnType<typeof vi.fn>) {
       shutdown: vi.fn().mockResolvedValue(undefined),
     },
     cleanup: vi.fn(),
+    prepareForDocumentUnload: vi.fn(),
   };
 }
 

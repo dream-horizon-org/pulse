@@ -14,13 +14,18 @@ import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import type { MeterProvider } from "@opentelemetry/sdk-metrics";
 
 import type { PulseWebConfig } from "./config";
-import { resolveEndpointBaseUrl, validateConfig } from "./config";
+import {
+  resolveEndpointBaseUrl,
+  validateConfig,
+  PulseLogLevel,
+} from "./config";
+import { PulseWebLogger } from "./pulse-web-logger";
 import {
   SessionProvider,
   getOrCreateInstallationId,
   wasNewInstallation,
 } from "./session";
-import { buildResource } from "./resource";
+import { buildMergedResource } from "./resource";
 import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
 import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
 import { FeatureGate } from "./feature-gate";
@@ -40,6 +45,7 @@ import {
   resolveDiskBufferMaxAgeMs,
   resolveDiskBufferMaxCacheSizeBytes,
 } from "./constants/disk-buffer";
+import { resolveBeforeSend } from "./before-send";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -56,6 +62,8 @@ class PulseWebSDK implements SdkContext {
   private tracerProvider?: WebTracerProvider;
   private loggerProvider?: LoggerProvider;
   private meterProvider?: MeterProvider;
+  private _prepareForDocumentUnload?: () => void;
+  private _pagehideListener?: (e: PageTransitionEvent) => void;
   private registry?: InstrumentationRegistry;
   private configFetcher: SdkConfigFetcher = new SdkConfigFetcher("", "");
   private gate: FeatureGate = new FeatureGate(DEFAULT_SDK_CONFIG);
@@ -70,10 +78,9 @@ class PulseWebSDK implements SdkContext {
 
   start(config: PulseWebConfig): void {
     if (this._initialized || this._shuttingDown || this._starting) return;
-
     // Step 1: Validate config
     validateConfig(config);
-
+    PulseWebLogger.setLevel(config.logLevel ?? PulseLogLevel.NONE);
     // Step 1.5: Resolve endpointBaseUrl from apiKey (internal — not a public config field)
     const endpointBaseUrl = resolveEndpointBaseUrl(config.apiKey);
 
@@ -113,7 +120,7 @@ class PulseWebSDK implements SdkContext {
       this._starting = false;
       return;
     }
-    const resource = buildResource(config, resolvedOsVersion);
+    const resource = buildMergedResource(config, resolvedOsVersion);
 
     // Step 4: Load cached SDK config
     const projectId = extractProjectId(config.apiKey);
@@ -140,11 +147,11 @@ class PulseWebSDK implements SdkContext {
 
     const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
 
-    const debugLifecycle = config.debugLogRecordLifecycle === true;
-    const ingressDebugProc = debugLifecycle
+    const lifecycleDebug = PulseWebLogger.getLevel() <= PulseLogLevel.DEBUG;
+    const ingressDebugProc = lifecycleDebug
       ? new LogRecordLifecycleDebugProcessor("ingress")
       : null;
-    const preBatchDebugProc = debugLifecycle
+    const preBatchDebugProc = lifecycleDebug
       ? new LogRecordLifecycleDebugProcessor("pre_batch")
       : null;
     const logProcessors = [
@@ -156,6 +163,7 @@ class PulseWebSDK implements SdkContext {
 
     const diskOn = config.diskBuffering?.enabled !== false;
     const disk = config.diskBuffering;
+    const beforeSendResolved = resolveBeforeSend(config.beforeSendData);
     const exporterConfig = {
       endpointBaseUrl,
       apiKey: config.apiKey,
@@ -176,6 +184,7 @@ class PulseWebSDK implements SdkContext {
             ),
           }
         : { enabled: false },
+      ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
     };
 
     const bundle = createProviders(
@@ -199,7 +208,22 @@ class PulseWebSDK implements SdkContext {
     this.tracerProvider = bundle.tracerProvider;
     this.loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
+    this._prepareForDocumentUnload = bundle.prepareForDocumentUnload;
     this._providerCleanup = bundle.cleanup ?? (() => {});
+
+    if (typeof window !== "undefined") {
+      this._pagehideListener = (e: PageTransitionEvent) => {
+        if (!e.persisted && this._initialized) {
+          this._prepareForDocumentUnload?.();
+          void Promise.all([
+            this.loggerProvider?.forceFlush(),
+            this.tracerProvider?.forceFlush(),
+            this.meterProvider?.forceFlush(),
+          ]).catch(() => {});
+        }
+      };
+      window.addEventListener("pagehide", this._pagehideListener);
+    }
 
     trace.setGlobalTracerProvider(this.tracerProvider);
     logs.setGlobalLoggerProvider(this.loggerProvider);
@@ -240,6 +264,11 @@ class PulseWebSDK implements SdkContext {
     this._shuttingDown = true;
     this._starting = false; // kill any pending async init
 
+    if (this._pagehideListener && typeof window !== "undefined") {
+      window.removeEventListener("pagehide", this._pagehideListener);
+      this._pagehideListener = undefined;
+    }
+
     this._providerCleanup();
     this.registry?.uninstallAll();
     this.sessionProvider?.shutdown();
@@ -252,6 +281,7 @@ class PulseWebSDK implements SdkContext {
 
     this._initialized = false;
     this._shuttingDown = false;
+    PulseWebLogger.setLevel(PulseLogLevel.NONE);
     // _starting already reset above
   }
 
