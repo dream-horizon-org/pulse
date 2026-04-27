@@ -51,29 +51,14 @@ pipeline {
             steps {
                 sh '''
                     set -e
+                    set +x
                     echo "Fetching variables from AWS Secrets Manager..."
-                    SECRETS=$(aws secretsmanager get-secret-value \
+                    aws secretsmanager get-secret-value \
                         --region ap-south-1 \
                         --secret-id prod/pulseserver/appenv \
                         --query 'SecretString' \
-                        --output text)
-
-                    echo "$SECRETS" | jq -r "$(cat <<'JQEOF'
-(reduce .app_env[] as $item ({}; . * {($item.key): $item.value})) as $e |
-  "MYSQL_HOST=" + ($e.MYSQL_WRITER_HOST // ""),
-  "MYSQL_PORT=" + ($e.MYSQL_PORT // "3306"),
-  "MYSQL_USER=" + ($e.MYSQL_USER // ""),
-  "MYSQL_PASSWORD=" + ($e.MYSQL_PASSWORD // ""),
-  "MYSQL_DATABASE=" + ($e.MYSQL_DATABASE // "pulse_db"),
-  "CH_ADMIN_HOST=" + ($e.CLICKHOUSE_HOST // ""),
-  "CH_ADMIN_PORT=" + ($e.CLICKHOUSE_PORT // "8123"),
-  "CH_ADMIN_USER=" + ($e.CLICKHOUSE_USERNAME // ""),
-  "CH_ADMIN_PASSWORD=" + ($e.CLICKHOUSE_PASSWORD // ""),
-  "CH_CLUSTER_NAME=" + ($e.CLICKHOUSE_CLUSTER_NAME // ""),
-  "OPENFGA_API_URL=" + ($e.OPENFGA_API_URL // ""),
-  "OPENFGA_STORE_ID=" + ($e.OPENFGA_STORE_ID // "")
-JQEOF
-)" > .db-ops-env
+                        --output text \
+                        | jq -r '(reduce .app_env[] as $item ({}; . * {($item.key): $item.value})) as $e | "MYSQL_HOST=" + ($e.MYSQL_WRITER_HOST // ""), "MYSQL_PORT=" + ($e.MYSQL_PORT // "3306"), "MYSQL_USER=" + ($e.MYSQL_USER // ""), "MYSQL_PASSWORD=" + ($e.MYSQL_PASSWORD // ""), "MYSQL_DATABASE=" + ($e.MYSQL_DATABASE // "pulse_db"), "CH_ADMIN_HOST=" + ($e.CLICKHOUSE_HOST // ""), "CH_ADMIN_PORT=" + ($e.CLICKHOUSE_PORT // "8123"), "CH_ADMIN_USER=" + ($e.CLICKHOUSE_USERNAME // ""), "CH_ADMIN_PASSWORD=" + ($e.CLICKHOUSE_PASSWORD // ""), "CH_CLUSTER_NAME=" + ($e.CLICKHOUSE_CLUSTER_NAME // ""), "OPENFGA_API_URL=" + ($e.OPENFGA_API_URL // ""), "OPENFGA_STORE_ID=" + ($e.OPENFGA_STORE_ID // "")' > .db-ops-env
                 '''
             }
         }
@@ -85,7 +70,9 @@ JQEOF
             }
             steps {
                 sh '''
-                    set -a; source .db-ops-env; set +a
+                    set -e
+                    set +x
+                    set -a; . .db-ops-env; set +a
                     chmod +x deploy/jenkinsfile/admin/delete-tenant.sh
                     deploy/jenkinsfile/admin/delete-tenant.sh
                 '''
@@ -114,7 +101,9 @@ JQEOF
             }
             steps {
                 sh '''
-                    set -a; source .db-ops-env; set +a
+                    set -e
+                    set +x
+                    set -a; . .db-ops-env; set +a
                     deploy/jenkinsfile/admin/delete-tenant.sh
                 '''
             }
