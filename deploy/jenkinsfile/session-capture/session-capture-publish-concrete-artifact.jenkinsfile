@@ -30,7 +30,8 @@ pipeline {
             }
         }
 
-        // Native deps for cargo (openssl, rdkafka) + publish-artifact.sh (zip). Prefer golden ARM AMI.
+        // Native deps for cargo (openssl, rdkafka) + publish-artifact.sh (zip) + AWS CLI v2 for CodeArtifact.
+        // `publish-package-version` is not in old aws-cli; use official aarch64 v2 or bake current v2 in golden AMI.
         stage('Install native build dependencies') {
             steps {
                 sh """
@@ -38,7 +39,17 @@ pipeline {
                     sudo DEBIAN_FRONTEND=noninteractive apt-get update
                     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\
                         build-essential pkg-config libssl-dev cmake libcurl4-openssl-dev \\
-                        libsasl2-dev zlib1g-dev libzstd-dev liblz4-dev zip
+                        libsasl2-dev zlib1g-dev libzstd-dev liblz4-dev zip curl unzip
+                    if ! aws codeartifact publish-package-version help &>/dev/null; then
+                        echo "Installing AWS CLI v2 (linux-aarch64) for codeartifact publish-package-version..."
+                        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip
+                        rm -rf /tmp/aws
+                        unzip -q -o /tmp/awscliv2.zip -d /tmp
+                        sudo /tmp/aws/install --update
+                        hash -r
+                        aws --version
+                        aws codeartifact publish-package-version help >/dev/null
+                    fi
                 """
             }
         }
