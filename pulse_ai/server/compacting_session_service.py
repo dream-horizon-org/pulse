@@ -22,9 +22,15 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
+from google.adk.events.event import Event
 from google.adk.sessions import BaseSessionService
+from google.adk.sessions.base_session_service import (
+    GetSessionConfig,
+    ListSessionsResponse,
+)
+from google.adk.sessions.session import Session
 
 from pulse_ai.constants import (
     MAX_WINDOW_SAFETY_CAP,
@@ -34,14 +40,6 @@ from pulse_ai.constants import (
 )
 from pulse_ai.server.compaction_rules import compact_tool_response
 from pulse_ai.server.token_estimator import estimate_tokens_for_event
-
-if TYPE_CHECKING:
-    from google.adk.events.event import Event
-    from google.adk.sessions.base_session_service import (
-        GetSessionConfig,
-        ListSessionsResponse,
-    )
-    from google.adk.sessions.session import Session
 
 _log = logging.getLogger(__name__)
 
