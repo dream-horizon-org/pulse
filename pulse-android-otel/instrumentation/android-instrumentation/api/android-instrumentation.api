@@ -21,13 +21,14 @@ public final class io/opentelemetry/android/instrumentation/AndroidInstrumentati
 }
 
 public final class io/opentelemetry/android/instrumentation/InstallationContext {
-	public fun <init> (Landroid/app/Application;Lio/opentelemetry/api/OpenTelemetry;Lio/opentelemetry/android/session/SessionProvider;Lio/opentelemetry/android/session/SessionProvider;)V
-	public synthetic fun <init> (Landroid/app/Application;Lio/opentelemetry/api/OpenTelemetry;Lio/opentelemetry/android/session/SessionProvider;Lio/opentelemetry/android/session/SessionProvider;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Landroid/app/Application;Lio/opentelemetry/api/OpenTelemetry;Lio/opentelemetry/android/session/SessionProvider;Lio/opentelemetry/android/session/SessionProvider;Z)V
+	public synthetic fun <init> (Landroid/app/Application;Lio/opentelemetry/api/OpenTelemetry;Lio/opentelemetry/android/session/SessionProvider;Lio/opentelemetry/android/session/SessionProvider;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getApplication ()Landroid/app/Application;
 	public final fun getMeteredSessionProvider ()Lio/opentelemetry/android/session/SessionProvider;
 	public final fun getOpenTelemetry ()Lio/opentelemetry/api/OpenTelemetry;
 	public final fun getSessionProvider ()Lio/opentelemetry/android/session/SessionProvider;
+	public final fun getShouldIgnoreJavaScriptExceptions ()Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

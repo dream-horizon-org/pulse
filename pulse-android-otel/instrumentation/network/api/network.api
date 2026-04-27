@@ -1,4 +1,5 @@
 public final class io/opentelemetry/android/instrumentation/network/NetworkApplicationListenerKt {
+	public static final fun getNETWORK_PREVIOUS_CONNECTION_TYPE_KEY ()Lio/opentelemetry/api/common/AttributeKey;
 	public static final fun getNETWORK_STATUS_KEY ()Lio/opentelemetry/api/common/AttributeKey;
 }
 

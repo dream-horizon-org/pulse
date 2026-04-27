@@ -441,6 +441,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 spanExporter = spanExporter,
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
+                shouldIgnoreJavaScriptExceptions = currentSdkName == PulseSdkName.ANDROID_RN,
             )
 
         // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown

@@ -7,6 +7,7 @@ import {
   resolveIosProps,
 } from './resolvePluginProps';
 import { withAndroidBuildFeatures } from './withAndroidBuildFeatures';
+import { withAndroidPhoneStatePermissions } from './withAndroidPhoneStatePermissions';
 import { withAndroidPulse } from './withAndroidPulse';
 import { withIosPulse } from './withIosPulse';
 
@@ -19,6 +20,9 @@ const withPulsePlugin: ConfigPlugin<PulsePluginProps> = (
   assertPulsePluginProps(props);
   const android = resolveAndroidProps(props);
   const ios = resolveIosProps(props);
+
+  // Add Android manifest permissions required for carrier/network subtype attributes.
+  config = withAndroidPhoneStatePermissions(config);
   config = withAndroidPulse(config, android);
   config = withIosPulse(config, ios);
 
