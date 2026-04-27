@@ -68,3 +68,33 @@ Rules:
 - Passed: 12
 - Failed: 0
 - Failed test files/specs: none
+
+## 2026-04-27T19:30:00+05:30
+- Command: `yarn test:run src/__tests__/sdk-lifecycle.test.ts src/__tests__/interactions-sdk-wiring.test.ts`
+- Files/Suites: `sdk-lifecycle`, `interactions-sdk-wiring`
+- Passed: 12
+- Failed: 0
+- Failed test files/specs: none
+
+## 2026-04-27T19:19:00+05:30
+- Command: `yarn test:run src/__tests__/m1.test.ts src/__tests__/integration-simplified-init.test.ts src/__tests__/sdk-lifecycle.test.ts src/__tests__/interactions-config-fetcher.test.ts src/__tests__/interactions-coordinator.test.ts src/__tests__/interactions-events-utils.test.ts src/__tests__/interaction-feature-integration.test.ts src/__tests__/interaction-feature.test.ts src/__tests__/interaction-instrumentation.test.ts src/__tests__/interactions-sdk-wiring.test.ts src/__tests__/interactions-sequence-matcher.test.ts src/__tests__/interactions-span-builder.test.ts src/__tests__/interactions-tracker.test.ts src/__tests__/exporters-batch-queue.test.ts`
+- Files/Suites: foundation + interaction-focused unit suites
+- Passed: 198
+- Failed: 0
+- Failed test files/specs: none
+
+## 2026-04-27T19:22:00+05:30
+- Command: `yarn workspace ecommerce-demo e2e --project=chromium e2e/m1.spec.ts e2e/m2-interactions.spec.ts e2e/m2-interactions-edge.spec.ts`
+- Files/Suites: `e2e/m1.spec.ts`, `e2e/m2-interactions.spec.ts`, `e2e/m2-interactions-edge.spec.ts` (Chromium)
+- Passed: 124
+- Failed: 2
+- Failed test files/specs:
+  - `e2e/m1.spec.ts:1508` page.url is full URL and url.path is path-only — two separate attributes (`window.PulseWeb.trackEvent` undefined in page.evaluate)
+  - `e2e/m2-interactions.spec.ts:453` interaction config fetch unavailable -> no interaction span, sdk still running (expected 0 interaction spans, got 1)
+
+## 2026-04-27T20:01:00+05:30
+- Command: `yarn workspace ecommerce-demo e2e --project=chromium e2e/m1.spec.ts --grep "page.url is full URL and url.path is path-only" && yarn workspace ecommerce-demo e2e --project=chromium e2e/m2-interactions.spec.ts --grep "interaction config fetch unavailable -> no interaction span, sdk still running"`
+- Files/Suites: targeted rerun after `.env.test` fix for interaction mock preload
+- Passed: 2
+- Failed: 0
+- Failed test files/specs: none

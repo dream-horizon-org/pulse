@@ -13,15 +13,16 @@ Format:
 
 ---
 
-Synced at: 2026-04-27T13:35:00Z
+Synced at: 2026-04-27T14:00:00Z
 Source: `pulse-web-otel/graphify-out/GRAPH_REPORT.md` + `pulse-web-otel/graphify-out/graph.json` (from `graphify update src`)
-Touched areas: SDK lifecycle/session persistence fallback, ecommerce-demo M1 E2E stability, graph workflow docs
+Touched areas: SDK startup orchestration refactor (`finishStart` decomposition), session persistence fallback, ecommerce-demo M1 E2E stability, graph workflow docs
 Key relations:
 - `sdk.ts` owns startup/shutdown orchestration
 - `InstrumentationRegistry` owns install/uninstall order
 - `InteractionInstrumentation` wraps interaction feature lifecycle
 - `trackEvent()` -> instrumentation adapter -> interaction matcher/tracker pipeline
 - `PulseGlobalAttributesProcessor` and `SessionProvider` are central shared dependencies
+- `finishStart` remains single-owner startup flow but now delegates to scoped helper methods
 - `SessionProvider` + identity helpers must not throw when storage APIs are unavailable
 - `m1.spec.ts` route/reload assertions depend on deterministic active-config behavior and init readiness checks
 Open parity flags:

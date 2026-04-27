@@ -37,6 +37,7 @@ import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-proces
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
 import { LogRecordLifecycleDebugProcessor } from "./processors/log-record-lifecycle-debug-processor";
 import { createProviders } from "./exporters";
+import type { ExporterConfig, ProviderBundle } from "./exporters";
 import { InstrumentationRegistry } from "./instrumentation-registry";
 import type { SdkContext } from "./instrumentation-registry";
 import { extractProjectId } from "./resource";
@@ -109,19 +110,11 @@ class PulseWebSDK implements SdkContext {
     endpointBaseUrl: string,
     meteringSessionId: string,
   ): Promise<void> {
-    if (this._initialized || this._shuttingDown) {
-      this._starting = false;
-      return;
-    }
-    // Step 2: SessionProvider
-    this.sessionProvider = new SessionProvider();
+    if (this.abortStartIfUnavailable()) return;
 
-    // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate
-    // before any signal is emitted (global-attrs-processor may call it later).
-    getOrCreateInstallationId();
+    this.initializeSessionContext();
 
     // Step 3: Resolve real OS version async (Client Hints, <200ms) then build Resource.
-    // This matches Android which puts os.version in the Resource via Build.VERSION.RELEASE.
     const syncUA = parseUserAgent();
     const resolvedOsVersion = await getOsVersionAsync(syncUA.osVersion);
     if (this._shuttingDown) {
@@ -130,6 +123,57 @@ class PulseWebSDK implements SdkContext {
     }
     const resource = buildMergedResource(config, resolvedOsVersion);
 
+    const { gate, sdkConfig, spanProcessors, logProcessors, samplingGate } =
+      this.buildInitContext(config, endpointBaseUrl, meteringSessionId);
+    const exporterConfig = this.buildExporterConfig(
+      config,
+      endpointBaseUrl,
+      meteringSessionId,
+      sdkConfig.signals.metricsToAdd,
+      samplingGate,
+    );
+    const bundle = createProviders(
+      exporterConfig,
+      resource,
+      spanProcessors,
+      logProcessors,
+    );
+
+    this.drainBufferedExports(bundle, config, endpointBaseUrl, meteringSessionId);
+    this.assignProviders(bundle);
+    this.bindPagehideFlush();
+    this.bindGlobalProviders();
+    this.emitSdkInitializationLogRecords(endpointBaseUrl);
+    this.installInstrumentations(gate, config);
+
+    // Step 10: Fetch fresh config in background.
+    void this.configFetcher.fetchInBackground();
+
+    this._initialized = true;
+    this._starting = false;
+    this.emitInstallationStartIfNeeded();
+  }
+
+  private abortStartIfUnavailable(): boolean {
+    if (this._initialized || this._shuttingDown) {
+      this._starting = false;
+      return true;
+    }
+    return false;
+  }
+
+  private initializeSessionContext(): void {
+    // Step 2: SessionProvider
+    this.sessionProvider = new SessionProvider();
+    // Step 2.5: Eagerly resolve installation ID so wasNewInstallation() is accurate.
+    getOrCreateInstallationId();
+  }
+
+  private buildInitContext(
+    config: PulseWebConfig,
+    endpointBaseUrl: string,
+    meteringSessionId: string,
+  ) {
     // Step 4: Load cached SDK config
     const projectId = extractProjectId(config.apiKey);
     this.configFetcher = new SdkConfigFetcher(
@@ -152,12 +196,9 @@ class PulseWebSDK implements SdkContext {
       config,
       meteringSessionId,
     );
-
-    const persistedUserId = getPersistedUserId();
-    const persistedUserProps = getPersistedUserProperties();
     this.globalAttrsProcessor.hydrateUserIdentity(
-      persistedUserId,
-      persistedUserProps,
+      getPersistedUserId(),
+      getPersistedUserProperties(),
     );
 
     const spanProcessors = [this.globalAttrsProcessor, filterProcessor];
@@ -176,10 +217,20 @@ class PulseWebSDK implements SdkContext {
       ...(preBatchDebugProc ? [preBatchDebugProc] : []),
     ];
 
+    return { gate, sdkConfig, samplingGate, spanProcessors, logProcessors };
+  }
+
+  private buildExporterConfig(
+    config: PulseWebConfig,
+    endpointBaseUrl: string,
+    meteringSessionId: string,
+    metricsToAdd: ExporterConfig["metricsToAdd"],
+    samplingGate: ExportSamplingGate,
+  ): ExporterConfig {
     const diskOn = config.diskBuffering?.enabled !== false;
     const disk = config.diskBuffering;
     const beforeSendResolved = resolveBeforeSend(config.beforeSendData);
-    const exporterConfig = {
+    return {
       endpointBaseUrl,
       apiKey: config.apiKey,
       meteringSessionId,
@@ -188,7 +239,7 @@ class PulseWebSDK implements SdkContext {
       getMetricGlobalAttrs: () =>
         this.globalAttrsProcessor.getCommonAttrsForMetrics(),
       samplingGate,
-      metricsToAdd: sdkConfig.signals.metricsToAdd,
+      metricsToAdd,
       metricsToAddSdkName: "pulse_web_js" as const,
       diskBuffering: diskOn
         ? {
@@ -201,54 +252,66 @@ class PulseWebSDK implements SdkContext {
         : { enabled: false },
       ...(beforeSendResolved ? { beforeSendData: beforeSendResolved } : {}),
     };
+  }
 
-    const bundle = createProviders(
-      exporterConfig,
-      resource,
-      spanProcessors,
-      logProcessors,
-    );
+  private drainBufferedExports(
+    bundle: ProviderBundle,
+    config: PulseWebConfig,
+    endpointBaseUrl: string,
+    meteringSessionId: string,
+  ): void {
+    if (!bundle.idbSignalBuffer) return;
+    void drainBufferedOtlpExports({
+      buffer: bundle.idbSignalBuffer,
+      apiKey: config.apiKey,
+      meteringSessionId,
+      tracesUrl: `${endpointBaseUrl}/v1/traces`,
+      logsUrl: `${endpointBaseUrl}/v1/logs`,
+      metricsUrl: `${endpointBaseUrl}/v1/metrics`,
+    });
+  }
 
-    if (bundle.idbSignalBuffer) {
-      void drainBufferedOtlpExports({
-        buffer: bundle.idbSignalBuffer,
-        apiKey: config.apiKey,
-        meteringSessionId,
-        tracesUrl: `${endpointBaseUrl}/v1/traces`,
-        logsUrl: `${endpointBaseUrl}/v1/logs`,
-        metricsUrl: `${endpointBaseUrl}/v1/metrics`,
-      });
-    }
-
+  private assignProviders(bundle: ProviderBundle): void {
     this.tracerProvider = bundle.tracerProvider;
     this.loggerProvider = bundle.loggerProvider;
     this.meterProvider = bundle.meterProvider;
     this._prepareForDocumentUnload = bundle.prepareForDocumentUnload;
     this._providerCleanup = bundle.cleanup ?? (() => {});
+  }
 
-    if (typeof window !== "undefined") {
-      this._pagehideListener = (e: PageTransitionEvent) => {
-        if (!e.persisted && this._initialized) {
-          this._prepareForDocumentUnload?.();
-          void Promise.all([
-            this.loggerProvider?.forceFlush(),
-            this.tracerProvider?.forceFlush(),
-            this.meterProvider?.forceFlush(),
-          ]).catch(() => {});
-        }
-      };
-      window.addEventListener("pagehide", this._pagehideListener);
-    }
+  private bindPagehideFlush(): void {
+    if (typeof window === "undefined") return;
+    this._pagehideListener = (e: PageTransitionEvent) => {
+      if (!e.persisted && this._initialized) {
+        this._prepareForDocumentUnload?.();
+        void Promise.all([
+          this.loggerProvider?.forceFlush(),
+          this.tracerProvider?.forceFlush(),
+          this.meterProvider?.forceFlush(),
+        ]).catch(() => {});
+      }
+    };
+    window.addEventListener("pagehide", this._pagehideListener);
+  }
 
-    trace.setGlobalTracerProvider(this.tracerProvider);
-    logs.setGlobalLoggerProvider(this.loggerProvider);
-    metrics.setGlobalMeterProvider(this.meterProvider);
+  private bindGlobalProviders(): void {
+    const tracerProvider = this.tracerProvider;
+    const loggerProvider = this.loggerProvider;
+    const meterProvider = this.meterProvider;
+    if (!tracerProvider || !loggerProvider || !meterProvider) return;
 
-    this.logger = this.loggerProvider.getLogger("pulse-web");
-    this.tracer = this.tracerProvider.getTracer("pulse-web");
+    trace.setGlobalTracerProvider(tracerProvider);
+    logs.setGlobalLoggerProvider(loggerProvider);
+    metrics.setGlobalMeterProvider(meterProvider);
 
-    this.emitSdkInitializationLogRecords(endpointBaseUrl);
+    this.logger = loggerProvider.getLogger("pulse-web");
+    this.tracer = tracerProvider.getTracer("pulse-web");
+  }
 
+  private installInstrumentations(
+    gate: FeatureGate,
+    config: PulseWebConfig,
+  ): void {
     this.registry = new InstrumentationRegistry(
       this as SdkContext,
       gate,
@@ -260,23 +323,18 @@ class PulseWebSDK implements SdkContext {
       this.interactionInstrumentation,
       "interactions",
     );
+  }
 
-    // Step 10: Fetch fresh config in background.
-    void this.configFetcher.fetchInBackground();
-
-    this._initialized = true;
-    this._starting = false;
-
+  private emitInstallationStartIfNeeded(): void {
     // Emit app.installation.start on first-ever install — mirrors Android.
-    if (wasNewInstallation()) {
-      this.logger.emit({
-        body: "pulse.app.installation.start",
-        attributes: {
-          "pulse.type": "pulse.app.installation.start",
-          "installation.id": getOrCreateInstallationId(),
-        },
-      });
-    }
+    if (!wasNewInstallation()) return;
+    this.logger.emit({
+      body: "pulse.app.installation.start",
+      attributes: {
+        "pulse.type": "pulse.app.installation.start",
+        "installation.id": getOrCreateInstallationId(),
+      },
+    });
   }
 
   async shutdown(): Promise<void> {
