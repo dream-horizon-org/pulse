@@ -2,6 +2,9 @@
     import Foundation
     import MetricKit
     import OpenTelemetryApi
+    #if canImport(PulseLogging)
+    import PulseLogging
+    #endif
 
     private let metricKitInstrumentationName = "MetricKit"
     private let metricKitInstrumentationVersion = "0.0.1"
