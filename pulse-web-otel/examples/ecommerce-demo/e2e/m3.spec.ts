@@ -357,38 +357,65 @@ test.describe("@M3 navigation", () => {
     await otlp.waitForLog("session.start");
     otlp.reset();
 
+    // First nav: / → /products
     await page
       .getByRole("link", { name: /products/i })
       .first()
       .click();
     await page.waitForURL("**/products");
-    const span = await otlp.waitForSpan("screen_session");
+    await page.waitForTimeout(200);
 
-    expect(getAttr(span.attributes, "previous_screen.name")).toBeTruthy();
+    // Second nav: /products → /cart (triggers screen_session for /products with previous_screen.name="/")
+    await page.evaluate(() => history.pushState({}, "", "/cart"));
+    await page.waitForTimeout(300);
+
+    // Find the screen_session for /products — it has previous_screen.name = "/"
+    const sessions = findAllSpans(otlp.captured, "screen_session");
+    const withPrev = sessions.find((s) =>
+      getAttr(s.attributes, "previous_screen.name"),
+    );
+    expect(withPrev).toBeDefined();
+    expect(getAttr(withPrev!.attributes, "previous_screen.name")).toBeTruthy();
   });
 
   test.describe("screen.name resolution", () => {
-    test('/products/123 → "products/:id" (heuristic)', async ({
+    test("/products/123 → numeric ID stripped by heuristic", async ({
       page,
       otlp,
     }) => {
       await page.goto("/");
+      await otlp.waitForLog("session.start");
       otlp.reset();
-      await page.goto("/products/123");
+
+      // SPA nav to /products/123 then away — triggers screen_session for /products/123
+      await page.evaluate(() => history.pushState({}, "", "/products/123"));
+      await page.waitForTimeout(200);
+      await page.evaluate(() => history.pushState({}, "", "/products/next"));
+
       const span = await otlp.waitForSpan("screen_session");
-      expect(getAttr(span.attributes, "screen.name")).toMatch(/products\/:id/i);
+      const name = String(getAttr(span.attributes, "screen.name") ?? "");
+      expect(name).toContain("products");
+      expect(name).not.toContain("123");
     });
 
-    test("/products/abc-slug also normalised by heuristic", async ({
+    test("/products/abc-slug-123 also normalised by heuristic", async ({
       page,
       otlp,
     }) => {
       await page.goto("/");
+      await otlp.waitForLog("session.start");
       otlp.reset();
-      await page.goto("/products/abc-slug-123");
+
+      // SPA nav to /products/abc-slug-123 then away
+      await page.evaluate(() =>
+        history.pushState({}, "", "/products/abc-slug-123"),
+      );
+      await page.waitForTimeout(200);
+      await page.evaluate(() => history.pushState({}, "", "/products/done"));
+
       const span = await otlp.waitForSpan("screen_session");
-      // Should not contain the raw slug
-      const name = String(getAttr(span.attributes, "screen.name"));
+      // Slug-with-id should be stripped — screen.name must not contain the raw slug
+      const name = String(getAttr(span.attributes, "screen.name") ?? "");
       expect(name).not.toContain("abc-slug-123");
     });
   });

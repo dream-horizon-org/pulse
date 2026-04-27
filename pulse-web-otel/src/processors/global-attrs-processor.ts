@@ -22,6 +22,22 @@ function getNetworkConnection(): NetworkConnection {
   return nav.connection ?? {};
 }
 
+/**
+ * Convert a route pattern with :param syntax to a RegExp.
+ * e.g. '/products/:id' → /^\/products\/[^/]+$/
+ */
+function patternToRegex(pattern: string): RegExp {
+  // If pattern is already anchored (starts with ^) treat as raw regex
+  if (pattern.startsWith("^")) {
+    return new RegExp(pattern);
+  }
+  // Otherwise treat as :param route pattern — escape special chars and expand :param
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Convert :param → [^/]+
+  const regexStr = escaped.replace(/:[^/]+/g, "[^/]+");
+  return new RegExp(`^${regexStr}$`);
+}
+
 function resolveScreenName(
   manualScreenName: string | null,
   config: PulseWebConfig,
@@ -36,15 +52,14 @@ function resolveScreenName(
   if (config.routePatterns && config.routePatterns.length > 0) {
     for (const { pattern, name } of config.routePatterns) {
       try {
-        const regex = new RegExp(pattern);
-        if (regex.test(pathname)) return name;
+        if (patternToRegex(pattern).test(pathname)) return name;
       } catch {
-        // invalid regex — skip
+        // invalid pattern — skip
       }
     }
   }
 
-  // Heuristic: strip UUIDs and pure-number segments from path
+  // Heuristic: strip UUIDs, pure-number, and hex ID segments from path
   const segments = pathname.split("/").filter(Boolean);
   const cleaned = segments.filter((seg) => {
     // Remove UUID-like segments
@@ -57,6 +72,14 @@ function resolveScreenName(
     }
     // Remove pure number segments
     if (/^\d+$/.test(seg)) {
+      return false;
+    }
+    // Remove short hex hash-like segments (DB IDs, commit SHAs, etc.)
+    if (/^[a-f0-9]{6,24}$/.test(seg)) {
+      return false;
+    }
+    // Remove slug-with-id segments: word-word-123, product-name-456 (ends in hyphen+digits)
+    if (/^.+-\d+$/.test(seg)) {
       return false;
     }
     return true;
@@ -75,6 +98,7 @@ export class PulseGlobalAttributesProcessor
 {
   private manualScreenName: string | null = null;
   private manualScreenNamePath: string | null = null;
+  private lastScreenName: string = "";
   private readonly screenAspectRatio: string;
 
   constructor(
@@ -95,6 +119,14 @@ export class PulseGlobalAttributesProcessor
     this.manualScreenName = name;
     this.manualScreenNamePath =
       typeof location !== "undefined" ? location.pathname : null;
+  }
+
+  setLastScreenName(name: string): void {
+    this.lastScreenName = name;
+  }
+
+  getLastScreenName(): string {
+    return this.lastScreenName;
   }
 
   getCurrentScreenName(): string {
@@ -131,6 +163,7 @@ export class PulseGlobalAttributesProcessor
       "installation.id": installationId,
       "app.installation.id": installationId,
       "screen.name": screenName,
+      "last.screen.name": this.lastScreenName,
       "device.screen.aspect_ratio": this.screenAspectRatio,
       "pulse.metering.session.id": this.meteringSessionId,
       platform: "web",

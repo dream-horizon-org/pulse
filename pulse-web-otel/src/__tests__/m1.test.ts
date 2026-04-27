@@ -1255,7 +1255,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
 
   it("screen.name route pattern takes priority over heuristic", () => {
     const { processor } = makeProcessor({
-      routePatterns: [{ pattern: "^/products", name: "Products" }],
+      routePatterns: [{ pattern: "/products/:id", name: "Products" }],
     });
     Object.defineProperty(window, "location", {
       value: {
@@ -1271,7 +1271,7 @@ describe("M1 — GlobalAttributesProcessor", () => {
 
   it("screen.name manual override takes priority over route patterns", () => {
     const { processor } = makeProcessor({
-      routePatterns: [{ pattern: "^/products", name: "Products" }],
+      routePatterns: [{ pattern: "/products/:id", name: "Products" }],
     });
     processor.setScreenName("ManualName");
 

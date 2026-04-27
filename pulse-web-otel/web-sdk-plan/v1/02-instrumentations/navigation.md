@@ -473,6 +473,34 @@ test('SPA navigation creates screen_session span', async ({ page }) => {
 
 ---
 
+## Manual Test Cases
+
+Use the ecommerce demo (`yarn demo`) with the local ingest stack running. Open browser DevTools Network tab or query ClickHouse to inspect OTLP payloads.
+
+| # | Test | Steps to Reproduce | Expected | Status | Comment |
+|---|------|-------------------|----------|--------|---------|
+| 1 | screen_load span emitted on initial page load | 1. Open /products 2. Check OTLP traces in ClickHouse | Span with pulse.type=screen_load, screen.name=/products, navigation.type=navigate, start.type=cold, load.duration_ms > 0, ttfb_ms >= 0 | Not Picked | |
+| 2 | screen_interactive span emitted on initial load | 1. Open /products 2. Check OTLP traces | Span with pulse.type=screen_interactive, tti > 0, screen.name=/products | Not Picked | |
+| 3 | start.type=reload on page refresh | 1. Open /products 2. Hard-reload (Cmd+Shift+R) 3. Check traces | screen_load span with navigation.type=reload, start.type=reload | Not Picked | |
+| 4 | start.type=back_forward on browser back | 1. Navigate / → /products 2. Click browser back button 3. Check traces | screen_load span with navigation.type=back_forward, start.type=back_forward | Not Picked | |
+| 5 | SPA navigation emits screen_session span | 1. Open / 2. Click Products nav link 3. Check traces | screen_session span with screen.name=/, previous_screen.name="", session.duration > 0 | Not Picked | |
+| 6 | previous_screen.name correct on second navigation | 1. / → /products → /cart 2. Check screen_session from /products | screen_session span has previous_screen.name=/ | Not Picked | |
+| 7 | screen.name resolved from route pattern | 1. Config routePatterns: [{pattern:'/products/:id', name:'ProductDetail'}] 2. Navigate to /products/123 3. Check screen.name | screen.name=ProductDetail on spans/logs | Not Picked | Requires routePatterns in SDK config |
+| 8 | screen.name heuristic strips numeric ID | 1. No routePatterns 2. Navigate to /products/123 3. Check screen.name on spans | screen.name=/products (numeric ID stripped) | Not Picked | |
+| 9 | screen.name heuristic strips UUID | 1. Navigate to /orders/550e8400-e29b-41d4-a716-446655440000 2. Check screen.name | screen.name=/orders | Not Picked | |
+| 10 | setScreenName overrides URL-derived name | 1. Navigate to /products/123 2. Call PulseWeb.setScreenName('FeaturedProduct') 3. Trigger any signal 4. Check screen.name | screen.name=FeaturedProduct on subsequent signals | Not Picked | |
+| 11 | setScreenName cleared after next navigation | 1. Call setScreenName('Override') on /products 2. Navigate to /cart 3. Check screen.name | screen.name=/cart (override cleared) | Not Picked | |
+| 12 | pagehide emits final screen_session | 1. Open / 2. Stay > 100ms 3. Close tab or navigate away 4. Check traces | screen_session span for / emitted via sendBeacon keepalive | Not Picked | |
+| 13 | screen.name stamped on all signals globally | 1. Navigate to /products 2. Click element + trigger error + make fetch 3. Inspect attributes | screen.name=/products on click span, error log, http span | Not Picked | Global attrs processor |
+| 14 | url.path present on all navigation span types | 1. Navigate to /products 2. Check screen_load, screen_interactive, screen_session spans | url.path=/products on all three span types | Not Picked | |
+| 15 | ❌ sub-100ms navigation does NOT emit screen_session | 1. In console run history.pushState({},'','/a'); history.pushState({},'','/b') immediately 2. Check traces | No screen_session for /a (gap < 100ms); session from /b emits normally | Not Picked | Negative |
+| 16 | ❌ replaceState does NOT create new session | 1. Navigate to /checkout 2. history.replaceState({},'','/checkout?step=2') 3. Navigate to /confirm 4. Check traces | Single session covers full /checkout time; no extra session for replaceState | Not Picked | Negative |
+| 17 | ❌ Same-route pushState does NOT reset session | 1. Open /products 2. Wait 200ms 3. history.pushState({},'','/products') again 4. Wait 200ms 5. Navigate to /cart 6. Check traces | One screen_session for /products covering full combined duration; not split into two | Not Picked | Negative — duplicate pushState to same URL |
+| 18 | ❌ Hash-only change does NOT create new session | 1. Open /products 2. Click anchor link (#section) 3. Wait 300ms 4. Navigate to /cart 5. Check traces | One screen_session for /products covering full time; no session split at hash change | Not Picked | Negative — hash does not change pathname |
+| 19 | ❌ Consent DENIED → zero navigation spans | 1. Start SDK with dataCollectionState=DENIED 2. Navigate between routes 3. Check OTLP traces | No screen_load, screen_interactive, or screen_session spans emitted | Not Picked | Negative |
+| 20 | ❌ Navigation before SDK init → no spans | 1. Skip PulseWeb.start() 2. history.pushState({},'','/products') 3. Check traces | No spans emitted | Not Picked | Negative |
+| 21 | ❌ After uninstall pushState emits no spans | 1. Start SDK 2. Call PulseWeb.shutdown() 3. history.pushState({},'','/test') 4. Check traces | No screen_session span emitted; pushState works normally | Not Picked | Negative |
+
 ## Done Criteria
 
 - `screen_load` span emitted with `page.load_time`, `ttfb`, `dns.time`, `tcp.time`, `dom.processing_time`
