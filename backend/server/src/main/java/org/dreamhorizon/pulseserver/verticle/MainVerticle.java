@@ -397,6 +397,16 @@ public class MainVerticle extends AbstractVerticle {
             rootCauseJson.containsKey("issueMustPrecedePoor")
                 ? rootCauseJson.getBoolean("issueMustPrecedePoor")
                 : null);
+    
+    builder.hybridDimensionOrderingEnabled(
+      rootCauseJson.containsKey("hybridDimensionOrderingEnabled")
+          ? rootCauseJson.getBoolean("hybridDimensionOrderingEnabled")
+          : RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED)
+  .minSegmentVolumePct(
+      rootCauseDouble(
+          rootCauseJson,
+          "minSegmentVolumePct",
+          RootCauseConfig.DEFAULT_MIN_SEGMENT_VOLUME_PCT));
 
     final Object dimensionOrderValue = rootCauseJson.getValue("dimensionOrder");
     final boolean hasCustomDimensionOrder = dimensionOrderValue != null;
