@@ -50,6 +50,11 @@ public class ApplicationConfig {
    */
   public HeatmapS3Config heatmapS3;
 
+  /** Redis host for Kong plugin materialization (API key map, usage credits in Part B). */
+  public String redisHost;
+  /** Redis port for Kong plugin materialization. */
+  public Integer redisPort;
+
   /**
    * Get the dev mode API key with a sensible default.
    * This key is used when GOOGLE_OAUTH_ENABLED=false.

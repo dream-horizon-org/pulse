@@ -32,7 +32,7 @@ ON CLUSTER 'pulse-ch'
     SessionId          String                 MATERIALIZED ifNull(SpanAttributes['session.id'], '')                  CODEC(ZSTD(1)),
     AppVersion         LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.version'], '')             CODEC(ZSTD(1)),
     SDKVersion         LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['telemetry.sdk.version'], '')   CODEC(ZSTD(1)),
-    Platform           LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.type'], '')                 CODEC(ZSTD(1)),
+    Platform           LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], '')                 CODEC(ZSTD(1)),
     OsVersion          LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], '')              CODEC(ZSTD(1)),
     GeoState           LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.state'], '')                   CODEC(ZSTD(1)),
     GeoCountry         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country'], '')                 CODEC(ZSTD(1)),
