@@ -11,20 +11,45 @@
 
 ### `pulse.type: http` — one span per HTTP request
 
+> **OTel alignment:** All attribute names follow the [stable OTel HTTP semconv](https://opentelemetry.io/docs/specs/semconv/http/http-spans/) (`http.request.method`, `url.full`, `http.response.status_code`, `server.address`). Deprecated names (`http.method`, `http.url`, `http.status_code`, `net.peer.name`) are NOT used.
+
 | Attribute | Type | Source | Required |
 |---|---|---|---|
 | `pulse.type` | string | `"http"` | ✅ |
-| `http.method` | string | Request method (`GET`, `POST`, etc.) | ✅ |
-| `http.url` | string | Sanitised request URL | ✅ |
-| `http.status_code` | long | Response HTTP status | ✅ |
-| `http.request_content_length` | long | `Content-Length` request header (bytes) | optional |
-| `http.response_content_length` | long | `Content-Length` response header (bytes) | optional |
-| `net.peer.name` | string | Hostname extracted from URL | ✅ |
-| `http.duration` | long | Total request duration (ms) | ✅ |
+| `http.request.method` | string | Request method (`GET`, `POST`, etc.) | ✅ |
+| `http.request.method_original` | string | Original method when `http.request.method = "_OTHER"` | conditional |
+| `url.full` | string | Sanitised request URL | ✅ |
+| `http.response.status_code` | long | Response HTTP status | ✅ |
+| `http.request.body.size` | long | `Content-Length` request header (bytes) | optional |
+| `http.response.body.size` | long | `Content-Length` response header (bytes) | optional |
+| `server.address` | string | Hostname extracted from URL | ✅ |
+| `server.port` | long | Port extracted from URL | optional |
+| `peer.service` | string | Configured `peerServiceMap[server.address]` e.g. `"orders-service"` | optional (opt-in config) |
+| `http.duration` | long | Total request duration (ms) — **Pulse custom** (OTel captures duration as span duration; this is a convenience attribute) | ✅ |
 | `graphql.operation.name` | string | Parsed from request body | optional |
 | `graphql.operation.type` | string | `"query"` / `"mutation"` / `"subscription"` | optional |
-| Custom request headers | string | Configurable allowlist | optional |
-| Custom response headers | string | Configurable allowlist | optional |
+| Custom request headers | string | Configurable allowlist → `http.request.header.<name>` | optional |
+| Custom response headers | string | Configurable allowlist → `http.response.header.<name>` | optional |
+
+---
+
+## Android Parity
+
+| Aspect | Android (`OkHttpInstrumentation.kt`) | Web |
+|---|---|---|
+| Base instrumentation | OTel `OkHttp3Instrumenter` via `OkHttp3Singletons` | OTel `FetchInstrumentation` + `XMLHttpRequestInstrumentation` ✅ |
+| Attribute contract | Stable OTel HTTP semconv (`http.request.method`, `url.full`, etc.) | Same stable semconv ✅ |
+| `capturedRequestHeaders` | Configurable allowlist → `http.request.header.<name>` | Same ✅ |
+| `capturedResponseHeaders` | Configurable allowlist → `http.response.header.<name>` | Same ✅ |
+| `knownMethods` | Configurable; unknown method → `http.request.method = "_OTHER"` + `http.request.method_original` | Same handling ✅ |
+| `peer.service` | Hostname → friendly service name mapping (e.g. `api.example.com → "orders-service"`) | ✅ opt-in config `peerServiceMap` |
+| Experimental HTTP metrics | `http.client.request.duration` histogram (opt-in via `setEmitExperimentalHttpClientTelemetry`) | ❌ not in M3 scope — V2 |
+| Additional extractors | `addAttributesExtractor()` extensibility hook | `applyCustomAttributesOnSpan` ✅ equivalent |
+| Span kind | `CLIENT` | `CLIENT` ✅ |
+| Context propagation | OTel context injected into request headers (`traceparent`) | Same via `propagateTraceHeaderCorsUrls` ✅ |
+| Span status on error | `SpanStatus.ERROR` set for 4xx/5xx and network exceptions | Same — 4xx/5xx → `ERROR`; network failure → `ERROR` + `error.type` ✅ |
+| GraphQL operation extraction | ❌ not in Android OkHttp instrumentation | ➕ web extra — `graphql.operation.name` + `graphql.operation.type` parsed from POST body |
+| URL sanitisation | ❌ no equivalent (Android doesn't expose query params) | ➕ web extra — query params stripped by default (`privacy.captureQueryParams`) |
 
 ---
 
@@ -51,6 +76,13 @@ export function createNetworkInstrumentation(config: NetworkConfig) {
         span.setAttribute('pulse.type', 'http');
         span.setAttribute('http.duration', getSpanDuration(span));
 
+        // peer.service mapping (opt-in, mirrors Android setPeerServiceMapping())
+        try {
+          const host = new URL(request.url).hostname;
+          const peerService = config.peerServiceMap?.[host];
+          if (peerService) span.setAttribute('peer.service', peerService);
+        } catch { /* relative URL edge case */ }
+
         // GraphQL
         const body = getRequestBody(request);
         if (isGraphQL(body)) {
@@ -58,16 +90,20 @@ export function createNetworkInstrumentation(config: NetworkConfig) {
           span.setAttribute('graphql.operation.type', extractOpType(body) ?? '');
         }
 
-        // Payload sizes
+        // Payload sizes (stable semconv names)
         const reqLen = getHeader(request, 'content-length');
-        if (reqLen) span.setAttribute('http.request_content_length', Number(reqLen));
+        if (reqLen) span.setAttribute('http.request.body.size', Number(reqLen));
         const resLen = getResponseHeader(response, 'content-length');
-        if (resLen) span.setAttribute('http.response_content_length', Number(resLen));
+        if (resLen) span.setAttribute('http.response.body.size', Number(resLen));
 
         // Custom headers (allowlist)
         config.capturedRequestHeaders?.forEach(h => {
           const v = getHeader(request, h);
           if (v) span.setAttribute(`http.request.header.${h}`, v);
+        });
+        config.capturedResponseHeaders?.forEach(h => {
+          const v = getResponseHeader(response, h);
+          if (v) span.setAttribute(`http.response.header.${h}`, v);
         });
       },
     }),
@@ -128,6 +164,46 @@ function sanitizeUrl(url: string): string {
 
 ---
 
+## Span Status Rules
+
+| Condition | Span status | `error.type` set? |
+|---|---|---|
+| `http.response.status_code` 1xx–3xx | `OK` | No |
+| `http.response.status_code` 4xx–5xx | `ERROR` | Yes — `"4xx"` / `"5xx"` |
+| Network failure (no response, timeout) | `ERROR` | Yes — `"network_error"` |
+| `fetch` with `no-cors` (`status = 0`) | `ERROR` | Yes — `"cors_error"` |
+
+Mirrors Android: OkHttp instrumentation sets `SpanStatus.ERROR` for 4xx/5xx and network exceptions.
+
+---
+
+## Peer Service Mapping (optional)
+
+Android's `OkHttpInstrumentation` supports `setPeerServiceMapping()` — maps hostnames to friendly service names so spans read `peer.service = "orders-service"` instead of just a hostname.
+
+Web supports the same via `peerServiceMap` config:
+
+```typescript
+instrumentations: {
+  network: {
+    enabled: true,
+    peerServiceMap: {
+      'api.example.com': 'orders-service',
+      'cdn.example.com': 'cdn',
+    }
+  }
+}
+```
+
+Applied in `applyCustomAttributesOnSpan`:
+```typescript
+const host = new URL(request.url).hostname;
+const peerService = config.peerServiceMap?.[host];
+if (peerService) span.setAttribute('peer.service', peerService);
+```
+
+---
+
 ## Edge Cases
 
 | Case | Handling |
@@ -171,14 +247,15 @@ test('fetch request produces http span', async ({ page }) => {
   await page.goto('/test-page');
   await page.evaluate(() => fetch('https://api.example.com/data'));
   const span = await waitForSpan(receiver, 'http');
-  expect(span['http.method']).toBe('GET');
-  expect(span['http.url']).toBe('https://api.example.com/data');
-  expect(span['http.status_code']).toBe(200);
+  expect(span['http.request.method']).toBe('GET');
+  expect(span['url.full']).toBe('https://api.example.com/data');
+  expect(span['http.response.status_code']).toBe(200);
+  expect(span['server.address']).toBe('api.example.com');
 });
 
 test('OTLP calls are not traced', async ({ page }) => {
   await page.goto('/test-page');
-  const spans = receiver.spans.filter(s => s['http.url']?.includes('/v1/traces'));
+  const spans = receiver.spans.filter(s => s['url.full']?.includes('/v1/traces'));
   expect(spans).toHaveLength(0);
 });
 ```
@@ -187,10 +264,14 @@ test('OTLP calls are not traced', async ({ page }) => {
 
 ## Done Criteria
 
-- [ ] Every `fetch()` call produces an `http` span with `http.method`, `http.url`, `http.status_code`
+- [ ] Every `fetch()` call produces an `http` span with `http.request.method`, `url.full`, `http.response.status_code`, `server.address`
 - [ ] XHR calls also produce `http` spans
 - [ ] Pulse's own OTLP endpoints excluded from tracing
 - [ ] GraphQL `operation.name` and `operation.type` extracted from POST body
 - [ ] Query params stripped from URL by default
-- [ ] `http.request_content_length` / `http.response_content_length` present when `Content-Length` header available
+- [ ] `http.request.body.size` / `http.response.body.size` present when `Content-Length` header available
+- [ ] `peer.service` set when `peerServiceMap` configured and hostname matches
+- [ ] `http.request.method = "_OTHER"` + `http.request.method_original` set for non-standard HTTP methods
+- [ ] 4xx/5xx responses set span status `ERROR`
+- [ ] Network failures set span status `ERROR` with `error.type = "network_error"`
 - [ ] All unit tests passing

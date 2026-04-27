@@ -39,43 +39,76 @@ The SDK resolves `screen.name` by trying each step in order, stopping at the fir
 
 ## Signals Produced
 
+> **OTel alignment:** OTel has no stable semconv for browser navigation spans. `url.path` follows OTel URL semconv. All other attributes (`screen.name`, `start.type`, timing fields etc.) are Pulse/RUM-specific custom attributes — no deprecated OTel names are used. `SpanKind.INTERNAL` is correct per OTel spec for non-remote spans.
+
 ### `pulse.type: screen_load` — initial page load span
 
-| Attribute | Type | Source | Android Equivalent |
-|---|---|---|---|
-| `pulse.type` | string | `"screen_load"` | `screen_load` |
-| `screen.name` | string | `window.location.pathname` | `screen.name` |
-| `url.path` | string | `window.location.pathname` | replaces `activity.name` |
-| `page.title` | string | `document.title` | — |
-| `navigation.type` | string | `"navigate"` \| `"reload"` \| `"back_forward"` | — |
-| `page.load_time` | long | `loadEventEnd - startTime` (ms) | — |
-| `dns.time` | long | `domainLookupEnd - domainLookupStart` (ms) | — |
-| `tcp.time` | long | `connectEnd - connectStart` (ms) | — |
-| `ttfb` | long | `responseStart - requestStart` (ms) | — |
-| `dom.processing_time` | long | `domComplete - domInteractive` (ms) | — |
+
+| Attribute             | Type   | Source                                                                                 | Android Equivalent       |
+| --------------------- | ------ | -------------------------------------------------------------------------------------- | ------------------------ |
+| `pulse.type`          | string | `"screen_load"`                                                                        | `screen_load`            |
+| `screen.name`         | string | `window.location.pathname`                                                             | `screen.name`            |
+| `url.path`            | string | `window.location.pathname`                                                             | replaces `activity.name` |
+| `page.title`          | string | `document.title`                                                                       | —                        |
+| `navigation.type`     | string | `"navigate"` | `"reload"` | `"back_forward"`                                           | —                        |
+| `start.type`          | string | `"cold"` (first load) / `"reload"` / `"back_forward"` — derived from `navigation.type` | ✅                        |
+| `page.load_time`      | long   | `loadEventEnd - startTime` (ms)                                                        | —                        |
+| `dns.time`            | long   | `domainLookupEnd - domainLookupStart` (ms)                                             | —                        |
+| `tcp.time`            | long   | `connectEnd - connectStart` (ms)                                                       | —                        |
+| `ttfb`                | long   | `responseStart - requestStart` (ms)                                                    | —                        |
+| `dom.processing_time` | long   | `domComplete - domInteractive` (ms)                                                    | —                        |
+
 
 ### `pulse.type: screen_interactive` — time-to-interactive span
 
-| Attribute | Type | Source | Android Equivalent |
-|---|---|---|---|
-| `pulse.type` | string | `"screen_interactive"` | `screen_interactive` |
-| `screen.name` | string | `window.location.pathname` | `screen.name` |
-| `url.path` | string | `window.location.pathname` | replaces `activity.name` |
-| `tti` | long | `domInteractive - startTime` (ms) | — |
+
+| Attribute     | Type   | Source                            | Android Equivalent       |
+| ------------- | ------ | --------------------------------- | ------------------------ |
+| `pulse.type`  | string | `"screen_interactive"`            | `screen_interactive`     |
+| `screen.name` | string | `window.location.pathname`        | `screen.name`            |
+| `url.path`    | string | `window.location.pathname`        | replaces `activity.name` |
+| `tti`         | long   | `domInteractive - startTime` (ms) | —                        |
+
 
 ### `pulse.type: screen_session` — time spent on a route
 
-| Attribute | Type | Source | Android Equivalent |
-|---|---|---|---|
-| `pulse.type` | string | `"screen_session"` | `screen_session` |
-| `screen.name` | string | Current URL path | `screen.name` |
-| `last.screen.name` | string | Previous route | `last.screen.name` |
-| `url.path` | string | `window.location.pathname` | replaces `activity.name` |
-| `session.duration` | long | Time on route (ms) | — |
+
+| Attribute          | Type   | Source                     | Android Equivalent       |
+| ------------------ | ------ | -------------------------- | ------------------------ |
+| `pulse.type`       | string | `"screen_session"`         | `screen_session`         |
+| `screen.name`      | string | Current URL path           | `screen.name`            |
+| `last.screen.name` | string | Previous route             | `last.screen.name`       |
+| `url.path`         | string | `window.location.pathname` | replaces `activity.name` |
+| `session.duration` | long   | Time on route (ms)         | —                        |
+
+
+---
+
+## Android Parity
+
+
+| Aspect              | Android (`ActivityTracer.kt`)                                         | Web                                                                             |
+| ------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Session span        | `ActivitySession` span via `startActivitySessionSpan()`               | `screen_session` span ✅                                                         |
+| Screen name         | `screen.name` from Activity class name or `@RumScreenName` annotation | `screen.name` from route pattern → heuristic → pathname ✅                       |
+| Last screen         | `last.screen.name` via `addPreviousScreenAttribute()`                 | `last.screen.name` ✅                                                            |
+| Activity name       | `activity.name` = Activity class simpleName                           | `url.path` — web equivalent ✅                                                   |
+| App start span      | `AppStart` span with `start.type = "cold"/"warm"/"hot"`               | `screen_load` span with `start.type` derived from `navigation.type`             |
+| Start type          | `start.type = "cold"/"warm"/"hot"`                                    | `start.type = "cold"/"reload"/"back_forward"` mapped from Navigation Timing API |
+| Root span           | `setNoParent()` — session span is always a root span                  | `SpanKind.INTERNAL`, no parent — standalone span                                |
+| Context propagation | `Context.current()` set on app start span parent                      | `context.active()` passed on span creation ✅                                    |
+| Span type           | Trace span                                                            | Trace span ✅                                                                    |
+| Manual screen name  | `@RumScreenName("Name")` annotation on Activity/Fragment              | `pulse.setScreenName('Name')` API call ✅ — cleared on next navigation            |
+| Global attribute propagation | `ScreenAttributesSpanProcessor` stamps `screen.name` + `last.screen.name` on every span | `PulseGlobalAttributesProcessor` does the same on every span + log record ✅ |
+| Performance timing  | ❌ no browser Navigation Timing equivalent on Android                  | ➕ web extra — `page.load_time`, `ttfb`, `dns.time`, `tcp.time`, `dom.processing_time`, `tti` |
+
 
 ---
 
 ## Implementation
+
+> **OTel alignment:** `screen_load`, `screen_interactive`, and `screen_session` spans use `SpanKind.INTERNAL` — they are not remote calls.
+> **Android parity:** `startActivitySessionSpan()` calls `setNoParent()` — session spans are always root spans, never children of another span. Web does the same: spans are created with no active parent context.
 
 ```typescript
 // src/instrumentations/navigation.ts
@@ -121,6 +154,7 @@ export class NavigationInstrumentation {
           'url.path':           window.location.pathname,
           'page.title':         document.title,
           'navigation.type':    nav.type,
+          'start.type':         nav.type === 'navigate' ? 'cold' : nav.type,
           'page.load_time':     Math.round(nav.loadEventEnd - nav.startTime),
           'dns.time':           Math.round(nav.domainLookupEnd - nav.domainLookupStart),
           'tcp.time':           Math.round(nav.connectEnd - nav.connectStart),
@@ -280,13 +314,15 @@ function stripDynamicSegments(pathname: string): string {
 
 **Examples:**
 
-| Raw pathname | After heuristic |
-|---|---|
-| `/products/123` | `/products` |
-| `/orders/550e8400-e29b-41d4-a716-446655440000` | `/orders` |
-| `/users/42/settings` | `/users/settings` |
-| `/checkout/confirm` | `/checkout/confirm` ← no dynamic segment, unchanged |
-| `/search?q=shoes` | `/search` ← query string handled separately |
+
+| Raw pathname                                   | After heuristic                                     |
+| ---------------------------------------------- | --------------------------------------------------- |
+| `/products/123`                                | `/products`                                         |
+| `/orders/550e8400-e29b-41d4-a716-446655440000` | `/orders`                                           |
+| `/users/42/settings`                           | `/users/settings`                                   |
+| `/checkout/confirm`                            | `/checkout/confirm` ← no dynamic segment, unchanged |
+| `/search?q=shoes`                              | `/search` ← query string handled separately         |
+
 
 ### Manual Override API
 
@@ -327,6 +363,7 @@ export class PulseGlobalAttributesProcessor implements SpanProcessor, LogRecordP
 ```
 
 When `NavigationInstrumentation.onRouteChange()` fires:
+
 1. `last.screen.name` ← current `screen.name`
 2. `screen.name` ← `resolveScreenName(newPathname)`
 3. `manualScreenName` ← cleared
@@ -336,21 +373,23 @@ When `NavigationInstrumentation.onRouteChange()` fires:
 
 ## Edge Cases
 
-| Case | Handling |
-|---|---|
-| `loadEventEnd === 0` at time of reading | Wait for `window.load` event before reading Navigation Timing |
-| BFCache restore | Handled in doc 02.10 — `navigation.type: 'back_forward_cache'` |
-| `replaceState` for URL cleanup (e.g. removing auth tokens) | Updates `currentRoute` but doesn't create a new session |
-| Sub-100ms navigations (e.g. hash changes) | Ignore — not a meaningful session |
-| Tab hidden during navigation | `screen_session` ends on `pagehide` via `endCurrentSession()` |
-| Framework router fires before `pushState` | Framework integrations call `onRouteChange()` directly, bypassing the patch |
-| No `routePatterns` configured | Falls through to heuristic (strip IDs) then raw pathname |
-| Route pattern has trailing slash mismatch | Normalise both pattern and pathname with `pathname.replace(/\/$/, '')` before match |
-| `/products/123` matches both `/products/:id` and `/products/:id/reviews` is wrong | Patterns evaluated in config order — put more specific patterns first |
-| `setScreenName()` called but user navigates | Manual override cleared in `onRouteChange()` — does not persist to next route |
-| Query string in pathname (e.g. `/search?q=shoes`) | Heuristic strips query string; `screen.name` is `/search` |
-| Hash routes (`/#/products/123`) | `window.location.pathname` = `/`; use `window.location.hash` for hash-based SPAs (opt-in) |
-| UUID in middle of path (`/a/550e8400/b`) | Heuristic strips UUID segment → `/a/b` |
+
+| Case                                                                              | Handling                                                                                  |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `loadEventEnd === 0` at time of reading                                           | Wait for `window.load` event before reading Navigation Timing                             |
+| BFCache restore                                                                   | Handled in doc 02.10 — `navigation.type: 'back_forward_cache'`                            |
+| `replaceState` for URL cleanup (e.g. removing auth tokens)                        | Updates `currentRoute` but doesn't create a new session                                   |
+| Sub-100ms navigations (e.g. hash changes)                                         | Ignore — not a meaningful session                                                         |
+| Tab hidden during navigation                                                      | `screen_session` ends on `pagehide` via `endCurrentSession()`                             |
+| Framework router fires before `pushState`                                         | Framework integrations call `onRouteChange()` directly, bypassing the patch               |
+| No `routePatterns` configured                                                     | Falls through to heuristic (strip IDs) then raw pathname                                  |
+| Route pattern has trailing slash mismatch                                         | Normalise both pattern and pathname with `pathname.replace(/\/$/, '')` before match       |
+| `/products/123` matches both `/products/:id` and `/products/:id/reviews` is wrong | Patterns evaluated in config order — put more specific patterns first                     |
+| `setScreenName()` called but user navigates                                       | Manual override cleared in `onRouteChange()` — does not persist to next route             |
+| Query string in pathname (e.g. `/search?q=shoes`)                                 | Heuristic strips query string; `screen.name` is `/search`                                 |
+| Hash routes (`/#/products/123`)                                                   | `window.location.pathname` = `/`; use `window.location.hash` for hash-based SPAs (opt-in) |
+| UUID in middle of path (`/a/550e8400/b`)                                          | Heuristic strips UUID segment → `/a/b`                                                    |
+
 
 ---
 
@@ -436,17 +475,19 @@ test('SPA navigation creates screen_session span', async ({ page }) => {
 
 ## Done Criteria
 
-- [ ] `screen_load` span emitted with `page.load_time`, `ttfb`, `dns.time`, `tcp.time`, `dom.processing_time`
-- [ ] `screen_interactive` span emitted with `tti`
-- [ ] `navigation.type` correct (`navigate` / `reload` / `back_forward`)
-- [ ] `pushState()` triggers a new `screen_session` and ends the previous one
-- [ ] `screen.name` updates on every route change
-- [ ] `last.screen.name` correctly set on second and subsequent navigations
-- [ ] Sub-100ms navigations do not emit sessions
-- [ ] `routePatterns` config maps `/products/:id` → `ProductDetail`
-- [ ] `matchesPattern()` correctly handles `:param` wildcards
-- [ ] Heuristic strips numeric, UUID, and hex ID segments from pathnames
-- [ ] `setScreenName()` overrides `screen.name` for current route only
-- [ ] Manual override cleared on next navigation
-- [ ] `screen.name` and `last.screen.name` stamped on all spans/logs via global processor
-- [ ] All unit tests passing
+- `screen_load` span emitted with `page.load_time`, `ttfb`, `dns.time`, `tcp.time`, `dom.processing_time`
+- `screen_interactive` span emitted with `tti`
+- `navigation.type` correct (`navigate` / `reload` / `back_forward`)
+- `start.type` correct on `screen_load`: `"cold"` on first navigate, `"reload"` on page reload, `"back_forward"` on browser back/forward
+- `pushState()` triggers a new `screen_session` and ends the previous one
+- `screen.name` updates on every route change
+- `last.screen.name` correctly set on second and subsequent navigations
+- Sub-100ms navigations do not emit sessions
+- `routePatterns` config maps `/products/:id` → `ProductDetail`
+- `matchesPattern()` correctly handles `:param` wildcards
+- Heuristic strips numeric, UUID, and hex ID segments from pathnames
+- `setScreenName()` overrides `screen.name` for current route only
+- Manual override cleared on next navigation
+- `screen.name` and `last.screen.name` stamped on all spans/logs via global processor
+- All unit tests passing
+
