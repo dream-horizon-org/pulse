@@ -3,7 +3,8 @@
 **Goal:** Capture every unhandled JavaScript error and promise rejection as a log record, with full stack trace, and route it to the correct `pulse.type` so it appears in the Pulse crashes dashboard.
 
 **File:** `src/instrumentations/errors.ts`
-**Android equivalent:** `CrashInstrumentation`, `NonFatalReporter`
+
+**Android equivalent:** `CrashInstrumentation` `CrashReporter.kt`), `NonFatalReporter`
 
 ---
 
@@ -13,149 +14,509 @@
 
 Triggered by `window.addEventListener('error', ...)`.
 
-| Attribute | Type | Source | Required |
-|---|---|---|---|
-| `pulse.type` | string | `"device.crash"` | ✅ |
-| `exception.type` | string | `error.name` (e.g. `"TypeError"`) | ✅ |
-| `exception.message` | string | `error.message` | ✅ |
-| `exception.stacktrace` | string | `error.stack` | ✅ |
-| `error.filename` | string | `ErrorEvent.filename` | ✅ |
-| `error.lineno` | long | `ErrorEvent.lineno` | ✅ |
-| `error.colno` | long | `ErrorEvent.colno` | ✅ |
-| `url.path` | string | `window.location.pathname` | ✅ |
-| `battery.percent` | double | `navigator.getBattery()` result | optional |
+> OTel alignment: emitted as a log record (not a span event) per current OTel spec direction.
 
-### `pulse.type: non_fatal` — unhandled promise rejections + manual `reportException()`
+> `severityNumber: FATAL` per OTel Logs data model.
 
-Triggered by `window.addEventListener('unhandledrejection', ...)` and `PulseWeb.reportException()`.
+> `context: context.active()` wired for trace correlation.
 
-| Attribute | Type | Source | Required |
-|---|---|---|---|
-| `pulse.type` | string | `"non_fatal"` | ✅ |
-| `exception.type` | string | `error.name` | ✅ |
-| `exception.message` | string | `error.message` | ✅ |
-| `exception.stacktrace` | string | `error.stack` | ✅ |
-| `url.path` | string | `window.location.pathname` | ✅ |
-| `non_fatal.is_manual` | boolean | `true` when called via `reportException()` | ✅ |
+> `timestamp: Date.now()` set explicitly — captures exact moment of error, not batch process time (mirrors Android `setObservedTimestamp`).
+
+| Attribute              | Type   | Source                                             | Required                       |
+
+| ---------------------- | ------ | -------------------------------------------------- | ------------------------------ |
+
+| `pulse.type`           | string | `"device.crash"`                                   | ✅                              |
+
+| `exception.type`       | string | `error.name` (e.g. `"TypeError"`)                  | ✅                              |
+
+| `exception.message`    | string | `error.message`                                    | ✅                              |
+
+| `exception.stacktrace` | string | `error.stack`                                      | ✅                              |
+
+| `error.filename`       | string | `ErrorEvent.filename`                              | ✅                              |
+
+| `error.lineno`         | long   | `ErrorEvent.lineno`                                | ✅                              |
+
+| `error.colno`          | long   | `ErrorEvent.colno`                                 | ✅                              |
+
+| `url.path`             | string | `window.location.pathname`                         | ✅                              |
+
+| `battery.percent`      | double | `navigator.getBattery()` — cached on install       | optional (Chrome/Edge only)    |
+
+| `storage.free`         | long   | `navigator.storage.estimate()` — cached on install | optional (all modern browsers) |
+
+**OTel log record fields (beyond attributes):**
+
+| Field            | Value                                                                            |
+
+| ---------------- | -------------------------------------------------------------------------------- |
+
+| `timestamp`      | `Date.now()` — exact moment error fired (Android parity: `setObservedTimestamp`) |
+
+| `severityNumber` | `SeverityNumber.FATAL` (17)                                                      |
+
+| `severityText`   | `"FATAL"`                                                                        |
+
+| `context`        | `context.active()` — links to active trace span if present                       |
+
+| `body`           | `error.message`                                                                  |
+
+---
+
+### `pulse.type: non_fatal` — unhandled promise rejections
+
+Triggered by `window.addEventListener('unhandledrejection', ...)`.
+
+> `severityNumber: WARN` per OTel Logs data model.
+
+> `timestamp: Date.now()` set explicitly — same as `device.crash`.
+
+| Attribute              | Type    | Source                     | Required |
+
+| ---------------------- | ------- | -------------------------- | -------- |
+
+| `pulse.type`           | string  | `"non_fatal"`              | ✅        |
+
+| `exception.type`       | string  | `error.name`               | ✅        |
+
+| `exception.message`    | string  | `error.message`            | ✅        |
+
+| `exception.stacktrace` | string  | `error.stack`              | ✅        |
+
+| `url.path`             | string  | `window.location.pathname` | ✅        |
+
+| `non_fatal.is_manual`  | boolean | `false` (auto-detected)    | ✅        |
+
+**OTel log record fields:**
+
+| Field            | Value                                       |
+
+| ---------------- | ------------------------------------------- |
+
+| `timestamp`      | `Date.now()` — exact moment rejection fired |
+
+| `severityNumber` | `SeverityNumber.WARN` (13)                  |
+
+| `severityText`   | `"WARN"`                                    |
+
+| `context`        | `context.active()`                          |
+
+| `body`           | `error.message`                             |
+
+---
+
+### `pulse.type: non_fatal` — manual `reportException()` (existing in sdk.ts)
+
+Called explicitly by app code or by `PulseErrorBoundary`.
+
+Same attribute contract as auto-detected non_fatal above, except `non_fatal.is_manual: true`.
+
+This path already exists in `sdk.ts` — updated to include `severityNumber` and `url.path`.
+
+---
 
 ### `pulse.type: non_fatal` — console.error patch (opt-in, default off)
 
-| Attribute | Type | Source |
-|---|---|---|
-| `pulse.type` | string | `"non_fatal"` |
-| `exception.message` | string | `args.join(' ')` |
-| `console.level` | string | `"error"` or `"warn"` |
+| Attribute           | Type   | Source                |
+
+| ------------------- | ------ | --------------------- |
+
+| `pulse.type`        | string | `"non_fatal"`         |
+
+| `exception.message` | string | `args.join(' ')`      |
+
+| `console.level`     | string | `"error"` or `"warn"` |
+
+Not installed by default. Must be enabled via `instrumentations.errors.patchConsole: true`.
+
+---
+
+## Android Parity
+
+| Aspect                        | Android `CrashReporter.kt`)                                          | Web                                                                       |
+
+| ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+
+| Capture mechanism             | `Thread.setDefaultUncaughtExceptionHandler`                           | `window.addEventListener('error')` — browser equivalent                   |
+
+| Non-fatal                     | Separate `NonFatalReporter`                                           | `unhandledrejection` listener — browser equivalent                        |
+
+| Signal type                   | Log record via `logRecordBuilder()`                                   | Log record via `logger.emit()` ✅                                          |
+
+| Event name                    | `setEventName("device.crash")`                                        | `pulse.type = "device.crash"` — JS SDK has no stable `setEventName()` API |
+
+| `exception.type`              | `throwable.javaClass.name`                                            | `error.name` ✅                                                            |
+
+| `exception.message`           | `throwable.message`                                                   | `error.message` ✅                                                         |
+
+| `exception.stacktrace`        | `throwable.stackTraceToString()`                                      | `error.stack` ✅                                                           |
+
+| `observedTimestamp`           | `setObservedTimestamp(ms, MILLISECONDS)`                              | `timestamp: Date.now()` ✅                                                 |
+
+| `context` / trace correlation | `Context.current()` via extractor                                     | `context.active()` ✅                                                      |
+
+| Thread info                   | `thread.id`, `thread.name`                                            | `error.filename`, `error.lineno`, `error.colno` — no threads in browser   |
+
+| `battery.percent`             | ✅ via `RuntimeDetailsExtractor` `BatteryManager` broadcast)          | ✅ `navigator.getBattery()` cached on install — Chrome/Edge only           |
+
+| `storage.free`                | ✅ via `RuntimeDetailsExtractor` `filesDir.freeSpace`)                | ✅ `navigator.storage.estimate()` cached on install — all modern browsers  |
+
+| `heap.free`                   | ✅ via `RuntimeDetailsExtractor` `Runtime.getRuntime().freeMemory()`) | ❌ `performance.memory` Chrome-only, deprecated — skipped                  |
+
+| Force flush after crash       | `forceFlush(10s)` blocking                                            | `pagehide` keepalive flush — browser has no blocking flush                |
+
+---
+
+## Deduplication
+
+Same error firing repeatedly (e.g. inside `setInterval`, or a hot render loop) would flood the pipeline.
+
+**Strategy:** fingerprint = `exception.type + exception.message + error.filename + error.lineno`.
+
+If the same fingerprint is seen again within **5 seconds**, skip the emit.
+
+After 5 seconds the window resets — a genuinely recurring error is still captured.
+
+```typescript
+
+private dedupeCache = new Map<string, number>(); // fingerprint → last emit timestamp
+
+private readonly DEDUPE_WINDOW_MS = 5_000;
+
+private isDuplicate(fingerprint: string): boolean {
+
+  const last = this.dedupeCache.get(fingerprint);
+
+  const now = [Date.now](http://Date.now)();
+
+  if (last !== undefined && now - last < this.DEDUPE_WINDOW_MS) return true;
+
+  this.dedupeCache.set(fingerprint, now);
+
+  return false;
+
+}
+
+```
+
+Deduplication applies to **auto-detected** errors only `window.onerror`, `unhandledrejection`).
+
+Manual `reportException()` and `reportDeviceCrash()` calls are never deduplicated — app code is intentional.
+
+---
+
+## Device State Caching (battery + storage)
+
+Android's `RuntimeDetailsExtractor` listens to `BatteryManager` broadcasts in the background so battery level is **synchronously available** at crash time — no async needed.
+
+Web mirrors this with an on-install prefetch + event listener cache:
+
+```typescript
+
+// Cached on install — available synchronously when crash fires
+
+private batteryPercent: number | undefined;
+
+private storageFreeBytes: number | undefined;
+
+private async prefetchDeviceState(): Promise<void> {
+
+  // Battery — Chrome/Edge only, graceful no-op elsewhere
+
+  if ("getBattery" in navigator) {
+
+    try {
+
+      const battery = await (navigator as any).getBattery();
+
+      this.batteryPercent = battery.level * 100;
+
+      battery.addEventListener("levelchange", () => {
+
+        this.batteryPercent = battery.level * 100;
+
+      });
+
+    } catch { /* not supported — skip */ }
+
+  }
+
+  // Storage free — all modern browsers
+
+  if ("storage" in navigator && "estimate" in [navigator.storage](http://navigator.storage)) {
+
+    try {
+
+      const { quota = 0, usage = 0 } = await [navigator.storage](http://navigator.storage).estimate();
+
+      this.storageFreeBytes = quota - usage;
+
+    } catch { /* not supported — skip */ }
+
+  }
+
+}
+
+```
+
+Both values are **best-effort optional** — if the API is unsupported or the prefetch hasn't resolved yet, the attribute is simply omitted from the log record.
 
 ---
 
 ## Implementation
 
 ```typescript
+
 // src/instrumentations/errors.ts
 
-export class ErrorInstrumentation {
-  private prevOnError?: OnErrorEventHandler;
+import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 
-  install(): void {
-    // 1. Unhandled JS errors
-    this.prevOnError = window.onerror;
-    window.addEventListener('error', this.onError);
+import { context } from "@opentelemetry/api";
 
-    // 2. Unhandled promise rejections
-    window.addEventListener('unhandledrejection', this.onRejection);
+import type { PulseInstrumentation, SdkContext } from "../instrumentation-registry";
+
+import { PulseWebSemconv } from "../semconv";
+
+export class ErrorInstrumentation implements PulseInstrumentation {
+
+  readonly name = "errors";
+
+  private onErrorHandler?: (e: ErrorEvent) => void;
+
+  private onRejectionHandler?: (e: PromiseRejectionEvent) => void;
+
+  private dedupeCache = new Map<string, number>();
+
+  private readonly DEDUPE_WINDOW_MS = 5_000;
+
+  // Device state — prefetched on install, kept fresh via event listeners
+
+  private batteryPercent: number | undefined;
+
+  private storageFreeBytes: number | undefined;
+
+  install(_sdk: SdkContext): void {
+
+    const K = PulseWebSemconv.AttributeKey;
+
+    const T = PulseWebSemconv.PulseType;
+
+    const logger = logs.getLogger("pulse-web-errors");
+
+    // Prefetch device state in background — available on next crash
+
+    void this.prefetchDeviceState();
+
+    this.onErrorHandler = (e: ErrorEvent) => {
+
+      // Skip cross-origin errors — browser blocks stack access for security
+
+      if (e.message === "Script error." && !e.filename) return;
+
+      const error = e.error instanceof Error ? e.error : new Error(e.message);
+
+      const fingerprint = `${error.name}:${error.message}:${e.filename}:${e.lineno}`;
+
+      if (this.isDuplicate(fingerprint)) return;
+
+      logger.emit({
+
+        body: error.message,
+
+        timestamp: [Date.now](http://Date.now)(),           // exact moment error fired
+
+        severityNumber: SeverityNumber.FATAL,
+
+        severityText: "FATAL",
+
+        context: context.active(),
+
+        attributes: {
+
+          [K.PULSE_TYPE]:            T.DEVICE_CRASH,
+
+          [K.EXCEPTION_TYPE]:        [error.name](http://error.name),
+
+          [K.EXCEPTION_MESSAGE]:     error.message,
+
+          [K.EXCEPTION_STACKTRACE]:  error.stack ?? "",
+
+          [K.ERROR_FILENAME]:        e.filename || "",
+
+          [K.ERROR_LINENO]:          e.lineno,
+
+          [K.ERROR_COLNO]:           e.colno,
+
+          [K.URL_PATH]:              window.location.pathname,
+
+          // Device state — optional, omitted if not available
+
+          ...(this.batteryPercent !== undefined && { [K.BATTERY_PERCENT]: this.batteryPercent }),
+
+          ...(this.storageFreeBytes !== undefined && { [[K.STORAGE](http://K.STORAGE)_FREE]: this.storageFreeBytes }),
+
+        },
+
+      });
+
+    };
+
+    this.onRejectionHandler = (e: PromiseRejectionEvent) => {
+
+      const error = e.reason instanceof Error
+
+        ? e.reason
+
+        : new Error(String(e.reason ?? "Unknown rejection"));
+
+      const fingerprint = `${error.name}:${error.message}`;
+
+      if (this.isDuplicate(fingerprint)) return;
+
+      logger.emit({
+
+        body: error.message,
+
+        timestamp: [Date.now](http://Date.now)(),           // exact moment rejection fired
+
+        severityNumber: SeverityNumber.WARN,
+
+        severityText: "WARN",
+
+        context: context.active(),
+
+        attributes: {
+
+          [K.PULSE_TYPE]:            T.NON_FATAL,
+
+          [K.EXCEPTION_TYPE]:        [error.name](http://error.name),
+
+          [K.EXCEPTION_MESSAGE]:     error.message,
+
+          [K.EXCEPTION_STACKTRACE]:  error.stack ?? "",
+
+          [K.URL_PATH]:              window.location.pathname,
+
+          [K.NON_FATAL_IS_MANUAL]:   false,
+
+        },
+
+      });
+
+    };
+
+    window.addEventListener("error", this.onErrorHandler);
+
+    window.addEventListener("unhandledrejection", this.onRejectionHandler);
+
   }
 
   uninstall(): void {
-    window.removeEventListener('error', this.onError);
-    window.removeEventListener('unhandledrejection', this.onRejection);
+
+    if (this.onErrorHandler) {
+
+      window.removeEventListener("error", this.onErrorHandler);
+
+    }
+
+    if (this.onRejectionHandler) {
+
+      window.removeEventListener("unhandledrejection", this.onRejectionHandler);
+
+    }
+
+    this.dedupeCache.clear();
+
+    this.batteryPercent = undefined;
+
+    this.storageFreeBytes = undefined;
+
   }
 
-  private onError = (e: ErrorEvent): void => {
-    // Ignore cross-origin script errors (no useful info available)
-    if (e.message === 'Script error.' && !e.filename) return;
+  private async prefetchDeviceState(): Promise<void> {
 
-    const attrs: Record<string, unknown> = {
-      'pulse.type':           'device.crash',
-      'exception.type':       e.error?.name ?? 'Error',
-      'exception.message':    e.message,
-      'exception.stacktrace': e.error?.stack ?? '',
-      'error.filename':       e.filename,
-      'error.lineno':         e.lineno,
-      'error.colno':          e.colno,
-      'url.path':             window.location.pathname,
-    };
+    if ("getBattery" in navigator) {
 
-    // Battery (async, best-effort)
-    if ('getBattery' in navigator) {
-      (navigator as any).getBattery().then((b: any) => {
-        attrs['battery.percent'] = b.level * 100;
-        emitLogRecord(attrs);
-      }).catch(() => emitLogRecord(attrs));
-    } else {
-      emitLogRecord(attrs);
+      try {
+
+        const battery = await (navigator as any).getBattery();
+
+        this.batteryPercent = battery.level * 100;
+
+        battery.addEventListener("levelchange", () => {
+
+          this.batteryPercent = battery.level * 100;
+
+        });
+
+      } catch { /* not supported */ }
+
     }
-  };
 
-  private onRejection = (e: PromiseRejectionEvent): void => {
-    const error = e.reason instanceof Error
-      ? e.reason
-      : new Error(String(e.reason));
+    if ("storage" in navigator && "estimate" in [navigator.storage](http://navigator.storage)) {
 
-    emitLogRecord({
-      'pulse.type':           'non_fatal',
-      'exception.type':       error.name,
-      'exception.message':    error.message,
-      'exception.stacktrace': error.stack ?? '',
-      'non_fatal.is_manual':  false,
-      'url.path':             window.location.pathname,
-    });
-  };
+      try {
+
+        const { quota = 0, usage = 0 } = await [navigator.storage](http://navigator.storage).estimate();
+
+        this.storageFreeBytes = quota - usage;
+
+      } catch { /* not supported */ }
+
+    }
+
+  }
+
+  private isDuplicate(fingerprint: string): boolean {
+
+    const last = this.dedupeCache.get(fingerprint);
+
+    const now = [Date.now](http://Date.now)();
+
+    if (last !== undefined && now - last < this.DEDUPE_WINDOW_MS) return true;
+
+    this.dedupeCache.set(fingerprint, now);
+
+    return false;
+
+  }
+
 }
 
-// Public API — called by PulseWeb.reportException()
-export function reportException(
-  error: Error | string,
-  isFatal = false,
-  attributes: Record<string, string> = {}
-): void {
-  const err = typeof error === 'string' ? new Error(error) : error;
-  emitLogRecord({
-    'pulse.type':           isFatal ? 'device.crash' : 'non_fatal',
-    'exception.type':       err.name,
-    'exception.message':    err.message,
-    'exception.stacktrace': err.stack ?? '',
-    'non_fatal.is_manual':  true,
-    'url.path':             window.location.pathname,
-    ...attributes,
-  });
-}
-
-// Optional — console.error patch
-export function patchConsoleError(): void {
-  const original = console.error.bind(console);
-  console.error = (...args: unknown[]) => {
-    emitLogRecord({
-      'pulse.type':        'non_fatal',
-      'exception.message': args.map(String).join(' '),
-      'console.level':     'error',
-    });
-    original(...args);
-  };
-}
 ```
 
 ---
 
 ## Edge Cases
 
-| Case | Handling |
-|---|---|
-| Cross-origin script error (`"Script error."`) | Skip — no actionable info; security restriction prevents stack access |
-| `error.stack` is undefined (some older browsers) | Use empty string `""`, don't crash |
-| `e.reason` in rejection is a string not an Error | Wrap in `new Error(String(reason))` |
-| `getBattery()` not supported | Skip battery attribute, still emit the record |
-| `reportException()` called before `PulseWeb.start()` | Queue and flush once initialized (same pattern as Module 1 singleton) |
-| Same error thrown repeatedly (e.g. in `setInterval`) | No deduplication in v1 — emit every occurrence |
+| Case                                                        | Handling                                                                  |
+
+| ----------------------------------------------------------- | ------------------------------------------------------------------------- |
+
+| Cross-origin script error `"Script error."`)               | Skip — no actionable info; security restriction prevents stack access     |
+
+| `error.stack` is undefined (some older browsers)            | Use empty string `""`, don't crash                                        |
+
+| `e.reason` in rejection is a string not an Error            | Wrap in `new Error(String(reason))`                                       |
+
+| `e.reason` is `undefined` / `null`                          | Wrap in `new Error("Unknown rejection")`                                  |
+
+| Same error repeated within 5s (e.g. `setInterval`)          | Deduplicated — only first emit goes through                               |
+
+| Same error after 5s window                                  | Emitted again — recurring errors are still captured                       |
+
+| Manual `reportException()` called before `PulseWeb.start()` | No-op — sdk guard returns early; app code should call after `start()`     |
+
+| `window.onerror` already set by another library             | We use `addEventListener` not the `onerror` property — no conflict        |
+
+| `getBattery()` not supported (Firefox, Safari)              | `batteryPercent` stays `undefined` — attribute omitted from log record    |
+
+| `storage.estimate()` throws                                 | `storageFreeBytes` stays `undefined` — attribute omitted from log record  |
+
+| Crash fires before prefetch resolves                        | Device state attrs omitted — crash still emitted immediately without them |
+
+| Battery level changes mid-session                           | `levelchange` listener keeps `batteryPercent` fresh throughout session    |
 
 ---
 
@@ -164,63 +525,230 @@ export function patchConsoleError(): void {
 ### Unit Tests (Vitest + JSDOM)
 
 ```typescript
+
 it('emits device.crash on window error event', () => {
-  const records = captureLogRecords();
+
   window.dispatchEvent(new ErrorEvent('error', {
+
     message: 'ReferenceError: foo is not defined',
+
     filename: 'app.js',
+
     lineno: 42,
+
     colno: 5,
+
     error: new ReferenceError('foo is not defined'),
+
   }));
-  expect(records[0]['pulse.type']).toBe('device.crash');
-  expect(records[0]['exception.type']).toBe('ReferenceError');
-  expect(records[0]['error.lineno']).toBe(42);
+
+  expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
+
+    severityNumber: SeverityNumber.FATAL,
+
+    attributes: expect.objectContaining({
+
+      'pulse.type': 'device.crash',
+
+      'exception.type': 'ReferenceError',
+
+      'error.lineno': 42,
+
+      'url.path': '/',
+
+    }),
+
+  }));
+
 });
 
 it('emits non_fatal on unhandled rejection', () => {
-  const records = captureLogRecords();
+
   window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', {
+
     promise: Promise.reject(),
+
     reason: new TypeError('Cannot read property'),
+
   }));
-  expect(records[0]['pulse.type']).toBe('non_fatal');
-  expect(records[0]['exception.type']).toBe('TypeError');
+
+  expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
+
+    severityNumber: SeverityNumber.WARN,
+
+    attributes: expect.objectContaining({
+
+      'pulse.type': 'non_fatal',
+
+      'non_[fatal.is](http://fatal.is)_manual': false,
+
+    }),
+
+  }));
+
 });
 
 it('skips cross-origin script errors', () => {
-  const records = captureLogRecords();
+
   window.dispatchEvent(new ErrorEvent('error', { message: 'Script error.' }));
-  expect(records).toHaveLength(0);
+
+  expect(mockEmit).not.toHaveBeenCalled();
+
 });
 
-it('reportException marks non_fatal.is_manual true', () => {
-  const records = captureLogRecords();
-  reportException(new Error('oops'));
-  expect(records[0]['non_fatal.is_manual']).toBe(true);
+it('deduplicates same error within 5s', () => {
+
+  const err = new ErrorEvent('error', {
+
+    message: 'same error', filename: 'app.js', lineno: 1, colno: 1,
+
+    error: new Error('same error'),
+
+  });
+
+  window.dispatchEvent(err);
+
+  window.dispatchEvent(err);
+
+  window.dispatchEvent(err);
+
+  expect(mockEmit).toHaveBeenCalledTimes(1);
+
 });
+
+it('allows same error after 5s window', () => {
+
+  vi.useFakeTimers();
+
+  const err = new ErrorEvent('error', {
+
+    message: 'recurring', filename: 'app.js', lineno: 1, colno: 1,
+
+    error: new Error('recurring'),
+
+  });
+
+  window.dispatchEvent(err);
+
+  vi.advanceTimersByTime(6_000);
+
+  window.dispatchEvent(err);
+
+  expect(mockEmit).toHaveBeenCalledTimes(2);
+
+  vi.useRealTimers();
+
+});
+
+it('wraps string rejection reason in Error', () => {
+
+  window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', {
+
+    promise: Promise.reject(),
+
+    reason: 'plain string rejection',
+
+  }));
+
+  expect(mockEmit).toHaveBeenCalledWith(expect.objectContaining({
+
+    attributes: expect.objectContaining({
+
+      'exception.type': 'Error',
+
+      'exception.message': 'plain string rejection',
+
+    }),
+
+  }));
+
+});
+
+it('uninstall removes both listeners', () => {
+
+  const instr = new ErrorInstrumentation();
+
+  instr.install(mockSdk);
+
+  instr.uninstall();
+
+  window.dispatchEvent(new ErrorEvent('error', { message: 'after uninstall', error: new Error() }));
+
+  expect(mockEmit).not.toHaveBeenCalled();
+
+});
+
 ```
 
 ### E2E (Playwright)
 
 ```typescript
-test('JS error lands in mock OTLP receiver', async ({ page }) => {
-  await page.goto('/test-page');
-  await page.evaluate(() => { throw new Error('test crash'); });
+
+test('JS error lands in OTLP receiver as device.crash', async ({ page }) => {
+
+  await page.goto('/error-demo');
+
+  await [page.click](http://page.click)('[data-testid="throw-uncaught"]');
+
   const log = await waitForLog(receiver, 'device.crash');
-  expect(log['exception.message']).toBe('test crash');
-  expect(log['exception.stacktrace']).toContain('test-page');
+
+  expect(log.attributes['exception.message']).toContain('Demo uncaught error');
+
+  expect(log.attributes['exception.stacktrace']).toBeTruthy();
+
+  expect(log.attributes['error.lineno']).toBeGreaterThan(0);
+
+  expect(log.severityNumber).toBe(SeverityNumber.FATAL);
+
 });
+
+test('Unhandled rejection lands as non_fatal', async ({ page }) => {
+
+  await page.goto('/error-demo');
+
+  await [page.click](http://page.click)('[data-testid="throw-promise"]');
+
+  const log = await waitForLog(receiver, 'non_fatal');
+
+  expect(log.attributes['non_[fatal.is](http://fatal.is)_manual']).toBe(false);
+
+  expect(log.severityNumber).toBe(SeverityNumber.WARN);
+
+});
+
 ```
 
 ---
 
 ## Done Criteria
 
-- [ ] `device.crash` emitted with `exception.type`, `exception.message`, `exception.stacktrace`, `error.lineno`, `url.path`
-- [ ] `non_fatal` emitted for unhandled promise rejections
-- [ ] Cross-origin `"Script error."` silently skipped
-- [ ] `reportException(error)` produces `non_fatal` with `non_fatal.is_manual: true`
-- [ ] `reportException(error, true)` produces `device.crash`
-- [ ] Console error patch off by default; works correctly when enabled
-- [ ] All unit tests passing
+- `device.crash` emitted on `window.onerror` with `exception.type`, `exception.message`, `exception.stacktrace`, `error.filename`, `error.lineno`, `error.colno`, `url.path`
+
+- `non_fatal` emitted for `unhandledrejection` with `non_fatal.is_manual: false`
+
+- `timestamp: Date.now()` set on every log record — exact event time, not batch time
+
+- `severityNumber: FATAL` on `device.crash`, `severityNumber: WARN` on `non_fatal`
+
+- `context.active()` passed on every emit for trace correlation
+
+- `battery.percent` present on `device.crash` when `getBattery()` supported, absent otherwise
+
+- `storage.free` present on `device.crash` when `storage.estimate()` supported, absent otherwise
+
+- Cross-origin `"Script error."` silently skipped
+
+- Same error within 5s deduplicated — only first emit goes through
+
+- Same error after 5s window — emitted again
+
+- Manual `reportException()` and `reportDeviceCrash()` never deduplicated
+
+- `e.reason` is string → wrapped in `new Error()`
+
+- `uninstall()` removes both listeners and clears device state cache
+
+- `window.onerror` property not touched — `addEventListener` used (no conflict with other libraries)
+
+- All unit tests passing
+
