@@ -30,15 +30,15 @@ pipeline {
             }
         }
 
-        // pulse-session-capture: openssl-sys (native-tls) + rdkafka (cmake) need these on the agent. Prefer baking into
-        // the golden ARM AMI; this stage is a fallback when the build user has passwordless sudo.
+        // pulse-session-capture: openssl-sys + rdkafka-sys (cmake, static librdkafka) need these. librdkafka compiles
+        // sources that include curl/curl.h even when WITH_CURL=0. Prefer baking into the golden ARM AMI.
         stage('Install native build dependencies') {
             steps {
                 sh """
                     #!/bin/bash -el
                     sudo DEBIAN_FRONTEND=noninteractive apt-get update
                     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\
-                        build-essential pkg-config libssl-dev cmake \\
+                        build-essential pkg-config libssl-dev cmake libcurl4-openssl-dev \\
                         libsasl2-dev zlib1g-dev libzstd-dev liblz4-dev
                 """
             }
