@@ -68,6 +68,7 @@ AS otel.otel_metrics_exp_histogram_local
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_exp_histogram_mv
+ON CLUSTER 'pulse-ch'
 TO otel.project_monthly_usage
 AS SELECT
             ProjectId AS project_id,
