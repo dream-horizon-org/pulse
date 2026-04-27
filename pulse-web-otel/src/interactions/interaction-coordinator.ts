@@ -7,6 +7,7 @@ import type { InteractionConfig } from "./interaction-models";
 import type { InteractionTrackerCallbacks } from "../types/interactions/interaction-runtime";
 import { toInteractionLocalEvent } from "../utils/interactions/local-event-converter";
 import { InteractionTracker } from "./interaction-tracker";
+import type { PulseAttributes } from "../types/attributes";
 
 const LIFECYCLE = "[interactions:coordinator]";
 
@@ -39,7 +40,7 @@ export class InteractionCoordinator {
    */
   trackEvent(
     name: string,
-    attrs?: Record<string, unknown>,
+    attrs?: PulseAttributes,
     timeMs: number = Date.now(),
   ): void {
     const ev = toInteractionLocalEvent(name, attrs, timeMs);

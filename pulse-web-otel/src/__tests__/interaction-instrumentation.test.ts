@@ -16,7 +16,7 @@ import { FeatureGate } from "../feature-gate";
 import type { SdkContext } from "../instrumentation-registry";
 import { InteractionInstrumentation } from "../instrumentations/interaction";
 import { PulseDataCollectionConsent } from "../config";
-import { DEFAULT_SDK_CONFIG } from "../remote-config";
+import { DEFAULT_SDK_CONFIG } from "../constants/default-sdk-config";
 
 function makeSdkContext(): SdkContext {
   return {

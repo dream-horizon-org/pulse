@@ -1,5 +1,6 @@
 import type { PulseInstrumentation, SdkContext } from "../instrumentation-registry";
 import { InteractionFeature } from "../interactions/interaction-feature";
+import type { PulseAttributes } from "../types/attributes";
 
 export class InteractionInstrumentation implements PulseInstrumentation {
   readonly name = "interactions";
@@ -18,7 +19,7 @@ export class InteractionInstrumentation implements PulseInstrumentation {
 
   trackEvent(
     name: string,
-    attrs?: Record<string, unknown>,
+    attrs?: PulseAttributes,
     timestampMs?: number,
   ): void {
     this.feature?.trackEvent(name, attrs, timestampMs);

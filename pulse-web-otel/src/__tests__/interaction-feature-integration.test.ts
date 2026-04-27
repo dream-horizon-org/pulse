@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Tracer, Attributes } from "@opentelemetry/api";
 
+import type { FeatureGate } from "../feature-gate";
 import { InteractionFeature } from "../interactions/interaction-feature";
 import { PulseWebSemconv } from "../semconv";
 
@@ -56,9 +57,7 @@ describe("InteractionFeature integration pipeline", () => {
     const feature = new InteractionFeature(
       "http://localhost:4318",
       { apiKey: "default-project_devkey01" },
-      { isEnabled: () => true } as unknown as {
-        isEnabled: (name: string) => boolean;
-      },
+      { isEnabled: () => true } as unknown as FeatureGate,
       true,
       tracer,
     );

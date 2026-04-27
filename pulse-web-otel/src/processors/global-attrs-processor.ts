@@ -199,16 +199,22 @@ export class PulseGlobalAttributesProcessor
       attrs["network.downlink"] = network.downlink;
     }
 
-    // Inject global attributes from config
+    // Inject global attributes from config (span attributes: primitives only here)
     if (this.config.globalAttributes) {
       for (const [key, value] of Object.entries(this.config.globalAttributes)) {
-        attrs[key] = value;
+        if (
+          typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean"
+        ) {
+          attrs[key] = value;
+        }
       }
     }
 
-    const UK = PulseWebSemconv.AttributeKey;
+    const attributeKeys = PulseWebSemconv.AttributeKey;
     if (this._userId !== null && this._userId !== "") {
-      attrs[UK.USER_ID] = this._userId;
+      attrs[attributeKeys.USER_ID] = this._userId;
     }
     for (const [k, v] of Object.entries(this._userProperties)) {
       attrs[`pulse.user.${k}`] = v;

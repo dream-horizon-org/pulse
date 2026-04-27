@@ -2,7 +2,9 @@ import type { PulseWebConfig } from "./types/config";
 import { validateBeforeSendConfig } from "./before-send";
 
 export { PulseDataCollectionConsent } from "./types/config";
+export { InstrumentationKeys } from "./types/config";
 export type {
+  InstrumentationKey,
   InstrumentationConfig,
   PulseWebDiskBufferingConfig,
   PulseWebConfig,

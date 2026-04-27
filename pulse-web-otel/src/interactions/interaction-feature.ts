@@ -2,6 +2,7 @@ import type { Tracer } from "@opentelemetry/api";
 
 import type { PulseWebConfig } from "../config";
 import type { FeatureGate } from "../feature-gate";
+import { PulseFeature } from "../remote-config";
 import { PulseWebLogger } from "../pulse-web-logger";
 import { InteractionCoordinator } from "./interaction-coordinator";
 import {
@@ -10,6 +11,7 @@ import {
   type InteractionConfigRequest,
 } from "./config-fetcher";
 import { InteractionSpanBuilder } from "./interaction-span-builder";
+import type { PulseAttributes } from "../types/attributes";
 
 const LIFECYCLE = "[interactions:feature]";
 
@@ -55,9 +57,9 @@ export class InteractionFeature {
       );
       return;
     }
-    if (!this.gate.isEnabled("interaction")) {
+    if (!this.gate.isEnabled(PulseFeature.INTERACTION)) {
       PulseWebLogger.debug(
-        `${LIFECYCLE} init skipped: feature gate "interaction" off`,
+        `${LIFECYCLE} init skipped: feature gate ${PulseFeature.INTERACTION} off`,
       );
       return;
     }
@@ -75,11 +77,11 @@ export class InteractionFeature {
 
   trackEvent(
     name: string,
-    attrs?: Record<string, unknown>,
+    attrs?: PulseAttributes,
     timestampMs: number = Date.now(),
   ): void {
     if (!this.interactionsEnabledByConfig) return;
-    if (!this.gate.isEnabled("interaction")) return;
+    if (!this.gate.isEnabled(PulseFeature.INTERACTION)) return;
     if (!this.initialized) {
       PulseWebLogger.verbose(
         `${LIFECYCLE} trackEvent dropped: not initialized (name=${name})`,

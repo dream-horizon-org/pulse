@@ -21,6 +21,7 @@ Keep the web SDK production-safe while moving fast.
 1. Prefer adapter-first refactors for lifecycle changes.
 2. Keep single-owner lifecycle (install/init/shutdown).
 3. Avoid parallel code paths that initialize the same feature twice.
+4. **Contract hygiene:** use `PulseWebSemconv` for keys and `pulse.type` values; `PulseFeature` + `InstrumentationKeys` for gates and registry keys; `PulseAttributes` for optional attribute bags on public APIs. No single-letter aliases (`K`/`T`/`B`) for semconv tables — see `.cursor/rules/pulse-web-otel.mdc`.
 
 ## Step 3: Test ladder
 1. Run focused unit tests for changed modules.

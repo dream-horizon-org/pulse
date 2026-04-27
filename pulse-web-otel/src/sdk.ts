@@ -18,6 +18,7 @@ import {
   resolveEndpointBaseUrl,
   validateConfig,
   PulseLogLevel,
+  InstrumentationKeys,
 } from "./config";
 import { PulseWebLogger } from "./pulse-web-logger";
 import {
@@ -31,7 +32,8 @@ import {
 } from "./session";
 import { buildMergedResource } from "./resource";
 import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
-import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
+import { SdkConfigFetcher, PulseFeature } from "./remote-config";
+import { DEFAULT_SDK_CONFIG } from "./constants/default-sdk-config";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
@@ -52,6 +54,7 @@ import {
 } from "./constants/disk-buffer";
 import { resolveBeforeSend } from "./before-send";
 import { InteractionInstrumentation } from "./instrumentations/interaction";
+import type { PulseAttributes } from "./types/attributes";
 
 class PulseWebSDK implements SdkContext {
   private static _instance: PulseWebSDK | null = null;
@@ -321,7 +324,7 @@ class PulseWebSDK implements SdkContext {
     this.registry.installAll();
     this.registry.registerAndInstall(
       this.interactionInstrumentation,
-      "interactions",
+      InstrumentationKeys.INTERACTIONS,
     );
   }
 
@@ -329,10 +332,12 @@ class PulseWebSDK implements SdkContext {
     // Emit app.installation.start on first-ever install — mirrors Android.
     if (!wasNewInstallation()) return;
     this.logger.emit({
-      body: "pulse.app.installation.start",
+      body: PulseWebSemconv.LogBody.APP_INSTALLATION_START,
       attributes: {
-        "pulse.type": "pulse.app.installation.start",
-        "installation.id": getOrCreateInstallationId(),
+        [PulseWebSemconv.AttributeKey.PULSE_TYPE]:
+          PulseWebSemconv.PulseType.INSTALLATION_START,
+        [PulseWebSemconv.AttributeKey.INSTALLATION_ID]:
+          getOrCreateInstallationId(),
       },
     });
   }
@@ -409,14 +414,14 @@ class PulseWebSDK implements SdkContext {
   }
 
   private emitUserSessionEndLog(userId: string): void {
-    const K = PulseWebSemconv.AttributeKey;
-    const T = PulseWebSemconv.PulseType;
-    const B = PulseWebSemconv.LogBody;
+    const attributeKeys = PulseWebSemconv.AttributeKey;
+    const pulseTypes = PulseWebSemconv.PulseType;
+    const logBodies = PulseWebSemconv.LogBody;
     this.logger.emit({
-      body: B.USER_SESSION_END,
+      body: logBodies.USER_SESSION_END,
       attributes: {
-        [K.PULSE_TYPE]: T.USER_SESSION_END,
-        [K.USER_ID]: userId,
+        [attributeKeys.PULSE_TYPE]: pulseTypes.USER_SESSION_END,
+        [attributeKeys.USER_ID]: userId,
       },
     });
   }
@@ -425,30 +430,30 @@ class PulseWebSDK implements SdkContext {
     userId: string,
     previousUserId?: string,
   ): void {
-    const K = PulseWebSemconv.AttributeKey;
-    const T = PulseWebSemconv.PulseType;
-    const B = PulseWebSemconv.LogBody;
+    const attributeKeys = PulseWebSemconv.AttributeKey;
+    const pulseTypes = PulseWebSemconv.PulseType;
+    const logBodies = PulseWebSemconv.LogBody;
     const attrs: Record<string, string> = {
-      [K.PULSE_TYPE]: T.USER_SESSION_START,
-      [K.USER_ID]: userId,
+      [attributeKeys.PULSE_TYPE]: pulseTypes.USER_SESSION_START,
+      [attributeKeys.USER_ID]: userId,
     };
     if (previousUserId !== undefined) {
-      attrs[K.PULSE_USER_PREVIOUS_ID] = previousUserId;
+      attrs[attributeKeys.PULSE_USER_PREVIOUS_ID] = previousUserId;
     }
     this.logger.emit({
-      body: B.USER_SESSION_START,
+      body: logBodies.USER_SESSION_START,
       attributes: attrs,
     });
   }
 
   trackEvent(
     name: string,
-    attrs?: Record<string, unknown>,
+    attrs?: PulseAttributes,
     timestampMs: number = Date.now(),
   ): void {
     if (!this._initialized) return;
 
-    if (this.gate.isEnabled("custom_events")) {
+    if (this.gate.isEnabled(PulseFeature.CUSTOM_EVENTS)) {
       this.logger.emit({
         body: name,
         attributes: {
@@ -456,7 +461,7 @@ class PulseWebSDK implements SdkContext {
             PulseWebSemconv.PulseType.CUSTOM_EVENT,
           [PulseWebSemconv.AttributeKey.EVENT_NAME]:
             PulseWebSemconv.FixedValue.EVENT_NAME_CUSTOM_EVENT,
-          ...(attrs as Record<string, string | number | boolean>),
+          ...(attrs ?? {}),
         },
       });
     }
@@ -466,7 +471,7 @@ class PulseWebSDK implements SdkContext {
     }
   }
 
-  reportException(error: unknown, attrs?: Record<string, unknown>): void {
+  reportException(error: unknown, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     const err = error instanceof Error ? error : new Error(String(error));
     this.logger.emit({
@@ -478,7 +483,7 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.EXCEPTION_MESSAGE]: err.message,
         [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: err.stack ?? "",
         [PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]: true,
-        ...(attrs as Record<string, string | number | boolean>),
+        ...(attrs ?? {}),
       },
     });
   }
@@ -486,7 +491,7 @@ class PulseWebSDK implements SdkContext {
   /**
    * React render errors and similar fatals — `pulse.type` = device.crash (dashboard contract).
    */
-  reportDeviceCrash(error: unknown, attrs?: Record<string, unknown>): void {
+  reportDeviceCrash(error: unknown, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     const err = error instanceof Error ? error : new Error(String(error));
     const stack = err.stack ?? "";
@@ -500,12 +505,12 @@ class PulseWebSDK implements SdkContext {
         [PulseWebSemconv.AttributeKey.EXCEPTION_STACKTRACE]: stack,
         [PulseWebSemconv.AttributeKey.ERROR_FILENAME]:
           errorFilenameFromStack(stack),
-        ...(attrs as Record<string, string | number | boolean>),
+        ...(attrs ?? {}),
       },
     });
   }
 
-  trackNonFatal(name: string, attrs?: Record<string, unknown>): void {
+  trackNonFatal(name: string, attrs?: PulseAttributes): void {
     if (!this._initialized) return;
     this.logger.emit({
       body: name,
@@ -514,7 +519,7 @@ class PulseWebSDK implements SdkContext {
           PulseWebSemconv.PulseType.NON_FATAL,
         [PulseWebSemconv.AttributeKey.NON_FATAL_TYPE]: name,
         [PulseWebSemconv.AttributeKey.NON_FATAL_IS_MANUAL]: true,
-        ...(attrs as Record<string, string | number | boolean>),
+        ...(attrs ?? {}),
       },
     });
   }
@@ -528,16 +533,16 @@ class PulseWebSDK implements SdkContext {
   private emitSdkInitializationLogRecords(endpointBaseUrl: string): void {
     if (this.loggerProvider === undefined) return;
 
-    const K = PulseWebSemconv.AttributeKey;
-    const R = PulseWebSemconv.RumSdkInit;
+    const attributeKeys = PulseWebSemconv.AttributeKey;
+    const rumSdkInit = PulseWebSemconv.RumSdkInit;
     const initLogger = this.loggerProvider.getLogger(
       "otel.initialization.events",
     );
 
     initLogger.emit({
-      body: R.STARTED,
+      body: rumSdkInit.STARTED,
       attributes: {
-        [K.PULSE_TYPE]: R.STARTED,
+        [attributeKeys.PULSE_TYPE]: rumSdkInit.STARTED,
       },
     });
 
@@ -548,10 +553,10 @@ class PulseWebSDK implements SdkContext {
       `metrics=${endpointBaseUrl}/v1/metrics`,
     ].join("; ");
     initLogger.emit({
-      body: R.SPAN_EXPORTER,
+      body: rumSdkInit.SPAN_EXPORTER,
       attributes: {
-        [K.PULSE_TYPE]: R.SPAN_EXPORTER,
-        "span.exporter": spanExporterHint,
+        [attributeKeys.PULSE_TYPE]: rumSdkInit.SPAN_EXPORTER,
+        [attributeKeys.SPAN_EXPORTER]: spanExporterHint,
       },
     });
   }

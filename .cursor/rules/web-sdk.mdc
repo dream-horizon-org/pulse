@@ -23,6 +23,8 @@ Every signal must carry `platform = 'web'`. The `pulse.type` values and their re
 ### File Locations
 Follow the file map in `WEB-SDK-AGENT-CONTEXT.md` exactly. Each task maps to a `primary_file` in `tasks.csv` — put the code there, not elsewhere.
 
+**Interactions (T17–T20):** implementation lives under `pulse-web-otel/src/interactions/`, `instrumentations/interaction.ts`, and `utils/interactions/`. For naming and attribute typing, follow **`.cursor/rules/pulse-web-otel.mdc`** (semconv, `PulseFeature` / `InstrumentationKeys`, `PulseAttributes`).
+
 ### Phase Docs
 When implementing a specific task, read the matching phase doc for the full spec and done criteria:
 

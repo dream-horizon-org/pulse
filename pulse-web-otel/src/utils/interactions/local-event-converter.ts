@@ -1,8 +1,9 @@
 import type { InteractionLocalEvent } from "../../types/interactions/interaction-runtime";
+import type { PulseAttributes } from "../../types/attributes";
 
 export function toInteractionLocalEvent(
   name: string,
-  attrs: Record<string, unknown> | undefined,
+  attrs: PulseAttributes | undefined,
   timeMs: number,
 ): InteractionLocalEvent {
   const props =

@@ -32,6 +32,7 @@ Product philosophy:
 
 Pulse Web SDK guardrails:
 - Keep `platform = web` and Pulse semantic attributes/data-contract intact.
+- Use **`PulseWebSemconv`**, **`PulseFeature`**, **`InstrumentationKeys`**, and **`PulseAttributes`** per `.cursor/rules/pulse-web-otel.mdc` — no ad-hoc contract strings or single-letter semconv aliases on new/changed code paths (including **interactions**).
 - For instrumentation changes, preserve install/uninstall lifecycle and shutdown cleanup.
 - Keep consent and feature-gate behavior explicit and test-covered.
 - Do not silently break event names, `pulse.type`, or resource attributes.

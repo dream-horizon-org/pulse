@@ -18,8 +18,9 @@ import {
   pulseSignalConditionMatches,
 } from "../utils/sampling-signal-match";
 import { logRecordBodyAsString } from "../utils/session-sampling-rate";
+import { PulseWebSemconv } from "../semconv";
 
-const PULSE_WEB_SDK: PulseSdkName = "pulse_web_js";
+const PULSE_WEB_SDK: PulseSdkName = PulseWebSemconv.FixedValue.RUM_SDK_NAME;
 
 function coerceAttributeValue(attr: PulseAttributeValue): AttributeValue {
   switch (attr.type) {

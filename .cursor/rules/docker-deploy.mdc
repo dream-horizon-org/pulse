@@ -1,6 +1,6 @@
 ---
 description: Docker deployment and infrastructure conventions
-globs: deploy/**
+globs: deploy/**,backend/ingestion/**
 alwaysApply: false
 ---
 
@@ -30,6 +30,27 @@ alwaysApply: false
 | pulse-alerts-cron | `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse, minio-init |
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
+
+### OTLP HTTP — local browser CORS (optional)
+
+`backend/ingestion/otel-collector.yaml` **does not** set collector-side CORS (production ingress uses **Kong** or similar). Server-side agents / same-network OTLP do not need it.
+
+When **testing ingestion from a browser** on the host (Pulse Web SDK, ecommerce demo, Playwright) posting to `http://localhost:4318`, another port is **cross-origin** — add a temporary `cors` block under `receivers.otlp.protocols.http` so preflight succeeds. Example (dev-wide; do not use as a prod template):
+
+```yaml
+cors:
+  allowed_origins:
+    - "http://*"
+    - "https://*"
+  allowed_headers:
+    - "x-api-key"
+    - "x-pulse-metering-session-id"
+    - "content-type"
+    - "content-encoding"
+    - "accept"
+```
+
+With credentials-capable responses, `Access-Control-Allow-Origin: *` is invalid; protocol patterns like `http://*` match arbitrary localhost ports. Revert local-only edits before merge if team policy requires.
 
 **clickhouse-init:** mounts `clickhouse-otel-schema.sql`, session replay + session-summary MV, `clickhouse-event-catalog-schema.sql`, `clickhouse-funnel-results-schema.sql`, `clickhouse-journey-results-schema.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
 

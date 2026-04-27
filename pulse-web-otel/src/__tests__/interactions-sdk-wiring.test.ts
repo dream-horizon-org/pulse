@@ -69,7 +69,7 @@ vi.mock("../instrumentations/interaction", () => ({
         },
         trackEvent: (
           name: string,
-          attrs?: Record<string, unknown>,
+          attrs?: PulseAttributes,
           timestampMs?: number,
         ) => {
           if (!active) return;
@@ -82,7 +82,8 @@ vi.mock("../instrumentations/interaction", () => ({
 
 import type { PulseWebConfig } from "../config";
 import { PulseDataCollectionConsent } from "../config";
-import { DEFAULT_SDK_CONFIG } from "../remote-config";
+import { DEFAULT_SDK_CONFIG } from "../constants/default-sdk-config";
+import type { PulseAttributes } from "../types/attributes";
 
 const loadCachedMock = vi.fn().mockReturnValue(DEFAULT_SDK_CONFIG);
 const fetchInBackgroundMock = vi.fn().mockResolvedValue(undefined);

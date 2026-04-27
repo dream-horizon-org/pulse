@@ -36,6 +36,7 @@ vi.mock("../interactions/interaction-span-builder", () => ({
   })),
 }));
 
+import type { FeatureGate } from "../feature-gate";
 import { InteractionFeature } from "../interactions/interaction-feature";
 
 describe("InteractionFeature gating", () => {
@@ -50,7 +51,7 @@ describe("InteractionFeature gating", () => {
       { apiKey: "default-project_devkey01" },
       {
         isEnabled: () => gateEnabled,
-      } as unknown as { isEnabled: (name: string) => boolean },
+      } as unknown as FeatureGate,
       interactionsEnabledByConfig,
       tracer,
     );

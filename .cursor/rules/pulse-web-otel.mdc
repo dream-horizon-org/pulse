@@ -47,7 +47,10 @@ Run: `yarn test:run` (CI-style), `yarn test` (watch), `yarn build`, `yarn demo` 
 ## TypeScript and module style
 
 - Prefer **`import type`** for type-only imports to keep emit clean and avoid cycles.
-- Avoid **`any`**. Use **`unknown`** + narrowing, or **`Record<string, unknown>`** for dynamic attribute bags (aligned with OTel maps).
+- Avoid **`any`**. Use **`unknown`** + narrowing. For **user-supplied OTEL attribute maps** on public APIs (`trackEvent`, `reportException`, interaction `trackEvent`), use **`PulseAttributes`** from `src/types/attributes.ts` — not `Record<string, unknown>`.
+- **Semconv:** use **`PulseWebSemconv`** (`ResourceKey`, `AttributeKey`, `PulseType`, `LogBody`, `FixedValue`, `InteractionAttributeKey`, `RumSdkInit`) for contract strings — avoid raw `"pulse.type"` / `"session.start"` literals except tests that intentionally assert wire format.
+- **Feature / instrumentation keys:** use **`PulseFeature`** and **`InstrumentationKeys`** from `remote-config` / `config` — avoid string literals like `"custom_events"`, `"interaction"`, `"interactions"` in gate checks and `registerAndInstall`.
+- **Local aliases:** do not shorten semconv namespaces to single-letter names (`K`, `T`, `B`, `V`). Use readable locals: `attributeKeys`, `pulseTypes`, `logBodies`, `resourceKeys`, `fixedValues`, `rumSdkInit`.
 - Use **`readonly`** on arrays/tuples passed into matchers and config when immutability is intended.
 - **`noUncheckedIndexedAccess`:** index results may be `undefined` — handle explicitly.
 - **Strings:** double quotes in TS (matches existing files); avoid unnecessary template literals.
