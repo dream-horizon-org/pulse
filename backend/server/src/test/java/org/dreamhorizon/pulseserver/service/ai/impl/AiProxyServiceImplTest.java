@@ -151,7 +151,7 @@ class AiProxyServiceImplTest {
   }
 
   private String rcaRequestBody() {
-    return "{\"interactionName\":\"checkout\",\"date\":\"2025-03-10\"}";
+    return "{\"rcaType\":\"INTERACTION\",\"entityKey\":\"checkout\",\"date\":\"2025-03-10\"}";
   }
 
   @Nested
@@ -393,7 +393,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldSkipMysqlAndPassRegenerateOnJobWhenRegenerateTrue() throws Exception {
-      String body = "{\"interactionName\":\"checkout\",\"date\":\"2025-03-10\",\"regenerate\":true}";
+      String body = "{\"rcaType\":\"INTERACTION\",\"entityKey\":\"checkout\",\"date\":\"2025-03-10\",\"regenerate\":true}";
 
       AiProxyUpstreamResult result =
           awaitResult(

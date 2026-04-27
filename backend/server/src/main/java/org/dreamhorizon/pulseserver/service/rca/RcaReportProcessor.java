@@ -108,8 +108,7 @@ public class RcaReportProcessor {
                     proxyResult.getBufferedBody());
                 String errorMessage =
                     extractUpstreamErrorMessage(proxyResult.getStatusCode(), proxyResult.getBufferedBody());
-                return markJobFailed(job, truncateMessage(errorMessage))
-                    .andThen(Single.error(new RuntimeException("AI upstream error: " + errorMessage)));
+                return Single.error(new RuntimeException("AI upstream error: " + errorMessage));
               }
               return finalizeSuccessfulRcaProxyResult(pair.proxyResult(), pair.enrichment(), job)
                   .flatMap(r -> markJobCompleted(job).andThen(Single.defer(() -> Single.just(r))));
