@@ -184,7 +184,7 @@ class ConfigClassesTest {
     @Test
     void shouldSupportAllArgsConstructor() {
       ClickhouseConfig config = new ClickhouseConfig(
-          "r2dbc:url", "u", "p", 1, 10, "host", 9000, null);
+          "r2dbc:url", "u", "p", 1, 10, "host", 9000, null, false);
 
       assertThat(config.getR2dbcUrl()).isEqualTo("r2dbc:url");
       assertThat(config.getPort()).isEqualTo(9000);
@@ -194,7 +194,7 @@ class ConfigClassesTest {
     @Test
     void shouldSupportAllArgsConstructorWithClusterName() {
       ClickhouseConfig config = new ClickhouseConfig(
-          "r2dbc:url", "u", "p", 1, 10, "host", 9000, "my-cluster");
+          "r2dbc:url", "u", "p", 1, 10, "host", 9000, "my-cluster", false);
 
       assertThat(config.getClusterName()).isEqualTo("my-cluster");
     }

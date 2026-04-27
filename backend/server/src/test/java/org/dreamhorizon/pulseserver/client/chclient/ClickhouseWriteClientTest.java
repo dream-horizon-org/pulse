@@ -54,7 +54,8 @@ class ClickhouseWriteClientTest {
         4,
         "localhost",
         8123,
-        "cluster");
+        "cluster",
+        false);
     objectMapper = new ObjectMapper();
 
     writeClient = new ClickhouseWriteClient(config, objectMapper);

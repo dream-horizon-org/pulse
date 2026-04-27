@@ -2,7 +2,6 @@ package org.dreamhorizon.pulseserver.client.chclient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -11,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.clickhouse.client.api.insert.InsertResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.r2dbc.pool.ConnectionPool;
 import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.Result;
@@ -20,9 +20,9 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
 import java.util.List;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.function.BiFunction;
+import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
@@ -40,7 +40,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -61,6 +60,9 @@ class ClickhouseQueryServiceTest {
   @Mock
   ClickhouseProjectCredentialsDao clickhouseProjectCredentialsDao;
 
+  @Mock
+  ClickhouseConfig clickhouseConfig;
+
   ClickhouseQueryService clickhouseQueryService;
 
   private final ObjectMapper objectMapper = ObjectMapperFactory.get();
@@ -72,6 +74,7 @@ class ClickhouseQueryServiceTest {
         clickhouseWriteClient,
         clickhouseProjectConnectionPoolManager,
         clickhouseProjectCredentialsDao,
+        clickhouseConfig,
         objectMapper);
   }
 
@@ -170,6 +173,60 @@ class ClickhouseQueryServiceTest {
           .extracting(GetRawUserEventsResponseDto.RowField::getValue)
           .containsExactly("val1", "val2");
       assertThat(response.getData().getTotalRows()).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldAppendQueryConditionCacheSettingsWhenEnabledInConfigAndQuery() {
+      QueryConfiguration config = QueryConfiguration.newQuery("SELECT col1, col2 FROM t")
+          .projectId("proj_123")
+          .useQueryConditionCache(true)
+          .build();
+
+      ClickhouseProjectCredentials credentials = ClickhouseProjectCredentials.builder()
+          .projectId("proj_123")
+          .clickhouseUsername("ch_user")
+          .clickhousePasswordEncrypted("encrypted_pass")
+          .build();
+
+      Row mockRow = org.mockito.Mockito.mock(Row.class);
+      when(mockRow.get(0)).thenReturn("v1");
+      when(mockRow.get(1)).thenReturn("v2");
+
+      RowMetadata mockRowMetadata = org.mockito.Mockito.mock(RowMetadata.class);
+      io.r2dbc.spi.ColumnMetadata col1 = org.mockito.Mockito.mock(io.r2dbc.spi.ColumnMetadata.class);
+      io.r2dbc.spi.ColumnMetadata col2 = org.mockito.Mockito.mock(io.r2dbc.spi.ColumnMetadata.class);
+      when(col1.getName()).thenReturn("col1");
+      when(col2.getName()).thenReturn("col2");
+      doReturn(List.of(col1, col2)).when(mockRowMetadata).getColumnMetadatas();
+
+      Result mockResult = org.mockito.Mockito.mock(Result.class);
+      doAnswer(invocation -> {
+        BiFunction<Row, RowMetadata, ?> mapper = invocation.getArgument(0);
+        Object mapped = mapper.apply(mockRow, mockRowMetadata);
+        return Flux.just(mapped);
+      }).when(mockResult).map(org.mockito.ArgumentMatchers.<BiFunction<Row, RowMetadata, ?>>any());
+
+      Connection mockConnection = org.mockito.Mockito.mock(Connection.class);
+      io.r2dbc.spi.Statement mockStatement = org.mockito.Mockito.mock(io.r2dbc.spi.Statement.class);
+      when(mockConnection.createStatement(
+          "SELECT col1, col2 FROM t SETTINGS use_query_condition_cache = 1"))
+          .thenReturn(mockStatement);
+      doReturn(Mono.just(mockResult)).when(mockStatement).execute();
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      ConnectionPool mockPool = org.mockito.Mockito.mock(ConnectionPool.class);
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+
+      when(clickhouseProjectCredentialsDao.getCredentialsByProjectId("proj_123"))
+          .thenReturn(Maybe.just(credentials));
+      when(clickhouseProjectConnectionPoolManager.getPoolForProject(
+          eq("proj_123"), eq("ch_user"), eq("encrypted_pass")))
+          .thenReturn(mockPool);
+
+      clickhouseQueryService.executeQueryOrCreateJob(config).blockingGet();
+
+      verify(mockConnection)
+          .createStatement("SELECT col1, col2 FROM t SETTINGS use_query_condition_cache = 1");
     }
 
     @Test
@@ -601,6 +658,17 @@ class ClickhouseQueryServiceTest {
           .assertError(RuntimeException.class)
           .assertError(e -> e.getMessage().contains("Write failed"));
     }
+  }
+
+  @Test
+  void resolveSqlForExecution_appendsConditionCacheSettingsWhenEnabled() {
+    assertThat(ClickhouseQueryService.resolveSqlForExecution("SELECT 1", false))
+        .isEqualTo("SELECT 1");
+    assertThat(ClickhouseQueryService.resolveSqlForExecution("SELECT 1;", true))
+        .isEqualTo("SELECT 1 SETTINGS use_query_condition_cache = 1");
+    assertThat(ClickhouseQueryService.resolveSqlForExecution("SELECT 1 SETTINGS use_query_condition_cache = 1", true))
+        .isEqualTo("SELECT 1 SETTINGS use_query_condition_cache = 1");
+    assertThat(ClickhouseQueryService.resolveSqlForExecution(null, true)).isNull();
   }
 
   @SuppressWarnings("unused")
