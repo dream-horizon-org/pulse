@@ -6,7 +6,11 @@ import {
   Link,
   useLocation,
 } from "react-router-dom";
-import { PulseWeb, PulseDataCollectionConsent } from "@dreamhorizon/pulse-web";
+import {
+  PulseWeb,
+  PulseDataCollectionConsent,
+  PulseLogLevel,
+} from "@dreamhorizon/pulse-web";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
 const Home = lazy(() => import("./routes/Home"));
@@ -142,7 +146,7 @@ export default function App() {
       ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
       ...(formatEnv ? { export: { format: formatEnv } } : {}),
-      ...(debugLifecycle ? { debugLogRecordLifecycle: true } : {}),
+      ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
     });
 

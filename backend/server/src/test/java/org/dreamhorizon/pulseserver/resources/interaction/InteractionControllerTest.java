@@ -60,7 +60,11 @@ class InteractionControllerTest {
   @BeforeEach
   void setUp() {
     interactionController =
-        new InteractionController(interactionService, validator, rootCauseConfig, rootCauseService);
+        new InteractionController(
+            interactionService,
+            validator,
+            rootCauseConfig,
+            rootCauseService);
     ProjectContext.setProjectId("test-project");
   }
 

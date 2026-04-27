@@ -136,6 +136,56 @@ test.describe("@M1 session lifecycle", () => {
     const starts = findAllLogs(otlp.captured, "session.start");
     expect(starts.length).toBe(1);
   });
+
+  // 3.3 — real browser document unload (not synthetic dispatchEvent). `page.close()` is flaky in
+  // Playwright: the target often dies before unload OTLP finishes. Navigating away fires real
+  // pagehide/unload while this Playwright page (and `page.route`) stay alive to capture exports.
+  test("3.3: session.end reaches OTLP on document unload (navigate to about:blank)", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.goto("about:blank");
+
+    const endLog = await otlp.waitForLog("session.end", 10_000);
+    expect(getAttr(endLog.attributes, "session.end_reason")).toBe(
+      "page_unload",
+    );
+    expect(findAllLogs(otlp.captured, "session.end").length).toBe(1);
+  });
+
+  // Dedupe: pagehide already emitted session.end; shutdown must not export a second one
+  test("pagehide then PulseWeb.shutdown emits only one session.end", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/");
+    await otlp.waitForLog("session.start");
+    otlp.reset();
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pagehide", {
+          persisted: false,
+          bubbles: true,
+        }),
+      );
+    });
+    await otlp.waitForLog("session.end", 5_000);
+
+    await page.evaluate(async () => {
+      const w = window as unknown as {
+        PulseWeb?: { shutdown?: () => Promise<void> };
+      };
+      await w.PulseWeb?.shutdown?.();
+    });
+    await page.waitForTimeout(800);
+
+    expect(findAllLogs(otlp.captured, "session.end").length).toBe(1);
+  });
 });
 
 // ─── Identity Persistence ─────────────────────────────────────────────────────

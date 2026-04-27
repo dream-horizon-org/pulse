@@ -80,6 +80,8 @@ vi.mock("../exporters", () => {
       tracerProvider: mockProvider,
       loggerProvider: mockLoggerProvider,
       meterProvider: mockMeterProvider,
+      cleanup: vi.fn(),
+      prepareForDocumentUnload: vi.fn(),
     }),
   };
 });
@@ -836,6 +838,27 @@ describe("M1 — Session Provider (extended)", () => {
     );
     expect(endReasons).toHaveLength(1);
     expect(endReasons[0]).toBe("page_unload");
+  });
+
+  it("pagehide then shutdown: one session.end (page_unload) and localStorage cleared", () => {
+    const provider = new SessionProvider();
+    currentProvider = provider;
+    provider.getSessionId();
+
+    const endReasons: string[] = [];
+    provider.onSessionChange((e) => {
+      if (e.type === "end") endReasons.push(e.reason);
+    });
+
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: false }),
+    );
+    expect(endReasons).toEqual(["page_unload"]);
+    expect(window.localStorage.getItem("pulse_session_id")).not.toBeNull();
+
+    provider.shutdown();
+    expect(endReasons).toEqual(["page_unload"]);
+    expect(window.localStorage.getItem("pulse_session_id")).toBeNull();
   });
 
   it("does NOT emit session.end on BFCache pagehide (persisted=true)", () => {
@@ -2092,6 +2115,7 @@ function makeMockBundle(emitSpy: ReturnType<typeof vi.fn>) {
       shutdown: vi.fn().mockResolvedValue(undefined),
     },
     cleanup: vi.fn(),
+    prepareForDocumentUnload: vi.fn(),
   };
 }
 

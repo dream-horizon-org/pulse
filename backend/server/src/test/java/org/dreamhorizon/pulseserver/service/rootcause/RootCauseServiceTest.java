@@ -993,6 +993,8 @@ class RootCauseServiceTest {
       assertThat(spec.sql()).contains("pulse.interaction.name");
       assertThat(spec.sql()).contains("screen.name");
       assertThat(spec.sql()).doesNotContain("SpanName");
+      assertThat(spec.sql()).contains("count()");
+      assertThat(spec.sql()).contains("GROUP BY screen_name");
       assertThat(spec.bindValues()).hasSize(4);
     }
   }
