@@ -32,6 +32,16 @@ describe('buildSwiftPulseSdkInitialization', () => {
     expect(code).toContain('globalAttributes: nil');
     expect(code).toContain('configuration: nil');
     expect(code).toContain('instrumentations: nil');
+    expect(code).not.toContain('logLevel:');
+  });
+
+  it('includes logLevel when provided', () => {
+    const code = buildSwiftPulseSdkInitialization({
+      apiKey: 'k',
+      dataCollectionState: 'PENDING',
+      logLevel: 2,
+    });
+    expect(code).toContain('logLevel: .info');
   });
 
   it('embeds ios.configuration into PulseKitConfiguration closure', () => {

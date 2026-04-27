@@ -47,7 +47,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         config.screenLifecycle { screenLifecycleConfig in
           screenLifecycleConfig.enabled(false)
         }
-      }
+      },
+      logLevel: .debug
     )
 
     window = UIWindow(frame: UIScreen.main.bounds)
