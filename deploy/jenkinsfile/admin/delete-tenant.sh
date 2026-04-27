@@ -1,8 +1,8 @@
 #!/bin/bash
 # Deletes all data for a tenant from MySQL and OpenFGA.
-# REQUIRES: no projects exist for this tenant (run delete-project job / delete-project.sh for each first).
+# REQUIRES: no projects exist for this tenant (delete each project first).
 # Set DRY_RUN=true (default) to preview; DRY_RUN=false to execute.
-# Invoked from deploy/jenkinsfile/admin/delete-tenant.jenkinsfile
+# The Jenkinsfile runs delete_tenant.py; this script is the bash equivalent. Keep in sync.
 set -euo pipefail
 
 # ── Required env vars ────────────────────────────────────────────────────────

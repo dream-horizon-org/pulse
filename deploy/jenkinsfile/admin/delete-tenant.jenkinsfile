@@ -68,6 +68,18 @@ pipeline {
             }
         }
 
+        stage('Install Python dependencies') {
+            steps {
+                sh '''
+                    set -e
+                    set +x
+                    cd "${WORKSPACE}"
+                    python3 -m venv .db-ops-venv
+                    .db-ops-venv/bin/pip install -q -r deploy/jenkinsfile/admin/requirements.txt
+                '''
+            }
+        }
+
         stage('Preflight (Dry Run)') {
             environment {
                 TENANT_ID = "${params.TENANT_ID}"
@@ -79,8 +91,7 @@ pipeline {
                     set +x
                     cd "${WORKSPACE}"
                     set -a; . "${WORKSPACE}/.db-ops-env"; set +a
-                    chmod +x deploy/jenkinsfile/admin/delete-tenant.sh
-                    deploy/jenkinsfile/admin/delete-tenant.sh
+                    .db-ops-venv/bin/python deploy/jenkinsfile/admin/delete_tenant.py
                 '''
             }
         }
@@ -111,7 +122,7 @@ pipeline {
                     set +x
                     cd "${WORKSPACE}"
                     set -a; . "${WORKSPACE}/.db-ops-env"; set +a
-                    deploy/jenkinsfile/admin/delete-tenant.sh
+                    .db-ops-venv/bin/python deploy/jenkinsfile/admin/delete_tenant.py
                 '''
             }
         }
@@ -119,7 +130,7 @@ pipeline {
 
     post {
         always {
-            sh 'rm -f "${WORKSPACE}/.db-ops-env" || true'
+            sh 'rm -rf "${WORKSPACE}/.db-ops-venv" && rm -f "${WORKSPACE}/.db-ops-env" || true'
         }
     }
 }
