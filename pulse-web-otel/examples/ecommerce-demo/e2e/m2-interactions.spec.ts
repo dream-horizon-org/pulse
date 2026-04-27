@@ -5,49 +5,71 @@ import {
   getAttr,
   getResourceAttr,
 } from "./fixture";
-import type { Page, Route } from "@playwright/test";
+import {
+  emitEvent,
+  gotoAndWaitInteractionInit,
+  makeConfig,
+  seedInteractionConfig,
+  waitForInteractionCount,
+} from "./interaction-test-helpers";
 
-const INTERACTION_CONFIG = [
-  {
-    id: "checkout_flow",
-    name: "Checkout Flow",
-    events: [
-      { name: "checkout_step_1", required: true },
-      { name: "checkout_step_2", required: true },
-      { name: "checkout_step_3", required: true },
-    ],
-    thresholdInMs: 5000,
-    uptimeLowerLimitInMs: 1000,
-    uptimeMidLimitInMs: 3000,
-    uptimeUpperLimitInMs: 6000,
-    globalBlacklistedEvents: [],
-  },
-];
-
-async function seedInteractionConfig(
-  page: Page,
-  payload: unknown,
-): Promise<void> {
-  await page.route("**/v1/interaction-configs/", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(payload),
-    });
-  });
-}
+const MANUAL_FLOW = makeConfig({
+  id: "manual_checkout_flow",
+  name: "Manual Checkout Flow",
+  events: [
+    { name: "checkout_step_1", required: true },
+    { name: "checkout_step_2", required: true },
+    { name: "checkout_step_3", required: true },
+  ],
+  thresholdInMs: 700,
+  uptimeLowerLimitInMs: 120,
+  uptimeMidLimitInMs: 260,
+  uptimeUpperLimitInMs: 420,
+});
 
 test.describe("@M2 interactions e2e", () => {
-  test("checkout flow emits interaction span with pulse.interaction.* attrs", async ({
+  test("single-event interaction emits success span", async ({ page, otlp }) => {
+    await seedInteractionConfig(
+      page,
+      [
+        makeConfig({
+          id: "single_event",
+          name: "Single Event",
+          events: [{ name: "single_event", required: true }],
+        }),
+      ],
+    );
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "single_event");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      "single_event",
+    );
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  test("two-event interaction emits success span with contract attrs", async ({
     page,
     otlp,
   }) => {
-    await seedInteractionConfig(page, INTERACTION_CONFIG);
-    await page.goto("/checkout");
-
-    await page.getByTestId("checkout-step-1-next").click();
-    await page.getByTestId("checkout-step-2-next").click();
-    await page.getByTestId("checkout-step-3-confirm").click();
+    await seedInteractionConfig(
+      page,
+      [
+        makeConfig({
+          id: "two_step",
+          name: "Two Step",
+          events: [
+            { name: "step_one", required: true },
+            { name: "step_two", required: true },
+          ],
+        }),
+      ],
+    );
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "step_one");
+    await page.waitForTimeout(80);
+    await emitEvent(page, "step_two");
 
     const span = await otlp.waitForSpan("interaction", 15_000);
     expect(getAttr(span.attributes, "pulse.type")).toBe("interaction");
@@ -69,16 +91,115 @@ test.describe("@M2 interactions e2e", () => {
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
   });
 
-  test("timeout mid-sequence emits interaction error span", async ({
+  test("multi-event interaction emits success span", async ({ page, otlp }) => {
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "checkout_step_1");
+    await page.waitForTimeout(40);
+    await emitEvent(page, "checkout_step_2");
+    await page.waitForTimeout(40);
+    await emitEvent(page, "checkout_step_3");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
+      "manual_checkout_flow",
+    );
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  test("ignored event does not break an in-flight interaction", async ({
     page,
     otlp,
   }) => {
-    await seedInteractionConfig(page, INTERACTION_CONFIG);
-    await page.goto("/checkout");
-    await page.getByTestId("checkout-step-1-next").click();
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "totally_irrelevant_event");
+    await page.waitForTimeout(70);
+    await emitEvent(page, "checkout_step_2");
+    await page.waitForTimeout(70);
+    await emitEvent(page, "checkout_step_3");
 
-    // Config in demo uses 5s threshold for checkout flow.
-    await page.waitForTimeout(6500);
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
+  });
+
+  test("global blacklist cancels in-flight sequence without emitting span", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [
+      makeConfig({
+        ...MANUAL_FLOW,
+        id: "global_blacklist_flow",
+        globalBlacklistedEvents: ["ad_impression"],
+      }),
+    ]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "ad_impression");
+    await page.waitForTimeout(1200);
+
+    let spans = findAllSpans(otlp.captured, "interaction");
+    expect(spans.length).toBe(0);
+    // Recovery check: blacklist cancel must not poison the next valid flow.
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "checkout_step_2");
+    await emitEvent(page, "checkout_step_3");
+    const recovered = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(recovered.attributes, "pulse.interaction.is_error")).toBe(
+      false,
+    );
+    spans = findAllSpans(otlp.captured, "interaction");
+    expect(spans.length).toBe(1);
+  });
+
+  test("local blacklisted step resets flow without terminal span", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(
+      page,
+      [
+        makeConfig({
+          id: "local_blacklisted",
+          name: "Local Blacklisted",
+          events: [
+            { name: "step_a", required: true },
+            { name: "step_block", required: false, isBlacklisted: true },
+            { name: "step_b", required: true },
+          ],
+          thresholdInMs: 500,
+        }),
+      ],
+    );
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "step_a");
+    await emitEvent(page, "step_block");
+    await emitEvent(page, "step_b");
+    await page.waitForTimeout(900);
+
+    let spans = findAllSpans(otlp.captured, "interaction");
+    expect(spans.length).toBe(0);
+    // Regression guard: after blacklisted reset, valid skip path still completes.
+    await emitEvent(page, "step_a");
+    await emitEvent(page, "step_b");
+    const recovered = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(recovered.attributes, "pulse.interaction.is_error")).toBe(
+      false,
+    );
+    spans = findAllSpans(otlp.captured, "interaction");
+    expect(spans.length).toBe(1);
+  });
+
+  test("timeout at stage-1 (waiting for second event) emits timeout error", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "checkout_step_1");
+    await page.waitForTimeout(1000);
 
     const span = await otlp.waitForSpan("interaction", 15_000);
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
@@ -87,56 +208,55 @@ test.describe("@M2 interactions e2e", () => {
     );
   });
 
-  test("complete_time nanos is consistent with span start/end nanos", async ({
+  test("timeout at stage-2 (waiting for third event) emits timeout error", async ({
     page,
     otlp,
   }) => {
-    await seedInteractionConfig(page, INTERACTION_CONFIG);
-    await page.goto("/checkout");
-    await page.getByTestId("checkout-step-1-next").click();
-    await page.getByTestId("checkout-step-2-next").click();
-    await page.getByTestId("checkout-step-3-confirm").click();
-
-    const span = await otlp.waitForSpan("interaction", 15_000);
-    const completeTimeNs = Number(
-      getAttr(span.attributes, "pulse.interaction.complete_time"),
-    );
-    const startNs = Number(span.startTimeUnixNano);
-    const endNs = Number(span.endTimeUnixNano);
-
-    expect(Number.isFinite(completeTimeNs)).toBe(true);
-    expect(completeTimeNs).toBeGreaterThan(0);
-    expect(endNs).toBeGreaterThan(startNs);
-    expect(endNs - startNs).toBeGreaterThanOrEqual(completeTimeNs);
-  });
-
-  test("out-of-order event emits interaction error span", async ({
-    page,
-    otlp,
-  }) => {
-    const strictTwoStepConfig = [
-      {
-        ...INTERACTION_CONFIG[0],
-        events: [
-          { name: "checkout_step_1", required: true },
-          { name: "checkout_step_2", required: true },
-        ],
-      },
-    ];
-    await seedInteractionConfig(page, strictTwoStepConfig);
-    await page.goto("/checkout");
-    await page.getByTestId("checkout-step-1-next").click();
-    await page.evaluate(() => {
-      const w = window as unknown as {
-        PulseWeb?: { trackEvent?: (name: string) => void };
-      };
-      w.PulseWeb?.trackEvent?.("checkout_step_3");
-    });
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "checkout_step_2");
+    await page.waitForTimeout(1000);
 
     const span = await otlp.waitForSpan("interaction", 15_000);
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
-    expect(["sequence_violation", "timeout"]).toContain(
-      getAttr(span.attributes, "pulse.interaction.error.type"),
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
+      "timeout",
+    );
+  });
+
+  test("sequence violation at stage-1 emits sequence_violation", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "checkout_step_1");
+    // Relevant but out-of-order event (expected step_2, got step_3).
+    await emitEvent(page, "checkout_step_3");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
+      "sequence_violation",
+    );
+  });
+
+  test("sequence violation at stage-2 emits sequence_violation", async ({
+    page,
+    otlp,
+  }) => {
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "checkout_step_2");
+    // Relevant but out-of-order event (expected step_3, got step_2 again).
+    await emitEvent(page, "checkout_step_2");
+
+    const span = await otlp.waitForSpan("interaction", 15_000);
+    expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(true);
+    expect(getAttr(span.attributes, "pulse.interaction.error.type")).toBe(
+      "sequence_violation",
     );
   });
 
@@ -145,26 +265,18 @@ test.describe("@M2 interactions e2e", () => {
     otlp,
   }) => {
     const singleStepConfig = [
-      {
-        ...INTERACTION_CONFIG[0],
+      makeConfig({
+        id: "single_step_repeatable",
+        name: "Single Step Repeatable",
         events: [{ name: "checkout_step_1", required: true }],
-      },
+      }),
     ];
     await seedInteractionConfig(page, singleStepConfig);
-    await page.goto("/checkout");
-    await page.getByTestId("checkout-step-1-next").click();
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "checkout_step_1");
     await otlp.waitForSpan("interaction", 15_000);
-
-    await page.evaluate(() => {
-      const w = window as unknown as {
-        PulseWeb?: { trackEvent?: (name: string) => void };
-      };
-      w.PulseWeb?.trackEvent?.("checkout_step_1");
-    });
-    for (let i = 0; i < 30; i += 1) {
-      if (findAllSpans(otlp.captured, "interaction").length >= 2) break;
-      await page.waitForTimeout(200);
-    }
+    await emitEvent(page, "checkout_step_1");
+    await waitForInteractionCount(page, otlp, 2, 8_000);
 
     const spans = findAllSpans(otlp.captured, "interaction");
     expect(spans.length).toBe(2);
@@ -175,31 +287,167 @@ test.describe("@M2 interactions e2e", () => {
     ).toBe(true);
   });
 
-  test("global blacklist cancels in-flight sequence without emitting error span", async ({
+  test("apdex category Excellent", async ({ page, otlp }) => {
+    await seedInteractionConfig(
+      page,
+      [
+        makeConfig({
+          id: "apdex_excellent",
+          name: "Apdex Excellent",
+          events: [
+            { name: "ax_1", required: true },
+            { name: "ax_2", required: true },
+          ],
+          thresholdInMs: 1000,
+          uptimeLowerLimitInMs: 120,
+          uptimeMidLimitInMs: 240,
+          uptimeUpperLimitInMs: 420,
+        }),
+      ],
+    );
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "ax_1");
+    await page.waitForTimeout(40);
+    await emitEvent(page, "ax_2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Excellent",
+    );
+    expect(Number(getAttr(span.attributes, "pulse.interaction.apdex_score"))).toBe(
+      1,
+    );
+  });
+
+  test("apdex category Good", async ({ page, otlp }) => {
+    await seedInteractionConfig(
+      page,
+      [
+        makeConfig({
+          id: "apdex_good",
+          name: "Apdex Good",
+          events: [
+            { name: "ag_1", required: true },
+            { name: "ag_2", required: true },
+          ],
+          thresholdInMs: 1000,
+          uptimeLowerLimitInMs: 120,
+          uptimeMidLimitInMs: 240,
+          uptimeUpperLimitInMs: 420,
+        }),
+      ],
+    );
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "ag_1");
+    await page.waitForTimeout(180);
+    await emitEvent(page, "ag_2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Good",
+    );
+    const score = Number(getAttr(span.attributes, "pulse.interaction.apdex_score"));
+    expect(score).toBeGreaterThan(0);
+    expect(score).toBeLessThan(1);
+  });
+
+  test("apdex category Average", async ({ page, otlp }) => {
+    await seedInteractionConfig(
+      page,
+      [
+        makeConfig({
+          id: "apdex_average",
+          name: "Apdex Average",
+          events: [
+            { name: "aa_1", required: true },
+            { name: "aa_2", required: true },
+          ],
+          thresholdInMs: 1200,
+          uptimeLowerLimitInMs: 120,
+          uptimeMidLimitInMs: 240,
+          uptimeUpperLimitInMs: 420,
+        }),
+      ],
+    );
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "aa_1");
+    await page.waitForTimeout(320);
+    await emitEvent(page, "aa_2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Average",
+    );
+    const score = Number(getAttr(span.attributes, "pulse.interaction.apdex_score"));
+    expect(score).toBeGreaterThan(0);
+    expect(score).toBeLessThan(1);
+  });
+
+  test("apdex category Poor", async ({ page, otlp }) => {
+    await seedInteractionConfig(
+      page,
+      [
+        makeConfig({
+          id: "apdex_poor",
+          name: "Apdex Poor",
+          events: [
+            { name: "ap_1", required: true },
+            { name: "ap_2", required: true },
+          ],
+          thresholdInMs: 1500,
+          uptimeLowerLimitInMs: 120,
+          uptimeMidLimitInMs: 240,
+          uptimeUpperLimitInMs: 420,
+        }),
+      ],
+    );
+    await gotoAndWaitInteractionInit(page);
+    await emitEvent(page, "ap_1");
+    await page.waitForTimeout(520);
+    await emitEvent(page, "ap_2");
+
+    const span = await otlp.waitForSpan("interaction", 10_000);
+    expect(getAttr(span.attributes, "pulse.interaction.user_category")).toBe(
+      "Poor",
+    );
+    expect(Number(getAttr(span.attributes, "pulse.interaction.apdex_score"))).toBe(
+      0,
+    );
+  });
+
+  test("complete_time nanos is consistent with span start/end nanos", async ({
     page,
     otlp,
   }) => {
-    const withBlacklist = [
-      {
-        ...INTERACTION_CONFIG[0],
-        globalBlacklistedEvents: ["ad_impression"],
-      },
-    ];
-    await seedInteractionConfig(page, withBlacklist);
+    await seedInteractionConfig(page, [MANUAL_FLOW]);
+    await gotoAndWaitInteractionInit(page);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await emitEvent(page, "checkout_step_1");
+      await page.waitForTimeout(80);
+      await emitEvent(page, "checkout_step_2");
+      await page.waitForTimeout(80);
+      await emitEvent(page, "checkout_step_3");
+      try {
+        await waitForInteractionCount(page, otlp, 1, 4_000);
+        break;
+      } catch {
+        // Retry when initial flow events race startup in CI.
+      }
+    }
 
-    await page.goto("/checkout");
-    await page.getByTestId("checkout-step-1-next").click();
-    await page.evaluate(() => {
-      const w = window as unknown as {
-        PulseWeb?: { trackEvent?: (name: string) => void };
-      };
-      w.PulseWeb?.trackEvent?.("ad_impression");
-    });
+    const span = findAllSpans(otlp.captured, "interaction")[0];
+    expect(span).toBeDefined();
+    if (span == null) return;
+    const completeTimeNs = Number(
+      getAttr(span.attributes, "pulse.interaction.complete_time"),
+    );
+    const startNs = Number(span.startTimeUnixNano);
+    const endNs = Number(span.endTimeUnixNano);
 
-    await page.waitForTimeout(6500);
-
-    const spans = findAllSpans(otlp.captured, "interaction");
-    expect(spans.length).toBe(0);
+    expect(Number.isFinite(completeTimeNs)).toBe(true);
+    expect(completeTimeNs).toBeGreaterThan(0);
+    expect(endNs).toBeGreaterThan(startNs);
+    expect(endNs - startNs).toBeGreaterThanOrEqual(completeTimeNs);
   });
 
   test("interaction config fetch unavailable -> no interaction span, sdk still running", async ({
@@ -213,14 +461,16 @@ test.describe("@M2 interactions e2e", () => {
         body: "{}",
       });
     });
-    await page.goto("/checkout");
+    await gotoAndWaitInteractionInit(page);
     await otlp.waitForLog("session.start", 10_000);
     otlp.reset();
 
-    await page.getByTestId("checkout-step-1-next").click();
-    await page.getByTestId("checkout-step-2-next").click();
-    await page.getByTestId("checkout-step-3-confirm").click();
+    await emitEvent(page, "checkout_step_1");
+    await emitEvent(page, "checkout_step_2");
+    await emitEvent(page, "checkout_step_3");
     await page.waitForTimeout(2000);
     expect(findAllSpans(otlp.captured, "interaction").length).toBe(0);
+    // SDK should still emit custom event logs when interaction feature is unavailable.
+    await otlp.waitForLogByBody("checkout_step_3", 10_000);
   });
 });

@@ -64,16 +64,21 @@ function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
   };
 }
 
-function userLifecycleCalls(): unknown[] {
+type LoggerEmitPayload = {
+  body?: string;
+  attributes?: Record<string, string>;
+};
+
+function userLifecycleCalls(): Array<[LoggerEmitPayload]> {
   const K = PulseWebSemconv.AttributeKey.PULSE_TYPE;
   return emitFn.mock.calls.filter((call) => {
-    const attrs = call[0] as { attributes?: Record<string, string> };
+    const attrs = call[0] as LoggerEmitPayload;
     const pt = attrs?.attributes?.[K];
     return (
       pt === PulseWebSemconv.PulseType.USER_SESSION_START ||
       pt === PulseWebSemconv.PulseType.USER_SESSION_END
     );
-  });
+  }) as Array<[LoggerEmitPayload]>;
 }
 
 describe("PulseGlobalAttributesProcessor — user identity attrs", () => {
@@ -274,5 +279,124 @@ describe("PulseWeb — setUserId lifecycle + persistence", () => {
     expect(getPersistedUserProperties().plan).toBe("pro");
     PulseWeb.setUserProperty("plan", null);
     expect(getPersistedUserProperties().plan).toBeUndefined();
+  });
+
+  it("setUserId before start is silent no-op (no logs, no persistence)", async () => {
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.setUserId("pre-init");
+    expect(userLifecycleCalls()).toHaveLength(0);
+    expect(getPersistedUserId()).toBeNull();
+  });
+
+  it("setUserProperty before start is silent no-op (no persistence)", async () => {
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.setUserProperty("plan", "starter");
+    expect(getPersistedUserProperties()).toEqual({});
+  });
+
+  it("setUserId(\"\") clears id and emits only session end", async () => {
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.start(makeConfig());
+    await Promise.resolve();
+    PulseWeb.setUserId("u-clear");
+    emitFn.mockClear();
+
+    PulseWeb.setUserId("");
+    const life = userLifecycleCalls();
+    expect(life).toHaveLength(1);
+    const end = life[0]?.[0] as { attributes?: Record<string, string> };
+    expect(end?.attributes?.[PulseWebSemconv.AttributeKey.PULSE_TYPE]).toBe(
+      PulseWebSemconv.PulseType.USER_SESSION_END,
+    );
+    expect(end?.attributes?.[PulseWebSemconv.AttributeKey.USER_ID]).toBe("u-clear");
+    expect(getPersistedUserId()).toBeNull();
+  });
+
+  it("setUserProperties persists full merged snapshot and rehydrates on restart", async () => {
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.start(makeConfig());
+    await Promise.resolve();
+
+    PulseWeb.setUserProperties({
+      plan: "pro",
+      cohort: "beta",
+      region: "in",
+    });
+    expect(getPersistedUserProperties()).toEqual({
+      plan: "pro",
+      cohort: "beta",
+      region: "in",
+    });
+
+    PulseWeb.setUserProperties({ cohort: null, plan: "enterprise" });
+    expect(getPersistedUserProperties()).toEqual({
+      plan: "enterprise",
+      region: "in",
+    });
+
+    await PulseWeb.shutdown();
+    PulseWeb.start(makeConfig());
+    await Promise.resolve();
+
+    const p = getPersistedUserProperties();
+    expect(p).toEqual({ plan: "enterprise", region: "in" });
+    expect(userLifecycleCalls()).toHaveLength(0);
+  });
+
+  it("multiple user switches emit ordered end/start pairs", async () => {
+    const { PulseWeb } = await import("../sdk");
+    PulseWeb.start(makeConfig());
+    await Promise.resolve();
+    PulseWeb.setUserId("u1");
+    emitFn.mockClear();
+
+    PulseWeb.setUserId("u2");
+    PulseWeb.setUserId("u3");
+
+    const life = userLifecycleCalls();
+    expect(life).toHaveLength(4);
+    const pulseTypes = life.map(
+      (c) =>
+        (c[0] as { attributes?: Record<string, string> }).attributes?.[
+          PulseWebSemconv.AttributeKey.PULSE_TYPE
+        ],
+    );
+    expect(pulseTypes).toEqual([
+      PulseWebSemconv.PulseType.USER_SESSION_END,
+      PulseWebSemconv.PulseType.USER_SESSION_START,
+      PulseWebSemconv.PulseType.USER_SESSION_END,
+      PulseWebSemconv.PulseType.USER_SESSION_START,
+    ]);
+  });
+});
+
+describe("User identity persistence helpers", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("getPersistedUserProperties returns {} on invalid JSON", () => {
+    window.localStorage.setItem("pulse_user_properties", "{not-json");
+    expect(getPersistedUserProperties()).toEqual({});
+  });
+
+  it("getPersistedUserProperties returns {} for non-object payloads", () => {
+    window.localStorage.setItem("pulse_user_properties", JSON.stringify(["x"]));
+    expect(getPersistedUserProperties()).toEqual({});
+    window.localStorage.setItem("pulse_user_properties", JSON.stringify("x"));
+    expect(getPersistedUserProperties()).toEqual({});
+  });
+
+  it("getPersistedUserProperties keeps only string values", () => {
+    window.localStorage.setItem(
+      "pulse_user_properties",
+      JSON.stringify({
+        plan: "pro",
+        active: true,
+        age: 42,
+        nested: { x: 1 },
+      }),
+    );
+    expect(getPersistedUserProperties()).toEqual({ plan: "pro" });
   });
 });
