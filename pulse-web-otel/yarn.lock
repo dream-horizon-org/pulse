@@ -321,6 +321,7 @@ __metadata:
     jsdom: "npm:^25.0.0"
     react: "npm:^18.3.0"
     react-dom: "npm:^18.3.0"
+    react-router-dom: "npm:^6.26.0"
     size-limit: "npm:^11.1.0"
     tsup: "npm:^8.3.0"
     typescript: "npm:^5.6.0"
@@ -328,8 +329,11 @@ __metadata:
     web-vitals: "npm:^4.2.0"
   peerDependencies:
     react: ">=18.0.0"
+    react-router-dom: ">=6.0.0"
   peerDependenciesMeta:
     react:
+      optional: true
+    react-router-dom:
       optional: true
   languageName: unknown
   linkType: soft

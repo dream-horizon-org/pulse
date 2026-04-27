@@ -885,7 +885,7 @@ describe("M1 — Session Provider (extended)", () => {
     let capturedEnd: { sessionId?: string; durationNs?: number } = {};
     provider.onSessionChange((e) => {
       if (e.type === "end") {
-        capturedEnd = { sessionId: e.sessionId, durationNs: e.durationMs ?? 0 };
+        capturedEnd = { sessionId: e.sessionId, durationNs: e.durationNs ?? 0 };
       }
     });
 
@@ -1800,6 +1800,8 @@ describe("M1 — Session Provider: reload and clone detection (beforeunload flag
       String(msToNs(Date.now() - 5000)),
     );
     // No clone flag — beforeunload removed it before reload
+    // Tab session key IS present — survives reload in the same tab
+    window.sessionStorage.setItem("pulse_tab_session", "1");
 
     const provider = makeProvider();
 
@@ -1814,6 +1816,8 @@ describe("M1 — Session Provider: reload and clone detection (beforeunload flag
       "pulse_session_start",
       String(msToNs(Date.now() - 5000)),
     );
+    // Tab session key IS present — survives reload in the same tab
+    window.sessionStorage.setItem("pulse_tab_session", "1");
 
     const provider = makeProvider();
     const events: SessionChangeEvent[] = [];
