@@ -78,7 +78,7 @@ PULSE_USER_EMAIL_ENV_KEY = "PULSE_USER_EMAIL"
 # Target token budget per LLM request (history only — does not include the
 # incoming user message for the current turn).
 # Derived from: Gemini Flash latency sweet-spot at ~40K tokens.
-TOKEN_BUDGET = 40_000
+TOKEN_BUDGET = 80_000
 
 # Number of chars per token (Gemini heuristic: 1 token ≈ 4 chars for plain text).
 CHARS_PER_TOKEN = 4
