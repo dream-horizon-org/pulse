@@ -1,170 +1,83 @@
----
-# JMX Exporter config for Kafka brokers.
-# Exposes Prometheus metrics on port 7071.
-# Reference: https://github.com/prometheus/jmx_exporter
-
 lowercaseOutputName: true
 lowercaseOutputLabelNames: true
+whitelistObjectNames:
+  - kafka.server:*
+  - kafka.network:*
+  - kafka.log:*
+  - kafka.controller:*
+  - kafka.coordinator.group:*
+  - kafka.coordinator.transaction:*
+  - kafka.utils:*
+  - java.lang:*
 
 rules:
-  # ----------------------------------------------------------------
-  # Broker topic metrics — per topic
-  # ----------------------------------------------------------------
-  - pattern: >-
-      kafka.server<type=BrokerTopicMetrics,
-      name=(BytesInPerSec|BytesOutPerSec|MessagesInPerSec|
-            ReplicationBytesInPerSec|ReplicationBytesOutPerSec|
-            FailedProduceRequestsPerSec|FailedFetchRequestsPerSec|
-            TotalProduceRequestsPerSec|TotalFetchRequestsPerSec),
-      topic=(.+)><>OneMinuteRate
-    name: kafka_server_brokertopicmetrics_$1_rate
+  # ---- Broker Topic Metrics ----
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(.+), topic=(.+)><>Count
+    name: kafka_server_brokertopicmetrics_$1_total
     labels:
       topic: "$2"
-    type: GAUGE
 
-  # Broker topic metrics — cluster-wide totals
-  - pattern: >-
-      kafka.server<type=BrokerTopicMetrics,
-      name=(BytesInPerSec|BytesOutPerSec|MessagesInPerSec|
-            ReplicationBytesInPerSec|ReplicationBytesOutPerSec|
-            FailedProduceRequestsPerSec|FailedFetchRequestsPerSec)><>OneMinuteRate
-    name: kafka_server_brokertopicmetrics_$1_rate
-    type: GAUGE
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(.+)><>Count
+    name: kafka_server_brokertopicmetrics_$1_total
 
-  # ----------------------------------------------------------------
-  # Replica Manager — partition health
-  # ----------------------------------------------------------------
-  - pattern: >-
-      kafka.server<type=ReplicaManager,
-      name=(UnderReplicatedPartitions|UnderMinIsrPartitionCount|
-            AtMinIsrPartitionCount|OfflineReplicaCount|
-            LeaderCount|PartitionCount)><>Value
-    name: kafka_server_replicamanager_$1
-    type: GAUGE
-
-  - pattern: >-
-      kafka.server<type=ReplicaManager,
-      name=(IsrShrinksPerSec|IsrExpandsPerSec)><>OneMinuteRate
-    name: kafka_server_replicamanager_$1_rate
-    type: GAUGE
-
-  # ----------------------------------------------------------------
-  # Controller — cluster-level health
-  # ----------------------------------------------------------------
-  - pattern: >-
-      kafka.controller<type=KafkaController,
-      name=(ActiveControllerCount|OfflinePartitionsCount|
-            PreferredReplicaImbalanceCount|GlobalTopicCount|
-            GlobalPartitionCount)><>Value
-    name: kafka_controller_kafkacontroller_$1
-    type: GAUGE
-
-  - pattern: >-
-      kafka.controller<type=ControllerStats,
-      name=(UncleanLeaderElectionsPerSec|LeaderElectionRateAndTimeMs)><>OneMinuteRate
-    name: kafka_controller_controllerstats_$1_rate
-    type: GAUGE
-
-  # ----------------------------------------------------------------
-  # Network — request latency and throughput
-  # ----------------------------------------------------------------
-  - pattern: >-
-      kafka.network<type=RequestMetrics,
-      name=RequestsPerSec,
-      request=(.+),
-      version=(.+)><>OneMinuteRate
-    name: kafka_network_requestmetrics_requests_per_sec
-    labels:
-      request: "$1"
-      version: "$2"
-    type: GAUGE
-
-  - pattern: >-
-      kafka.network<type=RequestMetrics,
-      name=(TotalTimeMs|RequestQueueTimeMs|ResponseQueueTimeMs|ThrottleTimeMs),
-      request=(.+)><>(Mean|99thPercentile)
+  # ---- Request Metrics ----
+  - pattern: kafka.network<type=RequestMetrics, name=(.+), request=(.+)><>(Count|Mean|99thPercentile|95thPercentile)
     name: kafka_network_requestmetrics_$1
     labels:
       request: "$2"
       quantile: "$3"
-    type: GAUGE
 
-  # ----------------------------------------------------------------
-  # Request handler pool — broker saturation
-  # ----------------------------------------------------------------
-  - pattern: >-
-      kafka.server<type=KafkaRequestHandlerPool,
-      name=RequestHandlerAvgIdlePercent><>OneMinuteRate
-    name: kafka_server_kafkarequesthandlerpool_requesthandleravgidlepercent
-    type: GAUGE
+  # ---- Replica Manager ----
+  - pattern: kafka.server<type=ReplicaManager, name=(.+)><>Value
+    name: kafka_server_replicamanager_$1
 
-  - pattern: >-
-      kafka.network<type=SocketServer,
-      name=NetworkProcessorAvgIdlePercent><>Value
-    name: kafka_network_socketserver_networkprocessoravgidlepercent
-    type: GAUGE
+  - pattern: kafka.server<type=ReplicaManager, name=(.+)><>Count
+    name: kafka_server_replicamanager_$1_total
 
-  # ----------------------------------------------------------------
-  # Purgatory — delayed produce/fetch queue depth
-  # ----------------------------------------------------------------
-  - pattern: >-
-      kafka.server<type=DelayedOperationPurgatory,
-      name=PurgatorySize,
-      delayedOperation=(.+)><>Value
-    name: kafka_server_delayedoperationpurgatory_purgatorysize
+  # ---- Controller ----
+  - pattern: kafka.controller<type=KafkaController, name=(.+)><>Value
+    name: kafka_controller_kafkacontroller_$1
+
+  - pattern: kafka.controller<type=ControllerStats, name=(.+)><>Count
+    name: kafka_controller_stats_$1_total
+
+  # ---- Log Metrics ----
+  - pattern: kafka.log<type=Log, name=(.+), topic=(.+), partition=(.+)><>Value
+    name: kafka_log_$1
     labels:
-      delayed_operation: "$1"
-    type: GAUGE
+      topic: "$2"
+      partition: "$3"
 
-  # ----------------------------------------------------------------
-  # Log manager — offline log dirs, topic size
-  # ----------------------------------------------------------------
-  - pattern: >-
-      kafka.log<type=LogManager,
-      name=OfflineLogDirectoryCount><>Value
-    name: kafka_log_logmanager_offlinelogdirectorycount
-    type: GAUGE
+  - pattern: kafka.log<type=LogFlushStats, name=(.+)><>Count
+    name: kafka_log_flushstats_$1_total
 
-  - pattern: >-
-      kafka.log<type=Log,
-      name=Size,
-      topic=(.+),
-      partition=(.+)><>Value
-    name: kafka_log_log_size_bytes
+  # ---- ZooKeeper / KRaft ----
+  - pattern: kafka.server<type=SessionExpireListener, name=(.+)><>Count
+    name: kafka_server_zookeeper_$1_total
+
+  # ---- Consumer Group Coordinator ----
+  - pattern: kafka.coordinator.group<type=GroupMetadataManager, name=(.+)><>Value
+    name: kafka_coordinator_group_$1
+
+  # ---- Purgatory ----
+  - pattern: kafka.server<type=DelayedOperationPurgatory, name=PurgatorySize, delayedOperation=(.+)><>Value
+    name: kafka_server_purgatory_size
     labels:
-      topic: "$1"
-      partition: "$2"
-    type: GAUGE
+      operation: "$1"
 
-  # ----------------------------------------------------------------
-  # JVM — heap, GC, OS
-  # ----------------------------------------------------------------
-  - pattern: java.lang<type=Memory><HeapMemoryUsage>(used|max|committed)
-    name: java_lang_memory_heapmemoryusage_$1_bytes
-    type: GAUGE
-
-  - pattern: >-
-      java.lang<type=GarbageCollector,
-      name=(.+)><>CollectionCount
-    name: java_lang_gc_collection_count_total
+  # ---- JVM ----
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionCount
+    name: jvm_gc_collection_count_total
     labels:
       gc: "$1"
-    type: COUNTER
 
-  - pattern: >-
-      java.lang<type=GarbageCollector,
-      name=(.+)><>CollectionTime
-    name: java_lang_gc_collection_time_ms_total
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionTime
+    name: jvm_gc_collection_time_ms_total
     labels:
       gc: "$1"
-    type: COUNTER
 
-  - pattern: >-
-      java.lang<type=OperatingSystem><>(SystemCpuLoad|ProcessCpuLoad|
-      OpenFileDescriptorCount|MaxFileDescriptorCount)
-    name: java_lang_operatingsystem_$1
-    type: GAUGE
+  - pattern: java.lang<type=Memory><HeapMemoryUsage>(.+)
+    name: jvm_memory_heap_$1_bytes
 
-  - pattern: java.lang<type=Threading><>(ThreadCount|DaemonThreadCount)
-    name: java_lang_threading_$1
-    type: GAUGE
+  - pattern: java.lang<type=OperatingSystem><>(.+)
+    name: jvm_os_$1
