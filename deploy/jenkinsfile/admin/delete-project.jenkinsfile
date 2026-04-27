@@ -24,6 +24,17 @@ pipeline {
     }
 
     stages {
+        stage('Validate parameters') {
+            steps {
+                script {
+                    def id = (params.PROJECT_ID ?: '').toString().trim()
+                    if (!id || id == 'null') {
+                        error 'PROJECT_ID is required and cannot be empty. Enter the project ID (e.g. proj-abc-123) and re-run.'
+                    }
+                }
+            }
+        }
+
         stage('Clear Existing Workspace') {
             steps {
                 cleanWs()

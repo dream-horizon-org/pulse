@@ -24,6 +24,17 @@ pipeline {
     }
 
     stages {
+        stage('Validate parameters') {
+            steps {
+                script {
+                    def id = (params.TENANT_ID ?: '').toString().trim()
+                    if (!id || id == 'null') {
+                        error 'TENANT_ID is required and cannot be empty. Enter the tenant ID and re-run.'
+                    }
+                }
+            }
+        }
+
         stage('Clear Existing Workspace') {
             steps {
                 cleanWs()
