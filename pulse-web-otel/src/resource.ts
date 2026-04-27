@@ -7,6 +7,8 @@ import type { PulseWebConfig } from "./config";
 import { getOrCreateInstallationId } from "./session";
 import { SDK_VERSION } from "./version";
 import { parseUserAgent } from "./utils/ua-parser";
+import { PulseWebSemconv } from "./semconv";
+import type { PulseAttributePrimitive } from "./types/attributes";
 
 export function extractProjectId(apiKey: string): string {
   // Format: '<project_name>-<random_id>_<api_key_portion>' → '<project_name>-<random_id>'
@@ -37,6 +39,8 @@ export function buildResource(
   config: PulseWebConfig,
   osVersion: string,
 ): Resource {
+  const resourceKeys = PulseWebSemconv.ResourceKey;
+  const fixedValues = PulseWebSemconv.FixedValue;
   const parsedUA = parseUserAgent();
   const installationId = getOrCreateInstallationId();
 
@@ -46,40 +50,40 @@ export function buildResource(
       ? window.location.hostname || "web-app"
       : "web-app");
 
-  const attrs: Record<string, string | number | boolean> = {
-    "service.name": serviceName,
-    "service.version": config.serviceVersion ?? "0.0.0",
-    platform: "web",
-    "rum.sdk.name": "pulse_web_js",
-    "rum.sdk.version": SDK_VERSION,
-    "installation.id": installationId,
-    "project.id": extractProjectId(config.apiKey),
-    "browser.name": parsedUA.browserName,
-    "browser.version": parsedUA.browserVersion,
-    "os.name": parsedUA.osName,
-    "os.version": osVersion,
-    "device.type": parsedUA.deviceType,
+  const attrs: Record<string, PulseAttributePrimitive> = {
+    [resourceKeys.SERVICE_NAME]: serviceName,
+    [resourceKeys.SERVICE_VERSION]: config.serviceVersion ?? "0.0.0",
+    [resourceKeys.PLATFORM]: fixedValues.PLATFORM_WEB,
+    [resourceKeys.RUM_SDK_NAME]: fixedValues.RUM_SDK_NAME,
+    [resourceKeys.RUM_SDK_VERSION]: SDK_VERSION,
+    [resourceKeys.INSTALLATION_ID]: installationId,
+    [resourceKeys.PROJECT_ID]: extractProjectId(config.apiKey),
+    [resourceKeys.BROWSER_NAME]: parsedUA.browserName,
+    [resourceKeys.BROWSER_VERSION]: parsedUA.browserVersion,
+    [resourceKeys.OS_NAME]: parsedUA.osName,
+    [resourceKeys.OS_VERSION]: osVersion,
+    [resourceKeys.DEVICE_TYPE]: parsedUA.deviceType,
   };
 
   if (typeof window !== "undefined") {
     if (typeof screen !== "undefined") {
       const w = screen.width ?? 0;
       const h = screen.height ?? 0;
-      attrs["screen.resolution"] = `${w}x${h}`;
-      attrs["screen.aspect_ratio"] = computeAspectRatio(w, h);
-      attrs["screen.color_depth"] = screen.colorDepth ?? 0;
+      attrs[resourceKeys.SCREEN_RESOLUTION] = `${w}x${h}`;
+      attrs[resourceKeys.SCREEN_ASPECT_RATIO] = computeAspectRatio(w, h);
+      attrs[resourceKeys.SCREEN_COLOR_DEPTH] = screen.colorDepth ?? 0;
     }
 
     if (typeof navigator !== "undefined") {
-      attrs["browser.language"] = navigator.language ?? "";
-      attrs["network.online"] = navigator.onLine ?? true;
+      attrs[resourceKeys.BROWSER_LANGUAGE] = navigator.language ?? "";
+      attrs[resourceKeys.NETWORK_ONLINE] = navigator.onLine ?? true;
     }
 
     try {
-      attrs["timezone"] =
+      attrs[resourceKeys.TIMEZONE] =
         Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
     } catch {
-      attrs["timezone"] = "";
+      attrs[resourceKeys.TIMEZONE] = "";
     }
   }
 
