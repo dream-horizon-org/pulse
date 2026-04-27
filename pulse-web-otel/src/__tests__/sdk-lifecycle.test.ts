@@ -44,6 +44,7 @@ vi.mock("../exporters", () => {
       loggerProvider: mockLoggerProvider,
       meterProvider: mockMeterProvider,
       cleanup: vi.fn(),
+      prepareForDocumentUnload: vi.fn(),
     }),
   };
 });
@@ -206,6 +207,7 @@ describe("SDK lifecycle — cleanup() called on shutdown", () => {
         shutdown: vi.fn().mockResolvedValue(undefined),
       } as never,
       cleanup: cleanupFn,
+      prepareForDocumentUnload: vi.fn(),
     });
 
     const { PulseWeb } = await import("../sdk");

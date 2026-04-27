@@ -1,0 +1,92 @@
+# Opens a PR against main that bumps pulse-ios-otel/PulseKit.podspec (spec.version only).
+# After merge, continue with iOS SDK — XCFramework and release PR workflow.
+name: iOS - Create Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'PulseKit version for pulse-ios-otel/PulseKit.podspec (e.g. 0.0.11-alpha)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  create-pr:
+    name: Bump PulseKit podspec version and open PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
+
+      - name: Require default branch (main)
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "Run this workflow from branch main only (selected ref: ${GITHUB_REF_NAME})."
+            exit 1
+          fi
+
+      - name: Set spec.version in PulseKit.podspec
+        run: |
+          VERSION="${{ inputs.version }}"
+          FILE="pulse-ios-otel/PulseKit.podspec"
+          if [[ ! -f "$FILE" ]]; then
+            echo "Missing $FILE"
+            exit 1
+          fi
+          sed -i "s/^  spec\\.version = .*/  spec.version = \"${VERSION}\"/" "$FILE"
+          grep -q "spec.version = \"${VERSION}\"" "$FILE" || { echo "spec.version line mismatch"; exit 1; }
+
+      - name: Configure Git for commits
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit, push, open PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          SLUG="$(echo "$VERSION" | sed 's/[\/ :]/-/g')"
+          BRANCH="release/ios-${SLUG}"
+          TITLE="[release] Bump PulseKit (monorepo) to ${VERSION}"
+          git checkout -b "$BRANCH"
+          git add pulse-ios-otel/PulseKit.podspec
+          git commit -m "$TITLE"
+          git push --set-upstream origin "$BRANCH"
+          BODY="$(cat <<EOF
+          ## ${TITLE}
+
+          ### Source
+          Workflow run: [\`${GITHUB_RUN_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+
+          ### Files
+          - \`pulse-ios-otel/PulseKit.podspec\` → \`spec.version = \"${VERSION}\"\`
+
+          ### After merge
+          Continue with **iOS SDK — XCFramework and release PR** (\`.github/workflows/ios-sdk-release.yml\`) and CocoaPods steps as documented.
+
+          ### Checklist
+          - [ ] Version matches intended CocoaPods / git tag for PulseKit
+          EOF
+          )"
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base main \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "$BODY"
+
+      - name: Summary
+        run: |
+          echo "## iOS release PR" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Version: \`${{ inputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"

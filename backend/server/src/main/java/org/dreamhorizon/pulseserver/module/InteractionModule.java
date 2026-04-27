@@ -15,6 +15,8 @@ import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.PerformanceMetricService;
 import org.dreamhorizon.pulseserver.service.interaction.impl.InteractionServiceImpl;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionDrillDownService;
+import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.eventcatalog.EventCatalogService;
 import org.dreamhorizon.pulseserver.service.productAnalysis.eventcatalog.impl.EventCatalogServiceImpl;
 import org.dreamhorizon.pulseserver.service.productAnalysis.funnel.FunnelService;
@@ -55,6 +57,8 @@ public class InteractionModule extends AbstractModule {
         .in(Singleton.class);
     bind(RootCauseCacheDao.class).in(Singleton.class);
     bind(RootCauseService.class).in(Singleton.class);
+    bind(ErrorAttributionService.class).in(Singleton.class);
+    bind(ErrorAttributionDrillDownService.class).in(Singleton.class);
     bind(SessionEvidenceService.class).to(SessionEvidenceServiceImpl.class).in(Singleton.class);
   }
 }

@@ -4,9 +4,9 @@ Audit `.cursor/` configuration files against the codebase source-of-truth files 
     - `deploy/docker-compose.yml` — services, ports, health checks, dependencies
     - `backend/ingestion/clickhouse-otel-schema.sql` — table schemas, materialized columns, heatmap aggregates (
       `interaction_heatmaps_daily`)
-    - `backend/ingestion/clickhouse-funnel-results-schema.sql` — single-node `funnel_results` (MergeTree)
-    - `backend/ingestion/clickhouse-journey-results-schema.sql` — single-node `journey_results` (MergeTree)
-    - `backend/ingestion/clickhouse-funnel-journey-replicated-schema.sql` — cluster `funnel_results_local` /
+    - `backend/db/dev/clickhouse/funnel-results.sql` — single-node `funnel_results` (MergeTree)
+    - `backend/db/dev/clickhouse/journey-results.sql` — single-node `journey_results` (MergeTree)
+    - `backend/db/prod/clickhouse/funnel-results.sql` — cluster `funnel_results_local` /
       `journey_results_local` + Distributed tables
     - `backend/ingestion/session-summary-mv.sql` — session summary MV (referenced by init)
     - `deploy/.env.example` — environment variable names

@@ -30,7 +30,7 @@ import {
 
 import { isGzipSupported } from "../utils/otlp-gzip";
 import type { IdbSignalBuffer } from "../persistence/indexed-db";
-import { buildBrowserExportTransport } from "./otlp-transport";
+import { buildBrowserExportTransport, type BrowserExportTransport } from "./otlp-transport";
 import type { PersistMeta } from "../types/otlp-transport";
 import type { PulseBrowserExporterOptions } from "../types/browser-exporter";
 
@@ -41,7 +41,7 @@ abstract class PulseBrowserOtelExporter<
   ServiceResponse,
 > extends OTLPExporterBase<OTLPExporterConfigBase, ExportItem> {
   private _serializer!: ISerializer<ExportItem[], ServiceResponse>;
-  private _transport?: ReturnType<typeof buildBrowserExportTransport>;
+  private _transport?: BrowserExportTransport;
   /** Set in onInit (runs during super()) before subclass ctor assigns _pulse. */
   private _otlpExporterConfig?: OTLPExporterConfigBase;
   private readonly _pulse: PulseBrowserExporterOptions & {
@@ -65,6 +65,10 @@ abstract class PulseBrowserOtelExporter<
 
   onShutdown(): void {
     this._transport?.shutdown();
+  }
+
+  switchToKeepalive(): void {
+    this._transport?.switchToKeepalive();
   }
 
   private ensureTransport(): void {
