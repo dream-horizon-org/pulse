@@ -17,8 +17,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +29,7 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
+import org.dreamhorizon.pulseserver.service.UserService;
 
 /**
  * Grant, revoke, and list OpenFGA internal_viewer users on {@code system:pulse}. Caller must be a superadmin.
@@ -43,6 +42,7 @@ public class InternalViewerResource {
 
   private final Provider<OpenFgaService> openFgaServiceProvider;
   private final JwtService jwtService;
+  private final UserService userService;
 
   private OpenFgaService requireOpenFga() {
     OpenFgaService fga = openFgaServiceProvider.get();
@@ -98,11 +98,7 @@ public class InternalViewerResource {
             }
             return fga.getInternalViewers();
           })
-          .map(set -> {
-            List<String> ids = new ArrayList<>(set);
-            ids.sort(String::compareTo);
-            return SuperAdminsListResponse.builder().userIds(ids).build();
-          });
+          .flatMap(set -> AdminRoleListResponseFactory.build(set, userService));
     }).to(RestResponse.jaxrsRestHandler());
   }
 
@@ -115,30 +111,32 @@ public class InternalViewerResource {
       OpenFgaService fga = requireOpenFga();
       String callerUserId = verifiedCallerUserId(authorization);
 
-      if (body == null || StringUtils.isBlank(body.getUserId())) {
+      if (body == null) {
         return Single.error(
-            ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException("userId is required"));
+            ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException("userId or email is required"));
       }
 
-      String targetUserId = body.getUserId().trim();
-
-      return fga.isSuperAdmin(callerUserId)
-          .flatMap(isSa -> {
-            if (!Boolean.TRUE.equals(isSa)) {
-              return Single.error(new ForbiddenOperationException("Only superadmins can assign internal_viewer"));
-            }
-            log.info(
-                "AUDIT internal_viewer_grant: caller={} target={} ts={}",
-                callerUserId,
-                targetUserId,
-                Instant.now());
-            return fga.assignInternalViewerRole(targetUserId).andThen(fga.getInternalViewers());
-          })
-          .map(set -> {
-            List<String> ids = new ArrayList<>(set);
-            ids.sort(String::compareTo);
-            return SuperAdminsListResponse.builder().userIds(ids).build();
-          });
+      return AdminRoleListResponseFactory.resolveTargetUserId(
+              body.getUserId(), body.getEmail(), userService)
+          .flatMap(
+              targetUserId ->
+                  fga.isSuperAdmin(callerUserId)
+                      .flatMap(
+                          isSa -> {
+                            if (!Boolean.TRUE.equals(isSa)) {
+                              return Single.error(
+                                  new ForbiddenOperationException(
+                                      "Only superadmins can assign internal_viewer"));
+                            }
+                            log.info(
+                                "AUDIT internal_viewer_grant: caller={} target={} ts={}",
+                                callerUserId,
+                                targetUserId,
+                                Instant.now());
+                            return fga.assignInternalViewerRole(targetUserId)
+                                .andThen(fga.getInternalViewers());
+                          })
+                      .flatMap(set -> AdminRoleListResponseFactory.build(set, userService)));
     }).to(RestResponse.jaxrsRestHandler());
   }
 
@@ -175,11 +173,7 @@ public class InternalViewerResource {
                 Instant.now());
             return fga.revokeInternalViewerRole(targetUserId).andThen(fga.getInternalViewers());
           })
-          .map(set -> {
-            List<String> ids = new ArrayList<>(set);
-            ids.sort(String::compareTo);
-            return SuperAdminsListResponse.builder().userIds(ids).build();
-          });
+          .flatMap(set -> AdminRoleListResponseFactory.build(set, userService));
     }).to(RestResponse.jaxrsRestHandler());
   }
 }

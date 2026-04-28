@@ -17,8 +17,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +29,7 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
+import org.dreamhorizon.pulseserver.service.UserService;
 
 /**
  * Grant, revoke, and list OpenFGA superadmins on {@code system:pulse}. Caller must already be a superadmin.
@@ -43,6 +42,7 @@ public class SuperAdminResource {
 
   private final Provider<OpenFgaService> openFgaServiceProvider;
   private final JwtService jwtService;
+  private final UserService userService;
 
   private OpenFgaService requireOpenFga() {
     OpenFgaService fga = openFgaServiceProvider.get();
@@ -101,11 +101,7 @@ public class SuperAdminResource {
             }
             return fga.getSuperAdmins();
           })
-          .map(set -> {
-            List<String> ids = new ArrayList<>(set);
-            ids.sort(String::compareTo);
-            return SuperAdminsListResponse.builder().userIds(ids).build();
-          });
+          .flatMap(set -> AdminRoleListResponseFactory.build(set, userService));
     }).to(RestResponse.jaxrsRestHandler());
   }
 
@@ -118,26 +114,31 @@ public class SuperAdminResource {
       OpenFgaService fga = requireOpenFga();
       String callerUserId = verifiedCallerUserId(authorization);
 
-      if (body == null || StringUtils.isBlank(body.getUserId())) {
+      if (body == null) {
         return Single.error(
-            ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException("userId is required"));
+            ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException("userId or email is required"));
       }
 
-      String targetUserId = body.getUserId().trim();
-
-      return fga.isSuperAdmin(callerUserId)
-          .flatMap(isSa -> {
-            if (!Boolean.TRUE.equals(isSa)) {
-              return Single.error(new ForbiddenOperationException("Only superadmins can grant superadmin"));
-            }
-            log.info("AUDIT superadmin_grant: caller={} target={} ts={}", callerUserId, targetUserId, Instant.now());
-            return fga.assignSuperAdmin(targetUserId).andThen(fga.getSuperAdmins());
-          })
-          .map(set -> {
-            List<String> ids = new ArrayList<>(set);
-            ids.sort(String::compareTo);
-            return SuperAdminsListResponse.builder().userIds(ids).build();
-          });
+      return AdminRoleListResponseFactory.resolveTargetUserId(
+              body.getUserId(), body.getEmail(), userService)
+          .flatMap(
+              targetUserId ->
+                  fga.isSuperAdmin(callerUserId)
+                      .flatMap(
+                          isSa -> {
+                            if (!Boolean.TRUE.equals(isSa)) {
+                              return Single.error(
+                                  new ForbiddenOperationException(
+                                      "Only superadmins can grant superadmin"));
+                            }
+                            log.info(
+                                "AUDIT superadmin_grant: caller={} target={} ts={}",
+                                callerUserId,
+                                targetUserId,
+                                Instant.now());
+                            return fga.assignSuperAdmin(targetUserId).andThen(fga.getSuperAdmins());
+                          })
+                      .flatMap(set -> AdminRoleListResponseFactory.build(set, userService)));
     }).to(RestResponse.jaxrsRestHandler());
   }
 
@@ -174,11 +175,7 @@ public class SuperAdminResource {
             log.info("AUDIT superadmin_revoke: caller={} target={} ts={}", callerUserId, targetUserId, Instant.now());
             return fga.revokeSuperAdmin(targetUserId).andThen(fga.getSuperAdmins());
           })
-          .map(set -> {
-            List<String> ids = new ArrayList<>(set);
-            ids.sort(String::compareTo);
-            return SuperAdminsListResponse.builder().userIds(ids).build();
-          });
+          .flatMap(set -> AdminRoleListResponseFactory.build(set, userService));
     }).to(RestResponse.jaxrsRestHandler());
   }
 }
