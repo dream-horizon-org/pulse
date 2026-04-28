@@ -5,7 +5,7 @@ variable "aws_region" {
 }
 
 variable "ami_id" {
-  description = "AMI ID: node-rdkafka runtime libs + systemd unit; app dist/node_modules from CodeArtifact at boot"
+  description = "AMI ID: node-rdkafka runtime libs; app from CodeArtifact at boot; Node/pm2 installed by user-data if missing"
   type        = string
 }
 
