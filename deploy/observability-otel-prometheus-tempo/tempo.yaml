@@ -1,0 +1,37 @@
+# Tempo monolith: OTLP on 4317/4318 (internal only). Trace blocks on MinIO (S3).
+# block_retention: 2160h = 90d. Use 4320h for 180d (6 months).
+
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  log_level: info
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: 2160h
+
+storage:
+  trace:
+    backend: s3
+    wal:
+      path: /var/tempo/wal
+    s3:
+      bucket: tempo
+      endpoint: minio:9000
+      access_key: minio
+      secret_key: minio123
+      insecure: true
+      forcepathstyle: true
