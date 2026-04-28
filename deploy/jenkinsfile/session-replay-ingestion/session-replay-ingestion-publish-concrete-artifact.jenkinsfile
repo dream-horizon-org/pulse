@@ -102,11 +102,13 @@ pipeline {
     }
 }
 
+// Same pattern as pulse-ui-publish-concrete-artifact.jenkinsfile (jq + optional -SNAPSHOT strip).
 def getVersionFromPackageJson(String path = 'backend/session-replay-ingestion/package.json') {
-    return sh(
-            script: """sed -n 's/^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' ${path} | head -1""",
+    def rawVersion = sh(
+            script: "jq -r '.version' ${path}",
             returnStdout: true
     ).trim()
+    return rawVersion.replaceAll('-SNAPSHOT$', '')
 }
 
 def bumpSemverMinor(String version) {
