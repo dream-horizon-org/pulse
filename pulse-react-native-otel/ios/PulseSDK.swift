@@ -19,7 +19,8 @@ public class PulseSDK: NSObject {
         beforeSendLog: BeforeSendLogCallback? = nil,
         beforeSendMetric: BeforeSendMetricCallback? = nil,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = nil,
-        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil
+        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil,
+        logLevel: PulseLogLevel = .none
     ) {
         let convertedAttributes = globalAttributes
 
@@ -72,7 +73,8 @@ public class PulseSDK: NSObject {
             beforeSendLog: beforeSendLog,
             beforeSendMetric: beforeSendMetric,
             tracerProviderCustomizer: mergedTracerProviderCustomizer,
-            loggerProviderCustomizer: mergedLoggerProviderCustomizer
+            loggerProviderCustomizer: mergedLoggerProviderCustomizer,
+            logLevel: logLevel
         )
     }
   
@@ -160,7 +162,51 @@ public class PulseSDK: NSObject {
         return Pulse.shared.getOtelOrThrow()
     }
 
-    // MARK: - RN bridge only (@objc; PulseAttributeValue overloads)
+    // MARK: - ObjC / bridge `initialize` (parameter labels match `initialize`; add `dataCollectionState` as `ALLOWED` / `DENIED` / `PENDING` string; `globalAttributes` is `PulseAttributeValue`). Swift callers use `initialize` above.
+
+    @objc(pulseInitialize:dataCollectionState:globalAttributes:configuration:instrumentations:)
+    public static func pulseInitialize(
+        apiKey: String,
+        dataCollectionState: String,
+        globalAttributes: [String: PulseAttributeValue]?,
+        configuration: PulseObjcKitConfiguration?,
+        instrumentations: PulseObjcInstrumentations?
+    ) {
+        let consent: PulseDataCollectionConsent
+        switch dataCollectionState.uppercased() {
+        case "ALLOWED":
+            consent = .allowed
+        case "DENIED":
+            consent = .denied
+        default:
+            consent = .pending
+        }
+
+        let convertedGlobal: [String: AttributeValue]?
+        if let attrs = globalAttributes, !attrs.isEmpty {
+            convertedGlobal = attrs.toSwiftAttributes()
+        } else {
+            convertedGlobal = nil
+        }
+
+        let configurationBlock = PulseObjcInitMappers.makeConfiguration(from: configuration)
+        let instrumentationsBlock = PulseObjcInitMappers.makeInstrumentations(from: instrumentations)
+
+        guard !apiKey.isEmpty else { return }
+        initialize(
+            apiKey: apiKey,
+            dataCollectionState: consent,
+            globalAttributes: convertedGlobal,
+            resource: nil,
+            configuration: configurationBlock,
+            instrumentations: instrumentationsBlock,
+            beforeSendSpan: nil,
+            beforeSendLog: nil,
+            beforeSendMetric: nil,
+            tracerProviderCustomizer: nil,
+            loggerProviderCustomizer: nil
+        )
+    }
 
     @objc public static func shutdown() -> Bool {
         guard Pulse.shared.isSDKInitialized() else { return false }
