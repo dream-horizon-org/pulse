@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     triggers {
-        cron('H 2 * * 2')  // Every Tuesday ~2 AM; MaxMind releases GeoLite2 bi-weekly on Tuesdays
+        cron('0 2 * * 2')  // Every Tuesday ~2 AM; MaxMind releases GeoLite2 bi-weekly on Tuesdays
     }
 
     environment {
