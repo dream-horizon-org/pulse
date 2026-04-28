@@ -66,6 +66,20 @@ export const PulseWebSemconv = {
     TTI: "tti",
     SESSION_DURATION: "session.duration",
     APP_STATE: "app.state",
+
+    HTTP_REQUEST_METHOD: "http.request.method",
+    HTTP_REQUEST_METHOD_ORIGINAL: "http.request.method_original",
+    HTTP_RESPONSE_STATUS_CODE: "http.response.status_code",
+    URL_FULL: "url.full",
+    SERVER_ADDRESS: "server.address",
+    SERVER_PORT: "server.port",
+    PEER_SERVICE: "peer.service",
+    HTTP_DURATION: "http.duration",
+    HTTP_REQUEST_BODY_SIZE: "http.request.body.size",
+    HTTP_RESPONSE_BODY_SIZE: "http.response.body.size",
+    ERROR_TYPE: "error.type",
+    GRAPHQL_OPERATION_NAME: "graphql.operation.name",
+    GRAPHQL_OPERATION_TYPE: "graphql.operation.type",
   },
   FixedValue: {
     PLATFORM_WEB: "web",
@@ -82,6 +96,7 @@ export const PulseWebSemconv = {
     SCREEN_LOAD: "screen_load",
     SCREEN_INTERACTIVE: "screen_interactive",
     SCREEN_SESSION: "screen_session",
+    HTTP: "http",
   },
   LogBody: {
     SESSION_START: "session.start",

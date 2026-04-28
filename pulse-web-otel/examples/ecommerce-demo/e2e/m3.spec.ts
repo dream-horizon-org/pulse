@@ -109,9 +109,10 @@ test.describe("@M3 network", () => {
     otlp.reset();
 
     const span = await otlp.waitForSpan("http");
-    expect(getAttr(span.attributes, "http.method")).toBeTruthy();
-    expect(getAttr(span.attributes, "http.url")).toBeTruthy();
-    expect(getAttr(span.attributes, "http.status_code")).toBeDefined();
+    // Stable OTel HTTP semconv (http.request.method, url.full, http.response.status_code)
+    expect(getAttr(span.attributes, "http.request.method")).toBeTruthy();
+    expect(getAttr(span.attributes, "url.full")).toBeTruthy();
+    expect(getAttr(span.attributes, "http.response.status_code")).toBeDefined();
   });
 
   test("Pulse ingest endpoint requests NOT traced", async ({ page, otlp }) => {
@@ -121,7 +122,7 @@ test.describe("@M3 network", () => {
     // Any http span whose URL is the OTLP ingest base (E2E .env.test) should be excluded
     const allHttpSpans = findAllSpans(otlp.captured, "http");
     const selfTraced = allHttpSpans.filter((s) =>
-      String(getAttr(s.attributes, "http.url") ?? "").includes(
+      String(getAttr(s.attributes, "url.full") ?? "").includes(
         "127.0.0.1:4318",
       ),
     );

@@ -141,6 +141,16 @@ export default function App() {
             )["__pulseE2eRoutePatterns"],
           }
         : {}),
+      // E2E injection — Playwright tests set window.__pulseE2eNetworkConfig for network TC overrides
+      ...((window as unknown as Record<string, unknown>)["__pulseE2eNetworkConfig"]
+        ? {
+            instrumentations: {
+              network: (window as unknown as Record<string, unknown>)[
+                "__pulseE2eNetworkConfig"
+              ],
+            },
+          }
+        : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

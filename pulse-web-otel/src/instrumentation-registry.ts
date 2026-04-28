@@ -7,6 +7,7 @@ import type { FeatureGate } from "./feature-gate";
 import { SessionInstrumentation } from "./instrumentations/session";
 import { ErrorInstrumentation } from "./instrumentations/errors";
 import { NavigationInstrumentation } from "./instrumentations/navigation";
+import { NetworkInstrumentation } from "./instrumentations/network";
 import { InstrumentationKeys } from "./config";
 import { PulseFeature } from "./remote-config";
 import type { PulseFeatureName } from "./remote-config";
@@ -56,16 +57,22 @@ export class InstrumentationRegistry {
       this.installed.push(sessionInstr);
     }
 
-    if (this.shouldInstall("errors")) {
+    if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
       const errInstr = new ErrorInstrumentation();
       errInstr.install(this.sdk);
       this.installed.push(errInstr);
     }
 
-    if (this.shouldInstall("navigation")) {
+    if (this.shouldInstall(InstrumentationKeys.NAVIGATION)) {
       const navInstr = new NavigationInstrumentation();
       navInstr.install(this.sdk);
       this.installed.push(navInstr);
+    }
+
+    if (this.shouldInstall(InstrumentationKeys.NETWORK)) {
+      const netInstr = new NetworkInstrumentation();
+      netInstr.install(this.sdk);
+      this.installed.push(netInstr);
     }
   }
 

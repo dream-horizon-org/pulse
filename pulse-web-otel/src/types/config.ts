@@ -9,9 +9,32 @@ export enum PulseDataCollectionConsent {
   PENDING = "PENDING",
 }
 
+/** Network instrumentation config — mirrors Android OkHttpInstrumentation options. */
+export interface NetworkInstrumentationConfig {
+  enabled?: boolean;
+  /** Extra URLs/patterns to exclude from tracing. The OTLP endpoint is always excluded. */
+  blockedUrls?: Array<string | RegExp>;
+  /** hostname → friendly service name mapping. Mirrors Android setPeerServiceMapping(). */
+  peerServiceMap?: Record<string, string>;
+  /** Request header names to capture as http.request.header.<name>. */
+  capturedRequestHeaders?: string[];
+  /** Response header names to capture as http.response.header.<name>. */
+  capturedResponseHeaders?: string[];
+  /** Privacy controls for URL capture. */
+  privacy?: {
+    /** Preserve query params in url.full. Default false — params are stripped. */
+    captureQueryParams?: boolean;
+  };
+  /**
+   * Origins that should receive traceparent propagation headers.
+   * Default: all origins (/.* /).
+   */
+  propagateTraceHeaderCorsUrls?: Array<string | RegExp>;
+}
+
 export interface InstrumentationConfig {
   errors?: { enabled: boolean };
-  network?: { enabled: boolean };
+  network?: NetworkInstrumentationConfig;
   clicks?: { enabled: boolean };
   webVitals?: { enabled: boolean };
   navigation?: { enabled: boolean };

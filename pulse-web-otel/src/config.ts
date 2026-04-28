@@ -6,6 +6,7 @@ export { InstrumentationKeys } from "./types/config";
 export type {
   InstrumentationKey,
   InstrumentationConfig,
+  NetworkInstrumentationConfig,
   PulseWebDiskBufferingConfig,
   PulseWebConfig,
 } from "./types/config";
