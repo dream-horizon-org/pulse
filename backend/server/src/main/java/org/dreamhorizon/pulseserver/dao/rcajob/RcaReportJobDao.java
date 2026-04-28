@@ -83,10 +83,20 @@ public class RcaReportJobDao {
 
   public Maybe<RcaReportJob> getActiveJobByKey(
       String projectId, RcaType type, String entityKey, LocalDate date) {
+    final String pending = RcaJobStatus.PENDING.name();
+    final String processing = RcaJobStatus.PROCESSING.name();
     return mysqlClient
         .getReaderPool()
         .preparedQuery(RcaReportJobQueries.GET_ACTIVE_JOB_BY_KEY)
-        .rxExecute(Tuple.of(projectId, type.name(), entityKey, java.sql.Date.valueOf(date)))
+        .rxExecute(Tuple.wrap(new Object[] {
+            projectId,
+            type.name(),
+            entityKey,
+            java.sql.Date.valueOf(date),
+            pending,
+            processing,
+            processing,
+            pending}))
         .flatMapMaybe(
             rows -> {
               if (rows.size() == 0) {
@@ -98,11 +108,11 @@ public class RcaReportJobDao {
   }
 
   public Completable updateStatus(String jobId, RcaJobStatus status) {
-    String name = status.name();
+    final String processing = RcaJobStatus.PROCESSING.name();
     return mysqlClient
         .getWriterPool()
         .preparedQuery(RcaReportJobQueries.UPDATE_STATUS)
-        .rxExecute(Tuple.of(name, jobId))
+        .rxExecute(Tuple.of(status.name(), status.name(), processing, jobId))
         .ignoreElement()
         .doOnError(e -> log.warn("RCA report job update status failed: {}", e.getMessage()));
   }
@@ -113,21 +123,58 @@ public class RcaReportJobDao {
       RcaType type,
       String entityKey,
       LocalDate date) {
-    Completable deleteOld =
-        mysqlClient
-            .getWriterPool()
-            .preparedQuery(RcaReportJobQueries.DELETE_OLD_COMPLETED)
-            .rxExecute(Tuple.of(projectId, type.name(), entityKey, java.sql.Date.valueOf(date), jobId))
-            .ignoreElement()
-            .doOnError(e -> log.warn("RCA delete old completed row failed: {}", e.getMessage()))
-            .onErrorComplete();
-    return deleteOld.andThen(
-        mysqlClient
-            .getWriterPool()
-            .preparedQuery(RcaReportJobQueries.UPDATE_COMPLETED)
-            .rxExecute(Tuple.of(jobId))
-            .ignoreElement()
-            .doOnError(e -> log.warn("RCA report job mark completed failed: {}", e.getMessage())));
+    final String completed = RcaJobStatus.COMPLETED.name();
+
+    return mysqlClient
+        .getWriterPool()
+        .rxGetConnection()
+        .flatMap(
+            conn ->
+                conn.rxBegin()
+                    .flatMap(
+                        tx -> {
+                          // 1. Delete old completed jobs for this key
+                          return conn
+                              .preparedQuery(RcaReportJobQueries.DELETE_OLD_JOBS)
+                              .rxExecute(
+                                  Tuple.of(
+                                      projectId,
+                                      type.name(),
+                                      entityKey,
+                                      java.sql.Date.valueOf(date),
+                                      completed,
+                                      jobId))
+                              .flatMap(
+                                  deleteResult -> {
+                                    log.debug(
+                                        "RCA delete old completed rows: {}", deleteResult.rowCount());
+                                    // 2. Mark current job as completed
+                                    return conn
+                                        .preparedQuery(RcaReportJobQueries.FINALIZE_SUCCESS)
+                                        .rxExecute(Tuple.of(completed, jobId))
+                                        .flatMap(
+                                            finalizeResult -> {
+                                              if (finalizeResult.rowCount() == 0) {
+                                                return Single.error(
+                                                    new IllegalStateException(
+                                                        "No job found to finalize: " + jobId));
+                                              }
+                                              // 3. Commit transaction
+                                              return tx.rxCommit()
+                                                  .toSingleDefault(finalizeResult.rowCount());
+                                            });
+                                  })
+                              .onErrorResumeNext(
+                                  error -> {
+                                    // Rollback on any error
+                                    return tx.rxRollback()
+                                        .onErrorComplete()
+                                        .andThen(Single.error(error));
+                                  });
+                        })
+                    .doFinally(conn::close))
+        .ignoreElement()
+        .doOnError(e -> log.warn("RCA report job mark completed failed: {}", e.getMessage()));
   }
 
   public Completable markFailed(
@@ -137,30 +184,70 @@ public class RcaReportJobDao {
       String entityKey,
       LocalDate date,
       String errorMessage) {
-    Completable deleteOld =
-        mysqlClient
-            .getWriterPool()
-            .preparedQuery(RcaReportJobQueries.DELETE_OLD_FAILED)
-            .rxExecute(Tuple.of(projectId, type.name(), entityKey, java.sql.Date.valueOf(date), jobId))
-            .ignoreElement()
-            .doOnError(e -> log.warn("RCA delete old failed row failed: {}", e.getMessage()))
-            .onErrorComplete();
-    return deleteOld.andThen(
-        mysqlClient
-            .getWriterPool()
-            .preparedQuery(RcaReportJobQueries.UPDATE_FAILED)
-            .rxExecute(Tuple.of(errorMessage, jobId))
-            .ignoreElement()
-            .doOnError(
-                e -> log.warn("RCA report job persist FAILED status failed: {}", e.getMessage())));
+    final String failed = RcaJobStatus.FAILED.name();
+
+    return mysqlClient
+        .getWriterPool()
+        .rxGetConnection()
+        .flatMap(
+            conn ->
+                conn.rxBegin()
+                    .flatMap(
+                        tx -> {
+                          // 1. Delete old failed jobs for this key
+                          return conn
+                              .preparedQuery(RcaReportJobQueries.DELETE_OLD_JOBS)
+                              .rxExecute(
+                                  Tuple.of(
+                                      projectId,
+                                      type.name(),
+                                      entityKey,
+                                      java.sql.Date.valueOf(date),
+                                      failed,
+                                      jobId))
+                              .flatMap(
+                                  deleteResult -> {
+                                    log.debug(
+                                        "RCA delete old failed rows: {}", deleteResult.rowCount());
+                                    // 2. Mark current job as failed
+                                    return conn
+                                        .preparedQuery(RcaReportJobQueries.FINALIZE_FAILURE)
+                                        .rxExecute(Tuple.of(failed, errorMessage, jobId))
+                                        .flatMap(
+                                            finalizeResult -> {
+                                              if (finalizeResult.rowCount() == 0) {
+                                                return Single.error(
+                                                    new IllegalStateException(
+                                                        "No job found to finalize: " + jobId));
+                                              }
+                                              // 3. Commit transaction
+                                              return tx.rxCommit()
+                                                  .toSingleDefault(finalizeResult.rowCount());
+                                            });
+                                  })
+                              .onErrorResumeNext(
+                                  error -> {
+                                    // Rollback on any error
+                                    return tx.rxRollback()
+                                        .onErrorComplete()
+                                        .andThen(Single.error(error));
+                                  });
+                        })
+                    .doFinally(conn::close))
+        .ignoreElement()
+        .doOnError(
+            e -> log.warn("RCA report job persist FAILED status failed: {}", e.getMessage()));
   }
 
   /** Marks PENDING/PROCESSING jobs older than {@code thresholdMinutes} as FAILED. */
   public Single<Integer> markStaleJobsFailed(final int thresholdMinutes) {
+    final String pending = RcaJobStatus.PENDING.name();
+    final String processing = RcaJobStatus.PROCESSING.name();
+    final String failed = RcaJobStatus.FAILED.name();
     return mysqlClient
         .getWriterPool()
-        .preparedQuery(RcaReportJobQueries.MARK_STALE_JOBS_FAILED)
-        .rxExecute(Tuple.of(thresholdMinutes))
+        .preparedQuery(RcaReportJobQueries.MARK_STALE_JOBS)
+        .rxExecute(Tuple.of(failed, pending, processing, thresholdMinutes))
         .map(result -> result.rowCount())
         .doOnError(e -> log.warn("RCA stale job cleanup failed: {}", e.getMessage()));
   }

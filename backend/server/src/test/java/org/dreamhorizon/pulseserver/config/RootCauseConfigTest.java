@@ -27,6 +27,7 @@ class RootCauseConfigTest {
         .isEqualTo(RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION);
     assertThat(config.getIssueMustPrecedePoor()).isTrue();
     assertThat(config.getDimensionOrder()).contains("Platform");
+    assertThat(config.isHybridDimensionOrderingEnabled()).isFalse();
   }
 
   @Test
@@ -66,5 +67,15 @@ class RootCauseConfigTest {
     assertThat(config.getLookbackDays()).isEqualTo(7);
     assertThat(config.getMaxSegments()).isEqualTo(4);
     assertThat(config.getDimensionOrder()).isNotEmpty();
+  }
+
+  @Test
+  void shouldPreserveHybridDimensionOrderingFlagFromSource() {
+    RootCauseConfig partial =
+        RootCauseConfig.builder().hybridDimensionOrderingEnabled(true).build();
+
+    RootCauseConfig config = RootCauseConfig.withDefaults(partial);
+
+    assertThat(config.isHybridDimensionOrderingEnabled()).isTrue();
   }
 }

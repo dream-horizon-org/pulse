@@ -17,6 +17,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
+import com.dream11.rest.annotation.Timeout;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -238,6 +239,7 @@ public class InteractionController {
   @Path("/{name}/root-cause")
   @Produces(MediaType.APPLICATION_JSON)
   @RequiresPermission("can_view")
+  @Timeout(value = 60000) // 60s timeout for RCA queries (default 20s is too short)
   public CompletionStage<Response<RootCauseRestResponse>> getRootCause(
       @PathParam("name") String name,
       @QueryParam("date") String dateParam,
