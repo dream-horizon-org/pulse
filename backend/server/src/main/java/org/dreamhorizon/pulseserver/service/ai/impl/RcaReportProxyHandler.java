@@ -315,6 +315,33 @@ final class RcaReportProxyHandler {
         return new RcaPostValidation.Invalid(errorResponse);
       }
 
+      if (type == RcaType.SCREEN) {
+        JsonNode startNode = objectRoot.get("start");
+        JsonNode endNode = objectRoot.get("end");
+        if (startNode == null
+            || endNode == null
+            || !startNode.isTextual()
+            || !endNode.isTextual()
+            || startNode.asText().isBlank()
+            || endNode.asText().isBlank()) {
+          AiProxyUpstreamResult errorResponse =
+              badRequest(
+                  ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS,
+                  "start and end (ISO-8601 instants) are required for screen RCA");
+          return new RcaPostValidation.Invalid(errorResponse);
+        }
+        try {
+          Instant.parse(startNode.asText().trim());
+          Instant.parse(endNode.asText().trim());
+        } catch (DateTimeParseException e) {
+          AiProxyUpstreamResult errorResponse =
+              badRequest(
+                  ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS,
+                  "start and end must be valid ISO-8601 instants");
+          return new RcaPostValidation.Invalid(errorResponse);
+        }
+      }
+
       LocalDate date = resolveDateFromNode(objectRoot.get(DATE_FIELD));
       boolean regenerate = isRegenerateRequested(objectRoot.get(REGENERATE_FIELD));
 

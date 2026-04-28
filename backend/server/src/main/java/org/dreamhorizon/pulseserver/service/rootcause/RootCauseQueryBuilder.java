@@ -294,12 +294,13 @@ public class RootCauseQueryBuilder {
       if (lookbackDays < 1) {
         throw new IllegalArgumentException("lookbackDays must be >= 1");
       }
-      this.startInclusive =
+      Instant startInclusiveUtc =
           anchorDateUtc.minusDays(lookbackDays - 1).atStartOfDay(ZoneOffset.UTC).toInstant();
-      this.endExclusive = endExclusiveUtc;
-      if (!endExclusiveUtc.isAfter(startInclusive)) {
+      if (!endExclusiveUtc.isAfter(startInclusiveUtc)) {
         throw new IllegalArgumentException("endExclusiveUtc must be after startInclusive");
       }
+      this.startInclusive = startInclusiveUtc;
+      this.endExclusive = endExclusiveUtc;
     }
   }
 }
