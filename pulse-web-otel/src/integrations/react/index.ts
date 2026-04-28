@@ -9,3 +9,5 @@ export {
   useRouterTracking,
   type UseRouterTrackingOptions,
 } from "../react/useRouterTracking";
+
+export type { RouterTrackingErrorContext } from "../../types/react";
