@@ -6,6 +6,7 @@ import { mergePulseCoreLibraryDesugaringCompileOptions } from './androidDesugarG
 import {
   PULSE_IMPORT,
   PULSE_DATA_COLLECTION_CONSENT_IMPORT,
+  PULSE_LOG_LEVEL_IMPORT,
   ATTRIBUTES_IMPORT,
   buildPulseInitializationCode,
 } from './utils';
@@ -17,8 +18,13 @@ export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
 ) => {
   config = withMainApplication(config, (modConfig) => {
     try {
-      const { apiKey, dataCollectionState, globalAttributes, instrumentation } =
-        props;
+      const {
+        apiKey,
+        dataCollectionState,
+        globalAttributes,
+        logLevel,
+        instrumentation,
+      } = props;
 
       // 1. Add import statements
       modConfig.modResults.contents = mergeContents({
@@ -50,10 +56,22 @@ export const withAndroidPulse: ConfigPlugin<ResolvedAndroidPulseProps> = (
         }).contents;
       }
 
+      if (logLevel !== undefined) {
+        modConfig.modResults.contents = mergeContents({
+          src: modConfig.modResults.contents,
+          newSrc: PULSE_LOG_LEVEL_IMPORT,
+          tag: 'pulse-log-level-import',
+          comment: '//',
+          anchor: /import\s+com\.pulsereactnativeotel\.Pulse/,
+          offset: 1,
+        }).contents;
+      }
+
       const initCode = buildPulseInitializationCode({
         apiKey,
         dataCollectionState,
         globalAttributes,
+        logLevel,
         instrumentation,
       });
 

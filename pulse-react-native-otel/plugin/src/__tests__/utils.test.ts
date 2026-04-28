@@ -1,6 +1,7 @@
 import {
   buildPulseInitializationCode,
   PULSE_IMPORT,
+  PULSE_LOG_LEVEL_IMPORT,
   ATTRIBUTES_IMPORT,
 } from '../utils';
 import type { PulseAttributes } from '../types';
@@ -22,6 +23,14 @@ describe('ATTRIBUTES_IMPORT', () => {
   });
 });
 
+describe('PULSE_LOG_LEVEL_IMPORT', () => {
+  it('imports PulseLogLevel for generated MainApplication', () => {
+    expect(PULSE_LOG_LEVEL_IMPORT).toBe(
+      'import com.pulse.utils.PulseLogLevel\n'
+    );
+  });
+});
+
 describe('buildPulseInitializationCode', () => {
   describe('basic initialization', () => {
     it('should generate initialization code with apiKey and consent', () => {
@@ -38,7 +47,17 @@ describe('buildPulseInitializationCode', () => {
       );
       expect(result).not.toContain('endpointHeaders');
       expect(result).not.toContain('globalAttributes');
+      expect(result).not.toContain('logLevel');
       expect(result).toMatch(/\)\s*\{[\s\S]*\}/);
+    });
+
+    it('includes logLevel when provided', () => {
+      const result = buildPulseInitializationCode({
+        apiKey: 'project-123',
+        dataCollectionState: 'PENDING',
+        logLevel: 2,
+      });
+      expect(result).toContain('logLevel = PulseLogLevel.INFO');
     });
 
     it('should emit explicit consent when provided', () => {

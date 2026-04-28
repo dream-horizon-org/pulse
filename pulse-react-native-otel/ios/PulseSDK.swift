@@ -19,7 +19,8 @@ public class PulseSDK: NSObject {
         beforeSendLog: BeforeSendLogCallback? = nil,
         beforeSendMetric: BeforeSendMetricCallback? = nil,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = nil,
-        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil
+        loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil,
+        logLevel: PulseLogLevel = .none
     ) {
         let convertedAttributes = globalAttributes
 
@@ -72,7 +73,8 @@ public class PulseSDK: NSObject {
             beforeSendLog: beforeSendLog,
             beforeSendMetric: beforeSendMetric,
             tracerProviderCustomizer: mergedTracerProviderCustomizer,
-            loggerProviderCustomizer: mergedLoggerProviderCustomizer
+            loggerProviderCustomizer: mergedLoggerProviderCustomizer,
+            logLevel: logLevel
         )
     }
   
