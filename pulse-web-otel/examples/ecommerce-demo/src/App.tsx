@@ -11,11 +11,7 @@ import {
   PulseDataCollectionConsent,
   PulseLogLevel,
 } from "@dreamhorizon/pulse-web";
-import {
-  PulseProvider,
-  PulseErrorBoundary,
-  useRouterTracking,
-} from "@dreamhorizon/pulse-web/react";
+import { PulseProvider } from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
 const Home = lazy(() => import("./routes/Home"));
@@ -75,40 +71,6 @@ function NavBar() {
         {link("/error-demo", "Error Demo")}
       </nav>
     </header>
-  );
-}
-
-function AppRoutes() {
-  useRouterTracking({ skipInitial: false });
-  return (
-    <>
-      <NavBar />
-      <main
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "32px 24px",
-          minHeight: "calc(100vh - 56px)",
-        }}
-      >
-        <Suspense
-          fallback={
-            <div style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
-              Loading…
-            </div>
-          }
-        >
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/error-demo" element={<ErrorDemo />} />
-          </Routes>
-        </Suspense>
-      </main>
-    </>
   );
 }
 
@@ -173,32 +135,45 @@ export default function App() {
   }, []);
 
   return (
-    // shutdownOnUnmount=false: SDK lives for the full page lifetime.
-    // PulseErrorBoundary at root catches any SDK-adjacent render errors.
-    <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
-      <PulseErrorBoundary
-        fallback={(error) => (
-          <div
-            style={{
-              padding: 32,
-              color: "#b91c1c",
-              fontFamily: "monospace",
-              fontSize: 14,
-            }}
-          >
-            <strong>App error caught by PulseErrorBoundary:</strong>
-            <pre>{error.message}</pre>
-          </div>
-        )}
+    <BrowserRouter>
+      <PulseProvider
+        config={pulseConfig}
+        shutdownOnUnmount={false}
+        routerTracking={{ skipInitial: false }}
       >
-        <BrowserRouter>
-          {/* Expose for E2E shutdown test (m1.spec.ts) */}
-          <_PulseWebExpose />
-          <AppRoutes />
-          <PulseDebugPanel />
-        </BrowserRouter>
-      </PulseErrorBoundary>
-    </PulseProvider>
+        {/* Expose for E2E shutdown test (m1.spec.ts) */}
+        <_PulseWebExpose />
+        <NavBar />
+        <main
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "32px 24px",
+            minHeight: "calc(100vh - 56px)",
+          }}
+        >
+          <Suspense
+            fallback={
+              <div
+                style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}
+              >
+                Loading…
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/error-demo" element={<ErrorDemo />} />
+            </Routes>
+          </Suspense>
+        </main>
+        <PulseDebugPanel />
+      </PulseProvider>
+    </BrowserRouter>
   );
 }
 

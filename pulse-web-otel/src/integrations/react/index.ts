@@ -1,9 +1,4 @@
 export {
-  PulseErrorBoundary,
-  type PulseErrorBoundaryProps,
-} from "../react/PulseErrorBoundary";
-
-export {
   PulseProvider,
   usePulse,
   type PulseContextValue,

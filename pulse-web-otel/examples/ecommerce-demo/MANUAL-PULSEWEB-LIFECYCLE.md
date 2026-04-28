@@ -10,18 +10,21 @@ The demo uses the React component API (`@dreamhorizon/pulse-web/react`) instead 
 
 ```tsx
 // App.tsx (simplified)
-import { PulseProvider, PulseErrorBoundary, useRouterTracking }
-  from "@dreamhorizon/pulse-web/react";
+import { PulseProvider } from "@dreamhorizon/pulse-web/react";
 
 // Config derived from env vars + query params (see useMemo in App.tsx)
-<PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
-  <PulseErrorBoundary fallback={(error) => <ErrorUI error={error} />}>
-    <BrowserRouter>
-      <AppRoutes />   {/* ← useRouterTracking({ skipInitial: false }) lives here */}
-    </BrowserRouter>
-  </PulseErrorBoundary>
-</PulseProvider>
+<BrowserRouter>
+  <PulseProvider
+    config={pulseConfig}
+    shutdownOnUnmount={false}
+    routerTracking={{ skipInitial: false }}
+  >
+    <AppRoutes />
+  </PulseProvider>
+</BrowserRouter>
 ```
+
+`PulseProvider` handles two things internally: error capture (via a built-in `PulseErrorBoundary` that calls `PulseWeb.reportDeviceCrash`) and router tracking (when `routerTracking` is passed and the provider is inside a `<BrowserRouter>`).
 
 | Knob | Env var | Query param | Effect |
 |------|---------|-------------|--------|
@@ -97,7 +100,7 @@ Use tiny **`VITE_PULSE_DISK_BUFFER_MAX_AGE_MS`** / **`VITE_PULSE_DISK_BUFFER_MAX
 | Scenario | Unit test | E2E test |
 |---|---|---|
 | StrictMode init-once (createProviders × 1) | `pulse-provider.test.tsx` — StrictMode suite | `m1.spec.ts` — "double PulseWeb.start() is a no-op" |
-| ErrorBoundary crash capture + react.component_stack | `pulse-provider.test.tsx` — PulseErrorBoundary suite | `m1.spec.ts` — "@M1 error boundary crash capture" |
-| useRouterTracking navigation fires setScreenName | `use-router-tracking.test.tsx` — route change suite | — |
+| Internal error boundary crash capture + react.component_stack | `pulse-provider.test.tsx` — PulseErrorBoundary suite | `m1.spec.ts` — "@M1 error boundary crash capture" |
+| `routerTracking` prop fires setScreenName on navigation | `use-router-tracking.test.tsx` — route change suite | — |
 | useRouterTracking unmount no-leak | `use-router-tracking.test.tsx` — no-leak suite | — |
 | PulseProvider shutdownOnUnmount | `pulse-provider.test.tsx` — mount/unmount suite | — |

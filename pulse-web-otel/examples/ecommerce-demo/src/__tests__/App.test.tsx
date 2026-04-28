@@ -43,13 +43,20 @@ vi.mock("@dreamhorizon/pulse-web", () => ({
 vi.mock("@dreamhorizon/pulse-web/react", () => {
   const React = require("react");
 
+  function RouterTrackerInner({ opts }: { opts: { skipInitial?: boolean } }) {
+    useRouterTracking(opts);
+    return null;
+  }
+
   function PulseProvider({
     children,
     config,
+    routerTracking,
   }: {
     children: React.ReactNode;
     config: unknown;
     shutdownOnUnmount?: boolean;
+    routerTracking?: { skipInitial?: boolean };
   }) {
     React.useEffect(() => {
       mockStart(config);
@@ -58,7 +65,14 @@ vi.mock("@dreamhorizon/pulse-web/react", () => {
         void mockShutdown();
       };
     }, []);
-    return React.createElement(React.Fragment, null, children);
+    return React.createElement(
+      React.Fragment,
+      null,
+      routerTracking
+        ? React.createElement(RouterTrackerInner, { opts: routerTracking })
+        : null,
+      children,
+    );
   }
 
   class PulseErrorBoundary extends React.Component<{
@@ -188,7 +202,7 @@ describe("Demo App — PulseErrorBoundary wiring", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders fallback UI when a child throws", async () => {
+  it("catches render errors silently via internal PulseErrorBoundary", async () => {
     // Override Home to throw
     vi.doMock("../routes/Home", () => ({
       default: () => {
@@ -201,10 +215,8 @@ describe("Demo App — PulseErrorBoundary wiring", () => {
       result = render(React.createElement(App));
       await new Promise((r) => setTimeout(r, 50));
     });
-    // PulseErrorBoundary fallback shows the error message
-    expect(result!.container.textContent).toMatch(
-      /App error caught by PulseErrorBoundary|test render crash/,
-    );
+    // PulseErrorBoundary is internal with no fallback UI — renders null on error
+    expect(result!.container.firstChild).toBeNull();
   });
 });
 

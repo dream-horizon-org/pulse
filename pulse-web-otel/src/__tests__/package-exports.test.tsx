@@ -19,10 +19,6 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
     expect(typeof ReactExports.PulseProvider).toBe("function");
   });
 
-  it("exports PulseErrorBoundary as a class (function)", () => {
-    expect(typeof ReactExports.PulseErrorBoundary).toBe("function");
-  });
-
   it("exports usePulse as a function", () => {
     expect(typeof ReactExports.usePulse).toBe("function");
   });
@@ -41,12 +37,7 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
       (k) => !k.startsWith("_reset"),
     );
     expect(publicExports.sort()).toEqual(
-      [
-        "PulseErrorBoundary",
-        "PulseProvider",
-        "usePulse",
-        "useRouterTracking",
-      ].sort(),
+      ["PulseProvider", "usePulse", "useRouterTracking"].sort(),
     );
   });
 });
