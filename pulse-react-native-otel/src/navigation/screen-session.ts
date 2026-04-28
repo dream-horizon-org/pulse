@@ -21,6 +21,11 @@ export const INITIAL_SCREEN_SESSION_STATE: ScreenSessionState = {
   currentSessionRouteName: undefined,
 };
 
+function screenSessionIdPrefix(route: NavigationRoute): string {
+  const raw = route.key || route.name || '';
+  return raw.length <= 8 ? raw : raw.slice(0, 8);
+}
+
 export function createScreenSessionTracker(
   enabled: boolean,
   state: ScreenSessionState
@@ -36,13 +41,21 @@ export function createScreenSessionTracker(
     });
     state.currentScreenKey = route.key;
     state.currentSessionRouteName = route.name;
+    PulseLogger.info(
+      `sdk.session event=start session_id_prefix=${screenSessionIdPrefix(route)}`
+    );
     PulseLogger.debug(`${LOG_TAGS.SCREEN_SESSION} ${route.name} started`);
   };
 
   const endScreenSession = (): void => {
     if (state.screenSessionSpan) {
       const logName = state.currentSessionRouteName;
+      const routeKey = state.currentScreenKey;
       state.screenSessionSpan.end();
+      if (routeKey) {
+        const prefix = routeKey.length <= 8 ? routeKey : routeKey.slice(0, 8);
+        PulseLogger.info(`sdk.session event=end session_id_prefix=${prefix}`);
+      }
       if (logName) {
         PulseLogger.debug(`${LOG_TAGS.SCREEN_SESSION} ${logName} ended`);
       }

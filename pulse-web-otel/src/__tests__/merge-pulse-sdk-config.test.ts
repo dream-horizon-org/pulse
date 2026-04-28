@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 
 import {
-  DEFAULT_SDK_CONFIG,
   mergePulseSdkConfig,
   normalizeSignalMatchCondition,
 } from "../remote-config";
+import { DEFAULT_SDK_CONFIG } from "../constants/default-sdk-config";
 import { getCriticalAlwaysSendConditions } from "../utils/session-sampling-rate";
 import type {
   PulseSdkConfig,

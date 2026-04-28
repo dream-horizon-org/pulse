@@ -7,6 +7,7 @@ import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import com.pulse.semconv.PulseAttributes
+import com.pulse.utils.PulseLogLevel
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
@@ -29,6 +30,7 @@ public object Pulse {
         resource: (ResourceBuilder.() -> Unit)? = null,
         globalAttributes: (() -> Attributes)? = null,
         beforeSendData: PulseBeforeSendData? = null,
+        logLevel: PulseLogLevel = PulseLogLevel.NONE,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     ) {
         val rnTracerProviderCustomizer = BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
@@ -51,10 +53,11 @@ public object Pulse {
             dataCollectionState = dataCollectionState,
             resource = rnResource,
             globalAttributes = globalAttributes,
-            instrumentations = instrumentations,
+            beforeSendData = beforeSendData,
             tracerProviderCustomizer = rnTracerProviderCustomizer,
             loggerProviderCustomizer = rnLoggerProviderCustomizer,
-            beforeSendData = beforeSendData,
+            logLevel = logLevel,
+            instrumentations = instrumentations,
         )
     }
 
