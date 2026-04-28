@@ -1,4 +1,4 @@
-name: iOS SDK — XCFramework & release PR
+name: iOS - Create Framework & Release PR On Pulse-iOS Repo
 
 on:
   workflow_dispatch:

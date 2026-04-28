@@ -7,7 +7,7 @@
 # - iOS: build-for-testing + test-without-building for the Swift package on the iOS Simulator (Makefile).
 # - ExampleApp: CocoaPods workspace build for Examples/PulseIOSExample.
 # - XCFramework: build-xcframework.sh + sanity build example against vendored frameworks.
-name: iOS SDK - Checks
+name: iOS -  Lint, Test, Build, and Verify
 
 on:
   pull_request:

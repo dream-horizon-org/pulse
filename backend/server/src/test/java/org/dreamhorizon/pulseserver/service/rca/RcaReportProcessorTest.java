@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.rca;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -9,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -77,7 +79,6 @@ class RcaReportProcessorTest {
             new RcaRelatedHeatmapsMerger(new ObjectMapper()),
             enrichmentService,
             upstream);
-
     when(webClient.postAbs(anyString())).thenReturn(httpRequest);
     when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
     when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);

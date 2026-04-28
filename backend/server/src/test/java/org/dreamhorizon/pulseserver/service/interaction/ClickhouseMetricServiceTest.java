@@ -173,6 +173,27 @@ class ClickhouseMetricServiceTest {
     }
 
     @Test
+    void shouldAppendOffsetWhenPositive() {
+      QueryRequest request = createBasicRequest();
+      request.setLimit(50);
+      request.setOffset(100);
+      GetQueryDataResponseDto<GetRawUserEventsResponseDto> mockResponse = createMockResponse(
+          List.of("x"),
+          List.of(List.of("1")));
+
+      when(clickhouseQueryService.executeQueryOrCreateJob(any()))
+          .thenReturn(Single.just(mockResponse));
+
+      clickhouseMetricService.getMetricDistribution(request).blockingGet();
+
+      ArgumentCaptor<org.dreamhorizon.pulseserver.model.QueryConfiguration> configCaptor =
+          ArgumentCaptor.forClass(org.dreamhorizon.pulseserver.model.QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryOrCreateJob(configCaptor.capture());
+      assertThat(configCaptor.getValue().getQuery()).contains("limit 50");
+      assertThat(configCaptor.getValue().getQuery()).contains("offset 100");
+    }
+
+    @Test
     void shouldUseMetricsTableForMetricsDataType() {
       QueryRequest request = createBasicRequest();
       request.setDataType(QueryRequest.DataType.METRICS);
