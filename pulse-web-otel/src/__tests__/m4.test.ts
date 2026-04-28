@@ -39,6 +39,7 @@ const mockGlobalAttrsProcessor = {
 
 const mockSdk = {
   tracer: { startSpan: mockStartSpan },
+  logger: { emit: vi.fn() },
   config: {
     routePatterns: [
       { pattern: "/products/:id", name: "ProductDetail" },
@@ -341,6 +342,98 @@ describe("NavigationInstrumentation", () => {
       history.pushState({}, "", "/products");
 
       expect(getSpanCalls()).toHaveLength(0);
+    });
+  });
+
+  // --- device.app.lifecycle ---
+
+  describe("device.app.lifecycle", () => {
+    let mockEmitLog: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      mockEmitLog = vi.fn();
+      (mockSdk as any).logger = { emit: mockEmitLog };
+    });
+
+    it("emits created on install", () => {
+      instr.install(mockSdk);
+      expect(mockEmitLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: "device.app.lifecycle",
+          attributes: expect.objectContaining({ "app.state": "created" }),
+        }),
+      );
+    });
+
+    it("emits background when tab becomes hidden (after debounce)", async () => {
+      vi.useFakeTimers();
+      instr.install(mockSdk);
+      mockEmitLog.mockClear();
+
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      vi.advanceTimersByTime(500);
+      expect(mockEmitLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: "device.app.lifecycle",
+          attributes: expect.objectContaining({ "app.state": "background" }),
+        }),
+      );
+    });
+
+    it("emits foreground when tab becomes visible again", async () => {
+      vi.useFakeTimers();
+      instr.install(mockSdk);
+
+      // go background first
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      vi.advanceTimersByTime(500);
+      mockEmitLog.mockClear();
+
+      // come back to foreground
+      Object.defineProperty(document, "hidden", { value: false, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(mockEmitLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: "device.app.lifecycle",
+          attributes: expect.objectContaining({ "app.state": "foreground" }),
+        }),
+      );
+    });
+
+    it("debounce cancellation: quick tab switch does NOT emit background", () => {
+      vi.useFakeTimers();
+      instr.install(mockSdk);
+      mockEmitLog.mockClear();
+
+      // hide then immediately show (< 500ms)
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      vi.advanceTimersByTime(200);
+
+      Object.defineProperty(document, "hidden", { value: false, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      vi.advanceTimersByTime(500);
+
+      const backgroundCalls = mockEmitLog.mock.calls.filter((c: unknown[]) => {
+        const arg = c[0] as Record<string, Record<string, unknown>>;
+        return arg?.attributes?.["app.state"] === "background";
+      });
+      expect(backgroundCalls).toHaveLength(0);
+    });
+
+    it("uninstall removes visibilitychange listener", () => {
+      instr.install(mockSdk);
+      instr.uninstall();
+      mockEmitLog.mockClear();
+
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(mockEmitLog).not.toHaveBeenCalled();
     });
   });
 

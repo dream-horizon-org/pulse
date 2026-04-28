@@ -22,6 +22,9 @@ export class NavigationInstrumentation implements PulseInstrumentation {
   private onPageHide?: () => void;
   private origPushState?: typeof history.pushState;
   private origReplaceState?: typeof history.replaceState;
+  private onVisibilityChange?: () => void;
+  private bgDebounceTimer?: ReturnType<typeof setTimeout>;
+  private hasEmittedCreated = false;
 
   install(sdk: SdkContext): void {
     if (typeof window === "undefined") return;
@@ -48,6 +51,12 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     // 4. Tab close / unload — emit final session
     this.onPageHide = () => this.endCurrentSession();
     window.addEventListener("pagehide", this.onPageHide);
+
+    // 5. Tab visibility — foreground/background lifecycle
+    this.emitAppLifecycle("created");
+    this.hasEmittedCreated = true;
+    this.onVisibilityChange = () => this.handleVisibilityChange();
+    document.addEventListener("visibilitychange", this.onVisibilityChange);
   }
 
   uninstall(): void {
@@ -68,6 +77,15 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       window.removeEventListener("pagehide", this.onPageHide);
       this.onPageHide = undefined;
     }
+    if (this.onVisibilityChange) {
+      document.removeEventListener("visibilitychange", this.onVisibilityChange);
+      this.onVisibilityChange = undefined;
+    }
+    if (this.bgDebounceTimer !== undefined) {
+      clearTimeout(this.bgDebounceTimer);
+      this.bgDebounceTimer = undefined;
+    }
+    this.hasEmittedCreated = false;
     this.sdk = undefined;
   }
 
@@ -191,6 +209,32 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       ROOT_CONTEXT,
     );
     span.end(sessionEnd);
+  }
+
+  private handleVisibilityChange(): void {
+    if (document.hidden) {
+      // Debounce to avoid false positives on quick tab switches
+      this.bgDebounceTimer = setTimeout(() => {
+        this.emitAppLifecycle("background");
+      }, 500);
+    } else {
+      clearTimeout(this.bgDebounceTimer);
+      if (this.hasEmittedCreated) {
+        this.emitAppLifecycle("foreground");
+      }
+    }
+  }
+
+  private emitAppLifecycle(state: "created" | "foreground" | "background"): void {
+    if (!this.sdk) return;
+    const K = PulseWebSemconv.AttributeKey;
+    const L = PulseWebSemconv.LogBody;
+    this.sdk.logger.emit({
+      body: L.DEVICE_APP_LIFECYCLE,
+      attributes: {
+        [K.APP_STATE]: state,
+      },
+    });
   }
 
   private patchHistoryApi(): void {

@@ -65,6 +65,7 @@ export const PulseWebSemconv = {
     DOM_PROCESSING_TIME: "dom.processing_time",
     TTI: "tti",
     SESSION_DURATION: "session.duration",
+    APP_STATE: "app.state",
   },
   FixedValue: {
     PLATFORM_WEB: "web",
@@ -86,6 +87,7 @@ export const PulseWebSemconv = {
     SESSION_START: "session.start",
     SESSION_END: "session.end",
     APP_INSTALLATION_START: "pulse.app.installation.start",
+    DEVICE_APP_LIFECYCLE: "device.app.lifecycle",
   },
   /**
    * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).
