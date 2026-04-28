@@ -485,6 +485,7 @@ class TenantFilterTest {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("v1/notifications/contact-us");
       when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn(null);
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
       when(jwtService.verifyToken("valid-token")).thenReturn(claims);
       when(claims.get("tenantId", String.class)).thenReturn("tenant_contact");
