@@ -771,6 +771,35 @@ public class OpenFgaService {
     });
   }
 
+  /**
+   * Returns ALL tenant IDs accessible to a system-role user (superadmin or internal_viewer).
+   * Uses the {@code belongs_to} relation which expands through system_parent.
+   * Must only be called after confirming the user holds a system role.
+   */
+  public Single<List<String>> getAllTenantsForSystemRole(String userId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getAllTenantsForSystemRole: user={}", userId);
+      return Single.just(new ArrayList<>());
+    }
+    return Single.fromCallable(() -> {
+      var request = new ClientListObjectsRequest()
+          .user(USER_PREFIX + userId)
+          .relation(Constants.RELATION_BELONGS_TO)
+          .type(Constants.OBJECT_TYPE_TENANT);
+      var response = client.listObjects(request).get();
+      var objects = response.getObjects();
+
+      List<String> results = new ArrayList<>();
+      if (objects != null) {
+        objects.forEach(obj ->
+            results.add(obj.replace(Constants.OBJECT_TYPE_TENANT + ":", ""))
+        );
+      }
+      log.debug("getAllTenantsForSystemRole: user={} -> {} tenant(s)", userId, results.size());
+      return results;
+    });
+  }
+
   public Completable assignSuperAdmin(String userId) {
     if (!enabled) {
       log.debug("[DISABLED] assignSuperAdmin: user={}", userId);
