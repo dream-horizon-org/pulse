@@ -8,6 +8,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,13 +24,12 @@ import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rootcause.RootCauseCacheDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
-import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.util.NumberCoercionUtils;
+import org.dreamhorizon.pulseserver.util.ClickhouseQueryRowUtils;
 import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperUtil;
 
 @Slf4j
@@ -86,9 +87,9 @@ public class RootCauseService {
   }
 
   /**
-   * Distinct non-empty {@code screen.name} values for spans with {@code pulse.interaction.name}
-   * matching {@code interactionName} in the RCA window (aligned with session listing). On ClickHouse
-   * error returns an empty list.
+   * Non-empty {@code screen.name} values for spans with {@code pulse.interaction.name} matching
+   * {@code interactionName} in the RCA window (aligned with session listing), ordered by descending
+   * span count per screen (then name for ties). On ClickHouse error returns an empty list.
    */
   public Single<List<String>> fetchDistinctScreensForInteraction(
       String projectId, String interactionName, RootCauseQueryBuilder.Window window) {
@@ -236,21 +237,137 @@ public class RootCauseService {
       long totalProblematic
   ) {
     double threshold = totalProblematic * (config.getSimilarityThresholdPct() / 100.0);
-    List<String> dimOrder = config.getDimensionOrder();
     int maxSegments = config.getMaxSegments();
+    boolean hybridEnabled = config.isHybridDimensionOrderingEnabled();
 
-    return pickFirstDimension(projectId, interactionName, window, dimOrder, threshold, totalProblematic)
-        .flatMap(optFirst -> {
-          if (optFirst.isEmpty()) {
-            return buildFlatSegments(projectId, interactionName, window, baseline, dimOrder, maxSegments)
-                .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.FLAT));
-          }
-          FirstDimensionPick first = optFirst.get();
-          return buildHierarchyThenFlat(
-                  projectId, interactionName, window, baseline, dimOrder, maxSegments,
-                  totalProblematic, threshold, first.dimOrderIndex(), List.of(first.path()))
-              .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.HIERARCHICAL));
+    log.debug("[RCA-SEGMENT] Algorithm start: interaction={}, totalProblematic={}, threshold={} ({}%), maxSegments={}, hybridEnabled={}",
+        interactionName, totalProblematic, threshold, config.getSimilarityThresholdPct(), maxSegments, hybridEnabled);
+
+    Single<List<String>> dimOrderSingle =
+        hybridEnabled
+            ? computeHybridDimensionOrder(
+                projectId, interactionName, window, config.getDimensionOrder(), threshold)
+            : Single.just(config.getDimensionOrder());
+
+    return dimOrderSingle.flatMap(
+        dimOrder -> {
+          log.info("[RCA-SEGMENT] Dimension order: {} (hybridEnabled={})", dimOrder, hybridEnabled);
+          return pickFirstDimension(projectId, interactionName, window, dimOrder, threshold, totalProblematic)
+              .flatMap(
+                  optFirst -> {
+                    if (optFirst.isEmpty()) {
+                      log.debug("[RCA-SEGMENT] No first dimension picked, falling to flat mode");
+                      return buildFlatSegments(
+                              projectId, interactionName, window, baseline, dimOrder, maxSegments)
+                          .map(segments -> new SegmentsWithMode(segments, RootCauseAnalysisMode.FLAT));
+                    }
+                    FirstDimensionPick first = optFirst.get();
+                    log.debug("[RCA-SEGMENT] First dimension picked: index={}, dim={}, value={}",
+                        first.dimOrderIndex(), first.path().dimension(), first.path().value());
+                    return buildHierarchyThenFlat(
+                            projectId,
+                            interactionName,
+                            window,
+                            baseline,
+                            dimOrder,
+                            maxSegments,
+                            totalProblematic,
+                            threshold,
+                            first.dimOrderIndex(),
+                            List.of(first.path()))
+                        .map(
+                            segments ->
+                                new SegmentsWithMode(segments, RootCauseAnalysisMode.HIERARCHICAL));
+                  });
         });
+  }
+
+  /**
+   * Hybrid order: dimensions whose max bucket count is at or above {@code strongSignalThreshold}
+   * first (descending max, then {@code baseOrder} for ties), then the rest in {@code baseOrder}.
+   *
+   * <p>Package-private for unit tests.
+   */
+  static List<String> hybridDimensionOrderFromPrecomputedMaxes(
+      List<String> baseOrder,
+      Map<String, Long> dimMaxProblematicByDimension,
+      double strongSignalThreshold) {
+    List<String> strongSignals =
+        dimMaxProblematicByDimension.entrySet().stream()
+            .filter(e -> e.getValue() >= strongSignalThreshold)
+            .sorted(
+                Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
+                    .thenComparing(e -> baseOrderRank(baseOrder, e.getKey())))
+            .map(Map.Entry::getKey)
+            .toList();
+    List<String> reordered = new ArrayList<>(strongSignals);
+    for (String dim : baseOrder) {
+      if (!reordered.contains(dim)) {
+        reordered.add(dim);
+      }
+    }
+    return reordered;
+  }
+
+  private static int baseOrderRank(List<String> baseOrder, String dimension) {
+    int idx = baseOrder.indexOf(dimension);
+    return idx >= 0 ? idx : Integer.MAX_VALUE;
+  }
+
+  private Single<List<String>> computeHybridDimensionOrder(
+      String projectId,
+      String interactionName,
+      RootCauseQueryBuilder.Window window,
+      List<String> baseOrder,
+      double strongSignalThreshold) {
+    if (baseOrder.isEmpty()) {
+      return Single.just(List.of());
+    }
+    log.debug("[RCA-SEGMENT] Hybrid order computation start: interaction={}, threshold={}", interactionName, strongSignalThreshold);
+    List<Single<Map.Entry<String, Long>>> maxQueries =
+        baseOrder.stream()
+            .map(
+                dim ->
+                    getMaxProblematicForDimension(projectId, interactionName, window, dim)
+                        .map(max -> Map.entry(dim, max)))
+            .toList();
+    return Single.zip(
+        maxQueries,
+        results -> {
+          Map<String, Long> dimMaxMap = new HashMap<>();
+          for (Object r : results) {
+            @SuppressWarnings("unchecked")
+            Map.Entry<String, Long> e = (Map.Entry<String, Long>) r;
+            dimMaxMap.put(e.getKey(), e.getValue());
+          }
+          List<String> order =
+              hybridDimensionOrderFromPrecomputedMaxes(baseOrder, dimMaxMap, strongSignalThreshold);
+          log.debug("[RCA-SEGMENT] Hybrid order computed: baseOrder={}, dimMaxMap={}, threshold={}, finalOrder={}",
+              baseOrder, dimMaxMap, strongSignalThreshold, order);
+          return order;
+        });
+  }
+
+  private Single<Long> getMaxProblematicForDimension(
+      String projectId,
+      String interactionName,
+      RootCauseQueryBuilder.Window window,
+      String dimension) {
+    RootCauseQuerySpec spec =
+        RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+            projectId,
+            interactionName,
+            window.startInclusive,
+            window.endExclusive,
+            dimension,
+            null);
+    return executeQuery(projectId, spec)
+        .map(
+            rows ->
+                rows.stream()
+                    .mapToLong(r -> NumberCoercionUtils.toLong(r.get("problematic_count")))
+                    .max()
+                    .orElse(0L));
   }
 
   private Single<Optional<FirstDimensionPick>> pickFirstDimension(
@@ -261,6 +378,8 @@ public class RootCauseService {
       double threshold,
       long totalProblematic
   ) {
+    log.debug("[RCA-SEGMENT] pickFirstDimension start: interaction={}, dimOrder={}, threshold={}, totalProblematic={}",
+        interactionName, dimOrder, threshold, totalProblematic);
     return Observable.range(0, dimOrder.size())
         .concatMapMaybe(i -> {
           String dim = dimOrder.get(i);
@@ -268,13 +387,20 @@ public class RootCauseService {
               projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
           return executeQuery(projectId, q)
               .flatMapMaybe(rows -> {
+                log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: rowsCount={}, evaluating threshold={}", dim, rows.size(), threshold);
                 Optional<SegmentPath> path = pickClosestToTotal(rows, dim, totalProblematic, threshold);
+                if (path.isPresent()) {
+                  log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: PICKED value={}, dimension={}", dim, path.get().value(), path.get().dimension());
+                } else {
+                  log.debug("[RCA-SEGMENT] pickFirstDimension dim={}: NO PICK (no value met threshold)", dim);
+                }
                 return path.map(p -> Maybe.just(new FirstDimensionPick(i, p))).orElseGet(Maybe::empty);
               });
         })
         .firstElement()
         .map(Optional::of)
-        .defaultIfEmpty(Optional.empty());
+        .defaultIfEmpty(Optional.empty())
+        .doOnSuccess(result -> log.debug("[RCA-SEGMENT] pickFirstDimension result: {}", result));
   }
 
   private Single<List<RootCauseSegment>> buildFlatSegments(
@@ -502,20 +628,31 @@ public class RootCauseService {
       long totalProblematic,
       double threshold
   ) {
+    log.debug("[RCA-SEGMENT] pickClosestToTotal: dimension={}, rows={}, totalProblematic={}, threshold={}",
+        dimensionColumn, rows.size(), totalProblematic, threshold);
     SegmentPath best = null;
     long bestDiff = Long.MAX_VALUE;
+    int considered = 0;
+    int skipped = 0;
     for (Map<String, Object> row : rows) {
       long count = NumberCoercionUtils.toLong(row.get("problematic_count"));
+      Object val = row.get(dimensionColumn);
       if (count < threshold) {
+        skipped++;
+        log.debug("[RCA-SEGMENT] pickClosestToTotal: SKIP value={}, count={} < threshold={}", val, count, threshold);
         continue;
       }
+      considered++;
       long diff = Math.abs(count - totalProblematic);
+      log.debug("[RCA-SEGMENT] pickClosestToTotal: CONSIDER value={}, count={}, diff={}, bestDiff={}", val, count, diff, bestDiff);
       if (diff < bestDiff) {
         bestDiff = diff;
-        Object val = row.get(dimensionColumn);
         best = new SegmentPath(dimensionColumn, val != null ? val.toString() : "", false);
+        log.debug("[RCA-SEGMENT] pickClosestToTotal: NEW BEST value={}, count={}, diff={}", val, count, diff);
       }
     }
+    log.debug("[RCA-SEGMENT] pickClosestToTotal result: dimension={}, considered={}, skipped={}, picked={}",
+        dimensionColumn, considered, skipped, best != null ? best.value() : "NONE");
     return Optional.ofNullable(best);
   }
 
@@ -545,27 +682,7 @@ public class RootCauseService {
   private Single<List<Map<String, Object>>> executeQuery(String projectId, RootCauseQuerySpec spec) {
     return clickhouseQueryService
         .executeRootCauseQuery(projectId, spec.sql(), spec.bindNames(), spec.bindValues())
-        .map(this::rowsToMaps);
-  }
-
-  private List<Map<String, Object>> rowsToMaps(GetQueryDataResponseDto<GetRawUserEventsResponseDto> response) {
-    if (!response.isJobComplete() || response.getData() == null) {
-      return List.of();
-    }
-    GetRawUserEventsResponseDto data = response.getData();
-    List<String> names = data.getSchema().getFields().stream()
-        .map(GetRawUserEventsResponseDto.Field::getName)
-        .toList();
-    List<Map<String, Object>> out = new ArrayList<>();
-    for (GetRawUserEventsResponseDto.Row row : data.getRows()) {
-      Map<String, Object> m = new LinkedHashMap<>();
-      for (int i = 0; i < names.size(); i++) {
-        Object v = i < row.getRowFields().size() ? row.getRowFields().get(i).getValue() : null;
-        m.put(names.get(i), v);
-      }
-      out.add(m);
-    }
-    return out;
+        .map(ClickhouseQueryRowUtils::rowsToMaps);
   }
 
   private static Map<String, Object> toBaselineMap(Map<String, Object> row) {

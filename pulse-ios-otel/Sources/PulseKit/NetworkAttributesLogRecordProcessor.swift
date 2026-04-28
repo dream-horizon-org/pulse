@@ -12,9 +12,13 @@ import CoreTelephony
 
 internal class NetworkAttributesLogRecordProcessor: LogRecordProcessor {
     private let nextProcessor: LogRecordProcessor
+    private static let networkChangeEventName = "network.change"
+    private static let previousConnectionTypeAttributeKey = "network.previous.connection.type"
 
     #if os(iOS) && !targetEnvironment(macCatalyst)
     private var networkStatus: NetworkStatus?
+    private var previousConnectionTypeForNetworkChange: String?
+    private let previousConnectionTypeLock = NSLock()
     #endif
 
     init(nextProcessor: LogRecordProcessor) {
@@ -36,6 +40,18 @@ internal class NetworkAttributesLogRecordProcessor: LogRecordProcessor {
             let (connectionType, subtype, carrier) = netstat.status()
 
             enhancedRecord.setAttribute(key: SemanticAttributes.networkConnectionType.rawValue, value: AttributeValue.string(connectionType))
+
+            if logRecord.eventName == Self.networkChangeEventName {
+                previousConnectionTypeLock.lock()
+                if let previousType = previousConnectionTypeForNetworkChange {
+                    enhancedRecord.setAttribute(
+                        key: Self.previousConnectionTypeAttributeKey,
+                        value: AttributeValue.string(previousType)
+                    )
+                }
+                previousConnectionTypeForNetworkChange = connectionType
+                previousConnectionTypeLock.unlock()
+            }
 
             if let subtype = subtype {
                 enhancedRecord.setAttribute(key: SemanticAttributes.networkConnectionSubtype.rawValue, value: AttributeValue.string(subtype))

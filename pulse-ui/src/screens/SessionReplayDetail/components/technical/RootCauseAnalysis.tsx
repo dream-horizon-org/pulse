@@ -2,7 +2,7 @@ import { Card, Text, Group, Badge, Alert, Timeline, Code } from "@mantine/core";
 import { IconBug, IconArrowRight } from "@tabler/icons-react";
 import type { TechnicalContext } from "../../../../services/sessionReplay/mockSessionDetail";
 import { formatTimestamp } from "../utils/technicalUtils";
-import { HEADERS, LABELS, MESSAGES } from "../../constants/strings";
+import { HEADERS, MESSAGES } from "../../constants/strings";
 
 interface RootCauseAnalysisProps {
   rootCause: NonNullable<TechnicalContext["rootCause"]>;

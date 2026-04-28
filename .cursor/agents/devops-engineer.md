@@ -29,8 +29,7 @@ pulse-session-replay-ingestion → minio + ClickHouse. Heatmap screenshots: same
 `depends_on` it healthy). Standalone: `pulse_ai/docker-compose.yml` +
 `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
-Startup order (simplified): mysql / clickhouse / kafka / minio → init jobs → otel-collector → capture + replay
-consumer → pulse-ai-agent → pulse-server → pulse-ui (see `depends_on` in compose for exact gates)
+Startup order (simplified): mysql / clickhouse / kafka / minio → init jobs → otel-collector → capture + replay consumer → pulse-ai-agent → pulse-server → pulse-ui; **pulse-alerts-cron** after mysql + pulse-server + minio-init (no compose dependency on ClickHouse—Kong sync is via pulse-server). See `depends_on` in compose for exact gates.
 
 Always use `docker ps` to verify actual running services and ports.
 

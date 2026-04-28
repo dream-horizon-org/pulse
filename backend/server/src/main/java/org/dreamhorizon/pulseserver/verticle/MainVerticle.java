@@ -275,14 +275,138 @@ public class MainVerticle extends AbstractVerticle {
     }
   }
 
+  /**
+   * HOCON env substitution often yields strings (e.g. {@code ROOT_CAUSE_*}); Vert.x {@link
+   * JsonObject#getInteger} only accepts JSON numbers.
+   */
+  private static int rootCauseInt(JsonObject json, String key, int defaultValue) {
+    if (!json.containsKey(key)) {
+      return defaultValue;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return defaultValue;
+    }
+    if (v instanceof Number) {
+      return ((Number) v).intValue();
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return defaultValue;
+      }
+      try {
+        return Integer.parseInt(s);
+      } catch (NumberFormatException e) {
+        log.warn(
+            "Invalid integer for rootCause.{}: {}, using default {}",
+            key,
+            v,
+            defaultValue);
+        return defaultValue;
+      }
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, using default {}",
+        key,
+        v.getClass().getName(),
+        defaultValue);
+    return defaultValue;
+  }
+
+  private static double rootCauseDouble(JsonObject json, String key, double defaultValue) {
+    if (!json.containsKey(key)) {
+      return defaultValue;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return defaultValue;
+    }
+    if (v instanceof Number) {
+      return ((Number) v).doubleValue();
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return defaultValue;
+      }
+      try {
+        return Double.parseDouble(s);
+      } catch (NumberFormatException e) {
+        log.warn(
+            "Invalid double for rootCause.{}: {}, using default {}",
+            key,
+            v,
+            defaultValue);
+        return defaultValue;
+      }
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, using default {}",
+        key,
+        v.getClass().getName(),
+        defaultValue);
+    return defaultValue;
+  }
+
   private RootCauseConfig buildRootCauseConfig(JsonObject rootCauseJson) {
     final RootCauseConfig.RootCauseConfigBuilder builder = RootCauseConfig.builder()
-        .similarityThresholdPct(rootCauseJson.getInteger("similarityThresholdPct",
-            RootCauseConfig.DEFAULT_SIMILARITY_THRESHOLD_PCT))
-        .lookbackDays(rootCauseJson.getInteger("lookbackDays",
-            RootCauseConfig.DEFAULT_LOOKBACK_DAYS))
-        .maxSegments(rootCauseJson.getInteger("maxSegments",
-            RootCauseConfig.DEFAULT_MAX_SEGMENTS));
+        .similarityThresholdPct(
+            rootCauseInt(
+                rootCauseJson,
+                "similarityThresholdPct",
+                RootCauseConfig.DEFAULT_SIMILARITY_THRESHOLD_PCT))
+        .lookbackDays(
+            rootCauseInt(rootCauseJson, "lookbackDays", RootCauseConfig.DEFAULT_LOOKBACK_DAYS))
+        .maxSegments(
+            rootCauseInt(rootCauseJson, "maxSegments", RootCauseConfig.DEFAULT_MAX_SEGMENTS))
+        .minPoorSessionsForErrorAttribution(
+            rootCauseInt(
+                rootCauseJson,
+                "minPoorSessionsForErrorAttribution",
+                RootCauseConfig.DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION))
+        .minTreatedSessionsForIssueAttribution(
+            rootCauseInt(
+                rootCauseJson,
+                "minTreatedSessionsForIssueAttribution",
+                RootCauseConfig.DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION))
+        .minControlSessionsForIssueAttribution(
+            rootCauseInt(
+                rootCauseJson,
+                "minControlSessionsForIssueAttribution",
+                RootCauseConfig.DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION))
+        .issueDrillDownLimit(
+            rootCauseInt(
+                rootCauseJson,
+                "issueDrillDownLimit",
+                RootCauseConfig.DEFAULT_ISSUE_DRILL_DOWN_LIMIT))
+        .issueDrillDownCandidateLimit(
+            rootCauseInt(
+                rootCauseJson,
+                "issueDrillDownCandidateLimit",
+                0));
+    if (rootCauseJson.containsKey("minRiskRatioForIssueAttribution")) {
+      builder.minRiskRatioForIssueAttribution(
+          rootCauseDouble(
+              rootCauseJson,
+              "minRiskRatioForIssueAttribution",
+              RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION));
+    }
+    builder
+        .issueMustPrecedePoor(
+            rootCauseJson.containsKey("issueMustPrecedePoor")
+                ? rootCauseJson.getBoolean("issueMustPrecedePoor")
+                : null);
+    
+    builder.hybridDimensionOrderingEnabled(
+      rootCauseJson.containsKey("hybridDimensionOrderingEnabled")
+          ? rootCauseJson.getBoolean("hybridDimensionOrderingEnabled")
+          : RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED)
+  .minSegmentVolumePct(
+      rootCauseDouble(
+          rootCauseJson,
+          "minSegmentVolumePct",
+          RootCauseConfig.DEFAULT_MIN_SEGMENT_VOLUME_PCT));
 
     final Object dimensionOrderValue = rootCauseJson.getValue("dimensionOrder");
     final boolean hasCustomDimensionOrder = dimensionOrderValue != null;

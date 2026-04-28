@@ -6,7 +6,7 @@
 import Foundation
 import OpenTelemetrySdk
 
-public typealias BeforeSendMetricCallback = (MetricData) -> MetricData?
+public typealias BeforeSendMetricCallback = (MetricData) throws -> MetricData?
 
 /// Applies a user-provided closure to each metric before export.
 /// Return the metric (optionally modified) to export, or nil to drop.
@@ -21,7 +21,14 @@ internal class BeforeSendMetricExporter: MetricExporter {
     }
 
     func export(metrics: [MetricData]) -> ExportResult {
-        let filtered = metrics.compactMap { callback($0) }
+        let filtered: [MetricData]
+        do {
+            filtered = try metrics.compactMap { try callback($0) }
+        } catch {
+            let errClass = PulseErrorClassification.classify(error)
+            PulseLogger.error("sdk.beforesend.error signal=metrics error_class=\(errClass)")
+            return .failure
+        }
         guard !filtered.isEmpty else { return .success }
         return delegate.export(metrics: filtered)
     }

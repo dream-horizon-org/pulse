@@ -19,6 +19,7 @@ android {
 
 dependencies {
     api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.pulseUtils)
     implementation(projects.services)
     implementation(projects.session)
     implementation(projects.common)

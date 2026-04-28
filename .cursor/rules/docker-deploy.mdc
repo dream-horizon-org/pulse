@@ -27,32 +27,11 @@ alwaysApply: false
 | pulse-ai-agent | `pulse_ai/` | 8000 | — |
 | pulse-server | `backend/server/` | 8080 | mysql, clickhouse, openfga-init, pulse-ai-agent |
 | pulse-ui | `pulse-ui/` | 3000 | pulse-server |
-| pulse-alerts-cron | `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse, minio-init |
+| pulse-alerts-cron | `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, minio-init |
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
 
-### OTLP HTTP — local browser CORS (optional)
-
-`backend/ingestion/otel-collector.yaml` **does not** set collector-side CORS (production ingress uses **Kong** or similar). Server-side agents / same-network OTLP do not need it.
-
-When **testing ingestion from a browser** on the host (Pulse Web SDK, ecommerce demo, Playwright) posting to `http://localhost:4318`, another port is **cross-origin** — add a temporary `cors` block under `receivers.otlp.protocols.http` so preflight succeeds. Example (dev-wide; do not use as a prod template):
-
-```yaml
-cors:
-  allowed_origins:
-    - "http://*"
-    - "https://*"
-  allowed_headers:
-    - "x-api-key"
-    - "x-pulse-metering-session-id"
-    - "content-type"
-    - "content-encoding"
-    - "accept"
-```
-
-With credentials-capable responses, `Access-Control-Allow-Origin: *` is invalid; protocol patterns like `http://*` match arbitrary localhost ports. Revert local-only edits before merge if team policy requires.
-
-**clickhouse-init:** mounts `clickhouse-otel-schema.sql`, session replay + session-summary MV, `clickhouse-event-catalog-schema.sql`, `clickhouse-funnel-results-schema.sql`, `clickhouse-journey-results-schema.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
+**clickhouse-init:** mounts `clickhouse-otel-schema.sql`, session replay + session-summary MV, `event-catalog-entries.sql`, `funnel-results.sql`, `journey-results.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
 
 **Pulse AI:** `pulse-ai-agent` is part of the default deploy stack (`docker compose up`). Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini; the process starts without it but model/API calls fail. **Standalone** AI-only dev: `pulse_ai/docker-compose.yml` + `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
@@ -88,7 +67,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `CUSTOM_EVENT_COLLECTOR_URL` — Custom event collector endpoint (default: `http://localhost:4318/v1/logs`)
 - `INTERACTION_CONFIG_URL` — Interaction config for pulse-server (project flows); in compose, passed through from `.env` (see `deploy/.env.example` — e.g. `http://pulse-server:8080/v1/interaction-configs/` in-stack, or host/dev URLs). **Not** the OTLP traces URL.
 - `VECTOR_ENABLED` — Optional. Set to `true` when using Vector (custom events → S3/Athena). The Vector **service is commented out** in `docker-compose.yml` until you uncomment it. Default: `false`.
-- `REDIS_URL` / `REDIS_HOST` + `REDIS_PORT` — Optional; used by `pulse-heatmap-screenshot-ingestion` when pointing at an **external** Redis (not a compose service here). Empty `REDIS_URL` and `REDIS_HOST` disables Redis-backed quota/dedupe in that worker.
+- `REDIS_URL` / `REDIS_HOST` + `REDIS_PORT` — Optional; used by `pulse-heatmap-screenshot-ingestion` when pointing at an **external** Redis (not a compose service here). Empty `REDIS_URL` and `REDIS_HOST` disables Redis-backed quota/dedupe in that worker. Compose also passes **`REDIS_HOST`** / **`REDIS_PORT`** to **`pulse-server`** for Kong plugin materialization (API key map + usage credits in Redis); `pulse-alerts-cron` triggers internal POSTs on pulse-server—cron does **not** connect to Redis or ClickHouse directly.
 - `HEATMAP_QUOTA_PER_DAY`, `HEATMAP_QUOTA_TTL_SECONDS`, `HEATMAP_DEDUPE_TTL_SECONDS` — Optional; heatmap ingestion quota/dedupe TTLs (defaults in compose; see `deploy/.env.example`).
 - `HEATMAP_S3_BUCKET`, `HEATMAP_S3_ENDPOINT`, `HEATMAP_S3_PRESIGN_ENDPOINT`, `HEATMAP_S3_REGION`, `HEATMAP_S3_ACCESS_KEY_ID`, `HEATMAP_S3_SECRET_ACCESS_KEY` — Heatmap screenshot **dedicated** bucket (`heatmap-assets` by default). **`HEATMAP_S3_ENDPOINT`** is for listing (e.g. `http://minio:9000` in compose). **`HEATMAP_S3_PRESIGN_ENDPOINT`** (pulse-server only): browser-facing host for presigned URLs; local example `http://localhost:9100` (MinIO on host is **9100**; host **9000** is ClickHouse). Omit in AWS if default S3 URLs are fine. Omitted endpoint/keys fall back to session replay MinIO settings. Unset `HEATMAP_S3_BUCKET` → pulse-server uses `SESSION_REPLAY_S3_BUCKET` for heatmap keys (legacy).
 - `HEATMAP_SCREENSHOTS_S3_PREFIX` — Optional; S3 object key prefix (default `heatmap-screenshots`).
@@ -128,4 +107,6 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 **Required (no default in compose):** `VAULT_ENCRYPTION_MASTER_KEY`, `REACT_APP_GOOGLE_CLIENT_ID`, `REACT_APP_FIREBASE_*`, `CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID`, `CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID`, `CONFIG_SERVICE_APPLICATION_WEBHOOKURL`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`. Must be set in `.env`. `SLACK_*` are optional (default empty; needed only for Slack API integration).
 
-**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml` and `deploy/.env.example`. When adding pulse-server env vars (e.g. `ANALYTICS_*`), changing ClickHouse wiring, or changing funnel/journey/event-catalog SQL or `init-clickhouse.sh`, update this rule, `deploy-service` skill, and `.cursor/commands/audit-cursor-config.md` source-of-truth list. Vector is optional (`VECTOR_ENABLED=true`). `pulse-server` `depends_on` `pulse-ai-agent` with `condition: service_healthy`. Kafka, MinIO, session capture, session replay ingestion, and heatmap screenshot ingestion are part of the default stack. **Hook:** If you edit any file in the `verify-on-stop` `sot_files` list in `.cursor/hooks/verify-on-stop.sh`, also touch a file under `.cursor/` (or the hook will warn).
+
+**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is optional: uncomment its service in compose and set `VECTOR_ENABLED=true` in `.env`. `pulse-server` `depends_on` `pulse-ai-agent` with `condition: service_healthy`. Heatmap ingestion uses external Redis via `REDIS_*` and optional `HEATMAP_*` as above. **`pulse-alerts-cron`** compose env is MySQL + `CONFIG_SERVICE_APPLICATION_*` only (no per-cron ClickHouse/Redis vars); it does not `depends_on` ClickHouse.
+

@@ -8,7 +8,17 @@ type DetailChrome = {
   status: string;
   createdBy?: string;
   updatedAt?: string;
+  /** Analysis grouping key — surfaced as a read-only badge when present. */
+  mode?: string;
 };
+
+/** Human-readable label for a FunnelMode value. */
+function modeLabel(mode: string | undefined): string | null {
+  if (!mode) return null;
+  if (mode === "SESSIONS") return "Unique Sessions";
+  if (mode === "UNIQUE_USERS") return "Unique Users";
+  return mode;
+}
 
 export function FunnelJourneyDetailChrome({
   detail,
@@ -74,6 +84,14 @@ export function FunnelJourneyDetailChrome({
                   <Text size="xs" c="dimmed">·</Text>
                   <Text size="xs" c="dark.3" fw={500}>
                     Updated {dayjs(detail.updatedAt).format("MMM D, YYYY HH:mm")}
+                  </Text>
+                </>
+              )}
+              {modeLabel(detail.mode) && (
+                <>
+                  <Text size="xs" c="dimmed">·</Text>
+                  <Text size="xs" c="dark.3" fw={500}>
+                    Measured by {modeLabel(detail.mode)}
                   </Text>
                 </>
               )}

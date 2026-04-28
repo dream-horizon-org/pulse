@@ -68,11 +68,11 @@ Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from l
 ### Definitions live in MySQL; aggregated rows are written by Spark into:
 
 - **`funnel_results`** — pre-computed funnel steps (`FunnelId`, `ProjectId`, `RunTime`, `StepIndex`, `StepName`,
-  `UserCount`, `ConversionPct`, …). Schema: `backend/ingestion/clickhouse-funnel-results-schema.sql`.
+  `UserCount`, `ConversionPct`, …). Schema: `backend/db/prod/clickhouse/funnel-results.sql`.
 - **`journey_results`** — path edges (`JourneyId`, `ProjectId`, `RunTime`, `Direction`, `PosFrom`/`PosTo`, `EventFrom`/
-  `EventTo`, `UserCount`, …). Schema: `backend/ingestion/clickhouse-journey-results-schema.sql`.
+  `EventTo`, `UserCount`, …). Schema: `backend/db/prod/clickhouse/journey-results.sql`.
 - **`event_catalog_entries`** — distinct filter values per project (`FilterKey` e.g. EVENT, APP_BUILD_NAME, …). Schema:
-  `backend/ingestion/clickhouse-event-catalog-schema.sql`.
+  `backend/db/prod/clickhouse/event-catalog-entries.sql`.
 
 ### Heatmap tables (`backend/ingestion/clickhouse-otel-schema.sql`)
 

@@ -5,6 +5,17 @@ public final class com/pulse/utils/BuildConfig {
 	public fun <init> ()V
 }
 
+public final class com/pulse/utils/DiskFreeSpaceBytes {
+	public static final field INSTANCE Lcom/pulse/utils/DiskFreeSpaceBytes;
+	public static final fun forDataPartition ()Ljava/lang/Long;
+	public static final fun forPath (Ljava/io/File;)Ljava/lang/Long;
+}
+
+public final class com/pulse/utils/DiskUsageBytes {
+	public static final field INSTANCE Lcom/pulse/utils/DiskUsageBytes;
+	public static final fun forDirectoryRoot (Ljava/io/File;)J
+}
+
 public final class com/pulse/utils/PulseCoroutineUtilsKt {
 	public static final fun await (Lcom/google/android/gms/tasks/Task;Lcom/google/android/gms/tasks/CancellationTokenSource;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun await (Lcom/google/android/gms/tasks/Task;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;

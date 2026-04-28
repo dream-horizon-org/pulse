@@ -2,6 +2,9 @@
     import Foundation
     import MetricKit
     import OpenTelemetryApi
+    #if canImport(PulseLogging)
+    import PulseLogging
+    #endif
 
     private let metricKitInstrumentationName = "MetricKit"
     private let metricKitInstrumentationVersion = "0.0.1"
@@ -59,6 +62,8 @@
             .setStartTime(time: payload.timeStampBegin)
             .startSpan()
         defer { span.end(time: payload.timeStampEnd) }
+
+        PulseLogger.debug("sdk.metrickit.payload kind=MXMetricPayload")
 
         // There are so many nested metrics we want to capture, it's worth setting up some helper
         // methods to reduce the amount of repeated code.
@@ -353,6 +358,8 @@
             .startSpan()
         defer { span.end() }
 
+        PulseLogger.debug("sdk.metrickit.payload kind=MXDiagnosticPayload")
+
         let logger = OpenTelemetry.instance.loggerProvider.get(
             instrumentationScopeName: metricKitInstrumentationName
         )
@@ -404,6 +411,8 @@
             (["total_writes_caused": $0.totalWritesCaused], [:])
         }
         logForEach(payload.hangDiagnostics, "hang") {
+            PulseLogger.warn(
+                "sdk.hang.detected hang_duration=\($0.hangDuration)")
             let callStackTree = $0.callStackTree
             let appleJson = callStackTree.jsonRepresentation()
 
