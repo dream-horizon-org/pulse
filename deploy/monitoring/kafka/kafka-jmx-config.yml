@@ -1,0 +1,83 @@
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+whitelistObjectNames:
+  - kafka.server:*
+  - kafka.network:*
+  - kafka.log:*
+  - kafka.controller:*
+  - kafka.coordinator.group:*
+  - kafka.coordinator.transaction:*
+  - kafka.utils:*
+  - java.lang:*
+
+rules:
+  # ---- Broker Topic Metrics ----
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(.+), topic=(.+)><>Count
+    name: kafka_server_brokertopicmetrics_$1_total
+    labels:
+      topic: "$2"
+
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(.+)><>Count
+    name: kafka_server_brokertopicmetrics_$1_total
+
+  # ---- Request Metrics ----
+  - pattern: kafka.network<type=RequestMetrics, name=(.+), request=(.+)><>(Count|Mean|99thPercentile|95thPercentile)
+    name: kafka_network_requestmetrics_$1
+    labels:
+      request: "$2"
+      quantile: "$3"
+
+  # ---- Replica Manager ----
+  - pattern: kafka.server<type=ReplicaManager, name=(.+)><>Value
+    name: kafka_server_replicamanager_$1
+
+  - pattern: kafka.server<type=ReplicaManager, name=(.+)><>Count
+    name: kafka_server_replicamanager_$1_total
+
+  # ---- Controller ----
+  - pattern: kafka.controller<type=KafkaController, name=(.+)><>Value
+    name: kafka_controller_kafkacontroller_$1
+
+  - pattern: kafka.controller<type=ControllerStats, name=(.+)><>Count
+    name: kafka_controller_stats_$1_total
+
+  # ---- Log Metrics ----
+  - pattern: kafka.log<type=Log, name=(.+), topic=(.+), partition=(.+)><>Value
+    name: kafka_log_$1
+    labels:
+      topic: "$2"
+      partition: "$3"
+
+  - pattern: kafka.log<type=LogFlushStats, name=(.+)><>Count
+    name: kafka_log_flushstats_$1_total
+
+  # ---- ZooKeeper / KRaft ----
+  - pattern: kafka.server<type=SessionExpireListener, name=(.+)><>Count
+    name: kafka_server_zookeeper_$1_total
+
+  # ---- Consumer Group Coordinator ----
+  - pattern: kafka.coordinator.group<type=GroupMetadataManager, name=(.+)><>Value
+    name: kafka_coordinator_group_$1
+
+  # ---- Purgatory ----
+  - pattern: kafka.server<type=DelayedOperationPurgatory, name=PurgatorySize, delayedOperation=(.+)><>Value
+    name: kafka_server_purgatory_size
+    labels:
+      operation: "$1"
+
+  # ---- JVM ----
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionCount
+    name: jvm_gc_collection_count_total
+    labels:
+      gc: "$1"
+
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionTime
+    name: jvm_gc_collection_time_ms_total
+    labels:
+      gc: "$1"
+
+  - pattern: java.lang<type=Memory><HeapMemoryUsage>(.+)
+    name: jvm_memory_heap_$1_bytes
+
+  - pattern: java.lang<type=OperatingSystem><>(.+)
+    name: jvm_os_$1

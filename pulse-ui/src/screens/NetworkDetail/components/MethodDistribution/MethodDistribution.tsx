@@ -14,6 +14,7 @@ import {
   MethodData,
 } from "./MethodDistribution.interface";
 import classes from "./MethodDistribution.module.css";
+import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
 
 // Color palette for HTTP methods
 const METHOD_COLORS: Record<string, string> = {
@@ -90,10 +91,10 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
         {
           field: "PulseType",
           operator: "LIKE" as const,
-          value: ["%network%"],
+          value: [PulseType.NETWORK_LIKE],
         },
         {
-          field: "SpanAttributes['http.url']",
+          field: COLUMN_NAME.HTTP_URL,
           operator: "EQ" as const,
           value: [url],
         },

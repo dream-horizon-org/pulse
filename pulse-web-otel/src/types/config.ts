@@ -1,5 +1,6 @@
 import type { PulseWebBeforeSendConfig } from "./before-send";
 import type { PulseLogLevel } from "../pulse-log-level";
+import type { PulseAttributes } from "./attributes";
 
 /** Consent for telemetry collection (Android `dataCollectionState` parity). */
 export enum PulseDataCollectionConsent {
@@ -18,6 +19,22 @@ export interface InstrumentationConfig {
   interactions?: { enabled: boolean };
   sessionReplay?: { enabled: boolean };
 }
+
+/** Runtime map of instrumentation toggles → {@link InstrumentationConfig} keys (string values). */
+export const InstrumentationKeys = {
+  ERRORS: "errors",
+  NETWORK: "network",
+  CLICKS: "clicks",
+  WEB_VITALS: "webVitals",
+  NAVIGATION: "navigation",
+  SESSION: "session",
+  INTERACTIONS: "interactions",
+  SESSION_REPLAY: "sessionReplay",
+} as const;
+
+/** Allowed keys for {@link InstrumentationConfig} / remote feature wiring — not the const object itself. */
+export type InstrumentationKey =
+  (typeof InstrumentationKeys)[keyof typeof InstrumentationKeys];
 
 /**
  * Durable buffering for failed OTLP exports (IndexedDB).
@@ -45,14 +62,14 @@ export interface PulseWebConfig {
   serviceVersion?: string;
 
   // Optional — custom attributes stamped on every signal
-  globalAttributes?: Record<string, string | number | boolean>;
+  globalAttributes?: PulseAttributes;
 
   /**
    * Extra OTEL resource attributes (e.g. {@code deployment.environment}). Merged under the
    * built-in resource; **Pulse keys win on conflict** ({@code project.id}, {@code rum.sdk.name},
    * {@code platform}, etc.).
    */
-  resourceAttributes?: Record<string, string | number | boolean>;
+  resourceAttributes?: PulseAttributes;
 
   // Optional — privacy (Android `beforeSendData` / PulseBeforeSendData parity — see before-send.ts)
   beforeSendData?: PulseWebBeforeSendConfig;

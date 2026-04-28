@@ -27,7 +27,8 @@ import {
 } from "./session";
 import { buildMergedResource } from "./resource";
 import { parseUserAgent, getOsVersionAsync } from "./utils/ua-parser";
-import { SdkConfigFetcher, DEFAULT_SDK_CONFIG } from "./remote-config";
+import { SdkConfigFetcher } from "./remote-config";
+import { DEFAULT_SDK_CONFIG } from "./constants/default-sdk-config";
 import { FeatureGate } from "./feature-gate";
 import { PulseGlobalAttributesProcessor } from "./processors/global-attrs-processor";
 import { SignalFilterProcessor } from "./processors/signal-filter-processor";
@@ -370,16 +371,16 @@ class PulseWebSDK implements SdkContext {
   private emitSdkInitializationLogRecords(endpointBaseUrl: string): void {
     if (this.loggerProvider === undefined) return;
 
-    const K = PulseWebSemconv.AttributeKey;
-    const R = PulseWebSemconv.RumSdkInit;
+    const attributeKeys = PulseWebSemconv.AttributeKey;
+    const rumSdkInit = PulseWebSemconv.RumSdkInit;
     const initLogger = this.loggerProvider.getLogger(
       "otel.initialization.events",
     );
 
     initLogger.emit({
-      body: R.STARTED,
+      body: rumSdkInit.STARTED,
       attributes: {
-        [K.PULSE_TYPE]: R.STARTED,
+        [attributeKeys.PULSE_TYPE]: rumSdkInit.STARTED,
       },
     });
 
@@ -390,9 +391,9 @@ class PulseWebSDK implements SdkContext {
       `metrics=${endpointBaseUrl}/v1/metrics`,
     ].join("; ");
     initLogger.emit({
-      body: R.SPAN_EXPORTER,
+      body: rumSdkInit.SPAN_EXPORTER,
       attributes: {
-        [K.PULSE_TYPE]: R.SPAN_EXPORTER,
+        [attributeKeys.PULSE_TYPE]: rumSdkInit.SPAN_EXPORTER,
         "span.exporter": spanExporterHint,
       },
     });

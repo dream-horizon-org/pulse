@@ -2,8 +2,10 @@
  * Copyright The Pulse Authors
  * SPDX-License-Identifier: Apache-2.0
  *
- * Re-export public Pulse types from PulseLogging so `import PulseKit` exposes `PulseLogLevel`.
- * `PulseLogger` is `package`-only (SPM) / internal (single-module pods) and is not part of the app-facing API.
+ * Logging sources live under `PulseKit/Logging` but compile as the internal `PulseLogging`
+ * SwiftPM target (shared with exporters). This re-export makes `import PulseKit` sufficient
+ * for app code (e.g. `PulseLogLevel`). CocoaPods builds a single `PulseKit` module, so this
+ * block is skipped there. `PulseLogger` is `package`-only (SPM) / internal to the pod module.
  */
 
 #if canImport(PulseLogging)
