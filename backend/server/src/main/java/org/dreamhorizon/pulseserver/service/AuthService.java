@@ -8,25 +8,26 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.SignedJWT;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
-import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
 import org.dreamhorizon.pulseserver.model.LoginStatus;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.LoginResponse;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.VerifyAuthTokenResponseDto;
+import org.dreamhorizon.pulseserver.service.auth.LoginHostContext;
 import org.dreamhorizon.pulseserver.service.tier.TierService;
 import org.dreamhorizon.pulseserver.util.JwtUtils;
 
@@ -99,14 +100,26 @@ public class AuthService {
 
   /**
    * Simplified login flow without Firebase tenant claims.
-   * Uses OpenFGA as single source of truth for user-project relationships.
-   * Activates pending users on first login.
+   * Delegates to the overload with an empty host context.
    *
    * @param firebaseIdToken Firebase ID token from Google sign-in
+   * @return LoginResponse with tokens or onboarding directive
+   */
+  public Single<LoginResponse> login(String firebaseIdToken) {
+    return login(firebaseIdToken, LoginHostContext.empty());
+  }
+
+  /**
+   * Login flow with host context for system-role workspace resolution.
+   * Checks for superadmin / internal_viewer before falling through
+   * to the normal customer tenant-resolution path.
+   *
+   * @param firebaseIdToken Firebase ID token from Google sign-in
+   * @param hostContext     browser host for workspace tenant resolution
    * @return LoginResponse with tokens when user has a tenant (with or without projects),
    *     or needs onboarding when user has no tenant
    */
-  public Single<LoginResponse> login(String firebaseIdToken) {
+  public Single<LoginResponse> login(String firebaseIdToken, LoginHostContext hostContext) {
     // Development mode bypass - allow mock tokens
     if (!isGoogleSignInEnabled() || isMockToken(firebaseIdToken)) {
       log.info("Using development mode for login");
@@ -150,78 +163,106 @@ public class AuthService {
                 });
         })
         .flatMap(user ->
-            openFgaService.getUserTenants(user.getUserId())
-                .flatMap(tenantIds -> {
-                  if (tenantIds == null || tenantIds.isEmpty()) {
-                    log.info("User has no tenants, requires onboarding: userId={}", user.getUserId());
-                    return Single.just(LoginResponse.builder()
-                        .status(LoginStatus.NEEDS_ONBOARDING)
-                        .userId(user.getUserId())
-                        .email(user.getEmail())
-                        .name(user.getName())
-                        .needsOnboarding(true)
-                        .build());
+            // System role check: fire both FGA queries concurrently (zipper must not return null)
+            Single.zip(
+                openFgaService.isSuperAdmin(user.getUserId()),
+                openFgaService.isInternalViewer(user.getUserId()),
+                (isSa, isIv) -> {
+                  if (Boolean.TRUE.equals(isSa)) {
+                    return Optional.of("superadmin");
                   }
-                  return openFgaService.getUserProjects(user.getUserId())
-                      .flatMap(projectIds -> {
-                        if (projectIds == null || projectIds.isEmpty()) {
-                          log.info("User has tenant(s) but no projects, tenant-only login: userId={}, tenantId={}",
-                              user.getUserId(), tenantIds.get(0));
-                          return buildLoginSuccessWithTenantOnly(
-                              user.getUserId(), user.getEmail(), user.getName(), tenantIds.get(0));
-                        }
-
-                        String firstProjectId = projectIds.get(0);
-                        log.info("User has {} project(s), using first: userId={}, projectId={}",
-                            projectIds.size(), user.getUserId(), firstProjectId);
-
-                        return projectService.getProjectById(firstProjectId)
-                            .flatMap(project -> {
-                              String tenantId = project.getTenantId();
-
-                              return tenantDao.getTenantById(tenantId)
-                                  .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
-                                  .flatMap(tenant -> {
-                                    return tierService.getTierNameById(tenant.getTierId())
-                                        .defaultIfEmpty("free")
-                                        .flatMap(tierName ->
-                                            openFgaService.getUserTenantRole(user.getUserId(), tenantId)
-                                                .map(roleOpt -> {
-                                                  String tenantRole = roleOpt.orElse("member");
-
-                                                  String accessToken = jwtService.generateAccessToken(
-                                                      user.getUserId(), user.getEmail(), user.getName(), tenantId);
-                                                  String refreshToken = jwtService.generateRefreshToken(
-                                                      user.getUserId(), user.getEmail(), user.getName(), tenantId);
-
-                                                  log.info("Login successful: userId={}, tenantId={}, tenantRole={}, tier={}",
-                                                      user.getUserId(), tenantId, tenantRole, tierName);
-
-                                                  return LoginResponse.builder()
-                                                      .status(LoginStatus.SUCCESS)
-                                                      .accessToken(accessToken)
-                                                      .refreshToken(refreshToken)
-                                                      .userId(user.getUserId())
-                                                      .email(user.getEmail())
-                                                      .name(user.getName())
-                                                      .tenantId(tenantId)
-                                                      .tenantName(tenant.getName())
-                                                      .tenantRole(tenantRole)
-                                                      .tier(tierName)
-                                                      .needsOnboarding(false)
-                                                      .tokenType(TOKEN_TYPE_BEARER)
-                                                      .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-                                                      .build();
-                                                })
-                                        );
-                                  });
-                            });
-                      });
+                  if (Boolean.TRUE.equals(isIv)) {
+                    return Optional.of("internal_viewer");
+                  }
+                  return Optional.<String>empty();
                 })
+            .flatMap(systemRoleOpt -> {
+              if (systemRoleOpt.isPresent()) {
+                String systemRole = systemRoleOpt.get();
+                log.info("System role detected: userId={}, systemRole={}", user.getUserId(), systemRole);
+                return buildSystemRoleLoginSuccess(user, systemRole, hostContext);
+              }
+              return customerLoginFlow(user);
+            })
         )
         .doOnError(error ->
             log.error("Login failed: {}", error.getMessage(), error)
         );
+  }
+
+  /**
+   * Standard customer login flow: resolve tenants/projects from OpenFGA.
+   */
+  private Single<LoginResponse> customerLoginFlow(
+      org.dreamhorizon.pulseserver.model.User user) {
+    return openFgaService.getUserTenants(user.getUserId())
+        .flatMap(tenantIds -> {
+          if (tenantIds == null || tenantIds.isEmpty()) {
+            log.info("User has no tenants, requires onboarding: userId={}", user.getUserId());
+            return Single.just(LoginResponse.builder()
+                .status(LoginStatus.NEEDS_ONBOARDING)
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .name(user.getName())
+                .needsOnboarding(true)
+                .build());
+          }
+          return openFgaService.getUserProjects(user.getUserId())
+              .flatMap(projectIds -> {
+                if (projectIds == null || projectIds.isEmpty()) {
+                  log.info("User has tenant(s) but no projects, tenant-only login: userId={}, tenantId={}",
+                      user.getUserId(), tenantIds.get(0));
+                  return buildLoginSuccessWithTenantOnly(
+                      user.getUserId(), user.getEmail(), user.getName(), tenantIds.get(0));
+                }
+
+                String firstProjectId = projectIds.get(0);
+                log.info("User has {} project(s), using first: userId={}, projectId={}",
+                    projectIds.size(), user.getUserId(), firstProjectId);
+
+                return projectService.getProjectById(firstProjectId)
+                    .flatMap(project -> {
+                      String tenantId = project.getTenantId();
+
+                      return tenantDao.getTenantById(tenantId)
+                          .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+                          .flatMap(tenant -> {
+                            return tierService.getTierNameById(tenant.getTierId())
+                                .defaultIfEmpty("free")
+                                .flatMap(tierName ->
+                                    openFgaService.getUserTenantRole(user.getUserId(), tenantId)
+                                        .map(roleOpt -> {
+                                          String tenantRole = roleOpt.orElse("member");
+
+                                          String accessToken = jwtService.generateAccessToken(
+                                              user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                                          String refreshToken = jwtService.generateRefreshToken(
+                                              user.getUserId(), user.getEmail(), user.getName(), tenantId);
+
+                                          log.info("Login successful: userId={}, tenantId={}, tenantRole={}, tier={}",
+                                              user.getUserId(), tenantId, tenantRole, tierName);
+
+                                          return LoginResponse.builder()
+                                              .status(LoginStatus.SUCCESS)
+                                              .accessToken(accessToken)
+                                              .refreshToken(refreshToken)
+                                              .userId(user.getUserId())
+                                              .email(user.getEmail())
+                                              .name(user.getName())
+                                              .tenantId(tenantId)
+                                              .tenantName(tenant.getName())
+                                              .tenantRole(tenantRole)
+                                              .tier(tierName)
+                                              .needsOnboarding(false)
+                                              .tokenType(TOKEN_TYPE_BEARER)
+                                              .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                                              .build();
+                                        })
+                                );
+                          });
+                    });
+              });
+        });
   }
 
   /**
@@ -384,9 +425,112 @@ public class AuthService {
   }
 
   /**
-   * Dev login after DB user is resolved (or mock userId): tenants first, then projects.
+   * Builds a login response for system-role users (superadmin / internal_viewer).
+   * Resolves workspace tenant from host context; never triggers NEEDS_ONBOARDING.
+   */
+  private Single<LoginResponse> buildSystemRoleLoginSuccess(
+      org.dreamhorizon.pulseserver.model.User user, String systemRole, LoginHostContext hostContext) {
+
+    return resolveWorkspaceTenant(hostContext)
+        .flatMap(workspaceTenantIdOpt -> {
+            String workspaceTenantId = workspaceTenantIdOpt.orElse(null);
+
+            Single<Optional<Tenant>> tenantDetailSingle = workspaceTenantId != null
+                ? tenantDao.getTenantById(workspaceTenantId)
+                    .map(Optional::of)
+                    .defaultIfEmpty(Optional.empty())
+                : Single.just(Optional.empty());
+
+            return tenantDetailSingle.flatMap(tenantOpt -> {
+                String tenantName = tenantOpt.map(Tenant::getName).orElse(null);
+
+                Single<String> tierSingle = tenantOpt
+                    .<Single<String>>map(t -> tierService.getTierNameById(t.getTierId()).defaultIfEmpty("free"))
+                    .orElse(Single.just("free"));
+
+                return tierSingle.map(tier -> {
+                    String accessToken = jwtService.generateAccessToken(
+                        user.getUserId(), user.getEmail(), user.getName(),
+                        workspaceTenantId, systemRole);
+
+                    String refreshToken = jwtService.generateRefreshToken(
+                        user.getUserId(), user.getEmail(), user.getName(),
+                        workspaceTenantId);
+
+                    log.info("System-role login successful: userId={}, systemRole={}, tenantId={}",
+                        user.getUserId(), systemRole, workspaceTenantId);
+
+                    return LoginResponse.builder()
+                        .status(LoginStatus.SUCCESS)
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken)
+                        .tokenType(TOKEN_TYPE_BEARER)
+                        .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                        .userId(user.getUserId())
+                        .email(user.getEmail())
+                        .name(user.getName())
+                        .tenantId(workspaceTenantId)
+                        .tenantName(tenantName)
+                        .tenantRole(null)
+                        .tier(tier)
+                        .systemRole(systemRole)
+                        .needsOnboarding(false)
+                        .build();
+                });
+            });
+        });
+  }
+
+  /**
+   * Resolves a workspace tenantId from the host context.
+   * Priority: pulseClientHost then X-Forwarded-Host.
+   * Returns Optional.empty() if no host or no matching tenant found.
+   */
+  private Single<Optional<String>> resolveWorkspaceTenant(LoginHostContext ctx) {
+    String rawHost = ctx.getPulseClientHost();
+    if (rawHost == null || rawHost.isBlank()) {
+      rawHost = ctx.getForwardedHost();
+    }
+    if (rawHost == null || rawHost.isBlank()) {
+      return Single.just(Optional.empty());
+    }
+    String normalised = rawHost.toLowerCase().replaceAll(":\\d+$", "").trim();
+    return tenantDao.getTenantByDomainName(normalised)
+        .map(tenant -> Optional.of(tenant.getTenantId()))
+        .defaultIfEmpty(Optional.empty());
+  }
+
+  /**
+   * Dev login after DB user is resolved (or mock userId): system-role check, then tenants/projects.
    */
   private Single<LoginResponse> devLoginAfterTenantsResolved(String userId, String email, String name) {
+    return Single.zip(
+            openFgaService.isSuperAdmin(userId),
+            openFgaService.isInternalViewer(userId),
+            (sa, iv) -> {
+              if (Boolean.TRUE.equals(sa)) {
+                return Optional.of("superadmin");
+              }
+              if (Boolean.TRUE.equals(iv)) {
+                return Optional.of("internal_viewer");
+              }
+              return Optional.<String>empty();
+            })
+        .flatMap(roleOpt -> {
+          if (roleOpt.isPresent()) {
+            org.dreamhorizon.pulseserver.model.User syntheticUser =
+                org.dreamhorizon.pulseserver.model.User.builder()
+                    .userId(userId).email(email).name(name).build();
+            return buildSystemRoleLoginSuccess(syntheticUser, roleOpt.get(), LoginHostContext.empty());
+          }
+          return devCustomerLoginFlow(userId, email, name);
+        });
+  }
+
+  /**
+   * Original dev customer login flow (post system-role check).
+   */
+  private Single<LoginResponse> devCustomerLoginFlow(String userId, String email, String name) {
     return openFgaService.getUserTenants(userId)
         .flatMap(tenantIds -> {
           if (tenantIds == null || tenantIds.isEmpty()) {
@@ -690,42 +834,60 @@ public class AuthService {
   public Single<GetAccessTokenFromRefreshTokenResponseDto> getAccessTokenFromRefreshToken(
       GetAccessTokenFromRefreshTokenRequestDto request) {
 
-    return Single.fromCallable(() -> {
-      String refreshToken = request.getRefreshToken();
+    String refreshToken = request.getRefreshToken();
 
-      if (refreshToken == null || refreshToken.trim().isEmpty()) {
-        throw ServiceError.AUTHENTICATION_BAD_REQUEST
-            .getCustomException("Refresh token is required");
-      }
+    if (refreshToken == null || refreshToken.trim().isEmpty()) {
+      return Single.error(ServiceError.AUTHENTICATION_BAD_REQUEST
+          .getCustomException("Refresh token is required"));
+    }
 
-      if (!jwtService.isRefreshToken(refreshToken)) {
-        log.error("Invalid token type. Expected refresh token.");
-        throw ServiceError.AUTHENTICATION_BAD_REQUEST
-            .getCustomException("Invalid token type. Expected refresh token.");
-      }
+    if (!jwtService.isRefreshToken(refreshToken)) {
+      log.error("Invalid token type. Expected refresh token.");
+      return Single.error(ServiceError.AUTHENTICATION_BAD_REQUEST
+          .getCustomException("Invalid token type. Expected refresh token."));
+    }
 
-      if (jwtService.isTokenExpired(refreshToken)) {
-        log.info("Refresh token has expired");
-        throw ServiceError.UNAUTHORISED
-            .getCustomException("Refresh token has expired. Please log in again.");
-      }
+    if (jwtService.isTokenExpired(refreshToken)) {
+      log.info("Refresh token has expired");
+      return Single.error(ServiceError.UNAUTHORISED
+          .getCustomException("Refresh token has expired. Please log in again."));
+    }
 
+    return Single.defer(() -> {
       Claims claims = jwtService.verifyToken(refreshToken);
       String userId = claims.getSubject();
       String email = claims.get(CLAIM_EMAIL, String.class);
       String name = claims.get(CLAIM_NAME, String.class);
-      String tenantId = claims.get(CLAIM_TENANT_ID, String.class);
+      String workspaceId = claims.get(CLAIM_TENANT_ID, String.class);
 
-      String newAccessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+      return Single.zip(
+          openFgaService.isSuperAdmin(userId),
+          openFgaService.isInternalViewer(userId),
+          (sa, iv) -> {
+            if (Boolean.TRUE.equals(sa)) {
+              return Optional.of("superadmin");
+            }
+            if (Boolean.TRUE.equals(iv)) {
+              return Optional.of("internal_viewer");
+            }
+            return Optional.<String>empty();
+          })
+      .map(systemRoleOpt -> {
+          String systemRole = systemRoleOpt.orElse(null);
+          String newAccessToken = systemRole != null
+              ? jwtService.generateAccessToken(userId, email, name, workspaceId, systemRole)
+              : jwtService.generateAccessToken(userId, email, name, workspaceId);
 
-      log.info("Successfully refreshed access token for user: {}", userId);
+          log.info("Successfully refreshed access token for user: {}, systemRole: {}", userId, systemRole);
 
-      return GetAccessTokenFromRefreshTokenResponseDto.builder()
-          .accessToken(newAccessToken)
-          .refreshToken(refreshToken)
-          .tokenType(TOKEN_TYPE_BEARER)
-          .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-          .build();
+          return GetAccessTokenFromRefreshTokenResponseDto.builder()
+              .accessToken(newAccessToken)
+              .refreshToken(refreshToken)
+              .tokenType(TOKEN_TYPE_BEARER)
+              .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+              .systemRole(systemRole)
+              .build();
+      });
     });
   }
 
