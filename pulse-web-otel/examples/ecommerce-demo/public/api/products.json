@@ -1,0 +1,74 @@
+[
+  {
+    "id": "1",
+    "name": "Wireless Noise-Cancelling Headphones",
+    "price": 89.99,
+    "category": "Electronics",
+    "imageUrl": "https://picsum.photos/seed/headphones/300/200",
+    "rating": 4.5,
+    "stock": 42
+  },
+  {
+    "id": "2",
+    "name": "Mechanical Keyboard — Compact 75%",
+    "price": 129.00,
+    "category": "Electronics",
+    "imageUrl": "https://picsum.photos/seed/keyboard/300/200",
+    "rating": 4.8,
+    "stock": 15
+  },
+  {
+    "id": "3",
+    "name": "Premium Leather Backpack",
+    "price": 74.50,
+    "category": "Accessories",
+    "imageUrl": "https://picsum.photos/seed/backpack/300/200",
+    "rating": 4.3,
+    "stock": 28
+  },
+  {
+    "id": "4",
+    "name": "Ergonomic Desk Chair",
+    "price": 349.00,
+    "category": "Furniture",
+    "imageUrl": "https://picsum.photos/seed/chair/300/200",
+    "rating": 4.7,
+    "stock": 7
+  },
+  {
+    "id": "5",
+    "name": "Minimalist Desk Lamp",
+    "price": 45.00,
+    "category": "Home Office",
+    "imageUrl": "https://picsum.photos/seed/lamp/300/200",
+    "rating": 4.2,
+    "stock": 63
+  },
+  {
+    "id": "6",
+    "name": "Ultra-wide 34\" Monitor",
+    "price": 589.00,
+    "category": "Electronics",
+    "imageUrl": "https://picsum.photos/seed/monitor/300/200",
+    "rating": 4.9,
+    "stock": 4
+  },
+  {
+    "id": "7",
+    "name": "Standing Desk Converter",
+    "price": 199.00,
+    "category": "Furniture",
+    "imageUrl": "https://picsum.photos/seed/standdesk/300/200",
+    "rating": 4.1,
+    "stock": 19
+  },
+  {
+    "id": "8",
+    "name": "Wireless Charging Pad — 3-in-1",
+    "price": 39.99,
+    "category": "Electronics",
+    "imageUrl": "https://picsum.photos/seed/charger/300/200",
+    "rating": 4.4,
+    "stock": 86
+  }
+]

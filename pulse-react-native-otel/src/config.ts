@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { setupErrorHandler, uninstallErrorHandler } from './errorHandler';
 import { isSupportedPlatform } from './initialization';
 import {
@@ -53,6 +54,9 @@ const defaultConfig: Required<PulseConfig> = {
 
 let currentConfig: PulseConfig = { ...defaultConfig };
 
+/** Last JS-side consent passed to native (for diagnostic logs only). */
+let lastDataCollectionConsent: PulseDataCollectionConsent | null = null;
+
 function configure(config: PulseConfig): void {
   currentConfig = {
     ...currentConfig,
@@ -95,7 +99,12 @@ function resolveNavigationState(
 }
 
 export function start(options?: PulseConfig): void {
-  if (!isSupportedPlatform()) return;
+  if (!isSupportedPlatform()) {
+    PulseLogger.warn(
+      `sdk.platform.unsupported reason=unsupported_os os=${Platform.OS}`
+    );
+    return;
+  }
   if (getIsShutdown()) {
     PulseLogger.warn(
       'SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
@@ -103,9 +112,16 @@ export function start(options?: PulseConfig): void {
     return;
   }
   if (getIsStarted()) {
-    PulseLogger.info('SDK already started.');
+    PulseLogger.debug('sdk.init skipped reason=already_started');
     return;
   }
+
+  const startedAtMs =
+    typeof globalThis !== 'undefined' &&
+    globalThis.performance != null &&
+    typeof globalThis.performance.now === 'function'
+      ? globalThis.performance.now()
+      : Date.now();
 
   markPulseSessionStarted();
   PulseLogger.setLevel(options?.logLevel ?? PulseLogLevel.NONE);
@@ -132,6 +148,24 @@ export function start(options?: PulseConfig): void {
   };
 
   configure(config);
+
+  const endedAtMs =
+    typeof globalThis !== 'undefined' &&
+    globalThis.performance != null &&
+    typeof globalThis.performance.now === 'function'
+      ? globalThis.performance.now()
+      : Date.now();
+  const durationMs = Math.round(endedAtMs - startedAtMs);
+  const featuresEnabled =
+    features != null
+      ? Object.entries(features)
+          .filter(([, v]) => v === true)
+          .map(([k]) => k)
+          .join(',')
+      : '';
+  PulseLogger.info(
+    `sdk.init success=true duration_ms=${durationMs} sdk_version=react-native features_enabled=${featuresEnabled}`
+  );
 }
 
 export function shutdown(): void {
@@ -144,6 +178,7 @@ export function shutdown(): void {
   uninstallNavigationIntegration();
   PulseReactNativeOtel.shutdown();
   markPulseSessionShutdown();
+  PulseLogger.info('sdk.shutdown graceful=true');
 }
 
 /**
@@ -152,7 +187,15 @@ export function shutdown(): void {
 export function setDataCollectionState(
   state: PulseDataCollectionConsent
 ): void {
-  if (!isSupportedPlatform()) return;
+  if (!isSupportedPlatform()) {
+    PulseLogger.warn(
+      `sdk.platform.unsupported reason=unsupported_os os=${Platform.OS}`
+    );
+    return;
+  }
+  const from = lastDataCollectionConsent ?? 'unset';
+  PulseLogger.info(`sdk.consent.changed from=${from} to=${state}`);
+  lastDataCollectionConsent = state;
   PulseReactNativeOtel.setDataCollectionState(state);
 }
 
