@@ -8,7 +8,7 @@ vi.mock("@opentelemetry/api-logs", () => ({
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import React, { StrictMode } from "react";
-import { render, act } from "@testing-library/react";
+import { render, act, renderHook } from "@testing-library/react";
 
 vi.mock("../exporters", () => {
   const mockTracerProvider = {
@@ -45,7 +45,10 @@ vi.mock("../exporters", () => {
   };
 });
 
-import { useRouterTracking } from "../integrations/react/useRouterTracking";
+import {
+  RouterTrackingError,
+  useRouterTracking,
+} from "../integrations/react/useRouterTracking";
 import { PulseWeb } from "../sdk";
 
 type NavigateFn = (to: string) => void;
@@ -388,5 +391,36 @@ describe("useRouterTracking — no-leak after unmount", () => {
     );
     expect(errorCalls).toHaveLength(0);
     consoleSpy.mockRestore();
+  });
+});
+
+describe("useRouterTracking — typed error classification", () => {
+  it("throws RouterTrackingError(no-router-context) outside Router", () => {
+    try {
+      renderHook(() => useRouterTracking());
+      throw new Error("expected useRouterTracking to throw");
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(RouterTrackingError);
+      expect((err as RouterTrackingError).reason).toBe("no-router-context");
+    }
+  });
+
+  it("throws RouterTrackingError(missing-dep) when react-router-dom is unavailable", async () => {
+    vi.resetModules();
+    vi.doMock("react-router-dom", () => ({}));
+
+    const module = await import("../integrations/react/useRouterTracking");
+    try {
+      renderHook(() => module.useRouterTracking());
+      throw new Error("expected useRouterTracking to throw");
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(module.RouterTrackingError);
+      expect(["missing-dep", "no-router-context"]).toContain(
+        (err as { reason: string }).reason,
+      );
+    } finally {
+      vi.resetModules();
+      vi.unmock("react-router-dom");
+    }
   });
 });

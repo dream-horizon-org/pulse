@@ -1,6 +1,7 @@
 "use client";
 
 import React, {
+  Component,
   createContext,
   useContext,
   useEffect,
@@ -8,9 +9,13 @@ import React, {
   type ReactNode,
 } from "react";
 import { PulseWeb } from "../../sdk";
-import type { PulseProviderProps, UseRouterTrackingOptions } from "../../types/react";
+import type {
+  PulseProviderProps,
+  RouterTrackingErrorContext,
+  UseRouterTrackingOptions,
+} from "../../types/react";
 import { PulseErrorBoundary } from "./PulseErrorBoundary";
-import { useRouterTracking } from "./useRouterTracking";
+import { RouterTrackingError, useRouterTracking } from "./useRouterTracking";
 
 export type { PulseProviderProps } from "../../types/react";
 
@@ -24,9 +29,50 @@ PulseContext.displayName = "PulseContext";
 // fires when the counter settles at 0 in the same microtask.
 let providerMountCount = 0;
 
-function RouterTracker({ options }: { options: UseRouterTrackingOptions }): null {
+function RouterTracker({
+  options,
+}: {
+  options: UseRouterTrackingOptions;
+}): null {
   useRouterTracking(options);
   return null;
+}
+
+interface RouterTrackerBoundaryProps {
+  options: UseRouterTrackingOptions;
+}
+
+interface RouterTrackerBoundaryState {
+  failed: boolean;
+}
+
+class RouterTrackerBoundary extends Component<
+  RouterTrackerBoundaryProps,
+  RouterTrackerBoundaryState
+> {
+  state: RouterTrackerBoundaryState = { failed: false };
+
+  static getDerivedStateFromError(): RouterTrackerBoundaryState {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error): void {
+    const context: RouterTrackingErrorContext = {
+      reason: error instanceof RouterTrackingError ? error.reason : "unknown",
+    };
+
+    if (this.props.options.onError) {
+      this.props.options.onError(error, context);
+      return;
+    }
+
+    console.warn(`[PulseWeb] Router tracking disabled: ${error.message}`);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) return null;
+    return <RouterTracker options={this.props.options} />;
+  }
 }
 
 /**
@@ -70,9 +116,12 @@ export function PulseProvider({
 
   return (
     <PulseContext.Provider value={PulseWeb}>
-      {routerTracking !== undefined && (
-        <RouterTracker options={routerTracking} />
-      )}
+      {routerTracking !== undefined &&
+        (routerTracking.errorMode === "throw" ? (
+          <RouterTracker options={routerTracking} />
+        ) : (
+          <RouterTrackerBoundary options={routerTracking} />
+        ))}
       <PulseErrorBoundary>{children}</PulseErrorBoundary>
     </PulseContext.Provider>
   );
