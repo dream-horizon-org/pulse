@@ -317,6 +317,16 @@ export const ROUTES: Routes = {
     basePath: "/support-queries",
     path: "/support-queries",
   },
+  INTERNAL_TENANT_SELECTOR: {
+    key: "internal-tenant-selector",
+    path: "/internal/tenant-selector",
+    basePath: "/internal/tenant-selector",
+  },
+  INTERNAL_DEVELOPER_SETTINGS: {
+    key: "internal-developer-settings",
+    path: "/internal/developer-settings",
+    basePath: "/internal/developer-settings",
+  },
   SESSION_REPLAY: {
     key: "SESSION_REPLAY",
     basePath: "/session-replay",
@@ -1131,6 +1141,24 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/projects/:projectId/api-keys/:apiKeyId`,
     method: API_METHODS.DELETE,
   },
+  /** System-role tenant picker: same list as admin; caller must be superadmin / internal_viewer. */
+  INTERNAL_TENANTS: {
+    key: "INTERNAL_TENANTS",
+    apiPath: `/v1/tenants`,
+    method: API_METHODS.GET,
+  },
+  /** OpenFGA superadmin tuples on system:pulse (JWT-verified; superadmin-only for mutations). */
+  ADMIN_SUPERADMINS: {
+    key: "ADMIN_SUPERADMINS",
+    apiPath: `/v1/admin/superadmins`,
+    method: API_METHODS.GET,
+  },
+  /** OpenFGA internal_viewer tuples (mutations superadmin-only). */
+  ADMIN_INTERNAL_VIEWERS: {
+    key: "ADMIN_INTERNAL_VIEWERS",
+    apiPath: `/v1/admin/internal-viewers`,
+    method: API_METHODS.GET,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {
@@ -1257,6 +1285,7 @@ export const COOKIES_KEY: Record<string, string> = {
   TENANT_NAME: "tenantName", // Store tenant name for initial hydration
   TENANT_ROLE: "tenantRole", // Store tenant role for permissions
   TIER: "tier", // Store tier for initial hydration
+  SYSTEM_ROLE: "systemRole",
   // REMOVED: PROJECT_ID, PROJECT_NAME - Now handled by React Context
 };
 

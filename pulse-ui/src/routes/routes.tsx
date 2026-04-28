@@ -39,6 +39,9 @@ import { CreateFunnel, CreateJourney } from "../screens/FunnelJourneyCreate";
 import { FunnelsList, JourneysList } from "../screens/FunnelJourneyListing";
 import { FunnelDetail, JourneyDetail } from "../screens/FunnelJourneyDetail";
 import { SessionReplayRouteGuard } from "../components/SessionReplayRouteGuard";
+import { TenantSelector } from "../screens/internal/TenantSelector";
+import { DeveloperSettings } from "../screens/internal/DeveloperSettings";
+import { InternalRouteGuard } from "../components/InternalRouteGuard";
 
 function SessionReplaySessionsGuarded() {
   return (
@@ -69,6 +72,22 @@ function SessionReplayInsightsGuarded() {
     <SessionReplayRouteGuard>
       <SessionReplayInsights />
     </SessionReplayRouteGuard>
+  );
+}
+
+function TenantSelectorGuarded() {
+  return (
+    <InternalRouteGuard>
+      <TenantSelector />
+    </InternalRouteGuard>
+  );
+}
+
+function DeveloperSettingsGuarded() {
+  return (
+    <InternalRouteGuard requireSuperadmin>
+      <DeveloperSettings />
+    </InternalRouteGuard>
   );
 }
 
@@ -248,6 +267,16 @@ export const ROUTES = {
   SUPPORT_QUERIES: {
     ...ROUTE_PATHS.SUPPORT_QUERIES,
     element: SupportQueries,
+  },
+
+  // Internal system-role routes
+  INTERNAL_TENANT_SELECTOR: {
+    ...ROUTE_PATHS.INTERNAL_TENANT_SELECTOR,
+    element: TenantSelectorGuarded,
+  },
+  INTERNAL_DEVELOPER_SETTINGS: {
+    ...ROUTE_PATHS.INTERNAL_DEVELOPER_SETTINGS,
+    element: DeveloperSettingsGuarded,
   },
   FUNNELS_LIST: {
     ...ROUTE_PATHS.FUNNELS_LIST,
