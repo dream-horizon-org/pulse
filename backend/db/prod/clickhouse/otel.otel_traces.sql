@@ -44,6 +44,8 @@ ON CLUSTER 'pulse-ch'
     HttpHost           LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['net.peer.name'], ifNull(SpanAttributes['server.address'], '')) CODEC(ZSTD(1)),
     HttpMethod         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['http.method'], ifNull(SpanAttributes['http.request.method'], '')) CODEC(ZSTD(1)),
     HttpStatusCode     UInt16                 MATERIALIZED toUInt16OrZero(ifNull(SpanAttributes['http.status_code'], ifNull(SpanAttributes['http.response.status_code'], '0'))) CODEC(T64, ZSTD(1)),
+    GraphqlType        LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['graphql.operation.type'], '')      CODEC(ZSTD(1)),
+    GraphqlName        LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['graphql.operation.name'], '')      CODEC(ZSTD(1)),
 
     INDEX idx_trace_id      TraceId           TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_span_id       SpanId            TYPE bloom_filter(0.01)  GRANULARITY 1,
@@ -56,9 +58,11 @@ ON CLUSTER 'pulse-ch'
     INDEX idx_kind          SpanKind          TYPE set(8)              GRANULARITY 1,
     INDEX idx_duration      Duration          TYPE minmax              GRANULARITY 1,
     INDEX idx_ts            Timestamp         TYPE minmax              GRANULARITY 1,
-    INDEX idx_http_host    HttpHost           TYPE bloom_filter(0.01)  GRANULARITY 1,
-    INDEX idx_http_method  HttpMethod         TYPE set(16)             GRANULARITY 1,
-    INDEX idx_http_status  HttpStatusCode     TYPE minmax              GRANULARITY 1
+    INDEX idx_http_host     HttpHost          TYPE bloom_filter(0.01)  GRANULARITY 1,
+    INDEX idx_http_method   HttpMethod        TYPE set(16)             GRANULARITY 1,
+    INDEX idx_http_status   HttpStatusCode    TYPE minmax              GRANULARITY 1,
+    INDEX idx_graphql_type  GraphqlType       TYPE set(8)              GRANULARITY 4,
+    INDEX idx_graphql_name  GraphqlName       TYPE bloom_filter(0.01)  GRANULARITY 4
 )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/otel_traces_local', '{replica}')
 PARTITION BY toYYYYMMDD(Timestamp)
