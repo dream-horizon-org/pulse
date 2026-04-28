@@ -4,30 +4,76 @@ import { findAllSpans } from "./fixture";
 
 export type EventConfig = {
   name: string;
-  required: boolean;
   isBlacklisted?: boolean;
-  props?: Array<{ key: string; value: string; operator: string }>;
+  props?: Array<{
+    name?: string;
+    value: string;
+    operator: string;
+  }> | null;
 };
 
+function toNumericId(id: number | string): number {
+  if (typeof id === "number") return id;
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  return hash === 0 ? 1 : hash;
+}
+
+export function expectedConfigId(id: number | string): string {
+  return String(toNumericId(id));
+}
+
 export function makeConfig(opts: {
-  id: string;
+  id: number | string;
   name: string;
   events: EventConfig[];
+  description?: string;
   thresholdInMs?: number;
   uptimeLowerLimitInMs?: number;
   uptimeMidLimitInMs?: number;
   uptimeUpperLimitInMs?: number;
-  globalBlacklistedEvents?: string[];
+  globalBlacklistedEvents?: Array<EventConfig | string>;
 }) {
   return {
-    id: opts.id,
+    id: toNumericId(opts.id),
     name: opts.name,
-    events: opts.events,
+    description: opts.description ?? opts.name,
+    events: opts.events.map((event) => ({
+      name: event.name,
+      isBlacklisted: event.isBlacklisted ?? false,
+      props:
+        event.props == null
+          ? event.props
+          : event.props.map((prop) => ({
+              name: prop.name ?? "",
+              value: prop.value,
+              operator: prop.operator,
+            })),
+    })),
     thresholdInMs: opts.thresholdInMs ?? 600,
     uptimeLowerLimitInMs: opts.uptimeLowerLimitInMs ?? 120,
     uptimeMidLimitInMs: opts.uptimeMidLimitInMs ?? 240,
     uptimeUpperLimitInMs: opts.uptimeUpperLimitInMs ?? 360,
-    globalBlacklistedEvents: opts.globalBlacklistedEvents ?? [],
+    globalBlacklistedEvents:
+      opts.globalBlacklistedEvents?.map((event) => {
+        if (typeof event === "string") {
+          return { name: event, isBlacklisted: true, props: [] };
+        }
+        return {
+          name: event.name,
+          isBlacklisted: event.isBlacklisted ?? true,
+          props:
+            event.props == null
+              ? event.props
+              : event.props.map((prop) => ({
+                  name: prop.name ?? "",
+                  value: prop.value,
+                  operator: prop.operator,
+                })),
+        };
+      }) ?? [],
   };
 }
 

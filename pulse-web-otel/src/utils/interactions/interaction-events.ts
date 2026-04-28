@@ -1,19 +1,6 @@
-import type {
-  InteractionEvent,
-  InteractionConfig,
-} from "../../interactions/interaction-models";
+import type { InteractionConfig } from "../../interactions/interaction-models";
 import type { InteractionLocalEvent } from "../../types/interactions/interaction-runtime";
 import { localEventMatchesConfigEvent } from "./event-matching";
-
-export function globalBlacklistAsEvents(
-  names: readonly string[],
-): InteractionEvent[] {
-  return names.map((name) => ({
-    name,
-    required: false,
-    isBlacklisted: false,
-  }));
-}
 
 export function sortedInsertLocalEvent(
   list: InteractionLocalEvent[],
@@ -36,9 +23,7 @@ export function localEventMatchesFirstConfigEvent(
   local: InteractionLocalEvent,
   config: InteractionConfig,
 ): boolean {
-  const first = config.events.find(
-    (event) => event.required && !event.isBlacklisted,
-  );
+  const first = config.events.find((event) => !event.isBlacklisted);
   if (first == null) return false;
   return localEventMatchesConfigEvent(local, first);
 }

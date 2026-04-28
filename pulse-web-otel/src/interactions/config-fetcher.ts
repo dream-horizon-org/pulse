@@ -43,18 +43,18 @@ export function resolveInteractionConfigRequest(
 
 const PROPERTY_OPERATORS = new Set([
   "EQUALS",
-  "NOT_EQUALS",
+  "NOTEQUALS",
   "CONTAINS",
-  "NOT_CONTAINS",
-  "STARTS_WITH",
-  "ENDS_WITH",
+  "NOTCONTAINS",
+  "STARTSWITH",
+  "ENDSWITH",
 ]);
 
 function isPropertyFilter(value: unknown): value is PropertyFilter {
   if (typeof value !== "object" || value === null) return false;
   const f = value as Record<string, unknown>;
   return (
-    typeof f["key"] === "string" &&
+    typeof f["name"] === "string" &&
     typeof f["value"] === "string" &&
     typeof f["operator"] === "string" &&
     PROPERTY_OPERATORS.has(f["operator"])
@@ -64,16 +64,10 @@ function isPropertyFilter(value: unknown): value is PropertyFilter {
 function isInteractionEvent(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const e = value as Record<string, unknown>;
-  if (typeof e["name"] !== "string" || typeof e["required"] !== "boolean") {
+  if (typeof e["name"] !== "string" || typeof e["isBlacklisted"] !== "boolean") {
     return false;
   }
-  if (
-    e["isBlacklisted"] !== undefined &&
-    typeof e["isBlacklisted"] !== "boolean"
-  ) {
-    return false;
-  }
-  if (e["props"] === undefined) return true;
+  if (e["props"] === undefined || e["props"] === null) return true;
   if (!Array.isArray(e["props"])) return false;
   return (e["props"] as unknown[]).every(isPropertyFilter);
 }
@@ -83,18 +77,21 @@ function isInteractionConfig(value: unknown): value is InteractionConfig {
   const cfg = value as Record<string, unknown>;
   const events = cfg["events"];
   return (
-    typeof cfg["id"] === "string" &&
+    typeof cfg["id"] === "number" &&
     typeof cfg["name"] === "string" &&
+    typeof cfg["description"] === "string" &&
     Array.isArray(events) &&
     (events as unknown[]).every(isInteractionEvent) &&
+    (events as unknown[]).some((event) => {
+      const e = event as Record<string, unknown>;
+      return e["isBlacklisted"] === false;
+    }) &&
     typeof cfg["thresholdInMs"] === "number" &&
     typeof cfg["uptimeLowerLimitInMs"] === "number" &&
     typeof cfg["uptimeMidLimitInMs"] === "number" &&
     typeof cfg["uptimeUpperLimitInMs"] === "number" &&
     Array.isArray(cfg["globalBlacklistedEvents"]) &&
-    (cfg["globalBlacklistedEvents"] as unknown[]).every(
-      (n) => typeof n === "string",
-    )
+    (cfg["globalBlacklistedEvents"] as unknown[]).every(isInteractionEvent)
   );
 }
 
@@ -102,6 +99,64 @@ function isInteractionConfigArray(
   value: unknown,
 ): value is InteractionConfig[] {
   return Array.isArray(value) && value.every(isInteractionConfig);
+}
+
+function explainConfigSchemaMismatch(value: unknown): string[] {
+  const errors: string[] = [];
+  if (!Array.isArray(value)) return ["root: expected array"];
+  value.forEach((item, index) => {
+    if (typeof item !== "object" || item === null) {
+      errors.push(`[${index}]: expected object`);
+      return;
+    }
+    const cfg = item as Record<string, unknown>;
+    if (typeof cfg["id"] !== "number") errors.push(`[${index}].id: expected number`);
+    if (typeof cfg["name"] !== "string") errors.push(`[${index}].name: expected string`);
+    if (typeof cfg["description"] !== "string") {
+      errors.push(`[${index}].description: expected string`);
+    }
+    if (!Array.isArray(cfg["events"])) {
+      errors.push(`[${index}].events: expected array`);
+    } else {
+      const events = cfg["events"] as unknown[];
+      if (events.length === 0) errors.push(`[${index}].events: must not be empty`);
+      if (!events.some((event) => {
+        if (typeof event !== "object" || event === null) return false;
+        return (event as Record<string, unknown>)["isBlacklisted"] === false;
+      })) {
+        errors.push(`[${index}].events: at least one non-blacklisted event required`);
+      }
+      events.forEach((event, eventIndex) => {
+        if (!isInteractionEvent(event)) {
+          errors.push(`[${index}].events[${eventIndex}]: invalid event shape`);
+        }
+      });
+    }
+    if (!Array.isArray(cfg["globalBlacklistedEvents"])) {
+      errors.push(`[${index}].globalBlacklistedEvents: expected array`);
+    } else {
+      (cfg["globalBlacklistedEvents"] as unknown[]).forEach((event, eventIndex) => {
+        if (!isInteractionEvent(event)) {
+          errors.push(
+            `[${index}].globalBlacklistedEvents[${eventIndex}]: invalid event shape`,
+          );
+        }
+      });
+    }
+    if (typeof cfg["thresholdInMs"] !== "number") {
+      errors.push(`[${index}].thresholdInMs: expected number`);
+    }
+    if (typeof cfg["uptimeLowerLimitInMs"] !== "number") {
+      errors.push(`[${index}].uptimeLowerLimitInMs: expected number`);
+    }
+    if (typeof cfg["uptimeMidLimitInMs"] !== "number") {
+      errors.push(`[${index}].uptimeMidLimitInMs: expected number`);
+    }
+    if (typeof cfg["uptimeUpperLimitInMs"] !== "number") {
+      errors.push(`[${index}].uptimeUpperLimitInMs: expected number`);
+    }
+  });
+  return errors;
 }
 
 export class InteractionConfigFetcher {
@@ -152,8 +207,9 @@ export class InteractionConfigFetcher {
 
       const json: unknown = await response.json();
       if (!isInteractionConfigArray(json)) {
+        const details = explainConfigSchemaMismatch(json).slice(0, 5).join("; ");
         PulseWebLogger.warn(
-          "[Pulse] Interaction config fetch returned invalid schema",
+          `[Pulse] Interaction config fetch returned invalid schema: ${details}`,
         );
         return;
       }

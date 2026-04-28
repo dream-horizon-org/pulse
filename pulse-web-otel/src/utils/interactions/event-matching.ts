@@ -5,14 +5,7 @@ import type {
 import type { InteractionLocalEvent } from "../../types/interactions/interaction-runtime";
 
 function normalizeOperator(op: string): string {
-  const u = op.toUpperCase().replace(/_/g, "");
-  if (u === "NOTEQUALS" || u === "NE") return "NOTEQUALS";
-  if (u === "NOTCONTAINS") return "NOTCONTAINS";
-  if (u === "STARTSWITH" || u === "STARTS_WITH") return "STARTSWITH";
-  if (u === "ENDSWITH" || u === "ENDS_WITH") return "ENDSWITH";
-  if (u === "EQUALS") return "EQUALS";
-  if (u === "CONTAINS") return "CONTAINS";
-  return op.toUpperCase().replace(/_/g, "");
+  return op.toUpperCase();
 }
 
 /** Android InteractionUtil.matchPropValue parity. */
@@ -28,13 +21,21 @@ export function matchPropValue(
     case "NOTEQUALS":
       return actualValue !== expectedValue;
     case "CONTAINS":
-      return actualValue.includes(expectedValue);
+      return actualValue
+        .toLowerCase()
+        .includes(expectedValue.toLowerCase());
     case "NOTCONTAINS":
-      return !actualValue.includes(expectedValue);
+      return !actualValue
+        .toLowerCase()
+        .includes(expectedValue.toLowerCase());
     case "STARTSWITH":
-      return actualValue.startsWith(expectedValue);
+      return actualValue
+        .toLowerCase()
+        .startsWith(expectedValue.toLowerCase());
     case "ENDSWITH":
-      return actualValue.endsWith(expectedValue);
+      return actualValue
+        .toLowerCase()
+        .endsWith(expectedValue.toLowerCase());
     default:
       return false;
   }
@@ -42,12 +43,12 @@ export function matchPropValue(
 
 function propsMatch(
   localProps: Record<string, string> | undefined,
-  filters: PropertyFilter[] | undefined,
+  filters: PropertyFilter[] | null | undefined,
 ): boolean {
-  if (filters === undefined || filters.length === 0) return true;
+  if (filters == null || filters.length === 0) return true;
   if (localProps === undefined) return false;
   return filters.every((f) => {
-    const actual = localProps[f.key];
+    const actual = localProps[f.name];
     if (actual === undefined) return false;
     return matchPropValue(f.value, f.operator, actual);
   });

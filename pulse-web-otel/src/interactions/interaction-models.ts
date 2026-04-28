@@ -1,32 +1,32 @@
 export type PropertyOperator =
   | "EQUALS"
-  | "NOT_EQUALS"
+  | "NOTEQUALS"
   | "CONTAINS"
-  | "NOT_CONTAINS"
-  | "STARTS_WITH"
-  | "ENDS_WITH";
+  | "NOTCONTAINS"
+  | "STARTSWITH"
+  | "ENDSWITH";
 
 export interface PropertyFilter {
-  key: string;
+  name: string;
   value: string;
   operator: PropertyOperator;
 }
 
 export interface InteractionEvent {
   name: string;
-  required: boolean;
-  isBlacklisted?: boolean;
-  props?: PropertyFilter[];
+  isBlacklisted: boolean;
+  props?: PropertyFilter[] | null;
 }
 
 export interface InteractionConfig {
-  id: string;
+  id: number;
   name: string;
+  description: string;
   events: InteractionEvent[];
   /** Inter-step timeout. */
   thresholdInMs: number;
   uptimeLowerLimitInMs: number;
   uptimeMidLimitInMs: number;
   uptimeUpperLimitInMs: number;
-  globalBlacklistedEvents: string[];
+  globalBlacklistedEvents: InteractionEvent[];
 }

@@ -84,7 +84,7 @@ describe("InteractionFeature gating", () => {
   it("successful init pushes initial configs to coordinator", async () => {
     fetcherInit.mockClear();
     coordinatorSetConfigs.mockClear();
-    const cached = [{ id: "x" }];
+    const cached = [{ id: 1 }];
     fetcherGetConfigs.mockReturnValue(cached);
     const feature = makeFeature(true, true);
 

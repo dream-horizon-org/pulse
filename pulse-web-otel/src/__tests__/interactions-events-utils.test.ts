@@ -5,8 +5,9 @@ import type { InteractionConfig } from "../interactions/interaction-models";
 
 function cfg(events: InteractionConfig["events"]): InteractionConfig {
   return {
-    id: "cfg_1",
+    id: 1,
     name: "Flow",
+    description: "Flow",
     events,
     thresholdInMs: 5000,
     uptimeLowerLimitInMs: 1000,
@@ -17,10 +18,10 @@ function cfg(events: InteractionConfig["events"]): InteractionConfig {
 }
 
 describe("localEventMatchesFirstConfigEvent", () => {
-  it("uses first required non-blacklisted event", () => {
+  it("uses first non-blacklisted event", () => {
     const config = cfg([
-      { name: "noise", required: true, isBlacklisted: true },
-      { name: "start", required: true },
+      { name: "noise", isBlacklisted: true, props: [] },
+      { name: "start", isBlacklisted: false, props: [] },
     ]);
 
     expect(

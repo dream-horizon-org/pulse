@@ -1,28 +1,32 @@
 [
   {
-    "id": "checkout-happy",
+    "id": 1,
     "name": "Checkout Happy Path",
+    "description": "Checkout Happy Path",
     "events": [
-      { "name": "checkout_step_1", "required": true },
-      { "name": "checkout_step_2", "required": true },
-      { "name": "checkout_step_3", "required": true }
+      { "name": "checkout_step_1", "props": [], "isBlacklisted": false },
+      { "name": "checkout_step_2", "props": [], "isBlacklisted": false },
+      { "name": "checkout_step_3", "props": [], "isBlacklisted": false }
     ],
     "thresholdInMs": 3000,
     "uptimeLowerLimitInMs": 700,
     "uptimeMidLimitInMs": 1400,
     "uptimeUpperLimitInMs": 2500,
-    "globalBlacklistedEvents": ["ad_impression"]
+    "globalBlacklistedEvents": [
+      { "name": "ad_impression", "props": [], "isBlacklisted": true }
+    ]
   },
   {
-    "id": "cart-open-to-checkout",
+    "id": 2,
     "name": "Cart Open To Checkout Click",
+    "description": "Cart Open To Checkout Click",
     "events": [
-      { "name": "cart_open", "required": true },
+      { "name": "cart_open", "props": [], "isBlacklisted": false },
       {
         "name": "cart_checkout_click",
-        "required": true,
+        "isBlacklisted": false,
         "props": [
-          { "key": "item_count", "value": "0", "operator": "NOT_EQUALS" }
+          { "name": "item_count", "value": "0", "operator": "NOTEQUALS" }
         ]
       }
     ],
@@ -30,24 +34,27 @@
     "uptimeLowerLimitInMs": 500,
     "uptimeMidLimitInMs": 1000,
     "uptimeUpperLimitInMs": 1800,
-    "globalBlacklistedEvents": ["device.crash"]
+    "globalBlacklistedEvents": [
+      { "name": "device.crash", "props": [], "isBlacklisted": true }
+    ]
   },
   {
-    "id": "product-quick-add",
+    "id": 3,
     "name": "Product List Quick Add",
+    "description": "Product List Quick Add",
     "events": [
       {
         "name": "product_item_visible",
-        "required": true,
+        "isBlacklisted": false,
         "props": [
-          { "key": "source", "value": "product_list", "operator": "EQUALS" }
+          { "name": "source", "value": "product_list", "operator": "EQUALS" }
         ]
       },
       {
         "name": "add_to_cart",
-        "required": true,
+        "isBlacklisted": false,
         "props": [
-          { "key": "source", "value": "product_list", "operator": "EQUALS" }
+          { "name": "source", "value": "product_list", "operator": "EQUALS" }
         ]
       }
     ],
@@ -55,24 +62,31 @@
     "uptimeLowerLimitInMs": 350,
     "uptimeMidLimitInMs": 900,
     "uptimeUpperLimitInMs": 1600,
-    "globalBlacklistedEvents": ["error_demo_throw_uncaught"]
+    "globalBlacklistedEvents": [
+      {
+        "name": "error_demo_throw_uncaught",
+        "props": [],
+        "isBlacklisted": true
+      }
+    ]
   },
   {
-    "id": "product-detail-add",
+    "id": 4,
     "name": "Product Detail Add To Cart",
+    "description": "Product Detail Add To Cart",
     "events": [
       {
         "name": "product_detail_open",
-        "required": true,
+        "isBlacklisted": false,
         "props": [
-          { "key": "path", "value": "/products/", "operator": "STARTS_WITH" }
+          { "name": "path", "value": "/products/", "operator": "STARTSWITH" }
         ]
       },
       {
         "name": "add_to_cart",
-        "required": true,
+        "isBlacklisted": false,
         "props": [
-          { "key": "source", "value": "product_detail", "operator": "EQUALS" }
+          { "name": "source", "value": "product_detail", "operator": "EQUALS" }
         ]
       }
     ],
@@ -80,18 +94,21 @@
     "uptimeLowerLimitInMs": 800,
     "uptimeMidLimitInMs": 1500,
     "uptimeUpperLimitInMs": 2800,
-    "globalBlacklistedEvents": ["ad_impression"]
+    "globalBlacklistedEvents": [
+      { "name": "ad_impression", "props": [], "isBlacklisted": true }
+    ]
   },
   {
-    "id": "remove-item-sanity",
+    "id": 5,
     "name": "Cart Remove Item Then Checkout",
+    "description": "Cart Remove Item Then Checkout",
     "events": [
-      { "name": "cart_remove_item", "required": true },
+      { "name": "cart_remove_item", "props": [], "isBlacklisted": false },
       {
         "name": "cart_checkout_click",
-        "required": true,
+        "isBlacklisted": false,
         "props": [
-          { "key": "item_count", "value": "0", "operator": "NOT_EQUALS" }
+          { "name": "item_count", "value": "0", "operator": "NOTEQUALS" }
         ]
       }
     ],
@@ -99,6 +116,8 @@
     "uptimeLowerLimitInMs": 600,
     "uptimeMidLimitInMs": 1200,
     "uptimeUpperLimitInMs": 2100,
-    "globalBlacklistedEvents": ["device.crash"]
+    "globalBlacklistedEvents": [
+      { "name": "device.crash", "props": [], "isBlacklisted": true }
+    ]
   }
 ]

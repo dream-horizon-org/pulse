@@ -7,6 +7,7 @@ import {
 } from "./fixture";
 import {
   emitEvent,
+  expectedConfigId,
   gotoAndWaitInteractionInit,
   makeConfig,
   seedInteractionConfig,
@@ -27,9 +28,9 @@ const MANUAL_FLOW = makeConfig({
   id: "manual_checkout_flow",
   name: "Manual Checkout Flow",
   events: [
-    { name: "checkout_step_1", required: true },
-    { name: "checkout_step_2", required: true },
-    { name: "checkout_step_3", required: true },
+    { name: "checkout_step_1" },
+    { name: "checkout_step_2" },
+    { name: "checkout_step_3" },
   ],
   thresholdInMs: 700,
   uptimeLowerLimitInMs: 120,
@@ -45,7 +46,7 @@ test.describe("@M2 interactions e2e", () => {
         makeConfig({
           id: "single_event",
           name: "Single Event",
-          events: [{ name: "single_event", required: true }],
+          events: [{ name: "single_event" }],
         }),
       ],
     );
@@ -54,7 +55,7 @@ test.describe("@M2 interactions e2e", () => {
 
     const span = await otlp.waitForSpan("interaction", 10_000);
     expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
-      "single_event",
+      expectedConfigId("single_event"),
     );
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
   });
@@ -70,8 +71,8 @@ test.describe("@M2 interactions e2e", () => {
           id: "two_step",
           name: "Two Step",
           events: [
-            { name: "step_one", required: true },
-            { name: "step_two", required: true },
+            { name: "step_one" },
+            { name: "step_two" },
           ],
         }),
       ],
@@ -112,7 +113,7 @@ test.describe("@M2 interactions e2e", () => {
 
     const span = await otlp.waitForSpan("interaction", 15_000);
     expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
-      "manual_checkout_flow",
+      expectedConfigId("manual_checkout_flow"),
     );
     expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
   });
@@ -175,9 +176,9 @@ test.describe("@M2 interactions e2e", () => {
           id: "local_blacklisted",
           name: "Local Blacklisted",
           events: [
-            { name: "step_a", required: true },
-            { name: "step_block", required: false, isBlacklisted: true },
-            { name: "step_b", required: true },
+            { name: "step_a" },
+            { name: "step_block", isBlacklisted: true },
+            { name: "step_b" },
           ],
           thresholdInMs: 500,
         }),
@@ -278,7 +279,7 @@ test.describe("@M2 interactions e2e", () => {
       makeConfig({
         id: "single_step_repeatable",
         name: "Single Step Repeatable",
-        events: [{ name: "checkout_step_1", required: true }],
+        events: [{ name: "checkout_step_1" }],
       }),
     ];
     await seedInteractionConfig(page, singleStepConfig);
@@ -305,8 +306,8 @@ test.describe("@M2 interactions e2e", () => {
           id: "apdex_excellent",
           name: "Apdex Excellent",
           events: [
-            { name: "ax_1", required: true },
-            { name: "ax_2", required: true },
+            { name: "ax_1" },
+            { name: "ax_2" },
           ],
           thresholdInMs: 1000,
           uptimeLowerLimitInMs: 120,
@@ -337,8 +338,8 @@ test.describe("@M2 interactions e2e", () => {
           id: "apdex_good",
           name: "Apdex Good",
           events: [
-            { name: "ag_1", required: true },
-            { name: "ag_2", required: true },
+            { name: "ag_1" },
+            { name: "ag_2" },
           ],
           thresholdInMs: 1000,
           uptimeLowerLimitInMs: 120,
@@ -369,8 +370,8 @@ test.describe("@M2 interactions e2e", () => {
           id: "apdex_average",
           name: "Apdex Average",
           events: [
-            { name: "aa_1", required: true },
-            { name: "aa_2", required: true },
+            { name: "aa_1" },
+            { name: "aa_2" },
           ],
           thresholdInMs: 1200,
           uptimeLowerLimitInMs: 120,
@@ -401,8 +402,8 @@ test.describe("@M2 interactions e2e", () => {
           id: "apdex_poor",
           name: "Apdex Poor",
           events: [
-            { name: "ap_1", required: true },
-            { name: "ap_2", required: true },
+            { name: "ap_1" },
+            { name: "ap_2" },
           ],
           thresholdInMs: 1500,
           uptimeLowerLimitInMs: 120,
@@ -488,7 +489,7 @@ test.describe("@M2 interactions e2e", () => {
 test.describe("@M2 interactions edge cases", () => {
   const operatorCases = [
     { operator: "EQUALS", expected: "gold", pass: "gold", fail: "silver" },
-    { operator: "NOT_EQUALS", expected: "gold", pass: "silver", fail: "gold" },
+    { operator: "NOTEQUALS", expected: "gold", pass: "silver", fail: "gold" },
     {
       operator: "CONTAINS",
       expected: "pro",
@@ -496,19 +497,19 @@ test.describe("@M2 interactions edge cases", () => {
       fail: "starter",
     },
     {
-      operator: "NOT_CONTAINS",
+      operator: "NOTCONTAINS",
       expected: "internal",
       pass: "external",
       fail: "internal-testing",
     },
     {
-      operator: "STARTS_WITH",
+      operator: "STARTSWITH",
       expected: "plan_",
       pass: "plan_enterprise",
       fail: "enterprise_plan",
     },
     {
-      operator: "ENDS_WITH",
+      operator: "ENDSWITH",
       expected: "_us",
       pass: "region_us",
       fail: "us_region",
@@ -527,8 +528,7 @@ test.describe("@M2 interactions edge cases", () => {
           events: [
             {
               name: "props_event",
-              required: true,
-              props: [{ key: "plan", value: op.expected, operator: op.operator }],
+              props: [{ name: "plan", value: op.expected, operator: op.operator }],
             },
           ],
         }),
@@ -539,7 +539,7 @@ test.describe("@M2 interactions edge cases", () => {
       const span = await otlp.waitForSpan("interaction", 10_000);
       expect(getAttr(span.attributes, "pulse.interaction.is_error")).toBe(false);
       expect(getAttr(span.attributes, "pulse.interaction.config.id")).toBe(
-        `props_${op.operator.toLowerCase()}_ok`,
+        expectedConfigId(`props_${op.operator.toLowerCase()}_ok`),
       );
     });
 
@@ -554,8 +554,7 @@ test.describe("@M2 interactions edge cases", () => {
           events: [
             {
               name: "props_event",
-              required: true,
-              props: [{ key: "plan", value: op.expected, operator: op.operator }],
+              props: [{ name: "plan", value: op.expected, operator: op.operator }],
             },
           ],
         }),
@@ -571,7 +570,7 @@ test.describe("@M2 interactions edge cases", () => {
     });
   }
 
-  test("exploratory: required=false is not skippable in current matcher", async ({
+  test("exploratory: middle step is not skippable in current matcher", async ({
     page,
     otlp,
   }) => {
@@ -580,9 +579,9 @@ test.describe("@M2 interactions edge cases", () => {
         id: "optional_not_skippable",
         name: "Optional Not Skippable",
         events: [
-          { name: "start", required: true },
-          { name: "middle_optional", required: false },
-          { name: "end", required: true },
+          { name: "start" },
+          { name: "middle_optional" },
+          { name: "end" },
         ],
         thresholdInMs: 800,
       }),
@@ -598,15 +597,15 @@ test.describe("@M2 interactions edge cases", () => {
     );
   });
 
-  test("required=false present in order allows success", async ({ page, otlp }) => {
+  test("middle step present in order allows success", async ({ page, otlp }) => {
     await seedInteractionConfig(page, [
       makeConfig({
         id: "optional_present_success",
         name: "Optional Present Success",
         events: [
-          { name: "start", required: true },
-          { name: "middle_optional", required: false },
-          { name: "end", required: true },
+          { name: "start" },
+          { name: "middle_optional" },
+          { name: "end" },
         ],
       }),
     ]);
@@ -628,16 +627,16 @@ test.describe("@M2 interactions edge cases", () => {
         id: "overlap_a",
         name: "Overlap A",
         events: [
-          { name: "start", required: true },
-          { name: "finish_a", required: true },
+          { name: "start" },
+          { name: "finish_a" },
         ],
       }),
       makeConfig({
         id: "overlap_b",
         name: "Overlap B",
         events: [
-          { name: "start", required: true },
-          { name: "finish_b", required: true },
+          { name: "start" },
+          { name: "finish_b" },
         ],
       }),
     ]);
@@ -651,8 +650,8 @@ test.describe("@M2 interactions edge cases", () => {
     const configIds = spans.map((s) =>
       String(getAttr(s.attributes, "pulse.interaction.config.id")),
     );
-    expect(configIds).toContain("overlap_a");
-    expect(configIds).toContain("overlap_b");
+    expect(configIds).toContain(expectedConfigId("overlap_a"));
+    expect(configIds).toContain(expectedConfigId("overlap_b"));
     expect(
       spans.every(
         (span) => getAttr(span.attributes, "pulse.interaction.is_error") === false,
@@ -669,8 +668,8 @@ test.describe("@M2 interactions edge cases", () => {
         id: "timestamp_order",
         name: "Timestamp Order",
         events: [
-          { name: "ts_a", required: true },
-          { name: "ts_b", required: true },
+          { name: "ts_a" },
+          { name: "ts_b" },
         ],
         thresholdInMs: 700,
       }),
@@ -696,8 +695,8 @@ test.describe("@M2 interactions edge cases", () => {
         id: "restart_after_violation",
         name: "Restart After Violation",
         events: [
-          { name: "first", required: true },
-          { name: "second", required: true },
+          { name: "first" },
+          { name: "second" },
         ],
       }),
     ]);
@@ -710,7 +709,7 @@ test.describe("@M2 interactions edge cases", () => {
     const spans = findAllSpans(otlp.captured, "interaction").filter(
       (s) =>
         getAttr(s.attributes, "pulse.interaction.config.id") ===
-        "restart_after_violation",
+        expectedConfigId("restart_after_violation"),
     );
     expect(spans.length).toBe(2);
     const errored = spans.find(
@@ -739,8 +738,8 @@ test.describe("@M2 interactions edge cases", () => {
         id: "multi_blacklist",
         name: "Multi Blacklist",
         events: [
-          { name: "step_1", required: true },
-          { name: "step_2", required: true },
+          { name: "step_1" },
+          { name: "step_2" },
         ],
         globalBlacklistedEvents: ["blacklist_event"],
       }),
@@ -769,8 +768,8 @@ test.describe("@M2 interactions edge cases", () => {
         id: "valid_flow",
         name: "Valid Flow",
         events: [
-          { name: "valid_a", required: true },
-          { name: "valid_b", required: true },
+          { name: "valid_a" },
+          { name: "valid_b" },
         ],
       }),
       { id: "invalid_missing_fields", events: [] },
@@ -795,8 +794,8 @@ test.describe("@M2 interactions edge cases", () => {
         id: "user_mid_flow",
         name: "User Mid Flow",
         events: [
-          { name: "user_a", required: true },
-          { name: "user_b", required: true },
+          { name: "user_a" },
+          { name: "user_b" },
         ],
       }),
     ]);
@@ -819,8 +818,8 @@ test.describe("@M2 interactions edge cases", () => {
         id: "apdex_boundaries",
         name: "Apdex Boundaries",
         events: [
-          { name: "apdex_a", required: true },
-          { name: "apdex_b", required: true },
+          { name: "apdex_a" },
+          { name: "apdex_b" },
         ],
         thresholdInMs: 1000,
         uptimeLowerLimitInMs: 120,
@@ -840,7 +839,9 @@ test.describe("@M2 interactions edge cases", () => {
     await waitForInteractionCount(page, otlp, 3, 10_000);
 
     const spans = findAllSpans(otlp.captured, "interaction").filter(
-      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "apdex_boundaries",
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") ===
+        expectedConfigId("apdex_boundaries"),
     );
     expect(spans.length).toBe(3);
     const categories = new Set(
@@ -862,9 +863,9 @@ test.describe("@M2 interactions edge cases", () => {
         id: "apdex_three_step",
         name: "Apdex Three Step",
         events: [
-          { name: "a1", required: true },
-          { name: "a2", required: true },
-          { name: "a3", required: true },
+          { name: "a1" },
+          { name: "a2" },
+          { name: "a3" },
         ],
         thresholdInMs: 1200,
         uptimeLowerLimitInMs: 150,
@@ -891,7 +892,8 @@ test.describe("@M2 interactions edge cases", () => {
 
     const spans = findAllSpans(otlp.captured, "interaction").filter(
       (s) =>
-        getAttr(s.attributes, "pulse.interaction.config.id") === "apdex_three_step",
+        getAttr(s.attributes, "pulse.interaction.config.id") ===
+        expectedConfigId("apdex_three_step"),
     );
     expect(spans.length).toBe(3);
     const categories = spans.map((span) =>
@@ -911,9 +913,9 @@ test.describe("@M2 interactions edge cases", () => {
         id: "branch_e123",
         name: "Branch E123",
         events: [
-          { name: "e1", required: true },
-          { name: "e2", required: true },
-          { name: "e3", required: true },
+          { name: "e1" },
+          { name: "e2" },
+          { name: "e3" },
         ],
         thresholdInMs: 5000,
       }),
@@ -921,9 +923,9 @@ test.describe("@M2 interactions edge cases", () => {
         id: "branch_e125",
         name: "Branch E125",
         events: [
-          { name: "e1", required: true },
-          { name: "e2", required: true },
-          { name: "e5", required: true },
+          { name: "e1" },
+          { name: "e2" },
+          { name: "e5" },
         ],
         thresholdInMs: 5000,
       }),
@@ -943,10 +945,14 @@ test.describe("@M2 interactions edge cases", () => {
 
     let spans = findAllSpans(otlp.captured, "interaction");
     let branch123 = spans.filter(
-      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "branch_e123",
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") ===
+        expectedConfigId("branch_e123"),
     );
     let branch125 = spans.filter(
-      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "branch_e125",
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") ===
+        expectedConfigId("branch_e125"),
     );
     expect(branch125.length).toBeGreaterThanOrEqual(1);
     expect(
@@ -963,10 +969,14 @@ test.describe("@M2 interactions edge cases", () => {
     await waitForInteractionCount(page, otlp, 1, 8_000);
     spans = findAllSpans(otlp.captured, "interaction");
     branch123 = spans.filter(
-      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "branch_e123",
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") ===
+        expectedConfigId("branch_e123"),
     );
     branch125 = spans.filter(
-      (s) => getAttr(s.attributes, "pulse.interaction.config.id") === "branch_e125",
+      (s) =>
+        getAttr(s.attributes, "pulse.interaction.config.id") ===
+        expectedConfigId("branch_e125"),
     );
     expect(branch123.length).toBeGreaterThanOrEqual(1);
     expect(

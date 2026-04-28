@@ -5,11 +5,12 @@ import { InteractionTracker } from "../interactions/interaction-tracker";
 
 function cfg(over: Partial<InteractionConfig> = {}): InteractionConfig {
   return {
-    id: "c1",
+    id: 1,
     name: "TestFlow",
+    description: "TestFlow",
     events: [
-      { name: "step_a", required: true },
-      { name: "step_b", required: true },
+      { name: "step_a", isBlacklisted: false },
+      { name: "step_b", isBlacklisted: false },
     ],
     thresholdInMs: 50,
     uptimeLowerLimitInMs: 5_000,
@@ -67,7 +68,11 @@ describe("InteractionTracker", () => {
   it("silent reset on global blacklist during ongoing (no terminal)", () => {
     const terminals: unknown[] = [];
     const tracker = new InteractionTracker(
-      cfg({ globalBlacklistedEvents: ["noise"] }),
+      cfg({
+        globalBlacklistedEvents: [
+          { name: "noise", isBlacklisted: true, props: [] },
+        ],
+      }),
       { onInteractionTerminal: (i) => terminals.push(i) },
     );
     tracker.checkAndAdd({ name: "step_a", timeInNano: 1e12 });

@@ -18,7 +18,6 @@ import type {
 } from "../types/interactions/interaction-runtime";
 import { localMatchesAnyEvent } from "../utils/interactions/event-matching";
 import {
-  globalBlacklistAsEvents,
   localEventMatchesFirstConfigEvent,
   sortedInsertLocalEvent,
 } from "../utils/interactions/interaction-events";
@@ -57,14 +56,10 @@ export class InteractionTracker {
   }
 
   checkAndAdd(event: InteractionLocalEvent): void {
-    // Turn global blacklist names into synthetic events so we can match them the same way as flow steps.
-    const globalSynthetic = globalBlacklistAsEvents(
-      this.interactionConfig.globalBlacklistedEvents,
-    );
     // Only keep events that belong to this interaction's steps or hit the global blacklist set.
     const relevant =
       localMatchesAnyEvent(event, this.interactionConfig.events) ||
-      localMatchesAnyEvent(event, globalSynthetic);
+      localMatchesAnyEvent(event, this.interactionConfig.globalBlacklistedEvents);
     if (!relevant) {
       // Irrelevant to this flow; do not touch buffer or status.
       return;

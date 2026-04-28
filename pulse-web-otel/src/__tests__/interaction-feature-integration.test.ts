@@ -8,11 +8,12 @@ import { PulseWebSemconv } from "../semconv";
 function makeInteractionConfig() {
   return [
     {
-      id: "checkout_flow",
+      id: 1,
       name: "Checkout Flow",
+      description: "Checkout Flow",
       events: [
-        { name: "checkout_step_1", required: true },
-        { name: "checkout_step_2", required: true },
+        { name: "checkout_step_1", isBlacklisted: false },
+        { name: "checkout_step_2", isBlacklisted: false },
       ],
       thresholdInMs: 5000,
       uptimeLowerLimitInMs: 1000,
@@ -71,7 +72,7 @@ describe("InteractionFeature integration pipeline", () => {
     );
     expect(
       captured.attrs?.[PulseWebSemconv.InteractionAttributeKey.CONFIG_ID],
-    ).toBe("checkout_flow");
+    ).toBe("1");
 
     feature.shutdown();
   });

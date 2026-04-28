@@ -12,11 +12,12 @@ import type { InteractionConfig } from "../interactions/interaction-models";
 
 function cfg(over: Partial<InteractionConfig> = {}): InteractionConfig {
   return {
-    id: "c1",
+    id: 1,
     name: "TestFlow",
+    description: "TestFlow",
     events: [
-      { name: "step_a", required: true },
-      { name: "step_b", required: true },
+      { name: "step_a", isBlacklisted: false },
+      { name: "step_b", isBlacklisted: false },
     ],
     thresholdInMs: 1000,
     uptimeLowerLimitInMs: 5_000,
@@ -35,22 +36,22 @@ describe("matchPropValue", () => {
 
   it("supports NOTEQUALS alias", () => {
     expect(matchPropValue("x", "NOTEQUALS", "y")).toBe(true);
-    expect(matchPropValue("x", "NOT_EQUALS", "x")).toBe(false);
+    expect(matchPropValue("x", "NOTEQUALS", "x")).toBe(false);
   });
 
-  it("CONTAINS is case-sensitive", () => {
+  it("CONTAINS is case-insensitive", () => {
     expect(matchPropValue("ell", "CONTAINS", "Hello")).toBe(true);
-    expect(matchPropValue("ell", "CONTAINS", "HELLO")).toBe(false);
+    expect(matchPropValue("ell", "CONTAINS", "HELLO")).toBe(true);
   });
 
-  it("STARTS_WITH / ENDS_WITH", () => {
-    expect(matchPropValue("ab", "STARTS_WITH", "abc")).toBe(true);
-    expect(matchPropValue("bc", "ENDS_WITH", "abc")).toBe(true);
+  it("STARTSWITH / ENDSWITH", () => {
+    expect(matchPropValue("ab", "STARTSWITH", "abc")).toBe(true);
+    expect(matchPropValue("bc", "ENDSWITH", "abc")).toBe(true);
   });
 
-  it("supports NOT_CONTAINS", () => {
-    expect(matchPropValue("xyz", "NOT_CONTAINS", "abc")).toBe(true);
-    expect(matchPropValue("abc", "NOT_CONTAINS", "abc")).toBe(false);
+  it("supports NOTCONTAINS", () => {
+    expect(matchPropValue("xyz", "NOTCONTAINS", "abc")).toBe(true);
+    expect(matchPropValue("abc", "NOTCONTAINS", "abc")).toBe(false);
   });
 });
 
@@ -63,14 +64,14 @@ describe("localEventMatchesConfigEvent", () => {
     };
     const ok = localEventMatchesConfigEvent(ev, {
       name: "e",
-      required: true,
-      props: [{ key: "channel", value: "organic", operator: "EQUALS" }],
+      isBlacklisted: false,
+      props: [{ name: "channel", value: "organic", operator: "EQUALS" }],
     });
     expect(ok).toBe(false);
     const ok2 = localEventMatchesConfigEvent(ev, {
       name: "e",
-      required: true,
-      props: [{ key: "channel", value: "Org", operator: "CONTAINS" }],
+      isBlacklisted: false,
+      props: [{ name: "channel", value: "Org", operator: "CONTAINS" }],
     });
     expect(ok2).toBe(true);
   });
@@ -119,7 +120,11 @@ describe("matchInteractionSequence", () => {
   });
 
   it("global blacklist resets ongoing (no interaction payload)", () => {
-    const c = cfg({ globalBlacklistedEvents: ["ad_impression"] });
+    const c = cfg({
+      globalBlacklistedEvents: [
+        { name: "ad_impression", isBlacklisted: true, props: [] },
+      ],
+    });
     const t0 = 1e12;
     const events = [
       { name: "step_a", timeInNano: t0 },

@@ -19,14 +19,13 @@ import {
   localEventMatchesConfigEvent,
   localMatchesAnyEvent,
 } from "../utils/interactions/event-matching";
-import { globalBlacklistAsEvents } from "../utils/interactions/interaction-events";
 import { PulseWebLogger } from "../pulse-web-logger";
 
 const LOG = "[interactions:match]";
 
 /** One-line description for debug logs (tracker + matcher). */
 export function formatMatchResultForLog(
-  configId: string,
+  configId: number,
   result: MatchResult | null,
 ): string {
   if (result == null) {
@@ -118,7 +117,7 @@ export function buildPulseInteraction(
     throw new Error("buildPulseInteraction requires at least one event");
   }
   const interactionName = interactionConfig.name;
-  const interactionConfigId = interactionConfig.id;
+  const interactionConfigId = String(interactionConfig.id);
   const lastEventTimeInNano = events[events.length - 1]!.timeInNano;
   const errorType = error?.type ?? null;
 
@@ -210,9 +209,7 @@ export function matchInteractionSequence(
     isMatchOnGoing = false;
   };
 
-  const globalBlacklistedEvents = globalBlacklistAsEvents(
-    interactionConfig.globalBlacklistedEvents,
-  );
+  const globalBlacklistedEvents = interactionConfig.globalBlacklistedEvents;
 
   let newInteractionStatus: MatchResult | null = null;
   let localEventIndex = 0;

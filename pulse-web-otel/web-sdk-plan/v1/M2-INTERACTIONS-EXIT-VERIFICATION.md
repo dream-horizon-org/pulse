@@ -24,7 +24,7 @@ Status: Complete
 ### Matching (`03-interactions/matching.md`)
 
 - Ordered matching, timeout, sequence violation, global blacklist reset, property operators: covered by matcher/tracker/coordinator/unit suites and E2E error-path cases.
-- `NOT_CONTAINS` operator coverage: included in matcher unit suite.
+- `NOTCONTAINS` operator coverage: included in matcher unit suite.
 - Parallel multi-config completion covered by coordinator interleaved-events test.
 - Positive APDEX band scoring (`Excellent`, `Good`, `Average`, `Poor`) covered by matcher band test with fixed thresholds.
 

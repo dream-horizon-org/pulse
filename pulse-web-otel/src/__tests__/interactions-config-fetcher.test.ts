@@ -8,11 +8,12 @@ const THIRTY_MIN_MS = 30 * 60 * 1000;
 
 const VALID_CONFIGS: InteractionConfig[] = [
   {
-    id: "checkout_flow",
+    id: 1,
     name: "Checkout Flow",
+    description: "Checkout Flow",
     events: [
-      { name: "checkout_step_1", required: true },
-      { name: "checkout_step_2", required: true },
+      { name: "checkout_step_1", isBlacklisted: false },
+      { name: "checkout_step_2", isBlacklisted: false, props: null },
     ],
     thresholdInMs: 5000,
     uptimeLowerLimitInMs: 1000,
@@ -77,6 +78,37 @@ describe("InteractionConfigFetcher", () => {
     await expect(f.init()).resolves.toBeUndefined();
     expect(warnSpy).toHaveBeenCalled();
     expect(f.getConfigs()).toEqual([]);
+  });
+
+  it("accepts nullable and omitted props", async () => {
+    const withNullableProps: InteractionConfig[] = [
+      {
+        id: 2,
+        name: "Nullable Props Flow",
+        description: "Nullable Props Flow",
+        events: [
+          { name: "a", isBlacklisted: false, props: null },
+          { name: "b", isBlacklisted: false },
+        ],
+        thresholdInMs: 1000,
+        uptimeLowerLimitInMs: 100,
+        uptimeMidLimitInMs: 200,
+        uptimeUpperLimitInMs: 300,
+        globalBlacklistedEvents: [{ name: "x", isBlacklisted: true, props: [] }],
+      },
+    ];
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => withNullableProps,
+    });
+    const f = new InteractionConfigFetcher(
+      { enabled: true, url: "http://x", headers: {} },
+      fetchFn as unknown as typeof fetch,
+    );
+
+    await expect(f.init()).resolves.toBeUndefined();
+    expect(f.getConfigs()).toEqual(withNullableProps);
   });
 
   it("handles corrupted cache/localStorage failures with no throw", async () => {
