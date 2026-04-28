@@ -7,5 +7,9 @@ import lombok.Value;
 @Value
 @Builder
 public class SuperAdminsListResponse {
+  /** FGA user ids (sorted); retained for older clients. */
   List<String> userIds;
+
+  /** Enriched rows sorted by email (nulls last) then user id. */
+  List<InternalRoleMemberDto> members;
 }
