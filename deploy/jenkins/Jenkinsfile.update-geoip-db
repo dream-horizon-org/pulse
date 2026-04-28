@@ -1,0 +1,75 @@
+pipeline {
+    agent any
+
+    triggers {
+        cron('H 2 * * 2')  // Every Tuesday ~2 AM; MaxMind releases GeoLite2 bi-weekly on Tuesdays
+    }
+
+    environment {
+        MAXMIND_ACCOUNT_ID  = credentials('maxmind-account-id')
+        MAXMIND_LICENSE_KEY = credentials('maxmind-license-key')
+        EDITION             = 'GeoLite2-City'
+        S3_BUCKET           = 'pulse-geo-ip-mmdb'
+        DB_FILE             = 'GeoLite2-City.mmdb'
+    }
+
+    stages {
+        stage('Download') {
+            steps {
+                sh '''
+                    curl -fSL \
+                        -u "${MAXMIND_ACCOUNT_ID}:${MAXMIND_LICENSE_KEY}" \
+                        "https://download.maxmind.com/geoip/databases/${EDITION}/download?suffix=tar.gz" \
+                        -o geoip.tar.gz
+                '''
+            }
+        }
+
+        stage('Extract') {
+            steps {
+                sh '''
+                    tar -xzf geoip.tar.gz
+                    find . -name "${DB_FILE}" -not -path "./geoip.tar.gz" | head -1 | xargs -I{} cp {} ./${DB_FILE}
+                    test -f "${DB_FILE}" || (echo "ERROR: mmdb not found after extraction" && exit 1)
+                '''
+            }
+        }
+
+        stage('Upload to S3') {
+            steps {
+                sh 'aws s3 cp "${DB_FILE}" "s3://${S3_BUCKET}/${DB_FILE}" --no-progress'
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                sh 'aws s3 ls "s3://${S3_BUCKET}/${DB_FILE}"'
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f geoip.tar.gz *.mmdb || true'
+            cleanWs()
+        }
+        success {
+            withCredentials([string(credentialsId: 'slack-deployment-alerts-webhook', variable: 'SLACK_WEBHOOK')]) {
+                sh '''
+                    curl -fSL -X POST "${SLACK_WEBHOOK}" \
+                        -H 'Content-Type: application/json' \
+                        -d "{\"text\":\":white_check_mark: *GeoIP DB updated* \\u2014 \`s3://${S3_BUCKET}/${DB_FILE}\` refreshed successfully. Build: ${BUILD_URL}\"}"
+                '''
+            }
+        }
+        failure {
+            withCredentials([string(credentialsId: 'slack-deployment-alerts-webhook', variable: 'SLACK_WEBHOOK')]) {
+                sh '''
+                    curl -fSL -X POST "${SLACK_WEBHOOK}" \
+                        -H 'Content-Type: application/json' \
+                        -d "{\"text\":\":x: *GeoIP DB update FAILED* \\u2014 check MaxMind credentials and S3 IAM role. Build: ${BUILD_URL}\"}"
+                '''
+            }
+        }
+    }
+}
