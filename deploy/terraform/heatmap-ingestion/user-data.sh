@@ -12,15 +12,13 @@ SECRET_NAME="prod/pulse-heatmap-screenshot-ingestion/appenv"
 ENV_FILE="/etc/pulse/heatmap-ingestion.env"
 
 echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
-SECRET_TMP="$(mktemp)"
-trap 'rm -f "${SECRET_TMP:-}"' EXIT
-aws secretsmanager get-secret-value \
+SECRET_JSON=$(aws secretsmanager get-secret-value \
   --region "$AWS_REGION" \
   --secret-id "$SECRET_NAME" \
   --query SecretString \
-  --output text > "$SECRET_TMP"
+  --output text)
 
-if [ ! -s "$SECRET_TMP" ]; then
+if [ -z "$SECRET_JSON" ]; then
   echo "ERROR: secret '$SECRET_NAME' is empty"
   exit 1
 fi
@@ -32,17 +30,14 @@ if ! command -v python3 >/dev/null 2>&1; then
   echo "ERROR: python3 not found; cannot parse appenv secret"
   exit 1
 fi
-python3 -c 'import json, sys
-with open(sys.argv[1], "r") as f:
-    data = json.load(f)
+echo "$SECRET_JSON" | python3 -c 'import json, sys
+data = json.load(sys.stdin)
 for item in data.get("app_env", []):
     k = item.get("key") or ""
     v = item.get("value", "")
     if k:
         print("%s=%s" % (k, v))
-' "$SECRET_TMP" | sudo tee "$ENV_FILE" >/dev/null
-rm -f "$SECRET_TMP"
-trap - EXIT
+' | sudo tee "$ENV_FILE" >/dev/null
 
 sudo chmod 600 "$ENV_FILE"
 
