@@ -500,6 +500,11 @@ Use the ecommerce demo (`yarn demo`) with the local ingest stack running. Open b
 | 19 | ❌ Consent DENIED → zero navigation spans | 1. Start SDK with dataCollectionState=DENIED 2. Navigate between routes 3. Check OTLP traces | No screen_load, screen_interactive, or screen_session spans emitted | ✅ Pass | Feature gate + signal filter processor blocks all spans when consent denied |
 | 20 | ❌ Navigation before SDK init → no spans | 1. Skip PulseWeb.start() 2. history.pushState({},'','/products') 3. Check traces | No spans emitted | ✅ Pass | Unit tested: History API never patched without install() — zero spans emitted |
 | 21 | ❌ After uninstall pushState emits no spans | 1. Start SDK 2. Call PulseWeb.shutdown() 3. history.pushState({},'','/test') 4. Check traces | No screen_session span emitted; pushState works normally | ✅ Pass | Unit tested: original pushState restored on uninstall; sdk=undefined guard prevents emission |
+| 22 | device.app.lifecycle created on page load | 1. Open demo 2. Check otel_logs in CH | Log record body=device.app.lifecycle, app.state=created | ✅ Pass | CH verified: created log appears on every page load |
+| 23 | device.app.lifecycle background on tab hide | 1. Open demo 2. Switch to another tab 3. Wait 600ms 4. Check otel_logs | Log record app.state=background after 500ms debounce | ✅ Pass | CH verified via Playwright simulation: background appears after debounce |
+| 24 | device.app.lifecycle foreground on tab show | 1. Switch back to demo tab 2. Check otel_logs | Log record app.state=foreground | ✅ Pass | CH verified via Playwright simulation: foreground appears on tab return |
+| 25 | ❌ Quick tab switch does NOT emit background | 1. Switch away then back within 400ms 2. Check otel_logs | No background log (debounce cancelled) | ✅ Pass | Unit tested: debounce cancelled when tab visible again before 500ms |
+| 26 | ❌ After uninstall no lifecycle events emitted | 1. Shutdown SDK 2. Dispatch visibilitychange 3. Check otel_logs | No device.app.lifecycle log emitted | ✅ Pass | Unit tested: visibilitychange listener removed on uninstall |
 
 ## Done Criteria
 

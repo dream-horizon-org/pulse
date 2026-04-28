@@ -387,12 +387,14 @@ test.describe("@M3 navigation", () => {
       await otlp.waitForLog("session.start");
       otlp.reset();
 
-      // SPA nav to /products/123 then away — triggers screen_session for /products/123
+      // SPA nav to /products/123 — ends "/" session (skip it), then nav away ends /products/123 session
       await page.evaluate(() => history.pushState({}, "", "/products/123"));
-      await page.waitForTimeout(200);
+      await otlp.waitForSpan("screen_session"); // "/" session — skip
+      otlp.reset();
+
       await page.evaluate(() => history.pushState({}, "", "/products/next"));
 
-      const span = await otlp.waitForSpan("screen_session");
+      const span = await otlp.waitForSpan("screen_session"); // /products/123 session
       const name = String(getAttr(span.attributes, "screen.name") ?? "");
       expect(name).toContain("products");
       expect(name).not.toContain("123");
@@ -406,14 +408,16 @@ test.describe("@M3 navigation", () => {
       await otlp.waitForLog("session.start");
       otlp.reset();
 
-      // SPA nav to /products/abc-slug-123 then away
+      // SPA nav to /products/abc-slug-123 — ends "/" session (skip it)
       await page.evaluate(() =>
         history.pushState({}, "", "/products/abc-slug-123"),
       );
-      await page.waitForTimeout(200);
+      await otlp.waitForSpan("screen_session"); // "/" session — skip
+      otlp.reset();
+
       await page.evaluate(() => history.pushState({}, "", "/products/done"));
 
-      const span = await otlp.waitForSpan("screen_session");
+      const span = await otlp.waitForSpan("screen_session"); // /products/abc-slug-123 session
       // Slug-with-id should be stripped — screen.name must not contain the raw slug
       const name = String(getAttr(span.attributes, "screen.name") ?? "");
       expect(name).not.toContain("abc-slug-123");

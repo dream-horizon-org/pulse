@@ -208,6 +208,12 @@ export class NavigationInstrumentation implements PulseInstrumentation {
       },
       ROOT_CONTEXT,
     );
+    // globalAttrsProcessor.onStart() fires synchronously during startSpan and
+    // overwrites screen.name/url.path with the *new* URL (since pushState already
+    // updated window.location before onRouteChange is called). Re-assert the
+    // ending route's values so the span correctly describes the screen that just ended.
+    span.setAttribute(K.SCREEN_NAME, this.currentScreenName);
+    span.setAttribute(K.URL_PATH, this.currentRoute);
     span.end(sessionEnd);
   }
 
