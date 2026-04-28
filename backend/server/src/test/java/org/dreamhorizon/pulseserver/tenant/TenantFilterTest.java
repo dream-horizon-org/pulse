@@ -389,6 +389,41 @@ class TenantFilterTest {
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
       when(jwtService.verifyToken("valid-token")).thenReturn(claims);
       when(claims.get("tenantId", String.class)).thenReturn("tenant_abc");
+      when(claims.get("systemRole", String.class)).thenReturn(null);
+
+      tenantFilter.filter(requestContext);
+
+      assertThat(TenantContext.getTenantId()).isEqualTo("tenant_abc");
+    }
+
+    @Test
+    void shouldOverrideJwtTenantWithHeaderForSuperadmin() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/users/me/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("tenant-from-header");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn("default");
+      when(claims.get("systemRole", String.class)).thenReturn("superadmin");
+
+      tenantFilter.filter(requestContext);
+
+      assertThat(TenantContext.getTenantId()).isEqualTo("tenant-from-header");
+    }
+
+    @Test
+    void shouldIgnoreXTenantIdHeaderWhenNotSystemRole() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/users/me/projects");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(requestContext.getHeaderString(TenantFilter.TENANT_HEADER)).thenReturn("evil-tenant");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn("tenant_abc");
+      when(claims.get("systemRole", String.class)).thenReturn(null);
 
       tenantFilter.filter(requestContext);
 
@@ -403,6 +438,7 @@ class TenantFilterTest {
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
       when(jwtService.verifyToken("valid-token")).thenReturn(claims);
       when(claims.get("tenantId", String.class)).thenReturn(null);
+      when(claims.get("systemRole", String.class)).thenReturn(null);
 
       tenantFilter.filter(requestContext);
 
