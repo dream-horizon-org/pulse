@@ -13,6 +13,20 @@ if [ -z "${VERSION:-}" ]; then
   exit 1
 fi
 
+# pulse-artifact-build-default-ec2-fleet: Node/npm live under NVM (not on default PATH); same pattern as pulse-ui publish.
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
+  # shellcheck source=/dev/null
+  . "${NVM_DIR}/nvm.sh"
+fi
+if type nvm >/dev/null 2>&1; then
+  nvm use default >/dev/null 2>&1 || nvm use node >/dev/null 2>&1 || true
+fi
+if ! command -v npm >/dev/null 2>&1; then
+  echo 'npm not found (source ~/.nvm/nvm.sh and ensure a default Node is installed)' >&2
+  exit 127
+fi
+
 APPLICATION_NAME="pulse-heatmap-screenshot-ingestion"
 ZIP_NAME="${APPLICATION_NAME}-${VERSION}.zip"
 ROOT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
