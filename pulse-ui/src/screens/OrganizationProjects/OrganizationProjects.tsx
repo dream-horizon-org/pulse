@@ -32,7 +32,7 @@ export function OrganizationProjects() {
   const location = useLocation();
   const { projects, hasLoadedProjects, tier, refreshProjects, userRole } =
     useTenantContext();
-  const { projectId, navigateToProject } = useProjectContext();
+  const { projectId, navigateToProject, clearProject } = useProjectContext();
   const { canCreateProjects: hasPermission } = usePermissions();
   const { canCreateProjects, maxProjects, currentProjectCount } =
     useTierLimits();
@@ -76,9 +76,14 @@ export function OrganizationProjects() {
     if (!isOnProjectsListingPage) {
       return;
     }
-    // If user already has a project context set, redirect to that project
+    // If user already has a project context set, redirect only when it belongs to this tenant
     if (projectId) {
-      navigateToProject(projectId);
+      const projectKnownHere = projects.some((p) => p.projectId === projectId);
+      if (projectKnownHere) {
+        navigateToProject(projectId);
+        return;
+      }
+      clearProject();
       return;
     }
 
@@ -98,6 +103,7 @@ export function OrganizationProjects() {
     location.pathname,
     organizationId,
     navigateToProject,
+    clearProject,
   ]);
 
   const handleCreateProject = () => {
