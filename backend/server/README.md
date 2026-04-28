@@ -2694,7 +2694,7 @@ curl -X DELETE 'http://localhost:8080/v1/alert/notificationChannels/1' \
 
 ### ClickHouse Schema
 
-See [../db/clickhouse](../db/clickhouse) for schemas.
+See backend/db/clickhouse/ for schemas.
 
 ## ⚙️ Configuration
 
