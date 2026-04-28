@@ -1,0 +1,116 @@
+pipeline {
+    agent {
+        node { label 'pulse-artifact-build-default-ec2-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    environment {
+        ARTIFACT_VERSION = ''
+        GITBOT_USERNAME = credentials('github-bot-username')
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Clone repository') {
+            steps {
+                checkout([
+                        $class           : 'GitSCM',
+                        branches         : [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Read Version') {
+            steps {
+                script {
+                    ARTIFACT_VERSION = getVersionFromPackageJson()
+                    echo "Version to be published: ${ARTIFACT_VERSION}"
+                }
+            }
+        }
+
+        stage('Publish Artifact') {
+            steps {
+                script {
+                    sh """
+                            #!/bin/bash -el
+                            chmod +x ./deploy/jenkinsfile/heatmap-screenshot-ingestion/publish-artifact.sh
+                            ./deploy/jenkinsfile/heatmap-screenshot-ingestion/publish-artifact.sh -v ${ARTIFACT_VERSION}
+                        """
+                }
+            }
+        }
+
+        stage('Bump version for next development') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
+                        sh """
+                            #!/bin/bash -el
+                            PKG="${WORKSPACE}/backend/heatmap-screenshot-ingestion/package.json"
+                            node -e "
+                              const fs = require('fs');
+                              const p = process.argv[1];
+                              const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+                              j.version = '${nextVersion}';
+                              fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\\n');
+                            " "\$PKG"
+
+                            git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+                            git config user.name "${GITBOT_USERNAME}"
+
+                            git add backend/heatmap-screenshot-ingestion/package.json
+                            git commit -m "chore: bump pulse-heatmap-screenshot-ingestion version to ${nextVersion}"
+
+                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def message = "<!channel> pulse-heatmap-screenshot-ingestion version *${ARTIFACT_VERSION}* published\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> pulse-heatmap-screenshot-ingestion version *${ARTIFACT_VERSION}* publish failed\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+    }
+}
+
+def getVersionFromPackageJson(String path = 'backend/heatmap-screenshot-ingestion/package.json') {
+    return sh(
+            script: "node -p \"require('./${path}').version\"",
+            returnStdout: true
+    ).trim()
+}
+
+def bumpSemverMinor(String version) {
+    def parts = version.tokenize('.')
+    def major = parts[0] as int
+    def minor = parts.size() > 1 ? parts[1] as int : 0
+    return "${major}.${minor + 1}.0"
+}
