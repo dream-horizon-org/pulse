@@ -46,20 +46,20 @@ PODS:
   - OpenTelemetry-Swift-Api (2.2.0)
   - OpenTelemetry-Swift-Sdk (2.2.0):
     - OpenTelemetry-Swift-Api (= 2.2.0)
-  - PulseKit (0.0.1-alpha):
+  - PulseKit (0.0.11-alpha):
     - KSCrash (= 2.5.1)
     - libwebp (= 1.5.0)
     - OpenTelemetry-Swift-Api (= 2.2.0)
     - OpenTelemetry-Swift-Sdk (= 2.2.0)
     - SwiftProtobuf (= 1.34.1)
-  - PulseReactNativeOtel (0.0.8):
+  - PulseReactNativeOtel (0.0.11):
     - boost
     - DoubleConversion
     - fast_float
     - fmt
     - glog
     - hermes-engine
-    - PulseKit (= 0.0.1-alpha)
+    - PulseKit (= 0.0.11-alpha)
     - RCT-Folly
     - RCT-Folly/Fabric
     - RCTRequired
@@ -2513,7 +2513,7 @@ DEPENDENCIES:
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
-  - PulseKit (from `/Users/anirudhbharti/codebase/pulse/pulse-ios-otel`)
+  - PulseKit (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse/pulse-ios-otel`)
   - PulseReactNativeOtel (from `../..`)
   - RCT-Folly (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -2611,7 +2611,7 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
     :tag: hermes-2025-07-07-RNv0.81.0-e0fc67142ec0763c6b6153ca2bf96df815539782
   PulseKit:
-    :path: "/Users/anirudhbharti/codebase/pulse/pulse-ios-otel"
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse/pulse-ios-otel"
   PulseReactNativeOtel:
     :path: "../.."
   RCT-Folly:
@@ -2761,8 +2761,8 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   OpenTelemetry-Swift-Api: 0785e3b9888286449aa297c0b48269797bfcaf7f
   OpenTelemetry-Swift-Sdk: b856396d6147c01829a88ad782f481c0e1cd0966
-  PulseKit: 22632b2108ecc971f6488f2b61a7b2da2af26e1e
-  PulseReactNativeOtel: d15a708a10a99038297eb771b8c7fe36b96fb50a
+  PulseKit: f5cc8b9b5316a9373e7033658933474d7d245fc2
+  PulseReactNativeOtel: 884ac7c8d6b13c595c2901ae83fe19512403df0c
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: c4b9e2fd0ab200e3af72b013ed6113187c607077
   RCTRequired: e97dd5dafc1db8094e63bc5031e0371f092ae92a
