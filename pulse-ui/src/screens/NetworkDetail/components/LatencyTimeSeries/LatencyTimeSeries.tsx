@@ -10,6 +10,7 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { LatencyTimeSeriesProps } from "./LatencyTimeSeries.interface";
 import classes from "./LatencyTimeSeries.module.css";
+import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -63,10 +64,10 @@ export const LatencyTimeSeries: React.FC<LatencyTimeSeriesProps> = ({
         {
           field: "PulseType",
           operator: "LIKE" as const,
-          value: ["%network%"],
+          value: [PulseType.NETWORK_LIKE],
         },
         {
-          field: "SpanAttributes['http.url']",
+          field: COLUMN_NAME.HTTP_URL,
           operator: "EQ" as const,
           value: [url],
         },

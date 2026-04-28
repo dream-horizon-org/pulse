@@ -26,10 +26,11 @@ import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLim
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ResetLimitsRestRequest;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.SetCustomLimitsRestRequest;
-import org.dreamhorizon.pulseserver.resources.usagelimits.models.UsageNotificationRestResponse;
+import org.dreamhorizon.pulseserver.resources.internal.models.CronRedisSyncJobAcceptedRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
+import org.dreamhorizon.pulseserver.service.cron.CronRedisMaterializationJobService;
 import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
 
 /**
@@ -38,7 +39,8 @@ import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
  * Internal endpoints:
  * - GET /internal/v1/projects/{projectId}/limits - Get project limits (full info)
  * - GET /internal/v1/projects/limits - Get all active project limits
- * - GET /internal/v1/projects/limits/notifications-due - Get usage notifications due
+ * - POST /internal/v1/projects/limits/sync-to-redis - Enqueue async ClickHouse + limits → Kong Redis credits (HTTP 202)
+ * - POST /internal/v1/projects/limits/process-usage-notifications - Enqueue async usage notifications batch (HTTP 202)
  * - PUT /internal/v1/projects/{projectId}/limits - Set custom limits
  * - POST /internal/v1/projects/{projectId}/limits/reset - Reset to tier defaults
  * - GET /internal/v1/projects/{projectId}/limits/history - Get limit change history
@@ -52,6 +54,7 @@ public class InternalUsageLimitsController {
   private static final UsageLimitMapper mapper = UsageLimitMapper.INSTANCE;
 
   private final UsageLimitService usageLimitService;
+  private final CronRedisMaterializationJobService cronRedisMaterializationJobService;
   private final JwtService jwtService;
 
   /**
@@ -92,18 +95,35 @@ public class InternalUsageLimitsController {
   }
 
   /**
-   * Get usage notifications that need to be sent (internal only).
-   * Analyzes all projects and returns list of notifications due.
-   * Called by alerts-cron to determine which notifications to send.
+   * Enqueues loading current-month usage from ClickHouse, merging active limits from MySQL, and
+   * writing {@code project:{projectId}:credit} hashes to Redis for Kong. Returns HTTP 202 Accepted
+   * immediately; work runs in the background.
    */
-  @GET
-  @Path("/limits/notifications-due")
+  @POST
+  @Path("/limits/sync-to-redis")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<UsageNotificationRestResponse>> getUsageNotifications() {
-    return usageLimitService.getUsageNotifications()
-        .map(mapper::toUsageNotificationResponse)
-        .to(RestResponse.jaxrsRestHandler());
+  public CompletionStage<Response<CronRedisSyncJobAcceptedRestResponse>> syncUsageCreditsToRedis() {
+    return cronRedisMaterializationJobService
+        .acceptUsageCreditsSyncToRedis()
+        .to(RestResponse.jaxrsRestHandler(
+            jakarta.ws.rs.core.Response.Status.ACCEPTED.getStatusCode()));
+  }
+
+  /**
+   * Enqueues usage-limit email notifications (get due, send, mark). Returns HTTP 202; work is async
+   * with {@code cron_jobs_history} (same pattern as {@code /limits/sync-to-redis}).
+   */
+  @POST
+  @Path("/limits/process-usage-notifications")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<CronRedisSyncJobAcceptedRestResponse>> processUsageLimitNotifications() {
+    return cronRedisMaterializationJobService
+        .acceptUsageLimitNotifications()
+        .to(
+            RestResponse.jaxrsRestHandler(
+                jakarta.ws.rs.core.Response.Status.ACCEPTED.getStatusCode()));
   }
 
   /**

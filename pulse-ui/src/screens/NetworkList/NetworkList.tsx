@@ -22,7 +22,7 @@ import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { encodeNetworkId } from "./utils/networkIdUtils";
-import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useFilterStore } from "../../stores/useFilterStore";
 
@@ -94,7 +94,7 @@ export function NetworkList({
       {
         field: "PulseType",
         operator: "LIKE" as const,
-        value: ["%network%"],
+        value: [PulseType.NETWORK_LIKE],
       },
     ];
 
@@ -118,16 +118,16 @@ export function NetworkList({
           break;
         case "url":
         case "endpoint":
-          filterField = "SpanAttributes['http.url']";
+          filterField = COLUMN_NAME.HTTP_URL;
           break;
         case "status_code":
-          filterField = "SpanAttributes['http.status_code']";
+          filterField = COLUMN_NAME.NETWORK_STATUS_CODE;
           break;
         case "operation_name":
           filterField = "SpanAttributes['graphql.operation.name']";
           break;
         default:
-          filterField = "SpanAttributes['http.url']";
+          filterField = COLUMN_NAME.HTTP_URL;
       }
 
       filters.push({
@@ -165,7 +165,7 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.url']",
+            expression: COLUMN_NAME.HTTP_URL,
           },
           alias: "url",
         },
@@ -214,7 +214,7 @@ export function NetworkList({
         // {
         //   function: "CUSTOM" as const,
         //   param: {
-        //     expression: "SpanAttributes['http.status_code']",
+        //     expression: COLUMN_NAME.NETWORK_STATUS_CODE,
         //   },
         //   alias: "status_code",
         // },

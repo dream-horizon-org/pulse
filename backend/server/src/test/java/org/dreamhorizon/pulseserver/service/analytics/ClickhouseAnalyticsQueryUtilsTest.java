@@ -43,6 +43,40 @@ class ClickhouseAnalyticsQueryUtilsTest {
   }
 
   @Nested
+  class ResolveMaterializedGroupKey {
+
+    @Test
+    void shouldReturnUserIdForUniqueUsers() {
+      assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey("UNIQUE_USERS"))
+          .isEqualTo("UserId");
+    }
+
+    @Test
+    void shouldReturnSessionIdForSessions() {
+      assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey("SESSIONS"))
+          .isEqualTo("SessionId");
+    }
+
+    @Test
+    void shouldBeCaseInsensitiveForSessions() {
+      assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey("sessions"))
+          .isEqualTo("SessionId");
+    }
+
+    @Test
+    void shouldDefaultToUserIdForUnknownMode() {
+      assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey("UNKNOWN"))
+          .isEqualTo("UserId");
+    }
+
+    @Test
+    void shouldDefaultToUserIdForNull() {
+      assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(null))
+          .isEqualTo("UserId");
+    }
+  }
+
+  @Nested
   class ResolveStartExpr {
 
     @Test

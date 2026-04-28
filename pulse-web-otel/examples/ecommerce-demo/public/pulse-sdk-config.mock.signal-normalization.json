@@ -1,0 +1,148 @@
+{
+  "version": 107,
+  "description": "Manual scope + metricsToAdd + trace attr drop. (1) attributesToDrop uses lowercase scopes [\"traces\"] only → mergePulseSdkConfig → TRACES; SignalFilterProcessor onStart matches sdk.init. (2) metricsToAdd: top props use backend \"name\" not \"key\"; target.type attribute nested condition uses lowercase \"traces\" + props \"name\" → merged props[].key + nested scopes normalized. (3) Same attributesToDrop entry: values [\"^screen\\\\.\"] drops screen.* keys on sdk.init after global attrs (screen.name removed in mutable span). Path: VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.signal-normalization.json",
+  "sampling": {
+    "default": { "sessionSampleRate": 1 },
+    "rules": [],
+    "signalsToSample": [],
+    "criticalSessionPolicies": { "alwaysSend": [] }
+  },
+  "signals": {
+    "scheduleDurationMs": 5000,
+    "attributesToDrop": [
+      {
+        "values": ["^screen\\."],
+        "condition": {
+          "name": "^sdk\\.init$",
+          "props": [],
+          "scopes": ["traces"],
+          "sdks": ["pulse_web_js"]
+        }
+      }
+    ],
+    "attributesToAdd": [],
+    "filters": { "mode": "BLACKLIST", "values": [] },
+    "metricsToAdd": [
+      {
+        "name": "manual_mock_sdk_init_metric_total",
+        "target": {
+          "type": "attribute",
+          "condition": {
+            "name": ".*",
+            "props": [{ "name": "pulse\\.type", "value": "^sdk\\.init$" }],
+            "scopes": ["traces"],
+            "sdks": ["pulse_web_js"]
+          }
+        },
+        "condition": {
+          "name": "^sdk\\.init$",
+          "props": [{ "name": "platform", "value": "^web$" }],
+          "scopes": ["traces"],
+          "sdks": ["pulse_web_js"]
+        },
+        "type": { "type": "counter" },
+        "attributesToPick": [
+          {
+            "name": ".*",
+            "props": [{ "name": "session\\.id", "value": ".+" }],
+            "scopes": ["traces"],
+            "sdks": ["pulse_web_js"]
+          }
+        ]
+      }
+    ]
+  },
+  "interaction": { "beforeInitQueueSize": 5000 },
+  "features": [
+    {
+      "featureName": "session",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "js_crash",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "custom_events",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "click",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_instrumentation",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "web_vitals",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "screen_session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "long_task",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "visibility",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "interaction",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "session_replay",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_change",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "resource_timing",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "websocket",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "bfcache",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    }
+  ]
+}

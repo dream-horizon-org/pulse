@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.rca;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -9,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,7 +53,7 @@ class RcaReportProcessorTest {
 
   private static final LocalDate DATE = LocalDate.of(2025, 1, 1);
   private static final String JOB_ID = "rca-job-x";
-  private static final String BODY = "{\"interactionName\":\"ix\"}";
+  private static final String BODY = "{\"rcaType\":\"INTERACTION\",\"entityKey\":\"ix\"}";
 
   @Mock private Vertx vertx;
   @Mock private RcaReportJobDao jobDao;
@@ -77,7 +79,6 @@ class RcaReportProcessorTest {
             new RcaRelatedHeatmapsMerger(new ObjectMapper()),
             enrichmentService,
             upstream);
-
     when(webClient.postAbs(anyString())).thenReturn(httpRequest);
     when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
     when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);

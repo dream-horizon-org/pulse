@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service.ai.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -86,7 +87,7 @@ class AiProxyServiceImplTest {
     lenient().when(webClient.putAbs(anyString())).thenReturn(httpRequest);
     lenient().when(webClient.deleteAbs(anyString())).thenReturn(httpRequest);
     lenient().when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
-    lenient().when(httpRequest.timeout(any(Long.class))).thenReturn(httpRequest);
+    lenient().when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
     lenient()
         .when(rcaReportJobService.createOrGetJob(any(), any()))
         .thenAnswer(
@@ -150,7 +151,7 @@ class AiProxyServiceImplTest {
   }
 
   private String rcaRequestBody() {
-    return "{\"interactionName\":\"checkout\",\"date\":\"2025-03-10\"}";
+    return "{\"rcaType\":\"INTERACTION\",\"entityKey\":\"checkout\",\"date\":\"2025-03-10\"}";
   }
 
   @Nested
@@ -222,8 +223,8 @@ class AiProxyServiceImplTest {
     }
 
     @Test
-    void shouldRejectRcaReportWhenInteractionNameMissing() throws Exception {
-      String body = "{\"date\":\"2025-03-10\"}";
+    void shouldRejectRcaReportWhenEntityKeyMissing() throws Exception {
+      String body = "{\"rcaType\":\"INTERACTION\",\"date\":\"2025-03-10\"}";
 
       AiProxyUpstreamResult result =
           awaitResult(
@@ -392,7 +393,7 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldSkipMysqlAndPassRegenerateOnJobWhenRegenerateTrue() throws Exception {
-      String body = "{\"interactionName\":\"checkout\",\"date\":\"2025-03-10\",\"regenerate\":true}";
+      String body = "{\"rcaType\":\"INTERACTION\",\"entityKey\":\"checkout\",\"date\":\"2025-03-10\",\"regenerate\":true}";
 
       AiProxyUpstreamResult result =
           awaitResult(

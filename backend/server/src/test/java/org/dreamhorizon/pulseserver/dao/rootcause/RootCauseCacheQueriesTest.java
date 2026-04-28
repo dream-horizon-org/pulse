@@ -105,7 +105,6 @@ class RootCauseCacheQueriesTest {
               null,
               null,
               LocalDateTime.of(2025, 1, 1, 0, 0));
-      // escapeJson(null) -> "{}" for both JSON columns
       assertThat(sql).contains("'{}','{}'");
     }
 
@@ -134,15 +133,20 @@ class RootCauseCacheQueriesTest {
           .contains("ProjectId")
           .contains("interaction_name")
           .contains("window_end_utc")
-          .contains("otel.root_cause_cache");
+          .contains("segments")
+          .contains("cached_at")
+          .contains("otel.root_cause_cache")
+          .doesNotContain("error_attribution_json");
     }
 
     @Test
     void insertConstantShouldListInsertColumns() {
       assertThat(RootCauseCacheQueries.INSERT_INTO_ROOT_CAUSE_CACHE)
           .contains("INSERT INTO otel.root_cause_cache")
+          .contains("segments")
           .contains("cached_at")
-          .contains("VALUES ");
+          .contains("VALUES ")
+          .doesNotContain("error_attribution_json");
     }
   }
 }

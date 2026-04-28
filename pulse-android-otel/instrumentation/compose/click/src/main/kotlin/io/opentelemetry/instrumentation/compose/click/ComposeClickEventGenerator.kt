@@ -48,6 +48,7 @@ internal class ComposeClickEventGenerator(
             }
             MotionEvent.ACTION_UP -> {
                 if (!gestureTracker.onActionUp(motionEvent)) return
+                if (!ComposeClasspathProbe.isComposeUiPresent()) return
 
                 val decorView = windowRef?.get()?.decorView ?: return
                 // getX()/getY() from dispatchTouchEvent and boundsInWindow() both use window

@@ -18,6 +18,12 @@ export type PulseAttributes = Record<
 
 export type PulseDataCollectionState = 'PENDING' | 'ALLOWED' | 'DENIED';
 
+/**
+ * Numeric log verbosity for native init from Expo config (JSON-friendly).
+ * Matches JS `PulseLogLevel` / native ordinals: 0 = VERBOSE … 5 = NONE.
+ */
+export type PulseLogLevelValue = 0 | 1 | 2 | 3 | 4 | 5;
+
 /** Simple on/off for `app.json` instrumentation (Android + iOS). */
 export interface PulseInstrumentationEnabled {
   enabled?: boolean;
@@ -119,10 +125,27 @@ export type PulseNativeInitFields = {
   apiKey?: string;
   dataCollectionState?: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
+  /** Override top-level `logLevel` for this platform when set. */
+  logLevel?: PulseLogLevelValue;
 };
+
+export interface PulseAndroidCoreLibraryDesugaring {
+  enabled?: boolean;
+  /** `com.android.tools:desugar_jdk_libs` version; used only when `enabled` is true. Default `2.1.4`. */
+  version?: string;
+}
+
+/** Android OkHttp / Byte Buddy Gradle wiring (under `android` only), parallel to `coreLibraryDesugaring`. */
+export interface PulseAndroidOkHttpInstrumentation {
+  enabled?: boolean;
+  /** `net.bytebuddy:byte-buddy-gradle-plugin` on root `buildscript` classpath; default when omitted: see `androidBuildConstants`. */
+  byteBuddyGradlePluginVersion?: string;
+}
 
 export interface PulseAndroidSection extends PulseNativeInitFields {
   instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugaring?: PulseAndroidCoreLibraryDesugaring;
+  okHttpInstrumentation?: PulseAndroidOkHttpInstrumentation;
 }
 
 export interface PulseIosSection extends PulseNativeInitFields {
@@ -135,10 +158,21 @@ export interface PulsePlatformInitProps {
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
+  logLevel?: PulseLogLevelValue;
 }
 
 export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
   instrumentation?: PulseAndroidInstrumentationProps;
+  coreLibraryDesugaring: {
+    enabled: boolean;
+    /** Meaningful when `enabled`; always set for stable plugin internals. */
+    version: string;
+  };
+  okHttpInstrumentation: {
+    enabled: boolean;
+    /** Meaningful when `enabled`; always set for stable plugin internals (defaults from androidBuildConstants). */
+    byteBuddyGradlePluginVersion: string;
+  };
 };
 
 export type ResolvedIosPulseProps = PulsePlatformInitProps & {
@@ -150,10 +184,12 @@ export type ResolvedIosPulseProps = PulsePlatformInitProps & {
  * Expo config plugin props. Top-level `apiKey` and `dataCollectionState` are required.
  * `android` / `ios`: optional init overrides, `globalAttributes`, `instrumentation`; iOS also `configuration`.
  * Do not put `globalAttributes`, `instrumentation`, or `configuration` at the top level.
+ * Optional `logLevel` (0–5) may be set at the top level and/or overridden per platform.
  */
 export interface PulsePluginProps {
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
+  logLevel?: PulseLogLevelValue;
 
   android?: PulseAndroidSection;
   ios?: PulseIosSection;
