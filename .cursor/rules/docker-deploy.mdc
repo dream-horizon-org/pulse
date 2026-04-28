@@ -30,7 +30,7 @@ alwaysApply: false
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
 
-**clickhouse-init:** mounts `clickhouse-otel-schema.sql`, session replay + session-summary MV, `event-catalog-entries.sql`, `funnel-results.sql`, `journey-results.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
+**clickhouse-init:** mounts `backend/db/dev/clickhouse/*.sql`, session replay + session-summary MV, `event-catalog-entries.sql`, `funnel-results.sql`, `journey-results.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
 
 `pulse-server` and `pulse-alerts-cron` include `extra_hosts: host.docker.internal:host-gateway` so containers can reach OTLP on the host (optional JVM OpenTelemetry export; see below).
 
