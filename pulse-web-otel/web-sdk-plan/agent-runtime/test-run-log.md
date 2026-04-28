@@ -98,3 +98,11 @@ Rules:
 - Passed: 2
 - Failed: 0
 - Failed test files/specs: none
+
+## 2026-04-27T22:30:00Z
+- Note: `m2-interactions-edge.spec.ts` merged into `m2-interactions.spec.ts` (second `test.describe("@M2 interactions edge cases")`); edge file removed. Web SDK PR gate: `yarn workspace ecommerce-demo e2e:web-sdk-gates` (`examples/ecommerce-demo/package.json`).
+- Command: `yarn workspace ecommerce-demo e2e:web-sdk-gates`
+- Files/Suites: `e2e/m1.spec.ts`, `e2e/m2-interactions.spec.ts` (Chromium)
+- Passed: 126
+- Failed: 0
+- Failed test files/specs: none

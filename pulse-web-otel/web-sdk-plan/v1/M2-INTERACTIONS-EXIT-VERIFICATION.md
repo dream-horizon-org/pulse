@@ -8,9 +8,9 @@ Scope: Phases 1-7 from `web_sdk_interactions_plan_74dfd441.plan.md` (interaction
 - Unit interactions suite:
   - `yarn test:run src/__tests__/interactions-config-fetcher.test.ts src/__tests__/interactions-tracker.test.ts src/__tests__/interactions-coordinator.test.ts src/__tests__/interactions-span-builder.test.ts src/__tests__/interactions-sdk-wiring.test.ts src/__tests__/interaction-feature.test.ts src/__tests__/interaction-feature-integration.test.ts src/__tests__/interactions-sequence-matcher.test.ts src/__tests__/interactions-events-utils.test.ts`
   - Result: 9 files, 44 tests, all passing
-- E2E interactions suite:
-  - `yarn e2e --project=chromium e2e/m2-interactions.spec.ts`
-  - Result: 7 tests, all passing
+- E2E interactions suite (includes `@M2 interactions edge cases` in the same file):
+  - `yarn workspace ecommerce-demo e2e:m2-interactions` or full gate `yarn workspace ecommerce-demo e2e:web-sdk-gates`
+  - Legacy: `yarn e2e --project=chromium e2e/m2-interactions.spec.ts` from `examples/ecommerce-demo/`
 
 ## Done-Criteria Coverage Map
 
