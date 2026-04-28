@@ -57,7 +57,19 @@ fi
 
 sudo mkdir -p /etc/pulse
 # Secret format matches pulse-server / pulse-alerts-cron: { "app_env": [ { "key": "...", "value": "..." } ] }
-echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' | sudo tee "$ENV_FILE" >/dev/null
+# Use stdlib json (AMI may not ship jq).
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 not found; cannot parse appenv secret without jq"
+  exit 1
+fi
+echo "$SECRET_JSON" | python3 -c 'import json, sys
+data = json.load(sys.stdin)
+for item in data.get("app_env", []):
+    k = item.get("key") or ""
+    v = item.get("value", "")
+    if k:
+        print("%s=%s" % (k, v))
+' | sudo tee "$ENV_FILE" >/dev/null
 sudo chmod 600 "$ENV_FILE"
 
 echo "Starting pulse-heatmap-screenshot-ingestion service..."
