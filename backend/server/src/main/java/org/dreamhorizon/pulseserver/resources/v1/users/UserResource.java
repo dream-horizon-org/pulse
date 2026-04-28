@@ -18,6 +18,7 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.UserProjectsService;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import io.jsonwebtoken.Claims;
 
 /**
@@ -74,8 +75,12 @@ public class UserResource {
             }
             
             String userId = claims.getSubject();
-            String tenantId = claims.get("tenantId", String.class);
-            
+            // Prefer TenantFilter resolution (JWT tenant + optional X-Tenant-ID for system roles)
+            String tenantId = TenantContext.getTenantId();
+            if (tenantId == null || tenantId.isBlank()) {
+                tenantId = claims.get("tenantId", String.class);
+            }
+
             if (userId == null || userId.isBlank()) {
                 throw ServiceError.UNAUTHORISED
                     .getCustomException("Invalid token", "Token missing user ID");
