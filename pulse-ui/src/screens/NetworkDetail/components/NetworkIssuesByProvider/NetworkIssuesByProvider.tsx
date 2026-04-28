@@ -8,6 +8,7 @@ import { Box, Text, SimpleGrid } from "@mantine/core";
 import { ChartSkeleton, SkeletonLoader } from "../../../../components/Skeletons";
 import classes from "./NetworkIssuesByProvider.module.css";
 import { IconMoodHappy, IconWifi } from "@tabler/icons-react";
+import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
 
 interface NetworkIssuesByProviderProps {
   url: string;
@@ -42,7 +43,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       select: [
         { function: "CUSTOM" as const, param: { expression: "count()" }, alias: "error_count" },
         { function: "CUSTOM" as const, param: { expression: "NetworkProvider" }, alias: "network_provider" },
-        { function: "CUSTOM" as const, param: { expression: "SpanAttributes['http.status_code']" }, alias: "status_code" },
+        { function: "CUSTOM" as const, param: { expression: COLUMN_NAME.NETWORK_STATUS_CODE }, alias: "status_code" },
         { function: "CUSTOM" as const, param: { expression: "PulseType" }, alias: "pulse_type" },
       ],
       groupBy: ["network_provider", "status_code", "pulse_type"],
@@ -50,9 +51,9 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
         {
           field: "PulseType",
           operator: "LIKE" as const,
-          value: ["%network%"],
+          value: [PulseType.NETWORK_LIKE],
         },
-        { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
+        { field: COLUMN_NAME.HTTP_URL, operator: "EQ" as const, value: [url] },
         ...additionalFilters,
       ],
       orderBy: [{ field: "error_count", direction: "ASC" as const }],

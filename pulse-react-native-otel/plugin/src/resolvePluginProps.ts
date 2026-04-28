@@ -2,6 +2,7 @@ import { PluginError } from '@expo/config-plugins';
 
 import type {
   PulseDataCollectionState,
+  PulseLogLevelValue,
   PulseNativeInitFields,
   PulsePluginProps,
   PulsePlatformInitProps,
@@ -23,6 +24,30 @@ function parseConsent(value: unknown, label: string): PulseDataCollectionState {
   );
 }
 
+function assertOptionalLogLevel(value: unknown, label: string): void {
+  if (value === undefined) {
+    return;
+  }
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 5
+  ) {
+    throw new PluginError(
+      `Pulse config plugin: ${label} must be an integer 0–5 (PulseLogLevel: 0=VERBOSE … 5=NONE).`,
+      'INVALID_PLUGIN_TYPE'
+    );
+  }
+}
+
+function mergeLogLevel(
+  root: PulsePluginProps,
+  section?: PulseNativeInitFields
+): PulseLogLevelValue | undefined {
+  return section?.logLevel ?? root.logLevel;
+}
+
 function mergePlatformInit(
   root: PulsePluginProps,
   section?: PulseNativeInitFields
@@ -42,6 +67,7 @@ function mergePlatformInit(
     apiKey,
     dataCollectionState,
     globalAttributes: section?.globalAttributes,
+    logLevel: mergeLogLevel(root, section),
   };
 }
 
@@ -69,6 +95,8 @@ export function assertPulsePluginProps(
     p.dataCollectionState,
     'top-level "dataCollectionState" (required; override per platform under "android" / "ios" if needed)'
   );
+
+  assertOptionalLogLevel(p.logLevel, 'top-level "logLevel"');
 
   const forbiddenRoot = [
     'globalAttributes',
@@ -126,6 +154,9 @@ export function assertPulsePluginProps(
   }
 
   const typed = props as PulsePluginProps;
+
+  assertOptionalLogLevel(typed.android?.logLevel, 'android.logLevel');
+  assertOptionalLogLevel(typed.ios?.logLevel, 'ios.logLevel');
 
   if (typed.android?.coreLibraryDesugaring !== undefined) {
     const d = typed.android.coreLibraryDesugaring;

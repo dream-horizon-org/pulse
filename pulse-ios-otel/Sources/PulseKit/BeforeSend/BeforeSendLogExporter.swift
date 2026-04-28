@@ -6,7 +6,7 @@
 import Foundation
 import OpenTelemetrySdk
 
-public typealias BeforeSendLogCallback = (ReadableLogRecord) -> ReadableLogRecord?
+public typealias BeforeSendLogCallback = (ReadableLogRecord) throws -> ReadableLogRecord?
 
 /// Applies a user-provided closure to each log record before export.
 /// Return the log (optionally modified) to export, or nil to drop.
@@ -21,7 +21,14 @@ internal class BeforeSendLogExporter: LogRecordExporter {
     }
 
     func export(logRecords: [ReadableLogRecord], explicitTimeout: TimeInterval?) -> ExportResult {
-        let filtered = logRecords.compactMap { callback($0) }
+        let filtered: [ReadableLogRecord]
+        do {
+            filtered = try logRecords.compactMap { try callback($0) }
+        } catch {
+            let errClass = PulseErrorClassification.classify(error)
+            PulseLogger.error("sdk.beforesend.error signal=log_records error_class=\(errClass)")
+            return .failure
+        }
         guard !filtered.isEmpty else { return .success }
         return delegate.export(logRecords: filtered, explicitTimeout: explicitTimeout)
     }
