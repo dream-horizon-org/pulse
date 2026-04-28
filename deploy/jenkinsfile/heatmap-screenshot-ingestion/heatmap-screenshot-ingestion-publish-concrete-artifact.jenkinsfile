@@ -1,7 +1,7 @@
 pipeline {
     agent {
         // Same fleet as session-replay / pulse-server publish: has Node + npm for npm install/build.
-        node { label 'pulse-artifact-build-default-ec2-fleet' }
+        node { label 'pulse-artifact-arm-build-ec2-fleet' }
     }
 
     options {
