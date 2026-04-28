@@ -48,7 +48,14 @@ internal object PulseSdkConfigRefresher {
                     "oldConfigVersion = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}, " +
                     "shouldUpdate = $isDifferentVersion"
             }
-            if (isDifferentVersion) {
+            if (isDifferentVersion && newConfig != null) {
+                val persistedVersion = currentSdkConfig?.version
+                val fetchedVersion = newConfig.version
+                PulseLogger.logInfo(TAG) {
+                    "sdk.sampling.config_mismatch reason=remote_version_diff " +
+                        "persisted_version=${persistedVersion ?: "null"} " +
+                        "fetched_version=$fetchedVersion"
+                }
                 sharedPrefs.edit(commit = true) {
                     putString(
                         prefsKey,

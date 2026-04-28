@@ -1,0 +1,46 @@
+# Recording rules for Pulse JVM metrics scraped from obs_otel_collector OTLP → Prometheus exposition.
+# Use in Prometheus UI → Graph: e.g. otel:http_server:request_rate5m
+#
+# Scrape `job` is the Prometheus target (e.g. obs_otel_collector). OTEL `service.name` is `service_name`.
+
+groups:
+  - name: pulse_otel_http
+    interval: 15s
+    rules:
+      # Request rate (req/s) by service, method, status
+      - record: otel:http_server:request_rate5m
+        expr: |
+          sum(
+            rate(otel_http_server_request_duration_seconds_count[5m])
+          ) by (service_name, http_request_method, http_response_status_code)
+
+      # Total request rate per service (all methods/statuses)
+      - record: otel:http_server:request_rate5m_total
+        expr: |
+          sum(
+            rate(otel_http_server_request_duration_seconds_count[5m])
+          ) by (service_name)
+
+      # Mean latency (seconds) per service
+      - record: otel:http_server:latency_mean_5m
+        expr: |
+          sum(rate(otel_http_server_request_duration_seconds_sum[5m])) by (service_name)
+            /
+          sum(rate(otel_http_server_request_duration_seconds_count[5m])) by (service_name)
+
+      # p95 latency (seconds) per service (aggregated across status/method)
+      - record: otel:http_server:latency_p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(otel_http_server_request_duration_seconds_bucket[5m])) by (service_name, le)
+          )
+
+      # 5xx error ratio (0–1) per service
+      - record: otel:http_server:error_ratio_5m
+        expr: |
+          sum(
+            rate(otel_http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])
+          ) by (service_name)
+            /
+          sum(rate(otel_http_server_request_duration_seconds_count[5m])) by (service_name)

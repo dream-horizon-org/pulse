@@ -1,0 +1,18 @@
+{
+  "id": "1",
+  "name": "Wireless Noise-Cancelling Headphones",
+  "price": 89.99,
+  "category": "Electronics",
+  "imageUrl": "https://picsum.photos/seed/headphones/600/400",
+  "rating": 4.5,
+  "stock": 42,
+  "description": "Industry-leading noise cancellation with 30-hour battery life. Premium drivers deliver crystal-clear audio with deep bass. Foldable design for easy portability. Works with all Bluetooth-enabled devices.",
+  "specs": [
+    { "label": "Driver Size", "value": "40mm" },
+    { "label": "Frequency Response", "value": "20Hz – 20kHz" },
+    { "label": "Battery Life", "value": "30 hours" },
+    { "label": "Charging", "value": "USB-C, 2h full charge" },
+    { "label": "Connectivity", "value": "Bluetooth 5.2, 3.5mm jack" },
+    { "label": "Weight", "value": "250g" }
+  ]
+}

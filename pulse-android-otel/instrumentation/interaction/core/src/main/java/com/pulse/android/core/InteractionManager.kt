@@ -1,8 +1,11 @@
 package com.pulse.android.core
 
+import android.os.SystemClock
 import com.pulse.android.core.config.InteractionConfigFetcher
 import com.pulse.android.remote.models.InteractionConfig
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseNetworkingUtils
+import com.pulse.utils.RedactionUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +42,7 @@ public class InteractionManager
             return launch(ioDispatcher) {
                 logVerbose { "Initializing with endpoint: $interactionFetcher" }
 
+                val t0 = SystemClock.elapsedRealtime()
                 val interactionConfigs =
                     interactionConfigs ?: PulseNetworkingUtils
                         .runNetworkCatching(
@@ -50,13 +54,26 @@ public class InteractionManager
                             interactionFetcher.getConfigs()
                         }.onFailure { error ->
                             currentCoroutineContext().ensureActive()
+                            val elapsed = SystemClock.elapsedRealtime() - t0
+                            val err = RedactionUtils.classifyError(error)
+                            PulseLogger.logWarn(InteractionConstant.LOG_TAG, error) {
+                                "sdk.interaction.config_fetch success=false duration_ms=$elapsed error_class=$err"
+                            }
                             logVerbose { "Failed to fetch interactions: ${error.message ?: "no-msg"}" }
                             return@launch
                         }.getOrNull() ?: run {
+                        val elapsed = SystemClock.elapsedRealtime() - t0
+                        PulseLogger.logWarn(InteractionConstant.LOG_TAG) {
+                            "sdk.interaction.config_fetch success=false duration_ms=$elapsed error_class=no_data"
+                        }
                         logVerbose { "No interaction configs received" }
                         return@launch
                     }
 
+                val elapsed = SystemClock.elapsedRealtime() - t0
+                PulseLogger.logInfo(InteractionConstant.LOG_TAG) {
+                    "sdk.interaction.config_fetch success=true duration_ms=$elapsed interactions_count=${interactionConfigs.size}"
+                }
                 logVerbose { "Loaded ${interactionConfigs.size} interaction(s)" }
 
                 interactionTrackers =

@@ -279,6 +279,7 @@ internal class SessionReplayMasker {
             let screenshot = self.captureScreenshotSync(window: window, bounds: windowBounds)
 
             guard let screenshot = screenshot, screenshot.size.width > 0 && screenshot.size.height > 0 else {
+                PulseLogger.warn("sdk.replay.capture_failure reason=screenshot_nil_or_invalid")
                 completion(nil)
                 return
             }
@@ -1337,6 +1338,7 @@ internal class SessionReplayMasker {
         }
 
         guard image.size.width > 0 && image.size.height > 0 else {
+            PulseLogger.warn("sdk.replay.capture_failure reason=empty_screenshot_after_draw_hierarchy")
             return nil
         }
 

@@ -14,7 +14,6 @@ let package = Package(
     .visionOS(.v1)
   ],
   products: [
-    .library(name: "PulseLogging", targets: ["PulseLogging"]),
     .library(name: "SwiftMetricsShim", targets: ["SwiftMetricsShim"]),
     .library(name: "PrometheusExporter", targets: ["PrometheusExporter"]),
     .library(name: "OpenTelemetryProtocolExporter", targets: ["OpenTelemetryProtocolExporterGrpc"]),
@@ -40,7 +39,7 @@ let package = Package(
     .target(
       name: "PulseLogging",
       dependencies: [],
-      path: "Sources/PulseLogging"
+      path: "Sources/PulseKit/Logging"
     ),
     .target(
       name: "SharedTestUtils",
@@ -113,6 +112,7 @@ let package = Package(
     .target(
       name: "PersistenceExporter",
       dependencies: [
+        "PulseLogging",
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
       ],
       path: "Sources/Exporters/Persistence",
@@ -246,6 +246,7 @@ extension Package {
         .target(
           name: "MetricKitInstrumentation",
           dependencies: [
+            "PulseLogging",
             .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
           ],
           path: "Sources/Instrumentation/MetricKit",
@@ -278,6 +279,7 @@ extension Package {
             "PulseKit/README.md",
             "PulseKit/Consent/README.md",
             "PulseKit/Sampling/README.md",
+            "PulseKit/Logging",
             "Instrumentation/Sessions/README.md",
             "Instrumentation/Crashes/README.md",
             "Instrumentation/URLSession/README.md",
