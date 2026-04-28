@@ -101,10 +101,14 @@ pipeline {
                 expression { return !params.DRY_RUN }
             }
             steps {
-                input(
-                    message: "Review the preflight output above.\n\nThis will PERMANENTLY delete project '${params.PROJECT_ID}' — MySQL rows, ClickHouse user, and OpenFGA tuples. This cannot be undone.\n\nProceed?",
-                    ok: 'Yes, Delete!'
-                )
+                script {
+                    timeout(time: 1, unit: 'MINUTES') {
+                        input(
+                            message: "Review the preflight output above.\n\nThis will PERMANENTLY delete project '${params.PROJECT_ID}' — MySQL rows, ClickHouse user, and OpenFGA tuples. This cannot be undone.\n\nProceed? (Approve within 1 minute or the build aborts.)",
+                            ok: 'Yes, Delete!'
+                        )
+                    }
+                }
             }
         }
 
