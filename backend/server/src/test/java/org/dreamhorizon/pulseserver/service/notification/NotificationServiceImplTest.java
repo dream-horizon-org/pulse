@@ -374,11 +374,10 @@ class NotificationServiceImplTest {
       when(templateDao.getLatestVersion(eq("alert"), eq(ChannelType.EMAIL)))
           .thenReturn(Single.just(0));
       when(templateDao.createTemplate(any())).thenReturn(Single.just(TEMPLATE_ID));
-      when(templateDao.getTemplateById(eq(TEMPLATE_ID))).thenReturn(Maybe.just(emailTemplate()));
 
       var result = service.createTemplate(request).blockingGet();
 
-      assertThat(result).isNotNull();
+      assertThat(result).isEqualTo(TEMPLATE_ID);
     }
 
     @Test
@@ -474,19 +473,6 @@ class NotificationServiceImplTest {
       long[] idCounter = {1};
       when(mappingDao.createMapping(any(ChannelEventMapping.class)))
           .thenAnswer(inv -> Single.just(idCounter[0]++));
-      when(mappingDao.getMappingById(anyLong()))
-          .thenAnswer(inv -> {
-            Long id = inv.getArgument(0);
-            return Maybe.just(ChannelEventMapping.builder()
-                .id(id)
-                .projectId(PROJECT_ID)
-                .channelId(NotificationConstants.Platform.DEFAULT_CHANNEL_ID)
-                .eventName("event")
-                .isActive(true)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .build());
-          });
 
       List<ChannelEventMappingDto> result =
           service.createDefaultPlatformMappings(PROJECT_ID).blockingGet();
@@ -608,17 +594,6 @@ class NotificationServiceImplTest {
           .thenReturn(Maybe.just(emailTemplate()));
       when(mappingDao.createMapping(any(ChannelEventMapping.class)))
           .thenReturn(Single.just(10L));
-      when(mappingDao.getMappingById(eq(10L)))
-          .thenReturn(Maybe.just(ChannelEventMapping.builder()
-              .id(10L)
-              .projectId(PROJECT_ID)
-              .channelId(CHANNEL_ID)
-              .eventName("alert")
-              .recipient("user@test.com")
-              .isActive(true)
-              .createdAt(Instant.now())
-              .updatedAt(Instant.now())
-              .build()));
 
       var result = service.createMapping(PROJECT_ID, request).blockingGet();
 

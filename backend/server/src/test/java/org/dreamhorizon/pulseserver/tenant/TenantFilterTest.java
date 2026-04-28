@@ -230,6 +230,28 @@ class TenantFilterTest {
     }
 
     @Test
+    void shouldSkipFilterForNotificationsSendPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/notifications/send");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+      verify(requestContext, never()).getHeaderString(TenantFilter.API_KEY_HEADER);
+    }
+
+    @Test
+    void shouldSkipFilterForNotificationsLogsPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("/v1/notifications/logs");
+
+      tenantFilter.filter(requestContext);
+
+      assertNull(TenantContext.getTenantId());
+      verify(requestContext, never()).getHeaderString(TenantFilter.API_KEY_HEADER);
+    }
+
+    @Test
     void shouldNotExcludeNullPath() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn(null);
@@ -456,6 +478,20 @@ class TenantFilterTest {
       tenantFilter.filter(requestContext);
 
       assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldSetTenantIdFromJwtForNotificationsContactUsPath() throws IOException {
+      when(requestContext.getUriInfo()).thenReturn(uriInfo);
+      when(uriInfo.getPath()).thenReturn("v1/notifications/contact-us");
+      when(requestContext.getHeaderString(TenantFilter.PROJECT_HEADER)).thenReturn(null);
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
+      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      when(claims.get("tenantId", String.class)).thenReturn("tenant_contact");
+
+      tenantFilter.filter(requestContext);
+
+      assertThat(TenantContext.getTenantId()).isEqualTo("tenant_contact");
     }
   }
 }
