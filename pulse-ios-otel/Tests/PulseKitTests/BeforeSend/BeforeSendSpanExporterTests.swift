@@ -48,6 +48,17 @@ final class BeforeSendSpanExporterTests: XCTestCase {
         XCTAssertTrue(mock.exportedSpans.isEmpty)
     }
 
+    func testCallbackThrowReturnsFailureAndSkipsDelegate() {
+        struct Boom: Error {}
+        let mock = MockSpanExporter()
+        let exporter = BeforeSendSpanExporter(callback: { _ in throw Boom() }, delegate: mock)
+
+        let result = exporter.export(spans: [createSpan(name: "a")], explicitTimeout: nil)
+
+        XCTAssertEqual(result, .failure)
+        XCTAssertTrue(mock.exportedSpans.isEmpty)
+    }
+
     func testModifyAttributes() {
         let mock = MockSpanExporter()
         let exporter = BeforeSendSpanExporter(callback: { span in

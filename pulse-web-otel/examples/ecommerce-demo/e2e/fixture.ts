@@ -255,6 +255,35 @@ async function pollUntil<T>(
 }
 
 /**
+ * Stub remote SDK config fetch so E2E does not hit a real pulse-server on
+ * localhost:8080 (which can persist {@code pulse_sdk_config} that disables
+ * {@code custom_events} or changes sampling — then the second document load
+ * sees a different gate than the first). Tests that need a specific config
+ * response register their own route for the active-config URL in the test
+ * body; Playwright matches the last registered route first.
+ */
+export async function attachDefaultSdkConfigStub(
+  target: Page | BrowserContext,
+): Promise<void> {
+  const corsHeaders: Record<string, string> = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-API-KEY",
+  };
+  await target.route("**/v1/configs/active**", async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: corsHeaders });
+      return;
+    }
+    await route.fulfill({
+      status: 404,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: "{}",
+    });
+  });
+}
+
+/**
  * Intercept OTLP on a whole {@link BrowserContext} or a single {@link Page}
  * (same pattern as the `otlp` fixture). Use context-level routing when the test
  * closes the page under test — `page.route` dies with the page.
@@ -328,6 +357,7 @@ export type OtlpFixture = {
 export const test = base.extend<{ otlp: OtlpFixture }>({
   otlp: async ({ page }, use) => {
     const captured: CapturedRequest[] = [];
+    await attachDefaultSdkConfigStub(page);
     await attachOtlpCapture(page, captured);
 
     await use({

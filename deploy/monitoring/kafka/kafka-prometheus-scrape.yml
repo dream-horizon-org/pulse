@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "kafka"
+    static_configs:
+      - targets:
+          - "pulse-kafka-01.pulse.local:7071"
+          - "pulse-kafka-02.pulse.local:7071"
+        labels:
+          env: "production"
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        regex: "([^:]+):.*"
+        target_label: instance
+        replacement: "$1"
+
+  - job_name: "node_exporter"        # OS-level metrics (optional but recommended)
+    static_configs:
+      - targets:
+          - "pulse-kafka-01.pulse.local:7071"
+          - "pulse-kafka-02.pulse.local:7071"

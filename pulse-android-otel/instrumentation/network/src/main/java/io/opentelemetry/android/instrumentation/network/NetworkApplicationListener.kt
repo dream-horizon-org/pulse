@@ -5,7 +5,9 @@
 
 package io.opentelemetry.android.instrumentation.network
 
+import com.pulse.utils.PulseLogger
 import io.opentelemetry.android.common.internal.features.networkattributes.data.CurrentNetwork
+import io.opentelemetry.android.common.internal.features.networkattributes.data.NetworkState
 import io.opentelemetry.android.internal.services.applifecycle.ApplicationStateListener
 import io.opentelemetry.android.internal.services.network.CurrentNetworkProvider
 import io.opentelemetry.android.internal.services.network.NetworkChangeListener
@@ -13,14 +15,20 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Consumer
 
 val NETWORK_STATUS_KEY: AttributeKey<String> = AttributeKey.stringKey("network.status")
+val NETWORK_PREVIOUS_CONNECTION_TYPE_KEY: AttributeKey<String> =
+    AttributeKey.stringKey("network.previous.connection.type")
+
+private const val NETWORK_HEALTH_TAG = "NetworkChange"
 
 internal class NetworkApplicationListener(
     private val currentNetworkProvider: CurrentNetworkProvider,
 ) : ApplicationStateListener {
     private val shouldEmitChangeEvents = AtomicBoolean(true)
+    private val previousNetworkRef = AtomicReference<CurrentNetwork?>(null)
 
     fun startMonitoring(
         eventLogger: Logger,
@@ -30,6 +38,7 @@ internal class NetworkApplicationListener(
             TracingNetworkChangeListener(
                 eventLogger,
                 shouldEmitChangeEvents,
+                previousNetworkRef,
                 additionalExtractors,
             ),
         )
@@ -46,13 +55,34 @@ internal class NetworkApplicationListener(
     private class TracingNetworkChangeListener(
         private val eventLogger: Logger,
         private val shouldEmitChangeEvents: AtomicBoolean,
+        private val previousNetworkRef: AtomicReference<CurrentNetwork?>,
         private val additionalExtractors: List<NetworkAttributesExtractor>,
     ) : NetworkChangeListener {
         override fun onNetworkChange(currentNetwork: CurrentNetwork) {
             if (!shouldEmitChangeEvents.get()) {
                 return
             }
+            val isConnected = currentNetwork.state != NetworkState.NO_NETWORK_AVAILABLE
+            val type =
+                when (currentNetwork.state) {
+                    NetworkState.NO_NETWORK_AVAILABLE -> "none"
+                    NetworkState.TRANSPORT_WIFI -> "wifi"
+                    NetworkState.TRANSPORT_CELLULAR -> "cellular"
+                    NetworkState.TRANSPORT_WIRED -> "wired"
+                    NetworkState.TRANSPORT_VPN -> "vpn"
+                    NetworkState.TRANSPORT_UNKNOWN -> "unknown"
+                }
+            PulseLogger.logInfo(NETWORK_HEALTH_TAG) {
+                "sdk.network.status_changed connected=$isConnected type=$type"
+            }
             val attributesBuilder = Attributes.builder()
+            val previousNetwork = previousNetworkRef.getAndSet(currentNetwork)
+            if (previousNetwork != null) {
+                attributesBuilder.put(
+                    NETWORK_PREVIOUS_CONNECTION_TYPE_KEY,
+                    previousNetwork.state.humanName,
+                )
+            }
             additionalExtractors.forEach(
                 Consumer { extractor: NetworkAttributesExtractor ->
                     extractor(attributesBuilder, currentNetwork)

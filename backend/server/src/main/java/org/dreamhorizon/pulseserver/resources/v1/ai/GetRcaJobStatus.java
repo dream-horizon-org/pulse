@@ -56,16 +56,14 @@ public class GetRcaJobStatus {
   @RequiresPermission("can_view")
   public CompletionStage<Response<GetRcaJobResponse>> peekRcaStatus(
       @QueryParam("rcaType") String rcaTypeParam,
-      @QueryParam("entityKey") String entityKeyParam,
-      @QueryParam("interactionName") String interactionName,
+      @QueryParam("entityKey") String entityKey,
       @QueryParam("date") String dateParam,
       @HeaderParam(PROJECT_ID_HEADER) String projectId) {
 
-    // Support both new (rcaType + entityKey) and legacy (interactionName) parameters
     RcaType type = resolveRcaType(rcaTypeParam);
-    String entityKey = resolveEntityKey(entityKeyParam, interactionName);
 
-    if (entityKey == null || entityKey.isBlank()
+    if (type == null
+        || entityKey == null || entityKey.isBlank()
         || projectId == null || projectId.isBlank()) {
       return Maybe.<GetRcaJobResponse>error(ServiceError.NOT_FOUND.getException())
           .toSingle()
@@ -81,22 +79,14 @@ public class GetRcaJobStatus {
 
   private static RcaType resolveRcaType(String rcaTypeParam) {
     if (rcaTypeParam == null || rcaTypeParam.isBlank()) {
-      return RcaType.INTERACTION; // Default type for backward compatibility
+      return null;
     }
     try {
       return RcaType.valueOf(rcaTypeParam.trim().toUpperCase());
     } catch (IllegalArgumentException e) {
-      log.warn("Invalid RCA type '{}', defaulting to INTERACTION", rcaTypeParam);
-      return RcaType.INTERACTION;
+      log.warn("Invalid RCA type '{}'", rcaTypeParam);
+      return null;
     }
-  }
-
-  private static String resolveEntityKey(String entityKeyParam, String interactionName) {
-    if (entityKeyParam != null && !entityKeyParam.isBlank()) {
-      return entityKeyParam;
-    }
-    // Fall back to legacy interactionName parameter
-    return interactionName;
   }
 
   private static LocalDate resolveDate(final String dateParam) {
