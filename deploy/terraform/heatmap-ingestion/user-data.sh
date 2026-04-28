@@ -72,23 +72,70 @@ sudo mkdir -p "$INSTALL_DIR"
 sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
 sudo chown -R root:root "$INSTALL_DIR"
 
-echo "Starting pulse-heatmap-screenshot-ingestion service..."
-# If AMI has systemd unit, this will work; otherwise harmless if it fails
-sudo systemctl restart pulse-heatmap-screenshot-ingestion || true
+# Node.js + pm2 (minimal AMIs often lack both). Tarball from nodejs.org with retries;
+# bake Node into AMI or ship via CodeArtifact to avoid boot-time egress to nodejs.org.
+export PATH="/usr/local/bin:$PATH"
+if ! command -v node >/dev/null 2>&1; then
+  NODE_VERSION="20.19.0"
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    x86_64) NODE_DIST="linux-x64" ;;
+    aarch64|arm64) NODE_DIST="linux-arm64" ;;
+    *)
+      echo "ERROR: unsupported machine $ARCH for Node.js install"
+      exit 1
+      ;;
+  esac
+  NODE_TGZ="node-v$NODE_VERSION-$NODE_DIST.tar.xz"
+  NODE_URL="https://nodejs.org/dist/v$NODE_VERSION/$NODE_TGZ"
+  echo "Installing Node.js $NODE_VERSION ($NODE_DIST) from nodejs.org..."
+  attempt=0
+  until curl -fsSL "$NODE_URL" -o "/tmp/$NODE_TGZ"; do
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge 5 ]; then
+      echo "ERROR: failed to download Node.js after $attempt attempts"
+      exit 1
+    fi
+    echo "curl failed (attempt $attempt), sleeping 15s..."
+    sleep 15
+  done
+  tar -xJf "/tmp/$NODE_TGZ" -C /usr/local --strip-components=1
+  rm -f "/tmp/$NODE_TGZ"
+  echo "Node.js $(node --version) installed"
+fi
+if ! command -v pm2 >/dev/null 2>&1; then
+  echo "Installing pm2 globally..."
+  npm install -g pm2
+  echo "pm2 $(pm2 --version) installed"
+fi
 
-echo "Starting pulse-heatmap-screenshot-ingestion via pm2..."
-set -a; source "$ENV_FILE"; set +a
-pm2 start "$INSTALL_DIR/dist/index.js" --name "pulse-heatmap-screenshot-ingestion"
+# cloud-init runs as root — pm2 matches. Order: start → save (dump) → startup (systemd + resurrect).
+# Some pm2 builds print a line starting with "sudo " — eval it to enable the unit.
+echo "Starting $APPLICATION_NAME via pm2..."
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+
+pm2 delete "$APPLICATION_NAME" 2>/dev/null || true
+pm2 start "$INSTALL_DIR/dist/index.js" --name "$APPLICATION_NAME"
 pm2 save
+
+STARTUP_OUTPUT="$(pm2 startup systemd -u root --hp /root 2>&1)" || true
+echo "$STARTUP_OUTPUT"
+START_CMD="$(echo "$STARTUP_OUTPUT" | grep -E '^sudo ' | tail -n1 || true)"
+if [ -n "$START_CMD" ]; then
+  eval "$START_CMD"
+fi
 
 sleep 5
 
-if pm2 list | grep -q "pulse-heatmap-screenshot-ingestion"; then
+if pm2 list | grep -q "$APPLICATION_NAME"; then
   echo "Service started successfully via pm2"
 else
   echo "WARNING: pm2 process may not have started. Checking logs:"
-  pm2 logs pulse-heatmap-screenshot-ingestion --lines 30 --nostream || true
+  pm2 logs "$APPLICATION_NAME" --lines 30 --nostream || true
 fi
 
 echo "User-data complete at $(date)"
-echo "View logs: pm2 logs pulse-heatmap-screenshot-ingestion"
+echo "View logs: pm2 logs $APPLICATION_NAME"
