@@ -22,6 +22,24 @@ export type PulseFeatureName =
   | "custom_events"
   | "session";
 
+export const PulseFeature = {
+  JS_CRASH: "js_crash",
+  NETWORK_INSTRUMENTATION: "network_instrumentation",
+  CLICK: "click",
+  WEB_VITALS: "web_vitals",
+  SCREEN_SESSION: "screen_session",
+  LONG_TASK: "long_task",
+  RESOURCE_TIMING: "resource_timing",
+  VISIBILITY: "visibility",
+  WEBSOCKET: "websocket",
+  BFCACHE: "bfcache",
+  INTERACTION: "interaction",
+  SESSION_REPLAY: "session_replay",
+  NETWORK_CHANGE: "network_change",
+  CUSTOM_EVENTS: "custom_events",
+  SESSION: "session",
+} as const;
+
 export interface PulseFeatureConfig {
   featureName: PulseFeatureName;
   sessionSampleRate: number;

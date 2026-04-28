@@ -1,7 +1,3 @@
-// M1/M2: SdkConfigFetcher — loads cached config from localStorage on init,
-// fetches fresh config in the background from /v1/configs/active.
-// See: web-sdk-plan/v1/01-foundation/sdk-config.md
-
 import type {
   PulseAttributesToAddEntry,
   PulseAttributesToDropEntry,
@@ -13,6 +9,7 @@ import type {
   PulseSignalsToSampleEntry,
 } from "./types/remote-config";
 import { PulseWebLogger } from "./pulse-web-logger";
+import { DEFAULT_SDK_CONFIG } from "./constants/default-sdk-config";
 
 export type {
   PulseAttributeValue,
@@ -31,6 +28,7 @@ export type {
   PulseSignalFilter,
   PulseSignalMatchCondition,
 } from "./types/remote-config";
+export { PulseFeature } from "./types/remote-config";
 
 const SDK_CONFIG_CACHE_KEY = "pulse_sdk_config";
 
@@ -45,7 +43,7 @@ function normalizeMatchProp(p: {
   };
 }
 
-/** Dashboard / server JSON often uses lowercase scopes; OTEL matcher expects Android enums. */
+/** Dashboard / server JSON often uses lowercase scopes; matcher expects uppercase values. */
 export function normalizeSignalMatchCondition(
   c: PulseSignalMatchCondition,
 ): PulseSignalMatchCondition {
@@ -123,7 +121,7 @@ function normalizeAttributesToAdd(
   }));
 }
 
-/** Merge server JSON with defaults; normalizes `sampling.criticalSessionPolicies` (pulse-server / Android JSON key). */
+/** Merge server JSON with defaults; normalizes `sampling.criticalSessionPolicies`. */
 export function mergePulseSdkConfig(raw: PulseSdkConfig): PulseSdkConfig {
   const samplingIn = raw.sampling ?? DEFAULT_SDK_CONFIG.sampling;
   const {
@@ -203,24 +201,6 @@ function sdkConfigDevLog(
   }
 }
 
-export const DEFAULT_SDK_CONFIG: PulseSdkConfig = {
-  version: -1,
-  sampling: {
-    default: { sessionSampleRate: 1.0 },
-    rules: [],
-    signalsToSample: [],
-  },
-  signals: {
-    scheduleDurationMs: 5000,
-    attributesToDrop: [],
-    attributesToAdd: [],
-    filters: { mode: "BLACKLIST", values: [] },
-    metricsToAdd: [],
-  },
-  interaction: { beforeInitQueueSize: 5000 },
-  features: [],
-};
-
 function isValidSdkConfig(value: unknown): value is PulseSdkConfig {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
@@ -232,12 +212,7 @@ function isValidSdkConfig(value: unknown): value is PulseSdkConfig {
   );
 }
 
-/**
- * Mirrors Android's PulseEndpointUtils.getActiveConfigUrl().
- * - Local (isApiLocalDev): http://localhost:8080/v1/configs/active/
- * - Prod: https://pulse-otel-collector.pulse-ux.com/config/projects/{projectId}/pulse-config.json
- * Explicit configEndpointUrl always takes precedence.
- */
+/** Resolves active SDK config URL for local/prod endpoints. */
 export function resolveConfigUrl(
   configEndpointUrl: string | undefined,
   endpointBaseUrl: string,

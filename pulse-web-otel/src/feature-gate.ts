@@ -3,8 +3,9 @@
 // See: web-sdk-plan/v1/01-foundation/sdk-config.md
 
 import type { PulseSdkConfig, PulseFeatureName } from "./remote-config";
+import { PulseWebSemconv } from "./semconv";
 
-const SDK_NAME = "pulse_web_js" as const;
+const SDK_NAME = PulseWebSemconv.FixedValue.RUM_SDK_NAME;
 
 export class FeatureGate {
   private readonly config: PulseSdkConfig;
