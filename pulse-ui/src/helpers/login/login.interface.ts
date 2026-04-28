@@ -18,6 +18,8 @@ export interface LoginResponse {
   needsOnboarding: boolean;
   tokenType?: string;
   expiresIn?: number;
+  systemRole?: "superadmin" | "internal_viewer";
+  redirectTo?: string;
 }
 
 export interface LoginResult {
