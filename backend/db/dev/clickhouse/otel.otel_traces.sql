@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     NetworkProvider    LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], '')        CODEC(ZSTD(1)),
     MeteringSessionId  String                 MATERIALIZED ifNull(SpanAttributes['metering.session.id'], '')         CODEC(ZSTD(1)),
     UserId             String                 MATERIALIZED ifNull(SpanAttributes['user.id'], '')                     CODEC(ZSTD(1)),
+    AppIntstallationId String                 MATERIALIZED ifNull(LogAttributes['app.installation.id'], '')          CODEC(ZSTD(1)),
     HttpUrl            String                 MATERIALIZED ifNull(SpanAttributes['http.url'], ifNull(SpanAttributes['url.full'], '')) CODEC(ZSTD(3)),
     HttpHost           LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['net.peer.name'], ifNull(SpanAttributes['server.address'], '')) CODEC(ZSTD(1)),
     HttpMethod         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['http.method'], ifNull(SpanAttributes['http.request.method'], '')) CODEC(ZSTD(1)),
