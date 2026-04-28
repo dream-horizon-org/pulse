@@ -21,9 +21,4 @@ public class ClickhouseConfig {
   private String host;
   private Integer port;
   private String clusterName;
-  /**
-   * Opt-in for appending {@code SETTINGS use_query_condition_cache = 1}; also loaded from
-   * {@code CLICKHOUSE_QUERY_CONDITION_CACHE_ENABLED} in clickhouse-default.conf.
-   */
-  private boolean queryConditionCacheEnabled;
 }
