@@ -1,5 +1,5 @@
 export type UseRegenerateRcaReportParams = {
-  interactionName: string;
+  entityKey: string;
   date?: string | null;
   projectId: string;
 };
