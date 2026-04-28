@@ -33,20 +33,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                     tapConfig.captureContext(true)
                 }
 
-                // Enable Session Replay
+                // Enable Session Replay with code-level view masking configuration
+                // Note: Privacy, quality, and flush settings are now controlled via backend remote config
                 config.sessionReplay { replayConfig in
                     replayConfig.enabled(true)
-                    replayConfig.configure { localConfig in
-                        localConfig.textAndInputPrivacy = .maskAllInputs
-                        localConfig.imagePrivacy = .maskNone
-                        
-                        // Register custom classes for class-level overrides
-                        localConfig.maskViewClasses = Set([
-                            "PulseIOSExample.PrivateSecureView",
-                            "PulseIOSExample.PrivateDataLabel",
-                        ])
-                        localConfig.replayEndpointBaseUrl = "http://127.0.0.1:3400"
-                    }
+                    
+                    // Register custom classes for class-level masking rules
+                    replayConfig.addMaskViewClass("PulseIOSExample.PrivateSecureView")
+                    replayConfig.addMaskViewClass("PulseIOSExample.PrivateDataLabel")
                 }
             },
             logLevel: .debug

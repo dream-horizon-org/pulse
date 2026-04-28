@@ -199,37 +199,23 @@ public class Pulse {
                 let enabledFeatures = processors.getEnabledFeatures()
                 configureFeaturesFromRemoteConfig(features: enabledFeatures, config: &config)
 
-                // Extract and merge Session Replay config from backend
+                // Session replay config merge: extract feature, resolve with backend config
                 let sessionReplayFeature = sdkConfig.features.first { feature in
                     feature.featureName == .session_replay &&
                     feature.sdks.contains(currentSdkName) &&
                     feature.sessionSampleRate > 0
                 }
-
-                if let feature = sessionReplayFeature {
-                    let remoteConfig = SessionReplayRemoteConfig.from(featureConfig: feature)
-                    let localConfig = config.sessionReplay.config
-                    let mergedConfig = SessionReplayConfig.merge(
-                        remote: remoteConfig,
-                        local: localConfig
-                    )
-                    config.sessionReplay { replayConfig in
-                        replayConfig.configure { config in
-                            config.captureIntervalMs = mergedConfig.captureIntervalMs
-                            config.compressionQuality = mergedConfig.compressionQuality
-                            config.textAndInputPrivacy = mergedConfig.textAndInputPrivacy
-                            config.imagePrivacy = mergedConfig.imagePrivacy
-                            config.screenshotScale = mergedConfig.screenshotScale
-                            config.flushIntervalSeconds = mergedConfig.flushIntervalSeconds
-                            config.flushAt = mergedConfig.flushAt
-                            config.maxBatchSize = mergedConfig.maxBatchSize
-                            config.replayEndpointBaseUrl = mergedConfig.replayEndpointBaseUrl
-                            config.maskViewClasses = mergedConfig.maskViewClasses
-                            config.unmaskViewClasses = mergedConfig.unmaskViewClasses
-                        }
-                    }
+                let remoteConfig = sessionReplayFeature.flatMap { SessionReplayRemoteConfig.from(featureConfig: $0) }
+                let resolvedConfig = resolveSessionReplayConfig(
+                    remoteConfig: remoteConfig,
+                    codeConfig: config.sessionReplay,
+                    endpointBaseUrl: endpointBaseUrl
+                )
+                if let resolved = resolvedConfig {
+                    config.sessionReplay { $0.internalSetRuntimeConfig(resolved) }
                 }
 
+                // Click config merge: apply backend rage config with code defaults
                 applyClickFeatureConfig(from: sdkConfig, to: &config, currentSdkName: currentSdkName)
             } else {
                 let derivedInteractionUrl = PulseHostConfiguration.interactionConfigUrl(apiKey: apiKey, projectId: projectId)

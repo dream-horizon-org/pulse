@@ -25,8 +25,14 @@ public struct SessionReplayInstrumentationConfig {
         self.enabled = value
     }
 
-    public mutating func configure(_ configure: (inout SessionReplayConfig) -> Void) {
-        configure(&self.config)
+    /// Add a view class (fully-qualified name) to always mask. Subclasses are also masked.
+    public mutating func addMaskViewClass(_ className: String) {
+        config.addMaskViewClass(className)
+    }
+
+    /// Add a view class (fully-qualified name) to never mask by global config.
+    public mutating func addUnmaskViewClass(_ className: String) {
+        config.addUnmaskViewClass(className)
     }
 
     internal mutating func attachPulseSessionReplayConsent(
@@ -35,6 +41,11 @@ public struct SessionReplayInstrumentationConfig {
     ) {
         pulseIsSessionReplayCaptureAllowed = isCaptureAllowed
         pulseSessionReplayStartActiveAtInstall = startActiveAtInstall
+    }
+
+    /// SDK-internal: applies resolved backend config after merge. Not for public use.
+    internal mutating func internalSetRuntimeConfig(_ config: SessionReplayConfig) {
+        self.config = config
     }
 }
 
