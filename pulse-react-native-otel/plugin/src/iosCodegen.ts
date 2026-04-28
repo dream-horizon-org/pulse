@@ -13,12 +13,26 @@ import type {
   PulseIosSessionsInstrumentation,
   PulseIosUIKitTapInstrumentation,
   PulseIosUrlSessionInstrumentation,
+  PulseLogLevelValue,
   ResolvedIosPulseProps,
 } from './types';
 
 export const PULSE_IOS_IMPORT = 'import PulseReactNativeOtel\n';
 
 export const PULSE_IOS_OTEL_API_IMPORT = 'import OpenTelemetryApi\n';
+
+const SWIFT_LOG_LEVEL_NAMES = [
+  'verbose',
+  'debug',
+  'info',
+  'warn',
+  'error',
+  'none',
+] as const;
+
+function swiftPulseLogLevelLabel(level: PulseLogLevelValue): string {
+  return SWIFT_LOG_LEVEL_NAMES[level];
+}
 
 function escapeSwiftString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -359,6 +373,7 @@ export function buildSwiftPulseSdkInitialization(
     apiKey,
     dataCollectionState,
     globalAttributes,
+    logLevel,
     configuration,
     instrumentation,
   } = props;
@@ -371,6 +386,10 @@ export function buildSwiftPulseSdkInitialization(
   const consent = swiftConsentCase(dataCollectionState);
   const configurationArg = buildSwiftConfigurationArg(configuration);
   const instrumentationsArg = buildSwiftInstrumentationsArg(instrumentation);
+  const logLevelLine =
+    logLevel !== undefined
+      ? `,\n      logLevel: .${swiftPulseLogLevelLabel(logLevel)}`
+      : '';
 
   return `
     PulseSDK.initialize(
@@ -384,7 +403,7 @@ export function buildSwiftPulseSdkInitialization(
       beforeSendLog: nil,
       beforeSendMetric: nil,
       tracerProviderCustomizer: nil,
-      loggerProviderCustomizer: nil
+      loggerProviderCustomizer: nil${logLevelLine}
     )
 `;
 }

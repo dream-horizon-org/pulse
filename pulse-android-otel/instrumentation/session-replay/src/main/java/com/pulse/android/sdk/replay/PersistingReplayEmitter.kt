@@ -5,6 +5,7 @@ import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
 import com.pulse.utils.PulseLogger
+import com.pulse.utils.RedactionUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -130,6 +131,9 @@ public class PersistingReplayEmitter(
                     flushIfNeeded()
                 }
             } catch (e: Throwable) {
+                PulseLogger.logError(ReplayConstants.REPLAY_LOG_TAG, e) {
+                    "sdk.replay.persist_failure error_class=${RedactionUtils.classifyError(e)}"
+                }
                 logger("Replay persist failed: $e")
             }
         }
@@ -229,6 +233,9 @@ public class PersistingReplayEmitter(
         val toRemove = files.size - maxBatchSize
         repeat(toRemove) { i ->
             val f = files[i]
+            PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG) {
+                "sdk.replay.queue_overflow reason=disk_file_cap queue_cap=$maxBatchSize file=${f.name}"
+            }
             if (f.delete()) {
                 logger("Replay storage cap: removed oldest batch ${f.name}")
             } else {
@@ -241,6 +248,9 @@ public class PersistingReplayEmitter(
     private fun evictOldestBatchesWhileOverStorageCap() {
         while (deque.size > maxBatchSize) {
             val evicted = deque.removeFirst()
+            PulseLogger.logWarn(ReplayConstants.REPLAY_LOG_TAG) {
+                "sdk.replay.queue_overflow reason=memory_queue_cap queue_cap=$maxBatchSize file=${evicted.name}"
+            }
             if (evicted.delete()) {
                 logger("Replay storage cap: dropped oldest queued batch ${evicted.name}")
             } else {

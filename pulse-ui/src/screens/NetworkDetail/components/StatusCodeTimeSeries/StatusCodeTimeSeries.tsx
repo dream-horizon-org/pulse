@@ -14,6 +14,7 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
 import { StatusCodeTimeSeriesProps } from "./StatusCodeTimeSeries.interface";
 import classes from "./StatusCodeTimeSeries.module.css";
+import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -61,7 +62,7 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.status_code']",
+            expression: COLUMN_NAME.NETWORK_STATUS_CODE,
           },
           alias: "status_code",
         },
@@ -78,10 +79,10 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
         {
           field: "PulseType",
           operator: "LIKE" as const,
-          value: ["%network%"],
+          value: [PulseType.NETWORK_LIKE],
         },
         {
-          field: "SpanAttributes['http.url']",
+          field: COLUMN_NAME.HTTP_URL,
           operator: "EQ" as const,
           value: [url],
         },
