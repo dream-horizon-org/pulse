@@ -1,17 +1,23 @@
 package org.dreamhorizon.pulseserver.resources.tenants;
 
 import com.google.inject.Inject;
+import com.google.inject.Provider;
+import io.jsonwebtoken.Claims;
+import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
+import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +27,8 @@ import org.dreamhorizon.pulseserver.resources.tenants.models.TenantRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.UpdateTenantRestRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
+import org.dreamhorizon.pulseserver.service.JwtService;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 
 @Slf4j
@@ -31,6 +39,50 @@ public class TenantsController {
   private static final TenantMapper mapper = TenantMapper.INSTANCE;
 
   private final TenantService tenantService;
+  private final JwtService jwtService;
+  private final Provider<OpenFgaService> openFgaServiceProvider;
+
+  private String extractUserIdFromAuthorization(String authorization) {
+    if (authorization == null || !authorization.startsWith("Bearer ")) {
+      return null;
+    }
+    String token = authorization.substring("Bearer ".length()).trim();
+    if (token.isEmpty() || !jwtService.isAccessToken(token)) {
+      return null;
+    }
+    try {
+      Claims claims = jwtService.verifyToken(token);
+      String userId = claims.getSubject();
+      return userId == null || userId.isBlank() ? null : userId;
+    } catch (Exception e) {
+      log.debug("Unable to parse caller token for tenant role enrichment: {}", e.getMessage());
+      return null;
+    }
+  }
+
+  private Single<List<TenantRestResponse>> enrichTenantRoles(List<TenantRestResponse> tenants, String userId) {
+    if (userId == null || userId.isBlank()) {
+      return Single.just(tenants);
+    }
+
+    OpenFgaService openFgaService = openFgaServiceProvider.get();
+    if (openFgaService == null || !openFgaService.isEnabled()) {
+      return Single.just(tenants);
+    }
+
+    return io.reactivex.rxjava3.core.Flowable.fromIterable(tenants)
+        .concatMapSingle(
+            tenant ->
+                openFgaService
+                    .getUserTenantRole(userId, tenant.getTenantId())
+                    .map(
+                        role -> {
+                          tenant.setTenantRole(role.orElse(null));
+                          return tenant;
+                        })
+                    .onErrorReturnItem(tenant))
+        .toList();
+  }
 
 
   @GET
@@ -51,15 +103,24 @@ public class TenantsController {
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<TenantListRestResponse>> getAllTenants(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @QueryParam("activeOnly") @DefaultValue("true") Boolean activeOnly
   ) {
+    String callerUserId = extractUserIdFromAuthorization(authorization);
     var flowable = activeOnly
         ? tenantService.getAllActiveTenants()
         : tenantService.getAllTenants();
 
     return flowable
         .toList()
-        .map(mapper::toTenantListRestResponse)
+        .map(mapper::toTenantRestResponseList)
+        .flatMap(tenants -> enrichTenantRoles(tenants, callerUserId))
+        .map(
+            tenants ->
+                TenantListRestResponse.builder()
+                    .tenants(tenants)
+                    .totalCount(tenants.size())
+                    .build())
         .to(RestResponse.jaxrsRestHandler());
   }
 
