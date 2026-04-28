@@ -4,11 +4,11 @@
 //
 
 import Foundation
+import OpenTelemetryApi
+import OpenTelemetrySdk
 #if canImport(PulseLogging)
 import PulseLogging
 #endif
-import OpenTelemetryApi
-import OpenTelemetrySdk
 #if canImport(OpenTelemetryProtocolExporterCommon)
 import OpenTelemetryProtocolExporterCommon
 #endif
@@ -75,6 +75,8 @@ public class OtlpHttpTraceExporter: OtlpHttpExporterBase, SpanExporter {
       }
     let request = createRequest(body: body, endpoint: endpoint)
     exporterMetrics?.addSeen(value: sendingSpans.count)
+    let t0 = Date()
+    let batchSize = sendingSpans.count
     httpClient.send(request: request) { [weak self] result in
       switch result {
       case .success:
@@ -84,7 +86,10 @@ public class OtlpHttpTraceExporter: OtlpHttpExporterBase, SpanExporter {
         self?.exporterLock.withLockVoid {
           self?.pendingSpans.append(contentsOf: sendingSpans)
         }
-        PulseLogger.debug("Trace export failed: \(error.localizedDescription)")
+        let latencyMs = Int(Date().timeIntervalSince(t0) * 1000)
+        let errClass = PulseErrorClassification.classify(error)
+        PulseLogger.warn(
+          "sdk.export signal=span_data success=false latency_ms=\(latencyMs) batch_size=\(batchSize) error_class=\(errClass)")
       }
     }
     return .success

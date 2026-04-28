@@ -6,9 +6,6 @@
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetrySdk
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 class URLSessionLogger {
   static var runningSpans = [String: Span]()

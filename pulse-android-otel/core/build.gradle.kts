@@ -60,6 +60,7 @@ android {
 }
 
 dependencies {
+    implementation(projects.pulseUtils)
     implementation(projects.instrumentation.androidInstrumentation)
     implementation(projects.common)
     implementation(projects.services)
