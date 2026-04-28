@@ -6,7 +6,9 @@ Mirror of delete-project.sh — keep behavior in sync when changing SQL or steps
 Env: PROJECT_ID, DRY_RUN (true/false), MYSQL_* — required always.
 Execute path also needs CH_ADMIN_* and OPENFGA_*.
 
-Subcommand: python delete_project.py --mysql-preview  (MySQL unified table/count preview only; MYSQL_* + PROJECT_ID)
+If MySQL already has no `projects` row (e.g. prior run failed after MySQL), DRY_RUN=false skips the
+MySQL step and completes ClickHouse + OpenFGA only.
+
 """
 from __future__ import annotations
 
@@ -400,8 +402,12 @@ def _cli_mysql_preview() -> None:
             f"SELECT name FROM projects WHERE project_id = '{project_id}' LIMIT 1",
         )
         if not name:
-            _err(f"Project not found in MySQL: {project_id}")
-            sys.exit(1)
+            _warn(
+                f"No row in `projects` for PROJECT_ID={project_id} — MySQL may already have been "
+                "removed (e.g. a prior run that failed after MySQL or on ClickHouse)."
+            )
+            _info("--mysql-preview: nothing to count; finish with DRY_RUN=false to clean ClickHouse + OpenFGA only.")
+            return
         print_mysql_dry_preview_all_tables(conn, project_id)
     finally:
         conn.close()
@@ -431,32 +437,42 @@ def main() -> None:
     print("╚══════════════════════════════════════════════════════════╝")
 
     conn = _mysql_connect()
+    mysql_missing = False
     try:
         name = _run_mysql_scalar(
             conn,
             f"SELECT name FROM projects WHERE project_id = '{project_id}' LIMIT 1",
         )
         if not name:
-            _err(f"Project not found in MySQL: {project_id}")
-            sys.exit(1)
-        tid = _run_mysql_scalar(
-            conn,
-            f"SELECT tenant_id FROM projects WHERE project_id = '{project_id}' LIMIT 1",
-        )
-        is_active = _run_mysql_scalar(
-            conn,
-            f"SELECT is_active FROM projects WHERE project_id = '{project_id}' LIMIT 1",
-        )
-        print()
-        _info(f"Project:      {name}  ({project_id})")
-        _info(f"Tenant:       {tid}")
-        _info(f"Active:       {is_active}")
-        _info(f"CH username:  {ch_user}")
-        _info(f"CH policy:    {ch_policy}")
-        print()
-        print_mysql_dry_preview_all_tables(conn, project_id)
+            mysql_missing = True
+            _warn(
+                "No row in `projects` for this PROJECT_ID — MySQL data may already have been deleted "
+                "(e.g. partial run that failed on ClickHouse/OpenFGA)."
+            )
+            if _dry_run():
+                _info(
+                    "DRY RUN: MySQL preview skipped. Re-run with DRY_RUN=false to execute ClickHouse + OpenFGA cleanup only."
+                )
+                return
+        else:
+            tid = _run_mysql_scalar(
+                conn,
+                f"SELECT tenant_id FROM projects WHERE project_id = '{project_id}' LIMIT 1",
+            )
+            is_active = _run_mysql_scalar(
+                conn,
+                f"SELECT is_active FROM projects WHERE project_id = '{project_id}' LIMIT 1",
+            )
+            print()
+            _info(f"Project:      {name}  ({project_id})")
+            _info(f"Tenant:       {tid}")
+            _info(f"Active:       {is_active}")
+            _info(f"CH username:  {ch_user}")
+            _info(f"CH policy:    {ch_policy}")
+            print()
+            print_mysql_dry_preview_all_tables(conn, project_id)
 
-        print()
+            print()
     finally:
         conn.close()
 
@@ -466,22 +482,26 @@ def main() -> None:
         _info("Re-run with DRY_RUN=false to execute the deletion.")
         return
 
-    sql_blob = _project_delete_sql(project_id)
-    stmts = _split_mysql_statements(sql_blob)
-    _step("Step 1/3: MySQL")
-    conn2 = _mysql_connect()
-    try:
-        with conn2.cursor() as cur:
-            for st in stmts:
-                if st.strip():
-                    cur.execute(st)
-        conn2.commit()
-    except Exception:
-        conn2.rollback()
-        raise
-    finally:
-        conn2.close()
-    _ok("MySQL cleanup complete")
+    if mysql_missing:
+        _step("Step 1/3: MySQL")
+        _warn("Skipping MySQL — project row already absent.")
+    else:
+        sql_blob = _project_delete_sql(project_id)
+        stmts = _split_mysql_statements(sql_blob)
+        _step("Step 1/3: MySQL")
+        conn2 = _mysql_connect()
+        try:
+            with conn2.cursor() as cur:
+                for st in stmts:
+                    if st.strip():
+                        cur.execute(st)
+            conn2.commit()
+        except Exception:
+            conn2.rollback()
+            raise
+        finally:
+            conn2.close()
+        _ok("MySQL cleanup complete")
 
     _step("Step 2/3: ClickHouse")
     _ch_post(f"DROP ROW POLICY IF EXISTS {ch_policy}{on_cluster} ON otel.*")
@@ -492,9 +512,10 @@ def main() -> None:
     _openfga_read_write_delete(f"project:{project_id}")
     _ok("OpenFGA cleanup complete")
 
+    label = name if not mysql_missing else "(MySQL row was already gone)"
     print()
     _ok("══════════════════════════════════════════════════════════")
-    _ok(f"  Project deletion complete: {name} ({project_id})")
+    _ok(f"  Project deletion complete: {label} ({project_id})")
     _ok("══════════════════════════════════════════════════════════")
 
 
