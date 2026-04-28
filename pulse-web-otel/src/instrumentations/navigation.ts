@@ -253,6 +253,11 @@ export class NavigationInstrumentation implements PulseInstrumentation {
     const origReplace = this.origReplaceState;
 
     history.pushState = function (...args: Parameters<typeof history.pushState>) {
+      // Capture the screen name BEFORE pushState mutates window.location.  This
+      // ensures any active setScreenName() override (manualScreenName) is resolved
+      // against the current URL — once origPush runs the URL becomes the new route
+      // and globalAttrsProcessor would clear the override (path mismatch).
+      self.currentScreenName = self.resolveScreenName(self.currentRoute);
       origPush.apply(history, args);
       // Only treat as a route change if the pathname actually changed.
       // Same-route pushState (e.g. query-param updates) must not split the session.

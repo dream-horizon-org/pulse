@@ -130,6 +130,17 @@ export default function App() {
       ...(formatEnv ? { export: { format: formatEnv } } : {}),
       ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
+      // E2E injection — Playwright tests set window.__pulseE2eRoutePatterns before page load
+      ...((window as unknown as Record<string, unknown>)["__pulseE2eRoutePatterns"]
+        ? {
+            routePatterns: (
+              window as unknown as Record<
+                string,
+                Array<{ pattern: string; name: string }>
+              >
+            )["__pulseE2eRoutePatterns"],
+          }
+        : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
