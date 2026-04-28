@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -150,6 +151,55 @@ class ScreenRcaServiceTest {
    */
   private static boolean isScreenSegmentMetricsQuery(String sql) {
     return sql.contains(" AS tap_count");
+  }
+
+  private static Map<String, Object> hierarchyTwoDimSegmentMetricRow() {
+    Map<String, Object> row = screenSegmentMetricRow();
+    row.put("Platform", "Android");
+    row.put("OsVersion", "14");
+    return row;
+  }
+
+  /**
+   * Screen segment rollups ship one bind per filtered dimension ({@code base} + N filters): one slice is 5 binds,
+   * two-dimensional slice is 6. Prefer bind count over {@code GROUP BY …} substring shape (interaction RCA uses
+   * {@code Platform =} in filters; Screen uses resource-attribute expressions).
+   */
+  private static Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>>
+      answerHierarchyTwoDimensionsSimilarityThreshold(Map<String, Object> baseline, InvocationOnMock inv) {
+    String q = inv.getArgument(1, String.class);
+    @SuppressWarnings("unchecked")
+    List<Object> bindValues = inv.getArgument(3, List.class);
+    int bn = bindValues.size();
+
+    if (!q.contains("GROUP BY")) {
+      return Single.just(singleRowTableResponse(baseline));
+    }
+
+    if (isScreenSegmentMetricsQuery(q)) {
+      if (bn == 6) {
+        return Single.just(singleRowTableResponse(hierarchyTwoDimSegmentMetricRow()));
+      }
+      // One filtered dimension → 4 base binds + 1; single-dim GROUP BY is "GROUP BY Platform" only (no comma).
+      if (bn == 5 && q.contains("GROUP BY Platform") && !q.contains("GROUP BY Platform,")) {
+        Map<String, Object> row = screenSegmentMetricRow();
+        row.put("Platform", "Android");
+        return Single.just(singleRowTableResponse(row));
+      }
+      return Single.just(emptyTableResponse());
+    }
+
+    if (q.contains("GROUP BY Platform") && bn == 4) {
+      return Single.just(
+          singleRowTableResponse(
+              Map.of("Platform", "Android", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
+    }
+    if (q.contains("GROUP BY OsVersion") && bn == 5) {
+      return Single.just(
+          singleRowTableResponse(
+              Map.of("OsVersion", "14", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
+    }
+    return Single.just(emptyTableResponse());
   }
 
   @Nested
@@ -397,44 +447,7 @@ class ScreenRcaServiceTest {
       Map<String, Object> baseline = screenBaseline(500L, 100L);
 
       when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
-          .thenAnswer(
-              inv -> {
-                String q = inv.getArgument(1, String.class);
-                @SuppressWarnings("unchecked")
-                List<Object> bindValues = inv.getArgument(3, List.class);
-                int bn = bindValues.size();
-
-                if (!q.contains("GROUP BY")) {
-                  return Single.just(singleRowTableResponse(baseline));
-                }
-                if (isScreenSegmentMetricsQuery(q)) {
-                  if (q.contains("GROUP BY Platform, OsVersion")) {
-                    Map<String, Object> row = screenSegmentMetricRow();
-                    row.put("Platform", "Android");
-                    row.put("OsVersion", "14");
-                    return Single.just(singleRowTableResponse(row));
-                  }
-                  if (q.contains("GROUP BY Platform")
-                      && bn == 5
-                      && !q.contains("GROUP BY Platform,")) {
-                    Map<String, Object> row = screenSegmentMetricRow();
-                    row.put("Platform", "Android");
-                    return Single.just(singleRowTableResponse(row));
-                  }
-                  return Single.just(emptyTableResponse());
-                }
-                if (q.contains("GROUP BY Platform") && bn == 4) {
-                  return Single.just(
-                      singleRowTableResponse(
-                          Map.of("Platform", "Android", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
-                }
-                if (q.contains("GROUP BY OsVersion") && bn == 5) {
-                  return Single.just(
-                      singleRowTableResponse(
-                          Map.of("OsVersion", "14", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
-                }
-                return Single.just(emptyTableResponse());
-              });
+          .thenAnswer(inv -> answerHierarchyTwoDimensionsSimilarityThreshold(baseline, inv));
 
       RootCauseResult result =
           service.getScreenRootCause(PROJECT_ID, SCREEN, ANCHOR, WINDOW_END).blockingGet();
