@@ -232,6 +232,123 @@ VALUES
         JSON_OBJECT('name', 'Add to cart', 'props', JSON_ARRAY(), 'isBlacklisted', false)
     ),
     'globalBlacklistedEvents', JSON_ARRAY()
+), 0, 'system', 'system'),
+
+-- WebCheckoutHappyPath (pulse-web-otel ecommerce mock parity)
+('default-project', 'WebCheckoutHappyPath', 'RUNNING', JSON_OBJECT(
+    'description', 'Checkout Happy Path',
+    'uptimeLowerLimitInMs', 700,
+    'uptimeMidLimitInMs', 1400,
+    'uptimeUpperLimitInMs', 2500,
+    'thresholdInMs', 3000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'checkout_step_1', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'checkout_step_2', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT('name', 'checkout_step_3', 'props', JSON_ARRAY(), 'isBlacklisted', false)
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'ad_impression', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+-- WebCartOpenToCheckout (pulse-web-otel ecommerce mock parity)
+('default-project', 'WebCartOpenToCheckout', 'RUNNING', JSON_OBJECT(
+    'description', 'Cart Open To Checkout Click',
+    'uptimeLowerLimitInMs', 500,
+    'uptimeMidLimitInMs', 1000,
+    'uptimeUpperLimitInMs', 1800,
+    'thresholdInMs', 2500,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'cart_open', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT(
+            'name', 'cart_checkout_click',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'item_count', 'value', '0', 'operator', 'NOTEQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+-- WebProductQuickAdd (pulse-web-otel ecommerce mock parity)
+('default-project', 'WebProductQuickAdd', 'RUNNING', JSON_OBJECT(
+    'description', 'Product List Quick Add',
+    'uptimeLowerLimitInMs', 350,
+    'uptimeMidLimitInMs', 900,
+    'uptimeUpperLimitInMs', 1600,
+    'thresholdInMs', 2000,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'product_item_visible',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_list', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT(
+            'name', 'add_to_cart',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_list', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'error_demo_throw_uncaught', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+-- WebProductDetailAddToCart (pulse-web-otel ecommerce mock parity)
+('default-project', 'WebProductDetailAddToCart', 'RUNNING', JSON_OBJECT(
+    'description', 'Product Detail Add To Cart',
+    'uptimeLowerLimitInMs', 800,
+    'uptimeMidLimitInMs', 1500,
+    'uptimeUpperLimitInMs', 2800,
+    'thresholdInMs', 3500,
+    'events', JSON_ARRAY(
+        JSON_OBJECT(
+            'name', 'product_detail_open',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'path', 'value', '/products/', 'operator', 'STARTSWITH')
+            ),
+            'isBlacklisted', false
+        ),
+        JSON_OBJECT(
+            'name', 'add_to_cart',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'source', 'value', 'product_detail', 'operator', 'EQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'ad_impression', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
+), 0, 'system', 'system'),
+
+-- WebRemoveItemThenCheckout (pulse-web-otel ecommerce mock parity)
+('default-project', 'WebRemoveItemThenCheckout', 'RUNNING', JSON_OBJECT(
+    'description', 'Cart Remove Item Then Checkout',
+    'uptimeLowerLimitInMs', 600,
+    'uptimeMidLimitInMs', 1200,
+    'uptimeUpperLimitInMs', 2100,
+    'thresholdInMs', 2600,
+    'events', JSON_ARRAY(
+        JSON_OBJECT('name', 'cart_remove_item', 'props', JSON_ARRAY(), 'isBlacklisted', false),
+        JSON_OBJECT(
+            'name', 'cart_checkout_click',
+            'props', JSON_ARRAY(
+                JSON_OBJECT('name', 'item_count', 'value', '0', 'operator', 'NOTEQUALS')
+            ),
+            'isBlacklisted', false
+        )
+    ),
+    'globalBlacklistedEvents', JSON_ARRAY(
+        JSON_OBJECT('name', 'device.crash', 'props', JSON_ARRAY(), 'isBlacklisted', true)
+    )
 ), 0, 'system', 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
