@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     INDEX idx_parent_span   ParentSpanId      TYPE bloom_filter(0.01)  GRANULARITY 1,
     INDEX idx_session_id    SessionId         TYPE bloom_filter(0.01)  GRANULARITY 1,
     INDEX idx_user          UserId            TYPE bloom_filter(0.01)  GRANULARITY 1,
+    INDEX idx_app_installation_id AppIntstallationId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_metering_sid  MeteringSessionId TYPE bloom_filter(0.01)  GRANULARITY 1,
     INDEX idx_span_name     SpanName          TYPE bloom_filter(0.01)  GRANULARITY 4,
     INDEX idx_status        StatusCode        TYPE set(8)              GRANULARITY 1,
