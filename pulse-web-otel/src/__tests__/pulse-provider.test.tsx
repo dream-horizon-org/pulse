@@ -55,7 +55,6 @@ import {
   _resetPulseProviderStateForTesting,
 } from "../integrations/react/PulseProvider";
 import { PulseErrorBoundary } from "../integrations/react/PulseErrorBoundary";
-import * as RouterTrackingModule from "../integrations/react/useRouterTracking";
 import { PulseWeb } from "../sdk";
 
 function makeConfig(overrides: Partial<PulseWebConfig> = {}): PulseWebConfig {
@@ -587,117 +586,5 @@ describe("PulseErrorBoundary (-v)", () => {
 
     // After reset the boundary attempted re-render — no crash in the mechanism
     errSpy.mockRestore();
-  });
-});
-
-describe("PulseProvider — routerTracking containment", () => {
-  it("default warn mode: router tracking failure does not block children or SDK init", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const trackerSpy = vi
-      .spyOn(RouterTrackingModule, "useRouterTracking")
-      .mockImplementation(() => {
-        throw new RouterTrackingModule.RouterTrackingError(
-          "router missing",
-          "missing-dep",
-        );
-      });
-
-    const { getByTestId } = render(
-      <PulseProvider config={makeConfig()} routerTracking={{}}>
-        <div data-testid="child">ok</div>
-      </PulseProvider>,
-    );
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(getByTestId("child").textContent).toBe("ok");
-    expect(PulseWeb.isInitialized()).toBe(true);
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-
-    trackerSpy.mockRestore();
-    warnSpy.mockRestore();
-  });
-
-  it("onError callback receives typed reason and suppresses console warn", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const trackerSpy = vi
-      .spyOn(RouterTrackingModule, "useRouterTracking")
-      .mockImplementation(() => {
-        throw new RouterTrackingModule.RouterTrackingError(
-          "outside router",
-          "no-router-context",
-        );
-      });
-    const onError = vi.fn();
-
-    render(
-      <PulseProvider config={makeConfig()} routerTracking={{ onError }}>
-        <div>child</div>
-      </PulseProvider>,
-    );
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(onError).toHaveBeenCalledTimes(1);
-    const [, context] = onError.mock.calls[0] as [Error, { reason: string }];
-    expect(context.reason).toBe("no-router-context");
-    expect(warnSpy).not.toHaveBeenCalled();
-
-    trackerSpy.mockRestore();
-    warnSpy.mockRestore();
-  });
-
-  it("errorMode throw: router tracking error propagates", () => {
-    const trackerSpy = vi
-      .spyOn(RouterTrackingModule, "useRouterTracking")
-      .mockImplementation(() => {
-        throw new RouterTrackingModule.RouterTrackingError(
-          "missing dep",
-          "missing-dep",
-        );
-      });
-    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    expect(() =>
-      render(
-        <PulseProvider
-          config={makeConfig()}
-          routerTracking={{ errorMode: "throw" }}
-        >
-          <div>child</div>
-        </PulseProvider>,
-      ),
-    ).toThrow(RouterTrackingModule.RouterTrackingError);
-
-    trackerSpy.mockRestore();
-    errSpy.mockRestore();
-  });
-
-  it("StrictMode fail-safe does not double-fire onError", async () => {
-    const trackerSpy = vi
-      .spyOn(RouterTrackingModule, "useRouterTracking")
-      .mockImplementation(() => {
-        throw new RouterTrackingModule.RouterTrackingError(
-          "missing dep",
-          "missing-dep",
-        );
-      });
-    const onError = vi.fn();
-
-    render(
-      <StrictMode>
-        <PulseProvider config={makeConfig()} routerTracking={{ onError }}>
-          <div>child</div>
-        </PulseProvider>
-      </StrictMode>,
-    );
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(onError).toHaveBeenCalledTimes(1);
-    trackerSpy.mockRestore();
   });
 });

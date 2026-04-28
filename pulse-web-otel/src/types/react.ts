@@ -17,13 +17,6 @@ export interface PulseLocationLike {
   hash: string;
 }
 
-export interface RouterTrackingErrorContext {
-  /**
-   * Classified failure reason for router tracking initialization.
-   */
-  reason: "missing-dep" | "no-router-context" | "unknown";
-}
-
 export interface UseRouterTrackingOptions {
   /**
    * Override how the location is converted to a screen name. Defaults to
@@ -43,19 +36,6 @@ export interface UseRouterTrackingOptions {
    * the hook to own the first screen name instead.
    */
   skipInitial?: boolean;
-  /**
-   * Called when router tracking fails to initialise. Receives the raw error and
-   * a classified context so handlers can branch without parsing the message string.
-   * When provided, suppresses the default `console.warn` — use this for custom
-   * logging or alerting pipelines.
-   */
-  onError?: (error: Error, context: RouterTrackingErrorContext) => void;
-  /**
-   * Controls behavior when router tracking fails.
-   * - "warn" (default): contain the failure and disable router tracking.
-   * - "throw": propagate the router tracking error.
-   */
-  errorMode?: "warn" | "throw";
 }
 
 export interface PulseProviderProps {
@@ -75,10 +55,4 @@ export interface PulseProviderProps {
    * re-mounts, so `start()` is never called twice.
    */
   shutdownOnUnmount?: boolean;
-  /**
-   * When provided, activates React Router v6 screen tracking via
-   * `useRouterTracking`. Requires `<PulseProvider>` to be rendered inside a
-   * `<BrowserRouter>` (or equivalent) context.
-   */
-  routerTracking?: UseRouterTrackingOptions;
 }

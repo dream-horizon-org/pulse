@@ -1,31 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { PulseWeb } from "../../sdk";
-import type {
-  RouterTrackingErrorContext,
-  UseRouterTrackingOptions,
-} from "../../types/react";
+import type { UseRouterTrackingOptions } from "../../types/react";
 
 export type { UseRouterTrackingOptions } from "../../types/react";
-
-type RouterLocation = {
-  pathname: string;
-  search: string;
-  hash: string;
-};
-
-type UseLocationHook = () => RouterLocation;
-
-export class RouterTrackingError extends Error {
-  readonly reason: RouterTrackingErrorContext["reason"];
-
-  constructor(message: string, reason: RouterTrackingErrorContext["reason"]) {
-    super(message);
-    this.name = "RouterTrackingError";
-    this.reason = reason;
-  }
-}
 
 /**
  * React Router v6 integration — calls {@link PulseWeb.setScreenName} on every
@@ -42,7 +22,7 @@ export class RouterTrackingError extends Error {
  * }
  * ```
  *
- * **Peer dependency:** requires `react-router-dom >=6.0.0` when enabled.
+ * **Peer dependency:** requires `react-router-dom >=6.0.0`.
  *
  * Implementation notes:
  * - No listeners are registered by this hook; it relies on React Router's
@@ -56,38 +36,7 @@ export function useRouterTracking(
   options: UseRouterTrackingOptions = {},
 ): void {
   const { format, includeSearch = false, skipInitial = true } = options;
-
-  let useLocationHook: UseLocationHook;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const reactRouterDom = require("react-router-dom") as {
-      useLocation?: UseLocationHook;
-    };
-    if (typeof reactRouterDom.useLocation !== "function") {
-      throw new Error("react-router-dom useLocation is unavailable");
-    }
-    useLocationHook = reactRouterDom.useLocation;
-  } catch {
-    throw new RouterTrackingError(
-      "[PulseWeb] useRouterTracking requires react-router-dom >=6.0.0. " +
-        "Install it as a peer dependency or remove the routerTracking prop.",
-      "missing-dep",
-    );
-  }
-
-  // useLocation is dynamically resolved above.
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  let location: RouterLocation;
-  try {
-    location = useLocationHook();
-  } catch {
-    throw new RouterTrackingError(
-      "[PulseWeb] routerTracking requires <PulseProvider> to be rendered inside " +
-        "a <BrowserRouter> or equivalent React Router v6 context. " +
-        "Wrap your app root with <BrowserRouter> or remove the routerTracking prop.",
-      "no-router-context",
-    );
-  }
+  const location = useLocation();
 
   // Tracks the last dependency value we acted on. Initialised to `null` so
   // the first seen value is always "new". Persisting across fake StrictMode
