@@ -8,6 +8,44 @@ export HOME=/home/admin
 cd "$HOME" || cd /root
 
 AWS_REGION="ap-south-1"
+SECRET_NAME="prod/pulse-heatmap-screenshot-ingestion/appenv"
+ENV_FILE="/etc/pulse/heatmap-ingestion.env"
+
+echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
+SECRET_TMP="$(mktemp)"
+trap 'rm -f "${SECRET_TMP:-}"' EXIT
+aws secretsmanager get-secret-value \
+  --region "$AWS_REGION" \
+  --secret-id "$SECRET_NAME" \
+  --query SecretString \
+  --output text > "$SECRET_TMP"
+
+if [ ! -s "$SECRET_TMP" ]; then
+  echo "ERROR: secret '$SECRET_NAME' is empty"
+  exit 1
+fi
+
+sudo mkdir -p /etc/pulse
+# Secret format matches pulse-server / pulse-alerts-cron: { "app_env": [ { "key": "...", "value": "..." } ] }
+# Use stdlib json (AMI may not ship jq).
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 not found; cannot parse appenv secret"
+  exit 1
+fi
+python3 -c 'import json, sys
+with open(sys.argv[1], "r") as f:
+    data = json.load(f)
+for item in data.get("app_env", []):
+    k = item.get("key") or ""
+    v = item.get("value", "")
+    if k:
+        print("%s=%s" % (k, v))
+' "$SECRET_TMP" | sudo tee "$ENV_FILE" >/dev/null
+rm -f "$SECRET_TMP"
+trap - EXIT
+
+sudo chmod 600 "$ENV_FILE"
+
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-heatmap-screenshot-ingestion"
 APPLICATION_NAME="pulse-heatmap-screenshot-ingestion"
@@ -38,39 +76,6 @@ sudo rm -rf "$INSTALL_DIR"
 sudo mkdir -p "$INSTALL_DIR"
 sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
 sudo chown -R root:root "$INSTALL_DIR"
-
-# Pull runtime env from Secrets Manager and write env file
-SECRET_NAME="prod/pulse-heatmap-screenshot-ingestion/appenv"
-ENV_FILE="/etc/pulse/heatmap-ingestion.env"
-
-echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
-SECRET_JSON=$(aws secretsmanager get-secret-value \
-  --region "$AWS_REGION" \
-  --secret-id "$SECRET_NAME" \
-  --query SecretString \
-  --output text)
-
-if [ -z "$SECRET_JSON" ]; then
-  echo "ERROR: secret '$SECRET_NAME' is empty"
-  exit 1
-fi
-
-sudo mkdir -p /etc/pulse
-# Secret format matches pulse-server / pulse-alerts-cron: { "app_env": [ { "key": "...", "value": "..." } ] }
-# Use stdlib json (AMI may not ship jq).
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "ERROR: python3 not found; cannot parse appenv secret without jq"
-  exit 1
-fi
-echo "$SECRET_JSON" | python3 -c 'import json, sys
-data = json.load(sys.stdin)
-for item in data.get("app_env", []):
-    k = item.get("key") or ""
-    v = item.get("value", "")
-    if k:
-        print("%s=%s" % (k, v))
-' | sudo tee "$ENV_FILE" >/dev/null
-sudo chmod 600 "$ENV_FILE"
 
 echo "Starting pulse-heatmap-screenshot-ingestion service..."
 # If AMI has systemd unit, this will work; otherwise harmless if it fails
