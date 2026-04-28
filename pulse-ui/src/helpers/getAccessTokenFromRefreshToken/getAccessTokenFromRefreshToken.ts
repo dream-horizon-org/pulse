@@ -1,5 +1,5 @@
 import { API_ROUTES, API_BASE_URL, COOKIES_KEY } from "../../constants";
-import { getCookies, setCookies } from "../cookies";
+import { getCookies, setCookies, removeCookie } from "../cookies";
 import { checkRefreshTokenExpiration } from "../checkRefreshTokenExpiration";
 import { ApiResponse } from "../makeRequest";
 import { makeRequestToServer } from "../makeRequestToServer";
@@ -35,6 +35,11 @@ export const getAndSetAccessTokenFromRefreshToken =
           setCookies(COOKIES_KEY.ACCESS_TOKEN, data.accessToken);
           setCookies(COOKIES_KEY.REFRESH_TOKEN, data.refreshToken);
           setCookies(COOKIES_KEY.TOKEN_TYPE, data.tokenType);
+          if (data.systemRole) {
+            setCookies(COOKIES_KEY.SYSTEM_ROLE, data.systemRole);
+          } else {
+            removeCookie(COOKIES_KEY.SYSTEM_ROLE);
+          }
           return true;
         }
         return false;
