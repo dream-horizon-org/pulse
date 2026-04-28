@@ -19,6 +19,7 @@ import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 import classes from "./StepMetricsAndExpression.module.css";
 import sharedClasses from "../shared.module.css";
 import dayjs from "dayjs";
+import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
 
 export interface StepMetricsAndExpressionProps { className?: string; }
 
@@ -49,12 +50,12 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
   }
   if (scopeType === AlertScopeType.NetworkAPI) {
     // Network API scope uses {method}_{url} format
-    if (searchTerm) baseFilters.push({ field: "SpanAttributes['http.url']", operator: "LIKE", value: [`%${searchTerm}%`] });
+    if (searchTerm) baseFilters.push({ field: COLUMN_NAME.HTTP_URL, operator: "LIKE", value: [`%${searchTerm}%`] });
     return {
       dataType: "TRACES" as const, timeRange,
       select: [
         { function: "COL" as const, param: { field: "SpanAttributes['http.method']" }, alias: "method" },
-        { function: "COL" as const, param: { field: "SpanAttributes['http.url']" }, alias: "url" },
+        { function: "COL" as const, param: { field: COLUMN_NAME.HTTP_URL }, alias: "url" },
         { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" },
       ],
       groupBy: ["method", "url"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,

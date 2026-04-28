@@ -1,0 +1,132 @@
+{
+  "version": 102,
+  "description": "Manual WHITELIST: signals.filters mode WHITELIST with a single rule matching log body ^session\\.start$ only. session.end, trackEvent (custom_event), non_fatal, etc. are dropped at export. Use: VITE_PULSE_MOCK_SDK_CONFIG=true and VITE_PULSE_MOCK_SDK_CONFIG_PATH=/pulse-sdk-config.mock.whitelist.json",
+  "sampling": {
+    "default": { "sessionSampleRate": 1 },
+    "rules": [],
+    "signalsToSample": [],
+    "criticalSessionPolicies": { "alwaysSend": [] }
+  },
+  "signals": {
+    "scheduleDurationMs": 5000,
+    "attributesToDrop": [],
+    "attributesToAdd": [],
+    "filters": {
+      "mode": "WHITELIST",
+      "values": [
+        {
+          "name": "^session\\.start$",
+          "props": [],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        },
+        {
+          "name": "^session\\.end$",
+          "props": [],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        },
+        {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "non_fatal" }],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        }
+      ]
+    },
+    "metricsToAdd": []
+  },
+  "interaction": { "beforeInitQueueSize": 5000 },
+  "features": [
+    {
+      "featureName": "session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "js_crash",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "custom_events",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "click",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_instrumentation",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "web_vitals",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "screen_session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "long_task",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "visibility",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "interaction",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "session_replay",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_change",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "resource_timing",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "websocket",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "bfcache",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    }
+  ]
+}

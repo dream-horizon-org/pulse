@@ -11,6 +11,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.utils.PulseLogLevel
 import com.pulsereactnativeotel.Pulse
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
 import io.opentelemetry.instrumentation.library.okhttp.v3_0.OkHttpInstrumentation
@@ -49,6 +50,7 @@ class MainApplication : Application(), ReactApplication {
         application = this,
         apiKey = "default-project_devkey01",
         dataCollectionState = PulseDataCollectionConsent.ALLOWED,
+        logLevel = PulseLogLevel.DEBUG,
     ) {
       interaction {
         enabled(true)
