@@ -67,6 +67,8 @@ public final class Constants {
   public static final String RELATION_SUPERADMIN = "superadmin";
   public static final String RELATION_INTERNAL_VIEWER = "internal_viewer";
   public static final String RELATION_SYSTEM_PARENT = "system_parent";
+  public static final String RELATION_BELONGS_TO = "belongs_to";
+  public static final String OBJECT_TYPE_TENANT = "tenant";
 
   /**
    * {@link io.vertx.rxjava3.ext.web.client.WebClient} stored in {@link

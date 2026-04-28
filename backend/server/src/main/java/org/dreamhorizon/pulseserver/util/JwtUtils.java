@@ -101,6 +101,24 @@ public class JwtUtils {
     }
     
     /**
+     * Extract systemRole from JWT token.
+     * Returns "superadmin", "internal_viewer", or null if not present.
+     *
+     * @param token JWT token (already verified)
+     * @return systemRole string or null
+     */
+    public static String extractSystemRole(String token) {
+        try {
+            JsonNode claims = parseToken(token);
+            JsonNode systemRole = claims.get("systemRole");
+            return systemRole != null && !systemRole.isNull() ? systemRole.asText() : null;
+        } catch (Exception e) {
+            log.debug("Failed to extract systemRole from token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Check if token is a Firebase token based on issuer.
      * 
      * @param issuer Token issuer claim
