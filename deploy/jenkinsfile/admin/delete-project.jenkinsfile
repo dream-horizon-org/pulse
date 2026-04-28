@@ -41,11 +41,11 @@ pipeline {
             steps {
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: '*/chore/data-cleanup']],
+                    branches: [[name: '*/main']],
                     userRemoteConfigs: [[
                         url: 'https://github.com/dream-horizon-org/pulse.git',
                         credentialsId: 'd11-horizon-bot',
-                        refspec: '+refs/heads/chore/data-cleanup:refs/remotes/origin/chore/data-cleanup'
+                        refspec: '+refs/heads/main:refs/remotes/origin/main'
                     ]]
                 ])
             }
