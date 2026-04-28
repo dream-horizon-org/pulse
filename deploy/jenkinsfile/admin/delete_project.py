@@ -171,6 +171,15 @@ def _preview_row_count(conn: pymysql.connections.Connection, project_id: str, ta
                     """,
                     (project_id,),
                 )
+            elif table == "event_attribute_definitions":
+                cur.execute(
+                    """
+                    SELECT COUNT(*) FROM event_attribute_definitions ead
+                      INNER JOIN event_definitions ed ON ead.event_definition_id = ed.id
+                    WHERE ed.project_id = %s
+                    """,
+                    (project_id,),
+                )
             elif table == "analytics_jobs":
                 # On-save jobs only (AnalyticsJobType.FUNNEL / JOURNEY). Batch types
                 # (FUNNELS_DAILY, JOURNEYS_DAILY, EVENTS_INCREMENTAL) use reference_id NULL and are not per-project deletes.
