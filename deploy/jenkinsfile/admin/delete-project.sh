@@ -30,7 +30,6 @@ fi
 SANITIZED=$(echo "$PROJECT_ID" | tr '-' '_' | sed 's/proj_//')
 CH_USERNAME="project_${SANITIZED}"
 CH_POLICY_NAME="policy_${SANITIZED}"
-CH_LEGACY_POLICY="policy_${SANITIZED}_root_cause_cache"
 CH_ON_CLUSTER=""
 if [ -n "${CH_CLUSTER_NAME:-}" ]; then
     CH_ON_CLUSTER=" ON CLUSTER ${CH_CLUSTER_NAME}"
@@ -122,7 +121,7 @@ delete_openfga_tuples() {
     fi
 }
 
-for _cmd in mysql jq curl; do
+for _cmd in mysql jq curl python3; do
     if ! command -v "$_cmd" &>/dev/null; then
         err "Required command not on PATH: ${_cmd} (e.g. install mysql client, jq, curl on the Jenkins agent)"
         exit 127
@@ -152,11 +151,9 @@ info "CH username:  $CH_USERNAME"
 info "CH policy:    $CH_POLICY_NAME"
 echo ""
 
-step "MySQL row counts (preview)"
-for TABLE in interaction alerts notification_channels pulse_sdk_configs symbol_files funnel journey rca_report_jobs event_definitions; do
-    COUNT=$(run_mysql "SELECT COUNT(*) FROM ${TABLE} WHERE project_id = '${PROJECT_ID}'" 2>/dev/null || echo "?")
-    printf "  %-36s %s rows\n" "$TABLE" "$COUNT"
-done
+DELETE_PROJECT_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/delete_project.py"
+step "MySQL — rows per table (dry run; INFORMATION_SCHEMA FKs + scripted txn)"
+python3 "${DELETE_PROJECT_PY}" --mysql-preview
 
 echo ""
 
@@ -215,12 +212,12 @@ DELETE FROM rca_report_jobs   WHERE project_id IN (SELECT project_id FROM tmp_cl
 DELETE aj FROM analytics_jobs aj
   INNER JOIN funnel f ON aj.reference_id = f.id
   INNER JOIN tmp_cleanup_projects t ON f.project_id = t.project_id
-  WHERE aj.job_type IN ('FUNNEL', 'BULK_FUNNEL');
+  WHERE aj.job_type = 'FUNNEL';
 
 DELETE aj FROM analytics_jobs aj
   INNER JOIN journey j ON aj.reference_id = j.id
   INNER JOIN tmp_cleanup_projects t ON j.project_id = t.project_id
-  WHERE aj.job_type IN ('JOURNEY', 'BULK_JOURNEY');
+  WHERE aj.job_type = 'JOURNEY';
 
 DELETE fjt FROM funnel_journey_tag fjt
   INNER JOIN tmp_cleanup_projects t ON fjt.project_id = t.project_id;
@@ -245,7 +242,6 @@ ok "MySQL cleanup complete"
 step "Step 2/3: ClickHouse"
 
 run_ch_ddl "DROP ROW POLICY IF EXISTS ${CH_POLICY_NAME}${CH_ON_CLUSTER} ON otel.*"
-run_ch_ddl "DROP ROW POLICY IF EXISTS ${CH_LEGACY_POLICY}${CH_ON_CLUSTER} ON otel.root_cause_cache"
 run_ch_ddl "DROP USER IF EXISTS ${CH_USERNAME}${CH_ON_CLUSTER}"
 
 ok "ClickHouse cleanup complete"

@@ -3,7 +3,10 @@
 Deletes all data for a single project from MySQL, ClickHouse, and OpenFGA.
 Mirror of delete-project.sh — keep behavior in sync when changing SQL or steps.
 
-Env: PROJECT_ID, DRY_RUN (true/false), MYSQL_*, CH_ADMIN_*, OPENFGA_* (see .db-ops-env from Jenkins).
+Env: PROJECT_ID, DRY_RUN (true/false), MYSQL_* — required always.
+Execute path also needs CH_ADMIN_* and OPENFGA_*.
+
+Subcommand: python delete_project.py --mysql-preview  (MySQL unified table/count preview only; MYSQL_* + PROJECT_ID)
 """
 from __future__ import annotations
 
@@ -68,16 +71,15 @@ def _split_mysql_statements(sql: str) -> list[str]:
     return statements
 
 
-def _build_ch_identifiers(project_id: str) -> tuple[str, str, str, str]:
+def _build_ch_identifiers(project_id: str) -> tuple[str, str, str]:
     sanitized = project_id.replace("-", "_")
     if sanitized.startswith("proj_"):
         sanitized = sanitized[5:]
     ch_user = f"project_{sanitized}"
     policy = f"policy_{sanitized}"
-    legacy = f"policy_{sanitized}_root_cause_cache"
     cluster = os.environ.get("CH_CLUSTER_NAME", "").strip()
     on_cluster = f" ON CLUSTER {cluster}" if cluster else ""
-    return ch_user, policy, legacy, on_cluster
+    return ch_user, policy, on_cluster
 
 
 def _mysql_connect() -> pymysql.connections.Connection:
@@ -99,6 +101,136 @@ def _run_mysql_scalar(conn: pymysql.connections.Connection, sql: str) -> str | N
         if row is None:
             return None
         return str(row[0]) if row[0] is not None else None
+
+
+def _mysql_fetch_fk_to_projects(conn: pymysql.connections.Connection) -> dict[str, str]:
+    """TABLE_NAME -> DELETE_RULE for FK referencing projects(project_id)."""
+    q = """
+    SELECT DISTINCT kcu.TABLE_NAME, rc.DELETE_RULE
+    FROM information_schema.REFERENTIAL_CONSTRAINTS rc
+    INNER JOIN information_schema.KEY_COLUMN_USAGE kcu
+      ON rc.CONSTRAINT_SCHEMA = kcu.CONSTRAINT_SCHEMA
+     AND rc.TABLE_NAME = kcu.TABLE_NAME
+     AND rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+    WHERE rc.CONSTRAINT_SCHEMA = DATABASE()
+      AND kcu.TABLE_SCHEMA = DATABASE()
+      AND kcu.REFERENCED_TABLE_NAME = 'projects'
+      AND kcu.REFERENCED_COLUMN_NAME = 'project_id'
+    ORDER BY kcu.TABLE_NAME
+    """
+    out: dict[str, str] = {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute(q)
+            for row in cur.fetchall() or []:
+                out[str(row[0])] = str(row[1]) if row[1] is not None else "?"
+    except Exception:
+        pass
+    return out
+
+
+SCRIPT_TRANSACTION_TABLES: frozenset[str] = frozenset(
+    {
+        "alert_evaluation_history",
+        "alert_scope",
+        "alerts",
+        "notification_channels_old",
+        "event_attribute_definitions",
+        "event_definitions",
+        "usage_limit_notifications",
+        "rca_report_cache",
+        "rca_report_jobs",
+        "analytics_jobs",
+        "funnel_journey_tag",
+        "funnel",
+        "journey",
+        "projects",
+    },
+)
+
+
+def _preview_row_count(conn: pymysql.connections.Connection, project_id: str, table: str) -> str:
+    try:
+        with conn.cursor() as cur:
+            if table == "alert_evaluation_history":
+                cur.execute(
+                    """
+                    SELECT COUNT(*) FROM alert_evaluation_history aeh
+                      INNER JOIN alert_scope sc ON aeh.scope_id = sc.id
+                      INNER JOIN alerts a ON sc.alert_id = a.id
+                    WHERE a.project_id = %s
+                    """,
+                    (project_id,),
+                )
+            elif table == "alert_scope":
+                cur.execute(
+                    """
+                    SELECT COUNT(*) FROM alert_scope sc
+                      INNER JOIN alerts a ON sc.alert_id = a.id
+                    WHERE a.project_id = %s
+                    """,
+                    (project_id,),
+                )
+            elif table == "analytics_jobs":
+                # On-save jobs only (AnalyticsJobType.FUNNEL / JOURNEY). Batch types
+                # (FUNNELS_DAILY, JOURNEYS_DAILY, EVENTS_INCREMENTAL) use reference_id NULL and are not per-project deletes.
+                cur.execute(
+                    """
+                    SELECT COUNT(*) FROM analytics_jobs aj
+                    WHERE (
+                      (aj.job_type = 'FUNNEL'
+                        AND EXISTS (
+                          SELECT 1 FROM funnel f WHERE f.id = aj.reference_id AND f.project_id = %s))
+                      OR
+                      (aj.job_type = 'JOURNEY'
+                        AND EXISTS (
+                          SELECT 1 FROM journey j WHERE j.id = aj.reference_id AND j.project_id = %s))
+                    )
+                    """,
+                    (project_id, project_id),
+                )
+            else:
+                cur.execute(
+                    f"SELECT COUNT(*) FROM `{table}` WHERE project_id = %s",
+                    (project_id,),
+                )
+            row = cur.fetchone()
+            return str(row[0]) if row else "?"
+    except Exception:
+        return "?"
+
+
+def _sources_tag(fk_dr: str | None, in_script: bool) -> str:
+    segments: list[str] = []
+    if fk_dr is not None:
+        segments.append(f"FK:{fk_dr}")
+    if in_script:
+        segments.append("scriptTxn")
+    return "+".join(segments) if segments else "—"
+
+
+def print_mysql_dry_preview_all_tables(conn: pymysql.connections.Connection, project_id: str) -> None:
+    """Single listing: FK children via INFORMATION_SCHEMA merged with scripted DELETE targets."""
+    fk_map = _mysql_fetch_fk_to_projects(conn)
+    unified = sorted(set(fk_map.keys()) | SCRIPT_TRANSACTION_TABLES)
+
+    _step(
+        "MySQL — rows removed per table (dry run; INFORMATION_SCHEMA FKs + scripted transaction)"
+    )
+
+    rows_out: list[tuple[str, str, str]] = []
+    for tbl in unified:
+        tag = _sources_tag(fk_map.get(tbl), tbl in SCRIPT_TRANSACTION_TABLES)
+        cnt = _preview_row_count(conn, project_id, tbl)
+        rows_out.append((tbl, cnt, tag))
+
+    print()
+    print(f"{'table':<46} {'rows':>8}   source")
+    print(f"{'':46} {'':>8}   FK = FK to projects(project_id); scriptTxn = scripted DELETE txn")
+    print("  " + "-" * 88)
+    for tbl, cnt, tag in sorted(rows_out, key=lambda x: x[0]):
+        print(f"  {tbl:<44} {cnt:>8}   [{tag}]")
+    print()
 
 
 def _ch_post(query: str) -> None:
@@ -218,12 +350,12 @@ DELETE FROM rca_report_jobs   WHERE project_id IN (SELECT project_id FROM tmp_cl
 DELETE aj FROM analytics_jobs aj
   INNER JOIN funnel f ON aj.reference_id = f.id
   INNER JOIN tmp_cleanup_projects t ON f.project_id = t.project_id
-  WHERE aj.job_type IN ('FUNNEL', 'BULK_FUNNEL');
+  WHERE aj.job_type = 'FUNNEL';
 
 DELETE aj FROM analytics_jobs aj
   INNER JOIN journey j ON aj.reference_id = j.id
   INNER JOIN tmp_cleanup_projects t ON j.project_id = t.project_id
-  WHERE aj.job_type IN ('JOURNEY', 'BULK_JOURNEY');
+  WHERE aj.job_type = 'JOURNEY';
 
 DELETE fjt FROM funnel_journey_tag fjt
   INNER JOIN tmp_cleanup_projects t ON fjt.project_id = t.project_id;
@@ -239,21 +371,43 @@ COMMIT;
 """
 
 
+def _cli_mysql_preview() -> None:
+    """Print unified MySQL table list + row counts (DRY RUN). Requires PROJECT_ID + MYSQL_* only."""
+    project_id = _must("PROJECT_ID")
+    if not re.match(r"^[a-zA-Z0-9_-]+$", project_id):
+        _err(f"PROJECT_ID contains invalid characters: {project_id}")
+        sys.exit(1)
+
+    conn = _mysql_connect()
+    try:
+        name = _run_mysql_scalar(
+            conn,
+            f"SELECT name FROM projects WHERE project_id = '{project_id}' LIMIT 1",
+        )
+        if not name:
+            _err(f"Project not found in MySQL: {project_id}")
+            sys.exit(1)
+        print_mysql_dry_preview_all_tables(conn, project_id)
+    finally:
+        conn.close()
+
+
 def main() -> None:
     project_id = _must("PROJECT_ID")
     if not re.match(r"^[a-zA-Z0-9_-]+$", project_id):
         _err(f"PROJECT_ID contains invalid characters: {project_id}")
         sys.exit(1)
 
-    ch_user, ch_policy, ch_legacy, on_cluster = _build_ch_identifiers(project_id)
-    for name in (
-        "CH_ADMIN_HOST",
-        "CH_ADMIN_USER",
-        "CH_ADMIN_PASSWORD",
-        "OPENFGA_API_URL",
-        "OPENFGA_STORE_ID",
-    ):
-        _must(name)
+    ch_user, ch_policy, on_cluster = _build_ch_identifiers(project_id)
+    if not _dry_run():
+        for env_var in (
+            "CH_ADMIN_HOST",
+            "CH_ADMIN_USER",
+            "CH_ADMIN_PASSWORD",
+            "OPENFGA_API_URL",
+            "OPENFGA_STORE_ID",
+        ):
+            _must(env_var)
 
     dry = "true" if _dry_run() else "false"
     print()
@@ -285,29 +439,8 @@ def main() -> None:
         _info(f"CH username:  {ch_user}")
         _info(f"CH policy:    {ch_policy}")
         print()
-        _step("MySQL row counts (preview)")
-        tables = (
-            "interaction",
-            "alerts",
-            "notification_channels",
-            "pulse_sdk_configs",
-            "symbol_files",
-            "funnel",
-            "journey",
-            "rca_report_jobs",
-            "event_definitions",
-        )
-        for table in tables:
-            try:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        f"SELECT COUNT(*) FROM {table} WHERE project_id = %s", (project_id,)
-                    )
-                    row = cur.fetchone()
-                    c = str(row[0]) if row else "?"
-            except Exception:
-                c = "?"
-            print(f"  {table:36s} {c} rows")
+        print_mysql_dry_preview_all_tables(conn, project_id)
+
         print()
     finally:
         conn.close()
@@ -337,7 +470,6 @@ def main() -> None:
 
     _step("Step 2/3: ClickHouse")
     _ch_post(f"DROP ROW POLICY IF EXISTS {ch_policy}{on_cluster} ON otel.*")
-    _ch_post(f"DROP ROW POLICY IF EXISTS {ch_legacy}{on_cluster} ON otel.root_cause_cache")
     _ch_post(f"DROP USER IF EXISTS {ch_user}{on_cluster}")
     _ok("ClickHouse cleanup complete")
 
@@ -353,6 +485,9 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main()
+        if len(sys.argv) > 1 and sys.argv[1] == "--mysql-preview":
+            _cli_mysql_preview()
+        else:
+            main()
     except KeyboardInterrupt:
         sys.exit(130)
