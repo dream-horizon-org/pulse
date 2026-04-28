@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Deletes tenant data from MySQL and OpenFGA. Mirror of delete-tenant.sh.
+Deletes tenant data from MySQL and OpenFGA.
 
 Env: TENANT_ID, DRY_RUN, MYSQL_*, OPENFGA_* (from .db-ops-env).
 Requires no projects left for the tenant (delete projects first).

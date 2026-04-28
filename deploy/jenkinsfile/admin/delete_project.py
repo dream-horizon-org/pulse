@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 Deletes all data for a single project from MySQL, ClickHouse, and OpenFGA.
-Mirror of delete-project.sh — keep behavior in sync when changing SQL or steps.
 
 Env: PROJECT_ID, DRY_RUN (true/false), MYSQL_* — required always.
 OPENFGA_* required for full Preflight/OpenFGA preview. Execute path also needs CH_ADMIN_*.
 
 If MySQL already has no `projects` row (e.g. prior run failed after MySQL), DRY_RUN=false skips the
 MySQL step and completes ClickHouse + OpenFGA only.
+
+CLI: `python delete_project.py --mysql-preview` — MySQL table/count preview only (MYSQL_* + PROJECT_ID).
 
 """
 from __future__ import annotations
@@ -344,7 +345,6 @@ def _dry_run_clickhouse_openfga_preview(
 
 
 def _project_delete_sql(project_id: str) -> str:
-    # Kept in sync with delete-project.sh (MySQL heredoc)
     return f"""
 START TRANSACTION;
 
