@@ -14,6 +14,7 @@ import {
   StatusCodeCategory,
 } from "./StatusCodeDistribution.interface";
 import classes from "./StatusCodeDistribution.module.css";
+import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
 
 // Color palette for status code categories
 const STATUS_CODE_COLORS: Record<string, string> = {
@@ -56,7 +57,7 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.status_code']",
+            expression: COLUMN_NAME.NETWORK_STATUS_CODE,
           },
           alias: "status_code",
         },
@@ -66,10 +67,10 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
         {
           field: "PulseType",
           operator: "LIKE" as const,
-          value: ["%network%"],
+          value: [PulseType.NETWORK_LIKE],
         },
         {
-          field: "SpanAttributes['http.url']",
+          field: COLUMN_NAME.HTTP_URL,
           operator: "EQ" as const,
           value: [url],
         },

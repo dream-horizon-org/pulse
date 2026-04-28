@@ -45,7 +45,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   private static final String CONFIG_PATH = "v1/configs";
   private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String SYMBOL_UPLOAD_PREFIX = "v1/symbolicate/file/upload";
-  private static final String INCIDENTS_PREFIC = "v1/incidents";
+  private static final String INCIDENTS_PREFIX = "v1/incidents";
 
   @Context
   private ResourceInfo resourceInfo;

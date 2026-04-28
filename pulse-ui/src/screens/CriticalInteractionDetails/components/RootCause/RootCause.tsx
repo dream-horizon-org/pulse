@@ -47,11 +47,7 @@ function formatRcaReportGeneratedAgo(
   return parsed.isValid() ? parsed.fromNow() : null;
 }
 
-export function RootCause({
-  interactionName,
-  date,
-  projectId,
-}: RootCauseProps) {
+export function RootCause({ entityKey, date, projectId }: RootCauseProps) {
   const regenerateDebounceTimerRef = useRef<number | null>(null);
   const [rcaRequestSession, setRcaRequestSession] = useState(0);
 
@@ -76,9 +72,9 @@ export function RootCause({
     isAsyncBootstrapping,
     isAwaitingPollPayload,
   } = useGetRcaReport({
-    interactionName,
+    entityKey,
     date: date ?? null,
-    enabled: !!interactionName,
+    enabled: !!entityKey,
     projectId: effectiveProjectId,
     requestSession: rcaRequestSession,
   });
@@ -132,8 +128,8 @@ export function RootCause({
   }, []);
 
   const handleRegenerate = useCallback(() => {
-    const isInteractionNameInvalid = !interactionName;
-    if (isInteractionNameInvalid) return;
+    const isEntityKeyInvalid = !entityKey;
+    if (isEntityKeyInvalid) return;
     if (regenerateRcaReport.isPending) {
       return;
     }
@@ -145,7 +141,7 @@ export function RootCause({
     regenerateDebounceTimerRef.current = window.setTimeout(() => {
       regenerateRcaReport.mutate(
         {
-          interactionName,
+          entityKey,
           date: date ?? null,
           projectId: trimmedProjectId,
         },
@@ -167,7 +163,7 @@ export function RootCause({
       regenerateDebounceTimerRef.current = null;
     }, REGENERATE_DEBOUNCE_MS);
   }, [
-    interactionName,
+    entityKey,
     date,
     trimmedProjectId,
     regenerateRcaReport,
@@ -198,7 +194,9 @@ export function RootCause({
           mx="auto"
           mt="xl"
         >
-          <Text size="sm" mb="sm">{ROOT_CAUSE_MESSAGES.RCA_UNKNOWN_JOB_STATUS}</Text>
+          <Text size="sm" mb="sm">
+            {ROOT_CAUSE_MESSAGES.RCA_UNKNOWN_JOB_STATUS}
+          </Text>
           <Button
             leftSection={<IconRefresh size={14} />}
             variant="subtle"
@@ -260,7 +258,9 @@ export function RootCause({
           mt="xl"
         >
           <Text size="sm" mb="sm">
-            {rcaErrorMessage?.trim() ? rcaErrorMessage : ROOT_CAUSE_MESSAGES.GENERIC_ERROR}
+            {rcaErrorMessage?.trim()
+              ? rcaErrorMessage
+              : ROOT_CAUSE_MESSAGES.GENERIC_ERROR}
           </Text>
           <Button
             leftSection={<IconRefresh size={14} />}
@@ -391,10 +391,12 @@ export function RootCause({
   }
 
   return (
-    <Box className={classes.container}>
-      <Text className={classes.stateMessage}>
-        {ROOT_CAUSE_MESSAGES.NO_DATA}
-      </Text>
-    </Box>
+    <Stack gap="xl">
+      <Box className={classes.container}>
+        <Text className={classes.stateMessage}>
+          {ROOT_CAUSE_MESSAGES.NO_DATA}
+        </Text>
+      </Box>
+    </Stack>
   );
 }

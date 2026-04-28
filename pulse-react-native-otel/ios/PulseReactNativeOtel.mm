@@ -167,7 +167,7 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(isInitialized)
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(trackEvent:(NSString *)event observedTimeMs:(double)observedTimeMs properties:(NSDictionary *)properties)
 { return [self doTrackEvent:event observedTimeMs:observedTimeMs properties:properties]; }
 
-RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(startSpan:(NSString *)name inheritContext:(NSNumber *)inheritContext attributes:(NSDictionary *)attributes)
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(startSpan:(NSString *)name inheritContext:(BOOL)inheritContext attributes:(NSDictionary *)attributes)
 { return [self doStartSpan:name inheritContext:inheritContext attributes:attributes]; }
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(endSpan:(NSString *)spanId statusCode:(NSString *)statusCode)

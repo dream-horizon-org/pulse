@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Base64
 import androidx.annotation.WorkerThread
 import androidx.core.content.edit
+import com.pulse.utils.PulseLogger
+import com.pulse.utils.RedactionUtils
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -36,6 +38,7 @@ public class DefaultReplayStorageEncryption(
     private val secureRandom = SecureRandom()
 
     private companion object {
+        private const val REPLAY_CRYPTO_TAG = "ReplayCrypto"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_IV_LENGTH = 12
         private const val GCM_TAG_LENGTH = 128
@@ -45,25 +48,37 @@ public class DefaultReplayStorageEncryption(
     }
 
     @WorkerThread
-    override fun encrypt(plaintext: ByteArray): ByteArray {
-        val cipher = encryptCipher.get() ?: Cipher.getInstance(TRANSFORMATION)
-        val iv = ByteArray(GCM_IV_LENGTH).also { secureRandom.nextBytes(it) }
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
-        val ciphertext = cipher.doFinal(plaintext)
-        return iv + ciphertext
-    }
+    override fun encrypt(plaintext: ByteArray): ByteArray =
+        try {
+            val cipher = encryptCipher.get() ?: Cipher.getInstance(TRANSFORMATION)
+            val iv = ByteArray(GCM_IV_LENGTH).also { secureRandom.nextBytes(it) }
+            cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
+            val ciphertext = cipher.doFinal(plaintext)
+            iv + ciphertext
+        } catch (t: Throwable) {
+            PulseLogger.logError(REPLAY_CRYPTO_TAG, t) {
+                "sdk.replay.encrypt_failure error_class=${RedactionUtils.classifyError(t)}"
+            }
+            throw t
+        }
 
     @WorkerThread
-    override fun decrypt(ciphertext: ByteArray): ByteArray {
-        if (ciphertext.size <= GCM_IV_LENGTH) {
-            throw IllegalArgumentException("Ciphertext too short")
+    override fun decrypt(ciphertext: ByteArray): ByteArray =
+        try {
+            if (ciphertext.size <= GCM_IV_LENGTH) {
+                throw IllegalArgumentException("Ciphertext too short")
+            }
+            val iv = ciphertext.copyOf(GCM_IV_LENGTH)
+            val data = ciphertext.copyOfRange(GCM_IV_LENGTH, ciphertext.size)
+            val cipher = decryptCipher.get() ?: Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
+            cipher.doFinal(data)
+        } catch (t: Throwable) {
+            PulseLogger.logError(REPLAY_CRYPTO_TAG, t) {
+                "sdk.replay.decrypt_failure error_class=${RedactionUtils.classifyError(t)}"
+            }
+            throw t
         }
-        val iv = ciphertext.copyOf(GCM_IV_LENGTH)
-        val data = ciphertext.copyOfRange(GCM_IV_LENGTH, ciphertext.size)
-        val cipher = decryptCipher.get() ?: Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
-        return cipher.doFinal(data)
-    }
 
     private fun getOrCreateKey(context: Context): SecretKey {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

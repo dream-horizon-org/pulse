@@ -7,6 +7,7 @@ import {
   FunnelStepResult,
   useGetFunnelGrouped,
 } from "../../../hooks/useGetFunnelData";
+import { FunnelMode } from "../../../services/funnels.service";
 import { formatDuration } from "../FunnelJourneyCreate.util";
 import classes from "../FunnelCreate.module.css";
 
@@ -14,6 +15,12 @@ interface FunnelDataTableProps {
   steps: FunnelStepResult[];
   timeRange: { start: string; end: string };
   apiSteps: FunnelStep[];
+  /**
+   * Analysis grouping key for the parent funnel. Forwarded to the grouped-data
+   * request so breakdowns match the saved funnel's denominator. Defaults to
+   * UNIQUE_USERS when omitted.
+   */
+  mode?: FunnelMode;
 }
 
 type SortField = "stepName" | "count" | "conversionRate" | "dropoffRate";
@@ -22,6 +29,7 @@ export function FunnelDataTable({
   steps,
   timeRange,
   apiSteps,
+  mode = FunnelMode.UNIQUE_USERS,
 }: FunnelDataTableProps) {
   const [sortField, setSortField] = useState<SortField>("count");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -32,7 +40,7 @@ export function FunnelDataTable({
     requestBody: {
       steps: apiSteps,
       timeRange,
-      mode: "UNIQUE_USERS",
+      mode,
       groupBy,
     },
     enabled: groupBy !== "none",

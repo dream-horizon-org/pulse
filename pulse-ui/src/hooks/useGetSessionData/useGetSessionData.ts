@@ -8,6 +8,8 @@ import {
 import { makeRequest } from "../../helpers/makeRequest";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import { COLUMN_NAME } from "../../constants/PulseOtelSemcov";
+
 
 dayjs.extend(utc);
 
@@ -67,7 +69,7 @@ const fetchSessionTraces = async (sessionId: string, timeRange: { start: string;
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['http.url']",
+          expression: COLUMN_NAME.HTTP_URL,
         },
         alias: "httpUrl",
       },
