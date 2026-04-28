@@ -2634,6 +2634,44 @@ test.describe("@M1 remote config + export gate (seeded localStorage)", () => {
   });
 });
 
+// ─── Error boundary crash capture ────────────────────────────────────────────
+
+test.describe("@M1 error boundary crash capture", () => {
+  test("PulseErrorBoundary render error emits device.crash log with react.component_stack", async ({
+    page,
+    otlp,
+  }) => {
+    await page.goto("/error-demo");
+    await waitForPulseWebInitialized(page);
+    otlp.reset();
+
+    // Click the "Throw in render" button — triggers RenderBomb inside PulseErrorBoundary
+    await page.click('[data-testid="throw-render-error"]');
+
+    // Wait for a device.crash log to arrive
+    const log = await otlp.waitForLog("device.crash", 10_000);
+
+    // pulse.type must be device.crash
+    expect(getAttr(log.attributes, "pulse.type")).toBe("device.crash");
+
+    // exception.message must contain the intentional render error text
+    const exceptionMessage = getAttr(
+      log.attributes,
+      "exception.message",
+    ) as string;
+    expect(exceptionMessage).toContain("Intentional render error");
+
+    // react.component_stack must be defined and non-empty
+    const componentStack = getAttr(
+      log.attributes,
+      "react.component_stack",
+    ) as string;
+    expect(componentStack).toBeTruthy();
+    expect(typeof componentStack).toBe("string");
+    expect(componentStack.length).toBeGreaterThan(0);
+  });
+});
+
 test.describe("@M1 disk buffer replay", () => {
   test("non-retryable logs export failure buffers payload; reload replays to OTLP", async ({
     page,

@@ -2,6 +2,40 @@
 
 Prereqs: demo running (`yarn demo` from `pulse-web-otel`), consent allowed, `PulseWeb` on `window` (ecommerce-demo `_PulseWebExpose`).
 
+---
+
+## React wiring — how the demo initialises the SDK
+
+The demo uses the React component API (`@dreamhorizon/pulse-web/react`) instead of calling `PulseWeb.start()` directly:
+
+```tsx
+// App.tsx (simplified)
+import { PulseProvider } from "@dreamhorizon/pulse-web/react";
+
+// Config derived from env vars + query params (see useMemo in App.tsx)
+<BrowserRouter>
+  <PulseProvider
+    config={pulseConfig}
+    shutdownOnUnmount={false}
+    routerTracking={{ skipInitial: false }}
+  >
+    <AppRoutes />
+  </PulseProvider>
+</BrowserRouter>
+```
+
+`PulseProvider` handles two things internally: error capture (via a built-in `PulseErrorBoundary` that calls `PulseWeb.reportDeviceCrash`) and router tracking (when `routerTracking` is passed and the provider is inside a `<BrowserRouter>`).
+
+| Knob | Env var | Query param | Effect |
+|------|---------|-------------|--------|
+| API key | `VITE_PULSE_API_KEY` | — | `default-project_devkey456` → localhost:4318 |
+| Service name | `VITE_PULSE_SERVICE_NAME` | — | defaults to `ecommerce-demo` |
+| Service version | `VITE_PULSE_SERVICE_VERSION` | — | optional; stamped on Resource |
+| Consent | — | `?pulse_consent=denied\|pending` | DENIED/PENDING → SDK never inits |
+| Disk buffer | `VITE_PULSE_DISK_BUFFER=false` | `?pulse_disk=0` | disables IndexedDB replay |
+| Wire format | `VITE_PULSE_FORMAT=json\|protobuf` | — | defaults to `protobuf` |
+| Debug lifecycle | `VITE_PULSE_DEBUG_LOG_LIFECYCLE=true` | — | logs every record through pipeline |
+
 **Note:** Batch delay, compression, and endpoint base URL are not public `PulseWebConfig` fields. **Disk buffering** (IndexedDB failed-export replay) is **on by default** — same default as Android OTel RUM when `PulseSDK.initialize` does not pass a disk lambda (`DiskBufferingConfigurationSpec.isEnabled` defaults to `true`). The ecommerce demo can **opt out** with **`VITE_PULSE_DISK_BUFFER=false`** or **`?pulse_disk=0`**. Max age / cache size use SDK defaults; optional **`VITE_PULSE_DISK_BUFFER_MAX_AGE_MS`** / **`VITE_PULSE_DISK_BUFFER_MAX_SIZE_BYTES`** are read **inside the SDK** when buffering is active (like `VITE_PULSE_BATCH_DELAY_MS`).
 
 ---
@@ -58,3 +92,15 @@ Use tiny **`VITE_PULSE_DISK_BUFFER_MAX_AGE_MS`** / **`VITE_PULSE_DISK_BUFFER_MAX
 | `PulseWebConfig.diskBuffering` | `pulse-web-otel/src/config.ts` |
 | IDB store | `pulse-web-otel/src/persistence/indexed-db.ts` |
 | E2E | `examples/ecommerce-demo/e2e/m1.spec.ts` |
+
+---
+
+## Test coverage map
+
+| Scenario | Unit test | E2E test |
+|---|---|---|
+| StrictMode init-once (createProviders × 1) | `pulse-provider.test.tsx` — StrictMode suite | `m1.spec.ts` — "double PulseWeb.start() is a no-op" |
+| Internal error boundary crash capture + react.component_stack | `pulse-provider.test.tsx` — PulseErrorBoundary suite | `m1.spec.ts` — "@M1 error boundary crash capture" |
+| `routerTracking` prop fires setScreenName on navigation | `use-router-tracking.test.tsx` — route change suite | — |
+| useRouterTracking unmount no-leak | `use-router-tracking.test.tsx` — no-leak suite | — |
+| PulseProvider shutdownOnUnmount | `pulse-provider.test.tsx` — mount/unmount suite | — |

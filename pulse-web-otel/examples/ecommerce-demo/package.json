@@ -13,7 +13,8 @@
     "e2e:m2-interactions": "playwright test --config e2e/playwright.config.ts e2e/m2-interactions.spec.ts --project=chromium",
     "e2e:web-sdk-gates": "playwright test --config e2e/playwright.config.ts e2e/m1.spec.ts e2e/m2-interactions.spec.ts --project=chromium",
     "e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
-    "e2e:report": "playwright test --config e2e/playwright.config.ts; playwright show-report e2e-report"
+    "e2e:report": "playwright test --config e2e/playwright.config.ts; playwright show-report e2e-report",
+    "test": "yarn --cwd ../.. vitest run --config examples/ecommerce-demo/vitest.config.ts examples/ecommerce-demo/src/__tests__/App.test.tsx"
   },
   "dependencies": {
     "@dreamhorizon/pulse-web": "workspace:*",

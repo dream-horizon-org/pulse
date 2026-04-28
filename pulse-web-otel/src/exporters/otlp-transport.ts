@@ -83,9 +83,10 @@ export function createPulseXhrTransport(parameters: {
             error: new Error("XHR request errored"),
           });
         };
-        const contentType =
-          parameters.headers["Content-Type"] ?? "application/json";
-        xhr.send(new Blob([data as BlobPart], { type: contentType }));
+        // Send as Uint8Array (Content-Type already set via setRequestHeader above).
+        // Avoid wrapping in Blob — Playwright webkit cannot read postDataBuffer()
+        // for Blob-bodied XHR requests, breaking E2E test interception.
+        xhr.send(data as XMLHttpRequestBodyInit | null | undefined);
       });
     },
     shutdown() {},

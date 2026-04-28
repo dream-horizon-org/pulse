@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense, useEffect, useMemo } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -11,6 +11,7 @@ import {
   PulseDataCollectionConsent,
   PulseLogLevel,
 } from "@dreamhorizon/pulse-web";
+import { PulseProvider } from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 import { CartProvider } from "./hooks/useCart";
 
@@ -74,41 +75,8 @@ function NavBar() {
   );
 }
 
-function AppRoutes() {
-  return (
-    <>
-      <NavBar />
-      <main
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "32px 24px",
-          minHeight: "calc(100vh - 56px)",
-        }}
-      >
-        <Suspense
-          fallback={
-            <div style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
-              Loading…
-            </div>
-          }
-        >
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/error-demo" element={<ErrorDemo />} />
-          </Routes>
-        </Suspense>
-      </main>
-    </>
-  );
-}
-
 export default function App() {
-  useEffect(() => {
+  const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
     const queryLogLevel = searchParams.get("pulse_log_level");
@@ -133,7 +101,9 @@ export default function App() {
       | "protobuf"
       | undefined;
     const logLevelRaw = (
-      queryLogLevel ?? import.meta.env["VITE_PULSE_LOG_LEVEL"] ?? ""
+      queryLogLevel ??
+      import.meta.env["VITE_PULSE_LOG_LEVEL"] ??
+      ""
     )
       .toString()
       .trim()
@@ -160,57 +130,144 @@ export default function App() {
         ? String(serviceVersionRaw).trim()
         : undefined;
 
-    PulseWeb.start({
+    return {
       apiKey:
         import.meta.env["VITE_PULSE_API_KEY"] ?? "default-project_devkey01",
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
       ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
-      ...(formatEnv ? { export: { format: formatEnv } } : {}),
+      export: {
+        format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
+        compression:
+          (import.meta.env["VITE_PULSE_COMPRESSION"] as
+            | "gzip"
+            | "none"
+            | undefined) ?? "gzip",
+        batch: {
+          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
+            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
+            : 5000,
+        },
+      },
+      debugLogRecordLifecycle: legacyDebugLifecycle,
       ...(logLevel !== undefined ? { logLevel } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
-    });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  const userSetupConfig = useMemo(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const queryUserEnabled = searchParams.get("pulse_user_enabled");
+    const queryUserId = searchParams.get("pulse_user_id");
     const envUserEnabled =
       String(import.meta.env["VITE_PULSE_DEMO_USER_ENABLED"] ?? "")
         .trim()
         .toLowerCase() === "true";
-    const userEnabled =
+
+    const enabled =
       queryUserEnabled == null
         ? envUserEnabled
         : queryUserEnabled === "1" || queryUserEnabled === "true";
-    if (userEnabled) {
-      const userId =
+
+    return {
+      enabled,
+      userId:
         (queryUserId && queryUserId.trim() !== "" ? queryUserId : undefined) ??
         (import.meta.env["VITE_PULSE_DEMO_USER_ID"] as string | undefined) ??
-        "demo-user-001";
-      PulseWeb.setUserId(userId);
-      const userProps: Record<string, string | null> = {
-        plan: (import.meta.env["VITE_PULSE_DEMO_USER_PLAN"] as string | undefined) ?? "pro",
+        "demo-user-001",
+      userProps: {
+        plan:
+          (import.meta.env["VITE_PULSE_DEMO_USER_PLAN"] as
+            | string
+            | undefined) ?? "pro",
         cohort:
-          (import.meta.env["VITE_PULSE_DEMO_USER_COHORT"] as string | undefined) ??
-          "beta",
+          (import.meta.env["VITE_PULSE_DEMO_USER_COHORT"] as
+            | string
+            | undefined) ?? "beta",
         region:
-          (import.meta.env["VITE_PULSE_DEMO_USER_REGION"] as string | undefined) ??
-          "us",
-      };
-      PulseWeb.setUserProperties(userProps);
-    } else {
-      PulseWeb.setUserId(null);
-    }
-
-    // Expose for E2E shutdown test (m1.spec.ts)
-    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+          (import.meta.env["VITE_PULSE_DEMO_USER_REGION"] as
+            | string
+            | undefined) ?? "us",
+      } as Record<string, string | null>,
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <BrowserRouter>
-      <CartProvider>
-        <AppRoutes />
-        <PulseDebugPanel />
-      </CartProvider>
+      <PulseProvider
+        config={pulseConfig}
+        shutdownOnUnmount={false}
+        routerTracking={{ skipInitial: false }}
+      >
+        {/* Expose for E2E shutdown test (m1.spec.ts) */}
+        <_PulseWebExpose />
+        <_PulseWebDemoUserSetup config={userSetupConfig} />
+        <CartProvider>
+          <NavBar />
+          <main
+            style={{
+              maxWidth: 1200,
+              margin: "0 auto",
+              padding: "32px 24px",
+              minHeight: "calc(100vh - 56px)",
+            }}
+          >
+            <Suspense
+              fallback={
+                <div
+                  style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}
+                >
+                  Loading…
+                </div>
+              }
+            >
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/products/:id" element={<ProductDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/error-demo" element={<ErrorDemo />} />
+              </Routes>
+            </Suspense>
+          </main>
+          <PulseDebugPanel />
+        </CartProvider>
+      </PulseProvider>
     </BrowserRouter>
   );
+}
+
+/** Exposes PulseWeb on window for E2E tests. No UI rendered. */
+function _PulseWebExpose(): null {
+  React.useEffect(() => {
+    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+  }, []);
+  return null;
+}
+
+type DemoUserSetupConfig = {
+  enabled: boolean;
+  userId: string;
+  userProps: Record<string, string | null>;
+};
+
+function _PulseWebDemoUserSetup({
+  config,
+}: {
+  config: DemoUserSetupConfig;
+}): null {
+  useEffect(() => {
+    if (config.enabled) {
+      PulseWeb.setUserId(config.userId);
+      PulseWeb.setUserProperties(config.userProps);
+    } else {
+      PulseWeb.setUserId(null);
+    }
+  }, [config.enabled, config.userId, config.userProps]);
+
+  return null;
 }

@@ -108,9 +108,9 @@ export function findAllLogs(
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
     if (c.type !== "logs") continue;
-    for (const rl of c.body.resourceLogs) {
-      for (const sl of rl.scopeLogs) {
-        for (const lr of sl.logRecords) {
+    for (const rl of (c.body.resourceLogs ?? [])) {
+      for (const sl of (rl.scopeLogs ?? [])) {
+        for (const lr of (sl.logRecords ?? [])) {
           if (getAttr(lr.attributes, "pulse.type") === pulseType) out.push(lr);
         }
       }
@@ -127,9 +127,9 @@ export function findAllSpans(
   const out: OtlpSpan[] = [];
   for (const c of captured) {
     if (c.type !== "traces") continue;
-    for (const rs of c.body.resourceSpans) {
-      for (const ss of rs.scopeSpans) {
-        for (const sp of ss.spans) {
+    for (const rs of (c.body.resourceSpans ?? [])) {
+      for (const ss of (rs.scopeSpans ?? [])) {
+        for (const sp of (ss.spans ?? [])) {
           if (getAttr(sp.attributes, "pulse.type") === pulseType) out.push(sp);
         }
       }
@@ -146,9 +146,9 @@ export function findAllSpansByName(
   const out: OtlpSpan[] = [];
   for (const c of captured) {
     if (c.type !== "traces") continue;
-    for (const rs of c.body.resourceSpans) {
-      for (const ss of rs.scopeSpans) {
-        for (const sp of ss.spans) {
+    for (const rs of (c.body.resourceSpans ?? [])) {
+      for (const ss of (rs.scopeSpans ?? [])) {
+        for (const sp of (ss.spans ?? [])) {
           if (sp.name === spanName) out.push(sp);
         }
       }
@@ -165,9 +165,9 @@ export function findAllLogsByBody(
   const out: OtlpLogRecord[] = [];
   for (const c of captured) {
     if (c.type !== "logs") continue;
-    for (const rl of c.body.resourceLogs) {
-      for (const sl of rl.scopeLogs) {
-        for (const lr of sl.logRecords) {
+    for (const rl of (c.body.resourceLogs ?? [])) {
+      for (const sl of (rl.scopeLogs ?? [])) {
+        for (const lr of (sl.logRecords ?? [])) {
           if (lr.body?.stringValue === body) out.push(lr);
         }
       }
@@ -184,7 +184,7 @@ export function findAllMetricPoints(
   const out: OtlpDataPoint[] = [];
   for (const c of captured) {
     if (c.type !== "metrics") continue;
-    for (const rm of c.body.resourceMetrics) {
+    for (const rm of (c.body.resourceMetrics ?? [])) {
       for (const sm of rm.scopeMetrics) {
         for (const m of sm.metrics) {
           if (m.name === metricName) {
@@ -212,10 +212,10 @@ export function getResourceAttr(
   for (const c of captured) {
     const resourceList =
       c.type === "logs"
-        ? c.body.resourceLogs.map((r) => r.resource)
+        ? (c.body.resourceLogs ?? []).map((r) => r.resource)
         : c.type === "traces"
-          ? c.body.resourceSpans.map((r) => r.resource)
-          : c.body.resourceMetrics.map((r) => r.resource);
+          ? (c.body.resourceSpans ?? []).map((r) => r.resource)
+          : (c.body.resourceMetrics ?? []).map((r) => r.resource);
     for (const res of resourceList) {
       const val = getAttr(res?.attributes, key);
       if (val !== undefined) return String(val);
