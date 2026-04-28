@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
 import { PulseWeb } from "../../sdk";
 import type { UseRouterTrackingOptions } from "../../types/react";
 
 export type { UseRouterTrackingOptions } from "../../types/react";
+
+type RouterLocation = {
+  pathname: string;
+  search: string;
+  hash: string;
+};
+
+type UseLocationHook = () => RouterLocation;
 
 /**
  * React Router v6 integration — calls {@link PulseWeb.setScreenName} on every
@@ -41,7 +48,33 @@ export function useRouterTracking(
   options: UseRouterTrackingOptions = {},
 ): void {
   const { format, includeSearch = false, skipInitial = true } = options;
-  const location = useLocation();
+
+  // Lazy require so the module loads without react-router-dom installed.
+  // Throws at call-time (not import-time) if the peer dep is absent.
+  let useLocationHook: UseLocationHook;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    useLocationHook = (
+      require("react-router-dom") as { useLocation: UseLocationHook }
+    ).useLocation;
+  } catch {
+    throw new Error(
+      "[PulseWeb] useRouterTracking requires react-router-dom >=6.0.0. " +
+        "Install it as a peer dependency or remove this hook.",
+    );
+  }
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  let location: RouterLocation;
+  try {
+    location = useLocationHook();
+  } catch {
+    throw new Error(
+      "[PulseWeb] routerTracking requires <PulseProvider> to be rendered inside " +
+        "a <BrowserRouter> or equivalent React Router v6 context. " +
+        "Wrap your app root with <BrowserRouter> or remove the routerTracking prop.",
+    );
+  }
   // Tracks the last dependency value we acted on. Initialised to `null` so
   // the first seen value is always "new". Persisting across fake StrictMode
   // unmount/remount means the second run sees the same dep and skips — that

@@ -9,7 +9,6 @@ vi.mock("@opentelemetry/api-logs", () => ({
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import React, { StrictMode } from "react";
 import { render, act } from "@testing-library/react";
-import { MemoryRouter, Routes, Route, useNavigate } from "react-router-dom";
 
 vi.mock("../exporters", () => {
   const mockTracerProvider = {
@@ -49,6 +48,28 @@ vi.mock("../exporters", () => {
 import { useRouterTracking } from "../integrations/react/useRouterTracking";
 import { PulseWeb } from "../sdk";
 
+type NavigateFn = (to: string) => void;
+type ReactRouterDomExports = {
+  MemoryRouter: React.ComponentType<{
+    initialEntries?: string[];
+    children?: React.ReactNode;
+  }>;
+  Routes: React.ComponentType<{ children?: React.ReactNode }>;
+  Route: React.ComponentType<{ path?: string; element?: React.ReactNode }>;
+  useNavigate: () => NavigateFn;
+};
+
+function getReactRouterDom(): ReactRouterDomExports {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("react-router-dom") as ReactRouterDomExports;
+  } catch {
+    throw new Error(
+      "[PulseWeb] use-router-tracking tests require react-router-dom to be installed.",
+    );
+  }
+}
+
 // Stub `setScreenName` — we assert call counts/arguments on this spy.
 let setScreenNameSpy: ReturnType<typeof vi.spyOn>;
 
@@ -74,6 +95,8 @@ function makeHarness(opts: {
   navigateRef: NavigateRef;
   strict?: boolean;
 }) {
+  const { MemoryRouter, Routes, Route, useNavigate } = getReactRouterDom();
+
   const Inner: React.FC = () => {
     useRouterTracking(opts.hookOptions);
     const navigate = useNavigate();

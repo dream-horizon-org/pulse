@@ -70,12 +70,10 @@ export function PulseProvider({
 
   return (
     <PulseContext.Provider value={PulseWeb}>
-      <PulseErrorBoundary>
-        {routerTracking !== undefined && (
-          <RouterTracker options={routerTracking} />
-        )}
-        {children}
-      </PulseErrorBoundary>
+      {routerTracking !== undefined && (
+        <RouterTracker options={routerTracking} />
+      )}
+      <PulseErrorBoundary>{children}</PulseErrorBoundary>
     </PulseContext.Provider>
   );
 }

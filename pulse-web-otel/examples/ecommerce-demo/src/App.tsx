@@ -127,7 +127,6 @@ export default function App() {
         },
       },
       debugLogRecordLifecycle: debugLifecycle,
-      ...(formatEnv ? { export: { format: formatEnv } } : {}),
       ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
     };
