@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { ReadableLogRecord } from "@opentelemetry/sdk-logs";
 
-import { DEFAULT_SDK_CONFIG } from "../remote-config";
+import { DEFAULT_SDK_CONFIG } from "../constants/default-sdk-config";
 import { ExportSamplingGate } from "../sampling/export-sampling-gate";
 import type { PulseSdkConfig } from "../types/remote-config";
 

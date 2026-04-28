@@ -53,7 +53,7 @@ class RcaReportProcessorTest {
 
   private static final LocalDate DATE = LocalDate.of(2025, 1, 1);
   private static final String JOB_ID = "rca-job-x";
-  private static final String BODY = "{\"interactionName\":\"ix\"}";
+  private static final String BODY = "{\"rcaType\":\"INTERACTION\",\"entityKey\":\"ix\"}";
 
   @Mock private Vertx vertx;
   @Mock private RcaReportJobDao jobDao;

@@ -30,6 +30,37 @@ const HEATMAP_EVIDENCE_MAX = 2;
 
 const RCA_ERROR_ATTRIBUTION_HEADING = `${ERROR_ATTRIBUTION_MESSAGES.SECTION_TITLE} (correlative)`;
 
+/** Metric sort order for RCA table - volume first, then by severity. */
+const METRIC_PRIORITY_ORDER: string[] = [
+  "volume",
+  "apdex",
+  "error_rate",
+  "poor_user_pct",
+  "crash_rate",
+  "anr_rate",
+  "duration_p95",
+  "frozen_frame_rate",
+  "duration_p50",
+  "slow_frame_rate",
+];
+
+const sortMetricsByPriority = (
+  metrics: RcaStructuredMetricRowV1[],
+): RcaStructuredMetricRowV1[] => {
+  const priorityIndexMap = new Map<string, number>();
+  METRIC_PRIORITY_ORDER.forEach((id, index) => {
+    priorityIndexMap.set(id, index);
+  });
+
+  return [...metrics].sort((a, b) => {
+    const aPriority =
+      priorityIndexMap.get(a.metric_id) ?? Number.MAX_SAFE_INTEGER;
+    const bPriority =
+      priorityIndexMap.get(b.metric_id) ?? Number.MAX_SAFE_INTEGER;
+    return aPriority - bPriority;
+  });
+};
+
 const errorAttributionSignalTitle = (
   signal: ErrorAttributionInsightV1["signal"],
 ) => {
@@ -328,12 +359,14 @@ const RcaStructuredReportV1View = ({
                                 </Table.Tr>
                               </Table.Thead>
                               <Table.Tbody>
-                                {metrics.map((row, rowIndex) => (
-                                  <StructuredMetricRow
-                                    key={`${row.metric_id}-${rowIndex}`}
-                                    row={row}
-                                  />
-                                ))}
+                                {sortMetricsByPriority(metrics).map(
+                                  (row, rowIndex) => (
+                                    <StructuredMetricRow
+                                      key={`${row.metric_id}-${rowIndex}`}
+                                      row={row}
+                                    />
+                                  ),
+                                )}
                               </Table.Tbody>
                             </Table>
                           </Table.ScrollContainer>
@@ -543,8 +576,11 @@ export const RcaReportView = ({
     ((drill.relatedAttributions?.length ?? 0) > 0 ||
       (drill.disclaimer?.trim() ?? "") !== "");
   const hasRenderableContent =
-    isValidStructured && (executiveSummaryText !== "" || hasSegmentOrRec || hasAttributionNlp || hasDrillOnly);
-
+    isValidStructured &&
+    (executiveSummaryText !== "" ||
+      hasSegmentOrRec ||
+      hasAttributionNlp ||
+      hasDrillOnly);
 
   if (!hasRenderableContent || structured == null || structured.version !== 1) {
     return (

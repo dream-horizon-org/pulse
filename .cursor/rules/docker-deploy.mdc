@@ -1,6 +1,6 @@
 ---
 description: Docker deployment and infrastructure conventions
-globs: deploy/**
+globs: deploy/**,backend/ingestion/**
 alwaysApply: false
 ---
 

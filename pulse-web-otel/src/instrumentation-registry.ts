@@ -2,11 +2,14 @@
 // calls installAll() during SDK.start() and uninstallAll() during shutdown().
 // See: web-sdk-plan/v1/01-foundation/sdk-lifecycle.md
 
-import type { PulseWebConfig, InstrumentationConfig } from "./config";
+import type { InstrumentationConfig } from "./config";
 import type { FeatureGate } from "./feature-gate";
 import { SessionInstrumentation } from "./instrumentations/session";
 import { ErrorInstrumentation } from "./instrumentations/errors";
 import { NavigationInstrumentation } from "./instrumentations/navigation";
+import { InstrumentationKeys } from "./config";
+import { PulseFeature } from "./remote-config";
+import type { PulseFeatureName } from "./remote-config";
 import type {
   PulseInstrumentation,
   SdkContext,
@@ -27,20 +30,18 @@ export class InstrumentationRegistry {
   ) {}
 
   private shouldInstall(key: keyof InstrumentationConfig): boolean {
-    const featureMap: Record<keyof InstrumentationConfig, string> = {
-      errors: "js_crash",
-      network: "network_instrumentation",
-      clicks: "click",
-      webVitals: "web_vitals",
-      navigation: "screen_session",
-      session: "session",
-      interactions: "interaction",
-      sessionReplay: "session_replay",
+    const featureMap: Record<keyof InstrumentationConfig, PulseFeatureName> = {
+      [InstrumentationKeys.ERRORS]: PulseFeature.JS_CRASH,
+      [InstrumentationKeys.NETWORK]: PulseFeature.NETWORK_INSTRUMENTATION,
+      [InstrumentationKeys.CLICKS]: PulseFeature.CLICK,
+      [InstrumentationKeys.WEB_VITALS]: PulseFeature.WEB_VITALS,
+      [InstrumentationKeys.NAVIGATION]: PulseFeature.SCREEN_SESSION,
+      [InstrumentationKeys.SESSION]: PulseFeature.SESSION,
+      [InstrumentationKeys.INTERACTIONS]: PulseFeature.INTERACTION,
+      [InstrumentationKeys.SESSION_REPLAY]: PulseFeature.SESSION_REPLAY,
     };
 
-    const featureName = featureMap[key] as Parameters<
-      FeatureGate["isEnabled"]
-    >[0];
+    const featureName = featureMap[key];
     const gateEnabled = this.gate.isEnabled(featureName);
     const configEnabled = this.instrConfig?.[key]?.enabled ?? true;
 
@@ -49,7 +50,7 @@ export class InstrumentationRegistry {
 
   installAll(): void {
     // M1: Install session instrumentation
-    if (this.shouldInstall("session")) {
+    if (this.shouldInstall(InstrumentationKeys.SESSION)) {
       const sessionInstr = new SessionInstrumentation();
       sessionInstr.install(this.sdk);
       this.installed.push(sessionInstr);

@@ -1098,12 +1098,12 @@ CREATE TABLE IF NOT EXISTS funnel_journey_tag (
 COMMENT='Tag mappings for saved funnels and journeys';
 
 -- ============================================================================
--- analytics_jobs (keep DDL in sync with V11__redesign_funnel_journey_spark_jobs.sql)
+-- analytics_jobs 
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS analytics_jobs (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    job_type       VARCHAR(32)  NOT NULL COMMENT 'FUNNEL | JOURNEY | BULK_FUNNEL | BULK_JOURNEY | EVENT_CATALOG',
-    reference_id   BIGINT       NULL     COMMENT 'funnel.id or journey.id; NULL for bulk jobs',
+    job_type       VARCHAR(32)  NOT NULL COMMENT 'FUNNELS_DAILY | JOURNEYS_DAILY | EVENTS_INCREMENTAL | FUNNEL | JOURNEY',
+    reference_id   BIGINT       NULL     COMMENT 'FUNNEL/JOURNEY on-save: funnel.id or journey.id; NULL for FUNNELS_DAILY, JOURNEYS_DAILY, EVENTS_INCREMENTAL',
     job_id         VARCHAR(255) NULL     COMMENT 'EMR/Glue job run id',
     status         VARCHAR(32)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING | RUNNING | SUCCEEDED | FAILED',
     error_message  TEXT         NULL,

@@ -7,10 +7,10 @@ import Foundation
 import OpenTelemetrySdk
 import OpenTelemetryApi
 
-public typealias BeforeSendSpanCallback = (SpanData) -> SpanData?
+/// Throwing fails the batch and emits `sdk.beforesend.error` (coarse `error_class` only).
+public typealias BeforeSendSpanCallback = (SpanData) throws -> SpanData?
 
 /// Applies a user-provided closure to each span before export.
-/// Return the span (optionally modified) to export, or nil to drop.
 /// Runs on the BatchSpanProcessor export thread — do not block.
 internal class BeforeSendSpanExporter: SpanExporter {
     private let callback: BeforeSendSpanCallback
@@ -22,7 +22,14 @@ internal class BeforeSendSpanExporter: SpanExporter {
     }
 
     func export(spans: [SpanData], explicitTimeout: TimeInterval?) -> SpanExporterResultCode {
-        let filtered = spans.compactMap { callback($0) }
+        let filtered: [SpanData]
+        do {
+            filtered = try spans.compactMap { try callback($0) }
+        } catch {
+            let errClass = PulseErrorClassification.classify(error)
+            PulseLogger.error("sdk.beforesend.error signal=span_data error_class=\(errClass)")
+            return .failure
+        }
         guard !filtered.isEmpty else { return .success }
         return delegate.export(spans: filtered, explicitTimeout: explicitTimeout)
     }

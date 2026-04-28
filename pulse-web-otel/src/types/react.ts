@@ -55,20 +55,10 @@ export interface PulseProviderProps {
    * re-mounts, so `start()` is never called twice.
    */
   shutdownOnUnmount?: boolean;
-}
-
-/** Subset of `react-router-dom`'s Location we use — avoids a hard import. */
-export interface PulseLocationLike {
-  pathname: string;
-  search: string;
-  hash: string;
-}
-
-export interface UseRouterTrackingOptions {
-  /** Custom screen name builder — receives the current location. */
-  format?: (location: PulseLocationLike) => string;
-  /** Include `location.search` in the dependency key (default: false). */
-  includeSearch?: boolean;
-  /** Skip the very first render's call (default: true). */
-  skipInitial?: boolean;
+  /**
+   * When provided, activates React Router v6 screen tracking via
+   * `useRouterTracking`. Requires `<PulseProvider>` to be rendered inside a
+   * `<BrowserRouter>` (or equivalent) context.
+   */
+  routerTracking?: UseRouterTrackingOptions;
 }
