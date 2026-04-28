@@ -1,6 +1,7 @@
 pipeline {
     agent {
-        node { label 'pulse-artifact-arm-build-ec2-fleet' }
+        // Same fleet as session-replay / pulse-server publish: has Node + npm for npm install/build.
+        node { label 'pulse-artifact-build-default-ec2-fleet' }
     }
 
     options {
@@ -102,10 +103,11 @@ pipeline {
 }
 
 def getVersionFromPackageJson(String path = 'backend/heatmap-screenshot-ingestion/package.json') {
-    return sh(
-            script: "node -p \"require('./${path}').version\"",
+    def rawVersion = sh(
+            script: """sed -n 's/^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' ${path} | head -1""",
             returnStdout: true
     ).trim()
+    return rawVersion.replaceAll('-SNAPSHOT$', '')
 }
 
 def bumpSemverMinor(String version) {
