@@ -142,6 +142,16 @@ class ScreenRcaServiceTest {
     return row;
   }
 
+  /**
+   * Segment rollup queries ({@link ScreenRcaQueryBuilder#buildSegmentQuery}) include {@code AS tap_count}.
+   * Bad-frustration-only breakdown queries ({@link ScreenRcaQueryBuilder#buildBadFrustrationByDimensionQuery}) do not.
+   * Screen RCA dimension filters bind as {@code (ifNull(ResourceAttributes['os.name'], '')) = :…}, never {@code AND
+   * Platform =}, so tests must not match on {@code Platform =}.
+   */
+  private static boolean isScreenSegmentMetricsQuery(String sql) {
+    return sql.contains(" AS tap_count");
+  }
+
   @Nested
   class WindowValidation {
 
@@ -390,26 +400,35 @@ class ScreenRcaServiceTest {
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
+                @SuppressWarnings("unchecked")
+                List<Object> bindValues = inv.getArgument(3, List.class);
+                int bn = bindValues.size();
+
                 if (!q.contains("GROUP BY")) {
                   return Single.just(singleRowTableResponse(baseline));
                 }
-                if (q.contains(" AS click_volume")) {
+                if (isScreenSegmentMetricsQuery(q)) {
                   if (q.contains("GROUP BY Platform, OsVersion")) {
                     Map<String, Object> row = screenSegmentMetricRow();
                     row.put("Platform", "Android");
                     row.put("OsVersion", "14");
                     return Single.just(singleRowTableResponse(row));
                   }
-                  Map<String, Object> row = screenSegmentMetricRow();
-                  row.put("Platform", "Android");
-                  return Single.just(singleRowTableResponse(row));
+                  if (q.contains("GROUP BY Platform")
+                      && bn == 5
+                      && !q.contains("GROUP BY Platform,")) {
+                    Map<String, Object> row = screenSegmentMetricRow();
+                    row.put("Platform", "Android");
+                    return Single.just(singleRowTableResponse(row));
+                  }
+                  return Single.just(emptyTableResponse());
                 }
-                if (q.contains("GROUP BY Platform") && !q.contains("AND Platform =")) {
+                if (q.contains("GROUP BY Platform") && bn == 4) {
                   return Single.just(
                       singleRowTableResponse(
                           Map.of("Platform", "Android", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
                 }
-                if (q.contains("GROUP BY OsVersion") && q.contains("AND Platform =")) {
+                if (q.contains("GROUP BY OsVersion") && bn == 5) {
                   return Single.just(
                       singleRowTableResponse(
                           Map.of("OsVersion", "14", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 100L)));
@@ -435,34 +454,36 @@ class ScreenRcaServiceTest {
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
+                @SuppressWarnings("unchecked")
+                List<Object> bindValues = inv.getArgument(3, List.class);
+                int bn = bindValues.size();
+
                 if (!q.contains("GROUP BY")) {
                   return Single.just(singleRowTableResponse(baseline));
                 }
-                if (q.contains(" AS click_volume")) {
+                if (isScreenSegmentMetricsQuery(q)) {
                   Map<String, Object> row = screenSegmentMetricRow();
-                  if (q.contains("GROUP BY Platform") && q.contains("AND Platform =")) {
+                  if (q.contains("GROUP BY Platform") && bn == 5 && !q.contains("GROUP BY Platform,")) {
                     row.put("Platform", "Android");
                     return Single.just(singleRowTableResponse(row));
                   }
-                  if (q.contains("GROUP BY OsVersion") && q.contains("AND OsVersion =")) {
+                  if (q.contains("GROUP BY OsVersion") && bn == 5) {
                     row.put("OsVersion", "14");
                     return Single.just(singleRowTableResponse(row));
                   }
                   return Single.just(emptyTableResponse());
                 }
-                if (q.contains("GROUP BY Platform") && !q.contains("AND Platform =")) {
+                if (q.contains("GROUP BY Platform") && bn == 4) {
                   return Single.just(
                       singleRowTableResponse(
                           Map.of("Platform", "Android", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L)));
                 }
-                if (q.contains("GROUP BY OsVersion")
-                    && !q.contains("AND OsVersion =")
-                    && !q.contains("AND Platform =")) {
+                if (q.contains("GROUP BY OsVersion") && bn == 4) {
                   return Single.just(
                       singleRowTableResponse(
                           Map.of("OsVersion", "14", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L)));
                 }
-                if (q.contains("GROUP BY AppVersion") && !q.contains("AND AppVersion =")) {
+                if (q.contains("GROUP BY AppVersion") && bn == 4) {
                   return Single.just(
                       singleRowTableResponse(
                           Map.of("AppVersion", "2.1", ScreenRcaQueryBuilder.BAD_FRUSTRATION, 10L)));
