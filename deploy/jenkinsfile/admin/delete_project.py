@@ -4,7 +4,7 @@ Deletes all data for a single project from MySQL, ClickHouse, and OpenFGA.
 Mirror of delete-project.sh — keep behavior in sync when changing SQL or steps.
 
 Env: PROJECT_ID, DRY_RUN (true/false), MYSQL_* — required always.
-Execute path also needs CH_ADMIN_* and OPENFGA_*.
+OPENFGA_* required for full Preflight/OpenFGA preview. Execute path also needs CH_ADMIN_*.
 
 If MySQL already has no `projects` row (e.g. prior run failed after MySQL), DRY_RUN=false skips the
 MySQL step and completes ClickHouse + OpenFGA only.
@@ -324,7 +324,23 @@ def _openfga_read_write_delete(object_key: str) -> None:
         if not page_token or page_token == "null":
             break
     if total == 0:
-        _warn(f"No OpenFGA tuples found for {object_key}")
+        _info(f"No OpenFGA tuples for {object_key}")
+
+
+def _dry_run_clickhouse_openfga_preview(
+    project_id: str,
+    ch_user: str,
+    ch_policy: str,
+    on_cluster: str,
+) -> None:
+    """Print same Step 2/3 dry-run lines as Preflight expects (parity with delete_tenant.py)."""
+    print()
+    _step("ClickHouse (dry run)")
+    _ch_post(f"DROP ROW POLICY IF EXISTS {ch_policy}{on_cluster} ON otel.*")
+    _ch_post(f"DROP USER IF EXISTS {ch_user}{on_cluster}")
+    print()
+    _step("OpenFGA tuples (preview)")
+    _openfga_read_write_delete(f"project:{project_id}")
 
 
 def _project_delete_sql(project_id: str) -> str:
@@ -419,15 +435,12 @@ def main() -> None:
         _err(f"PROJECT_ID contains invalid characters: {project_id}")
         sys.exit(1)
 
+    for env_var in ("OPENFGA_API_URL", "OPENFGA_STORE_ID"):
+        _must(env_var)
+
     ch_user, ch_policy, on_cluster = _build_ch_identifiers(project_id)
     if not _dry_run():
-        for env_var in (
-            "CH_ADMIN_HOST",
-            "CH_ADMIN_USER",
-            "CH_ADMIN_PASSWORD",
-            "OPENFGA_API_URL",
-            "OPENFGA_STORE_ID",
-        ):
+        for env_var in ("CH_ADMIN_HOST", "CH_ADMIN_USER", "CH_ADMIN_PASSWORD"):
             _must(env_var)
 
     dry = "true" if _dry_run() else "false"
@@ -453,6 +466,12 @@ def main() -> None:
                 _info(
                     "DRY RUN: MySQL preview skipped. Re-run with DRY_RUN=false to execute ClickHouse + OpenFGA cleanup only."
                 )
+                _dry_run_clickhouse_openfga_preview(
+                    project_id, ch_user, ch_policy, on_cluster
+                )
+                print()
+                _info("DRY RUN complete — no changes made.")
+                _info("Re-run with DRY_RUN=false to execute the deletion.")
                 return
         else:
             tid = _run_mysql_scalar(
@@ -477,6 +496,7 @@ def main() -> None:
         conn.close()
 
     if _dry_run():
+        _dry_run_clickhouse_openfga_preview(project_id, ch_user, ch_policy, on_cluster)
         print()
         _info("DRY RUN complete — no changes made.")
         _info("Re-run with DRY_RUN=false to execute the deletion.")

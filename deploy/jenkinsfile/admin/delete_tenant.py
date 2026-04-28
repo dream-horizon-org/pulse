@@ -121,7 +121,7 @@ def _openfga_read_write_delete(object_key: str) -> None:
         if not page_token or page_token == "null":
             break
     if total == 0:
-        _warn(f"No OpenFGA tuples found for {object_key}")
+        _info(f"No OpenFGA tuples for {object_key}")
 
 
 def main() -> None:

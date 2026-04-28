@@ -87,7 +87,7 @@ delete_openfga_tuples() {
     done
 
     if [ "$total" -eq 0 ]; then
-        warn "No OpenFGA tuples found for $object_key"
+        info "No OpenFGA tuples for $object_key"
     fi
 }
 
