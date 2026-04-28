@@ -121,13 +121,15 @@ Do **not** rely on a real OTLP server in unit tests — mock transport or route 
 - Prefer **`data-testid`** on demo UI buttons used in specs (see `Checkout.tsx`).
 - New browser-level behavior: add or extend a **`*.spec.ts`** file; run **`yarn demo:test`** from `pulse-web-otel` (workspace script).
 
+**Required gate before PR (any `pulse-web-otel/` change):** from repo root or `pulse-web-otel/`, run **`yarn workspace ecommerce-demo e2e:web-sdk-gates`** (runs **`e2e/m1.spec.ts`** + **`e2e/m2-interactions.spec.ts`** on **Chromium** only — includes merged M2 edge cases in `m2-interactions.spec.ts`). Individual runs: **`e2e:m1`**, **`e2e:m2-interactions`**.
+
 ---
 
 ## After every development increment
 
 1. **Unit:** add or extend **`src/__tests__/<area>.test.ts`** covering happy path + at least one failure/edge path for new logic.
 2. **Run** `yarn lint && yarn test:run` before PR.
-3. **E2E:** if behavior crosses OTLP export or demo flows, add/update Playwright under **`examples/ecommerce-demo/e2e/`**.
+3. **E2E (mandatory for web SDK PRs):** run **`yarn workspace ecommerce-demo e2e:web-sdk-gates`** (`m1` + `m2-interactions`, Chromium). If behavior crosses OTLP export or demo flows, add/update Playwright under **`examples/ecommerce-demo/e2e/`**.
 4. **Traceability (interactions / M2-style work):** update the milestone CSV under **`web-sdk-plan/v1/`** (e.g. `WEB-SDK Interactions test coverage (M2).csv`) — one header row, add a row per case with **Status**, **Comment** (test file path or spec path), **Case type**; keep **Steps** aligned with the demo app.
 5. **Milestones:** when a milestone’s exit criteria are met, tick boxes in **`web-sdk-plan/v1/MILESTONES.md`** (per `web-sdk.mdc`).
 

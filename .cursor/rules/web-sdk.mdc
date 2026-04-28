@@ -49,6 +49,7 @@ When implementing a specific task, read the matching phase doc for the full spec
 - Vitest + JSDOM
 - Mock `window.localStorage`, `navigator`, `crypto.randomUUID` in tests
 - Do not mock the OTLP exporter — use a fake HTTP server (MSW or similar)
+- **E2E gate before PR:** `yarn workspace ecommerce-demo e2e:web-sdk-gates` (Chromium: `e2e/m1.spec.ts` + `e2e/m2-interactions.spec.ts`, including M2 edge cases merged into the latter).
 
 **Package-local style, test file layout, and “after every change” checklist:** `.cursor/rules/pulse-web-otel.mdc`.
 

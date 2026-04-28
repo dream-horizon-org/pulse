@@ -42,6 +42,7 @@ Pulse Web SDK guardrails:
 Testing standards:
 - Add/adjust unit tests for all lifecycle or contract changes.
 - Run targeted tests first, then broader suites.
+- **Before claiming a web SDK PR is ready:** run **`yarn workspace ecommerce-demo e2e:web-sdk-gates`** (Chromium: `e2e/m1.spec.ts` + `e2e/m2-interactions.spec.ts`).
 - When E2E fails, report exact failing specs + likely root cause + reproduction command.
 - Never claim all tests pass if only a subset was executed.
 - Keep an append-only test run history in `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`.

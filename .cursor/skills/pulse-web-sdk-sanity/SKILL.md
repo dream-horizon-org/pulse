@@ -26,9 +26,10 @@ Keep the web SDK production-safe while moving fast.
 ## Step 3: Test ladder
 1. Run focused unit tests for changed modules.
 2. Run wiring/lifecycle tests (`sdk` + instrumentation registry paths).
-3. Run targeted E2E for affected behavior.
-4. If cross-browser binaries are missing, report Chromium result plus explicit gap.
-5. Append run result to `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`.
+3. **Required E2E gate:** `yarn workspace ecommerce-demo e2e:web-sdk-gates` (Chromium: `e2e/m1.spec.ts` + `e2e/m2-interactions.spec.ts` — M2 edge cases live in `m2-interactions.spec.ts`).
+4. Run any extra targeted E2E for behavior not covered by the gate.
+5. If cross-browser binaries are missing, report Chromium result plus explicit gap.
+6. Append run result to `pulse-web-otel/web-sdk-plan/agent-runtime/test-run-log.md`.
 
 ## Step 4: Regression checklist
 - No dropped custom events unexpectedly.
