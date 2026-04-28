@@ -31,8 +31,9 @@ SANITIZED=$(echo "$PROJECT_ID" | tr '-' '_' | sed 's/proj_//')
 CH_USERNAME="project_${SANITIZED}"
 CH_POLICY_NAME="policy_${SANITIZED}"
 CH_ON_CLUSTER=""
+# Quote cluster id (same as Java getOnClusterClause): hyphens in unquoted ids break parsing (pulse-ch → pulse - ch).
 if [ -n "${CH_CLUSTER_NAME:-}" ]; then
-    CH_ON_CLUSTER=" ON CLUSTER ${CH_CLUSTER_NAME}"
+    CH_ON_CLUSTER=" ON CLUSTER '${CH_CLUSTER_NAME}'"
 fi
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

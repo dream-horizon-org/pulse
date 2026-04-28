@@ -78,7 +78,13 @@ def _build_ch_identifiers(project_id: str) -> tuple[str, str, str]:
     ch_user = f"project_{sanitized}"
     policy = f"policy_{sanitized}"
     cluster = os.environ.get("CH_CLUSTER_NAME", "").strip()
-    on_cluster = f" ON CLUSTER {cluster}" if cluster else ""
+    # Match ClickhouseProjectConnectionPoolManager.getOnClusterClause(): cluster id must be quoted —
+    # unquoted names with hyphens parse as subtraction (e.g. pulse-ch → pulse - ch).
+    if cluster:
+        esc = cluster.replace("'", "''")
+        on_cluster = f" ON CLUSTER '{esc}'"
+    else:
+        on_cluster = ""
     return ch_user, policy, on_cluster
 
 
