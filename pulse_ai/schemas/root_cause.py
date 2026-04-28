@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class RootCauseSegmentSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
-    
+
     label: str
     dimensions: dict[str, str] | None = None
     metrics: dict[str, int | float | str]
