@@ -5,8 +5,9 @@
 
 package io.opentelemetry.android.features.diskbuffering.scheduler
 
-import android.util.Log
-import io.opentelemetry.android.common.RumConstants.OTEL_RUM_LOG_TAG
+import com.pulse.utils.DiskFreeSpaceBytes
+import com.pulse.utils.PulseLogger
+import com.pulse.utils.RedactionUtils
 import io.opentelemetry.android.features.diskbuffering.SignalFromDiskExporter
 import io.opentelemetry.android.internal.services.periodicwork.PeriodicRunnable
 import io.opentelemetry.android.internal.services.periodicwork.PeriodicWork
@@ -21,6 +22,7 @@ class DefaultExportScheduler(
 
     companion object {
         private val DELAY_BEFORE_NEXT_EXPORT_IN_MILLIS = TimeUnit.SECONDS.toMillis(10)
+        private const val TAG = "DiskExport"
     }
 
     override fun onRun() {
@@ -31,7 +33,11 @@ class DefaultExportScheduler(
                 val isExported = exporter.exportBatchOfEach()
             } while (isExported)
         } catch (e: IOException) {
-            Log.e(OTEL_RUM_LOG_TAG, "Error while exporting signals from disk.", e)
+            val free = DiskFreeSpaceBytes.forDataPartition()
+            val diskPart = free?.let { " disk_available_bytes=$it" }.orEmpty()
+            PulseLogger.logError(TAG, e) {
+                "sdk.disk.read_failure signal=mixed error_class=${RedactionUtils.classifyError(e)} corrupted=false$diskPart"
+            }
         }
     }
 

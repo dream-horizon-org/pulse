@@ -11,7 +11,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         Pulse.shared.initialize(
             apiKey: "default-project_devkey01",
-            dataCollectionState: .allowed
+            dataCollectionState: .allowed,
+            logLevel: .debug
         )
 
         let window = UIWindow(frame: UIScreen.main.bounds)

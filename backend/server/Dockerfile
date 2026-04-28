@@ -16,6 +16,12 @@ COPY src ./src
 # Build the application
 RUN mvn clean package -DskipTests -Dcheckstyle.skip=true
 
+# OpenTelemetry Java agent (optional at runtime via PULSE_BACKEND_OTEL_ENABLED=true)
+# Pin to an existing release: https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases
+ARG OTEL_JAVA_AGENT_VERSION=2.26.1
+RUN curl -fsSL -o /tmp/opentelemetry-javaagent.jar \
+  "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_JAVA_AGENT_VERSION}/opentelemetry-javaagent.jar"
+
 # Runtime stage
 # Using full JRE image instead of alpine for better compatibility
 FROM eclipse-temurin:17-jre
@@ -47,6 +53,13 @@ COPY --from=builder /app/target/pulse-server/pulse-server.jar ./pulse-server.jar
 
 COPY --from=builder /app/src/main/resources/conf ./config/conf
 
+RUN mkdir -p /otel
+COPY --from=builder /tmp/opentelemetry-javaagent.jar /otel/opentelemetry-javaagent.jar
+RUN chmod 444 /otel/opentelemetry-javaagent.jar
+
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod 755 /app/docker-entrypoint.sh
+
 # Expose the application port
 EXPOSE 8080
 
@@ -56,6 +69,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 USER 10001
 
-# Run the application
-ENTRYPOINT ["java", "-Dlogback.configurationFile=logback/logback.xml" , "-jar", "pulse-server.jar", "run", "org.dreamhorizon.pulseserver.verticle.MainVerticle"]
+# Run the application (entrypoint adds OTEL agent only when PULSE_BACKEND_OTEL_ENABLED=true)
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 

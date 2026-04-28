@@ -46,20 +46,20 @@ PODS:
   - OpenTelemetry-Swift-Api (2.2.0)
   - OpenTelemetry-Swift-Sdk (2.2.0):
     - OpenTelemetry-Swift-Api (= 2.2.0)
-  - PulseKit (0.0.11-alpha):
+  - PulseKit (0.0.12-alpha):
     - KSCrash (= 2.5.1)
     - libwebp (= 1.5.0)
     - OpenTelemetry-Swift-Api (= 2.2.0)
     - OpenTelemetry-Swift-Sdk (= 2.2.0)
     - SwiftProtobuf (= 1.34.1)
-  - PulseReactNativeOtel (0.0.11):
+  - PulseReactNativeOtel (0.0.12):
     - boost
     - DoubleConversion
     - fast_float
     - fmt
     - glog
     - hermes-engine
-    - PulseKit (= 0.0.11-alpha)
+    - PulseKit (= 0.0.12-alpha)
     - RCT-Folly
     - RCT-Folly/Fabric
     - RCTRequired
@@ -2761,8 +2761,8 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   OpenTelemetry-Swift-Api: 0785e3b9888286449aa297c0b48269797bfcaf7f
   OpenTelemetry-Swift-Sdk: b856396d6147c01829a88ad782f481c0e1cd0966
-  PulseKit: f5cc8b9b5316a9373e7033658933474d7d245fc2
-  PulseReactNativeOtel: 884ac7c8d6b13c595c2901ae83fe19512403df0c
+  PulseKit: f62de427fe3ab36aa6dfc05888aa0d3cd4bb33fe
+  PulseReactNativeOtel: abfbde04b80e287b5351f5f65cd841247dc6a935
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: c4b9e2fd0ab200e3af72b013ed6113187c607077
   RCTRequired: e97dd5dafc1db8094e63bc5031e0371f092ae92a

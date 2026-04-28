@@ -6,6 +6,9 @@
 package io.opentelemetry.android.internal.features.persistence
 
 import android.util.Log
+import com.pulse.utils.DiskFreeSpaceBytes
+import com.pulse.utils.PulseLogger
+import com.pulse.utils.RedactionUtils
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.features.diskbuffering.DiskBufferingConfig
 import io.opentelemetry.android.internal.services.storage.CacheStorage
@@ -53,6 +56,8 @@ internal class DiskManager(
         get() = diskBufferingConfig.maxCacheFileSize
 
     companion object {
+        private const val DISK_HEALTH_TAG = "DiskManager"
+
         private fun deleteFiles(dir: File) {
             val files = dir.listFiles()
             if (files != null) {
@@ -67,7 +72,13 @@ internal class DiskManager(
 
         private fun ensureExistingOrThrow(dir: File) {
             if (!dir.exists() && !dir.mkdirs()) {
-                throw IOException("Could not create dir $dir")
+                val ex = IOException("Could not create dir $dir")
+                val free = DiskFreeSpaceBytes.forPath(dir.parentFile ?: dir)
+                val diskPart = free?.let { " disk_available_bytes=$it" }.orEmpty()
+                PulseLogger.logError(DISK_HEALTH_TAG, ex) {
+                    "sdk.disk.write_failure signal=persistence error_class=${RedactionUtils.classifyError(ex)}$diskPart"
+                }
+                throw ex
             }
         }
     }
