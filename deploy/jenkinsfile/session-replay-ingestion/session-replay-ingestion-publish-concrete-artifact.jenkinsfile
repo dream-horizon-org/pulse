@@ -102,10 +102,10 @@ pipeline {
     }
 }
 
-// Same pattern as pulse-ui-publish-concrete-artifact.jenkinsfile (jq + optional -SNAPSHOT strip).
+// pulse-ui uses jq; artifact ARM fleet has no jq — parse version without it (optional -SNAPSHOT strip like pulse-ui).
 def getVersionFromPackageJson(String path = 'backend/session-replay-ingestion/package.json') {
     def rawVersion = sh(
-            script: "jq -r '.version' ${path}",
+            script: """sed -n 's/^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' ${path} | head -1""",
             returnStdout: true
     ).trim()
     return rawVersion.replaceAll('-SNAPSHOT$', '')
