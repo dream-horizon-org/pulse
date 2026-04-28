@@ -14,6 +14,8 @@ Audit `.cursor/` configuration files against the codebase source-of-truth files 
     - `deploy/scripts/start.sh` — accepted start targets
     - `deploy/scripts/common.sh` — default exports for compose/script-driven env (including pulse-server `CONFIG_*`,
       EMR, Spark job vars, and `ANALYTICS_COMPUTE_ENGINE` / `ANALYTICS_BATCH_PROJECT_CONCURRENCY`)
+    - Optional second stack: `deploy/observability-otel-prometheus-tempo/docker-compose.yml` — when auditing JVM/backend OTLP export, verify `obs_otel_collector` naming, published OTLP ports (14317/14318), and conflicts with Vector profile documented in `.cursor/rules/docker-deploy.mdc`
+
 
 2. Cross-reference against `.cursor/` files for discrepancies:
     - **Service lists**: Compare services in docker-compose.yml against services listed in `.cursor/agents/`,
