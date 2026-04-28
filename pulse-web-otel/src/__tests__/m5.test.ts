@@ -381,7 +381,7 @@ describe("applyFetchAttrs — span attribute logic (via captured callback)", () 
     const request = new Request("https://api.example.com/users?token=abc");
     callCb(mockSpan, request, response);
     const urlCall = (mockSpan.setAttribute as ReturnType<typeof vi.fn>).mock.calls.find(
-      ([k]: [string]) => k === "url.full",
+      (args: unknown[]) => args[0] === "url.full",
     );
     expect(urlCall?.[1]).toBe("https://api.example.com/users");
   });
@@ -405,7 +405,7 @@ describe("applyFetchAttrs — span attribute logic (via captured callback)", () 
     callCb(mockSpan, makeInit(), response);
     expect(mockSpan.setStatus).not.toHaveBeenCalled();
     const errorType = (mockSpan.setAttribute as ReturnType<typeof vi.fn>).mock.calls.find(
-      ([k]: [string]) => k === "error.type",
+      (args: unknown[]) => args[0] === "error.type",
     );
     expect(errorType).toBeUndefined();
   });
@@ -433,7 +433,7 @@ describe("applyFetchAttrs — span attribute logic (via captured callback)", () 
     const body = JSON.stringify({ userId: 123, action: "buy" });
     callCb(mockSpan, makeInit(body), response);
     const graphqlCalls = (mockSpan.setAttribute as ReturnType<typeof vi.fn>).mock.calls.filter(
-      ([k]: [string]) => String(k).startsWith("graphql"),
+      (args: unknown[]) => String(args[0]).startsWith("graphql"),
     );
     expect(graphqlCalls).toHaveLength(0);
   });
@@ -581,7 +581,7 @@ describe("applyXhrAttrs — XHR span attribute logic (TC17)", () => {
     callXhrCb(mockSpan, makeXhr(201));
     expect(mockSpan.setStatus).not.toHaveBeenCalled();
     const errorType = (mockSpan.setAttribute as ReturnType<typeof vi.fn>).mock.calls.find(
-      ([k]: [string]) => k === "error.type",
+      (args: unknown[]) => args[0] === "error.type",
     );
     expect(errorType).toBeUndefined();
   });
@@ -672,7 +672,7 @@ describe("deprecated semconv keys never set by our code (TC22)", () => {
     mockFetchApplyCb!(mockSpan, request, response);
 
     const setKeys = (mockSpan.setAttribute as ReturnType<typeof vi.fn>).mock.calls.map(
-      ([k]: [string]) => k,
+      (args: unknown[]) => args[0],
     );
     for (const deprecated of DEPRECATED_KEYS) {
       expect(setKeys).not.toContain(deprecated);

@@ -1,5 +1,5 @@
 /**
- * Playwright config for CH integration tests (m4-ch.spec.ts).
+ * Playwright config for CH integration tests (m4-ch.spec.ts, m5-ch.spec.ts).
  *
  * REQUIRES full stack running:
  *   cd deploy && ./scripts/start.sh
@@ -19,7 +19,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "m4-ch.spec.ts",
+  testMatch: ["m4-ch.spec.ts", "m5-ch.spec.ts"],
   timeout: 60_000,
   expect: { timeout: 25_000 },
   fullyParallel: false,

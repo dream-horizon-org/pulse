@@ -2,11 +2,12 @@
 // Owns the `http` pulse.type. Android parity: OkHttpInstrumentation.
 // Uses stable OTel HTTP semconv (http.request.method, url.full, http.response.status_code, server.address).
 
-import type { Span } from "@opentelemetry/api";
+import type { Context, Span } from "@opentelemetry/api";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { FetchInstrumentation } from "@opentelemetry/instrumentation-fetch";
 import { XMLHttpRequestInstrumentation } from "@opentelemetry/instrumentation-xml-http-request";
 import type { FetchError } from "@opentelemetry/instrumentation-fetch/build/src/types";
+import type { ReadableSpan, SpanProcessor } from "@opentelemetry/sdk-trace-base";
 
 import type { PulseInstrumentation, SdkContext } from "../instrumentation-registry";
 import { PulseWebSemconv } from "../semconv";
@@ -36,6 +37,54 @@ export interface NetworkConfig {
   propagateTraceHeaderCorsUrls?: Array<string | RegExp>;
 }
 
+// ─── Deprecated HTTP semconv keys emitted by OTel instrumentation-fetch ─────
+// These are set by @opentelemetry/instrumentation-fetch v0.53 using the old
+// semconv. The NetworkSemconvFixupProcessor removes them on span end so only
+// stable keys reach the exporter.
+
+const DEPRECATED_HTTP_KEYS = [
+  "http.url",
+  "http.method",
+  "http.status_code",
+  "http.host",
+  "http.scheme",
+  "http.status_text",
+  "http.request_content_length",
+  "http.response_content_length",
+  "net.peer.name",
+] as const;
+
+// ─── SpanProcessor: upgrade deprecated HTTP semconv keys ────────────────────
+
+/**
+ * Removes deprecated HTTP semconv attributes from network spans after they end.
+ * The attributes have already been read by `applyCustomAttributesOnSpan` callback
+ * and re-emitted as stable keys (http.request.method, url.full, etc.) — so it is
+ * safe to delete the deprecated counterparts here.
+ */
+class NetworkSemconvFixupProcessor implements SpanProcessor {
+  onStart(_span: Span, _ctx: Context): void {
+    /* no-op */
+  }
+
+  onEnd(span: ReadableSpan): void {
+    if (span.attributes[PulseWebSemconv.AttributeKey.PULSE_TYPE] !== PulseWebSemconv.PulseType.HTTP) return;
+    // Mutate the attributes bag to remove deprecated keys before export
+    const attrs = span.attributes as Record<string, unknown>;
+    for (const key of DEPRECATED_HTTP_KEYS) {
+      delete attrs[key];
+    }
+  }
+
+  shutdown(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  forceFlush(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
 // ─── Public class ────────────────────────────────────────────────────────────
 
 export class NetworkInstrumentation implements PulseInstrumentation {
@@ -52,8 +101,12 @@ export class NetworkInstrumentation implements PulseInstrumentation {
     ) ?? {};
 
     const endpointBaseUrl = resolveEndpointBaseUrl(sdk.config.apiKey);
+    // Use a regex prefix-match so paths like /v1/traces are also excluded.
+    // OTel's isUrlIgnored uses exact === for strings, so we must use RegExp.
+    const endpointEscaped = endpointBaseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const endpointRegex = new RegExp(`^${endpointEscaped}`);
     const ignored: Array<string | RegExp> = [
-      endpointBaseUrl,
+      endpointRegex,
       ...(networkCfg.blockedUrls ?? []),
     ];
     const propagateCorsUrls = networkCfg.propagateTraceHeaderCorsUrls ?? [/.*/];
@@ -79,9 +132,20 @@ export class NetworkInstrumentation implements PulseInstrumentation {
     });
 
     // Ensure spans go through our provider (already set as global at this point)
-    const provider = trace.getTracerProvider();
-    this.fetchInstr.setTracerProvider(provider);
-    this.xhrInstr.setTracerProvider(provider);
+    const rawProvider = trace.getTracerProvider();
+    // ProxyTracerProvider.getDelegate() returns the actual WebTracerProvider
+    const actualProvider =
+      (rawProvider as unknown as { getDelegate?(): unknown }).getDelegate?.() ?? rawProvider;
+
+    this.fetchInstr.setTracerProvider(rawProvider);
+    this.xhrInstr.setTracerProvider(rawProvider);
+
+    // Register the semconv upgrade processor to strip deprecated HTTP keys
+    if (actualProvider && "addSpanProcessor" in (actualProvider as object)) {
+      (actualProvider as { addSpanProcessor(p: SpanProcessor): void }).addSpanProcessor(
+        new NetworkSemconvFixupProcessor(),
+      );
+    }
 
     this.fetchInstr.enable();
     this.xhrInstr.enable();
@@ -108,11 +172,33 @@ export class NetworkInstrumentation implements PulseInstrumentation {
 
     span.setAttribute(K.PULSE_TYPE, T.HTTP);
 
-    // URL sanitization — override url.full set by OTel with stripped version
-    const rawUrl = getRequestUrl(request);
+    // ── http.request.method ──────────────────────────────────────────────────
+    // OTel's instrumentation-fetch sets the deprecated `http.method`.
+    // We read it from the span attrs (already set at span start) and emit the
+    // stable `http.request.method` key. Fallback: read from RequestInit.method.
+    const deprecatedMethod = getSpanAttr(span, "http.method");
+    const requestMethod = request instanceof Request
+      ? request.method
+      : (request as RequestInit).method;
+    const method = (deprecatedMethod ?? requestMethod ?? "GET").toUpperCase();
+    span.setAttribute(K.HTTP_REQUEST_METHOD, method);
+
+    // ── url.full + server.address ────────────────────────────────────────────
+    // OTel sets `http.url` at span start — use it as fallback when `getRequestUrl`
+    // returns undefined (which happens for `fetch(urlString)` calls, where OTel
+    // passes `options = {}` to the callback rather than a `Request` object).
+    const rawUrl = getRequestUrl(request) ?? getSpanAttr(span, "http.url");
     if (rawUrl) {
       const sanitized = sanitizeUrl(rawUrl, captureQueryParams);
       span.setAttribute(K.URL_FULL, sanitized);
+
+      // server.address — hostname extracted from URL (excludes port)
+      try {
+        const parsed = new URL(rawUrl);
+        span.setAttribute(K.SERVER_ADDRESS, parsed.hostname);
+      } catch {
+        /* relative URL or non-standard — skip */
+      }
 
       // http.duration from PerformanceResourceTiming (best-effort)
       const dur = getResourceDuration(rawUrl);
@@ -124,13 +210,17 @@ export class NetworkInstrumentation implements PulseInstrumentation {
         const svc = config.peerServiceMap?.[host];
         if (svc) span.setAttribute(K.PEER_SERVICE, svc);
       } catch {
-        /* relative URL or non-standard — skip */
+        /* non-parseable URL — skip */
       }
     }
 
-    // Span status + error.type
+    // ── Span status + error.type + http.response.status_code ────────────────
     if (isResponse(result)) {
       const code = result.status;
+
+      // Always emit stable http.response.status_code (OTel only emits deprecated http.status_code)
+      if (code > 0) span.setAttribute(K.HTTP_RESPONSE_STATUS_CODE, code);
+
       if (code === 0) {
         span.setStatus({ code: SpanStatusCode.ERROR });
         span.setAttribute(K.ERROR_TYPE, "cors_error");
@@ -141,6 +231,7 @@ export class NetworkInstrumentation implements PulseInstrumentation {
         span.setStatus({ code: SpanStatusCode.ERROR });
         span.setAttribute(K.ERROR_TYPE, "5xx");
       }
+
       // Response body size
       const resLen = result.headers?.get("content-length");
       if (resLen !== null && resLen !== undefined) {
@@ -191,6 +282,24 @@ export class NetworkInstrumentation implements PulseInstrumentation {
 
     span.setAttribute(K.PULSE_TYPE, T.HTTP);
 
+    // ── http.request.method ──────────────────────────────────────────────────
+    const deprecatedMethod = getSpanAttr(span, "http.method");
+    if (deprecatedMethod) span.setAttribute(K.HTTP_REQUEST_METHOD, deprecatedMethod);
+
+    // ── url.full + server.address ────────────────────────────────────────────
+    // OTel's XMLHttpRequestInstrumentation sets deprecated `http.url` at span start.
+    // Read it here (before onEnd removes it) and re-emit as stable `url.full`.
+    const rawUrl = getSpanAttr(span, "http.url") ?? xhr.responseURL;
+    if (rawUrl) {
+      span.setAttribute(K.URL_FULL, sanitizeUrl(rawUrl));
+      try {
+        const parsed = new URL(rawUrl);
+        span.setAttribute(K.SERVER_ADDRESS, parsed.hostname);
+      } catch {
+        /* skip */
+      }
+    }
+
     // Span status for 4xx/5xx
     const code = xhr.status;
     if (code >= 400 && code < 500) {
@@ -234,8 +343,18 @@ export function sanitizeUrl(url: string, captureQueryParams = false): string {
 /** Extract the URL string from a Request or RequestInit object. */
 export function getRequestUrl(request: Request | RequestInit): string | undefined {
   if (request instanceof Request) return request.url;
-  // RequestInit has no url — the instrumentation passes Request for fetch()
+  // RequestInit has no url property — caller should fall back to span's http.url attr
   return undefined;
+}
+
+/**
+ * Read an attribute value from a span's attributes bag.
+ * Works because SdkSpan (which implements ReadableSpan) exposes `attributes` publicly.
+ */
+function getSpanAttr(span: Span, key: string): string | undefined {
+  const attrs = (span as unknown as { attributes?: Record<string, unknown> }).attributes;
+  const val = attrs?.[key];
+  return val !== undefined && val !== null ? String(val) : undefined;
 }
 
 /**
@@ -243,7 +362,9 @@ export function getRequestUrl(request: Request | RequestInit): string | undefine
  * Returns null for FormData, Blob, ArrayBuffer, ReadableStream, or unparseable bodies.
  */
 export function getRequestBody(request: Request | RequestInit): string | null {
-  const body = request instanceof Request ? request.body : (request as RequestInit).body;
+  // For Request objects, .body is a ReadableStream (consumed) — not readable as string
+  if (request instanceof Request) return null;
+  const body = (request as RequestInit).body;
   if (typeof body === "string") return body;
   return null;
 }
