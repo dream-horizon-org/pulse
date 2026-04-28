@@ -67,6 +67,10 @@ public class SuperAdminResource {
    */
   private String verifiedCallerUserId(String authorization) {
     String token = bearerToken(authorization);
+    if (!jwtService.isAccessToken(token)) {
+      throw ServiceError.UNAUTHORISED.getCustomException(
+          "Invalid token type. Expected access token.");
+    }
     final Claims claims;
     try {
       claims = jwtService.verifyToken(token);

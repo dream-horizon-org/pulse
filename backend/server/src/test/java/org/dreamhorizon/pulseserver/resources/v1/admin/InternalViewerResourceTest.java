@@ -80,6 +80,7 @@ class InternalViewerResourceTest {
 
   private void withVerifiedJwt(String subject) {
     when(verifiedClaims.getSubject()).thenReturn(subject);
+    when(jwtService.isAccessToken("signed-token")).thenReturn(true);
     when(jwtService.verifyToken("signed-token")).thenReturn(verifiedClaims);
   }
 
@@ -123,6 +124,7 @@ class InternalViewerResourceTest {
       vertx.runOnContext(v -> {
         when(openFgaProvider.get()).thenReturn(openFga);
         when(openFga.isEnabled()).thenReturn(true);
+        when(jwtService.isAccessToken("signed-token")).thenReturn(true);
         when(jwtService.verifyToken("signed-token")).thenThrow(new SignatureException("bad sig"));
         CompletionStage<Response<SuperAdminsListResponse>> cs = resource.list(JWT_CALLER);
         cs.whenComplete((resp, err) -> {
@@ -132,6 +134,28 @@ class InternalViewerResourceTest {
             Throwable e = unwrap(err);
             assertThat(e).isInstanceOf(WebApplicationException.class);
             assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(401);
+          });
+          tc.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldReturn401WhenTokenIsNotAccessToken(io.vertx.core.Vertx vertx, VertxTestContext tc) {
+      vertx.runOnContext(v -> {
+        when(openFgaProvider.get()).thenReturn(openFga);
+        when(openFga.isEnabled()).thenReturn(true);
+        when(jwtService.isAccessToken("signed-token")).thenReturn(false);
+        CompletionStage<Response<SuperAdminsListResponse>> cs = resource.list(JWT_CALLER);
+        cs.whenComplete((resp, err) -> {
+          tc.verify(() -> {
+            assertThat(resp).isNull();
+            assertThat(err).isNotNull();
+            Throwable e = unwrap(err);
+            assertThat(e).isInstanceOf(WebApplicationException.class);
+            assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(401);
+            verify(jwtService, org.mockito.Mockito.never()).verifyToken(anyString());
+            verify(openFga, org.mockito.Mockito.never()).isSuperAdmin(anyString());
           });
           tc.completeNow();
         });
