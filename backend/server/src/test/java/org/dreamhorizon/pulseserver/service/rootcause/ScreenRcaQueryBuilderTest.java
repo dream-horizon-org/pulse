@@ -134,7 +134,7 @@ class ScreenRcaQueryBuilderTest {
 
       assertThat(spec.sql()).contains("GROUP BY AppVersion");
       assertThat(spec.sql()).contains("AS bad_frustration");
-      assertThat(spec.sql()).contains("Platform = :");
+      assertThat(spec.sql()).contains("ifNull(ResourceAttributes['os.name'], '')");
       assertThat(spec.bindValues()).hasSize(5);
       assertThat(spec.bindValues().get(4)).isEqualTo("iOS");
     }
