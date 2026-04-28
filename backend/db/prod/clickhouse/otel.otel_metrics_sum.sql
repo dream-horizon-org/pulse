@@ -60,6 +60,7 @@ AS otel.otel_metrics_sum_local
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_sum_mv
+ON CLUSTER 'pulse-ch'
 TO otel.project_monthly_usage
 AS SELECT
             ProjectId AS project_id,
