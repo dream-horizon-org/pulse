@@ -2977,12 +2977,12 @@ export class DataQueryMockGeneratorV2 {
       );
       const graphqlNameFilter = filters?.find(
         (f) =>
-          f.field === "SpanAttributes['graphql.operation.name']" &&
+          f.field === COLUMN_NAME.GRAPHQL_OPERATION_NAME &&
           f.operator === "EQ",
       );
       const graphqlTypeFilter = filters?.find(
         (f) =>
-          f.field === "SpanAttributes['graphql.operation.type']" &&
+          f.field === COLUMN_NAME.GRAPHQL_OPERATION_TYPE &&
           f.operator === "EQ",
       );
 
@@ -3055,10 +3055,10 @@ export class DataQueryMockGeneratorV2 {
         // The screen name filter is handled by the backend in real queries
       }
       const graphqlNameFilter = filters?.find(
-        (f) => f.field === "SpanAttributes['graphql.operation.name']",
+        (f) => f.field === COLUMN_NAME.GRAPHQL_OPERATION_NAME,
       );
       const graphqlTypeFilter = filters?.find(
-        (f) => f.field === "SpanAttributes['graphql.operation.type']",
+        (f) => f.field === COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
       );
       const searchName = graphqlNameFilter?.value
         ? Array.isArray(graphqlNameFilter.value)
