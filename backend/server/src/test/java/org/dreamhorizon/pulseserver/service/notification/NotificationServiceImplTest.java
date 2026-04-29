@@ -27,6 +27,7 @@ import org.dreamhorizon.pulseserver.resources.notification.models.CreateMappingR
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.UpdateMappingRequestDto;
+import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
@@ -75,6 +77,7 @@ class NotificationServiceImplTest {
   @Mock ChannelEventMappingDao mappingDao;
   @Mock NotificationProviderFactory providerFactory;
   @Mock SqsNotificationQueue notificationQueue;
+  @Mock NotificationConfig notificationConfig;
 
   ObjectMapper objectMapper = new ObjectMapper();
 
@@ -84,7 +87,11 @@ class NotificationServiceImplTest {
   void setUp() {
     service = new NotificationServiceImpl(
         channelDao, templateDao, logDao, suppressionDao,
-        mappingDao, providerFactory, notificationQueue, objectMapper);
+        mappingDao, providerFactory, notificationQueue, objectMapper, notificationConfig);
+    org.mockito.Mockito.when(notificationConfig.resolveDefaultAlertEmailFromAddress())
+        .thenReturn("alerts@pulse-ux.com");
+    org.mockito.Mockito.when(notificationConfig.resolveDefaultAlertEmailFromName())
+        .thenReturn("Pulse Alerts");
   }
 
   private NotificationChannel emailChannel() {
@@ -230,6 +237,29 @@ class NotificationServiceImplTest {
 
       assertThat(result).isNotNull();
       assertThat(result.getChannelType()).isEqualTo(ChannelType.EMAIL);
+    }
+
+    @Test
+    void shouldFillDefaultFromWhenEmailConfigOmitsAddressAndName() {
+      EmailChannelConfig config = EmailChannelConfig.builder().build();
+      CreateChannelRequestDto request = CreateChannelRequestDto.builder()
+          .channelType(ChannelType.EMAIL)
+          .name("New Channel")
+          .config(config)
+          .build();
+
+      when(channelDao.getActiveChannelByProjectAndType(eq(""), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.empty());
+      when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
+      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(emailChannel()));
+
+      service.createChannel(request).blockingGet();
+
+      ArgumentCaptor<NotificationChannel> captor = ArgumentCaptor.forClass(NotificationChannel.class);
+      verify(channelDao).createChannel(captor.capture());
+      EmailChannelConfig stored = (EmailChannelConfig) captor.getValue().getConfig();
+      assertThat(stored.getFromAddress()).isEqualTo("alerts@pulse-ux.com");
+      assertThat(stored.getFromName()).isEqualTo("Pulse Alerts");
     }
 
     @Test

@@ -75,6 +75,10 @@ export const ALERTS_SEARCH_PLACEHOLDER: string = "Search your alert here";
 
 export const CREATE_ALERT: string = "Create alert";
 
+export const NOTIFICATION_EVENT_NAMES = {
+  PULSE_ALERT_FIRING: "pulse_alert_firing",
+} as const;
+
 export const NO_ALERT_CONFIGURED: string = "No alerts have been configured";
 export const IS_UAT: boolean =
   process.env.REACT_APP_PULSE_SERVER_URL?.includes("-uat") ?? false;
@@ -853,6 +857,31 @@ export const API_ROUTES: StreamverseRoutes = {
   DELETE_NOTIFICATION_CHANNEL_V2: {
     key: "DELETE_NOTIFICATION_CHANNEL_V2",
     apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.DELETE,
+  },
+  GET_CHANNEL_MAPPINGS: {
+    key: "GET_CHANNEL_MAPPINGS",
+    apiPath: `/v1/notifications/channels/mappings`,
+    method: API_METHODS.GET,
+  },
+  CREATE_CHANNEL_MAPPING: {
+    key: "CREATE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings`,
+    method: API_METHODS.POST,
+  },
+  CREATE_CHANNEL_MAPPINGS_BATCH: {
+    key: "CREATE_CHANNEL_MAPPINGS_BATCH",
+    apiPath: `/v1/notifications/channels/mappings/batch`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_CHANNEL_MAPPING: {
+    key: "UPDATE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings/{mappingId}`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_CHANNEL_MAPPING: {
+    key: "DELETE_CHANNEL_MAPPING",
+    apiPath: `/v1/notifications/channels/mappings/{mappingId}`,
     method: API_METHODS.DELETE,
   },
   // Slack OAuth Integration

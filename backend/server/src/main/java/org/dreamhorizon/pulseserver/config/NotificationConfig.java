@@ -19,6 +19,7 @@ public class NotificationConfig {
   private WorkerConfig worker;
   private SlackOAuthConfig slackOAuth;
   private IncidentConfig incident;
+  private EmailNotificationDefaults email;
 
   @Data
   @NoArgsConstructor
@@ -99,6 +100,37 @@ public class NotificationConfig {
 
   public IncidentConfig getIncidentConfig() {
     return incident != null ? incident : new IncidentConfig();
+  }
+
+  /**
+   * SES From for new EMAIL channels when the client omits fromAddress / fromName.
+   * Set via {@code DEFAULT_ALERT_EMAIL_FROM_ADDRESS} / {@code DEFAULT_ALERT_EMAIL_FROM_NAME}.
+   */
+  public String resolveDefaultAlertEmailFromAddress() {
+    if (email != null
+        && email.getDefaultFromAddress() != null
+        && !email.getDefaultFromAddress().isBlank()) {
+      return email.getDefaultFromAddress();
+    }
+    return "alerts@pulse-ux.com";
+  }
+
+  /** Display name paired with {@link #resolveDefaultAlertEmailFromAddress()}. */
+  public String resolveDefaultAlertEmailFromName() {
+    if (email != null
+        && email.getDefaultFromName() != null
+        && !email.getDefaultFromName().isBlank()) {
+      return email.getDefaultFromName();
+    }
+    return "Pulse Alerts";
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class EmailNotificationDefaults {
+    private String defaultFromAddress;
+    private String defaultFromName;
   }
 
   @Data

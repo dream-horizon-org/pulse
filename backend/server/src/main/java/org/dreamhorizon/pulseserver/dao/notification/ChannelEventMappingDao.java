@@ -117,6 +117,13 @@ public class ChannelEventMappingDao {
         .map(rows -> rows.rowCount());
   }
 
+  public Single<Integer> updateMappingsActiveByChannelId(Long channelId, boolean isActive) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool.preparedQuery(NotificationQueries.UPDATE_MAPPINGS_ACTIVE_BY_CHANNEL_ID)
+        .rxExecute(Tuple.of(isActive, channelId))
+        .map(rows -> rows.rowCount());
+  }
+
   private ChannelEventMapping mapRowToMapping(Row row) {
     return ChannelEventMapping.builder()
         .id(row.getLong("id"))

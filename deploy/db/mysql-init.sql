@@ -1203,6 +1203,21 @@ ON DUPLICATE KEY UPDATE body = VALUES(body);
 -- alertName, alertId, alertDescription, scopeName, currentReadings, alertCondition,
 -- evaluationStartTime, evaluationEndTime, projectId, alertLink).
 -- Map channel_event_mapping.event_name to pulse_alert_firing for the channel types below.
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('pulse_alert_firing', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'color', '#DC2627',
+    'text', CONCAT(
+        '<{{alertLink}}|[FIRING] {{alertName}}>\n\n',
+        '*Scope:* `{{scopeName}}`\n\n',
+        '*Current Readings:*\n',
+        '{{currentReadings}}',
+        '*Alert Condition:* `{{alertCondition}}`\n\n',
+        '*Evaluation Period:* `{{evaluationStartTime}}` - `{{evaluationEndTime}}`'
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
 -- SLACK_WEBHOOK: text + color only (no blocks) avoids Slack Incoming Webhook invalid_attachments
 -- with legacy attachment payloads from SlackPayloadBuilder.
 INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
@@ -1210,13 +1225,12 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
     'type', 'SLACK_WEBHOOK',
     'color', '#DC2627',
     'text', CONCAT(
-        '*[FIRING]* {{alertName}}\n\n',
+        '<{{alertLink}}|[FIRING] {{alertName}}>\n\n',
         '*Scope:* `{{scopeName}}`\n\n',
         '*Current Readings:*\n',
         '{{currentReadings}}',
         '*Alert Condition:* `{{alertCondition}}`\n\n',
-        '*Evaluation Period:* `{{evaluationStartTime}}` – `{{evaluationEndTime}}`\n',
-        '{{alertLink}}'
+        '*Evaluation Period:* `{{evaluationStartTime}}` - `{{evaluationEndTime}}`'
     )
 ))
 ON DUPLICATE KEY UPDATE body = VALUES(body);
@@ -1225,7 +1239,7 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
 ('pulse_alert_firing', 'EMAIL', 1, JSON_OBJECT(
     'type', 'EMAIL',
     'subject', CONCAT('[FIRING] ', '{{alertName}}'),
-    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:20px;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);"><tr><td style="background:#DC2627;color:#fff;padding:16px 20px;font-size:18px;font-weight:bold;">[FIRING] {{alertName}}</td></tr><tr><td style="padding:16px 20px;color:#555;font-size:14px;line-height:1.5;">{{alertDescription}}</td></tr><tr><td style="padding:0 20px 8px 20px;font-size:14px;"><strong>Scope</strong><br/><strong style="color:#111;">{{scopeName}}</strong></td></tr><tr><td style="padding:12px 20px;"><div style="background:#FFEBEE;border-left:4px solid #C62828;padding:12px 14px;border-radius:4px;"><div style="color:#B71C1C;font-weight:bold;font-size:14px;margin-bottom:8px;">Current Readings</div><div style="color:#333;font-size:14px;white-space:pre-wrap;">{{currentReadings}}</div></div></td></tr><tr><td style="padding:12px 20px;font-size:14px;"><strong>Alert Condition</strong><br/><span style="display:inline-block;background:#f0f0f0;padding:6px 10px;border-radius:4px;font-family:monospace;margin-top:6px;">{{alertCondition}}</span></td></tr><tr><td style="padding:12px 20px 8px 20px;font-size:14px;"><strong>Evaluation Period</strong><br/><code style="background:#f5f5f5;padding:2px 6px;">{{evaluationStartTime}}</code> – <code style="background:#f5f5f5;padding:2px 6px;">{{evaluationEndTime}}</code></td></tr><tr><td style="padding:20px;text-align:center;"><a href="{{alertLink}}" style="display:inline-block;background:#DC2627;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:bold;">View Alert</a></td></tr></table></body></html>',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:20px;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);"><tr><td style="background:#DC2627;color:#fff;padding:16px 20px;font-size:18px;font-weight:bold;">[FIRING] {{alertName}}</td></tr><tr><td style="padding:16px 20px;color:#555;font-size:14px;line-height:1.5;">{{alertDescription}}</td></tr><tr><td style="padding:0 20px 8px 20px;font-size:14px;"><strong>Scope</strong><br/><strong style="color:#111;">{{scopeName}}</strong></td></tr><tr><td style="padding:12px 20px;"><div style="background:#FFEBEE;border-left:4px solid #C62828;padding:12px 14px;border-radius:4px;"><div style="color:#B71C1C;font-weight:bold;font-size:14px;margin-bottom:8px;">Current Readings</div><div style="color:#333;font-size:14px;white-space:pre-wrap;">{{currentReadings}}</div></div></td></tr><tr><td style="padding:12px 20px;font-size:14px;"><strong>Alert Condition</strong><br/><span style="display:inline-block;background:#f0f0f0;padding:6px 10px;border-radius:4px;font-family:monospace;margin-top:6px;">{{alertCondition}}</span></td></tr><tr><td style="padding:12px 20px 8px 20px;font-size:14px;"><strong>Evaluation Period</strong><br/><code style="background:#f5f5f5;padding:2px 6px;">{{evaluationStartTime}}</code> - <code style="background:#f5f5f5;padding:2px 6px;">{{evaluationEndTime}}</code></td></tr><tr><td style="padding:20px;text-align:center;"><a href="{{alertLink}}" style="display:inline-block;background:#DC2627;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:bold;">View Alert</a></td></tr></table></body></html>',
     'text', CONCAT(
         '[FIRING] {{alertName}}\n\n',
         '{{alertDescription}}\n\n',

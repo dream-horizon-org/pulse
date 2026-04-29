@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.error.ServiceError;
@@ -33,6 +34,7 @@ public class NotificationServiceImpl implements NotificationService {
   private final NotificationProviderFactory providerFactory;
   private final SqsNotificationQueue notificationQueue;
   private final ObjectMapper objectMapper;
+  private final NotificationConfig notificationConfig;
 
   // ==================== Send (mapping-driven) ====================
 
@@ -577,6 +579,7 @@ public class NotificationServiceImpl implements NotificationService {
     validateChannelProjectId(request.getChannelType(), request.getProjectId());
 
     String projectId = request.getProjectId();
+    ChannelConfig configForCreate = normalizeEmailConfigForCreate(request);
 
     return channelDao
         .getActiveChannelByProjectAndType(
@@ -597,7 +600,7 @@ public class NotificationServiceImpl implements NotificationService {
                       .projectId(projectId)
                       .channelType(request.getChannelType())
                       .name(request.getName())
-                      .config(request.getConfig())
+                      .config(configForCreate)
                       .isActive(true)
                       .build();
 
@@ -631,6 +634,31 @@ public class NotificationServiceImpl implements NotificationService {
                         return result;
                       });
             });
+  }
+
+  private ChannelConfig normalizeEmailConfigForCreate(CreateChannelRequestDto request) {
+    if (request.getChannelType() != ChannelType.EMAIL
+        || !(request.getConfig() instanceof EmailChannelConfig email)) {
+      return request.getConfig();
+    }
+    return applyEmailCreationDefaults(email);
+  }
+
+  private EmailChannelConfig applyEmailCreationDefaults(EmailChannelConfig email) {
+    String from = email.getFromAddress();
+    String name = email.getFromName();
+    if (from == null || from.isBlank()) {
+      from = notificationConfig.resolveDefaultAlertEmailFromAddress();
+    }
+    if (name == null || name.isBlank()) {
+      name = notificationConfig.resolveDefaultAlertEmailFromName();
+    }
+    return EmailChannelConfig.builder()
+        .fromAddress(from)
+        .fromName(name)
+        .replyToAddress(email.getReplyToAddress())
+        .configurationSetName(email.getConfigurationSetName())
+        .build();
   }
 
   private void validateChannelProjectId(ChannelType channelType, String projectId) {
@@ -687,7 +715,26 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public Single<Boolean> deleteChannel(Long channelId) {
-    return channelDao.deleteChannel(channelId).map(count -> count > 0);
+    return channelDao
+        .getChannelById(channelId)
+        .switchIfEmpty(
+            Maybe.error(ServiceError.NOT_FOUND.getCustomException("Channel not found")))
+        .toSingle()
+        .flatMap(
+            existing ->
+                channelDao
+                    .updateChannel(
+                        channelId,
+                        NotificationChannel.builder()
+                            .name(existing.getName())
+                            .config(existing.getConfig())
+                            .isActive(false)
+                            .build())
+                    .flatMap(
+                        channelCount ->
+                            mappingDao
+                                .updateMappingsActiveByChannelId(channelId, false)
+                                .map(mappingCount -> channelCount > 0 || mappingCount > 0)));
   }
 
   // ==================== Templates (global) ====================
@@ -798,7 +845,27 @@ public class NotificationServiceImpl implements NotificationService {
         .flatMap(
             mappings ->
                 Observable.fromIterable(mappings)
-                    .flatMapSingle(this::enrichMappingDto)
+                    .filter(mapping -> Boolean.TRUE.equals(mapping.getIsActive()))
+                    .flatMapMaybe(
+                        mapping ->
+                            channelDao
+                                .getChannelById(mapping.getChannelId())
+                                .filter(channel -> Boolean.TRUE.equals(channel.getIsActive()))
+                                .map(
+                                    channel ->
+                                        ChannelEventMappingDto.builder()
+                                            .id(mapping.getId())
+                                            .projectId(mapping.getProjectId())
+                                            .channelId(mapping.getChannelId())
+                                            .channelType(channel.getChannelType())
+                                            .channelName(channel.getName())
+                                            .eventName(mapping.getEventName())
+                                            .recipient(mapping.getRecipient())
+                                            .recipientName(mapping.getRecipientName())
+                                            .isActive(mapping.getIsActive())
+                                            .createdAt(mapping.getCreatedAt())
+                                            .updatedAt(mapping.getUpdatedAt())
+                                            .build()))
                     .toList());
   }
 
