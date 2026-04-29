@@ -38,7 +38,7 @@ pipeline {
             steps {
                 sh '''
                     cd deploy/terraform/session-replay-ingestion
-                    echo "Fetching variables from AWS Secrets Manager..."
+                    echo "Fetching Terraform variables from AWS Secrets Manager..."
                     aws secretsmanager get-secret-value \
                       --region ap-south-1 \
                       --secret-id prod/pulse-session-replay-ingestion/terraform \

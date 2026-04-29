@@ -51,35 +51,6 @@ resource "aws_launch_template" "ingestion" {
   key_name               = var.ssh_key_name
   vpc_security_group_ids = var.ec2_security_group_ids
 
-  iam_instance_profile {
-    name = var.instance_profile_name
-  }
-
-  private_dns_name_options {
-    enable_resource_name_dns_a_record = true
-  }
-
-  metadata_options {
-    http_endpoint = "enabled"
-    http_tokens   = "required"
-  }
-
-  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
-    artifact_version     = var.artifact_version
-    kafka_brokers        = var.kafka_brokers
-    kafka_topic          = var.kafka_topic
-    kafka_metadata_topic = var.kafka_metadata_topic
-    kafka_group_id       = var.kafka_group_id
-    s3_endpoint          = var.s3_endpoint
-    s3_bucket            = var.s3_bucket
-    s3_region            = var.s3_region
-    s3_prefix            = var.s3_prefix
-    max_batch_size_kb    = var.max_batch_size_kb
-    max_batch_age_ms     = var.max_batch_age_ms
-    fetch_batch_size     = var.fetch_batch_size
-    s3_timeout_ms        = var.s3_timeout_ms
-  }))
-
   tag_specifications {
     resource_type = "instance"
 
@@ -98,9 +69,22 @@ resource "aws_launch_template" "ingestion" {
     })
   }
 
-  lifecycle {
-    create_before_destroy = true
+  iam_instance_profile {
+    name = var.instance_profile_name
   }
+
+  private_dns_name_options {
+    enable_resource_name_dns_a_record = true
+  }
+
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
+  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
+    artifact_version = var.artifact_version
+  }))
 }
 
 # No load_balancers / target_group_arns: Kafka consumers — suppress generic ASG+ELB IaC rules.

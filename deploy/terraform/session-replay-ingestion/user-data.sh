@@ -7,6 +7,37 @@ echo "Starting session-ingestion user-data at $(date)"
 export HOME=/home/admin
 cd "$HOME" || cd /root
 
+echo "Installing dependencies for Secrets Manager + artifact..."
+sudo rm -f /etc/apt/sources.list.d/deadsnakes-ppa-*.list || true
+sudo apt-get update -qq 2>/dev/null || true
+sudo apt-get install -y -qq unzip curl jq 2>/dev/null || true
+
+# -------------------------------------------------------------------
+# App environment from AWS Secrets Manager (same contract as pulse-server /
+# session-capture: { "app_env": [ { "key": "...", "value": "..." }, ... ] })
+# Keys match backend/session-replay-ingestion/src/config.ts (KAFKA_*, S3_*, etc.).
+# -------------------------------------------------------------------
+SECRET_NAME="prod/pulse-session-replay-ingestion/appenv"
+ENV_FILE="/etc/pulse/ingestion.env"
+
+sudo mkdir -p /etc/pulse
+
+echo "Fetching secret '$SECRET_NAME' from AWS Secrets Manager..."
+SECRET_JSON=$(aws secretsmanager get-secret-value \
+  --region ap-south-1 \
+  --secret-id "$SECRET_NAME" \
+  --query SecretString \
+  --output text)
+
+if [ -z "$SECRET_JSON" ]; then
+  echo "Error: SECRET_JSON is empty"
+  exit 1
+fi
+
+echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' | sudo tee "$ENV_FILE" >/dev/null
+sudo chmod 600 "$ENV_FILE"
+echo "Exported $(wc -l < "$ENV_FILE") environment variables to $ENV_FILE"
+
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-session-replay-ingestion"
@@ -35,23 +66,6 @@ sudo rm -rf "$INSTALL_DIR"
 sudo mkdir -p "$INSTALL_DIR"
 sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
 sudo chown -R root:root "$INSTALL_DIR"
-
-sudo mkdir -p /etc/pulse
-sudo tee /etc/pulse/ingestion.env >/dev/null <<EOF
-KAFKA_BROKERS=${kafka_brokers}
-KAFKA_TOPIC=${kafka_topic}
-KAFKA_METADATA_TOPIC=${kafka_metadata_topic}
-KAFKA_GROUP_ID=${kafka_group_id}
-S3_ENDPOINT=${s3_endpoint}
-S3_BUCKET=${s3_bucket}
-S3_REGION=${s3_region}
-S3_PREFIX=${s3_prefix}
-MAX_BATCH_SIZE_KB=${max_batch_size_kb}
-MAX_BATCH_AGE_MS=${max_batch_age_ms}
-FETCH_BATCH_SIZE=${fetch_batch_size}
-S3_TIMEOUT_MS=${s3_timeout_ms}
-EOF
-sudo chmod 644 /etc/pulse/ingestion.env
 
 # Node.js + pm2 (minimal AMIs often lack both). Tarball from nodejs.org with retries;
 # bake Node into AMI or ship via CodeArtifact to avoid boot-time egress to nodejs.org.
