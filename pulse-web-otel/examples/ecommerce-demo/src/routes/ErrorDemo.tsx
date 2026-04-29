@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { PulseWeb } from "@dreamhorizon/pulse-web";
-import { PulseErrorBoundary } from "@dreamhorizon/pulse-web/react";
 
 function RenderBomb(): React.ReactNode {
   throw new Error("Intentional render error from ErrorDemo");
@@ -95,8 +94,7 @@ export default function ErrorDemo() {
         >
           <p style={{ fontWeight: 600, marginBottom: 4 }}>React render error</p>
           <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
-            Caught by <code>PulseErrorBoundary</code> →{" "}
-            <code>device.crash</code> log
+            Caught by provider boundary → <code>device.crash</code> log
           </p>
           <button
             data-testid="throw-render-error"
@@ -108,62 +106,7 @@ export default function ErrorDemo() {
           >
             Throw in render
           </button>
-          {throwRender && (
-            <div style={{ marginTop: 12 }}>
-              <PulseErrorBoundary
-                fallback={(error, reset) => (
-                  <div
-                    style={{
-                      background: "#fef2f2",
-                      border: "1px solid #fecaca",
-                      borderRadius: 12,
-                      padding: 24,
-                    }}
-                  >
-                    <p
-                      style={{
-                        color: "#b91c1c",
-                        fontWeight: 700,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Render error caught by PulseErrorBoundary
-                    </p>
-                    <pre
-                      style={{
-                        fontSize: 12,
-                        color: "#991b1b",
-                        background: "#fff",
-                        padding: 12,
-                        borderRadius: 8,
-                        overflow: "auto",
-                      }}
-                    >
-                      {error.message}
-                    </pre>
-                    <button
-                      type="button"
-                      onClick={reset}
-                      style={{
-                        marginTop: 12,
-                        background: "#ef4444",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 8,
-                        padding: "8px 16px",
-                        cursor: "pointer",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Reset
-                    </button>
-                  </div>
-                )}
-              >
-                <RenderBomb />
-              </PulseErrorBoundary>
-            </div>
-          )}
+          {throwRender && <RenderBomb />}
         </div>
 
         <div
@@ -181,6 +124,7 @@ export default function ErrorDemo() {
             Calls PulseWeb.reportException() → <code>non_fatal</code> log
           </p>
           <button
+            data-testid="report-exception"
             style={btn("#0ea5e9")}
             onClick={() =>
               PulseWeb.reportException(new Error("Manually reported error"), {

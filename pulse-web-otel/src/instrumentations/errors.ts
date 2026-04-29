@@ -117,7 +117,7 @@ export class ErrorInstrumentation implements PulseInstrumentation {
         /* not supported */
       }
     }
-    if ("storage" in navigator && "estimate" in navigator.storage) {
+    if ("storage" in navigator && navigator.storage != null && "estimate" in navigator.storage) {
       try {
         const { quota = 0, usage = 0 } = await navigator.storage.estimate();
         this.storageFreeBytes = quota - usage;

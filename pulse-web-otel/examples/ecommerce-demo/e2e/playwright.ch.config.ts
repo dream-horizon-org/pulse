@@ -1,5 +1,5 @@
 /**
- * Playwright config for CH integration tests (m4-ch.spec.ts, m5-ch.spec.ts).
+ * Playwright config for CH integration tests (m3-ch.spec.ts, m4-ch.spec.ts, m5-ch.spec.ts).
  *
  * REQUIRES full stack running:
  *   cd deploy && ./scripts/start.sh
@@ -11,15 +11,15 @@
  *
  * Key differences from playwright.config.ts:
  *   - Chromium only (CH verification is browser-independent)
- *   - Longer timeouts (spans flow through collector → CH ~5–8s)
+ *   - Longer timeouts (signals flow through collector → CH ~5–8s)
  *   - Vite dev server at port 3098 with 1s batch delay
- *   - NO page.route() OTLP intercept — spans flow to real collector
+ *   - NO page.route() OTLP intercept — signals flow to real collector
  */
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["m4-ch.spec.ts", "m5-ch.spec.ts"],
+  testMatch: ["m3-ch.spec.ts", "m4-ch.spec.ts", "m5-ch.spec.ts"],
   timeout: 60_000,
   expect: { timeout: 25_000 },
   fullyParallel: false,

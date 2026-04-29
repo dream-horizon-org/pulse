@@ -11,7 +11,10 @@ import {
   PulseDataCollectionConsent,
   PulseLogLevel,
 } from "@dreamhorizon/pulse-web";
-import { PulseProvider } from "@dreamhorizon/pulse-web/react";
+import {
+  PulseProvider,
+  useRouterTracking,
+} from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
 const Home = lazy(() => import("./routes/Home"));
@@ -127,7 +130,6 @@ export default function App() {
         },
       },
       debugLogRecordLifecycle: debugLifecycle,
-      ...(formatEnv ? { export: { format: formatEnv } } : {}),
       ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
       // E2E injection — Playwright tests set window.__pulseE2eRoutePatterns before page load
@@ -157,13 +159,10 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <PulseProvider
-        config={pulseConfig}
-        shutdownOnUnmount={false}
-        routerTracking={{ skipInitial: false }}
-      >
+      <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
         {/* Expose for E2E shutdown test (m1.spec.ts) */}
         <_PulseWebExpose />
+        <_PulseWebRouterTracking />
         <NavBar />
         <main
           style={{
@@ -203,5 +202,11 @@ function _PulseWebExpose(): null {
   React.useEffect(() => {
     (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
   }, []);
+  return null;
+}
+
+/** Mounts route tracking inside BrowserRouter + PulseProvider tree. */
+function _PulseWebRouterTracking(): null {
+  useRouterTracking({ skipInitial: false });
   return null;
 }
