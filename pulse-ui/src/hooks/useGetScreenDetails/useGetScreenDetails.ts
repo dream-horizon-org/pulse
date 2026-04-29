@@ -31,7 +31,7 @@ export const useGetScreenDetails = ({
       select: [
         {
           function: "COL" as const,
-          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
+          param: { field:  COLUMN_NAME.SCREEN_NAME },
           alias: "screen_name",
         },
         {
@@ -51,7 +51,7 @@ export const useGetScreenDetails = ({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
+          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
         {
@@ -74,14 +74,14 @@ export const useGetScreenDetails = ({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "unique_session_count",
         },
       ],
       filters: [
         {
-          field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+          field: COLUMN_NAME.SCREEN_NAME,
           operator: "IN" as const,
           value: screenNames,
         },
