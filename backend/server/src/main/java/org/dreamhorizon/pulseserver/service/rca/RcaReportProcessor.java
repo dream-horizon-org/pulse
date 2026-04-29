@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaJobStatus;
 import org.dreamhorizon.pulseserver.dao.rcajob.RcaReportJobDao;
+import org.dreamhorizon.pulseserver.dao.rcajob.RcaType;
 import org.dreamhorizon.pulseserver.dao.rcajob.models.RcaReportJob;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
@@ -36,6 +37,7 @@ import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 public class RcaReportProcessor {
 
   private static final String RCA_REPORT_PATH = "rca/report";
+  private static final String RCA_SCREEN_REPORT_PATH = "rca/screen-report";
   private static final int ERR_MSG_MAX = 4000;
   private static final long HEATMAP_FETCH_TIMEOUT_SEC = 30;
 
@@ -91,7 +93,9 @@ public class RcaReportProcessor {
         .flatMap(parsed -> Single.fromCompletionStage(enrichmentService.enrichAsync(parsed, forceRootCauseRefresh)))
         .flatMap(
             enrichment -> {
-              String targetUrl = upstream.buildTargetUrl(RCA_REPORT_PATH, rawQuery);
+              String aiPath =
+                  job.entityType() == RcaType.SCREEN ? RCA_SCREEN_REPORT_PATH : RCA_REPORT_PATH;
+              String targetUrl = upstream.buildTargetUrl(aiPath, rawQuery);
               return Single.fromCompletionStage(
                   upstream.executeProxy(
                       "POST", targetUrl, enrichment.body(), authorization, job.projectId()))
@@ -161,7 +165,8 @@ public class RcaReportProcessor {
     String body = result.getBufferedBody();
 
     boolean shouldMergeHeatmaps =
-        enrichment.enrichmentOk()
+        job.entityType() != RcaType.SCREEN
+            && enrichment.enrichmentOk()
             && enrichment.rootCause() != null
             && enrichment.rootCause().getSegments() != null
             && !enrichment.rootCause().getSegments().isEmpty();
