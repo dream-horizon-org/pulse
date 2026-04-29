@@ -10,6 +10,7 @@ PULSE_SERVER_BASE_URL = os.getenv("PULSE_SERVER_BASE_URL", "http://localhost:808
 REPORT_AGENT_NAME = "ReportAgent"
 PIPELINE_AGENT_NAME = "PulseAIPipeline"
 RCA_AGENT_NAME = "RcaAgent"
+SCREEN_RCA_NARRATIVE_AGENT_NAME = "ScreenRcaNarrativeAgent"
 
 CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
 DEPENDENT_ANALYSIS_AGENT_NAME = "DependentAnalysis"
@@ -68,6 +69,7 @@ SESSION_SCOPE_PROJECT_ID_LEN = 256
 # Synthetic ADK user: RCA is one-shot (fresh session_id per request) and does not decode JWT here.
 # Keeps ephemeral RCA sessions separate from real chat users in the shared session_service.
 USER_ID_RCA = "rca_report_service"
+USER_ID_SCREEN_RCA = "screen_rca_narrative_service"
 # Authentication
 PULSE_ACCESS_TOKEN_ENV_KEY = 'PULSE_ACCESS_TOKEN'
 PULSE_REFRESH_TOKEN_ENV_KEY = 'PULSE_REFRESH_TOKEN'
