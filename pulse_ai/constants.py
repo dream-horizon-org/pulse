@@ -16,7 +16,7 @@ DEPENDENT_ANALYSIS_AGENT_NAME = "DependentAnalysis"
 EM_AGENT_NAME = "EMAgent"
 
 # Timeouts are intentionally centralized so request and pipeline limits are visible.
-BACKEND_REQUEST_TIMEOUT_SECONDS = 30
+BACKEND_REQUEST_TIMEOUT_SECONDS = 75  # Must exceed pulse-server RCA timeout (60s) + buffer
 RCA_PIPELINE_TIMEOUT_SECONDS = 300
 
 DEFAULT_CORS_ORIGINS = [

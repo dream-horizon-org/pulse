@@ -2,6 +2,8 @@ import Foundation
 
 struct PulseOtelConstants {
     static let INSTRUMENTATION_SCOPE = "com.pulsereactnativeotel"
+    /// Kept in line with PulseKit’s tracer instrumentation version for consistent semantics.
+    static let INSTRUMENTATION_VERSION = "1.0.0"
     
     static let ATTR_ERROR_FATAL = "error.fatal"
     static let ATTR_ERROR_TYPE = "exception.type"

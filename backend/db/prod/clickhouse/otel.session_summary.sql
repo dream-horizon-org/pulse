@@ -45,8 +45,9 @@ AS otel.session_summary_local
     ENGINE = Distributed('pulse-ch', otel, session_summary_local, cityHash64(sessionId));
 
 
-CREATE MATERIALIZED VIEW otel.session_crash_mv TO otel.session_summary
+CREATE MATERIALIZED VIEW otel.session_crash_mv
        ON CLUSTER 'pulse-ch'
+       TO otel.session_summary
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,
@@ -70,8 +71,9 @@ AS SELECT
             ProjectId,
             SessionId
 
-CREATE MATERIALIZED VIEW otel.session_summary_mv TO otel.session_summary
+CREATE MATERIALIZED VIEW otel.session_summary_mv
        ON CLUSTER 'pulse-ch'
+       TO otel.session_summary
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,
@@ -120,8 +122,9 @@ AS SELECT
             SessionId
 
 
-CREATE MATERIALIZED VIEW otel.session_summary_replay_mv TO otel.session_summary
+CREATE MATERIALIZED VIEW otel.session_summary_replay_mv
        ON CLUSTER 'pulse-ch'
+       TO otel.session_summary
 (
     `ProjectId` LowCardinality(String),
     `sessionId` String,

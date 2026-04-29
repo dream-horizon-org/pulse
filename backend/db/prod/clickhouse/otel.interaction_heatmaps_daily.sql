@@ -33,6 +33,7 @@ AS otel.interaction_heatmaps_daily_local
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS otel.interaction_heatmaps_daily_mv
+ON CLUSTER 'pulse-ch'
 TO otel.interaction_heatmaps_daily AS
 SELECT
     toDate(Timestamp) AS Date,

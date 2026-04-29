@@ -2,6 +2,8 @@ export const PULSE_IMPORT = 'import com.pulsereactnativeotel.Pulse\n';
 export const PULSE_DATA_COLLECTION_CONSENT_IMPORT =
   'import com.pulse.android.api.otel.PulseDataCollectionConsent\n';
 
+export const PULSE_LOG_LEVEL_IMPORT = 'import com.pulse.utils.PulseLogLevel\n';
+
 export const ATTRIBUTES_IMPORT =
   'import io.opentelemetry.api.common.Attributes\nimport io.opentelemetry.api.common.AttributeKey\n';
 
@@ -16,7 +18,21 @@ import type {
   PulseAndroidInstrumentationProps,
   PulseAttributes,
   PulseDataCollectionState,
+  PulseLogLevelValue,
 } from './types';
+
+const KOTLIN_LOG_LEVEL_NAMES = [
+  'VERBOSE',
+  'DEBUG',
+  'INFO',
+  'WARN',
+  'ERROR',
+  'NONE',
+] as const;
+
+function kotlinPulseLogLevelExpr(level: PulseLogLevelValue): string {
+  return `PulseLogLevel.${KOTLIN_LOG_LEVEL_NAMES[level]}`;
+}
 
 function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
   const puts: string[] = [];
@@ -74,10 +90,16 @@ export function buildPulseInitializationCode(options: {
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
+  logLevel?: PulseLogLevelValue;
   instrumentation?: PulseAndroidInstrumentationProps;
 }): string {
-  const { apiKey, dataCollectionState, globalAttributes, instrumentation } =
-    options;
+  const {
+    apiKey,
+    dataCollectionState,
+    globalAttributes,
+    logLevel,
+    instrumentation,
+  } = options;
   const params: string[] = [];
 
   params.push(`apiKey = "${escapeKotlinString(apiKey)}"`);
@@ -97,6 +119,14 @@ export function buildPulseInitializationCode(options: {
   // be expressed in a static app.json config. Expo users should configure it directly
   // in their native MainApplication.kt instead of through this plugin.
   params.push('beforeSendData = null');
+
+  if (logLevel !== undefined) {
+    params.push(`logLevel = ${kotlinPulseLogLevelExpr(logLevel)}`);
+  }
+
+  if (logLevel !== undefined) {
+    params.push(`logLevel = ${kotlinPulseLogLevelExpr(logLevel)}`);
+  }
 
   // Use string concatenation (not Kotlin string interpolation) for timing log lines.
   let code =

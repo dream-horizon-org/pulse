@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name = "PulseKit"
-  spec.version = "0.0.10-alpha"
+  spec.version = "0.0.12-alpha"
   spec.summary = "Pulse iOS SDK - Simplified OpenTelemetry for iOS"
   spec.description = <<-DESC
     Pulse iOS SDK is a production-ready SDK for instrumenting iOS 
@@ -19,7 +19,6 @@ Pod::Spec.new do |spec|
   }
 
   spec.source_files = [
-    "Sources/PulseLogging/**/*.swift",
     "Sources/PulseKit/**/*.{swift,h,m}",
     "Sources/Instrumentation/Sessions/*.swift",
     "Sources/Instrumentation/Crashes/**/*.{swift,h,m}",

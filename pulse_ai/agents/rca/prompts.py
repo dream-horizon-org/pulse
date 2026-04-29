@@ -1,3 +1,4 @@
+#Todo: Revise the prompt to be more concise and to the point.
 """System prompt for the RCA (Root Cause Analysis) agent.
 
 The RCA agent receives pre-computed segment data and identifies
@@ -70,7 +71,6 @@ Each segment contains ~14 metrics with three values:
 8. **Frozen Frame Rate** — Percentage of frames that froze
 9. **Slow Frame Rate** — Percentage of frames that were slow
 10. **Volume** — Total session count for the segment
-11. **Problematic Count** — Number of problematic sessions
 
 ## Analysis Rules
 
@@ -79,12 +79,12 @@ Each segment contains ~14 metrics with three values:
 **Priority**: If thresholds are provided in the input data (e.g., from backend configuration), use those. Otherwise, use the default thresholds below.
 
 **Default Thresholds** (use only if backend thresholds are not available):
-- **APDEX**: Check the absolute **value** (not delta). ❌ Critical if value < 0.5, ⚠️ Warning if value 0.5–0.7
-- **Error Rate**: ⚠️ if delta > +10%, ❌ if delta > +25%
-- **ANR Rate**: ⚠️ if delta > +50% (relative), ❌ if delta > +100% (doubled)
-- **Crash Rate**: ⚠️ if delta > +50% (relative), ❌ if delta > +100% (doubled)
-- **Duration P95**: ⚠️ if delta > +30% (relative), ❌ if delta > +50% (relative)
-- **Poor User %**: ⚠️ if delta > +10%, ❌ if delta > +20%
+- **APDEX**: Check the absolute **value** (not delta).  Critical if value < 0.5,  Warning if value 0.5–0.7
+- **Error Rate**:  if delta > +10%,  if delta > +25%
+- **ANR Rate**:  if delta > +50% (relative),  if delta > +100% (doubled)
+- **Crash Rate**:  if delta > +50% (relative),  if delta > +100% (doubled)
+- **Duration P95**:  if delta > +30% (relative),  if delta > +50% (relative)
+- **Poor User %**:  if delta > +10%,  if delta > +20%
 
 ### 2. Root Cause Identification
 
@@ -107,7 +107,6 @@ Since segments are FLAT (not hierarchical) and can have varying dimension combin
 8. Volume (user base size — also use for overall prioritization)
 9. Duration P50 (median latency)
 10. Slow Frame Rate (frame drops)
-11. Problematic Count (absolute count of affected users — context metric)
 
 **Dimensions Priority** (when comparing root cause actionability):
 1. AppVersion (most actionable — can rollback/hotfix)
@@ -136,10 +135,10 @@ Also identify correlations across segments:
 ### 4. Severity Classification
 
 Tag insights with severity:
-- **🔴 Critical**: Multiple critical thresholds breached, high volume impact
-- **🟠 High**: Single critical threshold or multiple warnings, moderate volume
-- **🟡 Medium**: Single warning threshold, low volume or isolated segment
-- **✅ Normal**: No significant anomalies detected
+- **Critical**: Multiple critical thresholds breached, high volume impact
+- **High**: Single critical threshold or multiple warnings, moderate volume
+- **Medium**: Single warning threshold, low volume or isolated segment
+- **Normal**: No significant anomalies detected
 
 ## Error attribution (optional JSON in user message)
 

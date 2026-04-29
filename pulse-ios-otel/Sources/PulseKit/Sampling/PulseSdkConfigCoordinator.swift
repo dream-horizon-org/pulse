@@ -7,9 +7,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 /// Coordinates loading current SDK config from storage and starting a background config fetch.
 /// Receives the final config URL from PulseKit (PulseKit applies default when app passes nil).
@@ -70,6 +67,9 @@ public final class PulseSdkConfigCoordinator {
             let curStr = currentVersion.map { "\($0)" } ?? "nil"
             PulseLogger.debug("Config fetch: newVersion=\(newStr) currentVersion=\(curStr) shouldUpdate=\(shouldPersist)")
             if shouldPersist, let config = newConfig {
+                PulseLogger.info(
+                    "sdk.sampling.config_mismatch reason=remote_version_diff persisted_version=\(curStr) fetched_version=\(newStr)"
+                )
                 storageRef.saveSync(config)
             }
         }
