@@ -35,12 +35,11 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
 
-  projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-  ],
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 
   webServer: {
-    command: "VITE_PULSE_BATCH_DELAY_MS=1000 VITE_PULSE_COMPRESSION=none yarn dev --port 3098",
+    command:
+      "VITE_PULSE_BATCH_DELAY_MS=1000 VITE_PULSE_COMPRESSION=none yarn dev --port 3098",
     cwd: "..",
     port: 3098,
     reuseExistingServer: true,
