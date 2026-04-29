@@ -1,8 +1,4 @@
-import {
-  STATUS_CODE,
-  PulseType,
-  COLUMN_NAME,
-} from "../constants/PulseOtelSemcov";
+import { STATUS_CODE, COLUMN_NAME } from "../constants/PulseOtelSemcov";
 import {
   GetScreensResponse,
   Screen,
@@ -113,7 +109,9 @@ export const useGetScreens = ({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
+          param: {
+            expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
+          },
           alias: "user_count",
         },
         {
@@ -143,7 +141,7 @@ export const useGetScreens = ({
       ],
       filters: [
         {
-          field:  COLUMN_NAME.SCREEN_NAME,
+          field: COLUMN_NAME.SCREEN_NAME,
           operator: "IN" as const,
           value: filteredScreenNames,
         },
