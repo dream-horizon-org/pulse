@@ -78,7 +78,8 @@ export type FunnelListItem = {
   name: string;
   status: AnalysisStatus;
   createdBy: string;
-  lastUpdatedAt: string;
+  /** Server-side `updatedAt` from FunnelDefinitionResponse. */
+  updatedAt: string;
   tags: string[];
   funnelType?: FunnelType;
   stepOrderType?: StepOrderType;
@@ -112,7 +113,8 @@ export type JourneyListItem = {
   name: string;
   status: AnalysisStatus;
   createdBy: string;
-  lastUpdatedAt: string;
+  /** Server-side `updatedAt` from JourneyResponse. */
+  updatedAt: string;
   tags: string[];
   journeyType?: FunnelType;
 };
@@ -249,9 +251,18 @@ export interface CreateFunnelRequestBody {
 
 /**
  * Request body for PUT /v1/funnel/:id.
- * PUT is a full replace so it accepts the same shape as create.
+ * PUT is a full replace, but the backend update DTO names the rolling-window
+ * deadline `expiry` (vs. `expiryDate` on create). Kept as a distinct type so
+ * callers can't accidentally send the create-shaped field name on update.
  */
-export type UpdateFunnelRequestBody = CreateFunnelRequestBody;
+export interface UpdateFunnelRequestBody
+  extends Omit<CreateFunnelRequestBody, "expiryDate"> {
+  /**
+   * AUTO funnels only — ISO-8601 datetime after which the funnel stops refreshing.
+   * Matches `UpdateFunnelDefinitionRequest.expiry` on the backend.
+   */
+  expiry?: string;
+}
 
 /** Request body for POST /v1/journeys (create) and PUT /v1/journeys/:id (update). */
 export interface CreateJourneyRequestBody {
