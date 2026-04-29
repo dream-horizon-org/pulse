@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
@@ -73,8 +74,6 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       return;
     }
 
-    String projectId = ProjectContext.requireProjectId();
-
     String userId = extractUserIdFromToken(requestContext);
     if (userId == null) {
       log.warn("Authorization check failed: missing user ID in token for path: {}", path);
@@ -84,11 +83,36 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
     String action = permission.value();
 
-    log.debug("Checking permission: userId={}, action={}, projectId={}", userId, action, projectId);
-
+    String projectId = null;
     try {
-      Boolean hasPermission = getOpenFgaService().checkPermission(userId, action, "project", projectId)
-        .blockingGet();
+      if (Constants.RELATION_SUPERADMIN.equals(action)) {
+        if (!getOpenFgaService().isEnabled()) {
+          log.debug("[DISABLED] Skipping superadmin check for user={}", userId);
+          return;
+        }
+
+        Boolean isSuperAdmin = getOpenFgaService().isSuperAdmin(userId).blockingGet();
+        if (!Boolean.TRUE.equals(isSuperAdmin)) {
+          log.warn("Access denied: userId={}, action=superadmin, path={}", userId, path);
+          abortForbidden(requestContext,
+              "Access denied: You don't have superadmin permission");
+          return;
+        }
+        log.debug("Permission granted: userId={}, action=superadmin", userId);
+        return;
+      }
+
+      try {
+        projectId = ProjectContext.requireProjectId();
+      } catch (IllegalStateException e) {
+        log.warn("Missing project context for path: {}", path);
+        abortForbidden(requestContext, "Access denied: Missing project context");
+        return;
+      }
+
+      log.debug("Checking permission: userId={}, action={}, projectId={}", userId, action, projectId);
+
+      Boolean hasPermission = getOpenFgaService().checkPermission(userId, action, "project", projectId).blockingGet();
 
       if (!hasPermission) {
         log.warn("Access denied: userId={}, action={}, projectId={}, path={}",

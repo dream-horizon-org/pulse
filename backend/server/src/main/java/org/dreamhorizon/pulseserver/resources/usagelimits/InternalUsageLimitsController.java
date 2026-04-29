@@ -19,6 +19,8 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.MarkNotificationsRestRequest;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.NotificationStatusRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectLimitHistoryRestResponse;
@@ -62,6 +64,7 @@ public class InternalUsageLimitsController {
    */
   @GET
   @Path("/{projectId}/limits")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitRestResponse>> getProjectLimits(
@@ -79,6 +82,7 @@ public class InternalUsageLimitsController {
    */
   @GET
   @Path("/limits")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitListRestResponse>> getAllActiveLimits(
@@ -135,6 +139,7 @@ public class InternalUsageLimitsController {
    */
   @PUT
   @Path("/{projectId}/limits")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitRestResponse>> setCustomLimits(
@@ -154,6 +159,7 @@ public class InternalUsageLimitsController {
    */
   @POST
   @Path("/{projectId}/limits/reset")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitRestResponse>> resetToDefaults(
@@ -175,6 +181,7 @@ public class InternalUsageLimitsController {
    */
   @GET
   @Path("/{projectId}/limits/history")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectLimitHistoryRestResponse>> getProjectLimitHistory(
@@ -192,6 +199,7 @@ public class InternalUsageLimitsController {
    */
   @POST
   @Path("/{projectId}/limits/notifications")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationStatusRestResponse>> markThresholdsNotified(
