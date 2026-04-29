@@ -74,7 +74,7 @@ Aggregated monthly usage by `project_id` / `month` / `source`; fed by MVs from l
 - **`event_catalog_entries`** — distinct filter values per project (`FilterKey` e.g. EVENT, APP_BUILD_NAME, …). Schema:
   `backend/db/prod/clickhouse/event-catalog-entries.sql`.
 
-### Heatmap tables (`backend/ingestion/clickhouse-otel-schema.sql`)
+### Heatmap tables (`backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`)
 
 - **`interaction_heatmaps_daily`** — SummingMergeTree aggregates (`WeightNormal`, `WeightRage`, `WeightDead`, `XBin`,
   `YBin`, `Breakpoint`, …). Filled by **`interaction_heatmaps_daily_mv`** from **`otel_logs`** where

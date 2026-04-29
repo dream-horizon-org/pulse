@@ -1,4 +1,5 @@
-import { Text } from "@mantine/core";
+import { Group, Text, Tooltip } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import {
   createTooltipFormatter,
   AreaChart,
@@ -81,7 +82,12 @@ export function ActiveSessionsGraph({
       <div className={classes.graphTitle}>Active Sessions</div>
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Current</Text>
+          <Group gap={4} wrap="nowrap" align="center" justify="center">
+            <Text className={classes.metricLabel}>Concurrent Sessions</Text>
+            <Tooltip label="Unique sessions active in the last 5 minutes." withArrow multiline w={200}>
+              <IconInfoCircle size={13} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+            </Tooltip>
+          </Group>
           {formatMetricValue(currentSessions, "#0ec9c2")}
         </div>
         <div className={classes.metricCard}>

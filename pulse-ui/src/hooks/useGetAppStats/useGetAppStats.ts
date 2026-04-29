@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
-import { PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import type {
-  UseGetAppStatsProps,
   AppStatsData,
+  UseGetAppStatsProps,
 } from "./useGetAppStats.interface";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -16,7 +16,7 @@ dayjs.extend(utc);
  *
  * Note: Uses LOGS table with PulseType = 'session.start' filter
  * MATERIALIZED columns: AppVersion, OsVersion, DeviceModel, UserId, SessionId, PulseType
- * See: backend/ingestion/clickhouse-otel-schema.sql
+ * See: backend/db/prod/clickhouse/
  */
 export function useGetAppStats({
   startTime,
@@ -127,7 +127,7 @@ export function useGetAppStats({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
         },

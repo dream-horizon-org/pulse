@@ -26,7 +26,7 @@ alwaysApply: false
 
 Materialized views `project_monthly_*_mv` populate `project_monthly_usage` from traces, logs, metrics, and stack traces.
 
-Heatmap DDL lives in `backend/ingestion/clickhouse-otel-schema.sql`:
+Heatmap DDL lives in `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql`:
 
 | Table / object | Engine | Purpose |
 |----------------|--------|---------|
