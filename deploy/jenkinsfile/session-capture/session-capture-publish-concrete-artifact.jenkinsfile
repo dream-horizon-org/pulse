@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        node { label 'pulse-artifact-build-default-ec2-fleet' }
+        node { label 'pulse-artifact-arm-build-ec2-fleet' }
     }
 
     options {
@@ -30,6 +30,19 @@ pipeline {
             }
         }
 
+        // Native deps for rdkafka-sys / librdkafka (cmake build). libzstd-dev = zstd batches when KAFKA_COMPRESSION_CODEC=zstd; liblz4-dev = lz4.
+        stage('Install native build dependencies') {
+            steps {
+                sh """
+                    #!/bin/bash -el
+                    sudo DEBIAN_FRONTEND=noninteractive apt-get update
+                    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\
+                        build-essential pkg-config libssl-dev cmake libcurl4-openssl-dev \\
+                        libsasl2-dev zlib1g-dev libzstd-dev liblz4-dev
+                """
+            }
+        }
+
         stage('Read Version') {
             steps {
                 script {
@@ -51,39 +64,40 @@ pipeline {
             }
         }
 
-        stage('Bump version for next development') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-                        def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
-                        sh """
-                            #!/bin/bash -el
-                            CARGO="${WORKSPACE}/backend/session-capture-service/Cargo.toml"
-                            sed -i.bak -E 's/^version = "[^"]+"/version = "${nextVersion}"/' "\$CARGO"
-                            rm -f "\$CARGO.bak"
+        // stage('Bump version for next development') {
+        //     steps {
+        //         script {
+        //             withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+        //                 def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
+        //                 sh """
+        //                     #!/bin/bash -el
+        //                     CARGO="${WORKSPACE}/backend/session-capture-service/Cargo.toml"
+        //                     sed -i.bak -E 's/^version = "[^"]+"/version = "${nextVersion}"/' "\$CARGO"
+        //                     rm -f "\$CARGO.bak"
 
-                            git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
-                            git config user.name "${GITBOT_USERNAME}"
+        //                     git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+        //                     git config user.name "${GITBOT_USERNAME}"
 
-                            git add backend/session-capture-service/Cargo.toml
-                            git commit -m "chore: bump pulse-session-capture version to ${nextVersion}"
+        //                     git add backend/session-capture-service/Cargo.toml
+        //                     git commit -m "chore: bump pulse-session-capture version to ${nextVersion}"
 
-                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
-                        """
-                    }
-                }
-            }
-        }
+        //                     git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     post {
         success {
-            script {
-                def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* published\n" +
-                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-            }
+               echo "Build succeeded. Slack notification disabled."
+//             script {
+//                 def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* published\n" +
+//                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+//                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+//                 slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+//             }
         }
         // failure {
         //     script {

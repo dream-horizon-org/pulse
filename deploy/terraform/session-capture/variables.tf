@@ -121,6 +121,12 @@ variable "kafka_topic" {
   default     = "session_recording_events"
 }
 
+variable "kafka_compression_codec" {
+  description = "Kafka producer compression.codec (rdkafka); use zstd with topic compression.type=producer and libzstd on consumers"
+  type        = string
+  default     = "zstd"
+}
+
 variable "rust_log" {
   description = "Rust log level"
   type        = string

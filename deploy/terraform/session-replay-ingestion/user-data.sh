@@ -90,6 +90,26 @@ if ! command -v pm2 >/dev/null 2>&1; then
   echo "pm2 $(pm2 --version) installed"
 fi
 
+# librdkafka (node-rdkafka) loads libzstd at runtime for zstd-compressed Kafka batches
+ensure_libzstd() {
+  if ldconfig -p 2>/dev/null | grep -q 'libzstd.so'; then
+    echo "libzstd shared library already present"
+    return 0
+  fi
+  echo "Installing libzstd runtime for Kafka zstd decode..."
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libzstd1
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y libzstd
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y libzstd
+  else
+    echo "WARNING: install libzstd manually; node-rdkafka may fail on zstd batches without libzstd.so"
+  fi
+}
+ensure_libzstd
+
 # cloud-init runs as root — pm2 matches. Order: start → save → startup (systemd + resurrect).
 # Some pm2 builds print a line starting with "sudo " — eval it to enable the unit.
 echo "Starting $APPLICATION_NAME via pm2..."
