@@ -167,6 +167,18 @@ describe('assertPulsePluginProps', () => {
       } as unknown as PulsePluginProps)
     ).toThrow(/byteBuddyGradlePluginVersion/);
   });
+
+  it('rejects non-boolean android.okHttpInstrumentation.ensureJetifierIgnoresByteBuddy', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        android: {
+          okHttpInstrumentation: { ensureJetifierIgnoresByteBuddy: 'yes' },
+        },
+      } as unknown as PulsePluginProps)
+    ).toThrow(/ensureJetifierIgnoresByteBuddy/);
+  });
 });
 
 describe('resolveAndroidProps / resolveIosProps', () => {
@@ -196,6 +208,7 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     expect(a.okHttpInstrumentation).toEqual({
       enabled: false,
       byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: false,
     });
 
     const i = resolveIosProps(props);
@@ -283,6 +296,7 @@ describe('resolveAndroidProps okHttpInstrumentation', () => {
     expect(resolveAndroidProps(base).okHttpInstrumentation).toEqual({
       enabled: false,
       byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: false,
     });
   });
 
@@ -295,6 +309,7 @@ describe('resolveAndroidProps okHttpInstrumentation', () => {
     ).toEqual({
       enabled: true,
       byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: true,
     });
   });
 
@@ -312,6 +327,7 @@ describe('resolveAndroidProps okHttpInstrumentation', () => {
     ).toEqual({
       enabled: true,
       byteBuddyGradlePluginVersion: '1.17.0',
+      ensureJetifierIgnoresByteBuddy: true,
     });
   });
 
@@ -328,6 +344,25 @@ describe('resolveAndroidProps okHttpInstrumentation', () => {
     ).toEqual({
       enabled: false,
       byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: false,
+    });
+  });
+
+  it('allows disabling jetifier ignore merge when OkHttp instrumentation is on', () => {
+    expect(
+      resolveAndroidProps({
+        ...base,
+        android: {
+          okHttpInstrumentation: {
+            enabled: true,
+            ensureJetifierIgnoresByteBuddy: false,
+          },
+        },
+      }).okHttpInstrumentation
+    ).toEqual({
+      enabled: true,
+      byteBuddyGradlePluginVersion: '1.17.8',
+      ensureJetifierIgnoresByteBuddy: false,
     });
   });
 });
