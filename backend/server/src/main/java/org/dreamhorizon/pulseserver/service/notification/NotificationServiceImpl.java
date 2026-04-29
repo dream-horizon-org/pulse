@@ -818,15 +818,15 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   public Single<List<ChannelEventMappingDto>> createDefaultPlatformMappings(String projectId) {
-    BatchCreateMappingRequestDto batchRequest = BatchCreateMappingRequestDto.builder()
-        .mappings(NotificationConstants.Platform.DEFAULT_MAPPINGS.stream()
+    BatchCreateMappingRequestDto batchRequest = new BatchCreateMappingRequestDto();
+    batchRequest.setMappings(
+        NotificationConstants.Platform.DEFAULT_MAPPINGS.stream()
             .map(mapping -> CreateMappingRequestDto.builder()
                 .channelId(NotificationConstants.Platform.DEFAULT_CHANNEL_ID)
                 .eventName(mapping.eventName())
                 .recipient(mapping.recipient())
                 .build())
-            .toList())
-        .build();
+            .toList());
     return createMappingsBatch(projectId, batchRequest);
   }
 

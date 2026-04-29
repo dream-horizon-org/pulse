@@ -79,15 +79,21 @@ export const StepSeverityNotification: React.FC<
       eventName: NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING,
     });
 
-  const severities: AlertSeverityItem[] =
-    severitiesResponse?.data && Array.isArray(severitiesResponse.data)
-      ? severitiesResponse.data
-      : [];
+  const severities: AlertSeverityItem[] = useMemo(
+    () =>
+      severitiesResponse?.data && Array.isArray(severitiesResponse.data)
+        ? severitiesResponse.data
+        : [],
+    [severitiesResponse?.data],
+  );
 
-  const channelMappings =
-    mappingsResponse?.data && Array.isArray(mappingsResponse.data)
-      ? mappingsResponse.data
-      : [];
+  const channelMappings = useMemo(
+    () =>
+      mappingsResponse?.data && Array.isArray(mappingsResponse.data)
+        ? mappingsResponse.data
+        : [],
+    [mappingsResponse?.data],
+  );
 
   const [selectedType, setSelectedType] = useState<ChannelType | "">("");
 

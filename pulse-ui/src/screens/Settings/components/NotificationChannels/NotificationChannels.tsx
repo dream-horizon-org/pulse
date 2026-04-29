@@ -50,7 +50,6 @@ import {
 import {
   ChannelType,
   SlackWorkspaceChannel,
-  NotificationChannel,
   ChannelEventMapping,
 } from "../../../../types";
 import classes from "./NotificationChannels.module.css";
@@ -134,9 +133,18 @@ export function NotificationChannels() {
   const deleteMappingMutation = useDeleteChannelMapping();
   const updateMappingMutation = useUpdateChannelMapping();
 
-  const channels = channelsResponse?.data ?? [];
-  const mappings = mappingsResponse?.data ?? [];
-  const slackChannels = slackChannelsResponse?.data ?? [];
+  const channels = useMemo(
+    () => channelsResponse?.data ?? [],
+    [channelsResponse?.data],
+  );
+  const mappings = useMemo(
+    () => mappingsResponse?.data ?? [],
+    [mappingsResponse?.data],
+  );
+  const slackChannels = useMemo(
+    () => slackChannelsResponse?.data ?? [],
+    [slackChannelsResponse?.data],
+  );
 
   const mappingsByChannelId = useMemo(() => {
     return mappings.reduce<Record<number, ChannelEventMapping[]>>(
