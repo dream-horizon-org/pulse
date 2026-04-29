@@ -90,23 +90,23 @@ pipeline {
             echo "Cleaning up workspace..."
             sh 'rm -f deploy/terraform/session-replay-ingestion/tfplan'
         }
-        // success {
-        //     script {
-        //         wrap([$class: 'BuildUser']) {
-        //             def message = "<!channel> pulse-session-replay-ingestion version *${params.ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_EMAIL}\n" +
-        //                     "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-        //             def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-        //             slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-        //         }
-        //     }
-        // }
-        // failure {
-        //     script {
-        //         def message = "<!channel> pulse-session-replay-ingestion version *${params.ARTIFACT_VERSION}* deployment failed on production\n" +
-        //                 "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-        //         def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-        //         slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-        //     }
-        // }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    def message = "<!channel> pulse-session-replay-ingestion version *${params.ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_EMAIL}\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                }
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> pulse-session-replay-ingestion version *${params.ARTIFACT_VERSION}* deployment failed on production\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
     }
 }

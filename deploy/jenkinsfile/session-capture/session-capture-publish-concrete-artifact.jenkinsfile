@@ -64,49 +64,48 @@ pipeline {
             }
         }
 
-        // stage('Bump version for next development') {
-        //     steps {
-        //         script {
-        //             withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-        //                 def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
-        //                 sh """
-        //                     #!/bin/bash -el
-        //                     CARGO="${WORKSPACE}/backend/session-capture-service/Cargo.toml"
-        //                     sed -i.bak -E 's/^version = "[^"]+"/version = "${nextVersion}"/' "\$CARGO"
-        //                     rm -f "\$CARGO.bak"
+        stage('Bump version for next development') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
+                        sh """
+                            #!/bin/bash -el
+                            CARGO="${WORKSPACE}/backend/session-capture-service/Cargo.toml"
+                            sed -i.bak -E 's/^version = "[^"]+"/version = "${nextVersion}"/' "\$CARGO"
+                            rm -f "\$CARGO.bak"
 
-        //                     git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
-        //                     git config user.name "${GITBOT_USERNAME}"
+                            git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+                            git config user.name "${GITBOT_USERNAME}"
 
-        //                     git add backend/session-capture-service/Cargo.toml
-        //                     git commit -m "chore: bump pulse-session-capture version to ${nextVersion}"
+                            git add backend/session-capture-service/Cargo.toml
+                            git commit -m "chore: bump pulse-session-capture version to ${nextVersion}"
 
-        //                     git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
-        //                 """
-        //             }
-        //         }
-        //     }
-        // }
+                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+                        """
+                    }
+                }
+            }
+        }
     }
 
     post {
         success {
-               echo "Build succeeded. Slack notification disabled."
-//             script {
-//                 def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* published\n" +
-//                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-//                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-//                 slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-//             }
+            script {
+                def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* published\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
         }
-        // failure {
-        //     script {
-        //         def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* publish failed\n" +
-        //                 "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-        //         def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-        //         slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-        //     }
-        // }
+        failure {
+            script {
+                def message = "<!channel> pulse-session-capture version *${ARTIFACT_VERSION}* publish failed\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
     }
 }
 
