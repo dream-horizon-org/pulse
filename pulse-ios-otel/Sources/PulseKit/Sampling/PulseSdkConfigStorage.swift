@@ -6,9 +6,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 
 /// Storage for persisted SDK config. Uses a single UserDefaults instance (either a named suite or standard).
 /// All access is serialized on a dedicated queue for thread safety.

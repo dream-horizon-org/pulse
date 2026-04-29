@@ -16,7 +16,13 @@ import {
   useGetFunnelFilters
 } from "../../hooks/useGetFunnelData";
 import { useCreateFunnel } from "../../hooks/useCreateFunnel";
-import { CreateFunnelRequestBody, FunnelFilter, FunnelType, StepOrderType } from "../../services/funnels.service";
+import {
+  CreateFunnelRequestBody,
+  FunnelFilter,
+  FunnelMode,
+  FunnelType,
+  StepOrderType,
+} from "../../services/funnels.service";
 
 const EMPTY_STEPS: BuilderStep[] = [
   { id: "s-1", eventName: "" },
@@ -70,6 +76,9 @@ export function CreateFunnel() {
   const [steps, setSteps] = useState<BuilderStep[]>(EMPTY_STEPS);
   const [funnelMode, setFunnelMode] = useState<StepOrderType>(
     StepOrderType.ORDERED,
+  );
+  const [analysisMode, setAnalysisMode] = useState<FunnelMode>(
+    FunnelMode.UNIQUE_USERS,
   );
   const [conversionWindow, setConversionWindow] = useState("86400");
 
@@ -147,6 +156,7 @@ export function CreateFunnel() {
       stepOrderType: funnelMode,
       steps: apiSteps,
       windowSeconds: parseInt(conversionWindow, 10),
+      mode: analysisMode,
       filters: apiFilters,
     };
 
@@ -294,6 +304,8 @@ export function CreateFunnel() {
                       }}
                       funnelMode={funnelMode}
                       onFunnelModeChange={setFunnelMode}
+                      analysisMode={analysisMode}
+                      onAnalysisModeChange={setAnalysisMode}
                       conversionWindow={conversionWindow}
                       onConversionWindowChange={setConversionWindow}
                       onAnalyze={handleAnalyze}

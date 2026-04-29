@@ -77,6 +77,36 @@ class NetworkChangeInstrumentationTest {
     }
 
     @Test
+    fun networkAvailable_includesPreviousConnectionTypeAfterFirstChange() {
+        val networkChangeListenerSlot = slot<NetworkChangeListener>()
+        NetworkChangeInstrumentation().install(createInstallationContext())
+
+        verify {
+            currentNetworkProvider.addNetworkChangeListener(capture(networkChangeListenerSlot))
+        }
+        val listener = networkChangeListenerSlot.captured
+
+        listener.onNetworkChange(CurrentNetwork(NetworkState.TRANSPORT_WIFI))
+        listener.onNetworkChange(CurrentNetwork(NetworkState.TRANSPORT_CELLULAR))
+
+        val events = otelTesting.logRecords
+        assertThat(events).hasSize(2)
+        assertThat(events[1])
+            .hasEventName("network.change")
+            .hasAttributesSatisfyingExactly(
+                equalTo(NETWORK_PREVIOUS_CONNECTION_TYPE_KEY, "wifi"),
+                equalTo(NETWORK_STATUS_KEY, "available"),
+                equalTo(NetworkIncubatingAttributes.NETWORK_CONNECTION_TYPE, "cell"),
+            )
+        assertThat(events[0])
+            .hasEventName("network.change")
+            .hasAttributesSatisfyingExactly(
+                equalTo(NETWORK_STATUS_KEY, "available"),
+                equalTo(NetworkIncubatingAttributes.NETWORK_CONNECTION_TYPE, "wifi"),
+            )
+    }
+
+    @Test
     fun networkAvailable_cellular() {
         val networkChangeListenerSlot = slot<NetworkChangeListener>()
         NetworkChangeInstrumentation().install(createInstallationContext())

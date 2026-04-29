@@ -256,7 +256,7 @@ async def generate_root_cause_report(
                 project_id,
             )
             payload = await fetch_root_cause_payload(
-                interaction_name=request.interactionName,
+                interaction_name=request.entityKey,
                 date_value=request.date,
                 authorization=auth_value,
                 project_id=project_value,
@@ -265,8 +265,9 @@ async def generate_root_cause_report(
         return await generate_rca_report(
             runner=rca_runner,
             payload=payload,
-            interaction_name=request.interactionName,
+            interaction_name=request.entityKey,
             example_session_ids=example_sessions,
+            error_attribution_payload=request.errorAttributionPayload,
         )
     except RootCauseFetchError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error

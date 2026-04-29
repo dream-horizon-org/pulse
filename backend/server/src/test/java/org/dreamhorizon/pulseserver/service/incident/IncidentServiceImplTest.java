@@ -22,6 +22,7 @@ import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificati
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationEventName;
+import org.dreamhorizon.pulseserver.service.oncall.OnCallService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -48,6 +49,7 @@ class IncidentServiceImplTest {
   @Mock IncidentDao incidentDao;
   @Mock NotificationService notificationService;
   @Mock NotificationConfig notificationConfig;
+  @Mock OnCallService onCallService;
 
   IncidentServiceImpl service;
 
@@ -55,8 +57,10 @@ class IncidentServiceImplTest {
   void setUp() {
     ProjectContext.setProjectId(PROJECT_ID);
     when(notificationConfig.getIncidentConfig())
-        .thenReturn(new NotificationConfig.IncidentConfig(SLACK_CHANNEL));
-    service = new IncidentServiceImpl(incidentDao, notificationService, notificationConfig);
+        .thenReturn(new NotificationConfig.IncidentConfig(SLACK_CHANNEL, "GO_ALERT", null));
+    when(onCallService.getOnCallSlackMentions()).thenReturn(Single.just("N/A"));
+    service = new IncidentServiceImpl(incidentDao, notificationService, notificationConfig,
+        onCallService);
   }
 
   @AfterEach

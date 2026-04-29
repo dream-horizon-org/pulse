@@ -1,3 +1,5 @@
+import type { ErrorAttributionResponse } from "../useGetErrorAttribution/useGetErrorAttribution.interface";
+
 /** RCA structured report v1 (snake_case fields per pulse_ai / API JSON). */
 export type RcaStructuredMetricRowV1 = {
   metric_id: string;
@@ -24,10 +26,19 @@ export type RcaRelatedHeatmapsV1 = {
   heatmap_filters?: RcaHeatmapFiltersWireV1 | null;
 };
 
+/** NLP layer on pre-computed error-attribution drill (snake_case in API JSON). */
+export type ErrorAttributionInsightV1 = {
+  signal: "anr" | "non_fatal" | "api";
+  summary: string;
+  caveat?: string | null;
+};
+
 export type RcaStructuredSegmentV1 = {
   rank: number;
   title: string;
   metrics: RcaStructuredMetricRowV1[];
+  /** Short user-impact line shown in segment callout when present. */
+  impact?: string | null;
   insights?: string | null;
   affected_sessions?: string[] | null;
   related_heatmaps?: RcaRelatedHeatmapsV1 | null;
@@ -38,6 +49,12 @@ export type RcaStructuredReportV1 = {
   executive_summary: string;
   segments: RcaStructuredSegmentV1[];
   recommendations: string[];
+  /** Model-generated interpretation of pre-AI ErrorAttributionPayload when present. */
+  error_attribution_insights?: ErrorAttributionInsightV1[] | null;
+  /** Model-copied drill payload when insights are present (camelCase keys); preferred over legacy. */
+  error_attribution?: ErrorAttributionResponse | null;
+  /** Legacy cached reports only: server-merged drill before LLM carried `error_attribution`. */
+  errorAttribution?: ErrorAttributionResponse | null;
 };
 
 export type RcaReportPayload = {
@@ -73,10 +90,23 @@ export const isRcaStructuredReportV1WithContent = (
   if (structured == null) {
     return false;
   }
+  const hasAttributionInsightText = (
+    structured.error_attribution_insights ?? []
+  ).some(
+    (row) =>
+      (row.summary?.trim() ?? "") !== "" || (row.caveat?.trim() ?? "") !== "",
+  );
+  const drill = structured.error_attribution ?? structured.errorAttribution;
+  const hasDrillPayload =
+    drill != null &&
+    ((drill.relatedAttributions?.length ?? 0) > 0 ||
+      (drill.disclaimer?.trim() ?? "") !== "");
   const hasContent =
     (structured.executive_summary?.trim() ?? "") !== "" ||
     (structured.segments?.length ?? 0) > 0 ||
-    (structured.recommendations?.length ?? 0) > 0;
+    (structured.recommendations?.length ?? 0) > 0 ||
+    hasAttributionInsightText ||
+    hasDrillPayload;
   return hasContent;
 };
 
@@ -113,13 +143,13 @@ export interface RcaJobResponse {
 }
 
 export type UseGetRcaReportParams = {
-  interactionName: string | null;
+  entityKey: string | null;
   date?: string | null;
   enabled?: boolean;
   /** Included in query key so requests refetch when project context changes (e.g. synced from URL) */
   projectId?: string | null;
   /**
-   * Increment when forcing a new POST (e.g. after regenerate returns 200) while interaction/date/project are unchanged.
+   * Increment when forcing a new POST (e.g. after regenerate returns 200) while entityKey/date/project are unchanged.
    */
   requestSession?: number;
 };

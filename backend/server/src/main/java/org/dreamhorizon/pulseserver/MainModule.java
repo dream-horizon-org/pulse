@@ -29,6 +29,11 @@ import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.incident.IncidentService;
 import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
+import org.dreamhorizon.pulseserver.service.oncall.GoAlertOnCallProvider;
+import org.dreamhorizon.pulseserver.service.oncall.NoOpOnCallProvider;
+import org.dreamhorizon.pulseserver.service.oncall.OnCallProvider;
+import org.dreamhorizon.pulseserver.service.oncall.OnCallProviderType;
+import org.dreamhorizon.pulseserver.service.oncall.OnCallService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
@@ -38,6 +43,11 @@ import org.dreamhorizon.pulseserver.service.notification.queue.DlqHandler;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetryPolicy;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
+import org.dreamhorizon.pulseserver.dao.cronjobhistory.CronJobHistoryDao;
+import org.dreamhorizon.pulseserver.service.cron.CronRedisMaterializationJobService;
+import org.dreamhorizon.pulseserver.service.cron.UsageLimitNotificationProcessService;
+import org.dreamhorizon.pulseserver.service.kong.KongApiKeyRedisSyncService;
+import org.dreamhorizon.pulseserver.service.kong.KongUsageCreditsRedisSyncService;
 import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandler;
 import org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyDao;
 import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
@@ -125,6 +135,11 @@ public class MainModule extends VertxAbstractModule {
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
     bind(SessionBlockFetcher.class).in(Singleton.class);
     bind(SessionReplayService.class).in(Singleton.class);
+    bind(KongApiKeyRedisSyncService.class).in(Singleton.class);
+    bind(KongUsageCreditsRedisSyncService.class).in(Singleton.class);
+    bind(CronJobHistoryDao.class).in(Singleton.class);
+    bind(UsageLimitNotificationProcessService.class).in(Singleton.class);
+    bind(CronRedisMaterializationJobService.class).in(Singleton.class);
 
     bind(EmrServerlessJobClient.class).in(Singleton.class);
 
@@ -157,12 +172,38 @@ public class MainModule extends VertxAbstractModule {
       return null;
     }).in(Singleton.class);
 
+    bindOnCallProvider();
+    bind(OnCallService.class).in(Singleton.class);
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
 
     // Spark Job Service
     bind(SparkJobService.class).to(SparkJobServiceImpl.class).in(Singleton.class);
 
     bindNotificationFeature();
+  }
+
+  private void bindOnCallProvider() {
+    bind(OnCallProvider.class).toProvider(() -> {
+      var notifConfig = SharedDataUtils.get(vertx,
+          org.dreamhorizon.pulseserver.config.NotificationConfig.class);
+      String providerName = notifConfig != null
+          && notifConfig.getIncidentConfig() != null
+          && notifConfig.getIncidentConfig().getOnCallProvider() != null
+          ? notifConfig.getIncidentConfig().getOnCallProvider()
+          : "GO_ALERT";
+      OnCallProviderType type;
+      try {
+        type = OnCallProviderType.valueOf(providerName);
+      } catch (IllegalArgumentException e) {
+        log.warn("Unknown onCallProvider '{}', falling back to NONE", providerName);
+        type = OnCallProviderType.NONE;
+      }
+      return switch (type) {
+        case GO_ALERT -> new GoAlertOnCallProvider(
+            SharedDataUtils.get(vertx, WebClient.class), notifConfig);
+        case NONE -> new NoOpOnCallProvider();
+      };
+    }).in(Singleton.class);
   }
 
   private void bindNotificationFeature() {

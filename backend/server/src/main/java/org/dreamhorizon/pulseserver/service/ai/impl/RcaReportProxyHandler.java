@@ -33,7 +33,6 @@ final class RcaReportProxyHandler {
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String TYPE_FIELD = "rcaType";
   private static final String ENTITY_KEY_FIELD = "entityKey";
-  private static final String INTERACTION_NAME_FIELD = "interactionName";
   private static final String DATE_FIELD = "date";
   private static final String REGENERATE_FIELD = "regenerate";
   private static final int HTTP_ACCEPTED = 202;
@@ -84,7 +83,7 @@ final class RcaReportProxyHandler {
     log.info(
         "RCA POST received project={} type={} entity={} date={} regenerate={}",
         keyParts.projectId(),
-        keyParts.type(),
+        keyParts.entityType(),
         keyParts.entityKey(),
         keyParts.date(),
         keyParts.regenerate());
@@ -137,18 +136,18 @@ final class RcaReportProxyHandler {
     CompletableFuture<AiProxyUpstreamResult> resultFuture = new CompletableFuture<>();
     log.info(
         "RCA MySQL cache lookup starting type={} entity={} date={}",
-        keyParts.type(),
+        keyParts.entityType(),
         keyParts.entityKey(),
         keyParts.date());
     rcaReportCacheDao
-        .get(keyParts.projectId(), keyParts.type(), keyParts.entityKey(), keyParts.date())
+        .get(keyParts.projectId(), keyParts.entityType(), keyParts.entityKey(), keyParts.date())
         // Never block Vert.x / JAX-RS I/O thread on MySQL pool subscription.
         .subscribeOn(Schedulers.io())
         .subscribe(
             hit -> {
               log.info(
                   "RCA cache hit type={} entity={} date={}",
-                  keyParts.type(),
+                  keyParts.entityType(),
                   keyParts.entityKey(),
                   keyParts.date());
               resultFuture.complete(
@@ -164,7 +163,7 @@ final class RcaReportProxyHandler {
             () -> {
               log.info(
                   "RCA cache miss, async job path type={} entity={} date={}",
-                  keyParts.type(),
+                  keyParts.entityType(),
                   keyParts.entityKey(),
                   keyParts.date());
               dispatchAsyncRca(parsed, authorization, rawQuery, keyParts, createdByOrNull)
@@ -190,14 +189,14 @@ final class RcaReportProxyHandler {
     RcaCacheKey key =
         new RcaCacheKey(
             keyParts.projectId(),
-            keyParts.type(),
+            keyParts.entityType(),
             keyParts.entityKey(),
             keyParts.date(),
             keyParts.regenerate(),
             parsed.rawBody());
     log.info(
         "RCA createOrGetJob starting type={} entity={} date={}",
-        keyParts.type(),
+        keyParts.entityType(),
         keyParts.entityKey(),
         keyParts.date());
     rcaReportJobService
@@ -205,13 +204,15 @@ final class RcaReportProxyHandler {
         .subscribeOn(Schedulers.io())
         .subscribe(
             dispatch -> {
-              AiProxyUpstreamResult response = acceptedResult(dispatch, keyParts.projectId());
+              AiProxyUpstreamResult response =
+                  acceptedResult(dispatch, keyParts.projectId());
               log.info(
-                  "RCA returning {} jobId={} enqueueWorker={} type={} entity={}",
+                  "RCA returning {} project={} jobId={} enqueueWorker={} type={} entity={}",
                   HTTP_ACCEPTED,
+                  keyParts.projectId(),
                   dispatch.job().jobId(),
                   dispatch.shouldEnqueueWorker(),
-                  keyParts.type(),
+                  keyParts.entityType(),
                   keyParts.entityKey());
               if (dispatch.shouldEnqueueWorker()) {
                 rcaReportProcessor.enqueueProcess(
@@ -230,6 +231,7 @@ final class RcaReportProxyHandler {
   private AiProxyUpstreamResult acceptedResult(RcaJobDispatch dispatch, String projectId) {
     try {
       var job = dispatch.job();
+      log.debug("RCA 202 response body project={} jobId={}", projectId, job.jobId());
       ObjectNode root = objectMapper.createObjectNode();
       root.set("jobId", TextNode.valueOf(job.jobId()));
       root.set("status", TextNode.valueOf(job.status().name()));
@@ -250,7 +252,7 @@ final class RcaReportProxyHandler {
       }
       return AiProxyUpstreamResult.buffered(HTTP_ACCEPTED, CONTENT_TYPE_JSON, root.toString());
     } catch (Exception e) {
-      log.warn("Failed to build RCA 202 body: {}", e.getMessage());
+      log.warn("Failed to build RCA 202 body (project={}): {}", projectId, e.getMessage());
       return AiProxyUpstreamResult.buffered(
           HTTP_INTERNAL_ERROR, CONTENT_TYPE_JSON, ERROR_INTERNAL_RCA_BODY);
     }
@@ -262,7 +264,7 @@ final class RcaReportProxyHandler {
   }
 
   private record RcaCacheKeyParts(
-      String projectId, RcaType type, String entityKey, LocalDate date, boolean regenerate) {}
+      String projectId, RcaType entityType, String entityKey, LocalDate date, boolean regenerate) {}
 
   /** Parsed JSON body and cache key after {@link #validateRcaReportPost} succeeds. */
   private record ParsedRcaPost(String rawBody, ObjectNode bodyRoot, RcaCacheKeyParts keyParts) {}
@@ -295,10 +297,15 @@ final class RcaReportProxyHandler {
         return new RcaPostValidation.Invalid(errorResponse);
       }
 
-      // Extract or default the RCA type
       RcaType type = extractRcaType(objectRoot);
+      boolean typeMissing = type == null;
+      if (typeMissing) {
+        AiProxyUpstreamResult errorResponse =
+            badRequest(
+                ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS, "rcaType is required");
+        return new RcaPostValidation.Invalid(errorResponse);
+      }
 
-      // Extract entityKey (supports both entityKey and legacy interactionName)
       String entityKey = extractEntityKey(objectRoot);
       boolean entityMissing = entityKey == null || entityKey.isBlank();
       if (entityMissing) {
@@ -326,25 +333,20 @@ final class RcaReportProxyHandler {
   private static RcaType extractRcaType(ObjectNode objectRoot) {
     JsonNode typeNode = objectRoot.get(TYPE_FIELD);
     if (typeNode == null || typeNode.isNull()) {
-      return RcaType.INTERACTION; // Default type for backward compatibility
+      return null;
     }
     String typeStr = typeNode.asText().trim().toUpperCase();
     try {
       return RcaType.valueOf(typeStr);
     } catch (IllegalArgumentException e) {
-      log.warn("Invalid RCA type '{}', defaulting to INTERACTION", typeStr);
-      return RcaType.INTERACTION;
+      log.warn("Invalid RCA type '{}'", typeStr);
+      return null;
     }
   }
 
   private static String extractEntityKey(ObjectNode objectRoot) {
-    // Prefer entityKey field, fall back to legacy interactionName
     JsonNode entityNode = objectRoot.get(ENTITY_KEY_FIELD);
     if (entityNode == null || entityNode.isNull()) {
-      JsonNode legacyNode = objectRoot.get(INTERACTION_NAME_FIELD);
-      if (legacyNode != null && !legacyNode.isNull()) {
-        return legacyNode.asText().trim();
-      }
       return null;
     }
     return entityNode.asText().trim();

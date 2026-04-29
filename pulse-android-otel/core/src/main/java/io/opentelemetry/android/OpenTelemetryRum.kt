@@ -84,7 +84,9 @@ interface OpenTelemetryRum {
          * @param config The [OtelRumConfig] instance.
          * @param sessionProvider The [SessionProvider] instance.
          * @param meteredSessionProvider Implementation of fixed session for metering purpose
+         * @param shouldIgnoreJavaScriptExceptions When true, native device.crash is not emitted for com.facebook.react.common.JavascriptException
          */
+        @JvmOverloads
         @JvmStatic
         fun builder(
             application: Application,
@@ -92,13 +94,15 @@ interface OpenTelemetryRum {
             config: OtelRumConfig,
             sessionProvider: SessionProvider,
             meteredSessionProvider: SessionProvider? = null,
+            shouldIgnoreJavaScriptExceptions: Boolean = false,
         ): SdkPreconfiguredRumBuilder =
             SdkPreconfiguredRumBuilder(
-                application,
-                openTelemetrySdk,
-                sessionProvider,
-                meteredSessionProvider,
-                config,
+                application = application,
+                sdk = openTelemetrySdk,
+                sessionProvider = sessionProvider,
+                meteredSessionProvider = meteredSessionProvider,
+                config = config,
+                shouldIgnoreJavaScriptExceptions = shouldIgnoreJavaScriptExceptions,
             )
 
         /**

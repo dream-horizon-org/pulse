@@ -20,6 +20,7 @@ import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.PulseSignalsToSampleEntry
 import com.pulse.sampling.models.SamplingRate
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import com.pulse.utils.PulseLogger
 import com.pulse.utils.PulseOtelUtils
 import com.pulse.utils.filterNot
 import com.pulse.utils.matchesFromRegexCache
@@ -580,6 +581,12 @@ public class PulseSamplingSignalProcessors internal constructor(
                     shouldSampleThisSession
                 }
             }
+        if (modifiedSignals.isNotEmpty() && sampledSignals.size < modifiedSignals.size) {
+            val dropped = modifiedSignals.size - sampledSignals.size
+            PulseLogger.logDebug(SAMPLING_DIAG_TAG) {
+                "sdk.sampling.decision signal_scope=${scope.name.lowercase()} exported=${sampledSignals.size} dropped=$dropped"
+            }
+        }
         return if (sampledSignals.isNotEmpty()) {
             block(sampledSignals)
         } else {
@@ -589,6 +596,7 @@ public class PulseSamplingSignalProcessors internal constructor(
 
     private companion object {
         private const val INSTRUMENTATION_NAME_PREFIX = "com.pulse.signal.processors"
+        private const val SAMPLING_DIAG_TAG = "PulseSampling"
     }
 }
 

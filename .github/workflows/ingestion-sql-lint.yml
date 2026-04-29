@@ -5,12 +5,12 @@ on:
     branches:
       - main
     paths:
-      - 'backend/ingestion/**/*.sql'
+      - 'backend/db/**/clickhouse/**/*.sql'
       - '.github/workflows/ingestion-sql-lint.yml'
       - '.github/scripts/lint_otel_clickhouse_project_column.py'
   pull_request:
     paths:
-      - 'backend/ingestion/**/*.sql'
+      - 'backend/db/**/clickhouse/**/*.sql'
       - '.github/workflows/ingestion-sql-lint.yml'
       - '.github/scripts/lint_otel_clickhouse_project_column.py'
 
