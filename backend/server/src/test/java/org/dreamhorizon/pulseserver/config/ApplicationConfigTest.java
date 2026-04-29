@@ -93,6 +93,7 @@ class ApplicationConfigTest {
         "interactionAsset",
         "key",
         "tncS3Bucket",
+        "http://dashboard.url",
         "http://ai:8000",
         "symbolFilesS3Bucket",
         "dev-api-key",

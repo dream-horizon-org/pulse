@@ -15,6 +15,7 @@ import io.vertx.rxjava3.ext.web.client.HttpResponse;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.time.Instant;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
+import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
@@ -39,6 +40,9 @@ class SlackOAuthServiceTest {
 
   @Mock
   NotificationChannelDao channelDao;
+
+  @Mock
+  ChannelEventMappingDao mappingDao;
 
   @Mock
   WebClient webClient;
@@ -67,7 +71,7 @@ class SlackOAuthServiceTest {
       config.setSlackOAuth(new NotificationConfig.SlackOAuthConfig());
       SharedDataUtils.put(vertx, config);
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       assertThatThrownBy(() -> service.generateInstallUrl("proj-1").blockingGet())
           .hasMessageContaining("Slack OAuth is not configured");
@@ -84,7 +88,7 @@ class SlackOAuthServiceTest {
       config.setSlackOAuth(oauthConfig);
       SharedDataUtils.put(vertx, config);
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       String url = service.generateInstallUrl("proj-1").blockingGet();
 
@@ -105,7 +109,7 @@ class SlackOAuthServiceTest {
       config.setSlackOAuth(new NotificationConfig.SlackOAuthConfig());
       SharedDataUtils.put(vertx, config);
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       assertThatThrownBy(() -> service.exchangeCodeForToken("code-123").blockingGet())
           .hasMessageContaining("Slack OAuth is not configured");
@@ -128,7 +132,7 @@ class SlackOAuthServiceTest {
       when(httpRequest.putHeader(any(String.class), any(String.class))).thenReturn(httpRequest);
       when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(mockResponse));
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       SlackOAuthResult result = service.exchangeCodeForToken("code-123").blockingGet();
 
@@ -155,7 +159,7 @@ class SlackOAuthServiceTest {
       when(httpRequest.putHeader(any(String.class), any(String.class))).thenReturn(httpRequest);
       when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(mockResponse));
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       assertThatThrownBy(() -> service.exchangeCodeForToken("bad-code").blockingGet())
           .hasMessageContaining("Slack OAuth error");
@@ -178,7 +182,7 @@ class SlackOAuthServiceTest {
       when(httpRequest.putHeader(any(String.class), any(String.class))).thenReturn(httpRequest);
       when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(mockResponse));
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       SlackOAuthResult result = service.exchangeCodeForToken("code").blockingGet();
 
@@ -235,7 +239,7 @@ class SlackOAuthServiceTest {
       when(channelDao.getChannelById(eq(10L)))
           .thenReturn(Maybe.just(updatedChannel));
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       NotificationChannel result = service.createOrUpdateSlackChannel("proj-1", oauthResult).blockingGet();
 
@@ -272,7 +276,7 @@ class SlackOAuthServiceTest {
               .isActive(true)
               .build()));
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       NotificationChannel result = service.createOrUpdateSlackChannel("proj-2", oauthResult).blockingGet();
 
@@ -305,7 +309,7 @@ class SlackOAuthServiceTest {
               .isActive(true)
               .build()));
 
-      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, webClient, objectMapper);
+      SlackOAuthService service = new SlackOAuthService(vertx, channelDao, mappingDao, webClient, objectMapper);
 
       NotificationChannel result = service.createOrUpdateSlackChannel("proj-3", oauthResult).blockingGet();
 

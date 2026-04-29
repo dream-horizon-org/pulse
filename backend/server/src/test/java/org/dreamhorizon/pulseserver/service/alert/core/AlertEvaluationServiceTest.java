@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
@@ -43,6 +44,7 @@ import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorF
 import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorProcessor;
 import org.dreamhorizon.pulseserver.service.alert.core.util.MetricToFunctionMapper;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
+import org.dreamhorizon.pulseserver.util.RxObjectMapper;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -78,6 +80,12 @@ class AlertEvaluationServiceTest {
   @Mock
   private MetricOperatorProcessor metricOperatorProcessor;
 
+  @Mock
+  private RxObjectMapper rxObjectMapper;
+
+  @Mock
+  private ApplicationConfig applicationConfig;
+
   // Use real ObjectMapper for coverage
   private ObjectMapper realObjectMapper = new ObjectMapper();
   private AlertEvaluationService alertEvaluationService;
@@ -90,7 +98,8 @@ class AlertEvaluationServiceTest {
         metricOperatorFactory,
         realObjectMapper,
         vertx,
-        null
+        rxObjectMapper,
+        applicationConfig
     );
   }
 
@@ -1750,7 +1759,7 @@ class AlertEvaluationServiceTest {
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .name("Test Alert")
-          .notificationChannelId(50)
+          .channelEventMappingId(50L)
           .build();
 
       List<AlertsDao.AlertScopeDetails> scopes = List.of(

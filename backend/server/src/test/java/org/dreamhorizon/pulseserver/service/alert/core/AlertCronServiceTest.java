@@ -429,6 +429,7 @@ class AlertCronServiceTest {
           "/interaction/details.json",
           "encryptionKey",
           "tnc-bucket",
+          "http://dashboard.url",
           "http://ai:8000",
           "symbol-files-bucket",
           "dev-api-key",
@@ -542,6 +543,7 @@ class AlertCronServiceTest {
           "/interaction/details.json",
           "key",
           "tnc-bucket",
+          "http://dashboard.url",
           "http://ai:8000",
           "symbol-files-bucket",
           "dev-api-key",
@@ -570,7 +572,7 @@ class AlertCronServiceTest {
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "http://ai:8000", "symbol-files-bucket", "dev-api-key",
+          "key", "tnc-bucket", "http://dashboard.url", "http://ai:8000", "symbol-files-bucket", "dev-api-key",
               new SessionReplayS3Config(
               "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl",
               null,
@@ -583,7 +585,7 @@ class AlertCronServiceTest {
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "http://ai:8000","symbol-files-bucket", "dev-api-key",
+          "key", "tnc-bucket", "http://dashboard.url", "http://ai:8000","symbol-files-bucket", "dev-api-key",
           new SessionReplayS3Config(
               "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl",
               null,
@@ -596,7 +598,7 @@ class AlertCronServiceTest {
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "http://ai:8000", "symbol-files-bucket", "dev-api-key",
+          "key", "tnc-bucket", "http://dashboard.url", "http://ai:8000", "symbol-files-bucket", "dev-api-key",
           new SessionReplayS3Config(
               "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl",
               null,
