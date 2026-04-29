@@ -40,10 +40,10 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
     };
   }
   if (scopeType === AlertScopeType.Screen) {
-    if (searchTerm) baseFilters.push({ field: "SpanAttributes['screen.name']", operator: "LIKE", value: [`%${searchTerm}%`] });
+    if (searchTerm) baseFilters.push({ field: COLUMN_NAME.SCREEN_NAME, operator: "LIKE", value: [`%${searchTerm}%`] });
     return {
       dataType: "TRACES" as const, timeRange,
-      select: [{ function: "COL" as const, param: { field: "SpanAttributes['screen.name']" }, alias: "screen_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
+      select: [{ function: "COL" as const, param: { field: COLUMN_NAME.SCREEN_NAME }, alias: "screen_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["screen_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
       filters: [{ field: "PulseType", operator: "IN" as const, value: ["screen_session", "screen_load"] }, ...baseFilters],
     };

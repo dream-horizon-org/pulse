@@ -69,7 +69,7 @@ const fetchSessionTraces = async (sessionId: string, timeRange: { start: string;
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['screen.name']",
+          expression: COLUMN_NAME.SCREEN_NAME,
         },
         alias: "screenNameAttr",
       },
