@@ -33,7 +33,7 @@ class SessionReplayQueriesTest {
           .contains("toString(groupArrayArray(BlockFirstTimestamps)) AS block_first_timestamps")
           .contains("toString(groupArrayArray(BlockLastTimestamps)) AS block_last_timestamps")
           .contains("toString(groupArrayArray(BlockUrls)) AS block_urls")
-          .contains("argMinMerge(SnapshotSource) AS snapshot_source");
+          .contains("anyMerge(SnapshotSource) AS snapshot_source");
     }
 
     @Test
@@ -92,7 +92,7 @@ class SessionReplayQueriesTest {
           .contains("groupArrayArray(BlockFirstTimestamps)")
           .contains("groupArrayArray(BlockLastTimestamps)")
           .contains("groupArrayArray(BlockUrls)")
-          .contains("argMinMerge(SnapshotSource)")
+          .contains("anyMerge(SnapshotSource)")
           .contains("ProjectId = '${project_id}'")
           .contains("SessionId = '${session_id}'");
 
@@ -115,7 +115,7 @@ class SessionReplayQueriesTest {
           .contains("groupArrayArray(BlockFirstTimestamps)")
           .contains("groupArrayArray(BlockLastTimestamps)")
           .contains("groupArrayArray(BlockUrls)")
-          .contains("argMinMerge(SnapshotSource)");
+          .contains("anyMerge(SnapshotSource)");
     }
 
     @Test
