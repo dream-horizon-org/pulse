@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.service.configs;
 
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.*;
 
 import java.util.ArrayList;
@@ -14,16 +15,19 @@ public class DefaultSdkConfigTemplate {
 
     /**
      * Creates a default SDK configuration for a new project.
-     * 
+     *
+     * @param projectId the project this config belongs to — used to build the per-project interaction.configUrl
      * @param createdBy User who created the project
+     * @param appConfig application configuration — provides collector/config base URLs
      * @return ConfigData with sensible defaults for all SDK features
      */
-    public static ConfigData createDefaultConfig(String createdBy) {
+    public static ConfigData createDefaultConfig(String projectId, String createdBy, ApplicationConfig appConfig) {
         List<Sdk> allSdks = Arrays.asList(
             Sdk.pulse_android_java,
             Sdk.pulse_android_rn,
             Sdk.pulse_ios_swift,
-            Sdk.pulse_ios_rn
+            Sdk.pulse_ios_rn,
+            Sdk.pulse_web_js
         );
         List<Sdk> iosSdk = Arrays.asList(
             Sdk.pulse_ios_swift,
@@ -37,6 +41,7 @@ public class DefaultSdkConfigTemplate {
             Sdk.pulse_android_rn,
             Sdk.pulse_ios_rn
         );
+        List<Sdk> webJsSdk = Arrays.asList(Sdk.pulse_web_js);
 
         // Sampling configuration
         SamplingConfig sampling = SamplingConfig.builder()
@@ -50,22 +55,22 @@ public class DefaultSdkConfigTemplate {
             .signalsToSample(new ArrayList<>())
             .build();
 
-        // Signals configuration
+        // Signals configuration — matches applySignalsConfigDefaults in ConfigController
         SignalsConfig signals = SignalsConfig.builder()
             .scheduleDurationMs(5000)
-            .logsCollectorUrl(System.getenv().getOrDefault("LOGS_COLLECTOR_URL", "http://localhost:4318/v1/logs"))
-            .metricCollectorUrl(System.getenv().getOrDefault("METRIC_COLLECTOR_URL", "http://localhost:4318/v1/metrics"))
-            .spanCollectorUrl(System.getenv().getOrDefault("SPAN_COLLECTOR_URL", "http://localhost:4318/v1/traces"))
-            .customEventCollectorUrl(System.getenv().getOrDefault("CUSTOM_EVENT_COLLECTOR_URL", "http://localhost:4318/v1/events"))
+            .logsCollectorUrl(appConfig.getLogsCollectorUrl())
+            .metricCollectorUrl(appConfig.getMetricCollectorUrl())
+            .spanCollectorUrl(appConfig.getSpanCollectorUrl())
+            .customEventCollectorUrl(appConfig.getCustomEventCollectorUrl())
             .attributesToDrop(new ArrayList<>())
             .attributesToAdd(new ArrayList<>())
             .metricsToAdd(new ArrayList<>())
             .build();
 
-        // Interaction configuration
+        // Interaction configuration — configUrl is project-scoped (matches applyInteractionConfigDefaults in ConfigController)
         InteractionConfig interaction = InteractionConfig.builder()
-            .collectorUrl(System.getenv().getOrDefault("INTERACTION_COLLECTOR_URL", "http://localhost:4318/v1/traces/v1/interactions"))
-            .configUrl(System.getenv().getOrDefault("INTERACTION_CONFIG_URL", "http://localhost:8080/v1/interaction-configs/"))
+            .collectorUrl(appConfig.getOtelCollectorUrl())
+            .configUrl(appConfig.buildInteractionConfigFileUrl(projectId))
             .beforeInitQueueSize(100)
             .build();
 
@@ -73,7 +78,9 @@ public class DefaultSdkConfigTemplate {
         List<FeatureConfig> features = new ArrayList<>();
         features.add(createFeature(Features.interaction, 1.0, allSdks));
         features.add(createFeature(Features.java_crash, 1.0, androidSdk));
+        // js_crash is shared by RN (Hermes) and Web; separate rows so defaults and future sample rates stay explicit per surface.
         features.add(createFeature(Features.js_crash, 1.0, rnSdk));
+        features.add(createFeature(Features.js_crash, 1.0, webJsSdk));
         features.add(createFeature(Features.java_anr, 1.0, androidSdk));
         features.add(createFeature(Features.network_change, 1.0, allSdks));
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
@@ -82,7 +89,7 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.rn_screen_session, 1.0, rnSdk));
         // Legacy key for backward compatibility with old RN SDK versions
         features.add(createFeature(Features.screen_session, 1.0, rnSdk));
-        features.add(createSessionReplayFeature(0.0, allSdks));
+        features.add(createSessionReplayFeature(0.0, allSdks, appConfig));
         features.add(createClickFeature(0.0, allSdks));
         features.add(createFeature(Features.heatmap, 1.0, allSdks));
         features.add(createFeature(Features.ios_crash, 1.0, iosSdk));
@@ -114,7 +121,8 @@ public class DefaultSdkConfigTemplate {
             .build();
     }
 
-    private static FeatureConfig createSessionReplayFeature(Double sampleRate, List<Sdk> sdks) {
+    private static FeatureConfig createSessionReplayFeature(
+        Double sampleRate, List<Sdk> sdks, ApplicationConfig appConfig) {
         SessionReplayFeatureConfig config = SessionReplayFeatureConfig.builder()
             .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
             .imagePrivacy(ImagePrivacy.MASK_ALL)
@@ -124,8 +132,7 @@ public class DefaultSdkConfigTemplate {
             .flushIntervalSeconds(60)
             .flushAt(10)
             .maxBatchSize(50)
-            .replayApiBaseUrl(
-                System.getenv().getOrDefault("CONFIG_REPLAY_API_BASE_URL", "http://localhost:3400"))
+            .replayApiBaseUrl(appConfig.getReplayApiBaseUrl())
             .build();
 
         return FeatureConfig.builder()

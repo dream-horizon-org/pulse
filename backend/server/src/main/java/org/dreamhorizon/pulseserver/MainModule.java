@@ -43,6 +43,11 @@ import org.dreamhorizon.pulseserver.service.notification.queue.DlqHandler;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetryPolicy;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
+import org.dreamhorizon.pulseserver.dao.cronjobhistory.CronJobHistoryDao;
+import org.dreamhorizon.pulseserver.service.cron.CronRedisMaterializationJobService;
+import org.dreamhorizon.pulseserver.service.cron.UsageLimitNotificationProcessService;
+import org.dreamhorizon.pulseserver.service.kong.KongApiKeyRedisSyncService;
+import org.dreamhorizon.pulseserver.service.kong.KongUsageCreditsRedisSyncService;
 import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandler;
 import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
 import org.dreamhorizon.pulseserver.service.session.SessionReplayService;
@@ -126,6 +131,11 @@ public class MainModule extends VertxAbstractModule {
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
     bind(SessionBlockFetcher.class).in(Singleton.class);
     bind(SessionReplayService.class).in(Singleton.class);
+    bind(KongApiKeyRedisSyncService.class).in(Singleton.class);
+    bind(KongUsageCreditsRedisSyncService.class).in(Singleton.class);
+    bind(CronJobHistoryDao.class).in(Singleton.class);
+    bind(UsageLimitNotificationProcessService.class).in(Singleton.class);
+    bind(CronRedisMaterializationJobService.class).in(Singleton.class);
 
     bind(EmrServerlessJobClient.class).in(Singleton.class);
 

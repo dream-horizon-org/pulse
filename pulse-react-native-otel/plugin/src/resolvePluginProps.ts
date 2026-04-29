@@ -2,14 +2,17 @@ import { PluginError } from '@expo/config-plugins';
 
 import type {
   PulseDataCollectionState,
+  PulseLogLevelValue,
   PulseNativeInitFields,
   PulsePluginProps,
   PulsePlatformInitProps,
   ResolvedAndroidPulseProps,
   ResolvedIosPulseProps,
 } from './types';
-
-const DEFAULT_CORE_LIBRARY_DESUGAR_VERSION = '2.1.4';
+import {
+  PULSE_BYTE_BUDDY_GRADLE_PLUGIN,
+  PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION,
+} from './androidBuildConstants';
 
 function parseConsent(value: unknown, label: string): PulseDataCollectionState {
   if (value === 'PENDING' || value === 'ALLOWED' || value === 'DENIED') {
@@ -19,6 +22,30 @@ function parseConsent(value: unknown, label: string): PulseDataCollectionState {
     `Pulse config plugin: ${label} must be one of "PENDING", "ALLOWED", or "DENIED".`,
     'INVALID_PLUGIN_TYPE'
   );
+}
+
+function assertOptionalLogLevel(value: unknown, label: string): void {
+  if (value === undefined) {
+    return;
+  }
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 5
+  ) {
+    throw new PluginError(
+      `Pulse config plugin: ${label} must be an integer 0–5 (PulseLogLevel: 0=VERBOSE … 5=NONE).`,
+      'INVALID_PLUGIN_TYPE'
+    );
+  }
+}
+
+function mergeLogLevel(
+  root: PulsePluginProps,
+  section?: PulseNativeInitFields
+): PulseLogLevelValue | undefined {
+  return section?.logLevel ?? root.logLevel;
 }
 
 function mergePlatformInit(
@@ -40,6 +67,7 @@ function mergePlatformInit(
     apiKey,
     dataCollectionState,
     globalAttributes: section?.globalAttributes,
+    logLevel: mergeLogLevel(root, section),
   };
 }
 
@@ -68,6 +96,8 @@ export function assertPulsePluginProps(
     'top-level "dataCollectionState" (required; override per platform under "android" / "ios" if needed)'
   );
 
+  assertOptionalLogLevel(p.logLevel, 'top-level "logLevel"');
+
   const forbiddenRoot = [
     'globalAttributes',
     'instrumentation',
@@ -94,7 +124,39 @@ export function assertPulsePluginProps(
     );
   }
 
+  if (p.android != null && typeof p.android === 'object') {
+    const v = (p.android as Record<string, unknown>).okHttpInstrumentation;
+    if (v === undefined) {
+      // ok
+    } else if (typeof v === 'object' && v !== null) {
+      const o = v as Record<string, unknown>;
+      if (o.enabled !== undefined && typeof o.enabled !== 'boolean') {
+        throw new PluginError(
+          'Pulse config plugin: "android.okHttpInstrumentation.enabled" must be a boolean when set.',
+          'INVALID_PLUGIN_TYPE'
+        );
+      }
+      if (
+        o.byteBuddyGradlePluginVersion !== undefined &&
+        typeof o.byteBuddyGradlePluginVersion !== 'string'
+      ) {
+        throw new PluginError(
+          'Pulse config plugin: "android.okHttpInstrumentation.byteBuddyGradlePluginVersion" must be a string when set.',
+          'INVALID_PLUGIN_TYPE'
+        );
+      }
+    } else {
+      throw new PluginError(
+        'Pulse config plugin: "android.okHttpInstrumentation" must be an object when set (e.g. { "enabled": true }).',
+        'INVALID_PLUGIN_TYPE'
+      );
+    }
+  }
+
   const typed = props as PulsePluginProps;
+
+  assertOptionalLogLevel(typed.android?.logLevel, 'android.logLevel');
+  assertOptionalLogLevel(typed.ios?.logLevel, 'ios.logLevel');
 
   if (typed.android?.coreLibraryDesugaring !== undefined) {
     const d = typed.android.coreLibraryDesugaring;
@@ -128,18 +190,29 @@ export function resolveAndroidProps(
 ): ResolvedAndroidPulseProps {
   const merged = mergePlatformInit(props, props.android);
   const desugaring = props.android?.coreLibraryDesugaring;
-  const enabled = desugaring?.enabled === true;
-  const rawVersion = desugaring?.version?.trim();
-  const version =
-    rawVersion && rawVersion.length > 0
-      ? rawVersion
-      : DEFAULT_CORE_LIBRARY_DESUGAR_VERSION;
+  const desugarEnabled = desugaring?.enabled === true;
+  const rawDesugarVersion = desugaring?.version?.trim();
+  const desugarVersion =
+    rawDesugarVersion && rawDesugarVersion.length > 0
+      ? rawDesugarVersion
+      : PULSE_DEFAULT_DESUGAR_JDK_LIBS_VERSION;
+
+  const okHttp = props.android?.okHttpInstrumentation;
+  const okHttpEnabled = okHttp?.enabled === true;
+  const rawBb = okHttp?.byteBuddyGradlePluginVersion?.trim();
+  const byteBuddyGradlePluginVersion =
+    rawBb && rawBb.length > 0 ? rawBb : PULSE_BYTE_BUDDY_GRADLE_PLUGIN;
+
   return {
     ...merged,
     instrumentation: props.android?.instrumentation,
     coreLibraryDesugaring: {
-      enabled,
-      version,
+      enabled: desugarEnabled,
+      version: desugarVersion,
+    },
+    okHttpInstrumentation: {
+      enabled: okHttpEnabled,
+      byteBuddyGradlePluginVersion,
     },
   };
 }

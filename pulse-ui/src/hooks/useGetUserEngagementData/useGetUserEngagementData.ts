@@ -105,7 +105,7 @@ export function useGetUserEngagementData({
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "user_count",
         },
@@ -129,7 +129,7 @@ export function useGetUserEngagementData({
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "user_count",
         },
@@ -151,7 +151,7 @@ export function useGetUserEngagementData({
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "user_count",
         },

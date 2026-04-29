@@ -1,7 +1,5 @@
+import Dispatch
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 import OpenTelemetryApi
 import OpenTelemetrySdk
 #if os(iOS) || os(tvOS)
@@ -133,17 +131,21 @@ public class Pulse {
     ) {
         initializationQueue.sync {
             PulseLogger.currentLevel = logLevel
-            guard !_isShutdown else { return }
-            guard !_isInitialized else {
-                PulseLogger.info("Already initialized, skipping.")
+            guard !_isShutdown else {
+                PulseLogger.warn("sdk.init skipped reason=shutdown")
                 return
             }
-            PulseLogger.info("Initializing...")
+            guard !_isInitialized else {
+                PulseLogger.debug("sdk.init skipped reason=already_initialized")
+                return
+            }
             if dataCollectionState == .denied {
                 _dataCollectionState = dataCollectionState
-                PulseLogger.info("Initialization skipped: started with DENIED consent.")
+                PulseLogger.info("sdk.init skipped reason=denied_consent")
                 return
             }
+
+            let initStarted = CFAbsoluteTimeGetCurrent()
 
             _globalAttributes = globalAttributes
             var pulseKitConfig = PulseKitConfiguration()
@@ -164,13 +166,14 @@ public class Pulse {
             // Config: load from persistence (sync)
             let useLocalMockConfig = false
             let configCoordinator = PulseSdkConfigCoordinator(useLocalMockConfig: useLocalMockConfig)
-            configStorageQueue.sync {
+            let persistedConfigVersion: Int? = configStorageQueue.sync {
                 _currentSdkConfig = configCoordinator.loadCurrentConfig()
+                return _currentSdkConfig?.version
             }
-            if let v = _currentSdkConfig?.version {
-                PulseLogger.info("Config loaded from persistence (version \(v)).")
+            if let v = persistedConfigVersion {
+                PulseLogger.info("sdk.config.persisted config_version=\(v)")
             } else {
-                PulseLogger.info("No persisted config, using defaults.")
+                PulseLogger.info("sdk.config.persisted config_version=none")
             }
 
             configCoordinator.startBackgroundFetch(
@@ -290,11 +293,20 @@ public class Pulse {
 
             self.openTelemetry = openTelemetry
             _isInitialized = true
-            let configVersion = configStorageQueue.sync { _currentSdkConfig?.version }
-            if let v = configVersion {
-                PulseLogger.info("Initialized with config v\(v).")
-            } else {
-                PulseLogger.info("Initialized (using defaults, no config).")
+            let configV = configStorageQueue.sync {
+                _currentSdkConfig.map { String($0.version) }
+            } ?? "none"
+            let overheadMs = Int((CFAbsoluteTimeGetCurrent() - initStarted) * 1000)
+            PulseLogger.info("sdk.startup.overhead_ms value=\(overheadMs)")
+            PulseLogger.info(
+                "sdk.init success=true sdk_version=\(PulseKitConstants.instrumentationVersion) config_version=\(configV)"
+            )
+            if let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                let pulseDir = cache.appendingPathComponent("pulse", isDirectory: true)
+                let bytes = DiskUsageBytes.bytesUnderDirectory(pulseDir)
+                if bytes > 0 {
+                    PulseLogger.debug("sdk.disk.usage_bytes path=pulse_cache value=\(bytes)")
+                }
             }
         }
     }
@@ -686,9 +698,12 @@ public class Pulse {
         var shouldFlush = false
         var sessionReplayMainWork: (() -> Void)?
         initializationQueue.sync {
+            guard _isInitialized else { return }
             // Read without consentStateLock — safe, we're inside initializationQueue
             let current = _dataCollectionState
             guard current != newState, current != .denied else { return }
+
+            PulseLogger.info("sdk.consent.changed from=\(current) to=\(newState)")
 
             // Write under consentStateLock — so exporters on hot path see update atomically
             consentStateLock.lock()
@@ -747,12 +762,13 @@ public class Pulse {
             _ = meterProvider?.shutdown()
             PersistenceUtils.clearStorage()
 
+            _isShutdown = true
             openTelemetry = nil
             meterProvider = nil
             _consentSpanProcessor = nil
             _consentLogProcessor = nil
             _consentMetricExporter = nil
-            _isShutdown = true
+            PulseLogger.info("sdk.shutdown graceful=true")
         }
     }
 
@@ -798,6 +814,9 @@ public class Pulse {
             .setEventName("pulse.custom_non_fatal")
             .setAttributes(attributes)
             .emit()
+        if isCrashPulseType(in: attributes) {
+            forceFlushLogs()
+        }
     }
 
     public func trackNonFatal(
@@ -828,6 +847,9 @@ public class Pulse {
             .setEventName("pulse.custom_non_fatal")
             .setAttributes(attributes)
             .emit()
+        if isCrashPulseType(in: attributes) {
+            forceFlushLogs()
+        }
     }
 
     public func trackSpan<T>(
@@ -850,6 +872,15 @@ public class Pulse {
         name: String,
         params: [String: AttributeValue] = [:]
     ) -> Span {
+        guard isActive else {
+            let noopTracer = DefaultTracerProvider.instance.get(
+                instrumentationName: PulseKitConstants.instrumentationScopeName,
+                instrumentationVersion: PulseKitConstants.instrumentationVersion
+            )
+            let span = noopTracer.spanBuilder(spanName: name).startSpan()
+            span.setAttributes(params)
+            return span
+        }
         let span = tracer.spanBuilder(spanName: name).startSpan()
         span.setAttributes(params)
         return span
@@ -877,6 +908,17 @@ public class Pulse {
 
     public func isSDKInitialized() -> Bool {
         return isInitialized
+    }
+
+    /// Best-effort flush of batched log records to exporters (including persistence) before the process can exit.
+    private func forceFlushLogs() {
+        guard isActive else { return }
+        _ = _consentLogProcessor?.forceFlush(explicitTimeout: nil)
+    }
+
+    private func isCrashPulseType(in attributes: [String: AttributeValue]) -> Bool {
+        guard let pulseType = attributes[PulseAttributes.pulseType], case .string(let value) = pulseType else { return false }
+        return value == PulseAttributes.PulseTypeValues.crash
     }
 
     public func setUserId(_ id: String?) {

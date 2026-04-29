@@ -216,11 +216,13 @@ export function JourneysList() {
         ),
       },
       {
-        accessor: "lastUpdatedAt",
+        accessor: "updatedAt",
         title: "Last updated",
         render: (row: JourneyListItem) => (
           <Text size="sm" c="dark.4" ta="left">
-            {dayjs(row.lastUpdatedAt).format("MMM D, YYYY HH:mm")}
+            {row.updatedAt
+              ? dayjs(row.updatedAt).format("MMM D, YYYY HH:mm")
+              : "—"}
           </Text>
         ),
       },

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -15,8 +17,11 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.model.User;
+import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
+import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -41,7 +46,7 @@ class TenantMemberServiceTest {
   OpenFgaService openFgaService;
 
   @Mock
-  EmailService emailService;
+  NotificationService notificationService;
 
   TenantMemberService tenantMemberService;
 
@@ -57,7 +62,9 @@ class TenantMemberServiceTest {
         userService,
         tenantService,
         openFgaService,
-        emailService);
+            notificationService);
+    when(notificationService.sendNotificationAsync(anyString(), any()))
+        .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
     // Stub so add-user flow can call getUserByEmail(email).isEmpty() without NPE
     when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
     // Default: user has no existing tenants (happy-path baseline; cross-tenant tests override this)
@@ -106,7 +113,13 @@ class TenantMemberServiceTest {
       assertThat(result.getUserId()).isEqualTo(USER_ID);
       assertThat(result.getEmail()).isEqualTo(EMAIL);
       verify(openFgaService).assignTenantRole(USER_ID, TENANT_ID, "member");
-      verify(emailService).sendTenantWelcomeEmail(EMAIL, TENANT_NAME, "member", "Admin User");
+      verify(notificationService).sendNotificationAsync(
+          eq(NotificationConstants.NOTIFICATION_DEFAULT_PROJECT),
+          argThat(req -> NotificationConstants.Platform.TENANT_COLLABORATOR_ADDED.equals(req.getEventName())
+              && req.getRecipients().getEmails().contains(EMAIL)
+              && TENANT_ID.equals(req.getParams().get("tenantId"))
+              && "member".equals(req.getParams().get("role"))
+              && ADMIN_ID.equals(req.getParams().get("addedBy"))));
     }
 
     @Test
@@ -187,7 +200,12 @@ class TenantMemberServiceTest {
       tenantMemberService.removeUserFromTenant(TENANT_ID, USER_ID, ADMIN_ID).blockingAwait();
 
       verify(openFgaService).removeTenantMember(USER_ID, TENANT_ID);
-      verify(emailService).sendAccessRemovedEmail(EMAIL, TENANT_NAME, "Admin User");
+      verify(notificationService).sendNotificationAsync(
+          eq(NotificationConstants.NOTIFICATION_DEFAULT_PROJECT),
+          argThat(req -> NotificationConstants.Platform.TENANT_COLLABORATOR_REMOVED.equals(req.getEventName())
+              && req.getRecipients().getEmails().contains(EMAIL)
+              && TENANT_ID.equals(req.getParams().get("tenantId"))
+              && ADMIN_ID.equals(req.getParams().get("removedBy"))));
     }
 
     @Test
@@ -240,7 +258,13 @@ class TenantMemberServiceTest {
       tenantMemberService.updateTenantRole(TENANT_ID, USER_ID, "admin", ADMIN_ID).blockingAwait();
 
       verify(openFgaService).updateTenantRole(USER_ID, TENANT_ID, "admin");
-      verify(emailService).sendRoleUpdatedEmail(EMAIL, TENANT_NAME, "admin", "Admin User");
+      verify(notificationService).sendNotificationAsync(
+          eq(NotificationConstants.NOTIFICATION_DEFAULT_PROJECT),
+          argThat(req -> NotificationConstants.Platform.TENANT_COLLABORATOR_ROLE_UPDATED.equals(req.getEventName())
+              && req.getRecipients().getEmails().contains(EMAIL)
+              && TENANT_ID.equals(req.getParams().get("tenantId"))
+              && "admin".equals(req.getParams().get("newRole"))
+              && ADMIN_ID.equals(req.getParams().get("updatedBy"))));
     }
 
     @Test

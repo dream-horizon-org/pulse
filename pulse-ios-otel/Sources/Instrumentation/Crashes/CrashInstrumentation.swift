@@ -4,9 +4,6 @@
  */
 
 import Foundation
-#if canImport(PulseLogging)
-import PulseLogging
-#endif
 import OpenTelemetryApi
 import OpenTelemetrySdk
 
@@ -30,6 +27,15 @@ public final class CrashInstrumentation {
     static let maxStackTraceBytes = 25 * 1024
 
     public private(set) static var isInstalled: Bool = false
+
+    /// Notification name posted by PulseReactNativeOtelLogger when a JS crash is captured.
+    /// Single source of truth — PulseNotifications.swift in the RN bridge references this constant.
+    public static let jsCrashCapturedNotificationName = "com.pulse.jsCrashCaptured"
+
+    /// KSCrash userInfo key written when the JS layer captures a crash.
+    /// KSCrash persists userInfo alongside the crash report, so this flag survives
+    /// the crash and is readable in processStoredCrashes() on the next launch.
+    static let jsCrashCapturedUserInfoKey = "pulse_js_crash_captured"
 
     private static var logger: Logger?
     static let reporter = KSCrash.shared
@@ -91,7 +97,7 @@ public final class CrashInstrumentation {
     /// Writes the current session ID into `KSCrash.shared.userInfo`.
     /// KSCrash persists this dict alongside every crash report it writes,
     /// so the session that was active at crash time can be recovered on next launch.
-    static func cacheCrashContext(session: Session? = nil) {
+    static func cacheCrashContext(session: Session? = nil, jsCrashCaptured: Bool = false) {
         var userInfo: [String: Any] = [:]
 
         let sessionManager = SessionManagerProvider.getInstance()
@@ -102,12 +108,19 @@ public final class CrashInstrumentation {
             }
         }
 
+        // Preserve the flag across session rotations that fire after a JS crash.
+        let existingFlag = (reporter.userInfo as? [String: Any])?[jsCrashCapturedUserInfoKey] as? Bool ?? false
+        if jsCrashCaptured || existingFlag {
+            userInfo[jsCrashCapturedUserInfoKey] = true
+        }
+
         reporter.userInfo = userInfo
     }
 
-    /// Listens for session rotation so `userInfo` always reflects the active session.
+    /// Listens for session rotation so `userInfo` always reflects the active session,
+    /// and for RN JS fatal crashes so the duplicate native report can be suppressed.
     static func setupNotificationObservers() {
-        let observer = NotificationCenter.default.addObserver(
+        let sessionObserver = NotificationCenter.default.addObserver(
             forName: Notification.Name(SessionConstants.sessionEventNotification),
             object: nil,
             queue: nil
@@ -118,7 +131,19 @@ public final class CrashInstrumentation {
                 }
             }
         }
-        observers.append(observer)
+        observers.append(sessionObserver)
+
+        // When the RN JS error handler captures a crash it posts this notification.
+        // Write a flag into KSCrash.userInfo so it is persisted atomically with the crash
+        // report. processStoredCrashes() reads it from rawCrash["user"] next launch.
+        let jsCrashObserver = NotificationCenter.default.addObserver(
+            forName: Notification.Name(jsCrashCapturedNotificationName),
+            object: nil,
+            queue: nil
+        ) { _ in
+            cacheCrashContext(jsCrashCaptured: true)
+        }
+        observers.append(jsCrashObserver)
     }
 
     /// Removes notification observers and resets state.
@@ -146,6 +171,15 @@ public final class CrashInstrumentation {
         for reportID in reportIDs {
             guard let id = reportID as? Int64,
                   let crashReport = reportStore.report(for: id) else { continue }
+
+            // The JS error handler writes jsCrashCapturedUserInfoKey into KSCrash.userInfo
+            // before the crash, so the flag is stored atomically in rawCrash["user"].
+            let rawCrash = crashReport.value
+            let jsCrashCaptured = (rawCrash[CrashAttributes.userKey] as? [String: Any])?[jsCrashCapturedUserInfoKey] as? Bool ?? false
+            if jsCrashCaptured {
+                reportStore.deleteReport(with: id)
+                continue
+            }
 
             reportCrash(crashReport: crashReport, logger: logger)
             reportStore.deleteReport(with: id)
