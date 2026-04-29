@@ -11,8 +11,7 @@ echo "Installing dependencies..."
 # Disable broken PPA and update
 sudo rm -f /etc/apt/sources.list.d/deadsnakes-ppa-*.list || true
 sudo apt-get update -qq 2>/dev/null || true
-# libzstd1: runtime for librdkafka zstd producer when KAFKA_COMPRESSION_CODEC=zstd (must match Jenkins build with libzstd-dev)
-sudo apt-get install -y -qq unzip curl libzstd1 2>/dev/null || true
+sudo apt-get install -y -qq unzip curl 2>/dev/null || true
 
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
@@ -44,7 +43,6 @@ sudo tee /etc/pulse/capture.env >/dev/null <<EOF
 PORT=${port}
 KAFKA_BROKERS=${kafka_brokers}
 KAFKA_TOPIC=${kafka_topic}
-KAFKA_COMPRESSION_CODEC=${kafka_compression_codec}
 RUST_LOG=${rust_log}
 EOF
 sudo chmod 644 /etc/pulse/capture.env
