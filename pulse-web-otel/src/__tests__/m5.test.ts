@@ -622,15 +622,19 @@ describe("blockedUrls config (TC25)", () => {
     vi.clearAllMocks();
   });
 
-  it("OTLP endpoint always in ignoreUrls", () => {
+  it("OTLP endpoint always in ignoreUrls (as RegExp matching the base URL)", () => {
     const instr = new NetworkInstrumentation();
     instr.install(mockSdk);
-    // resolveEndpointBaseUrl("Test-project_abc123") → "http://localhost:4318"
-    expect(mockFetchIgnoreUrls).toContain("http://localhost:4318");
+    // network.ts converts the endpoint to a RegExp (^<escaped-url>) so that
+    // sub-paths like /v1/traces are also excluded. Check that a matching RegExp exists.
+    const hasEndpointRegex = mockFetchIgnoreUrls?.some(
+      (r) => r instanceof RegExp && r.test("http://localhost:4318/v1/traces"),
+    );
+    expect(hasEndpointRegex).toBe(true);
     instr.uninstall();
   });
 
-  it("custom blockedUrls appended to ignoreUrls alongside OTLP endpoint", () => {
+  it("custom blockedUrls appended to ignoreUrls alongside OTLP endpoint RegExp", () => {
     const blockedPattern = /analytics\.example\.com/;
     const sdk2 = {
       ...mockSdk,
@@ -645,7 +649,11 @@ describe("blockedUrls config (TC25)", () => {
     const instr = new NetworkInstrumentation();
     instr.install(sdk2);
 
-    expect(mockFetchIgnoreUrls).toContain("http://localhost:4318");
+    // OTLP endpoint → RegExp prefix-match
+    const hasEndpointRegex = mockFetchIgnoreUrls?.some(
+      (r) => r instanceof RegExp && r.test("http://localhost:4318/v1/traces"),
+    );
+    expect(hasEndpointRegex).toBe(true);
     expect(mockFetchIgnoreUrls).toContain(blockedPattern);
     expect(mockFetchIgnoreUrls).toContain("https://ads.example.com");
     instr.uninstall();

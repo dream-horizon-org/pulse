@@ -20,6 +20,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: ".",
   testMatch: [
+    "m1-ch.spec.ts",
     "m3-ch.spec.ts",
     "m4-ch.spec.ts",
     "m5-ch.spec.ts",
