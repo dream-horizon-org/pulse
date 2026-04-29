@@ -21,18 +21,8 @@ APP_DIR="${ROOT_DIR}/backend/session-replay-ingestion"
 # Same idea as deploy/jenkinsfile/pulse-ui/publish-artifact.sh: source nvm so npm exists (non-login Jenkins sh).
 # Extra: default HOME for agents where it is unset; pin Node 20 (matches typical nvm on artifact fleet).
 echo "Sourcing NVM directly"
-export HOME="${HOME:-/home/admin}"
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-if [ ! -s "${NVM_DIR}/nvm.sh" ]; then
-  echo "nvm not found at ${NVM_DIR}/nvm.sh (set HOME or NVM_DIR)" >&2
-  exit 1
-fi
-# shellcheck source=/dev/null
-. "${NVM_DIR}/nvm.sh"
-if ! nvm use 20 --silent 2>/dev/null; then
-  nvm install 20
-  nvm use 20
-fi
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 rm -rf "${ROOT_DIR}/artifact"
 mkdir -p "${ROOT_DIR}/artifact"
