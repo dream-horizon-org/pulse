@@ -30,7 +30,7 @@ pipeline {
             }
         }
 
-        // Native deps for rdkafka-sys / librdkafka (cmake build). libzstd-dev = zstd batches when KAFKA_COMPRESSION_CODEC=zstd; liblz4-dev = lz4.
+        // Native deps for cargo-linked libraries.
         stage('Install native build dependencies') {
             steps {
                 sh """
