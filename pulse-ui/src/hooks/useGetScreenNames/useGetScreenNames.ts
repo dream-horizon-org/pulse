@@ -1,4 +1,4 @@
-import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME } from "../../constants/PulseOtelSemcov";
 import { OperatorType, useGetDataQuery } from "../useGetDataQuery";
 import { useMemo } from "react";
 

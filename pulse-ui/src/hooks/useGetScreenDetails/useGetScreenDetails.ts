@@ -1,6 +1,5 @@
 import {
   STATUS_CODE,
-  PulseType,
   COLUMN_NAME,
 } from "../../constants/PulseOtelSemcov";
 import { Screen } from "../../screens/ScreenList/ScreenList.interface";
