@@ -1,0 +1,171 @@
+package org.dreamhorizon.pulseserver.dao.rootcause;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import io.reactivex.rxjava3.core.Single;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
+import org.dreamhorizon.pulseserver.dao.rootcause.models.ScreenRootCauseCacheRow;
+import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
+import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
+import org.dreamhorizon.pulseserver.model.QueryConfiguration;
+import org.dreamhorizon.pulseserver.model.QueryResultResponse;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class ScreenRootCauseCacheDaoTest {
+
+  private static final String PROJECT = "proj-a";
+  private static final String SCREEN = "Home";
+  private static final LocalDate DATE = LocalDate.of(2025, 4, 1);
+  private static final Instant WINDOW_END = LocalDateTime.of(2025, 4, 1, 14, 0).toInstant(ZoneOffset.UTC);
+
+  @Mock
+  private ClickhouseQueryService clickhouseQueryService;
+
+  private ScreenRootCauseCacheDao dao;
+
+  @BeforeEach
+  void setUp() {
+    dao = new ScreenRootCauseCacheDao(clickhouseQueryService);
+  }
+
+  @Nested
+  class FindByKey {
+
+    @Test
+    void shouldReturnEmptyWhenNoRows() {
+      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+              any(QueryConfiguration.class), eq(ScreenRootCauseCacheRow.class)))
+          .thenReturn(
+              Single.just(
+                  QueryResultResponse.<ScreenRootCauseCacheRow>builder()
+                      .jobComplete(true)
+                      .rows(List.of())
+                      .build()));
+
+      Optional<ScreenRootCauseCacheRow> result = dao.findByKey(PROJECT, SCREEN, DATE).blockingGet();
+
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    void shouldReturnRowWithLatestCachedAtWhenMultiple() {
+      ScreenRootCauseCacheRow older =
+          ScreenRootCauseCacheRow.builder()
+              .projectId(PROJECT)
+              .screenName(SCREEN)
+              .date(DATE)
+              .cachedAt(LocalDateTime.of(2025, 4, 1, 10, 0))
+              .baseline("{}")
+              .segments("[]")
+              .mode("flat")
+              .build();
+      ScreenRootCauseCacheRow newer =
+          ScreenRootCauseCacheRow.builder()
+              .projectId(PROJECT)
+              .screenName(SCREEN)
+              .date(DATE)
+              .cachedAt(LocalDateTime.of(2025, 4, 1, 15, 0))
+              .baseline("{}")
+              .segments("[]")
+              .mode("flat")
+              .build();
+      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+              any(QueryConfiguration.class), eq(ScreenRootCauseCacheRow.class)))
+          .thenReturn(
+              Single.just(
+                  QueryResultResponse.<ScreenRootCauseCacheRow>builder()
+                      .jobComplete(true)
+                      .rows(List.of(older, newer))
+                      .build()));
+
+      Optional<ScreenRootCauseCacheRow> result = dao.findByKey(PROJECT, SCREEN, DATE).blockingGet();
+
+      assertThat(result).contains(newer);
+    }
+
+    @Test
+    void shouldScopeSelectToProjectScreenAndDate() {
+      when(clickhouseQueryService.executeGenericQueryWithGlobalPool(
+              any(QueryConfiguration.class), eq(ScreenRootCauseCacheRow.class)))
+          .thenReturn(
+              Single.just(
+                  QueryResultResponse.<ScreenRootCauseCacheRow>builder()
+                      .jobComplete(true)
+                      .rows(List.of())
+                      .build()));
+
+      dao.findByKey(PROJECT, SCREEN, DATE).blockingGet();
+
+      ArgumentCaptor<QueryConfiguration> captor = ArgumentCaptor.forClass(QueryConfiguration.class);
+      verify(clickhouseQueryService)
+          .executeGenericQueryWithGlobalPool(captor.capture(), eq(ScreenRootCauseCacheRow.class));
+      String q = captor.getValue().getQuery();
+      assertThat(q).contains(ScreenRootCauseCacheQueries.SELECT_FROM_SCREEN_ROOT_CAUSE_CACHE);
+      assertThat(q).contains("'proj-a'");
+      assertThat(q).contains("'Home'");
+      assertThat(q).contains("2025-04-01");
+      assertThat(captor.getValue().getProjectId()).isEqualTo(PROJECT);
+    }
+  }
+
+  @Nested
+  class Upsert {
+
+    @Test
+    void shouldExecuteInsertViaGlobalPool() {
+      GetQueryDataResponseDto<GetRawUserEventsResponseDto> ok =
+          GetQueryDataResponseDto.<GetRawUserEventsResponseDto>builder()
+              .jobComplete(true)
+              .build();
+      when(clickhouseQueryService.executeQueryWithGlobalPool(any(QueryConfiguration.class)))
+          .thenReturn(Single.just(ok));
+
+      dao.upsert(
+              PROJECT,
+              SCREEN,
+              DATE,
+              WINDOW_END,
+              "flat",
+              "{}",
+              "[]",
+              LocalDateTime.of(2025, 4, 1, 12, 0))
+          .blockingAwait();
+
+      ArgumentCaptor<QueryConfiguration> captor = ArgumentCaptor.forClass(QueryConfiguration.class);
+      verify(clickhouseQueryService).executeQueryWithGlobalPool(captor.capture());
+      assertThat(captor.getValue().getQuery())
+          .startsWith(ScreenRootCauseCacheQueries.INSERT_INTO_SCREEN_ROOT_CAUSE_CACHE);
+      assertThat(captor.getValue().getQuery()).contains("'proj-a'");
+      assertThat(captor.getValue().getQuery()).contains("'Home'");
+    }
+
+    @Test
+    void shouldPropagateErrorsFromClickhouse() {
+      when(clickhouseQueryService.executeQueryWithGlobalPool(any(QueryConfiguration.class)))
+          .thenReturn(Single.error(new RuntimeException("clickhouse down")));
+
+      io.reactivex.rxjava3.observers.TestObserver<Void> observer =
+          new io.reactivex.rxjava3.observers.TestObserver<>();
+      dao.upsert(PROJECT, SCREEN, DATE, WINDOW_END, "m", "{}", "[]", LocalDateTime.now())
+          .subscribe(observer);
+      observer.assertError(RuntimeException.class);
+    }
+  }
+}
