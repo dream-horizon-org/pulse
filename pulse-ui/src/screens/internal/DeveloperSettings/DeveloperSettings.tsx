@@ -11,6 +11,7 @@ import {
   Tabs,
   Tooltip,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
   IconTrash,
   IconPlus,
@@ -24,7 +25,7 @@ import {
   useRevokeRole,
   type InternalRoleMember,
 } from "../../../hooks/useInternalRoles";
-import { getCookies, removeCookie } from "../../../helpers/cookies";
+import { removeCookie } from "../../../helpers/cookies";
 import { COOKIES_KEY, ROUTES } from "../../../constants";
 import { PageHeader } from "../../../components/PageHeader";
 import { ErrorAndEmptyState } from "../../../components/ErrorAndEmptyState";
@@ -44,7 +45,6 @@ interface PendingRevoke {
 
 export function DeveloperSettings() {
   const navigate = useNavigate();
-  const systemRole = getCookies(COOKIES_KEY.SYSTEM_ROLE);
 
   const { data: roles, isLoading, isError, error } = useInternalRoles();
   const assignMutation = useAssignRole();
@@ -62,11 +62,6 @@ export function DeveloperSettings() {
   );
 
   useEffect(() => {
-    if (systemRole !== "superadmin")
-      navigate(ROUTES.INTERNAL_TENANT_SELECTOR.path, { replace: true });
-  }, [systemRole, navigate]);
-
-  useEffect(() => {
     if (!isError || !error) return;
     const status = (error as Error & { status?: number }).status;
     if (status !== 403) return;
@@ -78,7 +73,17 @@ export function DeveloperSettings() {
     if (!assignInput.trim()) return;
     assignMutation.mutate(
       { identifier: assignInput.trim(), role },
-      { onSuccess: () => setAssignInput("") },
+      {
+        onSuccess: () => setAssignInput(""),
+        onError: (e) => {
+          notifications.show({
+            title: "Could not assign role",
+            message:
+              e instanceof Error ? e.message : "Something went wrong. Try again.",
+            color: "red",
+          });
+        },
+      },
     );
   };
 
@@ -99,7 +104,17 @@ export function DeveloperSettings() {
     if (!pendingRevoke) return;
     revokeMutation.mutate(
       { userId: pendingRevoke.userId, role: pendingRevoke.role },
-      { onSettled: () => setPendingRevoke(null) },
+      {
+        onSettled: () => setPendingRevoke(null),
+        onError: (e) => {
+          notifications.show({
+            title: "Could not revoke access",
+            message:
+              e instanceof Error ? e.message : "Something went wrong. Try again.",
+            color: "red",
+          });
+        },
+      },
     );
   };
 
