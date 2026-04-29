@@ -35,7 +35,6 @@ function objcDataCollectionString(state: PulseDataCollectionState): string {
   }
 }
 
-
 /**
  * `NSDictionary<NSString*, PulseAttributeValue*>` or `nil`.
  */
@@ -258,9 +257,7 @@ function emitObjcUIKitTap(
   if (c === undefined) {
     return;
   }
-  const hasTap =
-    c.captureContext !== undefined ||
-    c.rage !== undefined;
+  const hasTap = c.captureContext !== undefined || c.rage !== undefined;
   if (!hasTap) {
     return;
   }
@@ -362,7 +359,7 @@ export function buildObjcPulseSdkInitialization(
     configuration,
     instrumentation,
   } = props;
-  const dc = `@\"${objcDataCollectionString(dataCollectionState)}\"`;
+  const dc = `@"${objcDataCollectionString(dataCollectionState)}"`;
   const g =
     globalAttributes && Object.keys(globalAttributes).length > 0
       ? buildObjcGlobalAttributesVar(globalAttributes)
@@ -379,7 +376,7 @@ export function buildObjcPulseSdkInitialization(
   if (i.decl) {
     parts.push(i.decl);
   }
-  const keyLit = `@\"${escapeObjCString(apiKey)}\"`;
+  const keyLit = `@"${escapeObjCString(apiKey)}"`;
   const call = `[PulseSDK pulseInitialize:${keyLit}
     dataCollectionState:${dc}
        globalAttributes:${g.varName}

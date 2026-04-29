@@ -141,7 +141,6 @@ export function buildSwiftConfigurationArg(
   return `{ kit in\n${lines.join('\n')}\n    }`;
 }
 
-
 function emitIosInstrumentationEnabled(
   body: string[],
   method: string,
