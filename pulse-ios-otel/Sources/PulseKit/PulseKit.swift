@@ -698,6 +698,7 @@ public class Pulse {
         var shouldFlush = false
         var sessionReplayMainWork: (() -> Void)?
         initializationQueue.sync {
+            guard _isInitialized else { return }
             // Read without consentStateLock — safe, we're inside initializationQueue
             let current = _dataCollectionState
             guard current != newState, current != .denied else { return }
@@ -761,12 +762,12 @@ public class Pulse {
             _ = meterProvider?.shutdown()
             PersistenceUtils.clearStorage()
 
+            _isShutdown = true
             openTelemetry = nil
             meterProvider = nil
             _consentSpanProcessor = nil
             _consentLogProcessor = nil
             _consentMetricExporter = nil
-            _isShutdown = true
             PulseLogger.info("sdk.shutdown graceful=true")
         }
     }
@@ -871,6 +872,15 @@ public class Pulse {
         name: String,
         params: [String: AttributeValue] = [:]
     ) -> Span {
+        guard isActive else {
+            let noopTracer = DefaultTracerProvider.instance.get(
+                instrumentationName: PulseKitConstants.instrumentationScopeName,
+                instrumentationVersion: PulseKitConstants.instrumentationVersion
+            )
+            let span = noopTracer.spanBuilder(spanName: name).startSpan()
+            span.setAttributes(params)
+            return span
+        }
         let span = tracer.spanBuilder(spanName: name).startSpan()
         span.setAttributes(params)
         return span
