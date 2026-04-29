@@ -232,6 +232,32 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
     }
   }
 
+  /**
+   * Runs SQL with the global ClickHouse user ({@link ClickhouseReadClient} pool). Skips per-project credentials
+   * and row policies — SQL must enforce isolation (e.g. literal {@code ProjectId} in {@code WHERE} / {@code INSERT}).
+   * Used for server-trusted cache tables so project users do not need {@code INSERT} grants on those tables.
+   */
+  public <T> Single<QueryResultResponse<T>> executeGenericQueryWithGlobalPool(
+      QueryConfiguration queryConfig, Class<T> clazz) {
+    log.debug(
+        "Executing generic ClickHouse query with global pool (projectId={})",
+        queryConfig.getProjectId());
+    return executeTenantGenericQuery(clickhouseReadClient.getPool(), queryConfig, clazz);
+  }
+
+  /**
+   * Same as {@link #executeGenericQueryWithGlobalPool} for statements that return the raw row shape (e.g. {@code
+   * INSERT} with no row mapper class).
+   */
+  public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeQueryWithGlobalPool(
+      QueryConfiguration queryConfig) {
+    final List<GetRawUserEventsResponseDto.Field> schemaFields = new ArrayList<>();
+    log.debug(
+        "Executing ClickHouse query with global pool (projectId={})",
+        queryConfig.getProjectId());
+    return executeTenantQuery(clickhouseReadClient.getPool(), queryConfig, schemaFields);
+  }
+
   private <T> Single<QueryResultResponse<T>> executeTenantGenericQuery(
       io.r2dbc.pool.ConnectionPool pool, QueryConfiguration queryConfig, Class<T> clazz) {
 
