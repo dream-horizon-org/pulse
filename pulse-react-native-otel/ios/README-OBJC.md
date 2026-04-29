@@ -146,15 +146,8 @@ inst.uiKitTap = tap;
 ```objc
 PulseObjcSessionReplayConfig *replay = [PulseObjcSessionReplayConfig new];
 replay.enabled = @YES;
-replay.replayEndpointBaseUrl = @"https://replay.your-domain.com";
-replay.textAndInputPrivacy = @"mask_sensitive_inputs"; // "mask_all_inputs" | "mask_sensitive_inputs" | "mask_all" (default)
-replay.imagePrivacy = @"mask_none";                    // "mask_none" | "mask_all" (default)
-replay.captureIntervalMs = @(100);
-replay.compressionQuality = @(0.8);
-replay.screenshotScale = @(1.0);
-replay.flushIntervalSeconds = @(30);
-replay.flushAt = @(20);
-replay.maxBatchSize = @(50);
+// Note: Privacy, quality, and flush settings are now controlled via backend remote config
+// Use maskViewClasses / unmaskViewClasses for code-level view masking only
 replay.maskViewClasses = @[@"SensitiveView"];
 replay.unmaskViewClasses = @[@"PublicBannerView"];
 inst.sessionReplay = replay;
