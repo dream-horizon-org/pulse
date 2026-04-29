@@ -1,0 +1,71 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/rules/pulse-otel.yml
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # - job_name: "clickhouse"
+  #   kubernetes_sd_configs:
+  #     - role: pod
+  #       kubeconfig_file: /etc/prometheus/kubeconfig
+  #       namespaces:
+  #         names:
+  #           - clickhouse
+  #   relabel_configs:
+  #     - source_labels: [__meta_kubernetes_pod_label_clickhouse_altinity_com_chi]
+  #       regex: prod-clickhouse
+  #       action: keep
+  #     - source_labels: [__meta_kubernetes_pod_ip]
+  #       target_label: __address__
+  #       replacement: $1:9363
+
+  - job_name: "pulse-kong"
+    metrics_path: /metrics
+    scrape_interval: 30s
+    ec2_sd_configs:
+      - region: ap-south-1
+        refresh_interval: 60s
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        regex: pulse-kong-instance
+        action: keep
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: __address__
+        replacement: $1:8001
+
+  - job_name: "kafka"
+    static_configs:
+      - targets:
+          - "pulse-kafka-01.pulse.local:7071"
+          - "pulse-kafka-02.pulse.local:7071"
+        labels:
+          env: "production"
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "([^:]+):.*"
+        target_label: instance
+        replacement: "$1"
+
+  - job_name: "node_exporter"
+    static_configs:
+      - targets:
+          - "pulse-kafka-01.pulse.local:7071"
+          - "pulse-kafka-02.pulse.local:7071"
+
+  - job_name: "otel_collector_local"
+    static_configs:
+      - targets: ["127.0.0.1:8889"]
+        labels:
+          scrape_source: otel

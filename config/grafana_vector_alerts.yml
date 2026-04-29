@@ -1,0 +1,572 @@
+apiVersion: 1
+
+groups:
+
+  # ===========================================================================
+  # Group 1: Reliability  (errors / discards / overflow — Goal: 0)
+  # ===========================================================================
+  - orgId: 1
+    name: Reliability
+    folder: Vector Alerts
+    interval: 1m
+    rules:
+
+      # --- Any component error ---
+      - uid: vec-component-errors
+        title: "Vector: Component Errors Detected"
+        condition: C
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+          category: reliability
+        annotations:
+          summary: "Errors on Vector component {{ $labels.component_id }}"
+          description: "Error rate = {{ $value }} err/s. Check connection, parsing failures, or auth issues."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { editorMode: code, expr: "rate(vector_component_errors_total[5m])", instant: true, intervalMs: 1000, maxDataPoints: 43200, refId: A }
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [0], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+      # --- Discarded events (data loss) ---
+      - uid: vec-discarded-events
+        title: "Vector: Events Being Discarded (Data Loss)"
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+          category: reliability
+        annotations:
+          summary: "Events discarded on {{ $labels.component_id }}"
+          description: "Discard rate = {{ $value }} events/s. VRL abort() hit or buffer drop in effect."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { editorMode: code, expr: "rate(vector_component_discarded_events_total[5m])", instant: true, intervalMs: 1000, maxDataPoints: 43200, refId: A }
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [0], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+      # --- Buffer overflow (events deleted because buffer was full) ---
+      - uid: vec-buffer-overflow
+        title: "Vector: Buffer Overflow — Events Dropped"
+        condition: C
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+          category: reliability
+        annotations:
+          summary: "Buffer overflow on {{ $labels.component_id }}"
+          description: "Overflow rate = {{ $value }} events/s. when_full=drop_newest is active and losing data."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { editorMode: code, expr: "rate(vector_buffer_overflow_events_total[5m])", instant: true, intervalMs: 1000, maxDataPoints: 43200, refId: A }
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [0], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+  # ===========================================================================
+  # Group 2: Pipeline Flow
+  # ===========================================================================
+  - orgId: 1
+    name: Pipeline Flow
+    folder: Vector Alerts
+    interval: 1m
+    rules:
+
+      # --- Event drop ratio > 5% (received vs sent divergence) ---
+      - uid: vec-event-drop-ratio
+        title: "Vector: Event Drop Ratio > 10%"
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: pipeline
+        annotations:
+          summary: "{{ $labels.component_id }} dropping > 10% of events"
+          description: "Drop ratio = {{ $value | printf \"%.1f\" }}%. Component: {{ $labels.component_id }} ({{ $labels.component_type }}). Compare received vs sent on the component."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model:
+              editorMode: code
+              expr: |
+                (
+                  sum by (component_id, component_type) (
+                    rate(vector_component_received_events_total{component_type!="prometheus_exporter"}[10m])
+                  )
+                  -
+                  sum by (component_id, component_type) (
+                    rate(vector_component_sent_events_total{component_type!="prometheus_exporter"}[10m])
+                  )
+                )
+                /
+                (
+                  sum by (component_id, component_type) (
+                    rate(vector_component_received_events_total{component_type!="prometheus_exporter"}[10m])
+                  )
+                  + 0.001
+                )
+                * 100
+                and
+                sum by (component_id, component_type) (
+                  rate(vector_component_received_events_total{component_type!="prometheus_exporter"}[10m])
+                ) > 1
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: reduce
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: A
+              reducer: last
+              refId: B
+
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [10], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+      # --- Zero throughput on a sink (no bytes sent for 10m) ---
+      - uid: vec-zero-throughput
+        title: "Vector: Sink Throughput Dropped to Zero"
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: pipeline
+        annotations:
+          summary: "No bytes leaving {{ $labels.component_id }}"
+          description: "Sent bytes rate = 0 for 10+ min. Sink may be stalled or disconnected."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { editorMode: code, expr: "rate(vector_component_sent_bytes_total[5m])", instant: true, intervalMs: 1000, maxDataPoints: 43200, refId: A }
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [0], type: lte }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+  # ===========================================================================
+  # Group 3: Buffering
+  # ===========================================================================
+  - orgId: 1
+    name: Buffering
+    folder: Vector Alerts
+    interval: 1m
+    rules:
+
+      # --- Buffer nearly full (>80% of configured max) ---
+      - uid: vec-buffer-bytes-high
+        title: "Vector: Buffer Bytes > 80% of Max"
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: buffering
+        annotations:
+          summary: "Buffer filling up on {{ $labels.component_id }}"
+          description: "Buffer is {{ $value | printf \"%.1f\" }}% full. Pipeline may block soon if S3 stays slow."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model:
+              editorMode: code
+              expr: "vector_buffer_byte_size / vector_buffer_max_byte_size * 100"
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [80], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+  # ===========================================================================
+  # Group 4: Performance
+  # ===========================================================================
+  - orgId: 1
+    name: Performance
+    folder: Vector Alerts
+    interval: 1m
+    rules:
+
+      # --- Component utilization bottleneck (>0.9 for 10m) ---
+      - uid: vec-utilization-bottleneck
+        title: "Vector: Component Utilization Bottleneck (>90%)"
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Bottleneck detected on {{ $labels.component_id }}"
+          description: "Utilization = {{ $value | printf \"%.2f\" }}. This component is saturated and throttling the pipeline."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { editorMode: code, expr: "vector_utilization", instant: true, intervalMs: 1000, maxDataPoints: 43200, refId: A }
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [0.9], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+      # --- Sink request P95 latency > 5s ---
+      - uid: vec-sink-latency-high
+        title: "Vector: Sink Request P95 Latency > 5s"
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Slow sink acknowledgement on {{ $labels.component_id }}"
+          description: "P95 sink latency = {{ $value | printf \"%.2f\" }}s. Destination is slow to ack batches."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model:
+              editorMode: code
+              expr: "histogram_quantile(0.95, sum by (le, component_id) (rate(vector_http_client_rtt_seconds_bucket{component_kind=\"sink\"}[5m])))"
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [5], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+      # --- VRL transform buffer utilization > 90% (only when traffic is active) ---
+      - uid: vec-process-duration-high
+        title: "Vector: VRL Transform Buffer Utilization > 90%"
+        condition: D
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Transform bottleneck on {{ $labels.component_id }}"
+          description: "Transform buffer utilization = {{ $value | printf \"%.2f\" }} while events are actively flowing. VRL remap is saturated and backing up."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model:
+              editorMode: code
+              expr: "vector_transform_buffer_utilization_level{component_type=\"remap\"} > 0.9 and on (component_id, host) rate(vector_component_received_events_total[5m]) > 0"
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: math, datasource: { type: __expr__, uid: __expr__ }, expression: "$B", refId: C }
+          - refId: D
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: C
+              refId: D
+              conditions:
+                - evaluator: { params: [0], type: gt }
+                  operator: { type: and }
+                  query: { params: [D] }
+                  reducer: { type: last }
+                  type: query
+
+  # ===========================================================================
+  # Group 5: Concurrency
+  # ===========================================================================
+  - orgId: 1
+    name: Concurrency
+    folder: Vector Alerts
+    interval: 1m
+    rules:
+
+      # --- Adaptive concurrency in-flight near limit (>90%) ---
+      - uid: vec-concurrency-saturated
+        title: "Vector: Adaptive Concurrency Near Limit (>90%)"
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: concurrency
+        annotations:
+          summary: "Concurrency saturated on {{ $labels.component_id }}"
+          description: "In-flight/limit ratio = {{ $value | printf \"%.2f\" }}. Sink is at capacity — throughput will plateau."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model:
+              editorMode: code
+              expr: "(rate(vector_adaptive_concurrency_in_flight_sum[1m]) / rate(vector_adaptive_concurrency_in_flight_count[1m])) / ((rate(vector_adaptive_concurrency_limit_sum[1m]) / rate(vector_adaptive_concurrency_limit_count[1m])) + 0.001)"
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [0.9], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+  # ===========================================================================
+  # Group 6: System
+  # ===========================================================================
+  - orgId: 1
+    name: System
+    folder: Vector Alerts
+    interval: 1m
+    rules:
+
+      # --- Vector process restarted ---
+      - uid: vec-process-restart
+        title: "Vector: Process Restarted"
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "Vector process restarted on {{ $labels.host }}"
+          description: "vector_uptime_seconds < 120 detected. Process restarted or redeployed."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { editorMode: code, expr: "vector_uptime_seconds < 120", instant: true, intervalMs: 1000, maxDataPoints: 43200, refId: A }
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [0], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+
+  # ===========================================================================
+  # Group 7: Kafka Source (only fires if you have a kafka source)
+  # ===========================================================================
+  - orgId: 1
+    name: Kafka
+    folder: Vector Alerts
+    interval: 1m
+    rules:
+
+      # --- Kafka consumer lag growing (>100k messages) ---
+      - uid: vec-kafka-lag-high
+        title: "Vector: Kafka Consumer Lag > 100,000"
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          category: kafka
+        annotations:
+          summary: "Kafka lag growing on {{ $labels.component_id }}"
+          description: "Consumer lag = {{ $value }}. Vector is not keeping up with Kafka topic production rate."
+        data:
+          - refId: A
+            datasourceUid: afdjrf1366u4ge
+            relativeTimeRange: { from: 600, to: 0 }
+            model: { editorMode: code, expr: "vector_kafka_consumer_lag", instant: true, intervalMs: 1000, maxDataPoints: 43200, refId: A }
+          - refId: B
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model: { type: reduce, datasource: { type: __expr__, uid: __expr__ }, expression: A, reducer: last, refId: B }
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange: { from: 0, to: 0 }
+            model:
+              type: threshold
+              datasource: { type: __expr__, uid: __expr__ }
+              expression: B
+              refId: C
+              conditions:
+                - evaluator: { params: [100000], type: gt }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
