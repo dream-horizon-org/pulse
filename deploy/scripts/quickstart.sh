@@ -192,23 +192,11 @@ if [ ! -f "$ROOT_DIR/backend/ingestion/otel-collector.yaml" ]; then
 fi
 print_success "OTEL collector configuration found"
 
-if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-otel-schema.sql" ]; then
-    print_error "ClickHouse schema not found"
+if [ ! -d "$ROOT_DIR/backend/db/dev/clickhouse" ] || [ -z "$(ls -A "$ROOT_DIR/backend/db/dev/clickhouse"/*.sql 2>/dev/null)" ]; then
+    print_error "ClickHouse schemas not found in backend/db/dev/clickhouse"
     exit 1
 fi
-print_success "ClickHouse schema found"
-
-if [ ! -f "$ROOT_DIR/backend/ingestion/session-summary-mv.sql" ]; then
-    print_error "ClickHouse session summary MV schema not found"
-    exit 1
-fi
-print_success "ClickHouse session summary MV schema found"
-
-if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-session-replay-schema.sql" ]; then
-    print_error "ClickHouse session replay schema not found"
-    exit 1
-fi
-print_success "ClickHouse session replay schema found"
+print_success "ClickHouse schemas found"
 
 load_env
 

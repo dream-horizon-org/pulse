@@ -18,6 +18,13 @@ public class RootCauseConfig {
   public static final int DEFAULT_LOOKBACK_DAYS = 7;
   /** Default maximum segments in the result (hierarchy + flat combined). */
   public static final int DEFAULT_MAX_SEGMENTS = 4;
+  /** Default minimum segment volume as percentage of baseline volume to be included in AI report. */
+  public static final double DEFAULT_MIN_SEGMENT_VOLUME_PCT = 5.0;
+  /**
+   * When true, RCA pre-computes max problematic count per dimension and reorders dimensions (strong
+   * signals first) before segmentation. Default off for gradual rollout.
+   */
+  public static final boolean DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED = false;
   /**
    * Minimum Poor sessions in the analysis window required before Track B emits joint winners and
    * clears {@code trackBInsufficientData}. Production default; override lower for local/dev demos.
@@ -62,6 +69,8 @@ public class RootCauseConfig {
   private int similarityThresholdPct;
   private int lookbackDays;
   private int maxSegments;
+  private double minSegmentVolumePct;
+  private boolean hybridDimensionOrderingEnabled;
   private int minPoorSessionsForErrorAttribution;
   /** Issue / endpoint drill-down: minimum {@code n_treated} in universe {@code U}. */
   private int minTreatedSessionsForIssueAttribution;
@@ -103,6 +112,8 @@ public class RootCauseConfig {
           .similarityThresholdPct(DEFAULT_SIMILARITY_THRESHOLD_PCT)
           .lookbackDays(DEFAULT_LOOKBACK_DAYS)
           .maxSegments(DEFAULT_MAX_SEGMENTS)
+          .minSegmentVolumePct(DEFAULT_MIN_SEGMENT_VOLUME_PCT)
+          .hybridDimensionOrderingEnabled(DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED)
           .minPoorSessionsForErrorAttribution(DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION)
           .minTreatedSessionsForIssueAttribution(DEFAULT_MIN_TREATED_SESSIONS_FOR_ISSUE_ATTRIBUTION)
           .minControlSessionsForIssueAttribution(DEFAULT_MIN_CONTROL_SESSIONS_FOR_ISSUE_ATTRIBUTION)
@@ -123,6 +134,9 @@ public class RootCauseConfig {
     final int maxSegments = from.maxSegments <= 0
         ? DEFAULT_MAX_SEGMENTS
         : from.maxSegments;
+    final double minSegmentVolumePct = from.minSegmentVolumePct <= 0
+        ? DEFAULT_MIN_SEGMENT_VOLUME_PCT
+        : from.minSegmentVolumePct;
     final int minPoorSessionsForErrorAttribution =
         from.minPoorSessionsForErrorAttribution <= 0
             ? DEFAULT_MIN_POOR_SESSIONS_FOR_ERROR_ATTRIBUTION
@@ -157,6 +171,8 @@ public class RootCauseConfig {
         .similarityThresholdPct(similarityThresholdPct)
         .lookbackDays(lookbackDays)
         .maxSegments(maxSegments)
+        .minSegmentVolumePct(minSegmentVolumePct)
+        .hybridDimensionOrderingEnabled(from.hybridDimensionOrderingEnabled)
         .minPoorSessionsForErrorAttribution(minPoorSessionsForErrorAttribution)
         .minTreatedSessionsForIssueAttribution(minTreatedSessionsForIssueAttribution)
         .minControlSessionsForIssueAttribution(minControlSessionsForIssueAttribution)

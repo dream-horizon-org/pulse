@@ -1,6 +1,6 @@
 ---
 description: Docker deployment and infrastructure conventions
-globs: deploy/**
+globs: deploy/**,backend/ingestion/**
 alwaysApply: false
 ---
 
@@ -30,7 +30,20 @@ alwaysApply: false
 
 **otel-collector:** healthcheck is disabled in compose (scratch image); use `:13133` from the host for health.
 
-**clickhouse-init:** mounts `clickhouse-otel-schema.sql`, session replay + session-summary MV, `event-catalog-entries.sql`, `funnel-results.sql`, `journey-results.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
+**clickhouse-init:** mounts `backend/db/dev/clickhouse/*.sql`, session replay + session-summary MV, `event-catalog-entries.sql`, `funnel-results.sql`, `journey-results.sql`; runs `deploy/scripts/init-clickhouse.sh` (applies otel, session replay, session-summary MV, and funnel/journey schemas when present).
+
+`pulse-server` and `pulse-alerts-cron` include `extra_hosts: host.docker.internal:host-gateway` so containers can reach OTLP on the host (optional JVM OpenTelemetry export; see below).
+
+## Optional observability stack (Prometheus + Tempo + Grafana)
+
+Not started by the main Pulse compose. Separate project: `deploy/observability-otel-prometheus-tempo/` (see `README.md` there). Typical start: `cd deploy/observability-otel-prometheus-tempo && docker compose up -d`.
+
+- **Services:** MinIO, `minio-init`, Tempo, **`obs_otel_collector`** (name avoids clashing with deploy stack `otel-collector`), Prometheus, Grafana. Prometheus loads **`prometheus/rules/pulse-otel.yml`** recording rules (RED-style `otel:http_server:*` metrics) for use in the Prometheus **Graph** UI.
+- **Host ports (avoid clashes with main stack):** OTLP **14317/14318**, Grafana **3310**, Prometheus **9091**, MinIO **9002/9003**, Tempo **3200**, collector self-metrics **18889** (Prometheus scrape), collector health **13134** → 13133 in-container.
+
+**Port conflict:** Host OTLP **14317/14318** match the optional **Vector** profile in `deploy/docker-compose.yml`. Do not run Vector and this observability stack on the same machine without changing one compose’s published ports.
+
+**JVM telemetry from Pulse backends:** Set `PULSE_BACKEND_OTEL_ENABLED=true` in `deploy/.env` and **rebuild** `pulse-server` / `pulse-alerts-cron` images so the OpenTelemetry Java agent is present. Entrypoint defaults OTLP to `http://host.docker.internal:14318` when the observability stack listens on the host. Use `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_SERVICE_NAME` to override.
 
 **Pulse AI:** `pulse-ai-agent` is part of the default deploy stack (`docker compose up`). Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini; the process starts without it but model/API calls fail. **Standalone** AI-only dev: `pulse_ai/docker-compose.yml` + `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 

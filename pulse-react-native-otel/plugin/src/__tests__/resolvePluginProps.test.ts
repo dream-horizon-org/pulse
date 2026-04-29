@@ -86,6 +86,26 @@ describe('assertPulsePluginProps', () => {
     ).toThrow(/instrumentation/);
   });
 
+  it('rejects invalid top-level logLevel', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        logLevel: 99,
+      } as unknown as PulsePluginProps)
+    ).toThrow(/logLevel/);
+  });
+
+  it('accepts optional top-level logLevel', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        logLevel: 3,
+      })
+    ).not.toThrow();
+  });
+
   it('rejects non-object android', () => {
     expect(() =>
       assertPulsePluginProps({
@@ -165,6 +185,18 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     expect(i.instrumentation).toEqual({
       screenLifecycle: { enabled: true },
     });
+  });
+
+  it('merges logLevel from top-level and per-platform overrides', () => {
+    const props: PulsePluginProps = {
+      apiKey: 'key',
+      dataCollectionState: 'PENDING',
+      logLevel: 1,
+      android: { logLevel: 4 },
+      ios: {},
+    };
+    expect(resolveAndroidProps(props).logLevel).toBe(4);
+    expect(resolveIosProps(props).logLevel).toBe(1);
   });
 
   it('throws when merge leaves android without apiKey', () => {

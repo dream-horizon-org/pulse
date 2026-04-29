@@ -6,6 +6,7 @@ export enum PulseType {
   APP_START = "app_start",
   SCREEN_NAME = "screen.name",
   SESSION_START = "session.start",
+  NETWORK_LIKE = "network.%"
 }
 
 export enum STATUS_CODE {
@@ -44,6 +45,9 @@ export enum COLUMN_NAME {
   IS_ERROR = "isError",
   EVENTS_NAME = "Events.Name",
   EVENTS_TIMESTAMP = "Events.Timestamp",
+  HTTP_URL = "HttpUrl",
+  NETWORK_STATUS_CODE = 'HttpStatusCode',
+  INSTALLATION_ID = 'AppInstallationId'
 }
 
 /**

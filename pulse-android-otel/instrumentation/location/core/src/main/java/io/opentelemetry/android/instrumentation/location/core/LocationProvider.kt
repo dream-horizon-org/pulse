@@ -113,12 +113,18 @@ public class LocationProvider
                     } catch (e: Throwable) {
                         currentCoroutineContext().ensureActive()
                         PulseLogger.logError(TAG, e) {
-                            "fetchLocationAsync lastLocation task failed"
+                            "sdk.location.provider_error error_class=last_location_failed"
                         }
+                    }
+                } else {
+                    PulseLogger.logInfo(TAG) {
+                        "sdk.location.provider_error reason=play_services_unavailable"
                     }
                 }
             } else {
-                PulseLogger.logDebug(TAG) { "permission not available" }
+                PulseLogger.logInfo(TAG) {
+                    "sdk.location.permission_denied fine_or_coarse=false"
+                }
             }
         }
 
