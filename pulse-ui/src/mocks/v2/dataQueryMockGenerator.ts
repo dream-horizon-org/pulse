@@ -2393,7 +2393,7 @@ export class DataQueryMockGeneratorV2 {
 
         // Handle uniqCombined64(nullIf(UserId, '')) - total unique users (for crash metrics)
         if (
-          expression.includes("uniqCombined64(nullIf(UserId") &&
+          expression.includes(`uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}`) &&
           !expression.includes("64If")
         ) {
           // Total unique users: 8000-12000
