@@ -32,7 +32,7 @@ export function UserCategorisationGraph({
 
   return (
     <div className={classes.graphContainer}>
-      <div className={classes.graphTitle}>User Experience Distribution</div>
+      <div className={classes.graphTitle}>Interaction Experience Distribution</div>
       <div className={classes.absoluteCardContainer}>
         <AbsoluteNumbersForGraphs
           data={formatPercentageMetric(metrics?.excellentUsersPercentage)}
