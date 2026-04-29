@@ -98,7 +98,6 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       || normalizedPath.startsWith(AUTH_PATH_PREFIX)
       || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
       || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
-      || normalizedPath.startsWith(INTERNAL_PATH_PREFIX)  // Internal service-to-service endpoints
       || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
       || normalizedPath.startsWith(LOGS_INGESTION_PATH)
       || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
