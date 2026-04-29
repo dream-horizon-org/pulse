@@ -392,16 +392,15 @@ public class MainVerticle extends AbstractVerticle {
               "minRiskRatioForIssueAttribution",
               RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION));
     }
-    builder
-        .issueMustPrecedePoor(
-            rootCauseJson.containsKey("issueMustPrecedePoor")
-                ? rootCauseJson.getBoolean("issueMustPrecedePoor")
-                : null);
-    
+    builder.issueMustPrecedePoor(
+        rootCauseJson.containsKey("issueMustPrecedePoor")
+            ? Boolean.parseBoolean((String) rootCauseJson.getValue("issueMustPrecedePoor"))
+            : null);
+
     builder.hybridDimensionOrderingEnabled(
-      rootCauseJson.containsKey("hybridDimensionOrderingEnabled")
-          ? rootCauseJson.getBoolean("hybridDimensionOrderingEnabled")
-          : RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED)
+        rootCauseJson.containsKey("hybridDimensionOrderingEnabled")
+            ? Boolean.parseBoolean((String) rootCauseJson.getValue("hybridDimensionOrderingEnabled"))
+            : RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED)
   .minSegmentVolumePct(
       rootCauseDouble(
           rootCauseJson,

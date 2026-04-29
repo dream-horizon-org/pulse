@@ -77,7 +77,17 @@ fi
 # -------------------------------------------------------------------
 echo "Starting pulse-alerts-cron..."
 
+OTEL_AGENT_JAR="/opt/otel/opentelemetry-javaagent.jar"
+OTEL_AGENT_OPT=""
+if [ -f "$OTEL_AGENT_JAR" ]; then
+    OTEL_AGENT_OPT="-javaagent:$OTEL_AGENT_JAR"
+    echo "OTEL agent found at $OTEL_AGENT_JAR — attaching"
+else
+    echo "WARNING: OTEL agent not found at $OTEL_AGENT_JAR — starting without it"
+fi
+
 nohup java \
+    $OTEL_AGENT_OPT \
     -jar $APP_DIR/pulse-alerts-cron.jar \
     run org.dreamhorizon.pulsealertscron.verticle.MainVerticle \
     > /home/admin/pulse-alerts-cron.log 2>&1 &
