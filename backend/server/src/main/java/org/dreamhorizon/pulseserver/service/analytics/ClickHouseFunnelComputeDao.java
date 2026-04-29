@@ -21,16 +21,22 @@ import org.dreamhorizon.pulseserver.resources.productAnalysis.funnel.models.Funn
  * (materialized from {@code LogAttributes['pulse.type']}).
  * Custom event names are read from the {@code EventName} column.
  *
- * <p>Two SQL builders are provided:
+ * <p>Active builder (called by {@link #buildInsertSqlForDefinition}):
  * <ul>
- *   <li>{@link #buildInsertSqlChain(FunnelDefinitionRow)} — default: greedy-forward chain that
- *       enumerates all step-0 attempts per user, walks forward step-by-step, picks the deepest
- *       attempt per user (tie-broken by earliest {@code t0}), and derives both
- *       {@code UserCount} and {@code MedianStepSeconds} from that winning attempt. Respects the
- *       single "deepest completed journey" per user for both counts and medians.</li>
+ *   <li>{@link #buildInsertSqlWindowFunnel(FunnelDefinitionRow)} — default for ordered funnels:
+ *       uses ClickHouse {@code windowFunnel} for counts. Fast (~3s). {@code MedianStepSeconds}
+ *       is {@code NULL} for all steps. See {@code funnel-query-optimization-single-scan.md}
+ *       for why exact median timing is deferred.</li>
+ *   <li>{@link #buildInsertSqlUnordered(FunnelDefinitionRow)} — for unordered funnels
+ *       ({@code stepOrderType = UNORDERED}): sliding-window distinct-step count.</li>
+ * </ul>
+ *
+ * <p>Retained as backup (not in active use):
+ * <ul>
+ *   <li>{@link #buildInsertSqlChain(FunnelDefinitionRow)} — multi-attempt chain walk with exact
+ *       medians. Correct but ~180s on production data due to O(step0×step1×...) join fan-out.</li>
  *   <li>{@link #buildInsertSql(FunnelDefinitionRow)} and
- *       {@link #buildBatchInsertSql(java.util.List)} — legacy {@code windowFunnel}-based
- *       builders retained as a backup. These emit {@code NULL} for {@code MedianStepSeconds}.</li>
+ *       {@link #buildBatchInsertSql(java.util.List)} — legacy {@code windowFunnel}-based builders.</li>
  * </ul>
  *
  * <p>{@code windowFunnel}'s first argument must be {@code DateTime} (not {@code DateTime64}); we use
@@ -61,13 +67,103 @@ public final class ClickHouseFunnelComputeDao {
    * Builds INSERT SQL using the funnel's configured step-order semantics.
    *
    * <p>{@code stepOrderType == UNORDERED} uses {@link #buildInsertSqlUnordered(FunnelDefinitionRow)};
-   * all other values use {@link #buildInsertSqlChain(FunnelDefinitionRow)}.
+   * all other values use {@link #buildInsertSqlWindowFunnel(FunnelDefinitionRow)}.
+   *
+   * <p>{@code MedianStepSeconds} is {@code NULL} for all steps. Median timing requires the
+   * multi-attempt chain walk ({@link #buildInsertSqlChain}) which is too slow for production
+   * data at ~180s. See {@code funnel-query-optimization-single-scan.md} for the tradeoff analysis.
    */
   public static String buildInsertSqlForDefinition(FunnelDefinitionRow def) {
     if (isUnorderedFunnel(def)) {
       return buildInsertSqlUnordered(def);
     }
-    return buildInsertSqlChain(def);
+    return buildInsertSqlWindowFunnel(def);
+  }
+
+  /**
+   * Builds INSERT SQL for a single ordered funnel using {@code windowFunnel}.
+   *
+   * <p>Groups by {@code AppInstallationId} (UNIQUE_USERS mode) or {@code SessionId} (SESSIONS mode).
+   * {@code windowFunnel} is greedy: per user, finds the maximum depth achievable within
+   * {@code windowSeconds} starting from any step-0 occurrence.
+   * {@code MedianStepSeconds} is {@code NULL} for all steps.
+   *
+   * @param def funnel definition; must have at least one step
+   * @return the INSERT SQL, or an empty string if the funnel has no steps
+   */
+  public static String buildInsertSqlWindowFunnel(FunnelDefinitionRow def) {
+    List<FunnelDefinitionStep> steps = deserializeSteps(def.getStepsJson());
+    if (steps.isEmpty()) {
+      return "";
+    }
+    List<FunnelAttributeFilter> filters = deserializeFilters(def.getFiltersJson());
+
+    int stepCount = steps.size();
+    long windowSeconds = def.getWindowSeconds();
+    long funnelId = def.getId();
+    String projectId = def.getProjectId();
+    String runTime = runTimeLiteral();
+
+    String groupKey = ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(def.getMode());
+    String startExpr = ClickhouseAnalyticsQueryUtils.resolveStartExpr(
+        def.getFunnelType(), def.getDateRangeDays(), def.getStartTime());
+    String endExpr = ClickhouseAnalyticsQueryUtils.resolveEndExpr(def.getFunnelType(), def.getEndTime());
+
+    String eventNameInClause = steps.stream()
+        .map(s -> "'" + escape(s.getEventName()) + "'")
+        .collect(Collectors.joining(", "));
+
+    String additionalFilters = filters.stream()
+        .map(ClickhouseAnalyticsConstantsMapper::toSqlClause)
+        .collect(Collectors.joining("\n      "));
+
+    String windowFunnelArgs = steps.stream()
+        .map(s -> "EventName = '" + escape(s.getEventName()) + "'")
+        .collect(Collectors.joining(",\n        "));
+
+    StringBuilder sql = new StringBuilder(1024);
+    sql.append("INSERT INTO otel.funnel_results\n")
+        .append("  (FunnelId, ProjectId, RunTime, StepIndex, StepName, UserCount, ConversionPct, MedianStepSeconds)\n")
+        .append("WITH\n");
+
+    sql.append("  step_events AS (\n")
+        .append("    SELECT ").append(groupKey).append(" AS uid,\n")
+        .append("           toDateTime(Timestamp) AS FunnelTs,\n")
+        .append("           EventName\n")
+        .append("    FROM otel.otel_logs\n")
+        .append("    PREWHERE ProjectId = '").append(projectId).append("'\n")
+        .append("      AND Timestamp BETWEEN ").append(startExpr).append(" AND ").append(endExpr).append("\n")
+        .append("    WHERE PulseType = 'custom_event'\n")
+        .append("      AND EventName IN (").append(eventNameInClause).append(")\n");
+    if (!additionalFilters.isBlank()) {
+      sql.append("      ").append(additionalFilters).append("\n");
+    }
+    sql.append("  ),\n");
+
+    sql.append("  funnel AS (\n")
+        .append("    SELECT uid,\n")
+        .append("      windowFunnel(").append(windowSeconds).append(")(FunnelTs,\n")
+        .append("        ").append(windowFunnelArgs).append("\n")
+        .append("      ) AS winning_depth\n")
+        .append("    FROM (SELECT uid, FunnelTs, EventName FROM step_events ORDER BY uid ASC, FunnelTs ASC)\n")
+        .append("    GROUP BY uid\n")
+        .append("  )\n");
+
+    for (int k = 1; k <= stepCount; k++) {
+      if (k > 1) {
+        sql.append("UNION ALL\n");
+      }
+      String stepName = escape(steps.get(k - 1).getEventName());
+      sql.append("SELECT toUInt64(").append(funnelId).append("), '").append(projectId)
+          .append("', ").append(runTime).append(", toUInt8(").append(k - 1).append("), '").append(stepName).append("',\n")
+          .append("       countIf(winning_depth >= ").append(k).append("),\n")
+          .append("       countIf(winning_depth >= ").append(k)
+          .append(") * 100.0 / greatest(count(), 1),\n")
+          .append("       CAST(NULL AS Nullable(Int64))\n")
+          .append("FROM funnel\n");
+    }
+
+    return sql.toString();
   }
 
   /**
@@ -87,8 +183,7 @@ public final class ClickHouseFunnelComputeDao {
    *       {@code dateDiff} over the winning chain.</li>
    * </ol>
    *
-   * <p>Groups by materialized {@code UserId} / {@code SessionId} on {@code otel.otel_logs}
-   * (see ingestion DDL: {@code user.id} with {@code app.installation.id} fallback).
+   * <p>Groups by materialized {@code AppInstallationId} / {@code SessionId} on {@code otel.otel_logs}.
    *
    * @param def funnel definition; must have at least one step
    * @return the INSERT SQL, or an empty string if the funnel has no steps
