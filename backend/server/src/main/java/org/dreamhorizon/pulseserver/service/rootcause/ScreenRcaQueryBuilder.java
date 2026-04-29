@@ -8,7 +8,8 @@ import java.util.stream.Collectors;
 import org.dreamhorizon.pulseserver.constant.ClickhouseConstants;
 
 /**
- * ClickHouse queries for Screen-scoped RCA over {@code otel.otel_logs} ({@code app.click} rows).
+ * ClickHouse queries for Screen-scoped RCA over {@code otel.otel_logs} (pulse type {@value
+ * #APP_CLICK_PULSE_TYPE} rows).
  * Uses {@link RootCauseQueryBuilder.BindAccumulator} / {@link RootCauseQuerySpec} like interaction RCA.
  */
 public final class ScreenRcaQueryBuilder {
@@ -24,24 +25,24 @@ public final class ScreenRcaQueryBuilder {
   /** Segmentation driver: dead ∪ rage (one row can be both; counted once). */
   public static final String BAD_FRUSTRATION = "bad_frustration";
 
-  private static final String TAP_COUNT_EXPR =
-      "countIf(ifNull(LogAttributes['click.type'], '') = 'good'"
-          + " AND ifNull(LogAttributes['click.is_rage'], '') != 'true')";
+  /** Materialized {@code ClickType} / {@code Rage} on {@code otel.otel_logs} (see dev DDL). */
+  private static final String TAP_COUNT_EXPR = "countIf(ClickType = 'good' AND NOT Rage)";
 
-  private static final String RAGE_COUNT_EXPR =
-      "countIf(ifNull(LogAttributes['click.is_rage'], '') = 'true')";
+  private static final String RAGE_COUNT_EXPR = "countIf(Rage)";
 
-  private static final String DEAD_COUNT_EXPR =
-      "countIf(ifNull(LogAttributes['click.type'], '') = 'dead')";
+  private static final String DEAD_COUNT_EXPR = "countIf(ClickType = 'dead')";
 
   private static final String BAD_FRUSTRATION_EXPR =
-      "countIf(ifNull(LogAttributes['click.type'], '') = 'dead'"
-          + " OR ifNull(LogAttributes['click.is_rage'], '') = 'true')";
+      "countIf(ClickType = 'dead' OR Rage)";
 
   private ScreenRcaQueryBuilder() {}
 
   /**
-   * WHERE: project, time window, {@code pulse.type = app.click}, non-empty screen name match.
+   * WHERE: project, time window, {@code PulseType = app.click}, non-empty trimmed {@code ScreenName}.
+   *
+   * <p>Requires materialized columns from {@code backend/db/dev/clickhouse/otel.otel_logs.sql}; apply
+   * {@code backend/db/dev/clickhouse/otel.otel_logs_z_alter_screen_rca_columns.sql}
+   * on clusters that predate those columns.
    */
   public static String baseWhereSql(
       RootCauseQueryBuilder.BindAccumulator acc,
@@ -63,10 +64,10 @@ public final class ScreenRcaQueryBuilder {
     acc.add(p3, endStr);
     return "ProjectId = :"
         + p0
-        + " AND ifNull(LogAttributes['pulse.type'], '') = '"
+        + " AND PulseType = '"
         + APP_CLICK_PULSE_TYPE
         + "'"
-        + " AND nullIf(trimBoth(LogAttributes['screen.name']), '') = :"
+        + " AND nullIf(trimBoth(ScreenName), '') = :"
         + p1
         + " AND Timestamp >= toDateTime64(:"
         + p2
@@ -82,7 +83,7 @@ public final class ScreenRcaQueryBuilder {
       Instant startInclusive,
       Instant endExclusive) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
-    String select =
+    String metricSelect =
         "count() AS "
             + CLICK_VOLUME
             + ", "
@@ -103,7 +104,7 @@ public final class ScreenRcaQueryBuilder {
             + BAD_FRUSTRATION;
     String where = baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive);
     String sql =
-        "SELECT " + select + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE + " WHERE " + where;
+        "SELECT " + metricSelect + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE + " WHERE " + where;
     return acc.toSpec(sql);
   }
 
@@ -116,13 +117,13 @@ public final class ScreenRcaQueryBuilder {
       Map<String, String> dimensionFilters) {
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
     String dimSelect = dimensionSelectAlias(dimensionColumn);
-    String select = dimSelect + ", " + BAD_FRUSTRATION_EXPR + " AS " + BAD_FRUSTRATION;
+    String metricSelect = dimSelect + ", " + BAD_FRUSTRATION_EXPR + " AS " + BAD_FRUSTRATION;
     String where =
         appendDimensionFilters(
             baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
     String sql =
         "SELECT "
-            + select
+            + metricSelect
             + " FROM "
             + ClickhouseConstants.OTEL_LOGS_TABLE
             + " WHERE "
@@ -146,25 +147,25 @@ public final class ScreenRcaQueryBuilder {
       throw new IllegalArgumentException("dimensionColumns must be non-empty for segment query");
     }
     RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
-    StringBuilder select = new StringBuilder();
+    StringBuilder metricSelect = new StringBuilder();
     for (String d : dimensionColumns) {
-      if (select.length() > 0) {
-        select.append(", ");
+      if (metricSelect.length() > 0) {
+        metricSelect.append(", ");
       }
-      select.append(dimensionSelectAlias(d));
+      metricSelect.append(dimensionSelectAlias(d));
     }
-    select.append(", count() AS ").append(CLICK_VOLUME);
-    select.append(", ").append(TAP_COUNT_EXPR).append(" AS ").append(TAP_COUNT);
-    select.append(", ").append(RAGE_COUNT_EXPR).append(" AS ").append(RAGE_COUNT);
-    select.append(", ").append(DEAD_COUNT_EXPR).append(" AS ").append(DEAD_COUNT);
-    select.append(", ").append(BAD_FRUSTRATION_EXPR).append(" AS ").append(BAD_FRUSTRATION);
+    metricSelect.append(", count() AS ").append(CLICK_VOLUME);
+    metricSelect.append(", ").append(TAP_COUNT_EXPR).append(" AS ").append(TAP_COUNT);
+    metricSelect.append(", ").append(RAGE_COUNT_EXPR).append(" AS ").append(RAGE_COUNT);
+    metricSelect.append(", ").append(DEAD_COUNT_EXPR).append(" AS ").append(DEAD_COUNT);
+    metricSelect.append(", ").append(BAD_FRUSTRATION_EXPR).append(" AS ").append(BAD_FRUSTRATION);
     String where =
         appendDimensionFilters(
             baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
     String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
     String sql =
         "SELECT "
-            + select
+            + metricSelect
             + " FROM "
             + ClickhouseConstants.OTEL_LOGS_TABLE
             + " WHERE "
@@ -178,15 +179,15 @@ public final class ScreenRcaQueryBuilder {
     return dimensionExpression(dimensionName) + " AS " + dimensionName;
   }
 
-  /** Expression for GROUP BY / SELECT; must match {@link #dimensionEqualityLhs(String)}. */
+  /** Materialized dimension columns (same definitions as {@code otel.otel_logs} DDL). */
   public static String dimensionExpression(String dimensionName) {
     return switch (dimensionName) {
-      case "Platform" -> "ifNull(ResourceAttributes['os.name'], '')";
-      case "OsVersion" -> "ifNull(ResourceAttributes['os.version'], '')";
-      case "AppVersion" -> "ifNull(ResourceAttributes['app.build_name'], '')";
-      case "DeviceModel" -> "ifNull(ResourceAttributes['device.model.name'], '')";
-      case "NetworkProvider" -> "ifNull(LogAttributes['network.carrier.name'], '')";
-      case "GeoState" -> "ifNull(LogAttributes['geo.region.iso_code'], '')";
+      case "Platform" -> "Platform";
+      case "OsVersion" -> "OsVersion";
+      case "AppVersion" -> "AppVersion";
+      case "DeviceModel" -> "DeviceModel";
+      case "NetworkProvider" -> "NetworkProvider";
+      case "GeoState" -> "GeoState";
       default -> throw new IllegalArgumentException("Unknown Screen RCA dimension: " + dimensionName);
     };
   }
