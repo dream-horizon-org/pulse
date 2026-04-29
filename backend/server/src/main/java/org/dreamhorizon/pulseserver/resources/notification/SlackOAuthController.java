@@ -112,11 +112,16 @@ public class SlackOAuthController {
       if (configuredUri.getScheme() == null || configuredUri.getHost() == null) {
         return configured;
       }
+      URI returnUri = new URI(returnPath);
+      String path = returnUri.getPath();
+      if (path == null || path.isBlank() || !path.startsWith("/")) {
+        return configured;
+      }
       return new URI(
               configuredUri.getScheme(),
               configuredUri.getAuthority(),
-              returnPath,
-              null,
+              path,
+              returnUri.getRawQuery(),
               null)
           .toString();
     } catch (IllegalArgumentException | URISyntaxException ignored) {

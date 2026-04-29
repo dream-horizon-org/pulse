@@ -6,17 +6,15 @@ import {
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
+  IconDeviceDesktop,
+  IconNetwork,
+  IconUsers,
+  IconDatabaseSearch,
+  IconRobot,
   IconBell,
   IconCalendarEvent,
-  IconChartFunnel,
-  IconDatabaseSearch,
-  IconDeviceDesktop,
   IconHome,
   IconListDetails,
-  IconNetwork,
-  IconRobot,
-  IconRoute,
-  IconUsers,
   IconVideo,
 } from "@tabler/icons-react";
 import {
@@ -64,7 +62,8 @@ export const NAVBAR_CONFIG: AppShellNavbarConfiguration = {
 export const API_BASE_URL: string =
   process.env.REACT_APP_PULSE_SERVER_URL ?? "";
 
-export const AI_BASE_URL: string = process.env.REACT_APP_AI_BASE_URL ?? "";
+export const AI_BASE_URL: string =
+  process.env.REACT_APP_AI_BASE_URL ?? "http://localhost:8000";
 
 export const ENABLE_AI_CHAT: boolean =
   process.env.REACT_APP_ENABLE_AI_CHAT === "true";
@@ -83,6 +82,16 @@ export const CREATE_ALERT: string = "Create alert";
 export const NOTIFICATION_EVENT_NAMES = {
   PULSE_ALERT_FIRING: "pulse_alert_firing",
 } as const;
+
+/** postMessage `data.type` when returning from Settings → Notifications (alert wizard flow). */
+export const NOTIFICATION_CHANNELS_UPDATED_MESSAGE =
+  "pulse-notification-channels-updated";
+
+/**
+ * Set when opening notification settings from the alert wizard; cleared after mappings refetch.
+ */
+export const SESSION_STORAGE_ALERT_WIZARD_CHANNEL_REFRESH =
+  "pulse_alert_wizard_channel_refresh";
 
 export const NO_ALERT_CONFIGURED: string = "No alerts have been configured";
 export const IS_UAT: boolean =
@@ -280,36 +289,6 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
   },
-  FUNNELS_LIST: {
-    key: "FUNNELS_LIST",
-    basePath: "/projects/:projectId/funnels",
-    path: "/projects/:projectId/funnels",
-  },
-  JOURNEYS_LIST: {
-    key: "JOURNEYS_LIST",
-    basePath: "/projects/:projectId/journeys",
-    path: "/projects/:projectId/journeys",
-  },
-  FUNNELS_CREATE: {
-    key: "FUNNELS_CREATE",
-    basePath: "/projects/:projectId/funnels/create",
-    path: "/projects/:projectId/funnels/create",
-  },
-  JOURNEYS_CREATE: {
-    key: "JOURNEYS_CREATE",
-    basePath: "/projects/:projectId/journeys/create",
-    path: "/projects/:projectId/journeys/create",
-  },
-  FUNNEL_DETAIL: {
-    key: "FUNNEL_DETAIL",
-    basePath: "/projects/:projectId/funnels/:funnelId",
-    path: "/projects/:projectId/funnels/:funnelId",
-  },
-  JOURNEY_DETAIL: {
-    key: "JOURNEY_DETAIL",
-    basePath: "/projects/:projectId/journeys/:journeyId",
-    path: "/projects/:projectId/journeys/:journeyId",
-  },
   ...(ENABLE_AI_CHAT
     ? {
         AI_CHAT: {
@@ -358,8 +337,6 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   SESSION_REPLAY: "/session-replay/sessions",
   QUERY_BUILDER: "/query-builder",
-  FUNNELS: "/funnels",
-  JOURNEYS: "/journeys",
   ALERTS: "/alerts",
   AI_CHAT: "/ai-chat",
   EVENT_CATALOG: "/event-catalog",
@@ -436,20 +413,6 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconDatabaseSearch,
     routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
     path: NAVBAR_ROUTES.QUERY_BUILDER,
-    iconSize: 25,
-  },
-  {
-    tabName: "Funnels",
-    icon: IconChartFunnel,
-    routeTo: NAVBAR_ROUTES.FUNNELS,
-    path: NAVBAR_ROUTES.FUNNELS,
-    iconSize: 25,
-  },
-  {
-    tabName: "Journeys",
-    icon: IconRoute,
-    routeTo: NAVBAR_ROUTES.JOURNEYS,
-    path: NAVBAR_ROUTES.JOURNEYS,
     iconSize: 25,
   },
   {
@@ -996,66 +959,6 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "AI_QUERY",
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
-  },
-  FUNNEL_LIST: {
-    key: "FUNNEL_LIST",
-    apiPath: `/v1/funnels`,
-    method: API_METHODS.GET,
-  },
-  FUNNEL_CREATE: {
-    key: "FUNNEL_CREATE",
-    apiPath: `/v1/funnels`,
-    method: API_METHODS.POST,
-  },
-  FUNNEL_DETAILS: {
-    key: "FUNNEL_DETAILS",
-    apiPath: `/v1/funnels`,
-    method: API_METHODS.GET,
-  },
-  FUNNEL_SESSIONS: {
-    key: "FUNNEL_SESSIONS",
-    apiPath: `/v1/funnels/sessions`,
-    method: API_METHODS.POST,
-  },
-  FUNNEL_GROUPED: {
-    key: "FUNNEL_GROUPED",
-    apiPath: `/v1/funnels/grouped`,
-    method: API_METHODS.POST,
-  },
-  JOURNEY_EXPLORE: {
-    key: "JOURNEY_EXPLORE",
-    apiPath: `/v1/journeys/explore`,
-    method: API_METHODS.POST,
-  },
-  JOURNEY_LIST: {
-    key: "JOURNEY_LIST",
-    apiPath: `/v1/journeys`,
-    method: API_METHODS.GET,
-  },
-  JOURNEY_CREATE: {
-    key: "JOURNEY_CREATE",
-    apiPath: `/v1/journeys`,
-    method: API_METHODS.POST,
-  },
-  JOURNEY_DETAILS: {
-    key: "JOURNEY_DETAILS",
-    apiPath: `/v1/journeys`,
-    method: API_METHODS.GET,
-  },
-  FUNNEL_EVENTS: {
-    key: "FUNNEL_EVENTS",
-    apiPath: `/v1/funnels/events`,
-    method: API_METHODS.GET,
-  },
-  FUNNEL_FILTERS: {
-    key: "FUNNEL_FILTERS",
-    apiPath: `/v1/funnels/filters`,
-    method: API_METHODS.GET,
-  },
-  FUNNEL_TAGS: {
-    key: "FUNNEL_TAGS",
-    apiPath: `/v1/funnels/tags`,
-    method: API_METHODS.GET,
   },
   GET_TNC_STATUS: {
     key: "GET_TNC_STATUS",

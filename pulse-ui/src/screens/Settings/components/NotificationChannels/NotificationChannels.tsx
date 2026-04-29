@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
@@ -31,6 +31,7 @@ import {
 } from "@tabler/icons-react";
 import {
   COMMON_CONSTANTS,
+  NOTIFICATION_CHANNELS_UPDATED_MESSAGE,
   NOTIFICATION_EVENT_NAMES,
 } from "../../../../constants";
 import { showNotification } from "../../../../helpers/showNotification";
@@ -83,6 +84,11 @@ const CHANNEL_TYPE_SECTIONS: ChannelType[] = [
   "TEAMS",
 ];
 const WEBHOOK_DISPLAY_MAX_LENGTH = 56;
+const SESSION_FROM_ALERT_WIZARD = "pulse_notification_from_alert_wizard";
+const SESSION_OPEN_SLACK_MODAL_ON_RETURN =
+  "pulse_notification_open_slack_modal_on_return";
+const SESSION_SLACK_CALLBACK_PROCESSED =
+  "pulse_notification_slack_callback_processed";
 
 export function NotificationChannels() {
   const theme = useMantineTheme();
@@ -90,6 +96,11 @@ export function NotificationChannels() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [formOpened, { open: openForm, close: closeForm }] =
     useDisclosure(false);
+  const [
+    disconnectConfirmOpened,
+    { open: openDisconnectConfirm, close: closeDisconnectConfirm },
+  ] = useDisclosure(false);
+  const openAddFromWizardHandled = useRef(false);
 
   const [channelType, setChannelType] =
     useState<ChannelFormType>("SLACK_WEBHOOK");
@@ -190,6 +201,34 @@ export function NotificationChannels() {
     await Promise.all([refetchChannels(), refetchMappings()]);
   }, [refetchChannels, refetchMappings]);
 
+  useEffect(() => {
+    if (searchParams.get("fromAlertWizard") === "1") {
+      sessionStorage.setItem(SESSION_FROM_ALERT_WIZARD, "1");
+    }
+  }, [searchParams]);
+
+  const notifyReturnToAlertWizard = useCallback(() => {
+    const shouldReturnToAlertWizard =
+      searchParams.get("fromAlertWizard") === "1" ||
+      sessionStorage.getItem(SESSION_FROM_ALERT_WIZARD) === "1";
+    if (!shouldReturnToAlertWizard) {
+      return;
+    }
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(
+          { type: NOTIFICATION_CHANNELS_UPDATED_MESSAGE },
+          window.location.origin,
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+    sessionStorage.removeItem(SESSION_FROM_ALERT_WIZARD);
+    sessionStorage.removeItem(SESSION_OPEN_SLACK_MODAL_ON_RETURN);
+    window.close();
+  }, [searchParams]);
+
   const showError = useCallback(
     (message: string) => {
       showNotification(
@@ -218,13 +257,34 @@ export function NotificationChannels() {
     const status = searchParams.get("slack");
     const message = searchParams.get("message");
     if (!status) {
+      sessionStorage.removeItem(SESSION_SLACK_CALLBACK_PROCESSED);
       return;
     }
+
+    const callbackSignature = [
+      location.pathname,
+      status,
+      message || "",
+      searchParams.get("fromAlertWizard") || "",
+    ].join("|");
+    if (
+      sessionStorage.getItem(SESSION_SLACK_CALLBACK_PROCESSED) ===
+      callbackSignature
+    ) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("slack");
+      nextParams.delete("message");
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+    sessionStorage.setItem(SESSION_SLACK_CALLBACK_PROCESSED, callbackSignature);
+
     if (status === "success") {
       showSuccess(`Slack connected${message ? `: ${message}` : ""}`);
       await refreshAll();
       setChannelType("SLACK");
       openForm();
+      sessionStorage.removeItem(SESSION_OPEN_SLACK_MODAL_ON_RETURN);
     } else {
       showError(message || "Slack connection failed");
     }
@@ -233,6 +293,7 @@ export function NotificationChannels() {
     nextParams.delete("message");
     setSearchParams(nextParams, { replace: true });
   }, [
+    location.pathname,
     openForm,
     refreshAll,
     searchParams,
@@ -244,6 +305,34 @@ export function NotificationChannels() {
   useEffect(() => {
     void handleSlackCallback();
   }, [handleSlackCallback]);
+
+  useEffect(() => {
+    if (openAddFromWizardHandled.current) {
+      return;
+    }
+    if (
+      searchParams.get("fromAlertWizard") === "1" &&
+      searchParams.get("openAdd") === "1"
+    ) {
+      openAddFromWizardHandled.current = true;
+      openForm();
+      const next = new URLSearchParams(searchParams);
+      next.delete("openAdd");
+      setSearchParams(next, { replace: true });
+    }
+  }, [openForm, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem(SESSION_OPEN_SLACK_MODAL_ON_RETURN) !== "1") {
+      return;
+    }
+    if (!slackConnectedChannel) {
+      return;
+    }
+    setChannelType("SLACK");
+    openForm();
+    sessionStorage.removeItem(SESSION_OPEN_SLACK_MODAL_ON_RETURN);
+  }, [openForm, slackConnectedChannel]);
 
   useEffect(() => {
     if (!formOpened || channelType !== "SLACK") {
@@ -335,6 +424,7 @@ export function NotificationChannels() {
     resetForm();
     closeForm();
     await refreshAll();
+    notifyReturnToAlertWizard();
   };
 
   const handleCreateChannel = async () => {
@@ -349,7 +439,18 @@ export function NotificationChannels() {
         await handleCreateSlackMappings();
         return;
       }
-      const returnPath = `${location.pathname}${location.search}`;
+      const returnParams = new URLSearchParams(location.search);
+      const fromAlertWizard =
+        returnParams.get("fromAlertWizard") === "1" ||
+        sessionStorage.getItem(SESSION_FROM_ALERT_WIZARD) === "1";
+      if (fromAlertWizard) {
+        returnParams.set("fromAlertWizard", "1");
+      }
+      returnParams.set("openAdd", "1");
+      const returnPath = `${location.pathname}${
+        returnParams.toString() ? `?${returnParams.toString()}` : ""
+      }`;
+      sessionStorage.setItem(SESSION_OPEN_SLACK_MODAL_ON_RETURN, "1");
       const install = await slackInstallMutation.mutateAsync({
         returnPath,
       });
@@ -375,15 +476,19 @@ export function NotificationChannels() {
       eventNames: [NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING],
     });
 
-    if (createResponse.error || !createResponse.data) {
+    if (createResponse.error || createResponse.data == null) {
       showError(createResponse.error?.message || "Failed to create channel");
       return;
     }
-    const createdChannel = createResponse.data;
+    const createdChannelId = Number(createResponse.data);
+    if (!Number.isFinite(createdChannelId) || createdChannelId <= 0) {
+      showError("Invalid channel id returned from server");
+      return;
+    }
 
     if (channelType === "SLACK_WEBHOOK") {
       const mappingResponse = await createMappingMutation.mutateAsync({
-        channelId: createdChannel.id,
+        channelId: createdChannelId,
         eventName: NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING,
         recipient: webhookUrl.trim(),
         recipientName: channelName.trim(),
@@ -394,7 +499,7 @@ export function NotificationChannels() {
       }
     } else {
       const mappingPayload = emails.map((email) => ({
-        channelId: createdChannel.id,
+        channelId: createdChannelId,
         eventName: NOTIFICATION_EVENT_NAMES.PULSE_ALERT_FIRING,
         recipient: email.trim(),
         recipientName: channelName.trim(),
@@ -412,6 +517,7 @@ export function NotificationChannels() {
     resetForm();
     closeForm();
     await refreshAll();
+    notifyReturnToAlertWizard();
   };
 
   const handleRemoveSlackConnect = async () => {
@@ -449,6 +555,11 @@ export function NotificationChannels() {
     showSuccess("Slack disconnected");
     setSelectedSlackChannelIds([]);
     await refreshAll();
+  };
+
+  const handleConfirmDisconnectSlack = async () => {
+    await handleRemoveSlackConnect();
+    closeDisconnectConfirm();
   };
 
   const isCreating =
@@ -631,9 +742,7 @@ export function NotificationChannels() {
                                   color="red"
                                   variant="light"
                                   size="xs"
-                                  onClick={() =>
-                                    void handleRemoveSlackConnect()
-                                  }
+                                  onClick={openDisconnectConfirm}
                                   loading={updateChannelMutation.isPending}
                                 >
                                   Disconnect Slack
@@ -831,7 +940,7 @@ export function NotificationChannels() {
               <Button
                 color="red"
                 variant="light"
-                onClick={() => void handleRemoveSlackConnect()}
+                onClick={openDisconnectConfirm}
                 loading={updateChannelMutation.isPending}
               >
                 Disconnect Slack
@@ -850,6 +959,32 @@ export function NotificationChannels() {
             </Button>
           </Box>
         </Box>
+      </Modal>
+      <Modal
+        opened={disconnectConfirmOpened}
+        onClose={closeDisconnectConfirm}
+        title="Disconnect Slack?"
+        centered
+        size="sm"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            This will disable the Slack connection and all Slack channel
+            mappings for this project. You can reconnect later.
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeDisconnectConfirm}>
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              onClick={() => void handleConfirmDisconnectSlack()}
+              loading={updateChannelMutation.isPending}
+            >
+              Disconnect
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </Box>
   );

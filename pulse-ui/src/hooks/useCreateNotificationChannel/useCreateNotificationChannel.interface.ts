@@ -1,5 +1,5 @@
 import { ApiResponse } from "../../helpers/makeRequest";
-import { ChannelConfig, NotificationChannel, ChannelType } from "../../types";
+import { ChannelConfig, ChannelType } from "../../types";
 
 export type CreateNotificationChannelParams = {
   projectId?: string;
@@ -9,7 +9,8 @@ export type CreateNotificationChannelParams = {
   eventNames?: string[];
 };
 
-export type CreateNotificationChannelResponse = NotificationChannel;
+/** Backend returns created channel id (Long), not full channel object. */
+export type CreateNotificationChannelResponse = number;
 
 export type CreateNotificationChannelOnSettled = (
   data: ApiResponse<CreateNotificationChannelResponse> | undefined,

@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
+  Button,
   Card,
   Group,
   Radio,
@@ -15,16 +16,23 @@ import {
   Text,
   ThemeIcon,
 } from "@mantine/core";
+import { useQueryClient } from "@tanstack/react-query";
+import { useParams } from "react-router-dom";
 import {
   IconAlertCircle,
   IconAlertTriangle,
   IconInfoCircle,
+  IconPlus,
 } from "@tabler/icons-react";
 import { useAlertFormContext } from "../../../context";
 import { useGetAlertSeverities } from "../../../../../hooks/useGetAlertSeverities";
 import { AlertSeverityItem } from "../../../../../hooks/useGetAlertSeverities/useGetAlertSeverities.interface";
 import { useGetChannelMappings } from "../../../../../hooks/useChannelMappings";
-import { NOTIFICATION_EVENT_NAMES } from "../../../../../constants/Constants";
+import {
+  NOTIFICATION_CHANNELS_UPDATED_MESSAGE,
+  NOTIFICATION_EVENT_NAMES,
+  SESSION_STORAGE_ALERT_WIZARD_CHANNEL_REFRESH,
+} from "../../../../../constants/Constants";
 import type { ChannelType } from "../../../../../types";
 import { StepHeader } from "../StepHeader";
 import classes from "./StepSeverityNotification.module.css";
@@ -60,6 +68,8 @@ const SEVERITY_LEVEL_MAP: Record<
 export const StepSeverityNotification: React.FC<
   StepSeverityNotificationProps
 > = ({ className }) => {
+  const { projectId } = useParams<{ projectId: string }>();
+  const queryClient = useQueryClient();
   const { formData, updateStepData } = useAlertFormContext();
   const { severityId, channelEventMappingId } = formData.severityNotification;
 
@@ -135,6 +145,58 @@ export const StepSeverityNotification: React.FC<
     [updateStepData],
   );
 
+  const refreshMappings = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["GET_CHANNEL_MAPPINGS"] });
+  }, [queryClient]);
+
+  const clearWizardRefreshFlag = useCallback(() => {
+    sessionStorage.removeItem(SESSION_STORAGE_ALERT_WIZARD_CHANNEL_REFRESH);
+  }, []);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+      if (event.data?.type === NOTIFICATION_CHANNELS_UPDATED_MESSAGE) {
+        void refreshMappings();
+        clearWizardRefreshFlag();
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [refreshMappings, clearWizardRefreshFlag]);
+
+  useEffect(() => {
+    const onFocusOrVisible = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      if (
+        sessionStorage.getItem(SESSION_STORAGE_ALERT_WIZARD_CHANNEL_REFRESH) ===
+        "1"
+      ) {
+        void refreshMappings();
+        clearWizardRefreshFlag();
+      }
+    };
+    window.addEventListener("focus", onFocusOrVisible);
+    document.addEventListener("visibilitychange", onFocusOrVisible);
+    return () => {
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
+    };
+  }, [refreshMappings, clearWizardRefreshFlag]);
+
+  const handleOpenAddNotificationChannel = useCallback(() => {
+    if (!projectId) {
+      return;
+    }
+    sessionStorage.setItem(SESSION_STORAGE_ALERT_WIZARD_CHANNEL_REFRESH, "1");
+    const url = `${window.location.origin}/projects/${projectId}/settings/notifications?fromAlertWizard=1&openAdd=1`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, [projectId]);
+
   return (
     <Box className={`${classes.container} ${className || ""}`}>
       <StepHeader
@@ -184,7 +246,24 @@ export const StepSeverityNotification: React.FC<
       </Box>
 
       <Box className={classes.section}>
-        <Text className={classes.sectionTitle}>Notification Channel</Text>
+        <Group
+          justify="space-between"
+          align="flex-start"
+          wrap="wrap"
+          gap="sm"
+          className={classes.notificationSectionHeader}
+        >
+          <Text className={classes.sectionTitle}>Notification Channel</Text>
+          <Button
+            variant="light"
+            size="xs"
+            leftSection={<IconPlus size={14} />}
+            onClick={handleOpenAddNotificationChannel}
+            disabled={!projectId}
+          >
+            Add notification channel
+          </Button>
+        </Group>
         <Stack gap="md">
           <Select
             label="Notification type"
@@ -227,8 +306,9 @@ export const StepSeverityNotification: React.FC<
               color="yellow"
               variant="light"
             >
-              No notification channels configured. Add channels in Settings →
-              Notification Channels.
+              No notification channels configured. Use &quot;Add notification
+              channel&quot; above or add them in Settings → Notification
+              Channels.
             </Alert>
           )}
         </Stack>
