@@ -26,6 +26,9 @@ mkdir -p "${ROOT_DIR}/artifact"
 
 echo "Building ${APPLICATION_NAME} (release) version ${VERSION}"
 cd "${ROOT_DIR}/backend/session-capture-service"
+# rdkafka-sys builds librdkafka via CMake once per target dir. If an older build ran without libzstd-dev,
+# incremental builds may skip rebuilding — then compression.codec=zstd fails at runtime ("libzstd not available at build time").
+cargo clean -p rdkafka-sys 2>/dev/null || cargo clean
 cargo build --release
 
 mkdir -p "${ROOT_DIR}/artifact/${APPLICATION_NAME}"
