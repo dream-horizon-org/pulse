@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 protocol FileWriter {
   func write(data: Data)
@@ -41,7 +44,14 @@ final class OrchestratedFileWriter: FileWriter {
     do {
       let file = try orchestrator.getWritableFile(writeSize: UInt64(data.count))
       try file.append(data: data, synchronized: syncOnEnd)
-    } catch {}
+    } catch {
+      let errClass = PulseErrorClassification.classify(error)
+      let diskPart =
+        DiskAvailableBytes.forDirectoryURL(orchestrator.persistenceDirectoryURL)
+        .map { " disk_available_bytes=\($0)" } ?? ""
+      PulseLogger.error(
+        "sdk.disk.write_failure signal=persistence error_class=\(errClass)\(diskPart)")
+    }
   }
 
   func flush() {

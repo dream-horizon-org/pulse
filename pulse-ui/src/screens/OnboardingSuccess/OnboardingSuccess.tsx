@@ -9,7 +9,6 @@ import {
   Group,
   Paper,
   ActionIcon,
-  Tabs,
   Code,
   Select,
   Alert,
@@ -24,14 +23,15 @@ import {
   IconRocket,
   IconKey,
   IconUsers,
-  IconCode,
+  IconBook,
+  IconExternalLink,
   IconAlertCircle,
 } from "@tabler/icons-react";
 import { showNotification } from "../../helpers/showNotification";
 import { useProjectContext } from "../../contexts";
 import { InviteCollaboratorsInput } from "../../components";
 
-import { ROUTES, COOKIES_KEY } from "../../constants";
+import { ROUTES, COOKIES_KEY, PULSE_DEVELOPER_DOCS_URL } from "../../constants";
 import { useInviteProjectMember, useProjectApiKey } from "../../hooks";
 import { ApiResponse } from "../../helpers/makeRequest";
 import { ProjectMember, BulkInviteResult } from "../../types/members";
@@ -236,38 +236,6 @@ export function OnboardingSuccess() {
     return `${key.substring(0, 8)}${"•".repeat(24)}${key.substring(key.length - 4)}`;
   };
 
-  const androidCode = `// Initialize Pulse SDK in your Application class
-import com.dreamhorizon.pulse.Pulse
-
-class MyApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        
-        Pulse.initialize(
-            context = this,
-            apiKey = "${projectApiKey || "LOADING..."}"
-        )
-    }
-}`;
-
-  const iosCode = `// Initialize Pulse SDK in AppDelegate
-import Pulse
-
-func application(_ application: UIApplication,
-                didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    
-    Pulse.initialize(apiKey: "${projectApiKey || "LOADING..."}")
-    
-    return true
-}`;
-
-  const reactNativeCode = `// Initialize Pulse SDK in your App.tsx or index.js
-import { Pulse } from '@dreamhorizon/pulse-react-native';
-
-Pulse.initialize({
-  apiKey: '${projectApiKey || "LOADING..."}',
-});`;
-
   return (
     <Box className={classes.container}>
       <Container size="lg" className={classes.mainContainer}>
@@ -281,7 +249,8 @@ Pulse.initialize({
               fw={700}
               size="32px"
             >
-              <span aria-hidden="true">🎉 </span>Project "{projectName}" Created Successfully!
+              <span aria-hidden="true">🎉 </span>Project "{projectName}" Created
+              Successfully!
             </Text>
             <Text
               className={classes.subtitle}
@@ -314,13 +283,13 @@ Pulse.initialize({
                 }}
               >
                 <Text size="sm" fw={500} c="white">
-                  ⚠️ We haven't received any data from your SDK yet. Please
-                  complete the SDK initialization steps below to start viewing
-                  analytics in your dashboard.{" "}
+                  ⚠️ We haven&apos;t received any data from your SDK yet. Follow
+                  the integration guide in the Pulse documentation to send
+                  telemetry.{" "}
                   <Text component="span" fw={700} c="white">
-                    Data typically appears within 2–5 minutes of SDK
-                    initialization. If nothing shows up after 10 minutes,
-                    double-check your API key and network connection.
+                    Data typically appears within 2–5 minutes after the SDK is
+                    sending. If nothing shows after 10 minutes, verify your API
+                    key and network.
                   </Text>
                 </Text>
               </Alert>
@@ -384,43 +353,28 @@ Pulse.initialize({
             )}
           </Paper>
 
-          {/* Quick Start Code Section */}
+          {/* SDK integration — docs link (code samples live in documentation) */}
           <Paper className={classes.section} shadow="sm" p="xl" radius="md">
             <Group mb="md">
-              <IconCode size={24} style={{ color: "#0ec9c2" }} />
+              <IconBook size={24} style={{ color: "#0ec9c2" }} />
               <Text fw={600} size="lg">
-                Quick Start
-              </Text>{" "}
+                SDK integration
+              </Text>
             </Group>
             <Text size="sm" c="dimmed" mb="md">
-              Choose your platform and copy the initialization code:
+              Follow the documentation to integrate the Pulse SDK with your platform.
             </Text>
-
-            <Tabs defaultValue="android" className={classes.tabs}>
-              <Tabs.List>
-                <Tabs.Tab value="android">Android</Tabs.Tab>
-                <Tabs.Tab value="ios">iOS</Tabs.Tab>
-                <Tabs.Tab value="react-native">React Native</Tabs.Tab>
-              </Tabs.List>
-
-              <Tabs.Panel value="android" pt="md">
-                <Box className={classes.codeBlock}>
-                  <pre className={classes.codeContent}>{androidCode}</pre>
-                </Box>
-              </Tabs.Panel>
-
-              <Tabs.Panel value="ios" pt="md">
-                <Box className={classes.codeBlock}>
-                  <pre className={classes.codeContent}>{iosCode}</pre>
-                </Box>
-              </Tabs.Panel>
-
-              <Tabs.Panel value="react-native" pt="md">
-                <Box className={classes.codeBlock}>
-                  <pre className={classes.codeContent}>{reactNativeCode}</pre>
-                </Box>
-              </Tabs.Panel>
-            </Tabs>
+            <Button
+              component="a"
+              href={PULSE_DEVELOPER_DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="light"
+              color="teal"
+              rightSection={<IconExternalLink size={18} />}
+            >
+              Open Pulse documentation
+            </Button>
           </Paper>
 
           {/* Invite Team Section */}

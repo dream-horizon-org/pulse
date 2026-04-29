@@ -7,16 +7,18 @@ import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.User;
+import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
+import org.dreamhorizon.pulseserver.service.notification.NotificationService;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -30,7 +32,7 @@ public class TenantMemberService {
     private final UserService userService;
     private final TenantService tenantService;
     private final OpenFgaService openFgaService;
-    private final EmailService emailService;
+    private final NotificationService notificationService;
     
     /**
      * Add a user to a tenant with the specified role.
@@ -95,6 +97,18 @@ public class TenantMemberService {
                     }
                     return Single.just(ctx);
                 }))
+            // Cross-tenant validation: block if user already belongs to a different tenant
+            .flatMap(ctx -> openFgaService.getUserTenants(ctx.newUser.getUserId())
+                .flatMap(existingTenants -> {
+                    if (existingTenants != null && !existingTenants.isEmpty()
+                            && !existingTenants.contains(tenantId)) {
+                        log.warn("Cross-tenant membership blocked: user={} already in tenants={}, target tenant={}",
+                            ctx.newUser.getUserId(), existingTenants, tenantId);
+                        return Single.error(new IllegalStateException(
+                            "User already belongs to a different organization and cannot be added to this one."));
+                    }
+                    return Single.just(ctx);
+                }))
             // 4. Assign role in OpenFGA with rollback on failure
             .flatMap(ctx -> {
                 return userService.getUserByEmail(email)
@@ -113,19 +127,21 @@ public class TenantMemberService {
                     );
             })
             // 5. Send notification email (non-critical)
-            .doOnSuccess(ctx -> {
-                try {
-                    emailService.sendTenantWelcomeEmail(
-                        ctx.newUser.getEmail(),
-                        ctx.tenant.getName(),
-                        role,
-                        ctx.admin.getName());
-                } catch (Exception e) {
-                    log.error("Failed to send welcome email to {}", ctx.newUser.getEmail(), e);
-                }
-                log.info("User added to tenant successfully: userId={}, tenant={}, role={}", 
-                    ctx.newUser.getUserId(), tenantId, role);
-            })
+            .doOnSuccess(ctx -> notificationService.sendNotificationAsync(NotificationConstants.NOTIFICATION_DEFAULT_PROJECT,
+                    SendNotificationRequestDto.builder()
+                            .eventName(NotificationConstants.Platform.TENANT_COLLABORATOR_ADDED)
+                            .recipients(RecipientsDto.builder()
+                                    .emails(List.of(email))
+                                    .build())
+                            .channelTypes(List.of(ChannelType.EMAIL))
+                            .idempotencyKey(UUID.randomUUID().toString())
+                            .params(Map.of(
+                                    "tenantId", tenantId,
+                                    "email", email,
+                                    "role", role,
+                                    "addedBy", addedBy
+                            ))
+                            .build()))
             .map(ctx -> ctx.newUser)
             .doOnError(error -> 
                 log.error("Failed to add user to tenant: email={}, tenant={}", email, tenantId, error)
@@ -238,7 +254,7 @@ public class TenantMemberService {
                     .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + removedBy))),
                 userService.getUserById(userIdToRemove)
                     .onErrorResumeNext(error -> Single.error(new RuntimeException("User to remove not found: " + userIdToRemove))),
-                (tenant, admin, userToRemove) -> new RemoveContext(tenant, admin, userToRemove)
+                        RemoveContext::new
             )
             // Authorization check
             .flatMap(ctx -> openFgaService.isTenantAdmin(removedBy, tenantId)
@@ -254,14 +270,25 @@ public class TenantMemberService {
                 .andThen(Single.just(ctx)))
             // Send notification
             .doOnSuccess(ctx -> {
-                try {
-                    emailService.sendAccessRemovedEmail(
-                        ctx.userToRemove.getEmail(),
-                        ctx.tenant.getName(),
-                        ctx.admin.getName());
-                } catch (Exception e) {
-                    log.error("Failed to send removal email to {}", ctx.userToRemove.getEmail(), e);
-                }
+
+                String userEmail = Optional.ofNullable(ctx.userToRemove)
+                        .map(User::getEmail)
+                        .filter(email -> !email.isBlank())
+                        .orElse("user");
+                notificationService.sendNotificationAsync(NotificationConstants.NOTIFICATION_DEFAULT_PROJECT,
+                        SendNotificationRequestDto.builder()
+                                .eventName(NotificationConstants.Platform.TENANT_COLLABORATOR_REMOVED)
+                                .recipients(RecipientsDto.builder()
+                                        .emails(List.of(userEmail))
+                                        .build())
+                                .channelTypes(List.of(ChannelType.EMAIL))
+                                .idempotencyKey(UUID.randomUUID().toString())
+                                .params(Map.of(
+                                        "tenantId", tenantId,
+                                        "userEmail", userEmail,
+                                        "removedBy", removedBy
+                                ))
+                                .build());
                 log.info("User removed from tenant successfully: user={}, tenant={}", userIdToRemove, tenantId);
             })
             .ignoreElement()
@@ -339,15 +366,25 @@ public class TenantMemberService {
                 .andThen(Single.just(ctx)))
             // Send notification
             .doOnSuccess(ctx -> {
-                try {
-                    emailService.sendRoleUpdatedEmail(
-                        ctx.userToUpdate.getEmail(),
-                        ctx.tenant.getName(),
-                        newRole,
-                        ctx.admin.getName());
-                } catch (Exception e) {
-                    log.error("Failed to send role update email to {}", ctx.userToUpdate.getEmail(), e);
-                }
+                String userEmail = Optional.ofNullable(ctx.userToUpdate)
+                        .map(User::getEmail)
+                        .filter(email -> !email.isBlank())
+                        .orElse("user");
+                notificationService.sendNotificationAsync(NotificationConstants.NOTIFICATION_DEFAULT_PROJECT,
+                        SendNotificationRequestDto.builder()
+                                .eventName(NotificationConstants.Platform.TENANT_COLLABORATOR_ROLE_UPDATED)
+                                .recipients(RecipientsDto.builder()
+                                        .emails(List.of(userEmail))
+                                        .build())
+                                .channelTypes(List.of(ChannelType.EMAIL))
+                                .idempotencyKey(UUID.randomUUID().toString())
+                                .params(Map.of(
+                                        "tenantId", tenantId,
+                                        "newRole", newRole,
+                                        "userEmail", userEmail,
+                                        "updatedBy", updatedBy
+                                ))
+                                .build());
                 log.info("Tenant role updated successfully: user={}, tenant={}, newRole={}", 
                     userId, tenantId, newRole);
             })
@@ -404,11 +441,19 @@ public class TenantMemberService {
             .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
             .flatMap(tenant -> userService.getOrCreateUser(email, email)
                 .map(user -> new InternalAddContext(tenant, user)))
-            // Check if user already has a tenant role
-            .flatMap(ctx -> openFgaService.getUserTenantRole(ctx.user.getUserId(), tenantId)
-                .flatMap(existingRole -> {
-                    if (existingRole.isPresent()) {
-                        log.debug("User already has tenant role '{}', skipping auto-add", existingRole.get());
+            // Cross-tenant validation + same-tenant short-circuit (replaces getUserTenantRole)
+            .flatMap(ctx -> openFgaService.getUserTenants(ctx.user.getUserId())
+                .flatMap(existingTenants -> {
+                    if (existingTenants != null && !existingTenants.isEmpty()
+                            && !existingTenants.contains(tenantId)) {
+                        log.warn("Cross-tenant membership blocked in internal add: user={} already in tenants={}, target tenant={}",
+                            ctx.user.getUserId(), existingTenants, tenantId);
+                        return Single.error(new IllegalStateException(
+                            "User already belongs to a different organization and cannot be added to this one."));
+                    }
+                    if (existingTenants != null && existingTenants.contains(tenantId)) {
+                        log.debug("User already in tenant, skipping auto-add: user={}, tenant={}",
+                            ctx.user.getUserId(), tenantId);
                         return Single.just(ctx.user);
                     }
                     // Assign member role in OpenFGA

@@ -24,9 +24,12 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
 
     public func getConfigs() async throws -> [InteractionConfig]? {
         let urlString = urlProvider()
-        print("[Pulse] Interaction: requesting config from endpoint: \(urlString)")
+        let t0 = Date()
+        PulseLogger.debug(
+            "sdk.interaction.config_fetch phase=start endpoint=\(PulseRedaction.redactUrl(urlString))")
         guard let url = URL(string: urlString) else {
-            print("[Pulse] Interaction: invalid config URL (skipping fetch)")
+            PulseLogger.warn(
+                "sdk.interaction.config_fetch success=false duration_ms=0 error_class=invalid_url")
             return nil
         }
 
@@ -38,20 +41,25 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
         let (data, response) = try await urlSession.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            PulseLogger.warn(
+                "sdk.interaction.config_fetch success=false duration_ms=\(ms) error_class=non_http_response")
             return nil
         }
 
-        // Check HTTP status code
         guard (200...299).contains(httpResponse.statusCode) else {
-            print("[Pulse] Interaction: config endpoint returned HTTP \(httpResponse.statusCode), response preview: \(String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode>")")
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            PulseLogger.warn(
+                "sdk.interaction.config_fetch success=false duration_ms=\(ms) http_status=\(httpResponse.statusCode)")
             return nil
         }
 
-        // Check Content-Type header to ensure it's JSON
         if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type"),
            !contentType.contains("application/json") && !contentType.contains("text/json") {
-            let preview = String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode>"
-            print("[Pulse] Interaction: config endpoint returned non-JSON Content-Type: \(contentType). Endpoint: \(urlString). Response preview: \(preview)")
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            PulseLogger.warn(
+                "sdk.interaction.parse_failure duration_ms=\(ms) error_class=non_json_content_type content_type=\(contentType)"
+            )
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(
                     codingPath: [],
@@ -60,20 +68,24 @@ public class InteractionConfigRestFetcher: InteractionConfigFetcher {
             )
         }
 
-        // Try to decode JSON (API returns a raw array of interaction configs, no data/error wrapper)
         do {
             let configs = try JSONDecoder().decode([InteractionConfig].self, from: data)
-            print("[Pulse] Interaction: config fetched successfully, \(configs.count) interaction(s) present")
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            PulseLogger.info(
+                "sdk.interaction.config_fetch success=true duration_ms=\(ms) interactions_count=\(configs.count)")
             return configs
         } catch {
-            // Log endpoint and raw response for debugging decode failures
-            let responsePreview = String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode as UTF-8>"
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
             let decodeDetail = (error as? DecodingError).map { describe($0) } ?? error.localizedDescription
-            print("[Pulse] Interaction: decode failed. Endpoint: \(urlString). HTTP status: \(httpResponse.statusCode). Decode error: \(decodeDetail). Response body (first 500 chars): \(responsePreview)")
+            PulseLogger.warn(
+                "sdk.interaction.parse_failure duration_ms=\(ms) http_status=\(httpResponse.statusCode) error_detail=\(decodeDetail)"
+            )
+            let responsePreview = String(data: data.prefix(500), encoding: .utf8) ?? "<unable to decode as UTF-8>"
+            PulseLogger.verbose("Interaction: decode failure response body (first 500 chars): \(responsePreview)")
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(
                     codingPath: [],
-                    debugDescription: "Failed to decode JSON response. Response preview: \(responsePreview). Original error: \(error.localizedDescription). This might indicate the endpoint URL is incorrect or the server returned an error page."
+                    debugDescription: "Failed to decode JSON response. Original error: \(error.localizedDescription). This might indicate the endpoint URL is incorrect or the server returned an error page."
                 )
             )
         }

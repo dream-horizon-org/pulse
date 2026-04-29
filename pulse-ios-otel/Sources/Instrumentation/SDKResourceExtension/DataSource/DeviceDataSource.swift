@@ -46,8 +46,7 @@ public class DeviceDataSource: IDeviceDataSource {
 
       let modelRequestError = sysctl(hwName, 2, machine, len, nil, 0)
       if modelRequestError != 0 {
-        // TODO: better error log
-        print("error #\(errno): \(String(describing: String(utf8String: strerror(errno))))")
+        PulseLogger.warn("Device model request failed: errno \(errno)")
 
         return nil
       }

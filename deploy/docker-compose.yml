@@ -12,7 +12,7 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./db/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../backend/db/dev/mysql/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -102,9 +102,7 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-      - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/01-clickhouse-otel-schema.sql:ro
-      - ../backend/ingestion/clickhouse-session-replay-schema.sql:/docker-entrypoint-initdb.d/02-clickhouse-session-replay-schema.sql:ro
-      - ../backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/03-session-summary-mv.sql:ro
+      - ../backend/db/dev/clickhouse:/docker-entrypoint-initdb.d/:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -122,9 +120,7 @@ services:
     command: /bin/bash /scripts/init-clickhouse.sh
     volumes:
       - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
-      - ../backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
-      - ../backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro
-      - ../backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro
+      - ../backend/db/dev/clickhouse:/init/clickhouse:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
@@ -365,17 +361,21 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID}
-        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL:-http://localhost:8080}
+        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL}
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
         REACT_APP_ROOT_CAUSE_ENABLED: ${REACT_APP_ROOT_CAUSE_ENABLED:-false}
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
-        REACT_APP_FIREBASE_PROJECT_ID: ${REACT_APP_FIREBASE_PROJECT_ID}
+        REACT_APP_FIREBASE_PROJECT_ID: ${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
+        REACT_APP_FIREBASE_STORAGE_BUCKET: ${REACT_APP_FIREBASE_STORAGE_BUCKET}
+        REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
         REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
-        REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER:-false}
-        REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY:-500}
-        REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE:-0}
-        REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING:-false}
+        REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER}
+        REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY}
+        REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE}
+        REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING}
+        REACT_APP_FIREBASE_AUTH_EMULATOR: ${REACT_APP_FIREBASE_AUTH_EMULATOR}
+        REACT_APP_FIREBASE_AUTH_EMULATOR_URL: ${REACT_APP_FIREBASE_AUTH_EMULATOR_URL}
         REACT_APP_GCP_MULTI_TENANT_ENABLED: ${REACT_APP_GCP_MULTI_TENANT_ENABLED:-true}
     container_name: pulse-ui
     ports:
@@ -397,15 +397,9 @@ services:
 
   # Vector Service (Data Collector) - optional: set VECTOR_ENABLED=true in .env to enable
   vector:
+    image: 650012445044.dkr.ecr.ap-south-1.amazonaws.com/pulse-vector:latest
     profiles:
       - vector
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/parth-modh/vector
-        VECTOR_REF: forked/multi-bucket
-        DEBIAN_VERSION: "12"
     container_name: vector
     command: [ ]
     environment:
@@ -444,6 +438,7 @@ services:
       # MySQL Database Configuration
       - MYSQL_WRITER_HOST=mysql
       - MYSQL_READER_HOST=mysql
+      - MYSQL_PORT=3306
       - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
       - MYSQL_USER=${MYSQL_USER:-pulse_user}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
@@ -452,6 +447,11 @@ services:
 
       # Application Configuration
       - APP_ENVIRONMENT=${APP_ENVIRONMENT:-dev}
+      # Optional: JVM OTEL export → host observability stack (deploy/observability-otel-prometheus-tempo :14318). Default false = unchanged behavior.
+      - PULSE_BACKEND_OTEL_ENABLED=${PULSE_BACKEND_OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-}
       - CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL=${CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL:-http://pulse-alerts-cron:4000/cron}
       - CONFIG_SERVICE_APPLICATION_SERVICEURL=${CONFIG_SERVICE_APPLICATION_SERVICEURL:-http://pulse-server:8080}
       - DASHBOARD_BASE_URL=${DASHBOARD_BASE_URL:-http://localhost:3000}
@@ -461,6 +461,17 @@ services:
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
       - DEV_MODE_API_KEY=${DEV_MODE_API_KEY:-default-project_devkey01}
       - CONFIG_REPLAY_API_BASE_URL=${CONFIG_REPLAY_API_BASE_URL}
+
+      # Spark Job Configuration
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JAR_PATH:-s3://pulse-deployment-config/spark/pulse-spark-jobs-1.0-SNAPSHOT.jar}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_FUNNELS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_JOURNEYS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
+      - CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS=${CONFIG_SERVICE_APPLICATION_SPARK_JOB_EVENTS_MAIN_CLASS:-org.dreamhorizon.pulsespark.SparkJobRunner}
+
+      # Product analytics batch engine (conf/analytics-engine-default.conf): spark | clickhouse
+      - ANALYTICS_COMPUTE_ENGINE=${ANALYTICS_COMPUTE_ENGINE:-clickhouse}
+      # Max concurrent per-project ClickHouse batch queries when ANALYTICS_COMPUTE_ENGINE=clickhouse (prod requires > 0)
+      - ANALYTICS_BATCH_PROJECT_CONCURRENCY=${ANALYTICS_BATCH_PROJECT_CONCURRENCY:-1}
 
       # ClickHouse Database Configuration
       - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -498,22 +509,28 @@ services:
       - HEATMAP_SCREENSHOTS_S3_PREFIX=${HEATMAP_SCREENSHOTS_S3_PREFIX:-heatmap-screenshots}
 
       # CloudFront Configuration
-      - CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID:-NONE}
+      - CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID:-NONE}
       - CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH:-/config/pulse-config.json}
       - INTERACTION_CLOUDFRONT_ASSET_PATH=${INTERACTION_CLOUDFRONT_ASSET_PATH:-/config/interaction-config.json}
 
-      # OpenTelemetry Configuration (defaults for local dev)
-      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL:-http://localhost:4318/v1/traces}
-      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL:-http://localhost:4318/v1/logs}
-      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL:-http://localhost:4318/v1/metrics}
-      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL:-http://localhost:4318/v1/traces}
-      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL:-http://localhost:4318/v1/logs}
+      # OpenTelemetry Configuration
+      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL}
+      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL}
+      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}
+      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}
+      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}
       # Query Engine Configuration
       - CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE:-athena}
       # Athena Configuration (only used when QUERY_ENGINE=athena)
       - CONFIG_SERVICE_APPLICATION_ATHENA_REGION=${CONFIG_SERVICE_APPLICATION_ATHENA_REGION:-ap-south-1}
       - CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE=${CONFIG_SERVICE_APPLICATION_ATHENA_DATABASE:-pulse_athena_db}
       - CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION=${CONFIG_SERVICE_APPLICATION_ATHENA_OUTPUT_LOCATION:-s3://puls-otel-config/}
+
+      # EMR Serverless (optional; leave unset for local Docker — disabled in emr-serverless-default.conf)
+      - CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED:-false}
+      - CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION:-ap-south-1}
+      - CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID:-}
+      - CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN=${CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN:-}
       # GCP Configuration (only used when QUERY_ENGINE=gcp)
       - CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID=${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
       # - CONFIG_SERVICE_APPLICATION_GCP_DATASET=${CONFIG_SERVICE_APPLICATION_GCP_DATASET}
@@ -529,8 +546,15 @@ services:
       - AI_SERVICE_URL=${AI_SERVICE_URL:-http://pulse-ai-agent:8000}
       # Root Cause Analysis (local dev: set ROOT_CAUSE_ENABLED=true to enable)
       - ROOT_CAUSE_ENABLED=${ROOT_CAUSE_ENABLED:-false}
+      # Track B error attribution: lower for local demos (default 1000 matches prod gate)
+      - ROOT_CAUSE_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION=${ROOT_CAUSE_MIN_POOR_SESSIONS_ERROR_ATTRIBUTION:-1000}
       # Incident Configuration
       - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
+      - GOALERT_URL=${GOALERT_URL:-}
+      - GOALERT_API_KEY=${GOALERT_API_KEY:-}
+      - GOALERT_USER_API_KEY=${GOALERT_USER_API_KEY:-}
+      - GOALERT_SERVICE_ID=${GOALERT_SERVICE_ID:-}
+      - GOALERT_SLACK_BOT_TOKEN=${GOALERT_SLACK_BOT_TOKEN:-}
 
       # Default SES From for new EMAIL channels (optional; server falls back internally)
       - DEFAULT_ALERT_EMAIL_FROM_ADDRESS=${DEFAULT_ALERT_EMAIL_FROM_ADDRESS:-}
@@ -556,6 +580,8 @@ services:
       - SLACK_OAUTH_SCOPES=${SLACK_OAUTH_SCOPES:-}
     networks:
       - pulse-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql:
         condition: service_healthy
@@ -594,6 +620,10 @@ services:
 
       # Application Configuration
       - CONFIG_SERVICE_APPLICATION_PULSESERVERURL=${CONFIG_SERVICE_APPLICATION_PULSESERVERURL:-http://pulse-server:8080}
+      - PULSE_BACKEND_OTEL_ENABLED=${PULSE_BACKEND_OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-}
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
       - CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET=${CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET:-dev_service_jwt_secret}
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEHOST=clickhouse
@@ -603,14 +633,21 @@ services:
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPASSWORD=pulse_password
       - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-redis}
       - CONFIG_SERVICE_APPLICATION_REDISPORT=${REDIS_PORT:-6379}
+      
+      # Batch job configuration
+      - CONFIG_SERVICE_APPLICATION_BATCHFUNNELSENDPOINT=${CONFIG_SERVICE_APPLICATION_BATCHFUNNELSENDPOINT:-/internal/analytics/funnels}
+      - CONFIG_SERVICE_APPLICATION_BATCHJOURNEYSENDPOINT=${CONFIG_SERVICE_APPLICATION_BATCHJOURNEYSENDPOINT:-/internal/analytics/journeys}
+      - CONFIG_SERVICE_APPLICATION_BATCHEVENTSENDPOINT=${CONFIG_SERVICE_APPLICATION_BATCHEVENTSENDPOINT:-/internal/analytics/events}
+      - CONFIG_SERVICE_APPLICATION_BATCHSCHEDULETIME=${CONFIG_SERVICE_APPLICATION_BATCHSCHEDULETIME:-02:00}
+      - CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED=${CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED:-true}
     networks:
       - pulse-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql:
         condition: service_healthy
       pulse-server:
-        condition: service_healthy
-      clickhouse:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
@@ -641,5 +678,5 @@ volumes:
   kafka-data:
     driver: local
   minio-data:
-    driver: local  
+    driver: local
 

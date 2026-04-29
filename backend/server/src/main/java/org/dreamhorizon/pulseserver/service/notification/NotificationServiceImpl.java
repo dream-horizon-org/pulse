@@ -7,6 +7,7 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.Row;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -575,7 +576,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<NotificationChannelDto> createChannel(CreateChannelRequestDto request) {
+  public Single<Long> createChannel(CreateChannelRequestDto request) {
     validateChannelProjectId(request.getChannelType(), request.getProjectId());
 
     String projectId = request.getProjectId();
@@ -588,7 +589,7 @@ public class NotificationServiceImpl implements NotificationService {
         .flatMap(
             noActiveChannel -> {
               if (!noActiveChannel) {
-                return Single.<NotificationChannelDto>error(
+                return Single.error(
                     ServiceError.DUPLICATE_CHANNEL_TYPE.getCustomException(
                         "An active "
                             + request.getChannelType()
@@ -608,12 +609,6 @@ public class NotificationServiceImpl implements NotificationService {
                   .createChannel(channel)
                   .flatMap(
                       channelId -> {
-                        Single<NotificationChannelDto> result =
-                            channelDao
-                                .getChannelById(channelId)
-                                .toSingle()
-                                .map(this::toChannelDto);
-
                         if (request.getEventNames() != null
                             && !request.getEventNames().isEmpty()
                             && projectId != null) {
@@ -628,10 +623,10 @@ public class NotificationServiceImpl implements NotificationService {
                                               .isActive(true)
                                               .build()))
                               .toList()
-                              .flatMap(ids -> result);
+                              .flatMap(ids -> Single.just(channelId));
                         }
 
-                        return result;
+                        return Single.just(channelId);
                       });
             });
   }
@@ -755,7 +750,7 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<NotificationTemplateDto> createTemplate(CreateTemplateRequestDto request) {
+  public Single<Long> createTemplate(CreateTemplateRequestDto request) {
     return templateDao
         .getLatestVersion(request.getEventName(), request.getChannelType())
         .flatMap(
@@ -769,10 +764,7 @@ public class NotificationServiceImpl implements NotificationService {
                       .isActive(true)
                       .build();
 
-              return templateDao
-                  .createTemplate(template)
-                  .flatMap(id -> templateDao.getTemplateById(id).toSingle())
-                  .map(this::toTemplateDto);
+              return templateDao.createTemplate(template);
             });
   }
 
@@ -887,8 +879,23 @@ public class NotificationServiceImpl implements NotificationService {
 
               return mappingDao
                   .createMapping(mapping)
-                  .flatMap(id -> mappingDao.getMappingById(id).toSingle())
-                  .flatMap(this::enrichMappingDto);
+                  .flatMap(
+                      id -> {
+                        Instant now = Instant.now();
+                        ChannelEventMapping inserted =
+                            ChannelEventMapping.builder()
+                                .id(id)
+                                .projectId(mapping.getProjectId())
+                                .channelId(mapping.getChannelId())
+                                .eventName(mapping.getEventName())
+                                .recipient(mapping.getRecipient())
+                                .recipientName(mapping.getRecipientName())
+                                .isActive(mapping.getIsActive())
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        return enrichMappingDto(inserted);
+                      });
             });
   }
 

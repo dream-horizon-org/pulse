@@ -27,9 +27,9 @@ until clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASS
 done
 
 echo "Creating ClickHouse tables..."
-clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < /init/clickhouse-otel-schema.sql
-clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < /init/clickhouse-session-replay-schema.sql
-echo "Creating session summary materialized views..."
-clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < /init/session-summary-mv.sql
+for sql_file in $(ls /init/clickhouse/*.sql | sort); do
+    echo "Executing $(basename "$sql_file")..."
+    clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < "$sql_file"
+done
 echo "✓ ClickHouse tables created successfully!"
 

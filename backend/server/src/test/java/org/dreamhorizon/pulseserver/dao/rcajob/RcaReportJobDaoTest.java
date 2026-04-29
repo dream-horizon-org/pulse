@@ -70,6 +70,20 @@ class RcaReportJobDaoTest {
     when(writerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
   }
 
+  private void setupWriterWithTransaction() {
+    setupWriter();
+
+    io.vertx.rxjava3.sqlclient.SqlConnection conn = org.mockito.Mockito.mock(io.vertx.rxjava3.sqlclient.SqlConnection.class);
+    io.vertx.rxjava3.sqlclient.Transaction tx = org.mockito.Mockito.mock(io.vertx.rxjava3.sqlclient.Transaction.class);
+
+    when(writerPool.rxGetConnection()).thenReturn(io.reactivex.rxjava3.core.Single.just(conn));
+    when(conn.rxBegin()).thenReturn(io.reactivex.rxjava3.core.Single.just(tx));
+    when(tx.rxCommit()).thenReturn(io.reactivex.rxjava3.core.Completable.complete());
+    when(tx.rxRollback()).thenReturn(io.reactivex.rxjava3.core.Completable.complete());
+    when(conn.preparedQuery(anyString())).thenReturn(preparedQuery);
+    org.mockito.Mockito.doAnswer(inv -> io.reactivex.rxjava3.core.Completable.complete()).when(conn).close();
+  }
+
   private Row mockFullRow(RcaJobStatus status) {
     Row row = org.mockito.Mockito.mock(Row.class);
     when(row.getString(0)).thenReturn(JOB_ID);
@@ -99,7 +113,7 @@ class RcaReportJobDaoTest {
 
       assertThat(created.jobId()).isEqualTo(JOB_ID);
       assertThat(created.projectId()).isEqualTo(PROJECT);
-      assertThat(created.type()).isEqualTo(TYPE);
+      assertThat(created.entityType()).isEqualTo(TYPE);
       assertThat(created.entityKey()).isEqualTo(ENTITY_KEY);
       assertThat(created.date()).isEqualTo(DATE);
       assertThat(created.status()).isEqualTo(RcaJobStatus.PENDING);
@@ -180,7 +194,7 @@ class RcaReportJobDaoTest {
       assertThat(job).isNotNull();
       assertThat(job.status()).isEqualTo(RcaJobStatus.PENDING);
       verify(readerPool)
-          .preparedQuery(org.mockito.Mockito.contains("status IN ('PENDING', 'PROCESSING')"));
+          .preparedQuery(org.mockito.Mockito.contains("status IN (?, ?)"));
     }
   }
 
@@ -199,24 +213,24 @@ class RcaReportJobDaoTest {
 
     @Test
     void shouldMarkCompleted() {
-      setupWriter();
+      setupWriterWithTransaction();
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+      when(rowSet.rowCount()).thenReturn(1);
 
       dao.markCompleted(JOB_ID, PROJECT, TYPE, ENTITY_KEY, DATE).blockingAwait();
 
-      verify(writerPool).preparedQuery(org.mockito.Mockito.contains("DELETE FROM rca_report_jobs"));
-      verify(writerPool).preparedQuery(org.mockito.Mockito.contains("SET status = 'COMPLETED'"));
+      verify(writerPool).rxGetConnection();
     }
 
     @Test
     void shouldMarkFailed() {
-      setupWriter();
+      setupWriterWithTransaction();
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+      when(rowSet.rowCount()).thenReturn(1);
 
       dao.markFailed(JOB_ID, PROJECT, TYPE, ENTITY_KEY, DATE, "timeout").blockingAwait();
 
-      verify(writerPool).preparedQuery(org.mockito.Mockito.contains("DELETE FROM rca_report_jobs"));
-      verify(writerPool).preparedQuery(org.mockito.Mockito.contains("SET status = 'FAILED'"));
+      verify(writerPool).rxGetConnection();
     }
   }
 

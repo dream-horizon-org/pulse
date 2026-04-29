@@ -29,7 +29,9 @@ class SessionListingQueryBuilderTest {
 
       assertThat(sql).contains("SELECT");
       assertThat(sql).contains("FROM otel.session_summary");
-      assertThat(sql).contains("WHERE startTime >=");
+      assertThat(sql).contains("ProjectId");
+      assertThat(sql).contains("WHERE");
+      assertThat(sql).contains("startTime >=");
       assertThat(sql).contains("GROUP BY sessionId");
       assertThat(sql).contains("ORDER BY");
       assertThat(sql).contains("LIMIT 10");
@@ -93,6 +95,7 @@ class SessionListingQueryBuilderTest {
 
       String sql = builder.buildJourneyQuery(List.of("s1", "s2"));
 
+      assertThat(sql).contains("ProjectId");
       assertThat(sql).contains("SessionId");
       assertThat(sql).contains("FROM otel.otel_traces");
       assertThat(sql).contains("SessionId IN (");
@@ -135,6 +138,7 @@ class SessionListingQueryBuilderTest {
 
       String sql = builder.buildImpactedScreensQuery(List.of("s1"));
 
+      assertThat(sql).contains("ProjectId");
       assertThat(sql).contains("FROM otel.stack_trace_events");
       assertThat(sql).contains("SessionId IN (");
       assertThat(sql).contains("crashScreens");
@@ -166,6 +170,7 @@ class SessionListingQueryBuilderTest {
 
       String sql = builder.buildImpactedInteractionsQuery(List.of("s1", "s2"));
 
+      assertThat(sql).contains("ProjectId");
       assertThat(sql).contains("FROM otel.otel_traces");
       assertThat(sql).contains("SessionId IN (");
       assertThat(sql).contains("'s1'");

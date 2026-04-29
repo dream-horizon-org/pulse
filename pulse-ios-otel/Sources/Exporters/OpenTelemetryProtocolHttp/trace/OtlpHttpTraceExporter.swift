@@ -6,6 +6,9 @@
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetrySdk
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 #if canImport(OpenTelemetryProtocolExporterCommon)
 import OpenTelemetryProtocolExporterCommon
 #endif
@@ -72,6 +75,8 @@ public class OtlpHttpTraceExporter: OtlpHttpExporterBase, SpanExporter {
       }
     let request = createRequest(body: body, endpoint: endpoint)
     exporterMetrics?.addSeen(value: sendingSpans.count)
+    let t0 = Date()
+    let batchSize = sendingSpans.count
     httpClient.send(request: request) { [weak self] result in
       switch result {
       case .success:
@@ -81,7 +86,10 @@ public class OtlpHttpTraceExporter: OtlpHttpExporterBase, SpanExporter {
         self?.exporterLock.withLockVoid {
           self?.pendingSpans.append(contentsOf: sendingSpans)
         }
-        print(error)
+        let latencyMs = Int(Date().timeIntervalSince(t0) * 1000)
+        let errClass = PulseErrorClassification.classify(error)
+        PulseLogger.warn(
+          "sdk.export signal=span_data success=false latency_ms=\(latencyMs) batch_size=\(batchSize) error_class=\(errClass)")
       }
     }
     return .success
@@ -109,7 +117,7 @@ public class OtlpHttpTraceExporter: OtlpHttpExporterBase, SpanExporter {
           self?.exporterMetrics?.addSuccess(value: pendingSpans.count)
         case let .failure(error):
           self?.exporterMetrics?.addFailed(value: pendingSpans.count)
-          print(error)
+          PulseLogger.debug("Trace flush failed: \(error.localizedDescription)")
           resultValue = .failure
         }
         semaphore.signal()

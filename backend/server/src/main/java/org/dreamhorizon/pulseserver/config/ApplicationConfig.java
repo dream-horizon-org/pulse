@@ -53,6 +53,11 @@ public class ApplicationConfig {
    */
   public HeatmapS3Config heatmapS3;
 
+  /** Redis host for Kong plugin materialization (API key map, usage credits in Part B). */
+  public String redisHost;
+  /** Redis port for Kong plugin materialization. */
+  public Integer redisPort;
+
   /**
    * Get the dev mode API key with a sensible default.
    * This key is used when GOOGLE_OAUTH_ENABLED=false.
@@ -61,5 +66,32 @@ public class ApplicationConfig {
     return devModeApiKey != null && !devModeApiKey.isBlank()
         ? devModeApiKey
         : "default-project_devkey01";
+  }
+
+  /**
+   * Per-project URL for interaction mapping JSON. Normalizes a trailing slash on
+   * {@code interactionConfigUrl} so values like {@code http://host/v1/interaction-configs/} do not
+   * produce a double slash before {@code /projects/...}.
+   *
+   * @return {@code null} when the base URL is missing or blank (avoids the literal
+   *     {@code "null/projects/..."} that {@link String#format} would otherwise produce)
+   */
+  public String buildInteractionConfigFileUrl(String projectId) {
+    if (interactionConfigUrl == null || interactionConfigUrl.isBlank()) {
+      return null;
+    }
+    String base = stripTrailingSlashes(interactionConfigUrl);
+    return String.format("%s/projects/%s/interaction.json", base, projectId);
+  }
+
+  private static String stripTrailingSlashes(String url) {
+    if (url == null || url.isEmpty()) {
+      return url;
+    }
+    int end = url.length();
+    while (end > 0 && url.charAt(end - 1) == '/') {
+      end--;
+    }
+    return url.substring(0, end);
   }
 }

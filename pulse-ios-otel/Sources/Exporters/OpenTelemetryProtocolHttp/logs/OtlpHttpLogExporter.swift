@@ -6,6 +6,9 @@
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetrySdk
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 #if canImport(OpenTelemetryProtocolExporterCommon)
 import OpenTelemetryProtocolExporterCommon
 #endif
@@ -73,6 +76,8 @@ public class OtlpHttpLogExporter: OtlpHttpExporterBase, LogRecordExporter {
     var request = createRequest(body: body, endpoint: endpoint)
     exporterMetrics?.addSeen(value: sendingLogRecords.count)
     request.timeoutInterval = min(explicitTimeout ?? TimeInterval.greatestFiniteMagnitude, config.timeout)
+    let t0 = Date()
+    let batchSize = sendingLogRecords.count
     httpClient.send(request: request) { [weak self] result in
       switch result {
       case .success:
@@ -82,7 +87,10 @@ public class OtlpHttpLogExporter: OtlpHttpExporterBase, LogRecordExporter {
         self?.exporterLock.withLockVoid {
           self?.pendingLogRecords.append(contentsOf: sendingLogRecords)
         }
-        print(error)
+        let latencyMs = Int(Date().timeIntervalSince(t0) * 1000)
+        let errClass = PulseErrorClassification.classify(error)
+        PulseLogger.warn(
+          "sdk.export signal=log_records success=false latency_ms=\(latencyMs) batch_size=\(batchSize) error_class=\(errClass)")
       }
     }
 
@@ -123,9 +131,8 @@ public class OtlpHttpLogExporter: OtlpHttpExporterBase, LogRecordExporter {
         case .success:
           self?.exporterMetrics?.addSuccess(value: pendingLogRecords.count)
           exporterResult = ExportResult.success
-        case let .failure(error):
+        case .failure:
           self?.exporterMetrics?.addFailed(value: pendingLogRecords.count)
-          print(error)
           exporterResult = ExportResult.failure
         }
         semaphore.signal()

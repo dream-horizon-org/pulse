@@ -13,6 +13,12 @@ cp .env.example .env    # first time only, then edit values
 ./scripts/quickstart.sh
 ```
 
+## Product analytics batch (pulse-server)
+
+Funnel/journey daily batch uses **`ANALYTICS_COMPUTE_ENGINE`** (`spark` \| `clickhouse`) and **`ANALYTICS_BATCH_PROJECT_CONCURRENCY`** (positive integer; required when engine is `clickhouse` in production). Declared in `deploy/.env.example`; loaded via `backend/server/src/main/resources/conf/analytics-engine-default.conf`. **Docker Compose** sets defaults in `deploy/docker-compose.yml`; **`deploy/scripts/common.sh`** `load_env` applies defaults for script-driven runs (e.g. `start.sh`).
+
+**pulse-server ClickHouse URL in Compose:** `CLICKHOUSE_R2DBC_URL` targets the internal service **`http://clickhouse:8123`** with database from **`OTEL_CLICKHOUSE_DATABASE`**. Credentials use **`OTEL_CLICKHOUSE_USER`** / **`OTEL_CLICKHOUSE_PASSWORD`**. Overriding to a remote replica requires editing compose (or an override file) so URL/host match the target; `.env` keys like `CLICKHOUSE_HOST` alone are not wired unless compose substitutes them.
+
 ## Build Specific Service
 
 ```bash
@@ -46,11 +52,12 @@ cd deploy
 
 ## Heatmap screenshot ingestion
 
-**Service:** `pulse-heatmap-screenshot-ingestion` (Kafka → S3). Objects go to **`HEATMAP_S3_BUCKET`** (default `heatmap-assets`), prefix `heatmap-screenshots/`. **`pulse-server`** lists via **`HEATMAP_S3_ENDPOINT`** (e.g. `http://minio:9000`); for **presigned** URLs the browser needs a resolvable host — set **`HEATMAP_S3_PRESIGN_ENDPOINT=http://localhost:9100`** locally (MinIO is on host **9100**; **9000** on the host is ClickHouse). Omit **`HEATMAP_S3_PRESIGN_ENDPOINT`** in AWS if the default S3 hostname is fine. **Redis** is not started by deploy compose: set `REDIS_URL` or `REDIS_HOST` + `REDIS_PORT` for quota/dedupe. See `deploy/.env.example`.
+**Service:** `pulse-heatmap-screenshot-ingestion` (Kafka → S3). Objects go to **`HEATMAP_S3_BUCKET`** (default `heatmap-assets`), prefix `heatmap-screenshots/`. **`pulse-server`** lists via **`HEATMAP_S3_ENDPOINT`** (e.g. `http://minio:9000`); for **presigned** URLs the browser needs a resolvable host — set **`HEATMAP_S3_PRESIGN_ENDPOINT=http://localhost:9100`** locally (MinIO is on host **9100**; **9000** on the host is ClickHouse). Omit **`HEATMAP_S3_PRESIGN_ENDPOINT`** in AWS if the default S3 hostname is fine. **Redis** is not started by deploy compose: set `REDIS_URL` or `REDIS_HOST` + `REDIS_PORT` for quota/dedupe on heatmap ingestion, and the same **`REDIS_HOST`** / **`REDIS_PORT`** are passed to **pulse-server** for Kong-related Redis writes (cron only calls pulse-server internal endpoints). See `deploy/.env.example`.
 
 ## Pulse AI
 
-**Integrated (deploy stack):** `pulse-ai-agent` starts with `./scripts/start.sh -d`. Set `GOOGLE_API_KEY` in `deploy/.env` for Gemini. Health: `curl -sf http://localhost:8000/health`.
+**Integrated (deploy stack):** `pulse-ai-agent` starts with `./scripts/start.sh -d`. Set `GOOGLE_API_KEY` in
+`deploy/.env` for Gemini. Health: `curl -sf http://localhost:8000/health`.
 
 **Standalone (AI-only dev):**
 
@@ -68,18 +75,19 @@ curl -sf http://localhost:8000/health
 
 ## Health Checks
 
-Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover actual ports, then use them in health checks:
+Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover actual ports, then use them in health
+checks:
 
-| Service | Health Check | Default Port |
-|---------|-------------|--------------|
-| pulse-server | `curl http://localhost:<port>/healthcheck` | 8080 |
-| pulse-ui | `curl http://localhost:<port>/healthcheck.txt` | 3000 |
-| pulse-alerts-cron | `curl http://localhost:<port>/healthcheck` | 4000 |
-| OpenFGA | `curl http://localhost:8180/healthz` | 8180 |
-| OTEL Collector | `curl http://localhost:<port>/` | 13133 |
-| pulse-ai-agent | `curl -sf http://localhost:8000/health` | 8000 |
-| pulse-session-capture | `curl http://localhost:3400/healthcheck` | 3400 |
-| MinIO (dev) | S3 API on host `9100`, console `9101` | 9100 / 9101 |
+| Service               | Health Check                                   | Default Port |
+|-----------------------|------------------------------------------------|--------------|
+| pulse-server          | `curl http://localhost:<port>/healthcheck`     | 8080         |
+| pulse-ui              | `curl http://localhost:<port>/healthcheck.txt` | 3000         |
+| pulse-alerts-cron     | `curl http://localhost:<port>/healthcheck`     | 4000         |
+| OpenFGA               | `curl http://localhost:8180/healthz`           | 8180         |
+| OTEL Collector        | `curl http://localhost:<port>/`                | 13133        |
+| pulse-ai-agent        | `curl -sf http://localhost:8000/health`        | 8000         |
+| pulse-session-capture | `curl http://localhost:3400/healthcheck`       | 3400         |
+| MinIO (dev)           | S3 API on host `9100`, console `9101`          | 9100 / 9101  |
 
 ## Troubleshooting
 

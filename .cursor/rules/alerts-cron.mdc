@@ -14,7 +14,9 @@ org.dreamhorizon.pulsealertscron/
 │   └── CronController.java
 ├── services/           # Business logic
 │   ├── AlertsService.java
-│   └── CronManager.java
+│   ├── CronManager.java
+│   ├── BatchSchedulerService.java
+│   └── RedisService.java
 ├── dao/                # Data access
 ├── dto/
 │   ├── request/        # AddCronDto, DeleteCronDto, UpdateCronDto
@@ -43,6 +45,8 @@ org.dreamhorizon.pulsealertscron/
 
 - **CronManager**: schedules and manages periodic alert evaluation tasks using Vert.x timers and `ConcurrentHashMap` groups
 - **AlertsService**: fetches alert definitions from `pulse-server` via `WebClient`, builds evaluation URLs
+- **BatchSchedulerService**: schedules daily batch jobs (funnels, journeys, events) at 02:00 UTC using Redis for state persistence
+- **RedisService**: handles Redis operations including batch job state tracking (`lastExecutionDate`, `jobInProgress`, `jobHistory`)
 - **RestVerticle / MainVerticle**: Vert.x verticle pattern with Guice injection
 - Port: 4000, healthcheck: `/healthcheck`
 
@@ -53,6 +57,16 @@ The cron evaluates alerts across four scopes:
 - `SCREEN` — screen performance metrics
 - `NETWORK` — network call metrics
 - `APP_VITALS` — crash rate, ANR rate, app vitals
+
+## Batch Job Configuration
+
+Required environment variables for daily batch jobs:
+- `CONFIG_SERVICE_APPLICATION_BATCHFUNNELSENDPOINT` — endpoint for funnel batch jobs (default: `/internal/analytics/funnels`)
+- `CONFIG_SERVICE_APPLICATION_BATCHJOURNEYSENDPOINT` — endpoint for journey batch jobs (default: `/internal/analytics/journeys`)
+- `CONFIG_SERVICE_APPLICATION_BATCHEVENTSENDPOINT` — endpoint for events batch jobs (default: `/internal/analytics/events`)
+- `CONFIG_SERVICE_APPLICATION_BATCHSCHEDULETIME` — UTC time for daily execution (default: `02:00`)
+- `CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED` — enable/disable batch jobs (default: `true`)
+- `CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET` — JWT secret for internal API authentication
 
 ## Key Patterns
 
@@ -66,7 +80,9 @@ The cron evaluates alerts across four scopes:
 ## Cross-Service Dependency
 
 - Calls `pulse-server` API to fetch alerts (`/alerts`) and trigger evaluation (`/v1/alert/evaluateAndTriggerAlert?alertId=`)
-- Server URL configured via `ApplicationConfig.getPulseServerUrl()`
+- **Periodic sync** (`PeriodicSyncService`): on a timer, calls pulse-server internal POSTs with the service JWT—usage credits (`/internal/v1/projects/limits/sync-to-redis`) and API keys to Redis (`/internal/v1/api-keys/sync-to-redis`). **No** direct ClickHouse or Redis clients in cron; CH + MySQL + Redis for Kong are handled in pulse-server.
+- **Usage notifications**: thin orchestration over `GET`/`POST` pulse-server routes (see `UsageLimitNotificationService` / `PulseServerApiClient`).
+- Server URL and JWT configured via `ApplicationConfig` (`pulseServerUrl`, `serviceJwtSecret`)
 
 ## Code Style
 

@@ -10,7 +10,7 @@ export interface HeatmapTimeRange {
 
 /**
  * Sent as query/body `breakpoint`; must match `interaction_heatmaps_daily.Breakpoint`
- * (see `backend/ingestion/clickhouse-otel-schema.sql` MV).
+ * (see `backend/db/prod/clickhouse/otel.interaction_heatmaps_daily.sql` MV).
  */
 export const HEATMAP_BREAKPOINT_VALUES = [
   "Mobile_Small",
@@ -35,15 +35,17 @@ export const HEATMAP_BREAKPOINT_NAMES: Record<HeatmapBreakpoint, string> =
   ) as Record<HeatmapBreakpoint, string>;
 
 /** Legacy UI values pre–MV rename — normalized on API request. */
-export const LEGACY_HEATMAP_BREAKPOINT_TO_API: Record<string, HeatmapBreakpoint> =
-  {
-    small_mobile: "Mobile_Small",
-    medium_folding: "Mobile_Medium",
-    medium_mobile: "Mobile_Medium",
-    medium_mobile_wide: "Mobile_Medium",
-    large_tablet: "Tablet_Large",
-    extra_large_web: "Web_Extra_Large",
-  };
+export const LEGACY_HEATMAP_BREAKPOINT_TO_API: Record<
+  string,
+  HeatmapBreakpoint
+> = {
+  small_mobile: "Mobile_Small",
+  medium_folding: "Mobile_Medium",
+  medium_mobile: "Mobile_Medium",
+  medium_mobile_wide: "Mobile_Medium",
+  large_tablet: "Tablet_Large",
+  extra_large_web: "Web_Extra_Large",
+};
 
 /** Query params for GET /v1/heatmap/data */
 export interface HeatmapDataQueryParams {

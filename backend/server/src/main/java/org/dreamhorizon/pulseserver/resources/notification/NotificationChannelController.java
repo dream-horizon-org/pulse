@@ -49,7 +49,7 @@ public class NotificationChannelController {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<NotificationChannelDto>> createChannel(
+  public CompletionStage<Response<Long>> createChannel(
       @NotNull @Valid CreateChannelRequestDto request) {
     return notificationService
         .createChannel(request)
