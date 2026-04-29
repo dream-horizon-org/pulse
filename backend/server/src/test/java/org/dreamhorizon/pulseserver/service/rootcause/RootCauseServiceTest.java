@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
+import jakarta.ws.rs.WebApplicationException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -25,14 +26,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import jakarta.ws.rs.WebApplicationException;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rootcause.RootCauseCacheDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
-import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseAnalysisMode;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.util.serialization.ObjectMapperFactory;
@@ -129,7 +129,7 @@ class RootCauseServiceTest {
       when(rootCauseConfig.getLookbackDays()).thenReturn(0);
 
       assertThatThrownBy(
-              () -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet())
+          () -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, WINDOW_END).blockingGet())
           .isInstanceOf(WebApplicationException.class)
           .satisfies(
               t -> {
@@ -146,7 +146,7 @@ class RootCauseServiceTest {
       Instant endBeforeStart = Instant.parse("2025-03-03T23:00:00Z");
 
       assertThatThrownBy(
-              () -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, endBeforeStart).blockingGet())
+          () -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, endBeforeStart).blockingGet())
           .isInstanceOf(WebApplicationException.class)
           .satisfies(
               t -> {
@@ -966,7 +966,8 @@ class RootCauseServiceTest {
           .thenReturn(Single.just(Optional.empty()));
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+      when(clickhouseQueryService.executeRootCauseQuery(
+          anyString(), anyString(), anyList(), anyList(), anyBoolean()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
@@ -1012,7 +1013,8 @@ class RootCauseServiceTest {
           .thenReturn(Single.just(Optional.empty()));
 
       Map<String, Object> baseline = baselineWithVolumeAndProblematic(500L, 100L);
-      when(clickhouseQueryService.executeRootCauseQuery(anyString(), anyString(), anyList(), anyList()))
+      when(clickhouseQueryService.executeRootCauseQuery(
+          anyString(), anyString(), anyList(), anyList(), anyBoolean()))
           .thenAnswer(
               inv -> {
                 String q = inv.getArgument(1, String.class);
