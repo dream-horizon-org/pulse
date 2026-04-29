@@ -10,6 +10,8 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.apikeys.models.ValidApiKeyListRestResponse;
 import org.dreamhorizon.pulseserver.resources.internal.models.CronRedisSyncJobAcceptedRestResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -40,6 +42,7 @@ public class InternalApiKeysController {
    */
   @GET
   @Path("/valid")
+  @RequiresPermission(Constants.PERMISSION_SUPERADMIN)
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ValidApiKeyListRestResponse>> getAllValidApiKeys() {
