@@ -18,6 +18,9 @@ export class ErrorInstrumentation implements PulseInstrumentation {
   // Device state — prefetched on install, kept fresh via event listeners
   private batteryPercent: number | undefined;
   private storageFreeBytes: number | undefined;
+  // Retained so it can be detached on uninstall() — avoids leak on SDK restarts
+  private batteryLevelChangeHandler?: () => void;
+  private batteryRef?: { removeEventListener(type: string, cb: () => void): void };
 
   install(_sdk: SdkContext): void {
     if (typeof window === "undefined") return;
@@ -69,7 +72,9 @@ export class ErrorInstrumentation implements PulseInstrumentation {
           ? e.reason
           : new Error(String(e.reason ?? "Unknown rejection"));
 
-      const fingerprint = `${error.name}:${error.message}`;
+      // Include first stack frame so distinct async errors with identical messages aren't deduped
+      const firstFrame = error.stack?.split("\n")[1] ?? "";
+      const fingerprint = `${error.name}:${error.message}:${firstFrame}`;
       if (this.isDuplicate(fingerprint)) return;
 
       logger.emit({
@@ -100,19 +105,28 @@ export class ErrorInstrumentation implements PulseInstrumentation {
     if (this.onRejectionHandler) {
       window.removeEventListener("unhandledrejection", this.onRejectionHandler);
     }
+    if (this.batteryRef && this.batteryLevelChangeHandler) {
+      this.batteryRef.removeEventListener("levelchange", this.batteryLevelChangeHandler);
+    }
     this.dedupeCache.clear();
     this.batteryPercent = undefined;
     this.storageFreeBytes = undefined;
+    this.batteryLevelChangeHandler = undefined;
+    this.batteryRef = undefined;
   }
 
   private async prefetchDeviceState(): Promise<void> {
     if ("getBattery" in navigator) {
       try {
-        const battery = await (navigator as Navigator & { getBattery(): Promise<{ level: number; addEventListener(type: string, cb: () => void): void }> }).getBattery();
+        const battery = await (navigator as Navigator & {
+          getBattery(): Promise<{ level: number; addEventListener(type: string, cb: () => void): void; removeEventListener(type: string, cb: () => void): void }>;
+        }).getBattery();
         this.batteryPercent = Math.round(battery.level * 100);
-        battery.addEventListener("levelchange", () => {
+        this.batteryLevelChangeHandler = () => {
           this.batteryPercent = Math.round(battery.level * 100);
-        });
+        };
+        this.batteryRef = battery;
+        battery.addEventListener("levelchange", this.batteryLevelChangeHandler);
       } catch {
         /* not supported */
       }

@@ -230,6 +230,7 @@ describe("ErrorInstrumentation — M3 Error Instrumentation Unit Tests", () => {
       const mockBattery = {
         level: 0.75,
         addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
       };
       Object.defineProperty(navigator, "getBattery", {
         value: vi.fn().mockResolvedValue(mockBattery),

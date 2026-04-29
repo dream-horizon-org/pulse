@@ -108,7 +108,7 @@ Triggered by `window.addEventListener('unhandledrejection', ...)`.
 
 ### `pulse.type: non_fatal` — manual `reportException()` (existing in sdk.ts)
 
-Called explicitly by app code or by `PulseErrorBoundary`.
+Called explicitly by app code. Note: `PulseErrorBoundary` calls `reportDeviceCrash()` (not `reportException()`) so React render errors land as `device.crash`, not `non_fatal`.
 
 Same attribute contract as auto-detected non_fatal above, except `non_fatal.is_manual: true`.
 
