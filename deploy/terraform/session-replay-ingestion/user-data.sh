@@ -7,10 +7,26 @@ echo "Starting session-ingestion user-data at $(date)"
 export HOME=/home/admin
 cd "$HOME" || cd /root
 
-echo "Installing dependencies for Secrets Manager + artifact..."
+echo "Installing jq (Secrets Manager JSON parse)..."
 sudo rm -f /etc/apt/sources.list.d/deadsnakes-ppa-*.list || true
 sudo apt-get update -qq 2>/dev/null || true
-sudo apt-get install -y -qq unzip curl jq 2>/dev/null || true
+sudo apt-get install -y -qq jq 2>/dev/null || true
+
+# Node.js + pm2 via nvm — same placement as deploy/terraform/pulse-ui/user-data.sh (toolchain before artifact).
+# Requires curl on the AMI (nvm installer + Node download). No corepack/yarn — runtime only.
+echo "Installing Node 20 and pm2 via nvm..."
+if [ ! -s "$HOME/.nvm/nvm.sh" ]; then
+  curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+fi
+export NVM_DIR="$HOME/.nvm"
+# shellcheck disable=SC1090
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm install 20
+nvm use 20
+if ! command -v pm2 >/dev/null 2>&1; then
+  npm install -g pm2
+fi
+echo "node $(node --version) pm2 $(pm2 --version)"
 
 # -------------------------------------------------------------------
 # App environment from AWS Secrets Manager (same contract as pulse-server /
@@ -67,62 +83,11 @@ sudo mkdir -p "$INSTALL_DIR"
 sudo cp -a "$APPLICATION_NAME"/. "$INSTALL_DIR"/
 sudo chown -R root:root "$INSTALL_DIR"
 
-# Node.js + pm2 (minimal AMIs often lack both). Tarball from nodejs.org with retries;
-# bake Node into AMI or ship via CodeArtifact to avoid boot-time egress to nodejs.org.
-export PATH="/usr/local/bin:$PATH"
-if ! command -v node >/dev/null 2>&1; then
-  NODE_VERSION="20.19.0"
-  ARCH="$(uname -m)"
-  case "$ARCH" in
-    x86_64) NODE_DIST="linux-x64" ;;
-    aarch64|arm64) NODE_DIST="linux-arm64" ;;
-    *)
-      echo "ERROR: unsupported machine $ARCH for Node.js install"
-      exit 1
-      ;;
-  esac
-  NODE_TGZ="node-v$NODE_VERSION-$NODE_DIST.tar.xz"
-  NODE_URL="https://nodejs.org/dist/v$NODE_VERSION/$NODE_TGZ"
-  echo "Installing Node.js $NODE_VERSION ($NODE_DIST) from nodejs.org..."
-  attempt=0
-  until curl -fsSL "$NODE_URL" -o "/tmp/$NODE_TGZ"; do
-    attempt=$((attempt + 1))
-    if [ "$attempt" -ge 5 ]; then
-      echo "ERROR: failed to download Node.js after $attempt attempts"
-      exit 1
-    fi
-    echo "curl failed (attempt $attempt), sleeping 15s..."
-    sleep 15
-  done
-  tar -xJf "/tmp/$NODE_TGZ" -C /usr/local --strip-components=1
-  rm -f "/tmp/$NODE_TGZ"
-  echo "Node.js $(node --version) installed"
-fi
-if ! command -v pm2 >/dev/null 2>&1; then
-  echo "Installing pm2 globally..."
-  npm install -g pm2
-  echo "pm2 $(pm2 --version) installed"
-fi
-
-# librdkafka (node-rdkafka) loads libzstd at runtime for zstd-compressed Kafka batches
-ensure_libzstd() {
-  if ldconfig -p 2>/dev/null | grep -q 'libzstd.so'; then
-    echo "libzstd shared library already present"
-    return 0
-  fi
-  echo "Installing libzstd runtime for Kafka zstd decode..."
-  if command -v apt-get >/dev/null 2>&1; then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libzstd1
-  elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y libzstd
-  elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y libzstd
-  else
-    echo "WARNING: install libzstd manually; node-rdkafka may fail on zstd batches without libzstd.so"
-  fi
-}
-ensure_libzstd
+# Ensure nvm node/pm2 are on PATH for this shell (same session as above).
+export NVM_DIR="$HOME/.nvm"
+# shellcheck disable=SC1090
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm use 20
 
 # cloud-init runs as root — pm2 matches. Order: start → save → startup (systemd + resurrect).
 # Some pm2 builds print a line starting with "sudo " — eval it to enable the unit.
