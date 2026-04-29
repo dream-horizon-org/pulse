@@ -46,9 +46,9 @@ class ClickhouseAnalyticsQueryUtilsTest {
   class ResolveMaterializedGroupKey {
 
     @Test
-    void shouldReturnUserIdForUniqueUsers() {
+    void shouldReturnAppInstallationIdForUniqueUsers() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey("UNIQUE_USERS"))
-          .isEqualTo("UserId");
+          .isEqualTo("AppInstallationId");
     }
 
     @Test
@@ -64,15 +64,15 @@ class ClickhouseAnalyticsQueryUtilsTest {
     }
 
     @Test
-    void shouldDefaultToUserIdForUnknownMode() {
+    void shouldDefaultToAppInstallationIdForUnknownMode() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey("UNKNOWN"))
-          .isEqualTo("UserId");
+          .isEqualTo("AppInstallationId");
     }
 
     @Test
-    void shouldDefaultToUserIdForNull() {
+    void shouldDefaultToAppInstallationIdForNull() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(null))
-          .isEqualTo("UserId");
+          .isEqualTo("AppInstallationId");
     }
   }
 
