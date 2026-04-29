@@ -44,6 +44,10 @@ export const HELP_BAR_TEXT: string = "About Critical Interaction";
 export const HELP_LINK: string =
   "https://dream11.atlassian.net/wiki/spaces/FE/pages/3222176234/SOP+User+experience+monitoring+dashboard";
 
+/** Public docs — SDK integration, instrumentation, platform guides */
+export const PULSE_DEVELOPER_DOCS_URL: string =
+  "https://pulse-ux.com/docs/category/developer-guide";
+
 export const HEADER_CONFIG: AppShellHeaderConfiguration = {
   height: 60,
 };

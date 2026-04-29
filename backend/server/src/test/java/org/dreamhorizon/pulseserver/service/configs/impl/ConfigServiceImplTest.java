@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.configs.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -15,6 +16,7 @@ import io.vertx.core.Vertx;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
@@ -30,6 +32,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.AfterEach;
@@ -57,6 +60,9 @@ class ConfigServiceImplTest {
   @Mock
   UploadConfigDetailService uploadConfigDetailService;
 
+  @Mock
+  ApplicationConfig applicationConfig;
+
   ConfigServiceImpl configService;
 
   private static final String TEST_PROJECT_ID = "test-project";
@@ -73,7 +79,17 @@ class ConfigServiceImplTest {
       handler.handle(null);
       return null;
     }).when(context).runOnContext(any());
-    configService = new ConfigServiceImpl(vertx, sdkConfigsDao, uploadConfigDetailService);
+    when(applicationConfig.buildInteractionConfigFileUrl(anyString())).thenAnswer(invocation -> {
+      String pid = invocation.getArgument(0);
+      return "https://cdn.example.com/projects/" + pid + "/interaction.json";
+    });
+    when(applicationConfig.getOtelCollectorUrl()).thenReturn("https://collector.example.com/v1/traces");
+    when(applicationConfig.getLogsCollectorUrl()).thenReturn("https://collector.example.com/v1/logs");
+    when(applicationConfig.getMetricCollectorUrl()).thenReturn("https://collector.example.com/v1/metrics");
+    when(applicationConfig.getSpanCollectorUrl()).thenReturn("https://collector.example.com/v1/traces");
+    when(applicationConfig.getCustomEventCollectorUrl()).thenReturn("https://collector.example.com/v1/events");
+    when(applicationConfig.getReplayApiBaseUrl()).thenReturn("https://replay.example.com");
+    configService = new ConfigServiceImpl(vertx, sdkConfigsDao, uploadConfigDetailService, applicationConfig);
   }
 
   @AfterEach
@@ -313,6 +329,53 @@ class ConfigServiceImplTest {
   @Nested
   @ExtendWith(MockitoExtension.class)
   @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestCreateInitialConfig {
+
+    @Test
+    void shouldCreateInitialConfigWithProjectSpecificInteractionConfigUrl() {
+      // Given
+      io.vertx.rxjava3.sqlclient.SqlConnection conn = mock(io.vertx.rxjava3.sqlclient.SqlConnection.class);
+      PulseConfig createdConfig = PulseConfig.builder()
+          .version(1L)
+          .description("Default initial configuration")
+          .build();
+
+      when(sdkConfigsDao.createInitialConfig(any(), any(), any())).thenReturn(Single.just(createdConfig));
+
+      // When
+      PulseConfig result = configService.createInitialConfig(conn, TEST_PROJECT_ID, "creator@example.com").blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getVersion()).isEqualTo(1L);
+
+      // Verify the ConfigData passed to DAO has a project-specific interaction configUrl
+      org.mockito.ArgumentCaptor<ConfigData> captor = org.mockito.ArgumentCaptor.forClass(ConfigData.class);
+      verify(sdkConfigsDao).createInitialConfig(any(), any(), captor.capture());
+      ConfigData captured = captor.getValue();
+      assertThat(captured.getInteraction()).isNotNull();
+      assertThat(captured.getInteraction().getConfigUrl())
+          .endsWith("/projects/" + TEST_PROJECT_ID + "/interaction.json");
+      assertThat(captured.getInteraction().getCollectorUrl())
+          .isEqualTo("https://collector.example.com/v1/traces");
+      assertThat(captured.getSignals()).isNotNull();
+      assertThat(captured.getSignals().getLogsCollectorUrl())
+          .isEqualTo("https://collector.example.com/v1/logs");
+      assertThat(captured.getSignals().getSpanCollectorUrl())
+          .isEqualTo("https://collector.example.com/v1/traces");
+      SessionReplayFeatureConfig sessionReplay = captured.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.session_replay)
+          .map(FeatureConfig::getConfig)
+          .map(SessionReplayFeatureConfig.class::cast)
+          .findFirst()
+          .orElseThrow();
+      assertThat(sessionReplay.getReplayApiBaseUrl()).isEqualTo("https://replay.example.com");
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
   class TestGetAllConfigDetails {
 
     @Test
@@ -467,11 +530,12 @@ class ConfigServiceImplTest {
       Vertx mockVertx = mock(Vertx.class);
       SdkConfigsDao mockSdkConfigsDao = mock(SdkConfigsDao.class);
       UploadConfigDetailService mockUploadService = mock(UploadConfigDetailService.class);
+      ApplicationConfig mockAppConfig = mock(ApplicationConfig.class);
       when(mockVertx.getOrCreateContext()).thenReturn(null);
 
       // When & Then
       try {
-        new ConfigServiceImpl(mockVertx, mockSdkConfigsDao, mockUploadService);
+        new ConfigServiceImpl(mockVertx, mockSdkConfigsDao, mockUploadService, mockAppConfig);
         org.junit.jupiter.api.Assertions.fail("Expected NullPointerException");
       } catch (NullPointerException e) {
         assertThat(e.getMessage()).contains("ConfigServiceImpl must be created on a Vert.x context thread");

@@ -130,10 +130,10 @@ class ClickHouseJourneyComputeDaoTest {
     }
 
     @Test
-    void shouldUseUserIdGroupKeyForUniqueUsers() {
+    void shouldUseAppInstallationIdGroupKeyForUniqueUsers() {
       String sql = ClickHouseJourneyComputeDao.buildInsertSql(
           baseRow().mode("UNIQUE_USERS").build(), "START");
-      assertThat(sql).contains("SELECT DISTINCT UserId AS gid");
+      assertThat(sql).contains("SELECT DISTINCT AppInstallationId AS gid");
     }
 
     @Test

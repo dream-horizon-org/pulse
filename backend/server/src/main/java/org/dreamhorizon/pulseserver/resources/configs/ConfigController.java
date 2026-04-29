@@ -79,9 +79,7 @@ public class ConfigController {
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
         String projectId = ProjectContext.getProjectId();
-        String configUrl = String.format("%s/projects/%s/interaction.json", 
-            applicationConfig.getInteractionConfigUrl(), projectId);
-        interaction.setConfigUrl(configUrl);
+        interaction.setConfigUrl(applicationConfig.buildInteractionConfigFileUrl(projectId));
       }
     }
   }
