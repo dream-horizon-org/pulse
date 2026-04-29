@@ -120,6 +120,13 @@ public class SessionManager {
         SessionEventInstrumentation.addSession(session: session!, eventType: .end, eventName: endEventName, endTimestamp: session?.expireTime)
     }
 
+    if let prev = previousId, !prev.isEmpty {
+      let prefix = String(prev.prefix(8))
+      PulseLogger.info("sdk.session event=end session_id_prefix=\(prefix)")
+    }
+    let newPrefix = String(newId.prefix(8))
+    PulseLogger.info("sdk.session event=start session_id_prefix=\(newPrefix)")
+
     session = Session(
       id: newId,
       expireTime: now.addingTimeInterval(

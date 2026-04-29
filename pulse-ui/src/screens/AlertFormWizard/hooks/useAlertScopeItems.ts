@@ -9,6 +9,7 @@ import { useGetDataQuery, DataQueryRequestBody } from "../../../hooks/useGetData
 import { AlertScopeType, ScopeItem } from "../types";
 import { UI_CONSTANTS } from "../constants";
 import dayjs from "dayjs";
+import { COLUMN_NAME } from "../../../constants/PulseOtelSemcov";
 
 interface UseAlertScopeItemsParams {
   scopeType: AlertScopeType | null;
@@ -48,7 +49,7 @@ export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }
     timeRange: { start: timeRange.start, end: timeRange.end },
     select: [
       { function: "COL", param: { field: "SpanAttributes['http.method']" }, alias: "method" },
-      { function: "COL", param: { field: "SpanAttributes['http.url']" }, alias: "url" },
+      { function: "COL", param: { field: COLUMN_NAME.HTTP_URL }, alias: "url" },
       { function: "CUSTOM", param: { expression: "COUNT()" }, alias: "count" },
     ],
     groupBy: ["method", "url"],
