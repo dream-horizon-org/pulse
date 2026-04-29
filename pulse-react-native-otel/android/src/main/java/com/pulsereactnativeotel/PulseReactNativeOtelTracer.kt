@@ -3,7 +3,7 @@ package com.pulsereactnativeotel
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableType
-import com.pulse.android.sdk.internal.PulseSDKInternal
+import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanKind
@@ -15,9 +15,10 @@ import java.util.concurrent.ConcurrentHashMap
 
 internal object PulseReactNativeOtelTracer {
 
-    private val tracer: Tracer by lazy {
-        Pulse.sdkInternal.getOtelOrThrow()
-            .getOpenTelemetry()
+    private fun getTracer(): Tracer {
+        val otel: OpenTelemetry =
+            Pulse.sdkInternal.getOtelOrNull()?.getOpenTelemetry() ?: OpenTelemetry.noop()
+        return otel
             .tracerProvider
             .tracerBuilder(PulseOtelConstants.INSTRUMENTATION_SCOPE)
             .build()
@@ -27,7 +28,7 @@ internal object PulseReactNativeOtelTracer {
     private val idToScope = ConcurrentHashMap<String, Scope>()
 
     fun startSpan(name: String, inheritContext: Boolean, attributes: ReadableMap?): String {
-        val span = tracer.spanBuilder(name)
+        val span = getTracer().spanBuilder(name)
             .setSpanKind(SpanKind.INTERNAL)
             .startSpan()
 

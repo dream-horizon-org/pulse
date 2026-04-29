@@ -555,7 +555,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     | "FAILED"
     | "COMPLETED";
   createdBy: string;
-  lastUpdatedAt: string;
+  updatedAt: string;
   tags: string[];
   expiryDate?: string;
   description?: string;
@@ -579,7 +579,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "FUNNEL",
     status: "ACTIVE",
     createdBy: "alice@example.com",
-    lastUpdatedAt: "2026-03-20T14:22:00Z",
+    updatedAt: "2026-03-20T14:22:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["checkout", "revenue"],
     stepOrderType: StepOrderType.ORDERED,
@@ -602,7 +602,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "FUNNEL",
     status: "ACTIVE",
     createdBy: "bob@example.com",
-    lastUpdatedAt: "2026-03-19T09:10:00Z",
+    updatedAt: "2026-03-19T09:10:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding"],
     stepOrderType: StepOrderType.UNORDERED,
@@ -625,7 +625,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "FUNNEL",
     status: "WARN",
     createdBy: "alice@example.com",
-    lastUpdatedAt: "2026-03-10T18:45:00Z",
+    updatedAt: "2026-03-10T18:45:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["search", "product"],
     stepOrderType: StepOrderType.ORDERED,
@@ -647,7 +647,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "JOURNEY",
     status: "ACTIVE",
     createdBy: "carol@example.com",
-    lastUpdatedAt: "2026-03-21T11:30:00Z",
+    updatedAt: "2026-03-21T11:30:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["auth", "onboarding"],
     filters: [{ field: "OS Name", value: "Android" }],
@@ -661,7 +661,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "JOURNEY",
     status: "FAILED",
     createdBy: "bob@example.com",
-    lastUpdatedAt: "2026-02-28T08:00:00Z",
+    updatedAt: "2026-02-28T08:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["checkout", "cart"],
     anchorEvent: "Tap: Add to Cart",
@@ -674,7 +674,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "FUNNEL",
     status: "ACTIVE",
     createdBy: "dev@example.com",
-    lastUpdatedAt: "2026-03-22T16:05:00Z",
+    updatedAt: "2026-03-22T16:05:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["marketing"],
     stepOrderType: StepOrderType.ORDERED,
@@ -696,7 +696,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "FUNNEL",
     status: "ACTIVE",
     createdBy: "sarah@example.com",
-    lastUpdatedAt: "2026-03-21T14:30:00Z",
+    updatedAt: "2026-03-21T14:30:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["payment", "conversion", "critical"],
     description:
@@ -728,7 +728,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "JOURNEY",
     status: "ACTIVE",
     createdBy: "alex@example.com",
-    lastUpdatedAt: "2026-03-17T09:15:00Z",
+    updatedAt: "2026-03-17T09:15:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding", "ux", "retention"],
     description:
@@ -752,7 +752,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "FUNNEL",
     status: "COMPLETED",
     createdBy: "ops@example.com",
-    lastUpdatedAt: "2026-03-15T12:00:00Z",
+    updatedAt: "2026-03-15T12:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["promo", "checkout", "archived"],
     description: "Holiday campaign funnel — run completed; data is read-only.",
@@ -779,7 +779,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "JOURNEY",
     status: "COMPLETED",
     createdBy: "ops@example.com",
-    lastUpdatedAt: "2026-03-10T09:00:00Z",
+    updatedAt: "2026-03-10T09:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["launch", "archived"],
     description:
@@ -800,7 +800,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "FUNNEL",
     status: "IN_PROGRESS",
     createdBy: "dev@example.com",
-    lastUpdatedAt: "2026-03-24T10:00:00Z",
+    updatedAt: "2026-03-24T10:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["feature"],
     stepOrderType: StepOrderType.ORDERED,
@@ -812,7 +812,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     kind: "JOURNEY",
     status: "IN_PROGRESS",
     createdBy: "alice@example.com",
-    lastUpdatedAt: "2026-03-24T11:00:00Z",
+    updatedAt: "2026-03-24T11:00:00Z",
     expiryDate: MOCK_EXPIRY_ONE_YEAR_FROM_NOW,
     tags: ["onboarding"],
     anchorEvent: "App_Opened",
@@ -1095,7 +1095,7 @@ function mockPostCreateFunnelOrJourney(
     status: "IN_PROGRESS" as const,
     createdBy: "dev@example.com",
     createdAt: new Date().toISOString(),
-    lastUpdatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     tags: body.tags || [],
     stepOrderType: body.stepOrderType,
     filters: body.filters || [],
@@ -1137,7 +1137,7 @@ function mockPutFunnelOrJourney(
     ...MOCK_FUNNELS_JOURNEYS_ALL[index],
     ...body,
     status: "IN_PROGRESS" as const,
-    lastUpdatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
   // Strip internal `kind` field — real server doesn't return it
   const { kind: _kind, ...rest } = MOCK_FUNNELS_JOURNEYS_ALL[index];
