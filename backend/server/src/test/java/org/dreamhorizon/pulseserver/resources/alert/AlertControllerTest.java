@@ -150,8 +150,8 @@ class AlertControllerTest {
           "Description",
           60,
           300,
-          1L,
           1,
+          1L,
           "user",
           "user",
           AlertScope.interaction,
@@ -240,13 +240,13 @@ class AlertControllerTest {
     void shouldCreateWithAllArgs() {
       List<AlertConditionDto> alerts = new ArrayList<>();
       UpdateAlertRequestDto dto = new UpdateAlertRequestDto(
-          1L,
+          1,
           "Test Alert",
           "Description",
           60,
           300,
           1,
-          1,
+          1L,
           "user",
           "user",
           AlertScope.interaction,
