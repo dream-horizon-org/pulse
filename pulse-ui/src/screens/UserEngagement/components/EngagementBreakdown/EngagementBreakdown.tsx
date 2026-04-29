@@ -96,12 +96,12 @@ export function EngagementBreakdown({
           },
           {
             function: "CUSTOM" as const,
-            param: { expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
+            param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
             alias: "user_count",
           },
           {
             function: "CUSTOM" as const,
-            param: { expression: "uniqCombined64(nullIf(SessionId, ''))" },
+            param: { expression: "uniq(nullIf(SessionId, ''))" },
             alias: "session_count",
           },
         ],
@@ -139,12 +139,12 @@ export function EngagementBreakdown({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
+          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined64(nullIf(SessionId, ''))" },
+          param: { expression: "uniq(nullIf(SessionId, ''))" },
           alias: "session_count",
         },
       ],

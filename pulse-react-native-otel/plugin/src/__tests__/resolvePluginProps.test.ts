@@ -86,24 +86,44 @@ describe('assertPulsePluginProps', () => {
     ).toThrow(/instrumentation/);
   });
 
-  it('rejects invalid top-level logLevel', () => {
+  it('rejects numeric top-level logLevel', () => {
     expect(() =>
       assertPulsePluginProps({
         apiKey: 'k',
         dataCollectionState: 'PENDING',
-        logLevel: 99,
+        logLevel: 2,
       } as unknown as PulsePluginProps)
     ).toThrow(/logLevel/);
   });
 
-  it('accepts optional top-level logLevel', () => {
+  it('accepts optional top-level logLevel string', () => {
     expect(() =>
       assertPulsePluginProps({
         apiKey: 'k',
         dataCollectionState: 'PENDING',
-        logLevel: 3,
+        logLevel: 'WARN',
       })
     ).not.toThrow();
+  });
+
+  it('accepts logLevel as enum name string (case-insensitive)', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        logLevel: 'verbose',
+      } as unknown as PulsePluginProps)
+    ).not.toThrow();
+  });
+
+  it('rejects invalid logLevel string', () => {
+    expect(() =>
+      assertPulsePluginProps({
+        apiKey: 'k',
+        dataCollectionState: 'PENDING',
+        logLevel: 'SILLY',
+      } as unknown as PulsePluginProps)
+    ).toThrow(/logLevel/);
   });
 
   it('rejects non-object android', () => {
@@ -191,12 +211,25 @@ describe('resolveAndroidProps / resolveIosProps', () => {
     const props: PulsePluginProps = {
       apiKey: 'key',
       dataCollectionState: 'PENDING',
-      logLevel: 1,
-      android: { logLevel: 4 },
+      logLevel: 'DEBUG',
+      android: { logLevel: 'ERROR' },
       ios: {},
     };
     expect(resolveAndroidProps(props).logLevel).toBe(4);
     expect(resolveIosProps(props).logLevel).toBe(1);
+  });
+
+  it('normalizes string logLevel in merged props', () => {
+    const props = {
+      apiKey: 'key',
+      dataCollectionState: 'PENDING',
+      logLevel: 'WARN',
+      android: { logLevel: 'ERROR' },
+      ios: {},
+    } as unknown as PulsePluginProps;
+    assertPulsePluginProps(props);
+    expect(resolveAndroidProps(props).logLevel).toBe(4);
+    expect(resolveIosProps(props).logLevel).toBe(3);
   });
 
   it('throws when merge leaves android without apiKey', () => {

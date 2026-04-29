@@ -146,8 +146,7 @@ class ScreenRcaServiceTest {
   /**
    * Segment rollup queries ({@link ScreenRcaQueryBuilder#buildSegmentQuery}) include {@code AS tap_count}.
    * Bad-frustration-only breakdown queries ({@link ScreenRcaQueryBuilder#buildBadFrustrationByDimensionQuery}) do not.
-   * Screen RCA dimension filters bind as {@code (ifNull(ResourceAttributes['os.name'], '')) = :…}, never {@code AND
-   * Platform =}, so tests must not match on {@code Platform =}.
+   * Dimension filters use {@code (Platform) = :…} (materialized column), not {@code AND Platform =}.
    */
   private static boolean isScreenSegmentMetricsQuery(String sql) {
     return sql.contains(" AS tap_count");
