@@ -258,16 +258,14 @@ function emitIosSessionReplay(
   }
   const replayLines: string[] = [];
   if (cfg.maskViewClasses !== undefined && cfg.maskViewClasses.length > 0) {
-    const elems = cfg.maskViewClasses
-      .map((c) => `"${escapeSwiftString(c)}"`)
-      .join(', ');
-    replayLines.push(`replay.addMaskViewClass([${elems}])`);
+    for (const className of cfg.maskViewClasses) {
+      replayLines.push(`replay.addMaskViewClass("${escapeSwiftString(className)}")`);
+    }
   }
   if (cfg.unmaskViewClasses !== undefined && cfg.unmaskViewClasses.length > 0) {
-    const elems = cfg.unmaskViewClasses
-      .map((c) => `"${escapeSwiftString(c)}"`)
-      .join(', ');
-    replayLines.push(`replay.addUnmaskViewClass([${elems}])`);
+    for (const className of cfg.unmaskViewClasses) {
+      replayLines.push(`replay.addUnmaskViewClass("${escapeSwiftString(className)}")`);
+    }
   }
   if (replayLines.length > 0) {
     body.push(
