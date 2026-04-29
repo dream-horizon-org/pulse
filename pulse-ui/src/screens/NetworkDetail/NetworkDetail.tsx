@@ -235,14 +235,14 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     const filters = [];
     if (graphqlOperationName) {
       filters.push({
-        field: "SpanAttributes['graphql.operation.name']",
+        field: COLUMN_NAME.GRAPHQL_OPERATION_NAME,
         operator: "EQ" as const,
         value: [graphqlOperationName],
       });
     }
     if (graphqlOperationType) {
       filters.push({
-        field: "SpanAttributes['graphql.operation.type']",
+        field: COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
         operator: "EQ" as const,
         value: [graphqlOperationType.toLowerCase()],
       });
@@ -481,7 +481,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
   }), [bucketSize, combinedFilters, decodedApiData?.url, formattedEndTime, formattedStartTime]);
 
   const methodSeriesDimensionExpression = useGraphqlOperationTypeCharts
-    ? "SpanAttributes['graphql.operation.type']"
+    ? COLUMN_NAME.GRAPHQL_OPERATION_TYPE
     : "SpanAttributes['http.method']";
   const methodSeriesDimensionAlias = useGraphqlOperationTypeCharts
     ? "operation_type"

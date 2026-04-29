@@ -48,21 +48,14 @@ const fetchSessionTraces = async (sessionId: string, timeRange: { start: string;
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['graphql.operation.name']",
+          expression: COLUMN_NAME.GRAPHQL_OPERATION_NAME,
         },
         alias: "graphqlOperationName",
       },
       {
         function: "CUSTOM",
         param: {
-          expression: "SpanAttributes['graphql.operation.method']",
-        },
-        alias: "graphqlOperationMethod",
-      },
-      {
-        function: "CUSTOM",
-        param: {
-          expression: "SpanAttributes['graphql.operation.type']",
+          expression: COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
         },
         alias: "graphqlOperationType",
       },
