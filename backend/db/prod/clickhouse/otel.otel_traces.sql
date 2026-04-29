@@ -47,6 +47,7 @@ ON CLUSTER 'pulse-ch'
     HttpStatusCode     UInt16                 MATERIALIZED toUInt16OrZero(ifNull(SpanAttributes['http.status_code'], ifNull(SpanAttributes['http.response.status_code'], '0'))) CODEC(T64, ZSTD(1)),
     GraphqlType        LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['graphql.operation.type'], '')      CODEC(ZSTD(1)),
     GraphqlName        LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['graphql.operation.name'], '')      CODEC(ZSTD(1)),
+    ScreenName         LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['screen.name'], '')                CODEC(ZSTD(1)),
 
     INDEX idx_trace_id      TraceId           TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_span_id       SpanId            TYPE bloom_filter(0.01)  GRANULARITY 1,
