@@ -46,9 +46,9 @@ public class SessionReplayInstrumentation {
 
     /// Installs replay. When `shouldStartActive` is false (consent `.pending` at init), capture and cached upload wait until `.allowed`.
     public func install(shouldStartActive: Bool) {
-        guard recorder == nil else { 
+        guard recorder == nil else {
             PulseLogger.debug("SessionReplay: install called but recorder already exists, skipping.")
-            return 
+            return
         }
 
         PulseLogger.debug("SessionReplay: installing recorder (shouldStartActive=\(shouldStartActive))")
@@ -62,11 +62,11 @@ public class SessionReplayInstrumentation {
         PulseLogger.debug("SessionReplay: recorder created with config (captureInterval=\(config.captureIntervalMs)ms, privacy=\(config.textAndInputPrivacy))")
 
         #if os(iOS) || os(tvOS)
-        guard shouldStartActive, UIApplication.shared.applicationState == .active else { 
+        guard shouldStartActive, UIApplication.shared.applicationState == .active else {
             if !shouldStartActive {
                 PulseLogger.debug("SessionReplay: deferred start (consent pending)")
             }
-            return 
+            return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self, self.isSessionReplayCaptureAllowed() else { return }

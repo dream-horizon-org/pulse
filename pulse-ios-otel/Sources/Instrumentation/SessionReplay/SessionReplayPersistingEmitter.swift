@@ -185,9 +185,9 @@ internal final class SessionReplayPersistingEmitter {
 
                 let currentCount = self.deque.count
                 self.dequeLock.unlock()
-                
+
                 PulseLogger.debug("SessionReplay: batch stored (queuedBatches=\(currentCount), flushThreshold=\(self.flushAt))")
-                
+
                 if currentCount >= self.flushAt {
                     PulseLogger.debug("SessionReplay: queue reached flushAt threshold (\(currentCount) >= \(self.flushAt)), triggering flush")
                     self.flushIfNeeded()
@@ -344,7 +344,7 @@ internal final class SessionReplayPersistingEmitter {
             flushLock.unlock()
             return
         }
-        
+
         PulseLogger.debug("SessionReplay: flushing \(toSend.count) batch(es)")
 
         var fileToContent: [(URL, String)] = []
