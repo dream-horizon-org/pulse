@@ -139,23 +139,21 @@ describe('buildSwiftPulseSdkInitialization', () => {
     expect(code).toContain('config.interaction { $0.enabled(true) }');
   });
 
-  it('embeds sessionReplay configure flush and scale fields', () => {
+  it('embeds sessionReplay mask and unmask view classes', () => {
     const code = buildSwiftPulseSdkInitialization({
       apiKey: 'k',
       dataCollectionState: 'PENDING',
       instrumentation: {
         sessionReplay: {
-          screenshotScale: 0.75,
-          flushIntervalSeconds: 30,
-          flushAt: 5,
-          maxBatchSize: 20,
+          maskViewClasses: ['MyApp.SensitiveView', 'MyApp.SecretView'],
+          unmaskViewClasses: ['MyApp.PublicView'],
         },
       },
     });
-    expect(code).toContain('local.screenshotScale = 0.75');
-    expect(code).toContain('local.flushIntervalSeconds = 30');
-    expect(code).toContain('local.flushAt = 5');
-    expect(code).toContain('local.maxBatchSize = 20');
+    expect(code).toContain('config.sessionReplay { replay in');
+    expect(code).toContain('replay.addMaskViewClass("MyApp.SensitiveView")');
+    expect(code).toContain('replay.addMaskViewClass("MyApp.SecretView")');
+    expect(code).toContain('replay.addUnmaskViewClass("MyApp.PublicView")');
     expect(code).not.toContain('.enabled');
   });
 });
