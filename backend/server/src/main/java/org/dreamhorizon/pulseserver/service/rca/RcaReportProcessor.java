@@ -91,14 +91,6 @@ public class RcaReportProcessor {
         .flatMap(parsed -> Single.fromCompletionStage(enrichmentService.enrichAsync(parsed, forceRootCauseRefresh)))
         .flatMap(
             enrichment -> {
-              if (job.entityType() == RcaType.SCREEN && !enrichment.enrichmentOk()) {
-                String msg =
-                    "RCA enrichment error: screen tabular root cause could not be loaded for AI"
-                        + " (missing or invalid window, serialization failure, or ClickHouse error)."
-                        + " See server logs for the underlying cause.";
-                return markJobFailed(job, truncateMessage(msg))
-                    .andThen(Single.error(new RuntimeException(msg)));
-              }
               String aiPath =
                   job.entityType() == RcaType.SCREEN ? RCA_SCREEN_REPORT_PATH : RCA_REPORT_PATH;
               String targetUrl = upstream.buildTargetUrl(aiPath, rawQuery);
@@ -130,10 +122,7 @@ public class RcaReportProcessor {
               log.error("RCA job {} failed", job.jobId(), error);
               // Only mark failed if not already marked in the flatMap error handler above
               String msg = error.getMessage();
-              boolean alreadyMarked =
-                  msg != null
-                      && (msg.contains("AI upstream error:")
-                          || msg.contains("RCA enrichment error:"));
+              boolean alreadyMarked = msg != null && msg.contains("AI upstream error:");
               if (alreadyMarked) {
                 return Completable.complete();
               }

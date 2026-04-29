@@ -2,7 +2,6 @@ package org.dreamhorizon.pulseserver.service.rca;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -10,7 +9,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -147,29 +145,6 @@ class RcaReportProcessorTest {
             ArgumentMatchers.<Callable<Object>>any(),
             eq(false),
             ArgumentMatchers.<Handler<AsyncResult<Object>>>any());
-  }
-
-  @Test
-  void shouldFailScreenJobWithoutCallingAiWhenEnrichmentNotOk() {
-    stubSyncExecution();
-    when(enrichmentService.enrichAsync(any(), anyBoolean()))
-        .thenReturn(
-            CompletableFuture.completedFuture(
-                new RcaEnrichmentOutcome("{}", null, DATE, Instant.now(), false)));
-
-    processor.enqueueProcess(screenJob(), SCREEN_BODY, false, "Bearer t", null);
-
-    verify(jobDao)
-        .markFailed(
-            eq(JOB_ID),
-            eq("p1"),
-            eq(RcaType.SCREEN),
-            eq("Home"),
-            eq(DATE),
-            argThat(
-                msg ->
-                    msg != null && msg.toLowerCase().contains("tabular root cause")));
-    verifyNoInteractions(httpRequest);
   }
 
   @Test

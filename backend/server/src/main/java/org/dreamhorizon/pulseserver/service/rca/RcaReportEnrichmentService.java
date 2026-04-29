@@ -168,9 +168,10 @@ public class RcaReportEnrichmentService {
       return Single.just(
           new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, Instant.now(), false));
     }
+    final Instant windowStartInclusive;
     final Instant windowEndExclusive;
     try {
-      Instant.parse(startNode.asText().trim());
+      windowStartInclusive = Instant.parse(startNode.asText().trim());
       windowEndExclusive = Instant.parse(endNode.asText().trim());
     } catch (DateTimeParseException e) {
       return Single.just(
@@ -179,26 +180,14 @@ public class RcaReportEnrichmentService {
     return screenRcaService
         .getScreenRootCause(
             projectId, screenName, anchorDate, windowEndExclusive, forceRootCauseRefresh)
-        .doOnError(
-            e ->
-                log.error(
-                    "Screen RCA enrichment failed project={} screen={} date={}: {}",
-                    projectId,
-                    screenName,
-                    anchorDate,
-                    e.toString(),
-                    e))
         .map(
             screenResult -> {
               try {
-                RootCauseQueryBuilder.Window window =
-                    new RootCauseQueryBuilder.Window(
-                        anchorDate, rootCauseConfig.getLookbackDays(), windowEndExclusive);
                 ObjectNode aiBody = objectMapper.createObjectNode();
                 aiBody.put("screenName", screenName);
                 aiBody.put("date", anchorDate.toString());
-                aiBody.put("start", window.startInclusive.toString());
-                aiBody.put("end", window.endExclusive.toString());
+                aiBody.put("start", windowStartInclusive.toString());
+                aiBody.put("end", windowEndExclusive.toString());
                 aiBody.set("rootCausePayload", objectMapper.valueToTree(screenResult));
                 String body = objectMapper.writeValueAsString(aiBody);
                 return new RcaEnrichmentOutcome(
@@ -208,7 +197,9 @@ public class RcaReportEnrichmentService {
                 return new RcaEnrichmentOutcome(
                     fallbackBody, null, anchorDate, windowEndExclusive, false);
               }
-            });
+            })
+        .onErrorReturnItem(
+            new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
   }
 
   /**
