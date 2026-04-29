@@ -29,7 +29,7 @@ import {
   FunnelMode,
   FunnelType,
   StepOrderType,
-  type CreateFunnelRequestBody,
+  type UpdateFunnelRequestBody,
 } from "../../services/funnels.service";
 
 /** Extracts an integer day-count from a preset string like "7d" → 7. */
@@ -58,8 +58,11 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
   const [customEndDate, setCustomEndDate] = useState<Date | null>(
     detail.endTime ? new Date(detail.endTime) : null,
   );
+  // Backend response names this field `expiry` (see FunnelDefinitionResponse).
+  // Legacy `expiryDate` is kept as a fallback for older cached payloads.
+  const initialExpiry = detail.expiry ?? detail.expiryDate;
   const [expiryDate, setExpiryDate] = useState<Date | null>(
-    detail.expiryDate ? new Date(detail.expiryDate) : null,
+    initialExpiry ? new Date(initialExpiry) : null,
   );
 
   const [filters, setFilters] = useState<any[]>(
@@ -151,11 +154,10 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
       return true;
     if (analysisMode !== (detail.mode || FunnelMode.UNIQUE_USERS)) return true;
     if (conversionWindow !== String(detail.windowSeconds || 86400)) return true;
+    const detailExpiry = detail.expiry ?? detail.expiryDate;
     if (
       expiryDate?.toISOString() !==
-      (detail.expiryDate
-        ? new Date(detail.expiryDate).toISOString()
-        : undefined)
+      (detailExpiry ? new Date(detailExpiry).toISOString() : undefined)
     )
       return true;
 
@@ -215,7 +217,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
   const { mutate: updateFunnel, isPending: isUpdating } = useUpdateFunnel();
 
   const handleUpdate = () => {
-    const body: CreateFunnelRequestBody = {
+    const body: UpdateFunnelRequestBody = {
       name,
       description,
       tags,
@@ -232,7 +234,7 @@ function FunnelDetailView({ detail, isEditing, onEdit }: { detail: any; isEditin
       if (customStartDate) body.startTime = customStartDate.toISOString();
       if (customEndDate) body.endTime = customEndDate.toISOString();
     } else {
-      if (expiryDate) body.expiryDate = expiryDate.toISOString();
+      if (expiryDate) body.expiry = expiryDate.toISOString();
     }
 
     updateFunnel(

@@ -1,16 +1,9 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  type JSX,
-  type ReactNode,
-} from "react";
+import React, { createContext, useContext, useEffect, type JSX } from "react";
 import { PulseWeb } from "../../sdk";
-import type { PulseProviderProps, UseRouterTrackingOptions } from "../../types/react";
+import type { PulseProviderProps } from "../../types/react";
 import { PulseErrorBoundary } from "./PulseErrorBoundary";
-import { useRouterTracking } from "./useRouterTracking";
 
 export type { PulseProviderProps } from "../../types/react";
 
@@ -24,11 +17,6 @@ PulseContext.displayName = "PulseContext";
 // fires when the counter settles at 0 in the same microtask.
 let providerMountCount = 0;
 
-function RouterTracker({ options }: { options: UseRouterTrackingOptions }): null {
-  useRouterTracking(options);
-  return null;
-}
-
 /**
  * React bridge that calls {@link PulseWeb.start} exactly once on mount and
  * exposes the SDK via context. Safe to render at the app root.
@@ -41,7 +29,6 @@ export function PulseProvider({
   config,
   children,
   shutdownOnUnmount = true,
-  routerTracking,
 }: PulseProviderProps): JSX.Element {
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -70,12 +57,7 @@ export function PulseProvider({
 
   return (
     <PulseContext.Provider value={PulseWeb}>
-      <PulseErrorBoundary>
-        {routerTracking !== undefined && (
-          <RouterTracker options={routerTracking} />
-        )}
-        {children}
-      </PulseErrorBoundary>
+      <PulseErrorBoundary>{children}</PulseErrorBoundary>
     </PulseContext.Provider>
   );
 }
