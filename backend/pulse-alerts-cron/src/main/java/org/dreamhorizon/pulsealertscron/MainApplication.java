@@ -7,6 +7,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.file.FileSystemOptions;
 import io.vertx.core.impl.cpu.CpuCoreSensor;
+import io.vertx.tracing.opentelemetry.OpenTelemetryOptions;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +31,8 @@ public class MainApplication extends Launcher {
         .setEventLoopPoolSize(this.getNumOfCores())
         .setPreferNativeTransport(true)
         .setFileSystemOptions(new FileSystemOptions().setClassPathResolvingEnabled(true))
-        .setWorkerPoolSize(10);
+        .setWorkerPoolSize(10)
+        .setTracingOptions(new OpenTelemetryOptions());
   }
 
   @Override

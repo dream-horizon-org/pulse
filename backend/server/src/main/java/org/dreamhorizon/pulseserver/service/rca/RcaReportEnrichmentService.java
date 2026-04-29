@@ -10,6 +10,7 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionRes
 import org.dreamhorizon.pulseserver.service.errorattribution.ErrorAttributionService;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseQueryBuilder;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.ScreenRcaService;
 import org.dreamhorizon.pulseserver.service.rootcause.SessionEvidenceService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.EvidenceSession;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
@@ -45,9 +47,12 @@ public class RcaReportEnrichmentService {
   private static final String REGENERATE_FIELD = "regenerate";
   private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
   private static final String ERROR_ATTRIBUTION_PAYLOAD_FIELD = "errorAttributionPayload";
+  private static final String START_FIELD = "start";
+  private static final String END_FIELD = "end";
 
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
+  private final ScreenRcaService screenRcaService;
   private final SessionEvidenceService sessionEvidenceService;
   private final ErrorAttributionService errorAttributionService;
   private final RootCauseConfig rootCauseConfig;
@@ -55,7 +60,8 @@ public class RcaReportEnrichmentService {
   /**
    * Enriches the RCA JSON body with root-cause data and example sessions.
    *
-   * @param forceRootCauseRefresh forwarded to {@link RootCauseService#getRootCause}
+   * @param forceRootCauseRefresh forwarded to {@link RootCauseService#getRootCause} (interaction) or
+   *     {@link ScreenRcaService#getScreenRootCause} (screen)
    */
   public CompletionStage<RcaEnrichmentOutcome> enrichAsync(
       RcaParsedReportBody parsed, boolean forceRootCauseRefresh) {
@@ -72,6 +78,10 @@ public class RcaReportEnrichmentService {
     String entityKey = parsed.entityKey();
     LocalDate date = parsed.date();
     Instant windowEndExclusive = Instant.now();
+
+    if (type == RcaType.SCREEN) {
+      return enrichScreenAsync(parsed, forceRootCauseRefresh);
+    }
 
     // For now, only INTERACTION type is fully supported with enrichment
     // Other types may have different enrichment paths in the future
@@ -134,6 +144,62 @@ public class RcaReportEnrichmentService {
             })
         .onErrorReturnItem(
             new RcaEnrichmentOutcome(fallbackBody, null, date, windowEndExclusive, false));
+  }
+
+  /**
+   * Screen RCA async job: recompute tabular root cause (optional cache bypass) and build the pulse_ai
+   * {@code rca/screen-report} JSON body. Does not attach error-attribution (interaction-only).
+   */
+  private Single<RcaEnrichmentOutcome> enrichScreenAsync(
+      RcaParsedReportBody parsed, boolean forceRootCauseRefresh) {
+    String fallbackBody = parsed.rawBody();
+    String projectId = parsed.projectId();
+    String screenName = parsed.entityKey();
+    LocalDate anchorDate = parsed.date();
+    ObjectNode root = parsed.bodyRoot();
+    JsonNode startNode = root.get(START_FIELD);
+    JsonNode endNode = root.get(END_FIELD);
+    if (startNode == null
+        || endNode == null
+        || !startNode.isTextual()
+        || !endNode.isTextual()
+        || startNode.asText().isBlank()
+        || endNode.asText().isBlank()) {
+      return Single.just(
+          new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, Instant.now(), false));
+    }
+    final Instant windowStartInclusive;
+    final Instant windowEndExclusive;
+    try {
+      windowStartInclusive = Instant.parse(startNode.asText().trim());
+      windowEndExclusive = Instant.parse(endNode.asText().trim());
+    } catch (DateTimeParseException e) {
+      return Single.just(
+          new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, Instant.now(), false));
+    }
+    return screenRcaService
+        .getScreenRootCause(
+            projectId, screenName, anchorDate, windowEndExclusive, forceRootCauseRefresh)
+        .map(
+            screenResult -> {
+              try {
+                ObjectNode aiBody = objectMapper.createObjectNode();
+                aiBody.put("screenName", screenName);
+                aiBody.put("date", anchorDate.toString());
+                aiBody.put("start", windowStartInclusive.toString());
+                aiBody.put("end", windowEndExclusive.toString());
+                aiBody.set("rootCausePayload", objectMapper.valueToTree(screenResult));
+                String body = objectMapper.writeValueAsString(aiBody);
+                return new RcaEnrichmentOutcome(
+                    body, screenResult, anchorDate, windowEndExclusive, true);
+              } catch (Exception e) {
+                log.warn("Screen RCA enrichment serialize failed: {}", e.getMessage());
+                return new RcaEnrichmentOutcome(
+                    fallbackBody, null, anchorDate, windowEndExclusive, false);
+              }
+            })
+        .onErrorReturnItem(
+            new RcaEnrichmentOutcome(fallbackBody, null, anchorDate, windowEndExclusive, false));
   }
 
   /**

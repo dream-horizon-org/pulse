@@ -13,7 +13,8 @@ public final class SessionDetailQueries {
         toUInt64(dateDiff('millisecond', min(startTime), max(endTime)))
                                                               AS durationMs
       FROM otel.session_summary
-      WHERE sessionId = '${session_id}'
+      WHERE ProjectId = '${project_id}'
+        AND sessionId = '${session_id}'
       GROUP BY sessionId
       LIMIT 1
       """;
@@ -59,7 +60,8 @@ public final class SessionDetailQueries {
           )
         )                                                 AS journey
       FROM otel.otel_traces
-      WHERE SessionId = '${session_id}'
+      WHERE ProjectId = '${project_id}'
+        AND SessionId = '${session_id}'
       GROUP BY SessionId
       LIMIT 1
       """;
@@ -86,7 +88,8 @@ public final class SessionDetailQueries {
           SpanAttributes['pulse.interaction.apdex_score'] != ''
         ), 2)                                             AS apdex_score
       FROM otel.otel_traces
-      WHERE SessionId = '${session_id}'
+      WHERE ProjectId = '${project_id}'
+        AND SessionId = '${session_id}'
         AND PulseType = 'interaction'
       GROUP BY interaction_name
       """;
@@ -107,7 +110,8 @@ public final class SessionDetailQueries {
         TraceId                                           AS traceId,
         SpanId                                            AS spanId
       FROM otel.otel_traces
-      WHERE SessionId = '${session_id}'
+      WHERE ProjectId = '${project_id}'
+        AND SessionId = '${session_id}'
         AND PulseType LIKE 'network.%'
       ORDER BY Timestamp ASC
       """;
@@ -135,7 +139,8 @@ public final class SessionDetailQueries {
         TraceId                                           AS traceId,
         SpanId                                            AS spanId
       FROM otel.otel_traces
-      WHERE SessionId = '${session_id}'
+      WHERE ProjectId = '${project_id}'
+        AND SessionId = '${session_id}'
         AND (
           PulseType = 'interaction'
           OR PulseType = 'app_start'
@@ -153,7 +158,8 @@ public final class SessionDetailQueries {
         TraceId                                           AS traceId,
         SpanId                                            AS spanId
       FROM otel.stack_trace_events
-      WHERE SessionId = '${session_id}'
+      WHERE ProjectId = '${project_id}'
+        AND SessionId = '${session_id}'
       ORDER BY Timestamp ASC
       """;
 

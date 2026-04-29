@@ -151,7 +151,17 @@ set -a
 source "$ENV_FILE"
 set +a
 
+OTEL_AGENT_JAR="/opt/otel/opentelemetry-javaagent.jar"
+OTEL_AGENT_OPT=""
+if [ -f "$OTEL_AGENT_JAR" ]; then
+    OTEL_AGENT_OPT="-javaagent:$OTEL_AGENT_JAR"
+    echo "OTEL agent found at $OTEL_AGENT_JAR — attaching"
+else
+    echo "WARNING: OTEL agent not found at $OTEL_AGENT_JAR — starting without it"
+fi
+
 nohup java \
+    $OTEL_AGENT_OPT \
     -Dlogback.configurationFile=$APPLICATION_NAME/logback/logback.xml \
     -jar "$APPLICATION_NAME/$APPLICATION_NAME".jar \
     run org.dreamhorizon.pulseserver.verticle.MainVerticle \

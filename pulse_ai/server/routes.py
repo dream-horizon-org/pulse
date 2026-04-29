@@ -15,7 +15,15 @@ from google.genai.types import Content, Part
 
 from pulse_ai.constants import APP_NAME
 
-from .app import RunSSERequest, app, rca_runner, runner, session_service, session_scope_store
+from .app import (
+    RunSSERequest,
+    app,
+    rca_runner,
+    screen_rca_runner,
+    runner,
+    session_service,
+    session_scope_store,
+)
 from .serializers import DeltaTracker, events_to_messages, extract_content_blocks, extract_title
 from .project_headers import require_x_project_id
 from .run_sse_utils import (
@@ -27,7 +35,13 @@ from .run_sse_utils import (
 from pulse_ai.schemas import RootCausePayloadSchema
 from .root_cause_fetch import RootCauseFetchError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
-from .schemas import RcaReportRequest, RcaReportResponse
+from .screen_rca_runner import ScreenRcaRunnerError, generate_screen_rca_report
+from .schemas import (
+    RcaReportRequest,
+    RcaReportResponse,
+    ScreenRcaReportRequest,
+    ScreenRcaReportResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -273,4 +287,35 @@ async def generate_root_cause_report(
     except RootCauseFetchError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error
     except RcaRunnerError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.message) from error
+
+
+@app.post("/rca/screen-report")
+async def generate_screen_root_cause_narrative(
+    request: ScreenRcaReportRequest,
+) -> ScreenRcaReportResponse:
+    """Generate executive summary and recommendations for screen-level frustration RCA.
+
+    Requires **rootCausePayload** (tabular JSON from GET /v1/screens/{screen}/root-cause).
+    """
+    if not request.screenName or not str(request.screenName).strip():
+        raise HTTPException(status_code=400, detail="screenName is required")
+    try:
+        payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid rootCausePayload: {exc}",
+        ) from exc
+    try:
+        return await generate_screen_rca_report(
+            runner=screen_rca_runner,
+            payload=payload,
+            screen_name=request.screenName.strip(),
+            start_iso=request.start,
+            end_iso=request.end,
+            date_str=request.date,
+            as_of_iso=request.asOf,
+        )
+    except ScreenRcaRunnerError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message) from error

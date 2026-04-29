@@ -29,6 +29,7 @@ public class SessionService {
 
   private Map<String, Object> getSessionReportSubstitutionMap(GetSessionRequest request) {
     Map<String, Object> substitutionValueMap = new HashMap<>();
+    substitutionValueMap.put("project_id", escapeChStringLiteral(ProjectContext.getProjectId()));
     substitutionValueMap.put("start_time", ZonedDateTime.parse(request.getStartTime()).format(output));
     substitutionValueMap.put("end_time", ZonedDateTime.parse(request.getEndTime()).format(output));
     substitutionValueMap.put("span_name", request.getSpanName());
@@ -75,6 +76,13 @@ public class SessionService {
 
     substitute = StringUtils.join(formattedfilters, ',');
     return substitute;
+  }
+
+  private static String escapeChStringLiteral(String s) {
+    if (s == null) {
+      return "";
+    }
+    return s.replace("\\", "\\\\").replace("'", "''");
   }
 
   public Single<GetSessionResponse> getSessions(GetSessionRequest request) {
