@@ -20,11 +20,12 @@ public struct RageConfig {
 }
 
 /// Configuration for UIKit tap auto-instrumentation.
-/// When enabled, automatically intercepts all user taps (UIControl, gesture-recognized views,
-/// table/collection cells) and emits `app.widget.click` log events with rich context:
+/// Intercepted automatically for UIControl, gesture-recognized views, and
+/// table/collection cells. Emits `app.widget.click` log events with rich context:
 /// touch coordinates, label, element type, and accessibility identifiers.
+/// Whether this is active is controlled by the backend feature flag, not by app code.
 public struct UIKitTapInstrumentationConfig {
-    public private(set) var enabled: Bool = false
+    internal private(set) var enabled: Bool = false
 
     /// When true, extracts rich label context from the tapped view — including
     /// recursive subview text scan for container views (cards, cells, stacks).
@@ -35,13 +36,12 @@ public struct UIKitTapInstrumentationConfig {
     /// Backend config overrides these defaults if present.
     public private(set) var rage: RageConfig = RageConfig()
 
-    public init(enabled: Bool = false, captureContext: Bool = false, rage: RageConfig = RageConfig()) {
-        self.enabled = enabled
+    public init(captureContext: Bool = false, rage: RageConfig = RageConfig()) {
         self.captureContext = captureContext
         self.rage = rage
     }
 
-    public mutating func enabled(_ value: Bool) {
+    internal mutating func enabled(_ value: Bool) {
         self.enabled = value
     }
 

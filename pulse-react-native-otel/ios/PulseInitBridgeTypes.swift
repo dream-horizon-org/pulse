@@ -50,14 +50,12 @@ public class PulseObjcRageConfig: NSObject {
 
 @objc(PulseObjcUIKitTapConfig)
 public class PulseObjcUIKitTapConfig: NSObject {
-    @objc public var enabled: NSNumber?
     @objc public var captureContext: NSNumber?
     @objc public var rage: PulseObjcRageConfig?
 }
 
 @objc(PulseObjcSessionReplayConfig)
 public class PulseObjcSessionReplayConfig: NSObject {
-    @objc public var enabled: NSNumber?
     /// Code-level masking rules only. Privacy/quality/flush settings are backend-controlled.
     @objc public var maskViewClasses: NSArray?
     @objc public var unmaskViewClasses: NSArray?
@@ -140,10 +138,9 @@ enum PulseObjcInitMappers {
                 config.appStartup { $0.enabled(b) }
             }
             if let t = root.uiKitTap {
-                let has = t.enabled != nil || t.captureContext != nil || t.rage != nil
+                let has = t.captureContext != nil || t.rage != nil
                 if has {
                     config.uiKitTap { tap in
-                        if let v = boolNumber(t.enabled) { tap.enabled(v) }
                         if let v = boolNumber(t.captureContext) { tap.captureContext(v) }
                         if let rage = t.rage {
                             tap.rage { r in
@@ -157,10 +154,8 @@ enum PulseObjcInitMappers {
             }
             if let sr = root.sessionReplay {
                 let nestedConfig = sr.maskViewClasses != nil || sr.unmaskViewClasses != nil
-                let doReplay = sr.enabled != nil || nestedConfig
-                if doReplay {
+                if nestedConfig {
                     config.sessionReplay { replay in
-                        if let v = boolNumber(sr.enabled) { replay.enabled(v) }
                         if let arr = sr.maskViewClasses {
                             for item in arr {
                                 if let s = item as? String { replay.addMaskViewClass(s) }

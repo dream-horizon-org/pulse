@@ -27,18 +27,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             dataCollectionState: .allowed,
             globalAttributes: globalAttributes,
             instrumentations: { config in
-                // Enable UIKit tap instrumentation with context capture
                 config.uiKitTap { tapConfig in
-                    tapConfig.enabled(true)
                     tapConfig.captureContext(true)
                 }
-
-                // Enable Session Replay with code-level view masking configuration
-                // Note: Privacy, quality, and flush settings are now controlled via backend remote config
                 config.sessionReplay { replayConfig in
-                    replayConfig.enabled(true)
-                    
-                    // Register custom classes for class-level masking rules
                     replayConfig.addMaskViewClass("PulseIOSExample.PrivateSecureView")
                     replayConfig.addMaskViewClass("PulseIOSExample.PrivateDataLabel")
                 }
