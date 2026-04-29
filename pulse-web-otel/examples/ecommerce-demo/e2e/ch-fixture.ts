@@ -1,15 +1,19 @@
 /**
- * ClickHouse fixture for M4 CH integration tests.
+ * ClickHouse fixture for CH integration tests.
  *
- * Queries otel.otel_traces and otel.otel_logs via the CH HTTP interface
- * at localhost:8123. Polls until the expected row appears (spans take
- * ~batch_delay + ~2s collector→CH ingest).
+ * Queries otel.otel_traces, otel.otel_logs, and otel.stack_trace_events via
+ * the CH HTTP interface at localhost:8123. Polls until the expected row
+ * appears (signals take ~batch_delay + ~2s collector→CH ingest).
  *
  * Requires full stack running: deploy/scripts/start.sh
  *
  * CH creds from deploy/.env:
  *   OTEL_CLICKHOUSE_USER=pulse_user
  *   OTEL_CLICKHOUSE_PASSWORD=pulse_password
+ *
+ * NOTE: device.crash / non_fatal signals are routed by the collector to the
+ * Pulse backend (logs/to-backend pipeline) and written to `stack_trace_events`,
+ * NOT to `otel_logs`. Session / custom-event signals go to `otel_logs`.
  */
 
 // ─── Connection ───────────────────────────────────────────────────────────────
@@ -19,7 +23,7 @@ const CH_USER = process.env["CH_USER"] ?? "pulse_user";
 const CH_PASS = process.env["CH_PASS"] ?? "pulse_password";
 const CH_DB   = process.env["CH_DB"]   ?? "otel";
 
-// Service name the E2E app registers with
+// Service name the E2E app registers with (matches playwright.ch.config.ts env)
 export const SERVICE_NAME = "ecommerce-demo";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -46,6 +50,20 @@ export interface ChLogRow {
   PulseType: string;
   Body: string;
   screen_name: string;
+  session_id: string;
+  installation_id: string;
+}
+
+export interface ChStackTraceRow {
+  log_ts: string;
+  PulseType: string;
+  ExceptionMessage: string;
+  ExceptionType: string;
+  ExceptionStackTraceRaw: string;
+  ScreenName: string;
+  error_lineno: string;
+  non_fatal_is_manual: string;
+  component_stack: string;
 }
 
 // ─── Raw HTTP query ───────────────────────────────────────────────────────────
@@ -73,7 +91,7 @@ export async function chQuery<T = Record<string, string>>(
     .map((line) => JSON.parse(line) as T);
 }
 
-/** Check CH is reachable. Returns false if the stack is not running. */
+/** Returns false when the stack is not running — tests auto-skip. */
 export async function isCHAvailable(): Promise<boolean> {
   try {
     await chQuery("SELECT 1");
@@ -104,15 +122,22 @@ export async function pollUntilCH<T>(
   throw new Error(`CH timeout (${timeoutMs}ms): no ${description} found`);
 }
 
-// ─── Span query builders ──────────────────────────────────────────────────────
+// ─── Base WHERE helpers ───────────────────────────────────────────────────────
 
 /** Base WHERE for this test run — last 120 seconds, our service only. */
-function baseWhere(extraSeconds = 120): string {
+export function baseWhere(extraSeconds = 120): string {
   return `
     ServiceName = '${SERVICE_NAME}'
     AND Timestamp > now() - INTERVAL ${extraSeconds} SECOND
   `;
 }
+
+/** For tables that use ResourceAttributes instead of a materialised ServiceName column. */
+export function baseWhereResourceAttr(extraSeconds = 120): string {
+  return `ResourceAttributes['service.name'] = '${SERVICE_NAME}' AND Timestamp > now() - INTERVAL ${extraSeconds} SECOND`;
+}
+
+// ─── otel_traces helpers ──────────────────────────────────────────────────────
 
 /**
  * Wait for a span with the given SpanName to appear in otel_traces.
@@ -151,31 +176,6 @@ export function waitForCHSpan(
 }
 
 /**
- * Wait for a log with the given PulseType to appear in otel_logs.
- */
-export function waitForCHLog(
-  pulseType: string,
-  extraWhere = "",
-  timeoutMs = 20_000,
-): Promise<ChLogRow> {
-  const sql = `
-    SELECT
-      toString(Timestamp)               AS log_ts,
-      PulseType,
-      Body,
-      LogAttributes['screen.name']      AS screen_name
-    FROM ${CH_DB}.otel_logs
-    WHERE ${baseWhere()}
-      AND PulseType = '${pulseType}'
-      ${extraWhere ? `AND ${extraWhere}` : ""}
-    ORDER BY Timestamp DESC
-    LIMIT 1
-    FORMAT JSONEachRow
-  `;
-  return pollUntilCH<ChLogRow>(sql, timeoutMs, `log(${pulseType})`);
-}
-
-/**
  * Count spans matching criteria. Used for negative assertions.
  */
 export async function countCHSpans(
@@ -196,6 +196,35 @@ export async function countCHSpans(
   return Number(rows[0]?.cnt ?? 0);
 }
 
+// ─── otel_logs helpers ────────────────────────────────────────────────────────
+
+/**
+ * Wait for a log with the given PulseType to appear in otel_logs.
+ */
+export function waitForCHLog(
+  pulseType: string,
+  extraWhere = "",
+  timeoutMs = 20_000,
+): Promise<ChLogRow> {
+  const sql = `
+    SELECT
+      toString(Timestamp)               AS log_ts,
+      PulseType,
+      Body,
+      LogAttributes['screen.name']      AS screen_name,
+      LogAttributes['session.id']       AS session_id,
+      LogAttributes['installation.id']  AS installation_id
+    FROM ${CH_DB}.otel_logs
+    WHERE ${baseWhere()}
+      AND PulseType = '${pulseType}'
+      ${extraWhere ? `AND ${extraWhere}` : ""}
+    ORDER BY Timestamp DESC
+    LIMIT 1
+    FORMAT JSONEachRow
+  `;
+  return pollUntilCH<ChLogRow>(sql, timeoutMs, `log(${pulseType})`);
+}
+
 /**
  * Count logs matching criteria. Used for negative assertions.
  */
@@ -209,6 +238,52 @@ export async function countCHLogs(
     FROM ${CH_DB}.otel_logs
     WHERE ServiceName = '${SERVICE_NAME}'
       AND Timestamp > now() - INTERVAL ${windowSeconds} SECOND
+      AND PulseType = '${pulseType}'
+      ${extraWhere ? `AND ${extraWhere}` : ""}
+    FORMAT JSONEachRow
+  `;
+  const rows = await chQuery<{ cnt: string }>(sql);
+  return Number(rows[0]?.cnt ?? 0);
+}
+
+// ─── stack_trace_events helpers ───────────────────────────────────────────────
+
+export function waitForCHStackTrace(
+  pulseType: "device.crash" | "non_fatal",
+  extraWhere = "",
+  timeoutMs = 25_000,
+): Promise<ChStackTraceRow> {
+  const sql = `
+    SELECT
+      toString(Timestamp)                          AS log_ts,
+      PulseType,
+      ExceptionMessage,
+      ExceptionType,
+      ExceptionStackTraceRaw,
+      ScreenName,
+      LogAttributes['error.lineno']                AS error_lineno,
+      LogAttributes['non_fatal.is_manual']         AS non_fatal_is_manual,
+      LogAttributes['react.component_stack']       AS component_stack
+    FROM ${CH_DB}.stack_trace_events
+    WHERE ${baseWhereResourceAttr()}
+      AND PulseType = '${pulseType}'
+      ${extraWhere ? `AND ${extraWhere}` : ""}
+    ORDER BY Timestamp DESC
+    LIMIT 1
+    FORMAT JSONEachRow
+  `;
+  return pollUntilCH<ChStackTraceRow>(sql, timeoutMs, `${pulseType} stack trace`);
+}
+
+export async function countCHStackTraces(
+  pulseType: string,
+  extraWhere = "",
+  windowSeconds = 30,
+): Promise<number> {
+  const sql = `
+    SELECT count() AS cnt
+    FROM ${CH_DB}.stack_trace_events
+    WHERE ${baseWhereResourceAttr(windowSeconds)}
       AND PulseType = '${pulseType}'
       ${extraWhere ? `AND ${extraWhere}` : ""}
     FORMAT JSONEachRow

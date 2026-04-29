@@ -4,7 +4,6 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_ALL_ACTIVE_AND_RUNNING_INTERACTIONS;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_INTERACTION_DETAILS;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_INTERACTION_FILTER_OPTIONS;
-import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_TELEMETRY_FILTER_VALUES;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.INSERT_INTERACTION;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -1058,7 +1057,7 @@ class InteractionDaoTest {
 
       QueryConfiguration capturedConfig = configCaptor.getValue();
       assertThat(capturedConfig).isNotNull();
-      assertThat(capturedConfig.getQuery()).isEqualTo(GET_TELEMETRY_FILTER_VALUES);
+      assertThat(capturedConfig.getQuery()).isEqualTo(Queries.getTelemetryFilterValuesQuery("default"));
     }
   }
 
