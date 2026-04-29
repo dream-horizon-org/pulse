@@ -7,16 +7,16 @@ Transport: **stdio** (local process). Node **18+** required.
 ## Prerequisites
 
 - A running Pulse API (`pulse-server` or your deployed base URL).
-- A **personal MCP API key** from the Pulse UI (Account → Personal Access Tokens). Keys are prefixed with `pulse_mcp_`.
+- A **personal MCP API key** from the Pulse UI: open **Personal Access Tokens** from the user menu (route **`/account/tokens`**). Keys are prefixed with `pulse_mcp_`. (Project **Settings → API Keys** are project keys, not personal MCP keys.)
 
 ## Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `PULSE_BASE_URL` | Yes | API origin, e.g. `http://localhost:8080` |
+| `PULSE_BASE_URL` | Yes | API origin without a trailing slash, e.g. `http://localhost:8080` |
 | `PULSE_API_KEY` | Yes | Personal API key; exchanged for JWTs on startup and on 401 |
 
-On startup, the server calls `POST /v1/auth/api-key/exchange` and writes tokens to **`~/.pulse-mcp/credentials.json`** (mode `0600`). The Axios client uses those tokens as `Authorization: Bearer …`. If a request returns **401**, the client **re-exchanges** the same `PULSE_API_KEY`, overwrites the credentials file, and retries the request.
+On startup, the server calls `POST /v1/auth/api-key/exchange` with body `{ "apiKey": "<PULSE_API_KEY>" }` and writes tokens to **`~/.pulse-mcp/credentials.json`** (mode `0600`). The Axios client sends the access token as `Authorization: Bearer …`. If a request returns **401**, the client **re-exchanges** the same `PULSE_API_KEY` (not the refresh token), overwrites the credentials file, and retries the request once.
 
 `PULSE_API_KEY` must remain set in the MCP config: the 401 recovery path needs it.
 
@@ -24,13 +24,13 @@ On startup, the server calls `POST /v1/auth/api-key/exchange` and writes tokens 
 
 ```bash
 cd pulse-mcp
-npm install
+npm install   # or: yarn install (see package.json "packageManager")
 npm run build
 ```
 
 - `npm run dev` — watch mode (`tsc --watch`)
 - `npm start` — run compiled server (`node dist/index.js`)
-- `npm run typecheck` — typecheck only
+- `npm run typecheck` — typecheck only (`tsc --noEmit`)
 
 ## Quick smoke test (stdio)
 
@@ -43,7 +43,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
     node dist/index.js
 ```
 
-You should see stderr lines such as `Exchanging API key for tokens…`, `Authentication successful.`, `Pulse MCP server running on stdio`, then a JSON `result.tools` array on stdout.
+You should see stderr lines such as `Exchanging API key for tokens...`, `Authentication successful.`, `Pulse MCP server running on stdio`, then a JSON `result.tools` array on stdout.
 
 ## Cursor / Claude Desktop
 
@@ -64,11 +64,11 @@ Point `command`/`args` at `dist/index.js` and pass env (example for Cursor: `~/.
 }
 ```
 
-End-to-end testing (backend migration, UI key creation, revocation) is documented in the monorepo: **`docs/pulse-mcp-api-key-testing.md`**.
+For a manual end-to-end check: create a key at **`/account/tokens`**, point this MCP at your `PULSE_BASE_URL`, set `PULSE_API_KEY`, run the smoke command above, then revoke the key in the UI and confirm a new exchange fails until you create a new key.
 
 ## App Vitals tools
 
-These tools call the same endpoint as the Pulse UI: **`POST /v1/interactions/performance-metric/distribution`**, with request bodies aligned to `pulse-ui` hooks (`useExceptionListData`, `useIssueDetailData`, etc.). Column names are duplicated in [`src/tools/appVitalsConstants.ts`](src/tools/appVitalsConstants.ts); **keep them in sync** with [`pulse-ui/src/constants/PulseOtelSemcov.ts`](pulse-ui/src/constants/PulseOtelSemcov.ts) when semconv fields change.
+These tools call the same endpoint as the Pulse UI: **`POST /v1/interactions/performance-metric/distribution`**, with request bodies aligned to `pulse-ui` hooks (`useExceptionListData`, `useIssueDetailData`, etc.). Column names are duplicated in [`src/tools/appVitalsConstants.ts`](src/tools/appVitalsConstants.ts); **keep them in sync** with [`pulse-ui/src/constants/PulseOtelSemcov.ts`](../pulse-ui/src/constants/PulseOtelSemcov.ts) when semconv fields change.
 
 ### Authorization
 
@@ -101,7 +101,7 @@ Successful distribution calls return JSON with **`ok: true`**. When there are no
 ## Security
 
 - Treat `PULSE_API_KEY` like a password; do not commit it.
-- Revoking the key in the UI invalidates future exchanges; existing access tokens work until expiry (see testing doc).
+- Revoking the key in the UI invalidates future exchanges; existing access tokens keep working until they expire (JWT lifetime).
 - For teams, consider a hosted HTTP MCP with centrally managed auth instead of per-machine keys.
 
 ## Layout
