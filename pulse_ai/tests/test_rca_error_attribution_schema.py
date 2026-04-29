@@ -127,3 +127,26 @@ def test_accepts_null_insights_and_null_drill() -> None:
         error_attribution_insights=None,
         error_attribution=None,
     )
+
+
+def test_accepts_three_insights_with_null_summaries_and_drill() -> None:
+    insights = [
+        ErrorAttributionInsightV1(signal="anr", summary="ANR narrative here."),
+        ErrorAttributionInsightV1(signal="non_fatal", summary=None),
+        ErrorAttributionInsightV1(signal="api", summary=None, caveat="Correlative only."),
+    ]
+    report = RcaStructuredReportV1(
+        executive_summary="s",
+        segments=[_minimal_segment(), _minimal_segment()],
+        recommendations=["r1", "r2", "r3"],
+        error_attribution_insights=insights,
+        error_attribution=_minimal_drill(),
+    )
+    assert report.error_attribution_insights is not None
+    assert report.error_attribution_insights[1].summary is None
+    assert report.error_attribution_insights[2].summary is None
+
+
+def test_coerces_blank_summary_to_none() -> None:
+    row = ErrorAttributionInsightV1(signal="anr", summary="   ")
+    assert row.summary is None

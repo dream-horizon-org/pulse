@@ -36,6 +36,7 @@ def _build_rca_prompt(
     payload: RootCausePayloadSchema,
     example_session_ids: list[str] | None = None,
     error_attribution_payload: dict[str, Any] | None = None,
+    analysis_lookback_days: int | None = None,
 ) -> str:
     serialized_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
 
@@ -54,11 +55,23 @@ def _build_rca_prompt(
             f"Include in 'affected_sessions' field as an array (e.g., {{'affected_sessions': ['{example_session_ids[0]}']}})"
         )
 
+    lookback_block = ""
+    if analysis_lookback_days is not None and analysis_lookback_days > 0:
+        n = analysis_lookback_days
+        lookback_block = (
+            f"\n## Telemetry lookback\n"
+            f"The tabular RootCausePayload was computed over a server-configured rolling window of **{n}** "
+            f"UTC calendar day(s) (Pulse RCA). In `executive_summary`, segment `insights`, and recommendations, "
+            f"describe recency and time span in a way **consistent with this {n}-day horizon** — do not imply a "
+            f"longer or shorter analysis window.\n"
+        )
+
     return (
         "Generate a root cause analysis report for the given interaction.\n"
         f"Interaction: {interaction_name}\n"
         f"RootCausePayload(JSON): {serialized_payload}"
         f"{attribution_block}"
+        f"{lookback_block}"
         f"{sessions_context}"
     )
 
@@ -119,6 +132,7 @@ async def generate_rca_report(
     interaction_name: str,
     example_session_ids: list[str] | None = None,
     error_attribution_payload: dict[str, Any] | None = None,
+    analysis_lookback_days: int | None = None,
 ) -> RcaReportResponse:
     """
     Runs the RCA pipeline with retries and returns typed report response.
@@ -138,6 +152,7 @@ async def generate_rca_report(
         payload,
         example_session_ids,
         error_attribution_payload,
+        analysis_lookback_days,
     )
     message = Content.model_validate(
         {"role": "user", "parts": [{"text": prompt}]},
@@ -182,7 +197,10 @@ async def generate_rca_report(
     if structured_report is None:
         raise RcaRunnerError(500, "RCA report generation failed after retries")
 
-    report_payload = ReportPayloadSchema(structured=structured_report)
+    report_payload = ReportPayloadSchema(
+        structured=structured_report,
+        analysisLookbackDays=analysis_lookback_days,
+    )
     response = RcaReportResponse(report=report_payload, cached=False)
 
     return response

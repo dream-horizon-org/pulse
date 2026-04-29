@@ -11,6 +11,10 @@ class RcaReportRequest(BaseModel):
     entityKey: str
     rcaType: str
     date: str | None = None
+    analysisLookbackDays: int | None = Field(
+        default=None,
+        description="RCA telemetry window in days (pulse-server); echoed on report.",
+    )
     rootCausePayload: dict[str, Any] | None = None
     errorAttributionPayload: dict[str, Any] | None = Field(
         default=None,
@@ -22,6 +26,7 @@ class RcaReportRequest(BaseModel):
 
 class ReportPayloadSchema(BaseModel):
     structured: RcaStructuredReportV1
+    analysisLookbackDays: int | None = None
 
 
 class RcaReportResponse(BaseModel):

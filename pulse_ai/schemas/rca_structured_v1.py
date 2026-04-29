@@ -38,14 +38,27 @@ class ErrorAttributionInsightV1(BaseModel):
     """NLP layer on top of pre-computed drill data (correlative, not causal)."""
 
     signal: RcaErrorAttributionSignalV1
-    summary: str = Field(
-        ...,
-        description="2–4 sentences; use neutral placeholder if the signal has no qualifying issues.",
+    summary: str | None = Field(
+        default=None,
+        description=(
+            "When there is interpretable drill-down narrative for this signal, 2–4 sentences; "
+            "otherwise JSON null (do not emit filler placeholder prose)."
+        ),
     )
     caveat: str | None = Field(
         default=None,
         description="Optional short reminder that drill correlations are not causal proof.",
     )
+
+    @field_validator("summary", mode="before")
+    @classmethod
+    def normalize_blank_summary(cls, v: object) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            stripped = v.strip()
+            return stripped if stripped else None
+        return v
 
 
 class RelatedAttributionEntryStructuredV1(BaseModel):

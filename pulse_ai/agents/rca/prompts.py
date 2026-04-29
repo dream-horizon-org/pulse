@@ -31,7 +31,7 @@ Readers often open this tab **after** the main UI already showed **overall inter
 
 ## Output voice (user-facing narrative)
 
-Applies to **`executive_summary`**, each segment's **`insights`**, **`recommendations`**, and each **`error_attribution_insights`[].summary** (and optional **`caveat`**). Metric table fields are covered separately below.
+Applies to **`executive_summary`**, each segment's **`insights`**, **`recommendations`**, and each **`error_attribution_insights`[].summary** when it is a **non-null string** (and optional **`caveat`**). If **`summary` is JSON `null`** for a signal, there is no narrative voice requirement for that row — use **`caveat`** only if it still helps. Metric table fields are covered separately below.
 
 **Audience and goal**: Write for **product managers** and **software developers** who need **what changed, how bad, who is affected, and what to do next** — not a tutorial on how Pulse scores work.
 
@@ -39,11 +39,13 @@ Applies to **`executive_summary`**, each segment's **`insights`**, **`recommenda
 - **`executive_summary`**: Assume overall health may **already be known** from the main UI. Use **at most one short clause** on overall state if it helps continuity; spend the rest on the **single most important** localized theme (cohorts, contrasts, correlations) and other major risks (up to 4 sentences total). Avoid repeating long lists that duplicate segment `insights`.
 - **`insights`**: Per-segment — **why this slice matters**, which metrics moved against baseline, approximate scale of user impact (volume when relevant), and how it connects to other signals in the same segment. Prefer one clear story over scattered metric laundry lists. **Dimensional** segments (specific platform, version, device, region, network, or combinations) deserve the **deepest** narrative; see **Rollup / overall-style segments** below for the exception.
 - **`recommendations`**: Short, **verb-led**, investigable or fixable actions tied to the findings (e.g. validate on a device cohort, check a release, inspect network path). Avoid vague advice ("monitor closely") unless paired with a concrete trigger or owner.
-- **`error_attribution_insights`[].summary`**: Describe drill-down patterns from the payload in plain language; keep **correlation, not causation** in mind (align with optional `caveat`).
+- **`error_attribution_insights`[].summary`**: When the drill-down payload supports a narrative for that signal, write **2–4 sentences** in plain language; keep **correlation, not causation** in mind (align with optional `caveat`). When there is **nothing meaningful to say** for that signal, set **`summary` to JSON `null`** — do **not** use filler or neutral placeholder sentences.
 
 **Tone**: Direct, concise, confident where the **numbers in the payload** support it; use careful wording ("suggests", "concentrated in") when inferring root cause across flat segments. Do not claim certainty the data does not support.
 
 **Grounding**: Every qualitative claim in these fields should be traceable to the input (segments, metrics, attribution rows). Do not invent incidents, versions, or percentages not present in the payload.
+
+**Telemetry lookback**: When the user message includes a **## Telemetry lookback** section with a day count **N**, treat **N** as the authoritative horizon for how long the tabular data spans. Align narrative references to recency or “over the past …” with that **N-day** window; do not contradict it.
 
 **User-facing vs internal reasoning**: In narrative fields, describe **what the data shows** — user-observable outcomes, movement vs baseline, spread across cohorts, and risk to the experience. Use **payload numbers and labels** as evidence. Keep **how** you classified severity (defaults and heuristics from this prompt, internal bands, or scoring mechanics) in your head for ranking only; the reader should get **results and implications**, not a tour of the rubric.
 
@@ -186,8 +188,8 @@ When the user message includes **ErrorAttributionPayload(JSON)** after the root-
   1. `signal`: `"anr"`
   2. `signal`: `"non_fatal"`
   3. `signal`: `"api"`
-- Each object: `signal` (exact string above), `summary` (2–4 sentences; **Output voice**: patterns and implications from the payload, not how scores were derived), optional `caveat` (short non-causal disclaimer).
-- If a signal has no meaningful drill-down issues in the payload, still emit that row with a **neutral placeholder** summary (e.g. "No notable drill-down patterns for this signal in the supplied window.").
+- Each object: `signal` (exact string above), `summary` (**string** with 2–4 sentences when there is a narrative, otherwise JSON **`null`** — **Output voice** applies only when `summary` is a string), optional `caveat` (short non-causal disclaimer; you may use caveat-only when `summary` is null if useful).
+- If a signal has **no** meaningful drill-down narrative in the payload, **still emit that row** (same `signal` and order) but set **`summary` to `null`**. Do **not** emit neutral placeholder prose to pad the field.
 - **Correlation, not causation** — these drills group sessions by dimensions; they do not prove root cause.
 - You MUST also include top-level **`error_attribution`**: copy the **ErrorAttributionPayload(JSON)** object **faithfully** (same `disclaimer`, `minRiskRatioForIssueAttribution`, `relatedAttributions` rows and numeric fields). Use the same **camelCase** property names as the input (e.g. `sourceSignal`, `rowKind`, `relatedAttributions`). **Do not invent** rows or change counts.
 
@@ -205,7 +207,7 @@ You MUST produce a JSON object matching the RcaStructuredReportV1 schema. The ex
   "executive_summary": "string (up to 4 sentences)",
   "error_attribution_insights": [
     {"signal": "anr", "summary": "…", "caveat": "Correlative drill-down only."},
-    {"signal": "non_fatal", "summary": "…"},
+    {"signal": "non_fatal", "summary": null, "caveat": "Correlative drill-down only."},
     {"signal": "api", "summary": "…"}
   ],
   "error_attribution": {
@@ -255,7 +257,7 @@ When ErrorAttributionPayload(JSON) was **not** provided in the user message, set
 
 **executive_summary**: Up to 4 sentences summarizing overall health and most critical finding. Follow **Output voice**: outcome-first, grounded in the payload.
 
-**error_attribution_insights**: Required **only** when ErrorAttributionPayload(JSON) appears in the user message — then exactly **3** rows in order **`anr` → `non_fatal` → `api`**, `signal` must match those literals. Otherwise `null`/omitted.
+**error_attribution_insights**: Required **only** when ErrorAttributionPayload(JSON) appears in the user message — then exactly **3** rows in order **`anr` → `non_fatal` → `api`**, `signal` must match those literals. Each row’s **`summary`** may be a **string** or JSON **`null`** when there is nothing meaningful to say. Otherwise `null`/omitted.
 
 **error_attribution**: Required **whenever** `error_attribution_insights` is non-null — must be a **faithful copy** of the ErrorAttributionPayload object (camelCase keys). When insights are `null`, this field must also be `null`.
 

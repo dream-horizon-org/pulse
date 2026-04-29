@@ -212,6 +212,7 @@ public class RcaReportEnrichmentService {
       String entityKey) {
     return Single.fromCallable(
             () -> {
+              working.put("analysisLookbackDays", rootCauseConfig.getLookbackDays());
               fetchErrorAttributionForEnrichment(projectId, entityKey, date, windowEnd, working);
               String enrichedBody = objectMapper.writeValueAsString(working);
               return new RcaEnrichmentOutcome(enrichedBody, rootCauseResult, date, windowEnd, true);
