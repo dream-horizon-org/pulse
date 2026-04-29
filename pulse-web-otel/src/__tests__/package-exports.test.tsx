@@ -37,7 +37,7 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
       (k) => !k.startsWith("_reset"),
     );
     expect(publicExports.sort()).toEqual(
-      ["PulseProvider", "usePulse", "useRouterTracking"].sort(),
+      ["PulseErrorBoundary", "PulseProvider", "usePulse", "useRouterTracking"].sort(),
     );
   });
 });
