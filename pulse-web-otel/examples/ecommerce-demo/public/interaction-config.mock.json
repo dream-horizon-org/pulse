@@ -1,0 +1,123 @@
+[
+  {
+    "id": 1,
+    "name": "Checkout Happy Path",
+    "description": "Checkout Happy Path",
+    "events": [
+      { "name": "checkout_step_1", "props": [], "isBlacklisted": false },
+      { "name": "checkout_step_2", "props": [], "isBlacklisted": false },
+      { "name": "checkout_step_3", "props": [], "isBlacklisted": false }
+    ],
+    "thresholdInMs": 3000,
+    "uptimeLowerLimitInMs": 700,
+    "uptimeMidLimitInMs": 1400,
+    "uptimeUpperLimitInMs": 2500,
+    "globalBlacklistedEvents": [
+      { "name": "ad_impression", "props": [], "isBlacklisted": true }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Cart Open To Checkout Click",
+    "description": "Cart Open To Checkout Click",
+    "events": [
+      { "name": "cart_open", "props": [], "isBlacklisted": false },
+      {
+        "name": "cart_checkout_click",
+        "isBlacklisted": false,
+        "props": [
+          { "name": "item_count", "value": "0", "operator": "NOTEQUALS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 2500,
+    "uptimeLowerLimitInMs": 500,
+    "uptimeMidLimitInMs": 1000,
+    "uptimeUpperLimitInMs": 1800,
+    "globalBlacklistedEvents": [
+      { "name": "device.crash", "props": [], "isBlacklisted": true }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Product List Quick Add",
+    "description": "Product List Quick Add",
+    "events": [
+      {
+        "name": "product_item_visible",
+        "isBlacklisted": false,
+        "props": [
+          { "name": "source", "value": "product_list", "operator": "EQUALS" }
+        ]
+      },
+      {
+        "name": "add_to_cart",
+        "isBlacklisted": false,
+        "props": [
+          { "name": "source", "value": "product_list", "operator": "EQUALS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 2000,
+    "uptimeLowerLimitInMs": 350,
+    "uptimeMidLimitInMs": 900,
+    "uptimeUpperLimitInMs": 1600,
+    "globalBlacklistedEvents": [
+      {
+        "name": "error_demo_throw_uncaught",
+        "props": [],
+        "isBlacklisted": true
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Product Detail Add To Cart",
+    "description": "Product Detail Add To Cart",
+    "events": [
+      {
+        "name": "product_detail_open",
+        "isBlacklisted": false,
+        "props": [
+          { "name": "path", "value": "/products/", "operator": "STARTSWITH" }
+        ]
+      },
+      {
+        "name": "add_to_cart",
+        "isBlacklisted": false,
+        "props": [
+          { "name": "source", "value": "product_detail", "operator": "EQUALS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 3500,
+    "uptimeLowerLimitInMs": 800,
+    "uptimeMidLimitInMs": 1500,
+    "uptimeUpperLimitInMs": 2800,
+    "globalBlacklistedEvents": [
+      { "name": "ad_impression", "props": [], "isBlacklisted": true }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Cart Remove Item Then Checkout",
+    "description": "Cart Remove Item Then Checkout",
+    "events": [
+      { "name": "cart_remove_item", "props": [], "isBlacklisted": false },
+      {
+        "name": "cart_checkout_click",
+        "isBlacklisted": false,
+        "props": [
+          { "name": "item_count", "value": "0", "operator": "NOTEQUALS" }
+        ]
+      }
+    ],
+    "thresholdInMs": 2600,
+    "uptimeLowerLimitInMs": 600,
+    "uptimeMidLimitInMs": 1200,
+    "uptimeUpperLimitInMs": 2100,
+    "globalBlacklistedEvents": [
+      { "name": "device.crash", "props": [], "isBlacklisted": true }
+    ]
+  }
+]
