@@ -11,6 +11,8 @@
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
     "e2e:report": "playwright test --config e2e/playwright.config.ts; playwright show-report e2e-report",
+    "e2e:ch": "playwright test --config e2e/playwright.ch.config.ts",
+    "e2e:ch:headed": "playwright test --config e2e/playwright.ch.config.ts --headed",
     "test": "yarn --cwd ../.. vitest run --config examples/ecommerce-demo/vitest.config.ts examples/ecommerce-demo/src/__tests__/App.test.tsx"
   },
   "dependencies": {

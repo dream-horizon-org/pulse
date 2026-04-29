@@ -181,6 +181,7 @@ export default function ErrorDemo() {
             Calls PulseWeb.reportException() → <code>non_fatal</code> log
           </p>
           <button
+            data-testid="report-exception"
             style={btn("#0ea5e9")}
             onClick={() =>
               PulseWeb.reportException(new Error("Manually reported error"), {

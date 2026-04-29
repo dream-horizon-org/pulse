@@ -55,7 +55,7 @@ export class InstrumentationRegistry {
       this.installed.push(sessionInstr);
     }
 
-    if (this.shouldInstall("errors")) {
+    if (this.shouldInstall(InstrumentationKeys.ERRORS)) {
       const errInstr = new ErrorInstrumentation();
       errInstr.install(this.sdk);
       this.installed.push(errInstr);
