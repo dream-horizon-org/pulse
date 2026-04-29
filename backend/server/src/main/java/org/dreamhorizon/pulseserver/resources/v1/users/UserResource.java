@@ -48,7 +48,7 @@ public class UserResource {
             // Extract user info from JWT token
             String token = extractToken(authorization);
             if (token == null) {
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                throw ServiceError.UNAUTHORISED
                     .getCustomException("Unauthorized", "Missing or invalid Authorization header");
             }
             
@@ -57,19 +57,19 @@ public class UserResource {
                 claims = jwtService.verifyToken(token);
             } catch (io.jsonwebtoken.ExpiredJwtException e) {
                 log.warn("Expired JWT token for /users/me/projects");
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                throw ServiceError.UNAUTHORISED
                     .getCustomException("Token expired", "Your session has expired. Please log in again.");
             } catch (io.jsonwebtoken.security.SignatureException e) {
                 log.warn("Invalid JWT signature for /users/me/projects");
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                throw ServiceError.UNAUTHORISED
                     .getCustomException("Invalid token", "Authentication failed. Please log in again.");
             } catch (io.jsonwebtoken.MalformedJwtException e) {
                 log.warn("Malformed JWT token for /users/me/projects");
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                throw ServiceError.UNAUTHORISED
                     .getCustomException("Invalid token", "Malformed authentication token. Please log in again.");
             } catch (Exception e) {
                 log.error("JWT verification failed: {}", e.getMessage(), e);
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                throw ServiceError.UNAUTHORISED
                     .getCustomException("Authentication failed", "Unable to verify authentication token");
             }
             
@@ -77,12 +77,12 @@ public class UserResource {
             String tenantId = claims.get("tenantId", String.class);
             
             if (userId == null || userId.isBlank()) {
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                throw ServiceError.UNAUTHORISED
                     .getCustomException("Invalid token", "Token missing user ID");
             }
             
             if (tenantId == null || tenantId.isBlank()) {
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                throw ServiceError.UNAUTHORISED
                     .getCustomException("Invalid token", "Token missing tenant ID");
             }
             

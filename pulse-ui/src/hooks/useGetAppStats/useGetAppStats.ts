@@ -127,7 +127,7 @@ export function useGetAppStats({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
         },

@@ -222,14 +222,12 @@ class NotificationServiceImplTest {
 
       when(channelDao.getActiveChannelByProjectAndType(eq(""), eq(ChannelType.EMAIL)))
           .thenReturn(Maybe.empty());
-      NotificationChannel saved = emailChannel();
       when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
-      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(saved));
 
-      var result = service.createChannel(request).blockingGet();
+      Long result = service.createChannel(request).blockingGet();
 
-      assertThat(result).isNotNull();
-      assertThat(result.getChannelType()).isEqualTo(ChannelType.EMAIL);
+      assertThat(result).isEqualTo(CHANNEL_ID);
+      verify(channelDao).createChannel(any());
     }
 
     @Test
@@ -374,11 +372,10 @@ class NotificationServiceImplTest {
       when(templateDao.getLatestVersion(eq("alert"), eq(ChannelType.EMAIL)))
           .thenReturn(Single.just(0));
       when(templateDao.createTemplate(any())).thenReturn(Single.just(TEMPLATE_ID));
-      when(templateDao.getTemplateById(eq(TEMPLATE_ID))).thenReturn(Maybe.just(emailTemplate()));
 
       var result = service.createTemplate(request).blockingGet();
 
-      assertThat(result).isNotNull();
+      assertThat(result).isEqualTo(TEMPLATE_ID);
     }
 
     @Test
@@ -474,19 +471,6 @@ class NotificationServiceImplTest {
       long[] idCounter = {1};
       when(mappingDao.createMapping(any(ChannelEventMapping.class)))
           .thenAnswer(inv -> Single.just(idCounter[0]++));
-      when(mappingDao.getMappingById(anyLong()))
-          .thenAnswer(inv -> {
-            Long id = inv.getArgument(0);
-            return Maybe.just(ChannelEventMapping.builder()
-                .id(id)
-                .projectId(PROJECT_ID)
-                .channelId(NotificationConstants.Platform.DEFAULT_CHANNEL_ID)
-                .eventName("event")
-                .isActive(true)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .build());
-          });
 
       List<ChannelEventMappingDto> result =
           service.createDefaultPlatformMappings(PROJECT_ID).blockingGet();
@@ -608,17 +592,6 @@ class NotificationServiceImplTest {
           .thenReturn(Maybe.just(emailTemplate()));
       when(mappingDao.createMapping(any(ChannelEventMapping.class)))
           .thenReturn(Single.just(10L));
-      when(mappingDao.getMappingById(eq(10L)))
-          .thenReturn(Maybe.just(ChannelEventMapping.builder()
-              .id(10L)
-              .projectId(PROJECT_ID)
-              .channelId(CHANNEL_ID)
-              .eventName("alert")
-              .recipient("user@test.com")
-              .isActive(true)
-              .createdAt(Instant.now())
-              .updatedAt(Instant.now())
-              .build()));
 
       var result = service.createMapping(PROJECT_ID, request).blockingGet();
 
@@ -828,12 +801,11 @@ class NotificationServiceImplTest {
       when(channelDao.getActiveChannelByProjectAndType(eq(PROJECT_ID), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
-      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(slackChannel()));
 
-      var result = service.createChannel(request).blockingGet();
+      Long result = service.createChannel(request).blockingGet();
 
-      assertThat(result).isNotNull();
-      assertThat(result.getChannelType()).isEqualTo(ChannelType.SLACK);
+      assertThat(result).isEqualTo(CHANNEL_ID);
+      verify(channelDao).createChannel(any());
     }
   }
 
@@ -853,13 +825,12 @@ class NotificationServiceImplTest {
       when(channelDao.getActiveChannelByProjectAndType(eq(PROJECT_ID), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
-      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(slackChannel()));
       when(mappingDao.createMapping(any(ChannelEventMapping.class)))
           .thenReturn(Single.just(1L));
 
-      var result = service.createChannel(request).blockingGet();
+      Long result = service.createChannel(request).blockingGet();
 
-      assertThat(result).isNotNull();
+      assertThat(result).isEqualTo(CHANNEL_ID);
       verify(mappingDao, org.mockito.Mockito.times(2)).createMapping(any(ChannelEventMapping.class));
     }
 
@@ -875,11 +846,10 @@ class NotificationServiceImplTest {
       when(channelDao.getActiveChannelByProjectAndType(eq(PROJECT_ID), eq(ChannelType.SLACK)))
           .thenReturn(Maybe.empty());
       when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
-      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(slackChannel()));
 
-      var result = service.createChannel(request).blockingGet();
+      Long result = service.createChannel(request).blockingGet();
 
-      assertThat(result).isNotNull();
+      assertThat(result).isEqualTo(CHANNEL_ID);
       verify(mappingDao, never()).createMapping(any());
     }
   }
