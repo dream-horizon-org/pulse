@@ -43,20 +43,13 @@ vi.mock("@dreamhorizon/pulse-web", () => ({
 vi.mock("@dreamhorizon/pulse-web/react", () => {
   const React = require("react");
 
-  function RouterTrackerInner({ opts }: { opts: { skipInitial?: boolean } }) {
-    useRouterTracking(opts);
-    return null;
-  }
-
   function PulseProvider({
     children,
     config,
-    routerTracking,
   }: {
     children: React.ReactNode;
     config: unknown;
     shutdownOnUnmount?: boolean;
-    routerTracking?: { skipInitial?: boolean };
   }) {
     React.useEffect(() => {
       mockStart(config);
@@ -65,14 +58,7 @@ vi.mock("@dreamhorizon/pulse-web/react", () => {
         void mockShutdown();
       };
     }, []);
-    return React.createElement(
-      React.Fragment,
-      null,
-      routerTracking
-        ? React.createElement(RouterTrackerInner, { opts: routerTracking })
-        : null,
-      children,
-    );
+    return React.createElement(React.Fragment, null, children);
   }
 
   class PulseErrorBoundary extends React.Component<{
@@ -95,7 +81,7 @@ vi.mock("@dreamhorizon/pulse-web/react", () => {
 
   function useRouterTracking(opts?: { skipInitial?: boolean }) {
     const loc = require("react-router-dom").useLocation();
-    const prev = React.useRef<string | null>(null);
+    const prev = React.useRef(null as string | null);
     React.useEffect(() => {
       if (prev.current === null) {
         prev.current = loc.pathname;

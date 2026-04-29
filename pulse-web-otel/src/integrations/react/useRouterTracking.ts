@@ -22,12 +22,7 @@ export type { UseRouterTrackingOptions } from "../../types/react";
  * }
  * ```
  *
- * **Peer dependency:** requires `react-router-dom >=6.0.0` (declared as an
- * optional peer dep in `@dreamhorizon/pulse-web`). Install it alongside this
- * package if you use this hook. If `react-router-dom` is absent the hook
- * throws a clear `[PulseWeb]` error at call-time (not at import-time) so the
- * rest of `@dreamhorizon/pulse-web/react` (`PulseProvider`, `PulseErrorBoundary`,
- * `usePulse`) continues to work without a router installed.
+ * **Peer dependency:** requires `react-router-dom >=6.0.0`.
  *
  * Implementation notes:
  * - No listeners are registered by this hook; it relies on React Router's
@@ -42,6 +37,7 @@ export function useRouterTracking(
 ): void {
   const { format, includeSearch = false, skipInitial = true } = options;
   const location = useLocation();
+
   // Tracks the last dependency value we acted on. Initialised to `null` so
   // the first seen value is always "new". Persisting across fake StrictMode
   // unmount/remount means the second run sees the same dep and skips — that

@@ -1,0 +1,68 @@
+# Production (bare metal): apps → OTLP :4317/:4318 → spanmetrics + Prometheus :8889; traces → Tempo on localhost (internal gRPC).
+# Tempo distributor OTLP must use different ports than the collector (see install-native-observability.sh; default Tempo 4327).
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  batch:
+    send_batch_size: 1024
+    timeout: 1s
+  filter/http_server:
+    error_mode: ignore
+    traces:
+      span:
+        - 'name == "__no_match__"'
+
+connectors:
+  spanmetrics:
+    namespace: trace
+    histogram:
+      explicit:
+        buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+    dimensions:
+      - name: http.request.method
+      - name: http.route
+      - name: url.path
+      - name: http.response.status_code
+    metrics_flush_interval: 15s
+    exemplars:
+      enabled: true
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: otel
+    const_labels:
+      cluster: production
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  otlp/tempo:
+    endpoint: 127.0.0.1:4327
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    metrics:
+      receivers: [otlp, spanmetrics]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, filter/http_server]
+      exporters: [otlp/tempo, spanmetrics]
