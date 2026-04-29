@@ -14,7 +14,11 @@ describe('isAndroidEnableJetifierTrue', () => {
   it('is true for true (any case)', () => {
     expect(
       isAndroidEnableJetifierTrue([
-        { type: 'property', key: PULSE_ANDROID_ENABLE_JETIFIER_KEY, value: 'TRUE' },
+        {
+          type: 'property',
+          key: PULSE_ANDROID_ENABLE_JETIFIER_KEY,
+          value: 'TRUE',
+        },
       ])
     ).toBe(true);
   });
@@ -22,7 +26,11 @@ describe('isAndroidEnableJetifierTrue', () => {
   it('is false for false', () => {
     expect(
       isAndroidEnableJetifierTrue([
-        { type: 'property', key: PULSE_ANDROID_ENABLE_JETIFIER_KEY, value: 'false' },
+        {
+          type: 'property',
+          key: PULSE_ANDROID_ENABLE_JETIFIER_KEY,
+          value: 'false',
+        },
       ])
     ).toBe(false);
   });
@@ -42,13 +50,29 @@ describe('mergeJetifierIgnorelistForNetByteBuddy', () => {
 
   it('no-op when enableJetifier is false', () => {
     const initial = [
-      { type: 'property', key: PULSE_ANDROID_ENABLE_JETIFIER_KEY, value: 'false' },
-      { type: 'property', key: PULSE_ANDROID_JETIFIER_IGNORELIST_KEY, value: 'foo' },
+      {
+        type: 'property',
+        key: PULSE_ANDROID_ENABLE_JETIFIER_KEY,
+        value: 'false',
+      },
+      {
+        type: 'property',
+        key: PULSE_ANDROID_JETIFIER_IGNORELIST_KEY,
+        value: 'foo',
+      },
     ];
     const out = mergeJetifierIgnorelistForNetByteBuddy(initial);
     expect(out).toEqual([
-      { type: 'property', key: PULSE_ANDROID_ENABLE_JETIFIER_KEY, value: 'false' },
-      { type: 'property', key: PULSE_ANDROID_JETIFIER_IGNORELIST_KEY, value: 'foo' },
+      {
+        type: 'property',
+        key: PULSE_ANDROID_ENABLE_JETIFIER_KEY,
+        value: 'false',
+      },
+      {
+        type: 'property',
+        key: PULSE_ANDROID_JETIFIER_IGNORELIST_KEY,
+        value: 'foo',
+      },
     ]);
   });
 
@@ -64,10 +88,17 @@ describe('mergeJetifierIgnorelistForNetByteBuddy', () => {
   it('appends token to existing comma-separated list when jetifier on', () => {
     const out = mergeJetifierIgnorelistForNetByteBuddy([
       jetifierOn,
-      { type: 'property', key: PULSE_ANDROID_JETIFIER_IGNORELIST_KEY, value: 'foo' },
+      {
+        type: 'property',
+        key: PULSE_ANDROID_JETIFIER_IGNORELIST_KEY,
+        value: 'foo',
+      },
     ]);
     expect(out).toHaveLength(2);
-    expect(out[1].value).toBe('foo,net.bytebuddy');
+    const ignoreRow = out.find(
+      (i) => i.key === PULSE_ANDROID_JETIFIER_IGNORELIST_KEY
+    );
+    expect(ignoreRow?.value).toBe('foo,net.bytebuddy');
   });
 
   it('does not duplicate net.bytebuddy when jetifier on', () => {

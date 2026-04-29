@@ -53,6 +53,9 @@ export function mergeJetifierIgnorelistForNetByteBuddy(
   }
 
   const cur = out[idx];
+  if (cur === undefined) {
+    return out;
+  }
   const raw = String(cur.value ?? '').trim();
   const parts = raw
     .split(',')
@@ -64,7 +67,7 @@ export function mergeJetifierIgnorelistForNetByteBuddy(
   );
   if (!hasByteBuddy) {
     const next = [...parts, token].join(',');
-    out[idx] = { ...cur, value: next };
+    out[idx] = { type: cur.type, key: cur.key, value: next };
   }
 
   return out;
