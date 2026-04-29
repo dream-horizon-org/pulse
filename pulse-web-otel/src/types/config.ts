@@ -12,7 +12,8 @@ export enum PulseDataCollectionConsent {
 export interface InstrumentationConfig {
   errors?: { enabled: boolean };
   network?: { enabled: boolean };
-  clicks?: { enabled: boolean };
+  /** `captureContext` defaults to true when omitted (Android parity). */
+  clicks?: { enabled: boolean; captureContext?: boolean };
   webVitals?: { enabled: boolean };
   navigation?: { enabled: boolean };
   session?: { enabled: boolean };

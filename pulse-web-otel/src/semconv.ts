@@ -53,11 +53,28 @@ export const PulseWebSemconv = {
     NON_FATAL_IS_MANUAL: "non_fatal.is_manual",
     /** Init log (`otel.initialization.events`) — exporter wiring hint (Android parity). */
     SPAN_EXPORTER: "span.exporter",
+    CLICK_TYPE: "click.type",
+    CLICK_IS_RAGE: "click.is_rage",
+    CLICK_RAGE_COUNT: "click.rage_count",
+    APP_SCREEN_COORDINATE_X: "app.screen.coordinate.x",
+    APP_SCREEN_COORDINATE_Y: "app.screen.coordinate.y",
+    APP_SCREEN_COORDINATE_NX: "app.screen.coordinate.nx",
+    APP_SCREEN_COORDINATE_NY: "app.screen.coordinate.ny",
+    APP_WIDGET_NAME: "app.widget.name",
+    APP_WIDGET_ID: "app.widget.id",
+    APP_CLICK_CONTEXT: "app.click.context",
+    /** Logical viewport (`window.innerWidth` / `innerHeight`), Android `device.screen.*` parity. */
+    DEVICE_SCREEN_WIDTH: "device.screen.width",
+    DEVICE_SCREEN_HEIGHT: "device.screen.height",
   },
   FixedValue: {
     PLATFORM_WEB: "web",
     RUM_SDK_NAME: "pulse_web_js",
     EVENT_NAME_CUSTOM_EVENT: "pulse.custom_event",
+  },
+  ClickTypeValue: {
+    GOOD: "good",
+    DEAD: "dead",
   },
   PulseType: {
     INSTALLATION_START: "pulse.app.installation.start",
@@ -69,6 +86,8 @@ export const PulseWebSemconv = {
     USER_SESSION_START: "pulse.user.session.start",
     USER_SESSION_END: "pulse.user.session.end",
     INTERACTION: "interaction",
+    /** Same value as Android `PulseAttributes.PulseTypeValues.TOUCH` (`app.click`). */
+    APP_CLICK: "app.click",
   },
   LogBody: {
     SESSION_START: "session.start",
@@ -76,6 +95,8 @@ export const PulseWebSemconv = {
     APP_INSTALLATION_START: "pulse.app.installation.start",
     USER_SESSION_START: "pulse.user.session.start",
     USER_SESSION_END: "pulse.user.session.end",
+    /** OTLP log body; matches Android log event name `app.widget.click`. */
+    APP_WIDGET_CLICK: "app.widget.click",
   },
   /**
    * Init milestones as OTLP **logs** (Android `SdkInitializationEvents` / `RumConstants.Events`).
