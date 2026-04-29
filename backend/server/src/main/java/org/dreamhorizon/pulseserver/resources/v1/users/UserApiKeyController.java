@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.resources.v1.users;
 
 import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Single;
 import io.jsonwebtoken.Claims;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -14,7 +15,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
-import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +26,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.userapikey.UserApiKeyService;
 import org.dreamhorizon.pulseserver.service.userapikey.models.UserApiKeyInfo;
 import org.dreamhorizon.pulseserver.service.userapikey.models.UserApiKeyPublicInfo;
+import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -65,8 +66,8 @@ public class UserApiKeyController {
       @NotNull @PathParam("keyId") Long keyId) {
     String userId = extractUserId(authorization);
     return userApiKeyService.revokeApiKey(keyId, userId, userId)
-        .toSingleDefault((Void) null)
-        .to(RestResponse.jaxrsRestHandler());
+        .andThen(Single.fromCallable(() -> Response.successfulResponse((Void) null)))
+        .to(CompletableFutureUtils::fromSingle);
   }
 
   private String extractUserId(String authorization) {
