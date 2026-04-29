@@ -1,4 +1,7 @@
-import { STATUS_CODE, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
+import {
+  STATUS_CODE,
+  COLUMN_NAME,
+} from "../../constants/PulseOtelSemcov";
 import { Screen } from "../../screens/ScreenList/ScreenList.interface";
 import { useGetDataQuery } from "../useGetDataQuery";
 import { useMemo } from "react";
@@ -27,7 +30,7 @@ export const useGetScreenDetails = ({
       select: [
         {
           function: "COL" as const,
-          param: { field: COLUMN_NAME.SCREEN_NAME },
+          param: { field:  COLUMN_NAME.SCREEN_NAME },
           alias: "screen_name",
         },
         {
@@ -47,9 +50,7 @@ export const useGetScreenDetails = ({
         },
         {
           function: "CUSTOM" as const,
-          param: {
-            expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
-          },
+          param: { expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
         {
