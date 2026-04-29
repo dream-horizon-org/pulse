@@ -64,6 +64,7 @@ object OpenTelemetryRumInitializer {
      * @param logRecordExporter To customise [LogRecordExporter] by default it is [OtlpHttpLogRecordExporter]
      * @param metricExporter To customise [MetricExporter] by default it is [OtlpHttpMetricExporter]
      * @param rumConfig [OtelRumConfig] to customise the sdk behaviour
+     * @param shouldIgnoreJavaScriptExceptions When true, native device.crash is not emitted for com.facebook.react.common.JavascriptException
      */
     @Suppress("LongParameterList")
     @JvmStatic
@@ -114,6 +115,7 @@ object OpenTelemetryRumInitializer {
                 .setHeaders(metricEndpointConnectivity::getHeaders)
                 .build(),
         rumConfig: OtelRumConfig = OtelRumConfig(),
+        shouldIgnoreJavaScriptExceptions: Boolean = false,
     ): OpenTelemetryRum {
         val diskBufferingConfigurationSpec = DiskBufferingConfigurationSpec()
         diskBuffering?.invoke(diskBufferingConfigurationSpec)
@@ -142,6 +144,7 @@ object OpenTelemetryRumInitializer {
                     if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
                     if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
                     if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
+                    setShouldIgnoreJavaScriptExceptions(shouldIgnoreJavaScriptExceptions)
                 }
 
         if (shouldStartSendingData) {

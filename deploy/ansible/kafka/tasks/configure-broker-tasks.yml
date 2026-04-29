@@ -143,7 +143,7 @@
 
 - name: Deploy JMX exporter config
   copy:
-    src: kafka-jmx-config.yml
+    src: ../../monitoring/kafka/kafka-jmx-config.yml
     dest: "{{ kafka_dir }}/config/kafka-jmx-config.yml"
     mode: "0644"
   notify: restart kafka

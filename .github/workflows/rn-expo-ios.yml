@@ -4,6 +4,7 @@
 # (Expo config plugin + CocoaPods + PulseKit :path → pulse-ios-otel). No Maven / m2-publish.
 #
 # Invoked once as job `rn-expo-ios` on macOS (separate from Ubuntu `rn-expo-android.yml`).
+name: Expo iOS - Build
 on:
   workflow_call:
 

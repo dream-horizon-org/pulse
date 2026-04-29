@@ -143,13 +143,13 @@ export interface RcaJobResponse {
 }
 
 export type UseGetRcaReportParams = {
-  interactionName: string | null;
+  entityKey: string | null;
   date?: string | null;
   enabled?: boolean;
   /** Included in query key so requests refetch when project context changes (e.g. synced from URL) */
   projectId?: string | null;
   /**
-   * Increment when forcing a new POST (e.g. after regenerate returns 200) while interaction/date/project are unchanged.
+   * Increment when forcing a new POST (e.g. after regenerate returns 200) while entityKey/date/project are unchanged.
    */
   requestSession?: number;
 };

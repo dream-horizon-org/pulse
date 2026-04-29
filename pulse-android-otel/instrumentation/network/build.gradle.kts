@@ -20,6 +20,7 @@ android {
 
 dependencies {
     api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.pulseUtils)
     implementation(projects.services)
     implementation(projects.common)
     api(platform(libs.opentelemetry.platform.alpha))

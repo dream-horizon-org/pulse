@@ -1,0 +1,228 @@
+{
+  "version": 100,
+  "description": "Manual filter/sampling mock. Session rules: platform 0 then device 1 (first match wins). Session mocks: session-app-version, session-fallback-default. critical-session-key; signal-normalization.json (lowercase scopes, metricsToAdd name→key, screen.* drop on sdk.init). BLACKLIST custom_event; whitelist/bad-regex; alwaysSend+device.crash. Toggle VITE_PULSE_MOCK_SDK_CONFIG=false for server config.",
+  "sampling": {
+    "default": { "sessionSampleRate": 1 },
+    "rules": [
+      {
+        "name": "device",
+        "value": "^(desktop|mobile|tablet)$",
+        "sdks": ["pulse_web_js"],
+        "sessionSampleRate": 1
+      },
+      {
+        "name": "platform",
+        "value": "web",
+        "sdks": ["pulse_web_js"],
+        "sessionSampleRate": 0
+      }
+    ],
+    "signalsToSample": [
+      {
+        "sampleRate": 0,
+        "condition": {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "session\\.end" }],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        }
+      },
+      {
+        "sampleRate": 0,
+        "condition": {
+          "name": "^mock_signal_sample_blocked$",
+          "props": [],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        }
+      },
+      {
+        "sampleRate": 1,
+        "condition": {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "non_fatal" }],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        }
+      }
+    ],
+    "criticalSessionPolicies": {
+      "alwaysSend": [
+        {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "device\\.crash" }],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        },
+        {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "^sdk\\.init$" }],
+          "scopes": ["logs", "traces"],
+          "sdks": ["pulse_web_js"]
+        }
+      ]
+    }
+  },
+  "signals": {
+    "scheduleDurationMs": 5000,
+    "attributesToDrop": [
+      {
+        "values": ["screen\\.name"],
+        "condition": {
+          "name": "^sdk\\.init$",
+          "props": [],
+          "scopes": ["logs", "traces"],
+          "sdks": ["pulse_web_js"]
+        }
+      }
+    ],
+    "attributesToAdd": [
+      {
+        "values": [
+          {
+            "name": "pulse.demo.marker",
+            "value": "mock-config-active",
+            "type": "STRING"
+          }
+        ],
+        "condition": {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "session\\.start" }],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        }
+      }
+    ],
+    "filters": {
+      "mode": "BLACKLIST",
+      "values": [
+        {
+          "name": "^mock_filter_blocked$",
+          "props": [],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        },
+        {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "^custom_eventkk$" }],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        },
+        {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "^device\\.crash$" }],
+          "scopes": ["logs"],
+          "sdks": ["pulse_web_js"]
+        }
+      ]
+    },
+    "metricsToAdd": [
+      {
+        "name": "mock_demo_custom_event_total",
+        "target": { "type": "name" },
+        "condition": {
+          "name": ".*",
+          "props": [{ "key": "pulse\\.type", "value": "^custom_event$" }],
+          "scopes": ["LOGS"],
+          "sdks": ["pulse_web_js"]
+        },
+        "type": { "type": "counter" }
+      }
+    ]
+  },
+  "interaction": {
+    "beforeInitQueueSize": 5000
+  },
+  "features": [
+    {
+      "featureName": "session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "js_crash",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "custom_events",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "click",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_instrumentation",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "web_vitals",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "screen_session",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "long_task",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "visibility",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "interaction",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "session_replay",
+      "sessionSampleRate": 0,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "network_change",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "resource_timing",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "websocket",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    },
+    {
+      "featureName": "bfcache",
+      "sessionSampleRate": 1,
+      "sdks": ["pulse_web_js"],
+      "config": null
+    }
+  ]
+}

@@ -47,7 +47,7 @@ public class Queries {
         + " arraySort(arrayFilter(x -> x != '', groupUniqArray(OsVersion)))        AS osVersions,\n"
         + " arraySort(arrayFilter(x -> x != '', groupUniqArray(Platform)))         AS platforms\n"
         + " FROM otel.otel_traces\n"
-        + " WHERE ProjectId = '" + pid + "'";
+        + " WHERE ProjectId = '" + pid + "' SETTINGS use_query_cache = 1, query_cache_ttl = 3600;";
   }
 
   static String escapeChStringLiteral(String s) {

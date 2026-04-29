@@ -12,7 +12,7 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./db/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../backend/db/dev/mysql/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -102,9 +102,7 @@ services:
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-      - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/01-clickhouse-otel-schema.sql:ro
-      - ../backend/ingestion/clickhouse-session-replay-schema.sql:/docker-entrypoint-initdb.d/02-clickhouse-session-replay-schema.sql:ro
-      - ../backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/03-session-summary-mv.sql:ro
+      - ../backend/db/dev/clickhouse:/docker-entrypoint-initdb.d/:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -122,12 +120,7 @@ services:
     command: /bin/bash /scripts/init-clickhouse.sh
     volumes:
       - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
-      - ../backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
-      - ../backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro
-      - ../backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro
-      - ../backend/ingestion/clickhouse-event-catalog-schema.sql:/init/clickhouse-event-catalog-schema.sql:ro
-      - ../backend/ingestion/clickhouse-funnel-results-schema.sql:/init/clickhouse-funnel-results-schema.sql:ro
-      - ../backend/ingestion/clickhouse-journey-results-schema.sql:/init/clickhouse-journey-results-schema.sql:ro
+      - ../backend/db/dev/clickhouse:/init/clickhouse:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
@@ -454,6 +447,11 @@ services:
 
       # Application Configuration
       - APP_ENVIRONMENT=${APP_ENVIRONMENT:-dev}
+      # Optional: JVM OTEL export → host observability stack (deploy/observability-otel-prometheus-tempo :14318). Default false = unchanged behavior.
+      - PULSE_BACKEND_OTEL_ENABLED=${PULSE_BACKEND_OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-}
       - CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL=${CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL:-http://pulse-alerts-cron:4000/cron}
       - CONFIG_SERVICE_APPLICATION_SERVICEURL=${CONFIG_SERVICE_APPLICATION_SERVICEURL:-http://pulse-server:8080}
       - CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID=${CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID}
@@ -577,6 +575,8 @@ services:
       - SLACK_OAUTH_SCOPES=${SLACK_OAUTH_SCOPES:-}
     networks:
       - pulse-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql:
         condition: service_healthy
@@ -615,6 +615,10 @@ services:
 
       # Application Configuration
       - CONFIG_SERVICE_APPLICATION_PULSESERVERURL=${CONFIG_SERVICE_APPLICATION_PULSESERVERURL:-http://pulse-server:8080}
+      - PULSE_BACKEND_OTEL_ENABLED=${PULSE_BACKEND_OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-}
+      - OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES:-}
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
       - CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET=${CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET:-dev_service_jwt_secret}
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEHOST=clickhouse
@@ -633,12 +637,12 @@ services:
       - CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED=${CONFIG_SERVICE_APPLICATION_BATCHJOBSENABLED:-true}
     networks:
       - pulse-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql:
         condition: service_healthy
       pulse-server:
-        condition: service_healthy
-      clickhouse:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully

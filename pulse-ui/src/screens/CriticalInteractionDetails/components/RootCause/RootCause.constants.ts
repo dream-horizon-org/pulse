@@ -4,6 +4,13 @@ export const RCA_JOB_POLL_MS = 3000 as const;
 /** Background POST to detect cache changes or async activity while viewing a completed report. */
 export const RCA_STALE_CACHE_POLL_MS = 30_000 as const;
 
+/** RCA report types supported by the async job system. */
+export const RCA_TYPE = {
+  INTERACTION: "INTERACTION",
+  SESSION: "SESSION",
+  SCREEN: "SCREEN",
+} as const;
+
 export const ROOT_CAUSE_MESSAGES = {
   GENERIC_ERROR: "Something went wrong.",
   REGENERATE_REPORT: "Regenerate report",
@@ -13,7 +20,8 @@ export const ROOT_CAUSE_MESSAGES = {
   REQUEST_TIMEOUT:
     "Request timed out. Root cause computation can take up to a minute. Please try again.",
   RCA_WAITING_IN_QUEUE: "Generating your report, it may take a few minutes…",
-  RCA_JOINING_JOB: "Another user is generating this report. Joining existing job.",
+  RCA_JOINING_JOB:
+    "Another user is generating this report. Joining existing job.",
   RCA_STALE_REPORT_BANNER:
     "Report has been regenerated. Refresh to see updates.",
   RCA_STALE_ASYNC_ACTIVITY:

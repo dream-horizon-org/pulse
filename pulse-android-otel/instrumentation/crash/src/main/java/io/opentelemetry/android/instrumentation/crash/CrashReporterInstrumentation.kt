@@ -27,7 +27,10 @@ class CrashReporterInstrumentation : AndroidInstrumentation {
         val crashReporter = CrashReporter(additionalExtractors)
 
         // TODO avoid using OpenTelemetrySdk methods, only use the ones from OpenTelemetry api.
-        crashReporter.install(ctx.openTelemetry as OpenTelemetrySdk)
+        crashReporter.install(
+            openTelemetry = ctx.openTelemetry as OpenTelemetrySdk,
+            shouldIgnoreJavaScriptExceptions = ctx.shouldIgnoreJavaScriptExceptions,
+        )
     }
 
     override val name: String = "crash"

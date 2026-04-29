@@ -1,0 +1,140 @@
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        string(
+            name: 'TENANT_ID',
+            description: 'Tenant ID to permanently delete (e.g. tenant-abc-123). All projects for this tenant MUST be deleted first via the delete-project job.'
+        )
+        booleanParam(
+            name: 'DRY_RUN',
+            defaultValue: true,
+            description: 'Print what would be deleted without making any changes. Uncheck to execute.'
+        )
+    }
+
+    stages {
+        stage('Validate parameters') {
+            steps {
+                script {
+                    def id = (params.TENANT_ID ?: '').toString().trim()
+                    if (!id || id == 'null') {
+                        error 'TENANT_ID is required and cannot be empty. Enter the tenant ID and re-run.'
+                    }
+                }
+            }
+        }
+
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/dream-horizon-org/pulse.git',
+                        credentialsId: 'd11-horizon-bot',
+                        refspec: '+refs/heads/main:refs/remotes/origin/main'
+                    ]]
+                ])
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    set -e
+                    set +x
+                    cd "${WORKSPACE}"
+                    echo "Fetching variables from AWS Secrets Manager..."
+                    aws secretsmanager get-secret-value \
+                        --region ap-south-1 \
+                        --secret-id prod/pulseserver/appenv \
+                        --query 'SecretString' \
+                        --output text \
+                        | jq -r '(reduce .app_env[] as $item ({}; . * {($item.key): $item.value})) as $e | "MYSQL_HOST=" + ($e.MYSQL_WRITER_HOST // ""), "MYSQL_PORT=" + ($e.MYSQL_PORT // "3306"), "MYSQL_USER=" + ($e.MYSQL_USER // ""), "MYSQL_PASSWORD=" + ($e.MYSQL_PASSWORD // ""), "MYSQL_DATABASE=" + ($e.MYSQL_DATABASE // "pulse_db"), "CH_ADMIN_HOST=" + ($e.CLICKHOUSE_HOST // ""), "CH_ADMIN_PORT=" + ($e.CLICKHOUSE_PORT // "8123"), "CH_ADMIN_USER=" + ($e.CLICKHOUSE_USERNAME // ""), "CH_ADMIN_PASSWORD=" + ($e.CLICKHOUSE_PASSWORD // ""), "CH_CLUSTER_NAME=" + ($e.CLICKHOUSE_CLUSTER_NAME // ""), "OPENFGA_API_URL=" + ($e.OPENFGA_API_URL // ""), "OPENFGA_STORE_ID=" + ($e.OPENFGA_STORE_ID // "")' > "${WORKSPACE}/.db-ops-env"
+                '''
+            }
+        }
+
+        stage('Install Python dependencies') {
+            steps {
+                sh '''
+                    set -e
+                    set +x
+                    cd "${WORKSPACE}"
+                    python3 -m venv .db-ops-venv
+                    .db-ops-venv/bin/pip install -q -r deploy/jenkinsfile/admin/requirements.txt
+                '''
+            }
+        }
+
+        stage('Preflight (Dry Run)') {
+            environment {
+                TENANT_ID = "${params.TENANT_ID}"
+                DRY_RUN   = 'true'
+            }
+            steps {
+                sh '''
+                    set -e
+                    set +x
+                    cd "${WORKSPACE}"
+                    set -a; . "${WORKSPACE}/.db-ops-env"; set +a
+                    .db-ops-venv/bin/python deploy/jenkinsfile/admin/delete_tenant.py
+                '''
+            }
+        }
+
+        stage('Approval') {
+            when {
+                expression { return !params.DRY_RUN }
+            }
+            steps {
+                script {
+                    timeout(time: 1, unit: 'MINUTES') {
+                        input(
+                            message: "Review the preflight output above.\n\nThis will PERMANENTLY delete tenant '${params.TENANT_ID}' — MySQL row and all OpenFGA tuples. This cannot be undone.\n\nProceed? (Approve within 1 minute or the build aborts.)",
+                            ok: 'Yes, Delete!'
+                        )
+                    }
+                }
+            }
+        }
+
+        stage('Execute Deletion') {
+            when {
+                expression { return !params.DRY_RUN }
+            }
+            environment {
+                TENANT_ID = "${params.TENANT_ID}"
+                DRY_RUN   = 'false'
+            }
+            steps {
+                sh '''
+                    set -e
+                    set +x
+                    cd "${WORKSPACE}"
+                    set -a; . "${WORKSPACE}/.db-ops-env"; set +a
+                    .db-ops-venv/bin/python deploy/jenkinsfile/admin/delete_tenant.py
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -rf "${WORKSPACE}/.db-ops-venv" && rm -f "${WORKSPACE}/.db-ops-env" || true'
+        }
+    }
+}
