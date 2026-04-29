@@ -55,10 +55,4 @@ export interface PulseProviderProps {
    * re-mounts, so `start()` is never called twice.
    */
   shutdownOnUnmount?: boolean;
-  /**
-   * When provided, activates React Router v6 screen tracking via
-   * `useRouterTracking`. Requires `<PulseProvider>` to be rendered inside a
-   * `<BrowserRouter>` (or equivalent) context.
-   */
-  routerTracking?: UseRouterTrackingOptions;
 }

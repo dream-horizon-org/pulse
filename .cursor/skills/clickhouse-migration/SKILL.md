@@ -19,9 +19,11 @@ disable-model-invocation: true
 
 ## Step 1: Update Schema File
 
-Edit `backend/ingestion/clickhouse-otel-schema.sql` to reflect the final desired state. This file is used for fresh installs.
+Edit `backend/db/prod/clickhouse/*.sql` to reflect the final desired state. This file is used for fresh installs.
 
-When you add or rename tables, materialized columns, or row-policy targets, update `.cursor/` docs to match (at minimum `agents/data-analyst.md`, `rules/clickhouse-sql.mdc`, `rules/pulse-architecture.mdc`, `commands/query-clickhouse.md`) or run `/audit-cursor-config` to catch drift.
+When you add or rename tables, materialized columns, or row-policy targets, update `.cursor/` docs to match (at minimum
+`agents/data-analyst.md`, `rules/clickhouse-sql.mdc`, `rules/pulse-architecture.mdc`, `commands/query-clickhouse.md`) or
+run `/audit-cursor-config` to catch drift.
 
 ## Step 2: Create Migration Script
 
@@ -49,12 +51,15 @@ If adding a new table, update `deploy/scripts/init-clickhouse.sh` to include it.
 ## Step 4: Update Backend Queries
 
 Search for affected queries in:
+
 - `backend/server/src/main/java/.../service/` — ClickhouseMetricService and related
 - `backend/server/src/main/java/.../dao/` — any DAO querying the changed table
 
 ## Step 5: Update AI Agent
 
-**Note:** The AI agent currently has a flat structure (`pulse_ai/agent.py`) with no registries. If the change affects queryable tables/columns, update the root agent's instruction in `pulse_ai/agent.py` to reflect the new schema, or update registry files at the `pulse_ai/` root when they are added.
+**Note:** The AI agent currently has a flat structure (`pulse_ai/agent.py`) with no registries. If the change affects
+queryable tables/columns, update the root agent's instruction in `pulse_ai/agent.py` to reflect the new schema, or
+update registry files at the `pulse_ai/` root when they are added.
 
 ## Step 6: Apply and Verify
 
