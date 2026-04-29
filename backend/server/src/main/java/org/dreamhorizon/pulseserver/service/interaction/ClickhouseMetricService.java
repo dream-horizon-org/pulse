@@ -171,12 +171,13 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     }
 
     // Where Clause toDateTime64('${start_time}', 9, 'UTC')
-    String timeFilter = String.format("Timestamp >= toDateTime64('%s',9,'UTC')"
+    String projectAndTimeFilter = String.format("ProjectId = '%s' AND Timestamp >= toDateTime64('%s',9,'UTC')"
             + " AND Timestamp <= toDateTime64('%s',9,'UTC')",
+        request.getProjectId(),
         ZonedDateTime.parse(request.getTimeRange().getStart()).format(output),
         ZonedDateTime.parse(request.getTimeRange().getEnd()).format(output));
 
-    StringBuilder where = new StringBuilder(timeFilter);
+    StringBuilder where = new StringBuilder(projectAndTimeFilter);
     if (!CollectionUtils.isEmpty(request.getFilters())) {
       for (QueryRequest.Filter filter : request.getFilters()) {
         where.append(switch (filter.getOperator()) {

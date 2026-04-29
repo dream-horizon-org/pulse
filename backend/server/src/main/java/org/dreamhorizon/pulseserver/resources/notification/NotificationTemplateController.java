@@ -43,7 +43,7 @@ public class NotificationTemplateController {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<NotificationTemplateDto>> createTemplate(
+  public CompletionStage<Response<Long>> createTemplate(
       @NotNull @Valid CreateTemplateRequestDto request) {
     return notificationService
         .createTemplate(request)

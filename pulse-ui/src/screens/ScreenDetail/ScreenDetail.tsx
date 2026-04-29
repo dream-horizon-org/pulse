@@ -36,6 +36,10 @@ import { useExceptionListData } from "../AppVitals/components/ExceptionTable/hoo
 import { InteractionDetailsFilters } from "../CriticalInteractionDetails/components/InteractionDetailsFilters";
 import { HeatmapPanel } from "./Heatmap/HeatmapPanel";
 import { useHeatmapFromActiveConfig } from "../../hooks";
+import { ScreenRootCause } from "./components/ScreenRootCause";
+import { getRootCauseDateFromEndTime } from "../CriticalInteractionDetails/utils/getRootCauseDateFromEndTime";
+
+const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
 export function ScreenDetail(_props: ScreenDetailProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -123,6 +127,9 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     }
   }, [endTime]);
 
+  const rootCauseDate = getRootCauseDateFromEndTime(endTime ?? undefined);
+  const rootCauseAsOfIso = formattedEndTime || "";
+
   // Fetch data from API for stats calculation
   const { exceptions: crashes } = useExceptionListData({
     startTime: formattedStartTime,
@@ -196,6 +203,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     const t = searchParams.get("tab");
     if (t === "heatmap" && heatmapEnabledFromActiveConfig) {
       setActiveTab("heatmap");
+    } else if (t === "root-cause" && isRootCauseEnabled) {
+      setActiveTab("root-cause");
     }
   }, [searchParams, heatmapEnabledFromActiveConfig]);
 
@@ -204,6 +213,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     const next = new URLSearchParams(searchParams);
     if (value === "heatmap") {
       next.set("tab", "heatmap");
+    } else if (value === "root-cause") {
+      next.set("tab", "root-cause");
     } else {
       next.delete("tab");
     }
@@ -256,6 +267,9 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           <Tabs.Tab value="engagement">User Engagement</Tabs.Tab>
           <Tabs.Tab value="performance">Performance & Stability</Tabs.Tab>
           <Tabs.Tab value="network">Network</Tabs.Tab>
+          {isRootCauseEnabled && (
+            <Tabs.Tab value="root-cause">Root cause</Tabs.Tab>
+          )}
           {!heatmapConfigLoading && heatmapEnabledFromActiveConfig && (
             <Tabs.Tab value="heatmap">Heatmap</Tabs.Tab>
           )}
@@ -434,6 +448,27 @@ export function ScreenDetail(_props: ScreenDetailProps) {
             />
           )}
         </Tabs.Panel>
+
+        {/* Root cause (screen-scoped RCA, same date/asOf contract as interaction RCA) */}
+        {isRootCauseEnabled && (
+          <Tabs.Panel value="root-cause" pt="md">
+            {rootCauseDate != null &&
+            rootCauseDate !== "" &&
+            rootCauseAsOfIso !== "" ? (
+              <ScreenRootCause
+                screenName={decodedScreenName}
+                projectId={projectId}
+                date={rootCauseDate}
+                asOfIso={rootCauseAsOfIso}
+              />
+            ) : (
+              <Text c="dimmed" size="sm">
+                Set a time range (end time) in the header to load root cause
+                analysis.
+              </Text>
+            )}
+          </Tabs.Panel>
+        )}
 
         {/* Network Tab */}
         <Tabs.Panel value="network">

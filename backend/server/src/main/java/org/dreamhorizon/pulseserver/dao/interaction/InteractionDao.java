@@ -4,7 +4,6 @@ import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_ALL_ACTIV
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_INTERACTIONS;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_INTERACTION_DETAILS;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_INTERACTION_FILTER_OPTIONS;
-import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_TELEMETRY_FILTER_VALUES;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.INSERT_INTERACTION;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.UPDATE_INTERACTION;
 
@@ -281,7 +280,8 @@ public class InteractionDao {
   }
 
   public Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions() {
-    QueryConfiguration configuration = QueryConfiguration.newQuery(GET_TELEMETRY_FILTER_VALUES)
+    QueryConfiguration configuration = QueryConfiguration.newQuery(
+            Queries.getTelemetryFilterValuesQuery(getProjectId()))
         .projectId(getProjectId())
         .build();
 

@@ -275,7 +275,7 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
             <thead>
               <tr>
                 <th align="left">Trace ID</th>
-                <th>User ID</th>
+                <th>Installation Id</th>
                 <th>Device</th>
                 <th>Duration</th>
                 <th>Status</th>
