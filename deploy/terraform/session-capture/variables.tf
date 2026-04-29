@@ -108,27 +108,5 @@ variable "health_check_grace_period_seconds" {
   default     = 300
 }
 
-# --- App config (user-data) ---
-
-variable "kafka_brokers" {
-  description = "Kafka broker address(es), e.g. broker-01.kafka.internal:9092"
-  type        = string
-}
-
-variable "kafka_topic" {
-  description = "Kafka topic for session recording events"
-  type        = string
-  default     = "session_recording_events"
-}
-
-variable "kafka_compression_codec" {
-  description = "Kafka producer compression.codec (rdkafka); use zstd with topic compression.type=producer and libzstd on consumers"
-  type        = string
-  default     = "zstd"
-}
-
-variable "rust_log" {
-  description = "Rust log level"
-  type        = string
-  default     = "pulse_session_capture=info"
-}
+# App runtime config is loaded from AWS Secrets Manager secret prod/pulse-session-capture/appenv
+# Terraform listen_port must match PORT in that secret for NLB/TG/health checks.
