@@ -130,7 +130,6 @@ inst.sessions = sessions;
 ### UIKit Tap (Interaction)
 ```objc
 PulseObjcUIKitTapConfig *tap = [PulseObjcUIKitTapConfig new];
-tap.enabled = @YES;
 tap.captureContext = @YES;
 
 PulseObjcRageConfig *rage = [PulseObjcRageConfig new];
@@ -145,9 +144,8 @@ inst.uiKitTap = tap;
 ### Session Replay
 ```objc
 PulseObjcSessionReplayConfig *replay = [PulseObjcSessionReplayConfig new];
-replay.enabled = @YES;
-// Note: Privacy, quality, and flush settings are now controlled via backend remote config
-// Use maskViewClasses / unmaskViewClasses for code-level view masking only
+// Note: Enabled via backend feature flags (not at initialization time)
+// Code-level config: masking rules only
 replay.maskViewClasses = @[@"SensitiveView"];
 replay.unmaskViewClasses = @[@"PublicBannerView"];
 inst.sessionReplay = replay;

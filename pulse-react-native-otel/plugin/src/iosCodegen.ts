@@ -7,9 +7,7 @@ import type {
   PulseIosInstrumentationProps,
   PulseIosInteractionInstrumentation,
   PulseIosKitConfigurationProps,
-  PulseIosSessionReplayImagePrivacy,
   PulseIosSessionReplayInstrumentation,
-  PulseIosSessionReplayTextPrivacy,
   PulseIosSessionsInstrumentation,
   PulseIosUIKitTapInstrumentation,
   PulseIosUrlSessionInstrumentation,
@@ -143,20 +141,6 @@ export function buildSwiftConfigurationArg(
   return `{ kit in\n${lines.join('\n')}\n    }`;
 }
 
-function swiftTextAndInputPrivacy(v: PulseIosSessionReplayTextPrivacy): string {
-  switch (v) {
-    case 'maskAllInputs':
-      return '.maskAllInputs';
-    case 'maskSensitiveInputs':
-      return '.maskSensitiveInputs';
-    default:
-      return '.maskAll';
-  }
-}
-
-function swiftImagePrivacy(v: PulseIosSessionReplayImagePrivacy): string {
-  return v === 'maskNone' ? '.maskNone' : '.maskAll';
-}
 
 function emitIosInstrumentationEnabled(
   body: string[],
@@ -238,9 +222,6 @@ function emitIosUIKitTap(
     return;
   }
   const inner: string[] = [];
-  if (cfg.enabled !== undefined) {
-    inner.push(`tap.enabled(${cfg.enabled})`);
-  }
   if (cfg.captureContext !== undefined) {
     inner.push(`tap.captureContext(${cfg.captureContext})`);
   }
@@ -277,61 +258,17 @@ function emitIosSessionReplay(
     return;
   }
   const replayLines: string[] = [];
-  if (cfg.enabled !== undefined) {
-    replayLines.push(`replay.enabled(${cfg.enabled})`);
-  }
-  const cfgLines: string[] = [];
-  if (cfg.replayEndpointBaseUrl !== undefined) {
-    cfgLines.push(
-      `local.replayEndpointBaseUrl = "${escapeSwiftString(cfg.replayEndpointBaseUrl)}"`
-    );
-  }
-  if (cfg.textAndInputPrivacy !== undefined) {
-    cfgLines.push(
-      `local.textAndInputPrivacy = ${swiftTextAndInputPrivacy(cfg.textAndInputPrivacy)}`
-    );
-  }
-  if (cfg.imagePrivacy !== undefined) {
-    cfgLines.push(
-      `local.imagePrivacy = ${swiftImagePrivacy(cfg.imagePrivacy)}`
-    );
-  }
-  if (cfg.captureIntervalMs !== undefined) {
-    cfgLines.push(`local.captureIntervalMs = ${cfg.captureIntervalMs}`);
-  }
-  if (cfg.compressionQuality !== undefined) {
-    cfgLines.push(`local.compressionQuality = ${cfg.compressionQuality}`);
-  }
-  if (cfg.screenshotScale !== undefined) {
-    cfgLines.push(`local.screenshotScale = ${cfg.screenshotScale}`);
-  }
-  if (cfg.flushIntervalSeconds !== undefined) {
-    cfgLines.push(`local.flushIntervalSeconds = ${cfg.flushIntervalSeconds}`);
-  }
-  if (cfg.flushAt !== undefined) {
-    cfgLines.push(`local.flushAt = ${cfg.flushAt}`);
-  }
-  if (cfg.maxBatchSize !== undefined) {
-    cfgLines.push(`local.maxBatchSize = ${cfg.maxBatchSize}`);
-  }
   if (cfg.maskViewClasses !== undefined && cfg.maskViewClasses.length > 0) {
     const elems = cfg.maskViewClasses
       .map((c) => `"${escapeSwiftString(c)}"`)
       .join(', ');
-    cfgLines.push(`local.maskViewClasses = Set([${elems}])`);
+    replayLines.push(`replay.addMaskViewClass([${elems}])`);
   }
   if (cfg.unmaskViewClasses !== undefined && cfg.unmaskViewClasses.length > 0) {
     const elems = cfg.unmaskViewClasses
       .map((c) => `"${escapeSwiftString(c)}"`)
       .join(', ');
-    cfgLines.push(`local.unmaskViewClasses = Set([${elems}])`);
-  }
-  if (cfgLines.length > 0) {
-    replayLines.push(`replay.configure { local in`);
-    for (const line of cfgLines) {
-      replayLines.push(`        ${line}`);
-    }
-    replayLines.push(`        }`);
+    replayLines.push(`replay.addUnmaskViewClass([${elems}])`);
   }
   if (replayLines.length > 0) {
     body.push(

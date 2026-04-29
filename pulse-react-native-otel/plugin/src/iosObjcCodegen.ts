@@ -7,9 +7,7 @@ import type {
   PulseIosInteractionInstrumentation,
   PulseIosInstrumentationProps,
   PulseIosKitConfigurationProps,
-  PulseIosSessionReplayImagePrivacy,
   PulseIosSessionReplayInstrumentation,
-  PulseIosSessionReplayTextPrivacy,
   PulseIosSessionsInstrumentation,
   PulseIosUIKitTapInstrumentation,
   PulseIosUrlSessionInstrumentation,
@@ -37,25 +35,6 @@ function objcDataCollectionString(state: PulseDataCollectionState): string {
   }
 }
 
-function objcTextAndInputPrivacy(
-  v: PulseIosSessionReplayTextPrivacy
-): 'mask_all' | 'mask_all_inputs' | 'mask_sensitive_inputs' {
-  switch (v) {
-    case 'maskAll':
-      return 'mask_all';
-    case 'maskAllInputs':
-      return 'mask_all_inputs';
-    case 'maskSensitiveInputs':
-    default:
-      return 'mask_sensitive_inputs';
-  }
-}
-
-function objcImagePrivacy(
-  v: PulseIosSessionReplayImagePrivacy
-): 'mask_all' | 'mask_none' {
-  return v === 'maskNone' ? 'mask_none' : 'mask_all';
-}
 
 /**
  * `NSDictionary<NSString*, PulseAttributeValue*>` or `nil`.
@@ -280,7 +259,6 @@ function emitObjcUIKitTap(
     return;
   }
   const hasTap =
-    c.enabled !== undefined ||
     c.captureContext !== undefined ||
     c.rage !== undefined;
   if (!hasTap) {
@@ -288,9 +266,6 @@ function emitObjcUIKitTap(
   }
   const t = 'pulseRNTapCfg';
   out.push(`PulseObjcUIKitTapConfig *${t} = [PulseObjcUIKitTapConfig new];`);
-  if (c.enabled !== undefined) {
-    out.push(`${t}.enabled = @(${nsBool(c.enabled)});`);
-  }
   if (c.captureContext !== undefined) {
     out.push(`${t}.captureContext = @(${nsBool(c.captureContext)});`);
   }
@@ -321,57 +296,15 @@ function emitObjcSessionReplay(
     return;
   }
   const hasNested =
-    c.replayEndpointBaseUrl !== undefined ||
-    c.textAndInputPrivacy !== undefined ||
-    c.imagePrivacy !== undefined ||
-    c.captureIntervalMs !== undefined ||
-    c.compressionQuality !== undefined ||
-    c.screenshotScale !== undefined ||
-    c.flushIntervalSeconds !== undefined ||
-    c.flushAt !== undefined ||
-    c.maxBatchSize !== undefined ||
     (c.maskViewClasses && c.maskViewClasses.length > 0) ||
     (c.unmaskViewClasses && c.unmaskViewClasses.length > 0);
-  if (c.enabled === undefined && !hasNested) {
+  if (!hasNested) {
     return;
   }
   const sr = 'pulseRNSRcfg';
   out.push(
     `PulseObjcSessionReplayConfig *${sr} = [PulseObjcSessionReplayConfig new];`
   );
-  if (c.enabled !== undefined) {
-    out.push(`${sr}.enabled = @(${nsBool(c.enabled)});`);
-  }
-  if (c.replayEndpointBaseUrl !== undefined) {
-    out.push(
-      `${sr}.replayEndpointBaseUrl = @\"${escapeObjCString(c.replayEndpointBaseUrl)}\";`
-    );
-  }
-  if (c.textAndInputPrivacy !== undefined) {
-    const s = objcTextAndInputPrivacy(c.textAndInputPrivacy);
-    out.push(`${sr}.textAndInputPrivacy = @\"${s}\";`);
-  }
-  if (c.imagePrivacy !== undefined) {
-    out.push(`${sr}.imagePrivacy = @\"${objcImagePrivacy(c.imagePrivacy)}\";`);
-  }
-  if (c.captureIntervalMs !== undefined) {
-    out.push(`${sr}.captureIntervalMs = @(${c.captureIntervalMs});`);
-  }
-  if (c.compressionQuality !== undefined) {
-    out.push(`${sr}.compressionQuality = @(${c.compressionQuality});`);
-  }
-  if (c.screenshotScale !== undefined) {
-    out.push(`${sr}.screenshotScale = @(${c.screenshotScale});`);
-  }
-  if (c.flushIntervalSeconds !== undefined) {
-    out.push(`${sr}.flushIntervalSeconds = @(${c.flushIntervalSeconds});`);
-  }
-  if (c.flushAt !== undefined) {
-    out.push(`${sr}.flushAt = @(${c.flushAt});`);
-  }
-  if (c.maxBatchSize !== undefined) {
-    out.push(`${sr}.maxBatchSize = @(${c.maxBatchSize});`);
-  }
   if (c.maskViewClasses && c.maskViewClasses.length > 0) {
     const a = c.maskViewClasses
       .map((x) => `@"${escapeObjCString(x)}"`)

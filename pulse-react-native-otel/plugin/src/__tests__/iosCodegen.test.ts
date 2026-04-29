@@ -145,7 +145,6 @@ describe('buildSwiftPulseSdkInitialization', () => {
       dataCollectionState: 'PENDING',
       instrumentation: {
         sessionReplay: {
-          enabled: true,
           screenshotScale: 0.75,
           flushIntervalSeconds: 30,
           flushAt: 5,
@@ -157,6 +156,7 @@ describe('buildSwiftPulseSdkInitialization', () => {
     expect(code).toContain('local.flushIntervalSeconds = 30');
     expect(code).toContain('local.flushAt = 5');
     expect(code).toContain('local.maxBatchSize = 20');
+    expect(code).not.toContain('.enabled');
   });
 });
 
@@ -266,7 +266,7 @@ describe('buildObjcPulseSdkInitialization', () => {
           appLifecycle: { enabled: true },
           screenLifecycle: { enabled: true },
           appStartup: { enabled: true },
-          uiKitTap: { enabled: true, captureContext: true },
+          uiKitTap: { captureContext: true },
         },
         configuration: {
           includeScreenAttributes: true,
