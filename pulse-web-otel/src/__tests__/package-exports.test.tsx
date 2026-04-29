@@ -27,10 +27,8 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
     expect(typeof ReactExports.useRouterTracking).toBe("function");
   });
 
-  it("does not export PulseErrorBoundary from /react entrypoint", () => {
-    expect(
-      (ReactExports as Record<string, unknown>).PulseErrorBoundary,
-    ).toBeUndefined();
+  it("exports PulseErrorBoundary as a class (function)", () => {
+    expect(typeof ReactExports.PulseErrorBoundary).toBe("function");
   });
 
   it("has no unexpected named exports beyond the 4 public symbols + types", () => {
@@ -41,7 +39,7 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
     // Internal test helper is also present — exclude it
     const publicExports = runtimeExports.filter((k) => !k.startsWith("_reset"));
     expect(publicExports.sort()).toEqual(
-      ["PulseProvider", "usePulse", "useRouterTracking"].sort(),
+      ["PulseErrorBoundary", "PulseProvider", "usePulse", "useRouterTracking"].sort(),
     );
   });
 });
