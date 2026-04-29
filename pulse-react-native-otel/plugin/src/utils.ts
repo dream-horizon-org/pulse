@@ -120,19 +120,14 @@ export function buildPulseInitializationCode(options: {
   // in their native MainApplication.kt instead of through this plugin.
   params.push('beforeSendData = null');
 
-  if (logLevel !== undefined) {
-    params.push(`logLevel = ${kotlinPulseLogLevelExpr(logLevel)}`);
-  }
-
-  if (logLevel !== undefined) {
-    params.push(`logLevel = ${kotlinPulseLogLevelExpr(logLevel)}`);
-  }
-
   // Use string concatenation (not Kotlin string interpolation) for timing log lines.
   let code =
     '\n    val pulseInitT0Ms = System.currentTimeMillis()\n' +
     '    android.util.Log.i("pulse.expo", "PULSE_INIT_T0_MS=".plus(pulseInitT0Ms))\n' +
     `    Pulse.initialize(\n      this,\n      ${params.join(',\n      ')}\n    ) {\n`;
+  if (logLevel !== undefined) {
+    params.push(`logLevel = ${kotlinPulseLogLevelExpr(logLevel)}`);
+  }
 
   if (instrumentation?.interaction !== undefined) {
     code += `      interaction { enabled(${instrumentation.interaction.enabled}) }\n`;
