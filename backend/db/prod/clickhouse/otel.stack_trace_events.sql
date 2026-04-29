@@ -30,6 +30,7 @@ ON CLUSTER 'pulse-ch'
     ProjectId LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], '') CODEC(ZSTD(1)),
     PulseType LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel') CODEC(ZSTD(1)),
     MeteringSessionId String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], '') CODEC(ZSTD(1)),
+    AppInstallationId String MATERIALIZED ifNull(LogAttributes['app.installation.id'], '') CODEC(ZSTD(1)),
 
     INDEX idx_session_id       SessionId          TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_group_id         GroupId            TYPE bloom_filter(0.01) GRANULARITY 1,
@@ -41,7 +42,8 @@ ON CLUSTER 'pulse-ch'
     INDEX idx_pulse_type       PulseType          TYPE set(16)            GRANULARITY 1,
     INDEX idx_platform         Platform           TYPE set(8)             GRANULARITY 1,
     INDEX idx_os_version       OsVersion          TYPE set(256)           GRANULARITY 1,
-    INDEX idx_timestamp        Timestamp          TYPE minmax             GRANULARITY 1
+    INDEX idx_timestamp        Timestamp          TYPE minmax             GRANULARITY 1,
+    INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1
     )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/stack_trace_events_local', '{replica}')
 PARTITION BY toYYYYMMDD(Timestamp)

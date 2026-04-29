@@ -124,7 +124,7 @@ export function NetworkList({
           filterField = COLUMN_NAME.NETWORK_STATUS_CODE;
           break;
         case "operation_name":
-          filterField = "SpanAttributes['graphql.operation.name']";
+          filterField = COLUMN_NAME.GRAPHQL_OPERATION_NAME;
           break;
         default:
           filterField = COLUMN_NAME.HTTP_URL;
@@ -172,14 +172,14 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['graphql.operation.name']",
+            expression: COLUMN_NAME.GRAPHQL_OPERATION_NAME,
           },
           alias: "graphql_operation_name",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['graphql.operation.type']",
+            expression: COLUMN_NAME.GRAPHQL_OPERATION_TYPE,
           },
           alias: "graphql_operation_type",
         },
