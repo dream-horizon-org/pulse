@@ -42,5 +42,6 @@ public class Queries {
           + " arraySort(arrayFilter(x -> x != '', groupUniqArray(GeoState)))         AS states,\n"
           + " arraySort(arrayFilter(x -> x != '', groupUniqArray(OsVersion)))        AS osVersions,\n"
           + " arraySort(arrayFilter(x -> x != '', groupUniqArray(Platform)))         AS platforms\n"
-          + " FROM otel.otel_traces;";
+          + "FROM otel.otel_traces\n"
+          + "SETTINGS use_query_cache = 1, query_cache_ttl = 3600;";
 }
