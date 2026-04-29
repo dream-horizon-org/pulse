@@ -6,6 +6,7 @@ import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { SkeletonLoader } from "../../../../components/Skeletons";
 import { IconMoodHappy, IconAlertTriangle, IconServerOff } from "@tabler/icons-react";
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 
 export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
   type,
@@ -35,7 +36,7 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.status_code']",
+            expression: COLUMN_NAME.NETWORK_STATUS_CODE,
           },
           alias: "status_code",
         },
@@ -55,7 +56,7 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
           value: [statusCodePattern],
         },
         {
-          field: "SpanAttributes['http.url']",
+          field: COLUMN_NAME.HTTP_URL,
           operator: "EQ" as const,
           value: [url],
         },

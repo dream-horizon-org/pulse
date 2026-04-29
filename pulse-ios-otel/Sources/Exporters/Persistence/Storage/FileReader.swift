@@ -4,6 +4,9 @@
  */
 
 import Foundation
+#if canImport(PulseLogging)
+import PulseLogging
+#endif
 
 struct Batch {
   /// Data read from file
@@ -39,6 +42,12 @@ final class OrchestratedFileReader: FileReader {
         let fileData = try file.read()
         return Batch(data: fileData, file: file)
       } catch {
+        let errClass = PulseErrorClassification.classify(error)
+        let diskPart =
+          DiskAvailableBytes.forDirectoryURL(orchestrator.persistenceDirectoryURL)
+          .map { " disk_available_bytes=\($0)" } ?? ""
+        PulseLogger.error(
+          "sdk.disk.read_failure signal=persistence error_class=\(errClass) corrupted=false\(diskPart)")
         return nil
       }
     }
@@ -55,6 +64,12 @@ final class OrchestratedFileReader: FileReader {
         process(Batch(data: fileData, file: $0))
       }
     } catch {
+      let errClass = PulseErrorClassification.classify(error)
+      let diskPart =
+        DiskAvailableBytes.forDirectoryURL(orchestrator.persistenceDirectoryURL)
+        .map { " disk_available_bytes=\($0)" } ?? ""
+      PulseLogger.error(
+        "sdk.disk.read_failure signal=persistence error_class=\(errClass) corrupted=false\(diskPart)")
       return false
     }
     return true

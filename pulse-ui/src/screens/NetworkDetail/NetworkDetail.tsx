@@ -193,7 +193,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           field = "SpanAttributes['pulse.interaction.active.names']";
           break;
         case "HttpStatusCode":
-          field = "SpanAttributes['http.status_code']";
+          field = COLUMN_NAME.NETWORK_STATUS_CODE;
           operator = "EQ";
           break;
         case "ReqHeader":
@@ -283,10 +283,10 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       {
         field: "PulseType",
         operator: "LIKE" as const,
-        value: ["%network%"],
+        value: [PulseType.NETWORK_LIKE]
       },
       {
-        field: "SpanAttributes['http.url']",
+        field: COLUMN_NAME.HTTP_URL,
         operator: "EQ" as const,
         value: [decodedApiData.url],
       },
@@ -305,7 +305,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.url']",
+            expression: COLUMN_NAME.HTTP_URL,
           },
           alias: "url",
         },
@@ -446,7 +446,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       {
         function: "CUSTOM" as const,
         param: {
-          expression: "SpanAttributes['http.status_code']",
+          expression: COLUMN_NAME.NETWORK_STATUS_CODE,
         },
         alias: "status_code",
       },
@@ -463,10 +463,10 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       {
         field: "PulseType",
         operator: "LIKE" as const,
-        value: ["%network%"],
+        value: [PulseType.NETWORK_LIKE],
       },
       {
-        field: "SpanAttributes['http.url']",
+        field: COLUMN_NAME.HTTP_URL,
         operator: "EQ" as const,
         value: [decodedApiData?.url || ""],
       },
@@ -516,10 +516,10 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       {
         field: "PulseType",
         operator: "LIKE" as const,
-        value: ["%network%"],
+        value: [PulseType.NETWORK_LIKE],
       },
       {
-        field: "SpanAttributes['http.url']",
+        field: COLUMN_NAME.HTTP_URL,
         operator: "EQ" as const,
         value: [decodedApiData?.url || ""],
       },

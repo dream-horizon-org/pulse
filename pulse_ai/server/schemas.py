@@ -8,7 +8,8 @@ from pulse_ai.agents.shared.schemas.rca_structured_v1 import RcaStructuredReport
 
 
 class RcaReportRequest(BaseModel):
-    interactionName: str
+    entityKey: str
+    rcaType: str
     date: str | None = None
     rootCausePayload: dict[str, Any] | None = None
     errorAttributionPayload: dict[str, Any] | None = Field(
