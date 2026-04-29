@@ -41,7 +41,7 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
     // Internal test helper is also present — exclude it
     const publicExports = runtimeExports.filter((k) => !k.startsWith("_reset"));
     expect(publicExports.sort()).toEqual(
-      ["PulseErrorBoundary", "PulseProvider", "usePulse", "useRouterTracking"].sort(),
+      ["PulseProvider", "usePulse", "useRouterTracking"].sort(),
     );
   });
 });

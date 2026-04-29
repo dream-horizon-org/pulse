@@ -88,7 +88,7 @@ test.describe("@M15 PulseErrorBoundary", () => {
     expect(getAttr(log.attributes, "exception.stacktrace")).toBeTruthy();
   });
 
-  test("TC 15.2b: fallback UI shown after render error", async ({
+  test("TC 15.2b: render error caught by PulseProvider internal boundary — app stays alive", async ({
     page,
     otlp,
   }) => {
@@ -97,31 +97,11 @@ test.describe("@M15 PulseErrorBoundary", () => {
 
     await page.getByTestId("throw-render-error").click();
 
-    // PulseErrorBoundary renders the `fallback` prop — should show reset button
-    await expect(
-      page.getByRole("button", { name: /reset/i }),
-    ).toBeVisible({ timeout: 5_000 });
-  });
-
-  test("TC 15.2c: reset clears error boundary — no second device.crash", async ({
-    page,
-    otlp,
-  }) => {
-    await page.goto("/error-demo");
-    await otlp.waitForLog("session.start");
-    otlp.reset();
-
-    await page.getByTestId("throw-render-error").click();
-    await otlp.waitForLog("device.crash");
-
-    // Click reset button — clears the boundary
-    await page.getByRole("button", { name: /reset/i }).click();
+    // PulseProvider's internal PulseErrorBoundary has no fallback — renders null.
+    // The page itself must NOT hard-crash (no browser error page).
     await page.waitForTimeout(500);
-    otlp.reset();
-
-    // No new device.crash from the reset itself
-    await page.waitForTimeout(500);
-    expect(findAllLogs(otlp.captured, "device.crash").length).toBe(0);
+    // Page still has the nav bar (app shell survives)
+    await expect(page.locator("header")).toBeVisible();
   });
 });
 
