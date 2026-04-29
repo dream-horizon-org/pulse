@@ -18,11 +18,26 @@ export type PulseAttributes = Record<
 
 export type PulseDataCollectionState = 'PENDING' | 'ALLOWED' | 'DENIED';
 
+/** Values allowed in `app.json` / Expo plugin options for `logLevel` (case-insensitive when parsed). */
+export type PulseLogLevelConfig =
+  | 'VERBOSE'
+  | 'DEBUG'
+  | 'INFO'
+  | 'WARN'
+  | 'ERROR'
+  | 'NONE';
+
 /**
- * Numeric log verbosity for native init from Expo config (JSON-friendly).
- * Matches JS `PulseLogLevel` / native ordinals: 0 = VERBOSE … 5 = NONE.
+ * Ordinal log level for native codegen (Kotlin / Swift). Maps from {@link PulseLogLevelConfig}.
  */
-export type PulseLogLevelValue = 0 | 1 | 2 | 3 | 4 | 5;
+export enum PulseLogLevelValue {
+  VERBOSE = 0,
+  DEBUG = 1,
+  INFO = 2,
+  WARN = 3,
+  ERROR = 4,
+  NONE = 5,
+}
 
 /** Simple on/off for `app.json` instrumentation (Android + iOS). */
 export interface PulseInstrumentationEnabled {
@@ -126,7 +141,7 @@ export type PulseNativeInitFields = {
   dataCollectionState?: PulseDataCollectionState;
   globalAttributes?: PulseAttributes;
   /** Override top-level `logLevel` for this platform when set. */
-  logLevel?: PulseLogLevelValue;
+  logLevel?: PulseLogLevelConfig;
 };
 
 export interface PulseAndroidCoreLibraryDesugaring {
@@ -184,12 +199,13 @@ export type ResolvedIosPulseProps = PulsePlatformInitProps & {
  * Expo config plugin props. Top-level `apiKey` and `dataCollectionState` are required.
  * `android` / `ios`: optional init overrides, `globalAttributes`, `instrumentation`; iOS also `configuration`.
  * Do not put `globalAttributes`, `instrumentation`, or `configuration` at the top level.
- * Optional `logLevel` (0–5) may be set at the top level and/or overridden per platform.
+ * Optional `logLevel`: `VERBOSE` | `DEBUG` | `INFO` | `WARN` | `ERROR` | `NONE` at the top level
+ * and/or overridden per platform.
  */
 export interface PulsePluginProps {
   apiKey: string;
   dataCollectionState: PulseDataCollectionState;
-  logLevel?: PulseLogLevelValue;
+  logLevel?: PulseLogLevelConfig;
 
   android?: PulseAndroidSection;
   ios?: PulseIosSection;
