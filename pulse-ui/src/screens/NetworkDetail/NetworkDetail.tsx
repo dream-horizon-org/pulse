@@ -187,7 +187,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           field = COLUMN_NAME.OS_VERSION;
           break;
         case "ScreenName":
-          field = `SpanAttributes['${PulseType.SCREEN_NAME}']`;
+          field = COLUMN_NAME.SCREEN_NAME;
           break;
         case "InteractionName":
           field = "SpanAttributes['pulse.interaction.active.names']";

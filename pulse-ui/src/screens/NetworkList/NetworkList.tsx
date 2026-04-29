@@ -101,7 +101,7 @@ export function NetworkList({
     // Add screen name filter only if provided
     if (screenName) {
       filters.push({
-        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.SCREEN_NAME,
         operator: "EQ" as const,
         value: [screenName],
       });
@@ -207,7 +207,7 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "uniqCombined64(nullIf(SessionId, ''))",
+            expression: "uniq(nullIf(SessionId, ''))",
           },
           alias: "all_sessions",
         },
@@ -222,7 +222,7 @@ export function NetworkList({
           ? [
               {
                 function: "COL" as const,
-                param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
+                param: { field: COLUMN_NAME.SCREEN_NAME },
                 alias: "screen_name",
               },
             ]
