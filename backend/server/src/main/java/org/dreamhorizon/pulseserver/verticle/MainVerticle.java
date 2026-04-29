@@ -349,6 +349,59 @@ public class MainVerticle extends AbstractVerticle {
     return defaultValue;
   }
 
+  /** Parses boolean from YAML/JSON (native boolean) or string (e.g. env substitution). */
+  private static boolean rootCauseBoolean(JsonObject json, String key, boolean defaultValue) {
+    if (!json.containsKey(key)) {
+      return defaultValue;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return defaultValue;
+    }
+    if (v instanceof Boolean) {
+      return (Boolean) v;
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return defaultValue;
+      }
+      return Boolean.parseBoolean(s);
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, using default {}",
+        key,
+        v.getClass().getName(),
+        defaultValue);
+    return defaultValue;
+  }
+
+  /** Nullable when key absent; accepts Boolean or String like {@link #rootCauseBoolean}. */
+  private static Boolean rootCauseOptionalBoolean(JsonObject json, String key) {
+    if (!json.containsKey(key)) {
+      return null;
+    }
+    Object v = json.getValue(key);
+    if (v == null) {
+      return null;
+    }
+    if (v instanceof Boolean) {
+      return (Boolean) v;
+    }
+    if (v instanceof String) {
+      String s = ((String) v).trim();
+      if (s.isEmpty()) {
+        return null;
+      }
+      return Boolean.parseBoolean(s);
+    }
+    log.warn(
+        "Unsupported type for rootCause.{}: {}, treating as unset",
+        key,
+        v.getClass().getName());
+    return null;
+  }
+
   private RootCauseConfig buildRootCauseConfig(JsonObject rootCauseJson) {
     final RootCauseConfig.RootCauseConfigBuilder builder = RootCauseConfig.builder()
         .similarityThresholdPct(
@@ -392,21 +445,18 @@ public class MainVerticle extends AbstractVerticle {
               "minRiskRatioForIssueAttribution",
               RootCauseConfig.DEFAULT_MIN_RISK_RATIO_FOR_ISSUE_ATTRIBUTION));
     }
-    builder
-        .issueMustPrecedePoor(
-            rootCauseJson.containsKey("issueMustPrecedePoor")
-                ? rootCauseJson.getBoolean("issueMustPrecedePoor")
-                : null);
-    
+    builder.issueMustPrecedePoor(rootCauseOptionalBoolean(rootCauseJson, "issueMustPrecedePoor"));
+
     builder.hybridDimensionOrderingEnabled(
-      rootCauseJson.containsKey("hybridDimensionOrderingEnabled")
-          ? rootCauseJson.getBoolean("hybridDimensionOrderingEnabled")
-          : RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED)
-  .minSegmentVolumePct(
-      rootCauseDouble(
-          rootCauseJson,
-          "minSegmentVolumePct",
-          RootCauseConfig.DEFAULT_MIN_SEGMENT_VOLUME_PCT));
+        rootCauseBoolean(
+            rootCauseJson,
+            "hybridDimensionOrderingEnabled",
+            RootCauseConfig.DEFAULT_HYBRID_DIMENSION_ORDERING_ENABLED))
+        .minSegmentVolumePct(
+            rootCauseDouble(
+                rootCauseJson,
+                "minSegmentVolumePct",
+                RootCauseConfig.DEFAULT_MIN_SEGMENT_VOLUME_PCT));
 
     final Object dimensionOrderValue = rootCauseJson.getValue("dimensionOrder");
     final boolean hasCustomDimensionOrder = dimensionOrderValue != null;

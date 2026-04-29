@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.configs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
@@ -11,29 +12,48 @@ import org.dreamhorizon.pulseserver.service.configs.models.ClickFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.RageConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 class DefaultSdkConfigTemplateTest {
+
+  private static final String TEST_PROJECT_ID = "test-project-id";
+  private static final String TEST_INTERACTION_CONFIG_BASE = "https://cdn.example.com";
+  private static final String TEST_OTEL_COLLECTOR_URL = "https://collector.example.com/v1/traces";
+
+  private ApplicationConfig appConfig;
+
+  @BeforeEach
+  void setUpAppConfig() {
+    appConfig = new ApplicationConfig();
+    appConfig.setInteractionConfigUrl(TEST_INTERACTION_CONFIG_BASE);
+    appConfig.setOtelCollectorUrl(TEST_OTEL_COLLECTOR_URL);
+    appConfig.setLogsCollectorUrl("https://collector.example.com/v1/logs");
+    appConfig.setMetricCollectorUrl("https://collector.example.com/v1/metrics");
+    appConfig.setSpanCollectorUrl(TEST_OTEL_COLLECTOR_URL);
+    appConfig.setCustomEventCollectorUrl("https://collector.example.com/v1/events");
+    appConfig.setReplayApiBaseUrl("https://replay.example.com");
+  }
 
   @Nested
   class CreateDefaultConfig {
 
     @Test
     void shouldReturnConfigDataWithDescription() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("admin@example.com");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "admin@example.com", appConfig);
       assertThat(config.getDescription()).isEqualTo("Default initial configuration");
     }
 
     @Test
     void shouldSetUserToCreatedBy() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("user-123");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "user-123", appConfig);
       assertThat(config.getUser()).isEqualTo("user-123");
     }
 
     @Test
     void shouldIncludeSamplingConfig() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       assertThat(config.getSampling()).isNotNull();
       assertThat(config.getSampling().getDefaultSampling()).isNotNull();
       assertThat(config.getSampling().getDefaultSampling().getSessionSampleRate()).isEqualTo(1.0);
@@ -44,13 +64,14 @@ class DefaultSdkConfigTemplateTest {
 
     @Test
     void shouldIncludeSignalsConfig() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       assertThat(config.getSignals()).isNotNull();
       assertThat(config.getSignals().getScheduleDurationMs()).isEqualTo(5000);
-      assertThat(config.getSignals().getLogsCollectorUrl()).isNotBlank();
-      assertThat(config.getSignals().getMetricCollectorUrl()).isNotBlank();
-      assertThat(config.getSignals().getSpanCollectorUrl()).isNotBlank();
-      assertThat(config.getSignals().getCustomEventCollectorUrl()).isNotBlank();
+      assertThat(config.getSignals().getLogsCollectorUrl()).isEqualTo(appConfig.getLogsCollectorUrl());
+      assertThat(config.getSignals().getMetricCollectorUrl()).isEqualTo(appConfig.getMetricCollectorUrl());
+      assertThat(config.getSignals().getSpanCollectorUrl()).isEqualTo(appConfig.getSpanCollectorUrl());
+      assertThat(config.getSignals().getCustomEventCollectorUrl())
+          .isEqualTo(appConfig.getCustomEventCollectorUrl());
       assertThat(config.getSignals().getAttributesToDrop()).isEmpty();
       assertThat(config.getSignals().getAttributesToAdd()).isEmpty();
       assertThat(config.getSignals().getMetricsToAdd()).isEmpty();
@@ -58,22 +79,39 @@ class DefaultSdkConfigTemplateTest {
 
     @Test
     void shouldIncludeInteractionConfig() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       assertThat(config.getInteraction()).isNotNull();
-      assertThat(config.getInteraction().getCollectorUrl()).isNotBlank();
-      assertThat(config.getInteraction().getConfigUrl()).isNotBlank();
+      assertThat(config.getInteraction().getCollectorUrl()).isEqualTo(TEST_OTEL_COLLECTOR_URL);
+      assertThat(config.getInteraction().getConfigUrl())
+          .isEqualTo(TEST_INTERACTION_CONFIG_BASE + "/projects/" + TEST_PROJECT_ID + "/interaction.json");
       assertThat(config.getInteraction().getBeforeInitQueueSize()).isEqualTo(100);
     }
 
     @Test
+    void shouldNotDoubleSlashWhenInteractionConfigBaseHasTrailingSlash() {
+      appConfig.setInteractionConfigUrl(TEST_INTERACTION_CONFIG_BASE + "/");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
+      assertThat(config.getInteraction().getConfigUrl())
+          .isEqualTo(TEST_INTERACTION_CONFIG_BASE + "/projects/" + TEST_PROJECT_ID + "/interaction.json");
+    }
+
+    @Test
+    void shouldSetInteractionConfigUrlNullWhenInteractionConfigBaseUnset() {
+      appConfig.setInteractionConfigUrl(null);
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
+      assertThat(config.getInteraction().getConfigUrl()).isNull();
+    }
+
+    @Test
     void shouldIncludeAllExpectedFeatures() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
-      assertThat(config.getFeatures()).hasSize(21);
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
+      assertThat(config.getFeatures()).hasSize(22);
 
       assertThat(config.getFeatures()).extracting(FeatureConfig::getFeatureName)
           .containsExactlyInAnyOrder(
               Features.interaction,
               Features.java_crash,
+              Features.js_crash,
               Features.js_crash,
               Features.java_anr,
               Features.network_change,
@@ -98,7 +136,7 @@ class DefaultSdkConfigTemplateTest {
 
     @Test
     void shouldIncludeSessionReplayFeatureWithExpectedDefaults() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       FeatureConfig sessionReplayFeature = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.session_replay)
           .findFirst()
@@ -110,7 +148,8 @@ class DefaultSdkConfigTemplateTest {
               Sdk.pulse_android_java,
               Sdk.pulse_android_rn,
               Sdk.pulse_ios_swift,
-              Sdk.pulse_ios_rn
+              Sdk.pulse_ios_rn,
+              Sdk.pulse_web_js
           );
 
       assertThat(sessionReplayFeature.getConfig()).isInstanceOf(SessionReplayFeatureConfig.class);
@@ -123,12 +162,12 @@ class DefaultSdkConfigTemplateTest {
       assertThat(replayConfig.getFlushIntervalSeconds()).isEqualTo(60);
       assertThat(replayConfig.getFlushAt()).isEqualTo(10);
       assertThat(replayConfig.getMaxBatchSize()).isEqualTo(50);
-      assertThat(replayConfig.getReplayApiBaseUrl()).isNotBlank();
+      assertThat(replayConfig.getReplayApiBaseUrl()).isEqualTo(appConfig.getReplayApiBaseUrl());
     }
 
     @Test
     void shouldIncludeClickFeatureWithExpectedDefaults() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       FeatureConfig clickFeature = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.click)
           .findFirst()
@@ -147,7 +186,7 @@ class DefaultSdkConfigTemplateTest {
 
     @Test
     void shouldSetDisabledFeaturesWithZeroSampleRate() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       
       FeatureConfig iosLifecycle = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.ios_lifecycle)
@@ -168,7 +207,7 @@ class DefaultSdkConfigTemplateTest {
 
     @Test
     void shouldSetAndroidSpecificFeatures() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       
       FeatureConfig javaCrash = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.java_crash)
@@ -178,12 +217,24 @@ class DefaultSdkConfigTemplateTest {
       assertThat(javaCrash.getSessionSampleRate()).isEqualTo(1.0);
       assertThat(javaCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn);
 
-      FeatureConfig jsCrash = config.getFeatures().stream()
+      var jsCrashRows = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.js_crash)
-          .findFirst()
-          .orElse(null);
-      assertThat(jsCrash).isNotNull();
-      assertThat(jsCrash.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
+          .toList();
+      assertThat(jsCrashRows).hasSize(2);
+      assertThat(jsCrashRows)
+          .filteredOn(f -> f.getSdks().contains(Sdk.pulse_web_js))
+          .singleElement()
+          .satisfies(f -> {
+            assertThat(f.getSessionSampleRate()).isEqualTo(1.0);
+            assertThat(f.getSdks()).containsExactly(Sdk.pulse_web_js);
+          });
+      assertThat(jsCrashRows)
+          .filteredOn(f -> !f.getSdks().contains(Sdk.pulse_web_js))
+          .singleElement()
+          .satisfies(f -> {
+            assertThat(f.getSessionSampleRate()).isEqualTo(1.0);
+            assertThat(f.getSdks()).containsExactlyInAnyOrder(Sdk.pulse_android_rn, Sdk.pulse_ios_rn);
+          });
 
       FeatureConfig javaAnr = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.java_anr)
@@ -209,7 +260,7 @@ class DefaultSdkConfigTemplateTest {
 
     @Test
     void shouldSetIosSpecificFeatures() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       
       FeatureConfig iosCrash = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.ios_crash)
@@ -230,7 +281,7 @@ class DefaultSdkConfigTemplateTest {
 
     @Test
     void shouldSetReactNativeSpecificFeatures() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       
       FeatureConfig rnScreenLoad = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.rn_screen_load)
@@ -263,7 +314,7 @@ class DefaultSdkConfigTemplateTest {
 
     @Test
     void shouldIncludeAllSdksForEachFeature() {
-      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig(TEST_PROJECT_ID, "creator", appConfig);
       
       FeatureConfig interaction = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.interaction)
@@ -271,7 +322,12 @@ class DefaultSdkConfigTemplateTest {
           .orElse(null);
       assertThat(interaction).isNotNull();
       assertThat(interaction.getSdks())
-          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+          .containsExactlyInAnyOrder(
+              Sdk.pulse_android_java,
+              Sdk.pulse_android_rn,
+              Sdk.pulse_ios_swift,
+              Sdk.pulse_ios_rn,
+              Sdk.pulse_web_js);
 
       FeatureConfig networkChange = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.network_change)
@@ -279,7 +335,12 @@ class DefaultSdkConfigTemplateTest {
           .orElse(null);
       assertThat(networkChange).isNotNull();
       assertThat(networkChange.getSdks())
-          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+          .containsExactlyInAnyOrder(
+              Sdk.pulse_android_java,
+              Sdk.pulse_android_rn,
+              Sdk.pulse_ios_swift,
+              Sdk.pulse_ios_rn,
+              Sdk.pulse_web_js);
 
       FeatureConfig customEvents = config.getFeatures().stream()
           .filter(f -> f.getFeatureName() == Features.custom_events)
@@ -287,7 +348,12 @@ class DefaultSdkConfigTemplateTest {
           .orElse(null);
       assertThat(customEvents).isNotNull();
       assertThat(customEvents.getSdks())
-          .containsExactlyInAnyOrder(Sdk.pulse_android_java, Sdk.pulse_android_rn, Sdk.pulse_ios_swift, Sdk.pulse_ios_rn);
+          .containsExactlyInAnyOrder(
+              Sdk.pulse_android_java,
+              Sdk.pulse_android_rn,
+              Sdk.pulse_ios_swift,
+              Sdk.pulse_ios_rn,
+              Sdk.pulse_web_js);
     }
   }
 }

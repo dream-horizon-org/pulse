@@ -170,7 +170,11 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 }
             }
         }
-        isInitialised = true
+        if (otelInstance != null) {
+            isInitialised = true
+        } else {
+            PulseLogger.logDebug(TAG) { "SDK not marked initialized: no OpenTelemetryRum instance (e.g. DENIED at startup)" }
+        }
     }
 
     @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
@@ -446,6 +450,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown
         sessionReplay = SessionReplayRegistry.getIntegration()
+        oldState = dataCollectionState
     }
 
     /**
@@ -600,7 +605,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     }
 
     public fun setUserId(id: String?) {
-        if (isShutdown) return
+        if (!isInitialized()) return
         userSessionEmitter.userId = id
     }
 
@@ -632,7 +637,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        if (isShutdown) return
+        if (!isInitialized()) return
         if (isCustomEventEnabled) {
             logger
                 .logRecordBuilder()
@@ -655,7 +660,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        if (isShutdown) return
+        if (!isInitialized()) return
         logger
             .logRecordBuilder()
             .apply {
@@ -673,7 +678,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        if (isShutdown) return
+        if (!isInitialized()) return
         logger
             .logRecordBuilder()
             .apply {
@@ -700,7 +705,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         params: Map<String, Any?>,
         action: () -> T,
     ) {
-        if (isShutdown) {
+        if (!isInitialized()) {
             action()
             return
         }
@@ -720,7 +725,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         spanName: String,
         params: Map<String, Any?>,
     ): () -> Unit {
-        if (isShutdown) return {}
+        if (!isInitialized()) return {}
         val span =
             tracer
                 .spanBuilder(spanName)
@@ -747,19 +752,20 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             SessionReplayRegistry.clearIntegration()
             OpenTelemetryRumInitializer.disposeExporters()
             otelInstance?.shutdown()
-            otelInstance = null
             isShutdown = true
+            otelInstance = null
             PulseLogger.logInfo(TAG) { "sdk.shutdown graceful=true" }
         }
     }
 
     public fun setDataCollectionState(newState: PulseDataCollectionConsent) {
-        if (oldState == PulseDataCollectionConsent.DENIED) {
-            PulseLogger.logDebug(TAG) { "setDataCollectionState skipped: SDK has been denied" }
+        if (!isInitialized()) {
+            val reason = if (isShutdown) "has been shut down" else "is not initialized"
+            PulseLogger.logDebug(TAG) { "setDataCollectionState skipped: SDK $reason" }
             return
         }
-        if (isShutdown) {
-            PulseLogger.logDebug(TAG) { "setDataCollectionState skipped: SDK has been shut down" }
+        if (oldState == PulseDataCollectionConsent.DENIED) {
+            PulseLogger.logDebug(TAG) { "setDataCollectionState skipped: SDK has been denied" }
             return
         }
         if (newState == oldState) {

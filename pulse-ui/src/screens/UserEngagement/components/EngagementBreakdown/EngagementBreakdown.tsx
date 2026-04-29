@@ -1,4 +1,5 @@
-import { SegmentedControl, TagsInput, Text, TextInput } from "@mantine/core";
+import { Group, SegmentedControl, TagsInput, Text, TextInput, Tooltip } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import {
   BarChart,
@@ -15,7 +16,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { ChartSkeleton, TableSkeleton } from "../../../../components/Skeletons";
 import { ErrorAndEmptyStateWithNotification } from "../../../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/ErrorAndEmptyStateWithNotification";
-import { PulseType } from "../../../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -95,7 +96,7 @@ export function EngagementBreakdown({
           },
           {
             function: "CUSTOM" as const,
-            param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
+            param: { expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
             alias: "user_count",
           },
           {
@@ -138,7 +139,7 @@ export function EngagementBreakdown({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
+          param: { expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
         {
@@ -476,9 +477,30 @@ export function EngagementBreakdown({
               <thead>
                 <tr>
                   <th>Segment</th>
-                  <th>DAU</th>
-                  <th>WAU</th>
-                  <th>MAU</th>
+                  <th>
+                    <Group gap={4} wrap="nowrap" align="center">
+                      <span>DAU</span>
+                      <Tooltip label="Daily Active Users — unique users active in the last 24 hours. Users are identified by installation ID, not login identity." withArrow multiline w={220}>
+                        <IconInfoCircle size={12} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+                      </Tooltip>
+                    </Group>
+                  </th>
+                  <th>
+                    <Group gap={4} wrap="nowrap" align="center">
+                      <span>WAU</span>
+                      <Tooltip label="Weekly Active Users — unique users active in the last 7 days. Users are identified by installation ID, not login identity." withArrow multiline w={220}>
+                        <IconInfoCircle size={12} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+                      </Tooltip>
+                    </Group>
+                  </th>
+                  <th>
+                    <Group gap={4} wrap="nowrap" align="center">
+                      <span>MAU</span>
+                      <Tooltip label="Monthly Active Users — unique users active in the last 30 days. Users are identified by installation ID, not login identity." withArrow multiline w={220}>
+                        <IconInfoCircle size={12} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+                      </Tooltip>
+                    </Group>
+                  </th>
                   <th>Sessions</th>
                   {/* <th>WoW change</th> */}
                 </tr>

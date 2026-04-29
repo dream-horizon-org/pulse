@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
@@ -34,13 +35,16 @@ public class ConfigServiceImpl implements ConfigService {
 
   private final SdkConfigsDao sdkConfigsDao;
   private final UploadConfigDetailService uploadConfigDetailService;
+  private final ApplicationConfig applicationConfig;
   private final AsyncLoadingCache<String, PulseConfig> latestConfigCache;
 
   @Inject
   public ConfigServiceImpl(Vertx vertx, SdkConfigsDao sdkConfigsDao,
-                           UploadConfigDetailService uploadConfigDetailService) {
+                           UploadConfigDetailService uploadConfigDetailService,
+                           ApplicationConfig applicationConfig) {
     this.sdkConfigsDao = sdkConfigsDao;
     this.uploadConfigDetailService = uploadConfigDetailService;
+    this.applicationConfig = applicationConfig;
 
     Context ctx = vertx.getOrCreateContext();
     Objects.requireNonNull(ctx, "ConfigServiceImpl must be created on a Vert.x context thread");
@@ -95,7 +99,7 @@ public class ConfigServiceImpl implements ConfigService {
   @Override
   public Single<PulseConfig> createInitialConfig(SqlConnection conn, String projectId, String createdBy) {
     log.debug("Creating initial SDK config for project: {} within transaction", projectId);
-    ConfigData defaultConfig = DefaultSdkConfigTemplate.createDefaultConfig(createdBy);
+    ConfigData defaultConfig = DefaultSdkConfigTemplate.createDefaultConfig(projectId, createdBy, applicationConfig);
     return sdkConfigsDao.createInitialConfig(conn, projectId, defaultConfig)
         .doOnSuccess(config -> {
           latestConfigCache.put(projectId, CompletableFuture.completedFuture(config));

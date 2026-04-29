@@ -23,6 +23,7 @@ public class SessionReplayDao {
 
   private static final int DEFAULT_TIMEOUT_MS = 5000;
   private static final String SESSION_ID_PLACEHOLDER = "session_id";
+  private static final String PROJECT_ID_PLACEHOLDER = "project_id";
 
 
   public Single<BlockListing> queryBlockListing(String sessionId) {
@@ -30,6 +31,7 @@ public class SessionReplayDao {
 
     Map<String, Object> substitutionMap = new HashMap<>();
     substitutionMap.put(SESSION_ID_PLACEHOLDER, sessionId);
+    substitutionMap.put(PROJECT_ID_PLACEHOLDER, escapeChStringLiteral(projectId));
 
     String formattedQuery = new StringSubstitutor(substitutionMap)
         .replace(SessionReplayQueries.GET_BLOCK_LISTING_QUERY);
@@ -82,5 +84,12 @@ public class SessionReplayDao {
       }
     }
     return result;
+  }
+
+  private static String escapeChStringLiteral(String s) {
+    if (s == null) {
+      return "";
+    }
+    return s.replace("\\", "\\\\").replace("'", "''");
   }
 }
