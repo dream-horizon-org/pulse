@@ -1,0 +1,217 @@
+package org.dreamhorizon.pulseserver.service.rootcause;
+
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.dreamhorizon.pulseserver.constant.ClickhouseConstants;
+
+/**
+ * ClickHouse queries for Screen-scoped RCA over {@code otel.otel_logs} ({@code app.click} rows).
+ * Uses {@link RootCauseQueryBuilder.BindAccumulator} / {@link RootCauseQuerySpec} like interaction RCA.
+ */
+public final class ScreenRcaQueryBuilder {
+
+  public static final String APP_CLICK_PULSE_TYPE = "app.click";
+
+  /** Log rows in the cohort (tap events). */
+  public static final String CLICK_VOLUME = "click_volume";
+
+  public static final String TAP_COUNT = "tap_count";
+  public static final String RAGE_COUNT = "rage_count";
+  public static final String DEAD_COUNT = "dead_count";
+  /** Segmentation driver: dead ∪ rage (one row can be both; counted once). */
+  public static final String BAD_FRUSTRATION = "bad_frustration";
+
+  private static final String TAP_COUNT_EXPR =
+      "countIf(ifNull(LogAttributes['click.type'], '') = 'good'"
+          + " AND ifNull(LogAttributes['click.is_rage'], '') != 'true')";
+
+  private static final String RAGE_COUNT_EXPR =
+      "countIf(ifNull(LogAttributes['click.is_rage'], '') = 'true')";
+
+  private static final String DEAD_COUNT_EXPR =
+      "countIf(ifNull(LogAttributes['click.type'], '') = 'dead')";
+
+  private static final String BAD_FRUSTRATION_EXPR =
+      "countIf(ifNull(LogAttributes['click.type'], '') = 'dead'"
+          + " OR ifNull(LogAttributes['click.is_rage'], '') = 'true')";
+
+  private ScreenRcaQueryBuilder() {}
+
+  /**
+   * WHERE: project, time window, {@code pulse.type = app.click}, non-empty screen name match.
+   */
+  public static String baseWhereSql(
+      RootCauseQueryBuilder.BindAccumulator acc,
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive) {
+    String p0 = acc.nextName();
+    String p1 = acc.nextName();
+    String p2 = acc.nextName();
+    String p3 = acc.nextName();
+    acc.add(p0, emptyIfNull(projectId));
+    acc.add(p1, emptyIfNull(screenName));
+    String startStr =
+        startInclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    String endStr =
+        endExclusive.atOffset(ZoneOffset.UTC).format(ClickhouseConstants.CLICKHOUSE_TIMESTAMP_LITERAL);
+    acc.add(p2, startStr);
+    acc.add(p3, endStr);
+    return "ProjectId = :"
+        + p0
+        + " AND ifNull(LogAttributes['pulse.type'], '') = '"
+        + APP_CLICK_PULSE_TYPE
+        + "'"
+        + " AND nullIf(trimBoth(LogAttributes['screen.name']), '') = :"
+        + p1
+        + " AND Timestamp >= toDateTime64(:"
+        + p2
+        + ", 9, 'UTC')"
+        + " AND Timestamp < toDateTime64(:"
+        + p3
+        + ", 9, 'UTC')";
+  }
+
+  public static RootCauseQuerySpec buildBaselineQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String select =
+        "count() AS "
+            + CLICK_VOLUME
+            + ", "
+            + TAP_COUNT_EXPR
+            + " AS "
+            + TAP_COUNT
+            + ", "
+            + RAGE_COUNT_EXPR
+            + " AS "
+            + RAGE_COUNT
+            + ", "
+            + DEAD_COUNT_EXPR
+            + " AS "
+            + DEAD_COUNT
+            + ", "
+            + BAD_FRUSTRATION_EXPR
+            + " AS "
+            + BAD_FRUSTRATION;
+    String where = baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive);
+    String sql =
+        "SELECT " + select + " FROM " + ClickhouseConstants.OTEL_LOGS_TABLE + " WHERE " + where;
+    return acc.toSpec(sql);
+  }
+
+  public static RootCauseQuerySpec buildBadFrustrationByDimensionQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      String dimensionColumn,
+      Map<String, String> dimensionFilters) {
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    String dimSelect = dimensionSelectAlias(dimensionColumn);
+    String select = dimSelect + ", " + BAD_FRUSTRATION_EXPR + " AS " + BAD_FRUSTRATION;
+    String where =
+        appendDimensionFilters(
+            baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
+    String sql =
+        "SELECT "
+            + select
+            + " FROM "
+            + ClickhouseConstants.OTEL_LOGS_TABLE
+            + " WHERE "
+            + where
+            + " GROUP BY "
+            + dimensionColumn;
+    return acc.toSpec(sql);
+  }
+
+  /**
+   * Full metric row for a segment (GROUP BY all listed dimensions).
+   */
+  public static RootCauseQuerySpec buildSegmentQuery(
+      String projectId,
+      String screenName,
+      Instant startInclusive,
+      Instant endExclusive,
+      List<String> dimensionColumns,
+      Map<String, String> dimensionFilters) {
+    if (dimensionColumns == null || dimensionColumns.isEmpty()) {
+      throw new IllegalArgumentException("dimensionColumns must be non-empty for segment query");
+    }
+    RootCauseQueryBuilder.BindAccumulator acc = new RootCauseQueryBuilder.BindAccumulator();
+    StringBuilder select = new StringBuilder();
+    for (String d : dimensionColumns) {
+      if (select.length() > 0) {
+        select.append(", ");
+      }
+      select.append(dimensionSelectAlias(d));
+    }
+    select.append(", count() AS ").append(CLICK_VOLUME);
+    select.append(", ").append(TAP_COUNT_EXPR).append(" AS ").append(TAP_COUNT);
+    select.append(", ").append(RAGE_COUNT_EXPR).append(" AS ").append(RAGE_COUNT);
+    select.append(", ").append(DEAD_COUNT_EXPR).append(" AS ").append(DEAD_COUNT);
+    select.append(", ").append(BAD_FRUSTRATION_EXPR).append(" AS ").append(BAD_FRUSTRATION);
+    String where =
+        appendDimensionFilters(
+            baseWhereSql(acc, projectId, screenName, startInclusive, endExclusive), acc, dimensionFilters);
+    String groupBy = dimensionColumns.stream().collect(Collectors.joining(", "));
+    String sql =
+        "SELECT "
+            + select
+            + " FROM "
+            + ClickhouseConstants.OTEL_LOGS_TABLE
+            + " WHERE "
+            + where
+            + " GROUP BY "
+            + groupBy;
+    return acc.toSpec(sql);
+  }
+
+  static String dimensionSelectAlias(String dimensionName) {
+    return dimensionExpression(dimensionName) + " AS " + dimensionName;
+  }
+
+  /** Expression for GROUP BY / SELECT; must match {@link #dimensionEqualityLhs(String)}. */
+  public static String dimensionExpression(String dimensionName) {
+    return switch (dimensionName) {
+      case "Platform" -> "ifNull(ResourceAttributes['os.name'], '')";
+      case "OsVersion" -> "ifNull(ResourceAttributes['os.version'], '')";
+      case "AppVersion" -> "ifNull(ResourceAttributes['app.build_name'], '')";
+      case "DeviceModel" -> "ifNull(ResourceAttributes['device.model.name'], '')";
+      case "NetworkProvider" -> "ifNull(LogAttributes['network.carrier.name'], '')";
+      case "GeoState" -> "ifNull(LogAttributes['geo.region.iso_code'], '')";
+      default -> throw new IllegalArgumentException("Unknown Screen RCA dimension: " + dimensionName);
+    };
+  }
+
+  private static String dimensionEqualityLhs(String dimensionName) {
+    return "(" + dimensionExpression(dimensionName) + ")";
+  }
+
+  private static String appendDimensionFilters(
+      String baseWhereSql,
+      RootCauseQueryBuilder.BindAccumulator acc,
+      Map<String, String> dimensionFilters) {
+    if (dimensionFilters == null || dimensionFilters.isEmpty()) {
+      return baseWhereSql;
+    }
+    StringBuilder sb = new StringBuilder(baseWhereSql);
+    for (Map.Entry<String, String> e : dimensionFilters.entrySet()) {
+      String pn = acc.nextName();
+      acc.add(pn, emptyIfNull(e.getValue()));
+      sb.append(" AND ").append(dimensionEqualityLhs(e.getKey())).append(" = :").append(pn);
+    }
+    return sb.toString();
+  }
+
+  private static String emptyIfNull(String s) {
+    return s == null ? "" : s;
+  }
+}

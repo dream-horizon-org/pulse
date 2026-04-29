@@ -1,4 +1,5 @@
-import { Text } from "@mantine/core";
+import { Group, Text, Tooltip } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import {
   createTooltipFormatter,
   LineChart,
@@ -82,18 +83,29 @@ export function UserEngagementGraph({
 
   return (
     <div className={classes.graphCard}>
-      <div className={classes.graphTitle}>User Engagement</div>
+      <Group gap={6} align="center" className={classes.graphTitle}>
+        <span>User Engagement</span>
+        <Tooltip
+          label="Users are identified by app installation ID. The same installation can open the app multiple times — each unique installation ID counts as one user."
+          withArrow
+          multiline
+          w={280}
+          position="right"
+        >
+          <IconInfoCircle size={14} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+        </Tooltip>
+      </Group>
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Avg Daily Users</Text>
+          <Text className={classes.metricLabel}>Daily Active Users (DAU)</Text>
           {formatMetricValue(dailyUsers, "#0ec9c2")}
         </div>
         <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Weekly Users</Text>
+          <Text className={classes.metricLabel}>Weekly Active Users (WAU)</Text>
           {formatMetricValue(weeklyUsers, "#0ba09a")}
         </div>
         <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Monthly Users</Text>
+          <Text className={classes.metricLabel}>Monthly Active Users (MAU)</Text>
           {formatMetricValue(monthlyUsers, "#2c3e50")}
         </div>
       </div>

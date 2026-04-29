@@ -19,7 +19,7 @@ public interface NotificationService {
 
   Maybe<NotificationChannelDto> getChannel(Long channelId);
 
-  Single<NotificationChannelDto> createChannel(CreateChannelRequestDto request);
+  Single<Long> createChannel(CreateChannelRequestDto request);
 
   Single<NotificationChannelDto> updateChannel(Long channelId, UpdateChannelRequestDto request);
 
@@ -30,7 +30,7 @@ public interface NotificationService {
 
   Maybe<NotificationTemplateDto> getTemplate(Long templateId);
 
-  Single<NotificationTemplateDto> createTemplate(CreateTemplateRequestDto request);
+  Single<Long> createTemplate(CreateTemplateRequestDto request);
 
   Single<NotificationTemplateDto> updateTemplate(Long templateId, UpdateTemplateRequestDto request);
 
