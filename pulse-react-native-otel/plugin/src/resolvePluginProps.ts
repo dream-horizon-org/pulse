@@ -180,6 +180,15 @@ export function assertPulsePluginProps(
           'INVALID_PLUGIN_TYPE'
         );
       }
+      if (
+        o.ensureJetifierIgnoresByteBuddy !== undefined &&
+        typeof o.ensureJetifierIgnoresByteBuddy !== 'boolean'
+      ) {
+        throw new PluginError(
+          'Pulse config plugin: "android.okHttpInstrumentation.ensureJetifierIgnoresByteBuddy" must be a boolean when set.',
+          'INVALID_PLUGIN_TYPE'
+        );
+      }
     } else {
       throw new PluginError(
         'Pulse config plugin: "android.okHttpInstrumentation" must be an object when set (e.g. { "enabled": true }).',
@@ -237,6 +246,8 @@ export function resolveAndroidProps(
   const rawBb = okHttp?.byteBuddyGradlePluginVersion?.trim();
   const byteBuddyGradlePluginVersion =
     rawBb && rawBb.length > 0 ? rawBb : PULSE_BYTE_BUDDY_GRADLE_PLUGIN;
+  const ensureJetifierIgnoresByteBuddy =
+    okHttpEnabled && okHttp?.ensureJetifierIgnoresByteBuddy !== false;
 
   return {
     ...merged,
@@ -248,6 +259,7 @@ export function resolveAndroidProps(
     okHttpInstrumentation: {
       enabled: okHttpEnabled,
       byteBuddyGradlePluginVersion,
+      ensureJetifierIgnoresByteBuddy,
     },
   };
 }
