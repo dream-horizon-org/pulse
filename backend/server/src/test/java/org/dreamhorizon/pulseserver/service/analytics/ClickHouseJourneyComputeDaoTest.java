@@ -63,7 +63,19 @@ class ClickHouseJourneyComputeDaoTest {
           .contains("base AS (")
           .contains("per_uid AS (")
           .contains("walked AS (")
-          .contains("arraySort(x -> x.1, groupArray(tuple(ts, EventName))) AS ev");
+          .contains("arraySort(x -> tuple(x.1, x.2), groupArray(tuple(ts, EventName))) AS ev");
+    }
+
+    @Test
+    void shouldSortEventArrayByTimestampThenEventNameForDeterministicTieBreak() {
+      // Sorting per-uid events by (ts, EventName) makes the journey output deterministic
+      // when multiple events share a Timestamp (e.g. PageElementImpression and
+      // SearchIconDisplayed firing on the same render frame). Reverting to a single-key
+      // sort by `x.1` would re-introduce non-deterministic edges across reruns.
+      String sql = ClickHouseJourneyComputeDao.buildInsertSql(baseRow().build(), "START");
+      assertThat(sql)
+          .contains("arraySort(x -> tuple(x.1, x.2)")
+          .doesNotContain("arraySort(x -> x.1,");
     }
 
     @Test
