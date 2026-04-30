@@ -160,16 +160,6 @@ inst.screenLifecycle = [PulseObjcEnabledConfig enabled];
 inst.appStartup = [PulseObjcEnabledConfig enabled];
 ```
 
-### Location
-```objc
-inst.location = [PulseObjcEnabledConfig enabled];
-```
-
-### SignPost Integration
-```objc
-inst.signPost = [PulseObjcEnabledConfig enabled];
-```
-
 ### Interaction
 ```objc
 inst.interaction = [PulseObjcEnabledConfig enabled];

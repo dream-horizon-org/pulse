@@ -1,5 +1,6 @@
 import {
   withAppBuildGradle,
+  withGradleProperties,
   withProjectBuildGradle,
 } from '@expo/config-plugins';
 import type { ConfigPlugin } from '@expo/config-plugins';
@@ -7,12 +8,31 @@ import type { ExpoConfig } from '@expo/config-types';
 
 import { PULSE_DREAMHORIZON_OKHTTP_INSTR_VERSION } from './androidBuildConstants';
 import {
+  mergeJetifierIgnorelistForNetByteBuddy,
+  type GradlePropertiesItem,
+} from './androidJetifierGradlePropertiesMerge';
+import {
   mergePulseOkHttpAppGradle,
   mergePulseOkHttpByteBuddyClasspath,
 } from './androidOkHttpGradleMerge';
 import type { ResolvedAndroidPulseProps } from './types';
 
 type ResolvedOkHttpGradle = ResolvedAndroidPulseProps['okHttpInstrumentation'];
+
+function withPulseJetifierIgnoreByteBuddy(
+  config: ExpoConfig,
+  okHttp: ResolvedOkHttpGradle
+) {
+  if (!okHttp.enabled || !okHttp.ensureJetifierIgnoresByteBuddy) {
+    return config;
+  }
+  return withGradleProperties(config, (mod) => {
+    mod.modResults = mergeJetifierIgnorelistForNetByteBuddy(
+      mod.modResults as GradlePropertiesItem[]
+    ) as typeof mod.modResults;
+    return mod;
+  });
+}
 
 function withPulseProjectBuildGradle(
   config: ExpoConfig,
@@ -73,6 +93,7 @@ export const withAndroidBuildFeatures: ConfigPlugin<ResolvedOkHttpGradle> = (
   okHttp
 ) => {
   if (okHttp.enabled) {
+    config = withPulseJetifierIgnoreByteBuddy(config, okHttp);
     config = withPulseProjectBuildGradle(config, okHttp);
     config = withPulseAppBuildGradle(config, okHttp);
   }
