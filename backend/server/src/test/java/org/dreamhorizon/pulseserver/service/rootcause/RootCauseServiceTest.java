@@ -1136,7 +1136,7 @@ class RootCauseServiceTest {
       RootCauseQuerySpec spec =
           RootCauseQueryBuilder.buildDistinctScreensForInteractionQuery(PROJECT_ID, INTERACTION, w);
       assertThat(spec.sql()).contains("pulse.interaction.name");
-      assertThat(spec.sql()).contains("screen.name");
+      assertThat(spec.sql()).contains("ScreenName");
       assertThat(spec.sql()).doesNotContain("SpanName");
       assertThat(spec.sql()).contains("count()");
       assertThat(spec.sql()).contains("GROUP BY screen_name");
