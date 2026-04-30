@@ -1,7 +1,8 @@
 package org.dreamhorizon.pulseserver.resources.v1.users;
 
+import static org.dreamhorizon.pulseserver.util.AuthenticationUtil.extractUserId;
+
 import com.google.inject.Inject;
-import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -24,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
-import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.userapikey.UserApiKeyService;
 import org.dreamhorizon.pulseserver.service.userapikey.models.UserApiKeyInfo;
 import org.dreamhorizon.pulseserver.service.userapikey.models.UserApiKeyPublicInfo;
@@ -36,7 +36,6 @@ import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 public class UserApiKeyController {
 
   private final UserApiKeyService userApiKeyService;
-  private final JwtService jwtService;
 
   @GET
   @Consumes(MediaType.WILDCARD)
@@ -73,12 +72,8 @@ public class UserApiKeyController {
   }
 
   private String resolveUserId(String authorization) {
-    if (authorization == null || !authorization.startsWith("Bearer ")) {
-      throw ServiceError.UNAUTHORISED.getException();
-    }
     try {
-      Claims claims = jwtService.verifyToken(authorization.substring(7).trim());
-      return claims.getSubject();
+      return extractUserId(authorization);
     } catch (Exception e) {
       log.debug("Invalid token in UserApiKeyController: {}", e.getMessage());
       throw ServiceError.UNAUTHORISED.getException();
