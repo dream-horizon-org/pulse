@@ -45,7 +45,7 @@ export function useGetActiveSessionsData({
         value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
       });
       filterArray.push({
-        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.SCREEN_NAME,
         operator: "IN",
         value: [screenName!],
       });
@@ -85,8 +85,31 @@ export function useGetActiveSessionsData({
     return filterArray;
   }, [screenName, appVersion, osVersion, device, useTracesTable]);
 
+  // Dedicated last-5-min query for the "Current" metric
+  const now = useMemo(() => dayjs().utc(), []);
+  const { data: currentData, isLoading: isLoadingCurrent } = useGetDataQuery({
+    requestBody: {
+      dataType,
+      timeRange: {
+        start: now.subtract(5, "minute").toISOString(),
+        end: now.toISOString(),
+      },
+      select: [
+        {
+          function: "CUSTOM",
+          param: {
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+          },
+          alias: "session_count",
+        },
+      ],
+      filters: buildFilters,
+    },
+    enabled: !!startTime && !!endTime,
+  });
+
   // Fetch active sessions
-  const { data, isLoading } = useGetDataQuery({
+  const { data, isLoading: isLoadingTrend } = useGetDataQuery({
     requestBody: {
       dataType,
       timeRange: {
@@ -102,7 +125,7 @@ export function useGetActiveSessionsData({
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "session_count",
         },
@@ -114,50 +137,50 @@ export function useGetActiveSessionsData({
     enabled: !!startTime && !!endTime,
   });
 
-  // Transform data and calculate metrics
-  const { currentSessions, peakSessions, averageSessions, trendData, hasData } =
-    useMemo(() => {
-      const responseData = data?.data;
-      if (
-        !responseData ||
-        !responseData.rows ||
-        responseData.rows.length === 0
-      ) {
-        return {
-          currentSessions: null,
-          peakSessions: null,
-          averageSessions: null,
-          trendData: [],
-          hasData: false,
-        };
-      }
+  // Derive current sessions from dedicated 5-min query
+  const currentSessions = useMemo(() => {
+    const responseData = currentData?.data;
+    if (!responseData?.rows || responseData.rows.length === 0) return null;
+    const idx = responseData.fields.indexOf("session_count");
+    return Math.round(parseFloat(responseData.rows[0][idx]) || 0);
+  }, [currentData]);
 
-      const t1Index = responseData.fields.indexOf("t1");
-      const sessionCountIndex = responseData.fields.indexOf("session_count");
-
-      const trend = responseData.rows.map((row) => ({
-        timestamp: dayjs(row[t1Index]).valueOf(),
-        sessions: parseFloat(row[sessionCountIndex]) || 0,
-      }));
-
-      // Calculate metrics
-      const sessionCounts = trend.map((d) => d.sessions);
-      const current = sessionCounts[sessionCounts.length - 1] || 0; // Most recent
-      const peak = Math.max(...sessionCounts);
-      const average = Math.round(
-        sessionCounts.reduce((sum, val) => sum + val, 0) / sessionCounts.length,
-      );
-
+  // Transform trend data and derive peak/average
+  const { peakSessions, averageSessions, trendData, hasData } = useMemo(() => {
+    const responseData = data?.data;
+    if (!responseData || !responseData.rows || responseData.rows.length === 0) {
       return {
-        currentSessions: Math.round(current),
-        peakSessions: Math.round(peak),
-        averageSessions: average,
-        trendData: trend,
-        hasData: true,
+        peakSessions: null,
+        averageSessions: null,
+        trendData: [],
+        hasData: false,
       };
-    }, [data]);
+    }
 
-  const error = null; // You can enhance this to capture errors from queries if needed
+    const t1Index = responseData.fields.indexOf("t1");
+    const sessionCountIndex = responseData.fields.indexOf("session_count");
+
+    const trend = responseData.rows.map((row) => ({
+      timestamp: dayjs(row[t1Index]).valueOf(),
+      sessions: parseFloat(row[sessionCountIndex]) || 0,
+    }));
+
+    const sessionCounts = trend.map((d) => d.sessions);
+    const peak = Math.max(...sessionCounts);
+    const average = Math.round(
+      sessionCounts.reduce((sum, val) => sum + val, 0) / sessionCounts.length,
+    );
+
+    return {
+      peakSessions: Math.round(peak),
+      averageSessions: average,
+      trendData: trend,
+      hasData: true,
+    };
+  }, [data]);
+
+  const error = null;
+  const isLoading = isLoadingCurrent || isLoadingTrend;
 
   return {
     data: {
