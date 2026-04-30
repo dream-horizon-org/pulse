@@ -41,17 +41,9 @@ public class PulseObjcSessionsConfig: NSObject {
     }
 }
 
-@objc(PulseObjcRageConfig)
-public class PulseObjcRageConfig: NSObject {
-    @objc public var timeWindowMs: NSNumber?
-    @objc public var rageThreshold: NSNumber?
-    @objc public var radiusPt: NSNumber?
-}
-
 @objc(PulseObjcUIKitTapConfig)
 public class PulseObjcUIKitTapConfig: NSObject {
     @objc public var captureContext: NSNumber?
-    @objc public var rage: PulseObjcRageConfig?
 }
 
 @objc(PulseObjcSessionReplayConfig)
@@ -137,19 +129,9 @@ enum PulseObjcInitMappers {
             if let b = boolNumber(root.appStartup?.enabled) {
                 config.appStartup { $0.enabled(b) }
             }
-            if let t = root.uiKitTap {
-                let has = t.captureContext != nil || t.rage != nil
-                if has {
-                    config.uiKitTap { tap in
-                        if let v = boolNumber(t.captureContext) { tap.captureContext(v) }
-                        if let rage = t.rage {
-                            tap.rage { r in
-                                if let v = rage.timeWindowMs?.intValue { r.timeWindowMs = v }
-                                if let v = rage.rageThreshold?.intValue { r.rageThreshold = v }
-                                if let v = rage.radiusPt?.floatValue { r.radiusPt = v }
-                            }
-                        }
-                    }
+            if let t = root.uiKitTap, t.captureContext != nil {
+                config.uiKitTap { tap in
+                    if let v = boolNumber(t.captureContext) { tap.captureContext(v) }
                 }
             }
             if let sr = root.sessionReplay {

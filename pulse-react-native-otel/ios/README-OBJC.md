@@ -132,12 +132,6 @@ inst.sessions = sessions;
 PulseObjcUIKitTapConfig *tap = [PulseObjcUIKitTapConfig new];
 tap.captureContext = @YES;
 
-PulseObjcRageConfig *rage = [PulseObjcRageConfig new];
-rage.timeWindowMs = @(400);
-rage.rageThreshold = @(3);
-rage.radiusPt = @(20.0);
-tap.rage = rage;
-
 inst.uiKitTap = tap;
 ```
 

@@ -224,24 +224,6 @@ function emitIosUIKitTap(
   if (cfg.captureContext !== undefined) {
     inner.push(`tap.captureContext(${cfg.captureContext})`);
   }
-  if (cfg.rage) {
-    const rage = cfg.rage;
-    const rageLines: string[] = [];
-    if (rage.timeWindowMs !== undefined) {
-      rageLines.push(`r.timeWindowMs = ${rage.timeWindowMs}`);
-    }
-    if (rage.rageThreshold !== undefined) {
-      rageLines.push(`r.rageThreshold = ${rage.rageThreshold}`);
-    }
-    if (rage.radiusPt !== undefined) {
-      rageLines.push(`r.radiusPt = ${rage.radiusPt}`);
-    }
-    if (rageLines.length > 0) {
-      inner.push(
-        `tap.rage { r in\n        ${rageLines.join('\n        ')}\n      }`
-      );
-    }
-  }
   if (inner.length > 0) {
     body.push(
       `      config.uiKitTap { tap in\n        ${inner.join('\n        ')}\n      }`

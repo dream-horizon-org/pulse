@@ -257,7 +257,7 @@ function emitObjcUIKitTap(
   if (c === undefined) {
     return;
   }
-  const hasTap = c.captureContext !== undefined || c.rage !== undefined;
+  const hasTap = c.captureContext !== undefined;
   if (!hasTap) {
     return;
   }
@@ -265,21 +265,6 @@ function emitObjcUIKitTap(
   out.push(`PulseObjcUIKitTapConfig *${t} = [PulseObjcUIKitTapConfig new];`);
   if (c.captureContext !== undefined) {
     out.push(`${t}.captureContext = @(${nsBool(c.captureContext)});`);
-  }
-  if (c.rage) {
-    const r = c.rage;
-    const rv = 'pulseRNRageCfg';
-    out.push(`PulseObjcRageConfig *${rv} = [PulseObjcRageConfig new];`);
-    if (r.timeWindowMs !== undefined) {
-      out.push(`${rv}.timeWindowMs = @(${r.timeWindowMs});`);
-    }
-    if (r.rageThreshold !== undefined) {
-      out.push(`${rv}.rageThreshold = @(${r.rageThreshold});`);
-    }
-    if (r.radiusPt !== undefined) {
-      out.push(`${rv}.radiusPt = @(${r.radiusPt});`);
-    }
-    out.push(`${t}.rage = ${rv};`);
   }
   out.push(`${inst}.uiKitTap = ${t};`);
 }

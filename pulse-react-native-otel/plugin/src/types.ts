@@ -65,15 +65,8 @@ export interface PulseIosInteractionInstrumentation {
   enabled?: boolean;
 }
 
-export interface PulseIosUIKitTapRage {
-  timeWindowMs?: number;
-  rageThreshold?: number;
-  radiusPt?: number;
-}
-
 export interface PulseIosUIKitTapInstrumentation {
   captureContext?: boolean;
-  rage?: PulseIosUIKitTapRage;
 }
 
 /** iOS session replay - only code-level masking rules are configurable. Backend controls all other settings. */
