@@ -27,7 +27,7 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
         val config = bootstrap.config
 
         val storageDir = File(application.filesDir, STORAGE_DIR_NAME)
-        val replayApiClient = config.replayApiBaseUrl?.let { SessionReplayApiClient(baseUrl = it) }
+        val replayApiClient = config.replayApiBaseUrl?.let { SessionReplayApiClient(baseUrl = it, headers = bootstrap.endpointHeaders) }
         val appVersion =
             try {
                 val pkgInfo = application.packageManager.getPackageInfo(application.packageName, 0)

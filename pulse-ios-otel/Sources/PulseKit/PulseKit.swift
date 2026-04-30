@@ -225,7 +225,7 @@ public class Pulse {
                 config.interaction { $0.setConfigUrl { derivedInteractionUrl } }
             }
 
-            let (tracerProvider, loggerProvider, openTelemetry) = buildOpenTelemetrySDK(
+            let (tracerProvider, loggerProvider, openTelemetry, mergedEndpointHeaders) = buildOpenTelemetrySDK(
                 endpointBaseUrl: endpointBaseUrl,
                 customEventCollectorUrl: nil,
                 endpointHeaders: endpointHeadersWithProject,
@@ -254,7 +254,7 @@ public class Pulse {
                 loggerProvider: loggerProvider,
                 openTelemetry: openTelemetry,
                 endpointBaseUrl: endpointBaseUrl,
-                endpointHeaders: endpointHeadersWithProject,
+                endpointHeaders: mergedEndpointHeaders,
                 flushLogProcessor: { [weak self] in
                     _ = self?._consentLogProcessor?.forceFlush()
                 },
@@ -423,7 +423,7 @@ public class Pulse {
         beforeSendMetric: BeforeSendMetricCallback?,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)?,
         loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])?
-    ) -> (tracerProvider: TracerProvider, loggerProvider: LoggerProvider, openTelemetry: OpenTelemetry) {
+    ) -> (tracerProvider: TracerProvider, loggerProvider: LoggerProvider, openTelemetry: OpenTelemetry, mergedHeaders: [String: String]) {
         var meteredConfig = MeteredSessionConfig()
         let meteredManager = meteredConfig.createMeteredManager()
         let headers = meteredConfig.addMeteredSessionHeader(to: endpointHeaders, meteredManager: meteredManager)
@@ -578,7 +578,7 @@ public class Pulse {
 
         let openTelemetry = OpenTelemetry.instance
 
-        return (tracerProvider, loggerProvider, openTelemetry)
+        return (tracerProvider, loggerProvider, openTelemetry, headers ?? [:])
     }
 
     private func buildProcessors(
