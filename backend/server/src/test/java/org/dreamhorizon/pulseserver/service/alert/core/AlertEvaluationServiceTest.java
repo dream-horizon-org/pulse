@@ -9,7 +9,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -43,7 +42,6 @@ import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorF
 import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorProcessor;
 import org.dreamhorizon.pulseserver.service.alert.core.util.MetricToFunctionMapper;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -120,7 +118,7 @@ class AlertEvaluationServiceTest {
     void shouldReturnHttpUrlForNetworkApiScope() throws Exception {
       Method method = AlertEvaluationService.class.getDeclaredMethod("getScopeField", String.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      assertEquals("SpanAttributes['http.url']", method.invoke(alertEvaluationService, "NETWORK_API", QueryRequest.DataType.TRACES));
+      assertEquals("HttpUrl", method.invoke(alertEvaluationService, "NETWORK_API", QueryRequest.DataType.TRACES));
     }
 
     @Test
@@ -2668,7 +2666,6 @@ class AlertEvaluationServiceTest {
     }
   }
 
-  
 
   @Nested
   class ParseMetricValueTests {
