@@ -57,6 +57,7 @@ docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
 | MySQL | 3307 | `mysqladmin ping` |
 | OpenFGA | 8180 (HTTP), 8181 (gRPC), 3001 (playground) | `/healthz` |
 | OTEL Collector | 4317/4318, 13133 (health) | — |
+| Optional Prometheus + Tempo + Grafana (`deploy/observability-otel-prometheus-tempo/`) | OTLP **14317/14318** (conflicts with Vector profile on same host), Grafana **3310**, Prometheus **9091** | separate `docker compose`; see folder `README.md` |
 | Kafka (session replay) | 9092 | broker (no HTTP health in table) |
 | MinIO (dev S3) | 9100 (API), 9101 (console) | — |
 | pulse-session-capture | 3400 | `/healthcheck` |

@@ -29,7 +29,9 @@ pulse-session-replay-ingestion → minio + ClickHouse. Heatmap screenshots: same
 `depends_on` it healthy). Standalone: `pulse_ai/docker-compose.yml` +
 `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
-Startup order (simplified): mysql / clickhouse / kafka / minio → init jobs → otel-collector → capture + replay consumer → pulse-ai-agent → pulse-server → pulse-ui; **pulse-alerts-cron** after mysql + pulse-server + minio-init (no compose dependency on ClickHouse—Kong sync is via pulse-server). See `depends_on` in compose for exact gates.
+Startup order (simplified): mysql / clickhouse / kafka / minio → init jobs → otel-collector → capture + replay
+consumer → pulse-ai-agent → pulse-server → pulse-ui; **pulse-alerts-cron** after mysql + pulse-server + minio-init (no
+compose dependency on ClickHouse—Kong sync is via pulse-server). See `depends_on` in compose for exact gates.
 
 Always use `docker ps` to verify actual running services and ports.
 
@@ -38,6 +40,7 @@ Always use `docker ps` to verify actual running services and ports.
 - `CONFIG_SERVICE_APPLICATION_*` — backend app config (includes batch job endpoints, schedule time, JWT secrets)
 - `VAULT_SERVICE_*` — secrets (never commit real values)
 - `OTEL_CLICKHOUSE_*` — OTEL to ClickHouse connection
+- `PULSE_BACKEND_OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` — optional JVM OpenTelemetry for `pulse-server` / `pulse-alerts-cron` (see `docker-deploy.mdc`)
 - `REACT_APP_*` — frontend build-time args
 - `OPENFGA_*` — OpenFGA authorization service (store ID, model ID)
 - `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI)
@@ -65,7 +68,7 @@ Template: `deploy/.env.example` → copy to `deploy/.env`
 ## Database Initialization
 
 - MySQL: `deploy/db/mysql-init.sql` mounted to `/docker-entrypoint-initdb.d/`
-- ClickHouse: `backend/ingestion/clickhouse-otel-schema.sql` and related SQL (session replay, session-summary MV,
+- ClickHouse: `backend/db/dev/clickhouse/*.sql` and related SQL (session replay, session-summary MV,
   funnel/journey results, event catalog mounts) via `clickhouse-init` + `deploy/scripts/init-clickhouse.sh` (uses
   `pulse_user`/`pulse_password`)
 

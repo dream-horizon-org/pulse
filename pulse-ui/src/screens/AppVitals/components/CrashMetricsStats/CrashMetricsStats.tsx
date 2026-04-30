@@ -1,4 +1,5 @@
-import { Box, Text } from "@mantine/core";
+import { Box, Group, Text, Tooltip } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { useGetDataQuery } from "../../../../hooks";
 import { useQueryError } from "../../../../hooks/useQueryError";
@@ -6,6 +7,7 @@ import { StatsSkeleton } from "../../../../components/StatsSkeleton";
 import type { DataQueryResponse } from "../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import classes from "./CrashMetricsStats.module.css";
 import { buildCommonFilters } from "../TrendGraphWithData/helpers/trendDataHelpers";
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 
 interface CrashMetricsStatsProps {
   startTime: string;
@@ -86,7 +88,7 @@ export function CrashMetricsStats({
           function: "CUSTOM",
           param: {
             expression:
-              "uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.crash')",
+              `uniqCombined64If(nullIf(${COLUMN_NAME.USER_ID}, ''), PulseType = 'device.crash')`,
           },
           alias: "crash_users",
         },
@@ -180,7 +182,17 @@ export function CrashMetricsStats({
       <Text className={classes.sectionTitle}>Crash Metrics</Text>
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
-          <Text className={classes.statLabel}>Crash-Free Users</Text>
+          <Group gap={4} wrap="nowrap" align="center">
+            <Text className={classes.statLabel}>Crash-Free Users</Text>
+            <Tooltip
+              label="Unique users are identified by installation ID. The same device can open the app multiple times — each unique installation counts as one user."
+              withArrow
+              multiline
+              w={260}
+            >
+              <IconInfoCircle size={13} style={{ opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+            </Tooltip>
+          </Group>
           <Text
             className={classes.statValue}
             c={metrics.crashFreeUsers !== null ? "red" : "dimmed"}

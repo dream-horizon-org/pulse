@@ -53,7 +53,7 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
     ? "Request types over time"
     : "Request methods over time";
   const dimensionExpression = isGraphqlMode
-    ? "SpanAttributes['graphql.operation.type']"
+    ? COLUMN_NAME.GRAPHQL_OPERATION_TYPE
     : "SpanAttributes['http.method']";
   const dimensionAlias = isGraphqlMode ? "operation_type" : "http_method";
 

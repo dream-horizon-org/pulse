@@ -11,7 +11,6 @@ import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.*;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -60,9 +59,12 @@ public class SessionDetailDao {
   private <T> Single<QueryResultResponse<T>> executeQuery(
       String queryTemplate, String sessionId, Class<T> clazz
   ) {
-    Map<String, Object> params = Map.of("session_id", sessionId);
-    String query = new StringSubstitutor(params).replace(queryTemplate);
     String projectId = ProjectContext.requireProjectId();
+    Map<String, Object> params =
+        Map.of(
+            "session_id", sessionId,
+            "project_id", escapeChStringLiteral(projectId));
+    String query = new StringSubstitutor(params).replace(queryTemplate);
 
     QueryConfiguration config = QueryConfiguration
         .newQuery(query)
@@ -71,5 +73,12 @@ public class SessionDetailDao {
         .build();
 
     return clickhouseQueryService.executeQueryOrCreateJob(config, clazz);
+  }
+
+  private static String escapeChStringLiteral(String s) {
+    if (s == null) {
+      return "";
+    }
+    return s.replace("\\", "\\\\").replace("'", "''");
   }
 }
