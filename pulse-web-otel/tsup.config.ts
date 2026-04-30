@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     react: "src/integrations/react/index.ts",
+    next: "src/integrations/next/index.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

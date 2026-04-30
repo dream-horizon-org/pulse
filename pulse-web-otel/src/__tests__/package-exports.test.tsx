@@ -10,6 +10,16 @@ import { describe, it, expect, vi } from "vitest";
 import * as ReactExports from "../integrations/react/index";
 import packageJson from "../../package.json";
 
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(() => "/"),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+}));
+vi.mock("next/router", () => ({
+  useRouter: vi.fn(() => ({ events: { on: vi.fn(), off: vi.fn() } })),
+}));
+
+import * as NextExports from "../integrations/next/index";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Export shape
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,8 +37,10 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
     expect(typeof ReactExports.useRouterTracking).toBe("function");
   });
 
-  it("exports PulseErrorBoundary as a class (function)", () => {
-    expect(typeof ReactExports.PulseErrorBoundary).toBe("function");
+  it("does not export PulseErrorBoundary from /react entrypoint", () => {
+    expect(
+      (ReactExports as Record<string, unknown>).PulseErrorBoundary,
+    ).toBeUndefined();
   });
 
   it("has no unexpected named exports beyond the 4 public symbols + types", () => {
@@ -39,7 +51,7 @@ describe("@dreamhorizon/pulse-web/react — export shape", () => {
     // Internal test helper is also present — exclude it
     const publicExports = runtimeExports.filter((k) => !k.startsWith("_reset"));
     expect(publicExports.sort()).toEqual(
-      ["PulseErrorBoundary", "PulseProvider", "usePulse", "useRouterTracking"].sort(),
+      ["PulseProvider", "usePulse", "useRouterTracking"].sort(),
     );
   });
 });
@@ -94,6 +106,74 @@ describe("package.json — peer dependency wiring", () => {
     expect(reactExport!.types).toMatch(/react\.d\.ts$/);
     expect(reactExport!.import).toMatch(/react\.js$/);
     expect(reactExport!.require).toMatch(/react\.cjs$/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// @dreamhorizon/pulse-web/next — export shape
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("@dreamhorizon/pulse-web/next — export shape", () => {
+  it("exports PulseProvider as a function", () => {
+    expect(typeof NextExports.PulseProvider).toBe("function");
+  });
+
+  it("exports usePulse as a function", () => {
+    expect(typeof NextExports.usePulse).toBe("function");
+  });
+
+  it("exports PulseErrorBoundary as a function", () => {
+    expect(typeof NextExports.PulseErrorBoundary).toBe("function");
+  });
+
+  it("exports useNextAppRouterTracking as a function", () => {
+    expect(typeof NextExports.useNextAppRouterTracking).toBe("function");
+  });
+
+  it("exports useNextPagesRouterTracking as a function", () => {
+    expect(typeof NextExports.useNextPagesRouterTracking).toBe("function");
+  });
+
+  it("exports PulseNavigationEvents as a function", () => {
+    expect(typeof NextExports.PulseNavigationEvents).toBe("function");
+  });
+
+  it("exports createPulseInstrumentationHandler as a function", () => {
+    expect(typeof NextExports.createPulseInstrumentationHandler).toBe("function");
+  });
+});
+
+describe("package.json — /next peer dep wiring", () => {
+  it("declares next as an optional peer dependency >=14.0.0", () => {
+    expect(packageJson.peerDependencies["next"]).toBe(">=14.0.0");
+  });
+
+  it("marks next peer dep as optional", () => {
+    expect(
+      (
+        packageJson.peerDependenciesMeta as Record<
+          string,
+          { optional: boolean }
+        >
+      )["next"]?.optional,
+    ).toBe(true);
+  });
+
+  it("declares ./next subpath export in exports map", () => {
+    const exports = packageJson.exports as Record<string, unknown>;
+    expect(exports["./next"]).toBeDefined();
+  });
+
+  it("./next export has ESM, CJS and types entries", () => {
+    const exports = packageJson.exports as Record<
+      string,
+      { types: string; import: string; require: string } | undefined
+    >;
+    const nextExport = exports["./next"];
+    expect(nextExport).toBeDefined();
+    expect(nextExport!.types).toMatch(/next\.d\.ts$/);
+    expect(nextExport!.import).toMatch(/next\.js$/);
+    expect(nextExport!.require).toMatch(/next\.cjs$/);
   });
 });
 

@@ -88,6 +88,7 @@ class PulseWebSDK implements SdkContext {
   }
 
   start(config: PulseWebConfig): void {
+    if (typeof window === "undefined") return;
     if (this._initialized || this._shuttingDown || this._starting) return;
     // Step 1: Validate config
     validateConfig(config);

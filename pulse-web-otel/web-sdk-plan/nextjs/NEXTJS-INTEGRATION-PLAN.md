@@ -17,71 +17,59 @@ network tracking, click tracking, web vitals, navigation timing spans.
 
 ### Already built — works in Next.js today (no new work needed)
 
-
-| Feature                                                                          | How                                                                             |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Session start / end                                                              | SDK core — framework-agnostic, SSR-safe                                         |
-| Manual error reporting (`reportException`, `reportDeviceCrash`, `trackNonFatal`) | SDK core — call from any client component                                       |
-| Auto error capture (unhandled JS errors, promise rejections)                     | SDK core — installs on `window`, works in Next.js as-is                         |
-| Custom events (`trackEvent`)                                                     | SDK core — framework-agnostic                                                   |
-| React error boundary (`PulseErrorBoundary`)                                      | Already in `/react` integration — re-exported from `/next` barrel               |
-| `PulseProvider` — SDK init + context                                             | Already has `"use client"` + `typeof window` guards — works in App Router today |
-
+| Feature | How |
+|---|---|
+| Session start / end | SDK core — framework-agnostic, SSR-safe |
+| Manual error reporting (`reportException`, `reportDeviceCrash`, `trackNonFatal`) | SDK core — call from any client component |
+| Auto error capture (unhandled JS errors, promise rejections) | SDK core — installs on `window`, works in Next.js as-is |
+| Custom events (`trackEvent`) | SDK core — framework-agnostic |
+| React error boundary (`PulseErrorBoundary`) | Already in `/react` integration — re-exported from `/next` barrel |
+| `PulseProvider` — SDK init + context | Already has `"use client"` + `typeof window` guards — works in App Router today |
 
 ### Building in this plan — Next.js specific gaps
 
-
-| Feature                        | What                                                                         |
-| ------------------------------ | ---------------------------------------------------------------------------- |
-| Screen tracking — App Router   | `useNextAppRouterTracking` hook + `<PulseNavigationEvents>` component        |
-| Screen tracking — Pages Router | `useNextPagesRouterTracking` hook                                            |
-| Server-side crash capture      | `createPulseInstrumentationHandler()` for `instrumentation.ts` (Next.js 15+) |
-| Package wiring                 | `@dreamhorizon/pulse-web/next` subpath, types, barrel exports                |
-| Tests + demo                   | Unit tests, Next.js demo app, Playwright E2E                                 |
-
+| Feature | What |
+|---|---|
+| Screen tracking — App Router | `useNextAppRouterTracking` hook + `<PulseNavigationEvents>` component |
+| Screen tracking — Pages Router | `useNextPagesRouterTracking` hook |
+| Server-side crash capture | `createPulseInstrumentationHandler()` for `instrumentation.ts` (Next.js 15+) |
+| Package wiring | `@dreamhorizon/pulse-web/next` subpath, types, barrel exports |
+| Tests + demo | Unit tests, Next.js demo app, Playwright E2E |
 
 ### Not supported — future milestones (missing for all frameworks, not Next.js specific)
 
-
-| Feature                                                       | When                                                                             |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Feature | When |
+|---|---|
 | Navigation timing spans (`screen_load`, `screen_interactive`) | When `NavigationInstrumentation` milestone lands — Next.js gets it automatically |
-| Network tracking                                              | Future milestone                                                                 |
-| Click tracking                                                | Future milestone                                                                 |
-| Web vitals                                                    | Future milestone                                                                 |
-
+| Network tracking | Future milestone |
+| Click tracking | Future milestone |
+| Web vitals | Future milestone |
 
 ### Not supported — platform limitation (nothing we can do)
 
-
-| Feature                              | Why                                                                                                                                                 |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Feature | Why |
+|---|---|
 | Navigation start event in App Router | Next.js doesn't expose one — `usePathname` only fires after navigation completes, not before it starts. Duration timing not possible in App Router. |
-
 
 ### Not doing — conscious design decisions
 
-
-| Decision                                                   | Reasoning                                                                                                                                                                                                                                                           |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No auto-detect App vs Pages Router**                     | Dynamic imports bundle both routers regardless of which runs — user picks the right hook in one line and gets full tree-shaking. Auto-detect makes bundle size worse, not better.                                                                                   |
-| **No separate npm package `@dreamhorizon/pulse-web-next`** | Subpath export means one package, one version, one publish. No version skew between core and Next.js integration. Bundle size is identical — `next` is an external peer dep, not bundled either way.                                                                |
-| **No Pages Router demo app**                               | `useNextPagesRouterTracking` is fully built and unit tested. Pages Router is the legacy model — all new Next.js projects use App Router. The `nextjs-demo` app already proves Next.js wiring end-to-end. A Pages Router demo adds no new signal coverage to verify. |
-
+| Decision | Reasoning |
+|---|---|
+| **No auto-detect App vs Pages Router** | Dynamic imports bundle both routers regardless of which runs — user picks the right hook in one line and gets full tree-shaking. Auto-detect makes bundle size worse, not better. |
+| **No separate npm package `@dreamhorizon/pulse-web-next`** | Subpath export means one package, one version, one publish. No version skew between core and Next.js integration. Bundle size is identical — `next` is an external peer dep, not bundled either way. |
+| **No Pages Router demo app** | `useNextPagesRouterTracking` is fully built and unit tested. Pages Router is the legacy model — all new Next.js projects use App Router. The `nextjs-demo` app already proves Next.js wiring end-to-end. A Pages Router demo adds no new signal coverage to verify. |
 
 ---
 
 ## Current State
 
-
-| What exists                                                              | Where                                                       |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| React integration                                                        | `src/integrations/react/` → `@dreamhorizon/pulse-web/react` |
-| `PulseProvider` with `"use client"` + SSR guards                         | `src/integrations/react/PulseProvider.tsx`                  |
-| `useRouterTracking` — hard-coupled to `react-router-dom`'s `useLocation` | `src/integrations/react/useRouterTracking.ts`               |
-| `"next"` already listed as external in tsup                              | `tsup.config.ts:17`                                         |
-| `./react` subpath export in package.json                                 | `package.json:15-19`                                        |
-
+| What exists | Where |
+|---|---|
+| React integration | `src/integrations/react/` → `@dreamhorizon/pulse-web/react` |
+| `PulseProvider` with `"use client"` + SSR guards | `src/integrations/react/PulseProvider.tsx` |
+| `useRouterTracking` — hard-coupled to `react-router-dom`'s `useLocation` | `src/integrations/react/useRouterTracking.ts` |
+| `"next"` already listed as external in tsup | `tsup.config.ts:17` |
+| `./react` subpath export in package.json | `package.json:15-19` |
 
 **The only reason Next.js doesn't work today:** `useRouterTracking` imports
 `useLocation` from `react-router-dom`, which doesn't exist in a Next.js project.
@@ -110,12 +98,10 @@ examples/nextjs-demo/             ← Next.js 14+ App Router demo app
 
 ### Changes to existing files
 
-
-| File             | Change                                                                        |
-| ---------------- | ----------------------------------------------------------------------------- |
-| `tsup.config.ts` | Add `next: "src/integrations/next/index.ts"` entry                            |
-| `package.json`   | Add `"./next"` export map; add `next >=14.0.0` to optional `peerDependencies` |
-
+| File | Change |
+|---|---|
+| `tsup.config.ts` | Add `next: "src/integrations/next/index.ts"` entry |
+| `package.json` | Add `"./next"` export map; add `next >=14.0.0` to optional `peerDependencies` |
 
 No changes to `PulseProvider.tsx`, `useRouterTracking.ts`, or any SDK core files.
 
@@ -126,13 +112,11 @@ No changes to `PulseProvider.tsx`, `useRouterTracking.ts`, or any SDK core files
 ---
 
 ### T1 — Package wiring
-
 **Est: 0.5h**
 
 **Files to modify:**
 
 `tsup.config.ts`
-
 ```ts
 entry: {
   index: "src/index.ts",
@@ -143,7 +127,6 @@ external: ["react", "react-dom", "react-router-dom", "next"],  // "next" already
 ```
 
 `package.json` — add to `exports`:
-
 ```json
 "./next": {
   "types": "./dist/next.d.ts",
@@ -153,7 +136,6 @@ external: ["react", "react-dom", "react-router-dom", "next"],  // "next" already
 ```
 
 `package.json` — add to `peerDependencies` + `peerDependenciesMeta`:
-
 ```json
 "peerDependencies": {
   "next": ">=14.0.0"
@@ -164,17 +146,14 @@ external: ["react", "react-dom", "react-router-dom", "next"],  // "next" already
 ```
 
 `package.json` — add to `devDependencies`:
-
 ```json
 "next": "^15.0.0"
 ```
 
 `.size-limit.json` — add entry for the new bundle:
-
 ```json
 { "path": "dist/next.js", "limit": "10 kB" }
 ```
-
 Without this, CI has no size gate on the new subpath. Tune the limit after first build.
 
 **Verify:** `yarn build` produces `dist/next.js`, `dist/next.cjs`, `dist/next.d.ts`.
@@ -182,17 +161,15 @@ Without this, CI has no size gate on the new subpath. Tune the limit after first
 ---
 
 ### T2 — App Router hook: `useNextAppRouterTracking`
-
 **Est: 1.5h**
 
 **File:** `src/integrations/next/useNextAppRouterTracking.ts`
 
 **What it does:**
-
 - Uses `usePathname()` + `useSearchParams()` from `next/navigation`
 - Calls `PulseWeb.setScreenName(name)` on every pathname change
 - Mirrors the exact same options API as `useRouterTracking` for consistency:
-`format`, `includeSearch`, `skipInitial` (default `true`)
+  `format`, `includeSearch`, `skipInitial` (default `true`)
 - StrictMode-safe via `useRef` guard (same pattern as `useRouterTracking`)
 - `"use client"` directive at top (required — uses hooks)
 
@@ -201,7 +178,6 @@ event. The effect fires only *after* navigation completes (when `usePathname`
 triggers a re-render). This is a Next.js platform limitation — document it.
 
 **Implementation sketch:**
-
 ```ts
 "use client";
 import { useEffect, useRef } from "react";
@@ -249,8 +225,7 @@ export function useNextAppRouterTracking(
 }
 ```
 
-`**format` callback shape** — use a new `PulseNextLocationLike` type in `src/types/next.ts`:
-
+**`format` callback shape** — use a new `PulseNextLocationLike` type in `src/types/next.ts`:
 ```ts
 interface PulseNextLocationLike {
   pathname: string;
@@ -266,18 +241,16 @@ require a `<Suspense>` boundary above it during SSR prerendering. This is why
 ---
 
 ### T3 — Pages Router hook: `useNextPagesRouterTracking`
-
 **Est: 1h**
 
 **File:** `src/integrations/next/useNextPagesRouterTracking.ts`
 
 **What it does:**
-
 - Uses `useRouter()` from `next/router` (Pages Router only)
 - Subscribes to `router.events.on('routeChangeStart')` and
-`router.events.on('routeChangeComplete')` in a `useEffect`
+  `router.events.on('routeChangeComplete')` in a `useEffect`
 - Unlike App Router, Pages Router gives us `routeChangeStart` — navigation
-start time can be captured for future use when NavigationInstrumentation lands
+  start time can be captured for future use when NavigationInstrumentation lands
 - Calls `PulseWeb.setScreenName(url)` on `routeChangeComplete`
 - Same options API: `format`, `includeSearch`, `skipInitial`
 - `"use client"` directive at top
@@ -294,7 +267,6 @@ Auto-detecting which one is active at runtime is fragile and error-prone.
 Users pick the right hook for their router version.
 
 **Implementation sketch:**
-
 ```ts
 "use client";
 import { useEffect, useRef } from "react";
@@ -335,7 +307,6 @@ export function useNextPagesRouterTracking(
 ---
 
 ### T4 — `<PulseNavigationEvents>` component
-
 **Est: 0.5h**
 
 **File:** `src/integrations/next/PulseNavigationEvents.tsx`
@@ -347,14 +318,12 @@ build warning / hydration mismatch if they add `useNextAppRouterTracking` direct
 to `layout.tsx` without a `<Suspense>` boundary.
 
 **What it does:**
-
 - A `"use client"` component that calls `useNextAppRouterTracking` internally
 - Renders `null` (invisible, no DOM output)
 - Wraps itself in `<Suspense fallback={null}>`
 - Accepts the same options as `useNextAppRouterTracking`
 
 **Usage in `app/layout.tsx`:**
-
 ```tsx
 import { PulseProvider } from "@dreamhorizon/pulse-web/react";
 import { PulseNavigationEvents } from "@dreamhorizon/pulse-web/next";
@@ -374,7 +343,6 @@ export default function RootLayout({ children }) {
 ```
 
 **Implementation:**
-
 ```tsx
 "use client";
 import { Suspense } from "react";
@@ -398,7 +366,6 @@ export function PulseNavigationEvents(props: UseNextAppRouterTrackingOptions) {
 ---
 
 ### T5 — Types
-
 **Est: 0.5h**
 
 **File:** `src/types/next.ts`
@@ -448,7 +415,6 @@ export type { PulseErrorBoundaryProps } from "../react/PulseErrorBoundary";
 ---
 
 ### T6 — Server-side error hook (Next.js 15+ optional)
-
 **Est: 1h**
 
 **File:** `src/integrations/next/instrumentation.ts`
@@ -459,7 +425,6 @@ Provides a `createPulseInstrumentationHandler()` helper that users call in their
 call with server-side metadata.
 
 **Usage in user's `instrumentation.ts`:**
-
 ```ts
 import { createPulseInstrumentationHandler } from "@dreamhorizon/pulse-web/next";
 
@@ -477,7 +442,6 @@ export const onRequestError = createPulseInstrumentationHandler({
 ```
 
 **Implementation:**
-
 ```ts
 import type { Instrumentation } from "next";
 
@@ -521,13 +485,11 @@ The helper constructs a minimal OTLP log record and ships it directly.
 ---
 
 ### T7 — Unit tests
-
 **Est: 2h**
 
 **File:** `src/__tests__/use-next-app-router-tracking.test.tsx`
 
 Mock `next/navigation` module:
-
 ```ts
 vi.mock("next/navigation", () => ({
   usePathname: vi.fn(),
@@ -536,7 +498,6 @@ vi.mock("next/navigation", () => ({
 ```
 
 Test cases:
-
 - `setScreenName` called with correct pathname on route change
 - `skipInitial: true` (default) → no call on first render
 - `skipInitial: false` → call on first render
@@ -551,7 +512,6 @@ Test cases:
 **File:** `src/__tests__/use-next-pages-router-tracking.test.tsx`
 
 Mock `next/router`:
-
 ```ts
 vi.mock("next/router", () => ({
   useRouter: vi.fn(() => ({
@@ -564,7 +524,6 @@ vi.mock("next/router", () => ({
 ```
 
 Test cases:
-
 - Subscribes to `routeChangeComplete` on mount
 - Unsubscribes on unmount (cleanup called)
 - `setScreenName` called with URL on `routeChangeComplete`
@@ -578,7 +537,6 @@ Test cases:
 **File:** `src/__tests__/pulse-navigation-events.test.tsx`
 
 Test cases:
-
 - Renders `null` (no DOM output)
 - Wraps inner component in `<Suspense>` (no thrown suspense error in render)
 - Passes options through to `useNextAppRouterTracking`
@@ -588,7 +546,6 @@ Test cases:
 **File:** `src/__tests__/package-exports.test.tsx` — extend existing test
 
 Add assertions:
-
 ```ts
 // @dreamhorizon/pulse-web/next exports
 expect(nextExports).toHaveProperty("useNextAppRouterTracking");
@@ -601,7 +558,6 @@ expect(nextExports).toHaveProperty("usePulse");
 ---
 
 ### T8 — Next.js demo app
-
 **Est: 1.5h**
 
 **Location:** `examples/nextjs-demo/`
@@ -611,7 +567,6 @@ expect(nextExports).toHaveProperty("usePulse");
 **Key files:**
 
 `app/layout.tsx`
-
 ```tsx
 import { PulseProvider } from "@dreamhorizon/pulse-web/react";
 import { PulseNavigationEvents } from "@dreamhorizon/pulse-web/next";
@@ -642,13 +597,11 @@ to demo navigation screen tracking.
 `PulseWeb.reportException()` manually.
 
 `.env.example`:
-
 ```
 NEXT_PUBLIC_PULSE_API_KEY=default-project_devkey01
 ```
 
 `package.json` — add `nextjs-demo` to root workspaces. Script:
-
 ```json
 "demo:next": "yarn workspace nextjs-demo dev"
 ```
@@ -658,7 +611,6 @@ NEXT_PUBLIC_PULSE_API_KEY=default-project_devkey01
 ---
 
 ### T9 — E2E tests
-
 **Est: 1.5h**
 
 **Location:** `examples/nextjs-demo/e2e/`
@@ -666,7 +618,6 @@ NEXT_PUBLIC_PULSE_API_KEY=default-project_devkey01
 **Stack:** Playwright (same as ecommerce-demo)
 
 Test cases:
-
 - `session.start` log record emitted on first page load
 - `screen.name` updates on navigation (Home → Products → Cart)
 - `device.crash` emitted when error boundary catches a thrown error
@@ -685,16 +636,14 @@ Do not reuse the ecommerce-demo fixture directly.
 
 ## Known Limitations (document in README)
 
-
-| Limitation                                         | Detail                                                                                                                                                                                                                                                          |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No navigation start event (App Router)             | `useNextAppRouterTracking` fires *after* navigation completes. Can't measure navigation duration. `NavigationInstrumentation` timing spans are not possible in App Router until Next.js adds a client navigation API.                                           |
-| Pages Router only in `pages/` directory            | `useNextPagesRouterTracking` uses `next/router` which is Pages Router only. Do not use in App Router.                                                                                                                                                           |
-| Server-side error hook (T6) requires Next.js 15+   | `onRequestError` was experimental before 15.0.0.                                                                                                                                                                                                                |
-| `useNextAppRouterTracking` requires `<Suspense>`   | Use `<PulseNavigationEvents>` instead of the raw hook in layouts.                                                                                                                                                                                               |
-| `instrumentation.ts` client-side init not possible | `register()` is server-only. Client-side SDK init must happen via `<PulseProvider>` in a `"use client"` component.                                                                                                                                              |
-| `usePathname` hydration mismatch with rewrites     | When Next.js rewrites change the visible URL, the server renders the source path but the client sees the rewritten path. Screen name may reflect the internal pathname, not the user-visible URL. Workaround: use a `format` callback to normalise route names. |
-
+| Limitation | Detail |
+|---|---|
+| No navigation start event (App Router) | `useNextAppRouterTracking` fires *after* navigation completes. Can't measure navigation duration. `NavigationInstrumentation` timing spans are not possible in App Router until Next.js adds a client navigation API. |
+| Pages Router only in `pages/` directory | `useNextPagesRouterTracking` uses `next/router` which is Pages Router only. Do not use in App Router. |
+| Server-side error hook (T6) requires Next.js 15+ | `onRequestError` was experimental before 15.0.0. |
+| `useNextAppRouterTracking` requires `<Suspense>` | Use `<PulseNavigationEvents>` instead of the raw hook in layouts. |
+| `instrumentation.ts` client-side init not possible | `register()` is server-only. Client-side SDK init must happen via `<PulseProvider>` in a `"use client"` component. |
+| `usePathname` hydration mismatch with rewrites | When Next.js rewrites change the visible URL, the server renders the source path but the client sees the rewritten path. Screen name may reflect the internal pathname, not the user-visible URL. Workaround: use a `format` callback to normalise route names. |
 
 ---
 
@@ -716,18 +665,18 @@ tested, exported. Pages Router and server errors can ship in a follow-up.
 
 ## Total Estimate
 
+| Task | Est |
+|---|---|
+| T1 — Package wiring | 0.5h |
+| T2 — App Router hook | 1.5h |
+| T3 — Pages Router hook | 1h |
+| T4 — PulseNavigationEvents component | 0.5h |
+| T5 — Types + barrel | 0.5h |
+| T6 — Server-side error hook | 1h |
+| T7 — Unit tests | 2h |
+| T8 — Next.js demo app | 1.5h |
+| T9 — E2E tests | 1.5h |
+| **Total** | **~10h** |
 
-| Task                                 | Est |
-| ------------------------------------ | --- |
-| T1 — Package wiring                  |     |
-| T2 — App Router hook                 |     |
-| T3 — Pages Router hook               |     |
-| T4 — PulseNavigationEvents component |     |
-| T5 — Types + barrel                  |     |
-| T6 — Server-side error hook          |     |
-| T7 — Unit tests                      |     |
-| T8 — Next.js demo app                |     |
-| T9 — E2E tests                       |     |
-| **Total**                            |     |
-
-
+Core shippable (T1–T5 + T7): ~6h
+Full plan: ~10h

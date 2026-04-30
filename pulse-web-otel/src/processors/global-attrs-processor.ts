@@ -8,7 +8,6 @@ import type { SessionProvider } from "../session";
 import { getOrCreateInstallationId } from "../session";
 import type { PulseWebConfig } from "../config";
 import { computeAspectRatio } from "../resource";
-import { PulseWebSemconv } from "../semconv";
 
 type NetworkConnection = {
   type?: string;
@@ -77,10 +76,7 @@ export class PulseGlobalAttributesProcessor
   private manualScreenName: string | null = null;
   private manualScreenNamePath: string | null = null;
   private readonly screenAspectRatio: string;
-
-  /** Android `setUserId` parity — stamped as `user.id`. */
   private _userId: string | null = null;
-  /** Android `setUserProperty` parity — stamped as `pulse.user.<key>`. */
   private _userProperties: Record<string, string> = {};
 
   constructor(
@@ -103,16 +99,26 @@ export class PulseGlobalAttributesProcessor
       typeof location !== "undefined" ? location.pathname : null;
   }
 
-  /**
-   * Restore user id + properties from localStorage at cold start (no lifecycle logs).
-   * Must run before signal emission; called from SDK after construction.
-   */
+  getCurrentScreenName(): string {
+    // Clear manual override if the URL has changed since it was set (SPA navigation).
+    if (
+      this.manualScreenName !== null &&
+      this.manualScreenNamePath !== null &&
+      typeof location !== "undefined" &&
+      location.pathname !== this.manualScreenNamePath
+    ) {
+      this.manualScreenName = null;
+      this.manualScreenNamePath = null;
+    }
+    return resolveScreenName(this.manualScreenName, this.config);
+  }
+
   hydrateUserIdentity(
     userId: string | null,
-    properties: Record<string, string>,
+    props: Record<string, string>,
   ): void {
     this._userId = userId;
-    this._userProperties = { ...properties };
+    this._userProperties = { ...props };
   }
 
   setUserId(id: string | null): void {
@@ -133,30 +139,12 @@ export class PulseGlobalAttributesProcessor
 
   setUserProperties(props: Record<string, string | null>): void {
     for (const [k, v] of Object.entries(props)) {
-      if (v === null) {
-        delete this._userProperties[k];
-      } else {
-        this._userProperties[k] = v;
-      }
+      this.setUserProperty(k, v);
     }
   }
 
   getUserPropertiesSnapshot(): Record<string, string> {
     return { ...this._userProperties };
-  }
-
-  getCurrentScreenName(): string {
-    // Clear manual override if the URL has changed since it was set (SPA navigation).
-    if (
-      this.manualScreenName !== null &&
-      this.manualScreenNamePath !== null &&
-      typeof location !== "undefined" &&
-      location.pathname !== this.manualScreenNamePath
-    ) {
-      this.manualScreenName = null;
-      this.manualScreenNamePath = null;
-    }
-    return resolveScreenName(this.manualScreenName, this.config);
   }
 
   /**
@@ -199,22 +187,16 @@ export class PulseGlobalAttributesProcessor
       attrs["network.downlink"] = network.downlink;
     }
 
-    // Inject global attributes from config (span attributes: primitives only here)
+    // Inject global attributes from config
     if (this.config.globalAttributes) {
       for (const [key, value] of Object.entries(this.config.globalAttributes)) {
-        if (
-          typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean"
-        ) {
-          attrs[key] = value;
-        }
+        attrs[key] = value as string | number | boolean;
       }
     }
 
-    const attributeKeys = PulseWebSemconv.AttributeKey;
-    if (this._userId !== null && this._userId !== "") {
-      attrs[attributeKeys.USER_ID] = this._userId;
+    // User identity — always overrides globalAttributes so API wins over config
+    if (this._userId !== null) {
+      attrs["user.id"] = this._userId;
     }
     for (const [k, v] of Object.entries(this._userProperties)) {
       attrs[`pulse.user.${k}`] = v;
