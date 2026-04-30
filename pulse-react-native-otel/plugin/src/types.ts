@@ -137,6 +137,12 @@ export interface PulseAndroidOkHttpInstrumentation {
   enabled?: boolean;
   /** `net.bytebuddy:byte-buddy-gradle-plugin` on root `buildscript` classpath; default when omitted: see `androidBuildConstants`. */
   byteBuddyGradlePluginVersion?: string;
+  /**
+   * When `true` (default) and {@link enabled} is `true`, prebuild merges `net.bytebuddy` into
+   * `android.jetifier.ignorelist` **only if** `android.enableJetifier=true` is already present in
+   * `gradle.properties`. Set `false` to skip that merge (e.g. you edit `gradle.properties` yourself).
+   */
+  ensureJetifierIgnoresByteBuddy?: boolean;
 }
 
 export interface PulseAndroidSection extends PulseNativeInitFields {
@@ -169,6 +175,8 @@ export type ResolvedAndroidPulseProps = PulsePlatformInitProps & {
     enabled: boolean;
     /** Meaningful when `enabled`; always set for stable plugin internals (defaults from androidBuildConstants). */
     byteBuddyGradlePluginVersion: string;
+    /** When `enabled`, default `true`; prebuild may merge `android.jetifier.ignorelist` if `enableJetifier=true` in gradle.properties. */
+    ensureJetifierIgnoresByteBuddy: boolean;
   };
 };
 
