@@ -34,11 +34,9 @@ class ScreenRcaQueryBuilderTest {
   class DimensionExpression {
 
     @Test
-    void shouldMapKnownDimensionsToClickHouseExpressions() {
-      assertThat(ScreenRcaQueryBuilder.dimensionExpression("Platform"))
-          .isEqualTo("ifNull(ResourceAttributes['os.name'], '')");
-      assertThat(ScreenRcaQueryBuilder.dimensionExpression("GeoState"))
-          .isEqualTo("ifNull(LogAttributes['geo.region.iso_code'], '')");
+    void shouldMapKnownDimensionsToClickHouseColumns() {
+      assertThat(ScreenRcaQueryBuilder.dimensionExpression("Platform")).isEqualTo("Platform");
+      assertThat(ScreenRcaQueryBuilder.dimensionExpression("GeoState")).isEqualTo("GeoState");
     }
 
     @Test
@@ -51,8 +49,7 @@ class ScreenRcaQueryBuilderTest {
     @Test
     void shouldBuildSelectAliasWrappingExpression() {
       assertThat(ScreenRcaQueryBuilder.dimensionSelectAlias("AppVersion"))
-          .isEqualTo(
-              "ifNull(ResourceAttributes['app.build_name'], '') AS AppVersion");
+          .isEqualTo("AppVersion AS AppVersion");
     }
   }
 
@@ -65,8 +62,10 @@ class ScreenRcaQueryBuilderTest {
           ScreenRcaQueryBuilder.buildBaselineQuery(PROJECT, SCREEN, START, END);
 
       assertThat(spec.sql()).contains("FROM otel.otel_logs");
-      assertThat(spec.sql()).contains("app.click");
-      assertThat(spec.sql()).contains("screen.name");
+      assertThat(spec.sql()).contains("PulseType = 'app.click'");
+      assertThat(spec.sql()).contains("trimBoth(ScreenName)");
+      assertThat(spec.sql()).contains("ClickType = 'good'");
+      assertThat(spec.sql()).contains("NOT Rage");
       assertThat(spec.sql()).contains("AS " + ScreenRcaQueryBuilder.CLICK_VOLUME);
       assertThat(spec.sql()).contains("AS " + ScreenRcaQueryBuilder.BAD_FRUSTRATION);
       assertThat(spec.sql()).doesNotContain("GROUP BY");
@@ -134,7 +133,7 @@ class ScreenRcaQueryBuilderTest {
 
       assertThat(spec.sql()).contains("GROUP BY AppVersion");
       assertThat(spec.sql()).contains("AS bad_frustration");
-      assertThat(spec.sql()).contains("ifNull(ResourceAttributes['os.name'], '')");
+      assertThat(spec.sql()).contains("(Platform) = :");
       assertThat(spec.bindValues()).hasSize(5);
       assertThat(spec.bindValues().get(4)).isEqualTo("iOS");
     }
