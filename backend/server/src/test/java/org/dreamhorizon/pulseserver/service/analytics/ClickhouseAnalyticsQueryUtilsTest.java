@@ -14,31 +14,31 @@ class ClickhouseAnalyticsQueryUtilsTest {
     @Test
     void shouldReturnUserIdForUniqueUsers() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("UNIQUE_USERS"))
-          .isEqualTo("LogAttributes['user.id']");
+          .isEqualTo("UserId");
     }
 
     @Test
     void shouldReturnSessionIdForSessions() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("SESSIONS"))
-          .isEqualTo("LogAttributes['session.id']");
+          .isEqualTo("SessionId");
     }
 
     @Test
     void shouldBeCaseInsensitiveForSessions() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("sessions"))
-          .isEqualTo("LogAttributes['session.id']");
+          .isEqualTo("SessionId");
     }
 
     @Test
     void shouldDefaultToUserIdForUnknownType() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("UNKNOWN"))
-          .isEqualTo("LogAttributes['user.id']");
+          .isEqualTo("UserId");
     }
 
     @Test
     void shouldDefaultToUserIdForNull() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey(null))
-          .isEqualTo("LogAttributes['user.id']");
+          .isEqualTo("UserId");
     }
   }
 
@@ -46,9 +46,9 @@ class ClickhouseAnalyticsQueryUtilsTest {
   class ResolveMaterializedGroupKey {
 
     @Test
-    void shouldReturnUserIdForUniqueUsers() {
+    void shouldReturnAppInstallationIdForUniqueUsers() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey("UNIQUE_USERS"))
-          .isEqualTo("UserId");
+          .isEqualTo("AppInstallationId");
     }
 
     @Test
@@ -64,15 +64,15 @@ class ClickhouseAnalyticsQueryUtilsTest {
     }
 
     @Test
-    void shouldDefaultToUserIdForUnknownMode() {
+    void shouldDefaultToAppInstallationIdForUnknownMode() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey("UNKNOWN"))
-          .isEqualTo("UserId");
+          .isEqualTo("AppInstallationId");
     }
 
     @Test
-    void shouldDefaultToUserIdForNull() {
+    void shouldDefaultToAppInstallationIdForNull() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveMaterializedGroupKey(null))
-          .isEqualTo("UserId");
+          .isEqualTo("AppInstallationId");
     }
   }
 

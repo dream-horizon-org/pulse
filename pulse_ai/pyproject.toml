@@ -1,6 +1,6 @@
 [project]
 name = "pulse-ai"
-version = "0.7.0"
+version = "0.8.0"
 description = "Pulse AI Agent using Google ADK"
 requires-python = ">=3.11"
 

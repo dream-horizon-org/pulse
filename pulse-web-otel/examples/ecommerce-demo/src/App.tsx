@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense, useMemo } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -11,6 +11,10 @@ import {
   PulseDataCollectionConsent,
   PulseLogLevel,
 } from "@dreamhorizon/pulse-web";
+import {
+  PulseProvider,
+  useRouterTracking,
+} from "@dreamhorizon/pulse-web/react";
 import { PulseDebugPanel } from "./components/PulseDebugPanel";
 
 const Home = lazy(() => import("./routes/Home"));
@@ -73,41 +77,8 @@ function NavBar() {
   );
 }
 
-function AppRoutes() {
-  return (
-    <>
-      <NavBar />
-      <main
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "32px 24px",
-          minHeight: "calc(100vh - 56px)",
-        }}
-      >
-        <Suspense
-          fallback={
-            <div style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
-              Loading…
-            </div>
-          }
-        >
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/error-demo" element={<ErrorDemo />} />
-          </Routes>
-        </Suspense>
-      </main>
-    </>
-  );
-}
-
 export default function App() {
-  useEffect(() => {
+  const pulseConfig = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const consentParam = searchParams.get("pulse_consent");
 
@@ -139,26 +110,82 @@ export default function App() {
         ? String(serviceVersionRaw).trim()
         : undefined;
 
-    PulseWeb.start({
+    return {
       apiKey: import.meta.env["VITE_PULSE_API_KEY"] ?? "dev-key",
       serviceName:
         import.meta.env["VITE_PULSE_SERVICE_NAME"] ?? "ecommerce-demo",
       ...(serviceVersion !== undefined ? { serviceVersion } : {}),
       dataCollectionState,
-      ...(formatEnv ? { export: { format: formatEnv } } : {}),
+      export: {
+        format: (formatEnv ?? ("protobuf" as const)) as "json" | "protobuf",
+        compression:
+          (import.meta.env["VITE_PULSE_COMPRESSION"] as
+            | "gzip"
+            | "none"
+            | undefined) ?? "gzip",
+        batch: {
+          scheduledDelayMillis: import.meta.env["VITE_PULSE_BATCH_DELAY_MS"]
+            ? Number(import.meta.env["VITE_PULSE_BATCH_DELAY_MS"])
+            : 5000,
+        },
+      },
+      debugLogRecordLifecycle: debugLifecycle,
       ...(debugLifecycle ? { logLevel: PulseLogLevel.DEBUG } : {}),
       ...(diskBuffering !== undefined ? { diskBuffering } : {}),
-    });
-
-    // Expose for E2E shutdown test (m1.spec.ts)
-    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <BrowserRouter>
-      <AppRoutes />
-      <PulseDebugPanel />
+      <PulseProvider config={pulseConfig} shutdownOnUnmount={false}>
+        {/* Expose for E2E shutdown test (m1.spec.ts) */}
+        <_PulseWebExpose />
+        <_PulseWebRouterTracking />
+        <NavBar />
+        <main
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "32px 24px",
+            minHeight: "calc(100vh - 56px)",
+          }}
+        >
+          <Suspense
+            fallback={
+              <div
+                style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}
+              >
+                Loading…
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/error-demo" element={<ErrorDemo />} />
+            </Routes>
+          </Suspense>
+        </main>
+        <PulseDebugPanel />
+      </PulseProvider>
     </BrowserRouter>
   );
+}
+
+/** Exposes PulseWeb on window for E2E tests. No UI rendered. */
+function _PulseWebExpose(): null {
+  React.useEffect(() => {
+    (window as unknown as Record<string, unknown>)["PulseWeb"] = PulseWeb;
+  }, []);
+  return null;
+}
+
+/** Mounts route tracking inside BrowserRouter + PulseProvider tree. */
+function _PulseWebRouterTracking(): null {
+  useRouterTracking({ skipInitial: false });
+  return null;
 }

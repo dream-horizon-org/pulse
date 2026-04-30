@@ -97,15 +97,15 @@ export function UserEngagementGraph({
       </Group>
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Daily Active Users (DAU)</Text>
+          <Text className={classes.metricLabel}>DAU</Text>
           {formatMetricValue(dailyUsers, "#0ec9c2")}
         </div>
         <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Weekly Active Users (WAU)</Text>
+          <Text className={classes.metricLabel}>WAU</Text>
           {formatMetricValue(weeklyUsers, "#0ba09a")}
         </div>
         <div className={classes.metricCard}>
-          <Text className={classes.metricLabel}>Monthly Active Users (MAU)</Text>
+          <Text className={classes.metricLabel}>MAU</Text>
           {formatMetricValue(monthlyUsers, "#2c3e50")}
         </div>
       </div>
