@@ -25,7 +25,7 @@ pipeline {
             steps {
                 checkout([
                         $class           : 'GitSCM',
-                        branches         : [[name: '*/feat/deploy-heatmap-ingestion']],
+                        branches         : [[name: '*/main']],
                         userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
@@ -52,34 +52,34 @@ pipeline {
             }
         }
 
-        // stage('Bump version for next development') {
-        //     steps {
-        //         script {
-        //             withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-        //                 def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
-        //                 sh """
-        //                     #!/bin/bash -el
-        //                     PKG="${WORKSPACE}/backend/heatmap-screenshot-ingestion/package.json"
-        //                     node -e "
-        //                       const fs = require('fs');
-        //                       const p = process.argv[1];
-        //                       const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-        //                       j.version = '${nextVersion}';
-        //                       fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\\n');
-        //                     " "\$PKG"
+        stage('Bump version for next development') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        def nextVersion = bumpSemverMinor(ARTIFACT_VERSION)
+                        sh """
+                            #!/bin/bash -el
+                            PKG="${WORKSPACE}/backend/heatmap-screenshot-ingestion/package.json"
+                            node -e "
+                              const fs = require('fs');
+                              const p = process.argv[1];
+                              const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+                              j.version = '${nextVersion}';
+                              fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\\n');
+                            " "\$PKG"
 
-        //                     git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
-        //                     git config user.name "${GITBOT_USERNAME}"
+                            git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+                            git config user.name "${GITBOT_USERNAME}"
 
-        //                     git add backend/heatmap-screenshot-ingestion/package.json
-        //                     git commit -m "chore: bump pulse-heatmap-screenshot-ingestion version to ${nextVersion}"
+                            git add backend/heatmap-screenshot-ingestion/package.json
+                            git commit -m "chore: bump pulse-heatmap-screenshot-ingestion version to ${nextVersion}"
 
-        //                     git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
-        //                 """
-        //             }
-        //         }
-        //     }
-        // }
+                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+                        """
+                    }
+                }
+            }
+        }
     }
 
     post {
@@ -91,14 +91,14 @@ pipeline {
                 slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
-        // failure {
-        //     script {
-        //         def message = "<!channel> pulse-heatmap-screenshot-ingestion version *${ARTIFACT_VERSION}* publish failed\n" +
-        //                 "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-        //         def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-        //         slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
-        //     }
-        // }
+        failure {
+            script {
+                def message = "<!channel> pulse-heatmap-screenshot-ingestion version *${ARTIFACT_VERSION}* publish failed\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
     }
 }
 
