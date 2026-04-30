@@ -20,6 +20,13 @@ public final class FunnelDefinitionQueries {
   public static final String DELETE = "DELETE FROM funnel WHERE project_id = ? AND id = ?";
 
   /**
+   * Bumps {@code updated_at} without changing any other field. Used by the AUTO batch cron after
+   * a successful ClickHouse compute so the listing's "Last updated" reflects the latest run.
+   */
+  public static final String TOUCH_UPDATED_AT =
+    "UPDATE funnel SET updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+
+  /**
    * Latest job status for FUNNEL runs; subquery must be correlated with alias {@code funnel} (table name).
    */
   public static final String LATEST_FUNNEL_JOB_STATUS =

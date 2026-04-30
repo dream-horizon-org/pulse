@@ -19,6 +19,13 @@ public final class JourneyQueries {
 
   public static final String DELETE = "DELETE FROM journey WHERE project_id = ? AND id = ?";
 
+  /**
+   * Bumps {@code updated_at} without changing any other field. Used by the AUTO batch cron after
+   * a successful ClickHouse compute so the listing's "Last updated" reflects the latest run.
+   */
+  public static final String TOUCH_UPDATED_AT =
+    "UPDATE journey SET updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+
   public static final String LATEST_JOURNEY_JOB_STATUS =
     "(SELECT sj.status FROM analytics_jobs sj WHERE sj.job_type = 'JOURNEY' AND sj.reference_id = journey.id "
       + "ORDER BY sj.id DESC LIMIT 1)";
