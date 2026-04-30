@@ -40,6 +40,26 @@ pub fn setup_metrics_recorder() -> PrometheusHandle {
             PAYLOAD_SIZES,
         )
         .unwrap()
+        .set_buckets_for_metric(
+            Matcher::Full("capture_body_read_time_seconds".to_string()),
+            EXPONENTIAL_SECONDS,
+        )
+        .unwrap()
+        .set_buckets_for_metric(
+            Matcher::Full("capture_decompress_time_seconds".to_string()),
+            EXPONENTIAL_SECONDS,
+        )
+        .unwrap()
+        .set_buckets_for_metric(
+            Matcher::Full("capture_json_parse_time_seconds".to_string()),
+            EXPONENTIAL_SECONDS,
+        )
+        .unwrap()
+        .set_buckets_for_metric(
+            Matcher::Full("capture_processing_time_seconds".to_string()),
+            EXPONENTIAL_SECONDS,
+        )
+        .unwrap()
         .install_recorder()
         .unwrap()
 }
