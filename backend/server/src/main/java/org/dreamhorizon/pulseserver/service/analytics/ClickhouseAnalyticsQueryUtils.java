@@ -17,7 +17,8 @@ public final class ClickhouseAnalyticsQueryUtils {
   private static final DateTimeFormatter CH_DATETIME =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-  private ClickhouseAnalyticsQueryUtils() {}
+  private ClickhouseAnalyticsQueryUtils() {
+  }
 
   /**
    * Returns the ClickHouse SQL expression for the group key column based on analysis mode.
@@ -27,9 +28,9 @@ public final class ClickhouseAnalyticsQueryUtils {
    */
   public static String resolveGroupKey(String mode) {
     if ("SESSIONS".equalsIgnoreCase(mode)) {
-      return "LogAttributes['session.id']";
+      return "SessionId";
     }
-    return "LogAttributes['user.id']";
+    return "UserId";
   }
 
   /**
