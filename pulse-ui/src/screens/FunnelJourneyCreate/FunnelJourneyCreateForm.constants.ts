@@ -37,6 +37,7 @@ export const FUNNEL_CREATE_STEP_ERRORS = {
 export const JOURNEY_CREATE_STEP_ERRORS = {
   NAME: "Enter a journey name before continuing.",
   SCHEDULE_ONCE: "For a one-off analysis, choose both a start and end date.",
+  SCHEDULE_RECURRING: "Choose an expiry date for recurring journeys.",
   PATH: "Select an anchor event before continuing.",
 } as const;
 
