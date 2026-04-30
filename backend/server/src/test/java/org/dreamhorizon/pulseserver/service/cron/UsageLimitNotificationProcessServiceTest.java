@@ -17,6 +17,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationResultDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
@@ -38,13 +39,17 @@ class UsageLimitNotificationProcessServiceTest {
 
   @Mock private UsageLimitService usageLimitService;
   @Mock private NotificationService notificationService;
+  @Mock private ApplicationConfig applicationConfig;
 
   private UsageLimitNotificationProcessService service;
 
   @BeforeEach
   void setUp() {
-    reset(usageLimitService, notificationService);
-    service = new UsageLimitNotificationProcessService(usageLimitService, notificationService);
+    reset(usageLimitService, notificationService, applicationConfig);
+    when(applicationConfig.getDashboardBaseUrl()).thenReturn(null);
+    service =
+        new UsageLimitNotificationProcessService(
+            usageLimitService, notificationService, applicationConfig);
   }
 
   @Test
@@ -136,6 +141,38 @@ class UsageLimitNotificationProcessServiceTest {
     service.processUsageLimitNotifications().blockingAwait();
 
     verify(notificationService, never()).sendNotification(anyString(), any());
+  }
+
+  @Test
+  void shouldNormalizeConfiguredDashboardUrlInEmailParams() {
+    when(applicationConfig.getDashboardBaseUrl()).thenReturn(" https://custom.example.com/// ");
+    UsageNotification n =
+        UsageNotification.builder()
+            .projectId("p-custom-dash")
+            .projectName("Proj")
+            .threshold(50)
+            .thresholdsToMark(List.of(50))
+            .notifyFor("events")
+            .templateName("usage_limit_threshold")
+            .recipientEmails(List.of("admin@example.com"))
+            .eventsPercentage(65)
+            .sessionsPercentage(55)
+            .eventsPercentageDisplay("65")
+            .sessionsPercentageDisplay("55")
+            .build();
+    stubGetNotifications(List.of(n));
+    when(notificationService.sendNotification(eq("p-custom-dash"), any()))
+        .thenReturn(Single.just(okBatch()));
+    when(usageLimitService.markThresholdsNotified(anyString(), anyList()))
+        .thenReturn(
+            Single.just(NotificationStatusResponse.builder().projectId("p-custom-dash").build()));
+
+    service.processUsageLimitNotifications().blockingAwait();
+
+    ArgumentCaptor<SendNotificationRequestDto> captor =
+        ArgumentCaptor.forClass(SendNotificationRequestDto.class);
+    verify(notificationService).sendNotification(eq("p-custom-dash"), captor.capture());
+    assertThat(captor.getValue().getParams()).containsEntry("dashboardUrl", "https://custom.example.com");
   }
 
   @Test

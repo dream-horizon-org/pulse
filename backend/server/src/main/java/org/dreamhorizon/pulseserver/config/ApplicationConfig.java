@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ApplicationConfig {
   public String appEnvironment;
   public String cronManagerBaseUrl;
+  /** Public Pulse UI origin for usage-limit email template param {@code {{dashboardUrl}}}. */
+  public String dashboardBaseUrl;
   public String serviceUrl;
   public Integer shutdownGracePeriod;
   public String googleOAuthClientId;

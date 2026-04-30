@@ -53,9 +53,6 @@ public class ApplicationConfig {
     return Math.max(MIN_SYNC_INTERVAL_SECONDS, usageLimitNotificationIntervalSeconds);
   }
 
-  /** Maps from HOCON {@code dashboardBaseUrl} / env {@code CONFIG_SERVICE_APPLICATION_DASHBOARDBASEURL}. */
-  private String dashboardBaseUrl;
-
   // Batch job configuration
   private String batchFunnelsEndpoint = "/internal/analytics/funnels";
   private String batchJourneysEndpoint = "/internal/analytics/journeys"; 
