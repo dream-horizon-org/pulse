@@ -48,8 +48,10 @@ ON CLUSTER 'pulse-ch'
     INDEX idx_trace_id      TraceId        TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_session_id    SessionId      TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_user_id       UserId         TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_app_installation_id AppInstallationId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_span_id       SpanId         TYPE bloom_filter(0.001) GRANULARITY 4,
-    INDEX idx_severity_num  SeverityNumber TYPE set(32)              GRANULARITY 1
+    INDEX idx_severity_num  SeverityNumber TYPE set(32)              GRANULARITY 1,
+    INDEX idx_screen_name   ScreenName     TYPE bloom_filter(0.01)  GRANULARITY 1
 )
 ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/otel/otel_logs_local', '{replica}')
 PARTITION BY toYYYYMMDD(Timestamp)
