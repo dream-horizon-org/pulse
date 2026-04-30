@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.ws.rs.WebApplicationException;
@@ -17,7 +16,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.dreamhorizon.pulseserver.rest.io.Response;
-import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.userapikey.UserApiKeyService;
 import org.dreamhorizon.pulseserver.service.userapikey.models.UserApiKeyInfo;
 import org.dreamhorizon.pulseserver.service.userapikey.models.UserApiKeyPublicInfo;
@@ -34,22 +32,21 @@ import org.mockito.quality.Strictness;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class UserApiKeyControllerTest {
 
-  private static final String BEARER = "Bearer good-token";
+  // JWT with sub="user-1", signature not verified by AuthenticationUtil
+  private static final String USER_1_JWT =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+          + ".eyJzdWIiOiJ1c2VyLTEifQ"
+          + ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+  private static final String BEARER = "Bearer " + USER_1_JWT;
 
   @Mock
   UserApiKeyService userApiKeyService;
-
-  @Mock
-  JwtService jwtService;
-
-  @Mock
-  Claims claims;
 
   UserApiKeyController controller;
 
   @BeforeEach
   void setUp() {
-    controller = new UserApiKeyController(userApiKeyService, jwtService);
+    controller = new UserApiKeyController(userApiKeyService);
   }
 
   private <T> Response<T> await(CompletionStage<Response<T>> stage) {
@@ -58,11 +55,6 @@ class UserApiKeyControllerTest {
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  private void stubValidJwt(String subject) {
-    when(claims.getSubject()).thenReturn(subject);
-    when(jwtService.verifyToken("good-token")).thenReturn(claims);
   }
 
   @Nested
@@ -79,9 +71,8 @@ class UserApiKeyControllerTest {
     }
 
     @Test
-    void shouldRejectInvalidJwtOnList() {
-      when(jwtService.verifyToken("bad")).thenThrow(new RuntimeException("invalid"));
-      assertThrows(WebApplicationException.class, () -> controller.listApiKeys("Bearer bad"));
+    void shouldRejectMalformedJwtOnList() {
+      assertThrows(WebApplicationException.class, () -> controller.listApiKeys("Bearer not-a-jwt"));
     }
   }
 
@@ -90,7 +81,6 @@ class UserApiKeyControllerTest {
 
     @Test
     void shouldReturnKeysForAuthenticatedUser() {
-      stubValidJwt("user-1");
       UserApiKeyPublicInfo row = UserApiKeyPublicInfo.builder()
           .id(1L)
           .displayName("k")
@@ -113,7 +103,6 @@ class UserApiKeyControllerTest {
 
     @Test
     void shouldCreateKey() {
-      stubValidJwt("user-1");
       UserApiKeyController.CreateUserApiKeyRequest req = new UserApiKeyController.CreateUserApiKeyRequest();
       req.setDisplayName("MCP");
       UserApiKeyInfo created = UserApiKeyInfo.builder()
@@ -137,7 +126,6 @@ class UserApiKeyControllerTest {
 
     @Test
     void shouldRevokeKey() {
-      stubValidJwt("user-1");
       when(userApiKeyService.revokeApiKey(7L, "user-1", "user-1")).thenReturn(Completable.complete());
 
       Response<Void> response = await(controller.revokeApiKey(BEARER, 7L));
