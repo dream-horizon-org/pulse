@@ -336,7 +336,11 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldDeleteChannel() {
-      when(channelDao.deleteChannel(eq(CHANNEL_ID))).thenReturn(Single.just(1));
+      NotificationChannel existing = emailChannel();
+      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(existing));
+      when(channelDao.updateChannel(eq(CHANNEL_ID), any())).thenReturn(Single.just(1));
+      when(mappingDao.updateMappingsActiveByChannelId(eq(CHANNEL_ID), eq(false)))
+          .thenReturn(Single.just(0));
 
       var result = service.deleteChannel(CHANNEL_ID).blockingGet();
 
@@ -345,7 +349,11 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldReturnFalseWhenDeleteAffectsNoRows() {
-      when(channelDao.deleteChannel(eq(CHANNEL_ID))).thenReturn(Single.just(0));
+      NotificationChannel existing = emailChannel();
+      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(existing));
+      when(channelDao.updateChannel(eq(CHANNEL_ID), any())).thenReturn(Single.just(0));
+      when(mappingDao.updateMappingsActiveByChannelId(eq(CHANNEL_ID), eq(false)))
+          .thenReturn(Single.just(0));
 
       var result = service.deleteChannel(CHANNEL_ID).blockingGet();
 
@@ -604,8 +612,7 @@ class NotificationServiceImplTest {
 
       var result = service.getMappings(PROJECT_ID).blockingGet();
 
-      assertThat(result).hasSize(1);
-      assertThat(result.get(0).getChannelType()).isNull();
+      assertThat(result).isEmpty();
     }
 
     @Test
