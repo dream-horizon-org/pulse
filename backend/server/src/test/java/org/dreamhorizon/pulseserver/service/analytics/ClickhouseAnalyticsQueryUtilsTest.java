@@ -32,7 +32,7 @@ class ClickhouseAnalyticsQueryUtilsTest {
     @Test
     void shouldDefaultToUserIdForUnknownType() {
       assertThat(ClickhouseAnalyticsQueryUtils.resolveGroupKey("UNKNOWN"))
-          .isEqualTo("UserId]");
+          .isEqualTo("UserId");
     }
 
     @Test
