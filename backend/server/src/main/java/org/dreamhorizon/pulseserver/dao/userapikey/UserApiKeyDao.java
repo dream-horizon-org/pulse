@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.userapikey;
 
+import static org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyQueries.COUNT_ACTIVE_BY_USER;
 import static org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyQueries.FIND_ACTIVE_BY_HASH;
 import static org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyQueries.FIND_ACTIVE_BY_USER;
 import static org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyQueries.INSERT;
@@ -29,6 +30,14 @@ import org.dreamhorizon.pulseserver.dao.userapikey.models.UserApiKey;
 public class UserApiKeyDao {
 
   private final MysqlClient mysqlClient;
+
+  public Single<Integer> countActiveByUser(String userId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(COUNT_ACTIVE_BY_USER)
+        .rxExecute(Tuple.of(userId))
+        .map(rows -> rows.iterator().next().getInteger("cnt"))
+        .doOnError(e -> log.error("Failed to count active API keys for user: {}", userId, e));
+  }
 
   public Single<UserApiKey> createApiKey(String userId, String displayName, String hash, String prefix) {
     MySQLPool pool = mysqlClient.getWriterPool();

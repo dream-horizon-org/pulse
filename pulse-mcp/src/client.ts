@@ -5,10 +5,12 @@ export class PulseClient {
   private http: AxiosInstance;
   private creds: Credentials;
   private baseUrl: string;
-  private refreshing = false;
+  private apiKey: string;
+  private refreshPromise: Promise<void> | null = null;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, apiKey: string) {
     this.baseUrl = baseUrl;
+    this.apiKey = apiKey;
     this.creds = loadCredentials();
 
     this.http = axios.create({ baseURL: baseUrl });
@@ -24,17 +26,20 @@ export class PulseClient {
     this.http.interceptors.response.use(
       (r) => r,
       async (error) => {
-        if (error.response?.status === 401 && !this.refreshing) {
-          this.refreshing = true;
-          try {
-            const apiKey = process.env.PULSE_API_KEY!;
-            this.creds = await exchangeApiKeyForTokens(this.baseUrl, apiKey);
-            saveCredentials(this.creds);
-            error.config.headers["Authorization"] = `Bearer ${this.creds.accessToken}`;
-            return this.http.request(error.config);
-          } finally {
-            this.refreshing = false;
+        if (error.response?.status === 401) {
+          if (!this.refreshPromise) {
+            this.refreshPromise = exchangeApiKeyForTokens(this.baseUrl, this.apiKey)
+              .then((creds) => {
+                this.creds = creds;
+                saveCredentials(creds);
+              })
+              .finally(() => {
+                this.refreshPromise = null;
+              });
           }
+          await this.refreshPromise;
+          error.config.headers["Authorization"] = `Bearer ${this.creds.accessToken}`;
+          return this.http.request(error.config);
         }
         return Promise.reject(error);
       }
@@ -74,7 +79,9 @@ export function getClient(): PulseClient {
   if (!_client) {
     const baseUrl = process.env.PULSE_BASE_URL;
     if (!baseUrl) throw new Error("PULSE_BASE_URL env var is required");
-    _client = new PulseClient(baseUrl);
+    const apiKey = process.env.PULSE_API_KEY;
+    if (!apiKey) throw new Error("PULSE_API_KEY env var is required");
+    _client = new PulseClient(baseUrl, apiKey);
   }
   return _client;
 }

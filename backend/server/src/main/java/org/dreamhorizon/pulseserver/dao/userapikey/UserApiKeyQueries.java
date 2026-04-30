@@ -15,6 +15,9 @@ public class UserApiKeyQueries {
   public static final String FIND_ACTIVE_BY_USER =
       "SELECT " + COLUMNS + " FROM user_api_keys WHERE user_id = ? AND is_active = TRUE ORDER BY created_at DESC";
 
+  public static final String COUNT_ACTIVE_BY_USER =
+      "SELECT COUNT(*) AS cnt FROM user_api_keys WHERE user_id = ? AND is_active = TRUE";
+
   public static final String REVOKE =
       "UPDATE user_api_keys SET is_active = FALSE, revoked_at = CURRENT_TIMESTAMP, revoked_by = ?"
           + " WHERE id = ? AND user_id = ?";

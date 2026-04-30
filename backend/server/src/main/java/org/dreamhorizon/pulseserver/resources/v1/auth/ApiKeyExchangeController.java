@@ -14,13 +14,13 @@ import java.util.concurrent.CompletionStage;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.userapikey.UserApiKeyService;
-import org.dreamhorizon.pulseserver.dao.user.UserDao;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -32,6 +32,9 @@ public class ApiKeyExchangeController {
   private final JwtService jwtService;
   private final OpenFgaService openFgaService;
 
+  // TODO: Add per-IP rate limiting on this endpoint (5 req/min) before prod.
+  // Options: Kong rate-limiting plugin on /v1/auth/api-key/exchange route,
+  // or Guava RateLimiter per-IP in a ConcurrentHashMap here.
   @POST
   @Path("/exchange")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -48,6 +51,9 @@ public class ApiKeyExchangeController {
                   if (tenantIds == null || tenantIds.isEmpty()) {
                     return Single.error(ServiceError.UNAUTHORISED.getCustomException(
                         "User has no tenant", "No tenant assigned"));
+                  }
+                  if (tenantIds.size() > 1) {
+                    log.warn("User {} has {} tenants; picking first: {}", userId, tenantIds.size(), tenantIds.get(0));
                   }
                   String tenantId = tenantIds.get(0);
                   String accessToken = jwtService.generateAccessToken(

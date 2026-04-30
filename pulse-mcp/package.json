@@ -1,5 +1,5 @@
 {
-  "name": "pulse-mcp",
+  "name": "@dreamhorizonorg/pulse-mcp",
   "version": "0.1.0",
   "description": "MCP server for the Pulse mobile observability platform",
   "type": "module",

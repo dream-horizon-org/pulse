@@ -1,8 +1,9 @@
 package org.dreamhorizon.pulseserver.resources.v1.users;
 
 import com.google.inject.Inject;
-import io.reactivex.rxjava3.core.Single;
 import io.jsonwebtoken.Claims;
+import io.reactivex.rxjava3.core.Single;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
@@ -17,6 +18,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.error.ServiceError;
@@ -41,7 +43,7 @@ public class UserApiKeyController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<List<UserApiKeyPublicInfo>>> listApiKeys(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
-    String userId = extractUserId(authorization);
+    String userId = resolveUserId(authorization);
     return userApiKeyService.listApiKeys(userId)
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -51,8 +53,8 @@ public class UserApiKeyController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<UserApiKeyInfo>> createApiKey(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
-      @NotNull CreateUserApiKeyRequest request) {
-    String userId = extractUserId(authorization);
+      @Valid @NotNull CreateUserApiKeyRequest request) {
+    String userId = resolveUserId(authorization);
     return userApiKeyService.createApiKey(userId, request.getDisplayName())
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -64,13 +66,13 @@ public class UserApiKeyController {
   public CompletionStage<Response<Void>> revokeApiKey(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @NotNull @PathParam("keyId") Long keyId) {
-    String userId = extractUserId(authorization);
+    String userId = resolveUserId(authorization);
     return userApiKeyService.revokeApiKey(keyId, userId, userId)
         .andThen(Single.fromCallable(() -> Response.successfulResponse((Void) null)))
         .to(CompletableFutureUtils::fromSingle);
   }
 
-  private String extractUserId(String authorization) {
+  private String resolveUserId(String authorization) {
     if (authorization == null || !authorization.startsWith("Bearer ")) {
       throw ServiceError.UNAUTHORISED.getException();
     }
@@ -83,16 +85,9 @@ public class UserApiKeyController {
     }
   }
 
+  @Data
   public static class CreateUserApiKeyRequest {
     @NotBlank
     private String displayName;
-
-    public String getDisplayName() {
-      return displayName;
-    }
-
-    public void setDisplayName(String displayName) {
-      this.displayName = displayName;
-    }
   }
 }

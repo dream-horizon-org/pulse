@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import org.dreamhorizon.pulseserver.dao.userapikey.UserApiKeyDao;
 import org.dreamhorizon.pulseserver.dao.userapikey.models.UserApiKey;
+import org.dreamhorizon.pulseserver.service.userapikey.impl.UserApiKeyServiceImpl;
 import org.dreamhorizon.pulseserver.service.userapikey.models.UserApiKeyInfo;
 import org.dreamhorizon.pulseserver.service.userapikey.models.UserApiKeyPublicInfo;
 import org.dreamhorizon.pulseserver.util.encryption.ProjectApiKeyEncryptionUtil;
@@ -43,7 +44,7 @@ class UserApiKeyServiceTest {
 
   @BeforeEach
   void setup() {
-    service = new UserApiKeyService(userApiKeyDao, encryptionUtil);
+    service = new UserApiKeyServiceImpl(userApiKeyDao, encryptionUtil);
   }
 
   private UserApiKey daoKeyWithCreatedAt(Instant createdAt) {
@@ -66,6 +67,7 @@ class UserApiKeyServiceTest {
       Instant created = Instant.parse("2025-01-01T00:00:00Z");
       UserApiKey fromDao = daoKeyWithCreatedAt(created);
       when(encryptionUtil.generateDigest(anyString())).thenReturn("stored-hash");
+      when(userApiKeyDao.countActiveByUser("user-1")).thenReturn(Single.just(0));
       when(userApiKeyDao.createApiKey(eq("user-1"), eq("My MCP"), eq("stored-hash"), anyString()))
           .thenReturn(Single.just(fromDao));
 
@@ -88,6 +90,7 @@ class UserApiKeyServiceTest {
     void shouldUseNowWhenDaoCreatedAtIsNull() {
       UserApiKey fromDao = daoKeyWithCreatedAt(null);
       when(encryptionUtil.generateDigest(anyString())).thenReturn("h");
+      when(userApiKeyDao.countActiveByUser(anyString())).thenReturn(Single.just(0));
       when(userApiKeyDao.createApiKey(anyString(), anyString(), anyString(), anyString()))
           .thenReturn(Single.just(fromDao));
 
@@ -99,10 +102,18 @@ class UserApiKeyServiceTest {
     @Test
     void shouldPropagateDaoError() {
       when(encryptionUtil.generateDigest(anyString())).thenReturn("h");
+      when(userApiKeyDao.countActiveByUser(anyString())).thenReturn(Single.just(0));
       when(userApiKeyDao.createApiKey(anyString(), anyString(), anyString(), anyString()))
           .thenReturn(Single.error(new RuntimeException("db down")));
 
       assertThrows(RuntimeException.class, () -> service.createApiKey("u", "d").blockingGet());
+    }
+
+    @Test
+    void shouldRejectCreateWhenKeyCapReached() {
+      when(userApiKeyDao.countActiveByUser("user-1")).thenReturn(Single.just(10));
+
+      assertThrows(Exception.class, () -> service.createApiKey("user-1", "Over limit").blockingGet());
     }
   }
 
