@@ -127,14 +127,14 @@ export function useGetAppStats({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))`,
           },
           alias: "unique_users",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "unique_sessions",
         },

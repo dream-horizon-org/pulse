@@ -45,7 +45,7 @@ export function useGetActiveSessionsData({
         value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
       });
       filterArray.push({
-        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.SCREEN_NAME,
         operator: "IN",
         value: [screenName!],
       });
@@ -98,7 +98,7 @@ export function useGetActiveSessionsData({
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "session_count",
         },
@@ -125,7 +125,7 @@ export function useGetActiveSessionsData({
         {
           function: "CUSTOM",
           param: {
-            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+            expression: `uniq(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "session_count",
         },
