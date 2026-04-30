@@ -3,7 +3,7 @@
  * screen.name = /pages-demo/about
  */
 import React from "react";
-import { PagesNavBar } from "../_pages-nav";
+import { PagesNavBar } from "../../components/pages-nav";
 
 export default function PagesDemoAbout(): React.JSX.Element {
   return (

@@ -18,7 +18,7 @@ import { ProductCard } from "../products/product-card";
 export default function SearchPage(): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const query = searchParams.get("q") ?? "";
+  const query = searchParams?.get("q") ?? "";
   const [input, setInput] = useState(query);
 
   const results = query

@@ -26,6 +26,7 @@ vi.mock("../sdk", () => ({
 }));
 
 import { useNextPagesRouterTracking } from "../integrations/next/useNextPagesRouterTracking";
+import type { UseNextPagesRouterTrackingOptions } from "../types/next";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

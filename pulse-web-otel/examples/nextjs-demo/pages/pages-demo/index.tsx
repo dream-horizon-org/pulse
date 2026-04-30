@@ -5,7 +5,7 @@
 import React from "react";
 import type { GetStaticProps } from "next";
 import Link from "next/link";
-import { PagesNavBar } from "../_pages-nav";
+import { PagesNavBar } from "../../components/pages-nav";
 import { PRODUCTS } from "../../lib/products";
 
 interface Props {

@@ -3,7 +3,7 @@
  * Tests manual error reporting in Pages Router context.
  */
 import React, { useState } from "react";
-import { PagesNavBar } from "../_pages-nav";
+import { PagesNavBar } from "../../components/pages-nav";
 import { PulseErrorBoundary } from "@dreamhorizon/pulse-web/next";
 import { PulseWeb } from "@dreamhorizon/pulse-web";
 

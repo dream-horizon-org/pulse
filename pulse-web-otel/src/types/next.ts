@@ -23,6 +23,8 @@ export interface UseNextAppRouterTrackingOptions {
 export interface UseNextPagesRouterTrackingOptions {
   /** Include the full URL (pathname + query) as the screen name. Default: false (pathname only). */
   includeSearch?: boolean;
+  /** Skip calling setScreenName on the very first routeChangeComplete event. Default: true. */
+  skipInitial?: boolean;
   /** Custom formatter — return the desired screen name string. */
   format?: (loc: PulseNextLocationLike) => string;
 }

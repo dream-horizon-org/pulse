@@ -5,7 +5,7 @@
 import React from "react";
 import type { GetServerSideProps } from "next";
 import Link from "next/link";
-import { PagesNavBar } from "../_pages-nav";
+import { PagesNavBar } from "../../components/pages-nav";
 import { getProducts } from "../../lib/products";
 import type { Product } from "../../lib/products";
 import { PulseWeb } from "@dreamhorizon/pulse-web";
