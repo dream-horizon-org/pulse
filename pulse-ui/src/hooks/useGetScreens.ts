@@ -113,7 +113,7 @@ export const useGetScreens = ({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
+          param: { expression: `uniqCombined64(nullIf(${COLUMN_NAME.INSTALLATION_ID}, ''))` },
           alias: "user_count",
         },
         {

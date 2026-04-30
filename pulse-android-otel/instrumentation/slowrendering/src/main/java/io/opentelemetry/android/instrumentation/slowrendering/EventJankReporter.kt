@@ -6,6 +6,7 @@
 package io.opentelemetry.android.instrumentation.slowrendering
 
 import android.util.Log
+import com.pulse.utils.PulseLogger
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
@@ -42,6 +43,10 @@ internal class EventJankReporter(
         }
 
         if (frameCount > 0) {
+            val thresholdMs = (threshold * 1000.0).toLong()
+            PulseLogger.logWarn(RumConstants.OTEL_RUM_LOG_TAG) {
+                "sdk.jank.detected frame_count=$frameCount period_s=$periodSeconds threshold_ms=$thresholdMs activity=$activityName"
+            }
             val eventBuilder = eventLogger.logRecordBuilder()
             val attributes =
                 Attributes

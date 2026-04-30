@@ -45,13 +45,10 @@ class ProjectMemberServiceTest {
   OpenFgaService openFgaService;
 
   @Mock
-  EmailService emailService;
+  NotificationService notificationService;
 
   @Mock
   TenantMemberService tenantMemberService;
-
-  @Mock
-  NotificationService notificationService;
 
   ProjectMemberService projectMemberService;
 
@@ -63,8 +60,7 @@ class ProjectMemberServiceTest {
   @BeforeEach
   void setUp() {
     projectMemberService = new ProjectMemberService(
-        userService, projectDao, openFgaService, emailService,
-        tenantMemberService, notificationService);
+        userService, projectDao, openFgaService, tenantMemberService, notificationService);
     // Stub notification service for fire-and-forget calls in success paths
     when(notificationService.sendNotificationAsync(anyString(), any()))
         .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
