@@ -103,7 +103,12 @@ export function JourneyExplorer({
   const anchorEvent = pathFromProps
     ? propAnchorEvent || null
     : localAnchorEvent;
-  const depth = pathFromProps ? (propDepth ?? 5) : localDepth;
+  // Clamp to the slider's [1, 10] domain so any pre-existing journey saved
+  // when the cap was 15 still loads cleanly into the picker.
+  const depth = Math.min(
+    10,
+    Math.max(1, pathFromProps ? (propDepth ?? 5) : localDepth),
+  );
 
   const setDirection = (dir: "START" | "END") => {
     if (pathFromProps && onDirectionChange) {
@@ -261,7 +266,7 @@ export function JourneyExplorer({
           />
           <Group gap="xs" mb={4}>
             <Text size="sm" fw={500}>
-              Expiry Date
+              Expiry Date <Text component="span" c="red">*</Text>
             </Text>
             <Tooltip
               label="The date when this journey will stop auto-updating and be marked as completed."
@@ -276,12 +281,12 @@ export function JourneyExplorer({
             </Tooltip>
           </Group>
           <DateTimePicker
-            placeholder="Select expiry date (optional)"
+            placeholder="Select expiry date"
             value={expiryDate}
             onChange={onExpiryDateChange}
             size={fieldSize}
             mb="md"
-            clearable
+            required
           />
         </>
       )}
@@ -354,13 +359,12 @@ export function JourneyExplorer({
         value={depth}
         onChange={setDepth}
         min={1}
-        max={15}
+        max={10}
         step={1}
         marks={[
           { value: 1, label: "1" },
           { value: 5, label: "5" },
           { value: 10, label: "10" },
-          { value: 15, label: "15" },
         ]}
         size={wiz ? "md" : "sm"}
         color={accent}
