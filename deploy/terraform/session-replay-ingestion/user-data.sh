@@ -98,7 +98,9 @@ source /etc/pulse/ingestion.env
 set +a
 
 pm2 delete "$APPLICATION_NAME" 2>/dev/null || true
-pm2 start "$INSTALL_DIR/dist/index.js" --name "$APPLICATION_NAME"
+pm2 start "$INSTALL_DIR/dist/index.js" \
+  --name "$APPLICATION_NAME" \
+  --node-args="--require @opentelemetry/auto-instrumentations-node/register"
 pm2 save
 
 STARTUP_OUTPUT="$(pm2 startup systemd -u root --hp /root 2>&1)" || true
