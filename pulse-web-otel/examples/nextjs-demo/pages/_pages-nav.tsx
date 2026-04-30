@@ -1,20 +1,20 @@
-"use client";
-
+/**
+ * Shared nav for Pages Router demo pages.
+ * Uses next/link only — no App Router hooks (usePathname etc.).
+ */
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/router";
 
-export function NavBar(): React.JSX.Element {
-  const pathname = usePathname();
+const PAGES_LINKS = [
+  { href: "/pages-demo", label: "Home (getStaticProps)" },
+  { href: "/pages-demo/shop", label: "Shop (getServerSideProps)" },
+  { href: "/pages-demo/about", label: "About" },
+  { href: "/pages-demo/error-demo", label: "Error Demo" },
+];
 
-  const links = [
-    { href: "/", label: "Home" },
-    { href: "/products", label: "Products" },
-    { href: "/cart", label: "Cart" },
-    { href: "/search", label: "Search" },
-    { href: "/api-demo", label: "API Demo" },
-    { href: "/error-demo", label: "Error Demo" },
-  ];
+export function PagesNavBar(): React.JSX.Element {
+  const { pathname } = useRouter();
 
   return (
     <nav
@@ -30,17 +30,17 @@ export function NavBar(): React.JSX.Element {
       <span
         style={{
           fontSize: "0.75rem",
-          background: "#f0fdf4",
-          color: "#15803d",
+          background: "#e0f2fe",
+          color: "#0369a1",
           padding: "2px 8px",
           borderRadius: "4px",
           fontWeight: "bold",
         }}
       >
-        App Router
+        Pages Router
       </span>
 
-      {links.map(({ href, label }) => (
+      {PAGES_LINKS.map(({ href, label }) => (
         <Link
           key={href}
           href={href}
@@ -50,16 +50,16 @@ export function NavBar(): React.JSX.Element {
         </Link>
       ))}
 
-      {/* Cross-router link — full page reload into Pages Router */}
+      {/* Cross-router link — full page reload into App Router */}
       <Link
-        href="/pages-demo"
+        href="/"
         style={{
           marginLeft: "auto",
           fontSize: "0.85rem",
           color: "#666",
         }}
       >
-        Pages Router Demo →
+        ← App Router Demo
       </Link>
     </nav>
   );
